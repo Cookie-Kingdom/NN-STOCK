@@ -52,6 +52,7 @@ import {
   rawRiceStock,
   roleName,
   seed,
+  sevenDayRoleplay,
   stageAction,
   stageRole,
   stages,
@@ -66,7 +67,6 @@ import {
 import { defaults, forms } from "@/lib/demo-forms";
 import {
   latestDatabase,
-  demoInitialDatabase,
   saveDatabase,
   useDatabase,
 } from "@/lib/demo-persistence";
@@ -99,7 +99,7 @@ const tabs: { id: Tab; label: string; ownerLabel?: string; icon: typeof Package 
   { id: "po", label: "ใบสั่งซื้อ PO", icon: FilePlus2 },
   { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
   { id: "central-receive", label: "รับเนื้อเข้าสต๊อกกลาง", icon: Warehouse },
-  { id: "work", label: "งานและ Lot", ownerLabel: "ใบสั่งซื้อและ Lot ทั้งหมด", icon: ClipboardList },
+  { id: "work", label: "งานผลิต", ownerLabel: "ใบสั่งซื้อและ Lot ทั้งหมด", icon: ClipboardList },
   { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
   { id: "branch-status", label: "ติดตามสาขา", ownerLabel: "จัดสรรเนื้อ และสต๊อกไปสาขา", icon: ListChecks },
   { id: "stock", label: "สต๊อก", ownerLabel: "สต๊อกของทั้งหมด", icon: Package },
@@ -173,6 +173,11 @@ export default function Demo() {
       ).length,
     0,
   );
+  const chefReceiveCount = db.lots.filter((item) => item.stage === 2).length;
+  const chefProductionCount = db.lots.filter((item) => [3, 4, 5].includes(item.stage)).length;
+  const ownerTransportCount = db.lots.filter((item) => item.stage === 1 || item.stage === 6).length;
+  const ownerCentralReceiveCount = db.lots.filter((item) => item.stage === 7).length;
+  const ownerAllocationCount = db.lots.filter((item) => item.stage >= 8 && centralStock(db, item.id) > 0.001).length;
   function changeRole(value: Role, selectedBranch?: string) {
     if (value === "branch" && selectedBranch && selectedBranch !== branch) {
       const current = latestDatabase();
@@ -182,7 +187,7 @@ export default function Demo() {
       });
     }
     setRole(value);
-    setTab(value === "owner" ? "owner-dashboard" : value === "cm" ? "cm-receive" : "work");
+    setTab(value === "owner" ? "owner-dashboard" : value === "cm" ? "cm-receive" : "day");
     setSearch("");
     setToast("");
   }
@@ -220,7 +225,7 @@ export default function Demo() {
           </button>
           {role === "owner" && (
             <button className="secondary" onClick={() => setReset(true)}>
-              <RotateCcw size={16} /> คืนข้อมูลตัวอย่าง
+              <RotateCcw size={16} /> เริ่มใหม่
             </button>
           )}
         </div>
@@ -257,7 +262,13 @@ export default function Demo() {
                     ? !["day", "branch-summary", "work"].includes(t.id)
                     : role === "cm"
                       ? ["cm-receive", "work", "stock", "history"].includes(t.id)
-                      : ["work", "stock", "branch-summary", "day", "history"].includes(t.id),
+                      : ["day", "stock", "branch-summary", "history"].includes(t.id),
+              )
+              .sort((a, b) =>
+                role === "branch"
+                  ? ["day", "stock", "branch-summary", "history"].indexOf(a.id) -
+                    ["day", "stock", "branch-summary", "history"].indexOf(b.id)
+                  : 0,
               )
               .map((t) => (
                 <button
@@ -267,6 +278,24 @@ export default function Demo() {
                 >
                   <t.icon size={18} />
                   {role === "owner" ? t.ownerLabel || t.label : t.label}
+                  {role === "cm" && t.id === "cm-receive" && chefReceiveCount > 0 && (
+                    <span className="menu-alert">{chefReceiveCount}</span>
+                  )}
+                  {role === "cm" && t.id === "work" && chefProductionCount > 0 && (
+                    <span className="menu-alert">{chefProductionCount}</span>
+                  )}
+                  {role === "owner" && t.id === "transport" && ownerTransportCount > 0 && (
+                    <span className="menu-alert">{ownerTransportCount}</span>
+                  )}
+                  {role === "owner" && t.id === "central-receive" && ownerCentralReceiveCount > 0 && (
+                    <span className="menu-alert">{ownerCentralReceiveCount}</span>
+                  )}
+                  {role === "owner" && t.id === "branch-status" && ownerAllocationCount > 0 && (
+                    <span className="menu-alert">{ownerAllocationCount}</span>
+                  )}
+                  {role === "owner" && t.id === "config" && missingMaterialSettings > 0 && (
+                    <span className="menu-alert">{missingMaterialSettings}</span>
+                  )}
                 </button>
               ))}
           </nav>
@@ -504,7 +533,7 @@ export default function Demo() {
                   <p className="muted">เลือก Lot ที่มีเนื้อในสต๊อกกลาง แล้วระบุสาขาและน้ำหนักที่ต้องการส่ง</p>
                 </div>
               </div>
-              <MeatStockTable db={db} role={role} branch={branch} lots={lots} closed={closed} open={open} />
+              <MeatStockTable db={db} role={role} branch={branch} lots={lots} open={open} />
             </>
           )}
           {tab === "stock" && (
@@ -533,7 +562,6 @@ export default function Demo() {
                 role={role}
                 branch={branch}
                 lots={lots}
-                closed={closed}
                 open={open}
               />
               {role !== "cm" && (
@@ -548,9 +576,6 @@ export default function Demo() {
                   stockBranches={role === "owner" ? branches : [branch]}
                   ownerView={role === "owner"}
                 />
-              )}
-              {role === "branch" && (
-                <MaterialReceiptConfirmation db={db} branch={branch} date={date} closed={closed} />
               )}
             </>
           )}
@@ -570,6 +595,8 @@ export default function Demo() {
                 ข้าวคงเหลือยกไปวันถัดไปได้ ส่วนเนื้อละลายต้องขายหรือบันทึก Waste
                 ให้หมดก่อนปิดวัน
               </div>
+              <BranchDailyWorkflow db={db} branch={branch} date={date} lots={lots} closed={closed} open={open} />
+              <MaterialReceiptConfirmation db={db} branch={branch} date={date} closed={closed} />
               <DailyMaterialsTable
                 key={`${branch}-${date}`}
                 db={db}
@@ -675,7 +702,18 @@ export default function Demo() {
       {modal?.kind === "allocate" && (
         <BagAllocationForm db={db} lotId={modal.lotId} date={date} onClose={() => setModal(null)} onSaved={() => { setToast("จัดสรรถุงเนื้อไปสาขาแล้ว"); setModal(null); }} />
       )}
-      {modal && !["materialTransfer", "allocate"].includes(modal.kind) && (
+      {modal?.kind === "chefEdit" && (
+        <ChefLotEditForm
+          db={db}
+          lotId={modal.lotId}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            setToast("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot");
+            setModal(null);
+          }}
+        />
+      )}
+      {modal && !["materialTransfer", "allocate", "chefEdit"].includes(modal.kind) && (
         <EntryForm
           key={`${modal.kind}-${modal.lotId}`}
           db={db}
@@ -713,10 +751,27 @@ export default function Demo() {
                 ยกเลิก
               </button>
               <button
+                className="secondary"
+                onClick={() => {
+                  try {
+                    saveDatabase(sevenDayRoleplay(date));
+                    setChosen("");
+                    setReset(false);
+                    setTab("owner-dashboard");
+                    setToast("โหลดข้อมูลทดสอบครบ 7 วันแล้ว");
+                  } catch (error) {
+                    setToast(error instanceof Error ? error.message : "สร้างข้อมูลทดสอบไม่สำเร็จ");
+                    setReset(false);
+                  }
+                }}
+              >
+                โหลดข้อมูลทดสอบ 7 วัน
+              </button>
+              <button
                 className="primary"
                 onClick={() => {
                   try {
-                    saveDatabase(structuredClone(demoInitialDatabase));
+                    saveDatabase(structuredClone(seed));
                     setChosen("");
                     setReset(false);
                     setToast("เริ่มชุดข้อมูลใหม่แล้ว");
@@ -1436,26 +1491,34 @@ function SalesBars({
   max: number;
 }) {
   return (
-    <div
-      className="bar-chart single-series"
-      aria-label="กราฟยอดขายรายวัน"
-      style={{
-        gridTemplateColumns: `repeat(${data.length}, minmax(58px, 1fr))`,
-        minWidth: `${Math.max(520, data.length * 76)}px`,
-      }}
-    >
-      {data.map((item) => {
-        const value = item[branch];
-        return (
-          <div className="bar-day" key={item.date}>
-            <div className="bar-value">฿{fmt(value)}</div>
-            <div className="bar-stack">
-              <div className={`bar-segment ${colorClass}`} style={{ height: `${(value / max) * 100}%` }} />
+    <div className="bar-chart-wrap" aria-label="กราฟยอดขายรายวัน">
+      <div className="chart-y-axis" aria-hidden="true">
+        <span>฿{fmt(max)}</span>
+        <span>฿{fmt(max * 0.75)}</span>
+        <span>฿{fmt(max * 0.5)}</span>
+        <span>฿{fmt(max * 0.25)}</span>
+        <span>฿0</span>
+      </div>
+      <div
+        className="bar-chart single-series detailed-chart"
+        style={{
+          gridTemplateColumns: `repeat(${data.length}, minmax(46px, 1fr))`,
+          minWidth: `${Math.max(400, data.length * 58)}px`,
+        }}
+      >
+        {data.map((item) => {
+          const value = item[branch];
+          return (
+            <div className="bar-day" key={item.date}>
+              <div className="bar-value">฿{fmt(value)}</div>
+              <div className="bar-stack">
+                <div className={`bar-segment ${colorClass}`} style={{ height: `${(value / max) * 100}%` }} />
+              </div>
+              <span>{item.date.slice(8)}/{item.date.slice(5, 7)}</span>
             </div>
-            <span>{item.date.slice(8)}/{item.date.slice(5, 7)}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1496,6 +1559,7 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
   const defaultFrom = start.toISOString().slice(0, 10);
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(date);
+  const [showAlerts, setShowAlerts] = useState(false);
   const withinRange = (entry: Entry) =>
     entry.date >= fromDate && entry.date <= toDate;
   const sales = entries(db, "sale").filter(withinRange);
@@ -1523,6 +1587,16 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     branchName === "มีนบุรี"
       ? ["ricePurchase", "riceCarry", "chiliIssue", "materials", "sale", "closeDay"]
       : ["riceIssue", "rice", "chiliIssue", "materials", "sale", "closeDay"];
+  const requiredLabels: Record<string, string> = {
+    ricePurchase: "ซื้อข้าวเข้า",
+    riceCarry: "บันทึกข้าวคงเหลือ",
+    riceIssue: "เบิกข้าวไปใช้",
+    rice: "บันทึกข้าวคงเหลือ",
+    chiliIssue: "เบิกน้ำพริก",
+    materials: "เช็กวัสดุ 7 รายการ",
+    sale: "ยอดขายสิ้นวัน",
+    closeDay: "ปิดวัน",
+  };
   const branchRows = branches.map((branchName) => {
     const rows = sales.filter((entry) => entry.branch === branchName);
     const missing = required(branchName).filter(
@@ -1544,9 +1618,34 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     ];
   });
   const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
-  const alertCount = branchRows.filter((row) =>
-    String(row[3]).startsWith("ค้าง") || String(row[4]).startsWith("ใกล้หมด"),
-  ).length + activeLots;
+  const alertDetails: { title: string; detail: string; kind: "branch" | "lot" }[] = [
+    ...branches.flatMap((branchName) => {
+      const pending = required(branchName).filter(
+        (kind) => !entries(db, kind, undefined, branchName, date).length,
+      );
+      const lowMaterialNames = materials.filter(
+        (_, index) =>
+          materialPar(db, branchName, index) > 0 &&
+          branchMaterialStock(db, branchName, index) <
+            materialPar(db, branchName, index) * 0.2,
+      );
+      if (!pending.length && !lowMaterialNames.length) return [];
+      return [{
+        title: branchName,
+        detail: [
+          pending.length ? `ค้าง: ${pending.map((kind) => requiredLabels[kind] || kind).join(", ")}` : "",
+          lowMaterialNames.length ? `วัสดุใกล้หมด: ${lowMaterialNames.join(", ")}` : "",
+        ].filter(Boolean).join(" · "),
+        kind: "branch" as const,
+      }];
+    }),
+    ...db.lots.filter((lot) => lot.stage < 8).map((lot) => ({
+      title: `Lot ${lot.id}`,
+      detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,
+      kind: "lot" as const,
+    })),
+  ];
+  const alertCount = alertDetails.length;
   const marginPercent = income > 0 ? (margin / income) * 100 : 0;
   const rangeDays = Math.max(
     1,
@@ -1575,7 +1674,7 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     { label: "เนื้อและสาขา", value: meatAndBranchCost, color: "#f97316" },
     { label: "ข้าวและน้ำพริก", value: supplyCost, color: "#fbbf24" },
     { label: "วัสดุ", value: materialCost, color: "#2563eb" },
-    { label: "Owner", value: ownerCost, color: "#7c3aed" },
+    { label: "Owner", value: ownerCost, color: "#204b49" },
   ];
   const branchCostCharts = branches.map((branchName) => {
     const branchSales = sales.filter((entry) => entry.branch === branchName);
@@ -1603,20 +1702,47 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
   });
 
   return (
-    <div className="owner-dashboard">
-      <section className="dashboard-hero">
-        <div>
-          <span className="overline">OWNER CONTROL ROOM</span>
-          <h2>ภาพรวมร้านเนื้อรมควัน</h2>
-          <p>{fromDate} ถึง {toDate} · อัปเดตจากรายการที่ทุกบทบาทบันทึก</p>
+    <div className="owner-dashboard dashboard-refresh">
+      <section className="dashboard-topbar">
+        <div className="dashboard-welcome">
+          <span className="overline">OWNER DASHBOARD</span>
+          <h2>สวัสดีครับ, เจ้าของร้าน</h2>
+          <p>ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก</p>
         </div>
-        <div className={alertCount ? "dashboard-health warning" : "dashboard-health"}>
-          <CircleAlert size={18} />
+        <button
+          type="button"
+          className={alertCount ? "dashboard-health warning" : "dashboard-health"}
+          onClick={() => setShowAlerts((value) => !value)}
+          aria-expanded={showAlerts}
+          aria-controls="owner-alert-details"
+        >
+          <CircleAlert size={17} />
           {alertCount ? `ต้องดูแล ${alertCount} จุด` : "การทำงานปกติ"}
-        </div>
+          <span className="dashboard-health-action">{showAlerts ? "ซ่อน" : "ดูรายละเอียด"}</span>
+        </button>
       </section>
+      {showAlerts && (
+        <section className="dashboard-alert-details" id="owner-alert-details">
+          <div className="dashboard-alert-heading">
+            <div><span className="overline">ACTION REQUIRED</span><h3>รายการที่ต้องดูแล</h3></div>
+            <button className="text-button" type="button" onClick={() => setShowAlerts(false)}>ปิด</button>
+          </div>
+          {alertDetails.length ? (
+            <div className="dashboard-alert-list">
+              {alertDetails.map((item) => (
+                <div className="dashboard-alert-item" key={`${item.kind}-${item.title}`}>
+                  <span className="dashboard-alert-dot"><CircleAlert size={15} /></span>
+                  <div><strong>{item.title}</strong><span>{item.detail}</span></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="dashboard-alert-empty">ยังไม่มีรายการที่ต้องดำเนินการ</p>
+          )}
+        </section>
+      )}
       <section className="dashboard-range">
-        <div><strong>ช่วงข้อมูลบนแดชบอร์ด</strong><span>กราฟและตัวเลขทั้งหมดเปลี่ยนตามช่วงนี้</span></div>
+        <div><strong>ช่วงข้อมูล</strong><span>{fromDate} ถึง {toDate}</span></div>
         <div className="table-filters">
           <label className="table-filter">ตั้งแต่<input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
           <label className="table-filter">ถึง<input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
@@ -1624,18 +1750,18 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
         </div>
       </section>
       <section className="dashboard-kpis">
-        <div><span>ยอดขายช่วงที่เลือก</span><strong>฿{fmt(income)}</strong><small><TrendingUp size={14} /> จาก LINE MAN</small></div>
-        <div><span>ต้นทุนที่บันทึก</span><strong>฿{fmt(totalCost)}</strong><small>รวม Owner และวัสดุ</small></div>
-        <div className={margin >= 0 ? "positive" : "negative"}><span>ส่วนต่างหลังต้นทุน</span><strong>฿{fmt(margin)}</strong><small>{fmt(marginPercent)}% ของยอดขาย</small></div>
-        <div><span>กล่องที่ขาย</span><strong>{sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}</strong><small>ทั้งสองสาขา</small></div>
+        <article className="kpi-card sales"><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ยอดขายช่วงที่เลือก</span></div><strong>฿{fmt(income)}</strong><small><i className="trend-up">↗</i> ยอดขายทั้งสองสาขา</small></article>
+        <article className="kpi-card cost"><div className="kpi-title"><span className="kpi-icon"><BarChart3 size={17} /></span><span>ต้นทุนที่บันทึก</span></div><strong>฿{fmt(totalCost)}</strong><small>รวม Owner, วัสดุ และสาขา</small></article>
+        <article className={`kpi-card ${margin >= 0 ? "positive" : "negative"}`}><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ส่วนต่างหลังต้นทุน</span></div><strong>฿{fmt(margin)}</strong><small className={margin >= 0 ? "gain" : "loss"}>{margin >= 0 ? "↗" : "↘"} {fmt(marginPercent)}% ของยอดขาย</small></article>
+        <article className="kpi-card boxes"><div className="kpi-title"><span className="kpi-icon"><Package size={17} /></span><span>กล่องที่ขาย</span></div><strong>{sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}</strong><small>รวมรายการขายที่บันทึกแล้ว</small></article>
       </section>
       <section className="sales-charts">
         <div className="chart-panel">
-          <div className="chart-heading"><div><span className="overline">SALES TREND · SALA DAENG</span><h2>ยอดขายสาขาศาลาแดง</h2></div><span className="chart-total">฿{fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}</span></div>
+          <div className="chart-heading"><div><span className="overline">DAILY SALES · SALA DAENG</span><h2>ยอดขายสาขาศาลาแดง</h2></div><span className="chart-total">฿{fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}</span></div>
           <div className="chart-overflow"><SalesBars data={dailySales} branch="sala" colorClass="sala" max={maxDaily} /></div>
         </div>
         <div className="chart-panel">
-          <div className="chart-heading"><div><span className="overline">SALES TREND · MIN BURI</span><h2>ยอดขายสาขามีนบุรี</h2></div><span className="chart-total blue">฿{fmt(dailySales.reduce((sum, item) => sum + item.minburi, 0))}</span></div>
+          <div className="chart-heading"><div><span className="overline">DAILY SALES · MIN BURI</span><h2>ยอดขายสาขามีนบุรี</h2></div><span className="chart-total blue">฿{fmt(dailySales.reduce((sum, item) => sum + item.minburi, 0))}</span></div>
           <div className="chart-overflow"><SalesBars data={dailySales} branch="minburi" colorClass="minburi" max={maxDaily} /></div>
         </div>
       </section>
@@ -1793,6 +1919,17 @@ function ChefLotTable({
 }) {
   const action = (lot: Lot) => {
     const kind = lot.stage === 3 ? "prepare" : lot.stage === 4 ? "smoke" : lot.stage === 5 ? "closeLot" : "";
+    if (lot.stage === 5)
+      return (
+        <div className="button-row compact-actions">
+          <button className="secondary table-action" onClick={() => open("chefEdit", lot.id)}>
+            Edit ข้อมูลก่อนปิด Lot
+          </button>
+          <button className="table-action" onClick={() => open("closeLot", lot.id)}>
+            ยืนยันปิด Lot
+          </button>
+        </div>
+      );
     return kind ? (
       <button className="table-action" onClick={() => open(kind, lot.id)}>{titles[kind]}</button>
     ) : lot.stage === 2 ? "ไปเมนูยืนยันรับเนื้อ" : "ส่งต่องานแล้ว";
@@ -1818,6 +1955,124 @@ function ChefLotTable({
         ])}
       />
     </>
+  );
+}
+function ChefLotEditForm({
+  db,
+  lotId,
+  onClose,
+  onSaved,
+}: {
+  db: Database;
+  lotId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const lot = db.lots.find((item) => item.id === lotId);
+  const received = entries(db, "cmReceive", lotId).at(-1);
+  const prepared = entries(db, "prepare", lotId).at(-1);
+  const smoked = entries(db, "smoke", lotId).at(-1);
+  const [values, setValues] = useState<Values>(() => ({
+    receivedKg: received?.values.receivedKg || "",
+    arrival: received?.values.arrival || "",
+    preKg: prepared?.values.preKg || "",
+    inputKg: smoked?.values.inputKg || "",
+    brineMl: smoked?.values.brineMl || "",
+    packs: (smoked?.values.packs || "").split(/[\s,]+/).filter(Boolean).join("\n"),
+  }));
+  const [error, setError] = useState("");
+  if (!lot || !received || !prepared || !smoked)
+    return null;
+  const receivedRecord = received;
+  const preparedRecord = prepared;
+  const smokedRecord = smoked;
+  const set = (key: string, value: string) => {
+    setValues((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
+  function save() {
+    try {
+      const next = latestDatabase();
+      const nextLot = next.lots.find((item) => item.id === lotId);
+      const receiveEntry = next.entries.find((entry) => entry.id === receivedRecord.id);
+      const prepareEntry = next.entries.find((entry) => entry.id === preparedRecord.id);
+      const smokeEntry = next.entries.find((entry) => entry.id === smokedRecord.id);
+      if (!nextLot || !receiveEntry || !prepareEntry || !smokeEntry)
+        throw new Error("ไม่พบข้อมูล Lot ล่าสุด");
+      const receivedKg = Number(values.receivedKg);
+      const preKg = Number(values.preKg);
+      const inputKg = Number(values.inputKg);
+      const brineMl = Number(values.brineMl);
+      const weights = values.packs.split(/[\s,]+/).filter(Boolean).map(Number);
+      if (![receivedKg, preKg, inputKg, brineMl].every(Number.isFinite) || receivedKg <= 0 || preKg <= 0 || inputKg <= 0 || brineMl < 0)
+        throw new Error("กรอกน้ำหนักและน้ำหมักให้ถูกต้อง");
+      if (!values.arrival || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.arrival))
+        throw new Error("กรอกเวลารับเป็น HH:mm");
+      if (receivedKg > n(nextLot.values, "dispatchKg") + 0.001)
+        throw new Error("น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
+      if (preKg > receivedKg + 0.001)
+        throw new Error("น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
+      if (!weights.length || weights.some((weight) => !Number.isFinite(weight) || weight <= 0))
+        throw new Error("กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0");
+      const oldInput = n(smokedRecord.values, "inputKg");
+      const processedOther = processed(db, lotId) - oldInput;
+      if (processedOther + inputKg > preKg + 0.001)
+        throw new Error("น้ำหนักเข้าเตารวมมากกว่าน้ำหนักก่อนสโมค");
+      const outputKg = weights.reduce((sum, weight) => sum + weight, 0);
+      if (outputKg > inputKg + brineMl / 1000 + 0.001)
+        throw new Error("น้ำหนักถุงรวมเกินน้ำหนักเข้าเตารวมกับน้ำหมัก");
+      const availableBrine = brineStockMl(db) + n(smokedRecord.values, "brineMl");
+      if (brineMl > availableBrine + 0.001)
+        throw new Error("สต๊อกน้ำหมักไม่พอ");
+      receiveEntry.values = { ...receiveEntry.values, receivedKg: String(receivedKg), arrival: values.arrival };
+      prepareEntry.values = { ...prepareEntry.values, preKg: String(preKg) };
+      smokeEntry.values = {
+        ...smokeEntry.values,
+        inputKg: String(inputKg),
+        brineMl: String(brineMl),
+        packs: weights.join("\n"),
+        outputKg: outputKg.toFixed(2),
+        packCount: String(weights.length),
+      };
+      nextLot.values = {
+        ...nextLot.values,
+        receivedKg: String(receivedKg),
+        arrival: values.arrival,
+        preKg: String(preKg),
+        inputKg: String(inputKg),
+        brineMl: String(brineMl),
+        packs: weights.join("\n"),
+        outputKg: outputKg.toFixed(2),
+        packCount: String(weights.length),
+      };
+      saveDatabase(next);
+      onSaved();
+    } catch (value) {
+      setError(value instanceof Error ? value.message : "แก้ไขไม่สำเร็จ");
+    }
+  }
+  return (
+    <div className="modal-backdrop">
+      <section className="form-dialog" role="dialog" aria-modal="true" aria-labelledby="chef-edit-title">
+        <header>
+          <div><span className="overline">Chef_house · {lot.id}</span><h2 id="chef-edit-title">Edit ข้อมูลก่อนปิด Lot</h2></div>
+          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}><X size={18} /></button>
+        </header>
+        <div className="form-body">
+          <div className="notice">แก้ไขได้เฉพาะก่อนยืนยันปิด Lot เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว</div>
+          <div className="form-grid">
+            <label className="field">น้ำหนักรับจริง (กก.)<input type="number" min="0.001" step="0.001" value={values.receivedKg} onChange={(event) => set("receivedKg", event.target.value)} /></label>
+            <label className="field">เวลารับ (HH:mm)<input type="time" value={values.arrival} onChange={(event) => set("arrival", event.target.value)} /></label>
+            <label className="field">น้ำหนักก่อนสโมค (กก.)<input type="number" min="0.001" step="0.001" value={values.preKg} onChange={(event) => set("preKg", event.target.value)} /></label>
+            <label className="field">น้ำหนักเข้าเตา (กก.)<input type="number" min="0.001" step="0.001" value={values.inputKg} onChange={(event) => set("inputKg", event.target.value)} /></label>
+            <label className="field">น้ำหมักที่ใช้ (มล.)<input type="number" min="0" step="1" value={values.brineMl} onChange={(event) => set("brineMl", event.target.value)} /></label>
+            <label className="field field-wide">น้ำหนักถุงใหญ่จาก Chef_house (กก. / 1 บรรทัดต่อถุง)<textarea rows={5} value={values.packs} onChange={(event) => set("packs", event.target.value)} /></label>
+          </div>
+          {error && <div role="alert" className="notice danger">{error}</div>}
+        </div>
+        <footer><button type="button" className="secondary" onClick={onClose}>ยกเลิก</button><button type="button" className="primary" onClick={save}>บันทึกการแก้ไข</button></footer>
+      </section>
+    </div>
   );
 }
 function TransportManifestView({
@@ -2150,6 +2405,19 @@ function DailyMaterialsTable({
     </>
   );
 }
+function BranchDailyWorkflow({ db, branch, date, lots, closed, open }: { db: Database; branch: string; date: string; lots: Lot[]; closed: boolean; open: (kind: string, lotId?: string) => void }) {
+  const pending = lots.filter((lot) => entries(db, "allocate", lot.id, branch).reduce((sum, entry) => sum + n(entry.values, "kg"), 0) > balance(db, lot.id, branch).received + 0.001);
+  const frozen = lots.filter((lot) => balance(db, lot.id, branch).frozen > 0.001);
+  const ready = lots.filter((lot) => balance(db, lot.id, branch).ready > 0.001);
+  const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
+  const tasks: ReactNode[][] = [
+    [<strong key="receive">1. รับเนื้อเข้าสาขา</strong>, pending.length ? <span className="task-alert" key="new">งานเข้าใหม่ {pending.length} Lot</span> : "ไม่มีรายการรอรับ", pending.length ? <button className="table-action" disabled={closed} onClick={() => open("receive", pending[0].id)}>รับของ</button> : "-"],
+    [<strong key="thaw">2. แบ่งละลายเนื้อ</strong>, frozen.length ? <span className="task-alert" key="need">ต้องเลือกเนื้อที่จะละลาย</span> : "ไม่มีเนื้อแช่แข็ง", frozen.length ? <button className="table-action" disabled={closed} onClick={() => open("thaw", frozen[0].id)}>แบ่งละลาย</button> : "-"],
+    [<strong key="sale">3. บันทึกยอดขาย</strong>, ready.length && !saleDone ? <span className="task-alert" key="sales">ต้องกรอกก่อนปิดวัน</span> : saleDone ? "บันทึกแล้ว" : "รอเนื้อพร้อมขาย", ready.length ? <button className="table-action" disabled={closed} onClick={() => open("sale", ready[0].id)}>บันทึกยอดขาย</button> : "-"],
+    [<strong key="close">4. ปิดวัน</strong>, closed ? "ปิดวันแล้ว" : saleDone ? "พร้อมตรวจและปิดวัน" : "รอยอดขาย", <button key="close-action" className="table-action" disabled={closed || !saleDone} onClick={() => open("closeDay")}>ปิดวัน</button>],
+  ];
+  return <DataTable title={`งานหลักประจำวัน · ${branch}`} columns={["ลำดับงาน", "สถานะ", "ทำรายการ"]} rows={tasks} />;
+}
 function DailyTaskTable({
   title,
   kinds,
@@ -2198,14 +2466,12 @@ function MeatStockTable({
   role,
   branch,
   lots,
-  closed,
   open,
 }: {
   db: Database;
   role: Role;
   branch: string;
   lots: Lot[];
-  closed: boolean;
   open: (kind: string, lotId?: string) => void;
 }) {
   if (role === "owner")
@@ -2248,7 +2514,7 @@ function MeatStockTable({
   return (
     <DataTable
       title={`สต๊อกเนื้อ · ${branch}`}
-      columns={["Lot", "รอรับจาก Owner", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ", "การทำงาน"]}
+      columns={["Lot", "รอรับจาก Owner", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ"]}
       rows={lots.map((lot) => {
         const stock = balance(db, lot.id, branch);
         const pending =
@@ -2262,15 +2528,7 @@ function MeatStockTable({
           `${fmt(stock.received)} กก.`,
           `${fmt(stock.frozen)} กก.`,
           `${fmt(stock.ready)} กก.`,
-          pending > 0.001 ? "รอยืนยันรับของ" : stages[lot.stage],
-          <div className="button-row" key={lot.id}>
-            <button className="table-action" disabled={closed || pending <= 0.001} onClick={() => open("receive", lot.id)}>
-              รับของ
-            </button>
-            <button className="table-action" disabled={closed || stock.frozen <= 0.001} onClick={() => open("thaw", lot.id)}>
-              ละลาย
-            </button>
-          </div>,
+          pending > 0.001 ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน" : stages[lot.stage],
         ];
       })}
     />
@@ -3266,3 +3524,4 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
+

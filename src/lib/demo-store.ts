@@ -137,6 +137,165 @@ export const seed: Database = {
     ),
   },
 };
+
+/** Creates a deterministic seven-day fixture for exercising the complete demo loop. */
+export function sevenDayRoleplay(endDate: string): Database {
+  let db = structuredClone(seed);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const dates = Array.from({ length: 7 }, (_, index) => {
+    const value = new Date(end);
+    value.setUTCDate(value.getUTCDate() - (6 - index));
+    return value.toISOString().slice(0, 10);
+  });
+  for (let index = 0; index < materials.length; index++) {
+    db.config[`material${index}_saladaeng`] = "100";
+    db.config[`materialPrice${index}_saladaeng`] = "1";
+    db.config[`material${index}_minburi`] = "100";
+    db.config[`materialPrice${index}_minburi`] = "1";
+  }
+  let currentDate = dates[0];
+  const run = (role: Role, kind: string, values: Values, lotId = "") => {
+    db = mutate(db, role, kind, values, lotId, currentDate);
+  };
+  const packs = Array.from({ length: 500 }, () => "0.100").join("\n");
+  run("owner", "brinePurchase", {
+    supplier: "ผู้ขายน้ำหมักทดสอบ",
+    quantityMl: "10000",
+    totalCost: "1000",
+  });
+  run("owner", "purchase", {
+    supplier: "Chef_house ทดสอบ",
+    orderedKg: "50",
+    price: "250",
+  });
+  const lotId = db.lots[0].id;
+  run("owner", "dispatch", {
+    dispatchKg: "50",
+    pickupDate: dates[0],
+    origin: "กรุงเทพ",
+    destination: "Chef_house",
+    trip: "ไปกลับ",
+  }, lotId);
+  run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" }, lotId);
+  run("cm", "prepare", { preKg: "50" }, lotId);
+  run("cm", "smoke", {
+    smokeDate: dates[0],
+    inputKg: "50",
+    brineMl: "5000",
+    packs,
+  }, lotId);
+  run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
+  run("owner", "return", { returnDate: dates[0], returnVehicle: "ทดสอบ-001" }, lotId);
+  run("owner", "central", { centralKg: "50" }, lotId);
+  const firstBags = availableBags(db, lotId);
+  run("owner", "allocate", {
+    branch: "ศาลาแดง",
+    deliveryDate: dates[0],
+    bagIds: firstBags.slice(0, 250).map((bag) => bag.id).join(","),
+  }, lotId);
+  const salaAllocation = db.entries.at(-1)?.id || "";
+  const secondBags = availableBags(db, lotId);
+  run("owner", "allocate", {
+    branch: "มีนบุรี",
+    deliveryDate: dates[0],
+    bagIds: secondBags.slice(0, 250).map((bag) => bag.id).join(","),
+  }, lotId);
+  const minburiAllocation = db.entries.at(-1)?.id || "";
+  for (const material of materials) {
+    run("owner", "materialReceive", {
+      material,
+      quantity: "200",
+      unitPrice: "1",
+      supplier: "ผู้ขายวัสดุทดสอบ",
+    });
+    for (const branch of branches) {
+      db.config.branch = branch;
+      run("owner", "materialTransfer", {
+        material,
+        branch,
+        quantity: "100",
+        receiver: "ผู้ดูแลทดสอบ",
+      });
+      const transferId = db.entries.at(-1)?.id || "";
+      run("branch", "materialConfirm", {
+        transferId,
+        receivedQuantity: "100",
+        receiver: "ผู้ดูแลทดสอบ",
+      });
+    }
+  }
+  for (const [dayIndex, workDate] of dates.entries()) {
+    currentDate = workDate;
+    for (const branch of branches) {
+      db.config.branch = branch;
+      const materialValues = Object.fromEntries(
+        materials.flatMap((_, index) => {
+          const opening = branchMaterialStock(db, branch, index, workDate);
+          const used = Math.min(10, opening);
+          return [
+            [`opening${index}`, String(opening)],
+            [`used${index}`, String(used)],
+            [`material${index}`, String(opening - used)],
+          ];
+        }),
+      );
+      if (dayIndex === 0) {
+        run("branch", "receive", {
+          kg: "25",
+          bags: "250",
+          allocation: branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
+        }, lotId);
+      }
+      if (branch === "ศาลาแดง") {
+        run("branch", "ricePurchase", {
+          supplier: "ร้านข้าวทดสอบ",
+          rawRiceKg: "5",
+          rawRiceCost: "275",
+        });
+      } else {
+        run("branch", "ricePurchase", {
+          supplier: "ร้านข้าวทดสอบ",
+          cookedRiceKg: "32",
+          cookedRiceCost: "1440",
+        });
+      }
+      run("branch", "chiliPurchase", {
+        supplier: "ร้านน้ำพริกทดสอบ",
+        chiliTubes: "20",
+        chiliCost: "600",
+      });
+      run("branch", "thaw", { kg: "1.521" }, lotId);
+      run("branch", "materials", materialValues);
+      if (branch === "ศาลาแดง") {
+        run("branch", "riceIssue", { rawRiceIssuedKg: "3", receiver: "ผู้ดูแลทดสอบ" });
+        run("branch", "chiliIssue", { chiliIssuedTubes: "5", receiver: "ผู้ดูแลทดสอบ" });
+        run("branch", "rice", { rawUsedKg: "3", riceKg: "3" });
+      } else {
+        run("branch", "chiliIssue", { chiliIssuedTubes: "5", receiver: "ผู้ดูแลทดสอบ" });
+      }
+      run("branch", "sale", {
+        boxes: "14",
+        addons: "0",
+        chiliAddons: "0",
+        soldKg: "1.421",
+        wasteKg: "0.100",
+        riceWasteKg: "0",
+        expense: "0",
+        lineMan: "4900",
+        reason: "ทดสอบปิดยอด",
+      }, lotId);
+      if (branch === "มีนบุรี") {
+        run("branch", "riceCarry", {
+          leftoverKg: cookedRiceStock(db, branch).toFixed(3),
+          reheat: "เก็บไว้อุ่นวันถัดไป",
+        });
+      }
+      run("branch", "closeDay", { time: "21:00", confirm: "ผู้ดูแลทดสอบ" });
+    }
+  }
+  db.config.branch = "ศาลาแดง";
+  return db;
+}
 const num = (v: Values, key: string) => Number(v[key] || 0);
 export const n = num;
 const sum = (items: Entry[], key: string) =>
@@ -952,3 +1111,4 @@ export function mutate(
   });
   return next;
 }
+
