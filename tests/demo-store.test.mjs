@@ -163,7 +163,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     lineMan: "14060",
     reason: "เนื้อเหลือปิดวัน",
   });
-  assert.equal(issuedChiliStock(s.db, "ศาลาแดง"), 0);
+  assert.equal(issuedChiliStock(s.db, "ศาลาแดง"), 40);
   assert.ok(Math.abs(balance(s.db, id, "ศาลาแดง").ready) < 0.001);
   assert.equal(balance(s.db, id, "ศาลาแดง").frozen, 5.8);
   assert.equal(balance(s.db, id, "มีนบุรี").received, 0);

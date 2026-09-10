@@ -25,6 +25,10 @@ const date = (key: string, label: string): Field => ({
   label,
   type: "date",
 });
+const arrivalTimes = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, "0");
+  return `${hour}:${index % 2 ? "30" : "00"}`;
+});
 const reason: Field = {
   key: "reason",
   label: "เหตุผลส่วนต่าง / Waste / ข้าม FIFO",
@@ -91,7 +95,7 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   cmReceive: [
-    { key: "arrival", label: "เวลาถึง", type: "time" },
+    { key: "arrival", label: "เวลาที่รถมาถึง", type: "select", options: arrivalTimes },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     reason,
     note,
@@ -100,12 +104,12 @@ export const forms: Record<string, Field[]> = {
   smoke: [
     date("smokeDate", "วันที่สโมค"),
     number("inputKg", "น้ำหนักเข้าเตารอบนี้ (กก.)"),
-    number("brineKg", "น้ำหมักที่ใช้ (กก.)", true),
+    number("brineMl", "น้ำหมักที่ใช้ (มิลลิลิตร)", true),
     {
       key: "packs",
-      label: "น้ำหนักแพ็กใหญ่จาก Chef_house (กก./แพ็ก)",
+      label: "น้ำหนักถุงใหญ่จาก Chef_house (กก./ถุง)",
       type: "textarea",
-      hint: "กรอกน้ำหนักจริงของแต่ละแพ็กใหญ่ หนึ่งแพ็กต่อบรรทัดหรือคั่นด้วยจุลภาค เช่น 100, 98.5, 102 ระบบจะรวมให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
+      hint: "กรอกน้ำหนักจริงของแต่ละถุง ระบบจะรวมจำนวนถุงและน้ำหนักให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
     },
     note,
   ],
@@ -216,9 +220,9 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   sale: [
-    number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม + น้ำพริกฟรี 1 หลอด (กล่อง)", true, true),
+    number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
     number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
-    number("chiliAddons", "น้ำพริกซื้อเพิ่ม · 30 บาท (หลอด)", true, true),
+    number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
     number("soldKg", "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
     number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
     number("riceWasteKg", "Waste ข้าว (กก.)", true),

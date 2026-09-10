@@ -19,7 +19,7 @@ export type Lot = {
   config: Values;
 };
 export type Database = {
-  version: 4;
+  version: 5;
   lots: Lot[];
   entries: Entry[];
   config: Values;
@@ -104,7 +104,7 @@ export const titles: Record<string, string> = {
   void: "ยกเลิกรายการ",
 };
 export const seed: Database = {
-  version: 4,
+  version: 5,
   lots: [],
   entries: [],
   config: {
@@ -163,6 +163,9 @@ export function entries(
 export function produced(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "outputKg");
 }
+export function producedBags(db: Database, lotId: string) {
+  return sum(entries(db, "smoke", lotId), "packCount");
+}
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
@@ -172,6 +175,9 @@ export function centralStock(db: Database, lotId: string) {
     num(lot?.values || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg")
   );
+}
+export function centralBagStock(db: Database, lotId: string) {
+  return producedBags(db, lotId) - sum(entries(db, "allocate", lotId), "bags");
 }
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
@@ -487,7 +493,9 @@ export function mutate(
     );
   } else if (kind === "smoke" && lot) {
     positive(v, "inputKg", "น้ำหนักเข้าเตา");
-    positive(v, "brineKg", "น้ำหมัก", true);
+    const brineMl = n(v, "brineMl") || n(v, "brineKg") * 1000;
+    assert(brineMl >= 0, "น้ำหมักต้องไม่ติดลบ");
+    v.brineMl = String(brineMl);
     required(v, "smokeDate", "วันที่สโมค");
     const weights = (v.packs || "")
       .split(/[\s,]+/)
@@ -496,7 +504,7 @@ export function mutate(
     assert(
       weights.length > 0 &&
         weights.every((w) => Number.isFinite(w) && w > 0),
-      "น้ำหนักแพ็กใหญ่จาก Chef_house ต้องมากกว่า 0 กก.",
+      "น้ำหนักถุงใหญ่จาก Chef_house ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
@@ -504,8 +512,8 @@ export function mutate(
       "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
     );
     assert(
-      output <= n(v, "inputKg") + n(v, "brineKg"),
-      "น้ำหนักแพ็กรวมเกินน้ำหนักเข้าเตารวมหมัก",
+      output <= n(v, "inputKg") + brineMl / 1000,
+      "น้ำหนักถุงรวมเกินน้ำหนักเข้าเตารวมกับน้ำหมัก",
     );
     v.outputKg = output.toFixed(2);
     v.packCount = String(weights.length);
@@ -529,6 +537,7 @@ export function mutate(
     assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     assert(branches.includes(v.branch), "เลือกสาขา");
     assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
+    assert(n(v, "bags") <= centralBagStock(db, lotId), "จำนวนถุงในสต๊อกกลางไม่พอ");
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
     positive(v, "bags", "จำนวนถุง");
@@ -756,8 +765,8 @@ export function mutate(
     for (const k of ["boxes", "addons", "chiliAddons"])
       assert(Number.isInteger(n(v, k)), "จำนวนขายต้องเป็นจำนวนเต็ม");
     v.riceServings = v.boxes;
-    v.chiliComplimentary = v.boxes;
-    v.chiliSold = String(n(v, "boxes") + n(v, "chiliAddons"));
+    v.chiliComplimentary = "0";
+    v.chiliSold = String(n(v, "chiliAddons"));
     const soldPacks = n(v, "boxes") + n(v, "addons");
     assert(
       soldPacks === 0

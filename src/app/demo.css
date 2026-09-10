@@ -1398,6 +1398,36 @@
   color: #808674;
   margin-top: 7px;
 }
+.pack-weight-editor {
+  display: grid;
+  gap: 10px;
+}
+.pack-weight-editor > small {
+  margin-top: -4px;
+}
+.pack-weight-row {
+  display: grid;
+  grid-template-columns: 90px minmax(140px, 1fr) 38px 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #dfe4da;
+  border-radius: 9px;
+  background: #f8faf6;
+}
+.pack-weight-row input {
+  margin-top: 0;
+  text-align: right;
+}
+.pack-weight-row .text-button {
+  padding: 4px;
+}
+.add-pack-button {
+  justify-self: start;
+}
+.pack-summary {
+  margin: 0;
+}
 .optional {
   font-size: 11px;
   color: #8a8c81;

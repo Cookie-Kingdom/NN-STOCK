@@ -29,6 +29,7 @@ import {
   branchMaterialStock,
   branches,
   chiliStock,
+  centralBagStock,
   centralStock,
   cookedRiceStock,
   entries,
@@ -45,6 +46,7 @@ import {
   ownerMaterialStock,
   processed,
   produced,
+  producedBags,
   rawRiceStock,
   roleName,
   seed,
@@ -78,7 +80,10 @@ const today = () =>
 type Tab =
   | "owner-dashboard"
   | "work"
+  | "cm-receive"
   | "po"
+  | "transport"
+  | "central-receive"
   | "branch-status"
   | "branch-summary"
   | "stock"
@@ -87,17 +92,20 @@ type Tab =
   | "history"
   | "config";
 type Modal = { kind: string; lotId: string };
-const tabs: { id: Tab; label: string; icon: typeof Package }[] = [
-  { id: "owner-dashboard", label: "แดชบอร์ด Owner", icon: LayoutDashboard },
-  { id: "work", label: "งานและ Lot", icon: ClipboardList },
+const tabs: { id: Tab; label: string; ownerLabel?: string; icon: typeof Package }[] = [
+  { id: "owner-dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { id: "po", label: "ใบสั่งซื้อ PO", icon: FilePlus2 },
-  { id: "branch-status", label: "ติดตามสาขา", icon: ListChecks },
-  { id: "stock", label: "สต๊อก", icon: Package },
+  { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
+  { id: "central-receive", label: "รับเนื้อเข้าสต๊อกกลาง", icon: Warehouse },
+  { id: "work", label: "งานและ Lot", ownerLabel: "ใบสั่งซื้อและ Lot ทั้งหมด", icon: ClipboardList },
+  { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
+  { id: "branch-status", label: "ติดตามสาขา", ownerLabel: "จัดสรรเนื้อ และสต๊อกไปสาขา", icon: ListChecks },
+  { id: "stock", label: "สต๊อก", ownerLabel: "สต๊อกของทั้งหมด", icon: Package },
+  { id: "report", label: "รายงาน", icon: BarChart3 },
+  { id: "history", label: "ประวัติ", ownerLabel: "Log", icon: History },
+  { id: "config", label: "ตั้งค่า", icon: Settings },
   { id: "branch-summary", label: "สรุปสาขา", icon: LayoutDashboard },
   { id: "day", label: "กรอกรายวัน", icon: Store },
-  { id: "report", label: "รายงาน", icon: BarChart3 },
-  { id: "history", label: "ประวัติ", icon: History },
-  { id: "config", label: "ตั้งค่า", icon: Settings },
 ];
 const roles = [
   {
@@ -172,7 +180,7 @@ export default function Demo() {
       });
     }
     setRole(value);
-    setTab(value === "owner" ? "owner-dashboard" : "work");
+    setTab(value === "owner" ? "owner-dashboard" : value === "cm" ? "cm-receive" : "work");
     setSearch("");
     setToast("");
   }
@@ -244,9 +252,9 @@ export default function Demo() {
               .filter(
                 (t) =>
                   role === "owner"
-                    ? !["day", "branch-summary"].includes(t.id)
+                    ? !["day", "branch-summary", "work"].includes(t.id)
                     : role === "cm"
-                      ? ["work", "stock", "history"].includes(t.id)
+                      ? ["cm-receive", "work", "stock", "history"].includes(t.id)
                       : ["work", "stock", "branch-summary", "day", "history"].includes(t.id),
               )
               .map((t) => (
@@ -256,7 +264,7 @@ export default function Demo() {
                   onClick={() => setTab(t.id)}
                 >
                   <t.icon size={18} />
-                  {t.label}
+                  {role === "owner" ? t.ownerLabel || t.label : t.label}
                 </button>
               ))}
           </nav>
@@ -268,7 +276,7 @@ export default function Demo() {
                 {roleName[role]}
                 {role === "branch" ? ` · ${branch}` : ""}
               </span>
-              <h1>{tabs.find((t) => t.id === tab)?.label}</h1>
+              <h1>{(() => { const current = tabs.find((t) => t.id === tab); return role === "owner" ? current?.ownerLabel || current?.label : current?.label; })()}</h1>
               <p className="muted">
                 {role === "owner"
                   ? "จัดซื้อ จัดสรร ตั้งค่า และติดตามรายงานของทุกสาขา"
@@ -318,15 +326,19 @@ export default function Demo() {
           {tab === "owner-dashboard" && role === "owner" && (
             <OwnerDashboard db={db} date={date} />
           )}
-          {tab === "work" && (
+          {tab === "cm-receive" && role === "cm" && (
+            <ChefReceiveTable db={db} open={open} />
+          )}
+          {tab === "work" && role === "cm" && (
+            <ChefLotTable db={db} lots={lots} open={open} />
+          )}
+          {tab === "work" && role !== "cm" && (
             <>
               <div className="section-heading">
                 <h2>
                   {role === "owner"
                     ? "ใบสั่งซื้อและ Lot ทั้งหมด"
-                    : role === "cm"
-                      ? "Lot ที่ส่งมาโรงรม"
-                      : `Lot ของสาขา ${branch}`}
+                    : `Lot ของสาขา ${branch}`}
                 </h2>
               </div>
               {lots.length > 4 && (
@@ -342,13 +354,7 @@ export default function Demo() {
                 role === "owner" ? (
                   <Empty text="ยังไม่มี Lot · เริ่มสร้างรายการจากเมนูใบสั่งซื้อ PO" />
                 ) : (
-                  <Empty
-                    text={
-                      role === "cm"
-                        ? "ยังไม่มีงานเข้ามา · สลับเป็น Owner เพื่อสร้าง PO และส่งเนื้อ"
-                        : "ยังไม่มีสต๊อก · รอ Owner จัดสรรจากสต๊อกกลางมายังสาขานี้"
-                    }
-                  />
+                  <Empty text="ยังไม่มีสต๊อก · รอ Owner จัดสรรจากสต๊อกกลางมายังสาขานี้" />
                 )
               ) : (
                 <div
@@ -471,8 +477,22 @@ export default function Demo() {
               />
             </>
           )}
+          {tab === "transport" && role === "owner" && (
+            <TransportManifestView db={db} open={open} />
+          )}
+          {tab === "central-receive" && role === "owner" && (
+            <CentralReceiveView db={db} open={open} />
+          )}
           {tab === "branch-status" && role === "owner" && (
-            <OwnerDailyStatus db={db} date={date} />
+            <>
+              <div className="section-heading">
+                <div>
+                  <h2>จัดสรรเนื้อและสต๊อกไปสาขา</h2>
+                  <p className="muted">เลือก Lot ที่มีเนื้อในสต๊อกกลาง แล้วระบุสาขาและน้ำหนักที่ต้องการส่ง</p>
+                </div>
+              </div>
+              <MeatStockTable db={db} role={role} branch={branch} lots={lots} closed={closed} open={open} />
+            </>
           )}
           {tab === "stock" && (
             <>
@@ -593,6 +613,7 @@ export default function Demo() {
                   ปลดล็อกวัน
                 </button>
               </div>
+              <OwnerDailyStatus db={db} date={date} />
               <Report db={db} />
             </>
           )}
@@ -892,6 +913,7 @@ function EntryForm({
     }))
     .filter((a) => a.outstanding > 0.001);
   const formFields = (forms[kind] || []).filter((field) => {
+    if (kind === "smoke" && field.key === "packs") return false;
     if (kind === "supplyPurchase" || kind === "ricePurchase")
       return db.config.branch === "มีนบุรี"
         ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
@@ -967,7 +989,7 @@ function EntryForm({
                     <option key={l.id} value={l.id}>
                       {l.id} ·{" "}
                       {kind === "allocate"
-                        ? `${fmt(centralStock(db, l.id))} กก. กลาง`
+                        ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} ถุงในคลังกลาง`
                         : `${fmt(balance(db, l.id, db.config.branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, db.config.branch).ready)} พร้อมขาย`}
                     </option>
                   ))}
@@ -1087,6 +1109,12 @@ function EntryForm({
                   {f.hint && <small>{f.hint}</small>}
                 </label>
               ))}
+              {kind === "smoke" && (
+                <PackWeightFields
+                  value={values.packs || ""}
+                  onChange={(value) => set("packs", value)}
+                />
+              )}
             </div>
             <Preview db={db} lot={lot} kind={kind} v={values} />
             {error && (
@@ -1110,6 +1138,59 @@ function EntryForm({
   );
 }
 
+function PackWeightFields({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const weights = value === "" ? [""] : value.split(",");
+  const update = (index: number, next: string) => {
+    const rows = [...weights];
+    rows[index] = next;
+    onChange(rows.join(","));
+  };
+  const validWeights = weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
+  const total = validWeights.reduce((sum, weight) => sum + weight, 0);
+  return (
+    <div className="field wide pack-weight-editor">
+      <span>น้ำหนักถุงใหญ่จาก Chef_house</span>
+      <small>กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”</small>
+      {weights.map((weight, index) => (
+        <div className="pack-weight-row" key={index}>
+          <span>ถุงที่ {index + 1}</span>
+          <input
+            aria-label={`น้ำหนักถุงที่ ${index + 1}`}
+            type="number"
+            inputMode="decimal"
+            min="0.01"
+            step="0.01"
+            required
+            value={weight}
+            onChange={(event) => update(index, event.target.value)}
+          />
+          <span>กก.</span>
+          {weights.length > 1 && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => onChange(weights.filter((_, row) => row !== index).join(","))}
+            >
+              ลบ
+            </button>
+          )}
+        </div>
+      ))}
+      <button type="button" className="secondary add-pack-button" onClick={() => onChange([...weights, ""].join(","))}>
+        <Plus size={16} /> เพิ่มถุง
+      </button>
+      <div className="notice success pack-summary">
+        ส่งกลับกรุงเทพฯ {validWeights.length} ถุง · น้ำหนักรวม {fmt(total)} กก.
+      </div>
+    </div>
+  );
+}
 function Preview({
   db,
   lot,
@@ -1158,9 +1239,9 @@ function Preview({
       .filter(Boolean)
       .map(Number);
     rows = [
-      ["แพ็กใหญ่จาก Chef_house", `${weights.length} แพ็ก`],
+      ["ถุงใหญ่จาก Chef_house", `${weights.length} ถุง`],
       [
-        "ผลผลิตรวม",
+        "น้ำหนักเนื้อหลังรมควัน",
         `${fmt(weights.reduce((s, w) => s + (Number.isFinite(w) ? w : 0), 0))} กก.`,
       ],
       [
@@ -1171,7 +1252,8 @@ function Preview({
   }
   if (kind === "closeLot" && lot)
     rows = [
-      ["ผลผลิตรวม", `${fmt(produced(db, lot.id))} กก.`],
+      ["น้ำหนักเนื้อหลังรมควัน", `${fmt(produced(db, lot.id))} กก.`],
+      ["จำนวนถุงส่งกลับกรุงเทพฯ", `${producedBags(db, lot.id)} ถุง`],
       [
         "น้ำหนักรอผลิต",
         `${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`,
@@ -1179,6 +1261,7 @@ function Preview({
     ];
   if (kind === "return" && lot)
     rows = [
+      ["ของที่ส่งกลับกรุงเทพฯ", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
       [
         "ค่ารถขากลับ",
         `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(lot.config, "returnFee"))}`,
@@ -1188,6 +1271,7 @@ function Preview({
   if (kind === "central" && lot)
     rows = [
       ["ผลผลิตส่งจากโรงรม", `${fmt(produced(db, lot.id))} กก.`],
+      ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],
     ];
   if (kind === "sale" && lot) {
@@ -1208,7 +1292,7 @@ function Preview({
       ],
       [
         "น้ำพริกที่จะหัก",
-        `${n(v, "boxes")} หลอดฟรี + ${n(v, "chiliAddons")} หลอดซื้อเพิ่ม`,
+        `${n(v, "chiliAddons")} หลอดที่ลูกค้าซื้อ`,
       ],
     ];
   }
@@ -1258,7 +1342,7 @@ function LotDetails({ db, lot, role }: { db: Database; lot: Lot; role: Role }) {
         ) : (
           <>
             <Stat label="ส่งจากผู้ขาย" value={`${fmt(dispatched)} กก.`} />
-            <Stat label="ผลผลิตรวม" value={`${fmt(output)} กก.`} />
+            <Stat label="น้ำหนักเนื้อหลังรมควัน" value={`${fmt(output)} กก.`} />
             <Stat
               label="รอผลิต"
               value={`${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`}
@@ -1628,6 +1712,158 @@ function DailySummary({
     />
   );
 }
+function ChefReceiveTable({ db, open }: { db: Database; open: (kind: string, lotId?: string) => void }) {
+  const waiting = db.lots.filter((lot) => lot.stage === 2);
+  return (
+    <>
+      <div className="section-heading">
+        <div>
+          <h2>ยืนยันรับเนื้อที่ Chef_house</h2>
+          <p className="muted">เลือกรายการที่รถมาถึง แล้วบันทึกเวลาและน้ำหนักรับจริง</p>
+        </div>
+      </div>
+      <DataTable
+        title="Lot ที่รอยืนยันรับ"
+        columns={["Lot", "วันที่รถรับ", "น้ำหนักที่ส่ง", "รถ / ผู้ขนส่ง", "การทำงาน"]}
+        rows={waiting.map((lot) => [
+          lot.id,
+          lot.values.pickupDate || "-",
+          `${fmt(n(lot.values, "dispatchKg"))} กก.`,
+          lot.values.vehicle || "-",
+          <button className="table-action" key={lot.id} onClick={() => open("cmReceive", lot.id)}>
+            ยืนยันรับเนื้อ
+          </button>,
+        ])}
+      />
+      {!waiting.length && <div className="notice success">ไม่มี Lot รอยืนยันรับในขณะนี้</div>}
+    </>
+  );
+}
+function ChefLotTable({
+  db,
+  lots,
+  open,
+}: {
+  db: Database;
+  lots: Lot[];
+  open: (kind: string, lotId?: string) => void;
+}) {
+  const action = (lot: Lot) => {
+    const kind = lot.stage === 3 ? "prepare" : lot.stage === 4 ? "smoke" : lot.stage === 5 ? "closeLot" : "";
+    return kind ? (
+      <button className="table-action" onClick={() => open(kind, lot.id)}>{titles[kind]}</button>
+    ) : lot.stage === 2 ? "ไปเมนูยืนยันรับเนื้อ" : "ส่งต่องานแล้ว";
+  };
+  return (
+    <>
+      <div className="section-heading">
+        <div>
+          <h2>Lot งานผลิต Chef_house</h2>
+          <p className="muted">ดูสถานะและทำงานต่อจากตาราง โดยไม่ต้องเปิดทีละการ์ด</p>
+        </div>
+      </div>
+      <DataTable
+        title="รายการ Lot ทั้งหมด"
+        columns={["Lot", "รับจริง", "สถานะ", "น้ำหนักหลังรมควัน", "จำนวนถุงส่งกรุงเทพฯ", "การทำงาน"]}
+        rows={lots.map((lot) => [
+          lot.id,
+          n(lot.values, "receivedKg") ? `${fmt(n(lot.values, "receivedKg"))} กก.` : "รอยืนยันรับ",
+          stages[lot.stage],
+          produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
+          producedBags(db, lot.id) ? `${producedBags(db, lot.id)} ถุง` : "-",
+          action(lot),
+        ])}
+      />
+    </>
+  );
+}
+function TransportManifestView({
+  db,
+  open,
+}: {
+  db: Database;
+  open: (kind: string, lotId?: string) => void;
+}) {
+  const returnEntry = (lotId: string) => entries(db, "return", lotId).at(-1);
+  const tripStatus = (lot: Lot) => {
+    if (lot.stage === 1)
+      return <button className="table-action" onClick={() => open("dispatch", lot.id)}>ทำใบขนส่งขาไป</button>;
+    if (lot.stage === 6)
+      return <button className="table-action" onClick={() => open("return", lot.id)}>ทำใบขนส่งขากลับ</button>;
+    if (lot.stage < 6) return "กำลังดำเนินงานที่ Chef_house";
+    return "ส่งครบแล้ว";
+  };
+  return (
+    <>
+      <div className="section-heading">
+        <div>
+          <h2>ใบขนส่งเนื้อ</h2>
+          <p className="muted">ทำใบส่งเนื้อไป Chef_house และนัดรับเนื้อหลังรมควันกลับเข้าสต๊อกกลาง</p>
+        </div>
+      </div>
+      <DataTable
+        title="รายการขนส่งตาม Lot"
+        columns={["Lot", "ขาไป · ส่งไป Chef_house", "ขากลับ · รับเนื้อหลังรมควัน", "การทำงาน"]}
+        rows={db.lots.map((lot) => {
+          const back = returnEntry(lot.id);
+          return [
+            lot.id,
+            lot.stage >= 2
+              ? `${fmt(n(lot.values, "dispatchKg"))} กก. · ${lot.values.vehicle || "ยังไม่ระบุรถ"}`
+              : "รอทำใบขนส่ง",
+            back
+              ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.returnVehicle || "ยังไม่ระบุรถ"}`
+              : lot.stage < 6
+                ? "รอ Chef_house ปิด Lot"
+                : "รอทำใบขนส่งขากลับ",
+            tripStatus(lot),
+          ];
+        })}
+      />
+    </>
+  );
+}
+function CentralReceiveView({
+  db,
+  open,
+}: {
+  db: Database;
+  open: (kind: string, lotId?: string) => void;
+}) {
+  const readyToReceive = db.lots.filter((lot) => lot.stage === 7);
+  return (
+    <>
+      <div className="section-heading">
+        <div>
+          <h2>รับเนื้อเข้าสต๊อกกลาง</h2>
+          <p className="muted">รับน้ำหนักเนื้อหลังรมควันจาก Chef_house ก่อนจัดสรรไปยังสาขา</p>
+        </div>
+      </div>
+      <DataTable
+        title="Lot ที่รอรับเข้าคลังกลาง"
+        columns={["Lot", "น้ำหนักเนื้อหลังรมควัน", "จำนวนถุง", "นัดรับขากลับ", "สถานะ", "การทำงาน"]}
+        rows={readyToReceive.map((lot) => {
+          const back = entries(db, "return", lot.id).at(-1);
+          return [
+            lot.id,
+            `${fmt(produced(db, lot.id))} กก.`,
+            `${producedBags(db, lot.id)} ถุง`,
+            back
+              ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.returnVehicle || "ยังไม่ระบุรถ"}`
+              : "ยังไม่มีใบขนส่งขากลับ",
+            "รอรับเข้าสต๊อกกลาง",
+            <button className="table-action" key={lot.id} onClick={() => open("central", lot.id)}>
+              รับเข้าคลังกลาง
+            </button>,
+          ];
+        })}
+      />
+      {!readyToReceive.length && (
+        <div className="notice success">ไม่มี Lot รอรับเข้าสต๊อกกลางในขณะนี้</div>
+      )}
+    </>
+  );
+}
 function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
   const [branchFilter, setBranchFilter] = useState("ทั้งหมด");
   const defaultStart = new Date(`${date}T00:00:00Z`);
@@ -1933,10 +2169,11 @@ function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
-        columns={["Lot", "ส่วนกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
+        columns={["Lot", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
         rows={lots.map((lot) => [
           lot.id,
           `${fmt(centralStock(db, lot.id))} กก.`,
+          `${centralBagStock(db, lot.id)} ถุง`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,
           `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} พร้อมขาย`,
           stages[lot.stage],
@@ -1955,7 +2192,7 @@ function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกและงานผลิต Chef_house"
-        columns={["Lot", "ก่อนสโมค", "รอผลิต", "ผลผลิตรวม", "สถานะ"]}
+        columns={["Lot", "ก่อนสโมค", "รอผลิต", "น้ำหนักเนื้อหลังรมควัน", "สถานะ"]}
         rows={lots.map((lot) => [
           lot.id,
           `${fmt(n(lot.values, "preKg"))} กก.`,
@@ -1968,17 +2205,23 @@ function MeatStockTable({
   return (
     <DataTable
       title={`สต๊อกเนื้อ · ${branch}`}
-      columns={["Lot", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ", "การทำงาน"]}
+      columns={["Lot", "รอรับจาก Owner", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ", "การทำงาน"]}
       rows={lots.map((lot) => {
         const stock = balance(db, lot.id, branch);
+        const pending =
+          entries(db, "allocate", lot.id, branch).reduce(
+            (sum, allocation) => sum + n(allocation.values, "kg"),
+            0,
+          ) - stock.received;
         return [
           lot.id,
+          pending > 0.001 ? `${fmt(pending)} กก.` : "-",
           `${fmt(stock.received)} กก.`,
           `${fmt(stock.frozen)} กก.`,
           `${fmt(stock.ready)} กก.`,
-          stages[lot.stage],
+          pending > 0.001 ? "รอยืนยันรับของ" : stages[lot.stage],
           <div className="button-row" key={lot.id}>
-            <button className="table-action" disabled={closed} onClick={() => open("receive", lot.id)}>
+            <button className="table-action" disabled={closed || pending <= 0.001} onClick={() => open("receive", lot.id)}>
               รับของ
             </button>
             <button className="table-action" disabled={closed || stock.frozen <= 0.001} onClick={() => open("thaw", lot.id)}>
@@ -2199,7 +2442,7 @@ function Report({ db }: { db: Database }) {
           "สาขา",
           "กล่อง",
           "เนื้อ Add-on",
-          "น้ำพริกเพิ่ม",
+          "น้ำพริกขายแยก",
           "Waste (กก.)",
           "LINE MAN (บาท)",
           "สถานะ",
@@ -2208,7 +2451,7 @@ function Report({ db }: { db: Database }) {
       />
       <DataTable
         title="ยอดขายสะสมแยกสาขา"
-        columns={["สาขา", "กล่อง", "เนื้อ Add-on", "น้ำพริกเพิ่ม", "Waste (กก.)", "ยอดขาย (บาท)"]}
+        columns={["สาขา", "กล่อง", "เนื้อ Add-on", "น้ำพริกขายแยก", "Waste (กก.)", "ยอดขาย (บาท)"]}
         rows={branches.map((br) => {
           const rows = entries(db, "sale", undefined, br).filter(inRange);
           return [
@@ -2434,13 +2677,13 @@ function EntryDetails({
               (
                 {
                   outputKg: "น้ำหนักผลิตรวม",
-                  packCount: "จำนวนแพ็ก",
+                  packCount: "จำนวนถุงใหญ่",
                   outboundCost: "ค่ารถขาไป",
                   returnCost: "ค่ารถขากลับ",
                   revenue: "ยอดขายบันทึก",
                   menuTotal: "ยอดตามเมนู",
-                  chiliAddons: "น้ำพริกซื้อเพิ่ม",
-                  chiliComplimentary: "น้ำพริกฟรีในกล่อง",
+                  chiliAddons: "น้ำพริกที่ขายแยก",
+                  chiliComplimentary: "น้ำพริกแถม (ยกเลิกแล้ว)",
                   riceServings: "ข้าวเหนียวในกล่อง",
                   chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
                   allocation: "ใบจัดสรร",
@@ -2745,14 +2988,14 @@ function ConfigView({ db }: { db: Database }) {
             "รวมอยู่ในราคากล่อง",
           ),
           row(
-            "ราคาน้ำพริกซื้อเพิ่ม (Extra chili price)",
+            "ราคาขายน้ำพริกหลอด (Chili selling price)",
             valueCell(
               "pricing",
               "chiliPrice",
               (value) => `฿${fmt(Number(value))}`,
             ),
             "บาท / หลอด",
-            "คิดเฉพาะหลอดที่ลูกค้าซื้อเพิ่ม หลอดแรกแถมในกล่อง",
+            "น้ำพริกจำหน่ายแยกทุกหลอด ไม่รวมอยู่ในกล่องมาตรฐาน",
           ),
         ]}
       />
@@ -2980,4 +3223,3 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
-

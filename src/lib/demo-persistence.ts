@@ -4,7 +4,68 @@ import { branches, seed, type Database } from "./demo-store";
 import demoSeed from "./demo-seed.json";
 const key = "nerdnuea-forms-v4";
 let cachedRaw: string | null = null;
-const initialDatabase = demoSeed as unknown as Database;
+type StoredDatabase = {
+  version?: number;
+  entries?: Database["entries"];
+  lots?: Database["lots"];
+  config?: Database["config"];
+};
+function normalize(parsed: StoredDatabase | null, fallback: Database): Database {
+  const version = parsed?.version;
+  if (
+    !parsed ||
+    typeof version !== "number" ||
+    ![3, 4, 5].includes(version) ||
+    !Array.isArray(parsed.entries) ||
+    !Array.isArray(parsed.lots)
+  )
+    return fallback;
+  const storedEntries = parsed.entries as Database["entries"];
+  const storedConfig = parsed.config || seed.config;
+  return {
+    ...parsed,
+    version: 5,
+    lots: parsed.lots,
+    entries:
+      version < 5
+        ? storedEntries.map((entry) => {
+            if (entry.kind === "smoke") {
+              const outputKg = entry.values.outputKg || "0";
+              return {
+                ...entry,
+                values: {
+                  ...entry.values,
+                  brineMl: String(Number(entry.values.brineKg || 0) * 1000),
+                  packs: outputKg,
+                  packCount: Number(outputKg) > 0 ? "1" : "0",
+                },
+              };
+            }
+            if (entry.kind === "sale")
+              return {
+                ...entry,
+                values: {
+                  ...entry.values,
+                  chiliComplimentary: "0",
+                  chiliSold: entry.values.chiliAddons || "0",
+                },
+              };
+            return entry;
+          })
+        : parsed.entries,
+    config: {
+      ...seed.config,
+      ...storedConfig,
+      ...(version === 3
+        ? { packKg: "0.1015", ricePrice: "0", chiliPrice: "30" }
+        : {}),
+      branch: branches.includes(storedConfig.branch || "")
+        ? storedConfig.branch
+        : seed.config.branch,
+    },
+  };
+}
+const initialDatabase = normalize(demoSeed as unknown as StoredDatabase, seed);
 export const demoInitialDatabase = initialDatabase;
 let cached: Database = initialDatabase;
 function snapshot(): Database {
@@ -12,30 +73,8 @@ function snapshot(): Database {
     const raw = localStorage.getItem(key);
     if (raw !== cachedRaw) {
       cachedRaw = raw;
-      const parsed = raw ? JSON.parse(raw) : initialDatabase;
-      cached =
-        (parsed.version === 3 || parsed.version === 4) &&
-        Array.isArray(parsed.entries) &&
-        Array.isArray(parsed.lots)
-          ? {
-              ...parsed,
-              version: 4,
-              config: {
-                ...seed.config,
-                ...parsed.config,
-                ...(parsed.version === 3
-                  ? {
-                      packKg: "0.1015",
-                      ricePrice: "0",
-                      chiliPrice: "30",
-                    }
-                  : {}),
-                branch: branches.includes(parsed.config?.branch)
-                  ? parsed.config.branch
-                  : seed.config.branch,
-              },
-            }
-          : initialDatabase;
+      const parsed = (raw ? JSON.parse(raw) : initialDatabase) as StoredDatabase;
+      cached = normalize(parsed, initialDatabase);
     }
   } catch {
     return cached;
