@@ -1,0 +1,2687 @@
+{
+  "version": 4,
+  "lots": [
+    {
+      "id": "NN-20260904-001",
+      "poId": "PO-20260904-1",
+      "stage": 8,
+      "values": {
+        "supplier": "Foodiva",
+        "orderedKg": "50",
+        "price": "250",
+        "reference": "PO-WEEK-001",
+        "pickupDate": "2026-09-04",
+        "origin": "กรุงเทพ",
+        "destination": "Chef_house",
+        "trip": "ไปกลับ",
+        "vehicle": "รถทดสอบ",
+        "dispatchKg": "50",
+        "outboundCost": "2000",
+        "arrival": "08:00",
+        "receivedKg": "50",
+        "preKg": "50",
+        "smokeDate": "2026-09-04",
+        "inputKg": "50",
+        "brineKg": "5",
+        "packs": "0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100",
+        "outputKg": "40.00",
+        "packCount": "400",
+        "confirm": "สมชาย",
+        "returnDate": "2026-09-04",
+        "returnVehicle": "รถทดสอบ",
+        "returnCost": "0",
+        "centralKg": "40"
+      },
+      "config": {
+        "boxPrice": "350",
+        "addonPrice": "320",
+        "packKg": "0.1015",
+        "ricePrice": "0",
+        "chiliPrice": "30",
+        "rawRicePar": "20",
+        "rawRiceUnitPrice": "55",
+        "chiliPar": "100",
+        "chiliUnitPrice": "20",
+        "cookedRicePar": "30",
+        "cookedRiceUnitPrice": "45",
+        "brinePrice": "40",
+        "smokeRate": "60",
+        "outboundFee": "1200",
+        "returnFee": "1200",
+        "roundFee": "2000",
+        "tolerance": "20",
+        "closeTime": "21:00",
+        "branch": "ศาลาแดง",
+        "material0": "0",
+        "materialPrice0": "0",
+        "material1": "0",
+        "materialPrice1": "0",
+        "material2": "0",
+        "materialPrice2": "0",
+        "material3": "0",
+        "materialPrice3": "0",
+        "material4": "0",
+        "materialPrice4": "0",
+        "material5": "0",
+        "materialPrice5": "0",
+        "material6": "0",
+        "materialPrice6": "0",
+        "material0_saladaeng": "100",
+        "materialPrice0_saladaeng": "2",
+        "material0_minburi": "100",
+        "materialPrice0_minburi": "2",
+        "material1_saladaeng": "100",
+        "materialPrice1_saladaeng": "2",
+        "material1_minburi": "100",
+        "materialPrice1_minburi": "2",
+        "material2_saladaeng": "100",
+        "materialPrice2_saladaeng": "2",
+        "material2_minburi": "100",
+        "materialPrice2_minburi": "2",
+        "material3_saladaeng": "100",
+        "materialPrice3_saladaeng": "2",
+        "material3_minburi": "100",
+        "materialPrice3_minburi": "2",
+        "material4_saladaeng": "100",
+        "materialPrice4_saladaeng": "2",
+        "material4_minburi": "100",
+        "materialPrice4_minburi": "2",
+        "material5_saladaeng": "100",
+        "materialPrice5_saladaeng": "2",
+        "material5_minburi": "100",
+        "materialPrice5_minburi": "2",
+        "material6_saladaeng": "100",
+        "materialPrice6_saladaeng": "2",
+        "material6_minburi": "100",
+        "materialPrice6_minburi": "2"
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "0246c231-c46d-4f43-b769-40a08eebd02c",
+      "kind": "purchase",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.901Z",
+      "values": {
+        "supplier": "Foodiva",
+        "orderedKg": "50",
+        "price": "250",
+        "reference": "PO-WEEK-001"
+      }
+    },
+    {
+      "id": "595daa47-2a6d-48b1-ac59-ce4baff93d87",
+      "kind": "dispatch",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.901Z",
+      "values": {
+        "pickupDate": "2026-09-04",
+        "origin": "กรุงเทพ",
+        "destination": "Chef_house",
+        "trip": "ไปกลับ",
+        "vehicle": "รถทดสอบ",
+        "dispatchKg": "50",
+        "outboundCost": "2000"
+      }
+    },
+    {
+      "id": "8dc25855-5c63-4f5d-82e0-bf6536c8f7f6",
+      "kind": "cmReceive",
+      "role": "cm",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "arrival": "08:00",
+        "receivedKg": "50"
+      }
+    },
+    {
+      "id": "51a32604-ab51-44f4-aef3-e0cb24d3e077",
+      "kind": "prepare",
+      "role": "cm",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "preKg": "50"
+      }
+    },
+    {
+      "id": "ab8ba208-814f-4500-874a-81ae21214540",
+      "kind": "smoke",
+      "role": "cm",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "smokeDate": "2026-09-04",
+        "inputKg": "50",
+        "brineKg": "5",
+        "packs": "0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100\n0.100",
+        "outputKg": "40.00",
+        "packCount": "400"
+      }
+    },
+    {
+      "id": "3b6e2531-9975-4f94-9a01-3bf5fa034274",
+      "kind": "closeLot",
+      "role": "cm",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "confirm": "สมชาย"
+      }
+    },
+    {
+      "id": "f21bdb98-9c80-45d0-b68f-d69dda757a4a",
+      "kind": "return",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "returnDate": "2026-09-04",
+        "returnVehicle": "รถทดสอบ",
+        "returnCost": "0"
+      }
+    },
+    {
+      "id": "a2a68cd5-bac5-486f-932a-ed66b3517af7",
+      "kind": "central",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "centralKg": "40"
+      }
+    },
+    {
+      "id": "ad27114c-7043-4c58-b87a-1ee89e1834dc",
+      "kind": "allocate",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "branch": "ศาลาแดง",
+        "kg": "10",
+        "bags": "10",
+        "deliveryDate": "2026-09-04"
+      }
+    },
+    {
+      "id": "4b024ff3-4c55-40e5-b71b-900bb97e0737",
+      "kind": "allocate",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "branch": "มีนบุรี",
+        "kg": "10",
+        "bags": "10",
+        "deliveryDate": "2026-09-04"
+      }
+    },
+    {
+      "id": "e96c6f7b-c866-467e-8a04-b5b175305c7e",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "material": "กล่องพิมพ์ลาย",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "b0528ada-05a0-422c-9bf0-f16b63db4ab8",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "material": "กล่องพิมพ์ลาย",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "3bbbfab0-ff13-4954-ba05-6842cf39f44f",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "transferId": "b0528ada-05a0-422c-9bf0-f16b63db4ab8",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "1cd4ea34-291a-4ac7-84b4-daa7422d47c5",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.902Z",
+      "values": {
+        "material": "กล่องพิมพ์ลาย",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "ed00f5a0-26fd-44b8-9240-70d5d0491181",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "1cd4ea34-291a-4ac7-84b4-daa7422d47c5",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "facaf4a3-d471-4ec1-a8ce-2678d666bb80",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "กระดาษรอง",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "9315bd56-b4af-4487-ab3e-bd3197cf1015",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "กระดาษรอง",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "c54037e0-3d82-4ce2-be63-a5bbb022284e",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "9315bd56-b4af-4487-ab3e-bd3197cf1015",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "ed5bdde8-cd07-47ee-a958-bd399860da02",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "กระดาษรอง",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "e9a95a6d-28f4-4430-874b-c03d7aa9cff4",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "ed5bdde8-cd07-47ee-a958-bd399860da02",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "14182538-3a24-46c0-a711-52f34712cc0d",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปเนื้อ",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "4f70cbc1-3042-408f-98bb-723c9085d1c3",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปเนื้อ",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "1e38c385-a786-4ccf-8f1a-26ac653cfba0",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "4f70cbc1-3042-408f-98bb-723c9085d1c3",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "57774d67-b3e2-4177-911e-d6906f37c748",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปเนื้อ",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "8f90606d-4075-42f6-9bc2-0d586ad9d0b9",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "57774d67-b3e2-4177-911e-d6906f37c748",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "907733a9-50bb-4bfd-a1f7-699461427b31",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปข้าว",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "e3d138aa-3ac5-4a77-9111-d47be0d01a88",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปข้าว",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "4172f51e-1477-4a1e-8d76-ed1e304dc7ba",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "e3d138aa-3ac5-4a77-9111-d47be0d01a88",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "f17452c5-2320-467c-88a6-3116c31fec75",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "material": "ถุงซิปข้าว",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "d8c56a91-45a1-4026-b99d-1c0a2a18481e",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.903Z",
+      "values": {
+        "transferId": "f17452c5-2320-467c-88a6-3116c31fec75",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "f34c6ed7-d217-4ab0-a3f3-24c8a7085e96",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "material": "ถุงหิ้วกระดาษ",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "ea4ef634-2130-4ad0-b201-3d427b307a65",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "material": "ถุงหิ้วกระดาษ",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "725874be-3f75-4ccc-9fc0-309d9614761b",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "transferId": "ea4ef634-2130-4ad0-b201-3d427b307a65",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "5dbfeafb-8ea2-4490-a2ab-d69bae125304",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "material": "ถุงหิ้วกระดาษ",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "89bd593a-2f09-4eb6-acb9-415d9932d340",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "transferId": "5dbfeafb-8ea2-4490-a2ab-d69bae125304",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "03d08814-09e0-4f36-97bd-af2782a3859e",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "material": "สติกเกอร์โลโก้",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "f00000ee-2b9d-40b5-afd6-44491e2438ee",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "material": "สติกเกอร์โลโก้",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "2b565539-8853-405d-89c4-d0f56eb20866",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.904Z",
+      "values": {
+        "transferId": "f00000ee-2b9d-40b5-afd6-44491e2438ee",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "3c5a7622-2c10-4383-8e9c-40cdc12c7505",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "material": "สติกเกอร์โลโก้",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "12e73f8c-0d6b-4ca4-b8f3-cfb29a35298e",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "transferId": "3c5a7622-2c10-4383-8e9c-40cdc12c7505",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "2e9151a9-667f-4bbc-8517-94ac2316ca28",
+      "kind": "materialReceive",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "material": "การ์ด / สติกเกอร์วิธีอุ่น",
+        "quantity": "1200",
+        "unitPrice": "2",
+        "supplier": "บรรจุภัณฑ์ทดลอง",
+        "reference": "MAT-WEEK-001",
+        "totalCost": "2400"
+      }
+    },
+    {
+      "id": "1f6a4d0f-cb0a-4e03-9541-9497fe629357",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "material": "การ์ด / สติกเกอร์วิธีอุ่น",
+        "branch": "ศาลาแดง",
+        "quantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "ba2e73ef-64d3-4664-b540-1fcfc9df441f",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "transferId": "1f6a4d0f-cb0a-4e03-9541-9497fe629357",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "78432d5c-aaa4-4e2e-90be-6d4a834c30d3",
+      "kind": "materialTransfer",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "material": "การ์ด / สติกเกอร์วิธีอุ่น",
+        "branch": "มีนบุรี",
+        "quantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี",
+        "reference": "TR-WEEK-001",
+        "requiresConfirm": "1"
+      }
+    },
+    {
+      "id": "dfdd7433-d71d-4795-b030-87d46d012f34",
+      "kind": "materialConfirm",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "transferId": "78432d5c-aaa4-4e2e-90be-6d4a834c30d3",
+        "receivedQuantity": "500",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "e9242767-0185-4c1b-a386-654c589fafb7",
+      "kind": "expense",
+      "role": "owner",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.905Z",
+      "values": {
+        "category": "ค่าสาธารณูปโภค",
+        "amount": "1800",
+        "payer": "Owner",
+        "detail": "ค่าไฟรอบทดสอบ"
+      }
+    },
+    {
+      "id": "344eed18-c9b6-43c5-9db0-6aeecbdcc033",
+      "kind": "receive",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "kg": "10",
+        "bags": "10",
+        "allocation": "ad27114c-7043-4c58-b87a-1ee89e1834dc"
+      }
+    },
+    {
+      "id": "14b76315-4d70-4fe1-8120-fb0ae5ffcaaa",
+      "kind": "chiliPurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "supplier": "ครัวน้ำพริก",
+        "chiliTubes": "200",
+        "chiliCost": "4000",
+        "totalCost": "4000"
+      }
+    },
+    {
+      "id": "6a5d5f88-ee8c-4228-932b-e86b1526a1b8",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "supplier": "ร้านข้าวเหนียว",
+        "rawRiceKg": "20",
+        "rawRiceCost": "1100",
+        "cookedRiceKg": "0",
+        "cookedRiceCost": "0",
+        "totalCost": "1100"
+      }
+    },
+    {
+      "id": "15726df0-1b4a-48b9-9347-118151a07ae7",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "0801390e-107c-412c-a6fb-69b267b880cb",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "cf811901-6e00-4e4b-83bf-131fe9a04caf",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "ad6549f0-df48-411c-ac43-4e8b8cf032ac",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.906Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "a0b94b9f-6cbe-4ac3-8159-2923ef8b23b9",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.907Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "3d3db462-ff28-4233-9c30-3de9609818a7",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.907Z",
+      "values": {
+        "opening0": "500",
+        "used0": "10",
+        "material0": "490",
+        "opening1": "500",
+        "used1": "10",
+        "material1": "490",
+        "opening2": "500",
+        "used2": "11",
+        "material2": "489",
+        "opening3": "500",
+        "used3": "10",
+        "material3": "490",
+        "opening4": "500",
+        "used4": "10",
+        "material4": "490",
+        "opening5": "500",
+        "used5": "11",
+        "material5": "489",
+        "opening6": "500",
+        "used6": "10",
+        "material6": "490"
+      }
+    },
+    {
+      "id": "da6a9cf4-cb2e-4711-818f-e37a13039481",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.907Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "be9220d5-c9af-498a-8bd3-d87f9bddb78a",
+      "kind": "receive",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.907Z",
+      "values": {
+        "kg": "10",
+        "bags": "10",
+        "allocation": "4b024ff3-4c55-40e5-b71b-900bb97e0737"
+      }
+    },
+    {
+      "id": "c938eba7-b77c-4f8d-af13-7fc6730de90b",
+      "kind": "chiliPurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "supplier": "ครัวน้ำพริก",
+        "chiliTubes": "200",
+        "chiliCost": "4000",
+        "totalCost": "4000"
+      }
+    },
+    {
+      "id": "4f05c47a-8cf0-421c-a207-c3a39b45296b",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "32",
+        "cookedRiceCost": "1440",
+        "totalCost": "1440"
+      }
+    },
+    {
+      "id": "b05de088-8abd-4c1a-b74b-99631eee4b99",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "ec93fc4d-59f0-476e-a14b-eda0a5dc4e93",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "f65b2da0-3c24-4e95-92a0-8d4a1e3a1048",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "d51c35ba-f5c6-4369-908f-698ea1669101",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.908Z",
+      "values": {
+        "opening0": "500",
+        "used0": "10",
+        "material0": "490",
+        "opening1": "500",
+        "used1": "10",
+        "material1": "490",
+        "opening2": "500",
+        "used2": "11",
+        "material2": "489",
+        "opening3": "500",
+        "used3": "10",
+        "material3": "490",
+        "opening4": "500",
+        "used4": "10",
+        "material4": "490",
+        "opening5": "500",
+        "used5": "11",
+        "material5": "489",
+        "opening6": "500",
+        "used6": "10",
+        "material6": "490"
+      }
+    },
+    {
+      "id": "9374debc-9b8a-4446-ac81-70a1d62951d8",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "aad38b66-53bf-4354-8846-ea1560b2dafe",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-04",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "a3093812-a9ab-47c2-81c8-6c640e7c397a",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "77146c87-db47-4e65-b519-6b048613c07b",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "8ffd8d5f-51e2-49b5-8850-cb657afc67d3",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "866d4321-3594-4cbd-816e-becab06302f3",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.909Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "53259f7f-0c80-48d4-82bb-8351bf73ee73",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.910Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "64cb5170-4acd-48bf-b298-3983ecd45731",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.910Z",
+      "values": {
+        "opening0": "490",
+        "used0": "10",
+        "material0": "480",
+        "opening1": "490",
+        "used1": "10",
+        "material1": "480",
+        "opening2": "489",
+        "used2": "11",
+        "material2": "478",
+        "opening3": "490",
+        "used3": "10",
+        "material3": "480",
+        "opening4": "490",
+        "used4": "10",
+        "material4": "480",
+        "opening5": "489",
+        "used5": "11",
+        "material5": "478",
+        "opening6": "490",
+        "used6": "10",
+        "material6": "480"
+      }
+    },
+    {
+      "id": "2e5a4e93-b5df-48ce-8858-78dc63f8074d",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.910Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "9c1176bb-3112-4bfe-b8e5-2707cb0e0790",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.910Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "ea38bf93-c935-4076-9849-3def5df9e859",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.910Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "ffbfa77b-1a44-4cb7-8b73-6b5bac914d4b",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.911Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "ce87d66c-eb9b-4b14-baf0-d4f7094110a5",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.911Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "90691cff-f3d8-4743-9f9c-037de7c9bab7",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.911Z",
+      "values": {
+        "opening0": "490",
+        "used0": "10",
+        "material0": "480",
+        "opening1": "490",
+        "used1": "10",
+        "material1": "480",
+        "opening2": "489",
+        "used2": "11",
+        "material2": "478",
+        "opening3": "490",
+        "used3": "10",
+        "material3": "480",
+        "opening4": "490",
+        "used4": "10",
+        "material4": "480",
+        "opening5": "489",
+        "used5": "11",
+        "material5": "478",
+        "opening6": "490",
+        "used6": "10",
+        "material6": "480"
+      }
+    },
+    {
+      "id": "ccb0d650-6d43-407a-b4c9-1a2955defffc",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.911Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "a48259b5-60c4-4b83-8943-f8fdf51d1137",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-05",
+      "at": "2026-09-10T06:47:25.911Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "14a0839e-2224-403f-8830-689c8e574d8b",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.912Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "061fb982-88e9-480f-a8f8-117d398c559d",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.912Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "9177b428-280d-4442-98b2-4ebf5e3dbdd6",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.912Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "e626df3c-798c-4746-b909-d40fba85b00a",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.912Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "e00c7f9d-2e99-4ae3-83ab-eac4f5761e70",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.912Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "09fcb462-ceb9-4ce4-bdb2-3d46ad05ec6b",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.913Z",
+      "values": {
+        "opening0": "480",
+        "used0": "11",
+        "material0": "469",
+        "opening1": "480",
+        "used1": "11",
+        "material1": "469",
+        "opening2": "478",
+        "used2": "12",
+        "material2": "466",
+        "opening3": "480",
+        "used3": "11",
+        "material3": "469",
+        "opening4": "480",
+        "used4": "11",
+        "material4": "469",
+        "opening5": "478",
+        "used5": "12",
+        "material5": "466",
+        "opening6": "480",
+        "used6": "11",
+        "material6": "469"
+      }
+    },
+    {
+      "id": "c85aacd7-d8e2-45c0-8f07-4a3a5f1f964c",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.913Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "f363a74d-40d0-4dad-b8e4-cd33f9a56388",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.913Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "bf790725-766e-4d8b-bcfe-a77fd5d41417",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.914Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "93071359-8ed2-4057-90af-ecb821ea5a35",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.914Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "027d987b-2a9f-43a9-8b6f-05b7885905b4",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.914Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "e99c7fd7-64fb-458c-8258-c15eab650da1",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "opening0": "480",
+        "used0": "11",
+        "material0": "469",
+        "opening1": "480",
+        "used1": "11",
+        "material1": "469",
+        "opening2": "478",
+        "used2": "12",
+        "material2": "466",
+        "opening3": "480",
+        "used3": "11",
+        "material3": "469",
+        "opening4": "480",
+        "used4": "11",
+        "material4": "469",
+        "opening5": "478",
+        "used5": "12",
+        "material5": "466",
+        "opening6": "480",
+        "used6": "11",
+        "material6": "469"
+      }
+    },
+    {
+      "id": "9b563e42-ce12-4b71-aa10-ddd814981507",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "1891eca6-aaae-4f09-b07b-718db76eda56",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-06",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "02788bd2-4410-4bf4-a600-db482cd4f947",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "8837a91b-8c01-4b84-a7f4-7bf7de1ee049",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "bb3c2fb7-fa13-4f2c-93b8-f579c9092369",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.915Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "94e74816-e325-437b-b76f-358c72867d5b",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.916Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "47f86da8-9fc1-4666-9230-95c40ccf1103",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.916Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "0870fb0d-8810-4901-b718-64b3808c0093",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.916Z",
+      "values": {
+        "opening0": "469",
+        "used0": "10",
+        "material0": "459",
+        "opening1": "469",
+        "used1": "10",
+        "material1": "459",
+        "opening2": "466",
+        "used2": "11",
+        "material2": "455",
+        "opening3": "469",
+        "used3": "10",
+        "material3": "459",
+        "opening4": "469",
+        "used4": "10",
+        "material4": "459",
+        "opening5": "466",
+        "used5": "11",
+        "material5": "455",
+        "opening6": "469",
+        "used6": "10",
+        "material6": "459"
+      }
+    },
+    {
+      "id": "9e9ec910-6e6d-4fd6-82c5-4ea9fc0a709e",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.916Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "3a83b1b2-00d4-45da-9649-f1f7acedb47d",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.917Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "a29d05a0-a9c1-4277-b8cb-6d93864a1877",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.917Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "765d5cea-bc78-49ed-83af-68dfdc82f16f",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.917Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "9a576525-e15d-46e8-80c6-d345679f16d1",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.917Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "35600fb6-957c-46ab-abc5-7fbf12ad5883",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.918Z",
+      "values": {
+        "opening0": "469",
+        "used0": "10",
+        "material0": "459",
+        "opening1": "469",
+        "used1": "10",
+        "material1": "459",
+        "opening2": "466",
+        "used2": "11",
+        "material2": "455",
+        "opening3": "469",
+        "used3": "10",
+        "material3": "459",
+        "opening4": "469",
+        "used4": "10",
+        "material4": "459",
+        "opening5": "466",
+        "used5": "11",
+        "material5": "455",
+        "opening6": "469",
+        "used6": "10",
+        "material6": "459"
+      }
+    },
+    {
+      "id": "ae4b02b8-4840-4fbf-b174-e433e3c75abd",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.918Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "3ec6e6d1-0775-4129-8149-820250b666fc",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-07",
+      "at": "2026-09-10T06:47:25.918Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "a6a81421-d97f-4089-a48e-52c13f16ce50",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.918Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "ad368f7e-935e-4028-b6fa-95ceafc901ff",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.918Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "91e16772-343b-42d1-ab1e-456377a9a4a9",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.919Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "6157a439-6f46-4ad7-a2ae-0fcd4124a720",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.919Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "4597aada-dbe1-4ef6-b792-976ebfe5cef5",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.919Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "7fb6b114-ac23-47be-b61e-bf2af555d1f5",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.919Z",
+      "values": {
+        "opening0": "459",
+        "used0": "10",
+        "material0": "449",
+        "opening1": "459",
+        "used1": "10",
+        "material1": "449",
+        "opening2": "455",
+        "used2": "11",
+        "material2": "444",
+        "opening3": "459",
+        "used3": "10",
+        "material3": "449",
+        "opening4": "459",
+        "used4": "10",
+        "material4": "449",
+        "opening5": "455",
+        "used5": "11",
+        "material5": "444",
+        "opening6": "459",
+        "used6": "10",
+        "material6": "449"
+      }
+    },
+    {
+      "id": "363c8889-6d69-4027-95f0-585797b1a39a",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.920Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "fefb7c1e-aaa5-4d22-a873-d8a405e4d445",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.920Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "1148def1-5769-4b4d-a078-3d63fd8fbf79",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.920Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "e4e7d1b0-dfc1-4410-8cb6-3cdaa111c34a",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.920Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "7bc414cb-a1e0-4345-82c7-856797c172c1",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.921Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "a0b08ffe-042e-497a-9189-798a92dd585f",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.921Z",
+      "values": {
+        "opening0": "459",
+        "used0": "10",
+        "material0": "449",
+        "opening1": "459",
+        "used1": "10",
+        "material1": "449",
+        "opening2": "455",
+        "used2": "11",
+        "material2": "444",
+        "opening3": "459",
+        "used3": "10",
+        "material3": "449",
+        "opening4": "459",
+        "used4": "10",
+        "material4": "449",
+        "opening5": "455",
+        "used5": "11",
+        "material5": "444",
+        "opening6": "459",
+        "used6": "10",
+        "material6": "449"
+      }
+    },
+    {
+      "id": "4bf17d3c-0867-483f-857b-c06efd23fabc",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.921Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "64f0dfd9-48d7-4191-a26f-a9f697283171",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-08",
+      "at": "2026-09-10T06:47:25.922Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "9f993fa0-061d-4037-99b1-3d772c469cd9",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.922Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "dc6ec6f7-5358-43cd-a20f-0c1bd77cddbe",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.922Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "97844597-633e-4f42-8d74-b99181e4a526",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.922Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "9623c028-12f6-4812-ae84-fa23948f6dc8",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.923Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "8b5d9b5a-c104-4e0c-b75d-156e1a0c7cdf",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.923Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "62521662-2b57-485d-b929-1ea0b7cc6343",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.924Z",
+      "values": {
+        "opening0": "449",
+        "used0": "11",
+        "material0": "438",
+        "opening1": "449",
+        "used1": "11",
+        "material1": "438",
+        "opening2": "444",
+        "used2": "12",
+        "material2": "432",
+        "opening3": "449",
+        "used3": "11",
+        "material3": "438",
+        "opening4": "449",
+        "used4": "11",
+        "material4": "438",
+        "opening5": "444",
+        "used5": "12",
+        "material5": "432",
+        "opening6": "449",
+        "used6": "11",
+        "material6": "438"
+      }
+    },
+    {
+      "id": "bcc78072-700c-4b92-9889-12569d9b6560",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.924Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "30625100-8d3d-42d4-bfc4-e1a8bbc60f23",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.924Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "da2eb8ea-c749-4ed8-8f41-b16b0bce4600",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.924Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "be637383-5d77-4fc9-a870-e0507e2bfe0f",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.925Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "75c7bd1a-7c3d-4d9b-9bd9-c70c347e2ca7",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.925Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "96fb3d18-5aaa-4927-8136-60d1a5b94fed",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.925Z",
+      "values": {
+        "opening0": "449",
+        "used0": "11",
+        "material0": "438",
+        "opening1": "449",
+        "used1": "11",
+        "material1": "438",
+        "opening2": "444",
+        "used2": "12",
+        "material2": "432",
+        "opening3": "449",
+        "used3": "11",
+        "material3": "438",
+        "opening4": "449",
+        "used4": "11",
+        "material4": "438",
+        "opening5": "444",
+        "used5": "12",
+        "material5": "432",
+        "opening6": "449",
+        "used6": "11",
+        "material6": "438"
+      }
+    },
+    {
+      "id": "44953250-b133-44a2-86c8-fe78f92c005c",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.925Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "5b9008b8-a86b-45a6-af1b-4dd24eab0b86",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-09",
+      "at": "2026-09-10T06:47:25.926Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "8b183d52-a49d-4aa2-99c7-3fe21c12d5dd",
+      "kind": "riceIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.926Z",
+      "values": {
+        "rawRiceIssuedKg": "1",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "bd4d4b93-0b4e-4585-9328-e3df29aebab8",
+      "kind": "rice",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.926Z",
+      "values": {
+        "rawUsedKg": "1",
+        "riceKg": "2.2"
+      }
+    },
+    {
+      "id": "806c747f-0195-4ee3-b660-8d129102b1ff",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.926Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "a48bae23-d724-4e1b-b839-f83f079e3d33",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.927Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "b80b06f1-c008-4524-bb23-f5ff08d47bc1",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.927Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "15980fef-a6a8-4c8b-b1f9-b0846dc70a24",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.928Z",
+      "values": {
+        "opening0": "438",
+        "used0": "10",
+        "material0": "428",
+        "opening1": "438",
+        "used1": "10",
+        "material1": "428",
+        "opening2": "432",
+        "used2": "11",
+        "material2": "421",
+        "opening3": "438",
+        "used3": "10",
+        "material3": "428",
+        "opening4": "438",
+        "used4": "10",
+        "material4": "428",
+        "opening5": "432",
+        "used5": "11",
+        "material5": "421",
+        "opening6": "438",
+        "used6": "10",
+        "material6": "428"
+      }
+    },
+    {
+      "id": "5f7f389f-e32a-41d0-a35d-16fdd6a21dca",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "ศาลาแดง",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.928Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการศาลาแดง"
+      }
+    },
+    {
+      "id": "0eed3d72-676f-4e6f-8e6d-69c8f45b6701",
+      "kind": "ricePurchase",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.928Z",
+      "values": {
+        "supplier": "ครัวข้าวเหนียวสุก",
+        "rawRiceKg": "0",
+        "rawRiceCost": "0",
+        "cookedRiceKg": "2",
+        "cookedRiceCost": "90",
+        "totalCost": "90"
+      }
+    },
+    {
+      "id": "06db22c8-8f03-46c3-af21-6515fc018313",
+      "kind": "chiliIssue",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.928Z",
+      "values": {
+        "chiliIssuedTubes": "11",
+        "receiver": "ผู้จัดการมีนบุรี"
+      }
+    },
+    {
+      "id": "f6976a82-4395-4261-bee2-2636660d1ccc",
+      "kind": "thaw",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.929Z",
+      "values": {
+        "kg": "1.1165"
+      }
+    },
+    {
+      "id": "7566a958-61b9-43a0-97cf-f37c5aeff395",
+      "kind": "sale",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.929Z",
+      "values": {
+        "boxes": "10",
+        "addons": "1",
+        "chiliAddons": "1",
+        "soldKg": "1.1165",
+        "wasteKg": "0",
+        "riceWasteKg": "0",
+        "lineMan": "3850",
+        "expense": "0",
+        "riceServings": "10",
+        "chiliComplimentary": "10",
+        "chiliSold": "11",
+        "revenue": "3850",
+        "menuTotal": "3850",
+        "meatCost": "494.05125000000004",
+        "wasteCost": "0"
+      }
+    },
+    {
+      "id": "2112f378-a6cf-4a41-b233-b7b46d156ccd",
+      "kind": "materials",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.929Z",
+      "values": {
+        "opening0": "438",
+        "used0": "10",
+        "material0": "428",
+        "opening1": "438",
+        "used1": "10",
+        "material1": "428",
+        "opening2": "432",
+        "used2": "11",
+        "material2": "421",
+        "opening3": "438",
+        "used3": "10",
+        "material3": "428",
+        "opening4": "438",
+        "used4": "10",
+        "material4": "428",
+        "opening5": "432",
+        "used5": "11",
+        "material5": "421",
+        "opening6": "438",
+        "used6": "10",
+        "material6": "428"
+      }
+    },
+    {
+      "id": "94688614-3457-4af0-8900-65267634bbce",
+      "kind": "riceCarry",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.930Z",
+      "values": {
+        "leftoverKg": "30",
+        "reheat": "เก็บไว้อุ่นวันถัดไป"
+      }
+    },
+    {
+      "id": "8b3d3d9c-c690-4d4e-8727-3176bda32105",
+      "kind": "closeDay",
+      "role": "branch",
+      "lotId": "NN-20260904-001",
+      "branch": "มีนบุรี",
+      "date": "2026-09-10",
+      "at": "2026-09-10T06:47:25.930Z",
+      "values": {
+        "time": "21:00",
+        "confirm": "ผู้จัดการมีนบุรี"
+      }
+    }
+  ],
+  "config": {
+    "boxPrice": "350",
+    "addonPrice": "320",
+    "packKg": "0.1015",
+    "ricePrice": "0",
+    "chiliPrice": "30",
+    "rawRicePar": "20",
+    "rawRiceUnitPrice": "55",
+    "chiliPar": "100",
+    "chiliUnitPrice": "20",
+    "cookedRicePar": "30",
+    "cookedRiceUnitPrice": "45",
+    "brinePrice": "40",
+    "smokeRate": "60",
+    "outboundFee": "1200",
+    "returnFee": "1200",
+    "roundFee": "2000",
+    "tolerance": "20",
+    "closeTime": "21:00",
+    "branch": "มีนบุรี",
+    "material0": "0",
+    "materialPrice0": "0",
+    "material1": "0",
+    "materialPrice1": "0",
+    "material2": "0",
+    "materialPrice2": "0",
+    "material3": "0",
+    "materialPrice3": "0",
+    "material4": "0",
+    "materialPrice4": "0",
+    "material5": "0",
+    "materialPrice5": "0",
+    "material6": "0",
+    "materialPrice6": "0",
+    "material0_saladaeng": "100",
+    "materialPrice0_saladaeng": "2",
+    "material0_minburi": "100",
+    "materialPrice0_minburi": "2",
+    "material1_saladaeng": "100",
+    "materialPrice1_saladaeng": "2",
+    "material1_minburi": "100",
+    "materialPrice1_minburi": "2",
+    "material2_saladaeng": "100",
+    "materialPrice2_saladaeng": "2",
+    "material2_minburi": "100",
+    "materialPrice2_minburi": "2",
+    "material3_saladaeng": "100",
+    "materialPrice3_saladaeng": "2",
+    "material3_minburi": "100",
+    "materialPrice3_minburi": "2",
+    "material4_saladaeng": "100",
+    "materialPrice4_saladaeng": "2",
+    "material4_minburi": "100",
+    "materialPrice4_minburi": "2",
+    "material5_saladaeng": "100",
+    "materialPrice5_saladaeng": "2",
+    "material5_minburi": "100",
+    "materialPrice5_minburi": "2",
+    "material6_saladaeng": "100",
+    "materialPrice6_saladaeng": "2",
+    "material6_minburi": "100",
+    "materialPrice6_minburi": "2"
+  }
+}
