@@ -465,7 +465,7 @@ export default function Demo() {
               </div>
               <DataTable
                 title="รายการใบสั่งซื้อ PO"
-                columns={["เลข PO", "Lot", "ผู้จำหน่าย", "น้ำหนักสั่งซื้อ", "ราคา / กก.", "สถานะ"]}
+                columns={["เลข PO", "Lot", "ผู้จำหน่าย", "น้ำหนักสั่งซื้อ", "ราคา / กก.", "สถานะ", "การทำงาน"]}
                 rows={db.lots.map((item) => [
                   item.poId,
                   item.id,
@@ -473,6 +473,11 @@ export default function Demo() {
                   `${fmt(n(item.values, "orderedKg"))} กก.`,
                   `฿${fmt(n(item.values, "price"))}`,
                   stages[item.stage],
+                  item.stage === 1 ? (
+                    <button className="table-action" key={item.id} onClick={() => open("dispatch", item.id)}>
+                      ทำใบขนส่ง
+                    </button>
+                  ) : "ส่งต่อแล้ว",
                 ])}
               />
             </>
@@ -669,7 +674,12 @@ export default function Demo() {
           onClose={() => setModal(null)}
           onSaved={(next) => {
             setChosen(next.lots.at(-1)?.id || chosen);
-            setToast(`บันทึก${titles[modal.kind]}แล้ว`);
+            if (modal.kind === "purchase") {
+              setTab("transport");
+              setToast("สร้างใบ PO แล้ว · กรุณาทำใบขนส่งขาไป");
+            } else {
+              setToast(`บันทึก${titles[modal.kind]}แล้ว`);
+            }
             setModal(null);
           }}
         />
