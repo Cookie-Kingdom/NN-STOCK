@@ -1094,12 +1094,18 @@
   padding: 14px 18px;
   white-space: nowrap;
   border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.table-section th:not(:first-child) {
+  text-align: right;
 }
 .table-section td {
   padding: 16px 18px;
   border-bottom: 1px solid #e9ebe2;
   white-space: nowrap;
   text-align: left;
+  vertical-align: middle;
+  line-height: 1.45;
 }
 .table-section tr:last-child td {
   border-bottom: 0;
