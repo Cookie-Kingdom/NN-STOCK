@@ -1158,7 +1158,7 @@ function Preview({
       .filter(Boolean)
       .map(Number);
     rows = [
-      ["แพ็กทั้งหมด", `${weights.length} แพ็ก`],
+      ["แพ็กใหญ่จาก Chef_house", `${weights.length} แพ็ก`],
       [
         "ผลผลิตรวม",
         `${fmt(weights.reduce((s, w) => s + (Number.isFinite(w) ? w : 0), 0))} กก.`,
@@ -2980,3 +2980,4 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
+

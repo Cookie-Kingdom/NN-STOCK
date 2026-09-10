@@ -495,8 +495,8 @@ export function mutate(
       .map(Number);
     assert(
       weights.length > 0 &&
-        weights.every((w) => Number.isFinite(w) && w >= 0.1 && w <= 0.103),
-      "น้ำหนักแต่ละแพ็กต้องอยู่ระหว่าง 0.100–0.103 กก. (100–103 กรัม)",
+        weights.every((w) => Number.isFinite(w) && w > 0),
+      "น้ำหนักแพ็กใหญ่จาก Chef_house ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
