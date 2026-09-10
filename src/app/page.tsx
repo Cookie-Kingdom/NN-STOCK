@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import {
   balance,
+  availableBags,
+  brineStockMl,
   branchMaterialStock,
   branches,
   chiliStock,
@@ -459,9 +461,10 @@ export default function Demo() {
                   <h2>ใบสั่งซื้อเนื้อ (Purchase orders)</h2>
                   <p className="muted">สร้าง PO ใหม่และดูรายการที่เคยสร้าง</p>
                 </div>
-                <button className="primary" onClick={() => open("purchase", "")}>
-                  <Plus size={17} /> สร้างใบ PO
-                </button>
+                <div className="button-row">
+                  <button className="primary" onClick={() => open("purchase", "")}><Plus size={17} /> สร้าง PO เนื้อ</button>
+                  <button className="secondary" onClick={() => open("brinePurchase", "")}><Plus size={17} /> สร้าง PO น้ำหมัก</button>
+                </div>
               </div>
               <DataTable
                 title="รายการใบสั่งซื้อ PO"
@@ -479,6 +482,11 @@ export default function Demo() {
                     </button>
                   ) : "ส่งต่อแล้ว",
                 ])}
+              />
+              <DataTable
+                title={`ใบ PO น้ำหมัก · คงเหลือ ${fmt(brineStockMl(db))} มล.`}
+                columns={["เลข PO", "วันที่", "ผู้จำหน่าย", "ปริมาณ", "ราคารวม"]}
+                rows={entries(db, "brinePurchase").map((entry) => [entry.values.poNumber, entry.date, entry.values.supplier, `${fmt(n(entry.values, "quantityMl"))} มล.`, `฿${fmt(n(entry.values, "totalCost"))}`])}
               />
             </>
           )}
@@ -664,7 +672,10 @@ export default function Demo() {
           }}
         />
       )}
-      {modal && modal.kind !== "materialTransfer" && (
+      {modal?.kind === "allocate" && (
+        <BagAllocationForm db={db} lotId={modal.lotId} date={date} onClose={() => setModal(null)} onSaved={() => { setToast("จัดสรรถุงเนื้อไปสาขาแล้ว"); setModal(null); }} />
+      )}
+      {modal && !["materialTransfer", "allocate"].includes(modal.kind) && (
         <EntryForm
           key={`${modal.kind}-${modal.lotId}`}
           db={db}
@@ -689,12 +700,12 @@ export default function Demo() {
           <section
             role="dialog"
             aria-modal="true"
-            aria-label="คืนข้อมูลตัวอย่าง"
+            aria-label="เริ่มเดโมใหม่"
             className="reset-panel"
           >
-            <h2>คืนข้อมูลตัวอย่าง?</h2>
+            <h2>เริ่มเดโมใหม่?</h2>
             <p>
-              การแก้ไขที่ทดลองไว้จะถูกแทนด้วยข้อมูลตัวอย่าง 7 วัน
+              ลบเฉพาะข้อมูลเดโมชุดนี้ในเบราว์เซอร์
               ควรส่งออกก่อนหากต้องการเก็บไว้
             </p>
             <div className="button-row">
@@ -708,13 +719,13 @@ export default function Demo() {
                     saveDatabase(structuredClone(demoInitialDatabase));
                     setChosen("");
                     setReset(false);
-                    setToast("คืนข้อมูลตัวอย่าง 7 วันแล้ว");
+                    setToast("เริ่มชุดข้อมูลใหม่แล้ว");
                   } catch {
                     setToast("บันทึกไม่ได้ กรุณาตรวจพื้นที่จัดเก็บเบราว์เซอร์");
                   }
                 }}
               >
-                ยืนยันคืนข้อมูล
+                ยืนยันเริ่มใหม่
               </button>
             </div>
           </section>
@@ -724,6 +735,28 @@ export default function Demo() {
   );
 }
 
+function BagAllocationForm({ db, lotId, date, onClose, onSaved }: { db: Database; lotId: string; date: string; onClose: () => void; onSaved: () => void }) {
+  const bags = availableBags(db, lotId);
+  const [destinations, setDestinations] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      let next = latestDatabase();
+      let count = 0;
+      for (const branchName of branches) {
+        const selected = bags.filter((bag) => destinations[bag.id] === branchName);
+        if (!selected.length) continue;
+        next = mutate(next, "owner", "allocate", { branch: branchName, bagIds: selected.map((bag) => bag.id).join(","), deliveryDate: date }, lotId, date);
+        count += selected.length;
+      }
+      if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 ถุง");
+      saveDatabase(next);
+      onSaved();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "จัดสรรไม่สำเร็จ"); }
+  }
+  return <div className="modal-backdrop"><section className="form-dialog" role="dialog" aria-modal="true"><header><div><span className="overline">{lotId}</span><h2>จัดสรรถุงเนื้อไปสาขา</h2></div><button type="button" className="icon-button" onClick={onClose}><X /></button></header><form onSubmit={submit}><div className="form-body"><DataTable title="เลือกปลายทางทีละถุง" columns={["ถุง", "น้ำหนัก", "สาขาปลายทาง"]} rows={bags.map((bag, index) => [`ถุงที่ ${index + 1}`, `${fmt(bag.weight)} กก.`, <select key={bag.id} value={destinations[bag.id] || ""} onChange={(event) => setDestinations((current) => ({ ...current, [bag.id]: event.target.value }))}><option value="">ยังไม่จัดสรร</option>{branches.map((name) => <option key={name}>{name}</option>)}</select>])} />{error && <div className="notice warning">{error}</div>}</div><footer><p>เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว</p><button type="button" className="secondary" onClick={onClose}>ยกเลิก</button><button className="primary">บันทึกการจัดสรร</button></footer></form></section></div>;
+}
 function MaterialTransferForm({
   db,
   date,

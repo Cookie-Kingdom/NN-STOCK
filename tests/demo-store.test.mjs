@@ -61,6 +61,7 @@ test("Min Buri buys cooked rice to a 30 kg floor and records carry-over", () => 
 });
 function ready() {
   const s = setup();
+  s.run("owner", "brinePurchase", { supplier: "ผู้ขายน้ำหมัก", quantityMl: "10000", totalCost: "1000" });
   s.run("owner", "purchase", {
     supplier: "Test Foodiva",
     orderedKg: "50",

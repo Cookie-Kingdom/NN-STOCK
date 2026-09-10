@@ -19,7 +19,7 @@ export type Lot = {
   config: Values;
 };
 export type Database = {
-  version: 5;
+  version: 6;
   lots: Lot[];
   entries: Entry[];
   config: Values;
@@ -74,6 +74,7 @@ export const stageAction = [
 ];
 export const titles: Record<string, string> = {
   purchase: "สร้างใบสั่งซื้อ",
+  brinePurchase: "สร้างใบ PO น้ำหมัก",
   dispatch: "ส่งเนื้อไป Chef_house",
   cmReceive: "ยืนยันรับที่ Chef_house",
   prepare: "น้ำหนักก่อนสโมค",
@@ -104,7 +105,7 @@ export const titles: Record<string, string> = {
   void: "ยกเลิกรายการ",
 };
 export const seed: Database = {
-  version: 5,
+  version: 6,
   lots: [],
   entries: [],
   config: {
@@ -120,6 +121,7 @@ export const seed: Database = {
     cookedRicePar: "30",
     cookedRiceUnitPrice: "45",
     brinePrice: "40",
+    brineOpeningMl: "0",
     smokeRate: "60",
     outboundFee: "1200",
     returnFee: "1200",
@@ -166,6 +168,25 @@ export function produced(db: Database, lotId: string) {
 export function producedBags(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "packCount");
 }
+export type StockBag = { id: string; weight: number };
+export function availableBags(db: Database, lotId: string): StockBag[] {
+  let bags = entries(db, "smoke", lotId).flatMap((entry) =>
+    (entry.values.packs || "").split(/[,\s]+/).filter(Boolean).map((weight, index) => ({
+      id: `${entry.id}:${index + 1}`,
+      weight: Number(weight),
+    })),
+  ).filter((bag) => Number.isFinite(bag.weight) && bag.weight > 0);
+  for (const allocation of entries(db, "allocate", lotId)) {
+    const ids = (allocation.values.bagIds || "").split(",").filter(Boolean);
+    bags = ids.length
+      ? bags.filter((bag) => !ids.includes(bag.id))
+      : bags.slice(Math.max(0, n(allocation.values, "bags")));
+  }
+  return bags;
+}
+export function brineStockMl(db: Database) {
+  return n(db.config, "brineOpeningMl") + sum(entries(db, "brinePurchase"), "quantityMl") - sum(entries(db, "smoke"), "brineMl");
+}
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
@@ -177,7 +198,7 @@ export function centralStock(db: Database, lotId: string) {
   );
 }
 export function centralBagStock(db: Database, lotId: string) {
-  return producedBags(db, lotId) - sum(entries(db, "allocate", lotId), "bags");
+  return availableBags(db, lotId).length;
 }
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
@@ -349,6 +370,7 @@ export function visibleEntries(db: Database, role: Role) {
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
+  brinePurchase: "owner",
   dispatch: "owner",
   cmReceive: "cm",
   prepare: "cm",
@@ -454,6 +476,11 @@ export function mutate(
       config: { ...db.config },
     };
     next.lots.push(lot);
+  } else if (kind === "brinePurchase") {
+    required(v, "supplier", "ผู้จำหน่ายน้ำหมัก");
+    positive(v, "quantityMl", "ปริมาณน้ำหมัก");
+    positive(v, "totalCost", "ราคารวม", true);
+    v.poNumber = `PO-BRINE-${date.replaceAll("-", "")}-${entries(db, "brinePurchase").length + 1}`;
   } else if (kind === "dispatch" && lot) {
     positive(v, "dispatchKg", "น้ำหนักส่ง");
     required(v, "pickupDate", "วันรับ");
@@ -496,6 +523,7 @@ export function mutate(
     const brineMl = n(v, "brineMl") || n(v, "brineKg") * 1000;
     assert(brineMl >= 0, "น้ำหมักต้องไม่ติดลบ");
     v.brineMl = String(brineMl);
+    assert(brineMl <= brineStockMl(db), "สต๊อกน้ำหมักไม่พอ กรุณาสร้าง PO น้ำหมักก่อน");
     required(v, "smokeDate", "วันที่สโมค");
     const weights = (v.packs || "")
       .split(/[\s,]+/)
@@ -532,6 +560,14 @@ export function mutate(
     positive(v, "centralKg", "น้ำหนักรับกลาง");
     variance(n(v, "centralKg"), produced(db, lotId), v, false);
   } else if (kind === "allocate") {
+    const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
+    if (selectedBagIds.length) {
+      const available = availableBags(db, lotId);
+      const selected = available.filter((bag) => selectedBagIds.includes(bag.id));
+      assert(selected.length === selectedBagIds.length, "มีถุงที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่");
+      v.kg = String(selected.reduce((sum, bag) => sum + bag.weight, 0));
+      v.bags = String(selected.length);
+    }
     positive(v, "kg", "น้ำหนักจัดสรร");
     positive(v, "bags", "จำนวนถุง");
     assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");

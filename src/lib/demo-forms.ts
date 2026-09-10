@@ -80,6 +80,13 @@ export const forms: Record<string, Field[]> = {
     text("reference", "เลขอ้างอิงผู้ขาย", true),
     note,
   ],
+  brinePurchase: [
+    text("supplier", "ผู้จำหน่ายน้ำหมัก"),
+    number("quantityMl", "ปริมาณน้ำหมักที่ซื้อ (มิลลิลิตร)"),
+    number("totalCost", "ราคารวม (บาท)", true),
+    text("reference", "เลขอ้างอิง / ใบเสนอราคา", true),
+    note,
+  ],
   dispatch: [
     date("pickupDate", "วันที่รถรับ"),
     text("origin", "ต้นทาง"),

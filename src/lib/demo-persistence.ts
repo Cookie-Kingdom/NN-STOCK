@@ -15,7 +15,7 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
   if (
     !parsed ||
     typeof version !== "number" ||
-    ![3, 4, 5].includes(version) ||
+    ![3, 4, 5, 6].includes(version) ||
     !Array.isArray(parsed.entries) ||
     !Array.isArray(parsed.lots)
   )
@@ -24,7 +24,7 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
   const storedConfig = parsed.config || seed.config;
   return {
     ...parsed,
-    version: 5,
+    version: 6,
     lots: parsed.lots,
     entries:
       version < 5
@@ -56,6 +56,9 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
     config: {
       ...seed.config,
       ...storedConfig,
+      brineOpeningMl: version < 6
+        ? String(storedEntries.filter((entry) => entry.kind === "smoke").reduce((sum, entry) => sum + Number(entry.values.brineMl || Number(entry.values.brineKg || 0) * 1000), 0))
+        : storedConfig.brineOpeningMl || "0",
       ...(version === 3
         ? { packKg: "0.1015", ricePrice: "0", chiliPrice: "30" }
         : {}),
