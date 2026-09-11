@@ -1027,7 +1027,15 @@ function EntryForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const next = mutate(latestDatabase(), role, kind, values, lotId, date);
+      const resolvedValues = { ...values };
+      for (const key of ["origin", "destination"]) {
+        if (resolvedValues[key] === "อื่น ๆ") {
+          const custom = resolvedValues[`${key}Custom`]?.trim();
+          if (!custom) throw new Error(`กรุณาระบุ${key === "origin" ? "ต้นทาง" : "ปลายทาง"}เอง`);
+          resolvedValues[key] = custom;
+        }
+      }
+      const next = mutate(latestDatabase(), role, kind, resolvedValues, lotId, date);
       saveDatabase(next);
       onSaved(next);
     } catch (err) {
@@ -1162,6 +1170,24 @@ function EntryForm({
                         <option key={o}>{o}</option>
                       ))}
                     </select>
+                  ) : f.type === "location" ? (
+                    <>
+                      <select
+                        value={values[f.key] || ""}
+                        required
+                        onChange={(e) => set(f.key, e.target.value)}
+                      >
+                        {f.options!.map((o) => <option key={o}>{o}</option>)}
+                      </select>
+                      {values[f.key] === "อื่น ๆ" && (
+                        <input
+                          autoFocus
+                          placeholder="พิมพ์จังหวัด / จุดส่งเอง"
+                          value={values[`${f.key}Custom`] || ""}
+                          onChange={(e) => set(`${f.key}Custom`, e.target.value)}
+                        />
+                      )}
+                    </>
                   ) : f.type === "textarea" ? (
                     <textarea
                       required={!f.optional}

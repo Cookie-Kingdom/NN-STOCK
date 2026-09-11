@@ -2,7 +2,7 @@ import { branches, materials, type Values } from "./demo-store";
 export type Field = {
   key: string;
   label: string;
-  type?: "number" | "text" | "date" | "time" | "textarea" | "select";
+  type?: "number" | "text" | "date" | "time" | "textarea" | "select" | "location";
   options?: string[];
   optional?: boolean;
   hint?: string;
@@ -19,6 +19,12 @@ const text = (key: string, label: string, optional = false): Field => ({
   key,
   label,
   optional,
+});
+const location = (key: string, label: string): Field => ({
+  key,
+  label,
+  type: "location",
+  options: ["เชียงใหม่", "กรุงเทพฯ", "อื่น ๆ"],
 });
 const date = (key: string, label: string): Field => ({
   key,
@@ -89,8 +95,8 @@ export const forms: Record<string, Field[]> = {
   ],
   dispatch: [
     date("pickupDate", "วันที่รถรับ"),
-    text("origin", "ต้นทาง"),
-    text("destination", "ปลายทาง"),
+    location("origin", "ต้นทาง (Origin)"),
+    location("destination", "ปลายทาง (Destination)"),
     {
       key: "trip",
       label: "รูปแบบเที่ยวรถ",
@@ -350,3 +356,4 @@ export function defaults(kind: string, dateValue: string): Values {
             : "";
   return out;
 }
+
