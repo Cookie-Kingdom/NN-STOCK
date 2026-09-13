@@ -1603,6 +1603,86 @@
 .table-section td:not(:first-child) {
   text-align: right;
 }
+.traceability-table > .table-scroll > table {
+  min-width: 1040px;
+}
+.traceability-table > .table-scroll > table th,
+.traceability-table > .table-scroll > table td {
+  text-align: left;
+}
+.traceability-table > .table-scroll > table th:first-child,
+.traceability-table > .table-scroll > table td:first-child {
+  width: 42px;
+  padding-right: 6px;
+  text-align: center;
+}
+.traceability-table > .table-scroll > table td {
+  white-space: normal;
+}
+.trace-expand {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #cfd6ce;
+  border-radius: 5px;
+  background: #fff;
+  color: #476257;
+  font-size: 18px;
+  line-height: 1;
+}
+.trace-expand:hover {
+  background: #eaf2eb;
+}
+.trace-detail-row:hover {
+  background: transparent !important;
+}
+.trace-detail-row > td {
+  padding: 0 !important;
+  text-align: left !important;
+  white-space: normal !important;
+  background: #f8f9f4;
+}
+.trace-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #dfe4dc;
+}
+.trace-detail-heading > div {
+  display: grid;
+  gap: 3px;
+}
+.trace-detail-heading span {
+  color: #738071;
+  font-size: 12px;
+}
+.trace-detail-scroll {
+  overflow-x: auto;
+}
+.trace-detail-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  background: #fffefa;
+}
+.trace-detail-table th,
+.trace-detail-table td {
+  padding: 12px 20px;
+  text-align: left !important;
+  white-space: nowrap !important;
+  border-bottom: 1px solid #e8ebe3;
+}
+.trace-detail-table th {
+  color: #647064;
+  background: #f0f2ec;
+  font-size: 11px;
+}
+.trace-detail-table tr:last-child td {
+  border-bottom: 0;
+}
 .table-section .no-data {
   text-align: center !important;
   color: #7c8477;

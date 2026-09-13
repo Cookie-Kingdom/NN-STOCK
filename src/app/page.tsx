@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import {
   Beef,
   Building2,
@@ -119,7 +119,6 @@ const tabs: { id: Tab; label: string; ownerLabel?: string; icon: typeof Package 
   { id: "po", label: "ใบสั่งซื้อ PO", icon: FilePlus2 },
   { id: "smoke-po", label: "ใบสั่ง PO โรงรมควัน", icon: Factory },
   { id: "invoices", label: "ใบ Invoice", icon: ClipboardList },
-  { id: "documents", label: "เอกสารและ Traceability", icon: ClipboardList },
   { id: "food-diva", label: "PO และสต๊อก Food Diva", icon: Beef },
   { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
   { id: "central-receive", label: "รับเนื้อเข้าสต๊อกกลาง", icon: Warehouse },
@@ -127,6 +126,7 @@ const tabs: { id: Tab; label: string; ownerLabel?: string; icon: typeof Package 
   { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
   { id: "branch-status", label: "ติดตามสาขา", ownerLabel: "จัดสรรเนื้อ และสต๊อกไปสาขา", icon: ListChecks },
   { id: "stock", label: "สต๊อก", ownerLabel: "สต๊อกของทั้งหมด", icon: Package },
+  { id: "documents", label: "เอกสารและ Traceability", icon: ClipboardList },
   { id: "meat-log", label: "Log เนื้อคงเหลือ", icon: Beef },
   { id: "report", label: "รายงาน", icon: BarChart3 },
   { id: "history", label: "ประวัติ", ownerLabel: "Log", icon: History },
@@ -221,20 +221,59 @@ export default function Demo() {
     (item) => entries(db, "foodDivaConfirm", item.id).length > 0 && !entries(db, "smokeOrder", item.id).length,
   ).length;
   const ownerNotifications: { title: string; detail: string; tab: Tab }[] = [
-    ...db.lots
-      .filter((item) => entries(db, "foodDivaConfirm", item.id).length > 0 && !entries(db, "smokeOrder", item.id).length)
-      .map((item) => ({
+    ...db.lots.flatMap((item) => {
+      const foodInvoice = entries(db, "foodDivaConfirm", item.id).at(-1);
+      const smokeOrder = entries(db, "smokeOrder", item.id).at(-1);
+      const accepted = entries(db, "smokeOrderAccept", item.id).at(-1);
+      const smokeInvoice = entries(db, "smokingInvoice", item.id).at(-1);
+      if (!foodInvoice) return [{
+        title: `รอ Food Diva ออก Invoice · ${item.id}`,
+        detail: "ติดตาม Food Diva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
+        tab: "po" as Tab,
+      }];
+      if (!smokeOrder) return [{
         title: `Food Diva ออก Invoice แล้ว · ${item.id}`,
-        detail: `ออก PO โรงรมควันต่อ · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, item.id))} กก.`,
+        detail: `Owner ต้องออก PO โรงรมควันต่อ · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, item.id))} กก.`,
         tab: "smoke-po" as Tab,
-      })),
-    ...entries(db, "smokingInvoice")
-      .filter((invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด")
-      .map((invoice) => ({
-        title: `รอตรวจ Invoice ค่ารมควัน · ${invoice.values.invoiceNumber}`,
-        detail: `ตรวจยอด Lot ${invoice.lotId} ก่อนชำระและเรียกรถ`,
+      }];
+      if (!accepted) return [{
+        title: `รอ Chef_house ยืนยัน PO โรงรมควัน · ${item.id}`,
+        detail: "Chef_house ต้องกดยืนยันรับ PO ก่อน Owner เรียกรถส่งเนื้อ",
+        tab: "smoke-po" as Tab,
+      }];
+      if (!smokeInvoice) return [{
+        title: `รอ Chef_house Submit Invoice ค่ารมควัน · ${item.id}`,
+        detail: "รอเลข Invoice และไฟล์แนบเพื่อให้ Owner ตรวจยอด",
         tab: "invoices" as Tab,
-      })),
+      }];
+      const invoiceStatus = smokingInvoiceStatus(db, smokeInvoice);
+      if (invoiceStatus === "รอตรวจยอด") return [{
+        title: `รอตรวจ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
+        detail: `ตรวจยอด Lot ${item.id} ก่อนชำระและเรียกรถ`,
+        tab: "invoices" as Tab,
+      }];
+      if (invoiceStatus === "รอชำระ") return [{
+        title: `รอชำระ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
+        detail: `ชำระเงิน Lot ${item.id} ก่อนทำใบขนส่งขาไป`,
+        tab: "invoices" as Tab,
+      }];
+      if (invoiceStatus === "ส่งกลับแก้ไข") return [{
+        title: `รอ Chef_house แก้ Invoice · ${smokeInvoice.values.invoiceNumber}`,
+        detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef_house Submit ใหม่",
+        tab: "invoices" as Tab,
+      }];
+      if (item.stage === 1) return [{
+        title: `พร้อมทำใบขนส่งไป Chef_house · ${item.id}`,
+        detail: `เรียกรถรับเนื้อพร้อมส่ง ${fmt(readyForChefHouse(db, item.id))} กก.`,
+        tab: "transport" as Tab,
+      }];
+      if (item.stage === 7 && !entries(db, "foodDivaReturnReceive", item.id).length) return [{
+        title: `รอ Food Diva รับเนื้อรมควัน · ${item.id}`,
+        detail: "ติดตาม Food Diva ให้ชั่งรับเนื้อจาก Chef_house เข้าตู้",
+        tab: "transport" as Tab,
+      }];
+      return [];
+    }),
     ...ownerReturnReady.map((item) => ({
       title: `Chef_house ปิด Lot แล้ว · ${item.id}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} ถุง`,
@@ -670,13 +709,7 @@ export default function Demo() {
             <SmokingPurchaseOrderView db={db} open={open} />
           )}
           {tab === "documents" && role === "owner" && (
-            <SimpleTraceabilityView
-              db={db}
-              onNavigate={(nextTab, nextRole = "owner") => {
-                if (nextRole !== role) changeRole(nextRole);
-                setTab(nextTab);
-              }}
-            />
+            <SimpleTraceabilityView db={db} />
           )}
           {tab === "transport" && role === "owner" && (
             <TransportManifestView db={db} open={open} />
@@ -3406,24 +3439,17 @@ function InvoiceView({ db, open }: { db: Database; open: (kind: string, lotId?: 
   );
 }
 
-function SimpleTraceabilityView({
-  db,
-  onNavigate,
-}: {
-  db: Database;
-  onNavigate: (tab: Tab, role?: Role) => void;
-}) {
+function SimpleTraceabilityView({ db }: { db: Database }) {
   const [referenceType, setReferenceType] = useState<DocumentReferenceType>("po");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [expandedLot, setExpandedLot] = useState<string | null>(null);
   const visibleLots = db.lots.filter((lot) =>
     matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
   );
-  const link = (label: string, tab: Tab, role?: Role) => (
-    <button type="button" className="table-action" onClick={() => onNavigate(tab, role)}>
-      {label}
-    </button>
+  const preview = (title: string, number: string, rows: [string, string][]) => (
+    <DocumentPrintButton title={title} number={number} rows={rows} label="พรีวิว / PDF" preview />
   );
   return (
     <div className="settings-stack document-module">
@@ -3449,56 +3475,90 @@ function SimpleTraceabilityView({
         onToDate={setToDate}
       />
 
-      <DataTable
-        title="สรุปเส้นทางเอกสารตาม Lot"
-        columns={[
-          "PO / Lot",
-          "วันที่ PO / Lot",
-          "Invoice Food Diva",
-          "PO รมควัน",
-          "Invoice Chef_house",
-          "ขนส่งไป Chef_house",
-          "รับที่ Chef_house",
-          "ผลผลิตหลังรม",
-          "ส่งกลับ Food Diva",
-          "สถานะล่าสุด",
-        ]}
-        rows={visibleLots.map((lot) => {
-          const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
-          const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
-          const chefInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
-          const dispatch = entries(db, "dispatch", lot.id).at(-1);
-          const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
-          const returnTrip = entries(db, "return", lot.id).at(-1);
-
-          return [
-            <span key="lot">{link(lot.poId, "po")}<br />{lot.id}</span>,
-            lotIssueDate(db, lot),
-            foodInvoice
-              ? <span key="food-invoice">{link(foodInvoice.values.invoiceNo, "invoices")} · {fmt(n(foodInvoice.values, "confirmedKg"))} กก.</span>
-              : link("รอ Food Diva", "food-diva", "fooddiva"),
-            smokeOrder
-              ? <span key="smoke-po">{link(smokeOrder.values.orderNumber, "smoke-po")} · {fmt(n(smokeOrder.values, "rawKg"))} กก.</span>
-              : link("รอ Owner ออก PO", "smoke-po"),
-            chefInvoice
-              ? <span key="chef-invoice">{link(chefInvoice.values.invoiceNumber, "invoices")} · {smokingInvoiceStatus(db, chefInvoice)}</span>
-              : link("รอ Chef_house Submit", "work", "cm"),
-            dispatch
-              ? <span key="dispatch">{link(dispatch.values.pickupDate || dispatch.date, "transport")} · {fmt(n(dispatch.values, "dispatchKg"))} กก.</span>
-              : link("รอขนส่ง", "transport"),
-            chefReceive
-              ? link(`${fmt(n(chefReceive.values, "receivedKg"))} กก.`, "work", "cm")
-              : link("รอยืนยันรับ", "cm-receive", "cm"),
-            produced(db, lot.id)
-              ? link(`${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง`, "work", "cm")
-              : link("รอผลิต", "work", "cm"),
-            returnTrip
-              ? <span key="return">{link(returnTrip.values.returnDate || returnTrip.date, "transport")} · {fmt(n(returnTrip.values, "returnKg"))} กก.</span>
-              : link("รอส่งกลับ", "transport"),
-            link(stages[lot.stage], "history"),
-          ];
-        })}
-      />
+      <section className="table-section traceability-table">
+        <div className="table-title">
+          <div><h2>ทะเบียนเอกสารตาม Lot</h2><span>{visibleLots.length} รายการ</span></div>
+          <span className="muted">กด ดู เพื่อเปิดเส้นทางเอกสาร</span>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th aria-label="ขยายรายละเอียด" />
+                <th>สถานะ</th>
+                <th>เลข PO / Lot</th>
+                <th>วันที่ออก PO</th>
+                <th>เอกสารล่าสุด</th>
+                <th>เส้นทางล่าสุด</th>
+                <th>ผู้ดำเนินการล่าสุด</th>
+                <th>การทำงาน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleLots.length ? visibleLots.map((lot) => {
+                const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+                const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
+                const chefInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
+                const dispatch = entries(db, "dispatch", lot.id).at(-1);
+                const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
+                const returnTrip = entries(db, "return", lot.id).at(-1);
+                const smokeEntries = entries(db, "smoke", lot.id);
+                const latest = [returnTrip, chefReceive, dispatch, chefInvoice, smokeOrder, foodInvoice].find(Boolean);
+                const latestDocument = returnTrip
+                  ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
+                  : chefInvoice
+                    ? `Invoice Chef_house · ${chefInvoice.values.invoiceNumber}`
+                    : smokeOrder
+                      ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
+                      : foodInvoice
+                        ? `Invoice Food Diva · ${foodInvoice.values.invoiceNo}`
+                        : "รอ Invoice Food Diva";
+                const route = returnTrip
+                  ? "Chef_house → Food Diva"
+                  : lot.stage >= 2 && lot.stage <= 5
+                    ? "Food Diva → Chef_house"
+                    : lot.stage >= 6
+                      ? "Chef_house → Food Diva"
+                      : "Food Diva · รอเริ่มขนส่ง";
+                const detailRows: [string, ReactNode, string, string, ReactNode][] = [
+                  ["PO เนื้อ", lot.poId, lotIssueDate(db, lot), "ออกแล้ว", preview("Purchase Order", lot.poId, purchaseOrderRows(lot, db))],
+                  ["Invoice Food Diva", foodInvoice?.values.invoiceNo || "—", foodInvoice?.values.invoiceDate || "—", foodInvoice ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.` : "รอ Food Diva", foodInvoice ? preview("Invoice Food Diva", foodInvoice.values.invoiceNo || lot.poId, [["วันที่ Invoice", foodInvoice.values.invoiceDate], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["น้ำหนักยืนยัน", `${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`], ["ยอด Invoice", `฿${fmt(n(foodInvoice.values, "invoiceAmount"))}`], ["ผู้ยืนยัน", foodInvoice.values.confirmedBy || "—"]]) : "—"],
+                  ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—", smokeOrder?.date || "—", smokeOrder ? `${fmt(n(smokeOrder.values, "rawKg"))} กก.` : "รอ Owner ออก PO", smokeOrder ? preview("Smoke Service Purchase Order", smokeOrder.values.orderNumber || lot.poId, [["วันที่ PO", smokeOrder.date], ["Supplier", smokeOrder.values.smoker || "Chef_house"], ["ลูกค้า", lot.values.customerName], ["ที่อยู่", lot.values.customerAddress], ["Attention", lot.values.attention], ["โทร.", lot.values.phone], ["Tax ID", lot.values.taxId], ["สินค้า", "บริการรมควันเนื้อ"], ["ขนาดบรรจุ", "—"], ["จำนวน", `${fmt(n(smokeOrder.values, "rawKg"))} กก.`], ["ราคา / กก.", `฿${fmt(n(smokeOrder.values, "serviceRate"))}`], ["ยอดรวมก่อน VAT", `฿${fmt(n(smokeOrder.values, "estimatedCost"))}`], ["Lot เนื้อ", lot.id], ["ผู้รับออเดอร์", smokeOrder.values.contactName || "—"], ["ที่อยู่ผู้ให้บริการ", smokeOrder.values.address || "—"], ["Food Diva Invoice", foodInvoice?.values.invoiceNo || "รอระบุ"], ["กำหนดเสร็จ", smokeOrder.values.expectedFinishedDate || "—"], ["หมายเหตุ", smokeOrder.values.instruction || "—"]]) : "—"],
+                  ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—", chefInvoice?.values.invoiceDate || "—", chefInvoice ? smokingInvoiceStatus(db, chefInvoice) : "รอ Chef_house Submit", chefInvoice ? preview("Invoice Chef_house", chefInvoice.values.invoiceNumber || lot.poId, [["วันที่ Invoice", chefInvoice.values.invoiceDate], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Lot เนื้อ", lot.id], ["ผู้ให้บริการ", chefInvoice.values.serviceProvider || "Chef_house"], ["น้ำหนักคิดค่าบริการ", `${fmt(n(chefInvoice.values, "serviceQuantity"))} กก.`], ["ยอดสุทธิ", `฿${fmt(n(chefInvoice.values, "netPayable"))}`], ["สถานะ", smokingInvoiceStatus(db, chefInvoice)]]) : "—"],
+                  ["ใบขนส่งไป Chef_house", dispatch?.values.transferNumber || "—", dispatch?.values.pickupDate || "—", dispatch ? `${fmt(n(dispatch.values, "dispatchKg"))} กก.` : "รอเรียกรถ", dispatch ? preview("ใบขนส่งเนื้อขาไป", dispatch.values.transferNumber || lot.id, [["วันที่รถรับ", dispatch.values.pickupDate || dispatch.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", dispatch.values.origin], ["ปลายทาง", dispatch.values.destination], ["น้ำหนักส่ง", `${fmt(n(dispatch.values, "dispatchKg"))} กก.`], ["ประเภทรถ", dispatch.values.vehicleType || "—"], ["ทะเบียนรถ", dispatch.values.plate || "—"], ["คนขับ", dispatch.values.driverName || "—"], ["เบอร์ติดต่อ", dispatch.values.driverPhone || "—"]]) : "—"],
+                  ["รับที่ Chef_house", chefReceive ? `${fmt(n(chefReceive.values, "receivedKg"))} กก.` : "—", chefReceive?.date || "—", chefReceive ? "รับแล้ว" : "รอยืนยันรับ", chefReceive ? preview("ใบยืนยันรับเนื้อ Chef_house", `RCV-${lot.id}`, [["PO", lot.poId], ["Lot เนื้อ", lot.id], ["วันที่รับ", chefReceive.date], ["เวลาถึง", chefReceive.values.arrival], ["น้ำหนักรับจริง", `${fmt(n(chefReceive.values, "receivedKg"))} กก.`], ["หมายเหตุ", chefReceive.values.note || "—"]]) : "—"],
+                  ...smokeEntries.map((entry) => [
+                    "Lot สโมครายวัน",
+                    entry.values.subLot || "—",
+                    entry.values.smokeDate || entry.date,
+                    `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "outputKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} ถุง`,
+                    preview("บันทึก Lot สโมครายวัน", entry.values.subLot || entry.id, [["Lot หลัก", lot.id], ["Lot สโมค", entry.values.subLot || "—"], ["วันที่สโมค", entry.values.smokeDate || entry.date], ["น้ำหนักเข้าเตา", `${fmt(n(entry.values, "inputKg"))} กก.`], ["น้ำหนักหลังรม", `${fmt(n(entry.values, "outputKg"))} กก.`], ["น้ำหนัก Waste", `${fmt(n(entry.values, "wasteKg"))} กก.`], ["จำนวนถุง", `${entry.values.packCount || "0"} ถุง`], ["น้ำหนักถุง", entry.values.packs || "—"]]),
+                  ] as [string, ReactNode, string, string, ReactNode]),
+                  ["ผลผลิตหลังรม", produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง` : "—", produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต", produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef_house", smokeEntries.length ? preview("สรุปผลผลิตหลังรม", `YIELD-${lot.id}`, [["PO", lot.poId], ["Lot เนื้อ", lot.id], ["จำนวน Lot สโมค", `${smokeEntries.length} รอบ`], ["น้ำหนักเข้าเตารวม", `${fmt(processed(db, lot.id))} กก.`], ["น้ำหนักหลังรมรวม", `${fmt(produced(db, lot.id))} กก.`], ["จำนวนถุง", `${producedBags(db, lot.id)} ถุง`], ["Waste รวม", `${fmt(processLoss(db, lot.id))} กก.`]]) : "—"],
+                  ["ใบขนส่งกลับ Food Diva", returnTrip?.values.transferNumber || "—", returnTrip?.values.returnDate || "—", returnTrip ? `${fmt(n(returnTrip.values, "returnKg"))} กก.` : "รอเรียกรถกลับ", returnTrip ? preview("ใบขนส่งเนื้อขากลับ", returnTrip.values.transferNumber || lot.id, [["วันที่รถรับ", returnTrip.values.returnDate || returnTrip.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", returnTrip.values.origin], ["ปลายทาง", returnTrip.values.destination], ["น้ำหนักส่ง", `${fmt(n(returnTrip.values, "returnKg"))} กก.`], ["ประเภทรถ", returnTrip.values.vehicleType || "—"], ["ทะเบียนรถ", returnTrip.values.plate || "—"], ["คนขับ", returnTrip.values.driverName || "—"], ["เบอร์ติดต่อ", returnTrip.values.driverPhone || "—"]]) : "—"],
+                ];
+                const isOpen = expandedLot === lot.id;
+                return <Fragment key={lot.id}>
+                  <tr>
+                    <td><button type="button" className="trace-expand" aria-label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`} onClick={() => setExpandedLot((current) => current === lot.id ? null : lot.id)}>{isOpen ? "−" : "+"}</button></td>
+                    <td><span className={lot.stage >= 8 ? "badge success" : "badge danger"}>{stages[lot.stage]}</span></td>
+                    <td><strong>{lot.poId}</strong><br /><span className="muted">{lot.id}</span></td>
+                    <td>{lotIssueDate(db, lot)}</td>
+                    <td>{latestDocument}</td>
+                    <td>{route}</td>
+                    <td>{latest ? roleName[latest.role] : "Owner"}</td>
+                    <td><button type="button" className="table-action" onClick={() => setExpandedLot((current) => current === lot.id ? null : lot.id)}>{isOpen ? "ซ่อน" : "ดู"}</button></td>
+                  </tr>
+                  {isOpen && <tr className="trace-detail-row"><td colSpan={8}>
+                    <div className="trace-detail-heading"><div><strong>{lot.poId} / {lot.id}</strong><span>ลำดับเอกสารและจุดตรวจสอบย้อนกลับ</span></div>{preview("สรุปเอกสารตาม Lot", `TRACE-${lot.id}`, [["PO", lot.poId], ["Lot", lot.id], ["สถานะล่าสุด", stages[lot.stage]], ["Invoice Food Diva", foodInvoice?.values.invoiceNo || "—"], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—"], ["Lot สโมค", smokeEntries.map((entry) => entry.values.subLot).filter(Boolean).join(", ") || "—"], ["ใบขนส่งขาไป", dispatch?.values.transferNumber || "—"], ["ใบขนส่งขากลับ", returnTrip?.values.transferNumber || "—"]])}</div>
+                    <div className="trace-detail-scroll"><table className="trace-detail-table"><thead><tr><th>เอกสาร / ขั้นตอน</th><th>เลขอ้างอิง</th><th>วันที่</th><th>สถานะ / น้ำหนัก</th><th>เอกสาร</th></tr></thead><tbody>{detailRows.map(([type, number, documentDate, status, action], index) => <tr key={`${type}-${index}`}><td>{type}</td><td>{number}</td><td>{documentDate}</td><td>{status}</td><td>{action}</td></tr>)}</tbody></table></div>
+                  </td></tr>}
+                </Fragment>;
+              }) : <tr><td className="no-data" colSpan={8}>ยังไม่มีเอกสารตามเงื่อนไขที่เลือก</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <p className="footnote">
         หน้านี้อ่านอย่างเดียวและไม่เปลี่ยนข้อมูลใด ๆ ทุกขั้นตอนยังทำจากเมนู PO, ใบ Invoice,
@@ -4229,7 +4289,7 @@ function OwnerStockView({
       (genre === "ทั้งหมด" || row.genre === genre) &&
       (location === "ทั้งหมด" || row.location === location) &&
       (itemFilter === "ทั้งหมด" ||
-        (genre === "เนื้อ" ? row.meatType === itemFilter : row.item === itemFilter)),
+        row.meatType === itemFilter || row.item === itemFilter),
   );
   const purchases = [
     ...entries(db, "materialReceive").map((entry) => ({
@@ -4272,7 +4332,12 @@ function OwnerStockView({
   ];
   const itemOptions = genre === "เนื้อ"
     ? meatTypeOptions
-    : Array.from(new Set(rows.filter((row) => genre === "ทั้งหมด" || row.genre === genre).map((row) => row.item))).sort((a, b) => a.localeCompare(b, "th"));
+    : Array.from(new Set([
+      ...(genre === "ทั้งหมด" ? meatTypeOptions : []),
+      ...rows
+        .filter((row) => row.genre !== "เนื้อ" && (genre === "ทั้งหมด" || row.genre === genre))
+        .map((row) => row.item),
+    ])).sort((a, b) => a.localeCompare(b, "th"));
   return (
     <div className="settings-stack">
       <DataTable
@@ -4280,7 +4345,7 @@ function OwnerStockView({
         action={
           <div className="table-filters">
             <label className="table-filter">กลุ่มสต๊อก<select value={genre} onChange={(event) => { setGenre(event.target.value); setItemFilter("ทั้งหมด"); }}><option>ทั้งหมด</option><option>เนื้อ</option><option>วัตถุดิบ</option><option>วัสดุบรรจุภัณฑ์</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
-            <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : genre === "ทั้งหมด" ? "รายการ / ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
             <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Food Diva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
           </div>
         }
