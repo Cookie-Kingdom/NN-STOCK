@@ -2,10 +2,11 @@ import { branches, materials, type Values } from "./demo-store";
 export type Field = {
   key: string;
   label: string;
-  type?: "number" | "text" | "date" | "time" | "textarea" | "select" | "location";
+  type?: "number" | "text" | "date" | "time" | "textarea" | "select" | "location" | "file";
   options?: string[];
   optional?: boolean;
   hint?: string;
+  accept?: string;
   integer?: boolean;
   zero?: boolean;
 };
@@ -49,16 +50,23 @@ const note: Field = {
 };
 export const forms: Record<string, Field[]> = {
   materialReceive: [
+    date("purchaseDate", "วันที่ซื้อวัสดุ"),
     {
       key: "material",
-      label: "วัสดุที่รับเข้าคลัง (Material)",
+      label: "วัสดุที่ซื้อเข้าคลัง (Material)",
       type: "select",
       options: materials,
     },
-    number("quantity", "จำนวนรับเข้าคลัง Owner · ชิ้น", false, true),
-    number("unitPrice", "ราคาต่อหน่วย · บาท/ชิ้น", true),
+    number("quantity", "จำนวนที่ซื้อ · ชิ้น", false, true),
+    number("unitPrice", "ราคาซื้อจริงต่อหน่วย · บาท/ชิ้น", true),
     text("supplier", "ผู้จำหน่าย (Supplier)"),
     text("reference", "เลขอ้างอิง / ใบเสร็จ", true),
+    note,
+  ],
+  ownerWasteReceive: [
+    date("receivedDate", "วันที่ Owner รับเนื้อ"),
+    number("receivedKg", "น้ำหนักรับจริง (กก.)"),
+    text("receiver", "ผู้รับเนื้อ"),
     note,
   ],
   materialTransfer: [
@@ -80,17 +88,99 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   purchase: [
-    text("supplier", "ผู้ขาย"),
+    text("supplier", "ผู้ขาย · Food Diva"),
+    text("customerName", "ชื่อบริษัท / ลูกค้า"),
+    { key: "customerAddress", label: "ที่อยู่บริษัท / ที่อยู่ออก PO", type: "textarea" },
+    text("attention", "ชื่อผู้ติดต่อ (Attention)"),
+    text("phone", "เบอร์ติดต่อ"),
+    text("taxId", "เลขประจำตัวผู้เสียภาษี"),
+    text("packSize", "ขนาดบรรจุ เช่น 6 ชิ้นต่อถุง"),
+    text("productName", "รายการสินค้า"),
+    text("productCode", "รหัสสินค้า (เก็บหลังบ้าน / ไม่บังคับ)", true),
     number("orderedKg", "น้ำหนักสั่งซื้อ (กก.)"),
     number("price", "ราคาเนื้อ / กก. (บาท)"),
     text("reference", "เลขอ้างอิงผู้ขาย", true),
     note,
   ],
-  brinePurchase: [
-    text("supplier", "ผู้จำหน่ายน้ำหมัก"),
-    number("quantityMl", "ปริมาณน้ำหมักที่ซื้อ (มิลลิลิตร)"),
-    number("totalCost", "ราคารวม (บาท)", true),
-    text("reference", "เลขอ้างอิง / ใบเสนอราคา", true),
+  supplierInvoice: [
+    text("invoiceNumber", "Supplier Invoice Number"),
+    date("invoiceDate", "Invoice Date"),
+    number("quantityKg", "Quantity ตาม Invoice (กก.)"),
+    number("amountBeforeVat", "Amount before VAT (บาท)", true),
+    number("vat", "VAT (บาท)", true),
+    number("totalAmount", "Total Amount (บาท)", true),
+    date("dueDate", "Due Date"),
+    { key: "paymentStatus", label: "สถานะชำระเงิน", type: "select", options: ["Unpaid", "Partial", "Paid"] },
+    { key: "paymentDate", label: "Payment Date", type: "date", optional: true },
+    text("attachment", "Attachment / File URL", true),
+    note,
+  ],
+  taxDocument: [
+    { key: "documentType", label: "ประเภทเอกสาร", type: "select", options: ["Tax Invoice", "Receipt", "Tax Invoice & Receipt"] },
+    text("documentNumber", "เลขที่เอกสาร"),
+    date("documentDate", "วันที่เอกสาร"),
+    number("amount", "Amount (บาท)", true),
+    number("vat", "VAT (บาท)", true),
+    text("attachment", "Attachment / File URL", true),
+    note,
+  ],
+  smokeOrder: [
+    text("smoker", "โรงรม / ผู้ให้บริการ"),
+    number("rawKg", "Raw Meat Quantity (กก.)"),
+    date("requestedSmokeDate", "วันที่ขอรมควัน"),
+    { key: "instruction", label: "คำสั่งพิเศษ", type: "textarea", optional: true },
+    date("expectedFinishedDate", "วันที่คาดว่าจะเสร็จ"),
+  ],
+  smokeOrderAccept: [
+    text("acceptedBy", "ชื่อผู้รับ PO ของ Chef_house"),
+    note,
+  ],
+  smokingInvoice: [
+    text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
+    date("invoiceDate", "วันที่ Invoice"),
+    {
+      key: "attachment",
+      label: "แนบไฟล์ Invoice ค่ารมควัน",
+      type: "file",
+      accept: ".pdf,image/*",
+      hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef_house",
+    },
+    { key: "invoiceDetail", label: "รายละเอียดเพิ่มเติม", type: "textarea", optional: true },
+  ],
+  invoiceReview: [
+    { key: "decision", label: "ผลการตรวจยอด", type: "select", options: ["รับยอด", "ส่งกลับแก้ไข"] },
+    text("reviewedBy", "ชื่อผู้ตรวจ"),
+    { key: "comment", label: "หมายเหตุถึง Chef_house", type: "textarea", optional: true },
+  ],
+  invoicePayment: [
+    date("paymentDate", "วันที่ชำระเงิน"),
+    number("paidAmount", "ยอดชำระ (บาท)"),
+    text("paidBy", "ผู้ดำเนินการชำระ"),
+    text("paymentReference", "เลขอ้างอิงการชำระ", true),
+    note,
+  ],
+  steakTransfer: [
+    date("transferDate", "Transfer Date"),
+    number("quantityKg", "Quantity Out (กก.)"),
+    { key: "reason", label: "เหตุผลโอน", type: "select", options: ["Steak Production", "Other"] },
+    text("transportInfo", "Transport / Delivery Information", true),
+    note,
+  ],
+  foodDivaConfirm: [
+    text("invoiceNo", "เลข Invoice เนื้อ"),
+    date("invoiceDate", "วันที่ Invoice"),
+    number("confirmedKg", "น้ำหนักตาม Invoice (กก.)"),
+    number("readyForChiangMaiKg", "พร้อมส่งไป Chef_house · เชียงใหม่ (กก.)"),
+    number("reservedForOwnerKg", "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", true),
+    number("invoiceAmount", "ยอดรวม Invoice (บาท)", true),
+    {
+      key: "attachment",
+      label: "อัปโหลด Invoice เนื้อ",
+      type: "file",
+      accept: ".pdf,image/*",
+      hint: "เลือกไฟล์ PDF หรือรูปภาพของ Invoice",
+    },
+    text("confirmedBy", "ชื่อผู้ยืนยันจาก Food Diva"),
     note,
   ],
   dispatch: [
@@ -103,21 +193,24 @@ export const forms: Record<string, Field[]> = {
       type: "select",
       options: ["เที่ยวเดียว", "ไปกลับ"],
     },
-    text("vehicle", "ทะเบียนรถ / ผู้ขนส่ง"),
+    { key: "pickupTime", label: "เวลารถรับ", type: "time" },
+    text("vehicleType", "ประเภทรถ"),
+    text("plate", "ทะเบียนรถ"),
+    text("driverName", "ชื่อคนขับ"),
+    text("driverPhone", "เบอร์ติดต่อคนขับ"),
     number("dispatchKg", "น้ำหนักที่ส่งเที่ยวนี้ (กก.)"),
     note,
   ],
   cmReceive: [
     { key: "arrival", label: "เวลาที่รถมาถึง", type: "select", options: arrivalTimes },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
-    reason,
     note,
   ],
   prepare: [number("preKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
   smoke: [
     date("smokeDate", "วันที่สโมค"),
     number("inputKg", "น้ำหนักเข้าเตารอบนี้ (กก.)"),
-    number("brineMl", "น้ำหมักที่ใช้ (มิลลิลิตร)", true),
+    number("wasteKg", "น้ำหนัก Waste (กก.)", true),
     {
       key: "packs",
       label: "น้ำหนักถุงใหญ่จาก Chef_house (กก./ถุง)",
@@ -128,8 +221,23 @@ export const forms: Record<string, Field[]> = {
   ],
   closeLot: [text("confirm", "ชื่อผู้ยืนยันปิด Lot"), note],
   return: [
-    date("returnDate", "วันที่นัดรับขากลับ"),
-    text("returnVehicle", "รถ / ผู้ขนส่งขากลับ"),
+    date("returnDate", "วันที่รถรับจาก Chef_house"),
+    { key: "returnTime", label: "เวลารถรับ", type: "time" },
+    location("origin", "ต้นทาง (Origin)"),
+    location("destination", "ปลายทาง (Destination)"),
+    text("vehicleType", "ประเภทรถ"),
+    text("plate", "ทะเบียนรถ"),
+    text("driverName", "ชื่อคนขับ"),
+    text("driverPhone", "เบอร์ติดต่อคนขับ"),
+    number("returnKg", "น้ำหนักส่งจาก Chef_house (กก.)"),
+    note,
+  ],
+  foodDivaReturnReceive: [
+    date("receivedDate", "วันที่ Food Diva รับเนื้อรมควัน"),
+    { key: "receivedTime", label: "เวลารับ", type: "time" },
+    number("receivedKg", "น้ำหนักรับจริง (กก.)"),
+    number("receivedBags", "จำนวนถุงที่รับ", false, true),
+    reason,
     note,
   ],
   central: [number("centralKg", "น้ำหนักรับสต๊อกกลาง (กก.)"), reason, note],
@@ -147,7 +255,7 @@ export const forms: Record<string, Field[]> = {
     reason,
     note,
   ],
-  thaw: [number("kg", "น้ำหนักละลาย (กก.)"), reason, note],
+  thaw: [number("kg", "น้ำหนักละลาย (กก.)"), number("bags", "จำนวนถุงที่ละลาย", false, true), reason, note],
   supplyPurchase: [
     text("supplier", "ผู้จำหน่าย (Supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
@@ -185,6 +293,18 @@ export const forms: Record<string, Field[]> = {
     number("chiliTubes", "น้ำพริกซื้อเข้า (Chili paste) · หลอด", false, true),
     number("chiliCost", "ยอดซื้อน้ำพริก (Purchase cost) · บาท"),
     text("reference", "เลขที่ใบเสร็จ (Reference)", true),
+    note,
+  ],
+  chiliAllocate: [
+    {
+      key: "branch",
+      label: "สาขาปลายทาง (Destination branch)",
+      type: "select",
+      options: branches,
+    },
+    number("chiliTubes", "จำนวนน้ำพริกที่จัดสรร · หลอด", false, true),
+    text("receiver", "ผู้รับ / ผู้ดูแลสาขา", true),
+    text("reference", "เลขที่อ้างอิงใบส่งของ", true),
     note,
   ],
   supplyIssue: [
@@ -236,6 +356,8 @@ export const forms: Record<string, Field[]> = {
     number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
     number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
+    number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด", true, true),
+    { key: "chiliRemark", label: "หมายเหตุเมื่อน้ำพริกไม่ตรง", type: "textarea", optional: true },
     number("soldKg", "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
     number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
     number("riceWasteKg", "Waste ข้าว (กก.)", true),
@@ -322,8 +444,6 @@ export const forms: Record<string, Field[]> = {
       "ราคาต่อหน่วยข้าวเหนียวสุก (Cooked rice unit price) · บาท/กก.",
       true,
     ),
-    number("brinePrice", "ค่าหมัก (Brining cost) · บาท/กก.", true),
-    number("smokeRate", "ค่ารมควัน (Smoking fee) · บาท/กก.", true),
     number("outboundFee", "ค่าขนส่งขาไป (Outbound delivery fee) · บาท", true),
     number("returnFee", "ค่าขนส่งขากลับ (Return delivery fee) · บาท", true),
     number("roundFee", "ค่าขนส่งไป-กลับ (Round-trip fee) · บาท", true),
@@ -354,6 +474,7 @@ export function defaults(kind: string, dateValue: string): Values {
           : f.type === "number" && f.zero
             ? "0"
             : "";
+  if (kind === "dispatch") Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
+  if (kind === "return") Object.assign(out, { origin: "เชียงใหม่", destination: "กรุงเทพฯ" });
   return out;
 }
-

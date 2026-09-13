@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   Beef,
   Building2,
@@ -22,40 +22,53 @@ import {
   LayoutDashboard,
   TrendingUp,
   CircleAlert,
+  Bell,
   Warehouse,
 } from "lucide-react";
 import {
   balance,
   availableBags,
-  brineStockMl,
   branchMaterialStock,
   branches,
+  chiliAllocated,
+  chiliSold,
   chiliStock,
   centralBagStock,
   centralStock,
   cookedRiceStock,
   entries,
-  issuedChiliStock,
   issuedRawRiceStock,
   isClosed,
   lotCost,
   materials,
   materialPar,
-  materialSent,
   materialUnitPrice,
   mutate,
   n,
+  ownerChiliStock,
   ownerMaterialStock,
+  ownerWasteOutstanding,
+  ownerWasteReceived,
   processed,
+  processLoss,
   produced,
   producedBags,
   rawRiceStock,
+  rawAtFoodDiva,
+  rawAtSmoker,
+  readyForChefHouse,
   roleName,
+  reservedForOwnerContent,
   seed,
   sevenDayRoleplay,
+  thirtyDayRoleplay,
   stageAction,
   stageRole,
   stages,
+  steakRawStock,
+  smokeServiceRate,
+  smokingInvoiceStatus,
+  averageYield,
   titles,
   visibleEntries,
   type Database,
@@ -67,9 +80,11 @@ import {
 import { defaults, forms } from "@/lib/demo-forms";
 import {
   latestDatabase,
+  migrateLegacyAttachments,
   saveDatabase,
   useDatabase,
 } from "@/lib/demo-persistence";
+import { getAttachment, saveAttachment } from "@/lib/attachment-store";
 import "./demo.css";
 
 const fmt = (x: number) =>
@@ -84,11 +99,16 @@ type Tab =
   | "work"
   | "cm-receive"
   | "po"
+  | "smoke-po"
+  | "invoices"
+  | "documents"
+  | "food-diva"
   | "transport"
   | "central-receive"
   | "branch-status"
   | "branch-summary"
   | "stock"
+  | "meat-log"
   | "day"
   | "report"
   | "history"
@@ -97,12 +117,17 @@ type Modal = { kind: string; lotId: string };
 const tabs: { id: Tab; label: string; ownerLabel?: string; icon: typeof Package }[] = [
   { id: "owner-dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { id: "po", label: "ใบสั่งซื้อ PO", icon: FilePlus2 },
+  { id: "smoke-po", label: "ใบสั่ง PO โรงรมควัน", icon: Factory },
+  { id: "invoices", label: "ใบ Invoice", icon: ClipboardList },
+  { id: "documents", label: "เอกสารและ Traceability", icon: ClipboardList },
+  { id: "food-diva", label: "PO และสต๊อก Food Diva", icon: Beef },
   { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
   { id: "central-receive", label: "รับเนื้อเข้าสต๊อกกลาง", icon: Warehouse },
   { id: "work", label: "งานผลิต", ownerLabel: "ใบสั่งซื้อและ Lot ทั้งหมด", icon: ClipboardList },
   { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
   { id: "branch-status", label: "ติดตามสาขา", ownerLabel: "จัดสรรเนื้อ และสต๊อกไปสาขา", icon: ListChecks },
   { id: "stock", label: "สต๊อก", ownerLabel: "สต๊อกของทั้งหมด", icon: Package },
+  { id: "meat-log", label: "Log เนื้อคงเหลือ", icon: Beef },
   { id: "report", label: "รายงาน", icon: BarChart3 },
   { id: "history", label: "ประวัติ", ownerLabel: "Log", icon: History },
   { id: "config", label: "ตั้งค่า", icon: Settings },
@@ -116,6 +141,13 @@ const roles = [
     label: "Owner",
     detail: "เจ้าของร้าน",
     icon: Building2,
+  },
+  {
+    key: "fooddiva",
+    id: "fooddiva" as Role,
+    label: "Food Diva",
+    detail: "ผู้ขายเนื้อ / ออก Invoice",
+    icon: Beef,
   },
   {
     key: "cm",
@@ -150,34 +182,80 @@ export default function Demo() {
   const [chosen, setChosen] = useState("");
   const [modal, setModal] = useState<Modal | null>(null);
   const [toast, setToast] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
   const [reset, setReset] = useState(false);
   const [search, setSearch] = useState("");
   const branch = db.config.branch;
   const lots = db.lots.filter(
     (l) =>
       role === "owner" ||
-      (role === "cm" && l.stage >= 2) ||
+      role === "fooddiva" ||
+      (role === "cm" && (l.stage >= 2 || entries(db, "smokeOrder", l.id).length > 0)) ||
       (role === "branch" && entries(db, "allocate", l.id, branch).length > 0),
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];
   const open = (kind: string, lotId = lot?.id || "") =>
     setModal({ kind, lotId });
   const closed = isClosed(db, branch, date);
-  const missingMaterialSettings = branches.reduce(
-    (count, branchName) =>
-      count +
-      materials.filter(
-        (_, index) =>
-          materialPar(db, branchName, index) <= 0 ||
-          materialUnitPrice(db, branchName, index) <= 0,
-      ).length,
-    0,
-  );
+  const missingMaterialSettings = materials.filter(
+    (_, index) =>
+      materialPar(db, "ศาลาแดง", index) <= 0 ||
+      materialUnitPrice(db, "ศาลาแดง", index) <= 0,
+  ).length;
   const chefReceiveCount = db.lots.filter((item) => item.stage === 2).length;
-  const chefProductionCount = db.lots.filter((item) => [3, 4, 5].includes(item.stage)).length;
+  const chefProductionCount = db.lots.filter((item) => {
+    const hasSmokeOrder = entries(db, "smokeOrder", item.id).length > 0;
+    const accepted = entries(db, "smokeOrderAccept", item.id).length > 0;
+    const invoice = entries(db, "smokingInvoice", item.id).at(-1);
+    return [3, 4, 5].includes(item.stage) || (hasSmokeOrder && (!accepted || !invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"));
+  }).length;
+  const foodDivaTaskCount = db.lots.filter((item) => !entries(db, "foodDivaConfirm", item.id).length || (item.stage === 7 && !entries(db, "foodDivaReturnReceive", item.id).length)).length;
   const ownerTransportCount = db.lots.filter((item) => item.stage === 1 || item.stage === 6).length;
-  const ownerCentralReceiveCount = db.lots.filter((item) => item.stage === 7).length;
+  const ownerReturnReady = db.lots.filter(
+    (item) => item.stage === 6 && !entries(db, "return", item.id).length,
+  );
+  const ownerCentralReceiveCount = db.lots.filter((item) => item.stage === 7 && entries(db, "foodDivaReturnReceive", item.id).length).length;
   const ownerAllocationCount = db.lots.filter((item) => item.stage >= 8 && centralStock(db, item.id) > 0.001).length;
+  const ownerBillingCount = entries(db, "smokingInvoice").filter((invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด").length;
+  const ownerFoodDivaInvoiceCount = db.lots.filter(
+    (item) => entries(db, "foodDivaConfirm", item.id).length > 0 && !entries(db, "smokeOrder", item.id).length,
+  ).length;
+  const ownerNotifications: { title: string; detail: string; tab: Tab }[] = [
+    ...db.lots
+      .filter((item) => entries(db, "foodDivaConfirm", item.id).length > 0 && !entries(db, "smokeOrder", item.id).length)
+      .map((item) => ({
+        title: `Food Diva ออก Invoice แล้ว · ${item.id}`,
+        detail: `ออก PO โรงรมควันต่อ · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, item.id))} กก.`,
+        tab: "smoke-po" as Tab,
+      })),
+    ...entries(db, "smokingInvoice")
+      .filter((invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด")
+      .map((invoice) => ({
+        title: `รอตรวจ Invoice ค่ารมควัน · ${invoice.values.invoiceNumber}`,
+        detail: `ตรวจยอด Lot ${invoice.lotId} ก่อนชำระและเรียกรถ`,
+        tab: "invoices" as Tab,
+      })),
+    ...ownerReturnReady.map((item) => ({
+      title: `Chef_house ปิด Lot แล้ว · ${item.id}`,
+      detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} ถุง`,
+      tab: "transport" as Tab,
+    })),
+    ...(ownerCentralReceiveCount ? [{
+      title: `Food Diva รับเนื้อรมควันแล้ว ${ownerCentralReceiveCount} Lot`,
+      detail: "รับเนื้อเข้าสต๊อกกลางก่อนจัดสรรไปสาขา",
+      tab: "central-receive" as Tab,
+    }] : []),
+    ...(ownerAllocationCount ? [{
+      title: `มีเนื้อพร้อมจัดสรร ${ownerAllocationCount} Lot`,
+      detail: "เลือกสาขาและจัดสรรเนื้อจากคลังกลาง",
+      tab: "branch-status" as Tab,
+    }] : []),
+    ...(missingMaterialSettings ? [{
+      title: `ตั้งค่าวัสดุยังไม่ครบ ${missingMaterialSettings} รายการ`,
+      detail: "กำหนดจำนวนฐานและราคาต่อหน่วยก่อนใช้งานจริง",
+      tab: "config" as Tab,
+    }] : []),
+  ];
   function changeRole(value: Role, selectedBranch?: string) {
     if (value === "branch" && selectedBranch && selectedBranch !== branch) {
       const current = latestDatabase();
@@ -187,9 +265,10 @@ export default function Demo() {
       });
     }
     setRole(value);
-    setTab(value === "owner" ? "owner-dashboard" : value === "cm" ? "cm-receive" : "day");
+    setTab(value === "owner" ? "owner-dashboard" : value === "fooddiva" ? "food-diva" : value === "cm" ? "cm-receive" : "day");
     setSearch("");
     setToast("");
+    setShowNotifications(false);
   }
   function exported() {
     const data =
@@ -220,6 +299,44 @@ export default function Demo() {
           </div>
         </div>
         <div className="header-actions">
+          {role === "owner" && (
+            <div className="notification-shell">
+              <button
+                type="button"
+                className="bell-button"
+                aria-label={`การแจ้งเตือน ${ownerNotifications.length} รายการ`}
+                aria-expanded={showNotifications}
+                onClick={() => setShowNotifications((value) => !value)}
+              >
+                <Bell size={19} />
+                {ownerNotifications.length > 0 && <span className="notification-count">{ownerNotifications.length}</span>}
+              </button>
+              {showNotifications && (
+                <section className="notification-popover" aria-label="รายการที่ Owner ต้องทำต่อ">
+                  <div className="notification-heading">
+                    <div><strong>การแจ้งเตือน</strong><span>{ownerNotifications.length ? `ต้องทำต่อ ${ownerNotifications.length} รายการ` : "ไม่มีงานค้าง"}</span></div>
+                    <button type="button" className="text-button" onClick={() => setShowNotifications(false)}>ปิด</button>
+                  </div>
+                  {ownerNotifications.length ? (
+                    <div className="notification-list">
+                      {ownerNotifications.map((notification) => (
+                        <button
+                          type="button"
+                          className="notification-item"
+                          key={`${notification.tab}-${notification.title}`}
+                          onClick={() => { setTab(notification.tab); setShowNotifications(false); }}
+                        >
+                          <span className="notification-dot"><CircleAlert size={15} /></span>
+                          <span><strong>{notification.title}</strong><small>{notification.detail}</small></span>
+                          <ArrowRight size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="notification-empty">ยังไม่มีงานที่ต้องทำต่อ</p>}
+                </section>
+              )}
+            </div>
+          )}
           <button className="secondary" onClick={exported}>
             <Download size={16} /> ส่งออก
           </button>
@@ -259,7 +376,9 @@ export default function Demo() {
               .filter(
                 (t) =>
                   role === "owner"
-                    ? !["day", "branch-summary", "work"].includes(t.id)
+                    ? !["day", "branch-summary", "work", "food-diva"].includes(t.id)
+                    : role === "fooddiva"
+                      ? ["food-diva", "history"].includes(t.id)
                     : role === "cm"
                       ? ["cm-receive", "work", "stock", "history"].includes(t.id)
                       : ["day", "stock", "branch-summary", "history"].includes(t.id),
@@ -284,8 +403,14 @@ export default function Demo() {
                   {role === "cm" && t.id === "work" && chefProductionCount > 0 && (
                     <span className="menu-alert">{chefProductionCount}</span>
                   )}
+                  {role === "fooddiva" && t.id === "food-diva" && foodDivaTaskCount > 0 && (
+                    <span className="menu-alert">{foodDivaTaskCount}</span>
+                  )}
                   {role === "owner" && t.id === "transport" && ownerTransportCount > 0 && (
                     <span className="menu-alert">{ownerTransportCount}</span>
+                  )}
+                  {role === "owner" && t.id === "invoices" && ownerBillingCount + ownerFoodDivaInvoiceCount > 0 && (
+                    <span className="menu-alert">{ownerBillingCount + ownerFoodDivaInvoiceCount}</span>
                   )}
                   {role === "owner" && t.id === "central-receive" && ownerCentralReceiveCount > 0 && (
                     <span className="menu-alert">{ownerCentralReceiveCount}</span>
@@ -311,6 +436,8 @@ export default function Demo() {
               <p className="muted">
                 {role === "owner"
                   ? "จัดซื้อ จัดสรร ตั้งค่า และติดตามรายงานของทุกสาขา"
+                  : role === "fooddiva"
+                    ? "รับ PO ออก Invoice เก็บเนื้อรอรถ และยืนยันรับเนื้อรมควันกลับเข้าสต๊อก"
                   : role === "cm"
                     ? "รับเนื้อ ผลิต และส่งมอบสต๊อกกลับส่วนกลาง"
                     : "รับของ บันทึกการใช้ ขาย และปิดยอดประจำวัน"}
@@ -340,11 +467,21 @@ export default function Demo() {
           {role === "owner" && missingMaterialSettings > 0 && tab !== "config" && (
             <div className="notice warning onboarding-notice">
               <span>
-                ตั้งค่าวัสดุยังไม่ครบ {missingMaterialSettings} รายการสาขา
+                ตั้งค่าวัสดุยังไม่ครบ {missingMaterialSettings} รายการ
                 กรุณากำหนดจำนวนฐานและราคาต่อหน่วยก่อนส่งวัสดุครั้งถัดไป
               </span>
               <button className="secondary" onClick={() => setTab("config")}>
                 ไปหน้าตั้งค่า
+              </button>
+            </div>
+          )}
+          {role === "owner" && ownerReturnReady.length > 0 && tab !== "transport" && (
+            <div className="notice danger">
+              <span>
+                งานใหม่จาก Chef_house · ปิด Lot แล้ว {ownerReturnReady.length} รายการ · ต้องเรียกรถขากลับรวม {fmt(ownerReturnReady.reduce((total, item) => total + produced(db, item.id), 0))} กก.
+              </span>
+              <button className="secondary" onClick={() => setTab("transport")}>
+                ไปเรียกรถขากลับ
               </button>
             </div>
           )}
@@ -355,7 +492,13 @@ export default function Demo() {
             </div>
           )}
           {tab === "owner-dashboard" && role === "owner" && (
-            <OwnerDashboard db={db} date={date} />
+            <OwnerDashboard db={db} date={date} onNavigate={setTab} />
+          )}
+          {tab === "food-diva" && role === "fooddiva" && (
+            <FoodDivaView db={db} open={open} />
+          )}
+          {tab === "invoices" && role === "owner" && (
+            <InvoiceView db={db} open={open} />
           )}
           {tab === "cm-receive" && role === "cm" && (
             <ChefReceiveTable db={db} open={open} />
@@ -492,32 +635,48 @@ export default function Demo() {
                 </div>
                 <div className="button-row">
                   <button className="primary" onClick={() => open("purchase", "")}><Plus size={17} /> สร้าง PO เนื้อ</button>
-                  <button className="secondary" onClick={() => open("brinePurchase", "")}><Plus size={17} /> สร้าง PO น้ำหมัก</button>
                 </div>
               </div>
               <DataTable
                 title="รายการใบสั่งซื้อ PO"
-                columns={["เลข PO", "Lot", "ผู้จำหน่าย", "น้ำหนักสั่งซื้อ", "ราคา / กก.", "สถานะ", "การทำงาน"]}
+                columns={["เลข PO", "Lot", "ลูกค้า / Attention", "สินค้า / ขนาดบรรจุ", "น้ำหนักสั่งซื้อ", "Invoice Food Diva", "สถานะ", "การทำงาน"]}
                 rows={db.lots.map((item) => [
                   item.poId,
                   item.id,
-                  item.values.supplier,
+                  `${item.values.customerName || "-"} / ${item.values.attention || "-"}`,
+                  `${item.values.productName || "เนื้อวัว"} / ${item.values.packSize || "-"}`,
                   `${fmt(n(item.values, "orderedKg"))} กก.`,
-                  `฿${fmt(n(item.values, "price"))}`,
+                  entries(db, "foodDivaConfirm", item.id).at(-1)?.values.invoiceNo || "รอยืนยัน",
                   stages[item.stage],
                   item.stage === 1 ? (
-                    <button className="table-action" key={item.id} onClick={() => open("dispatch", item.id)}>
-                      ทำใบขนส่ง
-                    </button>
-                  ) : "ส่งต่อแล้ว",
+                    <div className="button-row" key={item.id}>
+                      {!entries(db, "foodDivaConfirm", item.id).length ? <span className="badge danger">รอ Food Diva ออก Invoice</span>
+                        : !entries(db, "smokeOrder", item.id).length ? <button className="table-action" onClick={() => setTab("smoke-po")}>ไปใบสั่ง PO โรงรมควัน</button>
+                        : !entries(db, "smokeOrderAccept", item.id).length ? <span className="badge danger">รอ Chef_house รับ PO</span>
+                        : !entries(db, "smokingInvoice", item.id).length ? <span className="badge danger">รอ Chef_house Submit ใบวางบิล</span>
+                        : smokingInvoiceStatus(db, entries(db, "smokingInvoice", item.id).at(-1)!) === "รอตรวจยอด" ? <button className="table-action" onClick={() => open("invoiceReview", item.id)}>ตรวจ Invoice เพื่อเรียกรถ</button>
+                        : smokingInvoiceStatus(db, entries(db, "smokingInvoice", item.id).at(-1)!) === "รอชำระ" ? <button className="table-action" onClick={() => open("invoicePayment", item.id)}>ชำระ Invoice เพื่อเรียกรถ</button>
+                        : smokingInvoiceStatus(db, entries(db, "smokingInvoice", item.id).at(-1)!) === "ส่งกลับแก้ไข" ? <span className="badge danger">รอ Chef_house แก้ Invoice</span>
+                        : item.stage === 1 ? <button className="table-action" onClick={() => open("dispatch", item.id)}>เรียกรถ / ทำใบขนส่ง</button>
+                        : "ส่งต่อ Chef_house แล้ว"}
+                      <DocumentPrintButton title="Purchase Order" number={item.poId} rows={purchaseOrderRows(item, db)} />
+                    </div>
+                  ) : <DocumentPrintButton title="Purchase Order" number={item.poId} rows={purchaseOrderRows(item, db)} />,
                 ])}
               />
-              <DataTable
-                title={`ใบ PO น้ำหมัก · คงเหลือ ${fmt(brineStockMl(db))} มล.`}
-                columns={["เลข PO", "วันที่", "ผู้จำหน่าย", "ปริมาณ", "ราคารวม"]}
-                rows={entries(db, "brinePurchase").map((entry) => [entry.values.poNumber, entry.date, entry.values.supplier, `${fmt(n(entry.values, "quantityMl"))} มล.`, `฿${fmt(n(entry.values, "totalCost"))}`])}
-              />
             </>
+          )}
+          {tab === "smoke-po" && role === "owner" && (
+            <SmokingPurchaseOrderView db={db} open={open} />
+          )}
+          {tab === "documents" && role === "owner" && (
+            <SimpleTraceabilityView
+              db={db}
+              onNavigate={(nextTab, nextRole = "owner") => {
+                if (nextRole !== role) changeRole(nextRole);
+                setTab(nextTab);
+              }}
+            />
           )}
           {tab === "transport" && role === "owner" && (
             <TransportManifestView db={db} open={open} />
@@ -549,7 +708,13 @@ export default function Demo() {
                 {role === "owner" && (
                   <div className="button-row">
                     <button className="secondary" onClick={() => open("materialReceive", "")}>
-                      รับวัสดุเข้าคลัง
+                      + ซื้อวัสดุเข้าคลัง
+                    </button>
+                    <button className="secondary" onClick={() => open("generalPurchase", "")}>
+                      + บันทึกการซื้ออื่น ๆ
+                    </button>
+                    <button className="secondary" onClick={() => open("chiliAllocate", "")}>
+                      จัดสรรน้ำพริกไปสาขา
                     </button>
                     <button className="primary" onClick={() => open("materialTransfer", "")}>
                       ส่งวัสดุไปสาขา
@@ -557,27 +722,31 @@ export default function Demo() {
                   </div>
                 )}
               </div>
-              <MeatStockTable
-                db={db}
-                role={role}
-                branch={branch}
-                lots={lots}
-                open={open}
-              />
-              {role !== "cm" && (
-                <SupplyStock
-                  db={db}
-                  branches={role === "owner" ? branches : [branch]}
-                />
-              )}
-              {role !== "cm" && (
-                <MaterialStockTable
-                  db={db}
-                  stockBranches={role === "owner" ? branches : [branch]}
-                  ownerView={role === "owner"}
-                />
+              {role === "owner" ? (
+                <OwnerStockView db={db} lots={lots} open={open} />
+              ) : (
+                <>
+                  <MeatStockTable
+                    db={db}
+                    role={role}
+                    branch={branch}
+                    lots={lots}
+                    open={open}
+                  />
+                  {role !== "cm" && <SupplyStock db={db} branches={[branch]} />}
+                  {role !== "cm" && (
+                    <MaterialStockTable
+                      db={db}
+                      stockBranches={[branch]}
+                      ownerView={false}
+                    />
+                  )}
+                </>
               )}
             </>
+          )}
+          {tab === "meat-log" && role === "owner" && (
+            <MeatMovementLogView db={db} />
           )}
           {tab === "branch-summary" && role === "branch" && (
             <>
@@ -605,7 +774,7 @@ export default function Demo() {
                 disabled={closed || role !== "branch"}
               />
               <DailyTaskTable
-                title="ข้าวเหนียว (Sticky rice)"
+                title={branch === "ศาลาแดง" ? "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง" : "ข้าวเหนียวสุก · ซื้อที่สาขามีนบุรี"}
                 kinds={[
                   "ricePurchase",
                   ...(branch === "ศาลาแดง" ? ["riceIssue"] : []),
@@ -618,16 +787,7 @@ export default function Demo() {
                 hasLots={!!lots.length}
                 open={open}
               />
-              <DailyTaskTable
-                title="น้ำพริกหลอด (Chili tubes)"
-                kinds={["chiliPurchase", "chiliIssue"]}
-                db={db}
-                branch={branch}
-                date={date}
-                disabled={closed || role !== "branch"}
-                hasLots={!!lots.length}
-                open={open}
-              />
+              <ChiliDailySummary db={db} branch={branch} date={date} />
               <DailyTaskTable
                 title="ยอดขายและปิดวัน (Sales & day close)"
                 kinds={["sale", "closeDay"]}
@@ -699,6 +859,29 @@ export default function Demo() {
           }}
         />
       )}
+      {modal?.kind === "materialReceive" && (
+        <MaterialPurchaseForm
+          key={`material-purchase-${date}`}
+          db={db}
+          date={date}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            setToast("บันทึกการซื้อวัสดุแล้ว");
+            setModal(null);
+          }}
+        />
+      )}
+      {modal?.kind === "generalPurchase" && (
+        <GeneralPurchaseForm
+          key={`general-purchase-${date}`}
+          date={date}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            setToast("บันทึกการซื้ออื่น ๆ แล้ว");
+            setModal(null);
+          }}
+        />
+      )}
       {modal?.kind === "allocate" && (
         <BagAllocationForm db={db} lotId={modal.lotId} date={date} onClose={() => setModal(null)} onSaved={() => { setToast("จัดสรรถุงเนื้อไปสาขาแล้ว"); setModal(null); }} />
       )}
@@ -713,7 +896,14 @@ export default function Demo() {
           }}
         />
       )}
-      {modal && !["materialTransfer", "allocate", "chefEdit"].includes(modal.kind) && (
+      {modal?.kind === "smokeOrderPreview" && (
+        <SmokeOrderPreviewDialog
+          db={db}
+          lotId={modal.lotId}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal && !["materialReceive", "generalPurchase", "materialTransfer", "allocate", "chefEdit", "smokeOrderPreview"].includes(modal.kind) && (
         <EntryForm
           key={`${modal.kind}-${modal.lotId}`}
           db={db}
@@ -724,8 +914,8 @@ export default function Demo() {
           onSaved={(next) => {
             setChosen(next.lots.at(-1)?.id || chosen);
             if (modal.kind === "purchase") {
-              setTab("transport");
-              setToast("สร้างใบ PO แล้ว · กรุณาทำใบขนส่งขาไป");
+              setTab("po");
+              setToast("สร้างใบ PO แล้ว · รอ Food Diva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง");
             } else {
               setToast(`บันทึก${titles[modal.kind]}แล้ว`);
             }
@@ -766,6 +956,23 @@ export default function Demo() {
                 }}
               >
                 โหลดข้อมูลทดสอบ 7 วัน
+              </button>
+              <button
+                className="secondary"
+                onClick={() => {
+                  try {
+                    saveDatabase(thirtyDayRoleplay(date));
+                    setChosen("");
+                    setReset(false);
+                    setTab("owner-dashboard");
+                    setToast("โหลดข้อมูลทดสอบครบ 30 วันแล้ว");
+                  } catch (error) {
+                    setToast(error instanceof Error ? error.message : "สร้างข้อมูลทดสอบไม่สำเร็จ");
+                    setReset(false);
+                  }
+                }}
+              >
+                โหลดข้อมูลทดสอบ 30 วัน
               </button>
               <button
                 className="primary"
@@ -969,6 +1176,286 @@ function MaterialTransferForm({
   );
 }
 
+function MaterialPurchaseForm({
+  db,
+  date,
+  onClose,
+  onSaved,
+}: {
+  db: Database;
+  date: string;
+  onClose: () => void;
+  onSaved: (db: Database) => void;
+}) {
+  const purchaseLines = [
+    ...materials.map((material) => ({
+      key: `material-${material}`,
+      label: material,
+      unit: "ชิ้น",
+    })),
+  ];
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [quantities, setQuantities] = useState<Values>({});
+  const [unitPrices, setUnitPrices] = useState<Values>({});
+  const [purchaseDates, setPurchaseDates] = useState<Values>({});
+  const [suppliers, setSuppliers] = useState<Values>({});
+  const [references, setReferences] = useState<Values>({});
+  const [error, setError] = useState("");
+  const selected = purchaseLines.filter((line) => checked[line.key]);
+  const total = selected.reduce(
+    (sum, line) => sum + n(quantities, line.key) * n(unitPrices, line.key),
+    0,
+  );
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      if (!selected.length) throw new Error("ติ๊กเลือกอย่างน้อย 1 รายการ");
+      let next = latestDatabase();
+      for (const line of selected) {
+        const item = line.label;
+        const purchaseDate = purchaseDates[line.key] || date;
+        const quantity = Number(quantities[line.key]);
+        const unitPrice = Number(unitPrices[line.key]);
+        const supplier = suppliers[line.key]?.trim();
+        const reference = references[line.key]?.trim() || "";
+        if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
+        if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
+        if (!Number.isInteger(quantity) || quantity <= 0)
+          throw new Error(`กรอกจำนวน ${item} เป็นจำนวนเต็มที่มากกว่า 0`);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0)
+          throw new Error(`กรอกราคาซื้อ ${item}`);
+        next = mutate(
+          next,
+          "owner",
+          "materialReceive",
+          { purchaseDate, material: item, quantity: String(quantity), unitPrice: String(unitPrice), supplier, reference },
+          "",
+          purchaseDate,
+        );
+      }
+      saveDatabase(next);
+      onSaved(next);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "บันทึกการซื้อวัสดุไม่สำเร็จ");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section role="dialog" aria-modal="true" aria-labelledby="material-purchase-title" className="form-dialog material-transfer-dialog material-purchase-dialog">
+        <header>
+          <div>
+            <span className="overline">Owner · สต๊อกวัสดุ</span>
+            <h2 id="material-purchase-title">ซื้อวัสดุเข้าคลัง</h2>
+          </div>
+          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}><X /></button>
+        </header>
+        <form onSubmit={submit}>
+          <div className="form-body">
+            <div className="notice">ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock</div>
+            <div className="material-purchase-list">
+              {purchaseLines.map((line) => {
+                const selectedRow = !!checked[line.key];
+                const amount = n(quantities, line.key) * n(unitPrices, line.key);
+                return (
+                  <article key={line.key} className={`material-purchase-item ${selectedRow ? "selected-row" : ""}`}>
+                    <label className="material-purchase-toggle">
+                      <input type="checkbox" aria-label={`ซื้อ ${line.label}`} checked={selectedRow} onChange={(event) => { setChecked((current) => ({ ...current, [line.key]: event.target.checked })); setError(""); }} />
+                      <span><strong>{line.label}</strong><small>คงคลัง Owner {fmt(ownerMaterialStock(db, line.label))} ชิ้น</small></span>
+                      <b>{selectedRow ? `ยอดซื้อ ฿${fmt(amount)}` : "ติ๊กเพื่อกรอก"}</b>
+                    </label>
+                    {selectedRow && (
+                      <div className="material-purchase-fields">
+                        <label className="field">วันที่ซื้อ<input type="date" aria-label={`วันที่ซื้อ ${line.label}`} value={purchaseDates[line.key] ?? date} onChange={(event) => setPurchaseDates((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
+                        <label className="field">จำนวนที่ซื้อ<input type="number" min="1" step="1" inputMode="numeric" aria-label={`จำนวนซื้อ ${line.label}`} placeholder="จำนวน" value={quantities[line.key] || ""} onChange={(event) => setQuantities((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
+                        <label className="field">ราคาซื้อ / หน่วย<input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาซื้อ ${line.label}`} placeholder="0.00" value={unitPrices[line.key] || ""} onChange={(event) => setUnitPrices((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
+                        <label className="field">ผู้จำหน่าย<input type="text" aria-label={`ผู้จำหน่าย ${line.label}`} placeholder="ผู้ขาย" value={suppliers[line.key] || ""} onChange={(event) => setSuppliers((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
+                        <label className="field">เลขอ้างอิง / ใบเสร็จ<input type="text" aria-label={`ใบเสร็จ ${line.label}`} placeholder="เลขที่ (ถ้ามี)" value={references[line.key] || ""} onChange={(event) => setReferences((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+            <div className="notice success material-purchase-summary">เลือก {selected.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</div>
+            {error && <div role="alert" className="notice danger">{error}</div>}
+          </div>
+          <footer>
+            <p>บันทึกครั้งเดียวได้หลายวัสดุ</p>
+            <button type="button" className="secondary" onClick={onClose}>ยกเลิก</button>
+            <button type="submit" className="primary">บันทึกการซื้อ {selected.length ? `${selected.length} รายการ` : ""}</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+type GeneralPurchaseLine = {
+  id: string;
+  purchaseDate: string;
+  category: string;
+  item: string;
+  unit: string;
+  quantity: string;
+  unitPrice: string;
+  supplier: string;
+  reference: string;
+};
+
+function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
+  return {
+    id: crypto.randomUUID(),
+    purchaseDate: date,
+    category: "วัตถุดิบ",
+    item: "",
+    unit: "ชิ้น",
+    quantity: "",
+    unitPrice: "",
+    supplier: "",
+    reference: "",
+  };
+}
+
+function GeneralPurchaseForm({
+  date,
+  onClose,
+  onSaved,
+}: {
+  date: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง", "ข้าวเหนียวดิบ (ข้าวสาร)"];
+  let savedIngredients: string[] = [];
+  try {
+    const parsed = JSON.parse(latestDatabase().config.customIngredients || "[]");
+    if (Array.isArray(parsed)) savedIngredients = parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  } catch {
+    savedIngredients = [];
+  }
+  const ingredientOptions = Array.from(new Set([...standardIngredients, ...savedIngredients]));
+  const ingredientUnits: Record<string, string> = {
+    "น้ำพริกหลอด": "หลอด",
+    "น้ำดอง": "มล.",
+    "ข้าวเหนียวดิบ (ข้าวสาร)": "กก.",
+  };
+  const [lines, setLines] = useState<GeneralPurchaseLine[]>(() => [newGeneralPurchaseLine(date)]);
+  const [error, setError] = useState("");
+  const total = lines.reduce(
+    (sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0),
+    0,
+  );
+  const update = (id: string, key: keyof Omit<GeneralPurchaseLine, "id">, value: string) => {
+    setLines((current) => current.map((line) => line.id === id ? { ...line, [key]: value } : line));
+    setError("");
+  };
+  const chooseIngredient = (id: string, item: string) => {
+    setLines((current) => current.map((line) => line.id === id ? {
+      ...line,
+      item,
+      unit: ingredientUnits[item] || line.unit,
+    } : line));
+    setError("");
+  };
+  const addLine = () => setLines((current) => [...current, newGeneralPurchaseLine(date)]);
+  const removeLine = (id: string) => setLines((current) => current.length === 1 ? current : current.filter((line) => line.id !== id));
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    try {
+      let next = latestDatabase();
+      const addedIngredients = new Set(savedIngredients);
+      for (const line of lines) {
+        const item = line.item.trim();
+        const supplier = line.supplier.trim();
+        const quantity = Number(line.quantity);
+        const unitPrice = Number(line.unitPrice);
+        if (!item || item === "__custom__") throw new Error("กรอกรายการที่ซื้อให้ครบ");
+        if (line.category === "วัตถุดิบ" && /เนื้อ/.test(item))
+          throw new Error("เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Food Diva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง");
+        if (!line.purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
+        if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
+        if (!line.unit.trim()) throw new Error(`กรอกหน่วยของ ${item}`);
+        if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`กรอกจำนวน ${item}`);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`กรอกราคาซื้อ ${item}`);
+        next = mutate(next, "owner", "generalPurchase", {
+          purchaseDate: line.purchaseDate,
+          purchaseCategory: line.category,
+          item,
+          unit: line.unit.trim(),
+          quantity: String(quantity),
+          unitPrice: String(unitPrice),
+          supplier,
+          reference: line.reference.trim(),
+        }, "", line.purchaseDate);
+        if (line.category === "วัตถุดิบ" && !standardIngredients.includes(item)) addedIngredients.add(item);
+      }
+      next = {
+        ...next,
+        config: { ...next.config, customIngredients: JSON.stringify(Array.from(addedIngredients).sort((a, b) => a.localeCompare(b, "th"))) },
+      };
+      saveDatabase(next);
+      onSaved();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "บันทึกการซื้ออื่น ๆ ไม่สำเร็จ");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section role="dialog" aria-modal="true" aria-labelledby="general-purchase-title" className="form-dialog material-transfer-dialog general-purchase-dialog">
+        <header>
+          <div>
+            <span className="overline">Owner · บัญชี</span>
+            <h2 id="general-purchase-title">บันทึกการซื้ออื่น ๆ</h2>
+          </div>
+          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}><X /></button>
+        </header>
+        <form onSubmit={submit}>
+          <div className="form-body">
+            <div className="notice">เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก Food Diva เพื่อผูก Lot กับสต๊อก</div>
+            <div className="general-purchase-list">
+              {lines.map((line, index) => {
+                const amount = Number(line.quantity || 0) * Number(line.unitPrice || 0);
+                const isIngredient = line.category === "วัตถุดิบ";
+                const customIngredient = isIngredient && line.item !== "" && !ingredientOptions.includes(line.item);
+                const ingredientChoice = customIngredient ? "__custom__" : line.item;
+                const fixedUnit = isIngredient ? ingredientUnits[line.item] : undefined;
+                return (
+                  <article key={line.id} className="general-purchase-item">
+                    <div className="general-purchase-item-head"><strong>รายการซื้อ {index + 1}</strong><span>ยอดรวม ฿{fmt(amount)}</span><button type="button" className="line-delete" aria-label={`ลบรายการ ${index + 1}`} disabled={lines.length === 1} onClick={() => removeLine(line.id)}>ลบ</button></div>
+                    <div className="general-purchase-fields">
+                      <label className="field">กลุ่มการซื้อ<select aria-label={`กลุ่มการซื้อ ${index + 1}`} value={line.category} onChange={(event) => update(line.id, "category", event.target.value)}><option>วัตถุดิบ</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
+                      {isIngredient ? (
+                        <label className="field">วัตถุดิบ<select aria-label={`เลือกวัตถุดิบ ${index + 1}`} value={ingredientChoice} onChange={(event) => chooseIngredient(line.id, event.target.value)}><option value="">เลือกวัตถุดิบ</option>{ingredientOptions.map((item) => <option key={item} value={item}>{item}</option>)}<option value="__custom__">+ เพิ่มวัตถุดิบใหม่</option></select>{customIngredient && <input aria-label={`ชื่อวัตถุดิบใหม่ ${index + 1}`} placeholder="พิมพ์ชื่อวัตถุดิบใหม่" value={line.item === "__custom__" ? "" : line.item} onChange={(event) => update(line.id, "item", event.target.value)} />}</label>
+                      ) : <label className="field">รายการ<input type="text" aria-label={`รายการซื้อ ${index + 1}`} placeholder="เช่น ตู้เย็น" value={line.item} onChange={(event) => update(line.id, "item", event.target.value)} /></label>}
+                      <label className="field">วันที่ซื้อ<input type="date" aria-label={`วันที่ซื้อ ${index + 1}`} value={line.purchaseDate} onChange={(event) => update(line.id, "purchaseDate", event.target.value)} /></label>
+                      <label className="field">จำนวน<input type="number" min="0.01" step="0.01" inputMode="decimal" aria-label={`จำนวน ${index + 1}`} placeholder="จำนวน" value={line.quantity} onChange={(event) => update(line.id, "quantity", event.target.value)} /></label>
+                      <label className="field">หน่วย<input type="text" aria-label={`หน่วย ${index + 1}`} placeholder="เช่น หลอด, มล., เครื่อง" value={fixedUnit || line.unit} disabled={!!fixedUnit} onChange={(event) => update(line.id, "unit", event.target.value)} /></label>
+                      <label className="field">ราคาซื้อ / หน่วย<input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาต่อหน่วย ${index + 1}`} placeholder="0.00" value={line.unitPrice} onChange={(event) => update(line.id, "unitPrice", event.target.value)} /></label>
+                      <label className="field">ผู้จำหน่าย<input type="text" aria-label={`ผู้จำหน่าย ${index + 1}`} placeholder="ผู้ขาย" value={line.supplier} onChange={(event) => update(line.id, "supplier", event.target.value)} /></label>
+                      <label className="field">เลขอ้างอิง / ใบเสร็จ<input type="text" aria-label={`ใบเสร็จ ${index + 1}`} placeholder="เลขที่ (ถ้ามี)" value={line.reference} onChange={(event) => update(line.id, "reference", event.target.value)} /></label>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="button-row general-purchase-actions"><button type="button" className="secondary" onClick={addLine}><Plus size={16} /> เพิ่มรายการ</button><span className="notice success">{lines.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</span></div>
+            {error && <div role="alert" className="notice danger">{error}</div>}
+          </div>
+          <footer>
+            <p>กดเพิ่มรายการเพื่อบันทึกได้ต่อเนื่อง</p>
+            <button type="button" className="secondary" onClick={onClose}>ยกเลิก</button>
+            <button type="submit" className="primary">บันทึก {lines.length} รายการ</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function EntryForm({
   db,
   role,
@@ -987,11 +1474,34 @@ function EntryForm({
   const kind = modal.kind;
   const [values, setValues] = useState<Values>(() => {
     const base = kind === "config" ? { ...db.config } : defaults(kind, date);
-    if (kind === "closeDay") base.time = "21:00";
+    const modalLot = db.lots.find((item) => item.id === modal.lotId);
+    if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
+    if (kind === "dispatch" && modalLot) Object.assign(base, {
+      dispatchKg: String(readyForChefHouse(db, modalLot.id)),
+      origin: "Food Diva · กรุงเทพฯ",
+      destination: "Chef_house · เชียงใหม่",
+    });
+    if (kind === "smokeOrder" && modalLot) Object.assign(base, {
+      rawKg: String(readyForChefHouse(db, modalLot.id)),
+    });
+    if (kind === "return" && modalLot) Object.assign(base, {
+      returnKg: String(produced(db, modalLot.id)),
+      origin: "Chef_house · เชียงใหม่",
+      destination: "Food Diva · กรุงเทพฯ",
+    });
+    if (kind === "purchase") Object.assign(base, {
+      customerName: db.config.companyName || "",
+      customerAddress: db.config.companyAddress || "",
+      attention: db.config.attention || "",
+      phone: db.config.companyPhone || "",
+      taxId: db.config.taxId || "",
+      productName: "เนื้อวัว",
+    });
     return base;
   });
   const [lotId, setLotId] = useState(modal.lotId);
   const [error, setError] = useState("");
+  const attachmentFiles = useRef<Record<string, File>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const useLot = ["receive", "thaw", "sale", "allocate"].includes(kind);
   const choices = db.lots.filter(
@@ -1024,7 +1534,8 @@ function EntryForm({
     setValues((v) => ({ ...v, [key]: value }));
     setError("");
   };
-  function submit(e: React.FormEvent) {
+  const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
       const resolvedValues = { ...values };
@@ -1035,7 +1546,11 @@ function EntryForm({
           resolvedValues[key] = custom;
         }
       }
-      const next = mutate(latestDatabase(), role, kind, resolvedValues, lotId, date);
+      for (const [key, file] of Object.entries(attachmentFiles.current)) {
+        resolvedValues[`${key}StorageKey`] = await saveAttachment(file);
+      }
+      const current = await migrateLegacyAttachments(latestDatabase());
+      const next = mutate(current, role, kind, resolvedValues, lotId, date);
       saveDatabase(next);
       onSaved(next);
     } catch (err) {
@@ -1053,14 +1568,22 @@ function EntryForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="form-title"
-        className="form-dialog"
+        className={`form-dialog ${isPurchaseOrder ? "po-preview-dialog" : ""}`}
       >
         <header>
           <div>
             <span className="overline">
               {date} · {roleName[role]}
             </span>
-            <h2 id="form-title">{titles[kind]}</h2>
+            <h2 id="form-title">
+              {kind === "purchase"
+                ? "สร้าง PO เนื้อ"
+                : kind === "smokeOrder"
+                  ? "สร้าง PO โรงรมควัน"
+                  : kind === "ricePurchase" && db.config.branch === "ศาลาแดง"
+                    ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
+                  : titles[kind]}
+            </h2>
           </div>
           <button
             type="button"
@@ -1072,7 +1595,13 @@ function EntryForm({
           </button>
         </header>
         <form onSubmit={submit}>
-          <div className="form-body">
+          <div className={isPurchaseOrder ? "po-preview-layout" : "form-content"}>
+          <div className={`form-body ${isPurchaseOrder ? "po-preview-form" : ""}`}>
+            {isPurchaseOrder && (
+              <div className="notice po-preview-notice">
+                กรอกข้อมูลด้านซ้าย เอกสาร PO ด้านขวาจะเปลี่ยนตามทันที
+              </div>
+            )}
             {lot && !useLot && (
               <div className="notice">
                 {lot.id} · {stages[lot.stage]}
@@ -1125,6 +1654,16 @@ function EntryForm({
             )}
             {kind === "closeDay" && (
               <DailySummary db={db} branch={db.config.branch} date={date} />
+            )}
+            {kind === "smoke" && (
+              <div className="notice">
+                บันทึกครั้งละ 1 รอบสโมค ระบบจะสร้าง Lot สโมครายวันแยกให้ และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
+              </div>
+            )}
+            {kind === "foodDivaConfirm" && (
+              <div className="notice">
+                แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ต้องรวมเท่ากับน้ำหนักตาม Invoice
+              </div>
             )}
             {kind === "unlock" && (
               <div className="notice warning">
@@ -1188,10 +1727,37 @@ function EntryForm({
                         />
                       )}
                     </>
+                  ) : f.type === "file" ? (
+                    <div className="file-upload-control">
+                      <input
+                        type="file"
+                        accept={f.accept}
+                        required={!f.optional}
+                        onChange={(e) => {
+                          const file = e.currentTarget.files?.[0];
+                          if (!file) {
+                            set(f.key, "");
+                            delete attachmentFiles.current[f.key];
+                            return;
+                          }
+                          if (file.size > 2 * 1024 * 1024) {
+                            setError("ไฟล์ Invoice ต้องมีขนาดไม่เกิน 2 MB");
+                            e.currentTarget.value = "";
+                            return;
+                          }
+                          attachmentFiles.current[f.key] = file;
+                          set(f.key, file.name);
+                        }}
+                      />
+                      {values[f.key] && (
+                        <span className="file-uploaded">เลือกแล้ว: {values[f.key]}</span>
+                      )}
+                    </div>
                   ) : f.type === "textarea" ? (
                     <textarea
+                      className={f.key === "note" ? "compact-note" : undefined}
                       required={!f.optional}
-                      rows={f.key === "packs" ? 5 : 3}
+                      rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
                       value={values[f.key] || ""}
                       onChange={(e) => set(f.key, e.target.value)}
                     />
@@ -1240,20 +1806,42 @@ function EntryForm({
                 />
               )}
             </div>
-            <Preview db={db} lot={lot} kind={kind} v={values} />
+            {!isPurchaseOrder && kind !== "cmReceive" && <Preview db={db} lot={lot} kind={kind} v={values} />}
             {error && (
               <div role="alert" className="notice danger">
                 {error}
               </div>
             )}
           </div>
+          {isPurchaseOrder && (
+            <PurchaseOrderDocumentPreview
+              db={db}
+              lot={lot}
+              kind={kind}
+              values={values}
+              date={date}
+            />
+          )}
+          </div>
           <footer>
-            <p>บันทึกแล้วเก็บในเบราว์เซอร์</p>
+            <p>{isPurchaseOrder ? "ตรวจ Preview ก่อนบันทึก PO" : kind === "smokingInvoice" ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit" : "บันทึกแล้วเก็บในเบราว์เซอร์"}</p>
             <button type="button" className="secondary" onClick={onClose}>
               ยกเลิก
             </button>
             <button className="primary" type="submit">
-              {kind === "closeDay" ? "ยืนยันปิดวัน" : "บันทึกรายการ"}
+              {kind === "closeDay"
+                ? "ยืนยันปิดวัน"
+                : kind === "purchase"
+                  ? "บันทึก PO เนื้อ"
+                  : kind === "smokeOrder"
+                    ? "บันทึก PO โรงรมควัน"
+                    : kind === "smokingInvoice"
+                      ? "Submit ใบวางบิล"
+                    : kind === "dispatch"
+                      ? "สร้างใบขนส่งขาไป"
+                      : kind === "return"
+                        ? "สร้างใบขนส่งขากลับ"
+                    : "บันทึกรายการ"}
             </button>
           </footer>
         </form>
@@ -1315,6 +1903,157 @@ function PackWeightFields({
     </div>
   );
 }
+
+function PurchaseOrderDocumentPreview({
+  db,
+  lot,
+  kind,
+  values,
+  date,
+}: {
+  db: Database;
+  lot?: Lot;
+  kind: "purchase" | "smokeOrder";
+  values: Values;
+  date: string;
+}) {
+  const isSmokeOrder = kind === "smokeOrder";
+  const latestFoodDivaInvoice = lot
+    ? entries(db, "foodDivaConfirm", lot.id).slice(-1)[0]
+    : undefined;
+  const quantity = n(values, isSmokeOrder ? "rawKg" : "orderedKg");
+  const rate = isSmokeOrder ? smokeServiceRate(quantity) : n(values, "price");
+  const total = quantity * rate;
+  const buyerName = values.customerName || db.config.companyName || "NerdNuea Stock";
+  const buyerAddress = values.customerAddress || db.config.companyAddress || "—";
+  const attention = values.attention || db.config.attention || "—";
+  const phone = values.phone || db.config.companyPhone || "—";
+  const taxId = values.taxId || db.config.taxId || "—";
+  const supplier = values[isSmokeOrder ? "smoker" : "supplier"] || (isSmokeOrder ? "Chef_house" : "Food Diva");
+  const supplierContact = db.config[isSmokeOrder ? "chefHouseContact" : "foodDivaContact"] || "ยังไม่ได้ตั้งค่า";
+  const supplierAddress = db.config[isSmokeOrder ? "chefHouseAddress" : "foodDivaAddress"] || "ยังไม่ได้ตั้งค่า";
+  const documentNumber = isSmokeOrder
+    ? `SMK-PO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
+    : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
+  const issueDate = isSmokeOrder ? values.requestedSmokeDate || date : date;
+  const dueDate = isSmokeOrder ? values.expectedFinishedDate || "—" : "ตามข้อตกลง";
+  const itemName = isSmokeOrder
+    ? "บริการรมควันเนื้อ"
+    : values.productName || "เนื้อวัว";
+  const packDetail = isSmokeOrder
+    ? lot?.id || "เลือก Lot ที่ได้รับ Invoice จาก Food Diva"
+    : values.packSize || "—";
+  const dateLabel = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return value || "—";
+    return new Intl.DateTimeFormat("th-TH", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+  };
+
+  return (
+    <aside className="po-document-preview" aria-label="ตัวอย่างเอกสาร PO">
+      <div className="po-preview-toolbar">
+        <div>
+          <strong>Preview</strong>
+          <span>อัปเดตตามที่กรอก</span>
+        </div>
+        <span className="draft-badge">ฉบับร่าง</span>
+      </div>
+      <article className="po-paper">
+        <div className="po-paper-heading">
+          <div className="po-brand-block">
+            {db.config.logoData ? (
+              // Stored locally as a data URL, so Next image optimization cannot process it.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="po-logo" src={db.config.logoData} alt="โลโก้ NerdNuea" />
+            ) : (
+              <span className="po-logo-placeholder">พื้นที่โลโก้</span>
+            )}
+            <div>
+              <h3>{isSmokeOrder ? "SMOKING SERVICE PO" : "PURCHASE ORDER"}</h3>
+            </div>
+          </div>
+          <div className="po-number">
+            <span>เลขที่เอกสาร</span>
+            <strong>{documentNumber}</strong>
+          </div>
+        </div>
+
+        <div className="po-party-grid">
+          <section>
+            <span>ผู้ซื้อ / Buyer</span>
+            <strong>{buyerName}</strong>
+            <p>{buyerAddress}</p>
+            <p>Attention: {attention}</p>
+            <p>โทร. {phone}</p>
+            <p>Tax ID: {taxId}</p>
+          </section>
+          <section>
+            <span>{isSmokeOrder ? "ผู้ให้บริการ / Service provider" : "ผู้ขาย / Supplier"}</span>
+            <strong>{supplier}</strong>
+            <p>ผู้รับออเดอร์: {supplierContact}</p>
+            <p>ที่อยู่: {supplierAddress}</p>
+            {isSmokeOrder && (
+              <>
+                <p>บริการรมควันเนื้อตามคำสั่งซื้อ</p>
+                <p>อ้างอิง Invoice Food Diva: {latestFoodDivaInvoice?.values.invoiceNo || latestFoodDivaInvoice?.values.invoiceNumber || "รอระบุ"}</p>
+              </>
+            )}
+          </section>
+        </div>
+
+        <div className="po-meta-grid">
+          <div><span>วันที่ออก PO</span><strong>{dateLabel(issueDate)}</strong></div>
+          <div><span>{isSmokeOrder ? "คาดว่าจะเสร็จ" : "กำหนดชำระ"}</span><strong>{dateLabel(dueDate)}</strong></div>
+          <div><span>{isSmokeOrder ? "Lot เนื้อ" : "อ้างอิงผู้ขาย"}</span><strong>{isSmokeOrder ? lot?.id || "—" : values.reference || "—"}</strong></div>
+        </div>
+
+        <table className="po-item-table">
+          <thead>
+            <tr>
+              <th>รายการ</th>
+              <th>รายละเอียด</th>
+              <th>จำนวน</th>
+              <th>ราคา / กก.</th>
+              <th>รวม</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{itemName}</td>
+              <td>{packDetail}</td>
+              <td>{fmt(quantity)} กก.</td>
+              <td>฿{fmt(rate)}</td>
+              <td>฿{fmt(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {isSmokeOrder && (
+          <div className="po-rate-note">
+            อัตราอัตโนมัติ: ต่ำกว่า 1,000 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180 ต่อกก.
+          </div>
+        )}
+
+        <div className="po-total">
+          <span>ยอดรวมประมาณการ</span>
+          <strong>฿{fmt(total)}</strong>
+        </div>
+        <div className="po-note">
+          <strong>หมายเหตุ</strong>
+          <p>{values.instruction || "—"}</p>
+        </div>
+        <div className="po-paper-footer">
+          <span>ผู้จัดทำ: {attention}</span>
+          <span>สถานะ: รอการบันทึก</span>
+        </div>
+      </article>
+    </aside>
+  );
+}
+
 function Preview({
   db,
   lot,
@@ -1330,12 +2069,19 @@ function Preview({
   if (kind === "purchase")
     rows = [
       ["ค่าเนื้อ", `฿${fmt(n(v, "orderedKg") * n(v, "price"))}`],
-      ["น้ำหมัก 10%", `${fmt(n(v, "orderedKg") * 0.1)} กก.`],
-      [
-        "ค่าหมักตามการตั้งค่า",
-        `฿${fmt(n(v, "orderedKg") * 0.1 * n(db.config, "brinePrice"))}`,
-      ],
+      ["สถานะ", "รอ Food Diva ออก Invoice ก่อนเรียกรถ"],
     ];
+  if (kind === "foodDivaConfirm") {
+    const invoiced = n(v, "confirmedKg");
+    const ready = n(v, "readyForChiangMaiKg");
+    const reserved = n(v, "reservedForOwnerKg");
+    rows = [
+      ["น้ำหนักตาม Invoice", `${fmt(invoiced)} กก.`],
+      ["พร้อมส่ง Chef_house · เชียงใหม่", `${fmt(ready)} กก.`],
+      ["เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", `${fmt(reserved)} กก.`],
+      ["รวมที่แบ่งแล้ว", `${fmt(ready + reserved)} / ${fmt(invoiced)} กก.`],
+    ];
+  }
   if (kind === "dispatch" && lot)
     rows = [
       [
@@ -1347,13 +2093,25 @@ function Preview({
         `฿${fmt(n(lot.config, v.trip === "ไปกลับ" ? "roundFee" : "outboundFee"))}`,
       ],
     ];
+  if (kind === "smokeOrder") {
+    const rate = smokeServiceRate(n(v, "rawKg"));
+    rows = [
+      ["อัตราค่ารมอัตโนมัติ", `฿${fmt(rate)} / กก.`],
+      ["ค่ารมควันประมาณการ", `฿${fmt(n(v, "rawKg") * rate)}`],
+      ["เกณฑ์ราคา", "ต่ำกว่า 1,000 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180"],
+    ];
+  }
+  if (kind === "smokingInvoice") {
+    const rate = smokeServiceRate(n(v, "serviceQuantity"));
+    rows = [
+      ["อัตราค่ารมอัตโนมัติ", `฿${fmt(rate)} / กก.`],
+      ["ยอดก่อน VAT อัตโนมัติ", `฿${fmt(n(v, "serviceQuantity") * rate)}`],
+    ];
+  }
   if (kind === "cmReceive" && lot)
     rows = [
-      ["น้ำหนักส่ง", `${fmt(n(lot.values, "dispatchKg"))} กก.`],
-      [
-        "ส่วนต่าง",
-        `${fmt(n(v, "receivedKg") - n(lot.values, "dispatchKg"))} กก. (กรอกเหตุผลเมื่อไม่ตรง)`,
-      ],
+      ["การตรวจรับ", "กรอกน้ำหนักจากตาชั่งของ Chef_house"],
+      ["การตรวจสอบ", "Owner จะเปรียบเทียบน้ำหนักกับ Food Diva ภายหลัง"],
     ];
   if (kind === "prepare" && lot)
     rows = [["รับจริง", `${fmt(n(lot.values, "receivedKg"))} กก.`]];
@@ -1368,6 +2126,7 @@ function Preview({
         "น้ำหนักเนื้อหลังรมควัน",
         `${fmt(weights.reduce((s, w) => s + (Number.isFinite(w) ? w : 0), 0))} กก.`,
       ],
+      ["น้ำหนัก Waste", `${fmt(n(v, "wasteKg"))} กก.`],
       [
         "รอผลิตก่อนรอบนี้",
         `${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`,
@@ -1385,7 +2144,7 @@ function Preview({
     ];
   if (kind === "return" && lot)
     rows = [
-      ["ของที่ส่งกลับกรุงเทพฯ", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
+      ["ของที่ส่งกลับ Food Diva", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
       [
         "ค่ารถขากลับ",
         `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(lot.config, "returnFee"))}`,
@@ -1394,7 +2153,7 @@ function Preview({
     ];
   if (kind === "central" && lot)
     rows = [
-      ["ผลผลิตส่งจากโรงรม", `${fmt(produced(db, lot.id))} กก.`],
+      ["Food Diva รับเข้าตู้แล้ว", `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`],
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],
     ];
@@ -1414,10 +2173,9 @@ function Preview({
         "ข้าวที่จะหัก",
         `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`,
       ],
-      [
-        "น้ำพริกที่จะหัก",
-        `${n(v, "chiliAddons")} หลอดที่ลูกค้าซื้อ`,
-      ],
+      ["น้ำพริกก่อนขาย", `${fmt(chiliStock(db, db.config.branch))} หลอดที่ Owner จัดสรร`],
+      ["น้ำพริกที่จะหัก", `${n(v, "chiliAddons")} หลอดที่ลูกค้าซื้อ`],
+      ["น้ำพริกควรเหลือ", `${fmt(chiliStock(db, db.config.branch) - n(v, "chiliAddons"))} หลอด`],
     ];
   }
   return rows.length ? (
@@ -1579,7 +2337,15 @@ function CostDonut({
   );
 }
 
-function OwnerDashboard({ db, date }: { db: Database; date: string }) {
+function OwnerDashboard({
+  db,
+  date,
+  onNavigate,
+}: {
+  db: Database;
+  date: string;
+  onNavigate: (tab: Tab) => void;
+}) {
   const start = new Date(`${date}T00:00:00Z`);
   start.setUTCDate(start.getUTCDate() - 6);
   const defaultFrom = start.toISOString().slice(0, 10);
@@ -1607,18 +2373,19 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     .reduce((total, entry) => total + n(entry.values, "amount"), 0);
   const materialCost = entries(db, "materialReceive").filter(withinRange)
     .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
-  const totalCost = meatAndBranchCost + supplyCost + ownerCost + materialCost;
+  const ownerStockPurchaseCost = entries(db, "generalPurchase").filter(withinRange)
+    .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
+  const totalCost = meatAndBranchCost + supplyCost + materialCost + ownerStockPurchaseCost + ownerCost;
   const margin = income - totalCost;
   const required = (branchName: string) =>
     branchName === "มีนบุรี"
-      ? ["ricePurchase", "riceCarry", "chiliIssue", "materials", "sale", "closeDay"]
-      : ["riceIssue", "rice", "chiliIssue", "materials", "sale", "closeDay"];
+      ? ["ricePurchase", "riceCarry", "materials", "sale", "closeDay"]
+      : ["riceIssue", "rice", "materials", "sale", "closeDay"];
   const requiredLabels: Record<string, string> = {
     ricePurchase: "ซื้อข้าวเข้า",
     riceCarry: "บันทึกข้าวคงเหลือ",
     riceIssue: "เบิกข้าวไปใช้",
     rice: "บันทึกข้าวคงเหลือ",
-    chiliIssue: "เบิกน้ำพริก",
     materials: "เช็กวัสดุ 7 รายการ",
     sale: "ยอดขายสิ้นวัน",
     closeDay: "ปิดวัน",
@@ -1644,7 +2411,19 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     ];
   });
   const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
-  const alertDetails: { title: string; detail: string; kind: "branch" | "lot" }[] = [
+  const foodDivaInvoicesForOwner = db.lots.filter(
+    (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0 && !entries(db, "smokeOrder", lot.id).length,
+  );
+  const alertDetails: { title: string; detail: string; kind: "branch" | "lot" | "invoice"; tab?: Tab }[] = [
+    ...foodDivaInvoicesForOwner.map((lot) => {
+      const invoice = entries(db, "foodDivaConfirm", lot.id).at(-1)!;
+      return {
+        title: `Food Diva ออก Invoice แล้ว · ${lot.id}`,
+        detail: `Invoice ${invoice.values.invoiceNo} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก. · เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ${fmt(reservedForOwnerContent(db, lot.id))} กก.`,
+        kind: "invoice" as const,
+        tab: "invoices" as const,
+      };
+    }),
     ...branches.flatMap((branchName) => {
       const pending = required(branchName).filter(
         (kind) => !entries(db, kind, undefined, branchName, date).length,
@@ -1700,6 +2479,7 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
     { label: "เนื้อและสาขา", value: meatAndBranchCost, color: "#f97316" },
     { label: "ข้าวและน้ำพริก", value: supplyCost, color: "#fbbf24" },
     { label: "วัสดุ", value: materialCost, color: "#2563eb" },
+    { label: "ซื้อเข้าสต๊อก Owner", value: ownerStockPurchaseCost, color: "#0f766e" },
     { label: "Owner", value: ownerCost, color: "#204b49" },
   ];
   const branchCostCharts = branches.map((branchName) => {
@@ -1758,7 +2538,10 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
               {alertDetails.map((item) => (
                 <div className="dashboard-alert-item" key={`${item.kind}-${item.title}`}>
                   <span className="dashboard-alert-dot"><CircleAlert size={15} /></span>
-                  <div><strong>{item.title}</strong><span>{item.detail}</span></div>
+                  <div>
+                    <strong>{item.title}</strong><span>{item.detail}</span>
+                    {item.tab && <button className="text-button dashboard-alert-link" type="button" onClick={() => onNavigate(item.tab!)}>เปิดใบ Invoice</button>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1777,10 +2560,25 @@ function OwnerDashboard({ db, date }: { db: Database; date: string }) {
       </section>
       <section className="dashboard-kpis">
         <article className="kpi-card sales"><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ยอดขายช่วงที่เลือก</span></div><strong>฿{fmt(income)}</strong><small><i className="trend-up">↗</i> ยอดขายทั้งสองสาขา</small></article>
-        <article className="kpi-card cost"><div className="kpi-title"><span className="kpi-icon"><BarChart3 size={17} /></span><span>ต้นทุนที่บันทึก</span></div><strong>฿{fmt(totalCost)}</strong><small>รวม Owner, วัสดุ และสาขา</small></article>
+        <article className="kpi-card cost"><div className="kpi-title"><span className="kpi-icon"><BarChart3 size={17} /></span><span>ต้นทุนที่บันทึก</span></div><strong>฿{fmt(totalCost)}</strong><small>รวมเนื้อ ข้าว วัสดุ และสต๊อกที่ซื้อเข้า</small></article>
         <article className={`kpi-card ${margin >= 0 ? "positive" : "negative"}`}><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ส่วนต่างหลังต้นทุน</span></div><strong>฿{fmt(margin)}</strong><small className={margin >= 0 ? "gain" : "loss"}>{margin >= 0 ? "↗" : "↘"} {fmt(marginPercent)}% ของยอดขาย</small></article>
         <article className="kpi-card boxes"><div className="kpi-title"><span className="kpi-icon"><Package size={17} /></span><span>กล่องที่ขาย</span></div><strong>{sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}</strong><small>รวมรายการขายที่บันทึกแล้ว</small></article>
       </section>
+      <DataTable
+        title="Document & raw beef summary"
+        columns={["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Food Diva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"]}
+        rows={[[
+          String(db.lots.filter((lot) => lot.stage < 8).length),
+          String(entries(db, "supplierInvoice").filter((entry) => entry.values.paymentStatus !== "Paid").length),
+          String(entries(db, "smokingInvoice").filter((entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว").length),
+          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodDiva(db, lot), 0))} กก.`,
+          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtSmoker(db, lot), 0))} กก.`,
+          `${fmt(steakRawStock(db))} กก.`,
+          `${fmt(db.lots.reduce((sum, lot) => sum + produced(db, lot.id), 0))} กก.`,
+          `${fmt(db.lots.reduce((sum, lot) => sum + processLoss(db, lot.id), 0))} กก.`,
+          `${fmt(averageYield(db))}%`,
+        ]]}
+      />
       <section className="sales-charts">
         <div className="chart-panel">
           <div className="chart-heading"><div><span className="overline">DAILY SALES · SALA DAENG</span><h2>ยอดขายสาขาศาลาแดง</h2></div><span className="chart-total">฿{fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}</span></div>
@@ -1890,12 +2688,8 @@ function DailySummary({
               ],
             ]
           : []),
-        ["น้ำพริกคงเหลือ", String(chiliStock(db, branch)), "หลอด"],
-        [
-          "น้ำพริกที่เบิกแล้วยังไม่ขาย",
-          String(issuedChiliStock(db, branch)),
-          "หลอด",
-        ],
+        ["น้ำพริกที่ Owner จัดสรร", String(chiliAllocated(db, branch)), "หลอด"],
+        ["น้ำพริกคงเหลือหลังหักยอดขาย", String(chiliStock(db, branch)), "หลอด"],
         [
           "ตรวจนับวัสดุ",
           String(entries(db, "materials", undefined, branch, date).length),
@@ -1903,6 +2697,34 @@ function DailySummary({
             ? "บันทึกแล้ว"
             : "ยังไม่บันทึก",
         ],
+      ]}
+    />
+  );
+}
+function ChiliDailySummary({ db, branch, date }: { db: Database; branch: string; date: string }) {
+  const allocatedToDate = chiliAllocated(db, branch, date);
+  const soldBeforeToday = entries(db, "sale", undefined, branch)
+    .filter((entry) => entry.date < date)
+    .reduce((total, entry) => total + n(entry.values, "chiliSold"), 0);
+  const salesToday = entries(db, "sale", undefined, branch, date);
+  const soldToday = salesToday.reduce((total, entry) => total + n(entry.values, "chiliSold"), 0);
+  const opening = allocatedToDate - soldBeforeToday;
+  const expected = opening - soldToday;
+  const latestCount = [...salesToday].reverse().find(
+    (entry) => entry.values.chiliCount !== "" && entry.values.chiliCount !== undefined,
+  );
+  const actual = latestCount ? n(latestCount.values, "chiliCount") : null;
+  const mismatch = actual !== null && actual !== expected;
+  return (
+    <DataTable
+      title="น้ำพริกหลอด · Owner จัดสรร / สาขาตรวจสอบยอด"
+      columns={["รายการ", "จำนวน", "หน่วย / สถานะ"]}
+      rows={[
+        ["ยอดตั้งต้นจาก Owner", fmt(opening), "หลอด · สาขาไม่ต้องซื้อหรือเบิกเอง"],
+        ["ขายแยกวันนี้", fmt(soldToday), "หลอด · ระบบหักจากยอดขายอัตโนมัติ"],
+        ["ควรเหลือหลังยอดขาย", fmt(expected), "หลอด"],
+        ["ตรวจนับจริงปลายวัน", actual === null ? "ยังไม่ได้ตรวจนับ" : fmt(actual), mismatch ? <span className="badge danger">ยอดไม่ตรง</span> : actual === null ? "กรอกได้ในฟอร์มยอดขาย" : <span className="badge">ตรงกัน</span>],
+        ["หมายเหตุส่วนต่าง", mismatch ? (latestCount?.values.chiliRemark || "—") : "—", mismatch ? "ต้องระบุเมื่อยอดไม่ตรง" : ""],
       ]}
     />
   );
@@ -1943,7 +2765,52 @@ function ChefLotTable({
   lots: Lot[];
   open: (kind: string, lotId?: string) => void;
 }) {
+  const smokeLogs = lots.flatMap((lot) =>
+    entries(db, "smoke", lot.id).map((entry) => {
+      const batchesBeforeOrAtThisEntry = entries(db, "smoke", lot.id).slice(
+        0,
+        entries(db, "smoke", lot.id).findIndex((batch) => batch.id === entry.id) + 1,
+      );
+      const weights = (entry.values.packs || "")
+        .split(/[\s,]+/)
+        .filter(Boolean)
+        .map(Number)
+        .filter((weight) => Number.isFinite(weight) && weight > 0);
+      const weightGroups = Array.from(
+        weights.reduce((groups, weight) => {
+          const key = fmt(weight);
+          groups.set(key, (groups.get(key) || 0) + 1);
+          return groups;
+        }, new Map<string, number>()),
+      );
+      const bagDetail = weightGroups.length
+        ? weightGroups.map(([weight, count]) => `${weight} × ${count}`).join(" + ")
+        : "—";
+      return {
+        lot,
+        entry,
+        weights,
+        bagDetail,
+        remainingKg: Math.max(
+          0,
+          n(lot.values, "preKg") -
+            batchesBeforeOrAtThisEntry.reduce(
+              (total, batch) => total + n(batch.values, "inputKg"),
+              0,
+            ),
+        ),
+      };
+    }),
+  );
   const action = (lot: Lot) => {
+    const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
+    const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
+    const latestInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
+    const invoiceStatus = latestInvoice ? smokingInvoiceStatus(db, latestInvoice) : "";
+    if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
+    if (!accepted) return <button className="table-action" onClick={() => open("smokeOrderAccept", lot.id)}>ยืนยันรับ PO รมควัน</button>;
+    if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") return <button className="table-action" onClick={() => open("smokingInvoice", lot.id)}>{latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}</button>;
+    if (lot.stage < 2) return <span className="badge">{invoiceStatus} · รอ Owner เรียกรถ</span>;
     const kind = lot.stage === 3 ? "prepare" : lot.stage === 4 ? "smoke" : lot.stage === 5 ? "closeLot" : "";
     if (lot.stage === 5)
       return (
@@ -1956,6 +2823,7 @@ function ChefLotTable({
           </button>
         </div>
       );
+    if (lot.stage >= 6) return <span className="badge">{invoiceStatus}</span>;
     return kind ? (
       <button className="table-action" onClick={() => open(kind, lot.id)}>{titles[kind]}</button>
     ) : lot.stage === 2 ? "ไปเมนูยืนยันรับเนื้อ" : "ส่งต่องานแล้ว";
@@ -1970,9 +2838,15 @@ function ChefLotTable({
       </div>
       <DataTable
         title="รายการ Lot ทั้งหมด"
-        columns={["Lot", "รับจริง", "สถานะ", "น้ำหนักหลังรมควัน", "จำนวนถุงส่งกรุงเทพฯ", "การทำงาน"]}
+        columns={["Lot", "PO รมควัน", "เอกสาร PO", "รับจริง", "สถานะ", "น้ำหนักหลังรมควัน", "จำนวนถุง", "การทำงาน"]}
         rows={lots.map((lot) => [
           lot.id,
+          entries(db, "smokeOrder", lot.id).at(-1)?.values.orderNumber || "รอ Owner ออก PO",
+          entries(db, "smokeOrder", lot.id).length ? (
+            <button key={`${lot.id}-po`} type="button" className="table-action" onClick={() => open("smokeOrderPreview", lot.id)}>
+              ดู PO รมควัน
+            </button>
+          ) : "—",
           n(lot.values, "receivedKg") ? `${fmt(n(lot.values, "receivedKg"))} กก.` : "รอยืนยันรับ",
           stages[lot.stage],
           produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
@@ -1980,7 +2854,61 @@ function ChefLotTable({
           action(lot),
         ])}
       />
+      <DataTable
+        title={`Log Lot สโมครายวัน ${smokeLogs.length} รอบ`}
+        columns={["วันที่สโมค", "Lot หลัก", "Lot สโมค", "น้ำหนักเข้าเตา", "ถุงที่ได้", "น้ำหนักหลังรม", "น้ำหนัก Waste", "คงเหลือรอผลิต"]}
+        rows={smokeLogs.map(({ lot, entry, weights, bagDetail, remainingKg }) => [
+          entry.values.smokeDate || entry.date,
+          lot.id,
+          entry.values.subLot || "—",
+          `${fmt(n(entry.values, "inputKg"))} กก.`,
+          weights.length ? `${weights.length} ถุง · ${bagDetail} กก.` : "—",
+          `${fmt(n(entry.values, "outputKg"))} กก.`,
+          `${fmt(n(entry.values, "wasteKg"))} กก.`,
+          `${fmt(remainingKg)} กก.`,
+        ])}
+      />
     </>
+  );
+}
+function SmokeOrderPreviewDialog({
+  db,
+  lotId,
+  onClose,
+}: {
+  db: Database;
+  lotId: string;
+  onClose: () => void;
+}) {
+  const lot = db.lots.find((item) => item.id === lotId);
+  const order = entries(db, "smokeOrder", lotId).at(-1);
+  return (
+    <div className="modal-backdrop" onKeyDown={(event) => event.key === "Escape" && onClose()}>
+      <section className="form-dialog po-document-dialog" role="dialog" aria-modal="true" aria-labelledby="smoke-po-preview-title">
+        <header>
+          <div>
+            <span className="overline">อ่านอย่างเดียว · Chef_house</span>
+            <h2 id="smoke-po-preview-title">ใบสั่ง PO โรงรมควัน</h2>
+          </div>
+          <button type="button" className="icon-button" aria-label="ปิดเอกสาร PO" onClick={onClose}><X /></button>
+        </header>
+        {lot && order ? (
+          <PurchaseOrderDocumentPreview
+            db={db}
+            lot={lot}
+            kind="smokeOrder"
+            values={order.values}
+            date={order.date}
+          />
+        ) : (
+          <div className="form-body"><div className="notice warning">ไม่พบเอกสาร PO รายการนี้</div></div>
+        )}
+        <footer>
+          <p>ตรวจคำสั่งและยอดก่อนกดยืนยันรับ PO</p>
+          <button type="button" className="secondary" onClick={onClose}>ปิด</button>
+        </footer>
+      </section>
+    </div>
   );
 }
 function ChefLotEditForm({
@@ -1997,23 +2925,40 @@ function ChefLotEditForm({
   const lot = db.lots.find((item) => item.id === lotId);
   const received = entries(db, "cmReceive", lotId).at(-1);
   const prepared = entries(db, "prepare", lotId).at(-1);
-  const smoked = entries(db, "smoke", lotId).at(-1);
+  const smokeEntries = entries(db, "smoke", lotId);
   const [values, setValues] = useState<Values>(() => ({
     receivedKg: received?.values.receivedKg || "",
     arrival: received?.values.arrival || "",
     preKg: prepared?.values.preKg || "",
-    inputKg: smoked?.values.inputKg || "",
-    brineMl: smoked?.values.brineMl || "",
-    packs: (smoked?.values.packs || "").split(/[\s,]+/).filter(Boolean).join("\n"),
   }));
+  const [smokeDrafts, setSmokeDrafts] = useState(() =>
+    smokeEntries.map((entry) => ({
+      id: entry.id,
+      smokeDate: entry.values.smokeDate || entry.date,
+      inputKg: entry.values.inputKg || "",
+      wasteKg: entry.values.wasteKg || "0",
+      packs: (entry.values.packs || "").split(/[\s,]+/).filter(Boolean).join("\n"),
+    })),
+  );
   const [error, setError] = useState("");
-  if (!lot || !received || !prepared || !smoked)
+  if (!lot || !received || !prepared || !smokeEntries.length)
     return null;
   const receivedRecord = received;
   const preparedRecord = prepared;
-  const smokedRecord = smoked;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
+    setError("");
+  };
+  const setSmoke = (
+    id: string,
+    key: "smokeDate" | "inputKg" | "wasteKg" | "packs",
+    value: string,
+  ) => {
+    setSmokeDrafts((current) =>
+      current.map((draft) =>
+        draft.id === id ? { ...draft, [key]: value } : draft,
+      ),
+    );
     setError("");
   };
   function save() {
@@ -2022,54 +2967,62 @@ function ChefLotEditForm({
       const nextLot = next.lots.find((item) => item.id === lotId);
       const receiveEntry = next.entries.find((entry) => entry.id === receivedRecord.id);
       const prepareEntry = next.entries.find((entry) => entry.id === preparedRecord.id);
-      const smokeEntry = next.entries.find((entry) => entry.id === smokedRecord.id);
-      if (!nextLot || !receiveEntry || !prepareEntry || !smokeEntry)
+      const smokeRecords = smokeDrafts.map((draft) =>
+        next.entries.find((entry) => entry.id === draft.id),
+      );
+      if (!nextLot || !receiveEntry || !prepareEntry || smokeRecords.some((entry) => !entry))
         throw new Error("ไม่พบข้อมูล Lot ล่าสุด");
       const receivedKg = Number(values.receivedKg);
       const preKg = Number(values.preKg);
-      const inputKg = Number(values.inputKg);
-      const brineMl = Number(values.brineMl);
-      const weights = values.packs.split(/[\s,]+/).filter(Boolean).map(Number);
-      if (![receivedKg, preKg, inputKg, brineMl].every(Number.isFinite) || receivedKg <= 0 || preKg <= 0 || inputKg <= 0 || brineMl < 0)
-        throw new Error("กรอกน้ำหนักและน้ำหมักให้ถูกต้อง");
+      if (![receivedKg, preKg].every(Number.isFinite) || receivedKg <= 0 || preKg <= 0)
+        throw new Error("กรอกน้ำหนักให้ถูกต้อง");
       if (!values.arrival || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.arrival))
         throw new Error("กรอกเวลารับเป็น HH:mm");
       if (receivedKg > n(nextLot.values, "dispatchKg") + 0.001)
         throw new Error("น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
       if (preKg > receivedKg + 0.001)
         throw new Error("น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
-      if (!weights.length || weights.some((weight) => !Number.isFinite(weight) || weight <= 0))
-        throw new Error("กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0");
-      const oldInput = n(smokedRecord.values, "inputKg");
-      const processedOther = processed(db, lotId) - oldInput;
-      if (processedOther + inputKg > preKg + 0.001)
-        throw new Error("น้ำหนักเข้าเตารวมมากกว่าน้ำหนักก่อนสโมค");
-      const outputKg = weights.reduce((sum, weight) => sum + weight, 0);
-      if (outputKg > inputKg + brineMl / 1000 + 0.001)
-        throw new Error("น้ำหนักถุงรวมเกินน้ำหนักเข้าเตารวมกับน้ำหมัก");
-      const availableBrine = brineStockMl(db) + n(smokedRecord.values, "brineMl");
-      if (brineMl > availableBrine + 0.001)
-        throw new Error("สต๊อกน้ำหมักไม่พอ");
+      const revisedBatches = smokeDrafts.map((draft) => {
+        const inputKg = Number(draft.inputKg);
+        const wasteKg = Number(draft.wasteKg);
+        const weights = draft.packs.split(/[\s,]+/).filter(Boolean).map(Number);
+        if (!draft.smokeDate || !Number.isFinite(inputKg) || !Number.isFinite(wasteKg) || inputKg <= 0 || wasteKg < 0)
+          throw new Error("กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ");
+        if (!weights.length || weights.some((weight) => !Number.isFinite(weight) || weight <= 0))
+          throw new Error("กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0 ทุกรอบ");
+        const outputKg = weights.reduce((sum, weight) => sum + weight, 0);
+        if (Math.abs(outputKg + wasteKg - inputKg) > 0.001)
+          throw new Error("น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา");
+        return { ...draft, inputKg, wasteKg, weights, outputKg };
+      });
+      const totalInputKg = revisedBatches.reduce((total, batch) => total + batch.inputKg, 0);
+      if (Math.abs(totalInputKg - preKg) > 0.001)
+        throw new Error("ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค");
       receiveEntry.values = { ...receiveEntry.values, receivedKg: String(receivedKg), arrival: values.arrival };
       prepareEntry.values = { ...prepareEntry.values, preKg: String(preKg) };
-      smokeEntry.values = {
-        ...smokeEntry.values,
-        inputKg: String(inputKg),
-        brineMl: String(brineMl),
-        packs: weights.join("\n"),
-        outputKg: outputKg.toFixed(2),
-        packCount: String(weights.length),
-      };
+      revisedBatches.forEach((batch, index) => {
+        const smokeEntry = smokeRecords[index]!;
+        smokeEntry.values = {
+          ...smokeEntry.values,
+          smokeDate: batch.smokeDate,
+          inputKg: String(batch.inputKg),
+          wasteKg: String(batch.wasteKg),
+          packs: batch.weights.join("\n"),
+          outputKg: batch.outputKg.toFixed(2),
+          packCount: String(batch.weights.length),
+        };
+      });
+      const latestBatch = revisedBatches.at(-1)!;
       nextLot.values = {
         ...nextLot.values,
         receivedKg: String(receivedKg),
         arrival: values.arrival,
         preKg: String(preKg),
-        inputKg: String(inputKg),
-        brineMl: String(brineMl),
-        packs: weights.join("\n"),
-        outputKg: outputKg.toFixed(2),
-        packCount: String(weights.length),
+        inputKg: String(latestBatch.inputKg),
+        wasteKg: String(latestBatch.wasteKg),
+        packs: latestBatch.weights.join("\n"),
+        outputKg: latestBatch.outputKg.toFixed(2),
+        packCount: String(latestBatch.weights.length),
       };
       saveDatabase(next);
       onSaved();
@@ -2077,6 +3030,10 @@ function ChefLotEditForm({
       setError(value instanceof Error ? value.message : "แก้ไขไม่สำเร็จ");
     }
   }
+  const smokeTotal = smokeDrafts.reduce(
+    (total, draft) => total + (Number(draft.inputKg) || 0),
+    0,
+  );
   return (
     <div className="modal-backdrop">
       <section className="form-dialog" role="dialog" aria-modal="true" aria-labelledby="chef-edit-title">
@@ -2090,9 +3047,20 @@ function ChefLotEditForm({
             <label className="field">น้ำหนักรับจริง (กก.)<input type="number" min="0.001" step="0.001" value={values.receivedKg} onChange={(event) => set("receivedKg", event.target.value)} /></label>
             <label className="field">เวลารับ (HH:mm)<input type="time" value={values.arrival} onChange={(event) => set("arrival", event.target.value)} /></label>
             <label className="field">น้ำหนักก่อนสโมค (กก.)<input type="number" min="0.001" step="0.001" value={values.preKg} onChange={(event) => set("preKg", event.target.value)} /></label>
-            <label className="field">น้ำหนักเข้าเตา (กก.)<input type="number" min="0.001" step="0.001" value={values.inputKg} onChange={(event) => set("inputKg", event.target.value)} /></label>
-            <label className="field">น้ำหมักที่ใช้ (มล.)<input type="number" min="0" step="1" value={values.brineMl} onChange={(event) => set("brineMl", event.target.value)} /></label>
-            <label className="field field-wide">น้ำหนักถุงใหญ่จาก Chef_house (กก. / 1 บรรทัดต่อถุง)<textarea rows={5} value={values.packs} onChange={(event) => set("packs", event.target.value)} /></label>
+          </div>
+          <DataTable
+            title="ตรวจสอบและแก้ไข Log Lot สโมครายวัน"
+            columns={["วันที่", "Lot สโมค", "น้ำหนักเข้าเตา", "น้ำหนัก Waste", "น้ำหนักถุงใหญ่จาก Chef_house (กก. / 1 บรรทัดต่อถุง)"]}
+            rows={smokeDrafts.map((draft, index) => [
+              <input key={`${draft.id}-date`} type="date" value={draft.smokeDate} onChange={(event) => setSmoke(draft.id, "smokeDate", event.target.value)} />,
+              smokeEntries[index]?.values.subLot || "—",
+              <input key={`${draft.id}-input`} type="number" min="0.001" step="0.001" value={draft.inputKg} onChange={(event) => setSmoke(draft.id, "inputKg", event.target.value)} />,
+              <input key={`${draft.id}-waste`} type="number" min="0" step="0.001" value={draft.wasteKg} onChange={(event) => setSmoke(draft.id, "wasteKg", event.target.value)} />,
+              <textarea key={`${draft.id}-packs`} rows={3} value={draft.packs} onChange={(event) => setSmoke(draft.id, "packs", event.target.value)} />,
+            ])}
+          />
+          <div className={Math.abs(smokeTotal - (Number(values.preKg) || 0)) < 0.001 ? "notice success" : "notice warning"}>
+            น้ำหนักเข้าเตารวมจาก Log {fmt(smokeTotal)} กก. · น้ำหนักก่อนสโมค {fmt(Number(values.preKg) || 0)} กก. · {Math.abs(smokeTotal - (Number(values.preKg) || 0)) < 0.001 ? "ยอดตรงกัน พร้อมปิด Lot" : "ยอดยังไม่ตรง ต้องปรับ Log หรือ น้ำหนักก่อนสโมคก่อนปิด Lot"}
           </div>
           {error && <div role="alert" className="notice danger">{error}</div>}
         </div>
@@ -2101,6 +3069,502 @@ function ChefLotEditForm({
     </div>
   );
 }
+function SmokingPurchaseOrderView({ db, open }: { db: Database; open: (kind: string, lotId?: string) => void }) {
+  const eligibleLots = db.lots.filter((lot) => entries(db, "foodDivaConfirm", lot.id).length > 0);
+  return <div className="settings-stack">
+    <section className="panel config-heading">
+      <div><span className="overline">CHEF_HOUSE SERVICE PO</span><h2>ใบสั่ง PO โรงรมควัน</h2><p className="muted">Owner ออก PO รมควันหลัง Food Diva ออก Invoice แล้ว Chef_house ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ</p></div>
+      <Stat label="PO รอยืนยันจาก Chef_house" value={`${eligibleLots.filter((lot) => entries(db, "smokeOrder", lot.id).length && !entries(db, "smokeOrderAccept", lot.id).length).length} ใบ`} />
+    </section>
+    <DataTable
+      title="รายการ PO โรงรมควัน"
+      columns={["PO เนื้อ / Lot", "Invoice Food Diva", "น้ำหนักสั่งรม", "อัตราค่ารม", "Chef_house รับ PO", "ใบวางบิล", "การทำงาน"]}
+      rows={eligibleLots.map((lot) => {
+        const supplierInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+        const order = entries(db, "smokeOrder", lot.id).at(-1);
+        const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
+        const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
+        const invoiceStatus = invoice ? smokingInvoiceStatus(db, invoice) : "รอ Chef_house Submit";
+        return [
+          <span key="lot"><strong>{lot.poId}</strong><br />{lot.id}</span>,
+          `${supplierInvoice?.values.invoiceNo || "-"} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก.`,
+          order ? `${fmt(n(order.values, "rawKg"))} กก.` : "ยังไม่ออก PO",
+          order ? `฿${fmt(n(order.values, "serviceRate"))} / กก.` : "—",
+          accepted ? `${accepted.values.acceptedBy} · รับแล้ว` : order ? <span className="badge danger" key="accept">รอยืนยัน</span> : "—",
+          invoice ? `${invoice.values.invoiceNumber} · ${invoiceStatus}` : "รอ Chef_house",
+          <div className="button-row" key="actions">
+            {!order ? <button className="table-action" onClick={() => open("smokeOrder", lot.id)}>ออก PO รมควันเนื้อ</button> : <DocumentPrintButton title="Smoke Service Purchase Order" number={order.values.orderNumber} rows={[
+              ["ลูกค้า", db.config.companyName || "บริษัท เนิร์ดเนื้อ จำกัด"],
+              ["ที่อยู่", db.config.companyAddress || "—"],
+              ["Attention", db.config.attention || "—"],
+              ["โทร.", db.config.companyPhone || "—"],
+              ["Tax ID", db.config.taxId || "—"],
+              ["Supplier", order.values.smoker || "Chef_house"],
+              ["ผู้รับออเดอร์", db.config.chefHouseContact || "—"],
+              ["ที่อยู่ผู้ให้บริการ", db.config.chefHouseAddress || "—"],
+              ["วันที่ PO", order.values.requestedSmokeDate || order.date],
+              ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
+              ["Lot เนื้อ", lot.id],
+              ["Food Diva Invoice", supplierInvoice?.values.invoiceNo || "—"],
+              ["สินค้า", "บริการรมควันเนื้อ"],
+              ["ขนาดบรรจุ", `Lot ${lot.id}`],
+              ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
+              ["ราคา / กก.", `฿${fmt(n(order.values, "serviceRate"))}`],
+              ["ยอดรวมก่อน VAT", `฿${fmt(n(order.values, "estimatedCost"))}`],
+              ["หมายเหตุ", order.values.instruction || "—"],
+            ]} />}
+          </div>,
+        ];
+      })}
+    />
+    {!eligibleLots.length && <div className="notice">ยังไม่มี PO เนื้อที่ Food Diva ออก Invoice แล้ว</div>}
+  </div>;
+}
+
+function FoodDivaView({ db, open }: { db: Database; open: (kind: string, lotId?: string) => void }) {
+  const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodDiva(db, lot), 0);
+  const reservedForContent = db.lots.reduce((sum, lot) => sum + reservedForOwnerContent(db, lot.id), 0);
+  const returnWaiting = db.lots.filter((lot) => lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length);
+  return <div className="settings-stack">
+    <section className="panel config-heading"><div><h2>งาน Food Diva</h2><p className="muted">รับ PO ออก Invoice แล้วระบุน้ำหนักพร้อมส่งเชียงใหม่ และเนื้อส่วนที่เหลือรอ Owner รับ (Waste)</p></div><div className="button-row"><Stat label="เนื้อดิบคงเหลือ Food Diva" value={`${fmt(holding)} กก.`} /><Stat label="เนื้อส่วนที่เหลือรอ Owner รับ (Waste)" value={`${fmt(reservedForContent)} กก.`} /></div></section>
+    <DataTable
+      title="PO เนื้อที่ต้องออก Invoice"
+      columns={["เลข PO", "Lot", "ยอดสั่ง", "Invoice เนื้อ", "พร้อมส่งเชียงใหม่", "รอ Owner รับ (Waste)", "คงเหลือ Food Diva", "สถานะ", "การทำงาน"]}
+      rows={db.lots.map((lot) => {
+        const confirm = entries(db, "foodDivaConfirm", lot.id).at(-1);
+        return [
+          <strong key={lot.poId}>{lot.poId}</strong>, lot.id, `${fmt(n(lot.values, "orderedKg"))} กก.`,
+          confirm ? `${confirm.values.invoiceNo} · ${fmt(n(confirm.values, "confirmedKg"))} กก.` : <span className="badge danger" key="pending">รอออก Invoice</span>,
+          confirm ? `${fmt(readyForChefHouse(db, lot.id))} กก.` : "—",
+          confirm ? `${fmt(reservedForOwnerContent(db, lot.id))} กก.` : "—",
+          `${fmt(rawAtFoodDiva(db, lot))} กก.`,
+          !confirm ? "ต้องออก Invoice" : lot.stage === 1 ? "รอ Owner เรียกรถ" : lot.stage < 7 ? "ส่งให้ Chef_house แล้ว" : "รอรับเนื้อรมควัน",
+          !confirm ? (
+            <div className="button-row" key="confirm-actions">
+              <DocumentPrintButton title="Purchase Order" number={lot.poId} rows={purchaseOrderRows(lot, db)} label="ดู PO / PDF" preview />
+              <button className="table-action" onClick={() => open("foodDivaConfirm", lot.id)}>ออกและอัปโหลด Invoice</button>
+            </div>
+          ) : (
+            <div className="button-row" key="confirmed-actions">
+              <DocumentPrintButton title="Purchase Order" number={lot.poId} rows={purchaseOrderRows(lot, db)} label="ดู PO / PDF" preview />
+              <span className="badge success">แนบ Invoice แล้ว</span>
+              <button className="table-action" onClick={() => open("foodDivaConfirm", lot.id)}>
+                แก้ไข / อัปโหลดใหม่
+              </button>
+            </div>
+          ),
+        ];
+      })}
+    />
+    <DataTable title="เนื้อรมควันรอ Food Diva รับเข้าตู้" columns={["PO / Lot", "ใบขนส่ง", "น้ำหนักหลังรม", "รับจริง", "สถานะ", "การทำงาน"]} rows={returnWaiting.map((lot) => {
+      const trip = entries(db, "return", lot.id).at(-1);
+      return [`${lot.poId} / ${lot.id}`, `${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`, `${fmt(produced(db, lot.id))} กก.`, "รอชั่งรับ", <span className="badge danger" key="status">ต้องรับเข้า</span>, <button key="receive" className="table-action" onClick={() => open("foodDivaReturnReceive", lot.id)}>ยืนยันรับเข้าตู้</button>];
+    })} />
+  </div>;
+}
+
+function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
+  const purchase = entries(db, "purchase", lot.id).at(-1);
+  return [
+    ["วันที่ PO", purchase?.date || lot.values.purchaseDate || "—"],
+    ["Supplier", lot.values.supplier],
+    ["ลูกค้า", lot.values.customerName],
+    ["ที่อยู่", lot.values.customerAddress],
+    ["Attention", lot.values.attention],
+    ["โทร.", lot.values.phone],
+    ["Tax ID", lot.values.taxId],
+    ["สินค้า", lot.values.productName || "เนื้อวัว"],
+    ["ขนาดบรรจุ", lot.values.packSize],
+    ["จำนวน", `${fmt(n(lot.values, "orderedKg"))} กก.`],
+    ["ราคา / กก.", `฿${fmt(n(lot.values, "price"))}`],
+    ["ยอดรวมก่อน VAT", `฿${fmt(n(lot.values, "orderedKg") * n(lot.values, "price"))}`],
+    ["อ้างอิงผู้ขาย", lot.values.reference || "—"],
+    ["หมายเหตุ", lot.values.note || "—"],
+  ];
+}
+
+function DocumentPrintButton({ title, number, rows, label = "พิมพ์ / PDF", preview = false }: { title: string; number: string; rows: [string, string][]; label?: string; preview?: boolean }) {
+  const print = () => {
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char] || char);
+    const field = (label: string) => rows.find(([key]) => key === label)?.[1] || "—";
+    const isSmokePurchaseOrder = title === "Smoke Service Purchase Order";
+    const isPurchaseOrder = title === "Purchase Order" || isSmokePurchaseOrder;
+    const supplierHeading = isSmokePurchaseOrder ? "ผู้ให้บริการ / SERVICE PROVIDER" : "ผู้ขาย / SUPPLIER";
+    const dueLabel = isSmokePurchaseOrder ? "กำหนดเสร็จ" : "กำหนดชำระ";
+    const dueValue = isSmokePurchaseOrder ? field("กำหนดเสร็จ") : "ตามข้อตกลง";
+    const referenceLabel = isSmokePurchaseOrder ? "Lot เนื้อ" : "อ้างอิงผู้ขาย";
+    const referenceValue = isSmokePurchaseOrder ? field("Lot เนื้อ") : field("อ้างอิงผู้ขาย");
+    const supplierExtra = isSmokePurchaseOrder
+      ? `<p>ผู้รับออเดอร์: ${escape(field("ผู้รับออเดอร์"))}</p><p>ที่อยู่: ${escape(field("ที่อยู่ผู้ให้บริการ"))}</p><p>อ้างอิง Invoice Food Diva: ${escape(field("Food Diva Invoice"))}</p>`
+      : "";
+    const documentContent = isPurchaseOrder
+      ? `<section class="party-grid"><div><span>ผู้ซื้อ / BUYER</span><strong>${escape(field("ลูกค้า"))}</strong><p>Reg. Address: ${escape(field("ที่อยู่"))}</p><p>Attention: ${escape(field("Attention"))}</p><p>โทร. ${escape(field("โทร."))}</p><p>Tax ID: ${escape(field("Tax ID"))}</p></div><div><span>${supplierHeading}</span><strong>${escape(field("Supplier"))}</strong>${supplierExtra}</div></section><section class="meta-grid"><div><span>วันที่ออก PO</span><strong>${escape(field("วันที่ PO"))}</strong></div><div><span>${dueLabel}</span><strong>${escape(dueValue)}</strong></div><div><span>${referenceLabel}</span><strong>${escape(referenceValue)}</strong></div></section><table class="items"><thead><tr><th>รายการ</th><th>รายละเอียด</th><th>จำนวน</th><th>ราคา / กก.</th><th>รวม</th></tr></thead><tbody><tr><td>${escape(field("สินค้า"))}</td><td>${escape(field("ขนาดบรรจุ"))}</td><td>${escape(field("จำนวน"))}</td><td>${escape(field("ราคา / กก."))}</td><td>${escape(field("ยอดรวมก่อน VAT"))}</td></tr></tbody></table><div class="total"><span>ยอดรวมประมาณการ</span><strong>${escape(field("ยอดรวมก่อน VAT"))}</strong></div><section class="note"><span>หมายเหตุ</span><p>${escape(field("หมายเหตุ"))}</p></section>`
+      : `<table class="details"><tbody>${rows.map(([label, value]) => `<tr><th>${escape(label)}</th><td>${escape(value || "—")}</td></tr>`).join("")}</tbody></table>`;
+    const popup = window.open("", "_blank", "width=880,height=720");
+    if (!popup) {
+      window.alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up สำหรับ localhost:3000 แล้วลองอีกครั้ง");
+      return;
+    }
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escape(number)}</title><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9eee7;font-family:Arial,'Noto Sans Thai',sans-serif;color:#18342e}.sheet{width:210mm;min-height:297mm;margin:0 auto;padding:23mm 20mm;background:#fff}.head{display:flex;justify-content:space-between;gap:20px;padding-bottom:18mm;border-bottom:2px solid #315f4d}.head h1{margin:0;color:#165846;font-size:30px;letter-spacing:.04em}.number{text-align:right}.number span,.party-grid span,.meta-grid span,.note span{display:block;color:#617b70;font-size:11px;letter-spacing:.04em}.number strong{display:block;margin-top:8px;color:#174d3f;font-size:15px}.party-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px;padding:16mm 0}.party-grid strong{display:block;margin:8px 0 15px;font-size:17px}.party-grid p{margin:5px 0;color:#546b61;font-size:12px;line-height:1.55}.meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:12px 0;border-top:1px solid #d7e0da;border-bottom:1px solid #d7e0da}.meta-grid strong{display:block;margin-top:7px;font-size:12px}.items,.details{width:100%;margin-top:18mm;border-collapse:collapse;font-size:12px}.items th{padding:10px 8px;border-bottom:1px solid #b7c8bd;color:#587066;font-size:11px;text-align:left}.items td{padding:13px 8px;border-bottom:1px solid #dce5df;vertical-align:top}.items th:nth-child(n+3),.items td:nth-child(n+3){text-align:right;white-space:nowrap}.total{display:flex;justify-content:flex-end;align-items:baseline;gap:30px;margin-top:18px;color:#184f40}.total span{font-weight:700}.total strong{font-size:23px}.note{min-height:80px;margin-top:18mm;padding-top:13px;border-top:1px solid #d7e0da}.note p{margin:8px 0;color:#536a60;font-size:12px;line-height:1.6}.details th,.details td{padding:12px;border:1px solid #d6e0da;text-align:left}.details th{width:38%;background:#f1f5ef;color:#365d4b}.footer{display:flex;justify-content:space-between;gap:16px;margin-top:32mm;padding-top:12px;border-top:1px solid #d7e0da;color:#718078;font-size:11px}@media print{body{background:#fff}.sheet{margin:0;width:auto;min-height:auto}}</style></head><body><main class="sheet"><header class="head"><div><h1>${escape(title.toUpperCase())}</h1></div><div class="number"><span>เลขที่เอกสาร</span><strong>${escape(number)}</strong></div></header>${documentContent}<footer class="footer"><span>เอกสารจาก NerdNuea Stock</span><span>สถานะ: บันทึกในระบบ</span></footer></main></body></html>`);
+    popup.document.close();
+    if (preview) {
+      const download = popup.document.createElement("button");
+      download.type = "button";
+      download.textContent = "ดาวน์โหลด / พิมพ์ PDF";
+      Object.assign(download.style, { position: "fixed", top: "14px", right: "14px", zIndex: "10", padding: "10px 14px", border: "0", borderRadius: "8px", background: "#165846", color: "#fff", fontWeight: "700", cursor: "pointer" });
+      download.addEventListener("click", () => popup.print());
+      popup.document.body.append(download);
+    }
+    popup.focus();
+    if (!preview) popup.setTimeout(() => popup.print(), 150);
+  };
+  return <button className="table-action" type="button" onClick={print}>{label}</button>;
+}
+
+function InvoiceDownloadButton({ name, data, storageKey }: { name: string; data?: string; storageKey?: string }) {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const download = async () => {
+    if (data || !storageKey) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const file = await getAttachment(storageKey);
+      if (!file) throw new Error("ไม่พบไฟล์บนเบราว์เซอร์นี้");
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = name || file.name;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "ดาวน์โหลดไฟล์ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  };
+  if (data)
+    return <a className="table-action" href={data} download={name || "invoice"}><Download size={14} /> ดาวน์โหลด</a>;
+  if (storageKey)
+    return <div className="button-row"><button className="table-action" type="button" onClick={download} disabled={loading}><Download size={14} /> {loading ? "กำลังโหลด" : "ดาวน์โหลด"}</button>{message && <small className="error-text">{message}</small>}</div>;
+  if (!name) return <span className="muted">ยังไม่มีไฟล์แนบ</span>;
+  return (
+    <span className="muted">ไฟล์เดิมยังไม่มีให้ดาวน์โหลด</span>
+  );
+}
+
+type DocumentReferenceType = "po" | "lot";
+
+function lotIssueDate(db: Database, lot: Lot) {
+  const purchase = entries(db, "purchase", lot.id).at(-1);
+  if (purchase?.date) return purchase.date;
+  const match = lot.id.match(/(\d{4})(\d{2})(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "—";
+}
+
+function matchesDocumentFilter(
+  db: Database,
+  lot: Lot | undefined,
+  referenceType: DocumentReferenceType,
+  query: string,
+  fromDate: string,
+  toDate: string,
+) {
+  if (!lot) return false;
+  const reference = referenceType === "po" ? lot.poId : lot.id;
+  const issueDate = lotIssueDate(db, lot);
+  return (
+    (!query || reference.toLowerCase().includes(query.trim().toLowerCase())) &&
+    (!fromDate || issueDate >= fromDate) &&
+    (!toDate || issueDate <= toDate)
+  );
+}
+
+function DocumentFilterBar({
+  referenceType,
+  query,
+  fromDate,
+  toDate,
+  onReferenceType,
+  onQuery,
+  onFromDate,
+  onToDate,
+}: {
+  referenceType: DocumentReferenceType;
+  query: string;
+  fromDate: string;
+  toDate: string;
+  onReferenceType: (value: DocumentReferenceType) => void;
+  onQuery: (value: string) => void;
+  onFromDate: (value: string) => void;
+  onToDate: (value: string) => void;
+}) {
+  const label = referenceType === "po" ? "เลข PO" : "เลข Lot";
+  return (
+    <section className="panel document-filter-panel">
+      <div>
+        <span className="overline">FILTER DOCUMENTS</span>
+        <p className="muted">กรองจากวันที่ออก PO / วันที่เปิด Lot เป็นหลัก</p>
+      </div>
+      <div className="table-filters">
+        <label className="table-filter">
+          กรองตาม
+          <select value={referenceType} onChange={(event) => onReferenceType(event.target.value as DocumentReferenceType)}>
+            <option value="po">เลข PO</option>
+            <option value="lot">เลข Lot</option>
+          </select>
+        </label>
+        <label className="table-filter">
+          ค้นหา {label}
+          <input value={query} placeholder={`เช่น ${referenceType === "po" ? "PO-2026..." : "NN-2026..."}`} onChange={(event) => onQuery(event.target.value)} />
+        </label>
+        <label className="table-filter">
+          ตั้งแต่วันที่ PO / Lot
+          <input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => onFromDate(event.target.value)} />
+        </label>
+        <label className="table-filter">
+          ถึงวันที่ PO / Lot
+          <input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => onToDate(event.target.value)} />
+        </label>
+        <button type="button" className="secondary" onClick={() => { onQuery(""); onFromDate(""); onToDate(""); }}>
+          ล้าง Filter
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function InvoiceView({ db, open }: { db: Database; open: (kind: string, lotId?: string) => void }) {
+  const [referenceType, setReferenceType] = useState<DocumentReferenceType>("po");
+  const [query, setQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const matches = (lot: Lot | undefined) => matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate);
+  const foodDivaInvoices = entries(db, "foodDivaConfirm").filter((entry) => matches(db.lots.find((lot) => lot.id === entry.lotId)));
+  const smokingInvoices = entries(db, "smokingInvoice").filter((entry) => matches(db.lots.find((lot) => lot.id === entry.lotId)));
+  return (
+    <div className="settings-stack">
+      <section className="panel config-heading">
+        <div>
+          <span className="overline">INVOICE CENTER</span>
+          <h2>ใบ Invoice</h2>
+          <p className="muted">Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Food Diva และ Chef_house แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO</p>
+        </div>
+        <Stat label="Invoice รอตรวจยอด" value={`${smokingInvoices.filter((entry) => smokingInvoiceStatus(db, entry) === "รอตรวจยอด").length} ใบ`} />
+      </section>
+      <DocumentFilterBar
+        referenceType={referenceType}
+        query={query}
+        fromDate={fromDate}
+        toDate={toDate}
+        onReferenceType={setReferenceType}
+        onQuery={setQuery}
+        onFromDate={setFromDate}
+        onToDate={setToDate}
+      />
+      <DataTable
+        title="Invoice Food Diva"
+        columns={["เลข Invoice", "วันที่ Invoice", "PO / Lot", "วันที่ PO / Lot", "น้ำหนัก", "ยอดรวม", "ผู้ยืนยัน", "ไฟล์"]}
+        rows={foodDivaInvoices.map((entry) => {
+          const lot = db.lots.find((item) => item.id === entry.lotId);
+          return [
+            entry.values.invoiceNo,
+            entry.values.invoiceDate,
+            `${lot?.poId || "-"} / ${entry.lotId}`,
+            lot ? lotIssueDate(db, lot) : "—",
+            `${fmt(n(entry.values, "confirmedKg"))} กก.`,
+            `฿${fmt(n(entry.values, "invoiceAmount"))}`,
+            entry.values.confirmedBy || "—",
+            <InvoiceDownloadButton key={entry.id} name={entry.values.attachment} data={entry.values.attachmentData} storageKey={entry.values.attachmentStorageKey} />,
+          ];
+        })}
+      />
+      <DataTable
+        title="Invoice Chef_house"
+        columns={["เลข Invoice", "วันที่ Invoice", "PO / Lot", "วันที่ PO / Lot", "ยอดตาม PO", "รายละเอียด", "สถานะ", "ไฟล์", "การทำงาน"]}
+        rows={smokingInvoices.map((entry) => {
+          const lot = db.lots.find((item) => item.id === entry.lotId);
+          const status = smokingInvoiceStatus(db, entry);
+          return [
+            entry.values.invoiceNumber,
+            entry.values.invoiceDate,
+            `${lot?.poId || "-"} / ${entry.lotId}`,
+            lot ? lotIssueDate(db, lot) : "—",
+            `฿${fmt(n(entry.values, "netPayable"))}`,
+            entry.values.invoiceDetail || "—",
+            status,
+            <InvoiceDownloadButton key={`file-${entry.id}`} name={entry.values.attachment} data={entry.values.attachmentData} storageKey={entry.values.attachmentStorageKey} />,
+            <div className="button-row" key={`action-${entry.id}`}>
+              {status === "รอตรวจยอด" && <button className="table-action" onClick={() => open("invoiceReview", entry.lotId)}>ตรวจยอด</button>}
+              {status === "รอชำระ" && <button className="table-action" onClick={() => open("invoicePayment", entry.lotId)}>ชำระเงิน</button>}
+            </div>,
+          ];
+        })}
+      />
+    </div>
+  );
+}
+
+function SimpleTraceabilityView({
+  db,
+  onNavigate,
+}: {
+  db: Database;
+  onNavigate: (tab: Tab, role?: Role) => void;
+}) {
+  const [referenceType, setReferenceType] = useState<DocumentReferenceType>("po");
+  const [query, setQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const visibleLots = db.lots.filter((lot) =>
+    matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
+  );
+  const link = (label: string, tab: Tab, role?: Role) => (
+    <button type="button" className="table-action" onClick={() => onNavigate(tab, role)}>
+      {label}
+    </button>
+  );
+  return (
+    <div className="settings-stack document-module">
+      <section className="panel config-heading">
+        <div>
+          <span className="overline">READ-ONLY TRACEABILITY</span>
+          <h2>เอกสารและการตรวจสอบย้อนกลับ</h2>
+          <p className="muted">
+            ตารางสำหรับอ่านเส้นทางของแต่ละ Lot เท่านั้น การตรวจยอด ชำระเงิน และดาวน์โหลด Invoice
+            ให้ทำจากเมนูใบ Invoice
+          </p>
+        </div>
+      </section>
+
+      <DocumentFilterBar
+        referenceType={referenceType}
+        query={query}
+        fromDate={fromDate}
+        toDate={toDate}
+        onReferenceType={setReferenceType}
+        onQuery={setQuery}
+        onFromDate={setFromDate}
+        onToDate={setToDate}
+      />
+
+      <DataTable
+        title="สรุปเส้นทางเอกสารตาม Lot"
+        columns={[
+          "PO / Lot",
+          "วันที่ PO / Lot",
+          "Invoice Food Diva",
+          "PO รมควัน",
+          "Invoice Chef_house",
+          "ขนส่งไป Chef_house",
+          "รับที่ Chef_house",
+          "ผลผลิตหลังรม",
+          "ส่งกลับ Food Diva",
+          "สถานะล่าสุด",
+        ]}
+        rows={visibleLots.map((lot) => {
+          const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+          const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
+          const chefInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
+          const dispatch = entries(db, "dispatch", lot.id).at(-1);
+          const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
+          const returnTrip = entries(db, "return", lot.id).at(-1);
+
+          return [
+            <span key="lot">{link(lot.poId, "po")}<br />{lot.id}</span>,
+            lotIssueDate(db, lot),
+            foodInvoice
+              ? <span key="food-invoice">{link(foodInvoice.values.invoiceNo, "invoices")} · {fmt(n(foodInvoice.values, "confirmedKg"))} กก.</span>
+              : link("รอ Food Diva", "food-diva", "fooddiva"),
+            smokeOrder
+              ? <span key="smoke-po">{link(smokeOrder.values.orderNumber, "smoke-po")} · {fmt(n(smokeOrder.values, "rawKg"))} กก.</span>
+              : link("รอ Owner ออก PO", "smoke-po"),
+            chefInvoice
+              ? <span key="chef-invoice">{link(chefInvoice.values.invoiceNumber, "invoices")} · {smokingInvoiceStatus(db, chefInvoice)}</span>
+              : link("รอ Chef_house Submit", "work", "cm"),
+            dispatch
+              ? <span key="dispatch">{link(dispatch.values.pickupDate || dispatch.date, "transport")} · {fmt(n(dispatch.values, "dispatchKg"))} กก.</span>
+              : link("รอขนส่ง", "transport"),
+            chefReceive
+              ? link(`${fmt(n(chefReceive.values, "receivedKg"))} กก.`, "work", "cm")
+              : link("รอยืนยันรับ", "cm-receive", "cm"),
+            produced(db, lot.id)
+              ? link(`${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง`, "work", "cm")
+              : link("รอผลิต", "work", "cm"),
+            returnTrip
+              ? <span key="return">{link(returnTrip.values.returnDate || returnTrip.date, "transport")} · {fmt(n(returnTrip.values, "returnKg"))} กก.</span>
+              : link("รอส่งกลับ", "transport"),
+            link(stages[lot.stage], "history"),
+          ];
+        })}
+      />
+
+      <p className="footnote">
+        หน้านี้อ่านอย่างเดียวและไม่เปลี่ยนข้อมูลใด ๆ ทุกขั้นตอนยังทำจากเมนู PO, ใบ Invoice,
+        ใบขนส่ง, งานผลิต และสต๊อกตามเดิม
+      </p>
+    </div>
+  );
+}
+
+function DocumentModuleView({ db, open }: { db: Database; open: (kind: string, lotId?: string) => void }) {
+  const openPo = db.lots.filter((lot) => lot.stage < 8).length;
+  const outstandingSupplier = entries(db, "supplierInvoice").filter((entry) => entry.values.paymentStatus !== "Paid");
+  const outstandingSmoking = entries(db, "smokingInvoice").filter((entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว");
+  const printDocument = () => window.print();
+  return <div className="settings-stack document-module">
+    <section className="panel config-heading">
+      <div><span className="overline">DOCUMENT CONTROL</span><h2>เอกสารและการตรวจสอบย้อนกลับ</h2><p className="muted">เอกสารทุกฉบับอ้างอิง PO และ Beef Lot เดียวกับสต๊อก ไม่มีการลบรายการที่ยืนยันแล้ว ให้ใช้ยกเลิกเพื่อรักษาประวัติ</p></div>
+      <button className="secondary" onClick={printDocument}>พิมพ์ / บันทึก PDF</button>
+    </section>
+    <section className="dashboard-kpis document-kpis">
+      <article className="kpi-card"><small>Open PO</small><strong>{openPo}</strong><small>Lot ที่ยังดำเนินการ</small></article>
+      <article className="kpi-card"><small>Supplier Invoice ค้างชำระ</small><strong>{outstandingSupplier.length}</strong><small>ใบ</small></article>
+      <article className="kpi-card"><small>Smoking Invoice ค้างชำระ</small><strong>{outstandingSmoking.length}</strong><small>ใบ</small></article>
+      <article className="kpi-card"><small>Average Yield</small><strong>{fmt(averageYield(db))}%</strong><small>ทุก Smoke Batch</small></article>
+    </section>
+    <DataTable title="Beef Lot traceability และสถานะสต๊อก" columns={["PO / Beef Lot", "ซื้อจาก", "Food Diva", "ที่โรงรม", "Steak", "หลังรม", "Loss / Yield", "เอกสารต่อไป"]} rows={db.lots.map((lot) => {
+      const smokeInput = processed(db, lot.id);
+      const yieldPct = smokeInput > 0 ? produced(db, lot.id) / smokeInput * 100 : 0;
+      const hasSmokeOrder = entries(db, "smokeOrder", lot.id).length;
+      return [
+        <span key="lot"><strong>{lot.poId}</strong><br />{lot.id}</span>,
+        `${lot.values.supplier || "Food Diva"} · ${fmt(n(lot.values, "orderedKg"))} กก.`,
+        `${fmt(rawAtFoodDiva(db, lot))} กก.`, `${fmt(rawAtSmoker(db, lot))} กก.`, `${fmt(steakRawStock(db, lot.id))} กก.`, `${fmt(produced(db, lot.id))} กก.`,
+        smokeInput ? `${fmt(processLoss(db, lot.id))} กก. / ${fmt(yieldPct)}%` : "รอผลิต",
+        <div className="button-row" key="action">
+          <button className="table-action" onClick={() => open("taxDocument", lot.id)}>ภาษี</button>
+          {entries(db, "foodDivaConfirm", lot.id).length > 0 && !hasSmokeOrder && <span className="muted">ออก PO จากเมนูใบสั่ง PO โรงรมควัน</span>}
+          {rawAtFoodDiva(db, lot) > 0.001 && <button className="table-action" onClick={() => open("steakTransfer", lot.id)}>โอนไป Steak</button>}
+          {entries(db, "smokeOrder", lot.id).length > 0 && <span className="muted">Chef_house ออกใบวางบิลจากเมนูงานผลิต</span>}
+        </div>,
+      ];
+    })} />
+    <DataTable title="Stock Transfer Document" columns={["เลขโอน", "วันที่", "PO / Lot", "ต้นทาง → ปลายทาง", "ส่งออก", "รับจริง", "สถานะ", "เอกสาร"]} rows={[
+      ...entries(db, "dispatch").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); const number = entry.values.transferNumber || entry.id.slice(0, 8); return [number, entry.date, `${lot?.poId || "-"} / ${entry.lotId}`, `${entry.values.origin} → ${entry.values.destination}`, `${fmt(n(entry.values, "dispatchKg"))} กก.`, `${fmt(n(lot?.values || {}, "receivedKg"))} กก.`, lot?.stage && lot.stage >= 2 ? "Received by Chef_house" : "In Transit", <DocumentPrintButton key={entry.id} title="Stock Transfer Document" number={number} rows={[["วันที่", entry.date], ["PO", lot?.poId || "-"], ["Beef Lot", entry.lotId], ["ต้นทาง", entry.values.origin], ["ปลายทาง", entry.values.destination], ["น้ำหนักส่ง", `${fmt(n(entry.values, "dispatchKg"))} กก.`], ["ทะเบียนรถ", entry.values.plate || "-"], ["คนขับ", entry.values.driverName || "-"]]} />]; }),
+      ...entries(db, "steakTransfer").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); return [entry.values.transferNumber, entry.values.transferDate, `${lot?.poId || "-"} / ${entry.lotId}`, "Food Diva / Raw Meat Storage → Steak Production", `${fmt(n(entry.values, "quantityKg"))} กก.`, `${fmt(n(entry.values, "quantityKg"))} กก.`, "Received", <DocumentPrintButton key={entry.id} title="Internal Stock Transfer to Steak" number={entry.values.transferNumber} rows={[["วันที่", entry.values.transferDate], ["PO", lot?.poId || "-"], ["Beef Lot", entry.lotId], ["ต้นทาง", entry.values.sourceLocation], ["ปลายทาง", entry.values.destinationLocation], ["จำนวน", `${fmt(n(entry.values, "quantityKg"))} กก.`], ["เหตุผล", entry.values.reason]]} />]; }),
+    ]} />
+    <DataTable title="Supplier Invoice และ Tax documents" columns={["ประเภท", "เลขที่", "วันที่", "PO / Lot", "ยอดรวม", "VAT", "สถานะ", "เอกสาร"]} rows={[
+      ...entries(db, "foodDivaConfirm").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); return ["Food Diva Meat Invoice", entry.values.invoiceNo, entry.values.invoiceDate, `${lot?.poId || "-"} / ${entry.lotId}`, `฿${fmt(n(entry.values, "invoiceAmount"))}`, "—", "Food Diva ยืนยันแล้ว", <DocumentPrintButton key={entry.id} title="Food Diva Meat Invoice" number={entry.values.invoiceNo} rows={[["วันที่ Invoice", entry.values.invoiceDate], ["Food Diva", entry.values.confirmedBy], ["PO", lot?.poId || "-"], ["Beef Lot", entry.lotId], ["จำนวน", `${fmt(n(entry.values, "confirmedKg"))} กก.`], ["ยอดรวม", `฿${fmt(n(entry.values, "invoiceAmount"))}`], ["ไฟล์แนบ", entry.values.attachment]]} />]; }),
+      ...entries(db, "supplierInvoice").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); return ["Supplier Invoice", entry.values.invoiceNumber, entry.values.invoiceDate, `${lot?.poId || "-"} / ${entry.lotId}`, `฿${fmt(n(entry.values, "totalAmount"))}`, `฿${fmt(n(entry.values, "vat"))}`, entry.values.paymentStatus, <DocumentPrintButton key={entry.id} title="Supplier Invoice Record" number={entry.values.invoiceNumber} rows={[["วันที่ Invoice", entry.values.invoiceDate], ["Supplier", lot?.values.supplier || "Food Diva"], ["PO", lot?.poId || "-"], ["Beef Lot", entry.lotId], ["จำนวน", `${fmt(n(entry.values, "quantityKg"))} กก.`], ["ยอดก่อน VAT", `฿${fmt(n(entry.values, "amountBeforeVat"))}`], ["VAT", `฿${fmt(n(entry.values, "vat"))}`], ["ยอดรวม", `฿${fmt(n(entry.values, "totalAmount"))}`], ["ครบกำหนด", entry.values.dueDate], ["สถานะชำระ", entry.values.paymentStatus]]} />]; }),
+      ...entries(db, "taxDocument").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); return [entry.values.documentType, entry.values.documentNumber, entry.values.documentDate, `${lot?.poId || "-"} / ${entry.lotId}`, `฿${fmt(n(entry.values, "amount"))}`, `฿${fmt(n(entry.values, "vat"))}`, entry.values.attachment ? "แนบไฟล์แล้ว" : "รอแนบไฟล์", <DocumentPrintButton key={entry.id} title={entry.values.documentType} number={entry.values.documentNumber} rows={[["วันที่เอกสาร", entry.values.documentDate], ["Supplier", lot?.values.supplier || "Food Diva"], ["PO", lot?.poId || "-"], ["ยอด", `฿${fmt(n(entry.values, "amount"))}`], ["VAT", `฿${fmt(n(entry.values, "vat"))}`], ["ไฟล์แนบ", entry.values.attachment || "—"]]} />]; }),
+      ...entries(db, "smokingInvoice").map((entry) => { const lot = db.lots.find((item) => item.id === entry.lotId); const status = smokingInvoiceStatus(db, entry); return ["Smoking Service Invoice", entry.values.invoiceNumber, entry.values.invoiceDate, `${lot?.poId || "-"} / ${entry.lotId}`, `฿${fmt(n(entry.values, "netPayable"))}`, `฿${fmt(n(entry.values, "vat"))}`, status, <div className="button-row" key={entry.id}><DocumentPrintButton title="Smoking Service Invoice" number={entry.values.invoiceNumber} rows={[["วันที่ Invoice", entry.values.invoiceDate], ["ผู้ให้บริการ", entry.values.serviceProvider], ["PO", lot?.poId || "-"], ["Beef Lot", entry.lotId], ["จำนวนคิดค่าบริการ", `${fmt(n(entry.values, "serviceQuantity"))} กก.`], ["ยอดก่อน VAT", `฿${fmt(n(entry.values, "amountBeforeVat"))}`], ["VAT", `฿${fmt(n(entry.values, "vat"))}`], ["หัก ณ ที่จ่าย", `฿${fmt(n(entry.values, "withholdingTax"))}`], ["ยอดสุทธิ", `฿${fmt(n(entry.values, "netPayable"))}`], ["ไฟล์แนบ", entry.values.attachment]]} />{status === "รอตรวจยอด" && <button className="table-action" onClick={() => open("invoiceReview", entry.lotId)}>ตรวจยอด</button>}{status === "รอชำระ" && <button className="table-action" onClick={() => open("invoicePayment", entry.lotId)}>ชำระเงิน</button>}</div>]; }),
+    ]} />
+    <DataTable title="PO รมควัน และผลผลิต" columns={["Smoke Order", "Lot", "น้ำหนักดิบ", "Chef_house รับ PO", "วันที่ขอรม", "Smoke Batch", "น้ำหนักหลังรม", "Loss", "Yield", "เอกสาร"]} rows={entries(db, "smokeOrder").map((order) => {
+      const smokeEntries = entries(db, "smoke", order.lotId);
+      const accepted = entries(db, "smokeOrderAccept", order.lotId).at(-1);
+      const input = smokeEntries.reduce((sum, entry) => sum + n(entry.values, "inputKg"), 0);
+      const output = smokeEntries.reduce((sum, entry) => sum + n(entry.values, "outputKg"), 0);
+      return [order.values.orderNumber, order.lotId, `${fmt(n(order.values, "rawKg"))} กก.`, accepted ? `${accepted.values.acceptedBy} · รับแล้ว` : "รอยืนยันรับ", order.values.requestedSmokeDate, smokeEntries.map((entry) => entry.values.subLot).filter(Boolean).join(", ") || "รอผล", `${fmt(output)} กก.`, `${fmt(Math.max(0, input - output))} กก.`, input ? `${fmt(output / input * 100)}%` : "—", <DocumentPrintButton key={order.id} title="Smoke Service Order" number={order.values.orderNumber} rows={[["วันที่สั่งงาน", order.date], ["โรงรม", order.values.smoker], ["Beef Lot", order.lotId], ["น้ำหนักเนื้อดิบ", `${fmt(n(order.values, "rawKg"))} กก.`], ["Chef_house รับ PO", accepted?.values.acceptedBy || "รอยืนยันรับ"], ["วันที่ขอรม", order.values.requestedSmokeDate], ["อัตราค่ารม", `฿${fmt(n(order.values, "serviceRate"))} / กก.`], ["ค่าบริการประมาณการ", `฿${fmt(n(order.values, "estimatedCost"))}`], ["คำสั่งพิเศษ", order.values.instruction || "—"], ["คาดว่าเสร็จ", order.values.expectedFinishedDate]]} />];
+    })} />
+    <p className="footnote">ข้อมูลบันทึกด้วยบทบาทและเวลาอัตโนมัติใน Log ของระบบ เอกสารที่ยืนยันแล้วใช้การยกเลิก/ปรับปรุงแทนการลบ เพื่อให้ย้อนรอยได้</p>
+  </div>;
+}
+
+// Kept temporarily so older document-control markup can be reused without affecting the read-only view.
+void DocumentModuleView;
+
 function TransportManifestView({
   db,
   open,
@@ -2110,36 +3574,63 @@ function TransportManifestView({
 }) {
   const returnEntry = (lotId: string) => entries(db, "return", lotId).at(-1);
   const tripStatus = (lot: Lot) => {
+    const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
+    const invoiceStatus = invoice ? smokingInvoiceStatus(db, invoice) : "";
+    if (lot.stage === 1 && !entries(db, "foodDivaConfirm", lot.id).length)
+      return <span className="badge danger">รอ Food Diva ออก Invoice</span>;
+    if (lot.stage === 1 && !entries(db, "smokeOrder", lot.id).length)
+      return <span className="badge danger">รอ Owner ออก PO รมควัน</span>;
+    if (lot.stage === 1 && !entries(db, "smokeOrderAccept", lot.id).length)
+      return <span className="badge danger">รอ Chef_house รับ PO</span>;
+    if (lot.stage === 1 && !entries(db, "smokingInvoice", lot.id).length)
+      return <span className="badge danger">รอ Chef_house Submit Invoice</span>;
+    if (lot.stage === 1 && invoiceStatus === "รอตรวจยอด")
+      return <button className="table-action" onClick={() => open("invoiceReview", lot.id)}>ตรวจ Invoice เพื่อเรียกรถ</button>;
+    if (lot.stage === 1 && invoiceStatus === "รอชำระ")
+      return <button className="table-action" onClick={() => open("invoicePayment", lot.id)}>ชำระ Invoice เพื่อเรียกรถ</button>;
+    if (lot.stage === 1 && invoiceStatus !== "ชำระแล้ว")
+      return <span className="badge danger">รอ Chef_house แก้ Invoice</span>;
     if (lot.stage === 1)
       return <button className="table-action" onClick={() => open("dispatch", lot.id)}>ทำใบขนส่งขาไป</button>;
     if (lot.stage === 6)
-      return <button className="table-action" onClick={() => open("return", lot.id)}>ทำใบขนส่งขากลับ</button>;
+      return <button className="table-action" onClick={() => open("return", lot.id)}>เรียกรถขากลับ · {fmt(produced(db, lot.id))} กก.</button>;
     if (lot.stage < 6) return "กำลังดำเนินงานที่ Chef_house";
-    return "ส่งครบแล้ว";
+    if (lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length) return "รอ Food Diva รับเข้าตู้";
+    return "Food Diva รับเข้าตู้แล้ว";
   };
   return (
     <>
       <div className="section-heading">
         <div>
           <h2>ใบขนส่งเนื้อ</h2>
-          <p className="muted">ทำใบส่งเนื้อไป Chef_house และนัดรับเนื้อหลังรมควันกลับเข้าสต๊อกกลาง</p>
+          <p className="muted">Owner เรียกรถและบันทึกใบขนส่งทั้ง Food Diva → Chef_house และ Chef_house → Food Diva</p>
         </div>
       </div>
       <DataTable
         title="รายการขนส่งตาม Lot"
-        columns={["Lot", "ขาไป · ส่งไป Chef_house", "ขากลับ · รับเนื้อหลังรมควัน", "การทำงาน"]}
+        columns={["เลข PO", "Lot", "ขาไป · Food Diva → Chef_house", "เทียบน้ำหนัก Owner", "ขากลับ · Chef_house → Food Diva", "การทำงาน"]}
         rows={db.lots.map((lot) => {
           const back = returnEntry(lot.id);
+          const outbound = entries(db, "dispatch", lot.id).at(-1);
+          const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
+          const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+          const foodDivaKg = n(foodInvoice?.values || {}, "confirmedKg");
+          const chefKg = n(chefReceive?.values || {}, "receivedKg");
+          const difference = chefKg - foodDivaKg;
           return [
+            lot.poId,
             lot.id,
-            lot.stage >= 2
-              ? `${fmt(n(lot.values, "dispatchKg"))} กก. · ${lot.values.vehicle || "ยังไม่ระบุรถ"}`
-              : "รอทำใบขนส่ง",
+            outbound
+              ? <div className="button-row" key={`${lot.id}-outbound`}><span>{`${fmt(n(outbound.values, "dispatchKg"))} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}</span><DocumentPrintButton title="ใบขนส่งเนื้อขาไป" number={outbound.values.transferNumber || outbound.id.slice(0, 8)} label="พรีวิว / PDF" preview rows={[["วันที่รถรับ", outbound.values.pickupDate || outbound.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", outbound.values.origin], ["ปลายทาง", outbound.values.destination], ["น้ำหนักส่ง", `${fmt(n(outbound.values, "dispatchKg"))} กก.`], ["ประเภทรถ", outbound.values.vehicleType || "—"], ["ทะเบียนรถ", outbound.values.plate || "—"], ["คนขับ", outbound.values.driverName || "—"], ["เบอร์ติดต่อ", outbound.values.driverPhone || "—"]]} /></div>
+              : `พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก. · รอทำใบขนส่ง`,
+            chefReceive
+              ? <span key={`${lot.id}-owner-check`}><strong>Food Diva:</strong> {fmt(foodDivaKg)} กก.<br /><strong>Chef_house:</strong> {fmt(chefKg)} กก.<br /><span className={Math.abs(difference) > 0.001 ? "badge danger" : "badge success"}>ส่วนต่าง {fmt(difference)} กก.</span></span>
+              : "รอ Chef_house ชั่งรับ",
             back
-              ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.returnVehicle || "ยังไม่ระบุรถ"}`
+              ? <div className="button-row" key={`${lot.id}-return`}><span>{`${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`}</span><DocumentPrintButton title="ใบขนส่งเนื้อขากลับ" number={back.values.transferNumber || back.id.slice(0, 8)} label="พรีวิว / PDF" preview rows={[["วันที่รถรับ", back.values.returnDate || back.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", back.values.origin], ["ปลายทาง", back.values.destination], ["น้ำหนักส่ง", `${fmt(n(back.values, "returnKg"))} กก.`], ["ประเภทรถ", back.values.vehicleType || "—"], ["ทะเบียนรถ", back.values.plate || "—"], ["คนขับ", back.values.driverName || "—"], ["เบอร์ติดต่อ", back.values.driverPhone || "—"]]} /></div>
               : lot.stage < 6
                 ? "รอ Chef_house ปิด Lot"
-                : "รอทำใบขนส่งขากลับ",
+                : `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`,
             tripStatus(lot),
           ];
         })}
@@ -2154,26 +3645,26 @@ function CentralReceiveView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const readyToReceive = db.lots.filter((lot) => lot.stage === 7);
+  const readyToReceive = db.lots.filter((lot) => lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length);
   return (
     <>
       <div className="section-heading">
         <div>
-          <h2>รับเนื้อเข้าสต๊อกกลาง</h2>
-          <p className="muted">รับน้ำหนักเนื้อหลังรมควันจาก Chef_house ก่อนจัดสรรไปยังสาขา</p>
+          <h2>Owner รับของจาก Food Diva เข้าสต๊อกกลาง</h2>
+          <p className="muted">Food Diva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้</p>
         </div>
       </div>
       <DataTable
         title="Lot ที่รอรับเข้าคลังกลาง"
-        columns={["Lot", "น้ำหนักเนื้อหลังรมควัน", "จำนวนถุง", "นัดรับขากลับ", "สถานะ", "การทำงาน"]}
+        columns={["Lot", "Food Diva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"]}
         rows={readyToReceive.map((lot) => {
           const back = entries(db, "return", lot.id).at(-1);
           return [
             lot.id,
-            `${fmt(produced(db, lot.id))} กก.`,
-            `${producedBags(db, lot.id)} ถุง`,
+            `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
+            `${entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values.receivedBags || producedBags(db, lot.id)} ถุง`,
             back
-              ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.returnVehicle || "ยังไม่ระบุรถ"}`
+              ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`
               : "ยังไม่มีใบขนส่งขากลับ",
             "รอรับเข้าสต๊อกกลาง",
             <button className="table-action" key={lot.id} onClick={() => open("central", lot.id)}>
@@ -2195,8 +3686,8 @@ function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
   const [startDate, setStartDate] = useState(defaultStart.toISOString().slice(0, 10));
   const required = (name: string) =>
     name === "มีนบุรี"
-      ? ["ricePurchase", "riceCarry", "chiliIssue", "materials", "sale", "closeDay"]
-      : ["riceIssue", "rice", "chiliIssue", "materials", "sale", "closeDay"];
+      ? ["ricePurchase", "riceCarry", "materials", "sale", "closeDay"]
+      : ["riceIssue", "rice", "materials", "sale", "closeDay"];
   const dayNumber = (value: string) =>
     Date.UTC(
       Number(value.slice(0, 4)),
@@ -2470,8 +3961,11 @@ function DailyTaskTable({
       rows={kinds.map((kind) => {
         const count = entries(db, kind, undefined, branch, date).length;
         const optional = kind === "ricePurchase" || kind === "chiliPurchase";
+        const label = kind === "ricePurchase" && branch === "ศาลาแดง"
+          ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กก."
+          : titles[kind];
         return [
-          optional ? `${titles[kind]} · บันทึกเฉพาะวันที่ซื้อ` : titles[kind],
+          optional ? `${label} · บันทึกเฉพาะวันที่ซื้อ` : label,
           count ? "บันทึกแล้ว" : optional ? "ไม่บังคับวันนี้" : "รอบันทึก",
           String(count),
           <button
@@ -2487,6 +3981,332 @@ function DailyTaskTable({
     />
   );
 }
+function MeatMovementLogView({ db }: { db: Database }) {
+  const [lotFilter, setLotFilter] = useState("ทั้งหมด");
+  const lots = db.lots.filter((lot) => lotFilter === "ทั้งหมด" || lot.id === lotFilter);
+  const locationRows = lots.flatMap((lot) => {
+    const returnReceived = n(
+      entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {},
+      "receivedKg",
+    );
+    const foodDivaSmoked = Math.max(0, returnReceived - n(lot.values, "centralKg"));
+    const chefSmoked = lot.stage === 6 && !entries(db, "return", lot.id).length
+      ? produced(db, lot.id)
+      : 0;
+    return [
+      [lot.poId, lot.id, "Food Diva · เนื้อดิบ", `${fmt(rawAtFoodDiva(db, lot))} กก.`, "คงเหลือจาก PO ก่อนส่ง Chef_house"],
+      [lot.poId, lot.id, "Food Diva · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", `${fmt(ownerWasteOutstanding(db, lot.id))} กก.`, `Owner รับแล้ว ${fmt(ownerWasteReceived(db, lot.id))} กก.`],
+      [lot.poId, lot.id, "Owner · เนื้อส่วนที่รับแล้ว (Waste)", `${fmt(ownerWasteReceived(db, lot.id))} กก.`, "รับจาก Food Diva สำหรับใช้งาน Owner"],
+      [lot.poId, lot.id, "Chef_house · รอเข้ารอบสโมค", `${fmt(rawAtSmoker(db, lot))} กก.`, "น้ำหนักรับจริง หักรอบที่สโมคแล้ว"],
+      [lot.poId, lot.id, "Chef_house · เนื้อรมพร้อมเรียกรถ", `${fmt(chefSmoked)} กก.`, chefSmoked > 0 ? `${producedBags(db, lot.id)} ถุง · ปิด Lot แล้ว` : "—"],
+      [lot.poId, lot.id, "Food Diva · เนื้อรมควัน", `${fmt(foodDivaSmoked)} กก.`, foodDivaSmoked > 0 ? "รับจาก Chef_house แล้ว รอ Owner รับเข้าคลังกลาง" : "—"],
+      [lot.poId, lot.id, "คลังกลาง Owner", `${fmt(centralStock(db, lot.id))} กก.`, `${centralBagStock(db, lot.id)} ถุง พร้อมจัดสรร`],
+      ...branches.map((branchName) => {
+        const stock = balance(db, lot.id, branchName);
+        return [
+          lot.poId,
+          lot.id,
+          branchName,
+          `${fmt(stock.frozen + stock.ready)} กก.`,
+          `แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+        ];
+      }),
+    ];
+  });
+  const descriptions: Record<string, (entry: Entry) => [string, string, string]> = {
+    foodDivaConfirm: (entry) => ["Food Diva", "ยืนยัน Invoice และแบ่งเนื้อ", `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`],
+    ownerWasteReceive: (entry) => ["Owner", "รับเนื้อส่วนที่เหลือจาก Food Diva", `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`],
+    dispatch: (entry) => ["Food Diva → Chef_house", "ส่งเนื้อดิบ", `${fmt(n(entry.values, "dispatchKg"))} กก.`],
+    cmReceive: (entry) => ["Chef_house", "ชั่งรับเนื้อจริง", `${fmt(n(entry.values, "receivedKg"))} กก.`],
+    smoke: (entry) => ["Chef_house", `สโมครอบ ${entry.values.subLot || "—"}`, `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "outputKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
+    return: (entry) => ["Chef_house → Food Diva", "เรียกรถขากลับ", `${fmt(n(entry.values, "returnKg"))} กก.`],
+    foodDivaReturnReceive: (entry) => ["Food Diva", "รับเนื้อรมควันเข้าตู้", `${fmt(n(entry.values, "receivedKg"))} กก.`],
+    central: (entry) => ["คลังกลาง Owner", "รับเข้าสต๊อกกลาง", `${fmt(n(entry.values, "centralKg"))} กก.`],
+    allocate: (entry) => ["Owner → สาขา", `จัดสรรไป ${entry.values.branch}`, `${fmt(n(entry.values, "kg"))} กก.`],
+    receive: (entry) => [entry.branch || "สาขา", "รับเนื้อเข้าสาขา", `${fmt(n(entry.values, "kg"))} กก.`],
+    thaw: (entry) => [entry.branch || "สาขา", "แบ่งละลาย", `${fmt(n(entry.values, "kg"))} กก.`],
+    sale: (entry) => [entry.branch || "สาขา", "ตัดสต๊อกจากยอดขาย", `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
+  };
+  const movementRows = db.entries
+    .filter((entry) => descriptions[entry.kind] && (lotFilter === "ทั้งหมด" || entry.lotId === lotFilter))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at))
+    .map((entry) => {
+      const [location, action, amount] = descriptions[entry.kind](entry);
+      return [entry.date, entry.at.slice(11, 16), entry.lotId, location, action, amount];
+    });
+  return (
+    <div className="settings-stack">
+      <section className="panel config-heading">
+        <div>
+          <span className="overline">OWNER · BEEF TRACE</span>
+          <h2>Log เนื้อคงเหลือ</h2>
+          <p className="muted">ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Food Diva ถึงสาขา</p>
+        </div>
+      </section>
+      <DataTable
+        title="เนื้อคงเหลือแยกตามจุด"
+        action={<label className="table-filter">Lot<select value={lotFilter} onChange={(event) => setLotFilter(event.target.value)}><option>ทั้งหมด</option>{db.lots.map((lot) => <option key={lot.id}>{lot.id}</option>)}</select></label>}
+        columns={["PO", "Lot", "จุดเก็บ", "คงเหลือ", "รายละเอียด"]}
+        rows={locationRows}
+      />
+      <DataTable
+        title="ประวัติการเคลื่อนไหวเนื้อ"
+        columns={["วันที่", "เวลา", "Lot", "จุดดำเนินการ", "รายการ", "น้ำหนัก / รายละเอียด"]}
+        rows={movementRows}
+      />
+    </div>
+  );
+}
+
+function OwnerStockView({
+  db,
+  lots,
+  open,
+}: {
+  db: Database;
+  lots: Lot[];
+  open: (kind: string, lotId?: string) => void;
+}) {
+  const [genre, setGenre] = useState("ทั้งหมด");
+  const [location, setLocation] = useState("ทั้งหมด");
+  const [itemFilter, setItemFilter] = useState("ทั้งหมด");
+  const generalPurchases = entries(db, "generalPurchase");
+  const purchaseGroup = (value?: string) =>
+    value === "วัตถุดิบ / สินค้า" ? "วัตถุดิบ" :
+    value === "ETC / สินทรัพย์" ? "สินทรัพย์" :
+    value || "วัตถุดิบ";
+  const accountingItems = Array.from(new Set([
+    "น้ำพริกหลอด",
+    "น้ำดอง",
+    ...generalPurchases.map((entry) => entry.values.item).filter(Boolean),
+  ]));
+  const rows: {
+    genre: string;
+    item: string;
+    location: string;
+    quantity: string;
+    unit: string;
+    detail: string;
+    meatType?: string;
+    action?: ReactNode;
+  }[] = [
+    ...lots.flatMap((lot) => {
+      const invoiceConfirmed = entries(db, "foodDivaConfirm", lot.id).length > 0;
+      const central = Math.max(0, centralStock(db, lot.id));
+      const dispatched = n(entries(db, "dispatch", lot.id).at(-1)?.values || {}, "dispatchKg");
+      const readyAtFoodDiva = Math.max(0, readyForChefHouse(db, lot.id) - dispatched);
+      const ownerReserved = reservedForOwnerContent(db, lot.id);
+      const ownerWaiting = ownerWasteOutstanding(db, lot.id);
+      const ownerReceived = ownerWasteReceived(db, lot.id);
+      return [
+        {
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef_house`,
+          location: "Food Diva",
+          quantity: fmt(invoiceConfirmed ? readyAtFoodDiva : 0),
+          unit: "กก.",
+          detail: invoiceConfirmed ? "จาก Invoice Food Diva · รอ Owner เรียกรถไปเชียงใหม่" : "รอ Food Diva ยืนยัน Invoice",
+          meatType: "เนื้อดิบพร้อมส่ง Chef_house",
+        },
+        ...(invoiceConfirmed ? [{
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
+          location: "Food Diva",
+          quantity: fmt(ownerWaiting),
+          unit: "กก.",
+          detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
+          meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+          action: ownerWaiting > 0.001
+            ? <button className="table-action" onClick={() => open("ownerWasteReceive", lot.id)}>บันทึกรับเนื้อ</button>
+            : <span className="badge success">Owner รับครบแล้ว</span>,
+        }, ...(ownerReceived > 0.001 ? [{
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
+          location: "Owner",
+          quantity: fmt(ownerReceived),
+          unit: "กก.",
+          detail: "รับจาก Food Diva แล้ว · สำหรับใช้งาน Owner",
+          meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+        }] : []),] : []),
+        {
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อรมควัน`,
+          location: "คลังกลาง",
+          quantity: fmt(central),
+          unit: "กก.",
+          detail: `จากรับเข้าสต๊อกกลาง · ${centralBagStock(db, lot.id)} ถุง พร้อมจัดสรร`,
+          meatType: "เนื้อรมควัน",
+        },
+        ...branches.map((branchName) => {
+          const stock = balance(db, lot.id, branchName);
+          return {
+            genre: "เนื้อ",
+            item: `${lot.id} · เนื้อรมควัน`,
+            location: branchName,
+            quantity: fmt(stock.frozen + stock.ready),
+            unit: "กก.",
+            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+            meatType: "เนื้อรมควัน",
+          };
+        }),
+      ];
+    }),
+    ...branches.flatMap((branchName) => [
+      {
+        genre: "วัตถุดิบ",
+        item: "ข้าวเหนียวดิบ (ข้าวสาร)",
+        location: branchName,
+        quantity: fmt(rawRiceStock(db, branchName)),
+        unit: "กก.",
+        detail: `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branchName))} กก.`,
+      },
+      {
+        genre: "วัตถุดิบ",
+        item: "ข้าวเหนียวสุก",
+        location: branchName,
+        quantity: fmt(cookedRiceStock(db, branchName)),
+        unit: "กก.",
+        detail: branchName === "มีนบุรี" ? "เหลือสำหรับอุ่นขายวันถัดไป" : "ข้าวสุกคงเหลือ",
+      },
+      {
+        genre: "วัตถุดิบ",
+        item: "น้ำพริกหลอด",
+        location: branchName,
+        quantity: fmt(chiliStock(db, branchName)),
+        unit: "หลอด",
+        detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ขายแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
+      },
+    ]),
+    ...accountingItems.map((item) => {
+      const history = generalPurchases.filter((entry) => entry.values.item === item);
+      const latest = history.at(-1);
+      const category = purchaseGroup(latest?.values.purchaseCategory);
+      const defaultUnit = item === "น้ำดอง" ? "มล." : item === "น้ำพริกหลอด" ? "หลอด" : "รายการ";
+      const isChili = item === "น้ำพริกหลอด";
+      return {
+        genre: category === "สินทรัพย์" ? "สินทรัพย์" : category === "ค่าใช้จ่ายอื่น" ? "ค่าใช้จ่ายอื่น" : "วัตถุดิบ",
+        item,
+        location: isChili ? "คลัง Owner" : "บัญชี Owner",
+        quantity: fmt(isChili ? ownerChiliStock(db) : history.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0)),
+        unit: latest?.values.unit || defaultUnit,
+        detail: latest
+          ? isChili
+            ? `ซื้อเข้า ${fmt(history.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0))} หลอด · จัดสรรไปสาขา ${fmt(entries(db, "chiliAllocate").reduce((sum, entry) => sum + n(entry.values, "chiliTubes"), 0))} หลอด`
+            : `ซื้อสะสม ${history.length} รายการ · ล่าสุด ${latest.values.purchaseDate || latest.date}`
+          : isChili && ownerChiliStock(db) > 0
+            ? "ยอดคงเหลือเดิมจากข้อมูลทดลอง · การซื้อครั้งถัดไปให้บันทึกผ่านการซื้ออื่น ๆ"
+            : "ยังไม่มีประวัติการซื้อ",
+      };
+    }),
+    ...materials.flatMap((material, index) => {
+      const lastPurchase = entries(db, "materialReceive")
+        .filter((entry) => entry.values.material === material)
+        .at(-1);
+      return [
+        {
+          genre: "วัสดุบรรจุภัณฑ์",
+          item: material,
+          location: "คลัง Owner",
+          quantity: fmt(ownerMaterialStock(db, material)),
+          unit: "ชิ้น",
+          detail: lastPurchase
+            ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
+            : "ยังไม่มีประวัติการซื้อ",
+        },
+        ...branches.map((branchName) => ({
+          genre: "วัสดุบรรจุภัณฑ์",
+          item: material,
+          location: branchName,
+          quantity: fmt(branchMaterialStock(db, branchName, index)),
+          unit: "ชิ้น",
+          detail: `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
+        })),
+      ];
+    }),
+  ];
+  const visibleRows = rows.filter(
+    (row) =>
+      (genre === "ทั้งหมด" || row.genre === genre) &&
+      (location === "ทั้งหมด" || row.location === location) &&
+      (itemFilter === "ทั้งหมด" ||
+        (genre === "เนื้อ" ? row.meatType === itemFilter : row.item === itemFilter)),
+  );
+  const purchases = [
+    ...entries(db, "materialReceive").map((entry) => ({
+      date: entry.values.purchaseDate || entry.date,
+      at: entry.at,
+      category: "วัสดุบรรจุภัณฑ์",
+      item: entry.values.material,
+      quantity: n(entry.values, "quantity"),
+      unit: "ชิ้น",
+      unitPrice: n(entry.values, "unitPrice"),
+      totalCost: n(entry.values, "totalCost"),
+      supplier: entry.values.supplier,
+      reference: entry.values.reference || "—",
+    })),
+    ...entries(db, "generalPurchase").map((entry) => ({
+      date: entry.values.purchaseDate || entry.date,
+      at: entry.at,
+      category: purchaseGroup(entry.values.purchaseCategory),
+      item: entry.values.item,
+      quantity: n(entry.values, "quantity"),
+      unit: entry.values.unit || "—",
+      unitPrice: n(entry.values, "unitPrice"),
+      totalCost: n(entry.values, "totalCost"),
+      supplier: entry.values.supplier,
+      reference: entry.values.reference || "—",
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
+  const visiblePurchases = purchases.filter((purchase) =>
+    (genre === "ทั้งหมด" ||
+      (genre === "วัสดุบรรจุภัณฑ์" && purchase.category === "วัสดุบรรจุภัณฑ์") ||
+      (genre === "วัตถุดิบ" && purchase.category === "วัตถุดิบ") ||
+      (genre === "สินทรัพย์" && purchase.category === "สินทรัพย์") ||
+      (genre === "ค่าใช้จ่ายอื่น" && purchase.category === "ค่าใช้จ่ายอื่น")) &&
+    (itemFilter === "ทั้งหมด" || purchase.item === itemFilter),
+  );
+  const meatTypeOptions = [
+    "เนื้อดิบพร้อมส่ง Chef_house",
+    "เนื้อรมควัน",
+    "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+  ];
+  const itemOptions = genre === "เนื้อ"
+    ? meatTypeOptions
+    : Array.from(new Set(rows.filter((row) => genre === "ทั้งหมด" || row.genre === genre).map((row) => row.item))).sort((a, b) => a.localeCompare(b, "th"));
+  return (
+    <div className="settings-stack">
+      <DataTable
+        title="ตารางสต๊อกทั้งหมด (All inventory)"
+        action={
+          <div className="table-filters">
+            <label className="table-filter">กลุ่มสต๊อก<select value={genre} onChange={(event) => { setGenre(event.target.value); setItemFilter("ทั้งหมด"); }}><option>ทั้งหมด</option><option>เนื้อ</option><option>วัตถุดิบ</option><option>วัสดุบรรจุภัณฑ์</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
+            <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Food Diva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
+          </div>
+        }
+        columns={["กลุ่ม", "รายการ / Lot", "สถานที่", "คงเหลือ", "หน่วย", "รายละเอียด", "การทำงาน"]}
+        rows={visibleRows.map((row) => [row.genre, row.item, row.location, row.quantity, row.unit, row.detail, row.action || "—"])}
+      />
+      {visiblePurchases.length > 0 && (
+        <DataTable
+          title={`ประวัติการซื้อและบัญชี · ต้นทุนซื้อเข้าที่แสดง ฿${fmt(visiblePurchases.reduce((total, purchase) => total + purchase.totalCost, 0))}`}
+          columns={["วันที่ซื้อ", "หมวดบัญชี", "รายการ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง / ใบเสร็จ"]}
+          rows={visiblePurchases.map((purchase) => [
+            purchase.date,
+            purchase.category,
+            purchase.item,
+            `${fmt(purchase.quantity)} ${purchase.unit}`,
+            `฿${fmt(purchase.unitPrice)}`,
+            `฿${fmt(purchase.totalCost)}`,
+            purchase.supplier,
+            purchase.reference,
+          ])}
+        />
+      )}
+    </div>
+  );
+}
+
 function MeatStockTable({
   db,
   role,
@@ -2504,9 +4324,12 @@ function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
-        columns={["Lot", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
+        columns={["Lot", "ค้างที่ Food Diva", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
         rows={lots.map((lot) => [
           lot.id,
+          entries(db, "foodDivaConfirm", lot.id).length
+            ? `${fmt(rawAtFoodDiva(db, lot))} กก. (เนื้อดิบ)`
+            : "รอ Food Diva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${centralBagStock(db, lot.id)} ถุง`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,
@@ -2569,34 +4392,63 @@ function MaterialStockTable({
   stockBranches: string[];
   ownerView: boolean;
 }) {
-  if (ownerView)
+  const [branchFilter, setBranchFilter] = useState("ทั้งหมด");
+  if (ownerView) {
+    const purchases = [...entries(db, "materialReceive")]
+      .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
     return (
-      <DataTable
-        title="สต๊อกวัสดุ Owner และสาขา (Material distribution)"
-        columns={[
-          "วัสดุ",
-          "คลัง Owner",
-          "ส่งศาลาแดง",
-          "คงเหลือศาลาแดง",
-          "ส่งมีนบุรี",
-          "คงเหลือมีนบุรี",
-          "ส่งรวม",
-        ]}
-        rows={materials.map((item, index) => {
-          const salaSent = materialSent(db, item, "ศาลาแดง");
-          const minburiSent = materialSent(db, item, "มีนบุรี");
-          return [
-            item,
-            `${ownerMaterialStock(db, item)} ชิ้น`,
-            `${salaSent} ชิ้น`,
-            `${branchMaterialStock(db, "ศาลาแดง", index)} ชิ้น`,
-            `${minburiSent} ชิ้น`,
-            `${branchMaterialStock(db, "มีนบุรี", index)} ชิ้น`,
-            `${salaSent + minburiSent} ชิ้น`,
-          ];
-        })}
-      />
+      <div className="settings-stack">
+        <DataTable
+          title="ตารางสต๊อกวัสดุ (Material inventory)"
+          action={<label className="table-filter">ดูสต๊อก<select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option>ทั้งหมด</option><option>คลัง Owner</option><option>ศาลาแดง</option><option>มีนบุรี</option></select></label>}
+          columns={branchFilter === "ทั้งหมด" ? ["วัสดุ", "รวมทุกจุด", "คลัง Owner", "ศาลาแดง", "มีนบุรี", "จำนวนฐานรวม", "สถานะ"] : ["วัสดุ", "จุดจัดเก็บ", "คงเหลือ", "จำนวนฐาน", "ราคาต่อหน่วย", "มูลค่าคงเหลือ", "สถานะ"]}
+          rows={materials.map((item, index) => {
+            const owner = ownerMaterialStock(db, item);
+            const sala = branchMaterialStock(db, "ศาลาแดง", index);
+            const minburi = branchMaterialStock(db, "มีนบุรี", index);
+            const salaPar = materialPar(db, "ศาลาแดง", index);
+            const minburiPar = materialPar(db, "มีนบุรี", index);
+            if (branchFilter === "ทั้งหมด")
+              return [
+                item,
+                `${owner + sala + minburi} ชิ้น`,
+                `${owner} ชิ้น`,
+                `${sala} ชิ้น`,
+                `${minburi} ชิ้น`,
+                `${salaPar + minburiPar} ชิ้น`,
+                owner + sala + minburi > 0 ? "มีข้อมูล" : "ยังไม่มีสต๊อก",
+              ];
+            const isOwner = branchFilter === "คลัง Owner";
+            const quantity = isOwner ? owner : branchFilter === "ศาลาแดง" ? sala : minburi;
+            const par = isOwner ? 0 : branchFilter === "ศาลาแดง" ? salaPar : minburiPar;
+            const price = isOwner ? 0 : materialUnitPrice(db, branchFilter, index);
+            return [
+              item,
+              branchFilter,
+              `${quantity} ชิ้น`,
+              isOwner ? "—" : `${par} ชิ้น`,
+              isOwner ? "—" : `฿${fmt(price)} / ชิ้น`,
+              isOwner ? "—" : `฿${fmt(quantity * price)}`,
+              isOwner ? (quantity > 0 ? "มีข้อมูล" : "ยังไม่มีสต๊อก") : par > 0 && quantity < par * 0.2 ? "ใกล้หมด" : "ปกติ",
+            ];
+          })}
+        />
+        <DataTable
+          title="ประวัติการซื้อวัสดุ (Material purchase history)"
+          columns={["วันที่ซื้อ", "วัสดุ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง"]}
+          rows={purchases.map((entry) => [
+            entry.values.purchaseDate || entry.date,
+            entry.values.material,
+            `${fmt(n(entry.values, "quantity"))} ชิ้น`,
+            `฿${fmt(n(entry.values, "unitPrice"))}`,
+            `฿${fmt(n(entry.values, "totalCost"))}`,
+            entry.values.supplier,
+            entry.values.reference || "—",
+          ])}
+        />
+      </div>
     );
+  }
   return (
     <DataTable
       title="สต๊อกวัสดุ 7 รายการ (Material inventory)"
@@ -2638,8 +4490,8 @@ function SupplyStock({
         "ข้าวดิบในคลัง",
         "ข้าวดิบที่เบิก",
         "ข้าวสุก",
-        "น้ำพริกในคลัง",
-        "น้ำพริกที่เบิก",
+        "น้ำพริกที่ Owner จัดสรร",
+        "น้ำพริกคงเหลือ",
         "ข้าวที่ควรซื้อเพิ่ม",
         "ซื้อเข้าล่าสุด",
       ]}
@@ -2647,15 +4499,14 @@ function SupplyStock({
         const latest = [
           ...entries(db, "supplyPurchase", undefined, name),
           ...entries(db, "ricePurchase", undefined, name),
-          ...entries(db, "chiliPurchase", undefined, name),
         ].sort((a, b) => a.at.localeCompare(b.at)).at(-1);
         return [
           <strong key={name}>{name}</strong>,
           `${fmt(rawRiceStock(db, name))} กก.`,
           `${fmt(issuedRawRiceStock(db, name))} กก.`,
           `${fmt(cookedRiceStock(db, name))} กก.`,
+          `${fmt(chiliAllocated(db, name))} หลอด`,
           `${fmt(chiliStock(db, name))} หลอด`,
-          `${fmt(issuedChiliStock(db, name))} หลอด`,
           `${fmt(
             Math.max(
               0,
@@ -2682,7 +4533,7 @@ function Report({ db }: { db: Database }) {
   const inRange = (entry: Entry) =>
     entry.date >= fromDate && entry.date <= toDate &&
     (branchFilter === "ทั้งหมด" ||
-      ["expense", "materialReceive"].includes(entry.kind) ||
+      ["expense", "materialReceive", "generalPurchase"].includes(entry.kind) ||
       entry.branch === branchFilter);
   const sales = entries(db, "sale").filter(inRange),
     supplyPurchases = [
@@ -2698,9 +4549,11 @@ function Report({ db }: { db: Database }) {
       .reduce((sum, entry) => sum + n(entry.values, "amount"), 0),
     materialPurchaseCost = entries(db, "materialReceive").filter(inRange)
       .reduce((sum, entry) => sum + n(entry.values, "totalCost"), 0),
+    generalPurchaseCost = entries(db, "generalPurchase").filter(inRange)
+      .reduce((sum, entry) => sum + n(entry.values, "totalCost"), 0),
     cost =
       supplyCost +
-      ownerExpenseCost + materialPurchaseCost +
+      ownerExpenseCost + materialPurchaseCost + generalPurchaseCost +
       sales.reduce(
         (s, e) =>
           s +
@@ -2755,11 +4608,12 @@ function Report({ db }: { db: Database }) {
           ],
           ["ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
           ["ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
+          ["ซื้อวัตถุดิบ / ETC", fmt(generalPurchaseCost), "บาท"],
           ["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost), "บาท"],
         ]}
       />
       <div className="notice">
-        ตัวเลขนี้รวมค่าใช้จ่าย Owner และการซื้อวัสดุที่บันทึกแล้ว แต่ยังไม่รวมภาษี
+        ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว แต่ยังไม่รวมภาษี
         แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก จึงยังไม่ใช่กำไรสุทธิ
       </div>
       <DataTable
@@ -2797,7 +4651,6 @@ function Report({ db }: { db: Database }) {
           "Lot",
           "สถานะ",
           "เนื้อ",
-          "หมัก (Brining)",
           "รมควัน (Smoking)",
           "รถ",
           "รวม",
@@ -2811,7 +4664,6 @@ function Report({ db }: { db: Database }) {
               l.id,
               stages[l.stage],
               fmt(c.meat),
-              fmt(c.brine),
               fmt(c.smoke),
               fmt(c.freight),
               fmt(c.total),
@@ -2885,12 +4737,19 @@ function Report({ db }: { db: Database }) {
           ])}
       />
       <DataTable
-        title="รายการเบิกน้ำพริกรายวัน"
-        columns={["วันที่", "สาขา", "ผู้รับ", "น้ำพริก (หลอด)"]}
-        rows={[...entries(db, "supplyIssue"), ...entries(db, "chiliIssue")]
-          .filter((entry) => inRange(entry) && n(entry.values, "chiliIssuedTubes") > 0)
+        title="ประวัติจัดสรรน้ำพริกโดย Owner"
+        columns={["วันที่", "สาขา", "จัดสรร", "ผู้รับ", "เลขอ้างอิง", "หมายเหตุ"]}
+        rows={entries(db, "chiliAllocate")
+          .filter(inRange)
           .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
-          .map((entry) => [entry.date, entry.branch, entry.values.receiver, fmt(n(entry.values, "chiliIssuedTubes"))])}
+          .map((entry) => [
+            entry.date,
+            entry.branch,
+            `${fmt(n(entry.values, "chiliTubes"))} หลอด`,
+            entry.values.receiver || "—",
+            entry.values.reference || "—",
+            entry.values.note || "—",
+          ])}
       />
       <DataTable
         title="ประวัติรับและส่งวัสดุ (Material audit trail)"
@@ -2962,9 +4821,9 @@ function EntryDetails({
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
   const reversible = [
-    "allocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
+    "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
     "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
-    "materialReceive", "materialTransfer", "materialConfirm", "closeDay",
+    "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
     "expense", "unlock",
   ].includes(e.kind);
   const cancelEntry = () => {
@@ -3137,14 +4996,13 @@ function DataTable({
 }
 function ConfigView({ db }: { db: Database }) {
   type ConfigSection =
-    "pricing" | "supplies" | "production" | "branch" | "materials";
+    "main" | "documents" | "pricing" | "supplies" | "production" | "branch" | "materials";
   const initial = () => {
     const values = { ...seed.config, ...db.config };
-    for (let i = 0; i < materials.length; i++)
-      for (const suffix of ["saladaeng", "minburi"]) {
-        values[`material${i}_${suffix}`] ??= values[`material${i}`] || "0";
-        values[`materialPrice${i}_${suffix}`] ??= values[`materialPrice${i}`] || "0";
-      }
+    for (let i = 0; i < materials.length; i++) {
+      values[`material${i}`] = values[`material${i}`] || values[`material${i}_saladaeng`] || values[`material${i}_minburi`] || "0";
+      values[`materialPrice${i}`] = values[`materialPrice${i}`] || values[`materialPrice${i}_saladaeng`] || values[`materialPrice${i}_minburi`] || "0";
+    }
     return values;
   };
   const [draft, setDraft] = useState<Values>(initial);
@@ -3159,11 +5017,10 @@ function ConfigView({ db }: { db: Database }) {
   const startEdit = (section: ConfigSection) => {
     const current = latestDatabase().config;
     const values = { ...seed.config, ...current };
-    for (let i = 0; i < materials.length; i++)
-      for (const suffix of ["saladaeng", "minburi"]) {
-        values[`material${i}_${suffix}`] ??= values[`material${i}`] || "0";
-        values[`materialPrice${i}_${suffix}`] ??= values[`materialPrice${i}`] || "0";
-      }
+    for (let i = 0; i < materials.length; i++) {
+      values[`material${i}`] = values[`material${i}`] || values[`material${i}_saladaeng`] || values[`material${i}_minburi`] || "0";
+      values[`materialPrice${i}`] = values[`materialPrice${i}`] || values[`materialPrice${i}_saladaeng`] || values[`materialPrice${i}_minburi`] || "0";
+    }
     setDraft(values);
     setEditing(section);
     setMessage("");
@@ -3221,14 +5078,21 @@ function ConfigView({ db }: { db: Database }) {
     section: ConfigSection,
     key: string,
     display: (value: string) => string = (value) => value,
-    type: "number" | "time" | "branch" = "number",
+    type: "number" | "time" | "branch" | "text" | "date" | "textarea" | "file" = "number",
   ) => {
-    if (editing !== section)
+    if (editing !== section) {
+      if (type === "file" && db.config[key])
+        // Stored locally as a data URL, so Next image optimization cannot process it.
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img className="config-logo-preview" src={db.config[key]} alt="โลโก้ NerdNuea" />;
       return (
         <span className="read-only-value">
-          {display(db.config[key] || seed.config[key] || "0")}
+          {type === "file"
+            ? "ยังไม่ได้อัปโหลด"
+            : display(db.config[key] || seed.config[key] || "—")}
         </span>
       );
+    }
     if (type === "branch")
       return (
         <select
@@ -3241,11 +5105,51 @@ function ConfigView({ db }: { db: Database }) {
           ))}
         </select>
       );
+    if (type === "textarea")
+      return (
+        <textarea
+          className="table-edit-control config-textarea"
+          aria-label={key}
+          rows={3}
+          value={draft[key] ?? ""}
+          onChange={(event) => set(key, event.target.value)}
+        />
+      );
+    if (type === "file")
+      return (
+        <div className="config-logo-upload">
+          <input
+            aria-label="อัปโหลดโลโก้ NerdNuea"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (!file) return;
+              if (file.size > 1024 * 1024) {
+                setMessage("ไฟล์โลโก้ต้องมีขนาดไม่เกิน 1 MB");
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                setDraft((current) => ({ ...current, [key]: String(reader.result), logoName: file.name }));
+                setMessage(`เลือกโลโก้ ${file.name} แล้ว · กดบันทึกและล็อกเพื่อใช้กับ PO`);
+              };
+              reader.readAsDataURL(file);
+            }}
+          />
+          {draft[key] && (
+            // Stored locally as a data URL, so Next image optimization cannot process it.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="config-logo-preview" src={draft[key]} alt="ตัวอย่างโลโก้ NerdNuea" />
+          )}
+          <small>{draft.logoName || "รองรับ PNG, JPG, WebP หรือ SVG ไม่เกิน 1 MB"}</small>
+        </div>
+      );
     return (
       <input
         className="table-edit-control"
         aria-label={key}
-        type={type === "time" ? "time" : "number"}
+        type={type === "time" ? "time" : type === "date" ? "date" : type === "text" ? "text" : "number"}
         min={type === "number" ? "0" : undefined}
         step={key === "packKg" ? "0.001" : key === "tolerance" ? "1" : "0.01"}
         value={draft[key] ?? ""}
@@ -3253,6 +5157,29 @@ function ConfigView({ db }: { db: Database }) {
       />
     );
   };
+  const materialSettingsSource = editing === "materials" ? draft : db.config;
+  const sharedMaterialValue = (index: number, price = false) => {
+    const key = `${price ? "materialPrice" : "material"}${index}`;
+    return n(materialSettingsSource, key)
+      || n(materialSettingsSource, `${key}_saladaeng`)
+      || n(materialSettingsSource, `${key}_minburi`);
+  };
+  const materialSettingsColumns = ["วัสดุ (Material)", "จำนวนฐาน (Par level)", "ราคาต่อหน่วย (Unit price)", "มูลค่าฐาน (Par value)", "ใช้กับสาขา"];
+  const materialSettingsRows = materials.map((name, index) => {
+    const amount = sharedMaterialValue(index);
+    const price = sharedMaterialValue(index, true);
+    return [
+      <strong key="label">{name}</strong>,
+      editing === "materials"
+        ? valueCell("materials", `material${index}`, (value) => `${fmt(Number(value))} ชิ้น`)
+        : <span className="read-only-value" key="amount">{fmt(amount)} ชิ้น</span>,
+      editing === "materials"
+        ? valueCell("materials", `materialPrice${index}`, (value) => `฿${fmt(Number(value))} / ชิ้น`)
+        : <span className="read-only-value" key="price">฿{fmt(price)} / ชิ้น</span>,
+      <span className="read-only-value" key="total">฿{fmt(amount * price)}</span>,
+      "ศาลาแดง และ มีนบุรี",
+    ];
+  });
 
   return (
     <div className="settings-stack">
@@ -3268,6 +5195,32 @@ function ConfigView({ db }: { db: Database }) {
           <span className="save-confirmation">{message}</span>
         )}
       </section>
+      <DataTable
+        title="ข้อมูลหลักก่อนเริ่มระบบ (System setup)"
+        action={action("main")}
+        columns={["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย", "ใช้ในระบบ"]}
+        rows={[
+          row("ชื่อบริษัท / ลูกค้า", valueCell("main", "companyName", undefined, "text"), "ข้อความ", "เติมใน PO อัตโนมัติ"),
+          row("ที่อยู่บริษัท", valueCell("main", "companyAddress", undefined, "text"), "ข้อความ", "เติมใน PO อัตโนมัติ"),
+          row("ผู้ติดต่อ (Attention)", valueCell("main", "attention", undefined, "text"), "ข้อความ", "เติมใน PO อัตโนมัติ"),
+          row("เบอร์ติดต่อ", valueCell("main", "companyPhone", undefined, "text"), "ข้อความ", "เติมใน PO อัตโนมัติ"),
+          row("เลขประจำตัวผู้เสียภาษี", valueCell("main", "taxId", undefined, "text"), "ข้อความ", "เติมใน PO อัตโนมัติ"),
+          row("วันเริ่มใช้งานจริง", valueCell("main", "systemStartDate", undefined, "date"), "วันที่", "กำหนดวันเริ่มเก็บข้อมูลจริง"),
+          row("สาขาที่เปิดใช้งาน", "ศาลาแดง, มีนบุรี", "2 สาขา", "ใช้กับสต๊อก รายงาน และบัญชีสาขา"),
+        ]}
+      />
+      <DataTable
+        title="ข้อมูลบนใบ PO (PO document setup)"
+        action={action("documents")}
+        columns={["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย", "ใช้ใน PO"]}
+        rows={[
+          row("โลโก้ NerdNuea", valueCell("documents", "logoData", undefined, "file"), "รูปภาพ", "แสดงหัวเอกสารทั้ง PO Food Diva และ PO Chef_house"),
+          row("ผู้รับออเดอร์ Food Diva", valueCell("documents", "foodDivaContact", undefined, "text"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
+          row("ที่อยู่บริษัท Food Diva", valueCell("documents", "foodDivaAddress", undefined, "textarea"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
+          row("ผู้รับออเดอร์ Chef_house", valueCell("documents", "chefHouseContact", undefined, "text"), "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
+          row("ที่อยู่บริษัท Chef_house", valueCell("documents", "chefHouseAddress", undefined, "textarea"), "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
+        ]}
+      />
       <DataTable
         title="ราคาและการขาย (Pricing & sales)"
         action={action("pricing")}
@@ -3399,24 +5352,10 @@ function ConfigView({ db }: { db: Database }) {
         ]}
         rows={[
           row(
-            "ค่าหมัก (Brining cost)",
-            valueCell(
-              "production",
-              "brinePrice",
-              (value) => `฿${fmt(Number(value))}`,
-            ),
+            "ค่ารมควันตามน้ำหนัก PO (Smoking fee tiers)",
+            "500 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180",
             "บาท / กก.",
-            "ต้นทุนหมัก 10% ของน้ำหนักส่ง",
-          ),
-          row(
-            "ค่ารมควัน (Smoking fee)",
-            valueCell(
-              "production",
-              "smokeRate",
-              (value) => `฿${fmt(Number(value))}`,
-            ),
-            "บาท / กก.",
-            "ค่าจ้างรมควัน คำนวณจากน้ำหนักเนื้อที่ส่งให้ Foodiva",
+            "ระบบเลือกอัตราให้อัตโนมัติจากน้ำหนักในใบ PO รมควัน",
           ),
           row(
             "ค่าขนส่งขาไป (Outbound delivery fee)",
@@ -3476,52 +5415,19 @@ function ConfigView({ db }: { db: Database }) {
             "เวลาเริ่มปิดวัน (Day-closing time)",
             valueCell("branch", "closeTime", undefined, "time"),
             "นาฬิกา",
-            "ก่อนเวลานี้สาขาจะยังปิดวันไม่ได้",
+            "เวลา 22:00 ระบบล็อกข้อมูลเมื่อปิดวัน Owner ปลดล็อกกรณีพิเศษได้",
           ),
         ]}
       />
       <DataTable
-        title="ฐานและราคาวัสดุแยกสาขา (Material par levels by branch)"
+        title="จำนวนฐานและราคาวัสดุทั้งร้าน (Material par levels & unit prices)"
         action={action("materials")}
-        columns={[
-          "สาขา (Branch)",
-          "วัสดุ (Material)",
-          "จำนวนฐาน (Par level)",
-          "ราคาต่อหน่วย (Unit price)",
-          "มูลค่าฐาน (Par value)",
-          "สถานะ",
-        ]}
-        rows={branches.flatMap((branchName) => materials.map((name, index) => {
-          const suffix = branchName === "ศาลาแดง" ? "saladaeng" : "minburi";
-          const amountKey = `material${index}_${suffix}`;
-          const priceKey = `materialPrice${index}_${suffix}`;
-          const source = editing === "materials" ? draft : db.config;
-          const amount = n(source, amountKey) || n(source, `material${index}`);
-          const price = n(source, priceKey) || n(source, `materialPrice${index}`);
-          return [
-            <strong key="branch">{branchName}</strong>,
-            <strong key="label">{name}</strong>,
-            valueCell(
-              "materials",
-              amountKey,
-              (value) => `${fmt(Number(value))} ชิ้น`,
-            ),
-            valueCell(
-              "materials",
-              priceKey,
-              (value) => `฿${fmt(Number(value))} / ชิ้น`,
-            ),
-            <span className="read-only-value" key="total">
-              ฿{fmt(amount * price)}
-            </span>,
-            amount > 0 && price > 0 ? "ตั้งค่าแล้ว" : "ยังไม่กำหนดครบ",
-          ];
-        }))}
+        columns={materialSettingsColumns}
+        rows={materialSettingsRows}
       />
       <p className="footnote">
-        ค่ารมควัน (Smoking fee) ในเดโมเป็นอัตราเดียว
-        ยังไม่รองรับราคาแบบขั้นบันได ส่วนภาษี ค่าเสื่อม
-        และวันเริ่มใช้งานจริงยังไม่มีช่องตั้งค่า
+        จำนวนฐานและราคามาตรฐานชุดเดียวใช้กับศาลาแดงและมีนบุรี ส่วนการซื้อวัสดุให้บันทึกจากเมนูสต๊อก
+        เพื่อเก็บวันที่ จำนวน และราคาซื้อจริงในแต่ละรอบ
       </p>
     </div>
   );
@@ -3550,4 +5456,3 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
-

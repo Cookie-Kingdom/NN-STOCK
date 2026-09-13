@@ -1,5 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
-export type Role = "owner" | "cm" | "branch";
+export type Role = "owner" | "fooddiva" | "cm" | "branch";
 export type Values = Record<string, string>;
 export type Entry = {
   id: string;
@@ -19,35 +19,36 @@ export type Lot = {
   config: Values;
 };
 export type Database = {
-  version: 6;
+  version: 7;
   lots: Lot[];
   entries: Entry[];
   config: Values;
 };
 export const roleName = {
   owner: "Owner",
+  fooddiva: "Food Diva",
   cm: "Chef_house",
   branch: "ผู้ดูแลสาขา",
 };
 export const materials = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",
-  "ถุงซิปเนื้อ",
-  "ถุงซิปข้าว",
+  "ถุงซีลเนื้อ",
+  "ถุงซีลข้าว",
   "ถุงหิ้วกระดาษ",
   "สติกเกอร์โลโก้",
   "การ์ด / สติกเกอร์วิธีอุ่น",
 ];
 export const branches = ["ศาลาแดง", "มีนบุรี"];
 export const stages = [
-  "ใบสั่งซื้อ",
-  "ขนส่งขาไป",
+  "รอ Invoice จาก Food Diva",
+  "ขนส่ง Food Diva → Chef_house",
   "รับที่ Chef_house",
   "ก่อนสโมค",
   "บันทึกสโมค",
   "ปิด Lot",
-  "นัดรับขากลับ",
-  "รับสต๊อกกลาง",
+  "ขนส่ง Chef_house → Food Diva",
+  "Food Diva รับเนื้อรมควัน",
   "จัดสรร / ขาย",
 ];
 export const stageRole: Role[] = [
@@ -74,11 +75,20 @@ export const stageAction = [
 ];
 export const titles: Record<string, string> = {
   purchase: "สร้างใบสั่งซื้อ",
-  brinePurchase: "สร้างใบ PO น้ำหมัก",
+  supplierInvoice: "บันทึก Supplier Invoice",
+  taxDocument: "บันทึกใบกำกับภาษี / ใบเสร็จ",
+  smokeOrder: "สร้างคำสั่งรมควัน",
+  smokeOrderAccept: "ยืนยันรับ PO รมควัน",
+  smokingInvoice: "สร้างและ Submit ใบวางบิลค่ารมควัน",
+  invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
+  invoicePayment: "ชำระ Invoice ค่ารมควัน",
+  steakTransfer: "โอนเนื้อสดไปผลิต Steak",
+  foodDivaConfirm: "อัปโหลด Invoice เนื้อจาก Food Diva",
+  foodDivaReturnReceive: "ยืนยันรับเนื้อรมควันที่ Food Diva",
   dispatch: "ส่งเนื้อไป Chef_house",
   cmReceive: "ยืนยันรับที่ Chef_house",
   prepare: "น้ำหนักก่อนสโมค",
-  smoke: "บันทึกการสโมค",
+  smoke: "บันทึก Lot สโมครายวัน",
   closeLot: "ปิดและล็อก Lot",
   return: "นัดรับขากลับ",
   central: "รับเข้าสต๊อกกลาง",
@@ -89,13 +99,16 @@ export const titles: Record<string, string> = {
   supplyIssue: "บันทึกเบิกข้าวเหนียวและน้ำพริก",
   ricePurchase: "ซื้อข้าวเหนียวเข้าสต๊อก",
   chiliPurchase: "ซื้อน้ำพริกเข้าสต๊อก",
+  chiliAllocate: "จัดสรรน้ำพริกไปสาขา",
   riceIssue: "เบิกข้าวเหนียวดิบวันนี้",
   chiliIssue: "เบิกน้ำพริกวันนี้",
   rice: "ข้าวเหนียวช่วงเช้า",
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
   sale: "บันทึกยอดขาย / Waste",
   materials: "เช็ควัสดุ 7 รายการ",
-  materialReceive: "รับวัสดุเข้าคลัง Owner",
+  materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
+  ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Food Diva",
+  generalPurchase: "บันทึกการซื้อเข้าบัญชี",
   materialTransfer: "ส่งวัสดุไปสาขา",
   materialConfirm: "ยืนยันรับวัสดุที่สาขา",
   closeDay: "ยืนยันปิดวัน",
@@ -105,7 +118,7 @@ export const titles: Record<string, string> = {
   void: "ยกเลิกรายการ",
 };
 export const seed: Database = {
-  version: 6,
+  version: 7,
   lots: [],
   entries: [],
   config: {
@@ -120,14 +133,23 @@ export const seed: Database = {
     chiliUnitPrice: "20",
     cookedRicePar: "30",
     cookedRiceUnitPrice: "45",
-    brinePrice: "40",
-    brineOpeningMl: "0",
-    smokeRate: "60",
     outboundFee: "1200",
     returnFee: "1200",
     roundFee: "2000",
     tolerance: "20",
-    closeTime: "21:00",
+    closeTime: "22:00",
+    companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
+    companyAddress: "",
+    attention: "",
+    companyPhone: "",
+    taxId: "",
+    foodDivaContact: "",
+    foodDivaAddress: "",
+    chefHouseContact: "",
+    chefHouseAddress: "",
+    logoData: "",
+    logoName: "",
+    systemStartDate: "",
     branch: "ศาลาแดง",
     ...Object.fromEntries(
       materials.flatMap((_, i) => [
@@ -138,88 +160,119 @@ export const seed: Database = {
   },
 };
 
-/** Creates a deterministic seven-day fixture for exercising the complete demo loop. */
-export function sevenDayRoleplay(endDate: string): Database {
+/** Creates deterministic daily data for exercising the complete demo loop. */
+function roleplay(endDate: string, dayCount: number): Database {
   let db = structuredClone(seed);
   const end = new Date(`${endDate}T00:00:00Z`);
-  const dates = Array.from({ length: 7 }, (_, index) => {
+  const dates = Array.from({ length: dayCount }, (_, index) => {
     const value = new Date(end);
-    value.setUTCDate(value.getUTCDate() - (6 - index));
+    value.setUTCDate(value.getUTCDate() - (dayCount - 1 - index));
     return value.toISOString().slice(0, 10);
   });
+  const rawKg = dayCount >= 30 ? 100 : 50;
+  const packCount = rawKg * 10;
+  const branchBagCount = packCount / 2;
+  const smokingAmount = rawKg * 220;
+  const materialPerBranch = dayCount >= 30 ? 400 : 100;
+  const materialPurchased = materialPerBranch * 2;
   for (let index = 0; index < materials.length; index++) {
-    db.config[`material${index}_saladaeng`] = "100";
-    db.config[`materialPrice${index}_saladaeng`] = "1";
-    db.config[`material${index}_minburi`] = "100";
-    db.config[`materialPrice${index}_minburi`] = "1";
+    db.config[`material${index}`] = "100";
+    db.config[`materialPrice${index}`] = "1";
   }
   let currentDate = dates[0];
   const run = (role: Role, kind: string, values: Values, lotId = "") => {
     db = mutate(db, role, kind, values, lotId, currentDate);
   };
-  const packs = Array.from({ length: 500 }, () => "0.100").join("\n");
-  run("owner", "brinePurchase", {
-    supplier: "ผู้ขายน้ำหมักทดสอบ",
-    quantityMl: "10000",
-    totalCost: "1000",
+  const packs = Array.from({ length: packCount }, () => "0.100").join("\n");
+  run("owner", "generalPurchase", {
+    purchaseDate: dates[0],
+    purchaseCategory: "วัตถุดิบ",
+    item: "น้ำพริกหลอด",
+    quantity: String(dayCount * branches.length * 20),
+    unit: "หลอด",
+    unitPrice: "20",
+    supplier: "ผู้ผลิตน้ำพริก",
+    reference: "CHILI-DEMO-001",
   });
   run("owner", "purchase", {
-    supplier: "Chef_house ทดสอบ",
-    orderedKg: "50",
+    supplier: "Food Diva",
+    customerName: "บริษัท เนิร์ดเนื้อ จำกัด",
+    customerAddress: "กรุงเทพฯ",
+    attention: "ฝ่ายจัดซื้อ",
+    phone: "0800000000",
+    taxId: "0100000000000",
+    packSize: "6 ชิ้นต่อถุง",
+    productName: "เนื้อวัว",
+    orderedKg: String(rawKg),
     price: "250",
   });
   const lotId = db.lots[0].id;
+  run("fooddiva", "foodDivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Food Diva Demo" }, lotId);
+  run("owner", "smokeOrder", { smoker: "Chef_house", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house Demo" }, lotId);
+  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef_house", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
+  const chefInvoice = db.entries.at(-1)?.id || "";
+  run("owner", "invoiceReview", { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" }, lotId);
+  run("owner", "invoicePayment", { invoiceId: chefInvoice, paymentDate: dates[0], paidAmount: String(smokingAmount * 1.04), paidBy: "Owner", paymentReference: "DEMO-PAY-001" }, lotId);
   run("owner", "dispatch", {
-    dispatchKg: "50",
+    dispatchKg: String(rawKg),
     pickupDate: dates[0],
-    origin: "กรุงเทพ",
-    destination: "Chef_house",
+    origin: "Food Diva · กรุงเทพฯ",
+    destination: "Chef_house · เชียงใหม่",
     trip: "ไปกลับ",
+    pickupTime: "06:30",
+    vehicleType: "รถห้องเย็น",
+    plate: "DEMO-01",
+    driverName: "คนขับทดสอบ",
+    driverPhone: "0800000000",
   }, lotId);
-  run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" }, lotId);
-  run("cm", "prepare", { preKg: "50" }, lotId);
+  run("cm", "cmReceive", { receivedKg: String(rawKg), arrival: "08:00" }, lotId);
+  run("cm", "prepare", { preKg: String(rawKg) }, lotId);
   run("cm", "smoke", {
     smokeDate: dates[0],
-    inputKg: "50",
-    brineMl: "5000",
+    inputKg: String(rawKg),
+    wasteKg: "0",
     packs,
   }, lotId);
   run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
-  run("owner", "return", { returnDate: dates[0], returnVehicle: "ทดสอบ-001" }, lotId);
-  run("owner", "central", { centralKg: "50" }, lotId);
+  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef_house · เชียงใหม่", destination: "Food Diva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
+  run("fooddiva", "foodDivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
+  run("owner", "central", { centralKg: String(rawKg) }, lotId);
   const firstBags = availableBags(db, lotId);
   run("owner", "allocate", {
     branch: "ศาลาแดง",
     deliveryDate: dates[0],
-    bagIds: firstBags.slice(0, 250).map((bag) => bag.id).join(","),
+    bagIds: firstBags.slice(0, branchBagCount).map((bag) => bag.id).join(","),
   }, lotId);
   const salaAllocation = db.entries.at(-1)?.id || "";
   const secondBags = availableBags(db, lotId);
   run("owner", "allocate", {
     branch: "มีนบุรี",
     deliveryDate: dates[0],
-    bagIds: secondBags.slice(0, 250).map((bag) => bag.id).join(","),
+    bagIds: secondBags.slice(0, branchBagCount).map((bag) => bag.id).join(","),
   }, lotId);
   const minburiAllocation = db.entries.at(-1)?.id || "";
   for (const material of materials) {
     run("owner", "materialReceive", {
       material,
-      quantity: "200",
+      purchaseDate: dates[0],
+      quantity: String(materialPurchased),
       unitPrice: "1",
       supplier: "ผู้ขายวัสดุทดสอบ",
+      reference: `MATERIAL-DEMO-${materials.indexOf(material) + 1}`,
     });
     for (const branch of branches) {
       db.config.branch = branch;
       run("owner", "materialTransfer", {
         material,
         branch,
-        quantity: "100",
+        quantity: String(materialPerBranch),
         receiver: "ผู้ดูแลทดสอบ",
       });
       const transferId = db.entries.at(-1)?.id || "";
       run("branch", "materialConfirm", {
         transferId,
-        receivedQuantity: "100",
+        receivedQuantity: String(materialPerBranch),
         receiver: "ผู้ดูแลทดสอบ",
       });
     }
@@ -241,8 +294,8 @@ export function sevenDayRoleplay(endDate: string): Database {
       );
       if (dayIndex === 0) {
         run("branch", "receive", {
-          kg: "25",
-          bags: "250",
+          kg: String(rawKg / 2),
+          bags: String(branchBagCount),
           allocation: branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
         }, lotId);
       }
@@ -259,19 +312,17 @@ export function sevenDayRoleplay(endDate: string): Database {
           cookedRiceCost: "1440",
         });
       }
-      run("branch", "chiliPurchase", {
-        supplier: "ร้านน้ำพริกทดสอบ",
+      run("owner", "chiliAllocate", {
+        branch,
         chiliTubes: "20",
-        chiliCost: "600",
+        receiver: `ผู้ดูแล${branch}`,
+        reference: `CHILI-${workDate}`,
       });
-      run("branch", "thaw", { kg: "1.521" }, lotId);
+      run("branch", "thaw", { kg: "1.521", bags: "1" }, lotId);
       run("branch", "materials", materialValues);
       if (branch === "ศาลาแดง") {
         run("branch", "riceIssue", { rawRiceIssuedKg: "3", receiver: "ผู้ดูแลทดสอบ" });
-        run("branch", "chiliIssue", { chiliIssuedTubes: "5", receiver: "ผู้ดูแลทดสอบ" });
         run("branch", "rice", { rawUsedKg: "3", riceKg: "3" });
-      } else {
-        run("branch", "chiliIssue", { chiliIssuedTubes: "5", receiver: "ผู้ดูแลทดสอบ" });
       }
       run("branch", "sale", {
         boxes: "14",
@@ -290,12 +341,21 @@ export function sevenDayRoleplay(endDate: string): Database {
           reheat: "เก็บไว้อุ่นวันถัดไป",
         });
       }
-      run("branch", "closeDay", { time: "21:00", confirm: "ผู้ดูแลทดสอบ" });
+      run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแลทดสอบ" });
     }
   }
   db.config.branch = "ศาลาแดง";
   return db;
 }
+
+export function sevenDayRoleplay(endDate: string): Database {
+  return roleplay(endDate, 7);
+}
+
+export function thirtyDayRoleplay(endDate: string): Database {
+  return roleplay(endDate, 30);
+}
+
 const num = (v: Values, key: string) => Number(v[key] || 0);
 export const n = num;
 const sum = (items: Entry[], key: string) =>
@@ -343,9 +403,6 @@ export function availableBags(db: Database, lotId: string): StockBag[] {
   }
   return bags;
 }
-export function brineStockMl(db: Database) {
-  return n(db.config, "brineOpeningMl") + sum(entries(db, "brinePurchase"), "quantityMl") - sum(entries(db, "smoke"), "brineMl");
-}
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
@@ -358,6 +415,51 @@ export function centralStock(db: Database, lotId: string) {
 }
 export function centralBagStock(db: Database, lotId: string) {
   return availableBags(db, lotId).length;
+}
+/** Raw beef is held by Food Diva until it is dispatched to the smoker or transferred to Steak. */
+export function rawAtFoodDiva(db: Database, lot: Lot) {
+  // A remainder lot is a transport child of the same PO, not a second purchase.
+  if (lot.id.includes("-R")) return 0;
+  const confirmation = entries(db, "foodDivaConfirm", lot.id).at(-1);
+  const invoicedKg = confirmation
+    ? n(confirmation.values, "confirmedKg")
+    : n(lot.values, "orderedKg");
+  const smoker = db.lots
+    .filter((item) => item.poId === lot.poId)
+    .reduce((total, item) => total + n(item.values, "dispatchKg"), 0);
+  const steak = sum(entries(db, "steakTransfer", lot.id), "quantityKg");
+  const ownerReceived = ownerWasteReceived(db, lot.id);
+  return Math.max(0, invoicedKg - smoker - steak - ownerReceived);
+}
+export function readyForChefHouse(db: Database, lotId: string) {
+  const confirmation = entries(db, "foodDivaConfirm", lotId).at(-1);
+  if (!confirmation) return 0;
+  return confirmation.values.readyForChiangMaiKg !== undefined
+    ? n(confirmation.values, "readyForChiangMaiKg")
+    : n(confirmation.values, "confirmedKg");
+}
+export function reservedForOwnerContent(db: Database, lotId: string) {
+  const confirmation = entries(db, "foodDivaConfirm", lotId).at(-1);
+  return confirmation ? n(confirmation.values, "reservedForOwnerKg") : 0;
+}
+export function ownerWasteReceived(db: Database, lotId: string) {
+  return sum(entries(db, "ownerWasteReceive", lotId), "receivedKg");
+}
+export function ownerWasteOutstanding(db: Database, lotId: string) {
+  return Math.max(0, reservedForOwnerContent(db, lotId) - ownerWasteReceived(db, lotId));
+}
+export function rawAtSmoker(db: Database, lot: Lot) {
+  return Math.max(0, n(lot.values, "receivedKg") - processed(db, lot.id));
+}
+export function steakRawStock(db: Database, lotId?: string) {
+  return sum(entries(db, "steakTransfer", lotId), "quantityKg");
+}
+export function processLoss(db: Database, lotId: string) {
+  return Math.max(0, processed(db, lotId) - produced(db, lotId));
+}
+export function averageYield(db: Database) {
+  const input = sum(entries(db, "smoke"), "inputKg");
+  return input > 0 ? (sum(entries(db, "smoke"), "outputKg") / input) * 100 : 0;
 }
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
@@ -397,20 +499,40 @@ export function cookedRiceStock(db: Database, branch: string) {
     )
   );
 }
-export function chiliStock(db: Database, branch: string) {
+/** Chili tubes are issued to branches only by Owner. Sales reduce the branch balance. */
+export function chiliAllocated(db: Database, branch: string, throughDate?: string) {
+  const inRange = (entry: Entry) => !throughDate || entry.date <= throughDate;
   return (
-    sum(entries(db, "supplyPurchase", undefined, branch), "chiliTubes") +
-    sum(entries(db, "chiliPurchase", undefined, branch), "chiliTubes") -
-    sum(entries(db, "supplyIssue", undefined, branch), "chiliIssuedTubes") -
-    sum(entries(db, "chiliIssue", undefined, branch), "chiliIssuedTubes")
+    sum(entries(db, "chiliAllocate", undefined, branch).filter(inRange), "chiliTubes") +
+    // Keep old demo records readable after the workflow changed to Owner allocation.
+    sum(entries(db, "supplyPurchase", undefined, branch).filter(inRange), "chiliTubes") +
+    sum(entries(db, "chiliPurchase", undefined, branch).filter(inRange), "chiliTubes")
   );
 }
-export function issuedChiliStock(db: Database, branch: string) {
-  return (
-    sum(entries(db, "supplyIssue", undefined, branch), "chiliIssuedTubes") +
-    sum(entries(db, "chiliIssue", undefined, branch), "chiliIssuedTubes") -
-    sum(entries(db, "sale", undefined, branch), "chiliSold")
+/** Owner stock is purchased centrally, then reduced only by allocations to branches. */
+export function ownerChiliStock(db: Database) {
+  const purchased = entries(db, "generalPurchase")
+    .filter((entry) => entry.values.item === "น้ำพริกหลอด")
+    .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
+  const legacyBranchPurchases =
+    sum(entries(db, "supplyPurchase"), "chiliTubes") +
+    sum(entries(db, "chiliPurchase"), "chiliTubes");
+  return purchased + legacyBranchPurchases - sum(entries(db, "chiliAllocate"), "chiliTubes");
+}
+export function chiliSold(db: Database, branch: string, throughDate?: string) {
+  return sum(
+    entries(db, "sale", undefined, branch).filter(
+      (entry) => !throughDate || entry.date <= throughDate,
+    ),
+    "chiliSold",
   );
+}
+export function chiliStock(db: Database, branch: string, throughDate?: string) {
+  return chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate);
+}
+/** Kept for old components; it now means the current branch balance, not a branch issue. */
+export function issuedChiliStock(db: Database, branch: string) {
+  return chiliStock(db, branch);
 }
 export function materialSent(
   db: Database,
@@ -463,16 +585,14 @@ export function branchMaterialStock(
   return transferred - used + adjustments;
 }
 export function materialPar(db: Database, branch: string, index: number) {
-  return n(
-    db.config,
-    `material${index}_${branch === "ศาลาแดง" ? "saladaeng" : "minburi"}`,
-  ) || n(db.config, `material${index}`);
+  return n(db.config, `material${index}`)
+    || n(db.config, `material${index}_saladaeng`)
+    || n(db.config, `material${index}_minburi`);
 }
 export function materialUnitPrice(db: Database, branch: string, index: number) {
-  return n(
-    db.config,
-    `materialPrice${index}_${branch === "ศาลาแดง" ? "saladaeng" : "minburi"}`,
-  ) || n(db.config, `materialPrice${index}`);
+  return n(db.config, `materialPrice${index}`)
+    || n(db.config, `materialPrice${index}_saladaeng`)
+    || n(db.config, `materialPrice${index}_minburi`);
 }
 export function isClosed(db: Database, branch: string, date: string) {
   return (
@@ -485,23 +605,32 @@ export function isClosed(db: Database, branch: string, date: string) {
   );
 }
 export function lotCost(db: Database, lot: Lot) {
-  const c = lot.config,
-    v = lot.values;
-  const meat = num(v, "dispatchKg") * num(v, "price"),
-    brine = num(v, "dispatchKg") * 0.1 * num(c, "brinePrice");
-  const smoke = num(v, "dispatchKg") * num(c, "smokeRate");
+  const v = lot.values;
+  const meat = num(v, "dispatchKg") * num(v, "price");
+  const smoke = n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "estimatedCost");
   const freight = num(v, "outboundCost") + num(v, "returnCost");
   return {
     meat,
-    brine,
     smoke,
     freight,
-    total: meat + brine + smoke + freight,
+    total: meat + smoke + freight,
     perKg:
       num(v, "centralKg") > 0
-        ? (meat + brine + smoke + freight) / num(v, "centralKg")
+        ? (meat + smoke + freight) / num(v, "centralKg")
         : null,
   };
+}
+export function smokeServiceRate(quantityKg: number) {
+  if (quantityKg >= 1500) return 180;
+  if (quantityKg >= 1000) return 200;
+  return 220;
+}
+export function smokingInvoiceStatus(db: Database, invoice: Entry) {
+  if (entries(db, "invoicePayment", invoice.lotId).some((entry) => entry.values.invoiceId === invoice.id)) return "ชำระแล้ว";
+  const review = entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+  if (review?.values.decision === "รับยอด") return "รอชำระ";
+  if (review?.values.decision === "ส่งกลับแก้ไข") return "ส่งกลับแก้ไข";
+  return "รอตรวจยอด";
 }
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
@@ -529,7 +658,16 @@ export function visibleEntries(db: Database, role: Role) {
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
-  brinePurchase: "owner",
+  supplierInvoice: "owner",
+  taxDocument: "owner",
+  smokeOrder: "owner",
+  smokingInvoice: "cm",
+  smokeOrderAccept: "cm",
+  invoiceReview: "owner",
+  invoicePayment: "owner",
+  steakTransfer: "owner",
+  foodDivaConfirm: "fooddiva",
+  foodDivaReturnReceive: "fooddiva",
   dispatch: "owner",
   cmReceive: "cm",
   prepare: "cm",
@@ -538,6 +676,7 @@ const ownership: Record<string, Role> = {
   return: "owner",
   central: "owner",
   allocate: "owner",
+  chiliAllocate: "owner",
   receive: "branch",
   thaw: "branch",
   supplyPurchase: "branch",
@@ -551,6 +690,8 @@ const ownership: Record<string, Role> = {
   sale: "branch",
   materials: "branch",
   materialReceive: "owner",
+  ownerWasteReceive: "owner",
+  generalPurchase: "owner",
   materialTransfer: "owner",
   materialConfirm: "branch",
   closeDay: "branch",
@@ -596,7 +737,7 @@ export function mutate(
   let lot = next.lots.find((l) => l.id === lotId);
   const branch =
     role === "branch" ? db.config.branch : v.branch || db.config.branch;
-  for (const key of ["arrival", "time", "closeTime"]) {
+  for (const key of ["arrival", "time", "closeTime", "pickupTime", "dispatchTime"]) {
     if (key in v)
       assert(
         /^([01]\d|2[0-3]):[0-5]\d$/.test(v[key]),
@@ -624,53 +765,146 @@ export function mutate(
     );
   if (kind === "purchase") {
     required(v, "supplier", "ผู้ขาย");
+    required(v, "customerName", "ชื่อบริษัท / ลูกค้า");
+    required(v, "customerAddress", "ที่อยู่");
+    required(v, "attention", "ชื่อผู้ติดต่อ (Attention)");
+    required(v, "phone", "เบอร์ติดต่อ");
+    required(v, "taxId", "เลขประจำตัวผู้เสียภาษี");
+    required(v, "packSize", "ขนาดบรรจุ");
+    required(v, "productName", "รายการสินค้า");
     positive(v, "orderedKg", "น้ำหนักสั่งซื้อ");
     positive(v, "price", "ราคา / กก.");
-    lotId = `NN-${date.replaceAll("-", "")}-${String(next.lots.length + 1).padStart(3, "0")}`;
+    const year = date.slice(0, 4);
+    lotId = `F${date.slice(2).replaceAll("-", "")}-${String(next.lots.length + 1).padStart(3, "0")}`;
     lot = {
       id: lotId,
-      poId: `PO-${date.replaceAll("-", "")}-${next.lots.length + 1}`,
+      poId: `PO-${year}-${String(next.lots.length + 1).padStart(4, "0")}`,
       stage: 1,
       values: v,
       config: { ...db.config },
     };
     next.lots.push(lot);
-  } else if (kind === "brinePurchase") {
-    required(v, "supplier", "ผู้จำหน่ายน้ำหมัก");
-    positive(v, "quantityMl", "ปริมาณน้ำหมัก");
-    positive(v, "totalCost", "ราคารวม", true);
-    v.poNumber = `PO-BRINE-${date.replaceAll("-", "")}-${entries(db, "brinePurchase").length + 1}`;
+  } else if (kind === "supplierInvoice" && lot) {
+    required(v, "invoiceNumber", "เลข Invoice ผู้ขาย");
+    required(v, "invoiceDate", "วันที่ Invoice");
+    positive(v, "quantityKg", "จำนวนตาม Invoice");
+    positive(v, "amountBeforeVat", "ยอดก่อน VAT", true);
+    positive(v, "vat", "VAT", true);
+    positive(v, "totalAmount", "ยอดรวม", true);
+    required(v, "dueDate", "วันครบกำหนดชำระ");
+  } else if (kind === "taxDocument" && lot) {
+    required(v, "documentType", "ประเภทเอกสาร");
+    required(v, "documentNumber", "เลขที่เอกสาร");
+    required(v, "documentDate", "วันที่เอกสาร");
+    positive(v, "amount", "ยอดเอกสาร", true);
+    positive(v, "vat", "VAT", true);
+  } else if (kind === "smokeOrder" && lot) {
+    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Food Diva ออก Invoice เนื้อก่อน");
+    required(v, "requestedSmokeDate", "วันที่ขอรม");
+    required(v, "smoker", "โรงรม / ผู้ให้บริการ");
+    positive(v, "rawKg", "น้ำหนักเนื้อดิบ");
+    assert(n(v, "rawKg") <= readyForChefHouse(db, lotId) + 0.001, "น้ำหนักใน PO รมควันเกินยอดที่ Food Diva ระบุว่าพร้อมส่งเชียงใหม่");
+    v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
+    v.orderNumber = `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
+    v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
+    v.status = "Sent";
+  } else if (kind === "smokeOrderAccept" && lot) {
+    const order = entries(db, "smokeOrder", lotId).at(-1);
+    assert(order, "ยังไม่มี PO รมควันจาก Owner");
+    assert(!entries(db, "smokeOrderAccept", lotId).length, "รับ PO รมควันนี้แล้ว");
+    required(v, "acceptedBy", "ชื่อผู้รับ PO");
+    v.orderId = order.id;
+    v.orderNumber = order.values.orderNumber;
+    v.status = "Accepted";
+  } else if (kind === "smokingInvoice" && lot) {
+    assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล");
+    const smokeOrder = entries(db, "smokeOrder", lotId).at(-1);
+    assert(smokeOrder, "ไม่พบ PO รมควันที่อ้างอิง");
+    required(v, "invoiceNumber", "เลข Invoice ค่ารม");
+    required(v, "invoiceDate", "วันที่ Invoice");
+    v.serviceProvider = smokeOrder.values.smoker || "Chef_house";
+    v.serviceQuantity = String(n(smokeOrder.values, "rawKg"));
+    v.serviceRate = String(smokeServiceRate(n(v, "serviceQuantity")));
+    v.amountBeforeVat = String(n(v, "serviceQuantity") * n(v, "serviceRate"));
+    v.vat = String(n(v, "vat"));
+    v.withholdingTax = String(n(v, "withholdingTax"));
+    v.netPayable = String(n(v, "netPayable") || n(v, "amountBeforeVat") + n(v, "vat") - n(v, "withholdingTax"));
+    required(v, "attachment", "Invoice ที่แนบ");
+    v.status = "Submitted";
+  } else if (kind === "invoiceReview" && lot) {
+    const invoice = entries(db, "smokingInvoice", lotId).find((entry) => entry.id === v.invoiceId) || entries(db, "smokingInvoice", lotId).at(-1);
+    assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องตรวจ");
+    v.invoiceId = invoice.id;
+    assert(smokingInvoiceStatus(db, invoice) !== "ชำระแล้ว", "Invoice นี้ชำระแล้ว");
+    assert(["รับยอด", "ส่งกลับแก้ไข"].includes(v.decision), "เลือกผลการตรวจยอด");
+    required(v, "reviewedBy", "ชื่อผู้ตรวจ");
+    v.reviewedAt = new Date().toISOString();
+  } else if (kind === "invoicePayment" && lot) {
+    const invoice = entries(db, "smokingInvoice", lotId).find((entry) => entry.id === v.invoiceId) || entries(db, "smokingInvoice", lotId).at(-1);
+    assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องชำระ");
+    v.invoiceId = invoice.id;
+    assert(smokingInvoiceStatus(db, invoice) === "รอชำระ", "ต้องรับยอด Invoice ก่อนชำระเงิน");
+    required(v, "paymentDate", "วันที่ชำระ");
+    required(v, "paidBy", "ผู้ดำเนินการชำระ");
+    positive(v, "paidAmount", "ยอดชำระ");
+    assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
+  } else if (kind === "steakTransfer" && lot) {
+    positive(v, "quantityKg", "น้ำหนักโอนไป Steak");
+    required(v, "transferDate", "วันที่โอน");
+    required(v, "reason", "เหตุผลโอน");
+    assert(n(v, "quantityKg") <= rawAtFoodDiva(db, lot) + 0.001, "เนื้อสดคงเหลือที่ Food Diva ไม่พอ");
+    v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "steakTransfer").length + 1).padStart(4, "0")}`;
+    v.sourceLocation = "Food Diva / Raw Meat Storage";
+    v.destinationLocation = "Steak Production";
+    v.status = "Received";
+  } else if (kind === "foodDivaConfirm" && lot) {
+    required(v, "invoiceNo", "เลข Invoice");
+    required(v, "invoiceDate", "วันที่ Invoice");
+    required(v, "attachment", "Invoice ที่แนบ");
+    required(v, "confirmedBy", "ชื่อผู้ยืนยัน");
+    positive(v, "confirmedKg", "น้ำหนักที่ยืนยันได้");
+    positive(v, "readyForChiangMaiKg", "น้ำหนักพร้อมส่งเชียงใหม่", true);
+    positive(v, "reservedForOwnerKg", "น้ำหนักเนื้อส่วนที่เหลือรอ Owner รับ", true);
+    positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
+    assert(n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001, "น้ำหนักยืนยันเกินยอด PO");
+    assert(Math.abs(n(v, "readyForChiangMaiKg") + n(v, "reservedForOwnerKg") - n(v, "confirmedKg")) < 0.001, "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice");
+  } else if (kind === "ownerWasteReceive" && lot) {
+    required(v, "receivedDate", "วันที่ Owner รับเนื้อ");
+    positive(v, "receivedKg", "น้ำหนักรับจริง");
+    required(v, "receiver", "ผู้รับเนื้อ");
+    assert(reservedForOwnerContent(db, lotId) > 0, "Food Diva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ");
+    assert(
+      n(v, "receivedKg") <= ownerWasteOutstanding(db, lotId) + 0.001,
+      "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Food Diva รอให้ Owner รับ",
+    );
+  } else if (kind === "foodDivaReturnReceive" && lot) {
+    assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef_house ก่อน");
+    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef_house → Food Diva");
+    required(v, "receivedDate", "วันที่รับ");
+    required(v, "receivedTime", "เวลารับ");
+    positive(v, "receivedKg", "น้ำหนักรับ");
+    positive(v, "receivedBags", "จำนวนถุง", true);
+    assert(Number.isInteger(n(v, "receivedBags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
+    variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
+    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Food Diva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
+    assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef_house ยืนยันรับ PO รมควันก่อนเรียกรถ");
+    assert(entries(db, "smokingInvoice", lotId).some((invoice) => smokingInvoiceStatus(db, invoice) === "ชำระแล้ว"), "รอ Owner ตรวจยอดและชำระ Invoice ค่ารมควันก่อนเรียกรถ");
     positive(v, "dispatchKg", "น้ำหนักส่ง");
     required(v, "pickupDate", "วันรับ");
     required(v, "origin", "ต้นทาง");
     required(v, "destination", "ปลายทาง");
-    const sent = db.lots
-      .filter((l) => l.poId === lot!.poId)
-      .reduce((s, l) => s + n(l.values, "dispatchKg"), 0);
     assert(
-      num(v, "dispatchKg") <= n(lot.values, "orderedKg") - sent + 0.001,
-      "ส่งเกินน้ำหนักค้างส่งของ PO",
+      num(v, "dispatchKg") <= readyForChefHouse(db, lotId) + 0.001,
+      "น้ำหนักใบขนส่งเกินยอดที่ Food Diva ระบุว่าพร้อมส่งเชียงใหม่",
     );
     v.outboundCost =
       v.trip === "ไปกลับ" ? lot.config.roundFee : lot.config.outboundFee;
-    const remainder = n(lot.values, "orderedKg") - sent - num(v, "dispatchKg");
-    if (remainder > 0.001)
-      next.lots.push({
-        id: `${lot.id}-R${next.lots.length + 1}`,
-        poId: lot.poId,
-        stage: 1,
-        values: {
-          supplier: lot.values.supplier,
-          orderedKg: lot.values.orderedKg,
-          price: lot.values.price,
-        },
-        config: { ...lot.config },
-      });
+    v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
+    assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับ");
     required(v, "arrival", "เวลาถึง");
-    variance(n(v, "receivedKg"), n(lot.values, "dispatchKg"), v);
   } else if (kind === "prepare" && lot) {
     positive(v, "preKg", "น้ำหนักก่อนสโมค");
     assert(
@@ -679,10 +913,7 @@ export function mutate(
     );
   } else if (kind === "smoke" && lot) {
     positive(v, "inputKg", "น้ำหนักเข้าเตา");
-    const brineMl = n(v, "brineMl") || n(v, "brineKg") * 1000;
-    assert(brineMl >= 0, "น้ำหมักต้องไม่ติดลบ");
-    v.brineMl = String(brineMl);
-    assert(brineMl <= brineStockMl(db), "สต๊อกน้ำหมักไม่พอ กรุณาสร้าง PO น้ำหมักก่อน");
+    positive(v, "wasteKg", "น้ำหนัก Waste", true);
     required(v, "smokeDate", "วันที่สโมค");
     const weights = (v.packs || "")
       .split(/[\s,]+/)
@@ -699,11 +930,13 @@ export function mutate(
       "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
     );
     assert(
-      output <= n(v, "inputKg") + brineMl / 1000,
-      "น้ำหนักถุงรวมเกินน้ำหนักเข้าเตารวมกับน้ำหมัก",
+      Math.abs(output + n(v, "wasteKg") - n(v, "inputKg")) <= 0.001,
+      "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
     );
+    v.wasteKg = String(n(v, "wasteKg"));
     v.outputKg = output.toFixed(2);
     v.packCount = String(weights.length);
+    v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "closeLot" && lot) {
     assert(
       Math.abs(n(lot.values, "preKg") - processed(db, lotId)) < 0.005,
@@ -712,12 +945,21 @@ export function mutate(
     assert(produced(db, lotId) > 0, "ยังไม่มีผลผลิต");
     required(v, "confirm", "ชื่อผู้ยืนยัน");
   } else if (kind === "return" && lot) {
-    required(v, "returnDate", "วันรับขากลับ");
-    required(v, "returnVehicle", "รถรับกลับ");
+    required(v, "returnDate", "วันที่รถรับ");
+    required(v, "returnTime", "เวลารถรับ");
+    required(v, "origin", "ต้นทาง");
+    required(v, "destination", "ปลายทาง");
+    required(v, "vehicleType", "ประเภทรถ");
+    required(v, "plate", "ทะเบียนรถ");
+    required(v, "driverName", "ชื่อคนขับ");
+    required(v, "driverPhone", "เบอร์ติดต่อคนขับ");
+    positive(v, "returnKg", "น้ำหนักส่งกลับ");
+    assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
     v.returnCost = lot.values.trip === "ไปกลับ" ? "0" : lot.config.returnFee;
   } else if (kind === "central" && lot) {
+    assert(entries(db, "foodDivaReturnReceive", lotId).length, "รอ Food Diva ยืนยันรับเนื้อรมควันก่อน");
     positive(v, "centralKg", "น้ำหนักรับกลาง");
-    variance(n(v, "centralKg"), produced(db, lotId), v, false);
+    variance(n(v, "centralKg"), n(entries(db, "foodDivaReturnReceive", lotId).at(-1)?.values || {}, "receivedKg"), v, false);
   } else if (kind === "allocate") {
     const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
     if (selectedBagIds.length) {
@@ -749,6 +991,8 @@ export function mutate(
     variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
+    positive(v, "bags", "จำนวนถุงที่ละลาย");
+    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     assert(
       n(v, "kg") <= balance(db, lotId, branch).frozen + 0.001,
       "สต๊อกแช่แข็งไม่พอ",
@@ -777,6 +1021,14 @@ export function mutate(
       positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ");
       v.totalCost = v.rawRiceCost;
     }
+  } else if (kind === "chiliAllocate") {
+    assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
+    positive(v, "chiliTubes", "จำนวนน้ำพริกที่จัดสรร");
+    assert(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+    assert(
+      n(v, "chiliTubes") <= ownerChiliStock(db),
+      "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าบัญชีก่อน",
+    );
   } else if (kind === "chiliPurchase") {
     positive(v, "chiliTubes", "น้ำพริกซื้อเข้า");
     assert(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
@@ -908,10 +1160,19 @@ export function mutate(
       "บันทึกการใช้วัสดุของวันนี้แล้ว",
     );
   } else if (kind === "materialReceive") {
+    required(v, "purchaseDate", "วันที่ซื้อวัสดุ");
     assert(materials.includes(v.material), "เลือกวัสดุ");
     positive(v, "quantity", "จำนวนรับเข้าคลัง");
     assert(Number.isInteger(n(v, "quantity")), "จำนวนวัสดุต้องเป็นจำนวนเต็ม");
     positive(v, "unitPrice", "ราคาต่อหน่วย", true);
+    required(v, "supplier", "ผู้จำหน่าย");
+    v.totalCost = String(n(v, "quantity") * n(v, "unitPrice"));
+  } else if (kind === "generalPurchase") {
+    required(v, "purchaseDate", "วันที่ซื้อ");
+    required(v, "item", "รายการที่ซื้อ");
+    required(v, "purchaseCategory", "หมวดบัญชี");
+    positive(v, "quantity", "จำนวนที่ซื้อ");
+    positive(v, "unitPrice", "ราคาซื้อต่อหน่วย", true);
     required(v, "supplier", "ผู้จำหน่าย");
     v.totalCost = String(n(v, "quantity") * n(v, "unitPrice"));
   } else if (kind === "materialTransfer") {
@@ -981,9 +1242,18 @@ export function mutate(
       "ข้าวเหนียวไม่พอ",
     );
     assert(
-      n(v, "chiliSold") <= issuedChiliStock(db, branch),
-      "น้ำพริกที่เบิกไว้ไม่พอ กรุณาบันทึกเบิกก่อนขาย",
+      n(v, "chiliSold") <= chiliStock(db, branch),
+      "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
     );
+    const hasChiliCount = v.chiliCount !== undefined && v.chiliCount !== "";
+    const expectedChili = chiliStock(db, branch) - n(v, "chiliSold");
+    v.chiliExpected = String(expectedChili);
+    if (hasChiliCount) {
+      positive(v, "chiliCount", "ยอดตรวจนับน้ำพริก", true);
+      assert(Number.isInteger(n(v, "chiliCount")), "ยอดตรวจนับน้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+      if (n(v, "chiliCount") !== expectedChili)
+        required(v, "chiliRemark", "หมายเหตุเมื่อน้ำพริกไม่ตรง");
+    }
     if (n(v, "wasteKg") > 0 || n(v, "riceWasteKg") > 0)
       required(v, "reason", "เหตุผล Waste");
     if (n(v, "expense") > 0) required(v, "payer", "ผู้จ่ายเงิน");
@@ -1036,9 +1306,9 @@ export function mutate(
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
     const reversible = [
-      "allocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
+      "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
       "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
-      "materialReceive", "materialTransfer", "materialConfirm", "closeDay",
+      "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
       "expense", "unlock",
     ];
     assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
@@ -1066,8 +1336,6 @@ export function mutate(
       "chiliUnitPrice",
       "cookedRicePar",
       "cookedRiceUnitPrice",
-      "brinePrice",
-      "smokeRate",
       "outboundFee",
       "returnFee",
       "roundFee",
@@ -1077,6 +1345,7 @@ export function mutate(
     assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
     required(v, "closeTime", "เวลาเริ่มปิดวัน");
+    required(v, "companyName", "ชื่อบริษัท");
     for (let i = 0; i < materials.length; i++) {
       positive(v, "material" + i, `จำนวนฐาน ${materials[i]}`, true);
       positive(v, "materialPrice" + i, `ราคาต่อหน่วย ${materials[i]}`, true);
@@ -1099,16 +1368,20 @@ export function mutate(
     )
       lot.stage = 5;
   }
+  const entryDate = ["materialReceive", "generalPurchase"].includes(kind)
+    ? v.purchaseDate || date
+    : kind === "ownerWasteReceive"
+      ? v.receivedDate || date
+      : date;
   next.entries.push({
     id: crypto.randomUUID(),
     kind,
     role,
     lotId: lot?.id || lotId,
     branch,
-    date,
+    date: entryDate,
     at: new Date().toISOString(),
     values: v,
   });
   return next;
 }
-

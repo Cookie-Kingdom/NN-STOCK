@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+/artifacts/
+/uat-work/node_modules/
+/sign-off.png
+/summary.png
+/test-cases.png
 
 # next.js
 /.next/
