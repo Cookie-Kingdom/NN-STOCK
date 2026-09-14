@@ -1,4 +1,4 @@
-import { branches, materials, type Values } from "./demo-store";
+import { branches, materials, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;

@@ -1,8 +1,8 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import { branches, seed, type Database } from "./demo-store";
+import { branches, seed, type Database } from "./store";
 import { saveLegacyDataUrl } from "./attachment-store";
-import demoSeed from "./demo-seed.json";
+import demoSeed from "./seed.json";
 const key = "nerdnuea-forms-v4";
 let cachedRaw: string | null = null;
 type StoredDatabase = {

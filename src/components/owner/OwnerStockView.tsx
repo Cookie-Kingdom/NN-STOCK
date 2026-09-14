@@ -1,0 +1,260 @@
+"use client";
+
+import { type ReactNode, useState } from "react";
+import { DataTable } from "@/components/shared/DataTable";
+import { balance, branchMaterialStock, branches, centralBagStock, centralStock, chiliAllocated, chiliSold, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, materialPar, materialUnitPrice, materials, n, ownerChiliStock, ownerMaterialStock, ownerWasteOutstanding, ownerWasteReceived, rawRiceStock, readyForChefHouse, reservedForOwnerContent, type Database, type Lot } from "@/lib/store";
+import { fmt } from "@/lib/format";
+
+export function OwnerStockView({
+  db,
+  lots,
+  open,
+}: {
+  db: Database;
+  lots: Lot[];
+  open: (kind: string, lotId?: string) => void;
+}) {
+  const [genre, setGenre] = useState("ทั้งหมด");
+  const [location, setLocation] = useState("ทั้งหมด");
+  const [itemFilter, setItemFilter] = useState("ทั้งหมด");
+  const generalPurchases = entries(db, "generalPurchase");
+  const purchaseGroup = (value?: string) =>
+    value === "วัตถุดิบ / สินค้า" ? "วัตถุดิบ" :
+    value === "ETC / สินทรัพย์" ? "สินทรัพย์" :
+    value || "วัตถุดิบ";
+  const accountingItems = Array.from(new Set([
+    "น้ำพริกหลอด",
+    "น้ำดอง",
+    ...generalPurchases.map((entry) => entry.values.item).filter(Boolean),
+  ]));
+  const rows: {
+    genre: string;
+    item: string;
+    location: string;
+    quantity: string;
+    unit: string;
+    detail: string;
+    meatType?: string;
+    action?: ReactNode;
+  }[] = [
+    ...lots.flatMap((lot) => {
+      const invoiceConfirmed = entries(db, "foodDivaConfirm", lot.id).length > 0;
+      const central = Math.max(0, centralStock(db, lot.id));
+      const dispatched = n(entries(db, "dispatch", lot.id).at(-1)?.values || {}, "dispatchKg");
+      const readyAtFoodDiva = Math.max(0, readyForChefHouse(db, lot.id) - dispatched);
+      const ownerReserved = reservedForOwnerContent(db, lot.id);
+      const ownerWaiting = ownerWasteOutstanding(db, lot.id);
+      const ownerReceived = ownerWasteReceived(db, lot.id);
+      return [
+        {
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef_house`,
+          location: "Food Diva",
+          quantity: fmt(invoiceConfirmed ? readyAtFoodDiva : 0),
+          unit: "กก.",
+          detail: invoiceConfirmed ? "จาก Invoice Food Diva · รอ Owner เรียกรถไปเชียงใหม่" : "รอ Food Diva ยืนยัน Invoice",
+          meatType: "เนื้อดิบพร้อมส่ง Chef_house",
+        },
+        ...(invoiceConfirmed ? [{
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
+          location: "Food Diva",
+          quantity: fmt(ownerWaiting),
+          unit: "กก.",
+          detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
+          meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+          action: ownerWaiting > 0.001
+            ? <button className="table-action" onClick={() => open("ownerWasteReceive", lot.id)}>บันทึกรับเนื้อ</button>
+            : <span className="badge success">Owner รับครบแล้ว</span>,
+        }, ...(ownerReceived > 0.001 ? [{
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
+          location: "Owner",
+          quantity: fmt(ownerReceived),
+          unit: "กก.",
+          detail: "รับจาก Food Diva แล้ว · สำหรับใช้งาน Owner",
+          meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+        }] : []),] : []),
+        {
+          genre: "เนื้อ",
+          item: `${lot.id} · เนื้อรมควัน`,
+          location: "คลังกลาง",
+          quantity: fmt(central),
+          unit: "กก.",
+          detail: `จากรับเข้าสต๊อกกลาง · ${centralBagStock(db, lot.id)} ถุง พร้อมจัดสรร`,
+          meatType: "เนื้อรมควัน",
+        },
+        ...branches.map((branchName) => {
+          const stock = balance(db, lot.id, branchName);
+          return {
+            genre: "เนื้อ",
+            item: `${lot.id} · เนื้อรมควัน`,
+            location: branchName,
+            quantity: fmt(stock.frozen + stock.ready),
+            unit: "กก.",
+            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+            meatType: "เนื้อรมควัน",
+          };
+        }),
+      ];
+    }),
+    ...branches.flatMap((branchName) => [
+      {
+        genre: "วัตถุดิบ",
+        item: "ข้าวเหนียวดิบ (ข้าวสาร)",
+        location: branchName,
+        quantity: fmt(rawRiceStock(db, branchName)),
+        unit: "กก.",
+        detail: `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branchName))} กก.`,
+      },
+      {
+        genre: "วัตถุดิบ",
+        item: "ข้าวเหนียวสุก",
+        location: branchName,
+        quantity: fmt(cookedRiceStock(db, branchName)),
+        unit: "กก.",
+        detail: branchName === "มีนบุรี" ? "เหลือสำหรับอุ่นขายวันถัดไป" : "ข้าวสุกคงเหลือ",
+      },
+      {
+        genre: "วัตถุดิบ",
+        item: "น้ำพริกหลอด",
+        location: branchName,
+        quantity: fmt(chiliStock(db, branchName)),
+        unit: "หลอด",
+        detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ขายแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
+      },
+    ]),
+    ...accountingItems.map((item) => {
+      const history = generalPurchases.filter((entry) => entry.values.item === item);
+      const latest = history.at(-1);
+      const category = purchaseGroup(latest?.values.purchaseCategory);
+      const defaultUnit = item === "น้ำดอง" ? "มล." : item === "น้ำพริกหลอด" ? "หลอด" : "รายการ";
+      const isChili = item === "น้ำพริกหลอด";
+      return {
+        genre: category === "สินทรัพย์" ? "สินทรัพย์" : category === "ค่าใช้จ่ายอื่น" ? "ค่าใช้จ่ายอื่น" : "วัตถุดิบ",
+        item,
+        location: isChili ? "คลัง Owner" : "บัญชี Owner",
+        quantity: fmt(isChili ? ownerChiliStock(db) : history.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0)),
+        unit: latest?.values.unit || defaultUnit,
+        detail: latest
+          ? isChili
+            ? `ซื้อเข้า ${fmt(history.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0))} หลอด · จัดสรรไปสาขา ${fmt(entries(db, "chiliAllocate").reduce((sum, entry) => sum + n(entry.values, "chiliTubes"), 0))} หลอด`
+            : `ซื้อสะสม ${history.length} รายการ · ล่าสุด ${latest.values.purchaseDate || latest.date}`
+          : isChili && ownerChiliStock(db) > 0
+            ? "ยอดคงเหลือเดิมจากข้อมูลทดลอง · การซื้อครั้งถัดไปให้บันทึกผ่านการซื้ออื่น ๆ"
+            : "ยังไม่มีประวัติการซื้อ",
+      };
+    }),
+    ...materials.flatMap((material, index) => {
+      const lastPurchase = entries(db, "materialReceive")
+        .filter((entry) => entry.values.material === material)
+        .at(-1);
+      return [
+        {
+          genre: "วัสดุบรรจุภัณฑ์",
+          item: material,
+          location: "คลัง Owner",
+          quantity: fmt(ownerMaterialStock(db, material)),
+          unit: "ชิ้น",
+          detail: lastPurchase
+            ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
+            : "ยังไม่มีประวัติการซื้อ",
+        },
+        ...branches.map((branchName) => ({
+          genre: "วัสดุบรรจุภัณฑ์",
+          item: material,
+          location: branchName,
+          quantity: fmt(branchMaterialStock(db, branchName, index)),
+          unit: "ชิ้น",
+          detail: `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
+        })),
+      ];
+    }),
+  ];
+  const visibleRows = rows.filter(
+    (row) =>
+      (genre === "ทั้งหมด" || row.genre === genre) &&
+      (location === "ทั้งหมด" || row.location === location) &&
+      (itemFilter === "ทั้งหมด" ||
+        row.meatType === itemFilter || row.item === itemFilter),
+  );
+  const purchases = [
+    ...entries(db, "materialReceive").map((entry) => ({
+      date: entry.values.purchaseDate || entry.date,
+      at: entry.at,
+      category: "วัสดุบรรจุภัณฑ์",
+      item: entry.values.material,
+      quantity: n(entry.values, "quantity"),
+      unit: "ชิ้น",
+      unitPrice: n(entry.values, "unitPrice"),
+      totalCost: n(entry.values, "totalCost"),
+      supplier: entry.values.supplier,
+      reference: entry.values.reference || "—",
+    })),
+    ...entries(db, "generalPurchase").map((entry) => ({
+      date: entry.values.purchaseDate || entry.date,
+      at: entry.at,
+      category: purchaseGroup(entry.values.purchaseCategory),
+      item: entry.values.item,
+      quantity: n(entry.values, "quantity"),
+      unit: entry.values.unit || "—",
+      unitPrice: n(entry.values, "unitPrice"),
+      totalCost: n(entry.values, "totalCost"),
+      supplier: entry.values.supplier,
+      reference: entry.values.reference || "—",
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
+  const visiblePurchases = purchases.filter((purchase) =>
+    (genre === "ทั้งหมด" ||
+      (genre === "วัสดุบรรจุภัณฑ์" && purchase.category === "วัสดุบรรจุภัณฑ์") ||
+      (genre === "วัตถุดิบ" && purchase.category === "วัตถุดิบ") ||
+      (genre === "สินทรัพย์" && purchase.category === "สินทรัพย์") ||
+      (genre === "ค่าใช้จ่ายอื่น" && purchase.category === "ค่าใช้จ่ายอื่น")) &&
+    (itemFilter === "ทั้งหมด" || purchase.item === itemFilter),
+  );
+  const meatTypeOptions = [
+    "เนื้อดิบพร้อมส่ง Chef_house",
+    "เนื้อรมควัน",
+    "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+  ];
+  const itemOptions = genre === "เนื้อ"
+    ? meatTypeOptions
+    : Array.from(new Set([
+      ...(genre === "ทั้งหมด" ? meatTypeOptions : []),
+      ...rows
+        .filter((row) => row.genre !== "เนื้อ" && (genre === "ทั้งหมด" || row.genre === genre))
+        .map((row) => row.item),
+    ])).sort((a, b) => a.localeCompare(b, "th"));
+  return (
+    <div className="settings-stack">
+      <DataTable
+        title="ตารางสต๊อกทั้งหมด (All inventory)"
+        action={
+          <div className="table-filters">
+            <label className="table-filter">กลุ่มสต๊อก<select value={genre} onChange={(event) => { setGenre(event.target.value); setItemFilter("ทั้งหมด"); }}><option>ทั้งหมด</option><option>เนื้อ</option><option>วัตถุดิบ</option><option>วัสดุบรรจุภัณฑ์</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
+            <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : genre === "ทั้งหมด" ? "รายการ / ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Food Diva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
+          </div>
+        }
+        columns={["กลุ่ม", "รายการ / Lot", "สถานที่", "คงเหลือ", "หน่วย", "รายละเอียด", "การทำงาน"]}
+        rows={visibleRows.map((row) => [row.genre, row.item, row.location, row.quantity, row.unit, row.detail, row.action || "—"])}
+      />
+      {visiblePurchases.length > 0 && (
+        <DataTable
+          title={`ประวัติการซื้อและบัญชี · ต้นทุนซื้อเข้าที่แสดง ฿${fmt(visiblePurchases.reduce((total, purchase) => total + purchase.totalCost, 0))}`}
+          columns={["วันที่ซื้อ", "หมวดบัญชี", "รายการ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง / ใบเสร็จ"]}
+          rows={visiblePurchases.map((purchase) => [
+            purchase.date,
+            purchase.category,
+            purchase.item,
+            `${fmt(purchase.quantity)} ${purchase.unit}`,
+            `฿${fmt(purchase.unitPrice)}`,
+            `฿${fmt(purchase.totalCost)}`,
+            purchase.supplier,
+            purchase.reference,
+          ])}
+        />
+      )}
+    </div>
+  );
+}

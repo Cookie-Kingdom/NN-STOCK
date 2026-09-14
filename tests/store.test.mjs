@@ -15,7 +15,7 @@ import {
   issuedRawRiceStock,
   issuedChiliStock,
   materials,
-} from "../src/lib/demo-store.ts";
+} from "../src/lib/store.ts";
 const day = "2026-09-09";
 const packs = (count) => Array.from({ length: count }, () => "0.100").join("\n");
 function setup(branch = seed.config.branch) {
