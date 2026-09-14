@@ -1,6 +1,6 @@
 "use client";
 
-import { Read } from "@/components/shared/primitives";
+import { ReadRow } from "@/components/atoms/ReadRow";
 import { balance, chiliStock, entries, n, processed, produced, producedBags, smokeServiceRate, type Database, type Lot, type Values } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -129,10 +129,10 @@ export function Preview({
     ];
   }
   return rows.length ? (
-    <div className="preview">
+    <div className="rounded-lg border border-border bg-bg p-4.5">
       <h3>ตรวจสอบก่อนบันทึก</h3>
       {rows.map(([k, value]) => (
-        <Read key={k} label={k} value={value} />
+        <ReadRow key={k} label={k} value={value} />
       ))}
     </div>
   ) : null;

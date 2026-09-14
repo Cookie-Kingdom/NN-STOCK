@@ -1,5 +1,8 @@
 "use client";
 
+import "@/styles/print-document.css";
+import { Badge } from "@/components/atoms/Badge";
+import { dateLabel } from "@/components/organisms/shared/documentRows";
 import { entries, n, smokeServiceRate, type Database, type Lot, type Values } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -42,23 +45,18 @@ export function PurchaseOrderDocumentPreview({
   const packDetail = isSmokeOrder
     ? lot?.id || "เลือก Lot ที่ได้รับ Invoice จาก Foodiva"
     : values.packSize || "—";
-  const dateLabel = (value: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return value || "—";
-    return new Intl.DateTimeFormat("th-TH", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(`${value}T00:00:00`));
-  };
 
   return (
-    <aside className="po-document-preview" aria-label="ตัวอย่างเอกสาร PO">
-      <div className="po-preview-toolbar">
+    <aside
+      className="min-h-0 flex-1 overflow-auto bg-bg p-5.5 max-md:p-4"
+      aria-label="ตัวอย่างเอกสาร PO"
+    >
+      <div className="mx-auto mb-3.5 flex max-w-135 items-center justify-between text-text-primary">
         <div>
-          <strong>Preview</strong>
-          <span>อัปเดตตามที่กรอก</span>
+          <strong className="block text-h3">Preview</strong>
+          <span className="mt-0.5 block text-caption text-text-secondary">อัปเดตตามที่กรอก</span>
         </div>
-        <span className="draft-badge">ฉบับร่าง</span>
+        <Badge tone="warning">ฉบับร่าง</Badge>
       </div>
       <article className="po-paper">
         <div className="po-paper-heading">

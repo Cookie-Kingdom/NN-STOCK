@@ -1,9 +1,30 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
+import { Select } from "@/components/atoms/Select";
+import { FilterBar } from "@/components/molecules/FilterBar";
+import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { balance, branchMaterialStock, branches, centralBagStock, centralStock, chiliAllocated, chiliSold, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, materialPar, materialUnitPrice, materials, n, ownerChiliStock, ownerMaterialStock, ownerWasteOutstanding, ownerWasteReceived, rawRiceStock, readyForChefHouse, reservedForOwnerContent, type Database, type Lot } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+const genreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์", "สินทรัพย์", "ค่าใช้จ่ายอื่น"];
+const locationOptions = ["ทั้งหมด", "Foodiva", "Owner", "คลังกลาง", "คลัง Owner", "บัญชี Owner", ...branches];
+const meatTypeOptions = [
+  "เนื้อดิบพร้อมส่ง Chef_house",
+  "เนื้อรมควัน",
+  "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+];
+const inventoryColumns = ["กลุ่ม", "รายการ / Lot", "สถานที่", "คงเหลือ", "หน่วย", "รายละเอียด", "การทำงาน"];
+const purchaseColumns = ["วันที่ซื้อ", "หมวดบัญชี", "รายการ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง / ใบเสร็จ"];
+
+function purchaseGroup(value?: string) {
+  return value === "วัตถุดิบ / สินค้า" ? "วัตถุดิบ" :
+    value === "ETC / สินทรัพย์" ? "สินทรัพย์" :
+    value || "วัตถุดิบ";
+}
 
 export function OwnerStockView({
   db,
@@ -18,10 +39,6 @@ export function OwnerStockView({
   const [location, setLocation] = useState("ทั้งหมด");
   const [itemFilter, setItemFilter] = useState("ทั้งหมด");
   const generalPurchases = entries(db, "generalPurchase");
-  const purchaseGroup = (value?: string) =>
-    value === "วัตถุดิบ / สินค้า" ? "วัตถุดิบ" :
-    value === "ETC / สินทรัพย์" ? "สินทรัพย์" :
-    value || "วัตถุดิบ";
   const accountingItems = Array.from(new Set([
     "น้ำพริกหลอด",
     "น้ำดอง",
@@ -64,8 +81,8 @@ export function OwnerStockView({
           detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
           meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
           action: ownerWaiting > 0.001
-            ? <button className="table-action" onClick={() => open("ownerWasteReceive", lot.id)}>บันทึกรับเนื้อ</button>
-            : <span className="badge success">Owner รับครบแล้ว</span>,
+            ? <Button variant="table" onClick={() => open("ownerWasteReceive", lot.id)}>บันทึกรับเนื้อ</Button>
+            : <Badge tone="success">Owner รับครบแล้ว</Badge>,
         }, ...(ownerReceived > 0.001 ? [{
           genre: "เนื้อ",
           item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
@@ -212,11 +229,6 @@ export function OwnerStockView({
       (genre === "ค่าใช้จ่ายอื่น" && purchase.category === "ค่าใช้จ่ายอื่น")) &&
     (itemFilter === "ทั้งหมด" || purchase.item === itemFilter),
   );
-  const meatTypeOptions = [
-    "เนื้อดิบพร้อมส่ง Chef_house",
-    "เนื้อรมควัน",
-    "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
-  ];
   const itemOptions = genre === "เนื้อ"
     ? meatTypeOptions
     : Array.from(new Set([
@@ -226,23 +238,51 @@ export function OwnerStockView({
         .map((row) => row.item),
     ])).sort((a, b) => a.localeCompare(b, "th"));
   return (
-    <div className="settings-stack">
+    <div className="grid gap-6">
       <DataTable
         title="ตารางสต๊อกทั้งหมด (All inventory)"
         action={
-          <div className="table-filters">
-            <label className="table-filter">กลุ่มสต๊อก<select value={genre} onChange={(event) => { setGenre(event.target.value); setItemFilter("ทั้งหมด"); }}><option>ทั้งหมด</option><option>เนื้อ</option><option>วัตถุดิบ</option><option>วัสดุบรรจุภัณฑ์</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
-            <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : genre === "ทั้งหมด" ? "รายการ / ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Foodiva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
-          </div>
+          <FilterBar>
+            <TableFilter label="กลุ่มสต๊อก">
+              <Select
+                variant="filter"
+                value={genre}
+                onChange={(event) => {
+                  setGenre(event.target.value);
+                  setItemFilter("ทั้งหมด");
+                }}
+              >
+                {genreOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </Select>
+            </TableFilter>
+            <TableFilter
+              label={genre === "เนื้อ" ? "ประเภทเนื้อ" : genre === "ทั้งหมด" ? "รายการ / ประเภทเนื้อ" : "รายการ"}
+            >
+              <Select variant="filter" value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}>
+                <option>ทั้งหมด</option>
+                {itemOptions.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </Select>
+            </TableFilter>
+            <TableFilter label="สถานที่">
+              <Select variant="filter" value={location} onChange={(event) => setLocation(event.target.value)}>
+                {locationOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </Select>
+            </TableFilter>
+          </FilterBar>
         }
-        columns={["กลุ่ม", "รายการ / Lot", "สถานที่", "คงเหลือ", "หน่วย", "รายละเอียด", "การทำงาน"]}
+        columns={inventoryColumns}
         rows={visibleRows.map((row) => [row.genre, row.item, row.location, row.quantity, row.unit, row.detail, row.action || "—"])}
       />
       {visiblePurchases.length > 0 && (
         <DataTable
           title={`ประวัติการซื้อและบัญชี · ต้นทุนซื้อเข้าที่แสดง ฿${fmt(visiblePurchases.reduce((total, purchase) => total + purchase.totalCost, 0))}`}
-          columns={["วันที่ซื้อ", "หมวดบัญชี", "รายการ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง / ใบเสร็จ"]}
+          columns={purchaseColumns}
           rows={visiblePurchases.map((purchase) => [
             purchase.date,
             purchase.category,

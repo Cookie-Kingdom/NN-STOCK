@@ -1,9 +1,46 @@
 "use client";
 
 import { useState } from "react";
+import { Select } from "@/components/atoms/Select";
+import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { balance, branches, centralBagStock, centralStock, entries, n, ownerWasteOutstanding, ownerWasteReceived, produced, producedBags, rawAtFoodiva, rawAtSmoker, type Database, type Entry } from "@/lib/store";
+import {
+  balance,
+  branches,
+  centralBagStock,
+  centralStock,
+  entries,
+  n,
+  ownerWasteOutstanding,
+  ownerWasteReceived,
+  produced,
+  producedBags,
+  rawAtFoodiva,
+  rawAtSmoker,
+  type Database,
+  type Entry,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+const locationColumns = ["PO", "Lot", "จุดเก็บ", "คงเหลือ", "รายละเอียด"];
+const movementColumns = ["วันที่", "เวลา", "Lot", "จุดดำเนินการ", "รายการ", "น้ำหนัก / รายละเอียด"];
+
+/** entry kind → [location, action, amount] */
+const descriptions: Record<string, (entry: Entry) => [string, string, string]> = {
+  foodDivaConfirm: (entry) => ["Foodiva", "ยืนยัน Invoice และแบ่งเนื้อ", `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`],
+  ownerWasteReceive: (entry) => ["Owner", "รับเนื้อส่วนที่เหลือจาก Foodiva", `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`],
+  dispatch: (entry) => ["Foodiva → Chef_house", "ส่งเนื้อดิบ", `${fmt(n(entry.values, "dispatchKg"))} กก.`],
+  cmReceive: (entry) => ["Chef_house", "ชั่งรับเนื้อจริง", `${fmt(n(entry.values, "receivedKg"))} กก.`],
+  smoke: (entry) => ["Chef_house", `สโมครอบ ${entry.values.subLot || "—"}`, `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "outputKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
+  return: (entry) => ["Chef_house → Foodiva", "เรียกรถขากลับ", `${fmt(n(entry.values, "returnKg"))} กก.`],
+  foodDivaReturnReceive: (entry) => ["Foodiva", "รับเนื้อรมควันเข้าตู้", `${fmt(n(entry.values, "receivedKg"))} กก.`],
+  central: (entry) => ["คลังกลาง Owner", "รับเข้าสต๊อกกลาง", `${fmt(n(entry.values, "centralKg"))} กก.`],
+  allocate: (entry) => ["Owner → สาขา", `จัดสรรไป ${entry.values.branch}`, `${fmt(n(entry.values, "kg"))} กก.`],
+  receive: (entry) => [entry.branch || "สาขา", "รับเนื้อเข้าสาขา", `${fmt(n(entry.values, "kg"))} กก.`],
+  thaw: (entry) => [entry.branch || "สาขา", "แบ่งละลาย", `${fmt(n(entry.values, "kg"))} กก.`],
+  sale: (entry) => [entry.branch || "สาขา", "ตัดสต๊อกจากยอดขาย", `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
+};
 
 export function MeatMovementLogView({ db }: { db: Database }) {
   const [lotFilter, setLotFilter] = useState("ทั้งหมด");
@@ -37,20 +74,6 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       }),
     ];
   });
-  const descriptions: Record<string, (entry: Entry) => [string, string, string]> = {
-    foodDivaConfirm: (entry) => ["Foodiva", "ยืนยัน Invoice และแบ่งเนื้อ", `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`],
-    ownerWasteReceive: (entry) => ["Owner", "รับเนื้อส่วนที่เหลือจาก Foodiva", `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`],
-    dispatch: (entry) => ["Foodiva → Chef_house", "ส่งเนื้อดิบ", `${fmt(n(entry.values, "dispatchKg"))} กก.`],
-    cmReceive: (entry) => ["Chef_house", "ชั่งรับเนื้อจริง", `${fmt(n(entry.values, "receivedKg"))} กก.`],
-    smoke: (entry) => ["Chef_house", `สโมครอบ ${entry.values.subLot || "—"}`, `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "outputKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
-    return: (entry) => ["Chef_house → Foodiva", "เรียกรถขากลับ", `${fmt(n(entry.values, "returnKg"))} กก.`],
-    foodDivaReturnReceive: (entry) => ["Foodiva", "รับเนื้อรมควันเข้าตู้", `${fmt(n(entry.values, "receivedKg"))} กก.`],
-    central: (entry) => ["คลังกลาง Owner", "รับเข้าสต๊อกกลาง", `${fmt(n(entry.values, "centralKg"))} กก.`],
-    allocate: (entry) => ["Owner → สาขา", `จัดสรรไป ${entry.values.branch}`, `${fmt(n(entry.values, "kg"))} กก.`],
-    receive: (entry) => [entry.branch || "สาขา", "รับเนื้อเข้าสาขา", `${fmt(n(entry.values, "kg"))} กก.`],
-    thaw: (entry) => [entry.branch || "สาขา", "แบ่งละลาย", `${fmt(n(entry.values, "kg"))} กก.`],
-    sale: (entry) => [entry.branch || "สาขา", "ตัดสต๊อกจากยอดขาย", `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`],
-  };
   const movementRows = db.entries
     .filter((entry) => descriptions[entry.kind] && (lotFilter === "ทั้งหมด" || entry.lotId === lotFilter))
     .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at))
@@ -59,25 +82,32 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       return [entry.date, entry.at.slice(11, 16), entry.lotId, location, action, amount];
     });
   return (
-    <div className="settings-stack">
-      <section className="panel config-heading">
-        <div>
-          <span className="overline">OWNER · BEEF TRACE</span>
-          <h2>Log เนื้อคงเหลือ</h2>
-          <p className="muted">ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา</p>
-        </div>
-      </section>
+    <div className="grid gap-6">
+      <PanelHeading
+        overline="OWNER · BEEF TRACE"
+        title="Log เนื้อคงเหลือ"
+        description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"
+      />
       <DataTable
         title="เนื้อคงเหลือแยกตามจุด"
-        action={<label className="table-filter">Lot<select value={lotFilter} onChange={(event) => setLotFilter(event.target.value)}><option>ทั้งหมด</option>{db.lots.map((lot) => <option key={lot.id}>{lot.id}</option>)}</select></label>}
-        columns={["PO", "Lot", "จุดเก็บ", "คงเหลือ", "รายละเอียด"]}
+        action={
+          <TableFilter label="Lot">
+            <Select
+              variant="filter"
+              value={lotFilter}
+              onChange={(event) => setLotFilter(event.target.value)}
+            >
+              <option>ทั้งหมด</option>
+              {db.lots.map((lot) => (
+                <option key={lot.id}>{lot.id}</option>
+              ))}
+            </Select>
+          </TableFilter>
+        }
+        columns={locationColumns}
         rows={locationRows}
       />
-      <DataTable
-        title="ประวัติการเคลื่อนไหวเนื้อ"
-        columns={["วันที่", "เวลา", "Lot", "จุดดำเนินการ", "รายการ", "น้ำหนัก / รายละเอียด"]}
-        rows={movementRows}
-      />
+      <DataTable title="ประวัติการเคลื่อนไหวเนื้อ" columns={movementColumns} rows={movementRows} />
     </div>
   );
 }

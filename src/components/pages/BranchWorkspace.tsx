@@ -1,5 +1,7 @@
 "use client";
 
+import { Notice } from "@/components/molecules/Notice";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
 import { ChiliDailySummary } from "@/components/organisms/branch/ChiliDailySummary";
 import { DailyMaterialsTable } from "@/components/organisms/branch/DailyMaterialsTable";
@@ -33,16 +35,16 @@ export function BranchWorkspace({ account }: { account: Account }) {
         onCloseToast={() => ws.setToast("")}
       >
         {closed && (
-          <div className="notice warning">
+          <Notice tone="warning">
             วันที่ {date} ปิดแล้ว ฟอร์มวันนี้ถูกล็อก Owner ปลดล็อกได้จากหน้ารายงาน
-          </div>
+          </Notice>
         )}
         {tab === "day" && (
           <>
-            <div className="notice">
+            <Notice>
               วันที่ทำรายการ {date} · สาขา {branch} ·
               ข้าวคงเหลือยกไปวันถัดไปได้ ส่วนเนื้อละลายต้องขายหรือบันทึก Waste ให้หมดก่อนปิดวัน
-            </div>
+            </Notice>
             <BranchDailyWorkflow
               db={db}
               branch={branch}
@@ -92,9 +94,7 @@ export function BranchWorkspace({ account }: { account: Account }) {
         )}
         {tab === "stock" && (
           <>
-            <div className="section-heading">
-              <h2>สต๊อกแยก Lot</h2>
-            </div>
+            <SectionHeading title="สต๊อกแยก Lot" />
             <MeatStockTable
               db={db}
               role={ws.role}
@@ -108,9 +108,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
         )}
         {tab === "branch-summary" && (
           <>
-            <div className="notice">
+            <Notice>
               ภาพรวมประจำวันที่ {date} · สาขา {branch}
-            </div>
+            </Notice>
             <DailySummary db={db} date={date} branch={branch} />
             <SupplyStock db={db} branches={[branch]} />
           </>

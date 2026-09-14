@@ -1,8 +1,54 @@
 "use client";
 
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
+import { ButtonRow } from "@/components/molecules/ButtonRow";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { entries, n, produced, producedBags, smokingInvoiceStatus, stages, titles, type Database, type Lot } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+type OpenForm = (kind: string, lotId?: string) => void;
+
+function ChefLotAction({ db, lot, open }: { db: Database; lot: Lot; open: OpenForm }) {
+  const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
+  const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
+  const latestInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
+  const invoiceStatus = latestInvoice ? smokingInvoiceStatus(db, latestInvoice) : "";
+  if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
+  if (!accepted)
+    return (
+      <Button variant="table" onClick={() => open("smokeOrderAccept", lot.id)}>
+        ยืนยันรับ PO รมควัน
+      </Button>
+    );
+  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข")
+    return (
+      <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
+        {latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}
+      </Button>
+    );
+  if (lot.stage < 2) return <Badge>{invoiceStatus} · รอ Owner เรียกรถ</Badge>;
+  const kind = lot.stage === 3 ? "prepare" : lot.stage === 4 ? "smoke" : lot.stage === 5 ? "closeLot" : "";
+  if (lot.stage === 5)
+    return (
+      <ButtonRow compact>
+        <Button variant="table-secondary" onClick={() => open("chefEdit", lot.id)}>
+          Edit ข้อมูลก่อนปิด Lot
+        </Button>
+        <Button variant="table" onClick={() => open("closeLot", lot.id)}>
+          ยืนยันปิด Lot
+        </Button>
+      </ButtonRow>
+    );
+  if (lot.stage >= 6)
+    return <Badge tone={invoiceStatus === "ชำระแล้ว" ? "success" : "neutral"}>{invoiceStatus}</Badge>;
+  return kind ? (
+    <Button variant="table" onClick={() => open(kind, lot.id)}>
+      {titles[kind]}
+    </Button>
+  ) : lot.stage === 2 ? "ไปเมนูยืนยันรับเนื้อ" : "ส่งต่องานแล้ว";
+}
 
 export function ChefLotTable({
   db,
@@ -11,7 +57,7 @@ export function ChefLotTable({
 }: {
   db: Database;
   lots: Lot[];
-  open: (kind: string, lotId?: string) => void;
+  open: OpenForm;
 }) {
   const smokeLogs = lots.flatMap((lot) =>
     entries(db, "smoke", lot.id).map((entry) => {
@@ -50,61 +96,35 @@ export function ChefLotTable({
       };
     }),
   );
-  const action = (lot: Lot) => {
-    const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
-    const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
-    const latestInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
-    const invoiceStatus = latestInvoice ? smokingInvoiceStatus(db, latestInvoice) : "";
-    if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
-    if (!accepted) return <button className="table-action" onClick={() => open("smokeOrderAccept", lot.id)}>ยืนยันรับ PO รมควัน</button>;
-    if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") return <button className="table-action" onClick={() => open("smokingInvoice", lot.id)}>{latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}</button>;
-    if (lot.stage < 2) return <span className="badge">{invoiceStatus} · รอ Owner เรียกรถ</span>;
-    const kind = lot.stage === 3 ? "prepare" : lot.stage === 4 ? "smoke" : lot.stage === 5 ? "closeLot" : "";
-    if (lot.stage === 5)
-      return (
-        <div className="button-row compact-actions">
-          <button className="secondary table-action" onClick={() => open("chefEdit", lot.id)}>
-            Edit ข้อมูลก่อนปิด Lot
-          </button>
-          <button className="table-action" onClick={() => open("closeLot", lot.id)}>
-            ยืนยันปิด Lot
-          </button>
-        </div>
-      );
-    if (lot.stage >= 6) return <span className="badge">{invoiceStatus}</span>;
-    return kind ? (
-      <button className="table-action" onClick={() => open(kind, lot.id)}>{titles[kind]}</button>
-    ) : lot.stage === 2 ? "ไปเมนูยืนยันรับเนื้อ" : "ส่งต่องานแล้ว";
-  };
   return (
     <>
-      <div className="section-heading">
-        <div>
-          <h2>Lot งานผลิต Chef_house</h2>
-          <p className="muted">ดูสถานะและทำงานต่อจากตาราง โดยไม่ต้องเปิดทีละการ์ด</p>
-        </div>
-      </div>
+      <SectionHeading
+        title="Lot งานผลิต Chef_house"
+        description="ดูสถานะและทำงานต่อจากตาราง โดยไม่ต้องเปิดทีละการ์ด"
+      />
       <DataTable
         title="รายการ Lot ทั้งหมด"
         columns={["Lot", "PO รมควัน", "เอกสาร PO", "รับจริง", "สถานะ", "น้ำหนักหลังรมควัน", "จำนวนถุง", "การทำงาน"]}
+        rowKeys={lots.map((lot) => lot.id)}
         rows={lots.map((lot) => [
           lot.id,
           entries(db, "smokeOrder", lot.id).at(-1)?.values.orderNumber || "รอ Owner ออก PO",
           entries(db, "smokeOrder", lot.id).length ? (
-            <button key={`${lot.id}-po`} type="button" className="table-action" onClick={() => open("smokeOrderPreview", lot.id)}>
+            <Button key={`${lot.id}-po`} variant="table" onClick={() => open("smokeOrderPreview", lot.id)}>
               ดู PO รมควัน
-            </button>
+            </Button>
           ) : "—",
           n(lot.values, "receivedKg") ? `${fmt(n(lot.values, "receivedKg"))} กก.` : "รอยืนยันรับ",
           stages[lot.stage],
           produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
           producedBags(db, lot.id) ? `${producedBags(db, lot.id)} ถุง` : "-",
-          action(lot),
+          <ChefLotAction key={`${lot.id}-action`} db={db} lot={lot} open={open} />,
         ])}
       />
       <DataTable
         title={`Log Lot สโมครายวัน ${smokeLogs.length} รอบ`}
         columns={["วันที่สโมค", "Lot หลัก", "Lot สโมค", "น้ำหนักเข้าเตา", "ถุงที่ได้", "น้ำหนักหลังรม", "น้ำหนัก Waste", "คงเหลือรอผลิต"]}
+        rowKeys={smokeLogs.map(({ entry }) => entry.id)}
         rows={smokeLogs.map(({ lot, entry, weights, bagDetail, remainingKg }) => [
           entry.values.smokeDate || entry.date,
           lot.id,

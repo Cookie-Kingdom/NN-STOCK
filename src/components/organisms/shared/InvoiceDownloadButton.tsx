@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
+import { Muted } from "@/components/atoms/Text";
+import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { getAttachment } from "@/lib/attachment-store";
 
 export function InvoiceDownloadButton({ name, data, storageKey }: { name: string; data?: string; storageKey?: string }) {
@@ -27,11 +30,20 @@ export function InvoiceDownloadButton({ name, data, storageKey }: { name: string
     }
   };
   if (data)
-    return <a className="table-action" href={data} download={name || "invoice"}><Download size={14} /> ดาวน์โหลด</a>;
+    return (
+      <Button variant="table" asChild icon={<Download className="size-3.5" />}>
+        <a href={data} download={name || "invoice"}>ดาวน์โหลด</a>
+      </Button>
+    );
   if (storageKey)
-    return <div className="button-row"><button className="table-action" type="button" onClick={download} disabled={loading}><Download size={14} /> {loading ? "กำลังโหลด" : "ดาวน์โหลด"}</button>{message && <small className="error-text">{message}</small>}</div>;
-  if (!name) return <span className="muted">ยังไม่มีไฟล์แนบ</span>;
-  return (
-    <span className="muted">ไฟล์เดิมยังไม่มีให้ดาวน์โหลด</span>
-  );
+    return (
+      <ButtonRow>
+        <Button variant="table" onClick={download} disabled={loading} icon={<Download className="size-3.5" />}>
+          {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
+        </Button>
+        {message && <small className="text-caption text-danger">{message}</small>}
+      </ButtonRow>
+    );
+  if (!name) return <Muted as="span">ยังไม่มีไฟล์แนบ</Muted>;
+  return <Muted as="span">ไฟล์เดิมยังไม่มีให้ดาวน์โหลด</Muted>;
 }

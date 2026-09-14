@@ -1,86 +1,90 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
+import { Pagination } from "@/components/molecules/Pagination";
+import { TableSection } from "@/components/organisms/shared/TableSection";
+
+const PAGE_SIZE = 20;
 
 export function DataTable({
   title,
   columns,
   rows,
   action,
+  rowKeys,
+  emptyText = "ยังไม่มีข้อมูล",
+  className,
 }: {
   title: string;
   columns: string[];
   rows: ReactNode[][];
   action?: ReactNode;
+  /** Stable React keys, one per row (e.g. lot ids). Falls back to the row index. */
+  rowKeys?: readonly string[];
+  /** Text of the single row shown when `rows` is empty. */
+  emptyText?: ReactNode;
+  /** Extra classes for the `<section>`, e.g. `m-0` inside a grid. */
+  className?: string;
 }) {
   const [page, setPage] = useState(0);
-  const pageSize = 20;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
-  const visibleRows = rows.slice(
-    currentPage * pageSize,
-    (currentPage + 1) * pageSize,
-  );
+  const start = currentPage * PAGE_SIZE;
+  const visibleRows = rows.slice(start, start + PAGE_SIZE);
   return (
-    <section className="table-section">
-      <div className="table-title">
-        <div>
-          <h2>{title}</h2>
-          <span>{rows.length} แถว</span>
-        </div>
-        {action}
-      </div>
-      <div className="table-scroll">
-        <table>
+    <TableSection
+      title={title}
+      count={`${rows.length} แถว`}
+      actions={action}
+      className={className}
+    >
+      <div className="max-w-full overflow-auto">
+        <table className="w-full min-w-162.5 border-separate border-spacing-0 tabular-nums">
           <thead>
             <tr>
-              {columns.map((c) => (
-                <th key={c}>{c}</th>
+              {columns.map((column, index) => (
+                <th
+                  key={`${index}-${column}`}
+                  className="sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary not-first:text-right"
+                >
+                  {column}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.length ? (
               visibleRows.map((row, i) => (
-                <tr key={i}>
+                <tr
+                  key={rowKeys?.[start + i] ?? start + i}
+                  className="hover:bg-bg [&:last-child>td]:border-b-0"
+                >
                   {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
+                    <td
+                      key={j}
+                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body whitespace-nowrap not-first:text-right"
+                    >
+                      {cell}
+                    </td>
                   ))}
                 </tr>
               ))
             ) : (
               <tr>
-                <td className="no-data" colSpan={columns.length}>
-                  ยังไม่มีข้อมูล
+                <td className="p-7 text-center text-body text-text-secondary" colSpan={columns.length}>
+                  {emptyText}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      {rows.length > pageSize && (
-        <div className="table-pagination">
-          <span>
-            หน้า {currentPage + 1} / {pageCount} · แสดงครั้งละ {pageSize} แถว
-          </span>
-          <div className="button-row">
-            <button
-              className="secondary"
-              disabled={currentPage === 0}
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
-            >
-              ก่อนหน้า
-            </button>
-            <button
-              className="secondary"
-              disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
-            >
-              ถัดไป
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
+      <Pagination
+        page={currentPage}
+        pageCount={pageCount}
+        pageSize={PAGE_SIZE}
+        onPage={setPage}
+      />
+    </TableSection>
   );
 }

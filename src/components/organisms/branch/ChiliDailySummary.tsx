@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/atoms/Badge";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { chiliAllocated, entries, n, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -26,7 +27,7 @@ export function ChiliDailySummary({ db, branch, date }: { db: Database; branch: 
         ["ยอดตั้งต้นจาก Owner", fmt(opening), "หลอด · สาขาไม่ต้องซื้อหรือเบิกเอง"],
         ["ขายแยกวันนี้", fmt(soldToday), "หลอด · ระบบหักจากยอดขายอัตโนมัติ"],
         ["ควรเหลือหลังยอดขาย", fmt(expected), "หลอด"],
-        ["ตรวจนับจริงปลายวัน", actual === null ? "ยังไม่ได้ตรวจนับ" : fmt(actual), mismatch ? <span className="badge danger">ยอดไม่ตรง</span> : actual === null ? "กรอกได้ในฟอร์มยอดขาย" : <span className="badge">ตรงกัน</span>],
+        ["ตรวจนับจริงปลายวัน", actual === null ? "ยังไม่ได้ตรวจนับ" : fmt(actual), mismatch ? <Badge tone="danger">ยอดไม่ตรง</Badge> : actual === null ? "กรอกได้ในฟอร์มยอดขาย" : <Badge tone="success">ตรงกัน</Badge>],
         ["หมายเหตุส่วนต่าง", mismatch ? (latestCount?.values.chiliRemark || "—") : "—", mismatch ? "ต้องระบุเมื่อยอดไม่ตรง" : ""],
       ]}
     />

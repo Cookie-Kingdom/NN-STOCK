@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { balance, centralBagStock, centralStock, entries, n, processed, produced, rawAtFoodiva, stages, type Database, type Lot, type Role } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -17,11 +18,13 @@ export function MeatStockTable({
   lots: Lot[];
   open: (kind: string, lotId?: string) => void;
 }) {
+  const lotIds = lots.map((lot) => lot.id);
   if (role === "owner")
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
         columns={["Lot", "ค้างที่ Foodiva", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
+        rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
           entries(db, "foodDivaConfirm", lot.id).length
@@ -32,14 +35,14 @@ export function MeatStockTable({
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,
           `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} พร้อมขาย`,
           stages[lot.stage],
-          <button
+          <Button
             key={lot.id}
-            className="table-action"
+            variant="table"
             disabled={lot.stage < 8 || centralStock(db, lot.id) <= 0.001}
             onClick={() => open("allocate", lot.id)}
           >
             จัดสรร
-          </button>,
+          </Button>,
         ])}
       />
     );
@@ -48,6 +51,7 @@ export function MeatStockTable({
       <DataTable
         title="สต๊อกและงานผลิต Chef_house"
         columns={["Lot", "ก่อนสโมค", "รอผลิต", "น้ำหนักเนื้อหลังรมควัน", "สถานะ"]}
+        rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
           `${fmt(n(lot.values, "preKg"))} กก.`,
@@ -61,6 +65,7 @@ export function MeatStockTable({
     <DataTable
       title={`สต๊อกเนื้อ · ${branch}`}
       columns={["Lot", "รอรับจาก Owner", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ"]}
+      rowKeys={lotIds}
       rows={lots.map((lot) => {
         const stock = balance(db, lot.id, branch);
         const pending =

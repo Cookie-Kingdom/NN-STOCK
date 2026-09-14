@@ -1,11 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { Read } from "@/components/shared/primitives";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { ReadRow } from "@/components/atoms/ReadRow";
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
-import {    mutate, roleName, titles, type Entry } from "@/lib/store";
+import { mutate, roleName, titles, type Entry } from "@/lib/store";
 import { today } from "@/lib/format";
+
+const reversibleKinds = [
+  "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
+  "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
+  "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
+  "expense", "unlock",
+];
+
+/** Labels for computed values that are not fields of the entry's form. */
+const derivedLabels: Record<string, string> = {
+  outputKg: "น้ำหนักผลิตรวม",
+  packCount: "จำนวนถุงใหญ่",
+  outboundCost: "ค่ารถขาไป",
+  returnCost: "ค่ารถขากลับ",
+  revenue: "ยอดขายบันทึก",
+  menuTotal: "ยอดตามเมนู",
+  chiliAddons: "น้ำพริกที่ขายแยก",
+  chiliComplimentary: "น้ำพริกแถม (ยกเลิกแล้ว)",
+  riceServings: "ข้าวเหนียวในกล่อง",
+  chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
+  allocation: "ใบจัดสรร",
+  meatCost: "ต้นทุนเนื้อขาย",
+  wasteCost: "ต้นทุนเนื้อ Waste",
+};
 
 export function EntryDetails({
   entry: e,
@@ -18,12 +44,7 @@ export function EntryDetails({
 }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
-  const reversible = [
-    "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
-    "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
-    "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
-    "expense", "unlock",
-  ].includes(e.kind);
+  const reversible = reversibleKinds.includes(e.kind);
   const cancelEntry = () => {
     try {
       const next = mutate(
@@ -41,7 +62,7 @@ export function EntryDetails({
     }
   };
   return (
-    <details className="entry">
+    <details className="border-b border-border py-3.5">
       <summary>
         <span>
           {titles[e.kind] || e.kind}{" "}
@@ -54,56 +75,35 @@ export function EntryDetails({
       {Object.entries(e.values)
         .filter(([, v]) => v !== "")
         .map(([k, v]) => (
-          <Read
+          <ReadRow
             key={k}
-            label={
-              forms[e.kind]?.find((f) => f.key === k)?.label ||
-              (
-                {
-                  outputKg: "น้ำหนักผลิตรวม",
-                  packCount: "จำนวนถุงใหญ่",
-                  outboundCost: "ค่ารถขาไป",
-                  returnCost: "ค่ารถขากลับ",
-                  revenue: "ยอดขายบันทึก",
-                  menuTotal: "ยอดตามเมนู",
-                  chiliAddons: "น้ำพริกที่ขายแยก",
-                  chiliComplimentary: "น้ำพริกแถม (ยกเลิกแล้ว)",
-                  riceServings: "ข้าวเหนียวในกล่อง",
-                  chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
-                  allocation: "ใบจัดสรร",
-                  meatCost: "ต้นทุนเนื้อขาย",
-                  wasteCost: "ต้นทุนเนื้อ Waste",
-                } as Record<string, string>
-              )[k] ||
-              k
-            }
+            label={forms[e.kind]?.find((f) => f.key === k)?.label || derivedLabels[k] || k}
             value={v}
           />
         ))}
-      <small className="muted">
+      <small className="text-text-secondary">
         บันทึก {new Date(e.at).toLocaleString("th-TH")}
       </small>
       {owner && reversible && (
-        <div className="entry-correction">
+        <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
           {cancelling ? (
             <>
-              <input
-                className="table-edit-control reason-control"
+              <Input
+                variant="table"
+                reason
+                className="flex-1"
                 value={reason}
                 placeholder="เหตุผลที่ยกเลิกรายการ"
+                aria-label="เหตุผลที่ยกเลิกรายการ"
                 onChange={(event) => setReason(event.target.value)}
               />
-              <button className="secondary" onClick={() => setCancelling(false)}>
-                กลับ
-              </button>
-              <button className="danger-button" onClick={cancelEntry}>
+              <Button onClick={() => setCancelling(false)}>กลับ</Button>
+              <Button variant="danger" onClick={cancelEntry}>
                 ยืนยันยกเลิก
-              </button>
+              </Button>
             </>
           ) : (
-            <button className="secondary" onClick={() => setCancelling(true)}>
-              แก้รายการผิดด้วยการยกเลิก
-            </button>
+            <Button onClick={() => setCancelling(true)}>แก้รายการผิดด้วยการยกเลิก</Button>
           )}
         </div>
       )}

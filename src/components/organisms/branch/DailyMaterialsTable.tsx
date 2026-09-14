@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import { branchMaterialStock, entries, materials, mutate, n, type Database, type Values } from "@/lib/store";
@@ -70,23 +73,24 @@ export function DailyMaterialsTable({
         title="วัสดุ 7 รายการ · กรอกการใช้วันนี้"
         columns={["วัสดุ", "ยอดตั้งต้น", "ใช้วันนี้", "ยอดที่ควรเหลือ", "ตรวจนับจริง", "เหตุผลส่วนต่าง", "สถานะ"]}
         action={
-          <button
-            className="primary"
+          <Button
+            variant="primary"
             disabled={disabled || !!saved}
             onClick={saveMaterials}
           >
             {saved ? "บันทึกแล้ว" : "บันทึกการใช้วัสดุ"}
-          </button>
+          </Button>
         }
+        rowKeys={materials}
         rows={materials.map((item, i) => [
           <strong key={item}>{item}</strong>,
           String(opening(i)),
           saved ? (
             String(used(i))
           ) : (
-            <input
+            <Input
               key={`used-${i}`}
-              className="table-edit-control"
+              variant="table"
               type="number"
               min="0"
               max={opening(i)}
@@ -105,9 +109,9 @@ export function DailyMaterialsTable({
           ),
           String(opening(i) - used(i)),
           saved ? String(remaining(i)) : (
-            <input
+            <Input
               key={`actual-${i}`}
-              className="table-edit-control"
+              variant="table"
               type="number"
               min="0"
               step="1"
@@ -122,9 +126,10 @@ export function DailyMaterialsTable({
             />
           ),
           saved ? (saved.values["materialReason" + i] || "—") : (
-            <input
+            <Input
               key={`reason-${i}`}
-              className="table-edit-control reason-control"
+              variant="table"
+              reason
               type="text"
               placeholder="กรอกเมื่อยอดไม่ตรง"
               value={draft["materialReason" + i] || ""}
@@ -139,7 +144,7 @@ export function DailyMaterialsTable({
           saved ? "บันทึกแล้ว" : opening(i) ? "รอบันทึก" : "Owner ยังไม่ตั้งฐาน",
         ])}
       />
-      {message && <div className="notice">{message}</div>}
+      {message && <Notice>{message}</Notice>}
     </>
   );
 }

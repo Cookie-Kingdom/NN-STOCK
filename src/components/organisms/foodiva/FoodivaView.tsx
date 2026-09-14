@@ -1,9 +1,13 @@
 "use client";
 
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
+import { Stat } from "@/components/atoms/Stat";
+import { ButtonRow } from "@/components/molecules/ButtonRow";
+import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import { purchaseOrderRows } from "@/components/organisms/shared/documents";
-import { Stat } from "@/components/shared/primitives";
 import { entries, n, produced, rawAtFoodiva, readyForChefHouse, reservedForOwnerContent, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -11,40 +15,45 @@ export function FoodivaView({ db, open }: { db: Database; open: (kind: string, l
   const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0);
   const reservedForContent = db.lots.reduce((sum, lot) => sum + reservedForOwnerContent(db, lot.id), 0);
   const returnWaiting = db.lots.filter((lot) => lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length);
-  return <div className="settings-stack">
-    <section className="panel config-heading"><div><h2>งาน Foodiva</h2><p className="muted">รับ PO ออก Invoice แล้วระบุน้ำหนักพร้อมส่งเชียงใหม่ และเนื้อส่วนที่เหลือรอ Owner รับ (Waste)</p></div><div className="button-row"><Stat label="เนื้อดิบคงเหลือ Foodiva" value={`${fmt(holding)} กก.`} /><Stat label="เนื้อส่วนที่เหลือรอ Owner รับ (Waste)" value={`${fmt(reservedForContent)} กก.`} /></div></section>
+  return <div className="grid gap-6">
+    <PanelHeading
+      title="งาน Foodiva"
+      description="รับ PO ออก Invoice แล้วระบุน้ำหนักพร้อมส่งเชียงใหม่ และเนื้อส่วนที่เหลือรอ Owner รับ (Waste)"
+      aside={<><Stat label="เนื้อดิบคงเหลือ Foodiva" value={`${fmt(holding)} กก.`} /><Stat label="เนื้อส่วนที่เหลือรอ Owner รับ (Waste)" value={`${fmt(reservedForContent)} กก.`} /></>}
+    />
     <DataTable
       title="PO เนื้อที่ต้องออก Invoice"
       columns={["เลข PO", "Lot", "ยอดสั่ง", "Invoice เนื้อ", "พร้อมส่งเชียงใหม่", "รอ Owner รับ (Waste)", "คงเหลือ Foodiva", "สถานะ", "การทำงาน"]}
+      rowKeys={db.lots.map((lot) => lot.id)}
       rows={db.lots.map((lot) => {
         const confirm = entries(db, "foodDivaConfirm", lot.id).at(-1);
         return [
           <strong key={lot.poId}>{lot.poId}</strong>, lot.id, `${fmt(n(lot.values, "orderedKg"))} กก.`,
-          confirm ? `${confirm.values.invoiceNo} · ${fmt(n(confirm.values, "confirmedKg"))} กก.` : <span className="badge danger" key="pending">รอออก Invoice</span>,
+          confirm ? `${confirm.values.invoiceNo} · ${fmt(n(confirm.values, "confirmedKg"))} กก.` : <Badge tone="danger" key="pending">รอออก Invoice</Badge>,
           confirm ? `${fmt(readyForChefHouse(db, lot.id))} กก.` : "—",
           confirm ? `${fmt(reservedForOwnerContent(db, lot.id))} กก.` : "—",
           `${fmt(rawAtFoodiva(db, lot))} กก.`,
           !confirm ? "ต้องออก Invoice" : lot.stage === 1 ? "รอ Owner เรียกรถ" : lot.stage < 7 ? "ส่งให้ Chef_house แล้ว" : "รอรับเนื้อรมควัน",
           !confirm ? (
-            <div className="button-row" key="confirm-actions">
+            <ButtonRow key="confirm-actions">
               <DocumentPrintButton title="Purchase Order" number={lot.poId} rows={purchaseOrderRows(lot, db)} label="ดู PO / PDF" preview />
-              <button className="table-action" onClick={() => open("foodDivaConfirm", lot.id)}>ออกและอัปโหลด Invoice</button>
-            </div>
+              <Button variant="table" onClick={() => open("foodDivaConfirm", lot.id)}>ออกและอัปโหลด Invoice</Button>
+            </ButtonRow>
           ) : (
-            <div className="button-row" key="confirmed-actions">
+            <ButtonRow key="confirmed-actions">
               <DocumentPrintButton title="Purchase Order" number={lot.poId} rows={purchaseOrderRows(lot, db)} label="ดู PO / PDF" preview />
-              <span className="badge success">แนบ Invoice แล้ว</span>
-              <button className="table-action" onClick={() => open("foodDivaConfirm", lot.id)}>
+              <Badge tone="success">แนบ Invoice แล้ว</Badge>
+              <Button variant="table" onClick={() => open("foodDivaConfirm", lot.id)}>
                 แก้ไข / อัปโหลดใหม่
-              </button>
-            </div>
+              </Button>
+            </ButtonRow>
           ),
         ];
       })}
     />
-    <DataTable title="เนื้อรมควันรอ Foodiva รับเข้าตู้" columns={["PO / Lot", "ใบขนส่ง", "น้ำหนักหลังรม", "รับจริง", "สถานะ", "การทำงาน"]} rows={returnWaiting.map((lot) => {
+    <DataTable title="เนื้อรมควันรอ Foodiva รับเข้าตู้" columns={["PO / Lot", "ใบขนส่ง", "น้ำหนักหลังรม", "รับจริง", "สถานะ", "การทำงาน"]} rowKeys={returnWaiting.map((lot) => lot.id)} rows={returnWaiting.map((lot) => {
       const trip = entries(db, "return", lot.id).at(-1);
-      return [`${lot.poId} / ${lot.id}`, `${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`, `${fmt(produced(db, lot.id))} กก.`, "รอชั่งรับ", <span className="badge danger" key="status">ต้องรับเข้า</span>, <button key="receive" className="table-action" onClick={() => open("foodDivaReturnReceive", lot.id)}>ยืนยันรับเข้าตู้</button>];
+      return [`${lot.poId} / ${lot.id}`, `${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`, `${fmt(produced(db, lot.id))} กก.`, "รอชั่งรับ", <Badge tone="danger" key="status">ต้องรับเข้า</Badge>, <Button key="receive" variant="table" onClick={() => open("foodDivaReturnReceive", lot.id)}>ยืนยันรับเข้าตู้</Button>];
     })} />
   </div>;
 }

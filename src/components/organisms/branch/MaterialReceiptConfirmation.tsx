@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { Notice } from "@/components/molecules/Notice";
+import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import { entries, mutate, type Database, type Entry, type Values } from "@/lib/store";
@@ -30,16 +34,17 @@ export function MaterialReceiptConfirmation({ db, branch, date, closed }: { db: 
     <DataTable
       title="รายการวัสดุรอยืนยันรับ (Pending material receipts)"
       columns={["วันที่ส่ง", "วัสดุ", "จำนวนที่ส่ง", "จำนวนที่รับจริง", "เหตุผลส่วนต่าง", "การทำงาน"]}
+      rowKeys={pending.map((transfer) => transfer.id)}
       rows={pending.map((transfer) => [
         transfer.date,
         transfer.values.material,
         transfer.values.quantity,
-        <input key={`q-${transfer.id}`} className="table-edit-control" type="number" min="1" max={transfer.values.quantity} step="1" value={draft[`quantity-${transfer.id}`] ?? transfer.values.quantity} onChange={(event) => setDraft((current) => ({...current, [`quantity-${transfer.id}`]: event.target.value}))} />,
-        <input key={`r-${transfer.id}`} className="table-edit-control reason-control" placeholder="กรอกเมื่อรับไม่ครบ" value={draft[`reason-${transfer.id}`] || ""} onChange={(event) => setDraft((current) => ({...current, [`reason-${transfer.id}`]: event.target.value}))} />,
-        <button key={`b-${transfer.id}`} className="table-action" disabled={closed} onClick={() => confirm(transfer)}>ยืนยันรับ</button>,
+        <Input key={`q-${transfer.id}`} variant="table" type="number" min="1" max={transfer.values.quantity} step="1" aria-label={`จำนวนที่รับจริง ${transfer.values.material}`} value={draft[`quantity-${transfer.id}`] ?? transfer.values.quantity} onChange={(event) => setDraft((current) => ({...current, [`quantity-${transfer.id}`]: event.target.value}))} />,
+        <Input key={`r-${transfer.id}`} variant="table" reason placeholder="กรอกเมื่อรับไม่ครบ" aria-label={`เหตุผลส่วนต่าง ${transfer.values.material}`} value={draft[`reason-${transfer.id}`] || ""} onChange={(event) => setDraft((current) => ({...current, [`reason-${transfer.id}`]: event.target.value}))} />,
+        <Button key={`b-${transfer.id}`} variant="table" disabled={closed} onClick={() => confirm(transfer)}>ยืนยันรับ</Button>,
       ])}
-      action={<label className="table-filter">ชื่อผู้รับจริง<input value={draft.receiver || ""} placeholder={`ผู้ดูแลสาขา ${branch}`} onChange={(event) => setDraft((current) => ({...current, receiver: event.target.value}))} /></label>}
+      action={<TableFilter label="ชื่อผู้รับจริง"><Input variant="filter" value={draft.receiver || ""} placeholder={`ผู้ดูแลสาขา ${branch}`} onChange={(event) => setDraft((current) => ({...current, receiver: event.target.value}))} /></TableFilter>}
     />
-    {message && <div className="notice">{message}</div>}
+    {message && <Notice>{message}</Notice>}
   </>;
 }

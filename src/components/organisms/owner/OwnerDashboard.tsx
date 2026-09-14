@@ -2,12 +2,27 @@
 
 import { useState } from "react";
 import { BarChart3, CircleAlert, Package, TrendingUp, Warehouse } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
+import { Overline } from "@/components/atoms/Overline";
+import { Panel } from "@/components/atoms/Panel";
+import { AlertListItem } from "@/components/molecules/AlertListItem";
+import { ChartPanel } from "@/components/molecules/ChartPanel";
+import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
+import { EmptyState } from "@/components/molecules/EmptyState";
+import { FilterBar } from "@/components/molecules/FilterBar";
+import { KpiCard } from "@/components/molecules/KpiCard";
+import { requiredDailyKinds, requiredDailyLabels, sevenDayRangeStart } from "@/components/organisms/owner/ownerDaily";
 import { CostDonut } from "@/components/organisms/shared/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { SalesBars } from "@/components/organisms/shared/SalesBars";
 import { averageYield, balance, branchMaterialStock, branches, centralStock, chiliStock, cookedRiceStock, entries, isClosed, materialPar, materials, n, processLoss, produced, rawAtFoodiva, rawAtSmoker, rawRiceStock, readyForChefHouse, reservedForOwnerContent, smokingInvoiceStatus, stages, steakRawStock, type Database, type Entry } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Tab } from "@/lib/nav";
+import { cn } from "@/lib/utils";
+
+const summaryColumns = ["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Foodiva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"];
+const branchColumns = ["สาขา", "ยอดขายช่วงที่เลือก", "กล่อง", "งานวันนี้", "วัสดุ", "ปิดวัน"];
+const lotColumns = ["Lot", "ขั้นตอน", "ผลผลิต", "คลังกลาง", "ศาลาแดง", "มีนบุรี"];
 
 export function OwnerDashboard({
   db,
@@ -18,9 +33,7 @@ export function OwnerDashboard({
   date: string;
   onNavigate: (tab: Tab) => void;
 }) {
-  const start = new Date(`${date}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() - 6);
-  const defaultFrom = start.toISOString().slice(0, 10);
+  const defaultFrom = sevenDayRangeStart(date);
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(date);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -49,22 +62,9 @@ export function OwnerDashboard({
     .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
   const totalCost = meatAndBranchCost + supplyCost + materialCost + ownerStockPurchaseCost + ownerCost;
   const margin = income - totalCost;
-  const required = (branchName: string) =>
-    branchName === "มีนบุรี"
-      ? ["ricePurchase", "riceCarry", "materials", "sale", "closeDay"]
-      : ["riceIssue", "rice", "materials", "sale", "closeDay"];
-  const requiredLabels: Record<string, string> = {
-    ricePurchase: "ซื้อข้าวเข้า",
-    riceCarry: "บันทึกข้าวคงเหลือ",
-    riceIssue: "เบิกข้าวไปใช้",
-    rice: "บันทึกข้าวคงเหลือ",
-    materials: "เช็กวัสดุ 7 รายการ",
-    sale: "ยอดขายสิ้นวัน",
-    closeDay: "ปิดวัน",
-  };
   const branchRows = branches.map((branchName) => {
     const rows = sales.filter((entry) => entry.branch === branchName);
-    const missing = required(branchName).filter(
+    const missing = requiredDailyKinds(branchName).filter(
       (kind) => !entries(db, kind, undefined, branchName, date).length,
     );
     const lowMaterials = materials.filter(
@@ -97,7 +97,7 @@ export function OwnerDashboard({
       };
     }),
     ...branches.flatMap((branchName) => {
-      const pending = required(branchName).filter(
+      const pending = requiredDailyKinds(branchName).filter(
         (kind) => !entries(db, kind, undefined, branchName, date).length,
       );
       const lowMaterialNames = materials.filter(
@@ -110,7 +110,7 @@ export function OwnerDashboard({
       return [{
         title: branchName,
         detail: [
-          pending.length ? `ค้าง: ${pending.map((kind) => requiredLabels[kind] || kind).join(", ")}` : "",
+          pending.length ? `ค้าง: ${pending.map((kind) => requiredDailyLabels[kind] || kind).join(", ")}` : "",
           lowMaterialNames.length ? `วัสดุใกล้หมด: ${lowMaterialNames.join(", ")}` : "",
         ].filter(Boolean).join(" · "),
         kind: "branch" as const,
@@ -180,65 +180,132 @@ export function OwnerDashboard({
   });
 
   return (
-    <div className="owner-dashboard dashboard-refresh">
-      <section className="dashboard-topbar">
-        <div className="dashboard-welcome">
-          <span className="overline">OWNER DASHBOARD</span>
-          <h2>สวัสดีครับ, เจ้าของร้าน</h2>
-          <p>ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก</p>
+    <div className="grid gap-5.5 rounded-lg bg-bg p-2 max-sm:p-1">
+      <section className="flex items-center justify-between gap-5 px-5.5 pt-6 pb-1 max-sm:flex-col max-sm:items-start max-sm:px-4 max-sm:pt-4.5 max-sm:pb-0.5">
+        <div>
+          <Overline tone="accent">OWNER DASHBOARD</Overline>
+          <h2 className="mt-1 mb-1 text-h1 tracking-[-0.045em] text-text-primary xl:text-display">
+            สวัสดีครับ, เจ้าของร้าน
+          </h2>
+          <p className="m-0 text-text-secondary">ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก</p>
         </div>
         <button
           type="button"
-          className={alertCount ? "dashboard-health warning" : "dashboard-health"}
+          className={cn(
+            "flex flex-none items-center gap-2 rounded-full border px-3.5 py-2.5 font-semibold max-sm:w-full max-sm:justify-center",
+            alertCount
+              ? "border-warning/40 bg-warning-subtle text-warning"
+              : "border-success/40 bg-success-subtle text-success",
+          )}
           onClick={() => setShowAlerts((value) => !value)}
           aria-expanded={showAlerts}
           aria-controls="owner-alert-details"
         >
           <CircleAlert size={17} />
           {alertCount ? `ต้องดูแล ${alertCount} จุด` : "การทำงานปกติ"}
-          <span className="dashboard-health-action">{showAlerts ? "ซ่อน" : "ดูรายละเอียด"}</span>
+          <span className="ml-0.5 border-l border-current pl-2.5 text-caption font-semibold opacity-80">
+            {showAlerts ? "ซ่อน" : "ดูรายละเอียด"}
+          </span>
         </button>
       </section>
       {showAlerts && (
-        <section className="dashboard-alert-details" id="owner-alert-details">
-          <div className="dashboard-alert-heading">
-            <div><span className="overline">ACTION REQUIRED</span><h3>รายการที่ต้องดูแล</h3></div>
-            <button className="text-button" type="button" onClick={() => setShowAlerts(false)}>ปิด</button>
+        <section
+          className="rounded-lg border border-warning/40 bg-warning-subtle px-5 py-4.5"
+          id="owner-alert-details"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Overline tone="accent">ACTION REQUIRED</Overline>
+              <h3 className="mt-1 mb-0 text-text-primary">รายการที่ต้องดูแล</h3>
+            </div>
+            <Button variant="text" onClick={() => setShowAlerts(false)}>
+              ปิด
+            </Button>
           </div>
           {alertDetails.length ? (
-            <div className="dashboard-alert-list">
+            <div className="mt-3.5 grid grid-cols-3 gap-2.5 max-lg:grid-cols-2 max-sm:grid-cols-1">
               {alertDetails.map((item) => (
-                <div className="dashboard-alert-item" key={`${item.kind}-${item.title}`}>
-                  <span className="dashboard-alert-dot"><CircleAlert size={15} /></span>
-                  <div>
-                    <strong>{item.title}</strong><span>{item.detail}</span>
-                    {item.tab && <button className="text-button dashboard-alert-link" type="button" onClick={() => onNavigate(item.tab!)}>เปิดใบ Invoice</button>}
-                  </div>
-                </div>
+                <AlertListItem
+                  key={`${item.kind}-${item.title}`}
+                  title={item.title}
+                  detail={item.detail}
+                  action={
+                    item.tab && (
+                      <Button variant="text" onClick={() => onNavigate(item.tab!)}>
+                        เปิดใบ Invoice
+                      </Button>
+                    )
+                  }
+                />
               ))}
             </div>
           ) : (
-            <p className="dashboard-alert-empty">ยังไม่มีรายการที่ต้องดำเนินการ</p>
+            <EmptyState compact text="ยังไม่มีรายการที่ต้องดำเนินการ" />
           )}
         </section>
       )}
-      <section className="dashboard-range">
-        <div><strong>ช่วงข้อมูล</strong><span>{fromDate} ถึง {toDate}</span></div>
-        <div className="table-filters">
-          <label className="table-filter">ตั้งแต่<input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
-          <label className="table-filter">ถึง<input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
-          <button className="secondary" onClick={() => { setFromDate(defaultFrom); setToDate(date); }}>7 วันล่าสุด</button>
+      <section className="flex items-center justify-between gap-5 rounded-lg border border-border bg-surface/80 px-4.5 py-3.5 max-sm:flex-col max-sm:items-stretch">
+        <div className="grid min-w-45 gap-0.75 max-sm:min-w-0">
+          <strong className="text-text-primary">ช่วงข้อมูล</strong>
+          <span className="text-caption whitespace-nowrap text-text-secondary">
+            {fromDate} ถึง {toDate}
+          </span>
         </div>
+        <FilterBar>
+          <DateRangeFilter
+            from={fromDate}
+            to={toDate}
+            onFromChange={setFromDate}
+            onToChange={setToDate}
+          />
+          <Button
+            onClick={() => {
+              setFromDate(defaultFrom);
+              setToDate(date);
+            }}
+          >
+            7 วันล่าสุด
+          </Button>
+        </FilterBar>
       </section>
-      <section className="dashboard-kpis">
-        <article className="kpi-card sales"><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ยอดขายช่วงที่เลือก</span></div><strong>฿{fmt(income)}</strong><small><i className="trend-up">↗</i> ยอดขายทั้งสองสาขา</small></article>
-        <article className="kpi-card cost"><div className="kpi-title"><span className="kpi-icon"><BarChart3 size={17} /></span><span>ต้นทุนที่บันทึก</span></div><strong>฿{fmt(totalCost)}</strong><small>รวมเนื้อ ข้าว วัสดุ และสต๊อกที่ซื้อเข้า</small></article>
-        <article className={`kpi-card ${margin >= 0 ? "positive" : "negative"}`}><div className="kpi-title"><span className="kpi-icon"><TrendingUp size={17} /></span><span>ส่วนต่างหลังต้นทุน</span></div><strong>฿{fmt(margin)}</strong><small className={margin >= 0 ? "gain" : "loss"}>{margin >= 0 ? "↗" : "↘"} {fmt(marginPercent)}% ของยอดขาย</small></article>
-        <article className="kpi-card boxes"><div className="kpi-title"><span className="kpi-icon"><Package size={17} /></span><span>กล่องที่ขาย</span></div><strong>{sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}</strong><small>รวมรายการขายที่บันทึกแล้ว</small></article>
+      <section className="grid grid-cols-4 gap-4.5 max-lg:grid-cols-2 max-sm:grid-cols-1">
+        <KpiCard
+          tone="sales"
+          icon={<TrendingUp size={17} />}
+          label="ยอดขายช่วงที่เลือก"
+          value={`฿${fmt(income)}`}
+          caption={
+            <>
+              <i className="font-extrabold text-success not-italic">↗</i> ยอดขายทั้งสองสาขา
+            </>
+          }
+        />
+        <KpiCard
+          tone="cost"
+          icon={<BarChart3 size={17} />}
+          label="ต้นทุนที่บันทึก"
+          value={`฿${fmt(totalCost)}`}
+          caption="รวมเนื้อ ข้าว วัสดุ และสต๊อกที่ซื้อเข้า"
+        />
+        <KpiCard
+          tone={margin >= 0 ? "positive" : "negative"}
+          icon={<TrendingUp size={17} />}
+          label="ส่วนต่างหลังต้นทุน"
+          value={`฿${fmt(margin)}`}
+          caption={`${margin >= 0 ? "↗" : "↘"} ${fmt(marginPercent)}% ของยอดขาย`}
+          captionTone={margin >= 0 ? "gain" : "loss"}
+        />
+        <KpiCard
+          tone="boxes"
+          icon={<Package size={17} />}
+          label="กล่องที่ขาย"
+          value={sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}
+          caption="รวมรายการขายที่บันทึกแล้ว"
+        />
       </section>
       <DataTable
         title="Document & raw beef summary"
-        columns={["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Foodiva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"]}
+        columns={summaryColumns}
         rows={[[
           String(db.lots.filter((lot) => lot.stage < 8).length),
           String(entries(db, "supplierInvoice").filter((entry) => entry.values.paymentStatus !== "Paid").length),
@@ -251,49 +318,70 @@ export function OwnerDashboard({
           `${fmt(averageYield(db))}%`,
         ]]}
       />
-      <section className="sales-charts">
-        <div className="chart-panel">
-          <div className="chart-heading"><div><span className="overline">DAILY SALES · SALA DAENG</span><h2>ยอดขายสาขาศาลาแดง</h2></div><span className="chart-total">฿{fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}</span></div>
-          <div className="chart-overflow"><SalesBars data={dailySales} branch="sala" colorClass="sala" max={maxDaily} /></div>
-        </div>
-        <div className="chart-panel">
-          <div className="chart-heading"><div><span className="overline">DAILY SALES · MIN BURI</span><h2>ยอดขายสาขามีนบุรี</h2></div><span className="chart-total blue">฿{fmt(dailySales.reduce((sum, item) => sum + item.minburi, 0))}</span></div>
-          <div className="chart-overflow"><SalesBars data={dailySales} branch="minburi" colorClass="minburi" max={maxDaily} /></div>
-        </div>
+      <section className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
+        <ChartPanel
+          overline="DAILY SALES · SALA DAENG"
+          title="ยอดขายสาขาศาลาแดง"
+          total={`฿${fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}`}
+        >
+          <div className="overflow-x-auto overflow-y-hidden">
+            <SalesBars data={dailySales} branch="sala" colorClass="sala" max={maxDaily} />
+          </div>
+        </ChartPanel>
+        <ChartPanel
+          overline="DAILY SALES · MIN BURI"
+          title="ยอดขายสาขามีนบุรี"
+          total={`฿${fmt(dailySales.reduce((sum, item) => sum + item.minburi, 0))}`}
+          totalTone="accent"
+        >
+          <div className="overflow-x-auto overflow-y-hidden">
+            <SalesBars data={dailySales} branch="minburi" colorClass="minburi" max={maxDaily} />
+          </div>
+        </ChartPanel>
       </section>
-      <section className="chart-panel">
-        <div className="chart-heading"><div><span className="overline">COST MIX</span><h2>สัดส่วนต้นทุนแยกสาขาและรวมทั้งร้าน</h2></div></div>
-        <div className="cost-comparison">
-          {branchCostCharts.map((chart) => <CostDonut key={chart.label} {...chart} />)}
+      <ChartPanel overline="COST MIX" title="สัดส่วนต้นทุนแยกสาขาและรวมทั้งร้าน">
+        <div className="mt-6 grid grid-cols-3 gap-6 max-lg:grid-cols-1">
+          {branchCostCharts.map((chart) => (
+            <CostDonut key={chart.label} {...chart} />
+          ))}
           <CostDonut label="รวมทั้งร้าน" total={totalCost} parts={costParts} />
         </div>
-      </section>
-      <div className="dashboard-grid">
+      </ChartPanel>
+      <div className="grid grid-cols-[minmax(0,1.65fr)_minmax(280px,0.75fr)] items-stretch gap-6 max-lg:grid-cols-1">
         <DataTable
           title="สถานะสาขาวันนี้"
-          columns={["สาขา", "ยอดขายช่วงที่เลือก", "กล่อง", "งานวันนี้", "วัสดุ", "ปิดวัน"]}
+          className="m-0"
+          columns={branchColumns}
           rows={branchRows}
+          rowKeys={branches}
         />
-        <section className="dashboard-side">
-          <div className="dashboard-side-title"><Warehouse size={18} /><h2>สต๊อกสำคัญ</h2></div>
+        <Panel className="shadow-xs">
+          <div className="mb-3.5 flex items-center gap-2">
+            <Warehouse size={18} />
+            <h2 className="m-0 text-text-primary">สต๊อกสำคัญ</h2>
+          </div>
           {branches.map((branchName) => (
-            <div className="stock-line" key={branchName}>
-              <strong>{branchName}</strong>
+            <div
+              className="grid gap-1 border-t border-border py-4 text-body-sm text-text-secondary"
+              key={branchName}
+            >
+              <strong className="text-body text-text-primary">{branchName}</strong>
               <span>เนื้อแช่แข็ง {fmt(db.lots.reduce((total, lot) => total + balance(db, lot.id, branchName).frozen, 0))} กก.</span>
               <span>{branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"} {fmt(branchName === "มีนบุรี" ? cookedRiceStock(db, branchName) : rawRiceStock(db, branchName))} กก.</span>
               <span>น้ำพริก {fmt(chiliStock(db, branchName))} หลอด</span>
             </div>
           ))}
-          <div className="stock-line central">
-            <strong>คลังกลาง</strong>
+          <div className="mt-1 grid gap-1 rounded-lg bg-bg p-4 text-body-sm text-text-secondary">
+            <strong className="text-body text-text-primary">คลังกลาง</strong>
             <span>เนื้อพร้อมจัดสรร {fmt(db.lots.reduce((total, lot) => total + Math.max(0, centralStock(db, lot.id)), 0))} กก.</span>
             <span>Lot ที่กำลังดำเนินการ {activeLots}</span>
           </div>
-        </section>
+        </Panel>
       </div>
       <DataTable
         title="สถานะ Lot และการผลิต"
-        columns={["Lot", "ขั้นตอน", "ผลผลิต", "คลังกลาง", "ศาลาแดง", "มีนบุรี"]}
+        columns={lotColumns}
+        rowKeys={db.lots.map((lot) => lot.id)}
         rows={db.lots.map((lot) => [
           lot.id,
           stages[lot.stage],
@@ -303,7 +391,7 @@ export function OwnerDashboard({
           `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} กก.`,
         ])}
       />
-      <p className="dashboard-note">
+      <p className="mx-1 -mt-2.5 text-body-sm text-text-secondary">
         ส่วนต่างนี้อิงเฉพาะข้อมูลที่บันทึกในระบบ ยังไม่รวมภาษี แรงงาน และค่าเสื่อม
       </p>
     </div>

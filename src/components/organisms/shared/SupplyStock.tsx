@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import {  chiliAllocated, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, n, rawRiceStock, type Database } from "@/lib/store";
+import { chiliAllocated, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, n, rawRiceStock, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function SupplyStock({
@@ -24,6 +24,7 @@ export function SupplyStock({
         "ข้าวที่ควรซื้อเพิ่ม",
         "ซื้อเข้าล่าสุด",
       ]}
+      rowKeys={stockBranches}
       rows={stockBranches.map((name) => {
         const latest = [
           ...entries(db, "supplyPurchase", undefined, name),

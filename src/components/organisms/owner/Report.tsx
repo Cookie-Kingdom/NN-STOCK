@@ -1,6 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Panel } from "@/components/atoms/Panel";
+import { Muted } from "@/components/atoms/Text";
+import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
+import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
+import { FilterBar } from "@/components/molecules/FilterBar";
+import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { branches, entries, isClosed, lotCost, materialPar, materialUnitPrice, materials, n, stages, type Database, type Entry } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
@@ -67,16 +73,19 @@ export function Report({ db }: { db: Database }) {
       ];
     });
   return (
-    <div className="report-tables">
-      <section className="panel report-filter-panel">
-        <div><h2>ตัวกรองรายงาน (Report filters)</h2><p className="muted">เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน</p></div>
-        <div className="table-filters">
-          <label className="table-filter">ตั้งแต่<input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
-          <label className="table-filter">ถึง<input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
-          <label className="table-filter">สาขา<select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option>ทั้งหมด</option>{branches.map((name) => <option key={name}>{name}</option>)}</select></label>
+    <div className="grid gap-7.5">
+      <Panel className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch">
+        <div>
+          <h2 className="m-0">ตัวกรองรายงาน (Report filters)</h2>
+          <Muted className="m-0">เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน</Muted>
         </div>
-      </section>
+        <FilterBar>
+          <DateRangeFilter from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
+          <BranchSelectFilter value={branchFilter} onChange={setBranchFilter} branches={branches} />
+        </FilterBar>
+      </Panel>
       <DataTable
+        className="m-0"
         title="สรุปผลรวม"
         columns={["รายการ", "จำนวนเงิน", "ขอบเขต"]}
         rows={[
@@ -92,11 +101,12 @@ export function Report({ db }: { db: Database }) {
           ["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost), "บาท"],
         ]}
       />
-      <div className="notice">
+      <Notice>
         ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว แต่ยังไม่รวมภาษี
         แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก จึงยังไม่ใช่กำไรสุทธิ
-      </div>
+      </Notice>
       <DataTable
+        className="m-0"
         title="รายงานยอดขายรายวัน"
         columns={[
           "วันที่",
@@ -111,6 +121,7 @@ export function Report({ db }: { db: Database }) {
         rows={dayRows}
       />
       <DataTable
+        className="m-0"
         title="ยอดขายสะสมแยกสาขา"
         columns={["สาขา", "กล่อง", "เนื้อ Add-on", "น้ำพริกขายแยก", "Waste (กก.)", "ยอดขาย (บาท)"]}
         rows={branches.map((br) => {
@@ -126,6 +137,7 @@ export function Report({ db }: { db: Database }) {
         })}
       />
       <DataTable
+        className="m-0"
         title="ต้นทุนแยก Lot"
         columns={[
           "Lot",
@@ -152,6 +164,7 @@ export function Report({ db }: { db: Database }) {
           })}
       />
       <DataTable
+        className="m-0"
         title="ค่าใช้จ่าย Owner"
         columns={["วันที่", "หมวด", "รายละเอียด", "ผู้จ่าย", "จำนวนเงิน"]}
         rows={entries(db, "expense").filter(inRange).map((e) => [
@@ -163,6 +176,7 @@ export function Report({ db }: { db: Database }) {
         ])}
       />
       <DataTable
+        className="m-0"
         title="รายการซื้อข้าวเหนียวและน้ำพริก"
         columns={[
           "วันที่",
@@ -184,6 +198,7 @@ export function Report({ db }: { db: Database }) {
         ])}
       />
       <DataTable
+        className="m-0"
         title="ข้าวเหนียวสุกคงเหลือปลายวัน"
         columns={[
           "วันที่",
@@ -201,6 +216,7 @@ export function Report({ db }: { db: Database }) {
         ])}
       />
       <DataTable
+        className="m-0"
         title="รายการเบิกข้าวเหนียวดิบรายวัน"
         columns={["วันที่", "สาขา", "ผู้รับ", "ข้าวเหนียวดิบ (กก.)"]}
         rows={[
@@ -217,6 +233,7 @@ export function Report({ db }: { db: Database }) {
           ])}
       />
       <DataTable
+        className="m-0"
         title="ประวัติจัดสรรน้ำพริกโดย Owner"
         columns={["วันที่", "สาขา", "จัดสรร", "ผู้รับ", "เลขอ้างอิง", "หมายเหตุ"]}
         rows={entries(db, "chiliAllocate")
@@ -232,6 +249,7 @@ export function Report({ db }: { db: Database }) {
           ])}
       />
       <DataTable
+        className="m-0"
         title="ประวัติรับและส่งวัสดุ (Material audit trail)"
         columns={["วันที่", "รายการ", "วัสดุ", "ต้นทาง / ปลายทาง", "จำนวน", "ผู้เกี่ยวข้อง", "อ้างอิง / สถานะ"]}
         rows={[...entries(db, "materialReceive"), ...entries(db, "materialTransfer"), ...entries(db, "materialConfirm")]
@@ -259,6 +277,7 @@ export function Report({ db }: { db: Database }) {
           })}
       />
       <DataTable
+        className="m-0"
         title="วัสดุคงเหลือล่าสุด"
         columns={["สาขา", "วัสดุ", "ใช้ล่าสุด", "คงเหลือ", "ฐานเต็ม", "ราคา / หน่วย", "มูลค่าคงเหลือ", "สถานะ"]}
         rows={branches.flatMap((br) => {

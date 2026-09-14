@@ -1,8 +1,13 @@
 "use client";
 
+import { Button } from "@/components/atoms/Button";
+import { Notice } from "@/components/molecules/Notice";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { entries, n, producedBags, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+const columns = ["Lot", "Foodiva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"];
 
 export function CentralReceiveView({
   db,
@@ -11,36 +16,38 @@ export function CentralReceiveView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const readyToReceive = db.lots.filter((lot) => lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length);
+  const readyToReceive = db.lots.filter(
+    (lot) => lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
+  );
   return (
     <>
-      <div className="section-heading">
-        <div>
-          <h2>Owner รับของจาก Foodiva เข้าสต๊อกกลาง</h2>
-          <p className="muted">Foodiva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้</p>
-        </div>
-      </div>
+      <SectionHeading
+        title="Owner รับของจาก Foodiva เข้าสต๊อกกลาง"
+        description="Foodiva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้"
+      />
       <DataTable
         title="Lot ที่รอรับเข้าคลังกลาง"
-        columns={["Lot", "Foodiva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"]}
+        columns={columns}
+        rowKeys={readyToReceive.map((lot) => lot.id)}
         rows={readyToReceive.map((lot) => {
           const back = entries(db, "return", lot.id).at(-1);
+          const received = entries(db, "foodDivaReturnReceive", lot.id).at(-1);
           return [
             lot.id,
-            `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
-            `${entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values.receivedBags || producedBags(db, lot.id)} ถุง`,
+            `${fmt(n(received?.values || {}, "receivedKg"))} กก.`,
+            `${received?.values.receivedBags || producedBags(db, lot.id)} ถุง`,
             back
               ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`
               : "ยังไม่มีใบขนส่งขากลับ",
             "รอรับเข้าสต๊อกกลาง",
-            <button className="table-action" key={lot.id} onClick={() => open("central", lot.id)}>
+            <Button variant="table" key={lot.id} onClick={() => open("central", lot.id)}>
               รับเข้าคลังกลาง
-            </button>,
+            </Button>,
           ];
         })}
       />
       {!readyToReceive.length && (
-        <div className="notice success">ไม่มี Lot รอรับเข้าสต๊อกกลางในขณะนี้</div>
+        <Notice tone="success">ไม่มี Lot รอรับเข้าสต๊อกกลางในขณะนี้</Notice>
       )}
     </>
   );

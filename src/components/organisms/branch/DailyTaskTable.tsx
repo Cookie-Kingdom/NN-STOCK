@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { entries, titles, type Database } from "@/lib/store";
 
@@ -26,6 +27,7 @@ export function DailyTaskTable({
     <DataTable
       title={title}
       columns={["รายการ", "สถานะ", "จำนวนรายการ", "การทำงาน"]}
+      rowKeys={kinds}
       rows={kinds.map((kind) => {
         const count = entries(db, kind, undefined, branch, date).length;
         const optional = kind === "ricePurchase" || kind === "chiliPurchase";
@@ -36,14 +38,14 @@ export function DailyTaskTable({
           optional ? `${label} · บันทึกเฉพาะวันที่ซื้อ` : label,
           count ? "บันทึกแล้ว" : optional ? "ไม่บังคับวันนี้" : "รอบันทึก",
           String(count),
-          <button
+          <Button
             key={kind}
-            className="table-action"
+            variant="table"
             disabled={disabled || (kind === "sale" && !hasLots)}
             onClick={() => open(kind)}
           >
             {kind === "closeDay" ? "ตรวจและปิดวัน" : "กรอกข้อมูล"}
-          </button>,
+          </Button>,
         ];
       })}
     />

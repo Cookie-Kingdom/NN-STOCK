@@ -1,10 +1,44 @@
 "use client";
 
 import { Fragment, type ReactNode, useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
+import { Footnote, Muted } from "@/components/atoms/Text";
+import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { PoLotCell } from "@/components/molecules/PoLotCell";
+import {
+  smokeOrderTraceRows,
+  transportDocumentRows,
+  transportDocumentTitle,
+} from "@/components/organisms/owner/documentRows";
+import { TableSection } from "@/components/organisms/shared/TableSection";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import { DocumentFilterBar, lotIssueDate, matchesDocumentFilter, purchaseOrderRows, type DocumentReferenceType } from "@/components/organisms/shared/documents";
 import { entries, n, processLoss, processed, produced, producedBags, roleName, smokingInvoiceStatus, stages, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+const registerColumns = [
+  "สถานะ",
+  "เลข PO / Lot",
+  "วันที่ออก PO",
+  "เอกสารล่าสุด",
+  "เส้นทางล่าสุด",
+  "ผู้ดำเนินการล่าสุด",
+  "การทำงาน",
+];
+const detailColumns = ["เอกสาร / ขั้นตอน", "เลขอ้างอิง", "วันที่", "สถานะ / น้ำหนัก", "เอกสาร"];
+
+const thClass =
+  "sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary";
+const tdClass =
+  "border-b border-border px-4.5 py-4 text-left align-middle leading-[1.45] whitespace-normal [tr:last-child>&]:border-b-0";
+const expandCellClass = "w-10.5 pr-1.5 text-center";
+const detailCellClass =
+  "border-b border-border px-5 py-3 text-left whitespace-nowrap [tr:last-child>&]:border-b-0";
+
+function DocumentPreview({ title, number, rows }: { title: string; number: string; rows: [string, string][] }) {
+  return <DocumentPrintButton title={title} number={number} rows={rows} label="พรีวิว / PDF" preview />;
+}
 
 export function SimpleTraceabilityView({ db }: { db: Database }) {
   const [referenceType, setReferenceType] = useState<DocumentReferenceType>("po");
@@ -15,21 +49,15 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
   const visibleLots = db.lots.filter((lot) =>
     matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
   );
-  const preview = (title: string, number: string, rows: [string, string][]) => (
-    <DocumentPrintButton title={title} number={number} rows={rows} label="พรีวิว / PDF" preview />
-  );
+  const toggle = (lotId: string) =>
+    setExpandedLot((current) => (current === lotId ? null : lotId));
   return (
-    <div className="settings-stack document-module">
-      <section className="panel config-heading">
-        <div>
-          <span className="overline">READ-ONLY TRACEABILITY</span>
-          <h2>เอกสารและการตรวจสอบย้อนกลับ</h2>
-          <p className="muted">
-            ตารางสำหรับอ่านเส้นทางของแต่ละ Lot เท่านั้น การตรวจยอด ชำระเงิน และดาวน์โหลด Invoice
-            ให้ทำจากเมนูใบ Invoice
-          </p>
-        </div>
-      </section>
+    <div className="grid gap-6">
+      <PanelHeading
+        overline="READ-ONLY TRACEABILITY"
+        title="เอกสารและการตรวจสอบย้อนกลับ"
+        description="ตารางสำหรับอ่านเส้นทางของแต่ละ Lot เท่านั้น การตรวจยอด ชำระเงิน และดาวน์โหลด Invoice ให้ทำจากเมนูใบ Invoice"
+      />
 
       <DocumentFilterBar
         referenceType={referenceType}
@@ -42,23 +70,19 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
         onToDate={setToDate}
       />
 
-      <section className="table-section traceability-table">
-        <div className="table-title">
-          <div><h2>ทะเบียนเอกสารตาม Lot</h2><span>{visibleLots.length} รายการ</span></div>
-          <span className="muted">กด ดู เพื่อเปิดเส้นทางเอกสาร</span>
-        </div>
-        <div className="table-scroll">
-          <table>
+      <TableSection
+        title="ทะเบียนเอกสารตาม Lot"
+        count={`${visibleLots.length} รายการ`}
+        actions={<Muted as="span" className="text-caption">กด ดู เพื่อเปิดเส้นทางเอกสาร</Muted>}
+      >
+        <div className="max-w-full overflow-auto">
+          <table className="w-full min-w-260 border-separate border-spacing-0 tabular-nums">
             <thead>
               <tr>
-                <th aria-label="ขยายรายละเอียด" />
-                <th>สถานะ</th>
-                <th>เลข PO / Lot</th>
-                <th>วันที่ออก PO</th>
-                <th>เอกสารล่าสุด</th>
-                <th>เส้นทางล่าสุด</th>
-                <th>ผู้ดำเนินการล่าสุด</th>
-                <th>การทำงาน</th>
+                <th aria-label="ขยายรายละเอียด" className={`${thClass} ${expandCellClass}`} />
+                {registerColumns.map((column) => (
+                  <th key={column} className={thClass}>{column}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -88,49 +112,87 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ? "Chef_house → Foodiva"
                       : "Foodiva · รอเริ่มขนส่ง";
                 const detailRows: [string, ReactNode, string, string, ReactNode][] = [
-                  ["PO เนื้อ", lot.poId, lotIssueDate(db, lot), "ออกแล้ว", preview("Purchase Order", lot.poId, purchaseOrderRows(lot, db))],
-                  ["Invoice Foodiva", foodInvoice?.values.invoiceNo || "—", foodInvoice?.values.invoiceDate || "—", foodInvoice ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.` : "รอ Foodiva", foodInvoice ? preview("Invoice Foodiva", foodInvoice.values.invoiceNo || lot.poId, [["วันที่ Invoice", foodInvoice.values.invoiceDate], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["น้ำหนักยืนยัน", `${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`], ["ยอด Invoice", `฿${fmt(n(foodInvoice.values, "invoiceAmount"))}`], ["ผู้ยืนยัน", foodInvoice.values.confirmedBy || "—"]]) : "—"],
-                  ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—", smokeOrder?.date || "—", smokeOrder ? `${fmt(n(smokeOrder.values, "rawKg"))} กก.` : "รอ Owner ออก PO", smokeOrder ? preview("Smoke Service Purchase Order", smokeOrder.values.orderNumber || lot.poId, [["วันที่ PO", smokeOrder.date], ["Supplier", smokeOrder.values.smoker || "Chef_house"], ["ลูกค้า", lot.values.customerName], ["ที่อยู่", lot.values.customerAddress], ["Attention", lot.values.attention], ["โทร.", lot.values.phone], ["Tax ID", lot.values.taxId], ["สินค้า", "บริการรมควันเนื้อ"], ["ขนาดบรรจุ", "—"], ["จำนวน", `${fmt(n(smokeOrder.values, "rawKg"))} กก.`], ["ราคา / กก.", `฿${fmt(n(smokeOrder.values, "serviceRate"))}`], ["ยอดรวมก่อน VAT", `฿${fmt(n(smokeOrder.values, "estimatedCost"))}`], ["Lot เนื้อ", lot.id], ["ผู้รับออเดอร์", smokeOrder.values.contactName || "—"], ["ที่อยู่ผู้ให้บริการ", smokeOrder.values.address || "—"], ["Foodiva Invoice", foodInvoice?.values.invoiceNo || "รอระบุ"], ["กำหนดเสร็จ", smokeOrder.values.expectedFinishedDate || "—"], ["หมายเหตุ", smokeOrder.values.instruction || "—"]]) : "—"],
-                  ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—", chefInvoice?.values.invoiceDate || "—", chefInvoice ? smokingInvoiceStatus(db, chefInvoice) : "รอ Chef_house Submit", chefInvoice ? preview("Invoice Chef_house", chefInvoice.values.invoiceNumber || lot.poId, [["วันที่ Invoice", chefInvoice.values.invoiceDate], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Lot เนื้อ", lot.id], ["ผู้ให้บริการ", chefInvoice.values.serviceProvider || "Chef_house"], ["น้ำหนักคิดค่าบริการ", `${fmt(n(chefInvoice.values, "serviceQuantity"))} กก.`], ["ยอดสุทธิ", `฿${fmt(n(chefInvoice.values, "netPayable"))}`], ["สถานะ", smokingInvoiceStatus(db, chefInvoice)]]) : "—"],
-                  ["ใบขนส่งไป Chef_house", dispatch?.values.transferNumber || "—", dispatch?.values.pickupDate || "—", dispatch ? `${fmt(n(dispatch.values, "dispatchKg"))} กก.` : "รอเรียกรถ", dispatch ? preview("ใบขนส่งเนื้อขาไป", dispatch.values.transferNumber || lot.id, [["วันที่รถรับ", dispatch.values.pickupDate || dispatch.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", dispatch.values.origin], ["ปลายทาง", dispatch.values.destination], ["น้ำหนักส่ง", `${fmt(n(dispatch.values, "dispatchKg"))} กก.`], ["ประเภทรถ", dispatch.values.vehicleType || "—"], ["ทะเบียนรถ", dispatch.values.plate || "—"], ["คนขับ", dispatch.values.driverName || "—"], ["เบอร์ติดต่อ", dispatch.values.driverPhone || "—"]]) : "—"],
-                  ["รับที่ Chef_house", chefReceive ? `${fmt(n(chefReceive.values, "receivedKg"))} กก.` : "—", chefReceive?.date || "—", chefReceive ? "รับแล้ว" : "รอยืนยันรับ", chefReceive ? preview("ใบยืนยันรับเนื้อ Chef_house", `RCV-${lot.id}`, [["PO", lot.poId], ["Lot เนื้อ", lot.id], ["วันที่รับ", chefReceive.date], ["เวลาถึง", chefReceive.values.arrival], ["น้ำหนักรับจริง", `${fmt(n(chefReceive.values, "receivedKg"))} กก.`], ["หมายเหตุ", chefReceive.values.note || "—"]]) : "—"],
+                  ["PO เนื้อ", lot.poId, lotIssueDate(db, lot), "ออกแล้ว", <DocumentPreview key="po" title="Purchase Order" number={lot.poId} rows={purchaseOrderRows(lot, db)} />],
+                  ["Invoice Foodiva", foodInvoice?.values.invoiceNo || "—", foodInvoice?.values.invoiceDate || "—", foodInvoice ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.` : "รอ Foodiva", foodInvoice ? <DocumentPreview key="food-invoice" title="Invoice Foodiva" number={foodInvoice.values.invoiceNo || lot.poId} rows={[["วันที่ Invoice", foodInvoice.values.invoiceDate], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["น้ำหนักยืนยัน", `${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`], ["ยอด Invoice", `฿${fmt(n(foodInvoice.values, "invoiceAmount"))}`], ["ผู้ยืนยัน", foodInvoice.values.confirmedBy || "—"]]} /> : "—"],
+                  ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—", smokeOrder?.date || "—", smokeOrder ? `${fmt(n(smokeOrder.values, "rawKg"))} กก.` : "รอ Owner ออก PO", smokeOrder ? <DocumentPreview key="smoke-order" title="Smoke Service Purchase Order" number={smokeOrder.values.orderNumber || lot.poId} rows={smokeOrderTraceRows(lot, smokeOrder, foodInvoice)} /> : "—"],
+                  ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—", chefInvoice?.values.invoiceDate || "—", chefInvoice ? smokingInvoiceStatus(db, chefInvoice) : "รอ Chef_house Submit", chefInvoice ? <DocumentPreview key="chef-invoice" title="Invoice Chef_house" number={chefInvoice.values.invoiceNumber || lot.poId} rows={[["วันที่ Invoice", chefInvoice.values.invoiceDate], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Lot เนื้อ", lot.id], ["ผู้ให้บริการ", chefInvoice.values.serviceProvider || "Chef_house"], ["น้ำหนักคิดค่าบริการ", `${fmt(n(chefInvoice.values, "serviceQuantity"))} กก.`], ["ยอดสุทธิ", `฿${fmt(n(chefInvoice.values, "netPayable"))}`], ["สถานะ", smokingInvoiceStatus(db, chefInvoice)]]} /> : "—"],
+                  ["ใบขนส่งไป Chef_house", dispatch?.values.transferNumber || "—", dispatch?.values.pickupDate || "—", dispatch ? `${fmt(n(dispatch.values, "dispatchKg"))} กก.` : "รอเรียกรถ", dispatch ? <DocumentPreview key="dispatch" title={transportDocumentTitle.outbound} number={dispatch.values.transferNumber || lot.id} rows={transportDocumentRows(lot, dispatch, "outbound")} /> : "—"],
+                  ["รับที่ Chef_house", chefReceive ? `${fmt(n(chefReceive.values, "receivedKg"))} กก.` : "—", chefReceive?.date || "—", chefReceive ? "รับแล้ว" : "รอยืนยันรับ", chefReceive ? <DocumentPreview key="chef-receive" title="ใบยืนยันรับเนื้อ Chef_house" number={`RCV-${lot.id}`} rows={[["PO", lot.poId], ["Lot เนื้อ", lot.id], ["วันที่รับ", chefReceive.date], ["เวลาถึง", chefReceive.values.arrival], ["น้ำหนักรับจริง", `${fmt(n(chefReceive.values, "receivedKg"))} กก.`], ["หมายเหตุ", chefReceive.values.note || "—"]]} /> : "—"],
                   ...smokeEntries.map((entry) => [
                     "Lot สโมครายวัน",
                     entry.values.subLot || "—",
                     entry.values.smokeDate || entry.date,
                     `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "outputKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} ถุง`,
-                    preview("บันทึก Lot สโมครายวัน", entry.values.subLot || entry.id, [["Lot หลัก", lot.id], ["Lot สโมค", entry.values.subLot || "—"], ["วันที่สโมค", entry.values.smokeDate || entry.date], ["น้ำหนักเข้าเตา", `${fmt(n(entry.values, "inputKg"))} กก.`], ["น้ำหนักหลังรม", `${fmt(n(entry.values, "outputKg"))} กก.`], ["น้ำหนัก Waste", `${fmt(n(entry.values, "wasteKg"))} กก.`], ["จำนวนถุง", `${entry.values.packCount || "0"} ถุง`], ["น้ำหนักถุง", entry.values.packs || "—"]]),
+                    <DocumentPreview key={entry.id} title="บันทึก Lot สโมครายวัน" number={entry.values.subLot || entry.id} rows={[["Lot หลัก", lot.id], ["Lot สโมค", entry.values.subLot || "—"], ["วันที่สโมค", entry.values.smokeDate || entry.date], ["น้ำหนักเข้าเตา", `${fmt(n(entry.values, "inputKg"))} กก.`], ["น้ำหนักหลังรม", `${fmt(n(entry.values, "outputKg"))} กก.`], ["น้ำหนัก Waste", `${fmt(n(entry.values, "wasteKg"))} กก.`], ["จำนวนถุง", `${entry.values.packCount || "0"} ถุง`], ["น้ำหนักถุง", entry.values.packs || "—"]]} />,
                   ] as [string, ReactNode, string, string, ReactNode]),
-                  ["ผลผลิตหลังรม", produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง` : "—", produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต", produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef_house", smokeEntries.length ? preview("สรุปผลผลิตหลังรม", `YIELD-${lot.id}`, [["PO", lot.poId], ["Lot เนื้อ", lot.id], ["จำนวน Lot สโมค", `${smokeEntries.length} รอบ`], ["น้ำหนักเข้าเตารวม", `${fmt(processed(db, lot.id))} กก.`], ["น้ำหนักหลังรมรวม", `${fmt(produced(db, lot.id))} กก.`], ["จำนวนถุง", `${producedBags(db, lot.id)} ถุง`], ["Waste รวม", `${fmt(processLoss(db, lot.id))} กก.`]]) : "—"],
-                  ["ใบขนส่งกลับ Foodiva", returnTrip?.values.transferNumber || "—", returnTrip?.values.returnDate || "—", returnTrip ? `${fmt(n(returnTrip.values, "returnKg"))} กก.` : "รอเรียกรถกลับ", returnTrip ? preview("ใบขนส่งเนื้อขากลับ", returnTrip.values.transferNumber || lot.id, [["วันที่รถรับ", returnTrip.values.returnDate || returnTrip.date], ["PO", lot.poId], ["Lot เนื้อ", lot.id], ["ต้นทาง", returnTrip.values.origin], ["ปลายทาง", returnTrip.values.destination], ["น้ำหนักส่ง", `${fmt(n(returnTrip.values, "returnKg"))} กก.`], ["ประเภทรถ", returnTrip.values.vehicleType || "—"], ["ทะเบียนรถ", returnTrip.values.plate || "—"], ["คนขับ", returnTrip.values.driverName || "—"], ["เบอร์ติดต่อ", returnTrip.values.driverPhone || "—"]]) : "—"],
+                  ["ผลผลิตหลังรม", produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง` : "—", produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต", produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef_house", smokeEntries.length ? <DocumentPreview key="yield" title="สรุปผลผลิตหลังรม" number={`YIELD-${lot.id}`} rows={[["PO", lot.poId], ["Lot เนื้อ", lot.id], ["จำนวน Lot สโมค", `${smokeEntries.length} รอบ`], ["น้ำหนักเข้าเตารวม", `${fmt(processed(db, lot.id))} กก.`], ["น้ำหนักหลังรมรวม", `${fmt(produced(db, lot.id))} กก.`], ["จำนวนถุง", `${producedBags(db, lot.id)} ถุง`], ["Waste รวม", `${fmt(processLoss(db, lot.id))} กก.`]]} /> : "—"],
+                  ["ใบขนส่งกลับ Foodiva", returnTrip?.values.transferNumber || "—", returnTrip?.values.returnDate || "—", returnTrip ? `${fmt(n(returnTrip.values, "returnKg"))} กก.` : "รอเรียกรถกลับ", returnTrip ? <DocumentPreview key="return" title={transportDocumentTitle.return} number={returnTrip.values.transferNumber || lot.id} rows={transportDocumentRows(lot, returnTrip, "return")} /> : "—"],
                 ];
                 const isOpen = expandedLot === lot.id;
                 return <Fragment key={lot.id}>
-                  <tr>
-                    <td><button type="button" className="trace-expand" aria-label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`} onClick={() => setExpandedLot((current) => current === lot.id ? null : lot.id)}>{isOpen ? "−" : "+"}</button></td>
-                    <td><span className={lot.stage >= 8 ? "badge success" : "badge danger"}>{stages[lot.stage]}</span></td>
-                    <td><strong>{lot.poId}</strong><br /><span className="muted">{lot.id}</span></td>
-                    <td>{lotIssueDate(db, lot)}</td>
-                    <td>{latestDocument}</td>
-                    <td>{route}</td>
-                    <td>{latest ? roleName[latest.role] : "Owner"}</td>
-                    <td><button type="button" className="table-action" onClick={() => setExpandedLot((current) => current === lot.id ? null : lot.id)}>{isOpen ? "ซ่อน" : "ดู"}</button></td>
+                  <tr className="hover:bg-bg">
+                    <td className={`${tdClass} ${expandCellClass}`}>
+                      <button
+                        type="button"
+                        className="grid size-6 place-items-center rounded-sm border border-border bg-surface text-h2 leading-none text-text-secondary hover:bg-bg"
+                        aria-label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
+                        onClick={() => toggle(lot.id)}
+                      >
+                        {isOpen ? "−" : "+"}
+                      </button>
+                    </td>
+                    <td className={tdClass}><Badge tone={lot.stage >= 8 ? "success" : "danger"}>{stages[lot.stage]}</Badge></td>
+                    <td className={tdClass}><PoLotCell poId={lot.poId} lotId={<Muted as="span">{lot.id}</Muted>} /></td>
+                    <td className={tdClass}>{lotIssueDate(db, lot)}</td>
+                    <td className={tdClass}>{latestDocument}</td>
+                    <td className={tdClass}>{route}</td>
+                    <td className={tdClass}>{latest ? roleName[latest.role] : "Owner"}</td>
+                    <td className={tdClass}><Button variant="table" onClick={() => toggle(lot.id)}>{isOpen ? "ซ่อน" : "ดู"}</Button></td>
                   </tr>
-                  {isOpen && <tr className="trace-detail-row"><td colSpan={8}>
-                    <div className="trace-detail-heading"><div><strong>{lot.poId} / {lot.id}</strong><span>ลำดับเอกสารและจุดตรวจสอบย้อนกลับ</span></div>{preview("สรุปเอกสารตาม Lot", `TRACE-${lot.id}`, [["PO", lot.poId], ["Lot", lot.id], ["สถานะล่าสุด", stages[lot.stage]], ["Invoice Foodiva", foodInvoice?.values.invoiceNo || "—"], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—"], ["Lot สโมค", smokeEntries.map((entry) => entry.values.subLot).filter(Boolean).join(", ") || "—"], ["ใบขนส่งขาไป", dispatch?.values.transferNumber || "—"], ["ใบขนส่งขากลับ", returnTrip?.values.transferNumber || "—"]])}</div>
-                    <div className="trace-detail-scroll"><table className="trace-detail-table"><thead><tr><th>เอกสาร / ขั้นตอน</th><th>เลขอ้างอิง</th><th>วันที่</th><th>สถานะ / น้ำหนัก</th><th>เอกสาร</th></tr></thead><tbody>{detailRows.map(([type, number, documentDate, status, action], index) => <tr key={`${type}-${index}`}><td>{type}</td><td>{number}</td><td>{documentDate}</td><td>{status}</td><td>{action}</td></tr>)}</tbody></table></div>
-                  </td></tr>}
+                  {isOpen && <tr>
+                    <td colSpan={8} className="border-b border-border bg-bg p-0 text-left whitespace-normal [tr:last-child>&]:border-b-0">
+                      <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+                        <div className="grid gap-0.75">
+                          <strong>{lot.poId} / {lot.id}</strong>
+                          <span className="text-caption text-text-secondary">ลำดับเอกสารและจุดตรวจสอบย้อนกลับ</span>
+                        </div>
+                        <DocumentPreview title="สรุปเอกสารตาม Lot" number={`TRACE-${lot.id}`} rows={[["PO", lot.poId], ["Lot", lot.id], ["สถานะล่าสุด", stages[lot.stage]], ["Invoice Foodiva", foodInvoice?.values.invoiceNo || "—"], ["PO โรงรมควัน", smokeOrder?.values.orderNumber || "—"], ["Invoice Chef_house", chefInvoice?.values.invoiceNumber || "—"], ["Lot สโมค", smokeEntries.map((entry) => entry.values.subLot).filter(Boolean).join(", ") || "—"], ["ใบขนส่งขาไป", dispatch?.values.transferNumber || "—"], ["ใบขนส่งขากลับ", returnTrip?.values.transferNumber || "—"]]} />
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-190 border-collapse bg-surface">
+                          <thead>
+                            <tr>
+                              {detailColumns.map((column) => (
+                                <th key={column} className={`${detailCellClass} bg-bg text-caption text-text-secondary`}>{column}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detailRows.map(([type, number, documentDate, status, action], index) => (
+                              <tr key={`${type}-${index}`}>
+                                <td className={detailCellClass}>{type}</td>
+                                <td className={detailCellClass}>{number}</td>
+                                <td className={detailCellClass}>{documentDate}</td>
+                                <td className={detailCellClass}>{status}</td>
+                                <td className={detailCellClass}>{action}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>}
                 </Fragment>;
-              }) : <tr><td className="no-data" colSpan={8}>ยังไม่มีเอกสารตามเงื่อนไขที่เลือก</td></tr>}
+              }) : <tr><td className={`${tdClass} p-7 text-center text-text-secondary`} colSpan={8}>ยังไม่มีเอกสารตามเงื่อนไขที่เลือก</td></tr>}
             </tbody>
           </table>
         </div>
-      </section>
+      </TableSection>
 
-      <p className="footnote">
+      <Footnote className="-mt-1">
         หน้านี้อ่านอย่างเดียวและไม่เปลี่ยนข้อมูลใด ๆ ทุกขั้นตอนยังทำจากเมนู PO, ใบ Invoice,
         ใบขนส่ง, งานผลิต และสต๊อกตามเดิม
-      </p>
+      </Footnote>
     </div>
   );
 }
