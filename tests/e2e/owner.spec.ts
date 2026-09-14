@@ -181,7 +181,7 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
     page.getByRole("dialog").getByAltText("โลโก้ NerdNuea"),
   ).toBeVisible();
 
-  await field(page, /ผู้ขาย · Food Diva/, "Food Diva");
+  await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
   await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
   await field(page, /น้ำหนักสั่งซื้อ/, "500");
   await field(page, /ราคาเนื้อ/, "250");
@@ -189,7 +189,7 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
 
   const poTable = tableSection(page, "รายการใบสั่งซื้อ PO");
   await expect(poTable).toContainText("500.00 กก.");
-  await expect(poTable).toContainText("รอ Food Diva ออก Invoice");
+  await expect(poTable).toContainText("รอ Foodiva ออก Invoice");
 });
 
 test("Owner เปิดได้ทุกหน้าจอในเมนูของตัวเอง", async ({ page }) => {
@@ -224,7 +224,7 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
   );
   await expect(sidebar.getByRole("button", { name: "งานผลิต" })).toHaveCount(0);
   await expect(
-    sidebar.getByRole("button", { name: "PO และสต๊อก Food Diva" }),
+    sidebar.getByRole("button", { name: "PO และสต๊อก Foodiva" }),
   ).toHaveCount(0);
 });
 

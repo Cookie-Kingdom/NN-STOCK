@@ -37,7 +37,7 @@ export function useOwnerAlerts(db: Database) {
   const billingCount = entries(db, "smokingInvoice").filter(
     (invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด",
   ).length;
-  const foodDivaInvoiceCount = db.lots.filter(
+  const foodivaInvoiceCount = db.lots.filter(
     (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0 && !entries(db, "smokeOrder", lot.id).length,
   ).length;
 
@@ -50,15 +50,15 @@ export function useOwnerAlerts(db: Database) {
       if (!foodInvoice)
         return [
           {
-            title: `รอ Food Diva ออก Invoice · ${item.id}`,
-            detail: "ติดตาม Food Diva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
+            title: `รอ Foodiva ออก Invoice · ${item.id}`,
+            detail: "ติดตาม Foodiva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
             tab: "po",
           },
         ];
       if (!smokeOrder)
         return [
           {
-            title: `Food Diva ออก Invoice แล้ว · ${item.id}`,
+            title: `Foodiva ออก Invoice แล้ว · ${item.id}`,
             detail: `Owner ต้องออก PO โรงรมควันต่อ · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, item.id))} กก.`,
             tab: "smoke-po",
           },
@@ -115,8 +115,8 @@ export function useOwnerAlerts(db: Database) {
       if (item.stage === 7 && !entries(db, "foodDivaReturnReceive", item.id).length)
         return [
           {
-            title: `รอ Food Diva รับเนื้อรมควัน · ${item.id}`,
-            detail: "ติดตาม Food Diva ให้ชั่งรับเนื้อจาก Chef_house เข้าตู้",
+            title: `รอ Foodiva รับเนื้อรมควัน · ${item.id}`,
+            detail: "ติดตาม Foodiva ให้ชั่งรับเนื้อจาก Chef_house เข้าตู้",
             tab: "transport",
           },
         ];
@@ -130,7 +130,7 @@ export function useOwnerAlerts(db: Database) {
     ...(centralReceiveCount
       ? [
           {
-            title: `Food Diva รับเนื้อรมควันแล้ว ${centralReceiveCount} Lot`,
+            title: `Foodiva รับเนื้อรมควันแล้ว ${centralReceiveCount} Lot`,
             detail: "รับเนื้อเข้าสต๊อกกลางก่อนจัดสรรไปสาขา",
             tab: "central-receive" as Tab,
           },
@@ -162,7 +162,8 @@ export function useOwnerAlerts(db: Database) {
     returnReady,
     badges: {
       transport: transportCount,
-      invoices: billingCount + foodDivaInvoiceCount,
+      invoices: billingCount,
+      "smoke-po": foodivaInvoiceCount,
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,

@@ -10,12 +10,12 @@ export function SmokingPurchaseOrderView({ db, open }: { db: Database; open: (ki
   const eligibleLots = db.lots.filter((lot) => entries(db, "foodDivaConfirm", lot.id).length > 0);
   return <div className="settings-stack">
     <section className="panel config-heading">
-      <div><span className="overline">CHEF_HOUSE SERVICE PO</span><h2>ใบสั่ง PO โรงรมควัน</h2><p className="muted">Owner ออก PO รมควันหลัง Food Diva ออก Invoice แล้ว Chef_house ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ</p></div>
+      <div><span className="overline">CHEF_HOUSE SERVICE PO</span><h2>ใบสั่ง PO โรงรมควัน</h2><p className="muted">Owner ออก PO รมควันหลัง Foodiva ออก Invoice แล้ว Chef_house ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ</p></div>
       <Stat label="PO รอยืนยันจาก Chef_house" value={`${eligibleLots.filter((lot) => entries(db, "smokeOrder", lot.id).length && !entries(db, "smokeOrderAccept", lot.id).length).length} ใบ`} />
     </section>
     <DataTable
       title="รายการ PO โรงรมควัน"
-      columns={["PO เนื้อ / Lot", "Invoice Food Diva", "น้ำหนักสั่งรม", "อัตราค่ารม", "Chef_house รับ PO", "ใบวางบิล", "การทำงาน"]}
+      columns={["PO เนื้อ / Lot", "Invoice Foodiva", "น้ำหนักสั่งรม", "อัตราค่ารม", "Chef_house รับ PO", "ใบวางบิล", "การทำงาน"]}
       rows={eligibleLots.map((lot) => {
         const supplierInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
         const order = entries(db, "smokeOrder", lot.id).at(-1);
@@ -43,7 +43,7 @@ export function SmokingPurchaseOrderView({ db, open }: { db: Database; open: (ki
               ["วันที่ PO", order.values.requestedSmokeDate || order.date],
               ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
               ["Lot เนื้อ", lot.id],
-              ["Food Diva Invoice", supplierInvoice?.values.invoiceNo || "—"],
+              ["Foodiva Invoice", supplierInvoice?.values.invoiceNo || "—"],
               ["สินค้า", "บริการรมควันเนื้อ"],
               ["ขนาดบรรจุ", lot.id],
               ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
@@ -55,6 +55,6 @@ export function SmokingPurchaseOrderView({ db, open }: { db: Database; open: (ki
         ];
       })}
     />
-    {!eligibleLots.length && <div className="notice">ยังไม่มี PO เนื้อที่ Food Diva ออก Invoice แล้ว</div>}
+    {!eligibleLots.length && <div className="notice">ยังไม่มี PO เนื้อที่ Foodiva ออก Invoice แล้ว</div>}
   </div>;
 }

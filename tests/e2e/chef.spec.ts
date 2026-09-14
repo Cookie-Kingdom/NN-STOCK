@@ -3,7 +3,7 @@ import {
   ACCOUNTS,
   button,
   field,
-  foodDivaIssuesInvoice,
+  foodivaIssuesInvoice,
   INVOICE_FIXTURE,
   ownerCreatesMeatPo,
   ownerIssuesSmokePo,
@@ -20,8 +20,8 @@ test("Chef_house รับ PO รมควันแล้ว Submit ใบวา
 
   await signInAs(page, ACCOUNTS.owner);
   await ownerCreatesMeatPo(page, "500");
-  await signInAs(page, ACCOUNTS.fooddiva);
-  await foodDivaIssuesInvoice(page, "500");
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaIssuesInvoice(page, "500");
   await signInAs(page, ACCOUNTS.owner);
   await ownerIssuesSmokePo(page, "500");
 
@@ -69,7 +69,7 @@ test("Chef_house เห็นเฉพาะเมนูและงานขอ
     "รายงาน",
     "ใบสั่งซื้อ PO",
     "กรอกรายวัน",
-    "PO และสต๊อก Food Diva",
+    "PO และสต๊อก Foodiva",
   ]) {
     await expect(sidebar.getByRole("button", { name: forbidden })).toHaveCount(
       0,
@@ -90,6 +90,6 @@ test("Chef_house เห็นเฉพาะเมนูและงานขอ
 
   // เปิด URL ของบัญชีอื่นตรง ๆ ต้องถูกพากลับที่ทำงานตัวเอง
   await page.goto("/branch");
-  await page.waitForURL("**/chef");
+  await page.waitForURL("**/chef/cm-receive");
   await expect(page.getByRole("button", { name: "ออกจากระบบ" })).toBeVisible();
 });

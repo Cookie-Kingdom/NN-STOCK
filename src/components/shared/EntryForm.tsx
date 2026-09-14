@@ -35,7 +35,7 @@ export function EntryForm({
     if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
     if (kind === "dispatch" && modalLot) Object.assign(base, {
       dispatchKg: String(readyForChefHouse(db, modalLot.id)),
-      origin: "Food Diva · กรุงเทพฯ",
+      origin: "Foodiva · กรุงเทพฯ",
       destination: "Chef_house · เชียงใหม่",
     });
     if (kind === "smokeOrder" && modalLot) Object.assign(base, {
@@ -44,7 +44,7 @@ export function EntryForm({
     if (kind === "return" && modalLot) Object.assign(base, {
       returnKg: String(produced(db, modalLot.id)),
       origin: "Chef_house · เชียงใหม่",
-      destination: "Food Diva · กรุงเทพฯ",
+      destination: "Foodiva · กรุงเทพฯ",
     });
     if (kind === "purchase") Object.assign(base, {
       customerName: db.config.companyName || "",

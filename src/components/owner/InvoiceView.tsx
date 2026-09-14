@@ -14,7 +14,7 @@ export function InvoiceView({ db, open }: { db: Database; open: (kind: string, l
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const matches = (lot: Lot | undefined) => matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate);
-  const foodDivaInvoices = entries(db, "foodDivaConfirm").filter((entry) => matches(db.lots.find((lot) => lot.id === entry.lotId)));
+  const foodivaInvoices = entries(db, "foodDivaConfirm").filter((entry) => matches(db.lots.find((lot) => lot.id === entry.lotId)));
   const smokingInvoices = entries(db, "smokingInvoice").filter((entry) => matches(db.lots.find((lot) => lot.id === entry.lotId)));
   return (
     <div className="settings-stack">
@@ -22,7 +22,7 @@ export function InvoiceView({ db, open }: { db: Database; open: (kind: string, l
         <div>
           <span className="overline">INVOICE CENTER</span>
           <h2>ใบ Invoice</h2>
-          <p className="muted">Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Food Diva และ Chef_house แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO</p>
+          <p className="muted">Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef_house แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO</p>
         </div>
         <Stat label="Invoice รอตรวจยอด" value={`${smokingInvoices.filter((entry) => smokingInvoiceStatus(db, entry) === "รอตรวจยอด").length} ใบ`} />
       </section>
@@ -37,9 +37,9 @@ export function InvoiceView({ db, open }: { db: Database; open: (kind: string, l
         onToDate={setToDate}
       />
       <DataTable
-        title="Invoice Food Diva"
+        title="Invoice Foodiva"
         columns={["เลข Invoice", "วันที่ Invoice", "PO / Lot", "วันที่ PO / Lot", "น้ำหนัก", "ยอดรวม", "ผู้ยืนยัน", "ไฟล์"]}
-        rows={foodDivaInvoices.map((entry) => {
+        rows={foodivaInvoices.map((entry) => {
           const lot = db.lots.find((item) => item.id === entry.lotId);
           return [
             entry.values.invoiceNo,

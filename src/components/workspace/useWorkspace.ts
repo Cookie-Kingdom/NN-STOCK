@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSelectedLayoutSegment } from "next/navigation";
 import { useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
@@ -11,7 +12,10 @@ import { entries, isClosed } from "@/lib/store";
  * which lots this account may see, and the open dialog. */
 export function useWorkspace(account: Account) {
   const db = useDatabase();
-  const [tab, setTab] = useState<Tab>(account.homeTab);
+  const router = useRouter();
+  // The tab is the URL segment under the role's layout: /owner/po → "po".
+  const tab = (useSelectedLayoutSegment() as Tab | null) ?? account.homeTab;
+  const setTab = (next: Tab) => router.push(`${account.path}/${next}`);
   const [date, setDate] = useState(today);
   const [chosen, setChosen] = useState("");
   const [modal, setModal] = useState<Modal | null>(null);

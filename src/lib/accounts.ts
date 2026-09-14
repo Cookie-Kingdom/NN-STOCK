@@ -2,7 +2,7 @@ import { Beef, Building2, Factory, Store } from "lucide-react";
 import type { Role } from "@/lib/store";
 import type { Tab } from "@/lib/nav";
 
-export type AccountId = "owner" | "fooddiva" | "chef" | "saladaeng" | "minburi";
+export type AccountId = "owner" | "foodiva" | "chef" | "saladaeng" | "minburi";
 
 export type Account = {
   id: AccountId;
@@ -29,13 +29,13 @@ export const accounts: Account[] = [
     icon: Building2,
   },
   {
-    id: "fooddiva",
+    id: "foodiva",
     role: "fooddiva",
-    name: "Food Diva",
+    name: "Foodiva",
     title: "ผู้ขายเนื้อ · ออก Invoice",
     summary: "รับ PO ออก Invoice เก็บเนื้อรอรถ และยืนยันรับเนื้อรมควันกลับเข้าสต๊อก",
-    path: "/fooddiva",
-    homeTab: "food-diva",
+    path: "/foodiva",
+    homeTab: "foodiva",
     icon: Beef,
   },
   {

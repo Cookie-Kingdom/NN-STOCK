@@ -20,7 +20,7 @@ function accountForProfile(profile: Profile, locationName?: string): Account | n
   if (!profile.is_active) return null;
   const id: AccountId = profile.role === "L1_OWNER" ? "owner"
     : profile.role === "L3_CM_OPERATOR" ? "chef"
-    : profile.role === "L4_SUPPLIER" ? "fooddiva"
+    : profile.role === "L4_SUPPLIER" ? "foodiva"
     : locationName?.includes("มีนบุรี") ? "minburi" : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;

@@ -2,21 +2,21 @@ import { expect, test } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
-  foodDivaIssuesInvoice,
+  foodivaIssuesInvoice,
   ownerCreatesMeatPo,
   signInAs,
   startFresh,
   tableSection,
 } from "./helpers";
 
-test("Food Diva รับ PO จาก Owner แล้วออก Invoice เนื้อ", async ({ page }) => {
+test("Foodiva รับ PO จาก Owner แล้วออก Invoice เนื้อ", async ({ page }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   await ownerCreatesMeatPo(page, "500");
 
-  await signInAs(page, ACCOUNTS.fooddiva);
+  await signInAs(page, ACCOUNTS.foodiva);
   await expect(
-    page.getByRole("heading", { name: "PO และสต๊อก Food Diva" }),
+    page.getByRole("heading", { name: "PO และสต๊อก Foodiva" }),
   ).toBeVisible();
 
   // งานค้างต้องขึ้นตัวเลขบนเมนู และ PO ต้องรอ Invoice อยู่
@@ -26,7 +26,7 @@ test("Food Diva รับ PO จาก Owner แล้วออก Invoice เ�
   const pendingBefore = Number(await pending.innerText());
   await expect(page.locator("main")).toContainText("500.00");
 
-  await foodDivaIssuesInvoice(page, "500");
+  await foodivaIssuesInvoice(page, "500");
 
   await expect(page.getByRole("status")).toContainText("บันทึก");
   await expect(page.locator("main")).toContainText("FD-INV-001");
@@ -42,13 +42,13 @@ test("Food Diva รับ PO จาก Owner แล้วออก Invoice เ�
   );
 });
 
-test("Food Diva เห็นเฉพาะเมนูของตัวเอง", async ({ page }) => {
+test("Foodiva เห็นเฉพาะเมนูของตัวเอง", async ({ page }) => {
   await startFresh(page);
-  await signInAs(page, ACCOUNTS.fooddiva);
+  await signInAs(page, ACCOUNTS.foodiva);
 
   const sidebar = page.locator("aside.app-sidebar");
   await expect(
-    sidebar.getByRole("button", { name: "PO และสต๊อก Food Diva" }),
+    sidebar.getByRole("button", { name: "PO และสต๊อก Foodiva" }),
   ).toBeVisible();
   await expect(sidebar.getByRole("button", { name: "ประวัติ" })).toBeVisible();
   for (const forbidden of [
@@ -65,9 +65,9 @@ test("Food Diva เห็นเฉพาะเมนูของตัวเอ�
 
   // เปิด URL ของบัญชีอื่นตรง ๆ ต้องไม่เห็นหน้าจอ Owner และถูกพากลับที่ทำงานตัวเอง
   await page.goto("/owner");
-  await page.waitForURL("**/fooddiva");
+  await page.waitForURL("**/foodiva/foodiva");
   await expect(
-    page.getByRole("heading", { name: "PO และสต๊อก Food Diva" }),
+    page.getByRole("heading", { name: "PO และสต๊อก Foodiva" }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "แดชบอร์ด" })).toHaveCount(0);
 });

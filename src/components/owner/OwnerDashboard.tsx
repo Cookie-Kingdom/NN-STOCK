@@ -5,7 +5,7 @@ import { BarChart3, CircleAlert, Package, TrendingUp, Warehouse } from "lucide-r
 import { CostDonut } from "@/components/shared/CostDonut";
 import { DataTable } from "@/components/shared/DataTable";
 import { SalesBars } from "@/components/shared/SalesBars";
-import { averageYield, balance, branchMaterialStock, branches, centralStock, chiliStock, cookedRiceStock, entries, isClosed, materialPar, materials, n, processLoss, produced, rawAtFoodDiva, rawAtSmoker, rawRiceStock, readyForChefHouse, reservedForOwnerContent, smokingInvoiceStatus, stages, steakRawStock, type Database, type Entry } from "@/lib/store";
+import { averageYield, balance, branchMaterialStock, branches, centralStock, chiliStock, cookedRiceStock, entries, isClosed, materialPar, materials, n, processLoss, produced, rawAtFoodiva, rawAtSmoker, rawRiceStock, readyForChefHouse, reservedForOwnerContent, smokingInvoiceStatus, stages, steakRawStock, type Database, type Entry } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Tab } from "@/lib/nav";
 
@@ -83,14 +83,14 @@ export function OwnerDashboard({
     ];
   });
   const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
-  const foodDivaInvoicesForOwner = db.lots.filter(
+  const foodivaInvoicesForOwner = db.lots.filter(
     (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0 && !entries(db, "smokeOrder", lot.id).length,
   );
   const alertDetails: { title: string; detail: string; kind: "branch" | "lot" | "invoice"; tab?: Tab }[] = [
-    ...foodDivaInvoicesForOwner.map((lot) => {
+    ...foodivaInvoicesForOwner.map((lot) => {
       const invoice = entries(db, "foodDivaConfirm", lot.id).at(-1)!;
       return {
-        title: `Food Diva ออก Invoice แล้ว · ${lot.id}`,
+        title: `Foodiva ออก Invoice แล้ว · ${lot.id}`,
         detail: `Invoice ${invoice.values.invoiceNo} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก. · เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ${fmt(reservedForOwnerContent(db, lot.id))} กก.`,
         kind: "invoice" as const,
         tab: "invoices" as const,
@@ -238,12 +238,12 @@ export function OwnerDashboard({
       </section>
       <DataTable
         title="Document & raw beef summary"
-        columns={["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Food Diva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"]}
+        columns={["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Foodiva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"]}
         rows={[[
           String(db.lots.filter((lot) => lot.stage < 8).length),
           String(entries(db, "supplierInvoice").filter((entry) => entry.values.paymentStatus !== "Paid").length),
           String(entries(db, "smokingInvoice").filter((entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว").length),
-          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodDiva(db, lot), 0))} กก.`,
+          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0))} กก.`,
           `${fmt(db.lots.reduce((sum, lot) => sum + rawAtSmoker(db, lot), 0))} กก.`,
           `${fmt(steakRawStock(db))} กก.`,
           `${fmt(db.lots.reduce((sum, lot) => sum + produced(db, lot.id), 0))} กก.`,

@@ -1,15 +1,15 @@
 "use client";
 
-import { FoodDivaView } from "@/components/fooddiva/FoodDivaView";
+import { FoodivaView } from "@/components/foodiva/FoodivaView";
 import { HistoryPanel } from "@/components/workspace/HistoryPanel";
 import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { useWorkspace } from "@/components/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { foodDivaNav } from "@/lib/nav";
+import { foodivaNav } from "@/lib/nav";
 import { entries } from "@/lib/store";
 
-export function FoodDivaWorkspace({ account }: { account: Account }) {
+export function FoodivaWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, tab } = ws;
 
@@ -23,16 +23,16 @@ export function FoodDivaWorkspace({ account }: { account: Account }) {
     <>
       <WorkspaceShell
         account={account}
-        nav={foodDivaNav}
+        nav={foodivaNav}
         tab={tab}
         onTab={ws.setTab}
         date={ws.date}
         onDate={ws.setDate}
-        badges={{ "food-diva": openTasks }}
+        badges={{ "foodiva": openTasks }}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >
-        {tab === "food-diva" && <FoodDivaView db={db} open={ws.open} />}
+        {tab === "foodiva" && <FoodivaView db={db} open={ws.open} />}
         {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />

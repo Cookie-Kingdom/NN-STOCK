@@ -1,12 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { ChefWorkspace } from "@/components/chef/ChefWorkspace";
-import { AccountGate } from "@/components/workspace/AccountGate";
-
-export default function ChefPage() {
-  return (
-    <AccountGate allow={["chef"]}>
-      {(account) => <ChefWorkspace account={account} />}
-    </AccountGate>
-  );
+export default function ChefIndex() {
+  redirect("/chef/cm-receive");
 }

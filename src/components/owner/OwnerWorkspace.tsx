@@ -96,7 +96,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
                 "ลูกค้า / Attention",
                 "สินค้า / ขนาดบรรจุ",
                 "น้ำหนักสั่งซื้อ",
-                "Invoice Food Diva",
+                "Invoice Foodiva",
                 "สถานะ",
                 "การทำงาน",
               ]}
@@ -111,7 +111,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
                 item.stage === 1 ? (
                   <div className="button-row" key={item.id}>
                     {!entries(db, "foodDivaConfirm", item.id).length ? (
-                      <span className="badge danger">รอ Food Diva ออก Invoice</span>
+                      <span className="badge danger">รอ Foodiva ออก Invoice</span>
                     ) : !entries(db, "smokeOrder", item.id).length ? (
                       <button className="table-action" onClick={() => setTab("smoke-po")}>
                         ไปใบสั่ง PO โรงรมควัน

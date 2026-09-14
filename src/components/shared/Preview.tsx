@@ -19,7 +19,7 @@ export function Preview({
   if (kind === "purchase")
     rows = [
       ["ค่าเนื้อ", `฿${fmt(n(v, "orderedKg") * n(v, "price"))}`],
-      ["สถานะ", "รอ Food Diva ออก Invoice ก่อนเรียกรถ"],
+      ["สถานะ", "รอ Foodiva ออก Invoice ก่อนเรียกรถ"],
     ];
   if (kind === "foodDivaConfirm") {
     const invoiced = n(v, "confirmedKg");
@@ -61,7 +61,7 @@ export function Preview({
   if (kind === "cmReceive" && lot)
     rows = [
       ["การตรวจรับ", "กรอกน้ำหนักจากตาชั่งของ Chef_house"],
-      ["การตรวจสอบ", "Owner จะเปรียบเทียบน้ำหนักกับ Food Diva ภายหลัง"],
+      ["การตรวจสอบ", "Owner จะเปรียบเทียบน้ำหนักกับ Foodiva ภายหลัง"],
     ];
   if (kind === "prepare" && lot)
     rows = [["รับจริง", `${fmt(n(lot.values, "receivedKg"))} กก.`]];
@@ -94,7 +94,7 @@ export function Preview({
     ];
   if (kind === "return" && lot)
     rows = [
-      ["ของที่ส่งกลับ Food Diva", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
+      ["ของที่ส่งกลับ Foodiva", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
       [
         "ค่ารถขากลับ",
         `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(lot.config, "returnFee"))}`,
@@ -103,7 +103,7 @@ export function Preview({
     ];
   if (kind === "central" && lot)
     rows = [
-      ["Food Diva รับเข้าตู้แล้ว", `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`],
+      ["Foodiva รับเข้าตู้แล้ว", `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`],
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],
     ];

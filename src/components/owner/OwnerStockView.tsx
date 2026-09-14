@@ -41,7 +41,7 @@ export function OwnerStockView({
       const invoiceConfirmed = entries(db, "foodDivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
       const dispatched = n(entries(db, "dispatch", lot.id).at(-1)?.values || {}, "dispatchKg");
-      const readyAtFoodDiva = Math.max(0, readyForChefHouse(db, lot.id) - dispatched);
+      const readyAtFoodiva = Math.max(0, readyForChefHouse(db, lot.id) - dispatched);
       const ownerReserved = reservedForOwnerContent(db, lot.id);
       const ownerWaiting = ownerWasteOutstanding(db, lot.id);
       const ownerReceived = ownerWasteReceived(db, lot.id);
@@ -49,16 +49,16 @@ export function OwnerStockView({
         {
           genre: "เนื้อ",
           item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef_house`,
-          location: "Food Diva",
-          quantity: fmt(invoiceConfirmed ? readyAtFoodDiva : 0),
+          location: "Foodiva",
+          quantity: fmt(invoiceConfirmed ? readyAtFoodiva : 0),
           unit: "กก.",
-          detail: invoiceConfirmed ? "จาก Invoice Food Diva · รอ Owner เรียกรถไปเชียงใหม่" : "รอ Food Diva ยืนยัน Invoice",
+          detail: invoiceConfirmed ? "จาก Invoice Foodiva · รอ Owner เรียกรถไปเชียงใหม่" : "รอ Foodiva ยืนยัน Invoice",
           meatType: "เนื้อดิบพร้อมส่ง Chef_house",
         },
         ...(invoiceConfirmed ? [{
           genre: "เนื้อ",
           item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
-          location: "Food Diva",
+          location: "Foodiva",
           quantity: fmt(ownerWaiting),
           unit: "กก.",
           detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
@@ -72,7 +72,7 @@ export function OwnerStockView({
           location: "Owner",
           quantity: fmt(ownerReceived),
           unit: "กก.",
-          detail: "รับจาก Food Diva แล้ว · สำหรับใช้งาน Owner",
+          detail: "รับจาก Foodiva แล้ว · สำหรับใช้งาน Owner",
           meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
         }] : []),] : []),
         {
@@ -233,7 +233,7 @@ export function OwnerStockView({
           <div className="table-filters">
             <label className="table-filter">กลุ่มสต๊อก<select value={genre} onChange={(event) => { setGenre(event.target.value); setItemFilter("ทั้งหมด"); }}><option>ทั้งหมด</option><option>เนื้อ</option><option>วัตถุดิบ</option><option>วัสดุบรรจุภัณฑ์</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></select></label>
             <label className="table-filter">{genre === "เนื้อ" ? "ประเภทเนื้อ" : genre === "ทั้งหมด" ? "รายการ / ประเภทเนื้อ" : "รายการ"}<select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}><option>ทั้งหมด</option>{itemOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Food Diva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
+            <label className="table-filter">สถานที่<select value={location} onChange={(event) => setLocation(event.target.value)}><option>ทั้งหมด</option><option>Foodiva</option><option>Owner</option><option>คลังกลาง</option><option>คลัง Owner</option><option>บัญชี Owner</option>{branches.map((branchName) => <option key={branchName}>{branchName}</option>)}</select></label>
           </div>
         }
         columns={["กลุ่ม", "รายการ / Lot", "สถานที่", "คงเหลือ", "หน่วย", "รายละเอียด", "การทำงาน"]}

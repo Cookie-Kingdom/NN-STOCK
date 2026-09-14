@@ -98,7 +98,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {
           setTab("po");
-          done("สร้างใบ PO แล้ว · รอ Food Diva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง");
+          done("สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง");
         } else {
           done(`บันทึก${titles[modal.kind]}แล้ว`);
         }

@@ -10,8 +10,8 @@ const cases = [
   ["UAT-OWN-001", "Owner", "Stock", "Record central chili purchase", "Open All Stock, record 20 chili tubes with supplier, unit price and receipt reference", "Purchase is saved and central stock/cost increases", "Passed"],
   ["UAT-OWN-002", "Owner", "Stock", "Allocate chili to Sala Daeng", "Allocate 10 tubes and record receiver/reference", "Sala Daeng opening chili stock increases", "Passed"],
   ["UAT-OWN-003", "Owner", "Stock", "Allocate chili to Min Buri", "Allocate 10 tubes and record receiver/reference", "Min Buri opening chili stock increases", "Passed"],
-  ["UAT-OWN-004", "Owner", "Meat PO", "Create Food Diva meat PO", "Enter company, contact, tax, packing, 500 kg and unit price", "PO is saved and appears for Food Diva", "Passed"],
-  ["UAT-FD-001", "Food Diva", "Invoice", "Receive PO and upload meat invoice", "Enter invoice number, 500 kg, total amount, attach PDF and confirm", "Invoice is linked to the PO and submitted", "Passed"],
+  ["UAT-OWN-004", "Owner", "Meat PO", "Create Foodiva meat PO", "Enter company, contact, tax, packing, 500 kg and unit price", "PO is saved and appears for Foodiva", "Passed"],
+  ["UAT-FD-001", "Foodiva", "Invoice", "Receive PO and upload meat invoice", "Enter invoice number, 500 kg, total amount, attach PDF and confirm", "Invoice is linked to the PO and submitted", "Passed"],
   ["UAT-OWN-005", "Owner", "Smoking PO", "Create Chef_house smoking PO", "Create service PO for 500 kg with production instruction", "Smoking PO appears in Chef_house work", "Passed"],
   ["UAT-CHF-001", "Chef_house", "Smoking PO", "Accept smoking PO", "Open production work and confirm receipt of smoking PO", "PO status changes to accepted", "Passed"],
   ["UAT-CHF-002", "Chef_house", "Billing", "Submit service invoice", "Enter invoice number, attach the invoice PDF and enter details; the system calculates the smoking fee", "Owner receives invoice alert for review", "Passed"],
@@ -23,8 +23,8 @@ const cases = [
   ["UAT-CHF-005", "Chef_house", "Production", "Record smoked output bags", "Enter 500 kg batch and five bags of 100 kg", "Five bags and total output are available to Owner", "Passed"],
   ["UAT-CHF-006", "Chef_house", "Production", "Close production Lot", "Enter closer name and confirm Lot close", "Lot is locked and ready for return transport", "Passed"],
   ["UAT-OWN-009", "Owner", "Transport", "Create return transport document", "Select Chiang Mai to Bangkok and record vehicle/driver/500 kg", "Return transport is linked to the Lot", "Passed"],
-  ["UAT-FD-002", "Food Diva", "Receiving", "Receive smoked meat return", "Confirm 500 kg returned from Chef_house", "Smoked stock is held at Food Diva", "Passed"],
-  ["UAT-OWN-010", "Owner", "Central Stock", "Receive smoked meat into central stock", "Confirm transfer from Food Diva", "Central smoked meat stock becomes available", "Passed"],
+  ["UAT-FD-002", "Foodiva", "Receiving", "Receive smoked meat return", "Confirm 500 kg returned from Chef_house", "Smoked stock is held at Foodiva", "Passed"],
+  ["UAT-OWN-010", "Owner", "Central Stock", "Receive smoked meat into central stock", "Confirm transfer from Foodiva", "Central smoked meat stock becomes available", "Passed"],
   ["UAT-OWN-011", "Owner", "Allocation", "Allocate bags to both branches", "Assign two bags to Sala Daeng and two bags to Min Buri", "Each branch receives a pending allocation", "Passed"],
   ["UAT-SAL-001", "Sala Daeng", "Receiving", "Receive branch allocation", "Select allocation and confirm 200 kg / 2 bags", "Frozen branch stock increases", "Passed"],
   ["UAT-SAL-002", "Sala Daeng", "Defrost", "Defrost meat", "Record 0.1 kg / 1 bag for daily use", "Ready-to-sell quantity increases", "Passed"],
@@ -55,7 +55,7 @@ summary.getRange("A1:H1").merge();
 summary.getRange("A1").values = [["NerdNuea Stock UAT"]];
 summary.getRange("A1").format.font = { name: font, size: 18, bold: true, color: "#153F38" };
 summary.getRange("A2:H2").merge();
-summary.getRange("A2").values = [["Playwright full business loop across Owner, Food Diva, Chef_house, Sala Daeng and Min Buri"]];
+summary.getRange("A2").values = [["Playwright full business loop across Owner, Foodiva, Chef_house, Sala Daeng and Min Buri"]];
 summary.getRange("A2").format.font = { name: font, size: 10, italic: true, color: "#65736E" };
 summary.getRange("A4:B9").values = [
   ["Test date", runDate],
@@ -68,7 +68,7 @@ summary.getRange("A4:B9").values = [
 summary.getRange("A4:A9").format.font = { name: font, bold: true, color: "#153F38" };
 summary.getRange("B4").format.numberFormat = "yyyy-mm-dd";
 summary.getRange("A11:D11").values = [["Role", "Test cases", "Passed", "Failed"]];
-const roles = ["Owner", "Food Diva", "Chef_house", "Sala Daeng", "Min Buri"];
+const roles = ["Owner", "Foodiva", "Chef_house", "Sala Daeng", "Min Buri"];
 summary.getRange("A12:A16").values = roles.map((r) => [r]);
 summary.getRange("B12").formulas = [["=COUNTIF('Test Cases'!$B$5:$B$104,A12)"]];
 summary.getRange("B12:B16").fillDown();

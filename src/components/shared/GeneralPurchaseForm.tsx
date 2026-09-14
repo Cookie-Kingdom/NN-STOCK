@@ -88,7 +88,7 @@ export function GeneralPurchaseForm({
         const unitPrice = Number(line.unitPrice);
         if (!item || item === "__custom__") throw new Error("กรอกรายการที่ซื้อให้ครบ");
         if (line.category === "วัตถุดิบ" && /เนื้อ/.test(item))
-          throw new Error("เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Food Diva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง");
+          throw new Error("เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Foodiva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง");
         if (!line.purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
         if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
         if (!line.unit.trim()) throw new Error(`กรอกหน่วยของ ${item}`);
@@ -129,7 +129,7 @@ export function GeneralPurchaseForm({
         </header>
         <form onSubmit={submit}>
           <div className="form-body">
-            <div className="notice">เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก Food Diva เพื่อผูก Lot กับสต๊อก</div>
+            <div className="notice">เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก Foodiva เพื่อผูก Lot กับสต๊อก</div>
             <div className="general-purchase-list">
               {lines.map((line, index) => {
                 const amount = Number(line.quantity || 0) * Number(line.unitPrice || 0);

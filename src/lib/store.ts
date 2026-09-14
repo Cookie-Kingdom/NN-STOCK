@@ -1,4 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
+// ponytail: "fooddiva" and the foodDiva* entry/config keys are stored in app_state history (append-only), so they keep the old spelling; renaming them needs a payload migration.
 export type Role = "owner" | "fooddiva" | "cm" | "branch";
 export type Values = Record<string, string>;
 export type Entry = {
@@ -26,7 +27,7 @@ export type Database = {
 };
 export const roleName = {
   owner: "Owner",
-  fooddiva: "Food Diva",
+  fooddiva: "Foodiva",
   cm: "Chef_house",
   branch: "ผู้ดูแลสาขา",
 };
@@ -41,14 +42,14 @@ export const materials = [
 ];
 export const branches = ["ศาลาแดง", "มีนบุรี"];
 export const stages = [
-  "รอ Invoice จาก Food Diva",
-  "ขนส่ง Food Diva → Chef_house",
+  "รอ Invoice จาก Foodiva",
+  "ขนส่ง Foodiva → Chef_house",
   "รับที่ Chef_house",
   "ก่อนสโมค",
   "บันทึกสโมค",
   "ปิด Lot",
-  "ขนส่ง Chef_house → Food Diva",
-  "Food Diva รับเนื้อรมควัน",
+  "ขนส่ง Chef_house → Foodiva",
+  "Foodiva รับเนื้อรมควัน",
   "จัดสรร / ขาย",
 ];
 export const stageRole: Role[] = [
@@ -83,8 +84,8 @@ export const titles: Record<string, string> = {
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
   invoicePayment: "ชำระ Invoice ค่ารมควัน",
   steakTransfer: "โอนเนื้อสดไปผลิต Steak",
-  foodDivaConfirm: "อัปโหลด Invoice เนื้อจาก Food Diva",
-  foodDivaReturnReceive: "ยืนยันรับเนื้อรมควันที่ Food Diva",
+  foodDivaConfirm: "อัปโหลด Invoice เนื้อจาก Foodiva",
+  foodDivaReturnReceive: "ยืนยันรับเนื้อรมควันที่ Foodiva",
   dispatch: "ส่งเนื้อไป Chef_house",
   cmReceive: "ยืนยันรับที่ Chef_house",
   prepare: "น้ำหนักก่อนสโมค",
@@ -107,7 +108,7 @@ export const titles: Record<string, string> = {
   sale: "บันทึกยอดขาย / Waste",
   materials: "เช็ควัสดุ 7 รายการ",
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
-  ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Food Diva",
+  ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",
   generalPurchase: "บันทึกการซื้อเข้าบัญชี",
   materialTransfer: "ส่งวัสดุไปสาขา",
   materialConfirm: "ยืนยันรับวัสดุที่สาขา",
@@ -195,7 +196,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     reference: "CHILI-DEMO-001",
   });
   run("owner", "purchase", {
-    supplier: "Food Diva",
+    supplier: "Foodiva",
     customerName: "บริษัท เนิร์ดเนื้อ จำกัด",
     customerAddress: "กรุงเทพฯ",
     attention: "ฝ่ายจัดซื้อ",
@@ -207,7 +208,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     price: "250",
   });
   const lotId = db.lots[0].id;
-  run("fooddiva", "foodDivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Food Diva Demo" }, lotId);
+  run("fooddiva", "foodDivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, lotId);
   run("owner", "smokeOrder", { smoker: "Chef_house", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
   run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house Demo" }, lotId);
   run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef_house", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
@@ -217,7 +218,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   run("owner", "dispatch", {
     dispatchKg: String(rawKg),
     pickupDate: dates[0],
-    origin: "Food Diva · กรุงเทพฯ",
+    origin: "Foodiva · กรุงเทพฯ",
     destination: "Chef_house · เชียงใหม่",
     trip: "ไปกลับ",
     pickupTime: "06:30",
@@ -235,7 +236,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     packs,
   }, lotId);
   run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
-  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef_house · เชียงใหม่", destination: "Food Diva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
+  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef_house · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
   run("fooddiva", "foodDivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
   const firstBags = availableBags(db, lotId);
@@ -416,8 +417,8 @@ export function centralStock(db: Database, lotId: string) {
 export function centralBagStock(db: Database, lotId: string) {
   return availableBags(db, lotId).length;
 }
-/** Raw beef is held by Food Diva until it is dispatched to the smoker or transferred to Steak. */
-export function rawAtFoodDiva(db: Database, lot: Lot) {
+/** Raw beef is held by Foodiva until it is dispatched to the smoker or transferred to Steak. */
+export function rawAtFoodiva(db: Database, lot: Lot) {
   // A remainder lot is a transport child of the same PO, not a second purchase.
   if (lot.id.includes("-R")) return 0;
   const confirmation = entries(db, "foodDivaConfirm", lot.id).at(-1);
@@ -799,11 +800,11 @@ export function mutate(
     positive(v, "amount", "ยอดเอกสาร", true);
     positive(v, "vat", "VAT", true);
   } else if (kind === "smokeOrder" && lot) {
-    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Food Diva ออก Invoice เนื้อก่อน");
+    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Foodiva ออก Invoice เนื้อก่อน");
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
     positive(v, "rawKg", "น้ำหนักเนื้อดิบ");
-    assert(n(v, "rawKg") <= readyForChefHouse(db, lotId) + 0.001, "น้ำหนักใน PO รมควันเกินยอดที่ Food Diva ระบุว่าพร้อมส่งเชียงใหม่");
+    assert(n(v, "rawKg") <= readyForChefHouse(db, lotId) + 0.001, "น้ำหนักใน PO รมควันเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่");
     v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
     v.orderNumber = `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
     v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
@@ -852,9 +853,9 @@ export function mutate(
     positive(v, "quantityKg", "น้ำหนักโอนไป Steak");
     required(v, "transferDate", "วันที่โอน");
     required(v, "reason", "เหตุผลโอน");
-    assert(n(v, "quantityKg") <= rawAtFoodDiva(db, lot) + 0.001, "เนื้อสดคงเหลือที่ Food Diva ไม่พอ");
+    assert(n(v, "quantityKg") <= rawAtFoodiva(db, lot) + 0.001, "เนื้อสดคงเหลือที่ Foodiva ไม่พอ");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "steakTransfer").length + 1).padStart(4, "0")}`;
-    v.sourceLocation = "Food Diva / Raw Meat Storage";
+    v.sourceLocation = "Foodiva / Raw Meat Storage";
     v.destinationLocation = "Steak Production";
     v.status = "Received";
   } else if (kind === "foodDivaConfirm" && lot) {
@@ -872,14 +873,14 @@ export function mutate(
     required(v, "receivedDate", "วันที่ Owner รับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับจริง");
     required(v, "receiver", "ผู้รับเนื้อ");
-    assert(reservedForOwnerContent(db, lotId) > 0, "Food Diva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ");
+    assert(reservedForOwnerContent(db, lotId) > 0, "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ");
     assert(
       n(v, "receivedKg") <= ownerWasteOutstanding(db, lotId) + 0.001,
-      "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Food Diva รอให้ Owner รับ",
+      "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
   } else if (kind === "foodDivaReturnReceive" && lot) {
     assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef_house ก่อน");
-    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef_house → Food Diva");
+    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef_house → Foodiva");
     required(v, "receivedDate", "วันที่รับ");
     required(v, "receivedTime", "เวลารับ");
     positive(v, "receivedKg", "น้ำหนักรับ");
@@ -887,7 +888,7 @@ export function mutate(
     assert(Number.isInteger(n(v, "receivedBags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
-    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Food Diva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
+    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Foodiva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
     assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef_house ยืนยันรับ PO รมควันก่อนเรียกรถ");
     assert(entries(db, "smokingInvoice", lotId).some((invoice) => smokingInvoiceStatus(db, invoice) === "ชำระแล้ว"), "รอ Owner ตรวจยอดและชำระ Invoice ค่ารมควันก่อนเรียกรถ");
     positive(v, "dispatchKg", "น้ำหนักส่ง");
@@ -896,7 +897,7 @@ export function mutate(
     required(v, "destination", "ปลายทาง");
     assert(
       num(v, "dispatchKg") <= readyForChefHouse(db, lotId) + 0.001,
-      "น้ำหนักใบขนส่งเกินยอดที่ Food Diva ระบุว่าพร้อมส่งเชียงใหม่",
+      "น้ำหนักใบขนส่งเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่",
     );
     v.outboundCost =
       v.trip === "ไปกลับ" ? lot.config.roundFee : lot.config.outboundFee;
@@ -957,7 +958,7 @@ export function mutate(
     assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
     v.returnCost = lot.values.trip === "ไปกลับ" ? "0" : lot.config.returnFee;
   } else if (kind === "central" && lot) {
-    assert(entries(db, "foodDivaReturnReceive", lotId).length, "รอ Food Diva ยืนยันรับเนื้อรมควันก่อน");
+    assert(entries(db, "foodDivaReturnReceive", lotId).length, "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน");
     positive(v, "centralKg", "น้ำหนักรับกลาง");
     variance(n(v, "centralKg"), n(entries(db, "foodDivaReturnReceive", lotId).at(-1)?.values || {}, "receivedKg"), v, false);
   } else if (kind === "allocate") {

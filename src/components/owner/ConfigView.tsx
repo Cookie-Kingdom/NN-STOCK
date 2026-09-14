@@ -227,9 +227,9 @@ export function ConfigView({ db }: { db: Database }) {
         action={action("documents")}
         columns={["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย", "ใช้ใน PO"]}
         rows={[
-          row("โลโก้ NerdNuea", valueCell("documents", "logoData", undefined, "file"), "รูปภาพ", "แสดงหัวเอกสารทั้ง PO Food Diva และ PO Chef_house"),
-          row("ผู้รับออเดอร์ Food Diva", valueCell("documents", "foodDivaContact", undefined, "text"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
-          row("ที่อยู่บริษัท Food Diva", valueCell("documents", "foodDivaAddress", undefined, "textarea"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
+          row("โลโก้ NerdNuea", valueCell("documents", "logoData", undefined, "file"), "รูปภาพ", "แสดงหัวเอกสารทั้ง PO Foodiva และ PO Chef_house"),
+          row("ผู้รับออเดอร์ Foodiva", valueCell("documents", "foodDivaContact", undefined, "text"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
+          row("ที่อยู่บริษัท Foodiva", valueCell("documents", "foodDivaAddress", undefined, "textarea"), "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
           row("ผู้รับออเดอร์ Chef_house", valueCell("documents", "chefHouseContact", undefined, "text"), "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
           row("ที่อยู่บริษัท Chef_house", valueCell("documents", "chefHouseAddress", undefined, "textarea"), "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
         ]}

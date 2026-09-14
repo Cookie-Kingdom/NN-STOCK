@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components/shared/DataTable";
-import { balance, centralBagStock, centralStock, entries, n, processed, produced, rawAtFoodDiva, stages, type Database, type Lot, type Role } from "@/lib/store";
+import { balance, centralBagStock, centralStock, entries, n, processed, produced, rawAtFoodiva, stages, type Database, type Lot, type Role } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function MeatStockTable({
@@ -21,12 +21,12 @@ export function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
-        columns={["Lot", "ค้างที่ Food Diva", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
+        columns={["Lot", "ค้างที่ Foodiva", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
         rows={lots.map((lot) => [
           lot.id,
           entries(db, "foodDivaConfirm", lot.id).length
-            ? `${fmt(rawAtFoodDiva(db, lot))} กก. (เนื้อดิบ)`
-            : "รอ Food Diva ยืนยัน Invoice",
+            ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
+            : "รอ Foodiva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${centralBagStock(db, lot.id)} ถุง`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,

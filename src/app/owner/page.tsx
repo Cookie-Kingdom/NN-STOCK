@@ -1,12 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { OwnerWorkspace } from "@/components/owner/OwnerWorkspace";
-import { AccountGate } from "@/components/workspace/AccountGate";
-
-export default function OwnerPage() {
-  return (
-    <AccountGate allow={["owner"]}>
-      {(account) => <OwnerWorkspace account={account} />}
-    </AccountGate>
-  );
+export default function OwnerIndex() {
+  redirect("/owner/owner-dashboard");
 }

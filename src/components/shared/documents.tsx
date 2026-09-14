@@ -9,7 +9,7 @@ export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
   const config = (key: string) => lot.config?.[key] || db.config[key] || "";
   return [
     ["วันที่ PO", purchase?.date || lot.values.purchaseDate || "—"],
-    ["Supplier", lot.values.supplier || "Food Diva"],
+    ["Supplier", lot.values.supplier || "Foodiva"],
     ["ผู้รับออเดอร์", config("foodDivaContact") || "ยังไม่ได้ตั้งค่า"],
     ["ที่อยู่ผู้ให้บริการ", config("foodDivaAddress") || "ยังไม่ได้ตั้งค่า"],
     ["ลูกค้า", lot.values.customerName || config("companyName") || "NerdNuea Stock"],

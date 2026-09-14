@@ -16,13 +16,13 @@ export function CentralReceiveView({
     <>
       <div className="section-heading">
         <div>
-          <h2>Owner รับของจาก Food Diva เข้าสต๊อกกลาง</h2>
-          <p className="muted">Food Diva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้</p>
+          <h2>Owner รับของจาก Foodiva เข้าสต๊อกกลาง</h2>
+          <p className="muted">Foodiva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้</p>
         </div>
       </div>
       <DataTable
         title="Lot ที่รอรับเข้าคลังกลาง"
-        columns={["Lot", "Food Diva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"]}
+        columns={["Lot", "Foodiva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"]}
         rows={readyToReceive.map((lot) => {
           const back = entries(db, "return", lot.id).at(-1);
           return [

@@ -88,7 +88,7 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   purchase: [
-    text("supplier", "ผู้ขาย · Food Diva"),
+    text("supplier", "ผู้ขาย · Foodiva"),
     text("customerName", "ชื่อบริษัท / ลูกค้า"),
     { key: "customerAddress", label: "ที่อยู่บริษัท / ที่อยู่ออก PO", type: "textarea" },
     text("attention", "ชื่อผู้ติดต่อ (Attention)"),
@@ -180,7 +180,7 @@ export const forms: Record<string, Field[]> = {
       accept: ".pdf,image/*",
       hint: "เลือกไฟล์ PDF หรือรูปภาพของ Invoice",
     },
-    text("confirmedBy", "ชื่อผู้ยืนยันจาก Food Diva"),
+    text("confirmedBy", "ชื่อผู้ยืนยันจาก Foodiva"),
     note,
   ],
   dispatch: [
@@ -233,7 +233,7 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   foodDivaReturnReceive: [
-    date("receivedDate", "วันที่ Food Diva รับเนื้อรมควัน"),
+    date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน"),
     { key: "receivedTime", label: "เวลารับ", type: "time" },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     number("receivedBags", "จำนวนถุงที่รับ", false, true),

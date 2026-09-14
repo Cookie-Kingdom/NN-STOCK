@@ -9,7 +9,7 @@ import {
   startFresh,
 } from "./helpers";
 
-test("full business loop across Owner, Food Diva, Chef_house and both branches", async ({
+test("full business loop across Owner, Foodiva, Chef_house and both branches", async ({
   page,
 }) => {
   await startFresh(page);
@@ -41,7 +41,7 @@ test("full business loop across Owner, Food Diva, Chef_house and both branches",
   // Owner creates the meat PO with live document preview.
   await button(page, "ใบสั่งซื้อ PO");
   await button(page, "สร้าง PO เนื้อ");
-  await field(page, /ผู้ขาย · Food Diva/, "Food Diva");
+  await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
   await field(page, /ชื่อบริษัท \/ ลูกค้า/, "บริษัท เนิร์ดเนื้อ จำกัด");
   await field(page, /ที่อยู่บริษัท/, "295/87 แขวงมีนบุรี กรุงเทพมหานคร");
   await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
@@ -52,8 +52,8 @@ test("full business loop across Owner, Food Diva, Chef_house and both branches",
   await field(page, /ราคาเนื้อ/, "250");
   await button(page, "บันทึก PO เนื้อ");
 
-  // Food Diva uploads the supplier invoice.
-  await signInAs(page, /Food Diva ผู้ขายเนื้อ/);
+  // Foodiva uploads the supplier invoice.
+  await signInAs(page, /Foodiva ผู้ขายเนื้อ/);
   await button(page, /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/);
   await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
   await field(page, /น้ำหนักตาม Invoice/, "500");
@@ -63,7 +63,7 @@ test("full business loop across Owner, Food Diva, Chef_house and both branches",
   await page
     .locator('input[type="file"]')
     .setInputFiles(path.join(process.cwd(), "tests/fixtures/invoice-demo.pdf"));
-  await field(page, /ชื่อผู้ยืนยันจาก Food Diva/, "เจ้าหน้าที่ Food Diva");
+  await field(page, /ชื่อผู้ยืนยันจาก Foodiva/, "เจ้าหน้าที่ Foodiva");
   await saveEntry(page);
 
   // Owner issues the Chef_house service PO.
@@ -136,7 +136,7 @@ test("full business loop across Owner, Food Diva, Chef_house and both branches",
   await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef_house");
   await saveEntry(page);
 
-  // Owner books the return trip; Food Diva receives finished meat.
+  // Owner books the return trip; Foodiva receives finished meat.
   await signInAs(page, /Owner เจ้าของร้าน/);
   await button(page, "ใบขนส่ง");
   await button(page, /เรียกรถขากลับ/);
@@ -149,7 +149,7 @@ test("full business loop across Owner, Food Diva, Chef_house and both branches",
   await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
   await field(page, /น้ำหนักส่งจาก Chef_house/, "500");
   await saveEntry(page);
-  await signInAs(page, /Food Diva ผู้ขายเนื้อ/);
+  await signInAs(page, /Foodiva ผู้ขายเนื้อ/);
   await button(page, "ยืนยันรับเข้าตู้");
   await field(page, /เวลารับ/, "10:00");
   await field(page, /น้ำหนักรับจริง/, "500");

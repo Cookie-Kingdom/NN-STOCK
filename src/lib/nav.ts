@@ -22,7 +22,7 @@ export type Tab =
   | "smoke-po"
   | "invoices"
   | "documents"
-  | "food-diva"
+  | "foodiva"
   | "transport"
   | "central-receive"
   | "branch-status"
@@ -84,10 +84,10 @@ export const ownerNav: NavGroup[] = [
   },
 ];
 
-export const foodDivaNav: NavGroup[] = [
+export const foodivaNav: NavGroup[] = [
   {
     items: [
-      { id: "food-diva", label: "PO และสต๊อก Food Diva", icon: Beef },
+      { id: "foodiva", label: "PO และสต๊อก Foodiva", icon: Beef },
       { id: "history", label: "ประวัติ", icon: History },
     ],
   },

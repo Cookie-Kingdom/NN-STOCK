@@ -3,7 +3,7 @@ import path from "node:path";
 
 export const ACCOUNTS = {
   owner: /Owner เจ้าของร้าน/,
-  fooddiva: /Food Diva ผู้ขายเนื้อ/,
+  foodiva: /Foodiva ผู้ขายเนื้อ/,
   chef: /Chef_house ฝ่ายผลิต/,
   saladaeng: /สาขาศาลาแดง ผู้ดูแลสาขา/,
   minburi: /สาขามีนบุรี ผู้ดูแลสาขา/,
@@ -136,7 +136,7 @@ export async function loadSampleData(page: Page) {
 export async function ownerCreatesMeatPo(page: Page, orderedKg = "500") {
   await button(page, "ใบสั่งซื้อ PO");
   await button(page, "สร้าง PO เนื้อ");
-  await field(page, /ผู้ขาย · Food Diva/, "Food Diva");
+  await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
   await field(page, /ชื่อบริษัท \/ ลูกค้า/, "บริษัท เนิร์ดเนื้อ จำกัด");
   await field(page, /ที่อยู่บริษัท/, "295/87 แขวงมีนบุรี กรุงเทพมหานคร");
   await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
@@ -148,7 +148,7 @@ export async function ownerCreatesMeatPo(page: Page, orderedKg = "500") {
   await button(page, "บันทึก PO เนื้อ");
 }
 
-export async function foodDivaIssuesInvoice(page: Page, kg = "500") {
+export async function foodivaIssuesInvoice(page: Page, kg = "500") {
   await button(page, /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/);
   await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
   await field(page, /น้ำหนักตาม Invoice/, kg);
@@ -157,7 +157,7 @@ export async function foodDivaIssuesInvoice(page: Page, kg = "500") {
   await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "0");
   await field(page, /ยอดรวม Invoice/, "125000");
   await page.locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
-  await field(page, /ชื่อผู้ยืนยันจาก Food Diva/, "เจ้าหน้าที่ Food Diva");
+  await field(page, /ชื่อผู้ยืนยันจาก Foodiva/, "เจ้าหน้าที่ Foodiva");
   await saveEntry(page);
 }
 
