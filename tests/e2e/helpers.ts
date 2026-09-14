@@ -1,13 +1,74 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import path from "node:path";
 
+/* Accounts are real Supabase users. Credentials come from E2E_<ENV>_EMAIL /
+ * E2E_<ENV>_PASSWORD, loaded from .env.local by playwright.config.ts. */
 export const ACCOUNTS = {
-  owner: /Owner เจ้าของร้าน/,
-  foodiva: /Foodiva ผู้ขายเนื้อ/,
-  chef: /Chef_house ฝ่ายผลิต/,
-  saladaeng: /สาขาศาลาแดง ผู้ดูแลสาขา/,
-  minburi: /สาขามีนบุรี ผู้ดูแลสาขา/,
+  owner: "owner",
+  foodiva: "foodiva",
+  chef: "chef",
+  saladaeng: "saladaeng",
+  minburi: "minburi",
 } as const;
+export type AccountKey = keyof typeof ACCOUNTS;
+
+const ACCOUNT_ENV: Record<AccountKey, string> = {
+  owner: "OWNER",
+  foodiva: "FOODIVA",
+  chef: "CHEF",
+  saladaeng: "SALADAENG",
+  minburi: "MINBURI",
+};
+
+/** Mirrors `path` in src/lib/accounts.ts. */
+const ACCOUNT_PATH: Record<AccountKey, string> = {
+  owner: "/owner",
+  foodiva: "/foodiva",
+  chef: "/chef",
+  saladaeng: "/branch",
+  minburi: "/branch",
+};
+
+/** Branch name (as the UI shows it) → branch account. */
+export const BRANCH_ACCOUNTS = {
+  ศาลาแดง: "saladaeng",
+  มีนบุรี: "minburi",
+} as const satisfies Record<string, AccountKey>;
+
+function credentialsFor(account: AccountKey) {
+  const prefix = `E2E_${ACCOUNT_ENV[account]}`;
+  const email = process.env[`${prefix}_EMAIL`];
+  const password = process.env[`${prefix}_PASSWORD`];
+  return email && password ? { email, password } : null;
+}
+
+/** Skips the current test when any of the accounts has no credentials in env.
+ * Call it at the top of a test so a long flow does not stop half-way. */
+export function skipUnlessCredentials(...accounts: AccountKey[]) {
+  const missing = accounts.filter((account) => !credentialsFor(account));
+  test.skip(
+    missing.length > 0,
+    `missing credentials: ${missing
+      .map((a) => `E2E_${ACCOUNT_ENV[a]}_EMAIL / E2E_${ACCOUNT_ENV[a]}_PASSWORD`)
+      .join(", ")}`,
+  );
+}
+
+/** The workspace sidebar (the `<aside>` holding the nav and the sign-out button). */
+export function sidebar(page: Page) {
+  return page
+    .getByRole("complementary")
+    .filter({ has: page.getByRole("button", { name: "ออกจากระบบ" }) });
+}
+
+/** A sidebar menu item by its exact label. The accessible name also carries the
+ * red count pill when the tab has pending work ("งานผลิต 2"), so allow a trailing number. */
+export function menuItem(page: Page, label: string) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return sidebar(page).getByRole("button", {
+    name: new RegExp(`^${escaped}\\s*\\d*$`),
+  });
+}
 
 export const INVOICE_FIXTURE = path.join(
   process.cwd(),
@@ -77,18 +138,24 @@ export async function field(page: Page, label: string | RegExp, value: string) {
 
 /** Submits whatever dialog is open. Every entry dialog labels its submit button
  * after the record it writes ("สร้างใบขนส่งขาไป", "ยืนยันปิดวัน", …), so the
- * primary button is the stable handle, not the label. */
+ * submit button (DialogFooter; every other Button defaults to type="button")
+ * is the stable handle, not the label. */
 export async function saveEntry(page: Page) {
-  await pointAndClick(page, page.getByRole("dialog").locator("button.primary").last());
+  await pointAndClick(
+    page,
+    page.getByRole("dialog").locator('button[type="submit"]').last(),
+  );
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
-/** A table card, addressed by its heading — settings and report screens stack
- * many of them and every one has its own action buttons. */
+/** A table card (TableSection), addressed by its heading — settings and report
+ * screens stack many of them and every one has its own action buttons. The
+ * nearest enclosing <section> is used so an outer section (e.g. ChartPanel)
+ * never matches too. */
 export function tableSection(page: Page, title: string | RegExp) {
   return page
-    .locator("section.table-section")
-    .filter({ has: page.getByRole("heading", { name: title }) });
+    .getByRole("heading", { name: title })
+    .locator("xpath=ancestor::section[1]");
 }
 
 /** Clears storage before the first paint so each test starts from the seed set.
@@ -106,17 +173,31 @@ export async function startFresh(page: Page) {
 }
 
 /** Each account has its own route, so handing work over means signing out and
- * signing back in as the next account. */
-export async function signInAs(page: Page, name: RegExp) {
+ * signing back in as the next account, through the email/password form on "/".
+ * Skips the test when the account has no credentials in env. */
+export async function signInAs(page: Page, account: AccountKey) {
+  skipUnlessCredentials(account);
+  const { email, password } = credentialsFor(account)!;
+
   const signOut = page.getByRole("button", { name: "ออกจากระบบ" });
   if (await signOut.count()) {
     await pointAndClick(page, signOut);
   }
+  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByLabel("อีเมล").fill(email);
+  await page.getByLabel("รหัสผ่าน").fill(password);
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }),
+  );
+  const accountPath = ACCOUNT_PATH[account];
   await expect(
-    page.getByRole("heading", { name: "เลือกบัญชีเพื่อเข้าใช้งาน" }),
-  ).toBeVisible();
-  await pointAndClick(page, page.getByRole("button", { name }).last());
-  await expect(page.getByRole("button", { name: "ออกจากระบบ" })).toBeVisible();
+    page,
+    `sign-in as ${account} should land on ${accountPath} (check E2E_${ACCOUNT_ENV[account]}_* and the profile role)`,
+  ).toHaveURL(new RegExp(`${accountPath}(?:[/?#]|$)`), { timeout: 30_000 });
+  await expect(signOut).toBeVisible({ timeout: 30_000 });
 }
 
 /** Replaces the database with the seven-day sample set, from the owner's own

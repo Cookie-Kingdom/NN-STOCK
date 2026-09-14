@@ -4,9 +4,12 @@ import {
   button,
   field,
   loadSampleData,
+  menuItem,
   pointAndClick,
   saveEntry,
+  sidebar,
   signInAs,
+  skipUnlessCredentials,
   startFresh,
   tableSection,
 } from "./helpers";
@@ -64,6 +67,7 @@ test("สาขาศาลาแดง: วันที่ปิดแล้ว
 test("สาขามีนบุรี เห็นข้อมูลสาขาตัวเองและเมนูเฉพาะของสาขา", async ({
   page,
 }) => {
+  skipUnlessCredentials(ACCOUNTS.owner, ACCOUNTS.minburi);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   await loadSampleData(page);
@@ -80,16 +84,13 @@ test("สาขามีนบุรี เห็นข้อมูลสาข�
     page.getByRole("heading", { name: "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง" }),
   ).toHaveCount(0);
 
-  const sidebar = page.locator("aside.app-sidebar");
   for (const menu of ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]) {
-    await expect(
-      sidebar.getByRole("button", { name: menu, exact: true }),
-    ).toBeVisible();
+    await expect(menuItem(page, menu)).toBeVisible();
   }
   for (const forbidden of ["ตั้งค่า", "รายงาน", "ใบสั่งซื้อ PO", "งานผลิต"]) {
-    await expect(sidebar.getByRole("button", { name: forbidden })).toHaveCount(
-      0,
-    );
+    await expect(
+      sidebar(page).getByRole("button", { name: forbidden }),
+    ).toHaveCount(0);
   }
 
   // หน้าจออื่นของสาขาต้องเปิดได้

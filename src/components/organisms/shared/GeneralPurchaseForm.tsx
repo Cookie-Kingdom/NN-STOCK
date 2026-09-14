@@ -89,7 +89,7 @@ export function GeneralPurchaseForm({
   const [lines, setLines] = useState<GeneralPurchaseLine[]>(() => [
     newGeneralPurchaseLine(date),
   ]);
-  const { error, setError, run } = useSaveMutation(
+  const { error, setError, run, saving } = useSaveMutation(
     "บันทึกการซื้ออื่น ๆ ไม่สำเร็จ",
   );
   const total = lines.reduce(
@@ -386,6 +386,7 @@ export function GeneralPurchaseForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
+          submitDisabled={saving}
           hint="กดเพิ่มรายการเพื่อบันทึกได้ต่อเนื่อง"
           onCancel={onClose}
           submitLabel={`บันทึก ${lines.length} รายการ`}

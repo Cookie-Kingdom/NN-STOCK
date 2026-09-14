@@ -47,7 +47,7 @@ export function ChefLotEditForm({
         .join("\n"),
     })),
   );
-  const { error, setError, run } = useSaveMutation("แก้ไขไม่สำเร็จ");
+  const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
   if (!lot || !received || !prepared || !smokeEntries.length) return null;
   const receivedRecord = received;
   const preparedRecord = prepared;
@@ -282,7 +282,11 @@ export function ChefLotEditForm({
           </Notice>
           <FormError error={error} />
         </DialogBody>
-        <DialogFooter onCancel={onClose} submitLabel="บันทึกการแก้ไข" />
+        <DialogFooter
+          submitDisabled={saving}
+          onCancel={onClose}
+          submitLabel="บันทึกการแก้ไข"
+        />
       </form>
     </Dialog>
   );

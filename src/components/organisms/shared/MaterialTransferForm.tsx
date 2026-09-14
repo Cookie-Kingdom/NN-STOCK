@@ -40,7 +40,7 @@ export function MaterialTransferForm({
   const [receivers, setReceivers] = useState<Values>({});
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
-  const { error, setError, run } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const selectedFor = (branch: string) =>
     materials.some((_, index) => checked[key(index, branch)]);
 
@@ -195,6 +195,7 @@ export function MaterialTransferForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
+          submitDisabled={saving}
           hint="ทุกรายการจะบันทึกพร้อมกัน"
           onCancel={onClose}
           submitLabel="บันทึกส่งวัสดุ"

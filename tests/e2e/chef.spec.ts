@@ -5,10 +5,12 @@ import {
   field,
   foodivaIssuesInvoice,
   INVOICE_FIXTURE,
+  menuItem,
   ownerCreatesMeatPo,
   ownerIssuesSmokePo,
   pointAndClick,
   saveEntry,
+  sidebar,
   signInAs,
   startFresh,
 } from "./helpers";
@@ -58,11 +60,9 @@ test("Chef_house เห็นเฉพาะเมนูและงานขอ
   await startFresh(page);
   await signInAs(page, ACCOUNTS.chef);
 
-  const sidebar = page.locator("aside.app-sidebar");
+  // "ยืนยันรับเนื้อ" and "งานผลิต" carry a count pill when work is pending.
   for (const menu of ["ยืนยันรับเนื้อ", "งานผลิต", "สต๊อก", "ประวัติ"]) {
-    await expect(
-      sidebar.getByRole("button", { name: menu, exact: true }),
-    ).toBeVisible();
+    await expect(menuItem(page, menu)).toBeVisible();
   }
   for (const forbidden of [
     "ตั้งค่า",
@@ -71,9 +71,9 @@ test("Chef_house เห็นเฉพาะเมนูและงานขอ
     "กรอกรายวัน",
     "PO และสต๊อก Foodiva",
   ]) {
-    await expect(sidebar.getByRole("button", { name: forbidden })).toHaveCount(
-      0,
-    );
+    await expect(
+      sidebar(page).getByRole("button", { name: forbidden }),
+    ).toHaveCount(0);
   }
 
   // หน้าจอของฝ่ายผลิตต้องเปิดได้ทุกหน้า

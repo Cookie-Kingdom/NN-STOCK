@@ -5,6 +5,7 @@ import {
   button,
   field,
   pointAndClick,
+  sidebar,
   signInAs,
   startFresh,
   tableSection,
@@ -218,13 +219,11 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
   }
 
   // เมนูของบทบาทอื่นต้องไม่โผล่ในบัญชี Owner
-  const sidebar = page.locator("aside.app-sidebar");
-  await expect(sidebar.getByRole("button", { name: "กรอกรายวัน" })).toHaveCount(
-    0,
-  );
-  await expect(sidebar.getByRole("button", { name: "งานผลิต" })).toHaveCount(0);
+  const nav = sidebar(page);
+  await expect(nav.getByRole("button", { name: "กรอกรายวัน" })).toHaveCount(0);
+  await expect(nav.getByRole("button", { name: "งานผลิต" })).toHaveCount(0);
   await expect(
-    sidebar.getByRole("button", { name: "PO และสต๊อก Foodiva" }),
+    nav.getByRole("button", { name: "PO และสต๊อก Foodiva" }),
   ).toHaveCount(0);
 });
 

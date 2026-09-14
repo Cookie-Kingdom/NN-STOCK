@@ -1,19 +1,30 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
 import {
+  ACCOUNTS,
+  BRANCH_ACCOUNTS,
   button,
   field,
   pointAndClick,
   saveEntry,
   signInAs,
+  skipUnlessCredentials,
   startFresh,
+  tableSection,
 } from "./helpers";
 
 test("full business loop across Owner, Foodiva, Chef_house and both branches", async ({
   page,
 }) => {
+  skipUnlessCredentials(
+    ACCOUNTS.owner,
+    ACCOUNTS.foodiva,
+    ACCOUNTS.chef,
+    ACCOUNTS.saladaeng,
+    ACCOUNTS.minburi,
+  );
   await startFresh(page);
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await expect(page.getByRole("heading", { name: "แดชบอร์ด" })).toBeVisible();
   await page.waitForTimeout(900);
 
@@ -53,7 +64,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await button(page, "บันทึก PO เนื้อ");
 
   // Foodiva uploads the supplier invoice.
-  await signInAs(page, /Foodiva ผู้ขายเนื้อ/);
+  await signInAs(page, ACCOUNTS.foodiva);
   await button(page, /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/);
   await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
   await field(page, /น้ำหนักตาม Invoice/, "500");
@@ -67,7 +78,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await saveEntry(page);
 
   // Owner issues the Chef_house service PO.
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await button(page, "ใบสั่ง PO โรงรมควัน");
   await button(page, "ออก PO รมควันเนื้อ");
   await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef_house");
@@ -76,7 +87,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await button(page, "บันทึก PO โรงรมควัน");
 
   // Chef_house accepts the PO and submits its invoice.
-  await signInAs(page, /Chef_house ฝ่ายผลิต/);
+  await signInAs(page, ACCOUNTS.chef);
   await button(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
   await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
@@ -92,7 +103,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Owner reviews, pays, and creates the outbound transport document.
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await button(page, /ใบ Invoice/);
   await button(page, "ตรวจยอด");
   await field(page, /ชื่อผู้ตรวจ/, "Owner Demo");
@@ -115,7 +126,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await saveEntry(page);
 
   // Chef_house receives, prepares, smokes five large bags, and closes the lot.
-  await signInAs(page, /Chef_house ฝ่ายผลิต/);
+  await signInAs(page, ACCOUNTS.chef);
   await button(page, "ยืนยันรับเนื้อ");
   await page.getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
   await field(page, /น้ำหนักรับจริง/, "500");
@@ -137,7 +148,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await saveEntry(page);
 
   // Owner books the return trip; Foodiva receives finished meat.
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await button(page, "ใบขนส่ง");
   await button(page, /เรียกรถขากลับ/);
   await field(page, /เวลารถรับจาก Chef_house|เวลารถรับ/, "09:00");
@@ -149,7 +160,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
   await field(page, /น้ำหนักส่งจาก Chef_house/, "500");
   await saveEntry(page);
-  await signInAs(page, /Foodiva ผู้ขายเนื้อ/);
+  await signInAs(page, ACCOUNTS.foodiva);
   await button(page, "ยืนยันรับเข้าตู้");
   await field(page, /เวลารับ/, "10:00");
   await field(page, /น้ำหนักรับจริง/, "500");
@@ -157,7 +168,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await saveEntry(page);
 
   // Owner receives central stock and allocates two 100 kg bags to each branch.
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await button(page, "รับเนื้อเข้าสต๊อกกลาง");
   await button(page, "รับเข้าคลังกลาง");
   await field(page, /น้ำหนักรับสต๊อกกลาง/, "500");
@@ -172,8 +183,8 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await button(page, "บันทึกการจัดสรร");
 
   // Each branch receives, thaws, records rice/materials/sales, and closes the day.
-  for (const branch of ["ศาลาแดง", "มีนบุรี"]) {
-    await signInAs(page, new RegExp(`สาขา${branch} ผู้ดูแลสาขา`));
+  for (const branch of ["ศาลาแดง", "มีนบุรี"] as const) {
+    await signInAs(page, BRANCH_ACCOUNTS[branch]);
     await button(page, "รับของ");
     await page.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
     await field(page, /น้ำหนักรับเข้าสาขา/, "200");
@@ -189,9 +200,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
       branch === "ศาลาแดง"
         ? "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
         : "ข้าวเหนียวสุก · ซื้อที่สาขามีนบุรี";
-    const riceTable = page.locator("section.table-section").filter({
-      has: page.getByRole("heading", { name: riceTableTitle }),
-    });
+    const riceTable = tableSection(page, riceTableTitle);
     await pointAndClick(
       page,
       riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(0),
@@ -254,7 +263,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
     await saveEntry(page);
   }
 
-  await signInAs(page, /Owner เจ้าของร้าน/);
+  await signInAs(page, ACCOUNTS.owner);
   await expect(page.getByRole("heading", { name: "แดชบอร์ด" })).toBeVisible();
   await page.waitForTimeout(1_500);
 });

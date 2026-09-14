@@ -27,7 +27,7 @@ export function BagAllocationForm({
 }) {
   const bags = availableBags(db, lotId);
   const [destinations, setDestinations] = useState<Record<string, string>>({});
-  const { error, run } = useSaveMutation("จัดสรรไม่สำเร็จ");
+  const { error, run, saving } = useSaveMutation("จัดสรรไม่สำเร็จ");
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const saved = await run(() => {
@@ -90,6 +90,7 @@ export function BagAllocationForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
+          submitDisabled={saving}
           hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"

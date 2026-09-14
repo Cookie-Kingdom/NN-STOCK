@@ -46,7 +46,7 @@ export function MaterialPurchaseForm({
   const [purchaseDates, setPurchaseDates] = useState<Values>({});
   const [suppliers, setSuppliers] = useState<Values>({});
   const [references, setReferences] = useState<Values>({});
-  const { error, setError, run } = useSaveMutation(
+  const { error, setError, run, saving } = useSaveMutation(
     "บันทึกการซื้อวัสดุไม่สำเร็จ",
   );
   const selected = purchaseLines.filter((line) => checked[line.key]);
@@ -238,6 +238,7 @@ export function MaterialPurchaseForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
+          submitDisabled={saving}
           hint="บันทึกครั้งเดียวได้หลายวัสดุ"
           onCancel={onClose}
           submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`}

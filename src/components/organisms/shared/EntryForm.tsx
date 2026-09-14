@@ -214,7 +214,7 @@ export function EntryForm({
     return base;
   });
   const [lotId, setLotId] = useState(modal.lotId);
-  const { error, setError, run } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const attachmentFiles = useRef<Record<string, File>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const useLot = ["receive", "thaw", "sale", "allocate"].includes(kind);
@@ -444,6 +444,7 @@ export function EntryForm({
           )}
         </div>
         <DialogFooter
+          submitDisabled={saving}
           hint={
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"
