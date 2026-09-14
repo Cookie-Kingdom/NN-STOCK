@@ -1,7 +1,7 @@
 "use client";
 
-import { ChefWorkspace } from "@/components/chef/ChefWorkspace";
-import { AccountGate } from "@/components/workspace/AccountGate";
+import { ChefWorkspace } from "@/components/pages/ChefWorkspace";
+import { AccountGate } from "@/components/AccountGate";
 
 /* The workspace lives in the layout, not the page, so date, modal and toast survive
  * switching between /chef/[tab] routes. */

@@ -1,7 +1,7 @@
 "use client";
 
-import { BranchWorkspace } from "@/components/branch/BranchWorkspace";
-import { AccountGate } from "@/components/workspace/AccountGate";
+import { BranchWorkspace } from "@/components/pages/BranchWorkspace";
+import { AccountGate } from "@/components/AccountGate";
 
 /* The workspace lives in the layout, not the page, so date, modal and toast survive
  * switching between /branch/[tab] routes. */

@@ -1,7 +1,7 @@
 "use client";
 
-import { OwnerWorkspace } from "@/components/owner/OwnerWorkspace";
-import { AccountGate } from "@/components/workspace/AccountGate";
+import { OwnerWorkspace } from "@/components/pages/OwnerWorkspace";
+import { AccountGate } from "@/components/AccountGate";
 
 /* The workspace lives in the layout, not the page, so date, modal and toast survive
  * switching between /owner/[tab] routes. */
