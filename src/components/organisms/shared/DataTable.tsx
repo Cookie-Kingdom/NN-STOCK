@@ -62,7 +62,7 @@ export function DataTable({
                   {row.map((cell, j) => (
                     <td
                       key={j}
-                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body whitespace-nowrap not-first:text-right"
+                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body-sm whitespace-nowrap not-first:text-right"
                     >
                       {cell}
                     </td>
