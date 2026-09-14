@@ -8,7 +8,6 @@ import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { useWorkspace } from "@/components/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { exportWorkspaceData } from "@/lib/export-data";
 import { chefNav } from "@/lib/nav";
 import { entries, smokingInvoiceStatus } from "@/lib/store";
 
@@ -37,7 +36,6 @@ export function ChefWorkspace({ account }: { account: Account }) {
         date={ws.date}
         onDate={ws.setDate}
         badges={{ "cm-receive": waitingReceipt, work: inProduction }}
-        onExport={() => exportWorkspaceData(db, account, ws.date)}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

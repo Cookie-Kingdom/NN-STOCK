@@ -14,7 +14,6 @@ import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { useWorkspace } from "@/components/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { exportWorkspaceData } from "@/lib/export-data";
 import { branchNav } from "@/lib/nav";
 
 export function BranchWorkspace({ account }: { account: Account }) {
@@ -30,7 +29,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={date}
         onDate={ws.setDate}
-        onExport={() => exportWorkspaceData(db, account, date)}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

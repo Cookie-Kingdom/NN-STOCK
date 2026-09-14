@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
-import { ArrowRight, Beef, Bell, CircleAlert, Download, LogOut, X } from "lucide-react";
+import { ArrowRight, Beef, Bell, CircleAlert, LogOut, X } from "lucide-react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { navLabel, type NavGroup, type Tab } from "@/lib/nav";
@@ -22,8 +22,6 @@ type Props = {
   notifications?: Notification[];
   showNotifications?: boolean;
   onToggleNotifications?: () => void;
-  headerActions?: ReactNode;
-  onExport: () => void;
   toast: string;
   onCloseToast: () => void;
   children: ReactNode;
@@ -40,8 +38,6 @@ export function WorkspaceShell({
   notifications,
   showNotifications = false,
   onToggleNotifications,
-  headerActions,
-  onExport,
   toast,
   onCloseToast,
   children,
@@ -121,10 +117,6 @@ export function WorkspaceShell({
               )}
             </div>
           )}
-          <button className="secondary" onClick={onExport}>
-            <Download size={16} /> ส่งออก
-          </button>
-          {headerActions}
         </div>
       </header>
       <div className="app-layout">
@@ -160,8 +152,8 @@ export function WorkspaceShell({
               className="icon-button"
               aria-label="ออกจากระบบ"
               title="ออกจากระบบ"
-              onClick={() => {
-                signOut();
+              onClick={async () => {
+                await signOut();
                 router.replace("/");
               }}
             >

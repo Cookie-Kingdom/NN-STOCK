@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, RotateCcw } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CentralReceiveView } from "@/components/owner/CentralReceiveView";
 import { ConfigView } from "@/components/owner/ConfigView";
 import { InvoiceView } from "@/components/owner/InvoiceView";
@@ -10,7 +10,6 @@ import { OwnerDailyStatus } from "@/components/owner/OwnerDailyStatus";
 import { OwnerDashboard } from "@/components/owner/OwnerDashboard";
 import { OwnerStockView } from "@/components/owner/OwnerStockView";
 import { Report } from "@/components/owner/Report";
-import { ResetDataDialog } from "@/components/owner/ResetDataDialog";
 import { SimpleTraceabilityView } from "@/components/owner/SimpleTraceabilityView";
 import { SmokingPurchaseOrderView } from "@/components/owner/SmokingPurchaseOrderView";
 import { TransportManifestView } from "@/components/owner/TransportManifestView";
@@ -24,7 +23,6 @@ import { WorkspaceModals } from "@/components/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { useWorkspace } from "@/components/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { exportWorkspaceData } from "@/lib/export-data";
 import { fmt } from "@/lib/format";
 import { ownerNav } from "@/lib/nav";
 import { entries, n, produced, smokingInvoiceStatus, stages } from "@/lib/store";
@@ -33,7 +31,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, date, open, setTab, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const alerts = useOwnerAlerts(db);
 
   return (
@@ -49,12 +46,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         notifications={alerts.notifications}
         showNotifications={showNotifications}
         onToggleNotifications={() => setShowNotifications((value) => !value)}
-        headerActions={
-          <button className="secondary" onClick={() => setResetting(true)}>
-            <RotateCcw size={16} /> รีเซ็ตข้อมูล
-          </button>
-        }
-        onExport={() => exportWorkspaceData(db, account, date)}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >
@@ -234,18 +225,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />
-      {resetting && (
-        <ResetDataDialog
-          date={date}
-          onClose={() => setResetting(false)}
-          onDone={(message) => {
-            ws.setChosen("");
-            setResetting(false);
-            setTab("owner-dashboard");
-            ws.setToast(message);
-          }}
-        />
-      )}
     </>
   );
 }
