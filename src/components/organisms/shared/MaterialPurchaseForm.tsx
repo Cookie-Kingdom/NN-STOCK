@@ -1,10 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
+import { Input } from "@/components/atoms/Input";
+import { FormError } from "@/components/molecules/FormError";
+import { FormField } from "@/components/molecules/FormField";
+import { Notice } from "@/components/molecules/Notice";
+import { Dialog } from "@/components/organisms/shared/Dialog";
+import { DialogBody } from "@/components/organisms/shared/DialogBody";
+import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { latestDatabase } from "@/lib/persistence";
 import { materials, mutate, n, ownerMaterialStock, type Database, type Values } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const purchaseLines = materials.map((material) => ({
+  key: `material-${material}`,
+  label: material,
+  unit: "ชิ้น",
+}));
+
+const lineField = "text-caption";
 
 export function MaterialPurchaseForm({
   db,
@@ -17,29 +33,22 @@ export function MaterialPurchaseForm({
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
-  const purchaseLines = [
-    ...materials.map((material) => ({
-      key: `material-${material}`,
-      label: material,
-      unit: "ชิ้น",
-    })),
-  ];
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Values>({});
   const [unitPrices, setUnitPrices] = useState<Values>({});
   const [purchaseDates, setPurchaseDates] = useState<Values>({});
   const [suppliers, setSuppliers] = useState<Values>({});
   const [references, setReferences] = useState<Values>({});
-  const [error, setError] = useState("");
+  const { error, setError, run } = useSaveMutation("บันทึกการซื้อวัสดุไม่สำเร็จ");
   const selected = purchaseLines.filter((line) => checked[line.key]);
   const total = selected.reduce(
     (sum, line) => sum + n(quantities, line.key) * n(unitPrices, line.key),
     0,
   );
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    try {
+    const saved = await run(() => {
       if (!selected.length) throw new Error("ติ๊กเลือกอย่างน้อย 1 รายการ");
       let next = latestDatabase();
       for (const line of selected) {
@@ -64,60 +73,48 @@ export function MaterialPurchaseForm({
           purchaseDate,
         );
       }
-      saveDatabase(next);
-      onSaved(next);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "บันทึกการซื้อวัสดุไม่สำเร็จ");
-    }
+      return next;
+    });
+    if (saved) onSaved(saved);
   }
 
   return (
-    <div className="modal-backdrop">
-      <section role="dialog" aria-modal="true" aria-labelledby="material-purchase-title" className="form-dialog material-transfer-dialog material-purchase-dialog">
-        <header>
-          <div>
-            <span className="overline">Owner · สต๊อกวัสดุ</span>
-            <h2 id="material-purchase-title">ซื้อวัสดุเข้าคลัง</h2>
+    <Dialog overline="Owner · สต๊อกวัสดุ" title="ซื้อวัสดุเข้าคลัง" size="xl" onClose={onClose}>
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+        <DialogBody>
+          <Notice>ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock</Notice>
+          <div className="mt-5.5 grid gap-3">
+            {purchaseLines.map((line) => {
+              const selectedRow = !!checked[line.key];
+              const amount = n(quantities, line.key) * n(unitPrices, line.key);
+              return (
+                <article key={line.key} className={cn("overflow-hidden rounded-lg border border-border bg-surface", selectedRow && "bg-bg")}>
+                  <label className="grid cursor-pointer grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.25 px-4.5 py-4 max-[560px]:grid-cols-[24px_minmax(0,1fr)]">
+                    <input type="checkbox" className="size-4.75" aria-label={`ซื้อ ${line.label}`} checked={selectedRow} onChange={(event) => { setChecked((current) => ({ ...current, [line.key]: event.target.checked })); setError(""); }} />
+                    <span>
+                      <strong className="block">{line.label}</strong>
+                      <small className="mt-1 block text-caption font-normal text-text-secondary">คงคลัง Owner {fmt(ownerMaterialStock(db, line.label))} ชิ้น</small>
+                    </span>
+                    <b className="text-body-sm whitespace-nowrap text-text-secondary max-[560px]:col-start-2">{selectedRow ? `ยอดซื้อ ฿${fmt(amount)}` : "ติ๊กเพื่อกรอก"}</b>
+                  </label>
+                  {selectedRow && (
+                    <div className="grid grid-cols-5 gap-3.5 border-t border-border bg-bg pt-4 pr-4.5 pb-4.5 pl-13.75 max-[900px]:grid-cols-2 max-[900px]:pl-4.5 max-[560px]:grid-cols-1">
+                      <FormField className={lineField} label="วันที่ซื้อ"><Input type="date" aria-label={`วันที่ซื้อ ${line.label}`} value={purchaseDates[line.key] ?? date} onChange={(event) => setPurchaseDates((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                      <FormField className={lineField} label="จำนวนที่ซื้อ"><Input type="number" min="1" step="1" inputMode="numeric" aria-label={`จำนวนซื้อ ${line.label}`} placeholder="จำนวน" value={quantities[line.key] || ""} onChange={(event) => setQuantities((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                      <FormField className={lineField} label="ราคาซื้อ / หน่วย"><Input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาซื้อ ${line.label}`} placeholder="0.00" value={unitPrices[line.key] || ""} onChange={(event) => setUnitPrices((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                      <FormField className={lineField} label="ผู้จำหน่าย"><Input type="text" aria-label={`ผู้จำหน่าย ${line.label}`} placeholder="ผู้ขาย" value={suppliers[line.key] || ""} onChange={(event) => setSuppliers((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                      <FormField className={lineField} label="เลขอ้างอิง / ใบเสร็จ"><Input type="text" aria-label={`ใบเสร็จ ${line.label}`} placeholder="เลขที่ (ถ้ามี)" value={references[line.key] || ""} onChange={(event) => setReferences((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
-          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}><X /></button>
-        </header>
-        <form onSubmit={submit}>
-          <div className="form-body">
-            <div className="notice">ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock</div>
-            <div className="material-purchase-list">
-              {purchaseLines.map((line) => {
-                const selectedRow = !!checked[line.key];
-                const amount = n(quantities, line.key) * n(unitPrices, line.key);
-                return (
-                  <article key={line.key} className={`material-purchase-item ${selectedRow ? "selected-row" : ""}`}>
-                    <label className="material-purchase-toggle">
-                      <input type="checkbox" aria-label={`ซื้อ ${line.label}`} checked={selectedRow} onChange={(event) => { setChecked((current) => ({ ...current, [line.key]: event.target.checked })); setError(""); }} />
-                      <span><strong>{line.label}</strong><small>คงคลัง Owner {fmt(ownerMaterialStock(db, line.label))} ชิ้น</small></span>
-                      <b>{selectedRow ? `ยอดซื้อ ฿${fmt(amount)}` : "ติ๊กเพื่อกรอก"}</b>
-                    </label>
-                    {selectedRow && (
-                      <div className="material-purchase-fields">
-                        <label className="field">วันที่ซื้อ<input type="date" aria-label={`วันที่ซื้อ ${line.label}`} value={purchaseDates[line.key] ?? date} onChange={(event) => setPurchaseDates((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
-                        <label className="field">จำนวนที่ซื้อ<input type="number" min="1" step="1" inputMode="numeric" aria-label={`จำนวนซื้อ ${line.label}`} placeholder="จำนวน" value={quantities[line.key] || ""} onChange={(event) => setQuantities((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
-                        <label className="field">ราคาซื้อ / หน่วย<input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาซื้อ ${line.label}`} placeholder="0.00" value={unitPrices[line.key] || ""} onChange={(event) => setUnitPrices((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
-                        <label className="field">ผู้จำหน่าย<input type="text" aria-label={`ผู้จำหน่าย ${line.label}`} placeholder="ผู้ขาย" value={suppliers[line.key] || ""} onChange={(event) => setSuppliers((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
-                        <label className="field">เลขอ้างอิง / ใบเสร็จ<input type="text" aria-label={`ใบเสร็จ ${line.label}`} placeholder="เลขที่ (ถ้ามี)" value={references[line.key] || ""} onChange={(event) => setReferences((current) => ({ ...current, [line.key]: event.target.value }))} /></label>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-            <div className="notice success material-purchase-summary">เลือก {selected.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</div>
-            {error && <div role="alert" className="notice danger">{error}</div>}
-          </div>
-          <footer>
-            <p>บันทึกครั้งเดียวได้หลายวัสดุ</p>
-            <button type="button" className="secondary" onClick={onClose}>ยกเลิก</button>
-            <button type="submit" className="primary">บันทึกการซื้อ {selected.length ? `${selected.length} รายการ` : ""}</button>
-          </footer>
-        </form>
-      </section>
-    </div>
+          <Notice tone="success" role="none" className="mb-0 mt-4.5">เลือก {selected.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</Notice>
+          <FormError error={error} />
+        </DialogBody>
+        <DialogFooter hint="บันทึกครั้งเดียวได้หลายวัสดุ" onCancel={onClose} submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`} />
+      </form>
+    </Dialog>
   );
 }

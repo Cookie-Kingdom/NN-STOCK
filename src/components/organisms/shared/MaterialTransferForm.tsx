@@ -1,9 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
+import { Input } from "@/components/atoms/Input";
+import { FormError } from "@/components/molecules/FormError";
+import { FormField } from "@/components/molecules/FormField";
+import { Notice } from "@/components/molecules/Notice";
+import { Dialog } from "@/components/organisms/shared/Dialog";
+import { DialogBody } from "@/components/organisms/shared/DialogBody";
+import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { latestDatabase } from "@/lib/persistence";
 import { branches, materials, mutate, ownerMaterialStock, type Database, type Values } from "@/lib/store";
+
+const key = (index: number, branch: string) => `${index}-${branch}`;
+const cell = "border-b border-border px-4.5 py-3.5 align-middle";
+const headCell = "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary";
 
 export function MaterialTransferForm({
   db,
@@ -21,14 +32,13 @@ export function MaterialTransferForm({
   const [receivers, setReceivers] = useState<Values>({});
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
-  const [error, setError] = useState("");
-  const key = (index: number, branch: string) => `${index}-${branch}`;
+  const { error, setError, run } = useSaveMutation("บันทึกไม่สำเร็จ");
   const selectedFor = (branch: string) =>
     materials.some((_, index) => checked[key(index, branch)]);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    try {
+    const saved = await run(() => {
       let next = latestDatabase();
       let count = 0;
       for (const [index, material] of materials.entries()) {
@@ -59,105 +69,88 @@ export function MaterialTransferForm({
         }
       }
       if (!count) throw new Error("ติ๊กเลือกวัสดุและสาขาที่ต้องการส่ง");
-      saveDatabase(next);
-      onSaved(next);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "บันทึกไม่สำเร็จ");
-    }
+      return next;
+    });
+    if (saved) onSaved(saved);
   }
 
   return (
-    <div className="modal-backdrop">
-      <section role="dialog" aria-modal="true" aria-labelledby="transfer-title" className="form-dialog material-transfer-dialog">
-        <header>
-          <div>
-            <span className="overline">{date} · Owner</span>
-            <h2 id="transfer-title">ส่งวัสดุไปสาขา</h2>
-          </div>
-          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}>
-            <X />
-          </button>
-        </header>
-        <form onSubmit={submit}>
-          <div className="form-body">
-            <div className="notice">ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน สามารถเลือกหลายรายการและบันทึกพร้อมกันได้</div>
-            <div className="table-scroll transfer-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>วัสดุ</th>
-                    <th>คลัง Owner</th>
-                    {branches.map((branch) => <th key={branch}>{branch}</th>)}
+    <Dialog overline={`${date} · Owner`} title="ส่งวัสดุไปสาขา" size="wide" onClose={onClose}>
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+        <DialogBody>
+          <Notice>ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน สามารถเลือกหลายรายการและบันทึกพร้อมกันได้</Notice>
+          <div className="mt-5.5 mb-7 max-w-full overflow-auto rounded-lg border border-border bg-surface">
+            <table className="w-full table-fixed border-separate border-spacing-0 [&_tbody_tr:last-child_td]:border-b-0">
+              <thead>
+                <tr>
+                  <th className={`${headCell} w-[28%]`}>วัสดุ</th>
+                  <th className={`${headCell} w-[14%]`}>คลัง Owner</th>
+                  {branches.map((branch) => <th key={branch} className={`${headCell} w-[29%]`}>{branch}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {materials.map((material, index) => (
+                  <tr key={material} className="hover:bg-bg">
+                    <td className={`${cell} leading-snug whitespace-normal`}><strong>{material}</strong></td>
+                    <td className={`${cell} font-semibold text-accent`}>{ownerMaterialStock(db, material)} ชิ้น</td>
+                    {branches.map((branch) => {
+                      const field = key(index, branch);
+                      return (
+                        <td key={branch} className={cell}>
+                          <div className="grid grid-cols-[24px_minmax(100px,1fr)] items-center gap-3">
+                            <input
+                              type="checkbox"
+                              className="size-4.5"
+                              aria-label={`ส่ง ${material} ไป${branch}`}
+                              checked={!!checked[field]}
+                              onChange={(event) => {
+                                setChecked((current) => ({ ...current, [field]: event.target.checked }));
+                                setError("");
+                              }}
+                            />
+                            <Input
+                              type="number"
+                              min="1"
+                              step="1"
+                              placeholder="จำนวน"
+                              aria-label={`จำนวน ${material} ไป${branch}`}
+                              className="mt-0 min-h-10.5 px-2.75 py-2.25"
+                              disabled={!checked[field]}
+                              value={quantities[field] || ""}
+                              onChange={(event) => setQuantities((current) => ({ ...current, [field]: event.target.value }))}
+                            />
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
-                </thead>
-                <tbody>
-                  {materials.map((material, index) => (
-                    <tr key={material}>
-                      <td><strong>{material}</strong></td>
-                      <td>{ownerMaterialStock(db, material)} ชิ้น</td>
-                      {branches.map((branch) => {
-                        const field = key(index, branch);
-                        return (
-                          <td key={branch}>
-                            <div className="transfer-cell">
-                              <input
-                                type="checkbox"
-                                aria-label={`ส่ง ${material} ไป${branch}`}
-                                checked={!!checked[field]}
-                                onChange={(event) => {
-                                  setChecked((current) => ({ ...current, [field]: event.target.checked }));
-                                  setError("");
-                                }}
-                              />
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                placeholder="จำนวน"
-                                aria-label={`จำนวน ${material} ไป${branch}`}
-                                disabled={!checked[field]}
-                                value={quantities[field] || ""}
-                                onChange={(event) => setQuantities((current) => ({ ...current, [field]: event.target.value }))}
-                              />
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="form-grid transfer-meta">
-              {branches.map((branch) => (
-                <label className="field" key={branch}>
-                  ผู้รับของสาขา{branch}
-                  <input
-                    value={receivers[branch] || ""}
-                    disabled={!selectedFor(branch)}
-                    required={selectedFor(branch)}
-                    onChange={(event) => setReceivers((current) => ({ ...current, [branch]: event.target.value }))}
-                  />
-                </label>
-              ))}
-              <label className="field">
-                เลขที่ใบส่งของ (ถ้ามี)
-                <input value={reference} onChange={(event) => setReference(event.target.value)} />
-              </label>
-              <label className="field">
-                หมายเหตุ (ถ้ามี)
-                <input value={note} onChange={(event) => setNote(event.target.value)} />
-              </label>
-            </div>
-            {error && <div role="alert" className="notice danger">{error}</div>}
+                ))}
+              </tbody>
+            </table>
           </div>
-          <footer>
-            <p>ทุกรายการจะบันทึกพร้อมกัน</p>
-            <button type="button" className="secondary" onClick={onClose}>ยกเลิก</button>
-            <button type="submit" className="primary">บันทึกส่งวัสดุ</button>
-          </footer>
-        </form>
-      </section>
-    </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-lg border border-border bg-bg p-5 max-md:grid-cols-1 max-md:gap-4">
+            {branches.map((branch) => (
+              <FormField key={branch} label={`ผู้รับของสาขา${branch}`}>
+                <Input
+                  type="text"
+                  value={receivers[branch] || ""}
+                  disabled={!selectedFor(branch)}
+                  required={selectedFor(branch)}
+                  onChange={(event) => setReceivers((current) => ({ ...current, [branch]: event.target.value }))}
+                />
+              </FormField>
+            ))}
+            <FormField label="เลขที่ใบส่งของ (ถ้ามี)">
+              <Input type="text" value={reference} onChange={(event) => setReference(event.target.value)} />
+            </FormField>
+            <FormField label="หมายเหตุ (ถ้ามี)">
+              <Input type="text" value={note} onChange={(event) => setNote(event.target.value)} />
+            </FormField>
+          </div>
+          <FormError error={error} />
+        </DialogBody>
+        <DialogFooter hint="ทุกรายการจะบันทึกพร้อมกัน" onCancel={onClose} submitLabel="บันทึกส่งวัสดุ" />
+      </form>
+    </Dialog>
   );
 }

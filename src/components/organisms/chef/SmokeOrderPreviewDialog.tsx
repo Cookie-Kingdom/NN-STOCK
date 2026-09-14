@@ -1,6 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Notice } from "@/components/molecules/Notice";
+import { Dialog } from "@/components/organisms/shared/Dialog";
+import { DialogBody } from "@/components/organisms/shared/DialogBody";
+import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { entries, type Database } from "@/lib/store";
 
@@ -16,31 +19,25 @@ export function SmokeOrderPreviewDialog({
   const lot = db.lots.find((item) => item.id === lotId);
   const order = entries(db, "smokeOrder", lotId).at(-1);
   return (
-    <div className="modal-backdrop" onKeyDown={(event) => event.key === "Escape" && onClose()}>
-      <section className="form-dialog po-document-dialog" role="dialog" aria-modal="true" aria-labelledby="smoke-po-preview-title">
-        <header>
-          <div>
-            <span className="overline">อ่านอย่างเดียว · Chef_house</span>
-            <h2 id="smoke-po-preview-title">ใบสั่ง PO โรงรมควัน</h2>
-          </div>
-          <button type="button" className="icon-button" aria-label="ปิดเอกสาร PO" onClick={onClose}><X /></button>
-        </header>
-        {lot && order ? (
-          <PurchaseOrderDocumentPreview
-            db={db}
-            lot={lot}
-            kind="smokeOrder"
-            values={order.values}
-            date={order.date}
-          />
-        ) : (
-          <div className="form-body"><div className="notice warning">ไม่พบเอกสาร PO รายการนี้</div></div>
-        )}
-        <footer>
-          <p>ตรวจคำสั่งและยอดก่อนกดยืนยันรับ PO</p>
-          <button type="button" className="secondary" onClick={onClose}>ปิด</button>
-        </footer>
-      </section>
-    </div>
+    <Dialog
+      size="document"
+      overline="อ่านอย่างเดียว · Chef_house"
+      title="ใบสั่ง PO โรงรมควัน"
+      closeLabel="ปิดเอกสาร PO"
+      onClose={onClose}
+      footer={<DialogFooter hint="ตรวจคำสั่งและยอดก่อนกดยืนยันรับ PO" cancelLabel="ปิด" onCancel={onClose} />}
+    >
+      {lot && order ? (
+        <PurchaseOrderDocumentPreview
+          db={db}
+          lot={lot}
+          kind="smokeOrder"
+          values={order.values}
+          date={order.date}
+        />
+      ) : (
+        <DialogBody><Notice tone="warning">ไม่พบเอกสาร PO รายการนี้</Notice></DialogBody>
+      )}
+    </Dialog>
   );
 }

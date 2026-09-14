@@ -1,9 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Input } from "@/components/atoms/Input";
+import { Textarea } from "@/components/atoms/Textarea";
+import { FormError } from "@/components/molecules/FormError";
+import { FormField } from "@/components/molecules/FormField";
+import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
+import { Dialog } from "@/components/organisms/shared/Dialog";
+import { DialogBody } from "@/components/organisms/shared/DialogBody";
+import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { latestDatabase } from "@/lib/persistence";
 import { entries, n, type Database, type Values } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -36,7 +44,7 @@ export function ChefLotEditForm({
       packs: (entry.values.packs || "").split(/[\s,]+/).filter(Boolean).join("\n"),
     })),
   );
-  const [error, setError] = useState("");
+  const { error, setError, run } = useSaveMutation("แก้ไขไม่สำเร็จ");
   if (!lot || !received || !prepared || !smokeEntries.length)
     return null;
   const receivedRecord = received;
@@ -57,8 +65,10 @@ export function ChefLotEditForm({
     );
     setError("");
   };
-  function save() {
-    try {
+  // Edits the latest entries in place rather than going through mutate(); kept as-is (separate domain card).
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    const saved = await run(() => {
       const next = latestDatabase();
       const nextLot = next.lots.find((item) => item.id === lotId);
       const receiveEntry = next.entries.find((entry) => entry.id === receivedRecord.id);
@@ -120,48 +130,45 @@ export function ChefLotEditForm({
         outputKg: latestBatch.outputKg.toFixed(2),
         packCount: String(latestBatch.weights.length),
       };
-      saveDatabase(next);
-      onSaved();
-    } catch (value) {
-      setError(value instanceof Error ? value.message : "แก้ไขไม่สำเร็จ");
-    }
+      return next;
+    });
+    if (saved) onSaved();
   }
   const smokeTotal = smokeDrafts.reduce(
     (total, draft) => total + (Number(draft.inputKg) || 0),
     0,
   );
+  const preKgValue = Number(values.preKg) || 0;
+  const balanced = Math.abs(smokeTotal - preKgValue) < 0.001;
   return (
-    <div className="modal-backdrop">
-      <section className="form-dialog" role="dialog" aria-modal="true" aria-labelledby="chef-edit-title">
-        <header>
-          <div><span className="overline">Chef_house · {lot.id}</span><h2 id="chef-edit-title">Edit ข้อมูลก่อนปิด Lot</h2></div>
-          <button type="button" className="icon-button" aria-label="ปิดฟอร์ม" onClick={onClose}><X size={18} /></button>
-        </header>
-        <div className="form-body">
-          <div className="notice">แก้ไขได้เฉพาะก่อนยืนยันปิด Lot เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว</div>
-          <div className="form-grid">
-            <label className="field">น้ำหนักรับจริง (กก.)<input type="number" min="0.001" step="0.001" value={values.receivedKg} onChange={(event) => set("receivedKg", event.target.value)} /></label>
-            <label className="field">เวลารับ (HH:mm)<input type="time" value={values.arrival} onChange={(event) => set("arrival", event.target.value)} /></label>
-            <label className="field">น้ำหนักก่อนสโมค (กก.)<input type="number" min="0.001" step="0.001" value={values.preKg} onChange={(event) => set("preKg", event.target.value)} /></label>
+    <Dialog overline={`Chef_house · ${lot.id}`} title="Edit ข้อมูลก่อนปิด Lot" onClose={onClose}>
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={save}>
+        <DialogBody>
+          <Notice>แก้ไขได้เฉพาะก่อนยืนยันปิด Lot เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว</Notice>
+          <div className="my-4.5 grid grid-cols-2 gap-4.5 max-md:grid-cols-1 max-md:gap-4">
+            <FormField label="น้ำหนักรับจริง (กก.)"><Input type="number" min="0.001" step="0.001" value={values.receivedKg} onChange={(event) => set("receivedKg", event.target.value)} /></FormField>
+            <FormField label="เวลารับ (HH:mm)"><Input type="time" value={values.arrival} onChange={(event) => set("arrival", event.target.value)} /></FormField>
+            <FormField label="น้ำหนักก่อนสโมค (กก.)"><Input type="number" min="0.001" step="0.001" value={values.preKg} onChange={(event) => set("preKg", event.target.value)} /></FormField>
           </div>
           <DataTable
             title="ตรวจสอบและแก้ไข Log Lot สโมครายวัน"
             columns={["วันที่", "Lot สโมค", "น้ำหนักเข้าเตา", "น้ำหนัก Waste", "น้ำหนักถุงใหญ่จาก Chef_house (กก. / 1 บรรทัดต่อถุง)"]}
+            rowKeys={smokeDrafts.map((draft) => draft.id)}
             rows={smokeDrafts.map((draft, index) => [
-              <input key={`${draft.id}-date`} type="date" value={draft.smokeDate} onChange={(event) => setSmoke(draft.id, "smokeDate", event.target.value)} />,
+              <Input key={`${draft.id}-date`} variant="table" type="date" aria-label={`วันที่สโมค รอบ ${index + 1}`} value={draft.smokeDate} onChange={(event) => setSmoke(draft.id, "smokeDate", event.target.value)} />,
               smokeEntries[index]?.values.subLot || "—",
-              <input key={`${draft.id}-input`} type="number" min="0.001" step="0.001" value={draft.inputKg} onChange={(event) => setSmoke(draft.id, "inputKg", event.target.value)} />,
-              <input key={`${draft.id}-waste`} type="number" min="0" step="0.001" value={draft.wasteKg} onChange={(event) => setSmoke(draft.id, "wasteKg", event.target.value)} />,
-              <textarea key={`${draft.id}-packs`} rows={3} value={draft.packs} onChange={(event) => setSmoke(draft.id, "packs", event.target.value)} />,
+              <Input key={`${draft.id}-input`} variant="table" type="number" min="0.001" step="0.001" aria-label={`น้ำหนักเข้าเตา รอบ ${index + 1}`} value={draft.inputKg} onChange={(event) => setSmoke(draft.id, "inputKg", event.target.value)} />,
+              <Input key={`${draft.id}-waste`} variant="table" type="number" min="0" step="0.001" aria-label={`น้ำหนัก Waste รอบ ${index + 1}`} value={draft.wasteKg} onChange={(event) => setSmoke(draft.id, "wasteKg", event.target.value)} />,
+              <Textarea key={`${draft.id}-packs`} variant="table" rows={3} aria-label={`น้ำหนักถุงใหญ่ รอบ ${index + 1}`} value={draft.packs} onChange={(event) => setSmoke(draft.id, "packs", event.target.value)} />,
             ])}
           />
-          <div className={Math.abs(smokeTotal - (Number(values.preKg) || 0)) < 0.001 ? "notice success" : "notice warning"}>
-            น้ำหนักเข้าเตารวมจาก Log {fmt(smokeTotal)} กก. · น้ำหนักก่อนสโมค {fmt(Number(values.preKg) || 0)} กก. · {Math.abs(smokeTotal - (Number(values.preKg) || 0)) < 0.001 ? "ยอดตรงกัน พร้อมปิด Lot" : "ยอดยังไม่ตรง ต้องปรับ Log หรือ น้ำหนักก่อนสโมคก่อนปิด Lot"}
-          </div>
-          {error && <div role="alert" className="notice danger">{error}</div>}
-        </div>
-        <footer><button type="button" className="secondary" onClick={onClose}>ยกเลิก</button><button type="button" className="primary" onClick={save}>บันทึกการแก้ไข</button></footer>
-      </section>
-    </div>
+          <Notice tone={balanced ? "success" : "warning"} role="none">
+            น้ำหนักเข้าเตารวมจาก Log {fmt(smokeTotal)} กก. · น้ำหนักก่อนสโมค {fmt(preKgValue)} กก. · {balanced ? "ยอดตรงกัน พร้อมปิด Lot" : "ยอดยังไม่ตรง ต้องปรับ Log หรือ น้ำหนักก่อนสโมคก่อนปิด Lot"}
+          </Notice>
+          <FormError error={error} />
+        </DialogBody>
+        <DialogFooter onCancel={onClose} submitLabel="บันทึกการแก้ไข" />
+      </form>
+    </Dialog>
   );
 }

@@ -1,17 +1,129 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Input } from "@/components/atoms/Input";
+import { Select } from "@/components/atoms/Select";
+import { Textarea } from "@/components/atoms/Textarea";
+import { FileUploadField } from "@/components/molecules/FileUploadField";
+import { FormError } from "@/components/molecules/FormError";
+import { FormField } from "@/components/molecules/FormField";
+import { Notice } from "@/components/molecules/Notice";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
+import { Dialog } from "@/components/organisms/shared/Dialog";
+import { DialogBody } from "@/components/organisms/shared/DialogBody";
+import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, forms } from "@/lib/forms";
-import { latestDatabase, migrateLegacyAttachments, saveDatabase } from "@/lib/persistence";
+import { latestDatabase, migrateLegacyAttachments } from "@/lib/persistence";
 import { balance, centralBagStock, centralStock, cookedRiceStock, entries, mutate, n, produced, readyForChefHouse, roleName, stages, titles, type Database, type Role, type Values } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
+import { cn } from "@/lib/utils";
+
+type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
+
+const submitLabels: Record<string, string> = {
+  closeDay: "ยืนยันปิดวัน",
+  purchase: "บันทึก PO เนื้อ",
+  smokeOrder: "บันทึก PO โรงรมควัน",
+  smokingInvoice: "Submit ใบวางบิล",
+  dispatch: "สร้างใบขนส่งขาไป",
+  return: "สร้างใบขนส่งขากลับ",
+};
+
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+
+/** One control from `forms[kind]`, rendered by its `type`. */
+function EntryFieldControl({
+  field: f,
+  autoFocus,
+  values,
+  set,
+  onFile,
+  onFileError,
+}: {
+  field: FieldSpec;
+  autoFocus: boolean;
+  values: Values;
+  set: (key: string, value: string) => void;
+  onFile: (key: string, file: File | null) => void;
+  onFileError: (message: string) => void;
+}) {
+  if (f.type === "file")
+    return (
+      <FileUploadField
+        label={f.label}
+        optional={f.optional}
+        hint={f.hint}
+        accept={f.accept}
+        required={!f.optional}
+        maxBytes={MAX_ATTACHMENT_BYTES}
+        oversizeMessage="ไฟล์ Invoice ต้องมีขนาดไม่เกิน 2 MB"
+        onError={onFileError}
+        onFile={(file) => onFile(f.key, file)}
+        fileName={values[f.key]}
+      />
+    );
+  return (
+    <FormField label={f.label} optional={f.optional} hint={f.hint} wide={f.type === "textarea"}>
+      {f.type === "select" ? (
+        <Select
+          value={values[f.key] || ""}
+          required={!f.optional}
+          onChange={(e) => set(f.key, e.target.value)}
+        >
+          {f.options!.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </Select>
+      ) : f.type === "location" ? (
+        <>
+          <Select
+            value={values[f.key] || ""}
+            required
+            onChange={(e) => set(f.key, e.target.value)}
+          >
+            {f.options!.map((o) => <option key={o}>{o}</option>)}
+          </Select>
+          {values[f.key] === "อื่น ๆ" && (
+            <Input
+              autoFocus
+              placeholder="พิมพ์จังหวัด / จุดส่งเอง"
+              value={values[`${f.key}Custom`] || ""}
+              onChange={(e) => set(`${f.key}Custom`, e.target.value)}
+            />
+          )}
+        </>
+      ) : f.type === "textarea" ? (
+        <Textarea
+          compact={f.key === "note"}
+          required={!f.optional}
+          rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
+          value={values[f.key] || ""}
+          onChange={(e) => set(f.key, e.target.value)}
+        />
+      ) : (
+        <Input
+          autoFocus={autoFocus}
+          type={f.type === "time" ? "text" : f.type || "text"}
+          placeholder={f.type === "time" ? "08:00" : undefined}
+          pattern={f.type === "time" ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined}
+          inputMode={f.type === "number" ? "decimal" : undefined}
+          min={f.type === "number" ? (f.zero ? 0 : f.integer ? 1 : 0.01) : undefined}
+          step={f.type === "number" ? (f.integer ? 1 : f.key === "packKg" ? 0.001 : 0.01) : undefined}
+          max={f.key === "tolerance" ? 100 : undefined}
+          required={!f.optional}
+          value={values[f.key] ?? ""}
+          onChange={(e) => set(f.key, e.target.value)}
+        />
+      )}
+    </FormField>
+  );
+}
 
 export function EntryForm({
   db,
@@ -57,7 +169,7 @@ export function EntryForm({
     return base;
   });
   const [lotId, setLotId] = useState(modal.lotId);
-  const [error, setError] = useState("");
+  const { error, setError, run } = useSaveMutation("บันทึกไม่สำเร็จ");
   const attachmentFiles = useRef<Record<string, File>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const useLot = ["receive", "thaw", "sale", "allocate"].includes(kind);
@@ -91,10 +203,27 @@ export function EntryForm({
     setValues((v) => ({ ...v, [key]: value }));
     setError("");
   };
+  const setFile = (key: string, file: File | null) => {
+    if (!file) {
+      set(key, "");
+      delete attachmentFiles.current[key];
+      return;
+    }
+    attachmentFiles.current[key] = file;
+    set(key, file.name);
+  };
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
+  const title =
+    kind === "purchase"
+      ? "สร้าง PO เนื้อ"
+      : kind === "smokeOrder"
+        ? "สร้าง PO โรงรมควัน"
+        : kind === "ricePurchase" && db.config.branch === "ศาลาแดง"
+          ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
+          : titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    try {
+    const saved = await run(async () => {
       const resolvedValues = { ...values };
       for (const key of ["origin", "destination"]) {
         if (resolvedValues[key] === "อื่น ๆ") {
@@ -107,67 +236,45 @@ export function EntryForm({
         resolvedValues[`${key}StorageKey`] = await saveAttachment(file);
       }
       const current = await migrateLegacyAttachments(latestDatabase());
-      const next = mutate(current, role, kind, resolvedValues, lotId, date);
-      saveDatabase(next);
-      onSaved(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
-    }
+      return mutate(current, role, kind, resolvedValues, lotId, date);
+    });
+    if (saved) onSaved(saved);
   }
   return (
-    <div
-      className="modal-backdrop"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
+    <Dialog
+      overline={`${date} · ${roleName[role]}`}
+      title={title}
+      size={isPurchaseOrder ? "preview" : "default"}
+      onClose={onClose}
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="form-title"
-        className={`form-dialog ${isPurchaseOrder ? "po-preview-dialog" : ""}`}
-      >
-        <header>
-          <div>
-            <span className="overline">
-              {date} · {roleName[role]}
-            </span>
-            <h2 id="form-title">
-              {kind === "purchase"
-                ? "สร้าง PO เนื้อ"
-                : kind === "smokeOrder"
-                  ? "สร้าง PO โรงรมควัน"
-                  : kind === "ricePurchase" && db.config.branch === "ศาลาแดง"
-                    ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
-                  : titles[kind]}
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="ปิดฟอร์ม"
-            onClick={onClose}
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+        <div
+          className={
+            isPurchaseOrder
+              ? "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] overflow-hidden max-md:grid-cols-1 max-md:overflow-auto"
+              : "min-h-0 flex-1 overflow-auto"
+          }
+        >
+          <DialogBody
+            className={cn(
+              isPurchaseOrder
+                ? "border-r border-border max-md:border-r-0 max-md:border-b"
+                : "overflow-visible",
+            )}
           >
-            <X />
-          </button>
-        </header>
-        <form onSubmit={submit}>
-          <div className={isPurchaseOrder ? "po-preview-layout" : "form-content"}>
-          <div className={`form-body ${isPurchaseOrder ? "po-preview-form" : ""}`}>
             {isPurchaseOrder && (
-              <div className="notice po-preview-notice">
+              <Notice className="mb-4.5">
                 กรอกข้อมูลด้านซ้าย เอกสาร PO ด้านขวาจะเปลี่ยนตามทันที
-              </div>
+              </Notice>
             )}
             {lot && !useLot && (
-              <div className="notice">
+              <Notice>
                 {lot.id} · {stages[lot.stage]}
-              </div>
+              </Notice>
             )}
             {useLot && (
-              <label className="field">
-                Lot ต้นทาง
-                <select
+              <FormField label="Lot ต้นทาง">
+                <Select
                   autoFocus
                   value={lotId}
                   required
@@ -185,13 +292,15 @@ export function EntryForm({
                         : `${fmt(balance(db, l.id, db.config.branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, db.config.branch).ready)} พร้อมขาย`}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </FormField>
             )}
             {kind === "receive" && (
-              <label className="field">
-                ใบจัดสรรที่รับ
-                <select
+              <FormField
+                label="ใบจัดสรรที่รับ"
+                hint={!allocations.length ? "ยังไม่มีใบจัดสรรค้างรับของ Lot นี้" : undefined}
+              >
+                <Select
                   required
                   value={values.allocation || ""}
                   onChange={(e) => set("allocation", e.target.value)}
@@ -203,34 +312,31 @@ export function EntryForm({
                       {a.entry.id.slice(0, 6)}
                     </option>
                   ))}
-                </select>
-                {!allocations.length && (
-                  <small>ยังไม่มีใบจัดสรรค้างรับของ Lot นี้</small>
-                )}
-              </label>
+                </Select>
+              </FormField>
             )}
             {kind === "closeDay" && (
               <DailySummary db={db} branch={db.config.branch} date={date} />
             )}
             {kind === "smoke" && (
-              <div className="notice">
+              <Notice>
                 บันทึกครั้งละ 1 รอบสโมค ระบบจะสร้าง Lot สโมครายวันแยกให้ และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
-              </div>
+              </Notice>
             )}
             {kind === "foodDivaConfirm" && (
-              <div className="notice">
+              <Notice>
                 แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ต้องรวมเท่ากับน้ำหนักตาม Invoice
-              </div>
+              </Notice>
             )}
             {kind === "unlock" && (
-              <div className="notice warning">
+              <Notice tone="warning">
                 ปลดล็อกให้เพิ่มรายการแก้ไขของสาขาได้ ประวัติเดิมจะยังอยู่ ยอดขาย
                 สต๊อก และรายงานจะคำนวณเพิ่มจากรายการใหม่
-              </div>
+              </Notice>
             )}
             {(kind === "supplyPurchase" || kind === "ricePurchase") &&
               db.config.branch === "มีนบุรี" && (
-              <div className="notice">
+              <Notice>
                 ข้าวเหนียวสุกคงเหลือ{" "}
                 {fmt(cookedRiceStock(db, db.config.branch))} กก. ·
                 ควรซื้อเพิ่มอย่างน้อย{" "}
@@ -246,115 +352,19 @@ export function EntryForm({
                 {cookedRiceStock(db, db.config.branch) <= 0.001
                   ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
                   : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
-              </div>
+              </Notice>
             )}
-            <div className="form-grid">
+            <div className="my-4.5 grid grid-cols-2 gap-4.5 max-md:grid-cols-1 max-md:gap-4">
               {formFields.map((f, index) => (
-                <label
-                  className={`field ${f.type === "textarea" ? "wide" : ""}`}
+                <EntryFieldControl
                   key={f.key}
-                >
-                  {f.label}
-                  {f.optional && <span className="optional"> (ถ้ามี)</span>}
-                  {f.type === "select" ? (
-                    <select
-                      value={values[f.key] || ""}
-                      required={!f.optional}
-                      onChange={(e) => set(f.key, e.target.value)}
-                    >
-                      {f.options!.map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  ) : f.type === "location" ? (
-                    <>
-                      <select
-                        value={values[f.key] || ""}
-                        required
-                        onChange={(e) => set(f.key, e.target.value)}
-                      >
-                        {f.options!.map((o) => <option key={o}>{o}</option>)}
-                      </select>
-                      {values[f.key] === "อื่น ๆ" && (
-                        <input
-                          autoFocus
-                          placeholder="พิมพ์จังหวัด / จุดส่งเอง"
-                          value={values[`${f.key}Custom`] || ""}
-                          onChange={(e) => set(`${f.key}Custom`, e.target.value)}
-                        />
-                      )}
-                    </>
-                  ) : f.type === "file" ? (
-                    <div className="file-upload-control">
-                      <input
-                        type="file"
-                        accept={f.accept}
-                        required={!f.optional}
-                        onChange={(e) => {
-                          const file = e.currentTarget.files?.[0];
-                          if (!file) {
-                            set(f.key, "");
-                            delete attachmentFiles.current[f.key];
-                            return;
-                          }
-                          if (file.size > 2 * 1024 * 1024) {
-                            setError("ไฟล์ Invoice ต้องมีขนาดไม่เกิน 2 MB");
-                            e.currentTarget.value = "";
-                            return;
-                          }
-                          attachmentFiles.current[f.key] = file;
-                          set(f.key, file.name);
-                        }}
-                      />
-                      {values[f.key] && (
-                        <span className="file-uploaded">เลือกแล้ว: {values[f.key]}</span>
-                      )}
-                    </div>
-                  ) : f.type === "textarea" ? (
-                    <textarea
-                      className={f.key === "note" ? "compact-note" : undefined}
-                      required={!f.optional}
-                      rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
-                      value={values[f.key] || ""}
-                      onChange={(e) => set(f.key, e.target.value)}
-                    />
-                  ) : (
-                    <input
-                      autoFocus={index === 0 && !useLot}
-                      type={f.type === "time" ? "text" : f.type || "text"}
-                      placeholder={f.type === "time" ? "08:00" : undefined}
-                      pattern={
-                        f.type === "time"
-                          ? "([01][0-9]|2[0-3]):[0-5][0-9]"
-                          : undefined
-                      }
-                      inputMode={f.type === "number" ? "decimal" : undefined}
-                      min={
-                        f.type === "number"
-                          ? f.zero
-                            ? 0
-                            : f.integer
-                              ? 1
-                              : 0.01
-                          : undefined
-                      }
-                      step={
-                        f.type === "number"
-                          ? f.integer
-                            ? 1
-                            : f.key === "packKg"
-                              ? 0.001
-                              : 0.01
-                          : undefined
-                      }
-                      max={f.key === "tolerance" ? 100 : undefined}
-                      required={!f.optional}
-                      value={values[f.key] ?? ""}
-                      onChange={(e) => set(f.key, e.target.value)}
-                    />
-                  )}
-                  {f.hint && <small>{f.hint}</small>}
-                </label>
+                  field={f}
+                  autoFocus={index === 0 && !useLot}
+                  values={values}
+                  set={set}
+                  onFile={setFile}
+                  onFileError={setError}
+                />
               ))}
               {kind === "smoke" && (
                 <PackWeightFields
@@ -364,12 +374,8 @@ export function EntryForm({
               )}
             </div>
             {!isPurchaseOrder && kind !== "cmReceive" && <Preview db={db} lot={lot} kind={kind} v={values} />}
-            {error && (
-              <div role="alert" className="notice danger">
-                {error}
-              </div>
-            )}
-          </div>
+            <FormError error={error} />
+          </DialogBody>
           {isPurchaseOrder && (
             <PurchaseOrderDocumentPreview
               db={db}
@@ -379,30 +385,13 @@ export function EntryForm({
               date={date}
             />
           )}
-          </div>
-          <footer>
-            <p>{isPurchaseOrder ? "ตรวจ Preview ก่อนบันทึก PO" : kind === "smokingInvoice" ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit" : "บันทึกแล้วเก็บในเบราว์เซอร์"}</p>
-            <button type="button" className="secondary" onClick={onClose}>
-              ยกเลิก
-            </button>
-            <button className="primary" type="submit">
-              {kind === "closeDay"
-                ? "ยืนยันปิดวัน"
-                : kind === "purchase"
-                  ? "บันทึก PO เนื้อ"
-                  : kind === "smokeOrder"
-                    ? "บันทึก PO โรงรมควัน"
-                    : kind === "smokingInvoice"
-                      ? "Submit ใบวางบิล"
-                    : kind === "dispatch"
-                      ? "สร้างใบขนส่งขาไป"
-                      : kind === "return"
-                        ? "สร้างใบขนส่งขากลับ"
-                    : "บันทึกรายการ"}
-            </button>
-          </footer>
-        </form>
-      </section>
-    </div>
+        </div>
+        <DialogFooter
+          hint={isPurchaseOrder ? "ตรวจ Preview ก่อนบันทึก PO" : kind === "smokingInvoice" ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit" : "บันทึกแล้วเก็บในเบราว์เซอร์"}
+          onCancel={onClose}
+          submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}
+        />
+      </form>
+    </Dialog>
   );
 }

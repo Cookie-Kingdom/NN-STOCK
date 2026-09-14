@@ -1,6 +1,10 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { FieldGroup } from "@/components/molecules/FieldGroup";
+import { Notice } from "@/components/molecules/Notice";
 import { fmt } from "@/lib/format";
 
 export function PackWeightFields({
@@ -19,14 +23,21 @@ export function PackWeightFields({
   const validWeights = weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
   const total = validWeights.reduce((sum, weight) => sum + weight, 0);
   return (
-    <div className="field wide pack-weight-editor">
-      <span>น้ำหนักถุงใหญ่จาก Chef_house</span>
-      <small>กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”</small>
+    <FieldGroup
+      wide
+      className="grid gap-2.5"
+      label="น้ำหนักถุงใหญ่จาก Chef_house"
+      hint={<span className="-mt-3 block">กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”</span>}
+    >
       {weights.map((weight, index) => (
-        <div className="pack-weight-row" key={index}>
+        <div
+          className="grid grid-cols-[90px_minmax(140px,1fr)_38px_44px] items-center gap-2.5 rounded-md border border-border bg-bg px-3 py-2.5"
+          key={index}
+        >
           <span>ถุงที่ {index + 1}</span>
-          <input
+          <Input
             aria-label={`น้ำหนักถุงที่ ${index + 1}`}
+            className="mt-0 text-right"
             type="number"
             inputMode="decimal"
             min="0.01"
@@ -37,22 +48,22 @@ export function PackWeightFields({
           />
           <span>กก.</span>
           {weights.length > 1 && (
-            <button
-              type="button"
-              className="text-button"
+            <Button
+              variant="text"
+              className="p-1"
               onClick={() => onChange(weights.filter((_, row) => row !== index).join(","))}
             >
               ลบ
-            </button>
+            </Button>
           )}
         </div>
       ))}
-      <button type="button" className="secondary add-pack-button" onClick={() => onChange([...weights, ""].join(","))}>
-        <Plus size={16} /> เพิ่มถุง
-      </button>
-      <div className="notice success pack-summary">
+      <Button variant="secondary" className="justify-self-start" icon={<Plus />} onClick={() => onChange([...weights, ""].join(","))}>
+        เพิ่มถุง
+      </Button>
+      <Notice tone="success" role="none" className="my-0">
         ส่งกลับกรุงเทพฯ {validWeights.length} ถุง · น้ำหนักรวม {fmt(total)} กก.
-      </div>
-    </div>
+      </Notice>
+    </FieldGroup>
   );
 }
