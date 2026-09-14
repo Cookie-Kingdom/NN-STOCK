@@ -142,7 +142,7 @@ export function PurchaseOrderDocumentPreview({
         </div>
         <div className="po-note">
           <strong>หมายเหตุ</strong>
-          <p>{values.instruction || "—"}</p>
+          <p>{(isSmokeOrder ? values.instruction : values.note) || "—"}</p>
         </div>
         <div className="po-paper-footer">
           <span>ผู้จัดทำ: {attention}</span>

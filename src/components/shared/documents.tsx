@@ -5,14 +5,19 @@ import { fmt } from "@/lib/format";
 
 export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
   const purchase = entries(db, "purchase", lot.id).at(-1);
+  // Same fallbacks as PurchaseOrderDocumentPreview; lot.config is the config snapshot taken when the PO was created.
+  const config = (key: string) => lot.config?.[key] || db.config[key] || "";
   return [
     ["วันที่ PO", purchase?.date || lot.values.purchaseDate || "—"],
-    ["Supplier", lot.values.supplier],
-    ["ลูกค้า", lot.values.customerName],
-    ["ที่อยู่", lot.values.customerAddress],
-    ["Attention", lot.values.attention],
-    ["โทร.", lot.values.phone],
-    ["Tax ID", lot.values.taxId],
+    ["Supplier", lot.values.supplier || "Food Diva"],
+    ["ผู้รับออเดอร์", config("foodDivaContact") || "ยังไม่ได้ตั้งค่า"],
+    ["ที่อยู่ผู้ให้บริการ", config("foodDivaAddress") || "ยังไม่ได้ตั้งค่า"],
+    ["ลูกค้า", lot.values.customerName || config("companyName") || "NerdNuea Stock"],
+    ["ที่อยู่", lot.values.customerAddress || config("companyAddress") || "—"],
+    ["Attention", lot.values.attention || config("attention") || "—"],
+    ["โทร.", lot.values.phone || config("companyPhone") || "—"],
+    ["Tax ID", lot.values.taxId || config("taxId") || "—"],
+    ["โลโก้", config("logoData")],
     ["สินค้า", lot.values.productName || "เนื้อวัว"],
     ["ขนาดบรรจุ", lot.values.packSize],
     ["จำนวน", `${fmt(n(lot.values, "orderedKg"))} กก.`],
