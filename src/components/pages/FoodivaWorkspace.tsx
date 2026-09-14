@@ -28,12 +28,14 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={ws.date}
         onDate={ws.setDate}
-        badges={{ "foodiva": openTasks }}
+        badges={{ foodiva: openTasks }}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >
         {tab === "foodiva" && <FoodivaView db={db} open={ws.open} />}
-        {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
+        {tab === "history" && (
+          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+        )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />
     </>

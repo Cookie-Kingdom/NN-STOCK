@@ -31,9 +31,10 @@ export function DailyTaskTable({
       rows={kinds.map((kind) => {
         const count = entries(db, kind, undefined, branch, date).length;
         const optional = kind === "ricePurchase" || kind === "chiliPurchase";
-        const label = kind === "ricePurchase" && branch === "ศาลาแดง"
-          ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กก."
-          : titles[kind];
+        const label =
+          kind === "ricePurchase" && branch === "ศาลาแดง"
+            ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กก."
+            : titles[kind];
         return [
           optional ? `${label} · บันทึกเฉพาะวันที่ซื้อ` : label,
           count ? "บันทึกแล้ว" : optional ? "ไม่บังคับวันนี้" : "รอบันทึก",

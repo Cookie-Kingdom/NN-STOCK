@@ -13,7 +13,13 @@ import {
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documents";
 import { InvoiceDownloadButton } from "@/components/organisms/shared/InvoiceDownloadButton";
-import { entries, n, smokingInvoiceStatus, type Database, type Lot } from "@/lib/store";
+import {
+  entries,
+  n,
+  smokingInvoiceStatus,
+  type Database,
+  type Lot,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const foodivaColumns = [
@@ -46,7 +52,8 @@ export function InvoiceView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const [referenceType, setReferenceType] = useState<DocumentReferenceType>("po");
+  const [referenceType, setReferenceType] =
+    useState<DocumentReferenceType>("po");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -67,7 +74,9 @@ export function InvoiceView({
         overline="INVOICE CENTER"
         title="ใบ Invoice"
         description="Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef_house แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO"
-        aside={<Stat label="Invoice รอตรวจยอด" value={`${waitingForReview} ใบ`} />}
+        aside={
+          <Stat label="Invoice รอตรวจยอด" value={`${waitingForReview} ใบ`} />
+        }
       />
       <DocumentFilterBar
         referenceType={referenceType}
@@ -125,12 +134,18 @@ export function InvoiceView({
             />,
             <ButtonRow key={`action-${entry.id}`}>
               {status === "รอตรวจยอด" && (
-                <Button variant="table" onClick={() => open("invoiceReview", entry.lotId)}>
+                <Button
+                  variant="table"
+                  onClick={() => open("invoiceReview", entry.lotId)}
+                >
                   ตรวจยอด
                 </Button>
               )}
               {status === "รอชำระ" && (
-                <Button variant="table" onClick={() => open("invoicePayment", entry.lotId)}>
+                <Button
+                  variant="table"
+                  onClick={() => open("invoicePayment", entry.lotId)}
+                >
                   ชำระเงิน
                 </Button>
               )}

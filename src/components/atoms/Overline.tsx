@@ -19,5 +19,7 @@ export function Overline({
   className,
   ...props
 }: ComponentProps<"span"> & VariantProps<typeof overlineVariants>) {
-  return <span className={cn(overlineVariants({ tone }), className)} {...props} />;
+  return (
+    <span className={cn(overlineVariants({ tone }), className)} {...props} />
+  );
 }

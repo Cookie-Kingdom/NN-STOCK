@@ -20,7 +20,17 @@ const CUSTOM_DIALOGS = [
 ];
 
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
-  const { db, role, date, modal, setModal, setToast, chosen, setChosen, setTab } = ws;
+  const {
+    db,
+    role,
+    date,
+    modal,
+    setModal,
+    setToast,
+    chosen,
+    setChosen,
+    setTab,
+  } = ws;
   if (!modal) return null;
   const close = () => setModal(null);
   const done = (message: string) => {
@@ -77,12 +87,16 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         db={db}
         lotId={modal.lotId}
         onClose={close}
-        onSaved={() => done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")}
+        onSaved={() =>
+          done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")
+        }
       />
     );
   }
   if (modal.kind === "smokeOrderPreview") {
-    return <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />;
+    return (
+      <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />
+    );
   }
   if (CUSTOM_DIALOGS.includes(modal.kind)) return null;
 
@@ -98,7 +112,9 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {
           setTab("po");
-          done("สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง");
+          done(
+            "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
+          );
         } else {
           done(`บันทึก${titles[modal.kind]}แล้ว`);
         }

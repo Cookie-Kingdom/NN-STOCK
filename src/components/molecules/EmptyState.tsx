@@ -3,7 +3,7 @@ import { Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Default → `.empty` (dashed box with icon; replaces primitives `Empty`).
+ * Default → `.empty` (dashed box with icon).
  * `compact` → `.dashboard-alert-empty` / `.notification-empty` (a muted line, no icon unless given).
  */
 export function EmptyState({

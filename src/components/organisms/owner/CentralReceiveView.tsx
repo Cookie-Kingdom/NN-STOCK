@@ -7,7 +7,14 @@ import { DataTable } from "@/components/organisms/shared/DataTable";
 import { entries, n, producedBags, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
-const columns = ["Lot", "Foodiva รับจริง", "จำนวนถุง", "ใบขนส่งกลับ", "สถานะ", "การทำงาน"];
+const columns = [
+  "Lot",
+  "Foodiva รับจริง",
+  "จำนวนถุง",
+  "ใบขนส่งกลับ",
+  "สถานะ",
+  "การทำงาน",
+];
 
 export function CentralReceiveView({
   db,
@@ -17,7 +24,8 @@ export function CentralReceiveView({
   open: (kind: string, lotId?: string) => void;
 }) {
   const readyToReceive = db.lots.filter(
-    (lot) => lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
+    (lot) =>
+      lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
   );
   return (
     <>
@@ -40,7 +48,11 @@ export function CentralReceiveView({
               ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`
               : "ยังไม่มีใบขนส่งขากลับ",
             "รอรับเข้าสต๊อกกลาง",
-            <Button variant="table" key={lot.id} onClick={() => open("central", lot.id)}>
+            <Button
+              variant="table"
+              key={lot.id}
+              onClick={() => open("central", lot.id)}
+            >
               รับเข้าคลังกลาง
             </Button>,
           ];

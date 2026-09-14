@@ -18,7 +18,11 @@ export function BranchSelectFilter({
 }) {
   return (
     <TableFilter label={label}>
-      <Select variant="filter" value={value} onChange={(event) => onChange(event.target.value)}>
+      <Select
+        variant="filter"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
         <option>{allLabel}</option>
         {branches.map((name) => (
           <option key={name}>{name}</option>

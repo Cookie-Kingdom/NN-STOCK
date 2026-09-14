@@ -38,7 +38,11 @@ export function PurchaseOrderView({
         description="สร้าง PO ใหม่และดูรายการที่เคยสร้าง"
         actions={
           <ButtonRow>
-            <Button variant="primary" icon={<Plus />} onClick={() => open("purchase", "")}>
+            <Button
+              variant="primary"
+              icon={<Plus />}
+              onClick={() => open("purchase", "")}
+            >
               สร้าง PO เนื้อ
             </Button>
           </ButtonRow>
@@ -62,7 +66,8 @@ export function PurchaseOrderView({
             `${item.values.customerName || "-"} / ${item.values.attention || "-"}`,
             `${item.values.productName || "เนื้อวัว"} / ${item.values.packSize || "-"}`,
             `${fmt(n(item.values, "orderedKg"))} กก.`,
-            entries(db, "foodDivaConfirm", item.id).at(-1)?.values.invoiceNo || "รอยืนยัน",
+            entries(db, "foodDivaConfirm", item.id).at(-1)?.values.invoiceNo ||
+              "รอยืนยัน",
             stages[item.stage],
             item.stage === 1 ? (
               <ButtonRow key={item.id}>

@@ -1,7 +1,19 @@
 "use client";
 
 import { ReadRow } from "@/components/atoms/ReadRow";
-import { balance, chiliStock, entries, n, processed, produced, producedBags, smokeServiceRate, type Database, type Lot, type Values } from "@/lib/store";
+import {
+  balance,
+  chiliStock,
+  entries,
+  n,
+  processed,
+  produced,
+  producedBags,
+  smokeServiceRate,
+  type Database,
+  type Lot,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function Preview({
@@ -94,7 +106,10 @@ export function Preview({
     ];
   if (kind === "return" && lot)
     rows = [
-      ["ของที่ส่งกลับ Foodiva", `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`],
+      [
+        "ของที่ส่งกลับ Foodiva",
+        `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`,
+      ],
       [
         "ค่ารถขากลับ",
         `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(lot.config, "returnFee"))}`,
@@ -103,7 +118,10 @@ export function Preview({
     ];
   if (kind === "central" && lot)
     rows = [
-      ["Foodiva รับเข้าตู้แล้ว", `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`],
+      [
+        "Foodiva รับเข้าตู้แล้ว",
+        `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
+      ],
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],
     ];
@@ -119,13 +137,16 @@ export function Preview({
         "พร้อมขายหลังรายการนี้",
         `${fmt(balance(db, lot.id, db.config.branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
       ],
+      ["ข้าวที่จะหัก", `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`],
       [
-        "ข้าวที่จะหัก",
-        `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`,
+        "น้ำพริกก่อนขาย",
+        `${fmt(chiliStock(db, db.config.branch))} หลอดที่ Owner จัดสรร`,
       ],
-      ["น้ำพริกก่อนขาย", `${fmt(chiliStock(db, db.config.branch))} หลอดที่ Owner จัดสรร`],
       ["น้ำพริกที่จะหัก", `${n(v, "chiliAddons")} หลอดที่ลูกค้าซื้อ`],
-      ["น้ำพริกควรเหลือ", `${fmt(chiliStock(db, db.config.branch) - n(v, "chiliAddons"))} หลอด`],
+      [
+        "น้ำพริกควรเหลือ",
+        `${fmt(chiliStock(db, db.config.branch) - n(v, "chiliAddons"))} หลอด`,
+      ],
     ];
   }
   return rows.length ? (

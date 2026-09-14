@@ -19,7 +19,23 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, forms } from "@/lib/forms";
 import { latestDatabase, migrateLegacyAttachments } from "@/lib/persistence";
-import { balance, centralBagStock, centralStock, cookedRiceStock, entries, mutate, n, produced, readyForChefHouse, roleName, stages, titles, type Database, type Role, type Values } from "@/lib/store";
+import {
+  balance,
+  centralBagStock,
+  centralStock,
+  cookedRiceStock,
+  entries,
+  mutate,
+  n,
+  produced,
+  readyForChefHouse,
+  roleName,
+  stages,
+  titles,
+  type Database,
+  type Role,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -69,7 +85,12 @@ function EntryFieldControl({
       />
     );
   return (
-    <FormField label={f.label} optional={f.optional} hint={f.hint} wide={f.type === "textarea"}>
+    <FormField
+      label={f.label}
+      optional={f.optional}
+      hint={f.hint}
+      wide={f.type === "textarea"}
+    >
       {f.type === "select" ? (
         <Select
           value={values[f.key] || ""}
@@ -87,7 +108,9 @@ function EntryFieldControl({
             required
             onChange={(e) => set(f.key, e.target.value)}
           >
-            {f.options!.map((o) => <option key={o}>{o}</option>)}
+            {f.options!.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
           </Select>
           {values[f.key] === "อื่น ๆ" && (
             <Input
@@ -111,10 +134,28 @@ function EntryFieldControl({
           autoFocus={autoFocus}
           type={f.type === "time" ? "text" : f.type || "text"}
           placeholder={f.type === "time" ? "08:00" : undefined}
-          pattern={f.type === "time" ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined}
+          pattern={
+            f.type === "time" ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
+          }
           inputMode={f.type === "number" ? "decimal" : undefined}
-          min={f.type === "number" ? (f.zero ? 0 : f.integer ? 1 : 0.01) : undefined}
-          step={f.type === "number" ? (f.integer ? 1 : f.key === "packKg" ? 0.001 : 0.01) : undefined}
+          min={
+            f.type === "number"
+              ? f.zero
+                ? 0
+                : f.integer
+                  ? 1
+                  : 0.01
+              : undefined
+          }
+          step={
+            f.type === "number"
+              ? f.integer
+                ? 1
+                : f.key === "packKg"
+                  ? 0.001
+                  : 0.01
+              : undefined
+          }
           max={f.key === "tolerance" ? 100 : undefined}
           required={!f.optional}
           value={values[f.key] ?? ""}
@@ -145,27 +186,31 @@ export function EntryForm({
     const base = kind === "config" ? { ...db.config } : defaults(kind, date);
     const modalLot = db.lots.find((item) => item.id === modal.lotId);
     if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
-    if (kind === "dispatch" && modalLot) Object.assign(base, {
-      dispatchKg: String(readyForChefHouse(db, modalLot.id)),
-      origin: "Foodiva · กรุงเทพฯ",
-      destination: "Chef_house · เชียงใหม่",
-    });
-    if (kind === "smokeOrder" && modalLot) Object.assign(base, {
-      rawKg: String(readyForChefHouse(db, modalLot.id)),
-    });
-    if (kind === "return" && modalLot) Object.assign(base, {
-      returnKg: String(produced(db, modalLot.id)),
-      origin: "Chef_house · เชียงใหม่",
-      destination: "Foodiva · กรุงเทพฯ",
-    });
-    if (kind === "purchase") Object.assign(base, {
-      customerName: db.config.companyName || "",
-      customerAddress: db.config.companyAddress || "",
-      attention: db.config.attention || "",
-      phone: db.config.companyPhone || "",
-      taxId: db.config.taxId || "",
-      productName: "เนื้อวัว",
-    });
+    if (kind === "dispatch" && modalLot)
+      Object.assign(base, {
+        dispatchKg: String(readyForChefHouse(db, modalLot.id)),
+        origin: "Foodiva · กรุงเทพฯ",
+        destination: "Chef_house · เชียงใหม่",
+      });
+    if (kind === "smokeOrder" && modalLot)
+      Object.assign(base, {
+        rawKg: String(readyForChefHouse(db, modalLot.id)),
+      });
+    if (kind === "return" && modalLot)
+      Object.assign(base, {
+        returnKg: String(produced(db, modalLot.id)),
+        origin: "Chef_house · เชียงใหม่",
+        destination: "Foodiva · กรุงเทพฯ",
+      });
+    if (kind === "purchase")
+      Object.assign(base, {
+        customerName: db.config.companyName || "",
+        customerAddress: db.config.companyAddress || "",
+        attention: db.config.attention || "",
+        phone: db.config.companyPhone || "",
+        taxId: db.config.taxId || "",
+        productName: "เนื้อวัว",
+      });
     return base;
   });
   const [lotId, setLotId] = useState(modal.lotId);
@@ -228,7 +273,10 @@ export function EntryForm({
       for (const key of ["origin", "destination"]) {
         if (resolvedValues[key] === "อื่น ๆ") {
           const custom = resolvedValues[`${key}Custom`]?.trim();
-          if (!custom) throw new Error(`กรุณาระบุ${key === "origin" ? "ต้นทาง" : "ปลายทาง"}เอง`);
+          if (!custom)
+            throw new Error(
+              `กรุณาระบุ${key === "origin" ? "ต้นทาง" : "ปลายทาง"}เอง`,
+            );
           resolvedValues[key] = custom;
         }
       }
@@ -298,7 +346,11 @@ export function EntryForm({
             {kind === "receive" && (
               <FormField
                 label="ใบจัดสรรที่รับ"
-                hint={!allocations.length ? "ยังไม่มีใบจัดสรรค้างรับของ Lot นี้" : undefined}
+                hint={
+                  !allocations.length
+                    ? "ยังไม่มีใบจัดสรรค้างรับของ Lot นี้"
+                    : undefined
+                }
               >
                 <Select
                   required
@@ -320,12 +372,15 @@ export function EntryForm({
             )}
             {kind === "smoke" && (
               <Notice>
-                บันทึกครั้งละ 1 รอบสโมค ระบบจะสร้าง Lot สโมครายวันแยกให้ และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
+                บันทึกครั้งละ 1 รอบสโมค ระบบจะสร้าง Lot สโมครายวันแยกให้
+                และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
               </Notice>
             )}
             {kind === "foodDivaConfirm" && (
               <Notice>
-                แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ต้องรวมเท่ากับน้ำหนักตาม Invoice
+                แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house
+                ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste)
+                ต้องรวมเท่ากับน้ำหนักตาม Invoice
               </Notice>
             )}
             {kind === "unlock" && (
@@ -336,24 +391,24 @@ export function EntryForm({
             )}
             {(kind === "supplyPurchase" || kind === "ricePurchase") &&
               db.config.branch === "มีนบุรี" && (
-              <Notice>
-                ข้าวเหนียวสุกคงเหลือ{" "}
-                {fmt(cookedRiceStock(db, db.config.branch))} กก. ·
-                ควรซื้อเพิ่มอย่างน้อย{" "}
-                {fmt(
-                  Math.max(
-                    0,
-                    n(db.config, "cookedRicePar") -
-                      cookedRiceStock(db, db.config.branch),
-                  ),
-                )}{" "}
-                กก. เพื่อให้พร้อมขายไม่น้อยกว่า{" "}
-                {fmt(n(db.config, "cookedRicePar"))} กก.
-                {cookedRiceStock(db, db.config.branch) <= 0.001
-                  ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
-                  : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
-              </Notice>
-            )}
+                <Notice>
+                  ข้าวเหนียวสุกคงเหลือ{" "}
+                  {fmt(cookedRiceStock(db, db.config.branch))} กก. ·
+                  ควรซื้อเพิ่มอย่างน้อย{" "}
+                  {fmt(
+                    Math.max(
+                      0,
+                      n(db.config, "cookedRicePar") -
+                        cookedRiceStock(db, db.config.branch),
+                    ),
+                  )}{" "}
+                  กก. เพื่อให้พร้อมขายไม่น้อยกว่า{" "}
+                  {fmt(n(db.config, "cookedRicePar"))} กก.
+                  {cookedRiceStock(db, db.config.branch) <= 0.001
+                    ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
+                    : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
+                </Notice>
+              )}
             <div className="my-4.5 grid grid-cols-2 gap-4.5 max-md:grid-cols-1 max-md:gap-4">
               {formFields.map((f, index) => (
                 <EntryFieldControl
@@ -373,7 +428,9 @@ export function EntryForm({
                 />
               )}
             </div>
-            {!isPurchaseOrder && kind !== "cmReceive" && <Preview db={db} lot={lot} kind={kind} v={values} />}
+            {!isPurchaseOrder && kind !== "cmReceive" && (
+              <Preview db={db} lot={lot} kind={kind} v={values} />
+            )}
             <FormError error={error} />
           </DialogBody>
           {isPurchaseOrder && (
@@ -387,7 +444,13 @@ export function EntryForm({
           )}
         </div>
         <DialogFooter
-          hint={isPurchaseOrder ? "ตรวจ Preview ก่อนบันทึก PO" : kind === "smokingInvoice" ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit" : "บันทึกแล้วเก็บในเบราว์เซอร์"}
+          hint={
+            isPurchaseOrder
+              ? "ตรวจ Preview ก่อนบันทึก PO"
+              : kind === "smokingInvoice"
+                ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit"
+                : "บันทึกแล้วเก็บในเบราว์เซอร์"
+          }
           onCancel={onClose}
           submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}
         />

@@ -1,7 +1,16 @@
 "use client";
 
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { chiliAllocated, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, n, rawRiceStock, type Database } from "@/lib/store";
+import {
+  chiliAllocated,
+  chiliStock,
+  cookedRiceStock,
+  entries,
+  issuedRawRiceStock,
+  n,
+  rawRiceStock,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function SupplyStock({
@@ -29,7 +38,9 @@ export function SupplyStock({
         const latest = [
           ...entries(db, "supplyPurchase", undefined, name),
           ...entries(db, "ricePurchase", undefined, name),
-        ].sort((a, b) => a.at.localeCompare(b.at)).at(-1);
+        ]
+          .sort((a, b) => a.at.localeCompare(b.at))
+          .at(-1);
         return [
           <strong key={name}>{name}</strong>,
           `${fmt(rawRiceStock(db, name))} กก.`,

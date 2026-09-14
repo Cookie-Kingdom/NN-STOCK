@@ -32,7 +32,11 @@ export function PanelHeading({
         <h2 className="mb-3 text-h2">{title}</h2>
         {description && <Muted>{description}</Muted>}
       </div>
-      {aside && <div className="flex flex-none flex-wrap items-center gap-2.5">{aside}</div>}
+      {aside && (
+        <div className="flex flex-none flex-wrap items-center gap-2.5">
+          {aside}
+        </div>
+      )}
     </Panel>
   );
 }

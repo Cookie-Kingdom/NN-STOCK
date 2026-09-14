@@ -5,8 +5,17 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
-import { branchMaterialStock, entries, materials, mutate, n, type Database, type Values } from "@/lib/store";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { latestDatabase } from "@/lib/persistence";
+import {
+  branchMaterialStock,
+  entries,
+  materials,
+  mutate,
+  n,
+  type Database,
+  type Values,
+} from "@/lib/store";
 
 export function DailyMaterialsTable({
   db,
@@ -29,7 +38,12 @@ export function DailyMaterialsTable({
       ]),
     ),
   );
-  const [message, setMessage] = useState("");
+  // Success and error messages share one Notice, so the hook's error slot doubles as it.
+  const {
+    error: message,
+    setError: setMessage,
+    run,
+  } = useSaveMutation("บันทึกไม่สำเร็จ");
   const opening = (i: number) =>
     saved
       ? n(saved.values, "opening" + i)
@@ -43,8 +57,8 @@ export function DailyMaterialsTable({
         ? opening(i) - used(i)
         : n(draft, "actual" + i);
 
-  function saveMaterials() {
-    try {
+  async function saveMaterials() {
+    const next = await run(() => {
       const values: Values = {};
       materials.forEach((_, i) => {
         values["opening" + i] = String(opening(i));
@@ -52,26 +66,24 @@ export function DailyMaterialsTable({
         values["material" + i] = String(remaining(i));
         values["materialReason" + i] = draft["materialReason" + i] || "";
       });
-      const next = mutate(
-        latestDatabase(),
-        "branch",
-        "materials",
-        values,
-        "",
-        date,
-      );
-      saveDatabase(next);
-      setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
-    }
+      return mutate(latestDatabase(), "branch", "materials", values, "", date);
+    });
+    if (next) setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
   }
 
   return (
     <>
       <DataTable
         title="วัสดุ 7 รายการ · กรอกการใช้วันนี้"
-        columns={["วัสดุ", "ยอดตั้งต้น", "ใช้วันนี้", "ยอดที่ควรเหลือ", "ตรวจนับจริง", "เหตุผลส่วนต่าง", "สถานะ"]}
+        columns={[
+          "วัสดุ",
+          "ยอดตั้งต้น",
+          "ใช้วันนี้",
+          "ยอดที่ควรเหลือ",
+          "ตรวจนับจริง",
+          "เหตุผลส่วนต่าง",
+          "สถานะ",
+        ]}
         action={
           <Button
             variant="primary"
@@ -108,7 +120,9 @@ export function DailyMaterialsTable({
             />
           ),
           String(opening(i) - used(i)),
-          saved ? String(remaining(i)) : (
+          saved ? (
+            String(remaining(i))
+          ) : (
             <Input
               key={`actual-${i}`}
               variant="table"
@@ -119,13 +133,17 @@ export function DailyMaterialsTable({
               value={draft["actual" + i] ?? ""}
               disabled={disabled}
               aria-label={`ยอดตรวจนับจริง ${item}`}
-              onChange={(event) => setDraft((current) => ({
-                ...current,
-                ["actual" + i]: event.target.value,
-              }))}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  ["actual" + i]: event.target.value,
+                }))
+              }
             />
           ),
-          saved ? (saved.values["materialReason" + i] || "—") : (
+          saved ? (
+            saved.values["materialReason" + i] || "—"
+          ) : (
             <Input
               key={`reason-${i}`}
               variant="table"
@@ -135,13 +153,19 @@ export function DailyMaterialsTable({
               value={draft["materialReason" + i] || ""}
               disabled={disabled || remaining(i) === opening(i) - used(i)}
               aria-label={`เหตุผลส่วนต่าง ${item}`}
-              onChange={(event) => setDraft((current) => ({
-                ...current,
-                ["materialReason" + i]: event.target.value,
-              }))}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  ["materialReason" + i]: event.target.value,
+                }))
+              }
             />
           ),
-          saved ? "บันทึกแล้ว" : opening(i) ? "รอบันทึก" : "Owner ยังไม่ตั้งฐาน",
+          saved
+            ? "บันทึกแล้ว"
+            : opening(i)
+              ? "รอบันทึก"
+              : "Owner ยังไม่ตั้งฐาน",
         ])}
       />
       {message && <Notice>{message}</Notice>}

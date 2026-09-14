@@ -26,6 +26,7 @@ export function SalesBars({
   return (
     <div
       className="mt-4.5 grid min-w-0 grid-cols-[76px_minmax(0,1fr)] items-start"
+      role="img"
       aria-label="กราฟยอดขายรายวัน"
     >
       <div
@@ -47,13 +48,19 @@ export function SalesBars({
         {data.map((item) => {
           const value = item[branch];
           return (
-            <div className="grid h-full grid-rows-[22px_175px_28px] items-end text-center" key={item.date}>
+            <div
+              className="grid h-full grid-rows-[22px_175px_28px] items-end text-center"
+              key={item.date}
+            >
               <div className="text-caption font-bold text-text-secondary tabular-nums">
                 ฿{fmt(value)}
               </div>
               <div className="flex h-42.5 flex-col-reverse items-stretch justify-start overflow-hidden rounded-t-md rounded-b-xs bg-surface-sunken">
                 <div
-                  className={cn("min-h-0.5", segmentColors[colorClass] ?? colorClass)}
+                  className={cn(
+                    "min-h-0.5",
+                    segmentColors[colorClass] ?? colorClass,
+                  )}
                   style={{ height: `${(value / max) * 100}%` }}
                 />
               </div>

@@ -43,17 +43,28 @@ export function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
   };
 }
 
-const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง", "ข้าวเหนียวดิบ (ข้าวสาร)"];
+const standardIngredients = [
+  "น้ำพริกหลอด",
+  "น้ำดอง",
+  "ข้าวเหนียวดิบ (ข้าวสาร)",
+];
 const ingredientUnits: Record<string, string> = {
-  "น้ำพริกหลอด": "หลอด",
-  "น้ำดอง": "มล.",
+  น้ำพริกหลอด: "หลอด",
+  น้ำดอง: "มล.",
   "ข้าวเหนียวดิบ (ข้าวสาร)": "กก.",
 };
 
 function readSavedIngredients(): string[] {
   try {
-    const parsed = JSON.parse(latestDatabase().config.customIngredients || "[]");
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+    const parsed = JSON.parse(
+      latestDatabase().config.customIngredients || "[]",
+    );
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
+      : [];
   } catch {
     return [];
   }
@@ -72,27 +83,52 @@ export function GeneralPurchaseForm({
 }) {
   // ponytail: read once on open; the saved list only changes when this form saves and closes.
   const [savedIngredients] = useState(readSavedIngredients);
-  const ingredientOptions = Array.from(new Set([...standardIngredients, ...savedIngredients]));
-  const [lines, setLines] = useState<GeneralPurchaseLine[]>(() => [newGeneralPurchaseLine(date)]);
-  const { error, setError, run } = useSaveMutation("บันทึกการซื้ออื่น ๆ ไม่สำเร็จ");
+  const ingredientOptions = Array.from(
+    new Set([...standardIngredients, ...savedIngredients]),
+  );
+  const [lines, setLines] = useState<GeneralPurchaseLine[]>(() => [
+    newGeneralPurchaseLine(date),
+  ]);
+  const { error, setError, run } = useSaveMutation(
+    "บันทึกการซื้ออื่น ๆ ไม่สำเร็จ",
+  );
   const total = lines.reduce(
-    (sum, line) => sum + Number(line.quantity || 0) * Number(line.unitPrice || 0),
+    (sum, line) =>
+      sum + Number(line.quantity || 0) * Number(line.unitPrice || 0),
     0,
   );
-  const update = (id: string, key: keyof Omit<GeneralPurchaseLine, "id">, value: string) => {
-    setLines((current) => current.map((line) => line.id === id ? { ...line, [key]: value } : line));
+  const update = (
+    id: string,
+    key: keyof Omit<GeneralPurchaseLine, "id">,
+    value: string,
+  ) => {
+    setLines((current) =>
+      current.map((line) =>
+        line.id === id ? { ...line, [key]: value } : line,
+      ),
+    );
     setError("");
   };
   const chooseIngredient = (id: string, item: string) => {
-    setLines((current) => current.map((line) => line.id === id ? {
-      ...line,
-      item,
-      unit: ingredientUnits[item] || line.unit,
-    } : line));
+    setLines((current) =>
+      current.map((line) =>
+        line.id === id
+          ? {
+              ...line,
+              item,
+              unit: ingredientUnits[item] || line.unit,
+            }
+          : line,
+      ),
+    );
     setError("");
   };
-  const addLine = () => setLines((current) => [...current, newGeneralPurchaseLine(date)]);
-  const removeLine = (id: string) => setLines((current) => current.length === 1 ? current : current.filter((line) => line.id !== id));
+  const addLine = () =>
+    setLines((current) => [...current, newGeneralPurchaseLine(date)]);
+  const removeLine = (id: string) =>
+    setLines((current) =>
+      current.length === 1 ? current : current.filter((line) => line.id !== id),
+    );
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -104,76 +140,256 @@ export function GeneralPurchaseForm({
         const supplier = line.supplier.trim();
         const quantity = Number(line.quantity);
         const unitPrice = Number(line.unitPrice);
-        if (!item || item === "__custom__") throw new Error("กรอกรายการที่ซื้อให้ครบ");
+        if (!item || item === "__custom__")
+          throw new Error("กรอกรายการที่ซื้อให้ครบ");
         if (line.category === "วัตถุดิบ" && /เนื้อ/.test(item))
-          throw new Error("เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Foodiva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง");
+          throw new Error(
+            "เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Foodiva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง",
+          );
         if (!line.purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
         if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
         if (!line.unit.trim()) throw new Error(`กรอกหน่วยของ ${item}`);
-        if (!Number.isFinite(quantity) || quantity <= 0) throw new Error(`กรอกจำนวน ${item}`);
-        if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`กรอกราคาซื้อ ${item}`);
-        next = mutate(next, "owner", "generalPurchase", {
-          purchaseDate: line.purchaseDate,
-          purchaseCategory: line.category,
-          item,
-          unit: line.unit.trim(),
-          quantity: String(quantity),
-          unitPrice: String(unitPrice),
-          supplier,
-          reference: line.reference.trim(),
-        }, "", line.purchaseDate);
-        if (line.category === "วัตถุดิบ" && !standardIngredients.includes(item)) addedIngredients.add(item);
+        if (!Number.isFinite(quantity) || quantity <= 0)
+          throw new Error(`กรอกจำนวน ${item}`);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0)
+          throw new Error(`กรอกราคาซื้อ ${item}`);
+        next = mutate(
+          next,
+          "owner",
+          "generalPurchase",
+          {
+            purchaseDate: line.purchaseDate,
+            purchaseCategory: line.category,
+            item,
+            unit: line.unit.trim(),
+            quantity: String(quantity),
+            unitPrice: String(unitPrice),
+            supplier,
+            reference: line.reference.trim(),
+          },
+          "",
+          line.purchaseDate,
+        );
+        if (line.category === "วัตถุดิบ" && !standardIngredients.includes(item))
+          addedIngredients.add(item);
       }
       return {
         ...next,
-        config: { ...next.config, customIngredients: JSON.stringify(Array.from(addedIngredients).sort((a, b) => a.localeCompare(b, "th"))) },
+        config: {
+          ...next.config,
+          customIngredients: JSON.stringify(
+            Array.from(addedIngredients).sort((a, b) =>
+              a.localeCompare(b, "th"),
+            ),
+          ),
+        },
       };
     });
     if (saved) onSaved();
   }
 
   return (
-    <Dialog overline="Owner · บัญชี" title="บันทึกการซื้ออื่น ๆ" size="xl" onClose={onClose}>
+    <Dialog
+      overline="Owner · บัญชี"
+      title="บันทึกการซื้ออื่น ๆ"
+      size="xl"
+      onClose={onClose}
+    >
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
         <DialogBody>
-          <Notice>เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก Foodiva เพื่อผูก Lot กับสต๊อก</Notice>
+          <Notice>
+            เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง
+            ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO
+            และรับจาก Foodiva เพื่อผูก Lot กับสต๊อก
+          </Notice>
           <div className="mt-5.5 grid gap-3.5">
             {lines.map((line, index) => {
-              const amount = Number(line.quantity || 0) * Number(line.unitPrice || 0);
+              const amount =
+                Number(line.quantity || 0) * Number(line.unitPrice || 0);
               const isIngredient = line.category === "วัตถุดิบ";
-              const customIngredient = isIngredient && line.item !== "" && !ingredientOptions.includes(line.item);
-              const ingredientChoice = customIngredient ? "__custom__" : line.item;
-              const fixedUnit = isIngredient ? ingredientUnits[line.item] : undefined;
+              const customIngredient =
+                isIngredient &&
+                line.item !== "" &&
+                !ingredientOptions.includes(line.item);
+              const ingredientChoice = customIngredient
+                ? "__custom__"
+                : line.item;
+              const fixedUnit = isIngredient
+                ? ingredientUnits[line.item]
+                : undefined;
               return (
-                <article key={line.id} className="overflow-hidden rounded-lg border border-border bg-surface">
+                <article
+                  key={line.id}
+                  className="overflow-hidden rounded-lg border border-border bg-surface"
+                >
                   <div className="flex items-center gap-3.5 bg-bg px-4.5 py-3.5 max-[560px]:flex-wrap">
                     <strong className="mr-auto">รายการซื้อ {index + 1}</strong>
-                    <span className="font-bold text-text-secondary">ยอดรวม ฿{fmt(amount)}</span>
-                    <Button variant="danger" size="sm" className="px-2.5" aria-label={`ลบรายการ ${index + 1}`} disabled={lines.length === 1} onClick={() => removeLine(line.id)}>ลบ</Button>
+                    <span className="font-bold text-text-secondary">
+                      ยอดรวม ฿{fmt(amount)}
+                    </span>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="px-2.5"
+                      aria-label={`ลบรายการ ${index + 1}`}
+                      disabled={lines.length === 1}
+                      onClick={() => removeLine(line.id)}
+                    >
+                      ลบ
+                    </Button>
                   </div>
                   <div className="grid grid-cols-4 gap-4 p-4.5 max-[800px]:grid-cols-2 max-[560px]:grid-cols-1">
-                    <FormField className={lineField} label="กลุ่มการซื้อ"><Select aria-label={`กลุ่มการซื้อ ${index + 1}`} value={line.category} onChange={(event) => update(line.id, "category", event.target.value)}><option>วัตถุดิบ</option><option>สินทรัพย์</option><option>ค่าใช้จ่ายอื่น</option></Select></FormField>
+                    <FormField className={lineField} label="กลุ่มการซื้อ">
+                      <Select
+                        aria-label={`กลุ่มการซื้อ ${index + 1}`}
+                        value={line.category}
+                        onChange={(event) =>
+                          update(line.id, "category", event.target.value)
+                        }
+                      >
+                        <option>วัตถุดิบ</option>
+                        <option>สินทรัพย์</option>
+                        <option>ค่าใช้จ่ายอื่น</option>
+                      </Select>
+                    </FormField>
                     {isIngredient ? (
-                      <FormField className={lineField} label="วัตถุดิบ"><Select aria-label={`เลือกวัตถุดิบ ${index + 1}`} value={ingredientChoice} onChange={(event) => chooseIngredient(line.id, event.target.value)}><option value="">เลือกวัตถุดิบ</option>{ingredientOptions.map((item) => <option key={item} value={item}>{item}</option>)}<option value="__custom__">+ เพิ่มวัตถุดิบใหม่</option></Select>{customIngredient && <Input aria-label={`ชื่อวัตถุดิบใหม่ ${index + 1}`} placeholder="พิมพ์ชื่อวัตถุดิบใหม่" value={line.item === "__custom__" ? "" : line.item} onChange={(event) => update(line.id, "item", event.target.value)} />}</FormField>
-                    ) : <FormField className={lineField} label="รายการ"><Input type="text" aria-label={`รายการซื้อ ${index + 1}`} placeholder="เช่น ตู้เย็น" value={line.item} onChange={(event) => update(line.id, "item", event.target.value)} /></FormField>}
-                    <FormField className={lineField} label="วันที่ซื้อ"><Input type="date" aria-label={`วันที่ซื้อ ${index + 1}`} value={line.purchaseDate} onChange={(event) => update(line.id, "purchaseDate", event.target.value)} /></FormField>
-                    <FormField className={lineField} label="จำนวน"><Input type="number" min="0.01" step="0.01" inputMode="decimal" aria-label={`จำนวน ${index + 1}`} placeholder="จำนวน" value={line.quantity} onChange={(event) => update(line.id, "quantity", event.target.value)} /></FormField>
-                    <FormField className={lineField} label="หน่วย"><Input type="text" aria-label={`หน่วย ${index + 1}`} placeholder="เช่น หลอด, มล., เครื่อง" value={fixedUnit || line.unit} disabled={!!fixedUnit} onChange={(event) => update(line.id, "unit", event.target.value)} /></FormField>
-                    <FormField className={lineField} label="ราคาซื้อ / หน่วย"><Input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาต่อหน่วย ${index + 1}`} placeholder="0.00" value={line.unitPrice} onChange={(event) => update(line.id, "unitPrice", event.target.value)} /></FormField>
-                    <FormField className={lineField} label="ผู้จำหน่าย"><Input type="text" aria-label={`ผู้จำหน่าย ${index + 1}`} placeholder="ผู้ขาย" value={line.supplier} onChange={(event) => update(line.id, "supplier", event.target.value)} /></FormField>
-                    <FormField className={lineField} label="เลขอ้างอิง / ใบเสร็จ"><Input type="text" aria-label={`ใบเสร็จ ${index + 1}`} placeholder="เลขที่ (ถ้ามี)" value={line.reference} onChange={(event) => update(line.id, "reference", event.target.value)} /></FormField>
+                      <FormField className={lineField} label="วัตถุดิบ">
+                        <Select
+                          aria-label={`เลือกวัตถุดิบ ${index + 1}`}
+                          value={ingredientChoice}
+                          onChange={(event) =>
+                            chooseIngredient(line.id, event.target.value)
+                          }
+                        >
+                          <option value="">เลือกวัตถุดิบ</option>
+                          {ingredientOptions.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                          <option value="__custom__">
+                            + เพิ่มวัตถุดิบใหม่
+                          </option>
+                        </Select>
+                        {customIngredient && (
+                          <Input
+                            aria-label={`ชื่อวัตถุดิบใหม่ ${index + 1}`}
+                            placeholder="พิมพ์ชื่อวัตถุดิบใหม่"
+                            value={line.item === "__custom__" ? "" : line.item}
+                            onChange={(event) =>
+                              update(line.id, "item", event.target.value)
+                            }
+                          />
+                        )}
+                      </FormField>
+                    ) : (
+                      <FormField className={lineField} label="รายการ">
+                        <Input
+                          type="text"
+                          aria-label={`รายการซื้อ ${index + 1}`}
+                          placeholder="เช่น ตู้เย็น"
+                          value={line.item}
+                          onChange={(event) =>
+                            update(line.id, "item", event.target.value)
+                          }
+                        />
+                      </FormField>
+                    )}
+                    <FormField className={lineField} label="วันที่ซื้อ">
+                      <Input
+                        type="date"
+                        aria-label={`วันที่ซื้อ ${index + 1}`}
+                        value={line.purchaseDate}
+                        onChange={(event) =>
+                          update(line.id, "purchaseDate", event.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField className={lineField} label="จำนวน">
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        inputMode="decimal"
+                        aria-label={`จำนวน ${index + 1}`}
+                        placeholder="จำนวน"
+                        value={line.quantity}
+                        onChange={(event) =>
+                          update(line.id, "quantity", event.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField className={lineField} label="หน่วย">
+                      <Input
+                        type="text"
+                        aria-label={`หน่วย ${index + 1}`}
+                        placeholder="เช่น หลอด, มล., เครื่อง"
+                        value={fixedUnit || line.unit}
+                        disabled={!!fixedUnit}
+                        onChange={(event) =>
+                          update(line.id, "unit", event.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField className={lineField} label="ราคาซื้อ / หน่วย">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        aria-label={`ราคาต่อหน่วย ${index + 1}`}
+                        placeholder="0.00"
+                        value={line.unitPrice}
+                        onChange={(event) =>
+                          update(line.id, "unitPrice", event.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField className={lineField} label="ผู้จำหน่าย">
+                      <Input
+                        type="text"
+                        aria-label={`ผู้จำหน่าย ${index + 1}`}
+                        placeholder="ผู้ขาย"
+                        value={line.supplier}
+                        onChange={(event) =>
+                          update(line.id, "supplier", event.target.value)
+                        }
+                      />
+                    </FormField>
+                    <FormField
+                      className={lineField}
+                      label="เลขอ้างอิง / ใบเสร็จ"
+                    >
+                      <Input
+                        type="text"
+                        aria-label={`ใบเสร็จ ${index + 1}`}
+                        placeholder="เลขที่ (ถ้ามี)"
+                        value={line.reference}
+                        onChange={(event) =>
+                          update(line.id, "reference", event.target.value)
+                        }
+                      />
+                    </FormField>
                   </div>
                 </article>
               );
             })}
           </div>
           <ButtonRow className="mt-4.5">
-            <Button variant="secondary" icon={<Plus />} onClick={addLine}>เพิ่มรายการ</Button>
-            <Notice tone="success" role="none" className="my-0">{lines.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</Notice>
+            <Button variant="secondary" icon={<Plus />} onClick={addLine}>
+              เพิ่มรายการ
+            </Button>
+            <Notice tone="success" role="none" className="my-0">
+              {lines.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}
+            </Notice>
           </ButtonRow>
           <FormError error={error} />
         </DialogBody>
-        <DialogFooter hint="กดเพิ่มรายการเพื่อบันทึกได้ต่อเนื่อง" onCancel={onClose} submitLabel={`บันทึก ${lines.length} รายการ`} />
+        <DialogFooter
+          hint="กดเพิ่มรายการเพื่อบันทึกได้ต่อเนื่อง"
+          onCancel={onClose}
+          submitLabel={`บันทึก ${lines.length} รายการ`}
+        />
       </form>
     </Dialog>
   );

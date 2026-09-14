@@ -35,14 +35,18 @@ export function DocumentFilterBar({
     <Panel className="flex items-end justify-between gap-5">
       <div>
         <Overline>FILTER DOCUMENTS</Overline>
-        <Muted className="mt-1.25">กรองจากวันที่ออก PO / วันที่เปิด Lot เป็นหลัก</Muted>
+        <Muted className="mt-1.25">
+          กรองจากวันที่ออก PO / วันที่เปิด Lot เป็นหลัก
+        </Muted>
       </div>
       <FilterBar>
         <TableFilter label="กรองตาม">
           <Select
             variant="filter"
             value={referenceType}
-            onChange={(event) => onReferenceType(event.target.value as DocumentReferenceType)}
+            onChange={(event) =>
+              onReferenceType(event.target.value as DocumentReferenceType)
+            }
           >
             <option value="po">เลข PO</option>
             <option value="lot">เลข Lot</option>

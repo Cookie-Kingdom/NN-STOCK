@@ -1,5 +1,8 @@
 import type { ComponentProps } from "react";
-import { controlVariants, type ControlVariantProps } from "@/components/atoms/Input";
+import {
+  controlVariants,
+  type ControlVariantProps,
+} from "@/components/atoms/Input";
 import { cn } from "@/lib/utils";
 
 export function Select({

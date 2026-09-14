@@ -20,14 +20,20 @@ export function PackWeightFields({
     rows[index] = next;
     onChange(rows.join(","));
   };
-  const validWeights = weights.map(Number).filter((weight) => Number.isFinite(weight) && weight > 0);
+  const validWeights = weights
+    .map(Number)
+    .filter((weight) => Number.isFinite(weight) && weight > 0);
   const total = validWeights.reduce((sum, weight) => sum + weight, 0);
   return (
     <FieldGroup
       wide
       className="grid gap-2.5"
       label="น้ำหนักถุงใหญ่จาก Chef_house"
-      hint={<span className="-mt-3 block">กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”</span>}
+      hint={
+        <span className="-mt-3 block">
+          กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”
+        </span>
+      }
     >
       {weights.map((weight, index) => (
         <div
@@ -51,14 +57,21 @@ export function PackWeightFields({
             <Button
               variant="text"
               className="p-1"
-              onClick={() => onChange(weights.filter((_, row) => row !== index).join(","))}
+              onClick={() =>
+                onChange(weights.filter((_, row) => row !== index).join(","))
+              }
             >
               ลบ
             </Button>
           )}
         </div>
       ))}
-      <Button variant="secondary" className="justify-self-start" icon={<Plus />} onClick={() => onChange([...weights, ""].join(","))}>
+      <Button
+        variant="secondary"
+        className="justify-self-start"
+        icon={<Plus />}
+        onClick={() => onChange([...weights, ""].join(","))}
+      >
         เพิ่มถุง
       </Button>
       <Notice tone="success" role="none" className="my-0">

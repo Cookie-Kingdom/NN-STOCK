@@ -25,7 +25,13 @@ export function SmokeOrderPreviewDialog({
       title="ใบสั่ง PO โรงรมควัน"
       closeLabel="ปิดเอกสาร PO"
       onClose={onClose}
-      footer={<DialogFooter hint="ตรวจคำสั่งและยอดก่อนกดยืนยันรับ PO" cancelLabel="ปิด" onCancel={onClose} />}
+      footer={
+        <DialogFooter
+          hint="ตรวจคำสั่งและยอดก่อนกดยืนยันรับ PO"
+          cancelLabel="ปิด"
+          onCancel={onClose}
+        />
+      }
     >
       {lot && order ? (
         <PurchaseOrderDocumentPreview
@@ -36,7 +42,9 @@ export function SmokeOrderPreviewDialog({
           date={order.date}
         />
       ) : (
-        <DialogBody><Notice tone="warning">ไม่พบเอกสาร PO รายการนี้</Notice></DialogBody>
+        <DialogBody>
+          <Notice tone="warning">ไม่พบเอกสาร PO รายการนี้</Notice>
+        </DialogBody>
       )}
     </Dialog>
   );

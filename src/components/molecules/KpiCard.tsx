@@ -2,18 +2,21 @@ import type { ComponentProps, ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const kpiIconVariants = cva("grid size-8 flex-none place-items-center rounded-lg", {
-  variants: {
-    tone: {
-      sales: "bg-bg text-accent",
-      cost: "bg-warning-subtle text-warning",
-      positive: "bg-success-subtle text-success",
-      negative: "bg-danger-subtle text-danger",
-      boxes: "bg-accent-subtle text-accent",
+const kpiIconVariants = cva(
+  "grid size-8 flex-none place-items-center rounded-lg",
+  {
+    variants: {
+      tone: {
+        sales: "bg-bg text-accent",
+        cost: "bg-warning-subtle text-warning",
+        positive: "bg-success-subtle text-success",
+        negative: "bg-danger-subtle text-danger",
+        boxes: "bg-accent-subtle text-accent",
+      },
     },
+    defaultVariants: { tone: "sales" },
   },
-  defaultVariants: { tone: "sales" },
-});
+);
 
 export type KpiTone = NonNullable<VariantProps<typeof kpiIconVariants>["tone"]>;
 
@@ -48,7 +51,9 @@ export function KpiCard({
         <span className={kpiIconVariants({ tone })}>{icon}</span>
         <span>{label}</span>
       </div>
-      <strong className="text-num-lg text-text-primary tabular-nums xl:text-num-xl">{value}</strong>
+      <strong className="text-num-lg text-text-primary tabular-nums xl:text-num-xl">
+        {value}
+      </strong>
       {caption && (
         <small
           className={cn(

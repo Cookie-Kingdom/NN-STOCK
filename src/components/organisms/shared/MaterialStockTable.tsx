@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { branchMaterialStock, branches, entries, materialPar, materialUnitPrice, materials, n, ownerMaterialStock, type Database } from "@/lib/store";
+import {
+  branchMaterialStock,
+  branches,
+  entries,
+  materialPar,
+  materialUnitPrice,
+  materials,
+  n,
+  ownerMaterialStock,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const ALL = "ทั้งหมด";
@@ -22,8 +32,9 @@ export function MaterialStockTable({
 }) {
   const [branchFilter, setBranchFilter] = useState(ALL);
   if (ownerView) {
-    const purchases = [...entries(db, "materialReceive")]
-      .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
+    const purchases = [...entries(db, "materialReceive")].sort(
+      (a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at),
+    );
     return (
       <div className="grid gap-6">
         <DataTable
@@ -36,14 +47,40 @@ export function MaterialStockTable({
               branches={stockLocations}
             />
           }
-          columns={branchFilter === ALL ? ["วัสดุ", "รวมทุกจุด", OWNER_STORE, ...branches, "จำนวนฐานรวม", "สถานะ"] : ["วัสดุ", "จุดจัดเก็บ", "คงเหลือ", "จำนวนฐาน", "ราคาต่อหน่วย", "มูลค่าคงเหลือ", "สถานะ"]}
+          columns={
+            branchFilter === ALL
+              ? [
+                  "วัสดุ",
+                  "รวมทุกจุด",
+                  OWNER_STORE,
+                  ...branches,
+                  "จำนวนฐานรวม",
+                  "สถานะ",
+                ]
+              : [
+                  "วัสดุ",
+                  "จุดจัดเก็บ",
+                  "คงเหลือ",
+                  "จำนวนฐาน",
+                  "ราคาต่อหน่วย",
+                  "มูลค่าคงเหลือ",
+                  "สถานะ",
+                ]
+          }
           rowKeys={materials}
           rows={materials.map((item, index) => {
             const owner = ownerMaterialStock(db, item);
             if (branchFilter === ALL) {
-              const branchStock = branches.map((name) => branchMaterialStock(db, name, index));
-              const total = owner + branchStock.reduce((sum, quantity) => sum + quantity, 0);
-              const parTotal = branches.reduce((sum, name) => sum + materialPar(db, name, index), 0);
+              const branchStock = branches.map((name) =>
+                branchMaterialStock(db, name, index),
+              );
+              const total =
+                owner +
+                branchStock.reduce((sum, quantity) => sum + quantity, 0);
+              const parTotal = branches.reduce(
+                (sum, name) => sum + materialPar(db, name, index),
+                0,
+              );
               return [
                 item,
                 `${total} ชิ้น`,
@@ -54,9 +91,13 @@ export function MaterialStockTable({
               ];
             }
             const isOwner = branchFilter === OWNER_STORE;
-            const quantity = isOwner ? owner : branchMaterialStock(db, branchFilter, index);
+            const quantity = isOwner
+              ? owner
+              : branchMaterialStock(db, branchFilter, index);
             const par = isOwner ? 0 : materialPar(db, branchFilter, index);
-            const price = isOwner ? 0 : materialUnitPrice(db, branchFilter, index);
+            const price = isOwner
+              ? 0
+              : materialUnitPrice(db, branchFilter, index);
             return [
               item,
               branchFilter,
@@ -64,13 +105,27 @@ export function MaterialStockTable({
               isOwner ? "—" : `${par} ชิ้น`,
               isOwner ? "—" : `฿${fmt(price)} / ชิ้น`,
               isOwner ? "—" : `฿${fmt(quantity * price)}`,
-              isOwner ? (quantity > 0 ? "มีข้อมูล" : "ยังไม่มีสต๊อก") : par > 0 && quantity < par * 0.2 ? "ใกล้หมด" : "ปกติ",
+              isOwner
+                ? quantity > 0
+                  ? "มีข้อมูล"
+                  : "ยังไม่มีสต๊อก"
+                : par > 0 && quantity < par * 0.2
+                  ? "ใกล้หมด"
+                  : "ปกติ",
             ];
           })}
         />
         <DataTable
           title="ประวัติการซื้อวัสดุ (Material purchase history)"
-          columns={["วันที่ซื้อ", "วัสดุ", "จำนวน", "ราคาซื้อ / หน่วย", "ยอดรวม", "ผู้จำหน่าย", "เลขอ้างอิง"]}
+          columns={[
+            "วันที่ซื้อ",
+            "วัสดุ",
+            "จำนวน",
+            "ราคาซื้อ / หน่วย",
+            "ยอดรวม",
+            "ผู้จำหน่าย",
+            "เลขอ้างอิง",
+          ]}
           rowKeys={purchases.map((entry) => entry.id)}
           rows={purchases.map((entry) => [
             entry.values.purchaseDate || entry.date,

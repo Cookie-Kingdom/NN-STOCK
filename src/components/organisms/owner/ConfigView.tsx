@@ -9,17 +9,43 @@ import { Textarea } from "@/components/atoms/Textarea";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
-import { branches, materials, mutate, n, seed, type Database, type Values } from "@/lib/store";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { latestDatabase } from "@/lib/persistence";
+import {
+  branches,
+  materials,
+  mutate,
+  n,
+  seed,
+  type Database,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 type ConfigSection =
-  "main" | "documents" | "pricing" | "supplies" | "production" | "branch" | "materials";
+  | "main"
+  | "documents"
+  | "pricing"
+  | "supplies"
+  | "production"
+  | "branch"
+  | "materials";
 
-type ValueType = "number" | "time" | "branch" | "text" | "date" | "textarea" | "file";
+type ValueType =
+  "number" | "time" | "branch" | "text" | "date" | "textarea" | "file";
 
-const settingColumns = ["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย (Unit)"];
-const materialSettingsColumns = ["วัสดุ (Material)", "จำนวนฐาน (Par level)", "ราคาต่อหน่วย (Unit price)", "มูลค่าฐาน (Par value)", "ใช้กับสาขา"];
+const settingColumns = [
+  "รายการ (Setting)",
+  "ค่าปัจจุบัน (Current value)",
+  "หน่วย (Unit)",
+];
+const materialSettingsColumns = [
+  "วัสดุ (Material)",
+  "จำนวนฐาน (Par level)",
+  "ราคาต่อหน่วย (Unit price)",
+  "มูลค่าฐาน (Par value)",
+  "ใช้กับสาขา",
+];
 const logoMaxBytes = 1024 * 1024;
 const logoPreviewClass =
   "block size-15.5 rounded-md border border-border bg-surface object-contain";
@@ -32,13 +58,26 @@ const plain = (value: string) => fmt(Number(value));
 function draftFromConfig(config: Values): Values {
   const values = { ...seed.config, ...config };
   for (let i = 0; i < materials.length; i++) {
-    values[`material${i}`] = values[`material${i}`] || values[`material${i}_saladaeng`] || values[`material${i}_minburi`] || "0";
-    values[`materialPrice${i}`] = values[`materialPrice${i}`] || values[`materialPrice${i}_saladaeng`] || values[`materialPrice${i}_minburi`] || "0";
+    values[`material${i}`] =
+      values[`material${i}`] ||
+      values[`material${i}_saladaeng`] ||
+      values[`material${i}_minburi`] ||
+      "0";
+    values[`materialPrice${i}`] =
+      values[`materialPrice${i}`] ||
+      values[`materialPrice${i}_saladaeng`] ||
+      values[`materialPrice${i}_minburi`] ||
+      "0";
   }
   return values;
 }
 
-function settingRow(label: string, value: ReactNode, unit: string, detail: string): ReactNode[] {
+function settingRow(
+  label: string,
+  value: ReactNode,
+  unit: string,
+  detail: string,
+): ReactNode[] {
   return [<strong key="label">{label}</strong>, value, unit, detail];
 }
 
@@ -119,12 +158,20 @@ function ConfigValue({
 }) {
   if (editing !== section) {
     if (type === "file" && config[name])
-      // Stored locally as a data URL, so Next image optimization cannot process it.
-      // eslint-disable-next-line @next/next/no-img-element
-      return <img className={logoPreviewClass} src={config[name]} alt="โลโก้ NerdNuea" />;
+      return (
+        // Stored locally as a data URL, so Next image optimization cannot process it.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className={logoPreviewClass}
+          src={config[name]}
+          alt="โลโก้ NerdNuea"
+        />
+      );
     return (
       <ReadOnlyValue>
-        {type === "file" ? "ยังไม่ได้อัปโหลด" : display(config[name] || seed.config[name] || "—")}
+        {type === "file"
+          ? "ยังไม่ได้อัปโหลด"
+          : display(config[name] || seed.config[name] || "—")}
       </ReadOnlyValue>
     );
   }
@@ -169,7 +216,11 @@ function ConfigValue({
           draft[name] && (
             // Stored locally as a data URL, so Next image optimization cannot process it.
             // eslint-disable-next-line @next/next/no-img-element
-            <img className={logoPreviewClass} src={draft[name]} alt="ตัวอย่างโลโก้ NerdNuea" />
+            <img
+              className={logoPreviewClass}
+              src={draft[name]}
+              alt="ตัวอย่างโลโก้ NerdNuea"
+            />
           )
         }
         hint={draft.logoName || "รองรับ PNG, JPG, WebP หรือ SVG ไม่เกิน 1 MB"}
@@ -179,7 +230,15 @@ function ConfigValue({
     <Input
       variant="table"
       aria-label={name}
-      type={type === "time" ? "time" : type === "date" ? "date" : type === "text" ? "text" : "number"}
+      type={
+        type === "time"
+          ? "time"
+          : type === "date"
+            ? "date"
+            : type === "text"
+              ? "text"
+              : "number"
+      }
       min={type === "number" ? "0" : undefined}
       step={name === "packKg" ? "0.001" : name === "tolerance" ? "1" : "0.01"}
       value={draft[name] ?? ""}
@@ -191,7 +250,12 @@ function ConfigValue({
 export function ConfigView({ db }: { db: Database }) {
   const [draft, setDraft] = useState<Values>(() => draftFromConfig(db.config));
   const [editing, setEditing] = useState<ConfigSection | null>(null);
-  const [message, setMessage] = useState("");
+  // Status, logo and error messages share one slot, so the hook's error slot doubles as it.
+  const {
+    error: message,
+    setError: setMessage,
+    run,
+  } = useSaveMutation("บันทึกไม่สำเร็จ");
   const startEdit = (section: ConfigSection) => {
     setDraft(draftFromConfig(latestDatabase().config));
     setEditing(section);
@@ -204,27 +268,31 @@ export function ConfigView({ db }: { db: Database }) {
   const readLogo = (key: string, file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
-      setDraft((current) => ({ ...current, [key]: String(reader.result), logoName: file.name }));
-      setMessage(`เลือกโลโก้ ${file.name} แล้ว · กดบันทึกและล็อกเพื่อใช้กับ PO`);
+      setDraft((current) => ({
+        ...current,
+        [key]: String(reader.result),
+        logoName: file.name,
+      }));
+      setMessage(
+        `เลือกโลโก้ ${file.name} แล้ว · กดบันทึกและล็อกเพื่อใช้กับ PO`,
+      );
     };
     reader.readAsDataURL(file);
   };
-  const save = () => {
-    try {
-      const next = mutate(
+  const save = async () => {
+    const next = await run(() =>
+      mutate(
         latestDatabase(),
         "owner",
         "config",
         draft,
         "",
         new Date().toISOString().slice(0, 10),
-      );
-      saveDatabase(next);
-      setEditing(null);
-      setMessage("บันทึกแล้ว · กลับสู่โหมดดูข้อมูล");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
-    }
+      ),
+    );
+    if (!next) return;
+    setEditing(null);
+    setMessage("บันทึกแล้ว · กลับสู่โหมดดูข้อมูล");
   };
   const edit: EditProps = {
     editing,
@@ -244,9 +312,11 @@ export function ConfigView({ db }: { db: Database }) {
   const materialSettingsSource = editing === "materials" ? draft : db.config;
   const sharedMaterialValue = (index: number, price = false) => {
     const key = `${price ? "materialPrice" : "material"}${index}`;
-    return n(materialSettingsSource, key)
-      || n(materialSettingsSource, `${key}_saladaeng`)
-      || n(materialSettingsSource, `${key}_minburi`);
+    return (
+      n(materialSettingsSource, key) ||
+      n(materialSettingsSource, `${key}_saladaeng`) ||
+      n(materialSettingsSource, `${key}_minburi`)
+    );
   };
   const materialSettingsRows = materials.map((name, index) => {
     const amount = sharedMaterialValue(index);
@@ -254,12 +324,22 @@ export function ConfigView({ db }: { db: Database }) {
     return [
       <strong key="label">{name}</strong>,
       editing === "materials" ? (
-        <ConfigValue {...edit} section="materials" name={`material${index}`} display={(value) => `${fmt(Number(value))} ชิ้น`} />
+        <ConfigValue
+          {...edit}
+          section="materials"
+          name={`material${index}`}
+          display={(value) => `${fmt(Number(value))} ชิ้น`}
+        />
       ) : (
         <ReadOnlyValue key="amount">{fmt(amount)} ชิ้น</ReadOnlyValue>
       ),
       editing === "materials" ? (
-        <ConfigValue {...edit} section="materials" name={`materialPrice${index}`} display={(value) => `฿${fmt(Number(value))} / ชิ้น`} />
+        <ConfigValue
+          {...edit}
+          section="materials"
+          name={`materialPrice${index}`}
+          display={(value) => `฿${fmt(Number(value))} / ชิ้น`}
+        />
       ) : (
         <ReadOnlyValue key="price">฿{fmt(price)} / ชิ้น</ReadOnlyValue>
       ),
@@ -284,27 +364,147 @@ export function ConfigView({ db }: { db: Database }) {
       <DataTable
         title="ข้อมูลหลักก่อนเริ่มระบบ (System setup)"
         action={<SectionAction section="main" {...actionProps} />}
-        columns={["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย", "ใช้ในระบบ"]}
+        columns={[
+          "รายการ (Setting)",
+          "ค่าปัจจุบัน (Current value)",
+          "หน่วย",
+          "ใช้ในระบบ",
+        ]}
         rows={[
-          settingRow("ชื่อบริษัท / ลูกค้า", <ConfigValue {...edit} section="main" name="companyName" type="text" />, "ข้อความ", "เติมใน PO อัตโนมัติ"),
-          settingRow("ที่อยู่บริษัท", <ConfigValue {...edit} section="main" name="companyAddress" type="text" />, "ข้อความ", "เติมใน PO อัตโนมัติ"),
-          settingRow("ผู้ติดต่อ (Attention)", <ConfigValue {...edit} section="main" name="attention" type="text" />, "ข้อความ", "เติมใน PO อัตโนมัติ"),
-          settingRow("เบอร์ติดต่อ", <ConfigValue {...edit} section="main" name="companyPhone" type="text" />, "ข้อความ", "เติมใน PO อัตโนมัติ"),
-          settingRow("เลขประจำตัวผู้เสียภาษี", <ConfigValue {...edit} section="main" name="taxId" type="text" />, "ข้อความ", "เติมใน PO อัตโนมัติ"),
-          settingRow("วันเริ่มใช้งานจริง", <ConfigValue {...edit} section="main" name="systemStartDate" type="date" />, "วันที่", "กำหนดวันเริ่มเก็บข้อมูลจริง"),
-          settingRow("สาขาที่เปิดใช้งาน", "ศาลาแดง, มีนบุรี", "2 สาขา", "ใช้กับสต๊อก รายงาน และบัญชีสาขา"),
+          settingRow(
+            "ชื่อบริษัท / ลูกค้า",
+            <ConfigValue
+              {...edit}
+              section="main"
+              name="companyName"
+              type="text"
+            />,
+            "ข้อความ",
+            "เติมใน PO อัตโนมัติ",
+          ),
+          settingRow(
+            "ที่อยู่บริษัท",
+            <ConfigValue
+              {...edit}
+              section="main"
+              name="companyAddress"
+              type="text"
+            />,
+            "ข้อความ",
+            "เติมใน PO อัตโนมัติ",
+          ),
+          settingRow(
+            "ผู้ติดต่อ (Attention)",
+            <ConfigValue
+              {...edit}
+              section="main"
+              name="attention"
+              type="text"
+            />,
+            "ข้อความ",
+            "เติมใน PO อัตโนมัติ",
+          ),
+          settingRow(
+            "เบอร์ติดต่อ",
+            <ConfigValue
+              {...edit}
+              section="main"
+              name="companyPhone"
+              type="text"
+            />,
+            "ข้อความ",
+            "เติมใน PO อัตโนมัติ",
+          ),
+          settingRow(
+            "เลขประจำตัวผู้เสียภาษี",
+            <ConfigValue {...edit} section="main" name="taxId" type="text" />,
+            "ข้อความ",
+            "เติมใน PO อัตโนมัติ",
+          ),
+          settingRow(
+            "วันเริ่มใช้งานจริง",
+            <ConfigValue
+              {...edit}
+              section="main"
+              name="systemStartDate"
+              type="date"
+            />,
+            "วันที่",
+            "กำหนดวันเริ่มเก็บข้อมูลจริง",
+          ),
+          settingRow(
+            "สาขาที่เปิดใช้งาน",
+            "ศาลาแดง, มีนบุรี",
+            "2 สาขา",
+            "ใช้กับสต๊อก รายงาน และบัญชีสาขา",
+          ),
         ]}
       />
       <DataTable
         title="ข้อมูลบนใบ PO (PO document setup)"
         action={<SectionAction section="documents" {...actionProps} />}
-        columns={["รายการ (Setting)", "ค่าปัจจุบัน (Current value)", "หน่วย", "ใช้ใน PO"]}
+        columns={[
+          "รายการ (Setting)",
+          "ค่าปัจจุบัน (Current value)",
+          "หน่วย",
+          "ใช้ใน PO",
+        ]}
         rows={[
-          settingRow("โลโก้ NerdNuea", <ConfigValue {...edit} section="documents" name="logoData" type="file" />, "รูปภาพ", "แสดงหัวเอกสารทั้ง PO Foodiva และ PO Chef_house"),
-          settingRow("ผู้รับออเดอร์ Foodiva", <ConfigValue {...edit} section="documents" name="foodDivaContact" type="text" />, "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
-          settingRow("ที่อยู่บริษัท Foodiva", <ConfigValue {...edit} section="documents" name="foodDivaAddress" type="textarea" />, "ข้อความ", "แสดงฝั่งผู้ขายใน PO เนื้อ"),
-          settingRow("ผู้รับออเดอร์ Chef_house", <ConfigValue {...edit} section="documents" name="chefHouseContact" type="text" />, "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
-          settingRow("ที่อยู่บริษัท Chef_house", <ConfigValue {...edit} section="documents" name="chefHouseAddress" type="textarea" />, "ข้อความ", "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน"),
+          settingRow(
+            "โลโก้ NerdNuea",
+            <ConfigValue
+              {...edit}
+              section="documents"
+              name="logoData"
+              type="file"
+            />,
+            "รูปภาพ",
+            "แสดงหัวเอกสารทั้ง PO Foodiva และ PO Chef_house",
+          ),
+          settingRow(
+            "ผู้รับออเดอร์ Foodiva",
+            <ConfigValue
+              {...edit}
+              section="documents"
+              name="foodDivaContact"
+              type="text"
+            />,
+            "ข้อความ",
+            "แสดงฝั่งผู้ขายใน PO เนื้อ",
+          ),
+          settingRow(
+            "ที่อยู่บริษัท Foodiva",
+            <ConfigValue
+              {...edit}
+              section="documents"
+              name="foodDivaAddress"
+              type="textarea"
+            />,
+            "ข้อความ",
+            "แสดงฝั่งผู้ขายใน PO เนื้อ",
+          ),
+          settingRow(
+            "ผู้รับออเดอร์ Chef_house",
+            <ConfigValue
+              {...edit}
+              section="documents"
+              name="chefHouseContact"
+              type="text"
+            />,
+            "ข้อความ",
+            "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน",
+          ),
+          settingRow(
+            "ที่อยู่บริษัท Chef_house",
+            <ConfigValue
+              {...edit}
+              section="documents"
+              name="chefHouseAddress"
+              type="textarea"
+            />,
+            "ข้อความ",
+            "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน",
+          ),
         ]}
       />
       <DataTable
@@ -312,11 +512,56 @@ export function ConfigView({ db }: { db: Database }) {
         action={<SectionAction section="pricing" {...actionProps} />}
         columns={[...settingColumns, "ใช้คำนวณ (Purpose)"]}
         rows={[
-          settingRow("ราคากล่องมาตรฐาน (Standard box price)", <ConfigValue {...edit} section="pricing" name="boxPrice" display={baht} />, "บาท / กล่อง", "ยอดขายกล่องปกติ"),
-          settingRow("ราคาเนื้อซีลเพิ่ม (Add-on pack price)", <ConfigValue {...edit} section="pricing" name="addonPrice" display={baht} />, "บาท / แพ็ก", "ยอดขายเนื้อเพิ่ม"),
-          settingRow("น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight)", <ConfigValue {...edit} section="pricing" name="packKg" display={(value) => `${fmt(Number(value) * 1000)} กรัม`} />, "กรัม / ซีล", "ค่ากลาง 101.5 กรัม ระบบยอมรับช่วง 100–103 กรัม"),
-          settingRow("ข้าวเหนียวในกล่อง (Included sticky rice)", "฿0.00", "200 กรัม / กล่อง", "รวมอยู่ในราคากล่อง"),
-          settingRow("ราคาขายน้ำพริกหลอด (Chili selling price)", <ConfigValue {...edit} section="pricing" name="chiliPrice" display={baht} />, "บาท / หลอด", "น้ำพริกจำหน่ายแยกทุกหลอด ไม่รวมอยู่ในกล่องมาตรฐาน"),
+          settingRow(
+            "ราคากล่องมาตรฐาน (Standard box price)",
+            <ConfigValue
+              {...edit}
+              section="pricing"
+              name="boxPrice"
+              display={baht}
+            />,
+            "บาท / กล่อง",
+            "ยอดขายกล่องปกติ",
+          ),
+          settingRow(
+            "ราคาเนื้อซีลเพิ่ม (Add-on pack price)",
+            <ConfigValue
+              {...edit}
+              section="pricing"
+              name="addonPrice"
+              display={baht}
+            />,
+            "บาท / แพ็ก",
+            "ยอดขายเนื้อเพิ่ม",
+          ),
+          settingRow(
+            "น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight)",
+            <ConfigValue
+              {...edit}
+              section="pricing"
+              name="packKg"
+              display={(value) => `${fmt(Number(value) * 1000)} กรัม`}
+            />,
+            "กรัม / ซีล",
+            "ค่ากลาง 101.5 กรัม ระบบยอมรับช่วง 100–103 กรัม",
+          ),
+          settingRow(
+            "ข้าวเหนียวในกล่อง (Included sticky rice)",
+            "฿0.00",
+            "200 กรัม / กล่อง",
+            "รวมอยู่ในราคากล่อง",
+          ),
+          settingRow(
+            "ราคาขายน้ำพริกหลอด (Chili selling price)",
+            <ConfigValue
+              {...edit}
+              section="pricing"
+              name="chiliPrice"
+              display={baht}
+            />,
+            "บาท / หลอด",
+            "น้ำพริกจำหน่ายแยกทุกหลอด ไม่รวมอยู่ในกล่องมาตรฐาน",
+          ),
         ]}
       />
       <DataTable
@@ -324,12 +569,72 @@ export function ConfigView({ db }: { db: Database }) {
         action={<SectionAction section="supplies" {...actionProps} />}
         columns={[...settingColumns, "ใช้ควบคุม (Purpose)"]}
         rows={[
-          settingRow("จำนวนฐานข้าวเหนียวดิบ (Raw rice par level)", <ConfigValue {...edit} section="supplies" name="rawRicePar" display={plain} />, "กก.", "ระดับสต๊อกเป้าหมายของแต่ละสาขา"),
-          settingRow("ราคาต่อหน่วยข้าวเหนียวดิบ (Raw rice unit price)", <ConfigValue {...edit} section="supplies" name="rawRiceUnitPrice" display={baht} />, "บาท / กก.", "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก"),
-          settingRow("จำนวนฐานน้ำพริก (Chili par level)", <ConfigValue {...edit} section="supplies" name="chiliPar" display={plain} />, "หลอด", "ระดับสต๊อกเป้าหมายของแต่ละสาขา"),
-          settingRow("ราคาต่อหน่วยน้ำพริก (Chili unit price)", <ConfigValue {...edit} section="supplies" name="chiliUnitPrice" display={baht} />, "บาท / หลอด", "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก"),
-          settingRow("จำนวนฐานข้าวเหนียวสุกมีนบุรี (Cooked rice par level)", <ConfigValue {...edit} section="supplies" name="cookedRicePar" display={plain} />, "กก.", "ยอดข้าวพร้อมขายขั้นต่ำหลังซื้อเข้า ปัจจุบันตั้งไว้ 30 กก."),
-          settingRow("ราคาต่อหน่วยข้าวเหนียวสุก (Cooked rice unit price)", <ConfigValue {...edit} section="supplies" name="cookedRiceUnitPrice" display={baht} />, "บาท / กก.", "ราคามาตรฐานสำหรับข้าวเหนียวสุกที่มีนบุรีซื้อ"),
+          settingRow(
+            "จำนวนฐานข้าวเหนียวดิบ (Raw rice par level)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="rawRicePar"
+              display={plain}
+            />,
+            "กก.",
+            "ระดับสต๊อกเป้าหมายของแต่ละสาขา",
+          ),
+          settingRow(
+            "ราคาต่อหน่วยข้าวเหนียวดิบ (Raw rice unit price)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="rawRiceUnitPrice"
+              display={baht}
+            />,
+            "บาท / กก.",
+            "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก",
+          ),
+          settingRow(
+            "จำนวนฐานน้ำพริก (Chili par level)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="chiliPar"
+              display={plain}
+            />,
+            "หลอด",
+            "ระดับสต๊อกเป้าหมายของแต่ละสาขา",
+          ),
+          settingRow(
+            "ราคาต่อหน่วยน้ำพริก (Chili unit price)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="chiliUnitPrice"
+              display={baht}
+            />,
+            "บาท / หลอด",
+            "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก",
+          ),
+          settingRow(
+            "จำนวนฐานข้าวเหนียวสุกมีนบุรี (Cooked rice par level)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="cookedRicePar"
+              display={plain}
+            />,
+            "กก.",
+            "ยอดข้าวพร้อมขายขั้นต่ำหลังซื้อเข้า ปัจจุบันตั้งไว้ 30 กก.",
+          ),
+          settingRow(
+            "ราคาต่อหน่วยข้าวเหนียวสุก (Cooked rice unit price)",
+            <ConfigValue
+              {...edit}
+              section="supplies"
+              name="cookedRiceUnitPrice"
+              display={baht}
+            />,
+            "บาท / กก.",
+            "ราคามาตรฐานสำหรับข้าวเหนียวสุกที่มีนบุรีซื้อ",
+          ),
         ]}
       />
       <DataTable
@@ -337,10 +642,45 @@ export function ConfigView({ db }: { db: Database }) {
         action={<SectionAction section="production" {...actionProps} />}
         columns={[...settingColumns, "ใช้คำนวณ (Purpose)"]}
         rows={[
-          settingRow("ค่ารมควันตามน้ำหนัก PO (Smoking fee tiers)", "500 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180", "บาท / กก.", "ระบบเลือกอัตราให้อัตโนมัติจากน้ำหนักในใบ PO รมควัน"),
-          settingRow("ค่าขนส่งขาไป (Outbound delivery fee)", <ConfigValue {...edit} section="production" name="outboundFee" display={baht} />, "บาท / เที่ยว", "ต้นทุนส่งไป Chef_house เที่ยวเดียว"),
-          settingRow("ค่าขนส่งขากลับ (Return delivery fee)", <ConfigValue {...edit} section="production" name="returnFee" display={baht} />, "บาท / เที่ยว", "ต้นทุนรับสินค้ากลับเที่ยวเดียว"),
-          settingRow("ค่าขนส่งไป-กลับ (Round-trip fee)", <ConfigValue {...edit} section="production" name="roundFee" display={baht} />, "บาท / รอบ", "ต้นทุนเมื่อเลือกเที่ยวไปกลับ"),
+          settingRow(
+            "ค่ารมควันตามน้ำหนัก PO (Smoking fee tiers)",
+            "500 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180",
+            "บาท / กก.",
+            "ระบบเลือกอัตราให้อัตโนมัติจากน้ำหนักในใบ PO รมควัน",
+          ),
+          settingRow(
+            "ค่าขนส่งขาไป (Outbound delivery fee)",
+            <ConfigValue
+              {...edit}
+              section="production"
+              name="outboundFee"
+              display={baht}
+            />,
+            "บาท / เที่ยว",
+            "ต้นทุนส่งไป Chef_house เที่ยวเดียว",
+          ),
+          settingRow(
+            "ค่าขนส่งขากลับ (Return delivery fee)",
+            <ConfigValue
+              {...edit}
+              section="production"
+              name="returnFee"
+              display={baht}
+            />,
+            "บาท / เที่ยว",
+            "ต้นทุนรับสินค้ากลับเที่ยวเดียว",
+          ),
+          settingRow(
+            "ค่าขนส่งไป-กลับ (Round-trip fee)",
+            <ConfigValue
+              {...edit}
+              section="production"
+              name="roundFee"
+              display={baht}
+            />,
+            "บาท / รอบ",
+            "ต้นทุนเมื่อเลือกเที่ยวไปกลับ",
+          ),
         ]}
       />
       <DataTable
@@ -348,9 +688,39 @@ export function ConfigView({ db }: { db: Database }) {
         action={<SectionAction section="branch" {...actionProps} />}
         columns={[...settingColumns, "ผลต่อการทำงาน (Effect)"]}
         rows={[
-          settingRow("สาขาของบัญชีผู้ดูแล (Assigned branch)", <ConfigValue {...edit} section="branch" name="branch" type="branch" />, "สาขา", "กำหนดข้อมูลที่บัญชีสาขาเห็นและกรอกได้"),
-          settingRow("ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)", <ConfigValue {...edit} section="branch" name="tolerance" display={plain} />, "%", "กำหนดช่วงยอดขายที่ยอมรับได้"),
-          settingRow("เวลาเริ่มปิดวัน (Day-closing time)", <ConfigValue {...edit} section="branch" name="closeTime" type="time" />, "นาฬิกา", "เวลา 22:00 ระบบล็อกข้อมูลเมื่อปิดวัน Owner ปลดล็อกกรณีพิเศษได้"),
+          settingRow(
+            "สาขาของบัญชีผู้ดูแล (Assigned branch)",
+            <ConfigValue
+              {...edit}
+              section="branch"
+              name="branch"
+              type="branch"
+            />,
+            "สาขา",
+            "กำหนดข้อมูลที่บัญชีสาขาเห็นและกรอกได้",
+          ),
+          settingRow(
+            "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)",
+            <ConfigValue
+              {...edit}
+              section="branch"
+              name="tolerance"
+              display={plain}
+            />,
+            "%",
+            "กำหนดช่วงยอดขายที่ยอมรับได้",
+          ),
+          settingRow(
+            "เวลาเริ่มปิดวัน (Day-closing time)",
+            <ConfigValue
+              {...edit}
+              section="branch"
+              name="closeTime"
+              type="time"
+            />,
+            "นาฬิกา",
+            "เวลา 22:00 ระบบล็อกข้อมูลเมื่อปิดวัน Owner ปลดล็อกกรณีพิเศษได้",
+          ),
         ]}
       />
       <DataTable
@@ -360,8 +730,9 @@ export function ConfigView({ db }: { db: Database }) {
         rows={materialSettingsRows}
       />
       <Footnote className="-mt-1">
-        จำนวนฐานและราคามาตรฐานชุดเดียวใช้กับศาลาแดงและมีนบุรี ส่วนการซื้อวัสดุให้บันทึกจากเมนูสต๊อก
-        เพื่อเก็บวันที่ จำนวน และราคาซื้อจริงในแต่ละรอบ
+        จำนวนฐานและราคามาตรฐานชุดเดียวใช้กับศาลาแดงและมีนบุรี
+        ส่วนการซื้อวัสดุให้บันทึกจากเมนูสต๊อก เพื่อเก็บวันที่ จำนวน
+        และราคาซื้อจริงในแต่ละรอบ
       </Footnote>
     </div>
   );

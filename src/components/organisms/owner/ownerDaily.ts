@@ -5,8 +5,20 @@ export function sevenDayRangeStart(date: string) {
   return start.toISOString().slice(0, 10);
 }
 
-const minburiDailyKinds = ["ricePurchase", "riceCarry", "materials", "sale", "closeDay"];
-const saladaengDailyKinds = ["riceIssue", "rice", "materials", "sale", "closeDay"];
+const minburiDailyKinds = [
+  "ricePurchase",
+  "riceCarry",
+  "materials",
+  "sale",
+  "closeDay",
+];
+const saladaengDailyKinds = [
+  "riceIssue",
+  "rice",
+  "materials",
+  "sale",
+  "closeDay",
+];
 
 /** Entry kinds a branch manager must record every working day. */
 export function requiredDailyKinds(branchName: string) {

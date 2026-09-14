@@ -1,5 +1,9 @@
 import type { ComponentProps, ReactNode } from "react";
-import { FieldHint, OptionalMark, fieldClassName } from "@/components/molecules/FormField";
+import {
+  FieldHint,
+  OptionalMark,
+  fieldClassName,
+} from "@/components/molecules/FormField";
 
 /**
  * `.field` rendered as a `<div>` for fields that hold several controls

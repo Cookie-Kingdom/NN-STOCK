@@ -49,9 +49,15 @@ export function AlertListItem(props: DivItem | ButtonItem) {
         <Dot icon={icon} />
         <span className="grid min-w-0 gap-1">
           <strong className="text-body-sm font-semibold">{title}</strong>
-          {detail && <small className="text-caption text-text-secondary">{detail}</small>}
+          {detail && (
+            <small className="text-caption text-text-secondary">{detail}</small>
+          )}
         </span>
-        <ArrowRight size={16} className="mt-1 text-text-secondary" aria-hidden />
+        <ArrowRight
+          size={16}
+          className="mt-1 text-text-secondary"
+          aria-hidden
+        />
       </button>
     );
   }
@@ -67,8 +73,12 @@ export function AlertListItem(props: DivItem | ButtonItem) {
     >
       <Dot icon={icon} />
       <div className="grid min-w-0 gap-1">
-        <strong className="text-body-sm font-semibold text-text-primary">{title}</strong>
-        {detail && <span className="text-caption text-text-secondary">{detail}</span>}
+        <strong className="text-body-sm font-semibold text-text-primary">
+          {title}
+        </strong>
+        {detail && (
+          <span className="text-caption text-text-secondary">{detail}</span>
+        )}
         {action && <div className="mt-0.5 justify-self-start">{action}</div>}
       </div>
     </div>

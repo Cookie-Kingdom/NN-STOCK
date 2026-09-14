@@ -21,15 +21,19 @@ export type OwnerNotification = { title: string; detail: string; tab: Tab };
 export function useOwnerAlerts(db: Database) {
   const missingMaterialSettings = materials.filter(
     (_, index) =>
-      materialPar(db, "ศาลาแดง", index) <= 0 || materialUnitPrice(db, "ศาลาแดง", index) <= 0,
+      materialPar(db, "ศาลาแดง", index) <= 0 ||
+      materialUnitPrice(db, "ศาลาแดง", index) <= 0,
   ).length;
 
-  const transportCount = db.lots.filter((lot) => lot.stage === 1 || lot.stage === 6).length;
+  const transportCount = db.lots.filter(
+    (lot) => lot.stage === 1 || lot.stage === 6,
+  ).length;
   const returnReady = db.lots.filter(
     (lot) => lot.stage === 6 && !entries(db, "return", lot.id).length,
   );
   const centralReceiveCount = db.lots.filter(
-    (lot) => lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
+    (lot) =>
+      lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
   ).length;
   const allocationCount = db.lots.filter(
     (lot) => lot.stage >= 8 && centralStock(db, lot.id) > 0.001,
@@ -38,7 +42,9 @@ export function useOwnerAlerts(db: Database) {
     (invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด",
   ).length;
   const foodivaInvoiceCount = db.lots.filter(
-    (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0 && !entries(db, "smokeOrder", lot.id).length,
+    (lot) =>
+      entries(db, "foodDivaConfirm", lot.id).length > 0 &&
+      !entries(db, "smokeOrder", lot.id).length,
   ).length;
 
   const notifications: OwnerNotification[] = [
@@ -112,7 +118,10 @@ export function useOwnerAlerts(db: Database) {
             tab: "transport",
           },
         ];
-      if (item.stage === 7 && !entries(db, "foodDivaReturnReceive", item.id).length)
+      if (
+        item.stage === 7 &&
+        !entries(db, "foodDivaReturnReceive", item.id).length
+      )
         return [
           {
             title: `รอ Foodiva รับเนื้อรมควัน · ${item.id}`,

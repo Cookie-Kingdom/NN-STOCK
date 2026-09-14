@@ -1,13 +1,16 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** `.read-row` — replaces `Read` in shared/primitives.tsx */
+/** Label/value row (the old `.read-row`). */
 export function ReadRow({
   label,
   value,
   className,
   ...props
-}: Omit<ComponentProps<"div">, "children"> & { label: ReactNode; value: ReactNode }) {
+}: Omit<ComponentProps<"div">, "children"> & {
+  label: ReactNode;
+  value: ReactNode;
+}) {
   return (
     <div
       className={cn(
@@ -17,7 +20,7 @@ export function ReadRow({
       {...props}
     >
       <span className="text-text-secondary">{label}</span>
-      <strong className="max-w-[65%] text-right font-medium whitespace-pre-wrap tabular-nums [overflow-wrap:anywhere]">
+      <strong className="max-w-[65%] text-right font-medium [overflow-wrap:anywhere] whitespace-pre-wrap tabular-nums">
         {value}
       </strong>
     </div>

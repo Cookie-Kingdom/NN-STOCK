@@ -12,7 +12,19 @@ import { latestDatabase } from "@/lib/persistence";
 import { availableBags, branches, mutate, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
-export function BagAllocationForm({ db, lotId, date, onClose, onSaved }: { db: Database; lotId: string; date: string; onClose: () => void; onSaved: () => void }) {
+export function BagAllocationForm({
+  db,
+  lotId,
+  date,
+  onClose,
+  onSaved,
+}: {
+  db: Database;
+  lotId: string;
+  date: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const bags = availableBags(db, lotId);
   const [destinations, setDestinations] = useState<Record<string, string>>({});
   const { error, run } = useSaveMutation("จัดสรรไม่สำเร็จ");
@@ -22,9 +34,22 @@ export function BagAllocationForm({ db, lotId, date, onClose, onSaved }: { db: D
       let next = latestDatabase();
       let count = 0;
       for (const branchName of branches) {
-        const selected = bags.filter((bag) => destinations[bag.id] === branchName);
+        const selected = bags.filter(
+          (bag) => destinations[bag.id] === branchName,
+        );
         if (!selected.length) continue;
-        next = mutate(next, "owner", "allocate", { branch: branchName, bagIds: selected.map((bag) => bag.id).join(","), deliveryDate: date }, lotId, date);
+        next = mutate(
+          next,
+          "owner",
+          "allocate",
+          {
+            branch: branchName,
+            bagIds: selected.map((bag) => bag.id).join(","),
+            deliveryDate: date,
+          },
+          lotId,
+          date,
+        );
         count += selected.length;
       }
       if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 ถุง");
@@ -48,16 +73,27 @@ export function BagAllocationForm({ db, lotId, date, onClose, onSaved }: { db: D
                 variant="filter"
                 aria-label={`เลือกสาขาให้ถุงที่ ${index + 1}`}
                 value={destinations[bag.id] || ""}
-                onChange={(event) => setDestinations((current) => ({ ...current, [bag.id]: event.target.value }))}
+                onChange={(event) =>
+                  setDestinations((current) => ({
+                    ...current,
+                    [bag.id]: event.target.value,
+                  }))
+                }
               >
                 <option value="">ยังไม่จัดสรร</option>
-                {branches.map((name) => <option key={name}>{name}</option>)}
+                {branches.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
               </Select>,
             ])}
           />
           <FormError error={error} />
         </DialogBody>
-        <DialogFooter hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว" onCancel={onClose} submitLabel="บันทึกการจัดสรร" />
+        <DialogFooter
+          hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
+          onCancel={onClose}
+          submitLabel="บันทึกการจัดสรร"
+        />
       </form>
     </Dialog>
   );

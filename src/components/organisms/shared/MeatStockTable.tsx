@@ -2,7 +2,20 @@
 
 import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { balance, centralBagStock, centralStock, entries, n, processed, produced, rawAtFoodiva, stages, type Database, type Lot, type Role } from "@/lib/store";
+import {
+  balance,
+  centralBagStock,
+  centralStock,
+  entries,
+  n,
+  processed,
+  produced,
+  rawAtFoodiva,
+  stages,
+  type Database,
+  type Lot,
+  type Role,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function MeatStockTable({
@@ -23,7 +36,16 @@ export function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
-        columns={["Lot", "ค้างที่ Foodiva", "ส่วนกลาง", "ถุงในคลังกลาง", "ศาลาแดง", "มีนบุรี", "สถานะ", "การทำงาน"]}
+        columns={[
+          "Lot",
+          "ค้างที่ Foodiva",
+          "ส่วนกลาง",
+          "ถุงในคลังกลาง",
+          "ศาลาแดง",
+          "มีนบุรี",
+          "สถานะ",
+          "การทำงาน",
+        ]}
         rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
@@ -50,7 +72,13 @@ export function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกและงานผลิต Chef_house"
-        columns={["Lot", "ก่อนสโมค", "รอผลิต", "น้ำหนักเนื้อหลังรมควัน", "สถานะ"]}
+        columns={[
+          "Lot",
+          "ก่อนสโมค",
+          "รอผลิต",
+          "น้ำหนักเนื้อหลังรมควัน",
+          "สถานะ",
+        ]}
         rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
@@ -64,7 +92,14 @@ export function MeatStockTable({
   return (
     <DataTable
       title={`สต๊อกเนื้อ · ${branch}`}
-      columns={["Lot", "รอรับจาก Owner", "รับแล้ว", "แช่แข็ง", "พร้อมขาย", "สถานะ"]}
+      columns={[
+        "Lot",
+        "รอรับจาก Owner",
+        "รับแล้ว",
+        "แช่แข็ง",
+        "พร้อมขาย",
+        "สถานะ",
+      ]}
       rowKeys={lotIds}
       rows={lots.map((lot) => {
         const stock = balance(db, lot.id, branch);
@@ -79,7 +114,9 @@ export function MeatStockTable({
           `${fmt(stock.received)} กก.`,
           `${fmt(stock.frozen)} กก.`,
           `${fmt(stock.ready)} กก.`,
-          pending > 0.001 ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน" : stages[lot.stage],
+          pending > 0.001
+            ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน"
+            : stages[lot.stage],
         ];
       })}
     />

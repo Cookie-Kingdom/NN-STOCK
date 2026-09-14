@@ -8,7 +8,12 @@ type PanelProps = Omit<ComponentProps<"section">, "ref"> & {
 };
 
 /** `.panel` — plain bordered surface */
-export function Panel({ as: Tag = "section", compact = false, className, ...props }: PanelProps) {
+export function Panel({
+  as: Tag = "section",
+  compact = false,
+  className,
+  ...props
+}: PanelProps) {
   return (
     <Tag
       className={cn(

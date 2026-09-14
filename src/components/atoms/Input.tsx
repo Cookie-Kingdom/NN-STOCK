@@ -35,5 +35,10 @@ export function Input({
   className,
   ...props
 }: ComponentProps<"input"> & ControlVariantProps) {
-  return <input className={cn(controlVariants({ variant, reason }), className)} {...props} />;
+  return (
+    <input
+      className={cn(controlVariants({ variant, reason }), className)}
+      {...props}
+    />
+  );
 }

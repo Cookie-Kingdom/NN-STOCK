@@ -6,22 +6,45 @@ import { ReadRow } from "@/components/atoms/ReadRow";
 import { Stat } from "@/components/atoms/Stat";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
-import { balance, lotCost, n, processed, produced, stages, type Database, type Lot, type Role } from "@/lib/store";
+import {
+  balance,
+  lotCost,
+  n,
+  processed,
+  produced,
+  stages,
+  type Database,
+  type Lot,
+  type Role,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
-export function LotDetails({ db, lot, role }: { db: Database; lot: Lot; role: Role }) {
+export function LotDetails({
+  db,
+  lot,
+  role,
+}: {
+  db: Database;
+  lot: Lot;
+  role: Role;
+}) {
   const output = produced(db, lot.id),
     c = lotCost(db, lot),
     dispatched = n(lot.values, "dispatchKg");
   return (
     <Panel>
-      <SectionHeading title={lot.id} actions={<Badge>{stages[lot.stage]}</Badge>} />
+      <SectionHeading
+        title={lot.id}
+        actions={<Badge>{stages[lot.stage]}</Badge>}
+      />
       <div className="mt-4 mb-5">
         <div className="flex items-center justify-between gap-3.5 text-caption text-text-secondary">
           <span>
             ขั้นตอน {lot.stage + 1} จาก {stages.length}
           </span>
-          <strong className="text-body-sm font-semibold text-text-primary">{stages[lot.stage]}</strong>
+          <strong className="text-body-sm font-semibold text-text-primary">
+            {stages[lot.stage]}
+          </strong>
         </div>
         <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-border">
           <i
@@ -59,7 +82,10 @@ export function LotDetails({ db, lot, role }: { db: Database; lot: Lot; role: Ro
             label="ผู้ขาย / PO"
             value={`${lot.values.supplier} · ${lot.poId}`}
           />
-          <ReadRow label="ต้นทุน Lot ตามข้อมูลขณะนี้" value={`฿${fmt(c.total)}`} />
+          <ReadRow
+            label="ต้นทุน Lot ตามข้อมูลขณะนี้"
+            value={`฿${fmt(c.total)}`}
+          />
           <ReadRow
             label="ต้นทุน / กก. รับกลาง"
             value={c.perKg === null ? "รอรับสต๊อกกลาง" : `฿${fmt(c.perKg)}`}

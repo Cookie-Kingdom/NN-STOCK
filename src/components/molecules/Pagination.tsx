@@ -30,7 +30,11 @@ export function Pagination({
         หน้า {page + 1} / {pageCount} · แสดงครั้งละ {pageSize} {unit}
       </span>
       <ButtonRow className="my-0">
-        <Button variant="secondary" disabled={page <= 0} onClick={() => onPage(Math.max(0, page - 1))}>
+        <Button
+          variant="secondary"
+          disabled={page <= 0}
+          onClick={() => onPage(Math.max(0, page - 1))}
+        >
           ก่อนหน้า
         </Button>
         <Button

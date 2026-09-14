@@ -10,7 +10,13 @@ import {
 import { LotWorkflowAction } from "@/components/organisms/owner/LotWorkflowAction";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { entries, n, produced, readyForChefHouse, type Database } from "@/lib/store";
+import {
+  entries,
+  n,
+  produced,
+  readyForChefHouse,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -55,7 +61,9 @@ export function TransportManifestView({
                 <span>{`${fmt(n(outbound.values, "dispatchKg"))} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}</span>
                 <DocumentPrintButton
                   title={transportDocumentTitle.outbound}
-                  number={outbound.values.transferNumber || outbound.id.slice(0, 8)}
+                  number={
+                    outbound.values.transferNumber || outbound.id.slice(0, 8)
+                  }
                   label="พรีวิว / PDF"
                   preview
                   rows={transportDocumentRows(lot, outbound, "outbound")}
@@ -70,7 +78,9 @@ export function TransportManifestView({
                 <br />
                 <strong>Chef_house:</strong> {fmt(chefKg)} กก.
                 <br />
-                <Badge tone={Math.abs(difference) > 0.001 ? "danger" : "success"}>
+                <Badge
+                  tone={Math.abs(difference) > 0.001 ? "danger" : "success"}
+                >
                   ส่วนต่าง {fmt(difference)} กก.
                 </Badge>
               </span>

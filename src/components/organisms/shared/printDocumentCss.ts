@@ -8,3 +8,18 @@ export const PO_PAGE_CSS = `@page{size:A4;margin:0}*{box-sizing:border-box}body{
 
 /** Generic key/value document sheet; only used inside the print popup. */
 export const SHEET_CSS = `@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9eee7;font-family:'Noto Sans Thai',Arial,sans-serif;color:#18342e}.sheet{width:210mm;min-height:297mm;margin:0 auto;padding:23mm 20mm;background:#fff}.head{display:flex;justify-content:space-between;gap:20px;padding-bottom:18mm;border-bottom:2px solid #315f4d}.head h1{margin:0;color:#165846;font-size:30px;letter-spacing:.04em}.number{text-align:right}.number span{display:block;color:#617b70;font-size:11px;letter-spacing:.04em}.number strong{display:block;margin-top:8px;color:#174d3f;font-size:15px}.details{width:100%;margin-top:18mm;border-collapse:collapse;font-size:12px}.details th,.details td{padding:12px;border:1px solid #d6e0da;text-align:left}.details th{width:38%;background:#f1f5ef;color:#365d4b}.footer{display:flex;justify-content:space-between;gap:16px;margin-top:32mm;padding-top:12px;border-top:1px solid #d7e0da;color:#718078;font-size:11px}@media print{body{background:#fff}.sheet{margin:0;width:auto;min-height:auto}}`;
+
+// The popup has no app stylesheet, so the preview's download button carries literal colours too.
+export const POPUP_DOWNLOAD_BUTTON_STYLE = {
+  position: "fixed",
+  top: "14px",
+  right: "14px",
+  zIndex: "10",
+  padding: "10px 14px",
+  border: "0",
+  borderRadius: "8px",
+  background: "#165846",
+  color: "#fff",
+  fontWeight: "700",
+  cursor: "pointer",
+};

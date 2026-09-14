@@ -10,7 +10,13 @@ import { PoLotCell } from "@/components/molecules/PoLotCell";
 import { smokeOrderPrintRows } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { entries, n, readyForChefHouse, smokingInvoiceStatus, type Database } from "@/lib/store";
+import {
+  entries,
+  n,
+  readyForChefHouse,
+  smokingInvoiceStatus,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -30,10 +36,13 @@ export function SmokingPurchaseOrderView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const eligibleLots = db.lots.filter((lot) => entries(db, "foodDivaConfirm", lot.id).length > 0);
+  const eligibleLots = db.lots.filter(
+    (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0,
+  );
   const waitingForChefHouse = eligibleLots.filter(
     (lot) =>
-      entries(db, "smokeOrder", lot.id).length && !entries(db, "smokeOrderAccept", lot.id).length,
+      entries(db, "smokeOrder", lot.id).length &&
+      !entries(db, "smokeOrderAccept", lot.id).length,
   ).length;
   return (
     <div className="grid gap-6">
@@ -41,7 +50,12 @@ export function SmokingPurchaseOrderView({
         overline="CHEF_HOUSE SERVICE PO"
         title="ใบสั่ง PO โรงรมควัน"
         description="Owner ออก PO รมควันหลัง Foodiva ออก Invoice แล้ว Chef_house ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ"
-        aside={<Stat label="PO รอยืนยันจาก Chef_house" value={`${waitingForChefHouse} ใบ`} />}
+        aside={
+          <Stat
+            label="PO รอยืนยันจาก Chef_house"
+            value={`${waitingForChefHouse} ใบ`}
+          />
+        }
       />
       <DataTable
         title="รายการ PO โรงรมควัน"
@@ -52,7 +66,9 @@ export function SmokingPurchaseOrderView({
           const order = entries(db, "smokeOrder", lot.id).at(-1);
           const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
           const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
-          const invoiceStatus = invoice ? smokingInvoiceStatus(db, invoice) : "รอ Chef_house Submit";
+          const invoiceStatus = invoice
+            ? smokingInvoiceStatus(db, invoice)
+            : "รอ Chef_house Submit";
           return [
             <PoLotCell key="lot" poId={lot.poId} lotId={lot.id} />,
             `${supplierInvoice?.values.invoiceNo || "-"} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก.`,
@@ -67,10 +83,15 @@ export function SmokingPurchaseOrderView({
             ) : (
               "—"
             ),
-            invoice ? `${invoice.values.invoiceNumber} · ${invoiceStatus}` : "รอ Chef_house",
+            invoice
+              ? `${invoice.values.invoiceNumber} · ${invoiceStatus}`
+              : "รอ Chef_house",
             <ButtonRow key="actions">
               {!order ? (
-                <Button variant="table" onClick={() => open("smokeOrder", lot.id)}>
+                <Button
+                  variant="table"
+                  onClick={() => open("smokeOrder", lot.id)}
+                >
                   ออก PO รมควันเนื้อ
                 </Button>
               ) : (
@@ -84,7 +105,9 @@ export function SmokingPurchaseOrderView({
           ];
         })}
       />
-      {!eligibleLots.length && <Notice>ยังไม่มี PO เนื้อที่ Foodiva ออก Invoice แล้ว</Notice>}
+      {!eligibleLots.length && (
+        <Notice>ยังไม่มี PO เนื้อที่ Foodiva ออก Invoice แล้ว</Notice>
+      )}
     </div>
   );
 }

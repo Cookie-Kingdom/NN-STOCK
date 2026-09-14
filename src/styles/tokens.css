@@ -63,6 +63,12 @@
   --green-600: #16a34a;
   --green-700: #15803d;
   --green-950: #052e16;
+
+  /* Data-visualisation hues (cost donut). */
+  --orange-500: #f97316;
+  --amber-400: #fbbf24;
+  --teal-700: #0f766e;
+  --pine-800: #204b49;
 }
 
 /* ---------------------------------------------------------------------------
@@ -111,6 +117,14 @@
   --color-locked-subtle: var(--gray-100);
 
   --color-focus-ring: var(--blue-600);
+
+  /* Categorical chart series. Same hues in both themes, so there is no .dark
+   * override: a cost category keeps its colour when the theme switches. */
+  --color-chart-1: var(--orange-500);
+  --color-chart-2: var(--amber-400);
+  --color-chart-3: var(--blue-600);
+  --color-chart-4: var(--teal-700);
+  --color-chart-5: var(--pine-800);
 
   /* Type scale. Line-heights are one step looser than a Latin-only scale
    * because Thai tone marks stack above the baseline. Do not tighten. */

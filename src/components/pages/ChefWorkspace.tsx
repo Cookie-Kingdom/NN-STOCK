@@ -23,7 +23,10 @@ export function ChefWorkspace({ account }: { account: Account }) {
     const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
     return (
       [3, 4, 5].includes(lot.stage) ||
-      (ordered && (!accepted || !invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
+      (ordered &&
+        (!accepted ||
+          !invoice ||
+          smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
     );
   }).length;
 
@@ -41,7 +44,9 @@ export function ChefWorkspace({ account }: { account: Account }) {
         onCloseToast={() => ws.setToast("")}
       >
         {tab === "cm-receive" && <ChefReceiveTable db={db} open={ws.open} />}
-        {tab === "work" && <ChefLotTable db={db} lots={ws.lots} open={ws.open} />}
+        {tab === "work" && (
+          <ChefLotTable db={db} lots={ws.lots} open={ws.open} />
+        )}
         {tab === "stock" && (
           <>
             <SectionHeading title="ความคืบหน้างานผลิต" />
@@ -54,7 +59,9 @@ export function ChefWorkspace({ account }: { account: Account }) {
             />
           </>
         )}
-        {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
+        {tab === "history" && (
+          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+        )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />
     </>

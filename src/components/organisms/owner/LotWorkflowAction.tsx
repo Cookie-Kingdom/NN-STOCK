@@ -3,7 +3,13 @@
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { fmt } from "@/lib/format";
-import { entries, produced, smokingInvoiceStatus, type Database, type Lot } from "@/lib/store";
+import {
+  entries,
+  produced,
+  smokingInvoiceStatus,
+  type Database,
+  type Lot,
+} from "@/lib/store";
 
 /**
  * Where the chain is shown. The two call sites differ on purpose:
@@ -77,7 +83,8 @@ export function LotWorkflowAction({
       context === "purchase-order"
         ? invoiceStatus === "ส่งกลับแก้ไข"
         : invoiceStatus !== "ชำระแล้ว";
-    if (waitingForFix) return <Badge tone="danger">รอ Chef_house แก้ Invoice</Badge>;
+    if (waitingForFix)
+      return <Badge tone="danger">รอ Chef_house แก้ Invoice</Badge>;
     return (
       <Button variant="table" onClick={() => open("dispatch", lot.id)}>
         {text.dispatch}

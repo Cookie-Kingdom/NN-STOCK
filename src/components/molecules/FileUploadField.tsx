@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { FieldHint, OptionalMark, fieldClassName } from "@/components/molecules/FormField";
+import {
+  FieldHint,
+  OptionalMark,
+  fieldClassName,
+} from "@/components/molecules/FormField";
 import { cn } from "@/lib/utils";
 
 export type FileUploadFieldProps = {
@@ -70,7 +74,8 @@ export function FileUploadField({
             const file = event.currentTarget.files?.[0] ?? null;
             if (file && maxBytes !== undefined && file.size > maxBytes) {
               const message =
-                oversizeMessage ?? `ไฟล์ต้องมีขนาดไม่เกิน ${megabytes(maxBytes)} MB`;
+                oversizeMessage ??
+                `ไฟล์ต้องมีขนาดไม่เกิน ${megabytes(maxBytes)} MB`;
               event.currentTarget.value = "";
               setError(message);
               onError?.(message);
@@ -81,7 +86,7 @@ export function FileUploadField({
           }}
         />
         {fileName && (
-          <span className="text-caption font-normal text-text-secondary [overflow-wrap:anywhere]">
+          <span className="text-caption font-normal [overflow-wrap:anywhere] text-text-secondary">
             เลือกแล้ว: {fileName}
           </span>
         )}

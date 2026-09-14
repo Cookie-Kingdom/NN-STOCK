@@ -18,7 +18,9 @@ export function PoLotCell({
       <strong>{poId || "-"}</strong>
       <br />
       {lotId}
-      {sub && <small className="block text-caption text-text-secondary">{sub}</small>}
+      {sub && (
+        <small className="block text-caption text-text-secondary">{sub}</small>
+      )}
     </span>
   );
 }

@@ -41,7 +41,9 @@ export const buttonVariants = cva(
   },
 );
 
-type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
+type ButtonVariant = NonNullable<
+  VariantProps<typeof buttonVariants>["variant"]
+>;
 
 const boxedVariants: ButtonVariant[] = ["primary", "secondary", "danger"];
 

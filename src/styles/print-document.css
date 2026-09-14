@@ -60,7 +60,7 @@
   /* Explicit so the app's base h3 rule (weight/line-height) can't make the preview differ from print. */
   font-weight: 700;
   line-height: normal;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
 }
 .po-number {
   min-width: 145px;
@@ -74,7 +74,7 @@
   font-size: 10px;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 .po-number strong {
   display: block;

@@ -22,5 +22,10 @@ export function CountPill({
   className,
   ...props
 }: ComponentProps<"span"> & VariantProps<typeof countPillVariants>) {
-  return <span className={cn(countPillVariants({ variant }), className)} {...props} />;
+  return (
+    <span
+      className={cn(countPillVariants({ variant }), className)}
+      {...props}
+    />
+  );
 }

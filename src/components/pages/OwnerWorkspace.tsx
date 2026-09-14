@@ -54,7 +54,9 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         {alerts.missingMaterialSettings > 0 && tab !== "config" && (
           <Notice
             tone="warning"
-            action={<Button onClick={() => setTab("config")}>ไปหน้าตั้งค่า</Button>}
+            action={
+              <Button onClick={() => setTab("config")}>ไปหน้าตั้งค่า</Button>
+            }
           >
             ตั้งค่าวัสดุยังไม่ครบ {alerts.missingMaterialSettings} รายการ
             กรุณากำหนดจำนวนฐานและราคาต่อหน่วยก่อนส่งวัสดุครั้งถัดไป
@@ -63,22 +65,40 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         {alerts.returnReady.length > 0 && tab !== "transport" && (
           <Notice
             tone="danger"
-            action={<Button onClick={() => setTab("transport")}>ไปเรียกรถขากลับ</Button>}
+            action={
+              <Button onClick={() => setTab("transport")}>
+                ไปเรียกรถขากลับ
+              </Button>
+            }
           >
-            งานใหม่จาก Chef_house · ปิด Lot แล้ว {alerts.returnReady.length} รายการ ·
-            ต้องเรียกรถขากลับรวม{" "}
-            {fmt(alerts.returnReady.reduce((total, item) => total + produced(db, item.id), 0))} กก.
+            งานใหม่จาก Chef_house · ปิด Lot แล้ว {alerts.returnReady.length}{" "}
+            รายการ · ต้องเรียกรถขากลับรวม{" "}
+            {fmt(
+              alerts.returnReady.reduce(
+                (total, item) => total + produced(db, item.id),
+                0,
+              ),
+            )}{" "}
+            กก.
           </Notice>
         )}
 
-        {tab === "owner-dashboard" && <OwnerDashboard db={db} date={date} onNavigate={setTab} />}
+        {tab === "owner-dashboard" && (
+          <OwnerDashboard db={db} date={date} onNavigate={setTab} />
+        )}
         {tab === "po" && (
-          <PurchaseOrderView db={db} open={open} onOpenSmokePo={() => setTab("smoke-po")} />
+          <PurchaseOrderView
+            db={db}
+            open={open}
+            onOpenSmokePo={() => setTab("smoke-po")}
+          />
         )}
         {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
         {tab === "invoices" && <InvoiceView db={db} open={open} />}
         {tab === "transport" && <TransportManifestView db={db} open={open} />}
-        {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}
+        {tab === "central-receive" && (
+          <CentralReceiveView db={db} open={open} />
+        )}
         {tab === "documents" && <SimpleTraceabilityView db={db} />}
         {tab === "meat-log" && <MeatMovementLogView db={db} />}
 
@@ -104,10 +124,19 @@ export function OwnerWorkspace({ account }: { account: Account }) {
               title="สต๊อกกลางและสาขา"
               actions={
                 <ButtonRow>
-                  <Button onClick={() => open("materialReceive", "")}>+ ซื้อวัสดุเข้าคลัง</Button>
-                  <Button onClick={() => open("generalPurchase", "")}>+ บันทึกการซื้ออื่น ๆ</Button>
-                  <Button onClick={() => open("chiliAllocate", "")}>จัดสรรน้ำพริกไปสาขา</Button>
-                  <Button variant="primary" onClick={() => open("materialTransfer", "")}>
+                  <Button onClick={() => open("materialReceive", "")}>
+                    + ซื้อวัสดุเข้าคลัง
+                  </Button>
+                  <Button onClick={() => open("generalPurchase", "")}>
+                    + บันทึกการซื้ออื่น ๆ
+                  </Button>
+                  <Button onClick={() => open("chiliAllocate", "")}>
+                    จัดสรรน้ำพริกไปสาขา
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => open("materialTransfer", "")}
+                  >
                     ส่งวัสดุไปสาขา
                   </Button>
                 </ButtonRow>
@@ -120,7 +149,11 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         {tab === "report" && (
           <>
             <ButtonRow>
-              <Button variant="primary" icon={<Plus />} onClick={() => open("expense", "")}>
+              <Button
+                variant="primary"
+                icon={<Plus />}
+                onClick={() => open("expense", "")}
+              >
                 ค่าใช้จ่าย Owner
               </Button>
               <Button onClick={() => open("unlock", "")}>ปลดล็อกวัน</Button>
@@ -131,7 +164,9 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         )}
 
         {tab === "config" && <ConfigView db={db} />}
-        {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
+        {tab === "history" && (
+          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+        )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />
     </>

@@ -10,11 +10,19 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
-import { branches, materials, mutate, ownerMaterialStock, type Database, type Values } from "@/lib/store";
+import {
+  branches,
+  materials,
+  mutate,
+  ownerMaterialStock,
+  type Database,
+  type Values,
+} from "@/lib/store";
 
 const key = (index: number, branch: string) => `${index}-${branch}`;
 const cell = "border-b border-border px-4.5 py-3.5 align-middle";
-const headCell = "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary";
+const headCell =
+  "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary";
 
 export function MaterialTransferForm({
   db,
@@ -75,24 +83,40 @@ export function MaterialTransferForm({
   }
 
   return (
-    <Dialog overline={`${date} · Owner`} title="ส่งวัสดุไปสาขา" size="wide" onClose={onClose}>
+    <Dialog
+      overline={`${date} · Owner`}
+      title="ส่งวัสดุไปสาขา"
+      size="wide"
+      onClose={onClose}
+    >
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
         <DialogBody>
-          <Notice>ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน สามารถเลือกหลายรายการและบันทึกพร้อมกันได้</Notice>
+          <Notice>
+            ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน
+            สามารถเลือกหลายรายการและบันทึกพร้อมกันได้
+          </Notice>
           <div className="mt-5.5 mb-7 max-w-full overflow-auto rounded-lg border border-border bg-surface">
             <table className="w-full table-fixed border-separate border-spacing-0 [&_tbody_tr:last-child_td]:border-b-0">
               <thead>
                 <tr>
                   <th className={`${headCell} w-[28%]`}>วัสดุ</th>
                   <th className={`${headCell} w-[14%]`}>คลัง Owner</th>
-                  {branches.map((branch) => <th key={branch} className={`${headCell} w-[29%]`}>{branch}</th>)}
+                  {branches.map((branch) => (
+                    <th key={branch} className={`${headCell} w-[29%]`}>
+                      {branch}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {materials.map((material, index) => (
                   <tr key={material} className="hover:bg-bg">
-                    <td className={`${cell} leading-snug whitespace-normal`}><strong>{material}</strong></td>
-                    <td className={`${cell} font-semibold text-accent`}>{ownerMaterialStock(db, material)} ชิ้น</td>
+                    <td className={`${cell} leading-snug whitespace-normal`}>
+                      <strong>{material}</strong>
+                    </td>
+                    <td className={`${cell} font-semibold text-accent`}>
+                      {ownerMaterialStock(db, material)} ชิ้น
+                    </td>
                     {branches.map((branch) => {
                       const field = key(index, branch);
                       return (
@@ -104,7 +128,10 @@ export function MaterialTransferForm({
                               aria-label={`ส่ง ${material} ไป${branch}`}
                               checked={!!checked[field]}
                               onChange={(event) => {
-                                setChecked((current) => ({ ...current, [field]: event.target.checked }));
+                                setChecked((current) => ({
+                                  ...current,
+                                  [field]: event.target.checked,
+                                }));
                                 setError("");
                               }}
                             />
@@ -117,7 +144,12 @@ export function MaterialTransferForm({
                               className="mt-0 min-h-10.5 px-2.75 py-2.25"
                               disabled={!checked[field]}
                               value={quantities[field] || ""}
-                              onChange={(event) => setQuantities((current) => ({ ...current, [field]: event.target.value }))}
+                              onChange={(event) =>
+                                setQuantities((current) => ({
+                                  ...current,
+                                  [field]: event.target.value,
+                                }))
+                              }
                             />
                           </div>
                         </td>
@@ -136,20 +168,37 @@ export function MaterialTransferForm({
                   value={receivers[branch] || ""}
                   disabled={!selectedFor(branch)}
                   required={selectedFor(branch)}
-                  onChange={(event) => setReceivers((current) => ({ ...current, [branch]: event.target.value }))}
+                  onChange={(event) =>
+                    setReceivers((current) => ({
+                      ...current,
+                      [branch]: event.target.value,
+                    }))
+                  }
                 />
               </FormField>
             ))}
             <FormField label="เลขที่ใบส่งของ (ถ้ามี)">
-              <Input type="text" value={reference} onChange={(event) => setReference(event.target.value)} />
+              <Input
+                type="text"
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+              />
             </FormField>
             <FormField label="หมายเหตุ (ถ้ามี)">
-              <Input type="text" value={note} onChange={(event) => setNote(event.target.value)} />
+              <Input
+                type="text"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+              />
             </FormField>
           </div>
           <FormError error={error} />
         </DialogBody>
-        <DialogFooter hint="ทุกรายการจะบันทึกพร้อมกัน" onCancel={onClose} submitLabel="บันทึกส่งวัสดุ" />
+        <DialogFooter
+          hint="ทุกรายการจะบันทึกพร้อมกัน"
+          onCancel={onClose}
+          submitLabel="บันทึกส่งวัสดุ"
+        />
       </form>
     </Dialog>
   );

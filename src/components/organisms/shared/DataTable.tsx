@@ -71,7 +71,10 @@ export function DataTable({
               ))
             ) : (
               <tr>
-                <td className="p-7 text-center text-body text-text-secondary" colSpan={columns.length}>
+                <td
+                  className="p-7 text-center text-body text-text-secondary"
+                  colSpan={columns.length}
+                >
                   {emptyText}
                 </td>
               </tr>

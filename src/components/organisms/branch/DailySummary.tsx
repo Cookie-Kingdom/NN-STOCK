@@ -1,7 +1,17 @@
 "use client";
 
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { balance, chiliAllocated, chiliStock, cookedRiceStock, entries, issuedRawRiceStock, n, rawRiceStock, type Database } from "@/lib/store";
+import {
+  balance,
+  chiliAllocated,
+  chiliStock,
+  cookedRiceStock,
+  entries,
+  issuedRawRiceStock,
+  n,
+  rawRiceStock,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function DailySummary({

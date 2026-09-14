@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, type ComponentProps, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import { IconButton } from "@/components/atoms/IconButton";
@@ -10,7 +16,7 @@ import { cn } from "@/lib/utils";
 const dialogVariants = cva(
   // `open:flex`, not `flex`: a bare `flex` would override the UA `display:none`
   // on a closed <dialog> and flash the content inline before showModal() runs.
-  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl open:flex backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs max-md:mb-0 max-md:max-h-[96dvh] max-md:w-full max-md:max-w-full max-md:rounded-b-none",
+  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:mb-0 max-md:max-h-[96dvh] max-md:w-full max-md:max-w-full max-md:rounded-b-none",
   {
     variants: {
       size: {
@@ -70,7 +76,10 @@ export function Dialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     if (!dialog.open) dialog.showModal();
     return () => {
       if (dialog.open) dialog.close();
@@ -91,7 +100,8 @@ export function Dialog({
       }}
       onClick={(event) => {
         onClick?.(event);
-        if (dismissOnBackdrop && event.target === event.currentTarget) onClose();
+        if (dismissOnBackdrop && event.target === event.currentTarget)
+          onClose();
       }}
       {...props}
     >
@@ -102,7 +112,11 @@ export function Dialog({
             {title}
           </h2>
         </div>
-        <IconButton label={closeLabel} icon={<X size={18} />} onClick={onClose} />
+        <IconButton
+          label={closeLabel}
+          icon={<X size={18} />}
+          onClick={onClose}
+        />
       </header>
       {children}
       {footer}

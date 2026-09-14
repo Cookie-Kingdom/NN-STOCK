@@ -27,11 +27,13 @@ export function useWorkspace(account: Account) {
     (l) =>
       role === "owner" ||
       role === "fooddiva" ||
-      (role === "cm" && (l.stage >= 2 || entries(db, "smokeOrder", l.id).length > 0)) ||
+      (role === "cm" &&
+        (l.stage >= 2 || entries(db, "smokeOrder", l.id).length > 0)) ||
       (role === "branch" && entries(db, "allocate", l.id, branch).length > 0),
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];
-  const open = (kind: string, lotId = lot?.id || "") => setModal({ kind, lotId });
+  const open = (kind: string, lotId = lot?.id || "") =>
+    setModal({ kind, lotId });
   const closed = isClosed(db, branch, date);
 
   return {

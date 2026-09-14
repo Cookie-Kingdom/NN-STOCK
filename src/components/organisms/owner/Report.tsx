@@ -8,16 +8,32 @@ import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { branches, entries, isClosed, lotCost, materialPar, materialUnitPrice, materials, n, stages, type Database, type Entry } from "@/lib/store";
+import {
+  branches,
+  entries,
+  isClosed,
+  lotCost,
+  materialPar,
+  materialUnitPrice,
+  materials,
+  n,
+  stages,
+  type Database,
+  type Entry,
+} from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
 export function Report({ db }: { db: Database }) {
-  const allDates = db.entries.map((e) => e.date).filter(Boolean).sort();
+  const allDates = db.entries
+    .map((e) => e.date)
+    .filter(Boolean)
+    .sort();
   const [fromDate, setFromDate] = useState(allDates[0] || today());
   const [toDate, setToDate] = useState(allDates.at(-1) || today());
   const [branchFilter, setBranchFilter] = useState("ทั้งหมด");
   const inRange = (entry: Entry) =>
-    entry.date >= fromDate && entry.date <= toDate &&
+    entry.date >= fromDate &&
+    entry.date <= toDate &&
     (branchFilter === "ทั้งหมด" ||
       ["expense", "materialReceive", "generalPurchase"].includes(entry.kind) ||
       entry.branch === branchFilter);
@@ -26,20 +42,27 @@ export function Report({ db }: { db: Database }) {
       ...entries(db, "supplyPurchase"),
       ...entries(db, "ricePurchase"),
       ...entries(db, "chiliPurchase"),
-    ].filter(inRange).sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at)),
+    ]
+      .filter(inRange)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at)),
     supplyCost = supplyPurchases.reduce(
       (sum, entry) => sum + n(entry.values, "totalCost"),
       0,
     ),
-    ownerExpenseCost = entries(db, "expense").filter(inRange)
+    ownerExpenseCost = entries(db, "expense")
+      .filter(inRange)
       .reduce((sum, entry) => sum + n(entry.values, "amount"), 0),
-    materialPurchaseCost = entries(db, "materialReceive").filter(inRange)
+    materialPurchaseCost = entries(db, "materialReceive")
+      .filter(inRange)
       .reduce((sum, entry) => sum + n(entry.values, "totalCost"), 0),
-    generalPurchaseCost = entries(db, "generalPurchase").filter(inRange)
+    generalPurchaseCost = entries(db, "generalPurchase")
+      .filter(inRange)
       .reduce((sum, entry) => sum + n(entry.values, "totalCost"), 0),
     cost =
       supplyCost +
-      ownerExpenseCost + materialPurchaseCost + generalPurchaseCost +
+      ownerExpenseCost +
+      materialPurchaseCost +
+      generalPurchaseCost +
       sales.reduce(
         (s, e) =>
           s +
@@ -48,9 +71,7 @@ export function Report({ db }: { db: Database }) {
           n(e.values, "expense"),
         0,
       );
-  const dayRows = Array.from(
-    new Set(sales.map((e) => `${e.date}|${e.branch}`)),
-  )
+  const dayRows = Array.from(new Set(sales.map((e) => `${e.date}|${e.branch}`)))
     .sort()
     .reverse()
     .map((key) => {
@@ -77,11 +98,22 @@ export function Report({ db }: { db: Database }) {
       <Panel className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch">
         <div>
           <h2 className="m-0">ตัวกรองรายงาน (Report filters)</h2>
-          <Muted className="m-0">เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน</Muted>
+          <Muted className="m-0">
+            เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน
+          </Muted>
         </div>
         <FilterBar>
-          <DateRangeFilter from={fromDate} to={toDate} onFromChange={setFromDate} onToChange={setToDate} />
-          <BranchSelectFilter value={branchFilter} onChange={setBranchFilter} branches={branches} />
+          <DateRangeFilter
+            from={fromDate}
+            to={toDate}
+            onFromChange={setFromDate}
+            onToChange={setToDate}
+          />
+          <BranchSelectFilter
+            value={branchFilter}
+            onChange={setBranchFilter}
+            branches={branches}
+          />
         </FilterBar>
       </Panel>
       <DataTable
@@ -89,21 +121,28 @@ export function Report({ db }: { db: Database }) {
         title="สรุปผลรวม"
         columns={["รายการ", "จำนวนเงิน", "ขอบเขต"]}
         rows={[
-          ["ยอดขาย LINE MAN", fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0)), "บาท"],
           [
-            "ต้นทุนเนื้อ + Waste + ค่าใช้จ่ายสาขา + วัตถุดิบ",
-            fmt(cost),
+            "ยอดขาย LINE MAN",
+            fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0)),
             "บาท",
           ],
+          ["ต้นทุนเนื้อ + Waste + ค่าใช้จ่ายสาขา + วัตถุดิบ", fmt(cost), "บาท"],
           ["ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
           ["ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
           ["ซื้อวัตถุดิบ / ETC", fmt(generalPurchaseCost), "บาท"],
-          ["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost), "บาท"],
+          [
+            "ส่วนต่างหลังต้นทุนที่บันทึก",
+            fmt(
+              sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost,
+            ),
+            "บาท",
+          ],
         ]}
       />
       <Notice>
-        ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว แต่ยังไม่รวมภาษี
-        แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก จึงยังไม่ใช่กำไรสุทธิ
+        ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว
+        แต่ยังไม่รวมภาษี แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก
+        จึงยังไม่ใช่กำไรสุทธิ
       </Notice>
       <DataTable
         className="m-0"
@@ -123,7 +162,14 @@ export function Report({ db }: { db: Database }) {
       <DataTable
         className="m-0"
         title="ยอดขายสะสมแยกสาขา"
-        columns={["สาขา", "กล่อง", "เนื้อ Add-on", "น้ำพริกขายแยก", "Waste (กก.)", "ยอดขาย (บาท)"]}
+        columns={[
+          "สาขา",
+          "กล่อง",
+          "เนื้อ Add-on",
+          "น้ำพริกขายแยก",
+          "Waste (กก.)",
+          "ยอดขาย (บาท)",
+        ]}
         rows={branches.map((br) => {
           const rows = entries(db, "sale", undefined, br).filter(inRange);
           return [
@@ -167,13 +213,15 @@ export function Report({ db }: { db: Database }) {
         className="m-0"
         title="ค่าใช้จ่าย Owner"
         columns={["วันที่", "หมวด", "รายละเอียด", "ผู้จ่าย", "จำนวนเงิน"]}
-        rows={entries(db, "expense").filter(inRange).map((e) => [
-          e.date,
-          e.values.category,
-          e.values.detail,
-          e.values.payer,
-          fmt(n(e.values, "amount")),
-        ])}
+        rows={entries(db, "expense")
+          .filter(inRange)
+          .map((e) => [
+            e.date,
+            e.values.category,
+            e.values.detail,
+            e.values.payer,
+            fmt(n(e.values, "amount")),
+          ])}
       />
       <DataTable
         className="m-0"
@@ -207,38 +255,48 @@ export function Report({ db }: { db: Database }) {
           "การจัดการวันถัดไป",
           "เหตุผลส่วนต่าง",
         ]}
-        rows={entries(db, "riceCarry").filter(inRange).map((entry) => [
-          entry.date,
-          entry.branch,
-          fmt(n(entry.values, "leftoverKg")),
-          entry.values.reheat,
-          entry.values.reason || "—",
-        ])}
+        rows={entries(db, "riceCarry")
+          .filter(inRange)
+          .map((entry) => [
+            entry.date,
+            entry.branch,
+            fmt(n(entry.values, "leftoverKg")),
+            entry.values.reheat,
+            entry.values.reason || "—",
+          ])}
       />
       <DataTable
         className="m-0"
         title="รายการเบิกข้าวเหนียวดิบรายวัน"
         columns={["วันที่", "สาขา", "ผู้รับ", "ข้าวเหนียวดิบ (กก.)"]}
-        rows={[
-          ...entries(db, "supplyIssue"),
-          ...entries(db, "riceIssue"),
-        ]
-          .filter((entry) => inRange(entry) && n(entry.values, "rawRiceIssuedKg") > 0)
+        rows={[...entries(db, "supplyIssue"), ...entries(db, "riceIssue")]
+          .filter(
+            (entry) => inRange(entry) && n(entry.values, "rawRiceIssuedKg") > 0,
+          )
           .sort((a, b) => a.at.localeCompare(b.at))
           .map((entry) => [
-          entry.date,
-          entry.branch,
-          entry.values.receiver,
-          fmt(n(entry.values, "rawRiceIssuedKg")),
+            entry.date,
+            entry.branch,
+            entry.values.receiver,
+            fmt(n(entry.values, "rawRiceIssuedKg")),
           ])}
       />
       <DataTable
         className="m-0"
         title="ประวัติจัดสรรน้ำพริกโดย Owner"
-        columns={["วันที่", "สาขา", "จัดสรร", "ผู้รับ", "เลขอ้างอิง", "หมายเหตุ"]}
+        columns={[
+          "วันที่",
+          "สาขา",
+          "จัดสรร",
+          "ผู้รับ",
+          "เลขอ้างอิง",
+          "หมายเหตุ",
+        ]}
         rows={entries(db, "chiliAllocate")
           .filter(inRange)
-          .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
+          .sort(
+            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
+          )
           .map((entry) => [
             entry.date,
             entry.branch,
@@ -251,14 +309,29 @@ export function Report({ db }: { db: Database }) {
       <DataTable
         className="m-0"
         title="ประวัติรับและส่งวัสดุ (Material audit trail)"
-        columns={["วันที่", "รายการ", "วัสดุ", "ต้นทาง / ปลายทาง", "จำนวน", "ผู้เกี่ยวข้อง", "อ้างอิง / สถานะ"]}
-        rows={[...entries(db, "materialReceive"), ...entries(db, "materialTransfer"), ...entries(db, "materialConfirm")]
+        columns={[
+          "วันที่",
+          "รายการ",
+          "วัสดุ",
+          "ต้นทาง / ปลายทาง",
+          "จำนวน",
+          "ผู้เกี่ยวข้อง",
+          "อ้างอิง / สถานะ",
+        ]}
+        rows={[
+          ...entries(db, "materialReceive"),
+          ...entries(db, "materialTransfer"),
+          ...entries(db, "materialConfirm"),
+        ]
           .filter(inRange)
-          .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
+          .sort(
+            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
+          )
           .map((entry) => {
-            const transfer = entry.kind === "materialConfirm"
-              ? db.entries.find((item) => item.id === entry.values.transferId)
-              : undefined;
+            const transfer =
+              entry.kind === "materialConfirm"
+                ? db.entries.find((item) => item.id === entry.values.transferId)
+                : undefined;
             return [
               entry.date,
               entry.kind === "materialReceive"
@@ -267,21 +340,37 @@ export function Report({ db }: { db: Database }) {
                   ? "ส่งไปสาขา"
                   : "สาขายืนยันรับ",
               entry.values.material || transfer?.values.material || "—",
-              entry.kind === "materialReceive" ? entry.values.supplier : entry.branch,
+              entry.kind === "materialReceive"
+                ? entry.values.supplier
+                : entry.branch,
               entry.values.quantity || entry.values.receivedQuantity,
               entry.values.receiver || "Owner",
               entry.kind === "materialConfirm"
-                ? (entry.values.reason || "รับครบ")
-                : (entry.values.reference || (entry.values.requiresConfirm ? "รอสาขายืนยัน" : "ข้อมูลเดิม")),
+                ? entry.values.reason || "รับครบ"
+                : entry.values.reference ||
+                  (entry.values.requiresConfirm
+                    ? "รอสาขายืนยัน"
+                    : "ข้อมูลเดิม"),
             ];
           })}
       />
       <DataTable
         className="m-0"
         title="วัสดุคงเหลือล่าสุด"
-        columns={["สาขา", "วัสดุ", "ใช้ล่าสุด", "คงเหลือ", "ฐานเต็ม", "ราคา / หน่วย", "มูลค่าคงเหลือ", "สถานะ"]}
+        columns={[
+          "สาขา",
+          "วัสดุ",
+          "ใช้ล่าสุด",
+          "คงเหลือ",
+          "ฐานเต็ม",
+          "ราคา / หน่วย",
+          "มูลค่าคงเหลือ",
+          "สถานะ",
+        ]}
         rows={branches.flatMap((br) => {
-          const row = entries(db, "materials", undefined, br).filter(inRange).at(-1);
+          const row = entries(db, "materials", undefined, br)
+            .filter(inRange)
+            .at(-1);
           return materials.map((m, i) => {
             const base = materialPar(db, br, i),
               price = materialUnitPrice(db, br, i),

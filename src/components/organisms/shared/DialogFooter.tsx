@@ -38,7 +38,9 @@ export function DialogFooter({
       )}
     >
       {hint && (
-        <p className="mr-auto text-caption text-text-secondary max-md:hidden">{hint}</p>
+        <p className="mr-auto text-caption text-text-secondary max-md:hidden">
+          {hint}
+        </p>
       )}
       {children}
       {onCancel && (

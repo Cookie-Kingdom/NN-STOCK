@@ -10,7 +10,10 @@ export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
     ["Supplier", lot.values.supplier || "Foodiva"],
     ["ผู้รับออเดอร์", config("foodDivaContact") || "ยังไม่ได้ตั้งค่า"],
     ["ที่อยู่ผู้ให้บริการ", config("foodDivaAddress") || "ยังไม่ได้ตั้งค่า"],
-    ["ลูกค้า", lot.values.customerName || config("companyName") || "NerdNuea Stock"],
+    [
+      "ลูกค้า",
+      lot.values.customerName || config("companyName") || "NerdNuea Stock",
+    ],
     ["ที่อยู่", lot.values.customerAddress || config("companyAddress") || "—"],
     ["Attention", lot.values.attention || config("attention") || "—"],
     ["โทร.", lot.values.phone || config("companyPhone") || "—"],
@@ -20,7 +23,10 @@ export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
     ["ขนาดบรรจุ", lot.values.packSize],
     ["จำนวน", `${fmt(n(lot.values, "orderedKg"))} กก.`],
     ["ราคา / กก.", `฿${fmt(n(lot.values, "price"))}`],
-    ["ยอดรวมก่อน VAT", `฿${fmt(n(lot.values, "orderedKg") * n(lot.values, "price"))}`],
+    [
+      "ยอดรวมก่อน VAT",
+      `฿${fmt(n(lot.values, "orderedKg") * n(lot.values, "price"))}`,
+    ],
     ["อ้างอิงผู้ขาย", lot.values.reference || "—"],
     ["หมายเหตุ", lot.values.note || "—"],
   ];
@@ -53,7 +59,11 @@ export function matchesDocumentFilter(
   );
 }
 
-const thaiDate = new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", year: "numeric" });
+const thaiDate = new Intl.DateTimeFormat("th-TH", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
 /** `YYYY-MM-DD` → Thai short date (e.g. "15 ก.ย. 2569"); anything else is returned as-is, empty → "—". */
 export function dateLabel(value: string) {

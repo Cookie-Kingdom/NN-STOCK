@@ -23,7 +23,9 @@ const noticeVariants = cva(
   },
 );
 
-export type NoticeTone = NonNullable<VariantProps<typeof noticeVariants>["tone"]>;
+export type NoticeTone = NonNullable<
+  VariantProps<typeof noticeVariants>["tone"]
+>;
 
 const roleByTone: Partial<Record<NoticeTone, string>> = {
   danger: "alert",
@@ -34,14 +36,17 @@ export type NoticeProps = ComponentProps<"div"> &
   VariantProps<typeof noticeVariants> & {
     /** Button laid out at the end, vertically centred (`.onboarding-notice`). */
     action?: ReactNode;
-    /** Renders a close IconButton labelled "ปิด". */
+    /** Renders a close IconButton labelled `dismissLabel`. */
     onDismiss?: () => void;
+    /** Accessible name of the close button. */
+    dismissLabel?: string;
   };
 
 export function Notice({
   tone,
   action,
   onDismiss,
+  dismissLabel = "ปิด",
   role,
   className,
   children,
@@ -60,7 +65,12 @@ export function Notice({
       <div className="min-w-0 flex-1">{children}</div>
       {action}
       {onDismiss && (
-        <IconButton label="ปิด" icon={<X size={16} />} onClick={onDismiss} className="-my-2" />
+        <IconButton
+          label={dismissLabel}
+          icon={<X size={16} />}
+          onClick={onDismiss}
+          className="-my-2"
+        />
       )}
     </div>
   );

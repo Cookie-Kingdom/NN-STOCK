@@ -10,10 +10,25 @@ import { mutate, roleName, titles, type Entry } from "@/lib/store";
 import { today } from "@/lib/format";
 
 const reversibleKinds = [
-  "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
-  "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
-  "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
-  "expense", "unlock",
+  "allocate",
+  "chiliAllocate",
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "materials",
+  "materialReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "materialConfirm",
+  "closeDay",
+  "expense",
+  "unlock",
 ];
 
 /** Labels for computed values that are not fields of the entry's form. */
@@ -58,7 +73,9 @@ export function EntryDetails({
       saveDatabase(next);
       onChanged("ยกเลิกรายการแล้ว ระบบคำนวณยอดใหม่และเก็บเหตุผลไว้ในประวัติ");
     } catch (error) {
-      onChanged(error instanceof Error ? error.message : "ยกเลิกรายการไม่สำเร็จ");
+      onChanged(
+        error instanceof Error ? error.message : "ยกเลิกรายการไม่สำเร็จ",
+      );
     }
   };
   return (
@@ -77,7 +94,11 @@ export function EntryDetails({
         .map(([k, v]) => (
           <ReadRow
             key={k}
-            label={forms[e.kind]?.find((f) => f.key === k)?.label || derivedLabels[k] || k}
+            label={
+              forms[e.kind]?.find((f) => f.key === k)?.label ||
+              derivedLabels[k] ||
+              k
+            }
             value={v}
           />
         ))}
@@ -103,7 +124,9 @@ export function EntryDetails({
               </Button>
             </>
           ) : (
-            <Button onClick={() => setCancelling(true)}>แก้รายการผิดด้วยการยกเลิก</Button>
+            <Button onClick={() => setCancelling(true)}>
+              แก้รายการผิดด้วยการยกเลิก
+            </Button>
           )}
         </div>
       )}

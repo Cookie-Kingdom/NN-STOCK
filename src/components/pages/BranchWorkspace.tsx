@@ -36,14 +36,15 @@ export function BranchWorkspace({ account }: { account: Account }) {
       >
         {closed && (
           <Notice tone="warning">
-            วันที่ {date} ปิดแล้ว ฟอร์มวันนี้ถูกล็อก Owner ปลดล็อกได้จากหน้ารายงาน
+            วันที่ {date} ปิดแล้ว ฟอร์มวันนี้ถูกล็อก Owner
+            ปลดล็อกได้จากหน้ารายงาน
           </Notice>
         )}
         {tab === "day" && (
           <>
             <Notice>
-              วันที่ทำรายการ {date} · สาขา {branch} ·
-              ข้าวคงเหลือยกไปวันถัดไปได้ ส่วนเนื้อละลายต้องขายหรือบันทึก Waste ให้หมดก่อนปิดวัน
+              วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้
+              ส่วนเนื้อละลายต้องขายหรือบันทึก Waste ให้หมดก่อนปิดวัน
             </Notice>
             <BranchDailyWorkflow
               db={db}
@@ -53,7 +54,12 @@ export function BranchWorkspace({ account }: { account: Account }) {
               closed={closed}
               open={ws.open}
             />
-            <MaterialReceiptConfirmation db={db} branch={branch} date={date} closed={closed} />
+            <MaterialReceiptConfirmation
+              db={db}
+              branch={branch}
+              date={date}
+              closed={closed}
+            />
             <DailyMaterialsTable
               key={`${branch}-${date}`}
               db={db}
@@ -103,7 +109,11 @@ export function BranchWorkspace({ account }: { account: Account }) {
               open={ws.open}
             />
             <SupplyStock db={db} branches={[branch]} />
-            <MaterialStockTable db={db} stockBranches={[branch]} ownerView={false} />
+            <MaterialStockTable
+              db={db}
+              stockBranches={[branch]}
+              ownerView={false}
+            />
           </>
         )}
         {tab === "branch-summary" && (
@@ -115,7 +125,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
             <SupplyStock db={db} branches={[branch]} />
           </>
         )}
-        {tab === "history" && <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />}
+        {tab === "history" && (
+          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+        )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />
     </>

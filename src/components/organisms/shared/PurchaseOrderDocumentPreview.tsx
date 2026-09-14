@@ -3,7 +3,14 @@
 import "@/styles/print-document.css";
 import { Badge } from "@/components/atoms/Badge";
 import { dateLabel } from "@/components/organisms/shared/documentRows";
-import { entries, n, smokeServiceRate, type Database, type Lot, type Values } from "@/lib/store";
+import {
+  entries,
+  n,
+  smokeServiceRate,
+  type Database,
+  type Lot,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function PurchaseOrderDocumentPreview({
@@ -26,19 +33,29 @@ export function PurchaseOrderDocumentPreview({
   const quantity = n(values, isSmokeOrder ? "rawKg" : "orderedKg");
   const rate = isSmokeOrder ? smokeServiceRate(quantity) : n(values, "price");
   const total = quantity * rate;
-  const buyerName = values.customerName || db.config.companyName || "NerdNuea Stock";
-  const buyerAddress = values.customerAddress || db.config.companyAddress || "—";
+  const buyerName =
+    values.customerName || db.config.companyName || "NerdNuea Stock";
+  const buyerAddress =
+    values.customerAddress || db.config.companyAddress || "—";
   const attention = values.attention || db.config.attention || "—";
   const phone = values.phone || db.config.companyPhone || "—";
   const taxId = values.taxId || db.config.taxId || "—";
-  const supplier = values[isSmokeOrder ? "smoker" : "supplier"] || (isSmokeOrder ? "Chef_house" : "Foodiva");
-  const supplierContact = db.config[isSmokeOrder ? "chefHouseContact" : "foodDivaContact"] || "ยังไม่ได้ตั้งค่า";
-  const supplierAddress = db.config[isSmokeOrder ? "chefHouseAddress" : "foodDivaAddress"] || "ยังไม่ได้ตั้งค่า";
+  const supplier =
+    values[isSmokeOrder ? "smoker" : "supplier"] ||
+    (isSmokeOrder ? "Chef_house" : "Foodiva");
+  const supplierContact =
+    db.config[isSmokeOrder ? "chefHouseContact" : "foodDivaContact"] ||
+    "ยังไม่ได้ตั้งค่า";
+  const supplierAddress =
+    db.config[isSmokeOrder ? "chefHouseAddress" : "foodDivaAddress"] ||
+    "ยังไม่ได้ตั้งค่า";
   const documentNumber = isSmokeOrder
     ? `SMK-PO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
     : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
   const issueDate = isSmokeOrder ? values.requestedSmokeDate || date : date;
-  const dueDate = isSmokeOrder ? values.expectedFinishedDate || "—" : "ตามข้อตกลง";
+  const dueDate = isSmokeOrder
+    ? values.expectedFinishedDate || "—"
+    : "ตามข้อตกลง";
   const itemName = isSmokeOrder
     ? "บริการรมควันเนื้อ"
     : values.productName || "เนื้อวัว";
@@ -54,7 +71,9 @@ export function PurchaseOrderDocumentPreview({
       <div className="mx-auto mb-3.5 flex max-w-135 items-center justify-between text-text-primary">
         <div>
           <strong className="block text-h3">Preview</strong>
-          <span className="mt-0.5 block text-caption text-text-secondary">อัปเดตตามที่กรอก</span>
+          <span className="mt-0.5 block text-caption text-text-secondary">
+            อัปเดตตามที่กรอก
+          </span>
         </div>
         <Badge tone="warning">ฉบับร่าง</Badge>
       </div>
@@ -64,7 +83,11 @@ export function PurchaseOrderDocumentPreview({
             {db.config.logoData ? (
               // Stored locally as a data URL, so Next image optimization cannot process it.
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="po-logo" src={db.config.logoData} alt="โลโก้ NerdNuea" />
+              <img
+                className="po-logo"
+                src={db.config.logoData}
+                alt="โลโก้ NerdNuea"
+              />
             ) : (
               <span className="po-logo-placeholder">พื้นที่โลโก้</span>
             )}
@@ -88,23 +111,43 @@ export function PurchaseOrderDocumentPreview({
             <p>Tax ID: {taxId}</p>
           </section>
           <section>
-            <span>{isSmokeOrder ? "ผู้ให้บริการ / Service provider" : "ผู้ขาย / Supplier"}</span>
+            <span>
+              {isSmokeOrder
+                ? "ผู้ให้บริการ / Service provider"
+                : "ผู้ขาย / Supplier"}
+            </span>
             <strong>{supplier}</strong>
             <p>ผู้รับออเดอร์: {supplierContact}</p>
             <p>ที่อยู่: {supplierAddress}</p>
             {isSmokeOrder && (
               <>
                 <p>บริการรมควันเนื้อตามคำสั่งซื้อ</p>
-                <p>อ้างอิง Invoice Foodiva: {latestFoodivaInvoice?.values.invoiceNo || latestFoodivaInvoice?.values.invoiceNumber || "รอระบุ"}</p>
+                <p>
+                  อ้างอิง Invoice Foodiva:{" "}
+                  {latestFoodivaInvoice?.values.invoiceNo ||
+                    latestFoodivaInvoice?.values.invoiceNumber ||
+                    "รอระบุ"}
+                </p>
               </>
             )}
           </section>
         </div>
 
         <div className="po-meta-grid">
-          <div><span>วันที่ออก PO</span><strong>{dateLabel(issueDate)}</strong></div>
-          <div><span>{isSmokeOrder ? "คาดว่าจะเสร็จ" : "กำหนดชำระ"}</span><strong>{dateLabel(dueDate)}</strong></div>
-          <div><span>{isSmokeOrder ? "Lot เนื้อ" : "อ้างอิงผู้ขาย"}</span><strong>{isSmokeOrder ? lot?.id || "—" : values.reference || "—"}</strong></div>
+          <div>
+            <span>วันที่ออก PO</span>
+            <strong>{dateLabel(issueDate)}</strong>
+          </div>
+          <div>
+            <span>{isSmokeOrder ? "คาดว่าจะเสร็จ" : "กำหนดชำระ"}</span>
+            <strong>{dateLabel(dueDate)}</strong>
+          </div>
+          <div>
+            <span>{isSmokeOrder ? "Lot เนื้อ" : "อ้างอิงผู้ขาย"}</span>
+            <strong>
+              {isSmokeOrder ? lot?.id || "—" : values.reference || "—"}
+            </strong>
+          </div>
         </div>
 
         <table className="po-item-table">
@@ -130,7 +173,8 @@ export function PurchaseOrderDocumentPreview({
 
         {isSmokeOrder && (
           <div className="po-rate-note">
-            อัตราอัตโนมัติ: ต่ำกว่า 1,000 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก. ฿180 ต่อกก.
+            อัตราอัตโนมัติ: ต่ำกว่า 1,000 กก. ฿220 · 1,000 กก. ฿200 · 1,500 กก.
+            ฿180 ต่อกก.
           </div>
         )}
 

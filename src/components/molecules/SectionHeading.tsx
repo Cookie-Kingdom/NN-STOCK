@@ -15,7 +15,10 @@ export function SectionHeading({
   actions?: ReactNode;
 }) {
   return (
-    <div className={cn("mb-4 flex items-center justify-between gap-3", className)} {...props}>
+    <div
+      className={cn("mb-4 flex items-center justify-between gap-3", className)}
+      {...props}
+    >
       <div className="min-w-0">
         <h2 className="m-0 text-h2">{title}</h2>
         {description && <Muted>{description}</Muted>}

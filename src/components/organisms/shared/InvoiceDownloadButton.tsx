@@ -7,7 +7,15 @@ import { Muted } from "@/components/atoms/Text";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { getAttachment } from "@/lib/attachment-store";
 
-export function InvoiceDownloadButton({ name, data, storageKey }: { name: string; data?: string; storageKey?: string }) {
+export function InvoiceDownloadButton({
+  name,
+  data,
+  storageKey,
+}: {
+  name: string;
+  data?: string;
+  storageKey?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const download = async () => {
@@ -24,7 +32,9 @@ export function InvoiceDownloadButton({ name, data, storageKey }: { name: string
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "ดาวน์โหลดไฟล์ไม่สำเร็จ");
+      setMessage(
+        error instanceof Error ? error.message : "ดาวน์โหลดไฟล์ไม่สำเร็จ",
+      );
     } finally {
       setLoading(false);
     }
@@ -32,16 +42,25 @@ export function InvoiceDownloadButton({ name, data, storageKey }: { name: string
   if (data)
     return (
       <Button variant="table" asChild icon={<Download className="size-3.5" />}>
-        <a href={data} download={name || "invoice"}>ดาวน์โหลด</a>
+        <a href={data} download={name || "invoice"}>
+          ดาวน์โหลด
+        </a>
       </Button>
     );
   if (storageKey)
     return (
       <ButtonRow>
-        <Button variant="table" onClick={download} disabled={loading} icon={<Download className="size-3.5" />}>
+        <Button
+          variant="table"
+          onClick={download}
+          disabled={loading}
+          icon={<Download className="size-3.5" />}
+        >
           {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
         </Button>
-        {message && <small className="text-caption text-danger">{message}</small>}
+        {message && (
+          <small className="text-caption text-danger">{message}</small>
+        )}
       </ButtonRow>
     );
   if (!name) return <Muted as="span">ยังไม่มีไฟล์แนบ</Muted>;

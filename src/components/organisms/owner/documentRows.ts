@@ -5,10 +5,11 @@ export type DocumentRows = [string, string][];
 
 export type TransportDirection = "outbound" | "return";
 
-const transportKeys: Record<TransportDirection, { date: string; kg: string }> = {
-  outbound: { date: "pickupDate", kg: "dispatchKg" },
-  return: { date: "returnDate", kg: "returnKg" },
-};
+const transportKeys: Record<TransportDirection, { date: string; kg: string }> =
+  {
+    outbound: { date: "pickupDate", kg: "dispatchKg" },
+    return: { date: "returnDate", kg: "returnKg" },
+  };
 
 export const transportDocumentTitle: Record<TransportDirection, string> = {
   outbound: "ใบขนส่งเนื้อขาไป",

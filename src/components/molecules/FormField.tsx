@@ -3,15 +3,28 @@ import { cn } from "@/lib/utils";
 
 /** `.field` / `.field.wide` — shared with FieldGroup. */
 export function fieldClassName(wide?: boolean, className?: string) {
-  return cn("block min-w-0 text-body-sm font-medium", wide && "col-span-full", className);
+  return cn(
+    "block min-w-0 text-body-sm font-medium",
+    wide && "col-span-full",
+    className,
+  );
 }
 
 export function OptionalMark() {
-  return <span className="text-caption font-normal text-text-secondary"> (ถ้ามี)</span>;
+  return (
+    <span className="text-caption font-normal text-text-secondary">
+      {" "}
+      (ถ้ามี)
+    </span>
+  );
 }
 
 export function FieldHint({ children }: { children: ReactNode }) {
-  return <small className="mt-2 block text-caption text-text-secondary">{children}</small>;
+  return (
+    <small className="mt-2 block text-caption text-text-secondary">
+      {children}
+    </small>
+  );
 }
 
 export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {

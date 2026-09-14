@@ -24,15 +24,15 @@
     @apply bg-bg text-text-primary;
   }
 
-  /* Tailwind v4 preflight gives buttons `cursor: default`; the old `.app-shell button`
-   * rule made every button a pointer. */
+  /* Tailwind v4 preflight gives buttons `cursor: default`; make every enabled button a
+   * pointer. */
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
 
-  /* Element defaults that used to hang off `.app-shell` in workspace.css. Preflight
-   * resets headings to inherited size; components still render bare h1–h3/p/summary. */
+  /* Element defaults. Preflight resets headings to inherited size; components still
+   * render bare h1–h3/p/summary. */
   h1 {
     @apply my-1.5 text-h1;
   }

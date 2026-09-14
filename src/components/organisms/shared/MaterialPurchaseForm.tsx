@@ -10,7 +10,14 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
-import { materials, mutate, n, ownerMaterialStock, type Database, type Values } from "@/lib/store";
+import {
+  materials,
+  mutate,
+  n,
+  ownerMaterialStock,
+  type Database,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +46,9 @@ export function MaterialPurchaseForm({
   const [purchaseDates, setPurchaseDates] = useState<Values>({});
   const [suppliers, setSuppliers] = useState<Values>({});
   const [references, setReferences] = useState<Values>({});
-  const { error, setError, run } = useSaveMutation("บันทึกการซื้อวัสดุไม่สำเร็จ");
+  const { error, setError, run } = useSaveMutation(
+    "บันทึกการซื้อวัสดุไม่สำเร็จ",
+  );
   const selected = purchaseLines.filter((line) => checked[line.key]);
   const total = selected.reduce(
     (sum, line) => sum + n(quantities, line.key) * n(unitPrices, line.key),
@@ -68,7 +77,14 @@ export function MaterialPurchaseForm({
           next,
           "owner",
           "materialReceive",
-          { purchaseDate, material: item, quantity: String(quantity), unitPrice: String(unitPrice), supplier, reference },
+          {
+            purchaseDate,
+            material: item,
+            quantity: String(quantity),
+            unitPrice: String(unitPrice),
+            supplier,
+            reference,
+          },
           "",
           purchaseDate,
         );
@@ -79,41 +95,153 @@ export function MaterialPurchaseForm({
   }
 
   return (
-    <Dialog overline="Owner · สต๊อกวัสดุ" title="ซื้อวัสดุเข้าคลัง" size="xl" onClose={onClose}>
+    <Dialog
+      overline="Owner · สต๊อกวัสดุ"
+      title="ซื้อวัสดุเข้าคลัง"
+      size="xl"
+      onClose={onClose}
+    >
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
         <DialogBody>
-          <Notice>ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock</Notice>
+          <Notice>
+            ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย
+            และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock
+          </Notice>
           <div className="mt-5.5 grid gap-3">
             {purchaseLines.map((line) => {
               const selectedRow = !!checked[line.key];
               const amount = n(quantities, line.key) * n(unitPrices, line.key);
               return (
-                <article key={line.key} className={cn("overflow-hidden rounded-lg border border-border bg-surface", selectedRow && "bg-bg")}>
+                <article
+                  key={line.key}
+                  className={cn(
+                    "overflow-hidden rounded-lg border border-border bg-surface",
+                    selectedRow && "bg-bg",
+                  )}
+                >
                   <label className="grid cursor-pointer grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.25 px-4.5 py-4 max-[560px]:grid-cols-[24px_minmax(0,1fr)]">
-                    <input type="checkbox" className="size-4.75" aria-label={`ซื้อ ${line.label}`} checked={selectedRow} onChange={(event) => { setChecked((current) => ({ ...current, [line.key]: event.target.checked })); setError(""); }} />
+                    <input
+                      type="checkbox"
+                      className="size-4.75"
+                      aria-label={`ซื้อ ${line.label}`}
+                      checked={selectedRow}
+                      onChange={(event) => {
+                        setChecked((current) => ({
+                          ...current,
+                          [line.key]: event.target.checked,
+                        }));
+                        setError("");
+                      }}
+                    />
                     <span>
                       <strong className="block">{line.label}</strong>
-                      <small className="mt-1 block text-caption font-normal text-text-secondary">คงคลัง Owner {fmt(ownerMaterialStock(db, line.label))} ชิ้น</small>
+                      <small className="mt-1 block text-caption font-normal text-text-secondary">
+                        คงคลัง Owner {fmt(ownerMaterialStock(db, line.label))}{" "}
+                        ชิ้น
+                      </small>
                     </span>
-                    <b className="text-body-sm whitespace-nowrap text-text-secondary max-[560px]:col-start-2">{selectedRow ? `ยอดซื้อ ฿${fmt(amount)}` : "ติ๊กเพื่อกรอก"}</b>
+                    <b className="text-body-sm whitespace-nowrap text-text-secondary max-[560px]:col-start-2">
+                      {selectedRow
+                        ? `ยอดซื้อ ฿${fmt(amount)}`
+                        : "ติ๊กเพื่อกรอก"}
+                    </b>
                   </label>
                   {selectedRow && (
                     <div className="grid grid-cols-5 gap-3.5 border-t border-border bg-bg pt-4 pr-4.5 pb-4.5 pl-13.75 max-[900px]:grid-cols-2 max-[900px]:pl-4.5 max-[560px]:grid-cols-1">
-                      <FormField className={lineField} label="วันที่ซื้อ"><Input type="date" aria-label={`วันที่ซื้อ ${line.label}`} value={purchaseDates[line.key] ?? date} onChange={(event) => setPurchaseDates((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
-                      <FormField className={lineField} label="จำนวนที่ซื้อ"><Input type="number" min="1" step="1" inputMode="numeric" aria-label={`จำนวนซื้อ ${line.label}`} placeholder="จำนวน" value={quantities[line.key] || ""} onChange={(event) => setQuantities((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
-                      <FormField className={lineField} label="ราคาซื้อ / หน่วย"><Input type="number" min="0" step="0.01" inputMode="decimal" aria-label={`ราคาซื้อ ${line.label}`} placeholder="0.00" value={unitPrices[line.key] || ""} onChange={(event) => setUnitPrices((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
-                      <FormField className={lineField} label="ผู้จำหน่าย"><Input type="text" aria-label={`ผู้จำหน่าย ${line.label}`} placeholder="ผู้ขาย" value={suppliers[line.key] || ""} onChange={(event) => setSuppliers((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
-                      <FormField className={lineField} label="เลขอ้างอิง / ใบเสร็จ"><Input type="text" aria-label={`ใบเสร็จ ${line.label}`} placeholder="เลขที่ (ถ้ามี)" value={references[line.key] || ""} onChange={(event) => setReferences((current) => ({ ...current, [line.key]: event.target.value }))} /></FormField>
+                      <FormField className={lineField} label="วันที่ซื้อ">
+                        <Input
+                          type="date"
+                          aria-label={`วันที่ซื้อ ${line.label}`}
+                          value={purchaseDates[line.key] ?? date}
+                          onChange={(event) =>
+                            setPurchaseDates((current) => ({
+                              ...current,
+                              [line.key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </FormField>
+                      <FormField className={lineField} label="จำนวนที่ซื้อ">
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputMode="numeric"
+                          aria-label={`จำนวนซื้อ ${line.label}`}
+                          placeholder="จำนวน"
+                          value={quantities[line.key] || ""}
+                          onChange={(event) =>
+                            setQuantities((current) => ({
+                              ...current,
+                              [line.key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </FormField>
+                      <FormField className={lineField} label="ราคาซื้อ / หน่วย">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          aria-label={`ราคาซื้อ ${line.label}`}
+                          placeholder="0.00"
+                          value={unitPrices[line.key] || ""}
+                          onChange={(event) =>
+                            setUnitPrices((current) => ({
+                              ...current,
+                              [line.key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </FormField>
+                      <FormField className={lineField} label="ผู้จำหน่าย">
+                        <Input
+                          type="text"
+                          aria-label={`ผู้จำหน่าย ${line.label}`}
+                          placeholder="ผู้ขาย"
+                          value={suppliers[line.key] || ""}
+                          onChange={(event) =>
+                            setSuppliers((current) => ({
+                              ...current,
+                              [line.key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </FormField>
+                      <FormField
+                        className={lineField}
+                        label="เลขอ้างอิง / ใบเสร็จ"
+                      >
+                        <Input
+                          type="text"
+                          aria-label={`ใบเสร็จ ${line.label}`}
+                          placeholder="เลขที่ (ถ้ามี)"
+                          value={references[line.key] || ""}
+                          onChange={(event) =>
+                            setReferences((current) => ({
+                              ...current,
+                              [line.key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </FormField>
                     </div>
                   )}
                 </article>
               );
             })}
           </div>
-          <Notice tone="success" role="none" className="mb-0 mt-4.5">เลือก {selected.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}</Notice>
+          <Notice tone="success" role="none" className="mt-4.5 mb-0">
+            เลือก {selected.length} รายการ · ยอดซื้อรวม ฿{fmt(total)}
+          </Notice>
           <FormError error={error} />
         </DialogBody>
-        <DialogFooter hint="บันทึกครั้งเดียวได้หลายวัสดุ" onCancel={onClose} submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`} />
+        <DialogFooter
+          hint="บันทึกครั้งเดียวได้หลายวัสดุ"
+          onCancel={onClose}
+          submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`}
+        />
       </form>
     </Dialog>
   );

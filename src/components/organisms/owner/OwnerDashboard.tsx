@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, CircleAlert, Package, TrendingUp, Warehouse } from "lucide-react";
+import {
+  BarChart3,
+  CircleAlert,
+  Package,
+  TrendingUp,
+  Warehouse,
+} from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Overline } from "@/components/atoms/Overline";
 import { Panel } from "@/components/atoms/Panel";
@@ -11,18 +17,71 @@ import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { KpiCard } from "@/components/molecules/KpiCard";
-import { requiredDailyKinds, requiredDailyLabels, sevenDayRangeStart } from "@/components/organisms/owner/ownerDaily";
+import {
+  requiredDailyKinds,
+  requiredDailyLabels,
+  sevenDayRangeStart,
+} from "@/components/organisms/owner/ownerDaily";
 import { CostDonut } from "@/components/organisms/shared/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { SalesBars } from "@/components/organisms/shared/SalesBars";
-import { averageYield, balance, branchMaterialStock, branches, centralStock, chiliStock, cookedRiceStock, entries, isClosed, materialPar, materials, n, processLoss, produced, rawAtFoodiva, rawAtSmoker, rawRiceStock, readyForChefHouse, reservedForOwnerContent, smokingInvoiceStatus, stages, steakRawStock, type Database, type Entry } from "@/lib/store";
+import {
+  averageYield,
+  balance,
+  branchMaterialStock,
+  branches,
+  centralStock,
+  chiliStock,
+  cookedRiceStock,
+  entries,
+  isClosed,
+  materialPar,
+  materials,
+  n,
+  processLoss,
+  produced,
+  rawAtFoodiva,
+  rawAtSmoker,
+  rawRiceStock,
+  readyForChefHouse,
+  reservedForOwnerContent,
+  smokingInvoiceStatus,
+  stages,
+  steakRawStock,
+  type Database,
+  type Entry,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Tab } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-const summaryColumns = ["Open PO", "Supplier Invoice ค้าง", "Smoking Invoice ค้าง", "Raw Meat ที่ Foodiva", "Raw Meat ที่โรงรม", "Steak allocation", "Finished smoked meat", "Loss รวม", "Average yield"];
-const branchColumns = ["สาขา", "ยอดขายช่วงที่เลือก", "กล่อง", "งานวันนี้", "วัสดุ", "ปิดวัน"];
-const lotColumns = ["Lot", "ขั้นตอน", "ผลผลิต", "คลังกลาง", "ศาลาแดง", "มีนบุรี"];
+const summaryColumns = [
+  "Open PO",
+  "Supplier Invoice ค้าง",
+  "Smoking Invoice ค้าง",
+  "Raw Meat ที่ Foodiva",
+  "Raw Meat ที่โรงรม",
+  "Steak allocation",
+  "Finished smoked meat",
+  "Loss รวม",
+  "Average yield",
+];
+const branchColumns = [
+  "สาขา",
+  "ยอดขายช่วงที่เลือก",
+  "กล่อง",
+  "งานวันนี้",
+  "วัสดุ",
+  "ปิดวัน",
+];
+const lotColumns = [
+  "Lot",
+  "ขั้นตอน",
+  "ผลผลิต",
+  "คลังกลาง",
+  "ศาลาแดง",
+  "มีนบุรี",
+];
 
 export function OwnerDashboard({
   db,
@@ -40,7 +99,10 @@ export function OwnerDashboard({
   const withinRange = (entry: Entry) =>
     entry.date >= fromDate && entry.date <= toDate;
   const sales = entries(db, "sale").filter(withinRange);
-  const income = sales.reduce((total, entry) => total + n(entry.values, "revenue"), 0);
+  const income = sales.reduce(
+    (total, entry) => total + n(entry.values, "revenue"),
+    0,
+  );
   const meatAndBranchCost = sales.reduce(
     (total, entry) =>
       total +
@@ -53,14 +115,24 @@ export function OwnerDashboard({
     ...entries(db, "supplyPurchase"),
     ...entries(db, "ricePurchase"),
     ...entries(db, "chiliPurchase"),
-  ].filter(withinRange).reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
-  const ownerCost = entries(db, "expense").filter(withinRange)
+  ]
+    .filter(withinRange)
+    .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
+  const ownerCost = entries(db, "expense")
+    .filter(withinRange)
     .reduce((total, entry) => total + n(entry.values, "amount"), 0);
-  const materialCost = entries(db, "materialReceive").filter(withinRange)
+  const materialCost = entries(db, "materialReceive")
+    .filter(withinRange)
     .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
-  const ownerStockPurchaseCost = entries(db, "generalPurchase").filter(withinRange)
+  const ownerStockPurchaseCost = entries(db, "generalPurchase")
+    .filter(withinRange)
     .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
-  const totalCost = meatAndBranchCost + supplyCost + materialCost + ownerStockPurchaseCost + ownerCost;
+  const totalCost =
+    meatAndBranchCost +
+    supplyCost +
+    materialCost +
+    ownerStockPurchaseCost +
+    ownerCost;
   const margin = income - totalCost;
   const branchRows = branches.map((branchName) => {
     const rows = sales.filter((entry) => entry.branch === branchName);
@@ -76,7 +148,9 @@ export function OwnerDashboard({
     return [
       <strong key={branchName}>{branchName}</strong>,
       fmt(rows.reduce((total, entry) => total + n(entry.values, "revenue"), 0)),
-      String(rows.reduce((total, entry) => total + n(entry.values, "boxes"), 0)),
+      String(
+        rows.reduce((total, entry) => total + n(entry.values, "boxes"), 0),
+      ),
       missing.length ? `ค้าง ${missing.length} รายการ` : "ครบแล้ว",
       lowMaterials ? `ใกล้หมด ${lowMaterials} รายการ` : "ปกติ",
       isClosed(db, branchName, date) ? "ปิดวันแล้ว" : "ยังไม่ปิดวัน",
@@ -84,9 +158,16 @@ export function OwnerDashboard({
   });
   const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
   const foodivaInvoicesForOwner = db.lots.filter(
-    (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0 && !entries(db, "smokeOrder", lot.id).length,
+    (lot) =>
+      entries(db, "foodDivaConfirm", lot.id).length > 0 &&
+      !entries(db, "smokeOrder", lot.id).length,
   );
-  const alertDetails: { title: string; detail: string; kind: "branch" | "lot" | "invoice"; tab?: Tab }[] = [
+  const alertDetails: {
+    title: string;
+    detail: string;
+    kind: "branch" | "lot" | "invoice";
+    tab?: Tab;
+  }[] = [
     ...foodivaInvoicesForOwner.map((lot) => {
       const invoice = entries(db, "foodDivaConfirm", lot.id).at(-1)!;
       return {
@@ -107,20 +188,30 @@ export function OwnerDashboard({
             materialPar(db, branchName, index) * 0.2,
       );
       if (!pending.length && !lowMaterialNames.length) return [];
-      return [{
-        title: branchName,
-        detail: [
-          pending.length ? `ค้าง: ${pending.map((kind) => requiredDailyLabels[kind] || kind).join(", ")}` : "",
-          lowMaterialNames.length ? `วัสดุใกล้หมด: ${lowMaterialNames.join(", ")}` : "",
-        ].filter(Boolean).join(" · "),
-        kind: "branch" as const,
-      }];
+      return [
+        {
+          title: branchName,
+          detail: [
+            pending.length
+              ? `ค้าง: ${pending.map((kind) => requiredDailyLabels[kind] || kind).join(", ")}`
+              : "",
+            lowMaterialNames.length
+              ? `วัสดุใกล้หมด: ${lowMaterialNames.join(", ")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          kind: "branch" as const,
+        },
+      ];
     }),
-    ...db.lots.filter((lot) => lot.stage < 8).map((lot) => ({
-      title: `Lot ${lot.id}`,
-      detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,
-      kind: "lot" as const,
-    })),
+    ...db.lots
+      .filter((lot) => lot.stage < 8)
+      .map((lot) => ({
+        title: `Lot ${lot.id}`,
+        detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,
+        kind: "lot" as const,
+      })),
   ];
   const alertCount = alertDetails.length;
   const marginPercent = income > 0 ? (margin / income) * 100 : 0;
@@ -146,13 +237,28 @@ export function OwnerDashboard({
       .filter((entry) => entry.date === workDate && entry.branch === "มีนบุรี")
       .reduce((total, entry) => total + n(entry.values, "revenue"), 0),
   }));
-  const maxDaily = Math.max(1, ...dailySales.flatMap((item) => [item.sala, item.minburi]));
+  const maxDaily = Math.max(
+    1,
+    ...dailySales.flatMap((item) => [item.sala, item.minburi]),
+  );
   const costParts = [
-    { label: "เนื้อและสาขา", value: meatAndBranchCost, color: "#f97316" },
-    { label: "ข้าวและน้ำพริก", value: supplyCost, color: "#fbbf24" },
-    { label: "วัสดุ", value: materialCost, color: "#2563eb" },
-    { label: "ซื้อเข้าสต๊อก Owner", value: ownerStockPurchaseCost, color: "#0f766e" },
-    { label: "Owner", value: ownerCost, color: "#204b49" },
+    {
+      label: "เนื้อและสาขา",
+      value: meatAndBranchCost,
+      color: "var(--color-chart-1)",
+    },
+    {
+      label: "ข้าวและน้ำพริก",
+      value: supplyCost,
+      color: "var(--color-chart-2)",
+    },
+    { label: "วัสดุ", value: materialCost, color: "var(--color-chart-3)" },
+    {
+      label: "ซื้อเข้าสต๊อก Owner",
+      value: ownerStockPurchaseCost,
+      color: "var(--color-chart-4)",
+    },
+    { label: "Owner", value: ownerCost, color: "var(--color-chart-5)" },
   ];
   const branchCostCharts = branches.map((branchName) => {
     const branchSales = sales.filter((entry) => entry.branch === branchName);
@@ -168,12 +274,22 @@ export function OwnerDashboard({
       ...entries(db, "supplyPurchase", undefined, branchName),
       ...entries(db, "ricePurchase", undefined, branchName),
       ...entries(db, "chiliPurchase", undefined, branchName),
-    ].filter(withinRange).reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
+    ]
+      .filter(withinRange)
+      .reduce((total, entry) => total + n(entry.values, "totalCost"), 0);
     return {
       label: branchName,
       parts: [
-        { label: "เนื้อและค่าใช้จ่าย", value: meat, color: "#f97316" },
-        { label: "ข้าวและน้ำพริก", value: supplies, color: "#fbbf24" },
+        {
+          label: "เนื้อและค่าใช้จ่าย",
+          value: meat,
+          color: "var(--color-chart-1)",
+        },
+        {
+          label: "ข้าวและน้ำพริก",
+          value: supplies,
+          color: "var(--color-chart-2)",
+        },
       ],
       total: meat + supplies,
     };
@@ -187,7 +303,9 @@ export function OwnerDashboard({
           <h2 className="mt-1 mb-1 text-h1 tracking-[-0.045em] text-text-primary xl:text-display">
             สวัสดีครับ, เจ้าของร้าน
           </h2>
-          <p className="m-0 text-text-secondary">ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก</p>
+          <p className="m-0 text-text-secondary">
+            ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก
+          </p>
         </div>
         <button
           type="button"
@@ -231,7 +349,10 @@ export function OwnerDashboard({
                   detail={item.detail}
                   action={
                     item.tab && (
-                      <Button variant="text" onClick={() => onNavigate(item.tab!)}>
+                      <Button
+                        variant="text"
+                        onClick={() => onNavigate(item.tab!)}
+                      >
                         เปิดใบ Invoice
                       </Button>
                     )
@@ -276,7 +397,8 @@ export function OwnerDashboard({
           value={`฿${fmt(income)}`}
           caption={
             <>
-              <i className="font-extrabold text-success not-italic">↗</i> ยอดขายทั้งสองสาขา
+              <i className="font-extrabold text-success not-italic">↗</i>{" "}
+              ยอดขายทั้งสองสาขา
             </>
           }
         />
@@ -299,24 +421,37 @@ export function OwnerDashboard({
           tone="boxes"
           icon={<Package size={17} />}
           label="กล่องที่ขาย"
-          value={sales.reduce((total, entry) => total + n(entry.values, "boxes"), 0)}
+          value={sales.reduce(
+            (total, entry) => total + n(entry.values, "boxes"),
+            0,
+          )}
           caption="รวมรายการขายที่บันทึกแล้ว"
         />
       </section>
       <DataTable
         title="Document & raw beef summary"
         columns={summaryColumns}
-        rows={[[
-          String(db.lots.filter((lot) => lot.stage < 8).length),
-          String(entries(db, "supplierInvoice").filter((entry) => entry.values.paymentStatus !== "Paid").length),
-          String(entries(db, "smokingInvoice").filter((entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว").length),
-          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0))} กก.`,
-          `${fmt(db.lots.reduce((sum, lot) => sum + rawAtSmoker(db, lot), 0))} กก.`,
-          `${fmt(steakRawStock(db))} กก.`,
-          `${fmt(db.lots.reduce((sum, lot) => sum + produced(db, lot.id), 0))} กก.`,
-          `${fmt(db.lots.reduce((sum, lot) => sum + processLoss(db, lot.id), 0))} กก.`,
-          `${fmt(averageYield(db))}%`,
-        ]]}
+        rows={[
+          [
+            String(db.lots.filter((lot) => lot.stage < 8).length),
+            String(
+              entries(db, "supplierInvoice").filter(
+                (entry) => entry.values.paymentStatus !== "Paid",
+              ).length,
+            ),
+            String(
+              entries(db, "smokingInvoice").filter(
+                (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",
+              ).length,
+            ),
+            `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0))} กก.`,
+            `${fmt(db.lots.reduce((sum, lot) => sum + rawAtSmoker(db, lot), 0))} กก.`,
+            `${fmt(steakRawStock(db))} กก.`,
+            `${fmt(db.lots.reduce((sum, lot) => sum + produced(db, lot.id), 0))} กก.`,
+            `${fmt(db.lots.reduce((sum, lot) => sum + processLoss(db, lot.id), 0))} กก.`,
+            `${fmt(averageYield(db))}%`,
+          ],
+        ]}
       />
       <section className="grid grid-cols-2 gap-6 max-lg:grid-cols-1">
         <ChartPanel
@@ -325,7 +460,12 @@ export function OwnerDashboard({
           total={`฿${fmt(dailySales.reduce((sum, item) => sum + item.sala, 0))}`}
         >
           <div className="overflow-x-auto overflow-y-hidden">
-            <SalesBars data={dailySales} branch="sala" colorClass="sala" max={maxDaily} />
+            <SalesBars
+              data={dailySales}
+              branch="sala"
+              colorClass="sala"
+              max={maxDaily}
+            />
           </div>
         </ChartPanel>
         <ChartPanel
@@ -335,11 +475,19 @@ export function OwnerDashboard({
           totalTone="accent"
         >
           <div className="overflow-x-auto overflow-y-hidden">
-            <SalesBars data={dailySales} branch="minburi" colorClass="minburi" max={maxDaily} />
+            <SalesBars
+              data={dailySales}
+              branch="minburi"
+              colorClass="minburi"
+              max={maxDaily}
+            />
           </div>
         </ChartPanel>
       </section>
-      <ChartPanel overline="COST MIX" title="สัดส่วนต้นทุนแยกสาขาและรวมทั้งร้าน">
+      <ChartPanel
+        overline="COST MIX"
+        title="สัดส่วนต้นทุนแยกสาขาและรวมทั้งร้าน"
+      >
         <div className="mt-6 grid grid-cols-3 gap-6 max-lg:grid-cols-1">
           {branchCostCharts.map((chart) => (
             <CostDonut key={chart.label} {...chart} />
@@ -365,15 +513,44 @@ export function OwnerDashboard({
               className="grid gap-1 border-t border-border py-4 text-body-sm text-text-secondary"
               key={branchName}
             >
-              <strong className="text-body text-text-primary">{branchName}</strong>
-              <span>เนื้อแช่แข็ง {fmt(db.lots.reduce((total, lot) => total + balance(db, lot.id, branchName).frozen, 0))} กก.</span>
-              <span>{branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"} {fmt(branchName === "มีนบุรี" ? cookedRiceStock(db, branchName) : rawRiceStock(db, branchName))} กก.</span>
+              <strong className="text-body text-text-primary">
+                {branchName}
+              </strong>
+              <span>
+                เนื้อแช่แข็ง{" "}
+                {fmt(
+                  db.lots.reduce(
+                    (total, lot) =>
+                      total + balance(db, lot.id, branchName).frozen,
+                    0,
+                  ),
+                )}{" "}
+                กก.
+              </span>
+              <span>
+                {branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"}{" "}
+                {fmt(
+                  branchName === "มีนบุรี"
+                    ? cookedRiceStock(db, branchName)
+                    : rawRiceStock(db, branchName),
+                )}{" "}
+                กก.
+              </span>
               <span>น้ำพริก {fmt(chiliStock(db, branchName))} หลอด</span>
             </div>
           ))}
           <div className="mt-1 grid gap-1 rounded-lg bg-bg p-4 text-body-sm text-text-secondary">
             <strong className="text-body text-text-primary">คลังกลาง</strong>
-            <span>เนื้อพร้อมจัดสรร {fmt(db.lots.reduce((total, lot) => total + Math.max(0, centralStock(db, lot.id)), 0))} กก.</span>
+            <span>
+              เนื้อพร้อมจัดสรร{" "}
+              {fmt(
+                db.lots.reduce(
+                  (total, lot) => total + Math.max(0, centralStock(db, lot.id)),
+                  0,
+                ),
+              )}{" "}
+              กก.
+            </span>
             <span>Lot ที่กำลังดำเนินการ {activeLots}</span>
           </div>
         </Panel>
@@ -392,7 +569,8 @@ export function OwnerDashboard({
         ])}
       />
       <p className="mx-1 -mt-2.5 text-body-sm text-text-secondary">
-        ส่วนต่างนี้อิงเฉพาะข้อมูลที่บันทึกในระบบ ยังไม่รวมภาษี แรงงาน และค่าเสื่อม
+        ส่วนต่างนี้อิงเฉพาะข้อมูลที่บันทึกในระบบ ยังไม่รวมภาษี แรงงาน
+        และค่าเสื่อม
       </p>
     </div>
   );
