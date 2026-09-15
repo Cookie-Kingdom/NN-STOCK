@@ -19,6 +19,12 @@ const preview: Preview = {
     // The app uses the App Router; mocks next/navigation's useRouter & co.
     nextjs: { appDirectory: true },
     controls: { expanded: true },
+    // Atomic Design order; folders would otherwise sort Pages before Templates.
+    options: {
+      storySort: {
+        order: ["Atoms", "Molecules", "Organisms", "Templates", "Pages"],
+      },
+    },
   },
   globalTypes: {
     theme: {
