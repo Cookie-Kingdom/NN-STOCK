@@ -23,7 +23,8 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
     values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
             'smoketest@example.invalid', now(), now());
-  insert into profiles (id, display_name, role) values (v_user, 'smoke', 'L1_OWNER');
+  insert into profiles (id, display_name, role) values (v_user, 'smoke', 'L1_OWNER')
+    on conflict (id) do update set role = excluded.role;  -- handle_new_user() made it already
 
   insert into locations (code, name_th, kind) values ('CM1', 'ครัวกลาง', 'CHEF_HOUSE')
     returning id into v_loc;

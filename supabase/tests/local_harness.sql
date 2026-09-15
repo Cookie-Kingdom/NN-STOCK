@@ -29,6 +29,7 @@ create table auth.users (
   aud         varchar(255),
   role        varchar(255),
   email       varchar(255),
+  raw_user_meta_data jsonb,  -- read by private.handle_new_user() (migration 0009)
   created_at  timestamptz,
   updated_at  timestamptz
 );
