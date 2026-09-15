@@ -16,7 +16,13 @@ import { cn } from "@/lib/utils";
 const dialogVariants = cva(
   // `open:flex`, not `flex`: a bare `flex` would override the UA `display:none`
   // on a closed <dialog> and flash the content inline before showModal() runs.
-  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:mb-0 max-md:max-h-[96dvh] max-md:w-full max-md:max-w-full max-md:rounded-b-none",
+  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:mb-0 max-md:max-h-[96dvh] max-md:w-full max-md:max-w-full max-md:rounded-b-none " +
+    // Motion: closed state is the exit (fast, accelerate); `open:` the settled state
+    // (slow, decelerate); `starting:open:` the @starting-style the enter animates from.
+    // ponytail: Dialog closes by unmounting, so today only the enter plays; the exit
+    // styles apply if a caller ever calls close() on a mounted dialog.
+    "translate-y-2 scale-96 opacity-0 transition-[opacity,translate,scale,display,overlay] transition-discrete duration-(--motion-base) ease-(--ease-exit) open:translate-y-0 open:scale-100 open:opacity-100 open:duration-(--motion-slow) open:ease-(--ease-enter) starting:open:translate-y-2 starting:open:scale-96 starting:open:opacity-0 " +
+    "backdrop:opacity-0 backdrop:transition-[opacity,display,overlay] backdrop:transition-discrete backdrop:duration-(--motion-base) backdrop:ease-(--ease-exit) open:backdrop:opacity-100 open:backdrop:duration-(--motion-slow) open:backdrop:ease-(--ease-enter) starting:open:backdrop:opacity-0",
   {
     variants: {
       size: {

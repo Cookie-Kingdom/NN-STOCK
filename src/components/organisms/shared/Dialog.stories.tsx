@@ -10,6 +10,7 @@ import { DialogFooter } from "./DialogFooter";
 const meta = {
   title: "Organisms/Dialog",
   component: Dialog,
+  tags: ["!autodocs"],
   args: { title: "รับเนื้อเข้า", overline: "Chef_house", onClose: () => {} },
   argTypes: {
     size: {

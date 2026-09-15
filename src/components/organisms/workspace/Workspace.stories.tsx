@@ -54,6 +54,7 @@ export const HeaderNoNotifications: Story = {
 
 function Heading() {
   const [date, setDate] = useState("2026-09-15");
+  const [toast, setToast] = useState("บันทึกเรียบร้อยแล้ว");
   return (
     <div className="p-6">
       <PageHeading
@@ -63,7 +64,18 @@ function Heading() {
         date={date}
         onDate={setDate}
       />
-      <Toast message="บันทึกเรียบร้อยแล้ว" onClose={fn()} />
+      <button
+        type="button"
+        className="text-caption text-accent underline"
+        onClick={() =>
+          setToast(
+            `บันทึกเรียบร้อยแล้ว ${new Date().toLocaleTimeString("th-TH")}`,
+          )
+        }
+      >
+        แสดงข้อความใหม่
+      </button>
+      <Toast message={toast} onClose={() => setToast("")} />
     </div>
   );
 }

@@ -21,7 +21,7 @@ export function EmptyState({
     return (
       <p
         className={cn(
-          "mt-3.5 flex items-center gap-2 text-caption text-text-secondary",
+          "mt-3.5 flex animate-fade-in items-center gap-2 text-caption text-text-secondary",
           className,
         )}
       >
@@ -32,7 +32,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-4.5 rounded-lg border border-dashed border-border px-6 py-15 text-center text-text-secondary",
+        "flex animate-fade-in flex-col items-center justify-center gap-4.5 rounded-lg border border-dashed border-border px-6 py-15 text-center text-text-secondary",
         className,
       )}
     >

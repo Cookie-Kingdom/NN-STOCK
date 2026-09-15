@@ -81,7 +81,10 @@ export function WorkspaceShell({
           />
           <Toast message={toast} onClose={onCloseToast} />
           <DatabaseErrorToast />
-          {children}
+          {/* Views are conditionally rendered per tab, so remounting on tab change loses no state. */}
+          <div key={tab} className="animate-fade-in">
+            {children}
+          </div>
         </main>
       </div>
     </div>

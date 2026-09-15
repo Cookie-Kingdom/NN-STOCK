@@ -39,7 +39,7 @@ export function NotificationPopover({
       </button>
       {open && (
         <section
-          className="absolute top-[calc(100%+10px)] right-0 z-20 w-[min(390px,calc(100vw-32px))] rounded-lg border border-border bg-surface p-3.5 shadow-lg"
+          className="absolute top-[calc(100%+10px)] right-0 z-20 w-[min(390px,calc(100vw-32px))] origin-top-right animate-scale-in rounded-lg border border-border bg-surface p-3.5 shadow-lg"
           aria-label="รายการที่ต้องทำต่อ"
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">

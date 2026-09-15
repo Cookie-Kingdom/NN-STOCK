@@ -42,7 +42,7 @@ export function KpiCard({
   return (
     <article
       className={cn(
-        "grid min-w-0 gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs transition hover:-translate-y-0.5 hover:shadow-sm",
+        "grid min-w-0 gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs transition-[transform,box-shadow] duration-(--motion-base) ease-(--ease-standard) hover:-translate-y-0.5 hover:shadow-sm",
         className,
       )}
       {...props}

@@ -41,7 +41,7 @@ export function AlertListItem(props: DivItem | ButtonItem) {
       <button
         type={type}
         className={cn(
-          "grid w-full cursor-pointer grid-cols-[28px_minmax(0,1fr)_16px] items-start gap-2 rounded-lg border border-transparent bg-bg p-2.5 text-left text-inherit transition-colors hover:border-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+          "grid w-full cursor-pointer grid-cols-[28px_minmax(0,1fr)_16px] items-start gap-2 rounded-lg border border-transparent bg-bg p-2.5 text-left text-inherit transition-colors duration-(--motion-fast) ease-(--ease-standard) hover:border-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
           className,
         )}
         {...rest}
