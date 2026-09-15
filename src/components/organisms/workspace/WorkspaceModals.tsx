@@ -86,6 +86,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       <ChefLotEditForm
         db={db}
         lotId={modal.lotId}
+        date={date}
         onClose={close}
         onSaved={() =>
           done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")

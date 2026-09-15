@@ -91,6 +91,7 @@ export const titles: Record<string, string> = {
   prepare: "น้ำหนักก่อนสโมค",
   smoke: "บันทึก Lot สโมครายวัน",
   closeLot: "ปิดและล็อก Lot",
+  chefEdit: "Edit ข้อมูลก่อนปิด Lot",
   return: "นัดรับขากลับ",
   central: "รับเข้าสต๊อกกลาง",
   allocate: "จัดสรรไปสาขา",
@@ -388,14 +389,21 @@ export function produced(db: Database, lotId: string) {
 export function producedBags(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "packCount");
 }
+/** Bag weights typed one per line or comma-separated. Bad tokens stay NaN so `mutate` can reject them. */
+export const packWeights = (packs = "") =>
+  packs.split(/[\s,]+/).filter(Boolean).map(Number);
+export const isPackWeight = (weight: number) =>
+  Number.isFinite(weight) && weight > 0;
+export const validPackWeights = (packs = "") =>
+  packWeights(packs).filter(isPackWeight);
 export type StockBag = { id: string; weight: number };
 export function availableBags(db: Database, lotId: string): StockBag[] {
   let bags = entries(db, "smoke", lotId).flatMap((entry) =>
-    (entry.values.packs || "").split(/[,\s]+/).filter(Boolean).map((weight, index) => ({
+    packWeights(entry.values.packs).map((weight, index) => ({
       id: `${entry.id}:${index + 1}`,
-      weight: Number(weight),
+      weight,
     })),
-  ).filter((bag) => Number.isFinite(bag.weight) && bag.weight > 0);
+  ).filter((bag) => isPackWeight(bag.weight));
   for (const allocation of entries(db, "allocate", lotId)) {
     const ids = (allocation.values.bagIds || "").split(",").filter(Boolean);
     bags = ids.length
@@ -674,6 +682,7 @@ const ownership: Record<string, Role> = {
   prepare: "cm",
   smoke: "cm",
   closeLot: "cm",
+  chefEdit: "cm",
   return: "owner",
   central: "owner",
   allocate: "owner",
@@ -916,13 +925,9 @@ export function mutate(
     positive(v, "inputKg", "น้ำหนักเข้าเตา");
     positive(v, "wasteKg", "น้ำหนัก Waste", true);
     required(v, "smokeDate", "วันที่สโมค");
-    const weights = (v.packs || "")
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number);
+    const weights = packWeights(v.packs);
     assert(
-      weights.length > 0 &&
-        weights.every((w) => Number.isFinite(w) && w > 0),
+      weights.length > 0 && weights.every(isPackWeight),
       "น้ำหนักถุงใหญ่จาก Chef_house ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
@@ -938,6 +943,77 @@ export function mutate(
     v.outputKg = output.toFixed(2);
     v.packCount = String(weights.length);
     v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
+  } else if (kind === "chefEdit" && lot) {
+    // Corrects the receive/prepare/smoke entries in place; this chefEdit entry is the audit record.
+    assert(lot.stage === 5, "แก้ไขได้เฉพาะก่อนยืนยันปิด Lot");
+    const receiveEntry = entries(next, "cmReceive", lotId).at(-1);
+    const prepareEntry = entries(next, "prepare", lotId).at(-1);
+    const smokeEntries = entries(next, "smoke", lotId);
+    let drafts: Values[] = [];
+    try {
+      drafts = JSON.parse(v.batches || "[]");
+    } catch {}
+    assert(
+      receiveEntry &&
+        prepareEntry &&
+        Array.isArray(drafts) &&
+        drafts.length === smokeEntries.length &&
+        smokeEntries.every((entry, index) => drafts[index]?.id === entry.id),
+      "ไม่พบข้อมูล Lot ล่าสุด",
+    );
+    const receivedKg = Number(v.receivedKg);
+    const preKg = Number(v.preKg);
+    assert(
+      Number.isFinite(receivedKg) && Number.isFinite(preKg) && receivedKg > 0 && preKg > 0,
+      "กรอกน้ำหนักให้ถูกต้อง",
+    );
+    assert(receivedKg <= n(lot.values, "dispatchKg") + 0.001, "น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
+    assert(preKg <= receivedKg + 0.001, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
+    const batches = drafts.map((draft) => {
+      const inputKg = Number(draft.inputKg);
+      const wasteKg = Number(draft.wasteKg);
+      const weights = packWeights(draft.packs);
+      assert(
+        draft.smokeDate && Number.isFinite(inputKg) && Number.isFinite(wasteKg) && inputKg > 0 && wasteKg >= 0,
+        "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ",
+      );
+      assert(weights.length && weights.every(isPackWeight), "กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0 ทุกรอบ");
+      const outputKg = weights.reduce((total, weight) => total + weight, 0);
+      assert(
+        Math.abs(outputKg + wasteKg - inputKg) <= 0.001,
+        "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
+      );
+      return {
+        smokeDate: draft.smokeDate,
+        inputKg: String(inputKg),
+        wasteKg: String(wasteKg),
+        packs: weights.join("\n"),
+        outputKg: outputKg.toFixed(2),
+        packCount: String(weights.length),
+      };
+    });
+    assert(
+      Math.abs(batches.reduce((total, batch) => total + Number(batch.inputKg), 0) - preKg) <= 0.001,
+      "ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค",
+    );
+    receiveEntry.values = { ...receiveEntry.values, receivedKg: String(receivedKg), arrival: v.arrival };
+    prepareEntry.values = { ...prepareEntry.values, preKg: String(preKg) };
+    smokeEntries.forEach((entry, index) => {
+      entry.values = { ...entry.values, ...batches[index] };
+    });
+    const latestBatch = batches.at(-1)!;
+    lot.values = {
+      ...lot.values,
+      receivedKg: String(receivedKg),
+      arrival: v.arrival,
+      preKg: String(preKg),
+      inputKg: latestBatch.inputKg,
+      wasteKg: latestBatch.wasteKg,
+      packs: latestBatch.packs,
+      outputKg: latestBatch.outputKg,
+      packCount: latestBatch.packCount,
+    };
+    v.batches = JSON.stringify(batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })));
   } else if (kind === "closeLot" && lot) {
     assert(
       Math.abs(n(lot.values, "preKg") - processed(db, lotId)) < 0.005,

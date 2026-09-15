@@ -12,17 +12,25 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
-import { entries, n, type Database, type Values } from "@/lib/store";
+import {
+  entries,
+  mutate,
+  packWeights,
+  type Database,
+  type Values,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function ChefLotEditForm({
   db,
   lotId,
+  date,
   onClose,
   onSaved,
 }: {
   db: Database;
   lotId: string;
+  date: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -41,16 +49,11 @@ export function ChefLotEditForm({
       smokeDate: entry.values.smokeDate || entry.date,
       inputKg: entry.values.inputKg || "",
       wasteKg: entry.values.wasteKg || "0",
-      packs: (entry.values.packs || "")
-        .split(/[\s,]+/)
-        .filter(Boolean)
-        .join("\n"),
+      packs: packWeights(entry.values.packs).join("\n"),
     })),
   );
   const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
   if (!lot || !received || !prepared || !smokeEntries.length) return null;
-  const receivedRecord = received;
-  const preparedRecord = prepared;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setError("");
@@ -67,107 +70,18 @@ export function ChefLotEditForm({
     );
     setError("");
   };
-  // Edits the latest entries in place rather than going through mutate(); kept as-is (separate domain card).
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    const saved = await run(() => {
-      const next = latestDatabase();
-      const nextLot = next.lots.find((item) => item.id === lotId);
-      const receiveEntry = next.entries.find(
-        (entry) => entry.id === receivedRecord.id,
-      );
-      const prepareEntry = next.entries.find(
-        (entry) => entry.id === preparedRecord.id,
-      );
-      const smokeRecords = smokeDrafts.map((draft) =>
-        next.entries.find((entry) => entry.id === draft.id),
-      );
-      if (
-        !nextLot ||
-        !receiveEntry ||
-        !prepareEntry ||
-        smokeRecords.some((entry) => !entry)
-      )
-        throw new Error("ไม่พบข้อมูล Lot ล่าสุด");
-      const receivedKg = Number(values.receivedKg);
-      const preKg = Number(values.preKg);
-      if (
-        ![receivedKg, preKg].every(Number.isFinite) ||
-        receivedKg <= 0 ||
-        preKg <= 0
-      )
-        throw new Error("กรอกน้ำหนักให้ถูกต้อง");
-      if (!values.arrival || !/^([01]\d|2[0-3]):[0-5]\d$/.test(values.arrival))
-        throw new Error("กรอกเวลารับเป็น HH:mm");
-      if (receivedKg > n(nextLot.values, "dispatchKg") + 0.001)
-        throw new Error("น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
-      if (preKg > receivedKg + 0.001)
-        throw new Error("น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
-      const revisedBatches = smokeDrafts.map((draft) => {
-        const inputKg = Number(draft.inputKg);
-        const wasteKg = Number(draft.wasteKg);
-        const weights = draft.packs
-          .split(/[\s,]+/)
-          .filter(Boolean)
-          .map(Number);
-        if (
-          !draft.smokeDate ||
-          !Number.isFinite(inputKg) ||
-          !Number.isFinite(wasteKg) ||
-          inputKg <= 0 ||
-          wasteKg < 0
-        )
-          throw new Error("กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ");
-        if (
-          !weights.length ||
-          weights.some((weight) => !Number.isFinite(weight) || weight <= 0)
-        )
-          throw new Error("กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0 ทุกรอบ");
-        const outputKg = weights.reduce((sum, weight) => sum + weight, 0);
-        if (Math.abs(outputKg + wasteKg - inputKg) > 0.001)
-          throw new Error("น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา");
-        return { ...draft, inputKg, wasteKg, weights, outputKg };
-      });
-      const totalInputKg = revisedBatches.reduce(
-        (total, batch) => total + batch.inputKg,
-        0,
-      );
-      if (Math.abs(totalInputKg - preKg) > 0.001)
-        throw new Error(
-          "ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค",
-        );
-      receiveEntry.values = {
-        ...receiveEntry.values,
-        receivedKg: String(receivedKg),
-        arrival: values.arrival,
-      };
-      prepareEntry.values = { ...prepareEntry.values, preKg: String(preKg) };
-      revisedBatches.forEach((batch, index) => {
-        const smokeEntry = smokeRecords[index]!;
-        smokeEntry.values = {
-          ...smokeEntry.values,
-          smokeDate: batch.smokeDate,
-          inputKg: String(batch.inputKg),
-          wasteKg: String(batch.wasteKg),
-          packs: batch.weights.join("\n"),
-          outputKg: batch.outputKg.toFixed(2),
-          packCount: String(batch.weights.length),
-        };
-      });
-      const latestBatch = revisedBatches.at(-1)!;
-      nextLot.values = {
-        ...nextLot.values,
-        receivedKg: String(receivedKg),
-        arrival: values.arrival,
-        preKg: String(preKg),
-        inputKg: String(latestBatch.inputKg),
-        wasteKg: String(latestBatch.wasteKg),
-        packs: latestBatch.weights.join("\n"),
-        outputKg: latestBatch.outputKg.toFixed(2),
-        packCount: String(latestBatch.weights.length),
-      };
-      return next;
-    });
+    const saved = await run(() =>
+      mutate(
+        latestDatabase(),
+        "cm",
+        "chefEdit",
+        { ...values, batches: JSON.stringify(smokeDrafts) },
+        lotId,
+        date,
+      ),
+    );
     if (saved) onSaved();
   }
   const smokeTotal = smokeDrafts.reduce(

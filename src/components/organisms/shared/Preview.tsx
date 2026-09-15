@@ -10,6 +10,7 @@ import {
   produced,
   producedBags,
   smokeServiceRate,
+  validPackWeights,
   type Database,
   type Lot,
   type Values,
@@ -78,15 +79,12 @@ export function Preview({
   if (kind === "prepare" && lot)
     rows = [["รับจริง", `${fmt(n(lot.values, "receivedKg"))} กก.`]];
   if (kind === "smoke" && lot) {
-    const weights = (v.packs || "")
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number);
+    const weights = validPackWeights(v.packs);
     rows = [
       ["ถุงใหญ่จาก Chef_house", `${weights.length} ถุง`],
       [
         "น้ำหนักเนื้อหลังรมควัน",
-        `${fmt(weights.reduce((s, w) => s + (Number.isFinite(w) ? w : 0), 0))} กก.`,
+        `${fmt(weights.reduce((s, w) => s + w, 0))} กก.`,
       ],
       ["น้ำหนัก Waste", `${fmt(n(v, "wasteKg"))} กก.`],
       [

@@ -13,11 +13,28 @@ import {
   cookedRiceStock,
   chiliStock,
   issuedRawRiceStock,
-  issuedChiliStock,
   materials,
+  packWeights,
+  validPackWeights,
 } from "../src/lib/store.ts";
 const day = "2026-09-09";
 const packs = (count) => Array.from({ length: count }, () => "0.100").join("\n");
+const purchaseInfo = {
+  supplier: "Test Foodiva",
+  customerName: "บริษัททดสอบ",
+  customerAddress: "กรุงเทพฯ",
+  attention: "ฝ่ายจัดซื้อ",
+  phone: "0800000000",
+  taxId: "0100000000000",
+  packSize: "6 ชิ้นต่อถุง",
+  productName: "เนื้อวัว",
+};
+const send = {
+  pickupDate: day,
+  origin: "กรุงเทพ",
+  destination: "เชียงใหม่",
+  trip: "ไปกลับ",
+};
 function setup(branch = seed.config.branch) {
   let db = structuredClone(seed);
   db.config.branch = branch;
@@ -35,6 +52,87 @@ function setup(branch = seed.config.branch) {
       return db;
     },
   };
+}
+/** Purchase through a paid smoking invoice: everything dispatch waits for. */
+function readyToDispatch(s, kg) {
+  s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price: "250" });
+  s.run("fooddiva", "foodDivaConfirm", {
+    invoiceNo: "INV-1",
+    invoiceDate: day,
+    attachment: "inv.pdf",
+    confirmedBy: "Foodiva",
+    confirmedKg: kg,
+    readyForChiangMaiKg: kg,
+    reservedForOwnerKg: "0",
+    invoiceAmount: "1",
+  });
+  s.run("owner", "smokeOrder", {
+    requestedSmokeDate: day,
+    smoker: "Chef_house",
+    rawKg: kg,
+  });
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
+  s.run("cm", "smokingInvoice", {
+    invoiceNumber: "CH-1",
+    invoiceDate: day,
+    attachment: "ch.pdf",
+  });
+  const invoice = s.db.entries.at(-1);
+  s.run("owner", "invoiceReview", {
+    invoiceId: invoice.id,
+    decision: "รับยอด",
+    reviewedBy: "Owner",
+  });
+  s.run("owner", "invoicePayment", {
+    invoiceId: invoice.id,
+    paymentDate: day,
+    paidBy: "Owner",
+    paidAmount: invoice.values.netPayable,
+  });
+}
+/** Lot at stage 5: fully smoked, waiting for Chef_house to close it. */
+function smoked() {
+  const s = setup();
+  readyToDispatch(s, "50");
+  s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
+  s.run("cm", "cmReceive", { receivedKg: "49", arrival: "08:00" });
+  s.run("cm", "prepare", { preKg: "48" });
+  s.run("cm", "smoke", {
+    smokeDate: day,
+    inputKg: "20",
+    wasteKg: "5",
+    packs: packs(150),
+  });
+  s.run("cm", "smoke", {
+    smokeDate: day,
+    inputKg: "28",
+    wasteKg: "7",
+    packs: packs(210),
+  });
+  return s;
+}
+function ready() {
+  const s = smoked();
+  s.run("cm", "closeLot", { confirm: "สมชาย" });
+  s.run("owner", "return", {
+    returnDate: day,
+    returnTime: "09:00",
+    origin: "Chef_house",
+    destination: "Foodiva",
+    vehicleType: "รถห้องเย็น",
+    plate: "กข123",
+    driverName: "คนขับ",
+    driverPhone: "0800000000",
+    returnKg: "36",
+  });
+  s.run("fooddiva", "foodDivaReturnReceive", {
+    receivedDate: day,
+    receivedTime: "10:00",
+    receivedKg: "36",
+    receivedBags: "360",
+  });
+  s.run("owner", "central", { centralKg: "35" });
+  return s;
 }
 test("Min Buri buys cooked rice to a 30 kg floor and records carry-over", () => {
   const s = setup("มีนบุรี");
@@ -59,44 +157,6 @@ test("Min Buri buys cooked rice to a 30 kg floor and records carry-over", () => 
   });
   assert.equal(s.db.entries.at(-1).values.reheat, "เก็บไว้อุ่นวันถัดไป");
 });
-function ready() {
-  const s = setup();
-  s.run("owner", "brinePurchase", { supplier: "ผู้ขายน้ำหมัก", quantityMl: "10000", totalCost: "1000" });
-  s.run("owner", "purchase", {
-    supplier: "Test Foodiva",
-    orderedKg: "50",
-    price: "250",
-  });
-  s.run("owner", "dispatch", {
-    dispatchKg: "50",
-    pickupDate: day,
-    origin: "กรุงเทพ",
-    destination: "เชียงใหม่",
-    trip: "ไปกลับ",
-  });
-  s.run("cm", "cmReceive", {
-    receivedKg: "49",
-    arrival: "08:00",
-    reason: "สูญเสียระหว่างขนส่ง",
-  });
-  s.run("cm", "prepare", { preKg: "48" });
-  s.run("cm", "smoke", {
-    smokeDate: day,
-    inputKg: "20",
-    brineKg: "2",
-    packs: packs(150),
-  });
-  s.run("cm", "smoke", {
-    smokeDate: day,
-    inputKg: "28",
-    brineKg: "2.8",
-    packs: packs(210),
-  });
-  s.run("cm", "closeLot", { confirm: "สมชาย" });
-  s.run("owner", "return", { returnDate: day, returnVehicle: "กข123" });
-  s.run("owner", "central", { centralKg: "35" });
-  return s;
-}
 test("full loop: partial smoke, central, two branches, partial receipt, sale and lock", () => {
   const s = ready(),
     id = s.db.lots[0].id;
@@ -124,23 +184,23 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     reason: "ทยอยรับ",
   });
   s.run("branch", "receive", { kg: "6", bags: "3", allocation });
-  s.run("branch", "thaw", { kg: "4.2" });
+  s.run("branch", "thaw", { kg: "4.2", bags: "2" });
   s.run("branch", "ricePurchase", {
     supplier: "ตลาดศาลาแดง",
     rawRiceKg: "10",
     rawRiceCost: "500",
   });
-  s.run("branch", "chiliPurchase", {
-    supplier: "ตลาดศาลาแดง",
-    chiliTubes: "50",
-    chiliCost: "300",
+  s.run("owner", "generalPurchase", {
+    purchaseDate: day,
+    item: "น้ำพริกหลอด",
+    purchaseCategory: "วัตถุดิบ",
+    quantity: "50",
+    unitPrice: "6",
+    supplier: "ผู้ผลิตน้ำพริก",
   });
+  s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "50" });
   s.run("branch", "riceIssue", {
     rawRiceIssuedKg: "4",
-    receiver: "ผู้ดูแล",
-  });
-  s.run("branch", "chiliIssue", {
-    chiliIssuedTubes: "42",
     receiver: "ผู้ดูแล",
   });
   s.run("branch", "rice", {
@@ -150,8 +210,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   assert.equal(rawRiceStock(s.db, "ศาลาแดง"), 6);
   assert.equal(issuedRawRiceStock(s.db, "ศาลาแดง"), 0);
   assert.equal(cookedRiceStock(s.db, "ศาลาแดง"), 10);
-  assert.equal(chiliStock(s.db, "ศาลาแดง"), 8);
-  assert.equal(issuedChiliStock(s.db, "ศาลาแดง"), 42);
+  assert.equal(chiliStock(s.db, "ศาลาแดง"), 50);
   s.run("branch", "sale", {
     boxes: "40",
     addons: "0",
@@ -164,13 +223,14 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     lineMan: "14060",
     reason: "เนื้อเหลือปิดวัน",
   });
-  assert.equal(issuedChiliStock(s.db, "ศาลาแดง"), 40);
+  assert.equal(chiliStock(s.db, "ศาลาแดง"), 48);
   assert.ok(Math.abs(balance(s.db, id, "ศาลาแดง").ready) < 0.001);
   assert.equal(balance(s.db, id, "ศาลาแดง").frozen, 5.8);
   assert.equal(balance(s.db, id, "มีนบุรี").received, 0);
   for (let i = 0; i < 7; i++) {
     s.db.config["material" + i] = "500";
     s.run("owner", "materialReceive", {
+      purchaseDate: day,
       material: materials[i],
       quantity: "1000",
       unitPrice: "1",
@@ -200,9 +260,9 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     ),
   );
   assert.equal(s.db.entries.at(-1).values.material0, "450");
-  s.run("branch", "closeDay", { time: "21:00", confirm: "ผู้ดูแล" });
+  s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" });
   assert.ok(isClosed(s.db, "ศาลาแดง", day));
-  assert.throws(() => s.run("branch", "thaw", { kg: "1" }), /ปิดยอด/);
+  assert.throws(() => s.run("branch", "thaw", { kg: "1", bags: "1" }), /ปิดยอด/);
   assert.ok(
     visibleEntries(s.db, "branch").every((e) => !("meatCost" in e.values)),
   );
@@ -222,30 +282,21 @@ test("invalid role and out-of-order writes rejected without mutation", () => {
     /สต๊อกกลาง/,
   );
 });
-test("partial dispatch creates sibling lots without duplicating ordered balance", () => {
+test("dispatch waits for a paid smoking invoice and cannot exceed Foodiva's ready weight", () => {
   const s = setup();
-  s.run("owner", "purchase", { supplier: "F", orderedKg: "100", price: "10" });
-  const send = {
-    pickupDate: day,
-    origin: "BKK",
-    destination: "CM",
-    trip: "เที่ยวเดียว",
-  };
-  s.run("owner", "dispatch", { ...send, dispatchKg: "40" });
-  const second = s.db.lots[1].id;
-  s.run("owner", "dispatch", { ...send, dispatchKg: "30" }, second);
-  assert.equal(s.db.lots.length, 3);
-  assert.equal(s.db.lots.filter((l) => l.stage === 1).length, 1);
+  s.run("owner", "purchase", { ...purchaseInfo, orderedKg: "40", price: "10" });
   assert.throws(
-    () =>
-      s.run(
-        "owner",
-        "dispatch",
-        { ...send, dispatchKg: "31" },
-        s.db.lots[2].id,
-      ),
+    () => s.run("owner", "dispatch", { ...send, dispatchKg: "40" }),
+    /Foodiva/,
+  );
+  const t = setup();
+  readyToDispatch(t, "40");
+  assert.throws(
+    () => t.run("owner", "dispatch", { ...send, dispatchKg: "41" }),
     /เกิน/,
   );
+  t.run("owner", "dispatch", { ...send, dispatchKg: "40" });
+  assert.equal(t.db.lots[0].stage, 2);
 });
 test("over-allocation, over-thaw and cross-branch receive rejected", () => {
   const s = ready();
@@ -270,22 +321,12 @@ test("over-allocation, over-thaw and cross-branch receive rejected", () => {
     bags: "2",
     allocation: s.db.entries.at(-1).id,
   });
-  assert.throws(() => s.run("branch", "thaw", { kg: "6" }), /ไม่พอ/);
+  assert.throws(() => s.run("branch", "thaw", { kg: "6", bags: "2" }), /ไม่พอ/);
 });
-test("receive mismatch, excess pre-smoke and incomplete close blocked", () => {
+test("excess pre-smoke, over-smoke and incomplete close blocked", () => {
   const s = setup();
-  s.run("owner", "purchase", { supplier: "F", orderedKg: "10", price: "10" });
-  s.run("owner", "dispatch", {
-    dispatchKg: "10",
-    pickupDate: day,
-    origin: "B",
-    destination: "C",
-    trip: "เที่ยวเดียว",
-  });
-  assert.throws(
-    () => s.run("cm", "cmReceive", { receivedKg: "9", arrival: "08:00" }),
-    /เหตุผล/,
-  );
+  readyToDispatch(s, "10");
+  s.run("owner", "dispatch", { ...send, dispatchKg: "10" });
   s.run("cm", "cmReceive", { receivedKg: "10", arrival: "08:00" });
   assert.throws(() => s.run("cm", "prepare", { preKg: "11" }), /เกิน/);
   s.run("cm", "prepare", { preKg: "10" });
@@ -294,7 +335,7 @@ test("receive mismatch, excess pre-smoke and incomplete close blocked", () => {
     () =>
       s.run("cm", "smoke", {
         inputKg: "11",
-        brineKg: "0",
+        wasteKg: "6",
         smokeDate: day,
         packs: packs(50),
       }),
@@ -309,13 +350,13 @@ test("day close time gate and sales deviation validation", () => {
     bags: "2",
     allocation: s.db.entries.at(-1).id,
   });
-  s.run("branch", "thaw", { kg: "5" });
+  s.run("branch", "thaw", { kg: "5", bags: "2" });
   assert.throws(
-    () => s.run("branch", "closeDay", { time: "20:59", confirm: "x" }),
-    /21:00/,
+    () => s.run("branch", "closeDay", { time: "21:59", confirm: "x" }),
+    /22:00/,
   );
   assert.throws(
-    () => s.run("branch", "closeDay", { time: "21:00", confirm: "x" }),
+    () => s.run("branch", "closeDay", { time: "22:00", confirm: "x" }),
     /รายการขาย/,
   );
   assert.throws(
@@ -332,4 +373,62 @@ test("day close time gate and sales deviation validation", () => {
       }),
     /100–103 กรัม/,
   );
+});
+test("chef edit before close validates in mutate, never touches the old database and is logged", () => {
+  const s = smoked(),
+    id = s.db.lots[0].id;
+  const smokes = s.db.entries.filter((entry) => entry.kind === "smoke");
+  const draft = (entry, change = {}) => ({
+    id: entry.id,
+    smokeDate: day,
+    inputKg: entry.values.inputKg,
+    wasteKg: entry.values.wasteKg,
+    packs: entry.values.packs,
+    ...change,
+  });
+  const edit = (values, drafts) =>
+    s.run(
+      "cm",
+      "chefEdit",
+      {
+        receivedKg: "49",
+        arrival: "08:00",
+        preKg: "48",
+        ...values,
+        batches: JSON.stringify(drafts),
+      },
+      id,
+    );
+  assert.throws(() => s.run("owner", "chefEdit", {}, id), /ไม่มีสิทธิ์/);
+  assert.throws(
+    () => edit({}, [draft(smokes[0], { wasteKg: "4" }), draft(smokes[1])]),
+    /เท่ากับน้ำหนักเข้าเตา/,
+  );
+  assert.throws(
+    () => edit({ preKg: "47" }, smokes.map((entry) => draft(entry))),
+    /น้ำหนักก่อนสโมค/,
+  );
+  assert.throws(() => edit({}, [draft(smokes[0])]), /ไม่พบข้อมูล Lot/);
+  const before = s.db;
+  edit({}, [
+    draft(smokes[0], { wasteKg: "4", packs: packs(160) }),
+    draft(smokes[1]),
+  ]);
+  assert.equal(
+    before.entries.find((entry) => entry.id === smokes[0].id).values.wasteKg,
+    "5",
+  );
+  assert.equal(produced(s.db, id), 37);
+  assert.equal(s.db.entries.at(-1).kind, "chefEdit");
+  assert.equal(s.db.lots[0].stage, 5);
+  s.run("cm", "closeLot", { confirm: "x" }, id);
+  assert.throws(
+    () => edit({}, smokes.map((entry) => draft(entry))),
+    /ก่อนยืนยันปิด Lot/,
+  );
+});
+test("pack weights parse newline or comma input and only valid weights count as bags", () => {
+  assert.deepEqual(packWeights("1.5\n2, 3"), [1.5, 2, 3]);
+  assert.deepEqual(validPackWeights("1\nabc\n0\n2"), [1, 2]);
+  assert.deepEqual(validPackWeights(), []);
 });

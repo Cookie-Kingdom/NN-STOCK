@@ -44,6 +44,7 @@ const derivedLabels: Record<string, string> = {
   riceServings: "ข้าวเหนียวในกล่อง",
   chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
   allocation: "ใบจัดสรร",
+  batches: "Log สโมคที่แก้ไข",
   meatCost: "ต้นทุนเนื้อขาย",
   wasteCost: "ต้นทุนเนื้อ Waste",
 };

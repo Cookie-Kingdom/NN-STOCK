@@ -13,6 +13,7 @@ import {
   smokingInvoiceStatus,
   stages,
   titles,
+  validPackWeights,
   type Database,
   type Lot,
 } from "@/lib/store";
@@ -105,11 +106,7 @@ export function ChefLotTable({
           (batch) => batch.id === entry.id,
         ) + 1,
       );
-      const weights = (entry.values.packs || "")
-        .split(/[\s,]+/)
-        .filter(Boolean)
-        .map(Number)
-        .filter((weight) => Number.isFinite(weight) && weight > 0);
+      const weights = validPackWeights(entry.values.packs);
       const weightGroups = Array.from(
         weights.reduce((groups, weight) => {
           const key = fmt(weight);

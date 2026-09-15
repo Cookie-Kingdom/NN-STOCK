@@ -6,6 +6,7 @@ import { Input } from "@/components/atoms/Input";
 import { FieldGroup } from "@/components/molecules/FieldGroup";
 import { Notice } from "@/components/molecules/Notice";
 import { fmt } from "@/lib/format";
+import { validPackWeights } from "@/lib/store";
 
 export function PackWeightFields({
   value,
@@ -20,9 +21,7 @@ export function PackWeightFields({
     rows[index] = next;
     onChange(rows.join(","));
   };
-  const validWeights = weights
-    .map(Number)
-    .filter((weight) => Number.isFinite(weight) && weight > 0);
+  const validWeights = validPackWeights(value);
   const total = validWeights.reduce((sum, weight) => sum + weight, 0);
   return (
     <FieldGroup
