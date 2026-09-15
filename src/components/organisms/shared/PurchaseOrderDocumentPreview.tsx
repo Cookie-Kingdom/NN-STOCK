@@ -65,7 +65,7 @@ export function PurchaseOrderDocumentPreview({
 
   return (
     <aside
-      className="min-h-0 flex-1 overflow-auto bg-bg p-5.5 max-md:p-4"
+      className="min-h-0 flex-1 bg-bg p-5.5 max-md:p-4 lg:overflow-auto"
       aria-label="ตัวอย่างเอกสาร PO"
     >
       <div className="mx-auto mb-3.5 flex max-w-135 items-center justify-between text-text-primary">

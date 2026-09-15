@@ -45,6 +45,17 @@ export const OwnerPurchase: Story = {
   ),
 };
 
+// Below lg the form and the PO preview stack in one scroll area.
+export const OwnerPurchaseMobile: Story = {
+  ...OwnerPurchase,
+  globals: { viewport: { value: "mobile2", isRotated: false } },
+};
+
+export const OwnerPurchaseTablet: Story = {
+  ...OwnerPurchase,
+  globals: { viewport: { value: "tablet", isRotated: false } },
+};
+
 export const OwnerDispatch: Story = {
   parameters: { db: dispatchDb },
   render: () => (

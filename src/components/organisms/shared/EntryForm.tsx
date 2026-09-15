@@ -285,23 +285,25 @@ export function EntryForm({
       onClose={onClose}
     >
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+        {/* Below lg the PO form and its preview stack in one scroll area: two nested
+            scrollers in a fixed-height grid each shrink to a sliver on a phone. */}
         <div
           className={
             isPurchaseOrder
-              ? "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] overflow-hidden max-md:grid-cols-1 max-md:overflow-auto"
+              ? "min-h-0 flex-1 overflow-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] lg:overflow-hidden"
               : "min-h-0 flex-1 overflow-auto"
           }
         >
           <DialogBody
             className={cn(
               isPurchaseOrder
-                ? "border-r border-border max-md:border-r-0 max-md:border-b"
+                ? "border-b border-border max-lg:overflow-visible lg:border-r lg:border-b-0"
                 : "overflow-visible",
             )}
           >
             {isPurchaseOrder && (
               <Notice className="mb-4.5">
-                กรอกข้อมูลด้านซ้าย เอกสาร PO ด้านขวาจะเปลี่ยนตามทันที
+                เอกสาร PO ในส่วน Preview จะเปลี่ยนตามข้อมูลที่กรอกทันที
               </Notice>
             )}
             {lot && !useLot && (
