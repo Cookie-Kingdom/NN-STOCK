@@ -48,3 +48,7 @@ next-env.d.ts
 # ai tooling
 CLAUDE.md
 graphify-out/
+
+# storybook
+storybook-static/
+*storybook.log
