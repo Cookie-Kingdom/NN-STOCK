@@ -373,14 +373,30 @@ export function entries(
       .filter((entry) => entry.kind === "void")
       .map((entry) => entry.values.targetId),
   );
-  return db.entries.filter(
-    (e) =>
-      e.kind === kind &&
-      !voided.has(e.id) &&
-      (!lotId || e.lotId === lotId) &&
-      (!branch || e.branch === branch) &&
-      (!date || e.date === date),
-  );
+  // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
+  const fixes = new Map<string, Values>();
+  const fix = (id: string | undefined, values: Values) => {
+    if (id) fixes.set(id, { ...fixes.get(id), ...values });
+  };
+  for (const e of db.entries) {
+    if (e.kind !== "chefEdit" || voided.has(e.id)) continue;
+    fix(e.values.receiveId, { receivedKg: e.values.receivedKg, arrival: e.values.arrival });
+    fix(e.values.prepareId, { preKg: e.values.preKg });
+    for (const { id, ...batch } of JSON.parse(e.values.batches || "[]") as Values[]) fix(id, batch);
+  }
+  return db.entries
+    .filter(
+      (e) =>
+        e.kind === kind &&
+        !voided.has(e.id) &&
+        (!lotId || e.lotId === lotId) &&
+        (!branch || e.branch === branch) &&
+        (!date || e.date === date),
+    )
+    .map((e) => {
+      const values = fixes.get(e.id);
+      return values ? { ...e, values: { ...e.values, ...values } } : e;
+    });
 }
 export function produced(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "outputKg");
@@ -947,7 +963,7 @@ export function mutate(
     v.packCount = String(weights.length);
     v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "chefEdit" && lot) {
-    // Corrects the receive/prepare/smoke entries in place; this chefEdit entry is the audit record.
+    // Corrects the receive/prepare/smoke values without touching those entries (see entries()).
     assert(lot.stage === 5, "แก้ไขได้เฉพาะก่อนยืนยันปิด Lot");
     const receiveEntry = entries(next, "cmReceive", lotId).at(-1);
     const prepareEntry = entries(next, "prepare", lotId).at(-1);
@@ -999,11 +1015,11 @@ export function mutate(
       Math.abs(batches.reduce((total, batch) => total + Number(batch.inputKg), 0) - preKg) <= 0.001,
       "ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค",
     );
-    receiveEntry.values = { ...receiveEntry.values, receivedKg: String(receivedKg), arrival: v.arrival };
-    prepareEntry.values = { ...prepareEntry.values, preKg: String(preKg) };
-    smokeEntries.forEach((entry, index) => {
-      entry.values = { ...entry.values, ...batches[index] };
-    });
+    // Recorded, not applied: save_app_state refuses changed history, so entries() overlays these.
+    v.receiveId = receiveEntry.id;
+    v.prepareId = prepareEntry.id;
+    v.receivedKg = String(receivedKg);
+    v.preKg = String(preKg);
     const latestBatch = batches.at(-1)!;
     lot.values = {
       ...lot.values,

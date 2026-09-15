@@ -680,6 +680,11 @@ describe("lot workflow", () => {
     expect(
       before.entries.find((item) => item.id === smokes[0].id)!.values.wasteKg,
     ).toBe("5");
+    // save_app_state refuses any change to existing entries.
+    expect(s.db.entries.slice(0, before.entries.length)).toEqual(
+      before.entries,
+    );
+    expect(entries(s.db, "smoke", id)[0].values.wasteKg).toBe("4");
     expect(produced(s.db, id)).toBe(37);
     expect(last(s).kind).toBe("chefEdit");
     expect(s.db.lots[0].stage).toBe(5);

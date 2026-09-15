@@ -180,12 +180,9 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       }),
     ];
   });
-  const movementRows = db.entries
-    .filter(
-      (entry) =>
-        descriptions[entry.kind] &&
-        (lotFilter === "ทั้งหมด" || entry.lotId === lotFilter),
-    )
+  const movementRows = Object.keys(descriptions)
+    .flatMap((kind) => entries(db, kind))
+    .filter((entry) => lotFilter === "ทั้งหมด" || entry.lotId === lotFilter)
     .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at))
     .map((entry) => {
       const [location, action, amount] = descriptions[entry.kind](entry);
