@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated: Playwright traces, videos and the bundled HTML report.
     "artifacts/**",
+    "storybook-static/**",
     "uat-work/**",
   ]),
 ]);
