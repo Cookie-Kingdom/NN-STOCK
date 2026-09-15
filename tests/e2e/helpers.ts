@@ -172,6 +172,12 @@ export async function startFresh(page: Page) {
     }
   });
   await installVisibleCursor(page);
+  // Local SQLite: every test starts from the seed, so state one spec leaves
+  // behind (loadSampleData closes today) cannot leak into the next spec.
+  if (process.env.NEXT_PUBLIC_LOCAL_DB === "1") {
+    const response = await page.request.put("/api/local-db?state=seed");
+    expect(response.ok(), `PUT /api/local-db → ${response.status()}`).toBe(true);
+  }
   await page.goto("/");
 }
 
@@ -212,7 +218,7 @@ export async function loadSampleData(page: Page) {
     process.env.NEXT_PUBLIC_LOCAL_DB !== "1",
     "sample data loads only in local SQLite mode (pnpm test:e2e:local)",
   );
-  const response = await page.request.put("/api/local-db");
+  const response = await page.request.put("/api/local-db?state=sample");
   expect(response.ok(), `PUT /api/local-db → ${response.status()}`).toBe(true);
 }
 
