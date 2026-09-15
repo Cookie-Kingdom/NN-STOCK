@@ -409,7 +409,7 @@ export const forms: Record<string, Field[]> = {
   config: [
     {
       key: "branch",
-      label: "สาขาของบัญชีผู้ดูแล (Assigned branch)",
+      label: "สาขาเริ่มต้น (Default branch)",
       type: "select",
       options: branches,
     },
