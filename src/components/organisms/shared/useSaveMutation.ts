@@ -23,7 +23,12 @@ export function useSaveMutation(fallbackMessage: string) {
     setSaving(true);
     try {
       const next = await change();
-      saveDatabase(next);
+      // Wait for the server so a rejected save keeps the dialog open instead of
+      // showing the success toast (the red database-error toast says why).
+      if (!(await saveDatabase(next))) {
+        setError(fallbackMessage);
+        return null;
+      }
       return next;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : fallbackMessage);
