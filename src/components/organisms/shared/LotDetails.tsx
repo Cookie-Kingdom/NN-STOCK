@@ -74,7 +74,7 @@ export function LotDetails({
             <Stat label="น้ำหนักเนื้อหลังรมควัน" value={`${fmt(output)} กก.`} />
             <Stat
               label="รอผลิต"
-              value={`${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`}
+              value={`${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`}
             />
           </>
         )}

@@ -82,8 +82,8 @@ export function MeatStockTable({
         rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
-          `${fmt(n(lot.values, "preKg"))} กก.`,
-          `${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`,
+          `${fmt(n(lot.values, "preSmokeKg"))} กก.`,
+          `${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`,
           `${fmt(produced(db, lot.id))} กก.`,
           stages[lot.stage],
         ])}

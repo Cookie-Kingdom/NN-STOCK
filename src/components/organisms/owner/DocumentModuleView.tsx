@@ -385,7 +385,7 @@ export function DocumentModuleView({
             0,
           );
           const output = smokeEntries.reduce(
-            (sum, entry) => sum + n(entry.values, "outputKg"),
+            (sum, entry) => sum + n(entry.values, "postSmokeKg"),
             0,
           );
           return [

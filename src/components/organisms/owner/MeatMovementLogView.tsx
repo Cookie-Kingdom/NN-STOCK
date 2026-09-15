@@ -59,7 +59,7 @@ const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
     smoke: (entry) => [
       "Chef_house",
       `สโมครอบ ${entry.values.subLot || "—"}`,
-      `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "outputKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
+      `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
     ],
     return: (entry) => [
       "Chef_house → Foodiva",

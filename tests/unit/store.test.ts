@@ -594,7 +594,7 @@ describe("lot workflow", () => {
     readyToDispatch(s, "50");
     s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
     s.run("cm", "cmReceive", { receivedKg: "49", arrival: "08:00" });
-    s.run("cm", "prepare", { preKg: "48" });
+    s.run("cm", "prepare", { preSmokeKg: "48" });
     const lot = () => s.db.lots[0];
     const id = lot().id;
     const smoke = (inputKg: string, wasteKg: string, bags: string) =>
@@ -604,7 +604,7 @@ describe("lot workflow", () => {
     smoke("20", "5", packs(150));
     expect(lot().stage).toBe(4);
     expect(last(s).values).toMatchObject({
-      outputKg: "15.00",
+      postSmokeKg: "15.00",
       packCount: "150",
       subLot: "SB-2026-0001",
     });
@@ -623,8 +623,8 @@ describe("lot workflow", () => {
     readyToDispatch(s, "10");
     s.run("owner", "dispatch", { ...send, dispatchKg: "10" });
     s.run("cm", "cmReceive", { receivedKg: "10", arrival: "08:00" });
-    expect(() => s.run("cm", "prepare", { preKg: "11" })).toThrow(/เกิน/);
-    s.run("cm", "prepare", { preKg: "10" });
+    expect(() => s.run("cm", "prepare", { preSmokeKg: "11" })).toThrow(/เกิน/);
+    s.run("cm", "prepare", { preSmokeKg: "10" });
     expect(() => s.run("cm", "closeLot", { confirm: "x" })).toThrow(/ขั้นตอน/);
     expect(() =>
       s.run("cm", "smoke", {
@@ -655,7 +655,7 @@ describe("lot workflow", () => {
         {
           receivedKg: "49",
           arrival: "08:00",
-          preKg: "48",
+          preSmokeKg: "48",
           ...values,
           batches: JSON.stringify(drafts),
         },
@@ -667,7 +667,7 @@ describe("lot workflow", () => {
     ).toThrow(/เท่ากับน้ำหนักเข้าเตา/);
     expect(() =>
       edit(
-        { preKg: "47" },
+        { preSmokeKg: "47" },
         smokes.map((item) => draft(item)),
       ),
     ).toThrow(/น้ำหนักก่อนสโมค/);

@@ -126,7 +126,7 @@ export function ChefLotTable({
         bagDetail,
         remainingKg: Math.max(
           0,
-          n(lot.values, "preKg") -
+          n(lot.values, "preSmokeKg") -
             batchesBeforeOrAtThisEntry.reduce(
               (total, batch) => total + n(batch.values, "inputKg"),
               0,
@@ -203,7 +203,7 @@ export function ChefLotTable({
             entry.values.subLot || "—",
             `${fmt(n(entry.values, "inputKg"))} กก.`,
             weights.length ? `${weights.length} ถุง · ${bagDetail} กก.` : "—",
-            `${fmt(n(entry.values, "outputKg"))} กก.`,
+            `${fmt(n(entry.values, "postSmokeKg"))} กก.`,
             `${fmt(n(entry.values, "wasteKg"))} กก.`,
             `${fmt(remainingKg)} กก.`,
           ],

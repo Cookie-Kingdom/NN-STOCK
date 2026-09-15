@@ -91,7 +91,7 @@ export function Preview({
       ["น้ำหนัก Waste", `${fmt(n(v, "wasteKg"))} กก.`],
       [
         "รอผลิตก่อนรอบนี้",
-        `${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`,
+        `${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`,
       ],
     ];
   }
@@ -101,7 +101,7 @@ export function Preview({
       ["จำนวนถุงส่งกลับกรุงเทพฯ", `${producedBags(db, lot.id)} ถุง`],
       [
         "น้ำหนักรอผลิต",
-        `${fmt(n(lot.values, "preKg") - processed(db, lot.id))} กก.`,
+        `${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`,
       ],
     ];
   if (kind === "return" && lot)
@@ -125,7 +125,7 @@ export function Preview({
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       [
         "ส่วนต่าง (ก่อน−หลัง สโมค)",
-        `${fmt(n(lot.values, "preKg") - produced(db, lot.id))} กก.`,
+        `${fmt(n(lot.values, "preSmokeKg") - produced(db, lot.id))} กก.`,
       ],
     ];
   if (kind === "sale" && lot) {

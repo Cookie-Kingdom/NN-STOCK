@@ -109,7 +109,7 @@ export function smoked() {
   readyToDispatch(s, "50");
   s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
   s.run("cm", "cmReceive", { receivedKg: "49", arrival: "08:00" });
-  s.run("cm", "prepare", { preKg: "48" });
+  s.run("cm", "prepare", { preSmokeKg: "48" });
   s.run("cm", "smoke", {
     smokeDate: day,
     inputKg: "20",
