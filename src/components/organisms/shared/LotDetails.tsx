@@ -51,7 +51,7 @@ export function LotDetails({
         </div>
         <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-border">
           <i
-            className="block h-full rounded-full bg-accent transition-[width] duration-300"
+            className="block h-full rounded-full bg-accent transition-[width] duration-(--motion-slow) ease-(--ease-standard)"
             style={{ width: `${((lot.stage + 1) / stages.length) * 100}%` }}
           />
         </div>

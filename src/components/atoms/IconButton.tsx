@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const iconButtonVariants = cva(
-  "grid shrink-0 cursor-pointer place-items-center rounded-md transition-colors outline-none hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-40",
+  "grid shrink-0 cursor-pointer place-items-center rounded-md transition-[color,background-color,border-color,box-shadow,transform] duration-(--motion-fast) ease-(--ease-standard) outline-none hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring not-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40",
   {
     variants: {
       size: {

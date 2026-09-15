@@ -15,7 +15,14 @@ export function Toast({
 }) {
   if (!message) return null;
   return (
-    <Notice tone={tone} onDismiss={onClose} dismissLabel="ปิดข้อความ">
+    // key: a new message remounts, so the fade-up replays instead of swapping text in place.
+    <Notice
+      key={message}
+      tone={tone}
+      onDismiss={onClose}
+      dismissLabel="ปิดข้อความ"
+      className="animate-fade-up"
+    >
       {message}
     </Notice>
   );

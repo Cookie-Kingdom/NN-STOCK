@@ -44,7 +44,7 @@ export function AppSidebar({
                   key={item.id}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md p-3 text-left text-body-sm transition-colors max-md:gap-1.5 max-md:p-2.5 max-md:text-caption max-md:whitespace-nowrap",
+                    "flex cursor-pointer items-center gap-3 rounded-md p-3 text-left text-body-sm transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:gap-1.5 max-md:p-2.5 max-md:text-caption max-md:whitespace-nowrap",
                     selected
                       ? "bg-accent text-accent-fg"
                       : "text-text-secondary hover:bg-bg hover:text-text-primary",
