@@ -146,8 +146,26 @@ test("a failed save reloads from the server and reports the error", async () => 
     error: null,
   });
   saveDatabase(seed);
-  await expect(detail).resolves.toBe("revision conflict");
+  await expect(detail).resolves.toMatch(/บันทึกไม่สำเร็จ.*revision conflict/);
   expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
+});
+
+test("a failed load reports the error instead of silently showing seed data", async () => {
+  const events = new EventTarget();
+  vi.stubGlobal("window", events);
+  const detail = new Promise((resolve) =>
+    events.addEventListener("database-error", (event) =>
+      resolve((event as CustomEvent).detail),
+    ),
+  );
+  mocks.maybeSingle.mockResolvedValueOnce({
+    data: null,
+    error: { message: "permission denied" },
+  });
+  mocks.authEvent("SIGNED_IN");
+  await expect(detail).resolves.toMatch(
+    /โหลดข้อมูลไม่สำเร็จ.*permission denied/,
+  );
 });
 
 test("legacy inline attachments move to the attachment store", async () => {

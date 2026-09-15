@@ -34,13 +34,18 @@ export const demoInitialDatabase = initialDatabase;
 let cached = initialDatabase;
 const notify = () => listeners.forEach((listener) => listener());
 
+/** Shown by DatabaseErrorToast in every workspace. */
+function reportError(message: string) {
+  window.dispatchEvent(new CustomEvent("database-error", { detail: message }));
+}
 async function loadDatabase() {
   const { data, error } = await supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>();
-  if (error) return;
+  if (error) return reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
   if (!data) {
     const created = await supabase.rpc("save_app_state", { p_payload: initialDatabase, p_expected_revision: null });
     const row = (created.data as AppStateRow[] | null)?.[0];
-    if (!created.error && row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; notify(); }
+    if (created.error) return reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
+    if (row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; notify(); }
     return;
   }
   cached = normalize(data.payload, initialDatabase);
@@ -69,7 +74,7 @@ export function saveDatabase(db: Database) {
     const { data, error } = await supabase.rpc("save_app_state", { p_payload: portable, p_expected_revision: revision });
     if (error) {
       await loadDatabase();
-      window.dispatchEvent(new CustomEvent("database-error", { detail: error.message }));
+      reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
       return;
     }
     const row = (data as AppStateRow[] | null)?.[0];

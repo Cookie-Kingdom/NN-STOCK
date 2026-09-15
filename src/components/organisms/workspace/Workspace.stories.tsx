@@ -69,3 +69,16 @@ function Heading() {
 }
 
 export const PageHeadingWithToast: Story = { render: () => <Heading /> };
+
+/** What DatabaseErrorToast shows when save_app_state refuses a save. */
+export const ErrorToast: Story = {
+  render: () => (
+    <div className="p-6">
+      <Toast
+        tone="danger"
+        message="บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · State changed on another device. Reload and try again."
+        onClose={fn()}
+      />
+    </div>
+  ),
+};

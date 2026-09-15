@@ -689,7 +689,7 @@ export function ConfigView({ db }: { db: Database }) {
         columns={[...settingColumns, "ผลต่อการทำงาน (Effect)"]}
         rows={[
           settingRow(
-            "สาขาของบัญชีผู้ดูแล (Assigned branch)",
+            "สาขาเริ่มต้น (Default branch)",
             <ConfigValue
               {...edit}
               section="branch"
@@ -697,7 +697,7 @@ export function ConfigView({ db }: { db: Database }) {
               type="branch"
             />,
             "สาขา",
-            "กำหนดข้อมูลที่บัญชีสาขาเห็นและกรอกได้",
+            "ใช้เมื่อ Owner, Foodiva หรือ Chef_house ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
           ),
           settingRow(
             "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)",

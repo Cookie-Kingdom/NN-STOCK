@@ -37,19 +37,18 @@ begin
     into v_bad, v_n
     from information_schema.role_table_grants
    where table_schema = 'public'
-     and grantee in ('anon', 'authenticated');
+     and grantee in ('anon', 'authenticated')
+     -- Migration 0009 grants these on purpose; each is narrowed by its own RLS policy.
+     and not (grantee = 'authenticated' and privilege_type = 'SELECT'
+              and table_name in ('profiles', 'user_locations', 'locations', 'app_state'));
   assert v_n = 0, format('ADR-004: %s grant(s) leaked to anon/authenticated: %s', v_n, v_bad);
 
   -- 2. The behavioural half. A real authenticated session gets nothing.
   set local role authenticated;
 
-  v_ok := false;
-  begin
-    perform 1 from profiles limit 1;
-  exception when others then
-    v_ok := true;
-  end;
-  assert v_ok, 'ADR-004: authenticated could read profiles';
+  -- profiles_read_self: a session with no auth.uid() sees no one's profile.
+  select count(*) into v_n from profiles;
+  assert v_n = 0, 'ADR-004: authenticated could read other profiles';
 
   v_ok := false;
   begin
