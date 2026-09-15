@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { Preview } from "@storybook/nextjs-vite";
 import { Noto_Sans_Thai } from "next/font/google";
 import "../src/app/globals.css";
+import { setMockDatabase } from "./mocks/persistence";
 
 // Same font setup as src/app/layout.tsx; the tokens read --font-noto-sans-thai off <html>.
 const notoSansThai = Noto_Sans_Thai({
@@ -15,6 +16,8 @@ const preview: Preview = {
   tags: ["autodocs"],
   parameters: {
     layout: "padded",
+    // The app uses the App Router; mocks next/navigation's useRouter & co.
+    nextjs: { appDirectory: true },
     controls: { expanded: true },
   },
   globalTypes: {
@@ -31,6 +34,9 @@ const preview: Preview = {
   initialGlobals: { theme: "light" },
   decorators: [
     (Story, context) => {
+      // Forms re-read the database via latestDatabase(); keep it equal to the story's `db`.
+      const db = context.args.db ?? context.parameters.db;
+      if (db) setMockDatabase(db);
       const dark = context.globals.theme === "dark";
       useEffect(() => {
         const html = document.documentElement;

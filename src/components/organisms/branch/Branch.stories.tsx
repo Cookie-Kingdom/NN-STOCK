@@ -1,0 +1,90 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { day, demoDb, open } from "../../../../.storybook/fixtures";
+import { isClosed } from "@/lib/store";
+import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
+import { ChiliDailySummary } from "./ChiliDailySummary";
+import { DailyMaterialsTable } from "./DailyMaterialsTable";
+import { DailySummary } from "./DailySummary";
+import { DailyTaskTable } from "./DailyTaskTable";
+import { MaterialReceiptConfirmation } from "./MaterialReceiptConfirmation";
+
+const db = demoDb;
+const branch = "ศาลาแดง";
+const closed = isClosed(db, branch, day);
+
+const meta: Meta = {
+  title: "Organisms/Branch",
+  parameters: { db },
+};
+
+export default meta;
+type Story = StoryObj;
+
+export const DailyWorkflow: Story = {
+  render: () => (
+    <BranchDailyWorkflow
+      db={db}
+      branch={branch}
+      date={day}
+      lots={db.lots}
+      closed={closed}
+      open={open}
+    />
+  ),
+};
+
+export const RiceTasks: Story = {
+  render: () => (
+    <DailyTaskTable
+      title="ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
+      kinds={["ricePurchase", "riceIssue", "rice"]}
+      db={db}
+      branch={branch}
+      date={day}
+      disabled={closed}
+      hasLots
+      open={open}
+    />
+  ),
+};
+
+export const SalesTasks: Story = {
+  render: () => (
+    <DailyTaskTable
+      title="ยอดขายและปิดวัน (Sales & day close)"
+      kinds={["sale", "closeDay"]}
+      db={db}
+      branch={branch}
+      date={day}
+      disabled={closed}
+      hasLots
+      open={open}
+    />
+  ),
+};
+
+export const Materials: Story = {
+  render: () => (
+    <DailyMaterialsTable db={db} branch={branch} date={day} disabled={false} />
+  ),
+};
+
+export const MaterialReceipt: Story = {
+  render: () => (
+    <MaterialReceiptConfirmation
+      db={db}
+      branch={branch}
+      date={day}
+      closed={closed}
+    />
+  ),
+};
+
+export const Summary: Story = {
+  render: () => (
+    <>
+      <DailySummary db={db} branch={branch} date={day} />
+      <ChiliDailySummary db={db} branch={branch} date={day} />
+    </>
+  ),
+};

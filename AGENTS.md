@@ -32,3 +32,29 @@ git switch develop && git merge --no-ff feature/<short-slug>
   `pnpm lint` pass. A branch that does not build does not merge.
 - One card per branch. If you find a second piece of work mid-card, it is a new card on
   the board, not an extra commit on this branch.
+
+---
+
+# UI Changes Start in Storybook
+
+Any UI change (new component, restyle, layout, new state or variant) is built in
+Storybook first and wired into the app second.
+
+```bash
+pnpm storybook                            # http://localhost:6006, no Supabase needed
+```
+
+1. Add or update the story next to the component (`src/components/<level>/X.stories.tsx`),
+   covering the states you change, in both light and dark (toolbar toggle).
+2. Get the component right in Storybook.
+3. Only then use it in the real page/workspace and check it in `pnpm dev`.
+
+Organism stories:
+
+- Data comes from `.storybook/fixtures.ts`, built with the real `mutate()`. Extend those
+  fixtures rather than hand-writing `Database` objects.
+- `@/lib/persistence` and `@/lib/session` are aliased to `.storybook/mocks/`; saves show
+  in the Actions panel. A component that reads `latestDatabase()` needs the story to set
+  `parameters: { db }` (or pass a `db` arg).
+- Forms and dialogs go in a file tagged `!autodocs` — modal `<dialog>`s would stack on a
+  Docs page.
