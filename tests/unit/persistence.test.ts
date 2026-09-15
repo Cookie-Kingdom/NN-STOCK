@@ -114,9 +114,10 @@ test("saving strips attachment bytes, updates the cache first and sends the know
       }),
     ],
   };
-  saveDatabase(db);
+  const saved = saveDatabase(db);
   expect(latestDatabase().entries[0].values).toEqual({ attachment: "inv.pdf" });
   await settle();
+  await expect(saved).resolves.toBe(true);
   expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
     p_payload: latestDatabase(),
     p_expected_revision: 7,
@@ -145,8 +146,9 @@ test("a failed save reloads from the server and reports the error", async () => 
     data: { revision: 5, payload: seed },
     error: null,
   });
-  saveDatabase(seed);
+  const saved = saveDatabase(seed);
   await expect(detail).resolves.toMatch(/บันทึกไม่สำเร็จ.*revision conflict/);
+  await expect(saved).resolves.toBe(false);
   expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
 });
 

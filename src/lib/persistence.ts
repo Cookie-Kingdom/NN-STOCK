@@ -94,19 +94,23 @@ export function useDatabase() {
     () => initialDatabase,
   );
 }
-export function saveDatabase(db: Database) {
+/** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
+export function saveDatabase(db: Database): Promise<boolean> {
   const portable: Database = { ...db, entries: db.entries.map((entry) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) })) };
   cached = portable;
   notify();
-  writeQueue = writeQueue.then(async () => {
+  const saved = writeQueue.then(async () => {
     const { data: row, error } = await saveRow(portable, revision);
     if (error) {
       await loadDatabase();
       reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
-      return;
+      return false;
     }
     if (row) revision = row.revision;
+    return true;
   });
+  writeQueue = saved.then(() => undefined);
+  return saved;
 }
 export async function migrateLegacyAttachments(db: Database): Promise<Database> {
   let changed = false;

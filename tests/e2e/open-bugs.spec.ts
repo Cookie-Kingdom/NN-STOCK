@@ -142,7 +142,17 @@ test("บัก 5: บันทึกไม่สำเร็จแล้วต�
   );
   await ownerCreatesMeatPo(page, "500");
 
-  const error = page.getByRole("alert").filter({ hasText: "บันทึกไม่สำเร็จ" });
-  await expect(error).toBeVisible();
-  await expect(error).toContainText("State changed on another device");
+  // toast สีแดงของ database-error (มีคำว่า "โหลดข้อมูลล่าสุดแล้ว" เฉพาะ toast)
+  const toast = page
+    .getByRole("alert")
+    .filter({ hasText: "โหลดข้อมูลล่าสุดแล้ว" });
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText("State changed on another device");
+  // บัก 8: ไม่ขึ้น toast สีเขียว · dialog ยังเปิดพร้อมข้อความแดงในฟอร์มให้ลองใหม่
+  await expect(page.getByText("สร้างใบ PO แล้ว")).toHaveCount(0);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.getByRole("alert").filter({ hasText: "บันทึกไม่สำเร็จ" }),
+  ).toBeVisible();
 });
