@@ -82,8 +82,8 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
       .getByLabel("อัปโหลดโลโก้ NerdNuea")
       .setInputFiles(path.join(process.cwd(), "tests/fixtures/logo-demo.png"));
     await expect(page.getByAltText("ตัวอย่างโลโก้ NerdNuea")).toBeVisible();
-    await field(page, "foodDivaContact", "คุณดีว่า ฝ่ายขาย");
-    await field(page, "foodDivaAddress", "12 ถนนผู้ขายเนื้อ กรุงเทพฯ");
+    await field(page, "foodivaContact", "คุณดีว่า ฝ่ายขาย");
+    await field(page, "foodivaAddress", "12 ถนนผู้ขายเนื้อ กรุงเทพฯ");
     await field(page, "chefHouseContact", "หัวหน้าโรงรมควัน");
     await field(page, "chefHouseAddress", "88 ถนนเชียงใหม่-ลำพูน เชียงใหม่");
   });

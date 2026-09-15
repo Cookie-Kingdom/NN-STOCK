@@ -119,7 +119,7 @@ export function DocumentModuleView({
               >
                 ภาษี
               </Button>
-              {entries(db, "foodDivaConfirm", lot.id).length > 0 &&
+              {entries(db, "foodivaConfirm", lot.id).length > 0 &&
                 !hasSmokeOrder && (
                   <Muted as="span">ออก PO จากเมนูใบสั่ง PO โรงรมควัน</Muted>
                 )}
@@ -222,7 +222,7 @@ export function DocumentModuleView({
           "เอกสาร",
         ]}
         rows={[
-          ...entries(db, "foodDivaConfirm").map((entry) => {
+          ...entries(db, "foodivaConfirm").map((entry) => {
             const lot = db.lots.find((item) => item.id === entry.lotId);
             return [
               "Foodiva Meat Invoice",

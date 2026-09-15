@@ -7,7 +7,9 @@ import { Footnote, Muted } from "@/components/atoms/Text";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
 import {
+  foodivaInvoiceRows,
   smokeOrderTraceRows,
+  smokingInvoiceRows,
   transportDocumentRows,
   transportDocumentTitle,
 } from "@/components/organisms/owner/documentRows";
@@ -137,7 +139,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
             <tbody>
               {visibleLots.length ? (
                 visibleLots.map((lot) => {
-                  const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(
+                  const foodInvoice = entries(db, "foodivaConfirm", lot.id).at(
                     -1,
                   );
                   const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
@@ -203,23 +205,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           key="food-invoice"
                           title="Invoice Foodiva"
                           number={foodInvoice.values.invoiceNo || lot.poId}
-                          rows={[
-                            ["วันที่ Invoice", foodInvoice.values.invoiceDate],
-                            ["PO", lot.poId],
-                            ["Lot เนื้อ", lot.id],
-                            [
-                              "น้ำหนักยืนยัน",
-                              `${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`,
-                            ],
-                            [
-                              "ยอด Invoice",
-                              `฿${fmt(n(foodInvoice.values, "invoiceAmount"))}`,
-                            ],
-                            [
-                              "ผู้ยืนยัน",
-                              foodInvoice.values.confirmedBy || "—",
-                            ],
-                          ]}
+                          rows={foodivaInvoiceRows(db, lot, foodInvoice)}
                         />
                       ) : (
                         "—"
@@ -259,28 +245,12 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           key="chef-invoice"
                           title="Invoice Chef_house"
                           number={chefInvoice.values.invoiceNumber || lot.poId}
-                          rows={[
-                            ["วันที่ Invoice", chefInvoice.values.invoiceDate],
-                            [
-                              "PO โรงรมควัน",
-                              smokeOrder?.values.orderNumber || "—",
-                            ],
-                            ["Lot เนื้อ", lot.id],
-                            [
-                              "ผู้ให้บริการ",
-                              chefInvoice.values.serviceProvider ||
-                                "Chef_house",
-                            ],
-                            [
-                              "น้ำหนักคิดค่าบริการ",
-                              `${fmt(n(chefInvoice.values, "serviceQuantity"))} กก.`,
-                            ],
-                            [
-                              "ยอดสุทธิ",
-                              `฿${fmt(n(chefInvoice.values, "netPayable"))}`,
-                            ],
-                            ["สถานะ", smokingInvoiceStatus(db, chefInvoice)],
-                          ]}
+                          rows={smokingInvoiceRows(
+                            db,
+                            lot,
+                            chefInvoice,
+                            smokeOrder,
+                          )}
                         />
                       ) : (
                         "—"

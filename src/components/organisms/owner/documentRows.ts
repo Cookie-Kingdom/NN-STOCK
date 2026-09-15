@@ -1,5 +1,12 @@
 import { fmt } from "@/lib/format";
-import { n, type Database, type Entry, type Lot } from "@/lib/store";
+import {
+  n,
+  readyForChefHouse,
+  smokingInvoiceStatus,
+  type Database,
+  type Entry,
+  type Lot,
+} from "@/lib/store";
 
 export type DocumentRows = [string, string][];
 
@@ -34,6 +41,41 @@ export function transportDocumentRows(
     ["ทะเบียนรถ", trip.values.plate || "—"],
     ["คนขับ", trip.values.driverName || "—"],
     ["เบอร์ติดต่อ", trip.values.driverPhone || "—"],
+  ];
+}
+
+/** Foodiva meat invoice (`foodivaConfirm` entry). */
+export function foodivaInvoiceRows(
+  db: Database,
+  lot: Lot,
+  invoice: Entry,
+): DocumentRows {
+  return [
+    ["วันที่ Invoice", invoice.values.invoiceDate],
+    ["PO", lot.poId],
+    ["Lot เนื้อ", lot.id],
+    ["น้ำหนักยืนยัน", `${fmt(n(invoice.values, "confirmedKg"))} กก.`],
+    ["พร้อมส่งเชียงใหม่", `${fmt(readyForChefHouse(db, lot.id))} กก.`],
+    ["ยอด Invoice", `฿${fmt(n(invoice.values, "invoiceAmount"))}`],
+    ["ผู้ยืนยัน", invoice.values.confirmedBy || "—"],
+  ];
+}
+
+/** Chef_house smoking invoice (`smokingInvoice` entry). */
+export function smokingInvoiceRows(
+  db: Database,
+  lot: Lot,
+  invoice: Entry,
+  order: Entry | undefined,
+): DocumentRows {
+  return [
+    ["วันที่ Invoice", invoice.values.invoiceDate],
+    ["PO โรงรมควัน", order?.values.orderNumber || "—"],
+    ["Lot เนื้อ", lot.id],
+    ["ผู้ให้บริการ", invoice.values.serviceProvider || "Chef_house"],
+    ["น้ำหนักคิดค่าบริการ", `${fmt(n(invoice.values, "serviceQuantity"))} กก.`],
+    ["ยอดสุทธิ", `฿${fmt(n(invoice.values, "netPayable"))}`],
+    ["สถานะ", smokingInvoiceStatus(db, invoice)],
   ];
 }
 

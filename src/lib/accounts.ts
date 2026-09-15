@@ -30,7 +30,7 @@ export const accounts: Account[] = [
   },
   {
     id: "foodiva",
-    role: "fooddiva",
+    role: "foodiva",
     name: "Foodiva",
     title: "ผู้ขายเนื้อ · ออก Invoice",
     summary: "รับ PO ออก Invoice เก็บเนื้อรอรถ และยืนยันรับเนื้อรมควันกลับเข้าสต๊อก",

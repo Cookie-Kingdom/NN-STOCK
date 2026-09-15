@@ -17,6 +17,7 @@ import {
   packWeights,
   validPackWeights,
 } from "../src/lib/store.ts";
+import { prefillValues } from "../src/lib/prefill.ts";
 const day = "2026-09-09";
 const packs = (count) => Array.from({ length: count }, () => "0.100").join("\n");
 const purchaseInfo = {
@@ -56,7 +57,7 @@ function setup(branch = seed.config.branch) {
 /** Purchase through a paid smoking invoice: everything dispatch waits for. */
 function readyToDispatch(s, kg) {
   s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price: "250" });
-  s.run("fooddiva", "foodDivaConfirm", {
+  s.run("foodiva", "foodivaConfirm", {
     invoiceNo: "INV-1",
     invoiceDate: day,
     attachment: "inv.pdf",
@@ -125,7 +126,7 @@ function ready() {
     driverPhone: "0800000000",
     returnKg: "36",
   });
-  s.run("fooddiva", "foodDivaReturnReceive", {
+  s.run("foodiva", "foodivaReturnReceive", {
     receivedDate: day,
     receivedTime: "10:00",
     receivedKg: "36",
@@ -426,6 +427,24 @@ test("chef edit before close validates in mutate, never touches the old database
     () => edit({}, smokes.map((entry) => draft(entry))),
     /ก่อนยืนยันปิด Lot/,
   );
+});
+test("prefilled weights and amounts pass mutate as-is; receiving weights stay blank", () => {
+  const s = setup();
+  const lot = () => s.db.lots[0];
+  const prefill = (kind) => prefillValues(s.db, kind, lot());
+  s.run("owner", "purchase", { ...purchaseInfo, orderedKg: "40", price: "250" });
+  const confirm = prefill("foodivaConfirm");
+  assert.equal(confirm.invoiceAmount, "10000");
+  s.run("foodiva", "foodivaConfirm", { ...confirm, invoiceNo: "INV-1", invoiceDate: day, attachment: "inv.pdf", confirmedBy: "Foodiva" });
+  s.run("owner", "smokeOrder", { ...prefill("smokeOrder"), requestedSmokeDate: day });
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
+  s.run("cm", "smokingInvoice", { invoiceNumber: "CH-1", invoiceDate: day, attachment: "ch.pdf" });
+  s.run("owner", "invoiceReview", { decision: "รับยอด", reviewedBy: "Owner" });
+  s.run("owner", "invoicePayment", { ...prefill("invoicePayment"), paymentDate: day, paidBy: "Owner" });
+  s.run("owner", "dispatch", { ...prefill("dispatch"), pickupDate: day, trip: "ไปกลับ", plate: "กข123", driverName: "คนขับ" });
+  assert.equal(s.db.entries.at(-1).values.dispatchKg, "40");
+  assert.equal(prefill("return").plate, "กข123");
+  assert.deepEqual(prefill("cmReceive"), {});
 });
 test("pack weights parse newline or comma input and only valid weights count as bags", () => {
   assert.deepEqual(packWeights("1.5\n2, 3"), [1.5, 2, 3]);

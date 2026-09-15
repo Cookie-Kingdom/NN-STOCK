@@ -466,7 +466,7 @@ export function ConfigView({ db }: { db: Database }) {
             <ConfigValue
               {...edit}
               section="documents"
-              name="foodDivaContact"
+              name="foodivaContact"
               type="text"
             />,
             "ข้อความ",
@@ -477,7 +477,7 @@ export function ConfigView({ db }: { db: Database }) {
             <ConfigValue
               {...edit}
               section="documents"
-              name="foodDivaAddress"
+              name="foodivaAddress"
               type="textarea"
             />,
             "ข้อความ",

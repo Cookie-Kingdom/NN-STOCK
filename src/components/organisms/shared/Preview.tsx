@@ -34,7 +34,7 @@ export function Preview({
       ["ค่าเนื้อ", `฿${fmt(n(v, "orderedKg") * n(v, "price"))}`],
       ["สถานะ", "รอ Foodiva ออก Invoice ก่อนเรียกรถ"],
     ];
-  if (kind === "foodDivaConfirm") {
+  if (kind === "foodivaConfirm") {
     const invoiced = n(v, "confirmedKg");
     const ready = n(v, "readyForChiangMaiKg");
     const reserved = n(v, "reservedForOwnerKg");
@@ -118,7 +118,7 @@ export function Preview({
     rows = [
       [
         "Foodiva รับเข้าตู้แล้ว",
-        `${fmt(n(entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
+        `${fmt(n(entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
       ],
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],

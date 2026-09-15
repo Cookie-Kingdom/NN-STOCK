@@ -37,7 +37,7 @@ export function SmokingPurchaseOrderView({
   open: (kind: string, lotId?: string) => void;
 }) {
   const eligibleLots = db.lots.filter(
-    (lot) => entries(db, "foodDivaConfirm", lot.id).length > 0,
+    (lot) => entries(db, "foodivaConfirm", lot.id).length > 0,
   );
   const waitingForChefHouse = eligibleLots.filter(
     (lot) =>
@@ -62,7 +62,7 @@ export function SmokingPurchaseOrderView({
         columns={columns}
         rowKeys={eligibleLots.map((lot) => lot.id)}
         rows={eligibleLots.map((lot) => {
-          const supplierInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+          const supplierInvoice = entries(db, "foodivaConfirm", lot.id).at(-1);
           const order = entries(db, "smokeOrder", lot.id).at(-1);
           const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
           const invoice = entries(db, "smokingInvoice", lot.id).at(-1);

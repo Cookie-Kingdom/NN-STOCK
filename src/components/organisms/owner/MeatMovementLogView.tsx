@@ -36,7 +36,7 @@ const movementColumns = [
 /** entry kind → [location, action, amount] */
 const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
   {
-    foodDivaConfirm: (entry) => [
+    foodivaConfirm: (entry) => [
       "Foodiva",
       "ยืนยัน Invoice และแบ่งเนื้อ",
       `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`,
@@ -66,7 +66,7 @@ const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
       "เรียกรถขากลับ",
       `${fmt(n(entry.values, "returnKg"))} กก.`,
     ],
-    foodDivaReturnReceive: (entry) => [
+    foodivaReturnReceive: (entry) => [
       "Foodiva",
       "รับเนื้อรมควันเข้าตู้",
       `${fmt(n(entry.values, "receivedKg"))} กก.`,
@@ -105,7 +105,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
   );
   const locationRows = lots.flatMap((lot) => {
     const returnReceived = n(
-      entries(db, "foodDivaReturnReceive", lot.id).at(-1)?.values || {},
+      entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {},
       "receivedKg",
     );
     const foodivaSmoked = Math.max(

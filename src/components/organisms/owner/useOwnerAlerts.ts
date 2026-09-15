@@ -33,7 +33,7 @@ export function useOwnerAlerts(db: Database) {
   );
   const centralReceiveCount = db.lots.filter(
     (lot) =>
-      lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
+      lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
   ).length;
   const allocationCount = db.lots.filter(
     (lot) => lot.stage >= 8 && centralStock(db, lot.id) > 0.001,
@@ -43,13 +43,13 @@ export function useOwnerAlerts(db: Database) {
   ).length;
   const foodivaInvoiceCount = db.lots.filter(
     (lot) =>
-      entries(db, "foodDivaConfirm", lot.id).length > 0 &&
+      entries(db, "foodivaConfirm", lot.id).length > 0 &&
       !entries(db, "smokeOrder", lot.id).length,
   ).length;
 
   const notifications: OwnerNotification[] = [
     ...db.lots.flatMap((item): OwnerNotification[] => {
-      const foodInvoice = entries(db, "foodDivaConfirm", item.id).at(-1);
+      const foodInvoice = entries(db, "foodivaConfirm", item.id).at(-1);
       const smokeOrder = entries(db, "smokeOrder", item.id).at(-1);
       const accepted = entries(db, "smokeOrderAccept", item.id).at(-1);
       const smokeInvoice = entries(db, "smokingInvoice", item.id).at(-1);
@@ -120,7 +120,7 @@ export function useOwnerAlerts(db: Database) {
         ];
       if (
         item.stage === 7 &&
-        !entries(db, "foodDivaReturnReceive", item.id).length
+        !entries(db, "foodivaReturnReceive", item.id).length
       )
         return [
           {

@@ -49,7 +49,7 @@ export function MeatStockTable({
         rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
-          entries(db, "foodDivaConfirm", lot.id).length
+          entries(db, "foodivaConfirm", lot.id).length
             ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
             : "รอ Foodiva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,

@@ -159,7 +159,7 @@ export function OwnerDashboard({
   const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
   const foodivaInvoicesForOwner = db.lots.filter(
     (lot) =>
-      entries(db, "foodDivaConfirm", lot.id).length > 0 &&
+      entries(db, "foodivaConfirm", lot.id).length > 0 &&
       !entries(db, "smokeOrder", lot.id).length,
   );
   const alertDetails: {
@@ -169,7 +169,7 @@ export function OwnerDashboard({
     tab?: Tab;
   }[] = [
     ...foodivaInvoicesForOwner.map((lot) => {
-      const invoice = entries(db, "foodDivaConfirm", lot.id).at(-1)!;
+      const invoice = entries(db, "foodivaConfirm", lot.id).at(-1)!;
       return {
         title: `Foodiva ออก Invoice แล้ว · ${lot.id}`,
         detail: `Invoice ${invoice.values.invoiceNo} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก. · เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ${fmt(reservedForOwnerContent(db, lot.id))} กก.`,

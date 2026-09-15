@@ -66,7 +66,7 @@ export function PurchaseOrderView({
             `${item.values.customerName || "-"} / ${item.values.attention || "-"}`,
             `${item.values.productName || "เนื้อวัว"} / ${item.values.packSize || "-"}`,
             `${fmt(n(item.values, "orderedKg"))} กก.`,
-            entries(db, "foodDivaConfirm", item.id).at(-1)?.values.invoiceNo ||
+            entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo ||
               "รอยืนยัน",
             stages[item.stage],
             item.stage === 1 ? (

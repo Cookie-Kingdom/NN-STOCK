@@ -28,7 +28,7 @@ export function PurchaseOrderDocumentPreview({
 }) {
   const isSmokeOrder = kind === "smokeOrder";
   const latestFoodivaInvoice = lot
-    ? entries(db, "foodDivaConfirm", lot.id).slice(-1)[0]
+    ? entries(db, "foodivaConfirm", lot.id).slice(-1)[0]
     : undefined;
   const quantity = n(values, isSmokeOrder ? "rawKg" : "orderedKg");
   const rate = isSmokeOrder ? smokeServiceRate(quantity) : n(values, "price");
@@ -44,10 +44,10 @@ export function PurchaseOrderDocumentPreview({
     values[isSmokeOrder ? "smoker" : "supplier"] ||
     (isSmokeOrder ? "Chef_house" : "Foodiva");
   const supplierContact =
-    db.config[isSmokeOrder ? "chefHouseContact" : "foodDivaContact"] ||
+    db.config[isSmokeOrder ? "chefHouseContact" : "foodivaContact"] ||
     "ยังไม่ได้ตั้งค่า";
   const supplierAddress =
-    db.config[isSmokeOrder ? "chefHouseAddress" : "foodDivaAddress"] ||
+    db.config[isSmokeOrder ? "chefHouseAddress" : "foodivaAddress"] ||
     "ยังไม่ได้ตั้งค่า";
   const documentNumber = isSmokeOrder
     ? `SMK-PO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
