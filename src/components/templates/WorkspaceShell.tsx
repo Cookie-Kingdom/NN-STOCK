@@ -8,7 +8,10 @@ import {
   type Notification,
 } from "@/components/organisms/workspace/NotificationPopover";
 import { PageHeading } from "@/components/organisms/workspace/PageHeading";
-import { Toast } from "@/components/organisms/workspace/Toast";
+import {
+  DatabaseErrorToast,
+  Toast,
+} from "@/components/organisms/workspace/Toast";
 import type { Account } from "@/lib/accounts";
 import { navLabel, type NavGroup, type Tab } from "@/lib/nav";
 
@@ -77,6 +80,7 @@ export function WorkspaceShell({
             onDate={onDate}
           />
           <Toast message={toast} onClose={onCloseToast} />
+          <DatabaseErrorToast />
           {children}
         </main>
       </div>
