@@ -41,7 +41,7 @@ export function ChefLotEditForm({
   const [values, setValues] = useState<Values>(() => ({
     receivedKg: received?.values.receivedKg || "",
     arrival: received?.values.arrival || "",
-    preKg: prepared?.values.preKg || "",
+    preSmokeKg: prepared?.values.preSmokeKg || "",
   }));
   const [smokeDrafts, setSmokeDrafts] = useState(() =>
     smokeEntries.map((entry) => ({
@@ -88,8 +88,8 @@ export function ChefLotEditForm({
     (total, draft) => total + (Number(draft.inputKg) || 0),
     0,
   );
-  const preKgValue = Number(values.preKg) || 0;
-  const balanced = Math.abs(smokeTotal - preKgValue) < 0.001;
+  const preSmokeKgValue = Number(values.preSmokeKg) || 0;
+  const balanced = Math.abs(smokeTotal - preSmokeKgValue) < 0.001;
   return (
     <Dialog
       overline={`Chef_house · ${lot.id}`}
@@ -124,8 +124,8 @@ export function ChefLotEditForm({
                 type="number"
                 min="0.001"
                 step="0.001"
-                value={values.preKg}
-                onChange={(event) => set("preKg", event.target.value)}
+                value={values.preSmokeKg}
+                onChange={(event) => set("preSmokeKg", event.target.value)}
               />
             </FormField>
           </div>
@@ -189,7 +189,7 @@ export function ChefLotEditForm({
           />
           <Notice tone={balanced ? "success" : "warning"} role="none">
             น้ำหนักเข้าเตารวมจาก Log {fmt(smokeTotal)} กก. · น้ำหนักก่อนสโมค{" "}
-            {fmt(preKgValue)} กก. ·{" "}
+            {fmt(preSmokeKgValue)} กก. ·{" "}
             {balanced
               ? "ยอดตรงกัน พร้อมปิด Lot"
               : "ยอดยังไม่ตรง ต้องปรับ Log หรือ น้ำหนักก่อนสโมคก่อนปิด Lot"}

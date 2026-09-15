@@ -206,7 +206,7 @@ export const forms: Record<string, Field[]> = {
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     note,
   ],
-  prepare: [number("preKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
+  prepare: [number("preSmokeKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
   smoke: [
     date("smokeDate", "วันที่สโมค"),
     number("inputKg", "น้ำหนักเข้าเตารอบนี้ (กก.)"),

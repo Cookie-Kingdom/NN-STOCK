@@ -312,7 +312,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           "Lot สโมครายวัน",
                           entry.values.subLot || "—",
                           entry.values.smokeDate || entry.date,
-                          `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "outputKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} ถุง`,
+                          `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} ถุง`,
                           <DocumentPreview
                             key={entry.id}
                             title="บันทึก Lot สโมครายวัน"
@@ -330,7 +330,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                               ],
                               [
                                 "น้ำหนักหลังรม",
-                                `${fmt(n(entry.values, "outputKg"))} กก.`,
+                                `${fmt(n(entry.values, "postSmokeKg"))} กก.`,
                               ],
                               [
                                 "น้ำหนัก Waste",

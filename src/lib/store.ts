@@ -229,7 +229,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     driverPhone: "0800000000",
   }, lotId);
   run("cm", "cmReceive", { receivedKg: String(rawKg), arrival: "08:00" }, lotId);
-  run("cm", "prepare", { preKg: String(rawKg) }, lotId);
+  run("cm", "prepare", { preSmokeKg: String(rawKg) }, lotId);
   run("cm", "smoke", {
     smokeDate: dates[0],
     inputKg: String(rawKg),
@@ -381,7 +381,7 @@ export function entries(
   for (const e of db.entries) {
     if (e.kind !== "chefEdit" || voided.has(e.id)) continue;
     fix(e.values.receiveId, { receivedKg: e.values.receivedKg, arrival: e.values.arrival });
-    fix(e.values.prepareId, { preKg: e.values.preKg });
+    fix(e.values.prepareId, { preSmokeKg: e.values.preSmokeKg });
     for (const { id, ...batch } of JSON.parse(e.values.batches || "[]") as Values[]) fix(id, batch);
   }
   return db.entries
@@ -399,7 +399,7 @@ export function entries(
     });
 }
 export function produced(db: Database, lotId: string) {
-  return sum(entries(db, "smoke", lotId), "outputKg");
+  return sum(entries(db, "smoke", lotId), "postSmokeKg");
 }
 export function producedBags(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "packCount");
@@ -483,7 +483,7 @@ export function processLoss(db: Database, lotId: string) {
 }
 export function averageYield(db: Database) {
   const input = sum(entries(db, "smoke"), "inputKg");
-  return input > 0 ? (sum(entries(db, "smoke"), "outputKg") / input) * 100 : 0;
+  return input > 0 ? (sum(entries(db, "smoke"), "postSmokeKg") / input) * 100 : 0;
 }
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
@@ -935,9 +935,9 @@ export function mutate(
     positive(v, "receivedKg", "น้ำหนักรับ");
     required(v, "arrival", "เวลาถึง");
   } else if (kind === "prepare" && lot) {
-    positive(v, "preKg", "น้ำหนักก่อนสโมค");
+    positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
     assert(
-      n(v, "preKg") <= n(lot.values, "receivedKg"),
+      n(v, "preSmokeKg") <= n(lot.values, "receivedKg"),
       "น้ำหนักก่อนสโมคเกินน้ำหนักรับ",
     );
   } else if (kind === "smoke" && lot) {
@@ -951,7 +951,7 @@ export function mutate(
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
-      n(v, "inputKg") <= n(lot.values, "preKg") - processed(db, lotId) + 0.001,
+      n(v, "inputKg") <= n(lot.values, "preSmokeKg") - processed(db, lotId) + 0.001,
       "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
     );
     assert(
@@ -959,7 +959,7 @@ export function mutate(
       "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
     );
     v.wasteKg = String(n(v, "wasteKg"));
-    v.outputKg = output.toFixed(2);
+    v.postSmokeKg = output.toFixed(2);
     v.packCount = String(weights.length);
     v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "chefEdit" && lot) {
@@ -981,13 +981,13 @@ export function mutate(
       "ไม่พบข้อมูล Lot ล่าสุด",
     );
     const receivedKg = Number(v.receivedKg);
-    const preKg = Number(v.preKg);
+    const preSmokeKg = Number(v.preSmokeKg);
     assert(
-      Number.isFinite(receivedKg) && Number.isFinite(preKg) && receivedKg > 0 && preKg > 0,
+      Number.isFinite(receivedKg) && Number.isFinite(preSmokeKg) && receivedKg > 0 && preSmokeKg > 0,
       "กรอกน้ำหนักให้ถูกต้อง",
     );
     assert(receivedKg <= n(lot.values, "dispatchKg") + 0.001, "น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
-    assert(preKg <= receivedKg + 0.001, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
+    assert(preSmokeKg <= receivedKg + 0.001, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
     const batches = drafts.map((draft) => {
       const inputKg = Number(draft.inputKg);
       const wasteKg = Number(draft.wasteKg);
@@ -997,9 +997,9 @@ export function mutate(
         "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ",
       );
       assert(weights.length && weights.every(isPackWeight), "กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0 ทุกรอบ");
-      const outputKg = weights.reduce((total, weight) => total + weight, 0);
+      const postSmokeKg = weights.reduce((total, weight) => total + weight, 0);
       assert(
-        Math.abs(outputKg + wasteKg - inputKg) <= 0.001,
+        Math.abs(postSmokeKg + wasteKg - inputKg) <= 0.001,
         "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
       );
       return {
@@ -1007,35 +1007,35 @@ export function mutate(
         inputKg: String(inputKg),
         wasteKg: String(wasteKg),
         packs: weights.join("\n"),
-        outputKg: outputKg.toFixed(2),
+        postSmokeKg: postSmokeKg.toFixed(2),
         packCount: String(weights.length),
       };
     });
     assert(
-      Math.abs(batches.reduce((total, batch) => total + Number(batch.inputKg), 0) - preKg) <= 0.001,
+      Math.abs(batches.reduce((total, batch) => total + Number(batch.inputKg), 0) - preSmokeKg) <= 0.001,
       "ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค",
     );
     // Recorded, not applied: save_app_state refuses changed history, so entries() overlays these.
     v.receiveId = receiveEntry.id;
     v.prepareId = prepareEntry.id;
     v.receivedKg = String(receivedKg);
-    v.preKg = String(preKg);
+    v.preSmokeKg = String(preSmokeKg);
     const latestBatch = batches.at(-1)!;
     lot.values = {
       ...lot.values,
       receivedKg: String(receivedKg),
       arrival: v.arrival,
-      preKg: String(preKg),
+      preSmokeKg: String(preSmokeKg),
       inputKg: latestBatch.inputKg,
       wasteKg: latestBatch.wasteKg,
       packs: latestBatch.packs,
-      outputKg: latestBatch.outputKg,
+      postSmokeKg: latestBatch.postSmokeKg,
       packCount: latestBatch.packCount,
     };
     v.batches = JSON.stringify(batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })));
   } else if (kind === "closeLot" && lot) {
     assert(
-      Math.abs(n(lot.values, "preKg") - processed(db, lotId)) < 0.005,
+      Math.abs(n(lot.values, "preSmokeKg") - processed(db, lotId)) < 0.005,
       "ยังมีน้ำหนักรอผลิต ต้องบันทึกให้ครบก่อน",
     );
     assert(produced(db, lotId) > 0, "ยังไม่มีผลผลิต");
@@ -1459,7 +1459,7 @@ export function mutate(
     if (kind !== "smoke") lot.stage++;
     else if (
       Math.abs(
-        n(lot.values, "preKg") - processed(db, lotId) - n(v, "inputKg"),
+        n(lot.values, "preSmokeKg") - processed(db, lotId) - n(v, "inputKg"),
       ) < 0.005
     )
       lot.stage = 5;
