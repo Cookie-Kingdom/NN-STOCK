@@ -2,11 +2,13 @@
 import { useSyncExternalStore } from "react";
 import { branches, seed, type Database } from "./store";
 import { saveLegacyDataUrl } from "./attachment-store";
+import { LOCAL_DB, localAccountId } from "./local-db";
 import { createClient } from "./supabase/browser";
 
 type StoredDatabase = Partial<Database>;
 type AppStateRow = { payload: StoredDatabase; revision: number };
-const supabase = createClient();
+type RowResult = { data: AppStateRow | null; error: { message: string } | null };
+const supabase = LOCAL_DB ? null : createClient();
 const listeners = new Set<() => void>();
 let revision: number | null = null;
 let writeQueue = Promise.resolve();
@@ -38,12 +40,31 @@ const notify = () => listeners.forEach((listener) => listener());
 function reportError(message: string) {
   window.dispatchEvent(new CustomEvent("database-error", { detail: message }));
 }
+/** POST/GET /api/local-db, shaped like a Supabase result. */
+async function localRequest(init?: RequestInit): Promise<RowResult> {
+  try {
+    const response = await fetch("/api/local-db", init);
+    const body = await response.json();
+    return response.ok ? { data: body, error: null } : { data: null, error: { message: body.message } };
+  } catch (error) {
+    return { data: null, error: { message: (error as Error).message } };
+  }
+}
+function readRow(): PromiseLike<RowResult> {
+  if (!supabase) return localRequest();
+  return supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>();
+}
+function saveRow(payload: Database, expectedRevision: number | null): PromiseLike<RowResult> {
+  if (!supabase) return localRequest({ method: "POST", body: JSON.stringify({ payload, expectedRevision }) });
+  return supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
+    .then(({ data, error }) => ({ data: (data as AppStateRow[] | null)?.[0] ?? null, error }));
+}
 async function loadDatabase() {
-  const { data, error } = await supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>();
+  const { data, error } = await readRow();
   if (error) return reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
   if (!data) {
-    const created = await supabase.rpc("save_app_state", { p_payload: initialDatabase, p_expected_revision: null });
-    const row = (created.data as AppStateRow[] | null)?.[0];
+    const created = await saveRow(initialDatabase, null);
+    const row = created.data;
     if (created.error) return reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
     if (row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; notify(); }
     return;
@@ -53,11 +74,18 @@ async function loadDatabase() {
   notify();
 }
 
-void supabase.auth.getSession().then(({ data }) => { if (data.session) void loadDatabase(); });
-supabase.auth.onAuthStateChange((event) => {
+function onAuthEvent(event: string) {
   if (event === "SIGNED_IN") void loadDatabase();
   if (event === "SIGNED_OUT") { cached = initialDatabase; revision = null; notify(); }
-});
+}
+if (supabase) {
+  void supabase.auth.getSession().then(({ data }) => { if (data.session) void loadDatabase(); });
+  supabase.auth.onAuthStateChange(onAuthEvent);
+} else if (typeof window !== "undefined") {
+  // session.ts dispatches these in local mode.
+  window.addEventListener("local-auth", (event) => onAuthEvent((event as CustomEvent<string>).detail));
+  if (localAccountId()) void loadDatabase();
+}
 
 export function useDatabase() {
   return useSyncExternalStore(
@@ -71,13 +99,12 @@ export function saveDatabase(db: Database) {
   cached = portable;
   notify();
   writeQueue = writeQueue.then(async () => {
-    const { data, error } = await supabase.rpc("save_app_state", { p_payload: portable, p_expected_revision: revision });
+    const { data: row, error } = await saveRow(portable, revision);
     if (error) {
       await loadDatabase();
       reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
       return;
     }
-    const row = (data as AppStateRow[] | null)?.[0];
     if (row) revision = row.revision;
   });
 }

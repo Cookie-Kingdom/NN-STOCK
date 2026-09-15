@@ -3,10 +3,11 @@
  * not wired anywhere in this project. */
 
 function required(name: string, value: string | undefined): string {
-  if (!value) {
+  // Local SQLite test mode (lib/local-db.ts) never creates a Supabase client.
+  if (!value && process.env.NEXT_PUBLIC_LOCAL_DB !== "1") {
     throw new Error(`Missing environment variable ${name}. Set it in .env.local.`);
   }
-  return value;
+  return value ?? "";
 }
 
 export const SUPABASE_URL = required(

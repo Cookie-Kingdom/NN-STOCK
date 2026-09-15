@@ -18,6 +18,9 @@
 /summary.png
 /test-cases.png
 
+# local SQLite test database (NEXT_PUBLIC_LOCAL_DB=1)
+/.local/
+
 # next.js
 /.next/
 /out/

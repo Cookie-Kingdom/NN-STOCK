@@ -36,6 +36,9 @@ export const BRANCH_ACCOUNTS = {
 } as const satisfies Record<string, AccountKey>;
 
 function credentialsFor(account: AccountKey) {
+  // Local SQLite mode (pnpm test:e2e:local) signs in by account id, any password.
+  if (process.env.NEXT_PUBLIC_LOCAL_DB === "1")
+    return { email: `${account}@local.test`, password: "local-test" };
   const prefix = `E2E_${ACCOUNT_ENV[account]}`;
   const email = process.env[`${prefix}_EMAIL`];
   const password = process.env[`${prefix}_PASSWORD`];
@@ -200,16 +203,17 @@ export async function signInAs(page: Page, account: AccountKey) {
   await expect(signOut).toBeVisible({ timeout: 30_000 });
 }
 
-/** Replaces the database with the seven-day sample set, from the owner's own
- * reset dialog. Requires the owner to be signed in. */
+/** Replaces the database with the seven-day sample set. The owner's reset button
+ * went away when data moved to Supabase (9bc718d), so this writes straight into the
+ * local SQLite backend (pnpm test:e2e:local) and skips the test anywhere else.
+ * The data shows up from the next sign-in. */
 export async function loadSampleData(page: Page) {
-  await button(page, "รีเซ็ตข้อมูล");
-  await pointAndClick(
-    page,
-    page.getByRole("button", { name: "ข้อมูลตัวอย่าง 7 วัน" }),
+  test.skip(
+    process.env.NEXT_PUBLIC_LOCAL_DB !== "1",
+    "sample data loads only in local SQLite mode (pnpm test:e2e:local)",
   );
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("status")).toContainText("ข้อมูลตัวอย่าง");
+  const response = await page.request.put("/api/local-db");
+  expect(response.ok(), `PUT /api/local-db → ${response.status()}`).toBe(true);
 }
 
 /* ---- pipeline steps, so a role spec can build the state it needs ---------- */
