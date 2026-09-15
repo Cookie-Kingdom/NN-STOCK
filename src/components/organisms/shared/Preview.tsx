@@ -123,7 +123,10 @@ export function Preview({
         `${fmt(n(entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
       ],
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
-      ["ส่วนต่าง", `${fmt(n(v, "centralKg") - produced(db, lot.id))} กก.`],
+      [
+        "ส่วนต่าง (ก่อน−หลัง สโมค)",
+        `${fmt(n(lot.values, "preKg") - produced(db, lot.id))} กก.`,
+      ],
     ];
   if (kind === "sale" && lot) {
     const expected = (n(v, "boxes") + n(v, "addons")) * n(db.config, "packKg");
