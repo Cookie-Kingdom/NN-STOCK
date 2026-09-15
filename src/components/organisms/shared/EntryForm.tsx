@@ -8,17 +8,21 @@ import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
+import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
+import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
+import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, forms } from "@/lib/forms";
 import { latestDatabase, migrateLegacyAttachments } from "@/lib/persistence";
+import { prefillValues } from "@/lib/prefill";
 import {
   balance,
   centralBagStock,
@@ -27,8 +31,6 @@ import {
   entries,
   mutate,
   n,
-  produced,
-  readyForChefHouse,
   roleName,
   stages,
   titles,
@@ -183,34 +185,13 @@ export function EntryForm({
 }) {
   const kind = modal.kind;
   const [values, setValues] = useState<Values>(() => {
-    const base = kind === "config" ? { ...db.config } : defaults(kind, date);
+    if (kind === "config") return { ...db.config };
     const modalLot = db.lots.find((item) => item.id === modal.lotId);
+    const base = {
+      ...defaults(kind, date),
+      ...prefillValues(db, kind, modalLot),
+    };
     if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
-    if (kind === "dispatch" && modalLot)
-      Object.assign(base, {
-        dispatchKg: String(readyForChefHouse(db, modalLot.id)),
-        origin: "Foodiva · กรุงเทพฯ",
-        destination: "Chef_house · เชียงใหม่",
-      });
-    if (kind === "smokeOrder" && modalLot)
-      Object.assign(base, {
-        rawKg: String(readyForChefHouse(db, modalLot.id)),
-      });
-    if (kind === "return" && modalLot)
-      Object.assign(base, {
-        returnKg: String(produced(db, modalLot.id)),
-        origin: "Chef_house · เชียงใหม่",
-        destination: "Foodiva · กรุงเทพฯ",
-      });
-    if (kind === "purchase")
-      Object.assign(base, {
-        customerName: db.config.companyName || "",
-        customerAddress: db.config.companyAddress || "",
-        attention: db.config.attention || "",
-        phone: db.config.companyPhone || "",
-        taxId: db.config.taxId || "",
-        productName: "เนื้อวัว",
-      });
     return base;
   });
   const [lotId, setLotId] = useState(modal.lotId);
@@ -225,15 +206,21 @@ export function EntryForm({
         entries(db, "allocate", l.id, db.config.branch).length),
   );
   const allocations = entries(db, "allocate", lotId, db.config.branch)
-    .map((e) => ({
-      entry: e,
-      outstanding:
-        n(e.values, "kg") -
-        entries(db, "receive", lotId, db.config.branch)
-          .filter((r) => r.values.allocation === e.id)
-          .reduce((s, r) => s + n(r.values, "kg"), 0),
-    }))
+    .map((e) => {
+      const received = entries(db, "receive", lotId, db.config.branch).filter(
+        (r) => r.values.allocation === e.id,
+      );
+      const left = (key: string) =>
+        n(e.values, key) - received.reduce((s, r) => s + n(r.values, key), 0);
+      return {
+        entry: e,
+        outstanding: left("kg"),
+        outstandingBags: left("bags"),
+      };
+    })
     .filter((a) => a.outstanding > 0.001);
+  const reference =
+    lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
     if (kind === "supplyPurchase" || kind === "ricePurchase")
@@ -355,7 +342,15 @@ export function EntryForm({
                 <Select
                   required
                   value={values.allocation || ""}
-                  onChange={(e) => set("allocation", e.target.value)}
+                  onChange={(e) => {
+                    const picked = allocations.find(
+                      (a) => a.entry.id === e.target.value,
+                    );
+                    set("allocation", e.target.value);
+                    // Bag count only: the kg is weighed at the branch.
+                    if (picked && picked.outstandingBags > 0)
+                      set("bags", String(picked.outstandingBags));
+                  }}
                 >
                   <option value="">เลือกใบจัดสรร</option>
                   {allocations.map((a) => (
@@ -428,6 +423,24 @@ export function EntryForm({
                 />
               )}
             </div>
+            {reference && (
+              <ReferenceCard
+                title={reference.title}
+                number={reference.number}
+                rows={reference.rows.filter(([label]) =>
+                  reference.summary.includes(label),
+                )}
+                action={
+                  <DocumentPrintButton
+                    title={reference.title}
+                    number={reference.number}
+                    rows={reference.rows}
+                    label="ดูเอกสาร"
+                    preview
+                  />
+                }
+              />
+            )}
             {!isPurchaseOrder && kind !== "cmReceive" && (
               <Preview db={db} lot={lot} kind={kind} v={values} />
             )}
