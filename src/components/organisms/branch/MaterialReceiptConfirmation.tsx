@@ -57,6 +57,7 @@ export function MaterialReceiptConfirmation({
         },
         "",
         date,
+        branch,
       );
     });
     if (next) setMessage(`ยืนยันรับ ${transfer.values.material} แล้ว`);

@@ -32,10 +32,9 @@ export type Setup = {
   readonly db: Database;
 };
 
-/** A seed database with material pars set, plus `run` that applies `mutate` on `day`. */
+/** A seed database with material pars set, plus `run` that applies `mutate` on `day` as a `branch` account. */
 export function setup(branch = seed.config.branch): Setup {
   let db = structuredClone(seed);
-  db.config.branch = branch;
   for (let index = 0; index < materials.length; index++) {
     db.config[`material${index}_saladaeng`] = "100";
     db.config[`materialPrice${index}_saladaeng`] = "1";
@@ -44,7 +43,7 @@ export function setup(branch = seed.config.branch): Setup {
   }
   return {
     run: (role, kind, values = {}, lotId = db.lots[0]?.id || "") =>
-      (db = mutate(db, role, kind, values, lotId, day)),
+      (db = mutate(db, role, kind, values, lotId, day, branch)),
     get db() {
       return db;
     },

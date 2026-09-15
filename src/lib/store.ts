@@ -181,8 +181,9 @@ function roleplay(endDate: string, dayCount: number): Database {
     db.config[`materialPrice${index}`] = "1";
   }
   let currentDate = dates[0];
+  let currentBranch = branches[0];
   const run = (role: Role, kind: string, values: Values, lotId = "") => {
-    db = mutate(db, role, kind, values, lotId, currentDate);
+    db = mutate(db, role, kind, values, lotId, currentDate, currentBranch);
   };
   const packs = Array.from({ length: packCount }, () => "0.100").join("\n");
   run("owner", "generalPurchase", {
@@ -263,7 +264,7 @@ function roleplay(endDate: string, dayCount: number): Database {
       reference: `MATERIAL-DEMO-${materials.indexOf(material) + 1}`,
     });
     for (const branch of branches) {
-      db.config.branch = branch;
+      currentBranch = branch;
       run("owner", "materialTransfer", {
         material,
         branch,
@@ -281,7 +282,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   for (const [dayIndex, workDate] of dates.entries()) {
     currentDate = workDate;
     for (const branch of branches) {
-      db.config.branch = branch;
+      currentBranch = branch;
       const materialValues = Object.fromEntries(
         materials.flatMap((_, index) => {
           const opening = branchMaterialStock(db, branch, index, workDate);
@@ -345,7 +346,6 @@ function roleplay(endDate: string, dayCount: number): Database {
       run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแลทดสอบ" });
     }
   }
-  db.config.branch = "ศาลาแดง";
   return db;
 }
 
@@ -643,13 +643,13 @@ export function smokingInvoiceStatus(db: Database, invoice: Entry) {
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
-export function visibleEntries(db: Database, role: Role) {
+/** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
+export function visibleEntries(db: Database, role: Role, branch?: string) {
   return db.entries
     .filter(
       (e) =>
         role === "owner" ||
-        (e.role === role &&
-          (role !== "branch" || e.branch === db.config.branch)),
+        (e.role === role && (role !== "branch" || e.branch === branch)),
     )
     .map((e) =>
       role === "owner"
@@ -738,6 +738,8 @@ export function mutate(
   input: Values,
   lotId: string,
   date: string,
+  /** The acting branch account's branch. Required for role "branch"; never taken from config. */
+  actorBranch = "",
 ): Database {
   assert(ownership[kind] === role, "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
   assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
@@ -745,7 +747,7 @@ export function mutate(
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
   const branch =
-    role === "branch" ? db.config.branch : v.branch || db.config.branch;
+    role === "branch" ? actorBranch : v.branch || db.config.branch;
   for (const key of ["arrival", "time", "closeTime", "pickupTime", "dispatchTime"]) {
     if (key in v)
       assert(
@@ -753,11 +755,13 @@ export function mutate(
         "กรอกเวลาเป็น HH:mm เช่น 08:00",
       );
   }
-  if (role === "branch")
+  if (role === "branch") {
+    assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
     assert(
       !isClosed(db, branch, date),
       "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
     );
+  }
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate")
     assert(

@@ -175,9 +175,12 @@ export function EntryForm({
   modal,
   onClose,
   onSaved,
+  branch,
 }: {
   db: Database;
   role: Role;
+  /** The workspace branch: the branch account's own, or config.branch for other roles. */
+  branch: string;
   date: string;
   modal: Modal;
   onClose: () => void;
@@ -202,12 +205,11 @@ export function EntryForm({
   const choices = db.lots.filter(
     (l) =>
       l.stage >= 8 &&
-      (role === "owner" ||
-        entries(db, "allocate", l.id, db.config.branch).length),
+      (role === "owner" || entries(db, "allocate", l.id, branch).length),
   );
-  const allocations = entries(db, "allocate", lotId, db.config.branch)
+  const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => {
-      const received = entries(db, "receive", lotId, db.config.branch).filter(
+      const received = entries(db, "receive", lotId, branch).filter(
         (r) => r.values.allocation === e.id,
       );
       const left = (key: string) =>
@@ -224,10 +226,10 @@ export function EntryForm({
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
     if (kind === "supplyPurchase" || kind === "ricePurchase")
-      return db.config.branch === "มีนบุรี"
+      return branch === "มีนบุรี"
         ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
         : !["cookedRiceKg", "cookedRiceCost"].includes(field.key);
-    if (kind === "supplyIssue" && db.config.branch === "มีนบุรี")
+    if (kind === "supplyIssue" && branch === "มีนบุรี")
       return field.key !== "rawRiceIssuedKg";
     return true;
   });
@@ -250,7 +252,7 @@ export function EntryForm({
       ? "สร้าง PO เนื้อ"
       : kind === "smokeOrder"
         ? "สร้าง PO โรงรมควัน"
-        : kind === "ricePurchase" && db.config.branch === "ศาลาแดง"
+        : kind === "ricePurchase" && branch === "ศาลาแดง"
           ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
           : titles[kind];
   async function submit(e: React.FormEvent) {
@@ -271,7 +273,7 @@ export function EntryForm({
         resolvedValues[`${key}StorageKey`] = await saveAttachment(file);
       }
       const current = await migrateLegacyAttachments(latestDatabase());
-      return mutate(current, role, kind, resolvedValues, lotId, date);
+      return mutate(current, role, kind, resolvedValues, lotId, date, branch);
     });
     if (saved) onSaved(saved);
   }
@@ -324,7 +326,7 @@ export function EntryForm({
                       {l.id} ·{" "}
                       {kind === "allocate"
                         ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} ถุงในคลังกลาง`
-                        : `${fmt(balance(db, l.id, db.config.branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, db.config.branch).ready)} พร้อมขาย`}
+                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} พร้อมขาย`}
                     </option>
                   ))}
                 </Select>
@@ -363,7 +365,7 @@ export function EntryForm({
               </FormField>
             )}
             {kind === "closeDay" && (
-              <DailySummary db={db} branch={db.config.branch} date={date} />
+              <DailySummary db={db} branch={branch} date={date} />
             )}
             {kind === "smoke" && (
               <Notice>
@@ -385,21 +387,20 @@ export function EntryForm({
               </Notice>
             )}
             {(kind === "supplyPurchase" || kind === "ricePurchase") &&
-              db.config.branch === "มีนบุรี" && (
+              branch === "มีนบุรี" && (
                 <Notice>
-                  ข้าวเหนียวสุกคงเหลือ{" "}
-                  {fmt(cookedRiceStock(db, db.config.branch))} กก. ·
+                  ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
                   ควรซื้อเพิ่มอย่างน้อย{" "}
                   {fmt(
                     Math.max(
                       0,
                       n(db.config, "cookedRicePar") -
-                        cookedRiceStock(db, db.config.branch),
+                        cookedRiceStock(db, branch),
                     ),
                   )}{" "}
                   กก. เพื่อให้พร้อมขายไม่น้อยกว่า{" "}
                   {fmt(n(db.config, "cookedRicePar"))} กก.
-                  {cookedRiceStock(db, db.config.branch) <= 0.001
+                  {cookedRiceStock(db, branch) <= 0.001
                     ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
                     : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
                 </Notice>
@@ -442,7 +443,13 @@ export function EntryForm({
               />
             )}
             {!isPurchaseOrder && kind !== "cmReceive" && (
-              <Preview db={db} lot={lot} kind={kind} v={values} />
+              <Preview
+                db={db}
+                branch={branch}
+                lot={lot}
+                kind={kind}
+                v={values}
+              />
             )}
             <FormError error={error} />
           </DialogBody>

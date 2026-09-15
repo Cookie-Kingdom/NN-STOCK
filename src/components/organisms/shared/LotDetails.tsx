@@ -23,10 +23,13 @@ export function LotDetails({
   db,
   lot,
   role,
+  branch,
 }: {
   db: Database;
   lot: Lot;
   role: Role;
+  /** The branch account's own branch; only read when `role` is "branch". */
+  branch: string;
 }) {
   const output = produced(db, lot.id),
     c = lotCost(db, lot),
@@ -58,11 +61,11 @@ export function LotDetails({
           <>
             <Stat
               label="รับเข้าสาขา"
-              value={`${fmt(balance(db, lot.id, db.config.branch).received)} กก.`}
+              value={`${fmt(balance(db, lot.id, branch).received)} กก.`}
             />
             <Stat
               label="พร้อมขาย"
-              value={`${fmt(balance(db, lot.id, db.config.branch).ready)} กก.`}
+              value={`${fmt(balance(db, lot.id, branch).ready)} กก.`}
             />
           </>
         ) : (

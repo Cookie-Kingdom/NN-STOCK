@@ -66,7 +66,15 @@ export function DailyMaterialsTable({
         values["material" + i] = String(remaining(i));
         values["materialReason" + i] = draft["materialReason" + i] || "";
       });
-      return mutate(latestDatabase(), "branch", "materials", values, "", date);
+      return mutate(
+        latestDatabase(),
+        "branch",
+        "materials",
+        values,
+        "",
+        date,
+        branch,
+      );
     });
     if (next) setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
   }

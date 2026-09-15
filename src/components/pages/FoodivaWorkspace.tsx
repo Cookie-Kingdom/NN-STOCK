@@ -34,7 +34,12 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
       >
         {tab === "foodiva" && <FoodivaView db={db} open={ws.open} />}
         {tab === "history" && (
-          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+          <HistoryPanel
+            db={db}
+            role={ws.role}
+            branch={ws.branch}
+            onChanged={ws.setToast}
+          />
         )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />

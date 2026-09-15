@@ -214,13 +214,14 @@ describe("derived values from the entry log", () => {
     });
     const db = withEntries(sala, minburi, smoke);
     expect(visibleEntries(db, "owner")).toEqual(db.entries);
-    expect(visibleEntries(db, "branch")).toEqual([
+    expect(visibleEntries(db, "branch", "ศาลาแดง")).toEqual([
       { ...sala, values: { boxes: "1" } },
     ]);
     expect(visibleEntries(db, "cm")).toEqual([
       { ...smoke, values: { packs: "1" } },
     ]);
     expect(visibleEntries(db, "foodiva")).toEqual([]);
+    expect(visibleEntries(db, "branch")).toEqual([]);
   });
 
   test("revenue sums sales and material par falls back to branch-suffixed settings", () => {
@@ -278,6 +279,7 @@ describe("mutate guards", () => {
         { time: "25:00", confirm: "x" },
         "",
         day,
+        "ศาลาแดง",
       ),
     ).toThrow(/HH:mm/);
   });
@@ -297,7 +299,7 @@ describe("mutate guards", () => {
     const closed = withEntries(entry({ kind: "closeDay" }));
     const rice = { supplier: "x", rawRiceKg: "1", rawRiceCost: "1" };
     expect(() =>
-      mutate(closed, "branch", "ricePurchase", rice, "", day),
+      mutate(closed, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
     ).toThrow(/ปิดยอดแล้ว/);
     expect(() =>
       mutate(
@@ -319,7 +321,58 @@ describe("mutate guards", () => {
     );
     expect(isClosed(reopened, "ศาลาแดง", day)).toBe(false);
     expect(() =>
-      mutate(reopened, "branch", "ricePurchase", rice, "", day),
+      mutate(reopened, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
+    ).not.toThrow();
+  });
+
+  test("branch writes, day locks and history follow the signed-in branch, not config.branch", () => {
+    const db = structuredClone(seed);
+    expect(db.config.branch).toBe("ศาลาแดง");
+    const cookedRice = {
+      supplier: "x",
+      cookedRiceKg: "30",
+      cookedRiceCost: "1350",
+    };
+    const rawRice = { supplier: "x", rawRiceKg: "1", rawRiceCost: "1" };
+    expect(() =>
+      mutate(db, "branch", "ricePurchase", cookedRice, "", day),
+    ).toThrow(/ไม่พบสาขา/);
+    const next = mutate(
+      db,
+      "branch",
+      "ricePurchase",
+      cookedRice,
+      "",
+      day,
+      "มีนบุรี",
+    );
+    expect(next.entries[0].branch).toBe("มีนบุรี");
+    expect(visibleEntries(next, "branch", "มีนบุรี")).toHaveLength(1);
+    expect(visibleEntries(next, "branch", "ศาลาแดง")).toEqual([]);
+    const minburiClosed = withEntries(
+      entry({ kind: "closeDay", branch: "มีนบุรี" }),
+    );
+    expect(() =>
+      mutate(
+        minburiClosed,
+        "branch",
+        "ricePurchase",
+        cookedRice,
+        "",
+        day,
+        "มีนบุรี",
+      ),
+    ).toThrow(/ปิดยอดแล้ว/);
+    expect(() =>
+      mutate(
+        minburiClosed,
+        "branch",
+        "ricePurchase",
+        rawRice,
+        "",
+        day,
+        "ศาลาแดง",
+      ),
     ).not.toThrow();
   });
 
@@ -921,7 +974,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     /ปิดยอด/,
   );
   expect(
-    visibleEntries(s.db, "branch").every(
+    visibleEntries(s.db, "branch", "ศาลาแดง").every(
       (item) => !("meatCost" in item.values),
     ),
   ).toBe(true);
