@@ -60,7 +60,12 @@ export function ChefWorkspace({ account }: { account: Account }) {
           </>
         )}
         {tab === "history" && (
-          <HistoryPanel db={db} role={ws.role} onChanged={ws.setToast} />
+          <HistoryPanel
+            db={db}
+            role={ws.role}
+            branch={ws.branch}
+            onChanged={ws.setToast}
+          />
         )}
       </WorkspaceShell>
       <WorkspaceModals ws={ws} />

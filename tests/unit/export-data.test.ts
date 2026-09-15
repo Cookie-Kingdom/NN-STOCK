@@ -48,3 +48,10 @@ test("a branch downloads only its own entries without cost fields", async () => 
     entries: [{ ...sala, values: { boxes: "1" } }],
   });
 });
+
+test("a Min Buri export follows the account, not config.branch", async () => {
+  expect(db.config.branch).toBe("ศาลาแดง");
+  const { data } = await exportFor("minburi");
+  expect(data.branch).toBe("มีนบุรี");
+  expect(data.entries.map((item: Entry) => item.branch)).toEqual(["มีนบุรี"]);
+});

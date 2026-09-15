@@ -19,11 +19,13 @@ import { fmt } from "@/lib/format";
 
 export function Preview({
   db,
+  branch,
   lot,
   kind,
   v,
 }: {
   db: Database;
+  branch: string;
   lot?: Lot;
   kind: string;
   v: Values;
@@ -133,17 +135,14 @@ export function Preview({
       ["น้ำหนักตามจำนวนขาย", `${fmt(expected)} กก.`],
       [
         "พร้อมขายหลังรายการนี้",
-        `${fmt(balance(db, lot.id, db.config.branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
+        `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
       ],
       ["ข้าวที่จะหัก", `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`],
-      [
-        "น้ำพริกก่อนขาย",
-        `${fmt(chiliStock(db, db.config.branch))} หลอดที่ Owner จัดสรร`,
-      ],
+      ["น้ำพริกก่อนขาย", `${fmt(chiliStock(db, branch))} หลอดที่ Owner จัดสรร`],
       ["น้ำพริกที่จะหัก", `${n(v, "chiliAddons")} หลอดที่ลูกค้าซื้อ`],
       [
         "น้ำพริกควรเหลือ",
-        `${fmt(chiliStock(db, db.config.branch) - n(v, "chiliAddons"))} หลอด`,
+        `${fmt(chiliStock(db, branch) - n(v, "chiliAddons"))} หลอด`,
       ],
     ];
   }

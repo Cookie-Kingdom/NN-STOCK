@@ -23,6 +23,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   const {
     db,
     role,
+    branch,
     date,
     modal,
     setModal,
@@ -106,6 +107,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       key={`${modal.kind}-${modal.lotId}`}
       db={db}
       role={role}
+      branch={branch}
       date={date}
       modal={modal}
       onClose={close}

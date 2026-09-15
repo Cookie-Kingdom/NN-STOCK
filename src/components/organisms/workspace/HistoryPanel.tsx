@@ -9,13 +9,15 @@ import { type Database, type Role, visibleEntries } from "@/lib/store";
 export function HistoryPanel({
   db,
   role,
+  branch,
   onChanged,
 }: {
   db: Database;
   role: Role;
+  branch: string;
   onChanged: (message: string) => void;
 }) {
-  const list = visibleEntries(db, role);
+  const list = visibleEntries(db, role, branch);
   return (
     <Panel>
       <h2 className="mb-3 text-h2">ประวัติรายการที่บันทึก</h2>
