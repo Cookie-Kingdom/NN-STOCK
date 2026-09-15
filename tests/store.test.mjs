@@ -57,7 +57,7 @@ function setup(branch = seed.config.branch) {
 /** Purchase through a paid smoking invoice: everything dispatch waits for. */
 function readyToDispatch(s, kg) {
   s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price: "250" });
-  s.run("fooddiva", "foodDivaConfirm", {
+  s.run("foodiva", "foodivaConfirm", {
     invoiceNo: "INV-1",
     invoiceDate: day,
     attachment: "inv.pdf",
@@ -126,7 +126,7 @@ function ready() {
     driverPhone: "0800000000",
     returnKg: "36",
   });
-  s.run("fooddiva", "foodDivaReturnReceive", {
+  s.run("foodiva", "foodivaReturnReceive", {
     receivedDate: day,
     receivedTime: "10:00",
     receivedKg: "36",
@@ -433,9 +433,9 @@ test("prefilled weights and amounts pass mutate as-is; receiving weights stay bl
   const lot = () => s.db.lots[0];
   const prefill = (kind) => prefillValues(s.db, kind, lot());
   s.run("owner", "purchase", { ...purchaseInfo, orderedKg: "40", price: "250" });
-  const confirm = prefill("foodDivaConfirm");
+  const confirm = prefill("foodivaConfirm");
   assert.equal(confirm.invoiceAmount, "10000");
-  s.run("fooddiva", "foodDivaConfirm", { ...confirm, invoiceNo: "INV-1", invoiceDate: day, attachment: "inv.pdf", confirmedBy: "Foodiva" });
+  s.run("foodiva", "foodivaConfirm", { ...confirm, invoiceNo: "INV-1", invoiceDate: day, attachment: "inv.pdf", confirmedBy: "Foodiva" });
   s.run("owner", "smokeOrder", { ...prefill("smokeOrder"), requestedSmokeDate: day });
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
   s.run("cm", "smokingInvoice", { invoiceNumber: "CH-1", invoiceDate: day, attachment: "ch.pdf" });

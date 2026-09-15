@@ -15,8 +15,8 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
 
   const openTasks = db.lots.filter(
     (lot) =>
-      !entries(db, "foodDivaConfirm", lot.id).length ||
-      (lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length),
+      !entries(db, "foodivaConfirm", lot.id).length ||
+      (lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length),
   ).length;
 
   return (

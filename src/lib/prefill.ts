@@ -14,7 +14,7 @@ const truckKeys = ["vehicleType", "plate", "driverName", "driverPhone"];
 /**
  * Starting values for a lot form, taken from documents already on the lot.
  * The user can change every one of them and `mutate` still validates the result.
- * ponytail: scale weights at receiving (cmReceive, foodDivaReturnReceive, central, receive kg)
+ * ponytail: scale weights at receiving (cmReceive, foodivaReturnReceive, central, receive kg)
  * stay blank on purpose, so the variance against the sender is a real reading.
  */
 export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
@@ -28,7 +28,7 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
       productName: "เนื้อวัว",
     };
   if (!lot) return {};
-  if (kind === "foodDivaConfirm") {
+  if (kind === "foodivaConfirm") {
     const kg = n(lot.values, "orderedKg");
     return {
       confirmedKg: String(kg),
@@ -66,7 +66,7 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
       destination: "Foodiva · กรุงเทพฯ",
     };
   }
-  if (kind === "foodDivaReturnReceive")
+  if (kind === "foodivaReturnReceive")
     return { receivedBags: String(producedBags(db, lot.id)) };
   return {};
 }

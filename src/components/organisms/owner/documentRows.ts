@@ -44,7 +44,7 @@ export function transportDocumentRows(
   ];
 }
 
-/** Foodiva meat invoice (`foodDivaConfirm` entry). */
+/** Foodiva meat invoice (`foodivaConfirm` entry). */
 export function foodivaInvoiceRows(
   db: Database,
   lot: Lot,

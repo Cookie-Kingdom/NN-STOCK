@@ -371,7 +371,7 @@ export function EntryForm({
                 และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
               </Notice>
             )}
-            {kind === "foodDivaConfirm" && (
+            {kind === "foodivaConfirm" && (
               <Notice>
                 แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house
                 ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste)

@@ -26,7 +26,7 @@ export function useWorkspace(account: Account) {
   const lots = db.lots.filter(
     (l) =>
       role === "owner" ||
-      role === "fooddiva" ||
+      role === "foodiva" ||
       (role === "cm" &&
         (l.stage >= 2 || entries(db, "smokeOrder", l.id).length > 0)) ||
       (role === "branch" && entries(db, "allocate", l.id, branch).length > 0),

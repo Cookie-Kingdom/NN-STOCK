@@ -52,7 +52,7 @@ export function LotWorkflowAction({
 }) {
   const text = labels[context];
   if (lot.stage === 1) {
-    if (!entries(db, "foodDivaConfirm", lot.id).length)
+    if (!entries(db, "foodivaConfirm", lot.id).length)
       return <Badge tone="danger">รอ Foodiva ออก Invoice</Badge>;
     if (!entries(db, "smokeOrder", lot.id).length)
       return context === "purchase-order" ? (
@@ -99,7 +99,7 @@ export function LotWorkflowAction({
       </Button>
     );
   if (lot.stage < 6) return <>กำลังดำเนินงานที่ Chef_house</>;
-  if (lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length)
+  if (lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length)
     return <>รอ Foodiva รับเข้าตู้</>;
   return <>Foodiva รับเข้าตู้แล้ว</>;
 }

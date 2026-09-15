@@ -116,8 +116,7 @@ export function OwnerStockView({
     action?: ReactNode;
   }[] = [
     ...lots.flatMap((lot) => {
-      const invoiceConfirmed =
-        entries(db, "foodDivaConfirm", lot.id).length > 0;
+      const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
       const dispatched = n(
         entries(db, "dispatch", lot.id).at(-1)?.values || {},

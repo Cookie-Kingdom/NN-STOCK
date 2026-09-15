@@ -33,7 +33,7 @@ export function FoodivaView({
   );
   const returnWaiting = db.lots.filter(
     (lot) =>
-      lot.stage === 7 && !entries(db, "foodDivaReturnReceive", lot.id).length,
+      lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length,
   );
   return (
     <div className="grid gap-6">
@@ -68,7 +68,7 @@ export function FoodivaView({
         ]}
         rowKeys={db.lots.map((lot) => lot.id)}
         rows={db.lots.map((lot) => {
-          const confirm = entries(db, "foodDivaConfirm", lot.id).at(-1);
+          const confirm = entries(db, "foodivaConfirm", lot.id).at(-1);
           return [
             <strong key={lot.poId}>{lot.poId}</strong>,
             lot.id,
@@ -101,7 +101,7 @@ export function FoodivaView({
                 />
                 <Button
                   variant="table"
-                  onClick={() => open("foodDivaConfirm", lot.id)}
+                  onClick={() => open("foodivaConfirm", lot.id)}
                 >
                   ออกและอัปโหลด Invoice
                 </Button>
@@ -118,7 +118,7 @@ export function FoodivaView({
                 <Badge tone="success">แนบ Invoice แล้ว</Badge>
                 <Button
                   variant="table"
-                  onClick={() => open("foodDivaConfirm", lot.id)}
+                  onClick={() => open("foodivaConfirm", lot.id)}
                 >
                   แก้ไข / อัปโหลดใหม่
                 </Button>
@@ -151,7 +151,7 @@ export function FoodivaView({
             <Button
               key="receive"
               variant="table"
-              onClick={() => open("foodDivaReturnReceive", lot.id)}
+              onClick={() => open("foodivaReturnReceive", lot.id)}
             >
               ยืนยันรับเข้าตู้
             </Button>,

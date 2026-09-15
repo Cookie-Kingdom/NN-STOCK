@@ -25,10 +25,10 @@ export function referenceDocument(
   lot: Lot,
 ): ReferenceDocument | undefined {
   const latest = (k: string) => entries(db, k, lot.id).at(-1);
-  const foodInvoice = latest("foodDivaConfirm");
+  const foodInvoice = latest("foodivaConfirm");
   const order = latest("smokeOrder");
   const smokeInvoice = latest("smokingInvoice");
-  if (kind === "foodDivaConfirm")
+  if (kind === "foodivaConfirm")
     return {
       title: "Purchase Order",
       number: lot.poId,
@@ -76,7 +76,7 @@ export function referenceDocument(
   const direction =
     kind === "cmReceive"
       ? "outbound"
-      : kind === "foodDivaReturnReceive"
+      : kind === "foodivaReturnReceive"
         ? "return"
         : undefined;
   const trip =

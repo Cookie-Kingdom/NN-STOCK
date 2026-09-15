@@ -139,7 +139,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
             <tbody>
               {visibleLots.length ? (
                 visibleLots.map((lot) => {
-                  const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(
+                  const foodInvoice = entries(db, "foodivaConfirm", lot.id).at(
                     -1,
                   );
                   const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);

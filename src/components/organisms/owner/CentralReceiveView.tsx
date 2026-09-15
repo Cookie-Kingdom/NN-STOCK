@@ -25,7 +25,7 @@ export function CentralReceiveView({
 }) {
   const readyToReceive = db.lots.filter(
     (lot) =>
-      lot.stage === 7 && entries(db, "foodDivaReturnReceive", lot.id).length,
+      lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
   );
   return (
     <>
@@ -39,7 +39,7 @@ export function CentralReceiveView({
         rowKeys={readyToReceive.map((lot) => lot.id)}
         rows={readyToReceive.map((lot) => {
           const back = entries(db, "return", lot.id).at(-1);
-          const received = entries(db, "foodDivaReturnReceive", lot.id).at(-1);
+          const received = entries(db, "foodivaReturnReceive", lot.id).at(-1);
           return [
             lot.id,
             `${fmt(n(received?.values || {}, "receivedKg"))} กก.`,

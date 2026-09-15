@@ -1,6 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
-// ponytail: "fooddiva" and the foodDiva* entry/config keys are stored in app_state history (append-only), so they keep the old spelling; renaming them needs a payload migration.
-export type Role = "owner" | "fooddiva" | "cm" | "branch";
+export type Role = "owner" | "foodiva" | "cm" | "branch";
 export type Values = Record<string, string>;
 export type Entry = {
   id: string;
@@ -27,7 +26,7 @@ export type Database = {
 };
 export const roleName = {
   owner: "Owner",
-  fooddiva: "Foodiva",
+  foodiva: "Foodiva",
   cm: "Chef_house",
   branch: "ผู้ดูแลสาขา",
 };
@@ -84,8 +83,8 @@ export const titles: Record<string, string> = {
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
   invoicePayment: "ชำระ Invoice ค่ารมควัน",
   steakTransfer: "โอนเนื้อสดไปผลิต Steak",
-  foodDivaConfirm: "อัปโหลด Invoice เนื้อจาก Foodiva",
-  foodDivaReturnReceive: "ยืนยันรับเนื้อรมควันที่ Foodiva",
+  foodivaConfirm: "อัปโหลด Invoice เนื้อจาก Foodiva",
+  foodivaReturnReceive: "ยืนยันรับเนื้อรมควันที่ Foodiva",
   dispatch: "ส่งเนื้อไป Chef_house",
   cmReceive: "ยืนยันรับที่ Chef_house",
   prepare: "น้ำหนักก่อนสโมค",
@@ -145,8 +144,8 @@ export const seed: Database = {
     attention: "",
     companyPhone: "",
     taxId: "",
-    foodDivaContact: "",
-    foodDivaAddress: "",
+    foodivaContact: "",
+    foodivaAddress: "",
     chefHouseContact: "",
     chefHouseAddress: "",
     logoData: "",
@@ -209,7 +208,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     price: "250",
   });
   const lotId = db.lots[0].id;
-  run("fooddiva", "foodDivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, lotId);
+  run("foodiva", "foodivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, lotId);
   run("owner", "smokeOrder", { smoker: "Chef_house", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
   run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house Demo" }, lotId);
   run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef_house", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
@@ -238,7 +237,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   }, lotId);
   run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
   run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef_house · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
-  run("fooddiva", "foodDivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
+  run("foodiva", "foodivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
   const firstBags = availableBags(db, lotId);
   run("owner", "allocate", {
@@ -429,7 +428,7 @@ export function centralBagStock(db: Database, lotId: string) {
 export function rawAtFoodiva(db: Database, lot: Lot) {
   // A remainder lot is a transport child of the same PO, not a second purchase.
   if (lot.id.includes("-R")) return 0;
-  const confirmation = entries(db, "foodDivaConfirm", lot.id).at(-1);
+  const confirmation = entries(db, "foodivaConfirm", lot.id).at(-1);
   const invoicedKg = confirmation
     ? n(confirmation.values, "confirmedKg")
     : n(lot.values, "orderedKg");
@@ -441,14 +440,14 @@ export function rawAtFoodiva(db: Database, lot: Lot) {
   return Math.max(0, invoicedKg - smoker - steak - ownerReceived);
 }
 export function readyForChefHouse(db: Database, lotId: string) {
-  const confirmation = entries(db, "foodDivaConfirm", lotId).at(-1);
+  const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
   if (!confirmation) return 0;
   return confirmation.values.readyForChiangMaiKg !== undefined
     ? n(confirmation.values, "readyForChiangMaiKg")
     : n(confirmation.values, "confirmedKg");
 }
 export function reservedForOwnerContent(db: Database, lotId: string) {
-  const confirmation = entries(db, "foodDivaConfirm", lotId).at(-1);
+  const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
   return confirmation ? n(confirmation.values, "reservedForOwnerKg") : 0;
 }
 export function ownerWasteReceived(db: Database, lotId: string) {
@@ -675,8 +674,8 @@ const ownership: Record<string, Role> = {
   invoiceReview: "owner",
   invoicePayment: "owner",
   steakTransfer: "owner",
-  foodDivaConfirm: "fooddiva",
-  foodDivaReturnReceive: "fooddiva",
+  foodivaConfirm: "foodiva",
+  foodivaReturnReceive: "foodiva",
   dispatch: "owner",
   cmReceive: "cm",
   prepare: "cm",
@@ -809,7 +808,7 @@ export function mutate(
     positive(v, "amount", "ยอดเอกสาร", true);
     positive(v, "vat", "VAT", true);
   } else if (kind === "smokeOrder" && lot) {
-    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Foodiva ออก Invoice เนื้อก่อน");
+    assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ออก Invoice เนื้อก่อน");
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
     positive(v, "rawKg", "น้ำหนักเนื้อดิบ");
@@ -867,7 +866,7 @@ export function mutate(
     v.sourceLocation = "Foodiva / Raw Meat Storage";
     v.destinationLocation = "Steak Production";
     v.status = "Received";
-  } else if (kind === "foodDivaConfirm" && lot) {
+  } else if (kind === "foodivaConfirm" && lot) {
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "invoiceDate", "วันที่ Invoice");
     required(v, "attachment", "Invoice ที่แนบ");
@@ -887,7 +886,7 @@ export function mutate(
       n(v, "receivedKg") <= ownerWasteOutstanding(db, lotId) + 0.001,
       "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
-  } else if (kind === "foodDivaReturnReceive" && lot) {
+  } else if (kind === "foodivaReturnReceive" && lot) {
     assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef_house ก่อน");
     assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef_house → Foodiva");
     required(v, "receivedDate", "วันที่รับ");
@@ -897,7 +896,7 @@ export function mutate(
     assert(Number.isInteger(n(v, "receivedBags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
-    assert(entries(db, "foodDivaConfirm", lotId).length, "รอ Foodiva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
+    assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
     assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef_house ยืนยันรับ PO รมควันก่อนเรียกรถ");
     assert(entries(db, "smokingInvoice", lotId).some((invoice) => smokingInvoiceStatus(db, invoice) === "ชำระแล้ว"), "รอ Owner ตรวจยอดและชำระ Invoice ค่ารมควันก่อนเรียกรถ");
     positive(v, "dispatchKg", "น้ำหนักส่ง");
@@ -1034,9 +1033,9 @@ export function mutate(
     assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
     v.returnCost = lot.values.trip === "ไปกลับ" ? "0" : lot.config.returnFee;
   } else if (kind === "central" && lot) {
-    assert(entries(db, "foodDivaReturnReceive", lotId).length, "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน");
+    assert(entries(db, "foodivaReturnReceive", lotId).length, "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน");
     positive(v, "centralKg", "น้ำหนักรับกลาง");
-    variance(n(v, "centralKg"), n(entries(db, "foodDivaReturnReceive", lotId).at(-1)?.values || {}, "receivedKg"), v, false);
+    variance(n(v, "centralKg"), n(entries(db, "foodivaReturnReceive", lotId).at(-1)?.values || {}, "receivedKg"), v, false);
   } else if (kind === "allocate") {
     const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
     if (selectedBagIds.length) {

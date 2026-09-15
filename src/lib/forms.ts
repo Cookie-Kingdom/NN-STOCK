@@ -166,7 +166,7 @@ export const forms: Record<string, Field[]> = {
     text("transportInfo", "Transport / Delivery Information", true),
     note,
   ],
-  foodDivaConfirm: [
+  foodivaConfirm: [
     text("invoiceNo", "เลข Invoice เนื้อ"),
     date("invoiceDate", "วันที่ Invoice"),
     number("confirmedKg", "น้ำหนักตาม Invoice (กก.)"),
@@ -232,7 +232,7 @@ export const forms: Record<string, Field[]> = {
     number("returnKg", "น้ำหนักส่งจาก Chef_house (กก.)"),
     note,
   ],
-  foodDivaReturnReceive: [
+  foodivaReturnReceive: [
     date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน"),
     { key: "receivedTime", label: "เวลารับ", type: "time" },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),

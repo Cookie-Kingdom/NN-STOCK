@@ -49,7 +49,7 @@ export function TransportManifestView({
           const back = entries(db, "return", lot.id).at(-1);
           const outbound = entries(db, "dispatch", lot.id).at(-1);
           const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
-          const foodInvoice = entries(db, "foodDivaConfirm", lot.id).at(-1);
+          const foodInvoice = entries(db, "foodivaConfirm", lot.id).at(-1);
           const foodivaKg = n(foodInvoice?.values || {}, "confirmedKg");
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
           const difference = chefKg - foodivaKg;

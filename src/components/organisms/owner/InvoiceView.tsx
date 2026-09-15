@@ -59,7 +59,7 @@ export function InvoiceView({
   const [toDate, setToDate] = useState("");
   const matches = (lot: Lot | undefined) =>
     matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate);
-  const foodivaInvoices = entries(db, "foodDivaConfirm").filter((entry) =>
+  const foodivaInvoices = entries(db, "foodivaConfirm").filter((entry) =>
     matches(db.lots.find((lot) => lot.id === entry.lotId)),
   );
   const smokingInvoices = entries(db, "smokingInvoice").filter((entry) =>
