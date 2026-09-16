@@ -28,7 +28,7 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={ws.date}
         onDate={ws.setDate}
-        badges={{ foodiva: openTasks }}
+        badges={ws.loaded ? { foodiva: openTasks } : {}}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

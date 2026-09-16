@@ -39,7 +39,9 @@ export function ChefWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={ws.date}
         onDate={ws.setDate}
-        badges={{ "cm-receive": waitingReceipt, work: inProduction }}
+        badges={
+          ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
+        }
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

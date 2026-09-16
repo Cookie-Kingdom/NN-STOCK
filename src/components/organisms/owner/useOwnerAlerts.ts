@@ -17,6 +17,15 @@ import {
 
 export type OwnerNotification = { title: string; detail: string; tab: Tab };
 
+/** What the owner is shown before the first payload lands. Until then the UI is
+ * still on the seed, and a signal read off it is an alarm nobody can act on. */
+export const noOwnerAlerts = {
+  notifications: [] as OwnerNotification[],
+  missingMaterialSettings: 0,
+  returnReady: [] as Database["lots"],
+  badges: {} as Partial<Record<Tab, number>>,
+};
+
 /** Every "someone is waiting on the owner" signal, derived from lot state. */
 export function useOwnerAlerts(db: Database) {
   const missingMaterialSettings = materials.filter(

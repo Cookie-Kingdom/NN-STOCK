@@ -34,7 +34,11 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
 const initialDatabase = seed;
 export const demoInitialDatabase = initialDatabase;
 let cached = initialDatabase;
+/* The cache starts on the seed database, so anything derived from it before the
+ * first payload lands is demo data wearing the user's colours. */
+let loaded = false;
 const notify = () => listeners.forEach((listener) => listener());
+const subscribe = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); };
 
 /** Shown by DatabaseErrorToast in every workspace. */
 function reportError(message: string) {
@@ -66,17 +70,18 @@ async function loadDatabase() {
     const created = await saveRow(initialDatabase, null);
     const row = created.data;
     if (created.error) return reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
-    if (row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; notify(); }
+    if (row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; loaded = true; notify(); }
     return;
   }
   cached = normalize(data.payload, initialDatabase);
   revision = data.revision;
+  loaded = true;
   notify();
 }
 
 function onAuthEvent(event: string) {
   if (event === "SIGNED_IN") void loadDatabase();
-  if (event === "SIGNED_OUT") { cached = initialDatabase; revision = null; notify(); }
+  if (event === "SIGNED_OUT") { cached = initialDatabase; revision = null; loaded = false; notify(); }
 }
 if (supabase) {
   void supabase.auth.getSession().then(({ data }) => { if (data.session) void loadDatabase(); });
@@ -87,12 +92,13 @@ if (supabase) {
   if (localAccountId()) void loadDatabase();
 }
 
+/** False until the server payload has replaced the seed. Anything that tells the
+ * user someone is waiting on them should stay quiet until this is true. */
+export function useDatabaseLoaded() {
+  return useSyncExternalStore(subscribe, databaseLoaded, () => false);
+}
 export function useDatabase() {
-  return useSyncExternalStore(
-    (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
-    () => cached,
-    () => initialDatabase,
-  );
+  return useSyncExternalStore(subscribe, () => cached, () => initialDatabase);
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
 export function saveDatabase(db: Database): Promise<boolean> {
@@ -124,3 +130,4 @@ export async function migrateLegacyAttachments(db: Database): Promise<Database> 
   return changed ? { ...db, entries } : db;
 }
 export function latestDatabase() { return cached; }
+export function databaseLoaded() { return loaded; }

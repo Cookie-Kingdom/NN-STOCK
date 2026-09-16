@@ -18,7 +18,10 @@ import { Report } from "@/components/organisms/owner/Report";
 import { SimpleTraceabilityView } from "@/components/organisms/owner/SimpleTraceabilityView";
 import { SmokingPurchaseOrderView } from "@/components/organisms/owner/SmokingPurchaseOrderView";
 import { TransportManifestView } from "@/components/organisms/owner/TransportManifestView";
-import { useOwnerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
+import {
+  noOwnerAlerts,
+  useOwnerAlerts,
+} from "@/components/organisms/owner/useOwnerAlerts";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
 import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
@@ -33,7 +36,8 @@ export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, date, open, setTab, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
-  const alerts = useOwnerAlerts(db);
+  const everyAlert = useOwnerAlerts(db);
+  const alerts = ws.loaded ? everyAlert : noOwnerAlerts;
 
   return (
     <>

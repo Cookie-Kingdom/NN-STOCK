@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
+  databaseLoaded,
   latestDatabase,
   migrateLegacyAttachments,
   saveDatabase,
@@ -53,6 +54,14 @@ beforeEach(() => {
   mocks.rpc.mockReset();
   mocks.saveLegacyDataUrl.mockReset();
   mocks.authEvent("SIGNED_OUT");
+});
+
+test("nothing counts as loaded until a payload has landed", async () => {
+  expect(databaseLoaded()).toBe(false);
+  await signInWithRow({ revision: 1, payload: seed });
+  expect(databaseLoaded()).toBe(true);
+  mocks.authEvent("SIGNED_OUT");
+  expect(databaseLoaded()).toBe(false);
 });
 
 test("loading migrates an older payload into the current shape", async () => {
