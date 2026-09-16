@@ -5,13 +5,14 @@ import { startTransition, useOptimistic, useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import type { Modal, Tab } from "@/lib/nav";
-import { useDatabase } from "@/lib/persistence";
+import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
 import { entries, isClosed } from "@/lib/store";
 
 /** State every workspace needs: the database, which day is being worked on,
  * which lots this account may see, and the open dialog. */
 export function useWorkspace(account: Account) {
   const db = useDatabase();
+  const loaded = useDatabaseLoaded();
   const router = useRouter();
   // The tab is the URL segment under the role's layout: /owner/po → "po".
   const segment = (useSelectedLayoutSegment() as Tab | null) ?? account.homeTab;
@@ -47,6 +48,7 @@ export function useWorkspace(account: Account) {
 
   return {
     db,
+    loaded,
     role,
     branch,
     tab,
