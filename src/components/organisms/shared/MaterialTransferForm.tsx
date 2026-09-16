@@ -20,9 +20,9 @@ import {
 } from "@/lib/store";
 
 const key = (index: number, branch: string) => `${index}-${branch}`;
-const cell = "border-b border-border px-4.5 py-3.5 align-middle";
+const cell = "border-b border-border px-4.5 py-3.5 align-middle max-md:px-2.5";
 const headCell =
-  "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary";
+  "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
 
 export function MaterialTransferForm({
   db,
@@ -95,7 +95,7 @@ export function MaterialTransferForm({
             ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน
             สามารถเลือกหลายรายการและบันทึกพร้อมกันได้
           </Notice>
-          <div className="mt-5.5 mb-7 max-w-full overflow-auto rounded-lg border border-border bg-surface">
+          <div className="mt-5.5 mb-7 max-w-full overflow-auto overscroll-x-contain rounded-lg border border-border bg-surface">
             <table className="w-full table-fixed border-separate border-spacing-0 [&_tbody_tr:last-child_td]:border-b-0">
               <thead>
                 <tr>
@@ -121,7 +121,7 @@ export function MaterialTransferForm({
                       const field = key(index, branch);
                       return (
                         <td key={branch} className={cell}>
-                          <div className="grid grid-cols-[24px_minmax(100px,1fr)] items-center gap-3">
+                          <div className="grid grid-cols-[24px_minmax(100px,1fr)] items-center gap-3 max-md:grid-cols-[20px_minmax(48px,1fr)] max-md:gap-1.5">
                             <input
                               type="checkbox"
                               className="size-4.5"
@@ -141,7 +141,7 @@ export function MaterialTransferForm({
                               step="1"
                               placeholder="จำนวน"
                               aria-label={`จำนวน ${material} ไป${branch}`}
-                              className="mt-0 min-h-10.5 px-2.75 py-2.25"
+                              className="mt-0 min-h-10.5 px-2.75 py-2.25 max-md:px-1.5"
                               disabled={!checked[field]}
                               value={quantities[field] || ""}
                               onChange={(event) =>

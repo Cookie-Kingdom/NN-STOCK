@@ -38,14 +38,17 @@ export function DataTable({
       actions={action}
       className={className}
     >
-      <div className="max-w-full overflow-auto">
-        <table className="w-full min-w-162.5 border-separate border-spacing-0 tabular-nums">
+      <div className="max-w-full overflow-auto overscroll-x-contain">
+        {/* No 650px floor on phones: headers are `whitespace-nowrap`, so the table
+            still cannot crush, and a narrow one (3–4 columns) then fits the screen
+            instead of panning sideways inside the vertical scroll. */}
+        <table className="w-full min-w-162.5 border-separate border-spacing-0 tabular-nums max-md:min-w-0">
           <thead>
             <tr>
               {columns.map((column, index) => (
                 <th
                   key={`${index}-${column}`}
-                  className="sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary not-first:text-right"
+                  className="sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary not-first:text-right max-md:px-2.5"
                 >
                   {column}
                 </th>
@@ -62,7 +65,7 @@ export function DataTable({
                   {row.map((cell, j) => (
                     <td
                       key={j}
-                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body-sm whitespace-nowrap not-first:text-right"
+                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body-sm whitespace-nowrap not-first:text-right max-md:px-2.5"
                     >
                       {cell}
                     </td>
