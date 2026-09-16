@@ -21,6 +21,7 @@ const reversibleKinds = [
   "rice",
   "riceCarry",
   "sale",
+  "influencerBox",
   "materials",
   "materialReceive",
   "generalPurchase",

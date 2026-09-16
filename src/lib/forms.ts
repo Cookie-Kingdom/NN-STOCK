@@ -367,6 +367,15 @@ export const forms: Record<string, Field[]> = {
     reason,
     note,
   ],
+  influencerBox: [
+    text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง"),
+    number("boxes", "กล่องมาตรฐานที่ส่ง · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
+    number("addons", "เนื้อซีลเพิ่ม (แพ็ก)", true, true),
+    number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
+    number("soldKg", "น้ำหนักเนื้อที่ส่งจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
+    number("shippingFee", "ค่าส่ง (บาท)", true),
+    note,
+  ],
   materials: materials.map((m, i) =>
     number("material" + i, m + " (ชิ้น)", true, true),
   ),

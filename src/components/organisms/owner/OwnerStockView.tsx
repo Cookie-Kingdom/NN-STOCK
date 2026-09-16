@@ -227,7 +227,7 @@ export function OwnerStockView({
         location: branchName,
         quantity: fmt(chiliStock(db, branchName)),
         unit: "หลอด",
-        detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ขายแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
+        detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
       },
     ]),
     ...accountingItems.map((item) => {

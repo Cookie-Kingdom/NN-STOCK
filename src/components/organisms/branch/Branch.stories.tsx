@@ -52,7 +52,7 @@ export const SalesTasks: Story = {
   render: () => (
     <DailyTaskTable
       title="ยอดขายและปิดวัน (Sales & day close)"
-      kinds={["sale", "closeDay"]}
+      kinds={["sale", "influencerBox", "closeDay"]}
       db={db}
       branch={branch}
       date={day}

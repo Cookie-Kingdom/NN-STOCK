@@ -103,14 +103,23 @@ export function OwnerDashboard({
     (total, entry) => total + n(entry.values, "revenue"),
     0,
   );
-  const meatAndBranchCost = sales.reduce(
-    (total, entry) =>
-      total +
-      n(entry.values, "meatCost") +
-      n(entry.values, "wasteCost") +
-      n(entry.values, "expense"),
-    0,
-  );
+  /** Meat that left the shelf plus the postage paid to send it. */
+  const giveawayCost = (rows: Entry[]) =>
+    rows.reduce(
+      (total, entry) =>
+        total + n(entry.values, "meatCost") + n(entry.values, "shippingFee"),
+      0,
+    );
+  const influencerBoxes = entries(db, "influencerBox").filter(withinRange);
+  const meatAndBranchCost =
+    sales.reduce(
+      (total, entry) =>
+        total +
+        n(entry.values, "meatCost") +
+        n(entry.values, "wasteCost") +
+        n(entry.values, "expense"),
+      0,
+    ) + giveawayCost(influencerBoxes);
   const supplyCost = [
     ...entries(db, "supplyPurchase"),
     ...entries(db, "ricePurchase"),
@@ -262,14 +271,15 @@ export function OwnerDashboard({
   ];
   const branchCostCharts = branches.map((branchName) => {
     const branchSales = sales.filter((entry) => entry.branch === branchName);
-    const meat = branchSales.reduce(
-      (total, entry) =>
-        total +
-        n(entry.values, "meatCost") +
-        n(entry.values, "wasteCost") +
-        n(entry.values, "expense"),
-      0,
-    );
+    const meat =
+      branchSales.reduce(
+        (total, entry) =>
+          total +
+          n(entry.values, "meatCost") +
+          n(entry.values, "wasteCost") +
+          n(entry.values, "expense"),
+        0,
+      ) + giveawayCost(influencerBoxes.filter((e) => e.branch === branchName));
     const supplies = [
       ...entries(db, "supplyPurchase", undefined, branchName),
       ...entries(db, "ricePurchase", undefined, branchName),

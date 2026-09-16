@@ -101,6 +101,26 @@ export const BranchSale: Story = {
   ),
 };
 
+export const BranchInfluencerBox: Story = {
+  parameters: { db: demoDb },
+  render: () => (
+    <EntryForm
+      db={demoDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      modal={{ kind: "influencerBox", lotId: demoDb.lots[0].id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+export const BranchInfluencerBoxMobile: Story = {
+  ...BranchInfluencerBox,
+  globals: { viewport: { value: "mobile2", isRotated: false } },
+};
+
 export const BagAllocation: Story = {
   parameters: { db: centralDb },
   render: () => (

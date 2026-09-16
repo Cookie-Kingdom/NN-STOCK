@@ -30,19 +30,27 @@ export function DailyTaskTable({
       rowKeys={kinds}
       rows={kinds.map((kind) => {
         const count = entries(db, kind, undefined, branch, date).length;
-        const optional = kind === "ricePurchase" || kind === "chiliPurchase";
+        const optional = [
+          "ricePurchase",
+          "chiliPurchase",
+          "influencerBox",
+        ].includes(kind);
         const label =
           kind === "ricePurchase" && branch === "ศาลาแดง"
             ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กก."
             : titles[kind];
         return [
-          optional ? `${label} · บันทึกเฉพาะวันที่ซื้อ` : label,
+          optional
+            ? `${label} · ${kind === "influencerBox" ? "บันทึกเฉพาะวันที่ส่ง" : "บันทึกเฉพาะวันที่ซื้อ"}`
+            : label,
           count ? "บันทึกแล้ว" : optional ? "ไม่บังคับวันนี้" : "รอบันทึก",
           String(count),
           <Button
             key={kind}
             variant="table"
-            disabled={disabled || (kind === "sale" && !hasLots)}
+            disabled={
+              disabled || (!hasLots && ["sale", "influencerBox"].includes(kind))
+            }
             onClick={() => open(kind)}
           >
             {kind === "closeDay" ? "ตรวจและปิดวัน" : "กรอกข้อมูล"}

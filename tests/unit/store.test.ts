@@ -876,6 +876,60 @@ describe("branch supplies", () => {
   });
 });
 
+test("an influencer box leaves the shelf and costs meat plus postage", () => {
+  const s = ready();
+  const id = s.db.lots[0].id;
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
+  s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+  s.run("branch", "thaw", { kg: "5", bags: "2" });
+  s.run("branch", "ricePurchase", {
+    supplier: "ตลาดศาลาแดง",
+    rawRiceKg: "10",
+    rawRiceCost: "500",
+  });
+  s.run("branch", "riceIssue", { rawRiceIssuedKg: "4", receiver: "ผู้ดูแล" });
+  s.run("branch", "rice", { rawUsedKg: "4", riceKg: "10" });
+  s.run("owner", "generalPurchase", {
+    purchaseDate: day,
+    item: "น้ำพริกหลอด",
+    purchaseCategory: "วัตถุดิบ",
+    quantity: "10",
+    unitPrice: "6",
+    supplier: "ผู้ผลิตน้ำพริก",
+  });
+  s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "5" });
+  const box = {
+    influencer: "@nong",
+    boxes: "2",
+    addons: "0",
+    chiliAddons: "1",
+    soldKg: "0.202",
+    shippingFee: "60",
+  };
+  expect(() =>
+    s.run("branch", "influencerBox", { ...box, influencer: "" }),
+  ).toThrow(/อินฟลูเอนเซอร์/);
+  expect(() =>
+    s.run("branch", "influencerBox", { ...box, soldKg: "9" }),
+  ).toThrow(/100–103 กรัม/);
+  expect(() =>
+    s.run("branch", "influencerBox", {
+      ...box,
+      chiliAddons: "6",
+      soldKg: "0.202",
+    }),
+  ).toThrow(/น้ำพริก/);
+  s.run("branch", "influencerBox", box);
+  expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.798, 3);
+  expect(cookedRiceStock(s.db, "ศาลาแดง")).toBeCloseTo(9.6, 3);
+  expect(chiliStock(s.db, "ศาลาแดง")).toBe(4);
+  expect(Number(last(s).values.meatCost)).toBeGreaterThan(0);
+  // Owner-only: the branch log never shows what the giveaway cost.
+  expect(
+    visibleEntries(s.db, "branch", "ศาลาแดง").at(-1)!.values.meatCost,
+  ).toBeUndefined();
+});
+
 test("full loop: partial smoke, central, two branches, partial receipt, sale and lock", () => {
   const s = ready();
   const id = s.db.lots[0].id;

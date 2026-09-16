@@ -108,6 +108,7 @@ export const titles: Record<string, string> = {
   rice: "ข้าวเหนียวช่วงเช้า",
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
   sale: "บันทึกยอดขาย / Waste",
+  influencerBox: "บันทึกกล่องส่งอินฟลูเอนเซอร์",
   materials: "เช็ควัสดุ 7 รายการ",
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
   ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",
@@ -487,10 +488,23 @@ export function averageYield(db: Database) {
   const input = sum(entries(db, "smoke"), "inputKg");
   return input > 0 ? (sum(entries(db, "smoke"), "postSmokeKg") / input) * 100 : 0;
 }
+/** Sales and influencer boxes both take finished product off the branch shelf.
+ * Every branch stock number reads both, or the day will not tie out. */
+export function offShelf(
+  db: Database,
+  lotId?: string,
+  branch?: string,
+  date?: string,
+) {
+  return [
+    ...entries(db, "sale", lotId, branch, date),
+    ...entries(db, "influencerBox", lotId, branch, date),
+  ];
+}
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
     thawed = sum(entries(db, "thaw", lotId, branch), "kg");
-  const used = entries(db, "sale", lotId, branch).reduce(
+  const used = offShelf(db, lotId, branch).reduce(
     (s, e) => s + num(e.values, "soldKg") + num(e.values, "wasteKg"),
     0,
   );
@@ -516,7 +530,7 @@ export function cookedRiceStock(db: Database, branch: string) {
     sum(entries(db, "supplyPurchase", undefined, branch), "cookedRiceKg") +
     sum(entries(db, "ricePurchase", undefined, branch), "cookedRiceKg") +
     sum(entries(db, "rice", undefined, branch), "riceKg") -
-    entries(db, "sale", undefined, branch).reduce(
+    offShelf(db, undefined, branch).reduce(
       (total, entry) =>
         total +
         num(entry.values, "riceServings") * 0.2 +
@@ -547,7 +561,7 @@ export function ownerChiliStock(db: Database) {
 }
 export function chiliSold(db: Database, branch: string, throughDate?: string) {
   return sum(
-    entries(db, "sale", undefined, branch).filter(
+    offShelf(db, undefined, branch).filter(
       (entry) => !throughDate || entry.date <= throughDate,
     ),
     "chiliSold",
@@ -715,6 +729,7 @@ const ownership: Record<string, Role> = {
   rice: "branch",
   riceCarry: "branch",
   sale: "branch",
+  influencerBox: "branch",
   materials: "branch",
   materialReceive: "owner",
   ownerWasteReceive: "owner",
@@ -786,7 +801,7 @@ export function mutate(
       lot && lot.stage === expected,
       "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
     );
-  const lotRequired = ["allocate", "receive", "thaw", "sale"];
+  const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
   if (lotRequired.includes(kind))
     assert(lot && lot.stage >= 8, "Lot ต้องรับเข้าสต๊อกกลางก่อน");
   if (role === "branch" && lotRequired.includes(kind))
@@ -1363,6 +1378,48 @@ export function mutate(
     );
     v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
     v.wasteCost = String(n(v, "wasteKg") * (lotCost(db, lot!).perKg || 0));
+  } else if (kind === "influencerBox") {
+    /* A giveaway is a sale with no money in: the same goods leave the shelf, so it
+     * carries the same value keys and every stock helper counts it for free.
+     * The name is free text until the influencer table exists to link it to. */
+    required(v, "influencer", "ชื่ออินฟลูเอนเซอร์");
+    for (const [key, label] of [
+      ["boxes", "จำนวนกล่องสินค้า"],
+      ["addons", "จำนวนเนื้อซีลเพิ่ม"],
+      ["chiliAddons", "จำนวนน้ำพริก"],
+      ["soldKg", "น้ำหนักเนื้อที่ส่ง"],
+      ["shippingFee", "ค่าส่ง"],
+    ])
+      positive(v, key, label, true);
+    for (const k of ["boxes", "addons", "chiliAddons"])
+      assert(Number.isInteger(n(v, k)), "จำนวนที่ส่งต้องเป็นจำนวนเต็ม");
+    const sentPacks = n(v, "boxes") + n(v, "addons");
+    assert(
+      sentPacks + n(v, "chiliAddons") > 0,
+      "กรอกของที่ส่งให้อินฟลูเอนเซอร์อย่างน้อย 1 รายการ",
+    );
+    assert(
+      sentPacks === 0
+        ? n(v, "soldKg") === 0
+        : n(v, "soldKg") >= sentPacks * 0.1 - 0.001 &&
+            n(v, "soldKg") <= sentPacks * 0.103 + 0.001,
+      "น้ำหนักเนื้อที่ส่งต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
+    );
+    assert(
+      n(v, "soldKg") <= balance(db, lotId, branch).ready + 0.001,
+      "น้ำหนักที่ส่งเกินเนื้อพร้อมขาย",
+    );
+    v.riceServings = v.boxes;
+    v.chiliSold = String(n(v, "chiliAddons"));
+    assert(
+      n(v, "riceServings") * 0.2 <= cookedRiceStock(db, branch) + 0.001,
+      "ข้าวเหนียวไม่พอ",
+    );
+    assert(
+      n(v, "chiliSold") <= chiliStock(db, branch),
+      "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
+    );
+    v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
   } else if (kind === "closeDay") {
     required(v, "time", "เวลาปิด");
     assert(
@@ -1405,7 +1462,7 @@ export function mutate(
     const target = db.entries.find((entry) => entry.id === v.targetId);
     const reversible = [
       "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
-      "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "materials",
+      "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "influencerBox", "materials",
       "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
       "expense", "unlock",
     ];

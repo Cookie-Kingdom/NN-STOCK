@@ -87,8 +87,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
             />
             <ChiliDailySummary db={db} branch={branch} date={date} />
             <DailyTaskTable
-              title="ยอดขายและปิดวัน (Sales & day close)"
-              kinds={["sale", "closeDay"]}
+              title="ยอดขาย กล่องอินฟลูเอนเซอร์ และปิดวัน"
+              kinds={["sale", "influencerBox", "closeDay"]}
               db={db}
               branch={branch}
               date={date}

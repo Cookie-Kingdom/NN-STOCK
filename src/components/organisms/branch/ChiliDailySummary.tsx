@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/atoms/Badge";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { chiliAllocated, entries, n, type Database } from "@/lib/store";
+import { chiliAllocated, n, offShelf, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 export function ChiliDailySummary({
@@ -15,10 +15,10 @@ export function ChiliDailySummary({
   date: string;
 }) {
   const allocatedToDate = chiliAllocated(db, branch, date);
-  const soldBeforeToday = entries(db, "sale", undefined, branch)
+  const soldBeforeToday = offShelf(db, undefined, branch)
     .filter((entry) => entry.date < date)
     .reduce((total, entry) => total + n(entry.values, "chiliSold"), 0);
-  const salesToday = entries(db, "sale", undefined, branch, date);
+  const salesToday = offShelf(db, undefined, branch, date);
   const soldToday = salesToday.reduce(
     (total, entry) => total + n(entry.values, "chiliSold"),
     0,
@@ -43,7 +43,11 @@ export function ChiliDailySummary({
           fmt(opening),
           "หลอด · สาขาไม่ต้องซื้อหรือเบิกเอง",
         ],
-        ["ขายแยกวันนี้", fmt(soldToday), "หลอด · ระบบหักจากยอดขายอัตโนมัติ"],
+        [
+          "ตัดสต๊อกวันนี้ (ขาย + อินฟลูเอนเซอร์)",
+          fmt(soldToday),
+          "หลอด · ระบบหักให้อัตโนมัติ",
+        ],
         ["ควรเหลือหลังยอดขาย", fmt(expected), "หลอด"],
         [
           "ตรวจนับจริงปลายวัน",

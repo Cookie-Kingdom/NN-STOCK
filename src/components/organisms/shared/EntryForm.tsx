@@ -201,7 +201,13 @@ export function EntryForm({
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const attachmentFiles = useRef<Record<string, File>>({});
   const lot = db.lots.find((l) => l.id === lotId);
-  const useLot = ["receive", "thaw", "sale", "allocate"].includes(kind);
+  const useLot = [
+    "receive",
+    "thaw",
+    "sale",
+    "influencerBox",
+    "allocate",
+  ].includes(kind);
   const choices = db.lots.filter(
     (l) =>
       l.stage >= 8 &&

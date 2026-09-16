@@ -58,7 +58,14 @@ export function Report({ db }: { db: Database }) {
     generalPurchaseCost = entries(db, "generalPurchase")
       .filter(inRange)
       .reduce((sum, entry) => sum + n(entry.values, "totalCost"), 0),
+    influencerBoxes = entries(db, "influencerBox").filter(inRange),
+    influencerCost = influencerBoxes.reduce(
+      (sum, entry) =>
+        sum + n(entry.values, "meatCost") + n(entry.values, "shippingFee"),
+      0,
+    ),
     cost =
+      influencerCost +
       supplyCost +
       ownerExpenseCost +
       materialPurchaseCost +
@@ -127,6 +134,11 @@ export function Report({ db }: { db: Database }) {
             "บาท",
           ],
           ["ต้นทุนเนื้อ + Waste + ค่าใช้จ่ายสาขา + วัตถุดิบ", fmt(cost), "บาท"],
+          [
+            "กล่องส่งอินฟลูเอนเซอร์ (เนื้อ + ค่าส่ง)",
+            fmt(influencerCost),
+            "บาท",
+          ],
           ["ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
           ["ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
           ["ซื้อวัตถุดิบ / ETC", fmt(generalPurchaseCost), "บาท"],
@@ -181,6 +193,28 @@ export function Report({ db }: { db: Database }) {
             fmt(rows.reduce((s, e) => s + n(e.values, "revenue"), 0)),
           ];
         })}
+      />
+      <DataTable
+        className="m-0"
+        title="กล่องส่งอินฟลูเอนเซอร์"
+        columns={[
+          "วันที่",
+          "สาขา",
+          "อินฟลูเอนเซอร์",
+          "กล่อง",
+          "เนื้อ (กก.)",
+          "ค่าส่ง (บาท)",
+          "ต้นทุนรวม (บาท)",
+        ]}
+        rows={influencerBoxes.map((e) => [
+          e.date,
+          e.branch,
+          e.values.influencer,
+          String(n(e.values, "boxes")),
+          fmt(n(e.values, "soldKg")),
+          fmt(n(e.values, "shippingFee")),
+          fmt(n(e.values, "meatCost") + n(e.values, "shippingFee")),
+        ])}
       />
       <DataTable
         className="m-0"
