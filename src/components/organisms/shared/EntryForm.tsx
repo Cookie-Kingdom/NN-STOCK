@@ -47,7 +47,7 @@ type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
 const submitLabels: Record<string, string> = {
   closeDay: "ยืนยันปิดวัน",
   purchase: "บันทึก PO เนื้อ",
-  smokeOrder: "บันทึก PO โรงรมควัน",
+  smokeOrder: "บันทึก PO รมควันเนื้อ",
   smokingInvoice: "Submit ใบวางบิล",
   dispatch: "สร้างใบขนส่งขาไป",
   return: "สร้างใบขนส่งขากลับ",
@@ -248,13 +248,9 @@ export function EntryForm({
   };
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
   const title =
-    kind === "purchase"
-      ? "สร้าง PO เนื้อ"
-      : kind === "smokeOrder"
-        ? "สร้าง PO โรงรมควัน"
-        : kind === "ricePurchase" && branch === "ศาลาแดง"
-          ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
-          : titles[kind];
+    kind === "ricePurchase" && branch === "ศาลาแดง"
+      ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
+      : titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const saved = await run(async () => {

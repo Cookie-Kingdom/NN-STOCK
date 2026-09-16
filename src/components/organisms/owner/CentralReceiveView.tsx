@@ -34,7 +34,7 @@ export function CentralReceiveView({
         description="Foodiva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้"
       />
       <DataTable
-        title="Lot ที่รอรับเข้าคลังกลาง"
+        title="Lot ที่รอรับเข้าสต๊อกกลาง"
         columns={columns}
         rowKeys={readyToReceive.map((lot) => lot.id)}
         rows={readyToReceive.map((lot) => {
@@ -53,7 +53,7 @@ export function CentralReceiveView({
               key={lot.id}
               onClick={() => open("central", lot.id)}
             >
-              รับเข้าคลังกลาง
+              รับเข้าสต๊อกกลาง
             </Button>,
           ];
         })}

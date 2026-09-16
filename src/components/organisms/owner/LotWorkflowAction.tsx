@@ -7,6 +7,7 @@ import {
   entries,
   produced,
   smokingInvoiceStatus,
+  titles,
   type Database,
   type Lot,
 } from "@/lib/store";
@@ -22,17 +23,15 @@ export type LotWorkflowContext = "purchase-order" | "transport";
 
 const labels: Record<
   LotWorkflowContext,
-  { smokeOrder: string; smokingInvoice: string; dispatch: string }
+  { smokeOrder: string; smokingInvoice: string }
 > = {
   "purchase-order": {
     smokeOrder: "ไปใบสั่ง PO โรงรมควัน",
     smokingInvoice: "รอ Chef_house Submit ใบวางบิล",
-    dispatch: "เรียกรถ / ทำใบขนส่ง",
   },
   transport: {
     smokeOrder: "รอ Owner ออก PO รมควัน",
     smokingInvoice: "รอ Chef_house Submit Invoice",
-    dispatch: "ทำใบขนส่งขาไป",
   },
 };
 
@@ -87,7 +86,7 @@ export function LotWorkflowAction({
       return <Badge tone="danger">รอ Chef_house แก้ Invoice</Badge>;
     return (
       <Button variant="table" onClick={() => open("dispatch", lot.id)}>
-        {text.dispatch}
+        {titles.dispatch}
       </Button>
     );
   }
@@ -95,7 +94,7 @@ export function LotWorkflowAction({
   if (lot.stage === 6)
     return (
       <Button variant="table" onClick={() => open("return", lot.id)}>
-        เรียกรถขากลับ · {fmt(produced(db, lot.id))} กก.
+        {titles.return} · {fmt(produced(db, lot.id))} กก.
       </Button>
     );
   if (lot.stage < 6) return <>กำลังดำเนินงานที่ Chef_house</>;

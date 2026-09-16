@@ -84,7 +84,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef_house");
   await field(page, /Raw Meat Quantity/, "500");
   await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
-  await button(page, "บันทึก PO โรงรมควัน");
+  await button(page, "บันทึก PO รมควันเนื้อ");
 
   // Chef_house accepts the PO and submits its invoice.
   await signInAs(page, ACCOUNTS.chef);
@@ -170,7 +170,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   // Owner receives central stock and allocates two 100 kg bags to each branch.
   await signInAs(page, ACCOUNTS.owner);
   await button(page, "รับเนื้อเข้าสต๊อกกลาง");
-  await button(page, "รับเข้าคลังกลาง");
+  await button(page, "รับเข้าสต๊อกกลาง");
   await field(page, /น้ำหนักรับสต๊อกกลาง/, "500");
   await saveEntry(page);
   await button(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");

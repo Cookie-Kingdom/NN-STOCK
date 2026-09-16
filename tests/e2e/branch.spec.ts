@@ -57,7 +57,9 @@ test("สาขาศาลาแดง: วันที่ปิดแล้ว
   await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "6");
   await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "330");
   await saveEntry(page);
-  await expect(page.getByRole("status")).toContainText("บันทึก");
+  await expect(page.getByRole("status")).toContainText(
+    "ซื้อข้าวเหนียวเข้าสต๊อกแล้ว",
+  );
 
   // ประวัติต้องเก็บรายการที่เพิ่งบันทึก
   await button(page, "ประวัติ");

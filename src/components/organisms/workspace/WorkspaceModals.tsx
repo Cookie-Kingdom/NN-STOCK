@@ -119,7 +119,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
             "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
           );
         } else {
-          done(`บันทึก${titles[modal.kind]}แล้ว`);
+          done(`${titles[modal.kind]}แล้ว`);
         }
       }}
     />

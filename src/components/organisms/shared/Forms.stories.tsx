@@ -71,6 +71,21 @@ export const OwnerDispatch: Story = {
   ),
 };
 
+export const OwnerReturn: Story = {
+  parameters: { db: smokedDb },
+  render: () => (
+    <EntryForm
+      db={smokedDb}
+      role="owner"
+      branch=""
+      date={day}
+      modal={{ kind: "return", lotId: smokedDb.lots[0].id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
 export const BranchSale: Story = {
   parameters: { db: demoDb },
   render: () => (

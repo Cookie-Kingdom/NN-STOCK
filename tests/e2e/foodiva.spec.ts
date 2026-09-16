@@ -30,7 +30,9 @@ test("Foodiva รับ PO จาก Owner แล้วออก Invoice เน�
 
   await foodivaIssuesInvoice(page, "500");
 
-  await expect(page.getByRole("status")).toContainText("บันทึก");
+  await expect(page.getByRole("status")).toContainText(
+    "ออกและอัปโหลด Invoice เนื้อแล้ว",
+  );
   await expect(page.locator("main")).toContainText("FD-INV-001");
 
   // ออก Invoice แล้วงานค้างต้องลดลงหนึ่งรายการ (pill ไม่แสดงเมื่อเหลือ 0)

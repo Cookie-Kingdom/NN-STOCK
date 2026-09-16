@@ -112,7 +112,9 @@ test("ฟอร์มยืนยัน Invoice เติมน้ำหนั�
 
   // บันทึกผ่านฝั่ง server ไม่ขึ้น "Entry role does not match signed-in account"
   expect((await saved).ok()).toBe(true);
-  await expect(page.getByRole("status")).toContainText("บันทึก");
+  await expect(page.getByRole("status")).toContainText(
+    "ออกและอัปโหลด Invoice เนื้อแล้ว",
+  );
   // role=alert also matches Next's route announcer, so match the error text
   await expect(
     page.getByRole("alert").filter({ hasText: "บันทึกไม่สำเร็จ" }),

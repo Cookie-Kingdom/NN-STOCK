@@ -258,5 +258,5 @@ export async function ownerIssuesSmokePo(page: Page, kg = "500") {
   await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef_house");
   await field(page, /Raw Meat Quantity/, kg);
   await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
-  await button(page, "บันทึก PO โรงรมควัน");
+  await button(page, "บันทึก PO รมควันเนื้อ");
 }
