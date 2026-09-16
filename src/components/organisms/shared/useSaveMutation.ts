@@ -21,12 +21,19 @@ export function useSaveMutation(fallbackMessage: string) {
     if (inFlight.current) return null;
     inFlight.current = true;
     setSaving(true);
+    // The shell's DatabaseErrorToast sits behind the modal (a wide PO dialog hides
+    // it completely), so repeat the server's reason inside the form.
+    let serverMessage = "";
+    const onDatabaseError = (event: Event) => {
+      serverMessage = String((event as CustomEvent).detail);
+    };
+    window.addEventListener("database-error", onDatabaseError);
     try {
       const next = await change();
       // Wait for the server so a rejected save keeps the dialog open instead of
-      // showing the success toast (the red database-error toast says why).
+      // showing the success toast.
       if (!(await saveDatabase(next))) {
-        setError(fallbackMessage);
+        setError(serverMessage || fallbackMessage);
         return null;
       }
       return next;
@@ -34,6 +41,7 @@ export function useSaveMutation(fallbackMessage: string) {
       setError(caught instanceof Error ? caught.message : fallbackMessage);
       return null;
     } finally {
+      window.removeEventListener("database-error", onDatabaseError);
       inFlight.current = false;
       setSaving(false);
     }

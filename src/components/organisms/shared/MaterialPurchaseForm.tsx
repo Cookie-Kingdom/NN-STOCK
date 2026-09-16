@@ -101,7 +101,14 @@ export function MaterialPurchaseForm({
       size="xl"
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+      {/* noValidate: the checks in submit() were unreachable behind the native
+          `required` bubble, which is not in the DOM and closes with the dialog
+          on Escape. */}
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        noValidate
+        onSubmit={submit}
+      >
         <DialogBody>
           <Notice>
             ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย
