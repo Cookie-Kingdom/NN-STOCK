@@ -27,8 +27,9 @@ export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
       "ยอดรวมก่อน VAT",
       `฿${fmt(n(lot.values, "orderedKg") * n(lot.values, "price"))}`,
     ],
-    ["อ้างอิงผู้ขาย", lot.values.reference || "—"],
-    ["หมายเหตุ", lot.values.note || "—"],
+    // Later stages merge their own `note`/`reference` into lot.values; the PO keeps what it was issued with.
+    ["อ้างอิงผู้ขาย", (purchase?.values ?? lot.values).reference || "—"],
+    ["หมายเหตุ", (purchase?.values ?? lot.values).note || "—"],
   ];
 }
 

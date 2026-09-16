@@ -168,6 +168,7 @@ export function MaterialPurchaseForm({
                           step="1"
                           inputMode="numeric"
                           aria-label={`จำนวนซื้อ ${line.label}`}
+                          required
                           placeholder="จำนวน"
                           value={quantities[line.key] || ""}
                           onChange={(event) =>
@@ -185,6 +186,7 @@ export function MaterialPurchaseForm({
                           step="0.01"
                           inputMode="decimal"
                           aria-label={`ราคาซื้อ ${line.label}`}
+                          required
                           placeholder="0.00"
                           value={unitPrices[line.key] || ""}
                           onChange={(event) =>
@@ -199,6 +201,7 @@ export function MaterialPurchaseForm({
                         <Input
                           type="text"
                           aria-label={`ผู้จำหน่าย ${line.label}`}
+                          required
                           placeholder="ผู้ขาย"
                           value={suppliers[line.key] || ""}
                           onChange={(event) =>

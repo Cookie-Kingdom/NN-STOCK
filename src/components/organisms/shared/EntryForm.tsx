@@ -197,10 +197,6 @@ export function EntryForm({
     if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
     return base;
   });
-  const [lotId, setLotId] = useState(modal.lotId);
-  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const attachmentFiles = useRef<Record<string, File>>({});
-  const lot = db.lots.find((l) => l.id === lotId);
   const useLot = [
     "receive",
     "thaw",
@@ -213,6 +209,16 @@ export function EntryForm({
       l.stage >= 8 &&
       (role === "owner" || entries(db, "allocate", l.id, branch).length),
   );
+  // A lot the form cannot use would leave the required select empty and the
+  // browser would block submit before onSubmit, with no message from us.
+  const [lotId, setLotId] = useState(
+    useLot && !choices.some((l) => l.id === modal.lotId)
+      ? (choices[0]?.id ?? "")
+      : modal.lotId,
+  );
+  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const attachmentFiles = useRef<Record<string, File>>({});
+  const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => {
       const received = entries(db, "receive", lotId, branch).filter(
@@ -474,7 +480,7 @@ export function EntryForm({
               ? "ตรวจ Preview ก่อนบันทึก PO"
               : kind === "smokingInvoice"
                 ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit"
-                : "บันทึกแล้วเก็บในเบราว์เซอร์"
+                : "ไฟล์แนบจะถูกอัปโหลดไปเก็บบนระบบ (สำรองไว้ในเบราว์เซอร์นี้ด้วย)"
           }
           onCancel={onClose}
           submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}

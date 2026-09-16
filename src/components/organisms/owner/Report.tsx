@@ -133,15 +133,15 @@ export function Report({ db }: { db: Database }) {
             fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0)),
             "บาท",
           ],
-          ["ต้นทุนเนื้อ + Waste + ค่าใช้จ่ายสาขา + วัตถุดิบ", fmt(cost), "บาท"],
+          ["ต้นทุนรวมทั้งหมด (เนื้อ + Waste + ค่าใช้จ่ายสาขา + รายการย่อยด้านล่าง)", fmt(cost), "บาท"],
           [
-            "กล่องโปรโมทอินฟลูเอนเซอร์ (เนื้อ + ค่าส่ง)",
+            "↳ กล่องโปรโมทอินฟลูเอนเซอร์ (เนื้อ + ค่าส่ง)",
             fmt(influencerCost),
             "บาท",
           ],
-          ["ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
-          ["ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
-          ["ซื้อวัตถุดิบ / ETC", fmt(generalPurchaseCost), "บาท"],
+          ["↳ ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
+          ["↳ ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
+          ["↳ ซื้อวัตถุดิบ / ETC (รวมอยู่ในต้นทุนรวมแล้ว)", fmt(generalPurchaseCost), "บาท"],
           [
             "ส่วนต่างหลังต้นทุนที่บันทึก",
             fmt(

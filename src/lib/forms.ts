@@ -356,7 +356,7 @@ export const forms: Record<string, Field[]> = {
     number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
     number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
-    number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด", true, true),
+    number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)", true),
     { key: "chiliRemark", label: "หมายเหตุเมื่อน้ำพริกไม่ตรง", type: "textarea", optional: true },
     number("soldKg", "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
     number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
@@ -364,7 +364,7 @@ export const forms: Record<string, Field[]> = {
     number("lineMan", "ยอดขาย LINE MAN ที่บันทึก (บาท)", true),
     number("expense", "ค่าใช้จ่ายสาขา (บาท)", true),
     text("payer", "ผู้จ่ายเงิน / สำรองจ่าย", true),
-    reason,
+    { ...reason, hint: "ต้องกรอกเมื่อมี Waste เนื้อหรือข้าว" },
     note,
   ],
   influencerBox: [
@@ -384,7 +384,7 @@ export const forms: Record<string, Field[]> = {
       key: "time",
       label: "เวลาจำลองสำหรับทดสอบปิดวัน",
       type: "time",
-      hint: "ปรับเป็นก่อนหรือหลัง 21:00 เพื่อทดสอบเงื่อนไข",
+      hint: "ปิดวันได้ตั้งแต่เวลาเริ่มปิดวันในตั้งค่า ปรับเวลาจำลองเพื่อทดสอบเงื่อนไข",
     },
     text("confirm", "ชื่อผู้ยืนยันปิดวัน"),
     note,
@@ -483,6 +483,7 @@ export function defaults(kind: string, dateValue: string): Values {
           : f.type === "number" && f.zero
             ? "0"
             : "";
+  if (kind === "purchase") out.supplier = "Foodiva";
   if (kind === "dispatch") Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
   if (kind === "return") Object.assign(out, { origin: "เชียงใหม่", destination: "กรุงเทพฯ" });
   return out;

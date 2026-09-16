@@ -50,8 +50,8 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
   if (kind === "dispatch")
     return {
       dispatchKg: String(readyForChefHouse(db, lot.id)),
-      origin: "Foodiva · กรุงเทพฯ",
-      destination: "Chef_house · เชียงใหม่",
+      origin: "กรุงเทพฯ",
+      destination: "เชียงใหม่",
     };
   if (kind === "return") {
     const outbound = entries(db, "dispatch", lot.id).at(-1)?.values;
@@ -62,8 +62,8 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
     return {
       ...truck,
       returnKg: String(produced(db, lot.id)),
-      origin: "Chef_house · เชียงใหม่",
-      destination: "Foodiva · กรุงเทพฯ",
+      origin: "เชียงใหม่",
+      destination: "กรุงเทพฯ",
     };
   }
   if (kind === "foodivaReturnReceive")

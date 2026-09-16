@@ -10,7 +10,7 @@ import {
   balance,
   lotCost,
   n,
-  processed,
+  pendingSmokeKg,
   produced,
   stages,
   type Database,
@@ -74,7 +74,7 @@ export function LotDetails({
             <Stat label="น้ำหนักเนื้อหลังรมควัน" value={`${fmt(output)} กก.`} />
             <Stat
               label="รอผลิต"
-              value={`${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`}
+              value={`${fmt(pendingSmokeKg(db, lot))} กก.`}
             />
           </>
         )}

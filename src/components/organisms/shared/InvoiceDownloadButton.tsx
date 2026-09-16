@@ -24,7 +24,10 @@ export function InvoiceDownloadButton({
     setMessage("");
     try {
       const file = await getAttachment(storageKey);
-      if (!file) throw new Error("ไม่พบไฟล์บนเบราว์เซอร์นี้");
+      if (!file)
+        throw new Error(
+          "ไม่พบไฟล์: ไฟล์นี้ถูกอัปโหลดก่อนเปิดใช้ที่เก็บไฟล์กลาง จึงอยู่เฉพาะในเบราว์เซอร์ที่อัปโหลด",
+        );
       const url = URL.createObjectURL(file.blob);
       const link = document.createElement("a");
       link.href = url;

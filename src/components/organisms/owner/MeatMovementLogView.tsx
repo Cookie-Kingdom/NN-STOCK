@@ -17,6 +17,7 @@ import {
   produced,
   producedBags,
   rawAtFoodiva,
+  preSmokeTrimKg,
   rawAtSmoker,
   type Database,
   type Entry,
@@ -143,7 +144,14 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         lot.id,
         "Chef_house · รอเข้ารอบสโมค",
         `${fmt(rawAtSmoker(db, lot))} กก.`,
-        "น้ำหนักรับจริง หักรอบที่สโมคแล้ว",
+        "น้ำหนักรับจริง หัก Waste ก่อนสโมค และรอบที่สโมคแล้ว",
+      ],
+      [
+        lot.poId,
+        lot.id,
+        "Chef_house · Waste ก่อนสโมค",
+        `${fmt(preSmokeTrimKg(db, lot))} กก.`,
+        "น้ำหนักรับจริง หักน้ำหนักก่อนสโมค (ตัดแต่ง)",
       ],
       [
         lot.poId,

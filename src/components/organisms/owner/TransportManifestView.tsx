@@ -49,8 +49,10 @@ export function TransportManifestView({
           const back = entries(db, "return", lot.id).at(-1);
           const outbound = entries(db, "dispatch", lot.id).at(-1);
           const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
-          const foodInvoice = entries(db, "foodivaConfirm", lot.id).at(-1);
-          const foodivaKg = n(foodInvoice?.values || {}, "confirmedKg");
+          // Compare against what left Foodiva, not the invoice total: the waste share stays behind for Owner.
+          const foodivaKg = outbound
+            ? n(outbound.values, "dispatchKg")
+            : readyForChefHouse(db, lot.id);
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
           const difference = chefKg - foodivaKg;
           return [
@@ -74,7 +76,7 @@ export function TransportManifestView({
             ),
             chefReceive ? (
               <span key={`${lot.id}-owner-check`}>
-                <strong>Foodiva:</strong> {fmt(foodivaKg)} กก.
+                <strong>ส่งจาก Foodiva:</strong> {fmt(foodivaKg)} กก.
                 <br />
                 <strong>Chef_house:</strong> {fmt(chefKg)} กก.
                 <br />

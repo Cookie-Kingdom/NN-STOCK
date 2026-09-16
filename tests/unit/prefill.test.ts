@@ -93,8 +93,8 @@ test("a one-way trip does not copy the outbound truck into the return form", () 
   });
   expect(prefillValues(s.db, "return", s.db.lots[0])).toEqual({
     returnKg: "0",
-    origin: "Chef_house · เชียงใหม่",
-    destination: "Foodiva · กรุงเทพฯ",
+    origin: "เชียงใหม่",
+    destination: "กรุงเทพฯ",
   });
 });
 
