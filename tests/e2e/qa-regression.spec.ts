@@ -94,12 +94,13 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   await button(page, "+ ซื้อวัสดุเข้าคลัง");
   const purchase = openDialog(page);
 
-  // Negative: a missing supplier is blocked by the native `required`, the dialog stays open.
+  // Negative: a missing supplier is refused with an inline message (forms are noValidate), the dialog stays open.
   await purchase.getByLabel(`ซื้อ ${MATERIALS[0]}`).check();
   await field(page, `จำนวนซื้อ ${MATERIALS[0]}`, "500");
   await field(page, `ราคาซื้อ ${MATERIALS[0]}`, "1");
   await pointAndClick(page, purchase.locator('button[type="submit"]'));
   await expect(purchase).toBeVisible();
+  await expect(purchase.getByText("กรอกผู้จำหน่าย", { exact: false })).toBeVisible();
   await expect(purchase.getByLabel(`ผู้จำหน่าย ${MATERIALS[0]}`)).toHaveValue(
     "",
   );
