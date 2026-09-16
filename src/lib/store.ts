@@ -986,6 +986,7 @@ export function mutate(
     );
     v.outboundCost =
       v.trip === "ไปกลับ" ? lot.config.roundFee : lot.config.outboundFee;
+    assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
     assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ");
@@ -1106,7 +1107,9 @@ export function mutate(
     required(v, "plate", "ทะเบียนรถ");
     required(v, "driverName", "ชื่อคนขับ");
     required(v, "driverPhone", "เบอร์ติดต่อคนขับ");
+    assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
+    v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
     assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
     v.returnCost = lot.values.trip === "ไปกลับ" ? "0" : lot.config.returnFee;
   } else if (kind === "central" && lot) {

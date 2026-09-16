@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
-import { entries } from "@/lib/store";
 import {
   confirm,
   invoice,
@@ -46,10 +45,9 @@ test("receiving forms reference the transport document", () => {
     title: "ใบขนส่งเนื้อขาไป",
     number: "TR-2026-0001",
   });
-  const trip = entries(s.db, "return", s.db.lots[0].id).at(-1)!;
   expect(doc(s, "foodivaReturnReceive")).toMatchObject({
     title: "ใบขนส่งเนื้อขากลับ",
-    number: trip.id.slice(0, 8),
+    number: "TR-2026-R0001",
   });
 });
 

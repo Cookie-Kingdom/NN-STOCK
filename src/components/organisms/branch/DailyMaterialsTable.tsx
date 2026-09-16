@@ -9,6 +9,7 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branchMaterialStock,
+  materialPar,
   entries,
   materials,
   mutate,
@@ -153,7 +154,13 @@ export function DailyMaterialsTable({
               }))
             }
           />,
-          saved ? "บันทึกแล้ว" : opening(i) ? "รอบันทึก" : "Owner ยังไม่ตั้งฐาน",
+          saved
+            ? "บันทึกแล้ว"
+            : opening(i)
+              ? "รอบันทึก"
+              : materialPar(db, branch, i)
+                ? "รอ Owner ส่งวัสดุมาสาขา"
+                : "Owner ยังไม่ตั้งฐาน",
         ])}
       />
       {saved && (

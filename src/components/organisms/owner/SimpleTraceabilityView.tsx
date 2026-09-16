@@ -149,6 +149,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   const dispatch = entries(db, "dispatch", lot.id).at(-1);
                   const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
                   const returnTrip = entries(db, "return", lot.id).at(-1);
+                  const foodivaReturn = entries(db, "foodivaReturnReceive", lot.id).at(-1);
+                  const central = entries(db, "central", lot.id).at(-1);
+                  const allocations = entries(db, "allocate", lot.id);
+                  const sales = entries(db, "sale", lot.id);
                   const smokeEntries = entries(db, "smoke", lot.id);
                   const latest = [
                     returnTrip,
@@ -401,6 +405,44 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ) : (
                         "—"
                       ),
+                    ],
+                    [
+                      "Foodiva รับเข้าตู้",
+                      "—",
+                      foodivaReturn?.date || "—",
+                      foodivaReturn
+                        ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} ถุง`
+                        : "รอ Foodiva รับ",
+                      "—",
+                    ],
+                    [
+                      "รับเข้าสต๊อกกลาง",
+                      "—",
+                      central?.date || "—",
+                      central
+                        ? `${fmt(n(central.values, "centralKg"))} กก.`
+                        : "รอรับเข้าสต๊อกกลาง",
+                      "—",
+                    ],
+                    [
+                      "จัดสรรไปสาขา",
+                      allocations.length ? `${allocations.length} ใบ` : "—",
+                      allocations.at(-1)?.date || "—",
+                      allocations.length
+                        ? allocations
+                            .map((a) => `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`)
+                            .join(" · ")
+                        : "รอจัดสรร",
+                      "—",
+                    ],
+                    [
+                      "ขายที่สาขา",
+                      sales.length ? `${sales.length} วัน` : "—",
+                      sales.at(-1)?.date || "—",
+                      sales.length
+                        ? `ขาย ${fmt(sales.reduce((t, e) => t + n(e.values, "soldKg"), 0))} กก. · Waste ${fmt(sales.reduce((t, e) => t + n(e.values, "wasteKg"), 0))} กก.`
+                        : "ยังไม่มียอดขาย",
+                      "—",
                     ],
                   ];
                   const isOpen = expandedLot === lot.id;
