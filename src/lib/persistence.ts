@@ -43,6 +43,18 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
 const initialDatabase = seed;
 export const demoInitialDatabase = initialDatabase;
 let cached = initialDatabase;
+/* ponytail: server history is append-only; send it back untouched. normalize() rewrites
+ * the loaded payload (renamed keys, brine entries dropped), so a save rebuilds the payload
+ * from the stored entries/config plus only what was appended locally since the load.
+ * `count` is how many normalized entries the stored ones became, `lastId` the last of them. */
+let stored: { payload: StoredDatabase; count: number; lastId?: string; config: Database["config"] } | null = null;
+function adopt(payload: StoredDatabase, rev: number) {
+  cached = normalize(payload, initialDatabase);
+  stored = { payload, count: cached.entries.length, lastId: cached.entries.at(-1)?.id, config: cached.config };
+  revision = rev;
+  loaded = true;
+  notify();
+}
 /* The cache starts on the seed database, so anything derived from it before the
  * first payload lands is demo data wearing the user's colours. */
 let loaded = false;
@@ -79,18 +91,15 @@ async function loadDatabase() {
     const created = await saveRow(initialDatabase, null);
     const row = created.data;
     if (created.error) return reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
-    if (row) { cached = normalize(row.payload, initialDatabase); revision = row.revision; loaded = true; notify(); }
+    if (row) adopt(row.payload, row.revision);
     return;
   }
-  cached = normalize(data.payload, initialDatabase);
-  revision = data.revision;
-  loaded = true;
-  notify();
+  adopt(data.payload, data.revision);
 }
 
 function onAuthEvent(event: string) {
   if (event === "SIGNED_IN") void loadDatabase();
-  if (event === "SIGNED_OUT") { cached = initialDatabase; revision = null; loaded = false; notify(); }
+  if (event === "SIGNED_OUT") { cached = initialDatabase; stored = null; revision = null; loaded = false; notify(); }
 }
 if (supabase) {
   void supabase.auth.getSession().then(({ data }) => { if (data.session) void loadDatabase(); });
@@ -111,8 +120,16 @@ export function useDatabase() {
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
 export function saveDatabase(db: Database): Promise<boolean> {
-  const portable: Database = { ...db, entries: db.entries.map((entry) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) })) };
-  cached = portable;
+  const strip = (entry: Database["entries"][number]) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) });
+  cached = { ...db, entries: db.entries.map(strip) };
+  // Only splice when `db` continues the loaded history; a wholesale reset goes out as is.
+  const continues = stored && db.entries.length >= stored.count && db.entries[stored.count - 1]?.id === stored.lastId;
+  const portable: Database = !continues || !stored ? cached : {
+    ...db,
+    entries: [...(stored.payload.entries ?? []), ...db.entries.slice(stored.count).map(strip)],
+    config: JSON.stringify(db.config) === JSON.stringify(stored.config) ? stored.payload.config ?? db.config : db.config,
+  };
+  stored = { payload: portable, count: db.entries.length, lastId: db.entries.at(-1)?.id, config: db.config };
   notify();
   const saved = writeQueue.then(async () => {
     const { data: row, error } = await saveRow(portable, revision);

@@ -144,6 +144,26 @@ test("saving strips attachment bytes, updates the cache first and sends the know
   );
 });
 
+test("saving sends the stored history back untouched and appends only the new entries", async () => {
+  const brine = entry({ brinePrice: "3" }, "brinePurchase");
+  const smoke = entry({ inputKg: "5", outputKg: "4", batches: '[{"outputKg":"4","preKg":"5"}]' }, "smoke");
+  const config = { ...seed.config, boxPrice: "999", brinePrice: "3" };
+  const payload = { version: 5, lots: [], entries: [brine, smoke], config };
+  await signInWithRow({ revision: 4, payload });
+  const db = latestDatabase();
+  expect(db.entries).toHaveLength(1);
+  expect(db.entries[0].values).toEqual({ inputKg: "5", postSmokeKg: "4", batches: '[{"postSmokeKg":"4","preSmokeKg":"5"}]' });
+  expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
+  mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 5 }], error: null });
+  const added = entry({ boxes: "1", attachmentData: "data:x" });
+  await expect(saveDatabase({ ...db, entries: [...db.entries, added] })).resolves.toBe(true);
+  expect(latestDatabase().entries.map((item) => item.values)).toEqual([db.entries[0].values, { boxes: "1" }]);
+  expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
+    p_payload: expect.objectContaining({ entries: [brine, smoke, { ...added, values: { boxes: "1" } }], config }),
+    p_expected_revision: 4,
+  });
+});
+
 test("a failed save reloads from the server and reports the error", async () => {
   const events = new EventTarget();
   vi.stubGlobal("window", events);
