@@ -52,6 +52,20 @@
     @apply text-caption whitespace-nowrap text-text-secondary;
   }
 
+  /* iOS sizes a date/time control from its shadow value box, which is as wide as
+   * the widest date it could ever show. That is wider than the field, so the
+   * control spills past its own right edge and the whole form pans sideways.
+   * Desktop Safari and Chrome render these inputs differently and never show it. */
+  input[type="date"],
+  input[type="time"] {
+    min-width: 0;
+  }
+  input::-webkit-date-and-time-value {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-focus-ring;
   }
