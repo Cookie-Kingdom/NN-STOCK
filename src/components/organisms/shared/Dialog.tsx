@@ -16,7 +16,10 @@ import { cn } from "@/lib/utils";
 const dialogVariants = cva(
   // `open:flex`, not `flex`: a bare `flex` would override the UA `display:none`
   // on a closed <dialog> and flash the content inline before showModal() runs.
-  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:mb-0 max-md:max-h-[96dvh] max-md:w-full max-md:max-w-full max-md:rounded-b-none " +
+  // Phones get a full-screen sheet anchored to the top. A bottom-anchored one
+  // (`m-auto mb-0`) sinks on iOS: a fixed box is laid out against the *large*
+  // viewport, so its bottom edge lands behind Safari/Chrome's toolbars.
+  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none " +
     // Motion: closed state is the exit (fast, accelerate); `open:` the settled state
     // (slow, decelerate); `starting:open:` the @starting-style the enter animates from.
     // ponytail: Dialog closes by unmounting, so today only the enter plays; the exit
