@@ -108,7 +108,7 @@ export const titles: Record<string, string> = {
   rice: "ข้าวเหนียวช่วงเช้า",
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
   sale: "บันทึกยอดขาย / Waste",
-  influencerBox: "บันทึกกล่องส่งอินฟลูเอนเซอร์",
+  influencerBox: "บันทึกกล่องโปรโมทให้อินฟลูเอนเซอร์",
   materials: "เช็ควัสดุ 7 รายการ",
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
   ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",

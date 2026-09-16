@@ -48,7 +48,7 @@ export function ChiliDailySummary({
           fmt(soldToday),
           "หลอด · ระบบหักให้อัตโนมัติ",
         ],
-        ["ควรเหลือหลังยอดขาย", fmt(expected), "หลอด"],
+        ["ควรเหลือหลังตัดสต๊อก", fmt(expected), "หลอด"],
         [
           "ตรวจนับจริงปลายวัน",
           actual === null ? "ยังไม่ได้ตรวจนับ" : fmt(actual),
