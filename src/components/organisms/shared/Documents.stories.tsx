@@ -63,6 +63,12 @@ export const PrintAndDownloadButtons: Story = {
         preview
       />
       <InvoiceDownloadButton name="INV-DEMO-001.pdf" />
+      <InvoiceDownloadButton
+        name="INV-DEMO-002.txt"
+        data="data:text/plain;base64,SW52b2ljZQ=="
+      />
+      {/* Key that exists in no browser and no bucket: the click reports it inline. */}
+      <InvoiceDownloadButton name="INV-DEMO-003.pdf" storageKey="missing" />
     </div>
   ),
 };

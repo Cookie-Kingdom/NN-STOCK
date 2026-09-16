@@ -421,23 +421,14 @@ export const isPackWeight = (weight: number) =>
 export const validPackWeights = (packs = "") =>
   packWeights(packs).filter(isPackWeight);
 export type StockBag = { id: string; weight: number };
-/** Bags are weighed at the smoker, central stock at the Owner's scale. Spread the
- * central weight over the bags so allocating every bag drains central stock to 0. */
-function bagWeightFactor(db: Database, lotId: string) {
-  const lot = db.lots.find((l) => l.id === lotId);
-  const centralKg = num(lot?.values || {}, "centralKg");
-  const packedKg = entries(db, "smoke", lotId).reduce(
-    (a, e) => a + validPackWeights(e.values.packs).reduce((x, y) => x + y, 0),
-    0,
-  );
-  return centralKg > 0 && packedKg > 0 ? centralKg / packedKg : 1;
-}
+/** Bags are weighed at the smoker, central stock at the Owner's scale. Spread what is
+ * still in central stock over the bags still there, so allocating every remaining bag
+ * drains central stock to 0 even after allocations recorded at the smoker weight. */
 export function availableBags(db: Database, lotId: string): StockBag[] {
-  const factor = bagWeightFactor(db, lotId);
   let bags = entries(db, "smoke", lotId).flatMap((entry) =>
     packWeights(entry.values.packs).map((weight, index) => ({
       id: `${entry.id}:${index + 1}`,
-      weight: weight * factor,
+      weight,
     })),
   ).filter((bag) => isPackWeight(bag.weight));
   for (const allocation of entries(db, "allocate", lotId)) {
@@ -446,7 +437,10 @@ export function availableBags(db: Database, lotId: string): StockBag[] {
       ? bags.filter((bag) => !ids.includes(bag.id))
       : bags.slice(Math.max(0, n(allocation.values, "bags")));
   }
-  return bags;
+  const packedKg = bags.reduce((a, bag) => a + bag.weight, 0);
+  const stock = centralStock(db, lotId);
+  const factor = stock > 0 && packedKg > 0 ? stock / packedKg : 1;
+  return bags.map((bag) => ({ ...bag, weight: bag.weight * factor }));
 }
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");

@@ -772,6 +772,45 @@ describe("lot workflow", () => {
     expect(centralStock(s.db, id)).toBeCloseTo(0);
   });
 
+  test("a bag sent out at its smoker weight leaves the last bag weighing what is left", () => {
+    // QA round 2: two 40 kg bags, 79 kg on the central scale, the first bag allocated
+    // as 40 kg before pro-rating existed. The last bag is 39 kg (central stock), not 39.5.
+    const s = setup();
+    readyToDispatch(s, "90");
+    s.run("owner", "dispatch", { ...send, dispatchKg: "90" });
+    s.run("cm", "cmReceive", { receivedKg: "88", arrival: "08:00" });
+    s.run("cm", "prepare", { preSmokeKg: "85" });
+    s.run("cm", "smoke", { smokeDate: day, inputKg: "85", wasteKg: "5", packs: "40\n40" });
+    s.run("cm", "closeLot", { confirm: "สมชาย" });
+    s.run("owner", "return", {
+      returnDate: day,
+      returnTime: "09:00",
+      origin: "Chef_house",
+      destination: "Foodiva",
+      vehicleType: "รถห้องเย็น",
+      plate: "กข123",
+      driverName: "คนขับ",
+      driverPhone: "0800000000",
+      returnKg: "80",
+    });
+    s.run("foodiva", "foodivaReturnReceive", {
+      receivedDate: day,
+      receivedTime: "10:00",
+      receivedKg: "79",
+      receivedBags: "2",
+    });
+    s.run("owner", "central", { centralKg: "79" });
+    const id = s.db.lots[0].id;
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "40", bags: "1" });
+    expect(centralStock(s.db, id)).toBe(39);
+    const [bag] = availableBags(s.db, id);
+    expect(bag.weight).toBeCloseTo(39);
+    s.run("owner", "allocate", { branch: "มีนบุรี", deliveryDate: day, bagIds: bag.id });
+    expect(Number(last(s).values.kg)).toBeCloseTo(39);
+    expect(centralStock(s.db, id)).toBeCloseTo(0);
+    expect(centralBagStock(s.db, id)).toBe(0);
+  });
+
   test("over-allocation, over-thaw and cross-branch receive rejected", () => {
     const s = ready();
     expect(() =>
