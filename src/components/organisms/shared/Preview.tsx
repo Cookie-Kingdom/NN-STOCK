@@ -132,16 +132,22 @@ export function Preview({
     const expected = (n(v, "boxes") + n(v, "addons")) * n(db.config, "packKg");
     rows = [
       [
-        kind === "sale" ? "ยอดตามเมนู" : "มูลค่าของที่ส่ง (ตามเมนู)",
+        kind === "sale" ? "ยอดตามเมนู" : "มูลค่าของที่แจก (ตามเมนู)",
         `฿${fmt(n(v, "boxes") * n(db.config, "boxPrice") + n(v, "addons") * n(db.config, "addonPrice") + n(v, "chiliAddons") * n(db.config, "chiliPrice"))}`,
       ],
-      ["น้ำหนักตามจำนวนขาย", `${fmt(expected)} กก.`],
+      [
+        kind === "sale" ? "น้ำหนักตามจำนวนขาย" : "น้ำหนักตามจำนวนที่ส่ง",
+        `${fmt(expected)} กก.`,
+      ],
       [
         "พร้อมขายหลังรายการนี้",
         `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
       ],
       ["ข้าวที่จะหัก", `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`],
-      ["น้ำพริกก่อนขาย", `${fmt(chiliStock(db, branch))} หลอดที่ Owner จัดสรร`],
+      [
+        kind === "sale" ? "น้ำพริกก่อนขาย" : "น้ำพริกก่อนตัดสต๊อก",
+        `${fmt(chiliStock(db, branch))} หลอดที่ Owner จัดสรร`,
+      ],
       [
         "น้ำพริกที่จะหัก",
         `${n(v, "chiliAddons")} หลอด${kind === "sale" ? "ที่ลูกค้าซื้อ" : "ที่ส่งไปด้วย"}`,
