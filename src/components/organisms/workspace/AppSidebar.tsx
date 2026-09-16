@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
 import { LogOut } from "lucide-react";
 import { CountPill } from "@/components/atoms/CountPill";
 import { IconButton } from "@/components/atoms/IconButton";
@@ -26,6 +26,15 @@ export function AppSidebar({
   badges?: Partial<Record<Tab, number>>;
 }) {
   const router = useRouter();
+  /* Tabs are buttons, not <Link>s, so nothing prefetches them on its own. Every
+   * tab route is a static page that renders nothing, so warming all of them up
+   * front is cheap and keeps the URL from lagging behind the clicked tab. */
+  useEffect(() => {
+    for (const group of nav)
+      for (const item of group.items)
+        router.prefetch(`${account.path}/${item.id}`);
+  }, [nav, account.path, router]);
+
   return (
     <aside className="flex flex-col border-r border-border bg-surface px-4.5 py-5.5 max-md:block max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-3">
       <nav className="grid content-start gap-1 max-md:flex max-md:flex-wrap max-md:gap-1.5">
