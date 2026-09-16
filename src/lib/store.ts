@@ -609,19 +609,27 @@ export function branchMaterialStock(
         .find((item) => item.values.transferId === entry.id);
       return total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0);
     }, 0);
-  const used = entries(db, "materials", undefined, branch)
-    .filter((entry) => !throughDate || entry.date < throughDate)
-    .reduce((total, entry) => total + n(entry.values, "used" + materialIndex), 0);
-  const adjustments = entries(db, "materials", undefined, branch)
-    .filter((entry) => !throughDate || entry.date < throughDate)
-    .reduce(
-      (total, entry) =>
-        total +
-        n(entry.values, "material" + materialIndex) -
-        (n(entry.values, "opening" + materialIndex) -
-          n(entry.values, "used" + materialIndex)),
-      0,
-    );
+  /* A branch may save a day's count again to fix a typo, so only the newest record
+   * of each day counts; the earlier ones stay in the log as the audit trail. */
+  const counted = [
+    ...new Map(
+      entries(db, "materials", undefined, branch)
+        .filter((entry) => !throughDate || entry.date < throughDate)
+        .map((entry) => [entry.date, entry]),
+    ).values(),
+  ];
+  const used = counted.reduce(
+    (total, entry) => total + n(entry.values, "used" + materialIndex),
+    0,
+  );
+  const adjustments = counted.reduce(
+    (total, entry) =>
+      total +
+      n(entry.values, "material" + materialIndex) -
+      (n(entry.values, "opening" + materialIndex) -
+        n(entry.values, "used" + materialIndex)),
+    0,
+  );
   return transferred - used + adjustments;
 }
 export function materialPar(db: Database, branch: string, index: number) {
@@ -1268,10 +1276,14 @@ export function mutate(
           required(v, "materialReason" + i, `เหตุผลส่วนต่าง ${materials[i]}`);
       }
     }
-    assert(
-      !entries(db, "materials", undefined, branch, date).length,
-      "บันทึกการใช้วัสดุของวันนี้แล้ว",
-    );
+    /* Saving again is how a mistyped count gets fixed. Stamp the round and the
+     * reason instead of locking the form, so the owner can tell an honest fix from
+     * a quiet rewrite: every round stays in the log. */
+    const recorded = entries(db, "materials", undefined, branch, date);
+    if (recorded.length) {
+      v.revision = String(recorded.length + 1);
+      required(v, "correctionReason", "เหตุผลที่แก้ไขยอดวัสดุ");
+    }
   } else if (kind === "materialReceive") {
     required(v, "purchaseDate", "วันที่ซื้อวัสดุ");
     assert(materials.includes(v.material), "เลือกวัสดุ");

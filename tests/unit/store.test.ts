@@ -802,6 +802,45 @@ describe("branch supplies", () => {
     expect(() => receive({ reason: "ซ้ำ" })).toThrow(/ยืนยันรับรายการนี้แล้ว/);
   });
 
+  test("a wrong material count can be saved over, and every round stays in the log", () => {
+    const s = setup();
+    s.run("owner", "materialReceive", {
+      purchaseDate: day,
+      material: materials[0],
+      quantity: "100",
+      unitPrice: "1",
+      supplier: "x",
+    });
+    s.run("owner", "materialTransfer", {
+      material: materials[0],
+      branch: "ศาลาแดง",
+      quantity: "100",
+      receiver: "x",
+    });
+    s.run("branch", "materialConfirm", {
+      transferId: last(s).id,
+      receivedQuantity: "100",
+      receiver: "x",
+    });
+    const sheet = (used: string, extra: Values = {}): Values => ({
+      ...Object.fromEntries(
+        materials.flatMap((_, i) => [
+          ["opening" + i, i === 0 ? "100" : "0"],
+          ["used" + i, i === 0 ? used : "0"],
+          ["material" + i, i === 0 ? String(100 - Number(used)) : "0"],
+        ]),
+      ),
+      ...extra,
+    });
+    s.run("branch", "materials", sheet("0")); // the accidental empty save
+    expect(() => s.run("branch", "materials", sheet("40"))).toThrow(/เหตุผล/);
+    s.run("branch", "materials", sheet("40", { correctionReason: "กรอกผิด" }));
+    expect(last(s).values.revision).toBe("2");
+    expect(entries(s.db, "materials", undefined, "ศาลาแดง", day)).toHaveLength(2);
+    // Only the newest sheet of the day counts, so the fix does not deduct twice.
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0, "2026-09-10")).toBe(60);
+  });
+
   test("Sala Daeng buys and issues raw rice; Min Buri cannot", () => {
     const sala = setup();
     expect(() =>

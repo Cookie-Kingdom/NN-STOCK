@@ -48,6 +48,8 @@ const derivedLabels: Record<string, string> = {
   batches: "Log สโมคที่แก้ไข",
   meatCost: "ต้นทุนเนื้อขาย",
   wasteCost: "ต้นทุนเนื้อ Waste",
+  revision: "บันทึกครั้งที่",
+  correctionReason: "เหตุผลที่แก้ไข",
 };
 
 export function EntryDetails({

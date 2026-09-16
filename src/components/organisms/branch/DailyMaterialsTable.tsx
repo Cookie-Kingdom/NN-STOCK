@@ -29,12 +29,15 @@ export function DailyMaterialsTable({
   disabled: boolean;
 }) {
   const saved = entries(db, "materials", undefined, branch, date).at(-1);
+  /* A saved day stays editable: staff mistype, and a locked form turns a typo into
+   * a support call. The draft starts from what was recorded, and every save is kept
+   * as its own entry so the owner can read the corrections in the history. */
   const [draft, setDraft] = useState<Values>(() =>
     Object.fromEntries(
       materials.flatMap((_, i) => [
-        ["used" + i, "0"],
-        ["actual" + i, ""],
-        ["materialReason" + i, ""],
+        ["used" + i, saved ? String(n(saved.values, "used" + i)) : "0"],
+        ["actual" + i, saved ? String(n(saved.values, "material" + i)) : ""],
+        ["materialReason" + i, saved?.values["materialReason" + i] || ""],
       ]),
     ),
   );
@@ -44,22 +47,16 @@ export function DailyMaterialsTable({
     setError: setMessage,
     run,
   } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const opening = (i: number) =>
-    saved
-      ? n(saved.values, "opening" + i)
-      : branchMaterialStock(db, branch, i, date);
-  const used = (i: number) =>
-    saved ? n(saved.values, "used" + i) : n(draft, "used" + i);
+  const opening = (i: number) => branchMaterialStock(db, branch, i, date);
+  const used = (i: number) => n(draft, "used" + i);
   const remaining = (i: number) =>
-    saved
-      ? n(saved.values, "material" + i)
-      : draft["actual" + i] === ""
-        ? opening(i) - used(i)
-        : n(draft, "actual" + i);
+    draft["actual" + i] === "" ? opening(i) - used(i) : n(draft, "actual" + i);
 
   async function saveMaterials() {
     const next = await run(() => {
-      const values: Values = {};
+      const values: Values = {
+        correctionReason: draft.correctionReason || "",
+      };
       materials.forEach((_, i) => {
         values["opening" + i] = String(opening(i));
         values["used" + i] = String(used(i));
@@ -76,7 +73,10 @@ export function DailyMaterialsTable({
         branch,
       );
     });
-    if (next) setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
+    if (next) {
+      setDraft((current) => ({ ...current, correctionReason: "" }));
+      setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
+    }
   }
 
   return (
@@ -93,89 +93,90 @@ export function DailyMaterialsTable({
           "สถานะ",
         ]}
         action={
-          <Button
-            variant="primary"
-            disabled={disabled || !!saved}
-            onClick={saveMaterials}
-          >
-            {saved ? "บันทึกแล้ว" : "บันทึกการใช้วัสดุ"}
+          <Button variant="primary" disabled={disabled} onClick={saveMaterials}>
+            {saved ? "บันทึกแก้ไข" : "บันทึกการใช้วัสดุ"}
           </Button>
         }
         rowKeys={materials}
         rows={materials.map((item, i) => [
           <strong key={item}>{item}</strong>,
           String(opening(i)),
-          saved ? (
-            String(used(i))
-          ) : (
-            <Input
-              key={`used-${i}`}
-              variant="table"
-              type="number"
-              min="0"
-              max={opening(i)}
-              step="1"
-              value={draft["used" + i] || "0"}
-              disabled={disabled}
-              aria-label={`จำนวนใช้ ${item} วันนี้`}
-              onChange={(event) => {
-                setDraft((current) => ({
-                  ...current,
-                  ["used" + i]: event.target.value,
-                }));
-                setMessage("");
-              }}
-            />
-          ),
+          <Input
+            key={`used-${i}`}
+            variant="table"
+            type="number"
+            min="0"
+            max={opening(i)}
+            step="1"
+            value={draft["used" + i] || "0"}
+            disabled={disabled}
+            aria-label={`จำนวนใช้ ${item} วันนี้`}
+            onChange={(event) => {
+              setDraft((current) => ({
+                ...current,
+                ["used" + i]: event.target.value,
+              }));
+              setMessage("");
+            }}
+          />,
           String(opening(i) - used(i)),
-          saved ? (
-            String(remaining(i))
-          ) : (
-            <Input
-              key={`actual-${i}`}
-              variant="table"
-              type="number"
-              min="0"
-              step="1"
-              placeholder={String(opening(i) - used(i))}
-              value={draft["actual" + i] ?? ""}
-              disabled={disabled}
-              aria-label={`ยอดตรวจนับจริง ${item}`}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  ["actual" + i]: event.target.value,
-                }))
-              }
-            />
-          ),
-          saved ? (
-            saved.values["materialReason" + i] || "—"
-          ) : (
-            <Input
-              key={`reason-${i}`}
-              variant="table"
-              reason
-              type="text"
-              placeholder="กรอกเมื่อยอดไม่ตรง"
-              value={draft["materialReason" + i] || ""}
-              disabled={disabled || remaining(i) === opening(i) - used(i)}
-              aria-label={`เหตุผลส่วนต่าง ${item}`}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  ["materialReason" + i]: event.target.value,
-                }))
-              }
-            />
-          ),
-          saved
-            ? "บันทึกแล้ว"
-            : opening(i)
-              ? "รอบันทึก"
-              : "Owner ยังไม่ตั้งฐาน",
+          <Input
+            key={`actual-${i}`}
+            variant="table"
+            type="number"
+            min="0"
+            step="1"
+            placeholder={String(opening(i) - used(i))}
+            value={draft["actual" + i] ?? ""}
+            disabled={disabled}
+            aria-label={`ยอดตรวจนับจริง ${item}`}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                ["actual" + i]: event.target.value,
+              }))
+            }
+          />,
+          <Input
+            key={`reason-${i}`}
+            variant="table"
+            reason
+            type="text"
+            placeholder="กรอกเมื่อยอดไม่ตรง"
+            value={draft["materialReason" + i] || ""}
+            disabled={disabled || remaining(i) === opening(i) - used(i)}
+            aria-label={`เหตุผลส่วนต่าง ${item}`}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                ["materialReason" + i]: event.target.value,
+              }))
+            }
+          />,
+          saved ? "บันทึกแล้ว" : opening(i) ? "รอบันทึก" : "Owner ยังไม่ตั้งฐาน",
         ])}
       />
+      {saved && (
+        <Notice>
+          บันทึกล่าสุด {new Date(saved.at).toLocaleString("th-TH")} · ครั้งที่{" "}
+          {saved.values.revision || "1"} · แก้ไขแล้วบันทึกซ้ำได้
+          ทุกครั้งที่บันทึกถูกเก็บไว้ในประวัติให้ Owner ตรวจสอบ
+          <Input
+            className="mt-2 w-full"
+            type="text"
+            placeholder="เหตุผลที่แก้ไข เช่น กรอกตัวเลขผิด"
+            aria-label="เหตุผลที่แก้ไขยอดวัสดุ"
+            value={draft.correctionReason || ""}
+            disabled={disabled}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                correctionReason: event.target.value,
+              }))
+            }
+          />
+        </Notice>
+      )}
       {message && <Notice>{message}</Notice>}
     </>
   );
