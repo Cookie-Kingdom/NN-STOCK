@@ -17,6 +17,15 @@ function clean(values: Record<string, string>) {
   const next = Object.fromEntries(Object.entries(values).filter(([key]) => !["brinePrice", "brineOpeningMl", "brineMl", "brineKg", "smokeRate"].includes(key)));
   if (next.material === "ถุงซิปเนื้อ") next.material = "ถุงซีลเนื้อ";
   if (next.material === "ถุงซิปข้าว") next.material = "ถุงซีลข้าว";
+  // Payloads written before the preKg/outputKg rename (migration 0014 only fixed Supabase rows).
+  for (const [old, key] of [["preKg", "preSmokeKg"], ["outputKg", "postSmokeKg"]]) {
+    if (old in next) {
+      next[key] ??= next[old];
+      delete next[old];
+    }
+  }
+  if (next.batches)
+    next.batches = next.batches.replace(/"preKg"/g, '"preSmokeKg"').replace(/"outputKg"/g, '"postSmokeKg"');
   return next;
 }
 function normalize(parsed: StoredDatabase | null, fallback: Database): Database {
@@ -25,7 +34,7 @@ function normalize(parsed: StoredDatabase | null, fallback: Database): Database 
   const config = clean(parsed.config || seed.config);
   return {
     version: 7,
-    lots: parsed.lots,
+    lots: parsed.lots.map((lot) => ({ ...lot, values: clean(lot.values) })),
     entries: parsed.entries.filter((entry) => entry.kind !== "brinePurchase").map((entry) => ({ ...entry, values: clean(entry.values) })),
     config: { ...seed.config, ...config, branch: branches.includes(config.branch || "") ? config.branch : seed.config.branch },
   };

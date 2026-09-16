@@ -8,7 +8,7 @@ import {
   centralStock,
   entries,
   n,
-  processed,
+  pendingSmokeKg,
   produced,
   rawAtFoodiva,
   stages,
@@ -83,7 +83,7 @@ export function MeatStockTable({
         rows={lots.map((lot) => [
           lot.id,
           `${fmt(n(lot.values, "preSmokeKg"))} กก.`,
-          `${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`,
+          `${fmt(pendingSmokeKg(db, lot))} กก.`,
           `${fmt(produced(db, lot.id))} กก.`,
           stages[lot.stage],
         ])}

@@ -69,11 +69,14 @@ test("loading migrates an older payload into the current shape", async () => {
     revision: 3,
     payload: {
       version: 5,
-      lots: [],
+      lots: [
+        { id: "F1", poId: "PO1", stage: 6, values: { preKg: "5", outputKg: "4" }, config: {} },
+      ],
       config: { branch: "ปิดสาขาแล้ว", boxPrice: "999", brinePrice: "3" },
       entries: [
         entry({}, "brinePurchase"),
         entry({ brineMl: "1", material: "ถุงซิปข้าว", boxes: "2" }),
+        entry({ inputKg: "5", outputKg: "4", batches: '[{"outputKg":"4","preKg":"5"}]' }, "smoke"),
       ],
     },
   });
@@ -81,7 +84,9 @@ test("loading migrates an older payload into the current shape", async () => {
   expect(db.version).toBe(7);
   expect(db.entries.map((item) => item.values)).toEqual([
     { material: "ถุงซีลข้าว", boxes: "2" },
+    { inputKg: "5", postSmokeKg: "4", batches: '[{"postSmokeKg":"4","preSmokeKg":"5"}]' },
   ]);
+  expect(db.lots[0].values).toEqual({ preSmokeKg: "5", postSmokeKg: "4" });
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
 });
 

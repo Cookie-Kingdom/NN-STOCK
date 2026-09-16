@@ -401,8 +401,14 @@ export function entries(
       return values ? { ...e, values: { ...e.values, ...values } } : e;
     });
 }
+/** Bag total of one smoke batch. Batches written before the preKg/outputKg rename
+ * carry no `postSmokeKg`, but `packs` was never renamed, so it recovers the weight. */
+const smokeOutputKg = (values: Values) =>
+  values.postSmokeKg !== undefined
+    ? num(values, "postSmokeKg")
+    : validPackWeights(values.packs).reduce((a, b) => a + b, 0);
 export function produced(db: Database, lotId: string) {
-  return sum(entries(db, "smoke", lotId), "postSmokeKg");
+  return entries(db, "smoke", lotId).reduce((a, e) => a + smokeOutputKg(e.values), 0);
 }
 export function producedBags(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "packCount");
@@ -415,11 +421,23 @@ export const isPackWeight = (weight: number) =>
 export const validPackWeights = (packs = "") =>
   packWeights(packs).filter(isPackWeight);
 export type StockBag = { id: string; weight: number };
+/** Bags are weighed at the smoker, central stock at the Owner's scale. Spread the
+ * central weight over the bags so allocating every bag drains central stock to 0. */
+function bagWeightFactor(db: Database, lotId: string) {
+  const lot = db.lots.find((l) => l.id === lotId);
+  const centralKg = num(lot?.values || {}, "centralKg");
+  const packedKg = entries(db, "smoke", lotId).reduce(
+    (a, e) => a + validPackWeights(e.values.packs).reduce((x, y) => x + y, 0),
+    0,
+  );
+  return centralKg > 0 && packedKg > 0 ? centralKg / packedKg : 1;
+}
 export function availableBags(db: Database, lotId: string): StockBag[] {
+  const factor = bagWeightFactor(db, lotId);
   let bags = entries(db, "smoke", lotId).flatMap((entry) =>
     packWeights(entry.values.packs).map((weight, index) => ({
       id: `${entry.id}:${index + 1}`,
-      weight,
+      weight: weight * factor,
     })),
   ).filter((bag) => isPackWeight(bag.weight));
   for (const allocation of entries(db, "allocate", lotId)) {
@@ -475,8 +493,21 @@ export function ownerWasteReceived(db: Database, lotId: string) {
 export function ownerWasteOutstanding(db: Database, lotId: string) {
   return Math.max(0, reservedForOwnerContent(db, lotId) - ownerWasteReceived(db, lotId));
 }
+/** Trim between what Chef_house weighed in and what went to pre-smoke prep. It is
+ * loss, not stock: without naming it the remainder sat at the smoker forever. */
+export function preSmokeTrimKg(db: Database, lot: Lot) {
+  if (!entries(db, "prepare", lot.id).length) return 0;
+  return Math.max(0, n(lot.values, "receivedKg") - n(lot.values, "preSmokeKg"));
+}
 export function rawAtSmoker(db: Database, lot: Lot) {
-  return Math.max(0, n(lot.values, "receivedKg") - processed(db, lot.id));
+  return Math.max(
+    0,
+    n(lot.values, "receivedKg") - preSmokeTrimKg(db, lot) - processed(db, lot.id),
+  );
+}
+/** Pre-smoke weight not yet through the smoker; never negative, even for lots whose old payload lacks the field. */
+export function pendingSmokeKg(db: Database, lot: Lot) {
+  return Math.max(0, n(lot.values, "preSmokeKg") - processed(db, lot.id));
 }
 export function steakRawStock(db: Database, lotId?: string) {
   return sum(entries(db, "steakTransfer", lotId), "quantityKg");
@@ -486,7 +517,8 @@ export function processLoss(db: Database, lotId: string) {
 }
 export function averageYield(db: Database) {
   const input = sum(entries(db, "smoke"), "inputKg");
-  return input > 0 ? (sum(entries(db, "smoke"), "postSmokeKg") / input) * 100 : 0;
+  const output = entries(db, "smoke").reduce((a, e) => a + smokeOutputKg(e.values), 0);
+  return input > 0 ? (output / input) * 100 : 0;
 }
 /** Sales and influencer boxes both take finished product off the branch shelf.
  * Every branch stock number reads both, or the day will not tie out. */

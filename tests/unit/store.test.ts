@@ -25,6 +25,8 @@ import {
   produced,
   producedBags,
   rawAtFoodiva,
+  pendingSmokeKg,
+  preSmokeTrimKg,
   rawAtSmoker,
   rawRiceStock,
   readyForChefHouse,
@@ -608,14 +610,35 @@ describe("lot workflow", () => {
       packCount: "150",
       subLot: "SB-2026-0001",
     });
-    expect(rawAtSmoker(s.db, lot())).toBe(29);
+    // 49 received − 48 prepared = 1 kg trim, which is loss rather than stock waiting at the smoker.
+    expect(preSmokeTrimKg(s.db, lot())).toBe(1);
+    expect(rawAtSmoker(s.db, lot())).toBe(28);
+    expect(pendingSmokeKg(s.db, lot())).toBe(28);
     smoke("28", "7", packs(210));
     expect(lot().stage).toBe(5);
     expect(produced(s.db, id)).toBe(36);
     expect(producedBags(s.db, id)).toBe(360);
     expect(processLoss(s.db, id)).toBe(12);
     expect(averageYield(s.db)).toBe(75);
-    expect(rawAtSmoker(s.db, lot())).toBe(1);
+    expect(rawAtSmoker(s.db, lot())).toBe(0);
+    expect(pendingSmokeKg(s.db, lot())).toBe(0);
+  });
+
+  test("a smoke batch saved before the postSmokeKg rename still counts its bags", () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
+    s.run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" });
+    s.run("cm", "prepare", { preSmokeKg: "50" });
+    s.run("cm", "smoke", { smokeDate: day, inputKg: "50", wasteKg: "5", packs: packs(450) });
+    const id = s.db.lots[0].id;
+    const lot = s.db.lots[0];
+    delete last(s).values.postSmokeKg;
+    delete lot.values.preSmokeKg;
+    expect(produced(s.db, id)).toBeCloseTo(45);
+    expect(processLoss(s.db, id)).toBeCloseTo(5);
+    expect(averageYield(s.db)).toBeCloseTo(90);
+    expect(pendingSmokeKg(s.db, lot)).toBe(0);
   });
 
   test("excess pre-smoke, over-smoke and incomplete close blocked", () => {
@@ -702,10 +725,10 @@ describe("lot workflow", () => {
     const id = s.db.lots[0].id;
     const bags = availableBags(s.db, id);
     expect(bags).toHaveLength(360);
-    expect(bags[0]).toEqual({
-      id: `${entries(s.db, "smoke", id)[0].id}:1`,
-      weight: 0.1,
-    });
+    // 360 bags weighed 0.1 at the smoker, 35 kg on the central scale: each bag carries its share.
+    const bagKg = 35 / 360;
+    expect(bags[0].id).toBe(`${entries(s.db, "smoke", id)[0].id}:1`);
+    expect(bags[0].weight).toBeCloseTo(bagKg);
     const bagIds = bags
       .slice(0, 3)
       .map((bag) => bag.id)
@@ -716,9 +739,9 @@ describe("lot workflow", () => {
       bagIds,
     });
     expect(last(s).values.bags).toBe("3");
-    expect(Number(last(s).values.kg)).toBeCloseTo(0.3);
+    expect(Number(last(s).values.kg)).toBeCloseTo(3 * bagKg);
     expect(centralBagStock(s.db, id)).toBe(357);
-    expect(centralStock(s.db, id)).toBeCloseTo(34.7);
+    expect(centralStock(s.db, id)).toBeCloseTo(35 - 3 * bagKg);
     expect(() =>
       s.run("owner", "allocate", {
         branch: "มีนบุรี",
@@ -728,6 +751,25 @@ describe("lot workflow", () => {
     ).toThrow(/ถูกจัดสรรไปแล้ว/);
     s.run("owner", "allocate", { branch: "มีนบุรี", kg: "1", bags: "5" });
     expect(centralBagStock(s.db, id)).toBe(352);
+  });
+
+  test("every bag can be allocated even when central stock weighs less than the bags", () => {
+    const s = ready();
+    const id = s.db.lots[0].id;
+    const bags = availableBags(s.db, id);
+    const half = Math.floor(bags.length / 2);
+    for (const [branch, chunk] of [
+      ["ศาลาแดง", bags.slice(0, half)],
+      ["มีนบุรี", bags.slice(half)],
+    ] as const) {
+      s.run("owner", "allocate", {
+        branch,
+        deliveryDate: day,
+        bagIds: chunk.map((bag) => bag.id).join(","),
+      });
+    }
+    expect(centralBagStock(s.db, id)).toBe(0);
+    expect(centralStock(s.db, id)).toBeCloseTo(0);
   });
 
   test("over-allocation, over-thaw and cross-branch receive rejected", () => {
