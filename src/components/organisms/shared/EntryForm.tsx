@@ -21,7 +21,7 @@ import { referenceDocument } from "@/components/organisms/shared/referenceDocume
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, forms } from "@/lib/forms";
-import { latestDatabase, migrateLegacyAttachments } from "@/lib/persistence";
+import { latestDatabase } from "@/lib/persistence";
 import { prefillValues } from "@/lib/prefill";
 import {
   balance,
@@ -280,8 +280,19 @@ export function EntryForm({
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
         resolvedValues[`${key}StorageKey`] = await saveAttachment(file);
       }
-      const current = await migrateLegacyAttachments(latestDatabase());
-      return mutate(current, role, kind, resolvedValues, lotId, date, branch);
+      /* ponytail: no legacy-attachment migration here any more. Persistence sends
+       * the loaded history back untouched (the server rejects edited entries), so
+       * the rewrite was discarded, and its re-upload of every old file on each
+       * submit could stall or fail a PO or sale that never touched a file. */
+      return mutate(
+        latestDatabase(),
+        role,
+        kind,
+        resolvedValues,
+        lotId,
+        date,
+        branch,
+      );
     });
     if (saved) onSaved(saved);
   }
@@ -292,7 +303,13 @@ export function EntryForm({
       size={isPurchaseOrder ? "preview" : "default"}
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+      {/* noValidate: a native `required` bubble is not in the DOM and Escape on it
+          also closes the dialog. Let mutate() refuse and say why in FormError. */}
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        noValidate
+        onSubmit={submit}
+      >
         {/* Below lg the PO form and its preview stack in one scroll area: two nested
             scrollers in a fixed-height grid each shrink to a sliver on a phone. */}
         <div

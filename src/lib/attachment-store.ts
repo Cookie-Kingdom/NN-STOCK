@@ -90,7 +90,8 @@ export async function getAttachment(id: string): Promise<StoredAttachment | unde
   const local = await getLocal(id);
   const remote = storage();
   if (local || !remote) return local;
-  const { data: listed } = await remote.list(id, { limit: 1 });
+  const { data: listed, error: listError } = await remote.list(id, { limit: 1 });
+  if (listError) throw new Error(`เปิดที่เก็บไฟล์ไม่สำเร็จ: ${listError.message}`);
   const name = listed?.[0]?.name;
   if (!name) return undefined;
   const { data: blob, error } = await remote.download(`${id}/${name}`);
