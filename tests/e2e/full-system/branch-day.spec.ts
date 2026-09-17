@@ -40,12 +40,13 @@ const LOT = /F\d{6}-\d{3}/;
 
 const openDialog = (page: Page) => page.getByRole("dialog").last();
 
-/** The sample set closes today for every branch; the next business day is open (see branch.spec.ts). */
-function tomorrowInBangkok() {
+/** The sample set closes its last seven days (through today) and future dates are blocked,
+ * so the day before the sample range is the open working date. */
+function openDayBeforeSample() {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
   );
-  now.setDate(now.getDate() + 1);
+  now.setDate(now.getDate() - 7);
   return now.toLocaleDateString("en-CA");
 }
 
@@ -751,10 +752,10 @@ test("E2E-E1: ช่องตรวจนับน้ำพริกในฟอ
   await signInAs(page, ACCOUNTS.owner);
   await loadSampleData(page);
   await signInAs(page, ACCOUNTS.saladaeng);
-  await step(page, "สาขาศาลาแดง: เปิดวันถัดไป (วันนี้ปิดแล้วใน sample) และเปิดฟอร์มยอดขาย", async () => {
+  await step(page, "สาขาศาลาแดง: เปิดวันก่อนช่วง sample (วันนี้ปิดแล้วใน sample) และเปิดฟอร์มยอดขาย", async () => {
     const input = page.getByLabel("วันที่ทำรายการ");
     await input.scrollIntoViewIfNeeded();
-    await input.fill(tomorrowInBangkok());
+    await input.fill(openDayBeforeSample());
     await pointAndClick(page, rowButton(page, "บันทึกยอดขาย / Waste"));
     await expect(openDialog(page)).toBeVisible();
   });
