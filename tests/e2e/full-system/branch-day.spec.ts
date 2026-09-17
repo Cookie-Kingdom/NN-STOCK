@@ -641,6 +641,16 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
     await expect(cell(summary(page), "น้ำพริกคงเหลือหลังหักยอดขาย", 1)).toHaveText("20");
   });
 
+  await step(page, "สาขามีนบุรี: E12 สต๊อก — เนื้อ 198 แช่แข็ง / 0 พร้อมขาย · ข้าวสุก 30 · น้ำพริก 20", async () => {
+    await nav(page, "สต๊อก");
+    const stock = tableSection(page, "สต๊อกเนื้อ · มีนบุรี");
+    await expect(cell(stock, LOT, 3)).toHaveText("198.00 กก.");
+    await expect(cell(stock, LOT, 4)).toHaveText("0.00 กก.");
+    const supply = tableSection(page, "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)");
+    await expect(cell(supply, "มีนบุรี", 3)).toHaveText("30.00 กก.");
+    await expect(cell(supply, "มีนบุรี", 5)).toHaveText("20.00 หลอด");
+  });
+
   /* ---- E11 Owner unlocks Saladaeng, the branch sells more and closes again ---- */
 
   await step(page, "Owner: E11 ปลดล็อกวันศาลาแดง → รายงานรายวัน ศาลาแดง เปิดอยู่ · มีนบุรี ปิดแล้ว", async () => {
