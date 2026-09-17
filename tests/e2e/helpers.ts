@@ -260,3 +260,30 @@ export async function ownerIssuesSmokePo(page: Page, kg = "500") {
   await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
   await button(page, "บันทึก PO รมควันเนื้อ");
 }
+
+/* ---- flow steps --------------------------------------------------------- */
+
+/** One named step of a flow spec. Start the title with the actor ("Owner: …",
+ * "Foodiva: …", "Chef_house: …", "สาขาศาลาแดง: …") so the flow report
+ * (scripts/e2e-flow-report.mjs, fed by the JSON reporter) can lay the steps out
+ * per role. A viewport screenshot is attached after the body, also when it fails. */
+export async function step(
+  page: Page,
+  title: string,
+  body: () => Promise<void>,
+) {
+  await test.step(title, async () => {
+    try {
+      await body();
+    } finally {
+      const shot = await page
+        .screenshot({ type: "jpeg", quality: 55 })
+        .catch(() => null);
+      if (shot)
+        await test.info().attach(`step:${title}`, {
+          body: shot,
+          contentType: "image/jpeg",
+        });
+    }
+  });
+}
