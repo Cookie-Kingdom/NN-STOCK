@@ -14,13 +14,13 @@ import {
   tableSection,
 } from "./helpers";
 
-/** The sample set closes every day it generates, so the branch needs the next
- * business day to have an open form. */
-function tomorrowInBangkok() {
+/** The sample set closes its last seven days (through today) and future dates are blocked,
+ * so the day before the sample range is the open working date. */
+function openDayBeforeSample() {
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
   );
-  now.setDate(now.getDate() + 1);
+  now.setDate(now.getDate() - 7);
   return now.toLocaleDateString("en-CA");
 }
 
@@ -44,8 +44,8 @@ test("สาขาศาลาแดง: วันที่ปิดแล้ว
   // ข้อมูลตัวอย่างปิดวันไว้แล้ว ฟอร์มของวันนี้ต้องถูกล็อก
   await expect(page.locator("main")).toContainText("ปิดแล้ว");
 
-  // เปิดวันถัดไป ฟอร์มต้องปลดล็อก
-  await setWorkingDate(page, tomorrowInBangkok());
+  // เปิดวันก่อนช่วง sample (ยังไม่ปิด) ฟอร์มต้องปลดล็อก
+  await setWorkingDate(page, openDayBeforeSample());
   await expect(page.locator("main")).not.toContainText("ปิดแล้ว");
 
   const riceTable = tableSection(page, "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง");
