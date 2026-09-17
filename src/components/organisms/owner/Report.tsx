@@ -83,6 +83,8 @@ export function Report({ db }: { db: Database }) {
           n(e.values, "expense"),
         0,
       );
+  const margin =
+    sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost;
   const dayRows = Array.from(new Set(sales.map((e) => `${e.date}|${e.branch}`)))
     .sort()
     .reverse()
@@ -149,10 +151,8 @@ export function Report({ db }: { db: Database }) {
           ["↳ ซื้อวัตถุดิบ / ETC (รวมอยู่ในต้นทุนรวมแล้ว)", fmt(generalPurchaseCost), "บาท"],
           [
             "ส่วนต่างหลังต้นทุนที่บันทึก",
-            fmt(
-              sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost,
-            ),
-            "บาท",
+            fmt(Math.abs(margin)),
+            margin < 0 ? "บาท · ต่ำกว่าต้นทุน" : "บาท",
           ],
         ]}
       />

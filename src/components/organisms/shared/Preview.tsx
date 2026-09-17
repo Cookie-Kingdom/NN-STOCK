@@ -125,7 +125,7 @@ export function Preview({
       ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
       [
         "ส่วนต่าง (ก่อน−หลัง สโมค)",
-        `${fmt(n(lot.values, "preSmokeKg") - produced(db, lot.id))} กก.`,
+        `${fmt(Math.abs(n(lot.values, "preSmokeKg") - produced(db, lot.id)))} กก.`,
       ],
     ];
   if ((kind === "sale" || kind === "influencerBox") && lot) {

@@ -83,7 +83,7 @@ export function TransportManifestView({
                 <Badge
                   tone={Math.abs(difference) > 0.001 ? "danger" : "success"}
                 >
-                  ส่วนต่าง {fmt(difference)} กก.
+                  ส่วนต่าง {fmt(Math.abs(difference))} กก.
                 </Badge>
               </span>
             ) : (

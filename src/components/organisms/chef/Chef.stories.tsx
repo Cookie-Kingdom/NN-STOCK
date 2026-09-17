@@ -1,5 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { demoDb, open, smokedDb } from "../../../../.storybook/fixtures";
+import {
+  demoDb,
+  open,
+  rejectedInvoiceDb,
+  smokedDb,
+} from "../../../../.storybook/fixtures";
 import { ChefLotTable } from "./ChefLotTable";
 import { ChefReceiveTable } from "./ChefReceiveTable";
 
@@ -16,6 +21,18 @@ export const LotTableSmoked: Story = {
 export const LotTableClosed: Story = {
   parameters: { db: demoDb },
   render: () => <ChefLotTable db={demoDb} lots={demoDb.lots} open={open} />,
+};
+
+// The Owner sent the smoking invoice back: the row shows the reason next to the fix button.
+export const LotTableInvoiceSentBack: Story = {
+  parameters: { db: rejectedInvoiceDb },
+  render: () => (
+    <ChefLotTable
+      db={rejectedInvoiceDb}
+      lots={rejectedInvoiceDb.lots}
+      open={open}
+    />
+  ),
 };
 
 export const ReceiveTable: Story = {

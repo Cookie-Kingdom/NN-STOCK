@@ -3,7 +3,10 @@
 import { fn } from "storybook/test";
 import { sevenDayRoleplay, type Database } from "@/lib/store";
 import {
+  confirm,
   day,
+  invoice,
+  purchase,
   ready,
   readyToDispatch,
   setup,
@@ -27,5 +30,20 @@ export const smokedDb: Database = smoked().db;
 
 /** Lot at stage 8: 35 kg in central stock, bags ready to allocate. */
 export const centralDb: Database = ready().db;
+
+/** Lot with Foodiva's 30 kg invoice split 28 / 2 and a smoking invoice the Owner sent back. */
+export const rejectedInvoiceDb: Database = (() => {
+  const s = setup();
+  purchase(s, "30");
+  confirm(s, "30", "28");
+  const sent = invoice(s, "28");
+  s.run("owner", "invoiceReview", {
+    invoiceId: sent.id,
+    decision: "ส่งกลับแก้ไข",
+    reviewedBy: "Owner",
+    comment: "ยอดคลาดเคลื่อน โปรดออกใหม่",
+  });
+  return s.db;
+})();
 
 export const open = fn();
