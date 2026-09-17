@@ -15,17 +15,20 @@ export default function SignInPage() {
   const router = useRouter();
   const { ready, account, error: sessionError } = useSession();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (ready && account) router.replace(account.path);
   }, [ready, account, router]);
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // ponytail: uncontrolled inputs. Controlled ones lost whatever was typed or autofilled
+    // before hydration: the next re-render wrote the empty state back into the DOM.
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email"));
+    const password = String(form.get("password"));
+    const displayName = String(form.get("displayName") ?? "");
     setBusy(true);
     setMessage("");
     const result =
@@ -56,8 +59,7 @@ export default function SignInPage() {
               <Input
                 className={inputClass}
                 required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                name="displayName"
                 autoComplete="name"
               />
             </label>
@@ -68,8 +70,7 @@ export default function SignInPage() {
               className={inputClass}
               required
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"
               autoComplete="email"
             />
           </label>
@@ -80,8 +81,7 @@ export default function SignInPage() {
               required
               minLength={6}
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
               autoComplete={
                 mode === "login" ? "current-password" : "new-password"
               }
