@@ -135,6 +135,7 @@ function EntryFieldControl({
       ) : (
         <Input
           autoFocus={autoFocus}
+          data-autofocus={autoFocus || undefined}
           type={f.type === "time" ? "text" : f.type || "text"}
           placeholder={f.type === "time" ? "08:00" : undefined}
           pattern={
@@ -333,6 +334,7 @@ export function EntryForm({
               <FormField label="Lot ต้นทาง">
                 <Select
                   autoFocus
+                  data-autofocus
                   value={lotId}
                   required
                   onChange={(e) => {

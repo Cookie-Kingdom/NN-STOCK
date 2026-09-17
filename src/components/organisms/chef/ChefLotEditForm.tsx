@@ -96,7 +96,7 @@ export function ChefLotEditForm({
       title="Edit ข้อมูลก่อนปิด Lot"
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={save}>
+      <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={save}>
         <DialogBody>
           <Notice>
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot

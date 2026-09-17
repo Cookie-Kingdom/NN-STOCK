@@ -89,7 +89,11 @@ export function MaterialTransferForm({
       size="wide"
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+      <form
+        className="flex min-h-0 flex-1 flex-col"
+        noValidate
+        onSubmit={submit}
+      >
         <DialogBody>
           <Notice>
             ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน

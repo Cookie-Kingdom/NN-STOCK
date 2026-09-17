@@ -108,11 +108,9 @@ const summary = (page: Page) => tableSection(page, /^สรุปรายวั
 const fillCell = (page: Page, label: string, value: string) =>
   page.getByLabel(label).fill(value);
 
-/** Opens the sales dialog with the chili count left blank ("ไม่ได้นับ"). The form
- * defaults it to "0" (E2E-E1), which mutate() reads as a real count of zero. */
+/** Opens the sales dialog; the chili count opens blank ("ไม่ได้นับ"). */
 async function openSale(page: Page) {
   await button(page, "บันทึกยอดขาย");
-  await field(page, /ตรวจนับน้ำพริกจริงปลายวัน/, "");
 }
 
 /** Opens "ตรวจและปิดวัน", submits with the simulated clock and expects mutate() to refuse. */
@@ -641,6 +639,16 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
     await expect(cell(summary(page), "น้ำพริกคงเหลือหลังหักยอดขาย", 1)).toHaveText("20");
   });
 
+  await step(page, "สาขามีนบุรี: E12 สต๊อก — เนื้อ 198 แช่แข็ง / 0 พร้อมขาย · ข้าวสุก 30 · น้ำพริก 20", async () => {
+    await nav(page, "สต๊อก");
+    const stock = tableSection(page, "สต๊อกเนื้อ · มีนบุรี");
+    await expect(cell(stock, LOT, 3)).toHaveText("198.00 กก.");
+    await expect(cell(stock, LOT, 4)).toHaveText("0.00 กก.");
+    const supply = tableSection(page, "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)");
+    await expect(cell(supply, "มีนบุรี", 3)).toHaveText("30.00 กก.");
+    await expect(cell(supply, "มีนบุรี", 5)).toHaveText("20.00 หลอด");
+  });
+
   /* ---- E11 Owner unlocks Saladaeng, the branch sells more and closes again ---- */
 
   await step(page, "Owner: E11 ปลดล็อกวันศาลาแดง → รายงานรายวัน ศาลาแดง เปิดอยู่ · มีนบุรี ปิดแล้ว", async () => {
@@ -734,14 +742,10 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
 /* E2E-E1 (P2): forms.ts declares `chiliCount` with zero:true, so defaults() fills
  * "0" although the label promises "เว้นว่างถ้าไม่ได้นับ" and mutate() only skips the
  * count when the value is "". A branch that holds chili and does not count it is
- * forced to write a mismatch remark it never claimed. Remove test.fail once fixed. */
+ * forced to write a mismatch remark it never claimed. Fixed: the field is optional and opens empty. */
 test("E2E-E1: ช่องตรวจนับน้ำพริกในฟอร์มยอดขายต้องว่างเมื่อเปิด (ไม่ได้นับ) ไม่ใช่ 0", async ({
   page,
 }) => {
-  test.fail(
-    true,
-    "E2E-E1: defaults() prefills chiliCount with \"0\", forcing a chili remark",
-  );
   skipUnlessCredentials(ACCOUNTS.owner, ACCOUNTS.saladaeng);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
