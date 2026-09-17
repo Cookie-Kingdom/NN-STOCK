@@ -24,6 +24,8 @@ export function PageHeading({
 }) {
   const max = today();
   const min = minDate && minDate <= max ? minDate : undefined;
+  // min/max only limit the picker; a typed date still lands here, and mutate would reject it.
+  const outOfRange = Boolean(date) && ((min && date < min) || date > max);
   return (
     <div className="mb-6 flex items-center justify-between gap-5 max-md:items-start max-md:gap-2.5">
       <div>
@@ -47,6 +49,11 @@ export function PageHeading({
             onChange={(e) => onDate(e.target.value)}
           />
         </label>
+        {outOfRange && (
+          <p role="alert" className="max-w-55 text-caption text-danger">
+            วันที่อยู่นอกช่วงที่บันทึกได้ ({min ?? "…"} – {max})
+          </p>
+        )}
         <Button
           variant="text"
           className="justify-end"

@@ -12,6 +12,7 @@ const supabase = LOCAL_DB ? null : createClient();
 const listeners = new Set<() => void>();
 let revision: number | null = null;
 let writeQueue = Promise.resolve();
+let pendingWrites = 0;
 
 function clean(values: Record<string, string>) {
   const next = Object.fromEntries(Object.entries(values).filter(([key]) => !["brinePrice", "brineOpeningMl", "brineMl", "brineKg", "smokeRate"].includes(key)));
@@ -75,14 +76,25 @@ async function localRequest(init?: RequestInit): Promise<RowResult> {
     return { data: null, error: { message: (error as Error).message } };
   }
 }
-function readRow(): PromiseLike<RowResult> {
-  if (!supabase) return localRequest();
-  return supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>();
+/* supabase-js has no request timeout, and every save waits in writeQueue behind the one
+ * before it: a request that never settles (stalled fetch, auth session read that never
+ * resolves) would leave every later save unsent with no message until a reload. */
+const REQUEST_TIMEOUT_MS = 20_000;
+function withTimeout(request: PromiseLike<RowResult>): Promise<RowResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<RowResult>((resolve) => {
+    timer = setTimeout(() => resolve({ data: null, error: { message: "เชื่อมต่อเซิร์ฟเวอร์ไม่ทันเวลา กรุณาลองใหม่" } }), REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([Promise.resolve(request), timeout]).finally(() => clearTimeout(timer));
 }
-function saveRow(payload: Database, expectedRevision: number | null): PromiseLike<RowResult> {
+function readRow(): Promise<RowResult> {
+  if (!supabase) return localRequest();
+  return withTimeout(supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>());
+}
+function saveRow(payload: Database, expectedRevision: number | null): Promise<RowResult> {
   if (!supabase) return localRequest({ method: "POST", body: JSON.stringify({ payload, expectedRevision }) });
-  return supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
-    .then(({ data, error }) => ({ data: (data as AppStateRow[] | null)?.[0] ?? null, error }));
+  return withTimeout(supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
+    .then(({ data, error }) => ({ data: (data as AppStateRow[] | null)?.[0] ?? null, error })));
 }
 /** Resolves to whether the server payload replaced the cache. */
 async function loadDatabase(): Promise<boolean> {
@@ -100,7 +112,10 @@ async function loadDatabase(): Promise<boolean> {
 }
 
 function onAuthEvent(event: string) {
-  if (event === "SIGNED_IN") void loadDatabase();
+  // Deferred: Supabase warns that calling the client inside onAuthStateChange can deadlock.
+  // A save in flight reloads on its own; adopting now would swap its optimistic change out
+  // of the cache and its base (revision, stored history) out from under it.
+  if (event === "SIGNED_IN") setTimeout(() => { if (!pendingWrites) void loadDatabase(); }, 0);
   if (event === "SIGNED_OUT") { cached = initialDatabase; stored = null; revision = null; loaded = false; notify(); }
 }
 if (supabase) {
@@ -145,6 +160,7 @@ function writeDatabase(db: Database, quietConflict: boolean): Promise<"saved" | 
   stored = { payload: portable, count: db.entries.length, lastId: db.entries.at(-1)?.id, config: db.config };
   const mine = cached;
   notify();
+  pendingWrites++;
   const saved = writeQueue.then(async () => {
     const { data: row, error } = await saveRow(portable, revision);
     if (error) {
@@ -161,7 +177,7 @@ function writeDatabase(db: Database, quietConflict: boolean): Promise<"saved" | 
     }
     if (row) revision = row.revision;
     return "saved" as const;
-  });
+  }).finally(() => { pendingWrites--; });
   writeQueue = saved.then(() => undefined);
   return saved;
 }
