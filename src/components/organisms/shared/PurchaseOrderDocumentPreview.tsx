@@ -49,9 +49,13 @@ export function PurchaseOrderDocumentPreview({
   const supplierAddress =
     db.config[isSmokeOrder ? "chefHouseAddress" : "foodivaAddress"] ||
     "ยังไม่ได้ตั้งค่า";
-  const documentNumber = isSmokeOrder
-    ? `SMK-PO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
-    : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
+  // A saved smoke PO carries the number mutate() gave it; otherwise predict the next one.
+  const saved = Boolean(values.orderNumber);
+  const documentNumber = saved
+    ? values.orderNumber
+    : isSmokeOrder
+      ? `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
+      : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
   const issueDate = isSmokeOrder ? values.requestedSmokeDate || date : date;
   const dueDate = isSmokeOrder
     ? values.expectedFinishedDate || "—"
@@ -72,10 +76,14 @@ export function PurchaseOrderDocumentPreview({
         <div>
           <strong className="block text-h3">Preview</strong>
           <span className="mt-0.5 block text-caption text-text-secondary">
-            อัปเดตตามที่กรอก
+            {saved ? "เอกสารที่บันทึกแล้ว" : "อัปเดตตามที่กรอก"}
           </span>
         </div>
-        <Badge tone="warning">ฉบับร่าง</Badge>
+        {saved ? (
+          <Badge tone="success">บันทึกแล้ว</Badge>
+        ) : (
+          <Badge tone="warning">ฉบับร่าง</Badge>
+        )}
       </div>
       <article className="po-paper">
         <div className="po-paper-heading">

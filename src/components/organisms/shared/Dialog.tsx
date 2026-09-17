@@ -90,6 +90,9 @@ export function Dialog({
         ? document.activeElement
         : null;
     if (!dialog.open) dialog.showModal();
+    // React's autoFocus fires while the dialog is still closed, and showModal() then
+    // focuses the first focusable (the close button). Hand focus back to the marked field.
+    dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     return () => {
       if (dialog.open) dialog.close();
       previous?.focus();

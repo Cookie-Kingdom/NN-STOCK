@@ -14,7 +14,7 @@ import {
   produced,
   rawAtFoodiva,
   readyForChefHouse,
-  reservedForOwnerContent,
+  ownerWasteOutstanding,
   type Database,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -28,7 +28,7 @@ export function FoodivaView({
 }) {
   const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0);
   const reservedForContent = db.lots.reduce(
-    (sum, lot) => sum + reservedForOwnerContent(db, lot.id),
+    (sum, lot) => sum + ownerWasteOutstanding(db, lot.id),
     0,
   );
   const returnWaiting = db.lots.filter(
@@ -81,7 +81,7 @@ export function FoodivaView({
               </Badge>
             ),
             confirm ? `${fmt(readyForChefHouse(db, lot.id))} กก.` : "—",
-            confirm ? `${fmt(reservedForOwnerContent(db, lot.id))} กก.` : "—",
+            confirm ? `${fmt(ownerWasteOutstanding(db, lot.id))} กก.` : "—",
             `${fmt(rawAtFoodiva(db, lot))} กก.`,
             !confirm
               ? "ต้องออก Invoice"
@@ -89,7 +89,9 @@ export function FoodivaView({
                 ? "รอ Owner เรียกรถ"
                 : lot.stage < 7
                   ? "ส่งให้ Chef_house แล้ว"
-                  : "รอรับเนื้อรมควัน",
+                  : returnWaiting.includes(lot)
+                    ? "รอรับเนื้อรมควัน"
+                    : "รับเนื้อรมควันแล้ว",
             !confirm ? (
               <ButtonRow key="confirm-actions">
                 <DocumentPrintButton

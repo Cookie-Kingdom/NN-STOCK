@@ -1534,24 +1534,25 @@ export function mutate(
     v.targetBranch = target.branch;
   } else if (kind === "config") {
     v.ricePrice = "0";
-    for (const key of [
-      "boxPrice",
-      "addonPrice",
-      "packKg",
-      "ricePrice",
-      "chiliPrice",
-      "rawRicePar",
-      "rawRiceUnitPrice",
-      "chiliPar",
-      "chiliUnitPrice",
-      "cookedRicePar",
-      "cookedRiceUnitPrice",
-      "outboundFee",
-      "returnFee",
-      "roundFee",
-      "tolerance",
-    ])
-      positive(v, key, key, key !== "packKg");
+    // Labels match the Thai setting names in ConfigView.
+    for (const [key, label] of Object.entries({
+      boxPrice: "ราคากล่องมาตรฐาน",
+      addonPrice: "ราคาเนื้อซีลเพิ่ม",
+      packKg: "น้ำหนักเฉลี่ยต่อซีล",
+      ricePrice: "ราคาข้าว",
+      chiliPrice: "ราคาขายน้ำพริกหลอด",
+      rawRicePar: "จำนวนฐานข้าวเหนียวดิบ",
+      rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
+      chiliPar: "จำนวนฐานน้ำพริก",
+      chiliUnitPrice: "ราคาต่อหน่วยน้ำพริก",
+      cookedRicePar: "จำนวนฐานข้าวเหนียวสุกมีนบุรี",
+      cookedRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวสุก",
+      outboundFee: "ค่าขนส่งขาไป",
+      returnFee: "ค่าขนส่งขากลับ",
+      roundFee: "ค่าขนส่งไป-กลับ",
+      tolerance: "ค่าคลาดเคลื่อนยอดขาย",
+    }))
+      positive(v, key, label, key !== "packKg");
     assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
     required(v, "closeTime", "เวลาเริ่มปิดวัน");

@@ -531,10 +531,6 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
   test("E2E-F1 Foodiva: Lot ที่รับเนื้อรมควันเข้าตู้แล้วไม่ควรขึ้นสถานะ รอรับเนื้อรมควัน", async ({
     page,
   }) => {
-    test.fail(
-      true,
-      "E2E-F1: FoodivaView.tsx:88-92 maps every lot.stage >= 7 to 'รอรับเนื้อรมควัน', also after foodivaReturnReceive / central (stage 8)",
-    );
     await step(page, "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ", () =>
       withSample(page, "foodiva"),
     );

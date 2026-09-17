@@ -84,17 +84,19 @@ function saveRow(payload: Database, expectedRevision: number | null): PromiseLik
   return supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
     .then(({ data, error }) => ({ data: (data as AppStateRow[] | null)?.[0] ?? null, error }));
 }
-async function loadDatabase() {
+/** Resolves to whether the server payload replaced the cache. */
+async function loadDatabase(): Promise<boolean> {
   const { data, error } = await readRow();
-  if (error) return reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
+  if (error) { reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`); return false; }
   if (!data) {
     const created = await saveRow(initialDatabase, null);
     const row = created.data;
-    if (created.error) return reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
+    if (created.error) { reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`); return false; }
     if (row) adopt(row.payload, row.revision);
-    return;
+    return Boolean(row);
   }
   adopt(data.payload, data.revision);
+  return true;
 }
 
 function onAuthEvent(event: string) {
@@ -120,6 +122,7 @@ export function useDatabase() {
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
 export function saveDatabase(db: Database): Promise<boolean> {
+  const before = { cached, stored };
   const strip = (entry: Database["entries"][number]) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) });
   cached = { ...db, entries: db.entries.map(strip) };
   // Only splice when `db` continues the loaded history; a wholesale reset goes out as is.
@@ -130,12 +133,19 @@ export function saveDatabase(db: Database): Promise<boolean> {
     config: JSON.stringify(db.config) === JSON.stringify(stored.config) ? stored.payload.config ?? db.config : db.config,
   };
   stored = { payload: portable, count: db.entries.length, lastId: db.entries.at(-1)?.id, config: db.config };
+  const mine = cached;
   notify();
   const saved = writeQueue.then(async () => {
     const { data: row, error } = await saveRow(portable, revision);
     if (error) {
-      await loadDatabase();
-      reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
+      if (await loadDatabase()) {
+        reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
+        return false;
+      }
+      // The server copy could not be read (offline): drop the unsaved change so a retry
+      // does not send it twice. ponytail: skipped when a later save already built on it.
+      if (cached === mine) { ({ cached, stored } = before); notify(); }
+      reportError(`บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ · ${error.message}`);
       return false;
     }
     if (row) revision = row.revision;

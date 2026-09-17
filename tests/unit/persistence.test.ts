@@ -186,6 +186,30 @@ test("a failed save reloads from the server and reports the error", async () => 
   expect(mocks.maybeSingle).toHaveBeenCalledTimes(1);
 });
 
+test("a failed save that cannot reload rolls the cache back, so a retry does not duplicate", async () => {
+  const events = new EventTarget();
+  vi.stubGlobal("window", events);
+  const messages: string[] = [];
+  events.addEventListener("database-error", (event) =>
+    messages.push((event as CustomEvent).detail),
+  );
+  await signInWithRow({ revision: 1, payload: seed });
+  const before = latestDatabase();
+  mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Failed to fetch" } });
+  mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "Failed to fetch" } });
+  const next = { ...before, entries: [...before.entries, entry({ boxes: "1" })] };
+  const saved = saveDatabase(next);
+  expect(latestDatabase().entries).toHaveLength(next.entries.length);
+  await expect(saved).resolves.toBe(false);
+  expect(latestDatabase()).toBe(before);
+  expect(messages.at(-1)).toMatch(/บันทึกไม่สำเร็จ ยังไม่ได้บันทึก.*Failed to fetch/);
+  expect(messages.at(-1)).not.toMatch(/โหลดข้อมูลล่าสุดแล้ว/);
+
+  mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 2, payload: next }], error: null });
+  await expect(saveDatabase(next)).resolves.toBe(true);
+  expect(mocks.rpc.mock.lastCall![1].p_payload.entries).toHaveLength(next.entries.length);
+});
+
 test("a failed load reports the error instead of silently showing seed data", async () => {
   const events = new EventTarget();
   vi.stubGlobal("window", events);

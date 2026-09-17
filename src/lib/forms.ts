@@ -356,7 +356,7 @@ export const forms: Record<string, Field[]> = {
     number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
     number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
-    number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)", true),
+    { ...number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)", true), optional: true },
     { key: "chiliRemark", label: "หมายเหตุเมื่อน้ำพริกไม่ตรง", type: "textarea", optional: true },
     number("soldKg", "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
     number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
@@ -480,7 +480,7 @@ export function defaults(kind: string, dateValue: string): Values {
         ? dateValue
         : f.type === "select"
           ? f.options![0]
-          : f.type === "number" && f.zero
+          : f.type === "number" && f.zero && !f.optional
             ? "0"
             : "";
   if (kind === "purchase") out.supplier = "Foodiva";

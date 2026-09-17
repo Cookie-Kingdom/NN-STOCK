@@ -346,7 +346,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(preview).toContainText("SMOKING SERVICE PO");
     await expect(preview).toContainText("บริการรมควันเนื้อ");
     await expect(preview).toContainText("490");
-    // The saved order number (SO) is asserted in E2E-C4: the preview shows the next draft number.
+    await expect(preview).toContainText(SO);
     await pointAndClick(page, preview.getByRole("button", { name: "ปิด", exact: true }));
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
@@ -582,10 +582,6 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
 test("E2E-C2: หน้า Foodiva แสดงเนื้อรอ Owner รับ = 0 หลัง Owner รับครบ 10 กก. (C11)", async ({
   page,
 }) => {
-  test.fail(
-    true,
-    "E2E-C2: FoodivaView ใช้ reservedForOwnerContent (ยอดจาก Invoice) ไม่ใช่ ownerWasteOutstanding จึงยังแสดง 10.00 กก. หลัง Owner รับครบ",
-  );
   test.setTimeout(5 * 60_000);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
@@ -642,10 +638,6 @@ test("E2E-C3: Chef_house รับเนื้อ 300 จากที่ส่�
 test("E2E-C4: Chef_house \"ดู PO รมควัน\" แสดงเลข PO รมควันที่บันทึกแล้ว ไม่ใช่เลขฉบับร่างถัดไป (C6)", async ({
   page,
 }) => {
-  test.fail(
-    true,
-    "E2E-C4: PurchaseOrderDocumentPreview.tsx:52-54 คำนวณเลขใหม่ SMK-PO-<ปี>-<จำนวน smokeOrder+1> และติดป้าย ฉบับร่าง (:78) แม้ SmokeOrderPreviewDialog ส่ง PO ที่บันทึกแล้ว (values.orderNumber = SO-…) → Chef_house เห็น SMK-PO-2026-0002 แทน SO-2026-0001",
-  );
   test.setTimeout(5 * 60_000);
   await step(page, "ระบบ: Owner PO 500 → Foodiva Invoice 500 → Owner PO รมควัน 500", async () => {
     await startFresh(page);

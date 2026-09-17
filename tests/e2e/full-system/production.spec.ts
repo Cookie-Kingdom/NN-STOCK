@@ -462,10 +462,6 @@ test("E2E-D1: Edit ข้อมูลก่อนปิด Lot น้ำหน�
   page,
 }) => {
   test.setTimeout(10 * 60_000);
-  test.fail(
-    true,
-    "E2E-D1: ChefLotEditForm <form> (ChefLotEditForm.tsx:99) has no noValidate, so min=0.001 blocks submit with a native bubble and mutate()'s message never shows",
-  );
   await startFresh(page);
   await reachPreSmoke(page);
   await step(page, "Chef_house: ก่อนสโมค 480 · สโมครอบเดียว 480 = 478 + waste 2 → stage ปิด Lot", async () => {

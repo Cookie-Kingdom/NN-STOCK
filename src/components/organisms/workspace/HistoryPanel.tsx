@@ -18,6 +18,9 @@ export function HistoryPanel({
   onChanged: (message: string) => void;
 }) {
   const list = visibleEntries(db, role, branch);
+  const voided = new Set(
+    db.entries.filter((e) => e.kind === "void").map((e) => e.values.targetId),
+  );
   return (
     <Panel>
       <h2 className="mb-3 text-h2">ประวัติรายการที่บันทึก</h2>
@@ -32,6 +35,7 @@ export function HistoryPanel({
               key={entry.id}
               entry={entry}
               owner={role === "owner"}
+              voided={voided.has(entry.id)}
               onChanged={onChanged}
             />
           ))

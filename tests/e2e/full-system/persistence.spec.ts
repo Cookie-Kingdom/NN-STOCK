@@ -743,7 +743,6 @@ test("E2E-G1: บันทึก PO ตอน offline ล้มเหลว แ�
   page,
   context,
 }) => {
-  test.fail(true, "E2E-G1: retry after an offline save failure writes the PO twice (optimistic cache not rolled back)");
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
 

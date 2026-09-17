@@ -108,11 +108,9 @@ const summary = (page: Page) => tableSection(page, /^สรุปรายวั
 const fillCell = (page: Page, label: string, value: string) =>
   page.getByLabel(label).fill(value);
 
-/** Opens the sales dialog with the chili count left blank ("ไม่ได้นับ"). The form
- * defaults it to "0" (E2E-E1), which mutate() reads as a real count of zero. */
+/** Opens the sales dialog; the chili count opens blank ("ไม่ได้นับ"). */
 async function openSale(page: Page) {
   await button(page, "บันทึกยอดขาย");
-  await field(page, /ตรวจนับน้ำพริกจริงปลายวัน/, "");
 }
 
 /** Opens "ตรวจและปิดวัน", submits with the simulated clock and expects mutate() to refuse. */
@@ -744,14 +742,10 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
 /* E2E-E1 (P2): forms.ts declares `chiliCount` with zero:true, so defaults() fills
  * "0" although the label promises "เว้นว่างถ้าไม่ได้นับ" and mutate() only skips the
  * count when the value is "". A branch that holds chili and does not count it is
- * forced to write a mismatch remark it never claimed. Remove test.fail once fixed. */
+ * forced to write a mismatch remark it never claimed. Fixed: the field is optional and opens empty. */
 test("E2E-E1: ช่องตรวจนับน้ำพริกในฟอร์มยอดขายต้องว่างเมื่อเปิด (ไม่ได้นับ) ไม่ใช่ 0", async ({
   page,
 }) => {
-  test.fail(
-    true,
-    "E2E-E1: defaults() prefills chiliCount with \"0\", forcing a chili remark",
-  );
   skipUnlessCredentials(ACCOUNTS.owner, ACCOUNTS.saladaeng);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);

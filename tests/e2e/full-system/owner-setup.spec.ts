@@ -607,7 +607,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     await pointAndClick(page, entry.locator("summary"));
     await pointAndClick(page, entry.getByRole("button", { name: "แก้รายการผิดด้วยการยกเลิก" }));
     await pointAndClick(page, entry.getByRole("button", { name: "ยืนยันยกเลิก" }));
-    await expect(toast(page, "กรอกเหตุผลยกเลิกรายการ")).toBeVisible();
+    await expect(alertIn(entry, "กรอกเหตุผลยกเลิกรายการ")).toBeVisible();
     await expect(page.getByRole("main").locator("details").filter({
       has: page.locator("summary").filter({ hasText: /^ยกเลิกรายการ/ }),
     })).toHaveCount(0);
@@ -623,10 +623,10 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     ).toHaveCount(1);
   });
 
-  await step(page, "Owner: B8 ยกเลิกซ้ำ → รายการนี้ถูกยกเลิกแล้ว", async () => {
+  await step(page, "Owner: B8 รายการที่ยกเลิกแล้วมีเครื่องหมาย ยกเลิกแล้ว และไม่มีปุ่มยกเลิกซ้ำ", async () => {
     const entry = logEntry(page, "บันทึกซื้อวัสดุเข้าคลัง Owner", STICKER);
-    await pointAndClick(page, entry.getByRole("button", { name: "ยืนยันยกเลิก" }));
-    await expect(toast(page, "รายการนี้ถูกยกเลิกแล้ว")).toBeVisible();
+    await expect(entry).toContainText("ยกเลิกแล้ว");
+    await expect(entry.getByRole("button", { name: /ยืนยันยกเลิก|แก้รายการผิดด้วยการยกเลิก/ })).toHaveCount(0);
     await expect(logEntry(page, "ยกเลิกรายการ", "บันทึกซ้ำ B8")).toHaveCount(1);
   });
 
@@ -781,7 +781,6 @@ test("Lane B: B9 กระดิ่งแจ้งเตือน — seed ว�
 test("E2E-B1: ข้อความ error ตั้งค่าตัวเลขต้องใช้ชื่อช่องภาษาไทย ไม่ใช่ key (boxPrice)", async ({
   page,
 }) => {
-  test.fail(true, "E2E-B1: config validation message shows the raw key (store.ts positive(v, key, key))");
   await startFresh(page);
   await step(page, "Owner: ราคากล่อง -5 → ข้อความต้องระบุราคากล่องมาตรฐาน", async () => {
     await signInAs(page, ACCOUNTS.owner);
@@ -803,7 +802,6 @@ test("E2E-B1: ข้อความ error ตั้งค่าตัวเล�
 test("E2E-B2: ส่งวัสดุจำนวนทศนิยม ต้องขึ้นข้อความในฟอร์ม ไม่ใช่ native bubble", async ({
   page,
 }) => {
-  test.fail(true, "E2E-B2: MaterialTransferForm <form> lacks noValidate, native validation swallows the inline message");
   await startFresh(page);
   await step(page, "Owner: ส่งกล่อง 2.5 ชิ้นไปศาลาแดง → ข้อความ inline", async () => {
     await signInAs(page, ACCOUNTS.owner);
@@ -813,28 +811,17 @@ test("E2E-B2: ส่งวัสดุจำนวนทศนิยม ต้�
     await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "2.5");
     await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
     await pointAndClick(page, dialog(page).locator('button[type="submit"]').last());
-    // Evidence: the browser refuses the step before submit() runs.
-    await expect(dialog(page)).toBeVisible();
-    expect(
-      await dialog(page)
-        .getByLabel(`จำนวน ${BOX} ไปศาลาแดง`)
-        .evaluate((input) => (input as HTMLInputElement).validity.stepMismatch),
-    ).toBe(true);
     await expect(
       alertIn(dialog(page), `กรอกจำนวน ${BOX} ที่ส่งไปศาลาแดง`),
     ).toBeVisible({ timeout: 3_000 });
   });
 });
 
-/* E2E-B3 (P2): the Log gives no sign that an entry was voided. EntryDetails.tsx
- * decides `reversible` from the kind alone, so a voided purchase looks unchanged
- * and still offers "แก้รายการผิดด้วยการยกเลิก"; the refusal
- * "รายการนี้ถูกยกเลิกแล้ว" then comes back through onChanged → the green success
- * Toast (role=status), not an error. */
+/* E2E-B3 (P2, fixed): a voided entry shows "ยกเลิกแล้ว" and no longer offers
+ * "แก้รายการผิดด้วยการยกเลิก"; a refused void shows inline as an alert, not the toast. */
 test("E2E-B3: รายการที่ถูกยกเลิกใน Log ต้องมีเครื่องหมายยกเลิก และไม่มีปุ่มยกเลิกซ้ำ", async ({
   page,
 }) => {
-  test.fail(true, "E2E-B3: voided entry keeps its cancel button and shows no voided mark (EntryDetails.tsx)");
   await startFresh(page);
   await step(page, "Owner: ซื้อกล่อง 10 ชิ้น แล้วยกเลิกจาก Log", async () => {
     await signInAs(page, ACCOUNTS.owner);

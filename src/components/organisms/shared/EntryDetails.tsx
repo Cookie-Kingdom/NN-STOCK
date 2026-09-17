@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadRow } from "@/components/atoms/ReadRow";
+import { FormError } from "@/components/molecules/FormError";
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import { mutate, roleName, titles, type Entry } from "@/lib/store";
@@ -55,16 +56,21 @@ const derivedLabels: Record<string, string> = {
 export function EntryDetails({
   entry: e,
   owner,
+  voided = false,
   onChanged,
 }: {
   entry: Entry;
   owner: boolean;
+  /** A later "void" entry targets this one: no second cancel. */
+  voided?: boolean;
   onChanged: (message: string) => void;
 }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
-  const reversible = reversibleKinds.includes(e.kind);
+  const [error, setError] = useState("");
+  const reversible = reversibleKinds.includes(e.kind) && !voided;
   const cancelEntry = () => {
+    setError("");
     try {
       const next = mutate(
         latestDatabase(),
@@ -77,7 +83,7 @@ export function EntryDetails({
       saveDatabase(next);
       onChanged("ยกเลิกรายการแล้ว ระบบคำนวณยอดใหม่และเก็บเหตุผลไว้ในประวัติ");
     } catch (error) {
-      onChanged(
+      setError(
         error instanceof Error ? error.message : "ยกเลิกรายการไม่สำเร็จ",
       );
     }
@@ -89,6 +95,7 @@ export function EntryDetails({
           {titles[e.kind] || e.kind}{" "}
           <small>
             {e.date} · {e.lotId || e.branch} · {roleName[e.role]}
+            {voided && " · ยกเลิกแล้ว"}
           </small>
         </span>
         <span>ดูรายละเอียด</span>
@@ -109,6 +116,7 @@ export function EntryDetails({
       <small className="text-text-secondary">
         บันทึก {new Date(e.at).toLocaleString("th-TH")}
       </small>
+      <FormError error={error} className="mt-3.5" />
       {owner && reversible && (
         <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
           {cancelling ? (

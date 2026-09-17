@@ -740,14 +740,11 @@ test("H4 คีย์บอร์ด: Enter บนปุ่มเปิด PO �
     await pointAndClick(page, menuItem(page, "ใบสั่งซื้อ PO"));
     await expect(opener).toBeVisible();
   });
-  /** E2E-H2: showModal() puts focus on the header close button ("ปิดฟอร์ม"), not on the
-   * autoFocus field, so one Tab reaches the first field. Tolerated here; the strict
-   * expectation is its own test.fail below. */
+  /** Focus lands inside the dialog, on the first field (E2E-H2 fixed). */
   const focusFirstField = async () => {
     expect(
       await dialog.evaluate((el) => el.contains(document.activeElement)),
     ).toBe(true);
-    if ((await activeLabel()) === "ปิดฟอร์ม") await page.keyboard.press("Tab");
     expect(await activeLabel()).toMatch(
       new RegExp(`^${escapeRe(PO_LABELS[0])}`),
     );
@@ -830,10 +827,6 @@ test("H4 คีย์บอร์ด: Enter บนปุ่มเปิด PO �
 test("H4 เปิด dialog PO เนื้อ แล้ว focus ต้องอยู่ที่ช่องแรก (autoFocus) ไม่ใช่ปุ่มปิดฟอร์ม (E2E-H2)", async ({
   page,
 }) => {
-  test.fail(
-    true,
-    "E2E-H2: EntryForm ใส่ autoFocus ที่ช่องแรก แต่ React ไม่ render attribute autofocus จริง และ dialog.showModal() (Dialog.tsx useEffect) ย้าย focus ไปปุ่ม ปิดฟอร์ม ซึ่งเป็น focusable ตัวแรก",
-  );
   await startFresh(page);
   await step(
     page,
