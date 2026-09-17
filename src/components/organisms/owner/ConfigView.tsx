@@ -1,6 +1,12 @@
 "use client";
 
-import { cloneElement, isValidElement, type ReactNode, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
 import { Button } from "@/components/atoms/Button";
 import { Footnote } from "@/components/atoms/Text";
 import { Input } from "@/components/atoms/Input";
@@ -264,11 +270,27 @@ function ConfigValue({
   );
 }
 
+/* The edit in progress outlives this view: if the workspace remounts (the session
+ * re-checks on every auth event), the user gets back what they had typed instead of the
+ * read-only table. Cleared once the section is saved or cancelled. */
+const unsavedEdit: {
+  current: { draft: Values; base: Values; editing: ConfigSection } | null;
+} = { current: null };
+
 export function ConfigView({ db }: { db: Database }) {
-  const [draft, setDraft] = useState<Values>(() => draftFromConfig(db.config));
+  const [draft, setDraft] = useState<Values>(
+    () => unsavedEdit.current?.draft ?? draftFromConfig(db.config),
+  );
   // The config the draft started from, so a save sends only the fields changed here.
-  const [base, setBase] = useState<Values>(draft);
-  const [editing, setEditing] = useState<ConfigSection | null>(null);
+  const [base, setBase] = useState<Values>(
+    () => unsavedEdit.current?.base ?? draft,
+  );
+  const [editing, setEditing] = useState<ConfigSection | null>(
+    () => unsavedEdit.current?.editing ?? null,
+  );
+  useEffect(() => {
+    unsavedEdit.current = editing ? { draft, base, editing } : null;
+  }, [draft, base, editing]);
   // Status, logo and error messages share one slot, so the hook's error slot doubles as it.
   const {
     error: message,

@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { accountById, type Account, type AccountId } from "@/lib/accounts";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 
 type Profile = { display_name: string; role: "L1_OWNER" | "L2_BRANCH_ADMIN" | "L3_CM_OPERATOR" | "L4_SUPPLIER"; is_active: boolean };
@@ -43,10 +44,16 @@ async function refreshSession() {
     return;
   }
   const { data: userData, error: userError } = await supabase.auth.getUser();
+  /* A signed-in workspace re-checks on every auth event (each time the tab becomes visible,
+   * or another tab signs in). A network blip there is not a sign-out: publishing no account
+   * would unmount the workspace and throw away whatever the user was typing. */
+  if (state.account && isAuthRetryableFetchError(userError)) return;
   if (userError || !userData.user) return publish({ ready: true, account: null, error: "" });
 
   const { data: profile, error } = await supabase.from("profiles")
     .select("display_name, role, is_active").eq("id", userData.user.id).single<Profile>();
+  // PGRST116 is "no row"; any other failure here is the request, not the profile.
+  if (state.account && error && error.code !== "PGRST116") return;
   if (error || !profile) return publish({ ready: true, account: null, error: "ไม่พบสิทธิ์ผู้ใช้งาน กรุณาติดต่อ Owner" });
 
   let locationName: string | undefined;
@@ -60,7 +67,12 @@ async function refreshSession() {
 }
 
 void refreshSession();
-supabase?.auth.onAuthStateChange(() => { void refreshSession(); });
+supabase?.auth.onAuthStateChange((event) => {
+  // A refreshed token is the same user; nothing to re-read.
+  if (event === "TOKEN_REFRESHED" && state.account) return;
+  // Deferred: Supabase warns that calling the client inside this callback can deadlock.
+  setTimeout(() => void refreshSession(), 0);
+});
 
 export async function signIn(email: string, password: string) {
   if (!supabase) {
