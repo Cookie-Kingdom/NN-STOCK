@@ -61,7 +61,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
               closed={closed}
             />
             <DailyMaterialsTable
-              key={`${branch}-${date}`}
+              /* The draft is seeded once from the saved entry, so remount when the
+               * server payload replaces the seed db, or saved usage reads as 0. */
+              key={`${branch}-${date}-${ws.loaded}`}
               db={db}
               branch={branch}
               date={date}

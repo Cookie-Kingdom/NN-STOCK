@@ -375,9 +375,11 @@ export function Report({ db }: { db: Database }) {
                   : "สาขายืนยันรับ",
               entry.values.material || transfer?.values.material || "—",
               entry.kind === "materialReceive"
-                ? entry.values.supplier
-                : entry.branch,
-              entry.values.quantity || entry.values.receivedQuantity,
+                ? `${entry.values.supplier || "—"} → คลัง Owner`
+                : entry.kind === "materialTransfer"
+                  ? `คลัง Owner → ${entry.branch || "—"}`
+                  : entry.branch || "—",
+              `${fmt(n(entry.values, "quantity") || n(entry.values, "receivedQuantity"))} ชิ้น`,
               entry.values.receiver || "Owner",
               entry.kind === "materialConfirm"
                 ? entry.values.reason || "รับครบ"

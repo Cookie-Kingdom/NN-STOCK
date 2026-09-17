@@ -4,7 +4,13 @@ import { type ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
 import { CountPill } from "@/components/atoms/CountPill";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { balance, entries, n, type Database, type Lot } from "@/lib/store";
+import {
+  balance,
+  entries,
+  pendingReceiveKg,
+  type Database,
+  type Lot,
+} from "@/lib/store";
 
 const taskKeys = ["receive", "thaw", "sale", "close"];
 
@@ -23,14 +29,7 @@ export function BranchDailyWorkflow({
   closed: boolean;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const pending = lots.filter(
-    (lot) =>
-      entries(db, "allocate", lot.id, branch).reduce(
-        (sum, entry) => sum + n(entry.values, "kg"),
-        0,
-      ) >
-      balance(db, lot.id, branch).received + 0.001,
-  );
+  const pending = lots.filter((lot) => pendingReceiveKg(db, lot.id, branch) > 0);
   const frozen = lots.filter(
     (lot) => balance(db, lot.id, branch).frozen > 0.001,
   );

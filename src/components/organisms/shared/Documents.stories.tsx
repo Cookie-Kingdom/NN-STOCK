@@ -62,7 +62,9 @@ export const PrintAndDownloadButtons: Story = {
         label="ดู PO / PDF"
         preview
       />
+      {/* File name only (upload never reached the bucket): the click reports it inline. */}
       <InvoiceDownloadButton name="INV-DEMO-001.pdf" />
+      <InvoiceDownloadButton name="" />
       <InvoiceDownloadButton
         name="INV-DEMO-002.txt"
         data="data:text/plain;base64,SW52b2ljZQ=="
