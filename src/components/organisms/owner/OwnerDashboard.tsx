@@ -420,7 +420,7 @@ export function OwnerDashboard({
           tone={margin >= 0 ? "positive" : "negative"}
           icon={<TrendingUp size={17} />}
           label="ส่วนต่างหลังต้นทุน"
-          value={`฿${fmt(Math.abs(margin))}`}
+          value={`฿${fmt(margin)}`}
           caption={`${margin >= 0 ? "↗" : "↘"} ${fmt(marginPercent)}% ของยอดขาย`}
           captionTone={margin >= 0 ? "gain" : "loss"}
         />
