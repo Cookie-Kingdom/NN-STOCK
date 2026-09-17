@@ -719,10 +719,20 @@ export function smokingInvoiceStatus(db: Database, invoice: Entry) {
   if (review?.values.decision === "ส่งกลับแก้ไข") return "ส่งกลับแก้ไข";
   return "รอตรวจยอด";
 }
+/** The Owner's latest review of this invoice (either decision), if any. */
+export function smokingInvoiceReview(db: Database, invoice: Entry) {
+  return entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+}
 /** The Owner's latest "ส่งกลับแก้ไข" review of this invoice, if that is its current state. */
 export function smokingInvoiceRejection(db: Database, invoice: Entry) {
   if (smokingInvoiceStatus(db, invoice) !== "ส่งกลับแก้ไข") return undefined;
-  return entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+  return smokingInvoiceReview(db, invoice);
+}
+/** One smoking invoice per lot: the latest. Earlier ones were sent back and superseded by a resubmission. */
+export function currentSmokingInvoices(db: Database) {
+  const latest = new Map<string, Entry>();
+  for (const invoice of entries(db, "smokingInvoice")) latest.set(invoice.lotId, invoice);
+  return [...latest.values()];
 }
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
@@ -827,6 +837,13 @@ export function mutate(
 ): Database {
   assert(ownership[kind] === role, "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
   assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
+  // Same clock as format.ts `today` (kept inline: this module has no imports).
+  const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  assert(date <= todayDate, "วันที่ทำรายการต้องไม่เกินวันนี้");
+  const startDate = db.config.systemStartDate || "";
+  // Only once the system has gone live; a future start date means setup is still in progress.
+  if (kind !== "config" && startDate && startDate <= todayDate)
+    assert(date >= startDate, `วันที่ทำรายการต้องไม่ก่อนวันเริ่มใช้ระบบ (${startDate})`);
   const next: Database = structuredClone(db),
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
@@ -972,8 +989,11 @@ export function mutate(
       num(v, "dispatchKg") <= readyForChefHouse(db, lotId) + 0.001,
       "น้ำหนักใบขนส่งเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่",
     );
+    // Fees come from the settings in force when the manifest is made, not the lot's purchase-time snapshot.
     v.outboundCost =
-      v.trip === "ไปกลับ" ? lot.config.roundFee : lot.config.outboundFee;
+      v.trip === "ไปกลับ"
+        ? db.config.roundFee ?? lot.config.roundFee
+        : db.config.outboundFee ?? lot.config.outboundFee;
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
@@ -1099,7 +1119,8 @@ export function mutate(
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
     v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
     assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
-    v.returnCost = lot.values.trip === "ไปกลับ" ? "0" : lot.config.returnFee;
+    v.returnCost =
+      lot.values.trip === "ไปกลับ" ? "0" : db.config.returnFee ?? lot.config.returnFee;
   } else if (kind === "central" && lot) {
     assert(entries(db, "foodivaReturnReceive", lotId).length, "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน");
     positive(v, "centralKg", "น้ำหนักรับกลาง");

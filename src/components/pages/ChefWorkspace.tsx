@@ -39,6 +39,7 @@ export function ChefWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={ws.date}
         onDate={ws.setDate}
+        minDate={ws.db.config.systemStartDate}
         badges={
           ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
         }

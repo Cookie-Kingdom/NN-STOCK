@@ -16,6 +16,7 @@ import { InvoiceDownloadButton } from "@/components/organisms/shared/InvoiceDown
 import {
   entries,
   n,
+  smokingInvoiceReview,
   smokingInvoiceStatus,
   type Database,
   type Lot,
@@ -118,6 +119,10 @@ export function InvoiceView({
         rows={smokingInvoices.map((entry) => {
           const lot = db.lots.find((item) => item.id === entry.lotId);
           const status = smokingInvoiceStatus(db, entry);
+          const reviewNote = smokingInvoiceReview(
+            db,
+            entry,
+          )?.values.comment?.trim();
           return [
             entry.values.invoiceNumber,
             entry.values.invoiceDate,
@@ -125,7 +130,7 @@ export function InvoiceView({
             lot ? lotIssueDate(db, lot) : "—",
             `฿${fmt(n(entry.values, "netPayable"))}`,
             entry.values.invoiceDetail || "—",
-            status,
+            reviewNote ? `${status} · หมายเหตุ: ${reviewNote}` : status,
             <InvoiceDownloadButton
               key={`file-${entry.id}`}
               name={entry.values.attachment}

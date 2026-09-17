@@ -55,7 +55,7 @@ export function Preview({
       ],
       [
         "ค่ารถจากการตั้งค่า",
-        `฿${fmt(n(lot.config, v.trip === "ไปกลับ" ? "roundFee" : "outboundFee"))}`,
+        `฿${fmt(n(db.config, v.trip === "ไปกลับ" ? "roundFee" : "outboundFee"))}`,
       ],
     ];
   if (kind === "smokeOrder") {
@@ -67,10 +67,16 @@ export function Preview({
     ];
   }
   if (kind === "smokingInvoice") {
-    const rate = smokeServiceRate(n(v, "serviceQuantity"));
+    // mutate bills the smoke PO's raw kg, so show that even if the form value is missing.
+    const quantity =
+      (lot &&
+        n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "rawKg")) ||
+      n(v, "serviceQuantity");
+    const rate = smokeServiceRate(quantity);
     rows = [
+      ["น้ำหนักตาม PO รมควัน", `${fmt(quantity)} กก.`],
       ["อัตราค่ารมอัตโนมัติ", `฿${fmt(rate)} / กก.`],
-      ["ยอดก่อน VAT อัตโนมัติ", `฿${fmt(n(v, "serviceQuantity") * rate)}`],
+      ["ยอดก่อน VAT อัตโนมัติ", `฿${fmt(quantity * rate)}`],
     ];
   }
   if (kind === "cmReceive" && lot)
@@ -112,7 +118,7 @@ export function Preview({
       ],
       [
         "ค่ารถขากลับ",
-        `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(lot.config, "returnFee"))}`,
+        `฿${fmt(lot.values.trip === "ไปกลับ" ? 0 : n(db.config, "returnFee"))}`,
       ],
       ["รูปแบบขาไป", lot.values.trip],
     ];

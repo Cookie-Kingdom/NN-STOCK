@@ -122,6 +122,16 @@ export function useDatabase() {
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
 export function saveDatabase(db: Database): Promise<boolean> {
+  return writeDatabase(db, false).then((result) => result === "saved");
+}
+/** Like saveDatabase, but when someone else saved first (stale revision) the server copy is
+ * reloaded without an error toast and this resolves "conflict", so the caller can rebuild its
+ * change on the fresh data and save again. */
+export function saveDatabaseOrConflict(db: Database) {
+  return writeDatabase(db, true);
+}
+const isConflict = (message: string) => message.includes("State changed on another device");
+function writeDatabase(db: Database, quietConflict: boolean): Promise<"saved" | "conflict" | "failed"> {
   const before = { cached, stored };
   const strip = (entry: Database["entries"][number]) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) });
   cached = { ...db, entries: db.entries.map(strip) };
@@ -139,17 +149,18 @@ export function saveDatabase(db: Database): Promise<boolean> {
     const { data: row, error } = await saveRow(portable, revision);
     if (error) {
       if (await loadDatabase()) {
+        if (quietConflict && isConflict(error.message)) return "conflict" as const;
         reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
-        return false;
+        return "failed" as const;
       }
       // The server copy could not be read (offline): drop the unsaved change so a retry
       // does not send it twice. ponytail: skipped when a later save already built on it.
       if (cached === mine) { ({ cached, stored } = before); notify(); }
       reportError(`บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ · ${error.message}`);
-      return false;
+      return "failed" as const;
     }
     if (row) revision = row.revision;
-    return true;
+    return "saved" as const;
   });
   writeQueue = saved.then(() => undefined);
   return saved;

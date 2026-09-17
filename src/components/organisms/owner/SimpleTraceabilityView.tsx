@@ -149,7 +149,11 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   const dispatch = entries(db, "dispatch", lot.id).at(-1);
                   const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
                   const returnTrip = entries(db, "return", lot.id).at(-1);
-                  const foodivaReturn = entries(db, "foodivaReturnReceive", lot.id).at(-1);
+                  const foodivaReturn = entries(
+                    db,
+                    "foodivaReturnReceive",
+                    lot.id,
+                  ).at(-1);
                   const central = entries(db, "central", lot.id).at(-1);
                   const allocations = entries(db, "allocate", lot.id);
                   const sales = entries(db, "sale", lot.id);
@@ -409,7 +413,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     [
                       "Foodiva รับเข้าตู้",
                       // Received against the return transfer; there is no separate receipt document.
-                      (foodivaReturn && returnTrip?.values.transferNumber) || "—",
+                      (foodivaReturn && returnTrip?.values.transferNumber) ||
+                        "—",
                       foodivaReturn?.date || "—",
                       foodivaReturn
                         ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} ถุง`
@@ -432,7 +437,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       allocations.at(-1)?.date || "—",
                       allocations.length
                         ? allocations
-                            .map((a) => `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`)
+                            .map(
+                              (a) =>
+                                `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`,
+                            )
                             .join(" · ")
                         : "รอจัดสรร",
                       "—",
@@ -599,7 +607,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     className={`${tdClass} p-7 text-center text-text-secondary`}
                     colSpan={8}
                   >
-                    ยังไม่มีเอกสารตามเงื่อนไขที่เลือก
+                    ไม่พบข้อมูล · ยังไม่มีเอกสารตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
               )}
