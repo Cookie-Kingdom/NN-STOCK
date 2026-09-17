@@ -47,7 +47,6 @@ import {
   reservedForOwnerContent,
   smokingInvoiceStatus,
   stages,
-  steakRawStock,
   type Database,
   type Entry,
 } from "@/lib/store";
@@ -57,11 +56,9 @@ import { cn } from "@/lib/utils";
 
 const summaryColumns = [
   "Open PO",
-  "Supplier Invoice ค้าง",
   "Smoking Invoice ค้าง",
   "Raw Meat ที่ Foodiva",
   "Raw Meat ที่โรงรม",
-  "Steak allocation",
   "Finished smoked meat",
   "Loss รวม",
   "Average yield",
@@ -445,18 +442,12 @@ export function OwnerDashboard({
           [
             String(db.lots.filter((lot) => lot.stage < 8).length),
             String(
-              entries(db, "supplierInvoice").filter(
-                (entry) => entry.values.paymentStatus !== "Paid",
-              ).length,
-            ),
-            String(
               entries(db, "smokingInvoice").filter(
                 (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",
               ).length,
             ),
             `${fmt(db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0))} กก.`,
             `${fmt(db.lots.reduce((sum, lot) => sum + rawAtSmoker(db, lot), 0))} กก.`,
-            `${fmt(steakRawStock(db))} กก.`,
             `${fmt(db.lots.reduce((sum, lot) => sum + produced(db, lot.id), 0))} กก.`,
             `${fmt(db.lots.reduce((sum, lot) => sum + processLoss(db, lot.id), 0))} กก.`,
             `${fmt(averageYield(db))}%`,

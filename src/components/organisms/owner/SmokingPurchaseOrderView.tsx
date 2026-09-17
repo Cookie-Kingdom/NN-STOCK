@@ -62,7 +62,7 @@ export function SmokingPurchaseOrderView({
         columns={columns}
         rowKeys={eligibleLots.map((lot) => lot.id)}
         rows={eligibleLots.map((lot) => {
-          const supplierInvoice = entries(db, "foodivaConfirm", lot.id).at(-1);
+          const foodivaInvoice = entries(db, "foodivaConfirm", lot.id).at(-1);
           const order = entries(db, "smokeOrder", lot.id).at(-1);
           const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
           const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
@@ -71,7 +71,7 @@ export function SmokingPurchaseOrderView({
             : "รอ Chef_house Submit";
           return [
             <PoLotCell key="lot" poId={lot.poId} lotId={lot.id} />,
-            `${supplierInvoice?.values.invoiceNo || "-"} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก.`,
+            `${foodivaInvoice?.values.invoiceNo || "-"} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก.`,
             order ? `${fmt(n(order.values, "rawKg"))} กก.` : "ยังไม่ออก PO",
             order ? `฿${fmt(n(order.values, "serviceRate"))} / กก.` : "—",
             accepted ? (
@@ -98,7 +98,7 @@ export function SmokingPurchaseOrderView({
                 <DocumentPrintButton
                   title="Smoke Service Purchase Order"
                   number={order.values.orderNumber}
-                  rows={smokeOrderPrintRows(db, lot, order, supplierInvoice)}
+                  rows={smokeOrderPrintRows(db, lot, order, foodivaInvoice)}
                 />
               )}
             </ButtonRow>,

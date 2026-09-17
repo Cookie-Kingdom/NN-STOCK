@@ -77,14 +77,11 @@ export const stageAction = [
  * it, or make the button its prefix: two names for one action reads as two actions. */
 export const titles: Record<string, string> = {
   purchase: "สร้าง PO เนื้อ",
-  supplierInvoice: "บันทึก Supplier Invoice",
-  taxDocument: "บันทึกใบกำกับภาษี / ใบเสร็จ",
   smokeOrder: "ออก PO รมควันเนื้อ",
   smokeOrderAccept: "ยืนยันรับ PO รมควัน",
   smokingInvoice: "สร้าง / Submit ใบวางบิลค่ารมควัน",
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
   invoicePayment: "ชำระ Invoice ค่ารมควัน",
-  steakTransfer: "โอนเนื้อสดไปผลิต Steak",
   foodivaConfirm: "ออกและอัปโหลด Invoice เนื้อ",
   foodivaReturnReceive: "ยืนยันรับเข้าตู้ที่ Foodiva",
   dispatch: "ทำใบขนส่งขาไป",
@@ -455,7 +452,7 @@ export function centralStock(db: Database, lotId: string) {
 export function centralBagStock(db: Database, lotId: string) {
   return availableBags(db, lotId).length;
 }
-/** Raw beef is held by Foodiva until it is dispatched to the smoker or transferred to Steak. */
+/** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
   // A remainder lot is a transport child of the same PO, not a second purchase.
   if (lot.id.includes("-R")) return 0;
@@ -466,6 +463,8 @@ export function rawAtFoodiva(db: Database, lot: Lot) {
   const smoker = db.lots
     .filter((item) => item.poId === lot.poId)
     .reduce((total, item) => total + n(item.values, "dispatchKg"), 0);
+  // Legacy: early builds could record "steakTransfer" (raw beef moved to Steak). No UI creates
+  // it any more, but app_state history is append-only, so old transfers still leave Foodiva.
   const steak = sum(entries(db, "steakTransfer", lot.id), "quantityKg");
   const ownerReceived = ownerWasteReceived(db, lot.id);
   return Math.max(0, invoicedKg - smoker - steak - ownerReceived);
@@ -502,9 +501,6 @@ export function rawAtSmoker(db: Database, lot: Lot) {
 /** Pre-smoke weight not yet through the smoker; never negative, even for lots whose old payload lacks the field. */
 export function pendingSmokeKg(db: Database, lot: Lot) {
   return Math.max(0, n(lot.values, "preSmokeKg") - processed(db, lot.id));
-}
-export function steakRawStock(db: Database, lotId?: string) {
-  return sum(entries(db, "steakTransfer", lotId), "quantityKg");
 }
 export function processLoss(db: Database, lotId: string) {
   return Math.max(0, processed(db, lotId) - produced(db, lotId));
@@ -749,14 +745,11 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
-  supplierInvoice: "owner",
-  taxDocument: "owner",
   smokeOrder: "owner",
   smokingInvoice: "cm",
   smokeOrderAccept: "cm",
   invoiceReview: "owner",
   invoicePayment: "owner",
-  steakTransfer: "owner",
   foodivaConfirm: "foodiva",
   foodivaReturnReceive: "foodiva",
   dispatch: "owner",
@@ -881,20 +874,6 @@ export function mutate(
       config: { ...db.config },
     };
     next.lots.push(lot);
-  } else if (kind === "supplierInvoice" && lot) {
-    required(v, "invoiceNumber", "เลข Invoice ผู้ขาย");
-    required(v, "invoiceDate", "วันที่ Invoice");
-    positive(v, "quantityKg", "จำนวนตาม Invoice");
-    positive(v, "amountBeforeVat", "ยอดก่อน VAT", true);
-    positive(v, "vat", "VAT", true);
-    positive(v, "totalAmount", "ยอดรวม", true);
-    required(v, "dueDate", "วันครบกำหนดชำระ");
-  } else if (kind === "taxDocument" && lot) {
-    required(v, "documentType", "ประเภทเอกสาร");
-    required(v, "documentNumber", "เลขที่เอกสาร");
-    required(v, "documentDate", "วันที่เอกสาร");
-    positive(v, "amount", "ยอดเอกสาร", true);
-    positive(v, "vat", "VAT", true);
   } else if (kind === "smokeOrder" && lot) {
     assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ออก Invoice เนื้อก่อน");
     required(v, "requestedSmokeDate", "วันที่ขอรม");
@@ -945,15 +924,6 @@ export function mutate(
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
     assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
-  } else if (kind === "steakTransfer" && lot) {
-    positive(v, "quantityKg", "น้ำหนักโอนไป Steak");
-    required(v, "transferDate", "วันที่โอน");
-    required(v, "reason", "เหตุผลโอน");
-    assert(n(v, "quantityKg") <= rawAtFoodiva(db, lot) + 0.001, "เนื้อสดคงเหลือที่ Foodiva ไม่พอ");
-    v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "steakTransfer").length + 1).padStart(4, "0")}`;
-    v.sourceLocation = "Foodiva / Raw Meat Storage";
-    v.destinationLocation = "Steak Production";
-    v.status = "Received";
   } else if (kind === "foodivaConfirm" && lot) {
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "invoiceDate", "วันที่ Invoice");

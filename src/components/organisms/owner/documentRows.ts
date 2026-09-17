@@ -87,7 +87,7 @@ export function smokeOrderPrintRows(
   db: Database,
   lot: Lot,
   order: Entry,
-  supplierInvoice: Entry | undefined,
+  foodivaInvoice: Entry | undefined,
 ): DocumentRows {
   return [
     ["ลูกค้า", db.config.companyName || "บริษัท เนิร์ดเนื้อ จำกัด"],
@@ -102,7 +102,7 @@ export function smokeOrderPrintRows(
     ["วันที่ PO", order.values.requestedSmokeDate || order.date],
     ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
     ["Lot เนื้อ", lot.id],
-    ["Foodiva Invoice", supplierInvoice?.values.invoiceNo || "—"],
+    ["Foodiva Invoice", foodivaInvoice?.values.invoiceNo || "—"],
     ["สินค้า", "บริการรมควันเนื้อ"],
     ["ขนาดบรรจุ", lot.id],
     ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
