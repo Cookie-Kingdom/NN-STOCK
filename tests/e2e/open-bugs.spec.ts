@@ -142,8 +142,10 @@ test("บัก 5: บันทึกไม่สำเร็จแล้วต�
   );
   await ownerCreatesMeatPo(page, "500");
 
-  // toast สีแดงของ database-error (มีคำว่า "โหลดข้อมูลล่าสุดแล้ว" เฉพาะ toast)
+  // toast สีแดงของ database-error บนหน้า (นอก dialog) — ตั้งแต่ 91340f3 ข้อความ
+  // เดียวกันขึ้นในฟอร์มด้วย จึงต้องจำกัดที่ <main>
   const toast = page
+    .getByRole("main")
     .getByRole("alert")
     .filter({ hasText: "โหลดข้อมูลล่าสุดแล้ว" });
   await expect(toast).toBeVisible();
