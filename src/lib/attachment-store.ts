@@ -33,6 +33,7 @@ function openStore(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => request.result.createObjectStore(storeName, { keyPath: "id" });
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้"));
+    request.onblocked = () => reject(new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้ กรุณาปิดแท็บอื่นแล้วลองใหม่"));
   });
 }
 
@@ -87,7 +88,8 @@ export async function saveLegacyDataUrl(
 }
 
 export async function getAttachment(id: string): Promise<StoredAttachment | undefined> {
-  const local = await getLocal(id);
+  // A broken or unavailable IndexedDB is only a missed cache: still try the bucket.
+  const local = await getLocal(id).catch(() => undefined);
   const remote = storage();
   if (local || !remote) return local;
   const { data: listed, error: listError } = await remote.list(id, { limit: 1 });

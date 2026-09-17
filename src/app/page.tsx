@@ -96,7 +96,9 @@ export default function SignInPage() {
             variant="primary"
             className="w-full"
             type="submit"
-            disabled={busy}
+            // ponytail: stays disabled until hydrated and the session check is back; a click
+            // before that is a native GET submit that reloads "/" and silently drops the sign-in.
+            disabled={busy || !ready}
           >
             {busy
               ? "กำลังดำเนินการ…"

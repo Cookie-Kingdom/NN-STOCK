@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Muted } from "@/components/atoms/Text";
-import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { getAttachment } from "@/lib/attachment-store";
 
 /* Inline `data:` URLs (entries saved before the storage bucket) and bucket files
@@ -16,6 +15,23 @@ async function load(name: string, data?: string, storageKey?: string) {
     .then((response) => response.blob())
     .catch(() => undefined);
   return blob && { name, blob };
+}
+
+/* ponytail: one 20s ceiling for IndexedDB/Storage calls that never settle, so the
+ * button cannot sit on "กำลังโหลด" with no message. */
+function withTimeout<T>(promise: Promise<T>) {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      window.setTimeout(
+        () =>
+          reject(
+            new Error("ดาวน์โหลดไฟล์ไม่สำเร็จ: หมดเวลาเชื่อมต่อ กรุณาลองใหม่"),
+          ),
+        20_000,
+      ),
+    ),
+  ]);
 }
 
 export function InvoiceDownloadButton({
@@ -33,10 +49,10 @@ export function InvoiceDownloadButton({
     setLoading(true);
     setMessage("");
     try {
-      const file = await load(name, data, storageKey);
+      const file = await withTimeout(load(name, data, storageKey));
       if (!file)
         throw new Error(
-          "ไม่พบไฟล์แนบ: ไฟล์นี้อยู่เฉพาะในเบราว์เซอร์ที่อัปโหลด กรุณาแนบไฟล์ใหม่",
+          "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
         );
       const url = URL.createObjectURL(file.blob);
       const link = document.createElement("a");
@@ -46,7 +62,7 @@ export function InvoiceDownloadButton({
       document.body.append(link);
       link.click();
       link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "ดาวน์โหลดไฟล์ไม่สำเร็จ",
@@ -55,14 +71,13 @@ export function InvoiceDownloadButton({
       setLoading(false);
     }
   };
-  if (!data && !storageKey)
-    return (
-      <Muted as="span">
-        {name ? "ไฟล์เดิมยังไม่มีให้ดาวน์โหลด" : "ยังไม่มีไฟล์แนบ"}
-      </Muted>
-    );
+  if (!name && !data && !storageKey)
+    return <Muted as="span">ยังไม่มีไฟล์แนบ</Muted>;
+  /* A name with no stored copy still gets a live button whose click says the file
+   * is missing. The message sits under the button, not beside it: beside it, it
+   * widened the last table column past the scroll edge and read as "nothing". */
   return (
-    <ButtonRow>
+    <div className="grid justify-items-end gap-1">
       <Button
         variant="table"
         onClick={download}
@@ -74,11 +89,11 @@ export function InvoiceDownloadButton({
       {message && (
         <small
           role="alert"
-          className="max-w-64 text-caption whitespace-normal text-danger"
+          className="max-w-64 text-right text-caption whitespace-normal text-danger"
         >
           {message}
         </small>
       )}
-    </ButtonRow>
+    </div>
   );
 }

@@ -536,6 +536,23 @@ export function balance(db: Database, lotId: string, branch: string) {
   );
   return { received, frozen: received - thawed, ready: thawed - used };
 }
+/** What a branch still has to receive on one allocation. Pro-rated bag weights carry
+ * more decimals than the form shows, so kg is rounded to the 0.01 the user sees and
+ * types; once every bag is in, the allocation is done whatever kg residue is left. */
+export function allocationOutstanding(db: Database, allocation: Entry) {
+  const received = entries(db, "receive", allocation.lotId, allocation.branch).filter(
+    (r) => r.values.allocation === allocation.id,
+  );
+  const bags = n(allocation.values, "bags") - sum(received, "bags");
+  const kg = Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
+  return { kg: bags > 0 && kg > 0 ? kg : 0, bags: Math.max(0, bags) };
+}
+export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
+  return entries(db, "allocate", lotId, branch).reduce(
+    (total, allocation) => total + allocationOutstanding(db, allocation).kg,
+    0,
+  );
+}
 export function rawRiceStock(db: Database, branch: string) {
   return (
     sum(entries(db, "supplyPurchase", undefined, branch), "rawRiceKg") +
@@ -1133,10 +1150,7 @@ export function mutate(
       (e) => e.id === v.allocation,
     );
     assert(allocation, "เลือกใบจัดสรร");
-    const taken = entries(db, "receive", lotId, branch)
-      .filter((e) => e.values.allocation === v.allocation)
-      .reduce((s, e) => s + n(e.values, "kg"), 0);
-    const outstanding = n(allocation.values, "kg") - taken;
+    const outstanding = allocationOutstanding(db, allocation).kg;
     assert(n(v, "kg") <= outstanding + 0.001, "รับเกินยอดค้างรับ");
     variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {

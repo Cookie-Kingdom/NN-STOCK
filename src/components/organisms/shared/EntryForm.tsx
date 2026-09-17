@@ -24,6 +24,7 @@ import { defaults, forms } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import { prefillValues } from "@/lib/prefill";
 import {
+  allocationOutstanding,
   balance,
   centralBagStock,
   centralStock,
@@ -221,18 +222,10 @@ export function EntryForm({
   const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => {
-      const received = entries(db, "receive", lotId, branch).filter(
-        (r) => r.values.allocation === e.id,
-      );
-      const left = (key: string) =>
-        n(e.values, key) - received.reduce((s, r) => s + n(r.values, key), 0);
-      return {
-        entry: e,
-        outstanding: left("kg"),
-        outstandingBags: left("bags"),
-      };
+      const left = allocationOutstanding(db, e);
+      return { entry: e, outstanding: left.kg, outstandingBags: left.bags };
     })
-    .filter((a) => a.outstanding > 0.001);
+    .filter((a) => a.outstanding > 0);
   const reference =
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {

@@ -8,6 +8,7 @@ import {
   centralStock,
   entries,
   n,
+  pendingReceiveKg,
   pendingSmokeKg,
   produced,
   rawAtFoodiva,
@@ -103,18 +104,14 @@ export function MeatStockTable({
       rowKeys={lotIds}
       rows={lots.map((lot) => {
         const stock = balance(db, lot.id, branch);
-        const pending =
-          entries(db, "allocate", lot.id, branch).reduce(
-            (sum, allocation) => sum + n(allocation.values, "kg"),
-            0,
-          ) - stock.received;
+        const pending = pendingReceiveKg(db, lot.id, branch);
         return [
           lot.id,
-          pending > 0.001 ? `${fmt(pending)} กก.` : "-",
+          pending > 0 ? `${fmt(pending)} กก.` : "-",
           `${fmt(stock.received)} กก.`,
           `${fmt(stock.frozen)} กก.`,
           `${fmt(stock.ready)} กก.`,
-          pending > 0.001
+          pending > 0
             ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน"
             : stages[lot.stage],
         ];
