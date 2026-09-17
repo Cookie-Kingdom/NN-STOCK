@@ -33,6 +33,7 @@ import {
   mutate,
   n,
   roleName,
+  smokingInvoiceRejection,
   stages,
   titles,
   type Database,
@@ -227,6 +228,13 @@ export function EntryForm({
       return { entry: e, outstanding: left.kg, outstandingBags: left.bags };
     })
     .filter((a) => a.outstanding > 0);
+  const latestSmokingInvoice =
+    kind === "smokingInvoice" && lot
+      ? entries(db, "smokingInvoice", lot.id).at(-1)
+      : undefined;
+  const rejection =
+    latestSmokingInvoice &&
+    smokingInvoiceRejection(db, latestSmokingInvoice);
   const reference =
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
@@ -388,6 +396,13 @@ export function EntryForm({
             )}
             {kind === "closeDay" && (
               <DailySummary db={db} branch={branch} date={date} />
+            )}
+            {rejection && (
+              <Notice tone="warning" className="mt-3">
+                {`Owner ส่งกลับแก้ไขใบวางบิล ${latestSmokingInvoice?.values.invoiceNumber || ""} · หมายเหตุ: ${rejection.values.comment?.trim() || "ไม่ได้ระบุ"}`}
+                {rejection.values.reviewedBy &&
+                  ` · ผู้ตรวจ ${rejection.values.reviewedBy}`}
+              </Notice>
             )}
             {kind === "smoke" && (
               <Notice>

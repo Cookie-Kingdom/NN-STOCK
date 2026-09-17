@@ -5,6 +5,7 @@ import {
   day,
   demoDb,
   dispatchDb,
+  rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
@@ -80,6 +81,38 @@ export const OwnerReturn: Story = {
       branch=""
       date={day}
       modal={{ kind: "return", lotId: smokedDb.lots[0].id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+// Edit starts from the saved invoice (28 / 2, number, date, file), not the PO.
+export const FoodivaInvoiceEdit: Story = {
+  parameters: { db: rejectedInvoiceDb },
+  render: () => (
+    <EntryForm
+      db={rejectedInvoiceDb}
+      role="foodiva"
+      branch=""
+      date={day}
+      modal={{ kind: "foodivaConfirm", lotId: rejectedInvoiceDb.lots[0].id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+// Sent back by the Owner: the note is shown and the amount comes from the smoke PO.
+export const ChefInvoiceSentBack: Story = {
+  parameters: { db: rejectedInvoiceDb },
+  render: () => (
+    <EntryForm
+      db={rejectedInvoiceDb}
+      role="cm"
+      branch=""
+      date={day}
+      modal={{ kind: "smokingInvoice", lotId: rejectedInvoiceDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
     />

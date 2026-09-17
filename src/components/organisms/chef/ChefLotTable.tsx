@@ -10,6 +10,7 @@ import {
   n,
   produced,
   producedBags,
+  smokingInvoiceRejection,
   smokingInvoiceStatus,
   stages,
   titles,
@@ -43,12 +44,23 @@ function ChefLotAction({
         ยืนยันรับ PO รมควัน
       </Button>
     );
-  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข")
+  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") {
+    const note = latestInvoice
+      ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()
+      : "";
     return (
-      <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
-        {latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}
-      </Button>
+      <ButtonRow compact>
+        {latestInvoice && (
+          <Badge tone="danger">
+            ส่งกลับแก้ไข{note ? ` · ${note}` : ""}
+          </Badge>
+        )}
+        <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
+          {latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}
+        </Button>
+      </ButtonRow>
     );
+  }
   if (lot.stage < 2) return <Badge>{invoiceStatus} · รอ Owner เรียกรถ</Badge>;
   const kind =
     lot.stage === 3

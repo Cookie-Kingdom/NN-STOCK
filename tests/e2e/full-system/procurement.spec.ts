@@ -499,13 +499,14 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
   });
 
   /* ---- C10 / C11: Owner compares 490 vs 488 and collects the 10 kg ---- */
-  await step(page, "Owner: C10 ใบขนส่งเทียบ ส่งจาก Foodiva 490 / Chef_house 488 / ส่วนต่าง -2.00 (BUG-6)", async () => {
+  await step(page, "Owner: C10 ใบขนส่งเทียบ ส่งจาก Foodiva 490 / Chef_house 488 / ส่วนต่าง 2.00 ไม่มีเครื่องหมายลบ (BUG-6)", async () => {
     await signInAs(page, ACCOUNTS.owner);
     await tab(page, "ใบขนส่ง");
     const row = rowIn(page, "รายการขนส่งตาม Lot", LOT);
     await expect(row).toContainText("ส่งจาก Foodiva: 490.00 กก.");
     await expect(row).toContainText("Chef_house: 488.00 กก.");
-    await expect(row).toContainText(/ส่วนต่าง [-−]2\.00 กก\./);
+    await expect(row).toContainText("ส่วนต่าง 2.00 กก.");
+    await expect(row).not.toContainText(/ส่วนต่าง [-−]/);
     await tab(page, "ใบสั่งซื้อ PO");
     await expect(rowIn(page, "รายการใบสั่งซื้อ PO", PO)).toContainText("ก่อนสโมค");
   });

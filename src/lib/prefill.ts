@@ -29,6 +29,10 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
     };
   if (!lot) return {};
   if (kind === "foodivaConfirm") {
+    // Editing: start from the saved invoice, so re-saving unchanged keeps the split
+    // and the attachment already on file (QA round 7, BUG-J).
+    const saved = entries(db, "foodivaConfirm", lot.id).at(-1);
+    if (saved) return { ...saved.values };
     const kg = n(lot.values, "orderedKg");
     return {
       confirmedKg: String(kg),
@@ -41,6 +45,13 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
     return {
       smoker: "Chef_house",
       rawKg: String(readyForChefHouse(db, lot.id)),
+    };
+  if (kind === "smokingInvoice")
+    // Display only: mutate recomputes the billed quantity from the smoke PO.
+    return {
+      serviceQuantity: String(
+        n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "rawKg"),
+      ),
     };
   if (kind === "invoicePayment")
     return {

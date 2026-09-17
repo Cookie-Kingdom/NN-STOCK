@@ -719,6 +719,11 @@ export function smokingInvoiceStatus(db: Database, invoice: Entry) {
   if (review?.values.decision === "ส่งกลับแก้ไข") return "ส่งกลับแก้ไข";
   return "รอตรวจยอด";
 }
+/** The Owner's latest "ส่งกลับแก้ไข" review of this invoice, if that is its current state. */
+export function smokingInvoiceRejection(db: Database, invoice: Entry) {
+  if (smokingInvoiceStatus(db, invoice) !== "ส่งกลับแก้ไข") return undefined;
+  return entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+}
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
@@ -728,7 +733,9 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
     .filter(
       (e) =>
         role === "owner" ||
-        (e.role === role && (role !== "branch" || e.branch === branch)),
+        (e.role === role && (role !== "branch" || e.branch === branch)) ||
+        // Chef_house needs the Owner's review of its own billing invoices (reason to fix).
+        (role === "cm" && e.kind === "invoiceReview"),
     )
     .map((e) =>
       role === "owner"

@@ -34,6 +34,7 @@ import {
   seed,
   sevenDayRoleplay,
   smokeServiceRate,
+  smokingInvoiceRejection,
   smokingInvoiceStatus,
   validPackWeights,
   visibleEntries,
@@ -530,6 +531,33 @@ describe("lot workflow", () => {
     pay("8800");
     expect(status()).toBe("ชำระแล้ว");
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
+  });
+
+  test("BUG-H: Chef_house sees the Owner's reason for sending an invoice back, only while it is sent back", () => {
+    const s = setup();
+    purchase(s, "40");
+    confirm(s, "40");
+    const smokingInvoice = invoice(s, "40");
+    expect(smokingInvoiceRejection(s.db, smokingInvoice)).toBeUndefined();
+    s.run("owner", "invoiceReview", {
+      invoiceId: smokingInvoice.id,
+      decision: "ส่งกลับแก้ไข",
+      reviewedBy: "Owner",
+      comment: "ยอดคลาดเคลื่อน",
+    });
+    expect(
+      smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment,
+    ).toBe("ยอดคลาดเคลื่อน");
+    // The review shows in Chef_house history; other Owner entries stay hidden.
+    const chef = visibleEntries(s.db, "cm");
+    expect(chef.map((e) => e.kind)).toContain("invoiceReview");
+    expect(chef.some((e) => e.role === "owner" && e.kind !== "invoiceReview")).toBe(false);
+    s.run("owner", "invoiceReview", {
+      invoiceId: smokingInvoice.id,
+      decision: "รับยอด",
+      reviewedBy: "Owner",
+    });
+    expect(smokingInvoiceRejection(s.db, smokingInvoice)).toBeUndefined();
   });
 
   test("raw meat at Foodiva shrinks with owner waste pickups and legacy Steak transfers", () => {

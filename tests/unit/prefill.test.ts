@@ -111,3 +111,48 @@ test("smoke PO and Foodiva's return receipt start from earlier weights", () => {
     prefillValues(done.db, "foodivaReturnReceive", done.db.lots[0]),
   ).toEqual({ receivedBags: "360" });
 });
+
+test("BUG-J: editing Foodiva's invoice starts from the saved one, and saving it unchanged keeps the split", () => {
+  const s = setup();
+  purchase(s, "30");
+  s.run("foodiva", "foodivaConfirm", {
+    invoiceNo: "QA7-INV-005",
+    invoiceDate: "2026-09-01",
+    confirmedKg: "30",
+    readyForChiangMaiKg: "28",
+    reservedForOwnerKg: "2",
+    invoiceAmount: "7500",
+    attachment: "inv.pdf",
+    attachmentStorageKey: "key-1",
+    confirmedBy: "QA7 Foodiva",
+  });
+  const edit = prefillValues(s.db, "foodivaConfirm", s.db.lots[0]);
+  expect(edit).toMatchObject({
+    invoiceNo: "QA7-INV-005",
+    invoiceDate: "2026-09-01",
+    readyForChiangMaiKg: "28",
+    reservedForOwnerKg: "2",
+    attachment: "inv.pdf",
+    attachmentStorageKey: "key-1",
+    confirmedBy: "QA7 Foodiva",
+  });
+  s.run("foodiva", "foodivaConfirm", edit);
+  expect(last(s).values).toMatchObject({
+    readyForChiangMaiKg: "28",
+    reservedForOwnerKg: "2",
+    attachmentStorageKey: "key-1",
+  });
+});
+
+test("BUG-I: the smoking invoice form carries the smoke PO quantity for its preview", () => {
+  const s = setup();
+  purchase(s, "30");
+  confirm(s, "30", "28");
+  s.run("owner", "smokeOrder", {
+    ...prefillValues(s.db, "smokeOrder", s.db.lots[0]),
+    requestedSmokeDate: day,
+  });
+  expect(prefillValues(s.db, "smokingInvoice", s.db.lots[0])).toEqual({
+    serviceQuantity: "28",
+  });
+});
