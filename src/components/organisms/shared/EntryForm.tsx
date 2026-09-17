@@ -267,6 +267,8 @@ export function EntryForm({
       : titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // run() rebuilds the change after a revision conflict; upload each file once.
+    const uploaded: Record<string, string> = {};
     const saved = await run(async () => {
       const resolvedValues = { ...values };
       for (const key of ["origin", "destination"]) {
@@ -280,7 +282,8 @@ export function EntryForm({
         }
       }
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
-        resolvedValues[`${key}StorageKey`] = await saveAttachment(file);
+        resolvedValues[`${key}StorageKey`] = uploaded[key] ??=
+          await saveAttachment(file);
       }
       /* ponytail: no legacy-attachment migration here any more. Persistence sends
        * the loaded history back untouched (the server rejects edited entries), so

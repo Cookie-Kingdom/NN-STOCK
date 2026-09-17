@@ -41,6 +41,11 @@ export function DateRangeFilter({
           onChange={(event) => onToChange(event.target.value)}
         />
       </TableFilter>
+      {from && to && from > to && (
+        <p role="alert" className="basis-full text-caption text-danger">
+          วันที่เริ่มต้องไม่หลังวันที่สิ้นสุด
+        </p>
+      )}
     </>
   );
 }

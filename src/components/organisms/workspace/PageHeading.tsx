@@ -12,13 +12,18 @@ export function PageHeading({
   description,
   date,
   onDate,
+  minDate,
 }: {
   overline: ReactNode;
   title: ReactNode;
   description: ReactNode;
   date: string;
   onDate: (date: string) => void;
+  /** Configured system start date; enforced once it is not in the future (same rule as mutate). */
+  minDate?: string;
 }) {
+  const max = today();
+  const min = minDate && minDate <= max ? minDate : undefined;
   return (
     <div className="mb-6 flex items-center justify-between gap-5 max-md:items-start max-md:gap-2.5">
       <div>
@@ -37,6 +42,8 @@ export function PageHeading({
             aria-label="วันที่ทำรายการ"
             type="date"
             value={date}
+            min={min}
+            max={max}
             onChange={(e) => onDate(e.target.value)}
           />
         </label>

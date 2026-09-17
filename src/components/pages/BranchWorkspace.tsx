@@ -31,6 +31,7 @@ export function BranchWorkspace({ account }: { account: Account }) {
         onTab={ws.setTab}
         date={date}
         onDate={ws.setDate}
+        minDate={ws.db.config.systemStartDate}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

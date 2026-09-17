@@ -33,6 +33,7 @@ import {
   centralStock,
   chiliStock,
   cookedRiceStock,
+  currentSmokingInvoices,
   entries,
   isClosed,
   materialPar,
@@ -442,7 +443,7 @@ export function OwnerDashboard({
           [
             String(db.lots.filter((lot) => lot.stage < 8).length),
             String(
-              entries(db, "smokingInvoice").filter(
+              currentSmokingInvoices(db).filter(
                 (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",
               ).length,
             ),

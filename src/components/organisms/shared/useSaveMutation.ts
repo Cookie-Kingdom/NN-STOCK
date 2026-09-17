@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { saveDatabase } from "@/lib/persistence";
+import { saveDatabase, saveDatabaseOrConflict } from "@/lib/persistence";
 import type { Database } from "@/lib/store";
 
 /**
  * The try → save → catch → setError block every dialog form repeated.
  * `change` reads `latestDatabase()` itself so callers keep their own ordering
- * (EntryForm uploads attachments before reading the database).
+ * (EntryForm uploads attachments before reading the database). It may run twice:
+ * after a revision conflict it is rebuilt on the reloaded database.
  * Resolves to the saved database, or `null` after setting `error`.
  *
  * A second `run` while one is in flight resolves to `null` without saving, so a
@@ -29,10 +30,17 @@ export function useSaveMutation(fallbackMessage: string) {
     };
     window.addEventListener("database-error", onDatabaseError);
     try {
-      const next = await change();
+      let next = await change();
       // Wait for the server so a rejected save keeps the dialog open instead of
       // showing the success toast.
-      if (!(await saveDatabase(next))) {
+      let result = await saveDatabaseOrConflict(next);
+      // Someone else saved since this page loaded: the server copy is reloaded, so
+      // rebuild the change on it once (mutate re-validates) instead of dropping it.
+      if (result === "conflict") {
+        next = await change();
+        result = (await saveDatabase(next)) ? "saved" : "failed";
+      }
+      if (result !== "saved") {
         setError(serverMessage || fallbackMessage);
         return null;
       }

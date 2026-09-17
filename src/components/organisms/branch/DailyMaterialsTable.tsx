@@ -102,24 +102,32 @@ export function DailyMaterialsTable({
         rows={materials.map((item, i) => [
           <strong key={item}>{item}</strong>,
           String(opening(i)),
-          <Input
-            key={`used-${i}`}
-            variant="table"
-            type="number"
-            min="0"
-            max={opening(i)}
-            step="1"
-            value={draft["used" + i] ?? ""}
-            disabled={disabled}
-            aria-label={`จำนวนใช้ ${item} วันนี้`}
-            onChange={(event) => {
-              setDraft((current) => ({
-                ...current,
-                ["used" + i]: event.target.value,
-              }));
-              setMessage("");
-            }}
-          />,
+          <div key={`used-${i}`} className="flex flex-col items-end gap-1">
+            <Input
+              variant="table"
+              type="number"
+              min="0"
+              max={opening(i)}
+              step="1"
+              value={draft["used" + i] ?? ""}
+              disabled={disabled}
+              aria-label={`จำนวนใช้ ${item} วันนี้`}
+              onChange={(event) => {
+                setDraft((current) => ({
+                  ...current,
+                  ["used" + i]: event.target.value,
+                }));
+                setMessage("");
+              }}
+            />
+            {/* The saved figure as text: the input alone reads as an empty cell to
+             * screen readers and copied page text. */}
+            {saved && (
+              <small className="text-caption text-text-secondary">
+                บันทึกไว้ {n(saved.values, "used" + i)}
+              </small>
+            )}
+          </div>,
           String(opening(i) - used(i)),
           <Input
             key={`actual-${i}`}

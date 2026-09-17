@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { cloneElement, isValidElement, type ReactNode, useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Footnote } from "@/components/atoms/Text";
 import { Input } from "@/components/atoms/Input";
@@ -78,7 +78,12 @@ function settingRow(
   unit: string,
   detail: string,
 ): ReactNode[] {
-  return [<strong key="label">{label}</strong>, value, unit, detail];
+  // The edit control is announced by the row's Thai name, not just its config key.
+  const control =
+    isValidElement<{ label?: string }>(value) && value.type === ConfigValue
+      ? cloneElement(value, { label: label.split(" (")[0] })
+      : value;
+  return [<strong key="label">{label}</strong>, control, unit, detail];
 }
 
 function ReadOnlyValue({ children }: { children: ReactNode }) {
@@ -93,6 +98,7 @@ function SectionAction({
   section,
   editing,
   message,
+  saving,
   onCancel,
   onSave,
   onStartEdit,
@@ -100,6 +106,7 @@ function SectionAction({
   section: ConfigSection;
   editing: ConfigSection | null;
   message: string;
+  saving: boolean;
   onCancel: () => void;
   onSave: () => void;
   onStartEdit: (section: ConfigSection) => void;
@@ -112,7 +119,12 @@ function SectionAction({
           <Button size="sm" onClick={onCancel}>
             ยกเลิก (Cancel)
           </Button>
-          <Button variant="primary" size="sm" onClick={onSave}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={saving}
+            onClick={onSave}
+          >
             บันทึกและล็อก (Save & lock)
           </Button>
         </>
@@ -142,6 +154,7 @@ type EditProps = {
 function ConfigValue({
   section,
   name,
+  label,
   display = asIs,
   type = "number",
   editing,
@@ -153,9 +166,13 @@ function ConfigValue({
 }: EditProps & {
   section: ConfigSection;
   name: string;
+  /** Thai display name for the control's accessible label. */
+  label?: string;
   display?: (value: string) => string;
   type?: ValueType;
 }) {
+  // Key kept in parentheses so existing label lookups by config key still match.
+  const ariaLabel = label ? `${label} (${name})` : name;
   if (editing !== section) {
     if (type === "file" && config[name])
       return (
@@ -179,7 +196,7 @@ function ConfigValue({
     return (
       <Select
         variant="table"
-        aria-label={name}
+        aria-label={ariaLabel}
         value={draft[name]}
         onChange={(event) => onChange(name, event.target.value)}
       >
@@ -193,7 +210,7 @@ function ConfigValue({
       <Textarea
         variant="table"
         className="min-w-55"
-        aria-label={name}
+        aria-label={ariaLabel}
         rows={3}
         value={draft[name] ?? ""}
         onChange={(event) => onChange(name, event.target.value)}
@@ -229,7 +246,7 @@ function ConfigValue({
   return (
     <Input
       variant="table"
-      aria-label={name}
+      aria-label={ariaLabel}
       type={
         type === "time"
           ? "time"
@@ -249,15 +266,20 @@ function ConfigValue({
 
 export function ConfigView({ db }: { db: Database }) {
   const [draft, setDraft] = useState<Values>(() => draftFromConfig(db.config));
+  // The config the draft started from, so a save sends only the fields changed here.
+  const [base, setBase] = useState<Values>(draft);
   const [editing, setEditing] = useState<ConfigSection | null>(null);
   // Status, logo and error messages share one slot, so the hook's error slot doubles as it.
   const {
     error: message,
     setError: setMessage,
     run,
+    saving,
   } = useSaveMutation("บันทึกไม่สำเร็จ");
   const startEdit = (section: ConfigSection) => {
-    setDraft(draftFromConfig(latestDatabase().config));
+    const fresh = draftFromConfig(latestDatabase().config);
+    setDraft(fresh);
+    setBase(fresh);
     setEditing(section);
     setMessage("");
   };
@@ -280,16 +302,21 @@ export function ConfigView({ db }: { db: Database }) {
     reader.readAsDataURL(file);
   };
   const save = async () => {
-    const next = await run(() =>
-      mutate(
-        latestDatabase(),
+    const changed = Object.fromEntries(
+      Object.entries(draft).filter(([key, value]) => value !== base[key]),
+    );
+    // Rebased on the latest config, so a setting someone else saved meanwhile is kept.
+    const next = await run(() => {
+      const latest = latestDatabase();
+      return mutate(
+        latest,
         "owner",
         "config",
-        draft,
+        { ...draftFromConfig(latest.config), ...changed },
         "",
         new Date().toISOString().slice(0, 10),
-      ),
-    );
+      );
+    });
     if (!next) return;
     setEditing(null);
     setMessage("บันทึกแล้ว · กลับสู่โหมดดูข้อมูล");
@@ -305,6 +332,7 @@ export function ConfigView({ db }: { db: Database }) {
   const actionProps = {
     editing,
     message,
+    saving,
     onCancel: () => setEditing(null),
     onSave: save,
     onStartEdit: startEdit,
@@ -328,6 +356,7 @@ export function ConfigView({ db }: { db: Database }) {
           {...edit}
           section="materials"
           name={`material${index}`}
+          label={`${name} · จำนวนฐาน`}
           display={(value) => `${fmt(Number(value))} ชิ้น`}
         />
       ) : (
@@ -338,6 +367,7 @@ export function ConfigView({ db }: { db: Database }) {
           {...edit}
           section="materials"
           name={`materialPrice${index}`}
+          label={`${name} · ราคาต่อหน่วย`}
           display={(value) => `฿${fmt(Number(value))} / ชิ้น`}
         />
       ) : (
@@ -352,7 +382,7 @@ export function ConfigView({ db }: { db: Database }) {
     <div className="grid gap-6">
       <PanelHeading
         title="ตั้งค่าระบบ (Settings)"
-        description="รายการด้านล่างคือค่าที่ Owner ปรับได้ทั้งหมดในเดโม ค่าต้นทุนการผลิตและค่ารถจะถูกบันทึกติดกับ PO ตอนสร้างรายการ"
+        description="รายการด้านล่างคือค่าที่ Owner ปรับได้ทั้งหมดในเดโม ค่าต้นทุนการผลิตจะถูกบันทึกติดกับ PO ตอนสร้างรายการ ส่วนค่ารถใช้ค่าปัจจุบัน ณ ตอนสร้างใบขนส่ง"
         aside={
           message && !editing ? (
             <span className="flex-none rounded-full bg-text-primary px-3 py-2 text-caption text-text-inverse">
