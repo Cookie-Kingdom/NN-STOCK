@@ -103,10 +103,14 @@ for (const [file, group] of byFile) {
   mkdirSync(shotsDir, { recursive: true });
   let shotN = 0;
   const copyShot = (att) => {
-    if (!att?.path || !existsSync(att.path)) return "";
+    // step() attaches a buffer, which the JSON reporter inlines as base64 `body`;
+    // Playwright's own failure screenshots come as a `path` on disk.
+    const onDisk = att?.path && existsSync(att.path);
+    if (!onDisk && !att?.body) return "";
     const ext = att.contentType === "image/png" ? "png" : "jpg";
     const rel = `shots/${name}/${String(++shotN).padStart(3, "0")}.${ext}`;
-    copyFileSync(att.path, path.join(OUT, rel));
+    if (onDisk) copyFileSync(att.path, path.join(OUT, rel));
+    else writeFileSync(path.join(OUT, rel), Buffer.from(att.body, "base64"));
     return rel;
   };
 
