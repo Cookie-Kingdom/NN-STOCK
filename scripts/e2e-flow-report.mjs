@@ -1,12 +1,12 @@
 // Renders one HTML "flow" page per e2e spec from Playwright's JSON reporter
-// output (playwright.local.config.ts writes artifacts/playwright-results*.json).
+// output (playwright.local.config.ts writes artifacts/e2e-runs/<run>-<port>/results.json).
 // Steps come from `step()` in tests/e2e/helpers.ts: the title starts with the
 // actor ("Owner: …") and a jpeg screenshot is attached as "step:<title>".
 //
 //   node scripts/e2e-flow-report.mjs [--out <dir>] [results.json …]
 //
-// Default input: every artifacts/playwright-results*.json. Default output: the
-// vault folder for this run. Screenshots are copied next to the pages.
+// Default input: every artifacts/e2e-runs/*/results.json (pass files to pick one
+// run per spec). Default output: artifacts/e2e-flows. Screenshots are copied next to the pages.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -15,12 +15,12 @@ const outIdx = args.indexOf("--out");
 const OUT =
   outIdx >= 0
     ? args.splice(outIdx, 2)[1]
-    : "D:/Documents/NN-STOCK-DOC/Testing/E2E Full System/17-09-2026/flows";
+    : "artifacts/e2e-flows";
 const inputs = args.length
   ? args
-  : readdirSync("artifacts")
-      .filter((f) => /^playwright-results.*\.json$/.test(f))
-      .map((f) => path.join("artifacts", f));
+  : readdirSync("artifacts/e2e-runs")
+      .map((d) => path.join("artifacts/e2e-runs", d, "results.json"))
+      .filter((f) => existsSync(f));
 
 const ACTORS = ["Owner", "Foodiva", "Chef_house", "สาขาศาลาแดง", "สาขามีนบุรี", "ระบบ"];
 const ACTOR_CLASS = Object.fromEntries(ACTORS.map((a, i) => [a, `a${i}`]));
