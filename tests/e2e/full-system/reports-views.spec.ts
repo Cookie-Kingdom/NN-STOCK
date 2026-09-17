@@ -22,8 +22,8 @@ import {
  *   Saladaeng rice: buy 5 kg raw (275) and issue 3 kg a day; Minburi buys 32 kg cooked (1,440)
  *   chili: Owner buys 280 tubes @ 20 (generalPurchase 5,600), allocates 20 / branch / day
  *   materials: 7 × 200 @ 1 bought (1,400), 100 to each branch, 10 used a day → 30 left
- * DocumentModuleView.tsx is not mounted; the live "เอกสารและ Traceability" page is
- * SimpleTraceabilityView (OwnerWorkspace.tsx), read-only by design. */
+ * The "เอกสารและ Traceability" page is SimpleTraceabilityView (OwnerWorkspace.tsx),
+ * read-only by design. */
 
 test.skip(
   process.env.NEXT_PUBLIC_LOCAL_DB !== "1",
@@ -410,10 +410,13 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       await expectCleanNumbers(page);
     });
 
-    await step(page, "Owner: เลือกสาขาศาลาแดง — ยอดขายครึ่งหนึ่ง ต้นทุนเฉพาะสาขา + รายการซื้อของ Owner", async () => {
+    await step(page, "Owner: เลือกสาขาศาลาแดง — ยอดขายครึ่งหนึ่ง ต้นทุนเฉพาะสาขา ไม่รวมรายการซื้อของ Owner", async () => {
       await filters(page).getByLabel("สาขา").selectOption("ศาลาแดง");
-      // 5,429.97 meat + 1,925 rice + Owner-wide purchases 7,000 (Report.tsx keeps them under any branch)
-      await expectSummary("34,300.00", "14,354.97", "5,600.00", "19,945.03");
+      // 5,429.97 meat + 1,925 rice; Owner-wide purchases (ETC 5,600 + materials 1,400) only count under "ทั้งหมด",
+      // so ศาลาแดง 7,354.97 + มีนบุรี 15,509.97 + Owner 7,000 = 29,864.94 (all branches)
+      await expectSummary("34,300.00", "7,354.97", "0.00", "26,945.03");
+      await expect(rowIn(page, summary, "ซื้อวัสดุบรรจุภัณฑ์")).toContainText("0.00");
+      await expect(main(page)).toContainText("ไม่รวมค่าใช้จ่าย Owner");
       await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText("7 แถว");
       await expect(
         rowIn(page, "รายงานยอดขายรายวัน", "มีนบุรี"),

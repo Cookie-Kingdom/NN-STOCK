@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { demoDb, dispatchDb, open } from "../../../../.storybook/fixtures";
-import { DocumentModuleView } from "./DocumentModuleView";
 import { InvoiceView } from "./InvoiceView";
 import { LotWorkflowAction } from "./LotWorkflowAction";
 import { PurchaseOrderView } from "./PurchaseOrderView";
@@ -39,10 +38,6 @@ export const TransportManifest: Story = {
 
 export const Invoices: Story = {
   render: () => <InvoiceView db={db} open={open} />,
-};
-
-export const DocumentModule: Story = {
-  render: () => <DocumentModuleView db={db} open={open} />,
 };
 
 export const WorkflowAction: Story = {

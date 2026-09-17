@@ -25,6 +25,11 @@ export function useDatabase() {
   );
 }
 
+/** Stories render with their database already in place. */
+export function useDatabaseLoaded() {
+  return true;
+}
+
 export function saveDatabase(db: Database) {
   cached = db;
   listeners.forEach((listener) => listener());

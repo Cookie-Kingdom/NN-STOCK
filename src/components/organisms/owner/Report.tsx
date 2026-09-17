@@ -23,6 +23,8 @@ import {
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
+const OWNER_WIDE_KINDS = ["expense", "materialReceive", "generalPurchase"];
+
 export function Report({ db }: { db: Database }) {
   const allDates = db.entries
     .map((e) => e.date)
@@ -31,12 +33,15 @@ export function Report({ db }: { db: Database }) {
   const [fromDate, setFromDate] = useState(allDates[0] || today());
   const [toDate, setToDate] = useState(allDates.at(-1) || today());
   const [branchFilter, setBranchFilter] = useState("ทั้งหมด");
+  const allBranches = branchFilter === "ทั้งหมด";
+  /* Owner-wide costs are not bound to a branch (their `branch` is just config.branch),
+   * so they only count in the all-branches view; per-branch reports then add up to it. */
   const inRange = (entry: Entry) =>
     entry.date >= fromDate &&
     entry.date <= toDate &&
-    (branchFilter === "ทั้งหมด" ||
-      ["expense", "materialReceive", "generalPurchase"].includes(entry.kind) ||
-      entry.branch === branchFilter);
+    (allBranches ||
+      (!OWNER_WIDE_KINDS.includes(entry.kind) &&
+        entry.branch === branchFilter));
   const sales = entries(db, "sale").filter(inRange),
     supplyPurchases = [
       ...entries(db, "supplyPurchase"),
@@ -152,9 +157,10 @@ export function Report({ db }: { db: Database }) {
         ]}
       />
       <Notice>
-        ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว
-        แต่ยังไม่รวมภาษี แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก
-        จึงยังไม่ใช่กำไรสุทธิ
+        {allBranches
+          ? "ตัวเลขนี้รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ที่บันทึกแล้ว แต่ยังไม่รวม"
+          : `ตัวเลขของสาขา${branchFilter}ไม่รวมค่าใช้จ่าย Owner การซื้อวัสดุ วัตถุดิบ และ ETC ซึ่งเป็นรายการรวมทุกสาขา (ดูได้เมื่อเลือกสาขา "ทั้งหมด") และยังไม่รวม`}{" "}
+        ภาษี แรงงาน ค่าเสื่อม และรายการที่ยังไม่ได้กรอก จึงยังไม่ใช่กำไรสุทธิ
       </Notice>
       <DataTable
         className="m-0"

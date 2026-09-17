@@ -235,8 +235,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
   });
 
   /* ---- C3: the live documents page is SimpleTraceabilityView, read-only by design (its
-   * footnote says so). supplierInvoice / taxDocument / steakTransfer forms are only opened
-   * from the unmounted DocumentModuleView, so C3 checks the PO shows up read-only. ---- */
+   * footnote says so) and has no document-entry buttons, so C3 checks the PO shows up read-only. ---- */
   await step(page, "Owner: C3 เอกสารและ Traceability (อ่านอย่างเดียว): PO อยู่ในทะเบียน รอ Invoice Foodiva · ไม่มีปุ่มบันทึกเอกสาร", async () => {
     await tab(page, "เอกสารและ Traceability");
     const row = registerRow(page);

@@ -109,7 +109,7 @@ export function DailyMaterialsTable({
             min="0"
             max={opening(i)}
             step="1"
-            value={draft["used" + i] || "0"}
+            value={draft["used" + i] ?? ""}
             disabled={disabled}
             aria-label={`จำนวนใช้ ${item} วันนี้`}
             onChange={(event) => {

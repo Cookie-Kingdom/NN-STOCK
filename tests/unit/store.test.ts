@@ -35,7 +35,6 @@ import {
   sevenDayRoleplay,
   smokeServiceRate,
   smokingInvoiceStatus,
-  steakRawStock,
   validPackWeights,
   visibleEntries,
   type Database,
@@ -533,7 +532,7 @@ describe("lot workflow", () => {
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
   });
 
-  test("raw meat at Foodiva shrinks with owner waste pickups and Steak transfers", () => {
+  test("raw meat at Foodiva shrinks with owner waste pickups and legacy Steak transfers", () => {
     const s = setup();
     purchase(s, "40");
     confirm(s, "40", "30");
@@ -552,16 +551,8 @@ describe("lot workflow", () => {
     expect(last(s).date).toBe("2026-09-10");
     expect(ownerWasteOutstanding(s.db, id)).toBe(6);
     expect(rawAtFoodiva(s.db, lot())).toBe(36);
-    const steak = (quantityKg: string) =>
-      s.run("owner", "steakTransfer", {
-        transferDate: day,
-        quantityKg,
-        reason: "Steak Production",
-      });
-    expect(() => steak("37")).toThrow(/ไม่พอ/);
-    steak("5");
-    expect(last(s).values.transferNumber).toBe("TR-2026-0001");
-    expect(steakRawStock(s.db)).toBe(5);
+    // Legacy "steakTransfer" entries (no UI creates them now) still leave Foodiva.
+    s.db.entries.push({ ...last(s), id: "legacy-steak", kind: "steakTransfer", values: { quantityKg: "5" } });
     expect(rawAtFoodiva(s.db, lot())).toBe(31);
     expect(rawAtFoodiva(s.db, { ...lot(), id: `${id}-R1` })).toBe(0);
   });

@@ -13,6 +13,7 @@ import {
   startFresh,
   step,
   tableSection,
+  typeValue,
 } from "../helpers";
 import {
   availableBags,
@@ -619,10 +620,8 @@ test.describe("มือถือ 390 px", () => {
         const section = tableSection(page, "วัสดุ 7 รายการ · กรอกการใช้วันนี้");
         await expect(section).toBeVisible();
         await expectAccessible(section);
-        // ponytail: the input shows `draft || "0"`, so clear-then-type (field helper) yields "00"; set it directly.
         const used = section.getByLabel(/^จำนวนใช้ .* วันนี้$/).first();
-        await used.fill("0");
-        await expect(used).toHaveValue("0");
+        await typeValue(page, used, "0");
         const save = section.getByRole("button", { name: "บันทึกการใช้วัสดุ" });
         await save.scrollIntoViewIfNeeded();
         await expect(save).toBeEnabled();
