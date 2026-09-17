@@ -151,8 +151,8 @@ export function Report({ db }: { db: Database }) {
           ["↳ ซื้อวัตถุดิบ / ETC (รวมอยู่ในต้นทุนรวมแล้ว)", fmt(generalPurchaseCost), "บาท"],
           [
             "ส่วนต่างหลังต้นทุนที่บันทึก",
-            fmt(Math.abs(margin)),
-            margin < 0 ? "บาท · ต่ำกว่าต้นทุน" : "บาท",
+            fmt(margin),
+            "บาท",
           ],
         ]}
       />
