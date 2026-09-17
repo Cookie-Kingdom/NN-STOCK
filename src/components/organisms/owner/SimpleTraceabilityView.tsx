@@ -408,7 +408,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     ],
                     [
                       "Foodiva รับเข้าตู้",
-                      "—",
+                      // Received against the return transfer; there is no separate receipt document.
+                      (foodivaReturn && returnTrip?.values.transferNumber) || "—",
                       foodivaReturn?.date || "—",
                       foodivaReturn
                         ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} ถุง`
@@ -417,7 +418,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     ],
                     [
                       "รับเข้าสต๊อกกลาง",
-                      "—",
+                      // Received against the return transfer; there is no separate receipt document.
+                      (central && returnTrip?.values.transferNumber) || "—",
                       central?.date || "—",
                       central
                         ? `${fmt(n(central.values, "centralKg"))} กก.`
