@@ -878,6 +878,13 @@ export function mutate(
       `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${latest})`,
     );
   }
+  // Non-stage entries (foodivaConfirm, invoice payment, ...) still can't predate the lot's PO.
+  if (lot) {
+    const first = db.entries
+      .filter((e) => e.lotId === lot.id)
+      .reduce((min, e) => (!min || e.date < min ? e.date : min), "");
+    assert(!first || date >= first, `วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${first})`);
+  }
   const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
   if (lotRequired.includes(kind))
     assert(lot && lot.stage >= 8, "Lot ต้องรับเข้าสต๊อกกลางก่อน");
