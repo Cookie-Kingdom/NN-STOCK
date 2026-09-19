@@ -1222,4 +1222,28 @@ describe("backdated entries", () => {
     expect(db.lots[0].stage).toBe(2);
     expect(db.entries.at(-1)!.date).toBe(backdated);
   });
+
+  test("a non-stage entry cannot predate the lot's PO", () => {
+    const s = setup();
+    purchase(s, "40");
+    expect(() =>
+      mutate(
+        s.db,
+        "foodiva",
+        "foodivaConfirm",
+        {
+          invoiceNo: "INV-1",
+          invoiceDate: day,
+          attachment: "inv.pdf",
+          confirmedBy: "Foodiva",
+          confirmedKg: "40",
+          readyForChiangMaiKg: "40",
+          reservedForOwnerKg: "0",
+          invoiceAmount: "1",
+        },
+        s.db.lots[0].id,
+        "2026-09-01",
+      ),
+    ).toThrow(`วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${day})`);
+  });
 });
