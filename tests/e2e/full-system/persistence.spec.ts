@@ -56,6 +56,19 @@ const formAlert = (page: Page, text: string | RegExp) =>
 const successToast = (page: Page, text: string | RegExp) =>
   page.getByRole("main").getByRole("status").filter({ hasText: text });
 
+/** Status of every POST /api/local-db (a save) the page sends from now on. A save
+ * on a stale revision is refused with 409; useSaveMutation then reloads and rebuilds
+ * the change once on the fresh data (QA round 9 BUG-L), so the refusal only shows
+ * here or as the rebuilt change's own validation error. */
+function saveStatuses(page: Page) {
+  const statuses: number[] = [];
+  page.on("response", (response) => {
+    if (response.request().method() === "POST" && new URL(response.url()).pathname === "/api/local-db")
+      statuses.push(response.status());
+  });
+  return statuses;
+}
+
 type Row = { payload: Database; revision: number };
 async function serverState(page: Page): Promise<Row> {
   const response = await page.request.get("/api/local-db");
@@ -378,7 +391,7 @@ test("G2 บันทึกล้มเหลว (mock 409) → ไม่มี 
 });
 
 /* ---- G3 --------------------------------------------------------------------- */
-test("G3 Owner 2 browser บันทึก PO ชนกัน → B ได้ข้อความแดง ลองใหม่ผ่าน ไม่มี PO หาย", async ({
+test("G3 Owner 2 browser บันทึก PO ชนกัน → server ปฏิเสธ B (409) · B โหลดใหม่และบันทึกซ้ำเองผ่าน ไม่มี PO หาย", async ({
   page,
   browser,
   baseURL,
@@ -394,18 +407,11 @@ test("G3 Owner 2 browser บันทึก PO ชนกัน → B ได้�
       await expect(successToast(page, "สร้างใบ PO แล้ว")).toBeVisible();
     });
 
-    await step(b.page, "Owner: G3 browser B (revision เก่า) สร้าง PO 222 กก. → 409 ข้อความแดงในฟอร์ม dialog ค้าง", async () => {
+    await step(b.page, "Owner: G3 browser B (revision เก่า) สร้าง PO 222 กก. → 409 แล้วบันทึกซ้ำบนข้อมูลล่าสุดเอง → ผ่าน · ตารางมี PO ของ A และ B", async () => {
+      const saves = saveStatuses(b.page);
       await ownerCreatesMeatPo(b.page, "222");
-      await expect(dialog(b.page)).toBeVisible();
-      await expect(formAlert(b.page, "บันทึกไม่สำเร็จ")).toContainText(
-        "State changed on another device",
-      );
-      await expect(b.page.getByText("สร้างใบ PO แล้ว")).toHaveCount(0);
-    });
-
-    await step(b.page, "Owner: G3 B กดบันทึกซ้ำ (โหลดข้อมูลล่าสุดแล้ว) → ผ่าน · ตารางมี PO ของ A และ B", async () => {
-      await submit(b.page);
       await expect(b.page.getByRole("dialog")).toHaveCount(0);
+      expect(saves).toEqual([409, 200]);
       await expect(successToast(b.page, "สร้างใบ PO แล้ว")).toBeVisible();
       await expect(rowIn(b.page, "รายการใบสั่งซื้อ PO", /PO-/)).toHaveCount(2);
     });
@@ -450,18 +456,12 @@ test("G4 A เปิดฟอร์มใบขนส่งขาไปค้า
       await expect(successToast(b.page, "ทำใบขนส่งขาไปแล้ว")).toBeVisible();
     });
 
-    await step(page, "Owner: G4 A กดบันทึก → ครั้งแรก server ปฏิเสธ revision เก่า (409) ข้อความแดง dialog ค้าง", async () => {
-      await submit(page);
-      await expect(formAlert(page, "บันทึกไม่สำเร็จ")).toContainText(
-        "State changed on another device",
-      );
-      await expect(dialog(page)).toBeVisible();
-    });
-
-    await step(page, "Owner: G4 A กดบันทึกซ้ำ (ข้อมูลล่าสุดแล้ว) → ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่", async () => {
+    await step(page, "Owner: G4 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่", async () => {
+      const saves = saveStatuses(page);
       await submit(page);
       await expect(formAlert(page, "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่")).toBeVisible();
       await expect(dialog(page)).toBeVisible();
+      expect(saves).toEqual([409]);
     });
 
     await step(page, "ระบบ: G4 server มีใบขนส่งขาไปใบเดียว (ของ B) · lot อยู่ stage 2", async () => {
@@ -514,12 +514,12 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       await expect(successToast(b.page, "จัดสรรถุงเนื้อไปสาขาแล้ว")).toBeVisible();
     });
 
-    await step(page, "Owner: G5 A กดบันทึก → server ปฏิเสธ revision เก่า (409) ข้อความแดง dialog ค้าง", async () => {
+    const saves = saveStatuses(page);
+    await step(page, "Owner: G5 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → มีถุงที่ถูกจัดสรรไปแล้ว dialog ค้าง", async () => {
       await submit(page);
-      await expect(formAlert(page, "บันทึกไม่สำเร็จ")).toContainText(
-        "State changed on another device",
-      );
+      await expect(formAlert(page, "มีถุงที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่")).toBeVisible();
       await expect(dialog(page)).toBeVisible();
+      expect(saves).toEqual([409]);
     });
 
     await step(page, "Owner: G5 หลังโหลดใหม่ ตารางในฟอร์มเหลือ 4 ถุง ถุงที่ B จัดสรรหายไป", async () => {
@@ -532,12 +532,12 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       await expect(dialog(page).getByLabel("เลือกสาขาให้ถุงที่ 2")).toHaveValue("");
     });
 
-    /* พฤติกรรมจริง: BagAllocationForm สร้างรายการถุงจาก db ที่โหลดใหม่ ถุงที่ถูกจัดสรรแล้ว
-     * หลุดจากฟอร์มก่อนถึง mutate() ข้อความ "มีถุงที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่"
-     * (store.ts) จึงไม่ขึ้นจาก UI — กดซ้ำบันทึกเฉพาะถุงที่ยังเหลือและเห็นอยู่บนฟอร์ม */
-    await step(page, "Owner: G5 A กดบันทึกซ้ำ → บันทึกเฉพาะถุงที่ยังว่าง (1 ถุง → ศาลาแดง) ไม่ได้ข้อความ มีถุงที่ถูกจัดสรรไปแล้ว", async () => {
+    /* การสร้างใหม่หลัง 409 ยังใช้รายการถุงของฟอร์มเดิม mutate() จึงปฏิเสธถุงที่ B เอาไป
+     * หลังจากนั้นฟอร์มแสดงรายการถุงจาก db ที่โหลดใหม่ กดซ้ำบันทึกเฉพาะถุงที่ยังเหลือบนฟอร์ม */
+    await step(page, "Owner: G5 A กดบันทึกซ้ำ → บันทึกเฉพาะถุงที่ยังว่าง (1 ถุง → ศาลาแดง)", async () => {
       await submit(page);
       await expect(page.getByRole("dialog")).toHaveCount(0);
+      expect(saves).toEqual([409, 200]);
       await expect(successToast(page, "จัดสรรถุงเนื้อไปสาขาแล้ว")).toBeVisible();
     });
 
