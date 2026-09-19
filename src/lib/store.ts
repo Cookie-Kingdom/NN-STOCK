@@ -880,8 +880,9 @@ export function mutate(
   }
   // Non-stage entries (foodivaConfirm, invoice payment, ...) still can't predate the lot's PO.
   if (lot) {
+    const lotRef = lot.id;
     const first = db.entries
-      .filter((e) => e.lotId === lot.id)
+      .filter((e) => e.lotId === lotRef)
       .reduce((min, e) => (!min || e.date < min ? e.date : min), "");
     assert(!first || date >= first, `วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${first})`);
   }
