@@ -878,8 +878,19 @@ export function mutate(
       `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${latest})`,
     );
   }
-  // Non-stage entries (foodivaConfirm, invoice payment, ...) still can't predate the lot's PO.
-  if (lot) {
+  // Non-stage lot-pipeline entries still can't predate the lot's PO. Branch kinds are
+  // excluded: they carry the selected lot as context, not as the lot they belong to.
+  const lotPipeline = [
+    "foodivaConfirm",
+    "foodivaReturnReceive",
+    "smokeOrder",
+    "smokeOrderAccept",
+    "smokingInvoice",
+    "invoiceReview",
+    "invoicePayment",
+    "chefEdit",
+  ];
+  if (lot && lotPipeline.includes(kind)) {
     const lotRef = lot.id;
     const first = db.entries
       .filter((e) => e.lotId === lotRef)
