@@ -753,7 +753,8 @@ test("E2E-E1: ช่องตรวจนับน้ำพริกในฟอ
   await loadSampleData(page);
   await signInAs(page, ACCOUNTS.saladaeng);
   await step(page, "สาขาศาลาแดง: เปิดวันก่อนช่วง sample (วันนี้ปิดแล้วใน sample) และเปิดฟอร์มยอดขาย", async () => {
-    const input = page.getByLabel("วันที่ทำรายการ");
+    // The page-heading picker: the day tab's materials/receipt cards carry their own copy below it.
+    const input = page.getByLabel("วันที่ทำรายการ").first();
     await input.scrollIntoViewIfNeeded();
     await input.fill(openDayBeforeSample());
     await pointAndClick(page, rowButton(page, "บันทึกยอดขาย / Waste"));
