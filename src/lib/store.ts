@@ -864,11 +864,20 @@ export function mutate(
     );
   }
   const expected = stageAction.indexOf(kind);
-  if (expected > 0 && kind !== "allocate")
+  if (expected > 0 && kind !== "allocate") {
     assert(
       lot && lot.stage === expected,
       "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
     );
+    // A backdated step must not land before the step it depends on.
+    const latest = db.entries
+      .filter((e) => e.lotId === lotId)
+      .reduce((max, e) => (e.date > max ? e.date : max), "");
+    assert(
+      date >= latest,
+      `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${latest})`,
+    );
+  }
   const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
   if (lotRequired.includes(kind))
     assert(lot && lot.stage >= 8, "Lot ต้องรับเข้าสต๊อกกลางก่อน");

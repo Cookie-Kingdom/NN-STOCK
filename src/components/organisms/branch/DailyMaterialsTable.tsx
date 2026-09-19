@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
@@ -22,11 +23,15 @@ export function DailyMaterialsTable({
   db,
   branch,
   date,
+  onDate,
+  minDate,
   disabled,
 }: {
   db: Database;
   branch: string;
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   disabled: boolean;
 }) {
   const saved = entries(db, "materials", undefined, branch, date).at(-1);
@@ -94,9 +99,22 @@ export function DailyMaterialsTable({
           "สถานะ",
         ]}
         action={
-          <Button variant="primary" disabled={disabled} onClick={saveMaterials}>
-            {saved ? "บันทึกแก้ไข" : "บันทึกการใช้วัสดุ"}
-          </Button>
+          <div className="flex flex-wrap items-end gap-3">
+            <WorkingDateField
+              variant="filter"
+              className="text-caption text-text-secondary"
+              date={date}
+              onDate={onDate}
+              minDate={minDate}
+            />
+            <Button
+              variant="primary"
+              disabled={disabled}
+              onClick={saveMaterials}
+            >
+              {saved ? "บันทึกแก้ไข" : "บันทึกการใช้วัสดุ"}
+            </Button>
+          </div>
         }
         rowKeys={materials}
         rows={materials.map((item, i) => [

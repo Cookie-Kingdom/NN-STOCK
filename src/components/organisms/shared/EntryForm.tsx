@@ -8,6 +8,7 @@ import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
@@ -175,6 +176,8 @@ export function EntryForm({
   db,
   role,
   date,
+  onDate,
+  minDate,
   modal,
   onClose,
   onSaved,
@@ -185,6 +188,9 @@ export function EntryForm({
   /** The workspace branch: the branch account's own, or config.branch for other roles. */
   branch: string;
   date: string;
+  /** Sets the workspace date: the form has no date of its own. */
+  onDate: (date: string) => void;
+  minDate?: string;
   modal: Modal;
   onClose: () => void;
   onSaved: (db: Database) => void;
@@ -233,8 +239,7 @@ export function EntryForm({
       ? entries(db, "smokingInvoice", lot.id).at(-1)
       : undefined;
   const rejection =
-    latestSmokingInvoice &&
-    smokingInvoiceRejection(db, latestSmokingInvoice);
+    latestSmokingInvoice && smokingInvoiceRejection(db, latestSmokingInvoice);
   const reference =
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
@@ -331,6 +336,12 @@ export function EntryForm({
                 : "overflow-visible",
             )}
           >
+            <WorkingDateField
+              className="mb-4.5 max-w-xs text-body-sm font-medium"
+              date={date}
+              onDate={onDate}
+              minDate={minDate}
+            />
             {isPurchaseOrder && (
               <Notice className="mb-4.5">
                 เอกสาร PO ในส่วน Preview จะเปลี่ยนตามข้อมูลที่กรอกทันที

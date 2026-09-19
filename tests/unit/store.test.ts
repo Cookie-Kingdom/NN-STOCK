@@ -1190,3 +1190,36 @@ test("seven-day roleplay replays every role through mutate", () => {
   for (const branch of branches) expect(isClosed(db, branch, day)).toBe(true);
   expect(db.config.branch).toBe("ศาลาแดง");
 });
+
+describe("backdated entries", () => {
+  test("a stage step cannot be dated before the lot's latest entry", () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    expect(() =>
+      mutate(
+        s.db,
+        "owner",
+        "dispatch",
+        { ...send, dispatchKg: "50" },
+        s.db.lots[0].id,
+        "2026-09-01",
+      ),
+    ).toThrow(`วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${day})`);
+  });
+
+  test("a backdated stage step on or after the previous step still saves", () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    const backdated = "2026-09-10"; // after `day`, before the real today
+    const db = mutate(
+      s.db,
+      "owner",
+      "dispatch",
+      { ...send, dispatchKg: "50" },
+      s.db.lots[0].id,
+      backdated,
+    );
+    expect(db.lots[0].stage).toBe(2);
+    expect(db.entries.at(-1)!.date).toBe(backdated);
+  });
+});

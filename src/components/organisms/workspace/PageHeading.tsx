@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
 import { Overline } from "@/components/atoms/Overline";
 import { Muted } from "@/components/atoms/Text";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { today } from "@/lib/format";
 
 /** Tab title block with the working-date picker on the right. */
@@ -22,10 +22,6 @@ export function PageHeading({
   /** Configured system start date; enforced once it is not in the future (same rule as mutate). */
   minDate?: string;
 }) {
-  const max = today();
-  const min = minDate && minDate <= max ? minDate : undefined;
-  // min/max only limit the picker; a typed date still lands here, and mutate would reject it.
-  const outOfRange = Boolean(date) && ((min && date < min) || date > max);
   return (
     <div className="mb-6 flex items-center justify-between gap-5 max-md:items-start max-md:gap-2.5">
       <div>
@@ -36,24 +32,13 @@ export function PageHeading({
         </Muted>
       </div>
       <div className="flex flex-col gap-1 text-caption text-text-secondary">
-        <label className="flex flex-col gap-1">
-          วันที่ทำรายการ
-          <Input
-            variant="filter"
-            className="min-w-0 rounded-md p-2 max-md:max-w-34"
-            aria-label="วันที่ทำรายการ"
-            type="date"
-            value={date}
-            min={min}
-            max={max}
-            onChange={(e) => onDate(e.target.value)}
-          />
-        </label>
-        {outOfRange && (
-          <p role="alert" className="max-w-55 text-caption text-danger">
-            วันที่อยู่นอกช่วงที่บันทึกได้ ({min ?? "…"} – {max})
-          </p>
-        )}
+        <WorkingDateField
+          variant="filter"
+          inputClassName="min-w-0 rounded-md p-2 max-md:max-w-34"
+          date={date}
+          onDate={onDate}
+          minDate={minDate}
+        />
         <Button
           variant="text"
           className="justify-end"

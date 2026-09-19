@@ -6,6 +6,7 @@ import { Textarea } from "@/components/atoms/Textarea";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
@@ -25,12 +26,16 @@ export function ChefLotEditForm({
   db,
   lotId,
   date,
+  onDate,
+  minDate,
   onClose,
   onSaved,
 }: {
   db: Database;
   lotId: string;
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -98,6 +103,12 @@ export function ChefLotEditForm({
     >
       <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={save}>
         <DialogBody>
+          <WorkingDateField
+            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            date={date}
+            onDate={onDate}
+            minDate={minDate}
+          />
           <Notice>
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
             เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว

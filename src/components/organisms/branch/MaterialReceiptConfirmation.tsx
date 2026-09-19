@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
@@ -20,11 +21,15 @@ export function MaterialReceiptConfirmation({
   db,
   branch,
   date,
+  onDate,
+  minDate,
   closed,
 }: {
   db: Database;
   branch: string;
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   closed: boolean;
 }) {
   const pending = entries(db, "materialTransfer", undefined, branch).filter(
@@ -119,19 +124,28 @@ export function MaterialReceiptConfirmation({
           </Button>,
         ])}
         action={
-          <TableFilter label="ชื่อผู้รับจริง">
-            <Input
+          <div className="flex flex-wrap items-end gap-3">
+            <WorkingDateField
               variant="filter"
-              value={draft.receiver || ""}
-              placeholder={`ผู้ดูแลสาขา ${branch}`}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  receiver: event.target.value,
-                }))
-              }
+              className="text-caption text-text-secondary"
+              date={date}
+              onDate={onDate}
+              minDate={minDate}
             />
-          </TableFilter>
+            <TableFilter label="ชื่อผู้รับจริง">
+              <Input
+                variant="filter"
+                value={draft.receiver || ""}
+                placeholder={`ผู้ดูแลสาขา ${branch}`}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    receiver: event.target.value,
+                  }))
+                }
+              />
+            </TableFilter>
+          </div>
         }
       />
       {message && <Notice>{message}</Notice>}
