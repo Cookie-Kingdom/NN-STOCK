@@ -465,10 +465,14 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     await step(page, "Chef_house: ประวัติเฉพาะรายการของ Chef_house", async () => {
       await signInAs(page, "chef");
       await tab(page, "ประวัติ");
-      await expect(history(page)).toHaveCount(all.filter((e) => e.role === "cm").length);
-      await expect(history(page).filter({ hasText: "· Chef_house" })).toHaveCount(
-        all.filter((e) => e.role === "cm").length,
-      );
+      // visibleEntries also shows Chef_house the Owner's review of its billing invoice
+      // (the reject reason, QA round 7 BUG-H), and nothing else from other roles.
+      const own = all.filter((e) => e.role === "cm");
+      const reviews = all.filter((e) => e.kind === "invoiceReview");
+      expect(reviews).toHaveLength(1);
+      await expect(history(page)).toHaveCount(own.length + reviews.length);
+      await expect(history(page).filter({ hasText: "· Chef_house" })).toHaveCount(own.length);
+      await expect(history(page).filter({ hasText: "ตรวจยอด Invoice ค่ารมควัน" })).toHaveCount(reviews.length);
     });
 
     await step(page, "สาขาศาลาแดง: ประวัติเฉพาะสาขาตน ยอดขายไม่มีต้นทุนเนื้อ", async () => {
