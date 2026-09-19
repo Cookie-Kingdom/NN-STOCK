@@ -25,7 +25,8 @@ function openDayBeforeSample() {
 }
 
 async function setWorkingDate(page: Page, date: string) {
-  const input = page.getByLabel("วันที่ทำรายการ");
+  // The page-heading picker: the day tab's materials/receipt cards carry their own copy below it.
+  const input = page.getByLabel("วันที่ทำรายการ").first();
   await input.scrollIntoViewIfNeeded();
   await input.fill(date);
 }
