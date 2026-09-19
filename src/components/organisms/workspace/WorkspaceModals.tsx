@@ -31,9 +31,16 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     chosen,
     setChosen,
     setTab,
+    setDate,
   } = ws;
   if (!modal) return null;
   const close = () => setModal(null);
+  // Forms edit the one workspace date, so the page's date-derived data follows.
+  const dateProps = {
+    date,
+    onDate: setDate,
+    minDate: db.config.systemStartDate,
+  };
   const done = (message: string) => {
     setToast(message);
     setModal(null);
@@ -42,9 +49,8 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "materialTransfer") {
     return (
       <MaterialTransferForm
-        key={`material-transfer-${date}`}
         db={db}
-        date={date}
+        {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึกส่งวัสดุไปสาขาแล้ว")}
       />
@@ -53,9 +59,8 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "materialReceive") {
     return (
       <MaterialPurchaseForm
-        key={`material-purchase-${date}`}
         db={db}
-        date={date}
+        {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึกการซื้อวัสดุแล้ว")}
       />
@@ -64,8 +69,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "generalPurchase") {
     return (
       <GeneralPurchaseForm
-        key={`general-purchase-${date}`}
-        date={date}
+        {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึกการซื้ออื่น ๆ แล้ว")}
       />
@@ -76,7 +80,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       <BagAllocationForm
         db={db}
         lotId={modal.lotId}
-        date={date}
+        {...dateProps}
         onClose={close}
         onSaved={() => done("จัดสรรถุงเนื้อไปสาขาแล้ว")}
       />
@@ -87,7 +91,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       <ChefLotEditForm
         db={db}
         lotId={modal.lotId}
-        date={date}
+        {...dateProps}
         onClose={close}
         onSaved={() =>
           done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")
@@ -108,7 +112,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       db={db}
       role={role}
       branch={branch}
-      date={date}
+      {...dateProps}
       modal={modal}
       onClose={close}
       onSaved={(next) => {

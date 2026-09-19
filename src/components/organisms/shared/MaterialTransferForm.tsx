@@ -5,6 +5,7 @@ import { Input } from "@/components/atoms/Input";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -27,11 +28,15 @@ const headCell =
 export function MaterialTransferForm({
   db,
   date,
+  onDate,
+  minDate,
   onClose,
   onSaved,
 }: {
   db: Database;
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
@@ -95,6 +100,12 @@ export function MaterialTransferForm({
         onSubmit={submit}
       >
         <DialogBody>
+          <WorkingDateField
+            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            date={date}
+            onDate={onDate}
+            minDate={minDate}
+          />
           <Notice>
             ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน
             สามารถเลือกหลายรายการและบันทึกพร้อมกันได้

@@ -16,6 +16,7 @@ import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
 import { MaterialTransferForm } from "./MaterialTransferForm";
+import { today } from "@/lib/format";
 
 // Every story opens a native modal <dialog>; a Docs page would stack them all.
 // Saves go through the mocked persistence and appear in the Actions panel.
@@ -30,6 +31,8 @@ type Story = StoryObj;
 
 const onClose = fn();
 const onSaved = fn();
+// The working date lives in the workspace; the date field reports changes here.
+const onDate = fn();
 
 export const OwnerPurchase: Story = {
   parameters: { db: demoDb },
@@ -39,6 +42,7 @@ export const OwnerPurchase: Story = {
       role="owner"
       branch=""
       date={day}
+      onDate={onDate}
       modal={{ kind: "purchase", lotId: "" }}
       onClose={onClose}
       onSaved={onSaved}
@@ -65,6 +69,7 @@ export const OwnerDispatch: Story = {
       role="owner"
       branch=""
       date={day}
+      onDate={onDate}
       modal={{ kind: "dispatch", lotId: dispatchDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -80,6 +85,7 @@ export const OwnerReturn: Story = {
       role="owner"
       branch=""
       date={day}
+      onDate={onDate}
       modal={{ kind: "return", lotId: smokedDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -96,6 +102,7 @@ export const FoodivaInvoiceEdit: Story = {
       role="foodiva"
       branch=""
       date={day}
+      onDate={onDate}
       modal={{ kind: "foodivaConfirm", lotId: rejectedInvoiceDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -112,6 +119,7 @@ export const ChefInvoiceSentBack: Story = {
       role="cm"
       branch=""
       date={day}
+      onDate={onDate}
       modal={{ kind: "smokingInvoice", lotId: rejectedInvoiceDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -127,6 +135,24 @@ export const BranchSale: Story = {
       role="branch"
       branch="ศาลาแดง"
       date={day}
+      onDate={onDate}
+      modal={{ kind: "sale", lotId: demoDb.lots[0].id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+// `day` is in the past, so the stories above show the "บันทึกย้อนหลัง" badge; today does not.
+export const BranchSaleToday: Story = {
+  parameters: { db: demoDb },
+  render: () => (
+    <EntryForm
+      db={demoDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={today()}
+      onDate={onDate}
       modal={{ kind: "sale", lotId: demoDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -142,6 +168,7 @@ export const BranchInfluencerBox: Story = {
       role="branch"
       branch="ศาลาแดง"
       date={day}
+      onDate={onDate}
       modal={{ kind: "influencerBox", lotId: demoDb.lots[0].id }}
       onClose={onClose}
       onSaved={onSaved}
@@ -161,6 +188,7 @@ export const BagAllocation: Story = {
       db={centralDb}
       lotId={centralDb.lots[0].id}
       date={day}
+      onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -173,6 +201,7 @@ export const MaterialPurchase: Story = {
     <MaterialPurchaseForm
       db={demoDb}
       date={day}
+      onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -185,6 +214,7 @@ export const MaterialTransfer: Story = {
     <MaterialTransferForm
       db={demoDb}
       date={day}
+      onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -194,7 +224,12 @@ export const MaterialTransfer: Story = {
 export const GeneralPurchase: Story = {
   parameters: { db: demoDb },
   render: () => (
-    <GeneralPurchaseForm date={day} onClose={onClose} onSaved={onSaved} />
+    <GeneralPurchaseForm
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
   ),
 };
 
@@ -205,6 +240,7 @@ export const ChefLotEdit: Story = {
       db={smokedDb}
       lotId={smokedDb.lots[0].id}
       date={day}
+      onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
     />

@@ -9,6 +9,7 @@ import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -74,10 +75,14 @@ const lineField = "text-caption";
 
 export function GeneralPurchaseForm({
   date,
+  onDate,
+  minDate,
   onClose,
   onSaved,
 }: {
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -87,7 +92,7 @@ export function GeneralPurchaseForm({
     new Set([...standardIngredients, ...savedIngredients]),
   );
   const [lines, setLines] = useState<GeneralPurchaseLine[]>(() => [
-    newGeneralPurchaseLine(date),
+    newGeneralPurchaseLine(""),
   ]);
   const { error, setError, run, saving } = useSaveMutation(
     "บันทึกการซื้ออื่น ๆ ไม่สำเร็จ",
@@ -124,7 +129,7 @@ export function GeneralPurchaseForm({
     setError("");
   };
   const addLine = () =>
-    setLines((current) => [...current, newGeneralPurchaseLine(date)]);
+    setLines((current) => [...current, newGeneralPurchaseLine("")]);
   const removeLine = (id: string) =>
     setLines((current) =>
       current.length === 1 ? current : current.filter((line) => line.id !== id),
@@ -137,6 +142,8 @@ export function GeneralPurchaseForm({
       const addedIngredients = new Set(savedIngredients);
       for (const line of lines) {
         const item = line.item.trim();
+        // A line without its own date follows the working date, like MaterialPurchaseForm.
+        const purchaseDate = line.purchaseDate || date;
         const supplier = line.supplier.trim();
         const quantity = Number(line.quantity);
         const unitPrice = Number(line.unitPrice);
@@ -146,7 +153,7 @@ export function GeneralPurchaseForm({
           throw new Error(
             "เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Foodiva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง",
           );
-        if (!line.purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
+        if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
         if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
         if (!line.unit.trim()) throw new Error(`กรอกหน่วยของ ${item}`);
         if (!Number.isFinite(quantity) || quantity <= 0)
@@ -158,7 +165,7 @@ export function GeneralPurchaseForm({
           "owner",
           "generalPurchase",
           {
-            purchaseDate: line.purchaseDate,
+            purchaseDate,
             purchaseCategory: line.category,
             item,
             unit: line.unit.trim(),
@@ -168,7 +175,7 @@ export function GeneralPurchaseForm({
             reference: line.reference.trim(),
           },
           "",
-          line.purchaseDate,
+          purchaseDate,
         );
         if (line.category === "วัตถุดิบ" && !standardIngredients.includes(item))
           addedIngredients.add(item);
@@ -197,6 +204,12 @@ export function GeneralPurchaseForm({
     >
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
         <DialogBody>
+          <WorkingDateField
+            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            date={date}
+            onDate={onDate}
+            minDate={minDate}
+          />
           <Notice>
             เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง
             ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO
@@ -299,7 +312,7 @@ export function GeneralPurchaseForm({
                       <Input
                         type="date"
                         aria-label={`วันที่ซื้อ ${index + 1}`}
-                        value={line.purchaseDate}
+                        value={line.purchaseDate || date}
                         onChange={(event) =>
                           update(line.id, "purchaseDate", event.target.value)
                         }

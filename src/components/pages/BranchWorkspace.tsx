@@ -59,6 +59,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
               db={db}
               branch={branch}
               date={date}
+              onDate={ws.setDate}
+              minDate={db.config.systemStartDate}
               closed={closed}
             />
             <DailyMaterialsTable
@@ -68,6 +70,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
               db={db}
               branch={branch}
               date={date}
+              onDate={ws.setDate}
+              minDate={db.config.systemStartDate}
               disabled={closed}
             />
             <DailyTaskTable

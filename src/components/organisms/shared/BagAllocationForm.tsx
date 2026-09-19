@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Select } from "@/components/atoms/Select";
 import { FormError } from "@/components/molecules/FormError";
+import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
@@ -16,12 +17,16 @@ export function BagAllocationForm({
   db,
   lotId,
   date,
+  onDate,
+  minDate,
   onClose,
   onSaved,
 }: {
   db: Database;
   lotId: string;
   date: string;
+  onDate: (date: string) => void;
+  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -61,6 +66,12 @@ export function BagAllocationForm({
     <Dialog overline={lotId} title="จัดสรรถุงเนื้อไปสาขา" onClose={onClose}>
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
         <DialogBody>
+          <WorkingDateField
+            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            date={date}
+            onDate={onDate}
+            minDate={minDate}
+          />
           <DataTable
             title="เลือกปลายทางทีละถุง"
             columns={["ถุง", "น้ำหนัก", "สาขาปลายทาง"]}

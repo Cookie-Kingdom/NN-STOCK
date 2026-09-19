@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { fn } from "storybook/test";
 import { day, demoDb, open } from "../../../../.storybook/fixtures";
 import { isClosed } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
@@ -65,7 +66,13 @@ export const SalesTasks: Story = {
 
 export const Materials: Story = {
   render: () => (
-    <DailyMaterialsTable db={db} branch={branch} date={day} disabled={false} />
+    <DailyMaterialsTable
+      db={db}
+      branch={branch}
+      date={day}
+      onDate={fn()}
+      disabled={false}
+    />
   ),
 };
 
@@ -75,6 +82,7 @@ export const MaterialReceipt: Story = {
       db={db}
       branch={branch}
       date={day}
+      onDate={fn()}
       closed={closed}
     />
   ),

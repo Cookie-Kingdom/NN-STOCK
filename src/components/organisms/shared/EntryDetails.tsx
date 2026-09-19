@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadRow } from "@/components/atoms/ReadRow";
@@ -97,6 +98,15 @@ export function EntryDetails({
             {e.date} · {e.lotId || e.branch} · {roleName[e.role]}
             {voided && " · ยกเลิกแล้ว"}
           </small>
+          {/* Recorded on a later Bangkok day than its business date: owner audits these. */}
+          {e.date <
+            new Date(e.at).toLocaleDateString("en-CA", {
+              timeZone: "Asia/Bangkok",
+            }) && (
+            <Badge tone="warning" className="ml-2">
+              บันทึกย้อนหลัง
+            </Badge>
+          )}
           {/* The review's outcome and note to Chef_house, readable without expanding. */}
           {e.kind === "invoiceReview" && (
             <small>
