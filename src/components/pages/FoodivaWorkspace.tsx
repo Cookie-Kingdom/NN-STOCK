@@ -2,7 +2,6 @@
 
 import { FoodivaView } from "@/components/organisms/foodiva/FoodivaView";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
-import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -20,31 +19,29 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
   ).length;
 
   return (
-    <>
-      <WorkspaceShell
-        account={account}
-        nav={foodivaNav}
-        tab={tab}
-        onTab={ws.setTab}
-        date={ws.date}
-        onDate={ws.setDate}
-        minDate={ws.db.config.systemStartDate}
-        badges={ws.loaded ? { foodiva: openTasks } : {}}
-        loading={!ws.loaded}
-        toast={ws.toast}
-        onCloseToast={() => ws.setToast("")}
-      >
-        {tab === "foodiva" && <FoodivaView db={db} open={ws.open} />}
-        {tab === "history" && (
-          <HistoryPanel
-            db={db}
-            role={ws.role}
-            branch={ws.branch}
-            onChanged={ws.setToast}
-          />
-        )}
-      </WorkspaceShell>
-      <WorkspaceModals ws={ws} />
-    </>
+    <WorkspaceShell
+      account={account}
+      nav={foodivaNav}
+      tab={tab}
+      onTab={ws.setTab}
+      date={ws.date}
+      onDate={ws.setDate}
+      minDate={ws.db.config.systemStartDate}
+      badges={ws.loaded ? { foodiva: openTasks } : {}}
+      loading={!ws.loaded}
+      toast={ws.toast}
+      onCloseToast={() => ws.setToast("")}
+      ws={ws}
+    >
+      {tab === "foodiva" && <FoodivaView db={db} open={ws.open} />}
+      {tab === "history" && (
+        <HistoryPanel
+          db={db}
+          role={ws.role}
+          branch={ws.branch}
+          onChanged={ws.setToast}
+        />
+      )}
+    </WorkspaceShell>
   );
 }
