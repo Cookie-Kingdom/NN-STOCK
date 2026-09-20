@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Muted } from "@/components/atoms/Text";
 import { getAttachment } from "@/lib/attachment-store";
@@ -85,6 +85,70 @@ export function InvoiceDownloadButton({
         icon={<Download className="size-3.5" />}
       >
         {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
+      </Button>
+      {message && (
+        <small
+          role="alert"
+          className="max-w-64 text-right text-caption whitespace-normal text-danger"
+        >
+          {message}
+        </small>
+      )}
+    </div>
+  );
+}
+
+/** Opens the file the counterparty actually uploaded, instead of a generated sheet. */
+export function AttachmentViewButton({
+  name,
+  data,
+  storageKey,
+  label = "ดูเอกสาร",
+}: {
+  name?: string;
+  data?: string;
+  storageKey?: string;
+  label?: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const view = async () => {
+    setMessage("");
+    /* The tab opens inside the click handler: opened after the await, a pop-up
+     * blocker kills it. A `data:` URL cannot be navigated to, so both sources
+     * end up as one Blob URL. */
+    const tab = window.open("", "_blank");
+    if (!tab) {
+      setMessage("เบราว์เซอร์บล็อก Pop-up กรุณาอนุญาตแล้วลองใหม่");
+      return;
+    }
+    tab.document.write("กำลังเปิดไฟล์…");
+    setLoading(true);
+    try {
+      const file = await withTimeout(load(name || "", data, storageKey));
+      if (!file)
+        throw new Error(
+          "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
+        );
+      const url = URL.createObjectURL(file.blob);
+      tab.location.replace(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      tab.close();
+      setMessage(error instanceof Error ? error.message : "เปิดไฟล์ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="grid justify-items-end gap-1">
+      <Button
+        variant="table"
+        onClick={view}
+        disabled={loading}
+        icon={<FileText className="size-3.5" />}
+      >
+        {loading ? "กำลังเปิด" : label}
       </Button>
       {message && (
         <small

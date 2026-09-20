@@ -15,6 +15,7 @@ import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
 import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
@@ -483,13 +484,17 @@ export function EntryForm({
                   reference.summary.includes(label),
                 )}
                 action={
-                  <DocumentPrintButton
-                    title={reference.title}
-                    number={reference.number}
-                    rows={reference.rows}
-                    label="ดูเอกสาร"
-                    preview
-                  />
+                  reference.attachment ? (
+                    <AttachmentViewButton {...reference.attachment} />
+                  ) : (
+                    <DocumentPrintButton
+                      title={reference.title}
+                      number={reference.number}
+                      rows={reference.rows}
+                      label="ดูเอกสาร"
+                      preview
+                    />
+                  )
                 }
               />
             )}

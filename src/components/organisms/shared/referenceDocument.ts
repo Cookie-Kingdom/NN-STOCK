@@ -7,7 +7,7 @@ import {
   type DocumentRows,
 } from "@/components/organisms/owner/documentRows";
 import { purchaseOrderRows } from "@/components/organisms/shared/documentRows";
-import { entries, type Database, type Lot } from "@/lib/store";
+import { entries, type Database, type Entry, type Lot } from "@/lib/store";
 
 export type ReferenceDocument = {
   title: string;
@@ -16,7 +16,21 @@ export type ReferenceDocument = {
   rows: DocumentRows;
   /** Labels from `rows` shown in the form. */
   summary: string[];
+  /** The file the counterparty uploaded, when this document is a real upload. */
+  attachment?: { name: string; data?: string; storageKey?: string };
 };
+
+/* Only a stored file counts: a name alone (demo rows, an upload that failed) has
+ * nothing to show, so the form falls back to the generated sheet. */
+function attachmentOf(entry?: Entry) {
+  const v = entry?.values;
+  if (!v || (!v.attachmentData && !v.attachmentStorageKey)) return undefined;
+  return {
+    name: v.attachment || "",
+    data: v.attachmentData,
+    storageKey: v.attachmentStorageKey,
+  };
+}
 
 /** The earlier document a lot form builds on, or undefined when the form has none. */
 export function referenceDocument(
@@ -48,6 +62,7 @@ export function referenceDocument(
       number: foodInvoice.values.invoiceNo || lot.poId,
       rows: foodivaInvoiceRows(db, lot, foodInvoice),
       summary: ["วันที่ Invoice", "น้ำหนักยืนยัน", "พร้อมส่งเชียงใหม่"],
+      attachment: attachmentOf(foodInvoice),
     };
   if ((kind === "smokeOrderAccept" || kind === "smokingInvoice") && order)
     return {
@@ -72,6 +87,7 @@ export function referenceDocument(
       number: smokeInvoice.values.invoiceNumber || lot.poId,
       rows: smokingInvoiceRows(db, lot, smokeInvoice, order),
       summary: ["PO โรงรมควัน", "น้ำหนักคิดค่าบริการ", "ยอดสุทธิ", "สถานะ"],
+      attachment: attachmentOf(smokeInvoice),
     };
   const direction =
     kind === "cmReceive"
