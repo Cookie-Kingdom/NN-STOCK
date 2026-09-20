@@ -55,3 +55,6 @@ graphify-out/
 # storybook
 storybook-static/
 *storybook.log
+
+# Supabase CLI scratch
+supabase/.temp/
