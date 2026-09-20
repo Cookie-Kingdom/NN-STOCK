@@ -300,6 +300,7 @@ export function OwnerStockView({
         row.meatType === itemFilter ||
         row.item === itemFilter),
   );
+  // Oldest first, the order DataTable's sort expects; the table flips it.
   const purchases = [
     ...entries(db, "materialReceive").map((entry) => ({
       date: entry.values.purchaseDate || entry.date,
@@ -325,7 +326,7 @@ export function OwnerStockView({
       supplier: entry.values.supplier,
       reference: entry.values.reference || "—",
     })),
-  ].sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at));
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
   const visiblePurchases = purchases.filter(
     (purchase) =>
       (genre === "ทั้งหมด" ||

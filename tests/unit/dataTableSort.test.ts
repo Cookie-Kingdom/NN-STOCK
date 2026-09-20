@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compareCells } from "@/components/organisms/shared/DataTable";
+import {
+  compareCells,
+  datedColumn,
+} from "@/components/organisms/shared/DataTable";
 
 const sorted = (values: string[]) => [...values].sort(compareCells);
 
@@ -40,5 +43,17 @@ describe("compareCells ids", () => {
       "20260101-02",
       "20260102-01",
     ]);
+  });
+});
+
+describe("datedColumn", () => {
+  it("finds the column that carries dates", () => {
+    expect(datedColumn([["PO-2026-0001", "2026-01-05", "9.00 กก."]])).toBe(1);
+    expect(datedColumn([["F260105-001", "รอรับ"]])).toBe(0);
+  });
+
+  it("returns -1 when no column holds a date", () => {
+    expect(datedColumn([["ยอดขาย", "1,200.00", "บาท"]])).toBe(-1);
+    expect(datedColumn([])).toBe(-1);
   });
 });

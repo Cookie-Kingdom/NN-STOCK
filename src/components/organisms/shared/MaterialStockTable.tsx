@@ -32,8 +32,9 @@ export function MaterialStockTable({
 }) {
   const [branchFilter, setBranchFilter] = useState(ALL);
   if (ownerView) {
+    // Oldest first, the order DataTable's sort expects; the table flips it.
     const purchases = [...entries(db, "materialReceive")].sort(
-      (a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at),
+      (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
     );
     return (
       <div className="grid gap-6">

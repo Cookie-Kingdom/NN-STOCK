@@ -86,8 +86,8 @@ export function Report({ db }: { db: Database }) {
   const margin =
     sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost;
   const dayRows = Array.from(new Set(sales.map((e) => `${e.date}|${e.branch}`)))
+    // Oldest first, the order DataTable's sort expects; the table flips it.
     .sort()
-    .reverse()
     .map((key) => {
       const [date, branch] = key.split("|"),
         rows = entries(db, "sale", undefined, branch, date).filter(inRange);
