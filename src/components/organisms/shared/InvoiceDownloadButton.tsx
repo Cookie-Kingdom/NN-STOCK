@@ -5,6 +5,7 @@ import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
+import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { getAttachment } from "@/lib/attachment-store";
 
 /* Inline `data:` URLs (entries saved before the storage bucket) and bucket files
@@ -78,7 +79,10 @@ export function InvoiceDownloadButton({
    * is missing. The message sits under the button, not beside it: beside it, it
    * widened the last table column past the scroll edge and read as "nothing". */
   return (
-    <div className="grid justify-items-end gap-1">
+    <ActionWithError
+      error={message}
+      errorClassName="max-w-64 text-right whitespace-normal"
+    >
       <Button
         variant="table"
         onClick={download}
@@ -87,15 +91,7 @@ export function InvoiceDownloadButton({
       >
         {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
       </Button>
-      {message && (
-        <small
-          role="alert"
-          className="max-w-64 text-right text-caption whitespace-normal text-danger"
-        >
-          {message}
-        </small>
-      )}
-    </div>
+    </ActionWithError>
   );
 }
 
@@ -142,7 +138,10 @@ export function AttachmentViewButton({
     }
   };
   return (
-    <div className="grid justify-items-end gap-1">
+    <ActionWithError
+      error={message}
+      errorClassName="max-w-64 text-right whitespace-normal"
+    >
       <Button
         variant="table"
         onClick={view}
@@ -151,14 +150,6 @@ export function AttachmentViewButton({
       >
         {loading ? "กำลังเปิด" : label}
       </Button>
-      {message && (
-        <small
-          role="alert"
-          className="max-w-64 text-right text-caption whitespace-normal text-danger"
-        >
-          {message}
-        </small>
-      )}
-    </div>
+    </ActionWithError>
   );
 }

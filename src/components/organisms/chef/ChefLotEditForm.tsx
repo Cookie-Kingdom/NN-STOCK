@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
+import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
@@ -135,10 +137,10 @@ export function ChefLotEditForm({
       title="Edit ข้อมูลก่อนปิด Lot"
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={save}>
+      <DialogForm noValidate onSubmit={save}>
         <DialogBody>
           <WorkingDateField
-            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            asField
             date={date}
             onDate={onDate}
             minDate={minDate}
@@ -147,7 +149,7 @@ export function ChefLotEditForm({
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
             เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว
           </Notice>
-          <div className="my-4.5 grid grid-cols-2 gap-4.5 max-md:grid-cols-1 max-md:gap-4">
+          <FormGrid>
             <FormField label="น้ำหนักรับจริง (กก.)">
               <Input
                 type="number"
@@ -179,7 +181,7 @@ export function ChefLotEditForm({
                 onChange={(event) => set("preSmokeKg", event.target.value)}
               />
             </FormField>
-          </div>
+          </FormGrid>
           <DataTable
             title="ตรวจสอบและแก้ไข Log Lot สโมครายวัน"
             columns={[
@@ -256,7 +258,7 @@ export function ChefLotEditForm({
           onCancel={onClose}
           submitLabel="บันทึกการแก้ไข"
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }

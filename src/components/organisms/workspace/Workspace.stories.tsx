@@ -1,10 +1,10 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { AppHeader } from "./AppHeader";
+import { AppBrand, AppHeader } from "./AppHeader";
 import { NotificationPopover, type Notification } from "./NotificationPopover";
 import { PageHeading } from "./PageHeading";
-import { Toast } from "./Toast";
+import { DatabaseErrorToast, Toast } from "./Toast";
 
 const notifications: Notification[] = [
   {
@@ -35,6 +35,17 @@ function Bell({ items }: { items: Notification[] }) {
     />
   );
 }
+
+/** The brand block on its own: the header and the sign-in card both render it. */
+export const Brand: Story = {
+  render: () => (
+    <div className="grid gap-6 p-6">
+      <AppBrand />
+      {/* responsive: the title drops to h3 below md, so the sign-in card fits a phone. */}
+      <AppBrand responsive />
+    </div>
+  ),
+};
 
 export const Header: Story = {
   render: () => (
@@ -112,6 +123,29 @@ export const ErrorToast: Story = {
         message="บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · State changed on another device. Reload and try again."
         onClose={fn()}
       />
+    </div>
+  ),
+};
+
+/** DatabaseErrorToast listens for the `database-error` event persistence.ts dispatches. */
+export const DatabaseError: Story = {
+  render: () => (
+    <div className="p-6">
+      <button
+        type="button"
+        className="text-caption text-accent underline"
+        onClick={() =>
+          window.dispatchEvent(
+            new CustomEvent("database-error", {
+              detail:
+                "บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · State changed on another device.",
+            }),
+          )
+        }
+      >
+        จำลองข้อผิดพลาดจากฐานข้อมูล
+      </button>
+      <DatabaseErrorToast />
     </div>
   ),
 };

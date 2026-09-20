@@ -32,6 +32,21 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** Without `number` the heading is the plain title — how the pre-save preview of a
+ *  form's own values uses the card. */
+export const WithoutNumber: Story = {
+  args: {
+    title: "ตรวจสอบก่อนบันทึก",
+    number: undefined,
+    action: undefined,
+    rows: [
+      ["น้ำหนักรับจริง", "118.40 กก."],
+      ["ส่วนต่างจากที่สั่ง", "1.60 กก."],
+      ["มูลค่ารวม", "฿37,888.00"],
+    ],
+  },
+};
+
 export const PoLot: Story = {
   render: () => (
     <div className="flex gap-10">

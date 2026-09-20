@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
+import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
@@ -101,7 +102,7 @@ export function DailyMaterialsTable({
           "สถานะ",
         ]}
         action={
-          <div className="flex flex-wrap items-end gap-3">
+          <FilterBar>
             <WorkingDateField
               variant="filter"
               className="text-caption text-text-secondary"
@@ -121,7 +122,7 @@ export function DailyMaterialsTable({
                   ? "บันทึกแก้ไข"
                   : "บันทึกการใช้วัสดุ"}
             </Button>
-          </div>
+          </FilterBar>
         }
         rowKeys={materials}
         rows={materials.map((item, i) => [

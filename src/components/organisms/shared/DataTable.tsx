@@ -8,6 +8,7 @@ import {
 import { isValidElement, type ReactNode, useState } from "react";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
+import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { Pagination } from "@/components/molecules/Pagination";
 import { TableSection } from "@/components/organisms/shared/TableSection";
@@ -140,7 +141,7 @@ export function DataTable({
       count={`${rows.length} แถว`}
       actions={
         (action || showSort) && (
-          <div className="flex flex-wrap items-center gap-3 max-md:justify-between">
+          <TableActions>
             {action}
             {showSort && (
               <TableFilter label="เรียงตาม">
@@ -180,7 +181,7 @@ export function DataTable({
                 />
               </TableFilter>
             )}
-          </div>
+          </TableActions>
         )
       }
       className={className}

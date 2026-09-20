@@ -7,6 +7,7 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
 import { Footnote, Muted } from "@/components/atoms/Text";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
 import {
@@ -133,7 +134,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
         title="ทะเบียนเอกสารตาม Lot"
         count={`${visibleLots.length} รายการ`}
         actions={
-          <div className="flex flex-wrap items-center gap-3 max-md:justify-between">
+          <TableActions>
             <Muted as="span" className="text-caption">
               กด ดู เพื่อเปิดเส้นทางเอกสาร
             </Muted>
@@ -149,7 +150,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                 <option value="lot">Lot</option>
               </Select>
             </TableFilter>
-          </div>
+          </TableActions>
         }
       >
         <div className="max-w-full overflow-auto">

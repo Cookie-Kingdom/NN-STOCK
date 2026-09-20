@@ -1,6 +1,6 @@
 "use client";
 
-import { ReadRow } from "@/components/atoms/ReadRow";
+import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import {
   balance,
   chiliStock,
@@ -165,11 +165,6 @@ export function Preview({
     ];
   }
   return rows.length ? (
-    <div className="rounded-lg border border-border bg-bg p-4.5">
-      <h3>ตรวจสอบก่อนบันทึก</h3>
-      {rows.map(([k, value]) => (
-        <ReadRow key={k} label={k} value={value} />
-      ))}
-    </div>
+    <ReferenceCard title="ตรวจสอบก่อนบันทึก" rows={rows} className="my-0" />
   ) : null;
 }
