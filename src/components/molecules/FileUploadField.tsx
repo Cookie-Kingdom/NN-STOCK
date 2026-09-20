@@ -40,7 +40,13 @@ function megabytes(bytes: number) {
   return Number((bytes / (1024 * 1024)).toFixed(1));
 }
 
-/** `.field` + `.file-upload-control` + `.file-uploaded` (and `.config-logo-upload`). */
+/**
+ * File picker laid out as a form field: a `<label>` around a dashed `Panel` holding
+ * the `FileInput`, the chosen `fileName`, an optional `preview` and a hint. `onFile`
+ * receives the `File` — or `null` when the selection is cleared — and the caller does
+ * any reading. With `maxBytes` set, an oversize pick is rejected here: the input is
+ * cleared, the message is shown in place, and `onFile` never fires.
+ */
 export function FileUploadField({
   label,
   hideLabel = false,

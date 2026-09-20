@@ -21,7 +21,12 @@ const kpiIconVariants = cva(
 
 export type KpiTone = NonNullable<VariantProps<typeof kpiIconVariants>["tone"]>;
 
-/** `.kpi-card` (+ `.kpi-title`, `.kpi-icon`, `small.gain|loss`) */
+/**
+ * The headline figure of a dashboard: icon, label, a large tabular number and an
+ * optional caption, on a `Panel` that lifts a little on hover. `tone` colours the icon
+ * chip only, while `captionTone` turns the caption green ("gain") or red ("loss").
+ * Use `Stat` instead for a plain number inside a panel.
+ */
 export function KpiCard({
   tone,
   icon,

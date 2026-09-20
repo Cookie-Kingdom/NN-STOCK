@@ -2,8 +2,12 @@
 import { useEffect, useRef } from "react";
 import { Notice } from "@/components/molecules/Notice";
 
-/** Sits at the end of a scrolling dialog body, so a long form used to hide it
- * below the fold and a rejected save looked like nothing happened. */
+/**
+ * A form's save error, rendered as a danger `Notice` and scrolled into view every time
+ * `error` changes. It sits at the end of a scrolling dialog body, where a long form used
+ * to hide it below the fold and a rejected save looked like nothing happened. Renders
+ * nothing while `error` is empty, so it can be left in the form unconditionally.
+ */
 export function FormError({
   error,
   className,

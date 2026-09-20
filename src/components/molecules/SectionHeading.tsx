@@ -2,7 +2,11 @@ import type { ComponentProps, ReactNode } from "react";
 import { Muted } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
-/** `.section-heading` */
+/**
+ * Heading for one block inside a panel: an `<h2>` with an optional `description` under
+ * it and `actions` pushed to the right of the row. It draws no surface of its own — use
+ * `PanelHeading` when the heading should be the panel.
+ */
 export function SectionHeading({
   title,
   description,

@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import { Select } from "@/components/atoms/Select";
 import { TableFilter } from "@/components/molecules/TableFilter";
 
-/** Branch `<select>` with a leading "ทั้งหมด" option (option text doubles as value). */
+/**
+ * Branch picker for a table's filter bar: a `TableFilter` around a `variant="filter"`
+ * `Select`, with `allLabel` ("ทั้งหมด") as the first option. The options carry no
+ * `value` attribute, so the option text doubles as the value — `value`/`onChange`
+ * deal in branch names, and "all" reads back as the `allLabel` string, not `""`.
+ */
 export function BranchSelectFilter({
   value,
   onChange,

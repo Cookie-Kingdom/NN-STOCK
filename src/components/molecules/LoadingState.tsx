@@ -2,7 +2,11 @@ import { Panel } from "@/components/atoms/Panel";
 import { Spinner } from "@/components/atoms/Spinner";
 import { cn } from "@/lib/utils";
 
-/** A grey block standing in for content that has not arrived yet. */
+/**
+ * A grey pulsing block standing in for content that has not arrived yet. It is
+ * `aria-hidden` and carries no size of its own, so every use sets the height and width
+ * through `className`.
+ */
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
@@ -53,7 +57,12 @@ export function LoadingPanel({
   );
 }
 
-/** Whole-page wait: the session check, and the first paint before the app's JS runs. */
+/**
+ * Whole-page wait: a spinner and one message centred in the viewport, used for the
+ * session check and the first paint before the app's JS runs. It announces itself as
+ * `role="status"` and fades in after 250ms, so a fast load never flashes it. Use
+ * `LoadingPanel` once the shell is on screen and only a workspace is still loading.
+ */
 export function LoadingScreen({
   message = "กำลังโหลด…",
 }: {

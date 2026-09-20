@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 import { ReadRow } from "@/components/atoms/ReadRow";
 
-/** Summary of the earlier document a form builds on, shown under the fields. */
+/**
+ * Summary of the earlier document a form builds on — the PO behind a receipt, say —
+ * shown under the fields as read-only `ReadRow`s. `rows` is a list of `[label, value]`
+ * pairs and an empty value falls back to "—"; `action` takes something like a document
+ * preview button, shown next to the title.
+ */
 export function ReferenceCard({
   title,
   number,
