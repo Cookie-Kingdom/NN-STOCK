@@ -231,6 +231,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       />
       <DataTable
         title="ประวัติการเคลื่อนไหวเนื้อ"
+        defaultSort={{ column: "วันที่", desc: true }}
         columns={movementColumns}
         rows={movementRows}
       />

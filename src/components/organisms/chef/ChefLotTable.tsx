@@ -197,6 +197,7 @@ export function ChefLotTable({
       />
       <DataTable
         title={`Log Lot สโมครายวัน ${smokeLogs.length} รอบ`}
+        defaultSort={{ column: "วันที่สโมค", desc: true }}
         columns={[
           "วันที่สโมค",
           "Lot หลัก",

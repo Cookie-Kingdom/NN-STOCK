@@ -5,7 +5,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { isValidElement, type ReactNode, useState } from "react";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
 import { TableFilter } from "@/components/molecules/TableFilter";
@@ -14,9 +14,15 @@ import { TableSection } from "@/components/organisms/shared/TableSection";
 
 const PAGE_SIZE = 20;
 
-/** Only plain text cells can be sorted; a cell holding buttons or badges has no order. */
-const cellText = (cell: ReactNode) =>
-  typeof cell === "string" || typeof cell === "number" ? String(cell) : "";
+/** Text of a cell, reading through plain markup such as `<strong>{poId}</strong>`.
+ *  A cell built from a component (a badge, a button row) has no order and stays out. */
+function cellText(cell: ReactNode): string {
+  if (typeof cell === "string" || typeof cell === "number") return String(cell);
+  if (Array.isArray(cell)) return cell.map(cellText).join("");
+  if (isValidElement(cell) && typeof cell.type === "string")
+    return cellText((cell.props as { children?: ReactNode }).children);
+  return "";
+}
 
 const isoDate = /^\d{4}-\d{2}-\d{2}/;
 /** A cell that is one number, optionally wrapped in symbols and a unit: "9.00 กก.", "฿1,200.00".
