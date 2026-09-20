@@ -75,12 +75,14 @@ export function DataTable({
     .filter((index) => rows.some((row) => cellText(row[index])));
   const order = rows.map((_, index) => index);
   if (sortable.includes(sort.column))
+    // Rows arrive oldest first, so equal keys (a date column with no time in it)
+    // break by row order — descending then puts the latest entry on top.
     order.sort(
       (a, b) =>
-        compareCells(
+        (compareCells(
           cellText(rows[a][sort.column]),
           cellText(rows[b][sort.column]),
-        ) * (sort.desc ? -1 : 1),
+        ) || a - b) * (sort.desc ? -1 : 1),
     );
   const showSort = rows.length > 1 && sortable.length > 0;
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));

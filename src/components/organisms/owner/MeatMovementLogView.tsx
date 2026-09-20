@@ -191,7 +191,8 @@ export function MeatMovementLogView({ db }: { db: Database }) {
   const movementRows = Object.keys(descriptions)
     .flatMap((kind) => entries(db, kind))
     .filter((entry) => lotFilter === "ทั้งหมด" || entry.lotId === lotFilter)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at))
+    // Oldest first, the order DataTable's sort expects; the table flips it.
+    .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
     .map((entry) => {
       const [location, action, amount] = descriptions[entry.kind](entry);
       return [
