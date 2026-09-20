@@ -11,7 +11,6 @@ import {
   lotIssueDate,
   purchaseOrderRows,
 } from "@/components/organisms/shared/documents";
-import { useTableSort } from "@/components/organisms/shared/useTableSort";
 import { fmt } from "@/lib/format";
 import { entries, n, stages, type Database } from "@/lib/store";
 
@@ -36,16 +35,6 @@ export function PurchaseOrderView({
   open: (kind: string, lotId?: string) => void;
   onOpenSmokePo: () => void;
 }) {
-  const [lots, sortControl] = useTableSort(db.lots, [
-    {
-      label: "วันที่ออก PO (ล่าสุดก่อน)",
-      by: (lot) => lotIssueDate(db, lot),
-      desc: true,
-    },
-    { label: "วันที่ออก PO (เก่าสุดก่อน)", by: (lot) => lotIssueDate(db, lot) },
-    { label: "เลข PO", by: (lot) => lot.poId },
-    { label: "Lot", by: (lot) => lot.id },
-  ]);
   return (
     <>
       <SectionHeading
@@ -65,10 +54,10 @@ export function PurchaseOrderView({
       />
       <DataTable
         title="รายการใบสั่งซื้อ PO"
-        action={sortControl}
+        defaultSort={{ column: "วันที่ออก PO", desc: true }}
         columns={columns}
-        rowKeys={lots.map((item) => item.id)}
-        rows={lots.map((item) => {
+        rowKeys={db.lots.map((item) => item.id)}
+        rows={db.lots.map((item) => {
           const print = (
             <DocumentPrintButton
               title="Purchase Order"

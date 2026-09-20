@@ -14,10 +14,6 @@ import {
 } from "@/components/organisms/shared/documents";
 import { InvoiceDownloadButton } from "@/components/organisms/shared/InvoiceDownloadButton";
 import {
-  useTableSort,
-  type SortOption,
-} from "@/components/organisms/shared/useTableSort";
-import {
   entries,
   n,
   type Entry,
@@ -66,37 +62,11 @@ export function InvoiceView({
   const matches = (lot: Lot | undefined) =>
     matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate);
   const lotOf = (entry: Entry) => db.lots.find((lot) => lot.id === entry.lotId);
-  // Both invoice tables sort the same way; `invoiceNo`/`invoiceNumber` differ per kind.
-  const invoiceSort = (invoiceNumber: (entry: Entry) => string) =>
-    [
-      {
-        label: "วันที่ Invoice (ล่าสุดก่อน)",
-        by: (entry) => entry.values.invoiceDate || entry.date,
-        desc: true,
-      },
-      {
-        label: "วันที่ Invoice (เก่าสุดก่อน)",
-        by: (entry) => entry.values.invoiceDate || entry.date,
-      },
-      {
-        label: "วันที่ออก PO (ล่าสุดก่อน)",
-        by: (entry) => {
-          const lot = lotOf(entry);
-          return lot ? lotIssueDate(db, lot) : "";
-        },
-        desc: true,
-      },
-      { label: "เลข Invoice", by: invoiceNumber },
-      { label: "เลข PO", by: (entry) => lotOf(entry)?.poId || "" },
-      { label: "Lot", by: (entry) => entry.lotId || "" },
-    ] satisfies SortOption<Entry>[];
-  const [foodivaInvoices, foodivaSort] = useTableSort(
-    entries(db, "foodivaConfirm").filter((entry) => matches(lotOf(entry))),
-    invoiceSort((entry) => entry.values.invoiceNo || ""),
+  const foodivaInvoices = entries(db, "foodivaConfirm").filter((entry) =>
+    matches(lotOf(entry)),
   );
-  const [smokingInvoices, smokingSort] = useTableSort(
-    entries(db, "smokingInvoice").filter((entry) => matches(lotOf(entry))),
-    invoiceSort((entry) => entry.values.invoiceNumber || ""),
+  const smokingInvoices = entries(db, "smokingInvoice").filter((entry) =>
+    matches(lotOf(entry)),
   );
   const waitingForReview = smokingInvoices.filter(
     (entry) => smokingInvoiceStatus(db, entry) === "รอตรวจยอด",
@@ -123,7 +93,7 @@ export function InvoiceView({
       />
       <DataTable
         title="Invoice Foodiva"
-        action={foodivaSort}
+        defaultSort={{ column: "วันที่ Invoice", desc: true }}
         columns={foodivaColumns}
         rowKeys={foodivaInvoices.map((entry) => entry.id)}
         rows={foodivaInvoices.map((entry) => {
@@ -147,7 +117,7 @@ export function InvoiceView({
       />
       <DataTable
         title="Invoice Chef_house"
-        action={smokingSort}
+        defaultSort={{ column: "วันที่ Invoice", desc: true }}
         columns={chefHouseColumns}
         rowKeys={smokingInvoices.map((entry) => entry.id)}
         rows={smokingInvoices.map((entry) => {
