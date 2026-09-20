@@ -30,13 +30,30 @@ export function useDatabaseLoaded() {
   return true;
 }
 
-export function saveDatabase(db: Database) {
+export function databaseLoaded() {
+  return true;
+}
+
+function write(db: Database) {
   cached = db;
   listeners.forEach((listener) => listener());
   action("saveDatabase")({
     entries: db.entries.length,
     lastEntry: db.entries.at(-1),
   });
+}
+
+export async function saveDatabase(db: Database): Promise<boolean> {
+  write(db);
+  return true;
+}
+
+// ponytail: no conflict path in Storybook — nobody else writes this cache.
+export async function saveDatabaseOrConflict(
+  db: Database,
+): Promise<"saved" | "conflict" | "failed"> {
+  write(db);
+  return "saved";
 }
 
 export async function migrateLegacyAttachments(db: Database) {
