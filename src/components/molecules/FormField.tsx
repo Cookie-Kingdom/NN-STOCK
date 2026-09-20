@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Caption } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
 /** `.field` / `.field.wide` — shared with FieldGroup. */
@@ -12,19 +13,15 @@ export function fieldClassName(wide?: boolean, className?: string) {
 
 export function OptionalMark() {
   return (
-    <span className="text-caption font-normal text-text-secondary">
+    <Caption as="span" className="font-normal">
       {" "}
       (ถ้ามี)
-    </span>
+    </Caption>
   );
 }
 
 export function FieldHint({ children }: { children: ReactNode }) {
-  return (
-    <small className="mt-2 block text-caption text-text-secondary">
-      {children}
-    </small>
-  );
+  return <Caption className="mt-2 block">{children}</Caption>;
 }
 
 export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { FileInput } from "@/components/atoms/FileInput";
+import { Caption } from "@/components/atoms/Text";
 import {
   FieldHint,
   OptionalMark,
@@ -63,13 +65,11 @@ export function FileUploadField({
         {optional && <OptionalMark />}
       </span>
       <div className="mt-2 grid gap-2 rounded-md border border-dashed border-border bg-bg p-3">
-        <input
-          type="file"
+        <FileInput
           accept={accept}
           required={required}
           disabled={disabled}
           aria-invalid={error ? true : undefined}
-          className="max-w-full text-caption file:mr-2.5 file:cursor-pointer file:rounded-sm file:border file:border-border-strong file:bg-surface file:px-2.5 file:py-2 file:font-semibold file:text-accent"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0] ?? null;
             if (file && maxBytes !== undefined && file.size > maxBytes) {
@@ -86,9 +86,9 @@ export function FileUploadField({
           }}
         />
         {fileName && (
-          <span className="text-caption font-normal [overflow-wrap:anywhere] text-text-secondary">
+          <Caption as="span" className="font-normal [overflow-wrap:anywhere]">
             เลือกแล้ว: {fileName}
-          </span>
+          </Caption>
         )}
         {preview}
         {error && (

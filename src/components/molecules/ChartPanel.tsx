@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Overline } from "@/components/atoms/Overline";
+import { Panel } from "@/components/atoms/Panel";
 import { cn } from "@/lib/utils";
 
 /** `.chart-panel` + `.chart-heading` + `.chart-total` (dashboard-refresh look) */
@@ -23,13 +24,7 @@ export function ChartPanel({
   aside?: ReactNode;
 }) {
   return (
-    <section
-      className={cn(
-        "min-w-0 rounded-lg border border-border bg-surface px-6 py-5.5 shadow-xs",
-        className,
-      )}
-      {...props}
-    >
+    <Panel flush className={cn("px-6 py-5.5 shadow-xs", className)} {...props}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           {overline && <Overline tone="accent">{overline}</Overline>}
@@ -50,6 +45,6 @@ export function ChartPanel({
         )}
       </div>
       {children}
-    </section>
+    </Panel>
   );
 }

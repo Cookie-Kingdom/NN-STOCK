@@ -1,3 +1,4 @@
+import { Panel } from "@/components/atoms/Panel";
 import { Spinner } from "@/components/atoms/Spinner";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +43,12 @@ export function LoadingPanel({
           <Skeleton key={index} className="h-24.5 rounded-lg" />
         ))}
       </div>
-      <div className="grid gap-2.5 rounded-lg border border-border bg-surface p-5">
+      <Panel as="div" flush className="grid gap-2.5 p-5">
         <Skeleton className="mb-1.5 h-5 w-52" />
         {Array.from({ length: rows }, (_, index) => (
           <Skeleton key={index} className="h-11" />
         ))}
-      </div>
+      </Panel>
     </section>
   );
 }

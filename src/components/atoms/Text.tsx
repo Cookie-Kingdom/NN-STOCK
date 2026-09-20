@@ -1,6 +1,22 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
+type CaptionProps =
+  | ({ as?: "small" } & ComponentProps<"small">)
+  | ({ as: "span" } & ComponentProps<"span">);
+
+/**
+ * The small secondary line that sits under something else — a hint below a field,
+ * the sub-line of a table cell, the name of a chosen file. `<small>` by default,
+ * `as="span"` when it has to sit inside a sentence.
+ */
+export function Caption({ as, className, ...props }: CaptionProps) {
+  const classes = cn("text-caption text-text-secondary", className);
+  if (as === "span")
+    return <span className={classes} {...(props as ComponentProps<"span">)} />;
+  return <small className={classes} {...(props as ComponentProps<"small">)} />;
+}
+
 type MutedProps =
   | ({ as?: "p" } & ComponentProps<"p">)
   | ({ as: "span" } & ComponentProps<"span">);
