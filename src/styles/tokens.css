@@ -64,11 +64,48 @@
   --green-700: #15803d;
   --green-950: #052e16;
 
-  /* Data-visualisation hues (cost donut). */
+  /* Data-visualisation hues (cost donut). The light theme uses the deep steps; the
+   * three lifted ones below replace those that sank into a dark surface — blue-600
+   * managed 3.39:1 there, teal-700 3.20:1 and pine-800 only 1.81:1. The lifted set
+   * keeps each category in its own hue family and stays >=39 dE apart, so a slice is
+   * still told apart by colour alone. */
   --orange-500: #f97316;
   --amber-400: #fbbf24;
   --teal-700: #0f766e;
   --pine-800: #204b49;
+  --blue-400: #60a5fa;
+  --teal-400: #2dd4bf;
+  --moss-400: #a8c686;
+
+  /* Warm-graphite neutrals — the dark theme's own ramp. The slate ramp above is
+   * blue-cast, which flattened it against the blue accent and made dark mode read
+   * as one murky sheet; these are hue-neutral-warm instead. `-850` sits between
+   * 800 and 900 on purpose: dark mode needs one more surface step than light mode,
+   * because elevation there is carried by lightness rather than by shadow. The
+   * light theme never references these. */
+  --graphite-50: #f7f4f1;
+  --graphite-200: #bfb8b1;
+  --graphite-400: #9e958d;
+  --graphite-500: #6c655d;
+  --graphite-700: #423e3a;
+  --graphite-800: #252220;
+  --graphite-850: #1b1917;
+  --graphite-900: #12100f;
+  --graphite-950: #0c0b0a;
+
+  /* Dark-theme state hues, and the chip fill each one sits on. Named rather than
+   * numbered because they are one theme's set, not a ramp — the light theme keeps
+   * using the 500/600 steps above. Every pair here clears 4.5:1 on graphite, which
+   * the plain 300/500 steps did not: blue-500 on gray-800 measured 3.98:1. */
+  --azure: #4d9eff;
+  --azure-lift: #85bdff;
+  --azure-deep: #132133;
+  --coral: #ff7b6b;
+  --coral-deep: #2a1512;
+  --honey: #f2b24c;
+  --honey-deep: #2a1f0e;
+  --jade: #5bd98a;
+  --jade-deep: #122419;
 
   /* Motion. Theme-independent, so they sit with the primitives, but unlike the
    * primitives components DO reference these: `duration-(--motion-base)`,
@@ -121,16 +158,20 @@
   --color-success: var(--green-600);
   --color-success-subtle: var(--green-50);
 
-  /* Locked chrome is deliberately identical in both themes, so a locked record
-   * is never mistaken for a theme artefact (BR15). --color-locked is therefore
-   * absent from the .dark block below, on purpose. */
-  --color-locked: var(--gray-500);
+  /* Locked chrome. BR15 wants a locked record to read as locked in either theme and
+   * never as a theme artefact; it used to get that by pinning one grey across both,
+   * but gray-500 on the chip fill measured 4.34:1 light and 4.13:1 dark, so the rule
+   * as written could not be met at all. What carries BR15 is the *role* — an inert,
+   * saturation-free grey on a recessed chip — so that is what is now held constant
+   * and the step moves per theme to clear 4.5:1. See the .dark block. */
+  --color-locked: var(--gray-600);
   --color-locked-subtle: var(--gray-100);
 
   --color-focus-ring: var(--blue-600);
 
-  /* Categorical chart series. Same hues in both themes, so there is no .dark
-   * override: a cost category keeps its colour when the theme switches. */
+  /* Categorical chart series. The three that sank into a dark surface are lifted in
+   * the .dark block, each within its own hue family, so a cost category still reads
+   * as "the blue one" / "the green one" after a theme switch. */
   --color-chart-1: var(--orange-500);
   --color-chart-2: var(--amber-400);
   --color-chart-3: var(--blue-600);
@@ -247,56 +288,71 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Layer 2 — dark overrides. Only what changes. A grey is a grey in both
- * themes; what changes is which grey plays which role.
+ * Layer 2 — dark overrides. Only what changes.
+ *
+ * Dark mode does NOT reuse the slate ramp. Borrowing the light theme's greys is
+ * what made the old dark theme look flat and murky: slate is blue-cast, so every
+ * surface sat in the same hue as the accent, and the 900/800/700 steps were too
+ * close together to read as elevation. It runs on the graphite ramp instead, with
+ * its own state hues. The candidates that lost, and every measured contrast ratio,
+ * are archived at `C:\Web Documents\NN-Stock\Design\dark-mode-palettes.html`.
  * ------------------------------------------------------------------------ */
 
 .dark {
-  --color-bg: var(--gray-950);
-  --color-surface: var(--gray-900);
-  --color-surface-raised: var(--gray-800);
-  --color-surface-sunken: var(--gray-950);
-  --color-border: var(--gray-700);
-  --color-border-strong: var(--gray-600);
-  --color-text-primary: var(--gray-50);
-  --color-text-secondary: var(--gray-400);
-  --color-text-muted: var(--gray-500);
-  --color-text-inverse: var(--gray-950);
+  --color-bg: var(--graphite-900);
+  --color-surface: var(--graphite-850);
+  --color-surface-raised: var(--graphite-800);
+  --color-surface-sunken: var(--graphite-950);
+  --color-border: var(--graphite-700);
+  --color-border-strong: var(--graphite-500);
+  --color-text-primary: var(--graphite-50);
+  --color-text-secondary: var(--graphite-200);
+  --color-text-muted: var(--graphite-400);
+  --color-text-inverse: var(--graphite-900);
 
-  --color-accent: var(--blue-500);
-  --color-accent-hover: var(--blue-300);
-  --color-accent-subtle: var(--blue-950);
-  --color-accent-fg: var(--gray-950);
+  --color-accent: var(--azure);
+  --color-accent-hover: var(--azure-lift);
+  --color-accent-subtle: var(--azure-deep);
+  --color-accent-fg: var(--graphite-950);
 
-  --color-danger: var(--red-500);
-  --color-danger-subtle: var(--red-950);
-  --color-danger-fg: var(--gray-50);
-  --color-warning: var(--amber-500);
-  --color-warning-subtle: var(--amber-950);
-  --color-success: var(--green-500);
-  --color-success-subtle: var(--green-950);
+  --color-danger: var(--coral);
+  --color-danger-subtle: var(--coral-deep);
+  --color-danger-fg: var(--graphite-950);
+  --color-warning: var(--honey);
+  --color-warning-subtle: var(--honey-deep);
+  --color-success: var(--jade);
+  --color-success-subtle: var(--jade-deep);
 
-  /* --color-locked is NOT overridden. See the light block. */
-  --color-locked-subtle: var(--gray-800);
+  /* Same inert grey-on-recessed-chip role as the light theme, one step lifted so it
+   * clears the fill: 6.68:1 here, 6.92:1 light. See the light block for why the step
+   * moves per theme instead of being pinned. */
+  --color-locked: var(--graphite-400);
+  --color-locked-subtle: var(--graphite-950);
 
-  --color-focus-ring: var(--blue-300);
+  --color-focus-ring: var(--azure-lift);
 
-  --color-background: var(--gray-950);
-  --color-foreground: var(--gray-50);
-  --color-card: var(--gray-900);
-  --color-card-foreground: var(--gray-50);
-  --color-popover: var(--gray-800);
-  --color-popover-foreground: var(--gray-50);
-  --color-primary: var(--blue-500);
-  --color-primary-foreground: var(--gray-950);
-  --color-secondary: var(--gray-800);
-  --color-secondary-foreground: var(--gray-50);
-  --color-muted: var(--gray-800);
-  --color-muted-foreground: var(--gray-400);
-  --color-destructive: var(--red-500);
-  --color-destructive-foreground: var(--gray-50);
-  --color-input: var(--gray-600);
-  --color-ring: var(--blue-300);
+  /* chart-1 and chart-2 already clear the dark surface (6.25:1 and 10.50:1) and are
+   * left alone; the other three are the lifted steps. */
+  --color-chart-3: var(--blue-400);
+  --color-chart-4: var(--teal-400);
+  --color-chart-5: var(--moss-400);
+
+  --color-background: var(--graphite-900);
+  --color-foreground: var(--graphite-50);
+  --color-card: var(--graphite-850);
+  --color-card-foreground: var(--graphite-50);
+  --color-popover: var(--graphite-800);
+  --color-popover-foreground: var(--graphite-50);
+  --color-primary: var(--azure);
+  --color-primary-foreground: var(--graphite-950);
+  --color-secondary: var(--graphite-800);
+  --color-secondary-foreground: var(--graphite-50);
+  --color-muted: var(--graphite-800);
+  --color-muted-foreground: var(--graphite-200);
+  --color-destructive: var(--coral);
+  --color-destructive-foreground: var(--graphite-950);
+  --color-input: var(--graphite-500);
+  --color-ring: var(--azure-lift);
 }
 
 /* shadcn's copied `cva` sources also read a few bare names directly, inside
