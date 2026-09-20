@@ -5,6 +5,7 @@ import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
 import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTransferForm";
+import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -14,6 +15,7 @@ const CUSTOM_DIALOGS = [
   "materialReceive",
   "generalPurchase",
   "materialTransfer",
+  "packingList",
   "allocate",
   "chefEdit",
   "smokeOrderPreview",
@@ -72,6 +74,17 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึกการซื้ออื่น ๆ แล้ว")}
+      />
+    );
+  }
+  if (modal.kind === "packingList") {
+    return (
+      <PackingListForm
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={() => done("บันทึก Packing List แล้ว")}
       />
     );
   }
