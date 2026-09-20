@@ -33,3 +33,8 @@ type Story = StoryObj<typeof meta>;
 export const Paginated: Story = {};
 export const SinglePage: Story = { args: { rows: rows.slice(0, 5) } };
 export const Empty: Story = { args: { rows: [] } };
+
+/** `defaultSort` picks the starting column; the dropdown lists every text column. */
+export const Sorted: Story = {
+  args: { defaultSort: { column: "น้ำหนัก", desc: true } },
+};

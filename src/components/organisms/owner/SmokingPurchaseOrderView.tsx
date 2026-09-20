@@ -11,7 +11,6 @@ import { smokeOrderPrintRows } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import { lotIssueDate } from "@/components/organisms/shared/documents";
-import { useTableSort } from "@/components/organisms/shared/useTableSort";
 import {
   entries,
   n,
@@ -39,21 +38,8 @@ export function SmokingPurchaseOrderView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const [eligibleLots, sortControl] = useTableSort(
-    db.lots.filter((lot) => entries(db, "foodivaConfirm", lot.id).length > 0),
-    [
-      {
-        label: "วันที่ออก PO (ล่าสุดก่อน)",
-        by: (lot) => lotIssueDate(db, lot),
-        desc: true,
-      },
-      {
-        label: "วันที่ออก PO (เก่าสุดก่อน)",
-        by: (lot) => lotIssueDate(db, lot),
-      },
-      { label: "เลข PO", by: (lot) => lot.poId },
-      { label: "Lot", by: (lot) => lot.id },
-    ],
+  const eligibleLots = db.lots.filter(
+    (lot) => entries(db, "foodivaConfirm", lot.id).length > 0,
   );
   const waitingForChefHouse = eligibleLots.filter(
     (lot) =>
@@ -75,7 +61,7 @@ export function SmokingPurchaseOrderView({
       />
       <DataTable
         title="รายการ PO โรงรมควัน"
-        action={sortControl}
+        defaultSort={{ column: "วันที่ออก PO", desc: true }}
         columns={columns}
         rowKeys={eligibleLots.map((lot) => lot.id)}
         rows={eligibleLots.map((lot) => {
