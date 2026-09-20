@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { demoDb, open, smokedDb } from "../../../../.storybook/fixtures";
+import { demoDb, open } from "../../../../.storybook/fixtures";
 import { branches } from "@/lib/store";
-import { LotDetails } from "./LotDetails";
 import { MaterialStockTable } from "./MaterialStockTable";
 import { MeatStockTable } from "./MeatStockTable";
 import { SupplyStock } from "./SupplyStock";
@@ -42,15 +41,4 @@ export const MaterialStockOwner: Story = {
 
 export const Supply: Story = {
   render: () => <SupplyStock db={db} branches={branches} />,
-};
-
-export const LotDetailsOwner: Story = {
-  render: () => <LotDetails db={db} lot={db.lots[0]} role="owner" branch="" />,
-};
-
-export const LotDetailsSmoking: Story = {
-  parameters: { db: smokedDb },
-  render: () => (
-    <LotDetails db={smokedDb} lot={smokedDb.lots[0]} role="cm" branch="" />
-  ),
 };

@@ -10,7 +10,6 @@ import {
 } from "../../../../.storybook/fixtures";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
-import { ResetDataDialog } from "@/components/organisms/owner/ResetDataDialog";
 import { BagAllocationForm } from "./BagAllocationForm";
 import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
@@ -256,9 +255,4 @@ export const SmokeOrderPreview: Story = {
       onClose={onClose}
     />
   ),
-};
-
-export const ResetData: Story = {
-  parameters: { db: demoDb },
-  render: () => <ResetDataDialog date={day} onClose={onClose} onDone={fn()} />,
 };

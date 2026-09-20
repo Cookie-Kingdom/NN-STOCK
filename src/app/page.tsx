@@ -4,12 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
+import { FormField } from "@/components/molecules/FormField";
 import { AuthShell } from "@/components/templates/AuthShell";
 import { signIn, signUp, useSession } from "@/lib/session";
-
-const labelClass =
-  "grid gap-1.5 text-caption font-semibold text-text-secondary";
-const inputClass = "mt-0 rounded-md px-3 py-2.75 text-body";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -48,30 +45,15 @@ export default function SignInPage() {
     >
       <form className="mt-5.5 mb-3.5 grid gap-3.5" onSubmit={submit}>
         {mode === "signup" && (
-          <label className={labelClass}>
-            ชื่อที่แสดง
-            <Input
-              className={inputClass}
-              required
-              name="displayName"
-              autoComplete="name"
-            />
-          </label>
+          <FormField label="ชื่อที่แสดง">
+            <Input required name="displayName" autoComplete="name" />
+          </FormField>
         )}
-        <label className={labelClass}>
-          อีเมล
+        <FormField label="อีเมล">
+          <Input required type="email" name="email" autoComplete="email" />
+        </FormField>
+        <FormField label="รหัสผ่าน">
           <Input
-            className={inputClass}
-            required
-            type="email"
-            name="email"
-            autoComplete="email"
-          />
-        </label>
-        <label className={labelClass}>
-          รหัสผ่าน
-          <Input
-            className={inputClass}
             required
             minLength={6}
             type="password"
@@ -80,7 +62,7 @@ export default function SignInPage() {
               mode === "login" ? "current-password" : "new-password"
             }
           />
-        </label>
+        </FormField>
         {(message || sessionError) && (
           <p className="text-caption text-danger">{message || sessionError}</p>
         )}

@@ -15,26 +15,34 @@ export function PanelHeading({
   title,
   description,
   aside,
+  align = "center",
   className,
   ...props
 }: Omit<ComponentProps<"section">, "title" | "children"> & {
   overline?: ReactNode;
-  title: ReactNode;
+  /** Leave it out for a panel whose heading is only an `overline`, such as a filter bar. */
+  title?: ReactNode;
   description?: ReactNode;
   /** Actions or stats on the right; stacks under the text below md. */
   aside?: ReactNode;
+  /**
+   * Where the `aside` sits against the text. `end` lines it up with the last line, which
+   * is what a row of filter controls wants; `center` centres it against the whole block.
+   */
+  align?: "center" | "end";
 }) {
   return (
     <Panel
       className={cn(
-        "flex items-center justify-between gap-6 max-md:flex-col max-md:items-stretch max-md:gap-3.5",
+        "flex justify-between gap-6 max-md:flex-col max-md:items-stretch max-md:gap-3.5",
+        align === "end" ? "items-end" : "items-center",
         className,
       )}
       {...props}
     >
       <div className="max-w-190">
         {overline && <Overline>{overline}</Overline>}
-        <h2 className="mb-3 text-h2">{title}</h2>
+        {title && <h2 className="mb-3 text-h2">{title}</h2>}
         {description && <Muted>{description}</Muted>}
       </div>
       {aside && (
