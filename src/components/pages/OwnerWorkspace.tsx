@@ -53,6 +53,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         notifications={alerts.notifications}
         showNotifications={showNotifications}
         onToggleNotifications={() => setShowNotifications((value) => !value)}
+        loading={!ws.loaded}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

@@ -520,7 +520,7 @@ export function EntryForm({
           )}
         </div>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           hint={
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
 import { getAttachment } from "@/lib/attachment-store";
 
@@ -82,7 +83,7 @@ export function InvoiceDownloadButton({
         variant="table"
         onClick={download}
         disabled={loading}
-        icon={<Download className="size-3.5" />}
+        icon={loading ? <Spinner /> : <Download className="size-3.5" />}
       >
         {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
       </Button>
@@ -146,7 +147,7 @@ export function AttachmentViewButton({
         variant="table"
         onClick={view}
         disabled={loading}
-        icon={<FileText className="size-3.5" />}
+        icon={loading ? <Spinner /> : <FileText className="size-3.5" />}
       >
         {loading ? "กำลังเปิด" : label}
       </Button>

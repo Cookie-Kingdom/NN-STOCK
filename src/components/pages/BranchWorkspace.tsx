@@ -32,6 +32,7 @@ export function BranchWorkspace({ account }: { account: Account }) {
         date={date}
         onDate={ws.setDate}
         minDate={ws.db.config.systemStartDate}
+        loading={!ws.loaded}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

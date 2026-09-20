@@ -259,7 +259,7 @@ export function MaterialPurchaseForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           hint="บันทึกครั้งเดียวได้หลายวัสดุ"
           onCancel={onClose}
           submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`}

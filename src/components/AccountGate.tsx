@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import { LoadingScreen } from "@/components/molecules/LoadingState";
 import type { Account, AccountId } from "@/lib/accounts";
 import { useSession } from "@/lib/session";
 
@@ -23,6 +24,9 @@ export function AccountGate({
     if (ready && !permitted) router.replace("/");
   }, [ready, permitted, router]);
 
+  // Checking is not the same as refused: only the refusal (which redirects to
+  // sign-in) renders nothing.
+  if (!ready) return <LoadingScreen message="กำลังตรวจสอบสิทธิ์การใช้งาน…" />;
   if (!permitted) return null;
   return <>{children(permitted)}</>;
 }
