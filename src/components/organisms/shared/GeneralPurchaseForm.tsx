@@ -6,6 +6,7 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
+import { newId } from "@/lib/id";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
@@ -32,7 +33,7 @@ export type GeneralPurchaseLine = {
 
 export function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     purchaseDate: date,
     category: "วัตถุดิบ",
     item: "",

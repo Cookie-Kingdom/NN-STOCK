@@ -1,5 +1,6 @@
 "use client";
 
+import { newId } from "./id";
 import { LOCAL_DB } from "./local-db";
 import { createClient } from "./supabase/browser";
 
@@ -65,7 +66,7 @@ async function getLocal(id: string): Promise<StoredAttachment | undefined> {
 }
 
 export async function saveAttachment(file: File): Promise<string> {
-  const id = crypto.randomUUID();
+  const id = newId();
   await putLocal({ id, name: file.name, type: file.type, blob: file });
   const remote = storage();
   if (remote) {
