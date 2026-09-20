@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
-/** Table cell: PO number (bold, "-" when missing), Lot id underneath, optional muted line. */
+/**
+ * Table cell pairing a purchase order with the lot it became: `poId` in bold on the
+ * first line ("-" when there is none yet) and `lotId` underneath, plus an optional muted
+ * `sub` line. It renders a `<span>`, so it goes inside the `<td>` rather than replacing it.
+ */
 export function PoLotCell({
   poId,
   lotId,

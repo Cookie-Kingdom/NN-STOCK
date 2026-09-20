@@ -4,7 +4,12 @@ import { Panel } from "@/components/atoms/Panel";
 import { Muted } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
-/** `.panel.config-heading` — renders the `<section>` panel itself. */
+/**
+ * The heading of a view, rendered as the `Panel` itself: overline, `title`, an optional
+ * `description`, and an `aside` for actions or stats that stacks under the text below
+ * `md`. Use `SectionHeading` for a heading that sits inside an existing panel — this one
+ * is the surface, not something you put on one.
+ */
 export function PanelHeading({
   overline,
   title,

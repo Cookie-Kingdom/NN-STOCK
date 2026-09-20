@@ -2,7 +2,11 @@ import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { cn } from "@/lib/utils";
 
-/** `.table-pagination`. Renders nothing when there is a single page. `page` is 0-based. */
+/**
+ * The page controls under a table: the current page and page size on the left,
+ * previous/next on the right. `page` is 0-based, and the whole row renders nothing when
+ * `pageCount` is 1 or less, so it can be left in place unconditionally.
+ */
 export function Pagination({
   page,
   pageCount,

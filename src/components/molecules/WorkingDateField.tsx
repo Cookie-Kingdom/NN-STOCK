@@ -3,10 +3,15 @@ import { Input } from "@/components/atoms/Input";
 import { today } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** The working-date picker ("วันที่ทำรายการ"), shared by the page heading and every
- * form, all bound to the one workspace date. `asField` lays the wrapper out like a
- * FormField, which is how every dialog form opens; a caller's own `className` still
- * wins over it. */
+/**
+ * The working-date picker ("วันที่ทำรายการ"), shared by the page heading and every form,
+ * all bound to the one workspace date. It limits the picker to `minDate`…today and flags
+ * a past date with a "บันทึกย้อนหลัง" badge; a typed date can still land outside that
+ * range, so it also shows the error `mutate` would raise. `variant` picks the `Input`
+ * styling: "form" inside a form, "filter" in a filter bar, while `asField` lays the
+ * wrapper out like a FormField, which is how every dialog form opens.
+ */
+
 export function WorkingDateField({
   date,
   onDate,

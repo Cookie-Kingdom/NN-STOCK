@@ -11,6 +11,11 @@ export function fieldClassName(wide?: boolean, className?: string) {
   );
 }
 
+/**
+ * The " (ถ้ามี)" marker that follows the label of a field which may be left blank.
+ * `FormField` and `FileUploadField` add it from their `optional` prop, so render it by
+ * hand only when a label is assembled outside those.
+ */
 export function OptionalMark() {
   return (
     <Caption as="span" className="font-normal">
@@ -20,6 +25,11 @@ export function OptionalMark() {
   );
 }
 
+/**
+ * The hint line under a control — a `Caption` with the block display and the gap above
+ * it already set. `FormField` renders it from its `hint` prop, so reach for it directly
+ * only when a field's layout is built by hand.
+ */
 export function FieldHint({ children }: { children: ReactNode }) {
   return <Caption className="mt-2 block">{children}</Caption>;
 }
@@ -35,7 +45,12 @@ export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
   children: ReactNode;
 };
 
-/** A `<label>` wrapping its control, so no `htmlFor`/`id` pairing is needed. */
+/**
+ * One labelled control in a form: a `<label>` wrapping its control, so no `htmlFor`/`id`
+ * pairing is needed and clicking the label focuses the field. Pass the control as
+ * `children` — `Input`, `Select` or `Textarea` with `variant="form"` — and use `wide` to
+ * make the field span every column of the surrounding form grid.
+ */
 export function FormField({
   label,
   optional = false,

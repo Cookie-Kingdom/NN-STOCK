@@ -3,10 +3,11 @@ import { ReadRow } from "@/components/atoms/ReadRow";
 import { cn } from "@/lib/utils";
 
 /**
- * Summary of the earlier document a form builds on, shown under the fields.
- * With a `number` the heading reads "อ้างอิง {title} · {number}"; without one the
- * card is a plain titled read-only block, which is how the pre-save preview of a
- * form's own values uses it.
+ * Summary of the earlier document a form builds on — the PO behind a receipt, say —
+ * shown under the fields as read-only `ReadRow`s. `rows` is a list of `[label, value]`
+ * pairs and an empty value falls back to "—"; `action` takes something like a document
+ * preview button, shown next to the title. Without a `number` the heading is the plain
+ * `title`, which is how a form previews its own values before saving.
  */
 export function ReferenceCard({
   title,

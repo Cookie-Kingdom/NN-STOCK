@@ -42,6 +42,12 @@ export type NoticeProps = ComponentProps<"div"> &
     dismissLabel?: string;
   };
 
+/**
+ * Inline message box inside a panel or form — info, success, warning or danger by
+ * `tone`. The tone also picks the ARIA role (`alert` for danger, `status` for success),
+ * so a failed save is announced without any extra wiring; pass `role` to override.
+ * `action` puts a button at the end of the row and `onDismiss` adds a close button.
+ */
 export function Notice({
   tone,
   action,
