@@ -7,13 +7,18 @@ import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { LotWorkflowAction } from "@/components/organisms/owner/LotWorkflowAction";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { purchaseOrderRows } from "@/components/organisms/shared/documents";
+import {
+  lotIssueDate,
+  purchaseOrderRows,
+} from "@/components/organisms/shared/documents";
+import { useTableSort } from "@/components/organisms/shared/useTableSort";
 import { fmt } from "@/lib/format";
 import { entries, n, stages, type Database } from "@/lib/store";
 
 const columns = [
   "เลข PO",
   "Lot",
+  "วันที่ออก PO",
   "ลูกค้า / Attention",
   "สินค้า / ขนาดบรรจุ",
   "น้ำหนักสั่งซื้อ",
@@ -31,6 +36,16 @@ export function PurchaseOrderView({
   open: (kind: string, lotId?: string) => void;
   onOpenSmokePo: () => void;
 }) {
+  const [lots, sortControl] = useTableSort(db.lots, [
+    {
+      label: "วันที่ออก PO (ล่าสุดก่อน)",
+      by: (lot) => lotIssueDate(db, lot),
+      desc: true,
+    },
+    { label: "วันที่ออก PO (เก่าสุดก่อน)", by: (lot) => lotIssueDate(db, lot) },
+    { label: "เลข PO", by: (lot) => lot.poId },
+    { label: "Lot", by: (lot) => lot.id },
+  ]);
   return (
     <>
       <SectionHeading
@@ -50,9 +65,10 @@ export function PurchaseOrderView({
       />
       <DataTable
         title="รายการใบสั่งซื้อ PO"
+        action={sortControl}
         columns={columns}
-        rowKeys={db.lots.map((item) => item.id)}
-        rows={db.lots.map((item) => {
+        rowKeys={lots.map((item) => item.id)}
+        rows={lots.map((item) => {
           const print = (
             <DocumentPrintButton
               title="Purchase Order"
@@ -63,6 +79,7 @@ export function PurchaseOrderView({
           return [
             item.poId,
             item.id,
+            lotIssueDate(db, item),
             `${item.values.customerName || "-"} / ${item.values.attention || "-"}`,
             `${item.values.productName || "เนื้อวัว"} / ${item.values.packSize || "-"}`,
             `${fmt(n(item.values, "orderedKg"))} กก.`,
