@@ -16,6 +16,8 @@
     color-scheme: light;
   }
 
+  /* The `dark` class is set on <html> by the inline script in app/layout.tsx, from the
+   * OS setting. Storybook's theme toolbar toggles the same class. */
   html.dark {
     color-scheme: dark;
   }
