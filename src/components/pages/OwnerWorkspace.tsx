@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
-import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { CentralReceiveView } from "@/components/organisms/owner/CentralReceiveView";
 import { ConfigView } from "@/components/organisms/owner/ConfigView";
 import { InvoiceView } from "@/components/organisms/owner/InvoiceView";
 import { MeatMovementLogView } from "@/components/organisms/owner/MeatMovementLogView";
+import { OwnerAlertBanners } from "@/components/organisms/owner/OwnerAlertBanners";
 import { OwnerDailyStatus } from "@/components/organisms/owner/OwnerDailyStatus";
 import { OwnerDashboard } from "@/components/organisms/owner/OwnerDashboard";
 import { OwnerStockView } from "@/components/organisms/owner/OwnerStockView";
@@ -27,9 +27,7 @@ import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { fmt } from "@/lib/format";
 import { ownerNav } from "@/lib/nav";
-import { produced } from "@/lib/store";
 
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
@@ -56,35 +54,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       onCloseToast={() => ws.setToast("")}
       ws={ws}
     >
-      {alerts.missingMaterialSettings > 0 && tab !== "config" && (
-        <Notice
-          tone="warning"
-          action={
-            <Button onClick={() => setTab("config")}>ไปหน้าตั้งค่า</Button>
-          }
-        >
-          ตั้งค่าวัสดุยังไม่ครบ {alerts.missingMaterialSettings} รายการ
-          กรุณากำหนดจำนวนฐานและราคาต่อหน่วยก่อนส่งวัสดุครั้งถัดไป
-        </Notice>
-      )}
-      {alerts.returnReady.length > 0 && tab !== "transport" && (
-        <Notice
-          tone="danger"
-          action={
-            <Button onClick={() => setTab("transport")}>ไปเรียกรถขากลับ</Button>
-          }
-        >
-          งานใหม่จาก Chef House · ปิด Lot แล้ว {alerts.returnReady.length}{" "}
-          รายการ · ต้องเรียกรถขากลับรวม{" "}
-          {fmt(
-            alerts.returnReady.reduce(
-              (total, item) => total + produced(db, item.id),
-              0,
-            ),
-          )}{" "}
-          กก.
-        </Notice>
-      )}
+      <OwnerAlertBanners db={db} alerts={alerts} tab={tab} onTab={setTab} />
 
       {tab === "owner-dashboard" && (
         <OwnerDashboard db={db} date={date} onNavigate={setTab} />
