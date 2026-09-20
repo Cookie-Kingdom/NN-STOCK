@@ -41,6 +41,27 @@ export function datedColumn(rows: ReactNode[][]) {
   );
 }
 
+/** A cell that says nothing about its column's type: empty, or a dash standing in
+ *  for a missing value. It must not drag a column of numbers over to the left. */
+const blank = /^[\s—–-]*$/;
+
+/** Alignment per column: numbers sit right so their digits line up, text sits left.
+ *  A column with no text at all is the action column at the end of the row and sits
+ *  right too. Headers reuse the same class, so a header never floats away from the
+ *  column it names. */
+export function columnAlign(columns: string[], rows: ReactNode[][]) {
+  return columns.map((_, index) => {
+    const texts = rows
+      .map((row) => cellText(row[index]))
+      .filter((text) => !blank.test(text));
+    if (!texts.length)
+      return index === columns.length - 1 ? "text-right" : "text-left";
+    return texts.every((text) => numeric.test(text.replace(/,/g, "")))
+      ? "text-right"
+      : "text-left";
+  });
+}
+
 /** Numbers compare by value ("9 กก." < "10 กก."), everything else as Thai text.
  *  ISO dates already sort right as text, so they skip the numeric branch. */
 export function compareCells(a: string, b: string) {
@@ -78,6 +99,7 @@ export function DataTable({
   className?: string;
 }) {
   const [page, setPage] = useState(0);
+  const align = columnAlign(columns, rows);
   // ponytail: kept out of state so the fallback still finds its column once rows load.
   const [chosen, setChosen] = useState<{
     column: number;
@@ -173,7 +195,7 @@ export function DataTable({
               {columns.map((column, index) => (
                 <th
                   key={`${index}-${column}`}
-                  className="sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary not-first:text-right max-md:px-2.5"
+                  className={`sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary max-md:px-2.5 ${align[index]}`}
                 >
                   {column}
                 </th>
@@ -190,7 +212,7 @@ export function DataTable({
                   {rows[rowIndex].map((cell, j) => (
                     <td
                       key={j}
-                      className="border-b border-border px-4.5 py-4 text-left align-middle text-body-sm whitespace-nowrap not-first:text-right max-md:px-2.5"
+                      className={`border-b border-border px-4.5 py-4 align-middle text-body-sm whitespace-nowrap max-md:px-2.5 ${align[j]}`}
                     >
                       {cell}
                     </td>

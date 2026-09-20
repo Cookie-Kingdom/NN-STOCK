@@ -25,6 +25,7 @@ export const CentralReceive: Story = {
 };
 export const BranchStatus: Story = { parameters: at("branch-status") };
 export const Stock: Story = { parameters: at("stock") };
+export const Documents: Story = { parameters: at("documents") };
 export const Report: Story = { parameters: at("report") };
 export const Config: Story = { parameters: at("config") };
 export const History: Story = { parameters: at("history") };

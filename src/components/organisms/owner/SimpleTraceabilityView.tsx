@@ -159,8 +159,11 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   aria-label="ขยายรายละเอียด"
                   className={`${thClass} ${expandCellClass}`}
                 />
-                {registerColumns.map((column) => (
-                  <th key={column} className={thClass}>
+                {registerColumns.map((column, index) => (
+                  <th
+                    key={column}
+                    className={`${thClass} ${index === registerColumns.length - 1 ? "text-right" : ""}`}
+                  >
                     {column}
                   </th>
                 ))}
@@ -540,7 +543,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         <td className={tdClass}>
                           {latest ? roleName[latest.role] : "Owner"}
                         </td>
-                        <td className={tdClass}>
+                        <td className={`${tdClass} text-right`}>
                           <Button
                             variant="table"
                             onClick={() => toggle(lot.id)}
@@ -605,10 +608,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                               <table className="w-full min-w-190 border-collapse bg-surface">
                                 <thead>
                                   <tr>
-                                    {detailColumns.map((column) => (
+                                    {detailColumns.map((column, index) => (
                                       <th
                                         key={column}
-                                        className={`${detailCellClass} bg-bg text-caption text-text-secondary`}
+                                        className={`${detailCellClass} bg-bg text-caption text-text-secondary ${index === detailColumns.length - 1 ? "text-right" : ""}`}
                                       >
                                         {column}
                                       </th>
@@ -640,7 +643,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                         <td className={detailCellClass}>
                                           {status}
                                         </td>
-                                        <td className={detailCellClass}>
+                                        <td
+                                          className={`${detailCellClass} text-right`}
+                                        >
                                           {action}
                                         </td>
                                       </tr>
