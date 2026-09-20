@@ -1,7 +1,11 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-/** `.button-row`; `compact` = `.button-row.compact-actions` (right-aligned table actions) */
+/**
+ * Horizontal row of buttons with the standard gap and vertical rhythm, wrapping on
+ * narrow screens. `compact` right-aligns the row and drops the minimum button width,
+ * which is what a table's inline row actions need.
+ */
 export function ButtonRow({
   compact = false,
   className,

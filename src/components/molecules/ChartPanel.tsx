@@ -3,7 +3,12 @@ import { Overline } from "@/components/atoms/Overline";
 import { Panel } from "@/components/atoms/Panel";
 import { cn } from "@/lib/utils";
 
-/** `.chart-panel` + `.chart-heading` + `.chart-total` (dashboard-refresh look) */
+/**
+ * Panel around one dashboard chart: an optional overline, the `title`, a highlighted
+ * `total` at the top right, and the chart itself as `children`. It wraps a flush
+ * `Panel` and sets its own padding, so the chart drops straight in; `aside` takes
+ * anything else that shares the heading row, such as a legend.
+ */
 export function ChartPanel({
   overline,
   title,
