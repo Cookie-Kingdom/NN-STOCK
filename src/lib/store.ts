@@ -1,4 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
+import { newId } from "./id";
 export type Role = "owner" | "foodiva" | "cm" | "branch";
 export type Values = Record<string, string>;
 export type Entry = {
@@ -1611,7 +1612,7 @@ export function mutate(
       ? v.receivedDate || date
       : date;
   next.entries.push({
-    id: crypto.randomUUID(),
+    id: newId(),
     kind,
     role,
     lotId: lot?.id || lotId,
