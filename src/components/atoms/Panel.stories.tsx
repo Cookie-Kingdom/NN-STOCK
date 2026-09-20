@@ -24,6 +24,18 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Compact: Story = { args: { compact: true } };
 
+/** `dashed` drops the fill too — the outline of a box with nothing in it yet. */
+export const Dashed: Story = {
+  args: {
+    dashed: true,
+    children: (
+      <p className="m-0 text-center text-text-secondary">
+        ยังไม่มีล็อตในช่วงวันที่เลือก
+      </p>
+    ),
+  },
+};
+
 /** `flush` hands the padding to the molecule — how KpiCard and ChartPanel use it. */
 export const Flush: Story = {
   args: {

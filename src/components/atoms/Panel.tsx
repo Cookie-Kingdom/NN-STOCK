@@ -7,25 +7,30 @@ type PanelProps = Omit<ComponentProps<"section">, "ref"> & {
   compact?: boolean;
   /** No padding — for a molecule that sets its own (KpiCard, ChartPanel). */
   flush?: boolean;
+  /** Dashed outline and no fill: a placeholder, not content (EmptyState, file drop). */
+  dashed?: boolean;
 };
 
 /**
  * Plain bordered surface — the default container for one block of a workspace.
  * `compact` tightens the padding for dense side-by-side panels, `flush` drops it for
- * a molecule that sets its own, and `as` swaps the tag when `<section>` is wrong for
- * the document outline.
+ * a molecule that sets its own, `dashed` turns it into the outline used for a box
+ * with nothing in it yet, and `as` swaps the tag when `<section>` is wrong for the
+ * document outline.
  */
 export function Panel({
   as: Tag = "section",
   compact = false,
   flush = false,
+  dashed = false,
   className,
   ...props
 }: PanelProps) {
   return (
     <Tag
       className={cn(
-        "min-w-0 rounded-lg border border-border bg-surface",
+        "min-w-0 rounded-lg border border-border",
+        dashed ? "border-dashed" : "bg-surface",
         !flush && "p-5.5 max-md:p-4",
         compact && "p-4",
         className,

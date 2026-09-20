@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { FileInput } from "@/components/atoms/FileInput";
+import { Panel } from "@/components/atoms/Panel";
 import { Caption } from "@/components/atoms/Text";
 import {
   FieldHint,
@@ -64,7 +65,12 @@ export function FileUploadField({
         {label}
         {optional && <OptionalMark />}
       </span>
-      <div className="mt-2 grid gap-2 rounded-md border border-dashed border-border bg-bg p-3">
+      <Panel
+        as="div"
+        dashed
+        flush
+        className="mt-2 grid gap-2 rounded-md bg-bg p-3"
+      >
         <FileInput
           accept={accept}
           required={required}
@@ -96,7 +102,7 @@ export function FileUploadField({
             {error}
           </small>
         )}
-      </div>
+      </Panel>
       {hint && <FieldHint>{hint}</FieldHint>}
     </label>
   );

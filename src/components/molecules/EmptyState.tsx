@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Package } from "lucide-react";
+import { Panel } from "@/components/atoms/Panel";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,14 +31,17 @@ export function EmptyState({
       </p>
     );
   return (
-    <div
+    <Panel
+      as="div"
+      dashed
+      flush
       className={cn(
-        "flex animate-fade-in flex-col items-center justify-center gap-4.5 rounded-lg border border-dashed border-border px-6 py-15 text-center text-text-secondary",
+        "flex animate-fade-in flex-col items-center justify-center gap-4.5 px-6 py-15 text-center text-text-secondary",
         className,
       )}
     >
       {icon ?? <Package size={34} aria-hidden />}
       <p>{text}</p>
-    </div>
+    </Panel>
   );
 }
