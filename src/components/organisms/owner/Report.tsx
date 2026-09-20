@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Panel } from "@/components/atoms/Panel";
-import { Muted } from "@/components/atoms/Text";
 import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
 import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
+import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   branches,
@@ -109,27 +108,26 @@ export function Report({ db }: { db: Database }) {
     });
   return (
     <div className="grid gap-7.5">
-      <Panel className="flex items-end justify-between gap-5 max-md:flex-col max-md:items-stretch">
-        <div>
-          <h2 className="m-0">ตัวกรองรายงาน (Report filters)</h2>
-          <Muted className="m-0">
-            เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน
-          </Muted>
-        </div>
-        <FilterBar>
-          <DateRangeFilter
-            from={fromDate}
-            to={toDate}
-            onFromChange={setFromDate}
-            onToChange={setToDate}
-          />
-          <BranchSelectFilter
-            value={branchFilter}
-            onChange={setBranchFilter}
-            branches={branches}
-          />
-        </FilterBar>
-      </Panel>
+      <PanelHeading
+        align="end"
+        title="ตัวกรองรายงาน (Report filters)"
+        description="เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน"
+        aside={
+          <FilterBar>
+            <DateRangeFilter
+              from={fromDate}
+              to={toDate}
+              onFromChange={setFromDate}
+              onToChange={setToDate}
+            />
+            <BranchSelectFilter
+              value={branchFilter}
+              onChange={setBranchFilter}
+              branches={branches}
+            />
+          </FilterBar>
+        }
+      />
       <DataTable
         className="m-0"
         title="สรุปผลรวม"
@@ -140,7 +138,11 @@ export function Report({ db }: { db: Database }) {
             fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0)),
             "บาท",
           ],
-          ["ต้นทุนรวมทั้งหมด (เนื้อ + Waste + ค่าใช้จ่ายสาขา + รายการย่อยด้านล่าง)", fmt(cost), "บาท"],
+          [
+            "ต้นทุนรวมทั้งหมด (เนื้อ + Waste + ค่าใช้จ่ายสาขา + รายการย่อยด้านล่าง)",
+            fmt(cost),
+            "บาท",
+          ],
           [
             "↳ กล่องโปรโมทอินฟลูเอนเซอร์ (เนื้อ + ค่าส่ง)",
             fmt(influencerCost),
@@ -148,12 +150,12 @@ export function Report({ db }: { db: Database }) {
           ],
           ["↳ ค่าใช้จ่าย Owner", fmt(ownerExpenseCost), "บาท"],
           ["↳ ซื้อวัสดุบรรจุภัณฑ์", fmt(materialPurchaseCost), "บาท"],
-          ["↳ ซื้อวัตถุดิบ / ETC (รวมอยู่ในต้นทุนรวมแล้ว)", fmt(generalPurchaseCost), "บาท"],
           [
-            "ส่วนต่างหลังต้นทุนที่บันทึก",
-            fmt(margin),
+            "↳ ซื้อวัตถุดิบ / ETC (รวมอยู่ในต้นทุนรวมแล้ว)",
+            fmt(generalPurchaseCost),
             "บาท",
           ],
+          ["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(margin), "บาท"],
         ]}
       />
       <Notice>

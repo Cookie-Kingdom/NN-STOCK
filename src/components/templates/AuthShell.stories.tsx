@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
+import { FormField } from "@/components/molecules/FormField";
 import { AuthShell } from "./AuthShell";
 
 // A template is the page layout with placeholder content; the real sign-in is Pages/SignIn.
@@ -13,31 +14,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const labelClass =
-  "grid gap-1.5 text-caption font-semibold text-text-secondary";
-const inputClass = "mt-0 rounded-md px-3 py-2.75 text-body";
-
 function Fields({ signup = false }: { signup?: boolean }) {
   return (
     <form className="mt-5.5 mb-3.5 grid gap-3.5">
       {signup && (
-        <label className={labelClass}>
-          ชื่อที่แสดง
-          <Input className={inputClass} defaultValue="เจ้าของร้าน" />
-        </label>
+        <FormField label="ชื่อที่แสดง">
+          <Input defaultValue="เจ้าของร้าน" />
+        </FormField>
       )}
-      <label className={labelClass}>
-        อีเมล
-        <Input
-          className={inputClass}
-          type="email"
-          defaultValue="owner@nn.test"
-        />
-      </label>
-      <label className={labelClass}>
-        รหัสผ่าน
-        <Input className={inputClass} type="password" defaultValue="123456" />
-      </label>
+      <FormField label="อีเมล">
+        <Input type="email" defaultValue="owner@nn.test" />
+      </FormField>
+      <FormField label="รหัสผ่าน">
+        <Input type="password" defaultValue="123456" />
+      </FormField>
       <Button variant="primary" className="w-full" type="button">
         {signup ? "สมัครสมาชิก" : "เข้าสู่ระบบ"}
       </Button>
