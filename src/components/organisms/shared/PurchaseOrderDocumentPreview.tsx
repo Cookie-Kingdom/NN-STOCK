@@ -42,7 +42,7 @@ export function PurchaseOrderDocumentPreview({
   const taxId = values.taxId || db.config.taxId || "—";
   const supplier =
     values[isSmokeOrder ? "smoker" : "supplier"] ||
-    (isSmokeOrder ? "Chef_house" : "Foodiva");
+    (isSmokeOrder ? "Chef House" : "Foodiva");
   const supplierContact =
     db.config[isSmokeOrder ? "chefHouseContact" : "foodivaContact"] ||
     "ยังไม่ได้ตั้งค่า";

@@ -175,11 +175,11 @@ test("Owner: ซื้อวัสดุเข้าคลังย้อนห�
   await expect(entry.locator("summary").getByText(BACKDATED)).toBeVisible();
 });
 
-/** Chef_house accepts the smoking PO and submits its invoice (as in procurement.spec). */
+/** Chef House accepts the smoking PO and submits its invoice (as in procurement.spec). */
 async function chefAcceptsAndInvoices(page: Page) {
   await tab(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
   await button(page, "สร้าง / Submit ใบวางบิล");
   await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-BACK");

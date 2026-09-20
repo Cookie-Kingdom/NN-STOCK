@@ -74,7 +74,7 @@ test("ฟอร์มยืนยัน Invoice เติมน้ำหนั�
 
   // น้ำหนักและยอดเงินต้องเติมจาก PO (500 กก. × 250 บาท) ไว้แล้ว
   await expect(dialog.getByLabel(/น้ำหนักตาม Invoice/)).toHaveValue("500");
-  await expect(dialog.getByLabel(/พร้อมส่งไป Chef_house/)).toHaveValue("500");
+  await expect(dialog.getByLabel(/พร้อมส่งไป Chef House/)).toHaveValue("500");
   await expect(dialog.getByLabel(/เนื้อส่วนที่เหลือรอ Owner รับ/)).toHaveValue(
     "0",
   );

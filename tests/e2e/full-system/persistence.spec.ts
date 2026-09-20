@@ -119,16 +119,16 @@ function lotState(stop: Stop): Database {
     confirmedBy: "Foodiva",
   }, lotId);
   run("owner", "smokeOrder", {
-    smoker: "Chef_house",
+    smoker: "Chef House",
     rawKg: "50",
     requestedSmokeDate: date,
     expectedFinishedDate: date,
   }, lotId);
-  run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" }, lotId);
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
   run("cm", "smokingInvoice", {
     invoiceNumber: "CH-G",
     invoiceDate: date,
-    serviceProvider: "Chef_house",
+    serviceProvider: "Chef House",
     serviceQuantity: "50",
     vat: "770",
     withholdingTax: "330",
@@ -149,7 +149,7 @@ function lotState(stop: Stop): Database {
     dispatchKg: "50",
     pickupDate: date,
     origin: "Foodiva · กรุงเทพฯ",
-    destination: "Chef_house · เชียงใหม่",
+    destination: "Chef House · เชียงใหม่",
     trip: "ไปกลับ",
     pickupTime: "06:30",
     vehicleType: "รถห้องเย็น",
@@ -165,11 +165,11 @@ function lotState(stop: Stop): Database {
     wasteKg: "0",
     packs: ["10", "10", "10", "10", "10"].join("\n"),
   }, lotId);
-  run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
+  run("cm", "closeLot", { confirm: "Chef House" }, lotId);
   run("owner", "return", {
     returnDate: date,
     returnTime: "09:00",
-    origin: "Chef_house · เชียงใหม่",
+    origin: "Chef House · เชียงใหม่",
     destination: "Foodiva · กรุงเทพฯ",
     vehicleType: "รถห้องเย็น",
     plate: "G-02",
@@ -300,7 +300,7 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
-  await step(page, "Chef_house: G1 ยืนยันรับ PO รมควัน → reload และออก-เข้าใหม่ ปุ่มยืนยันยังหาย ปุ่มใบวางบิลยังอยู่", async () => {
+  await step(page, "Chef House: G1 ยืนยันรับ PO รมควัน → reload และออก-เข้าใหม่ ปุ่มยืนยันยังหาย ปุ่มใบวางบิลยังอยู่", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "งานผลิต");
     await button(page, "ยืนยันรับ PO รมควัน");

@@ -58,7 +58,7 @@ test("prefilled weights and amounts pass mutate as-is; receiving weights stay bl
     ...prefill("smokeOrder"),
     requestedSmokeDate: day,
   });
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   s.run("cm", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
@@ -103,7 +103,7 @@ test("smoke PO and Foodiva's return receipt start from earlier weights", () => {
   purchase(s, "40");
   confirm(s, "40", "30");
   expect(prefillValues(s.db, "smokeOrder", s.db.lots[0])).toEqual({
-    smoker: "Chef_house",
+    smoker: "Chef House",
     rawKg: "30",
   });
   const done = smoked();

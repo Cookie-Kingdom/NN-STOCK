@@ -17,7 +17,7 @@ import {
 } from "../helpers";
 
 /* Lane D (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): 500 kg reaches
- * Chef_house → trimmed to 480 before smoking → round 1: 240 in, bags 120 + 118,
+ * Chef House → trimmed to 480 before smoking → round 1: 240 in, bags 120 + 118,
  * waste 2 → round 2: 240 in, bags 80 + 80 + 78, waste 2 → Edit round 2 to bags
  * 80 + 80 + 77, waste 3 (475 kg, 5 bags) → close lot → return 475 → Foodiva
  * receives 474 → central 474, bags pro-rated by 474 / 475. Every negative case
@@ -68,7 +68,7 @@ async function setValue(scope: Locator, label: string | RegExp, value: string) {
 const LOTS = "รายการ Lot ทั้งหมด";
 const SMOKE_LOG = /^Log Lot สโมครายวัน/;
 
-/** One cell of the single lot row in Chef_house "งานผลิต" (columns in ChefLotTable). */
+/** One cell of the single lot row in Chef House "งานผลิต" (columns in ChefLotTable). */
 const chefLotCell = (page: Page, index: number) =>
   tableSection(page, LOTS).locator("tbody tr").first().getByRole("cell").nth(index);
 
@@ -78,7 +78,7 @@ async function reachPreSmoke(page: Page) {
     await signInAs(page, ACCOUNTS.owner);
     await ownerCreatesMeatPo(page, "500");
   });
-  await step(page, "Foodiva: ออก Invoice 500 กก. พร้อมส่ง Chef_house ทั้งหมด", async () => {
+  await step(page, "Foodiva: ออก Invoice 500 กก. พร้อมส่ง Chef House ทั้งหมด", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
     await foodivaIssuesInvoice(page, "500");
   });
@@ -86,11 +86,11 @@ async function reachPreSmoke(page: Page) {
     await signInAs(page, ACCOUNTS.owner);
     await ownerIssuesSmokePo(page, "500");
   });
-  await step(page, "Chef_house: ยืนยันรับ PO รมควัน และ Submit ใบวางบิล", async () => {
+  await step(page, "Chef House: ยืนยันรับ PO รมควัน และ Submit ใบวางบิล", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "งานผลิต");
     await button(page, "ยืนยันรับ PO รมควัน");
-    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
     await saveEntry(page);
     await button(page, "สร้าง / Submit ใบวางบิล");
     await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
@@ -120,7 +120,7 @@ async function reachPreSmoke(page: Page) {
     await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
     await saveEntry(page);
   });
-  await step(page, "Chef_house: ยืนยันรับเนื้อ 500 กก. → stage ก่อนสโมค", async () => {
+  await step(page, "Chef House: ยืนยันรับเนื้อ 500 กก. → stage ก่อนสโมค", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "ยืนยันรับเนื้อ");
     await pointAndClick(
@@ -156,14 +156,14 @@ async function fillSmokeRound(
   }
 }
 
-test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลาง: รับ 500 → ก่อนสโมค 480 → สโมค 2 รอบ 476 → Edit 475 → ปิด Lot → ขากลับ 475 → Foodiva 474 → สต๊อกกลาง 474", async ({
+test("D1–D11 Chef House ผลิต → กลับสต๊อกกลาง: รับ 500 → ก่อนสโมค 480 → สโมค 2 รอบ 476 → Edit 475 → ปิด Lot → ขากลับ 475 → Foodiva 474 → สต๊อกกลาง 474", async ({
   page,
 }) => {
   test.setTimeout(20 * 60_000);
   await startFresh(page);
   await reachPreSmoke(page);
 
-  await step(page, "Chef_house: D1 น้ำหนักก่อนสโมค 520 เกินรับจริง → บล็อก · 480 → ผ่าน", async () => {
+  await step(page, "Chef House: D1 น้ำหนักก่อนสโมค 520 เกินรับจริง → บล็อก · 480 → ผ่าน", async () => {
     await button(page, "น้ำหนักก่อนสโมค");
     await expect(dialog(page)).toContainText("500.00 กก.");
     await field(page, /น้ำหนักหลังแกะซับ/, "520");
@@ -176,14 +176,14 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     ).toBeVisible();
   });
 
-  await step(page, "Chef_house: D2 บันทึก Lot สโมครายวัน รอบ 1 — negative ทุกกติกา แล้ว 240 = 120 + 118 + waste 2", async () => {
+  await step(page, "Chef House: D2 บันทึก Lot สโมครายวัน รอบ 1 — negative ทุกกติกา แล้ว 240 = 120 + 118 + waste 2", async () => {
     await button(page, "บันทึก Lot สโมครายวัน");
     // Bags + waste must add up to what went into the smoker.
     await fillSmokeRound(page, "240", "2", ["120", "120"]);
     await submitAndExpectError(page, "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา");
     // A zero bag is refused before the totals are compared.
     await setValue(dialog(page), "น้ำหนักถุงที่ 2", "0");
-    await submitAndExpectError(page, "น้ำหนักถุงใหญ่จาก Chef_house ต้องมากกว่า 0 กก.");
+    await submitAndExpectError(page, "น้ำหนักถุงใหญ่จาก Chef House ต้องมากกว่า 0 กก.");
     // More into the smoker than is waiting (480) is refused.
     await fillSmokeRound(page, "600", "362", ["120", "118"]);
     await submitAndExpectError(page, "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต");
@@ -204,7 +204,7 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     await expect(chefLotCell(page, 6)).toHaveText("2 ถุง");
   });
 
-  await step(page, "Chef_house: D3 หลังรอบ 1 (240 จาก 480) ยังปิด Lot ไม่ได้ — ปุ่ม ยืนยันปิด Lot ไม่มี stage ยังบันทึกสโมค", async () => {
+  await step(page, "Chef House: D3 หลังรอบ 1 (240 จาก 480) ยังปิด Lot ไม่ได้ — ปุ่ม ยืนยันปิด Lot ไม่มี stage ยังบันทึกสโมค", async () => {
     // closeLot is stage-guarded (stage 5) and the action cell only offers the next round.
     await expect(chefLotCell(page, 4)).toHaveText("บันทึกสโมค");
     await expect(page.getByRole("button", { name: "ยืนยันปิด Lot" })).toHaveCount(0);
@@ -214,7 +214,7 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     ).toBeVisible();
   });
 
-  await step(page, "Chef_house: D4 รอบ 2 เข้าเตา 240 ถุง 80 + 80 + 78 waste 2 → 5 ถุง 476 กก. stage ปิด Lot", async () => {
+  await step(page, "Chef House: D4 รอบ 2 เข้าเตา 240 ถุง 80 + 80 + 78 waste 2 → 5 ถุง 476 กก. stage ปิด Lot", async () => {
     await button(page, "บันทึก Lot สโมครายวัน");
     await expect(dialog(page)).toContainText("240.00 กก.");
     await fillSmokeRound(page, "240", "2", ["80", "80", "78"]);
@@ -231,9 +231,9 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     await expect(menuItem(page, "งานผลิต")).toHaveText(/งานผลิต\s*1$/);
   });
 
-  await step(page, "Chef_house: D4 หน้า สต๊อก แสดงก่อนสโมค 480 รอผลิต 0 หลังรม 476", async () => {
+  await step(page, "Chef House: D4 หน้า สต๊อก แสดงก่อนสโมค 480 รอผลิต 0 หลังรม 476", async () => {
     await tab(page, "สต๊อก");
-    const row = tableSection(page, "สต๊อกและงานผลิต Chef_house").locator("tbody tr").first();
+    const row = tableSection(page, "สต๊อกและงานผลิต Chef House").locator("tbody tr").first();
     await expect(row.getByRole("cell").nth(1)).toHaveText("480.00 กก.");
     await expect(row.getByRole("cell").nth(2)).toHaveText("0.00 กก.");
     await expect(row.getByRole("cell").nth(3)).toHaveText("476.00 กก.");
@@ -241,7 +241,7 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     await tab(page, "งานผลิต");
   });
 
-  await step(page, "Chef_house: D5 Edit ข้อมูลก่อนปิด Lot — negative ทุกกติกา", async () => {
+  await step(page, "Chef House: D5 Edit ข้อมูลก่อนปิด Lot — negative ทุกกติกา", async () => {
     await button(page, "Edit ข้อมูลก่อนปิด Lot");
     const edit = dialog(page);
     await expect(edit.getByRole("heading", { name: "Edit ข้อมูลก่อนปิด Lot" })).toBeVisible();
@@ -267,7 +267,7 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     await submitAndExpectError(page, "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ");
   });
 
-  await step(page, "Chef_house: D5 Edit รอบ 2 waste 3 ถุง 80 + 80 + 77 → หลังรมรวม 475 กก. 5 ถุง", async () => {
+  await step(page, "Chef House: D5 Edit รอบ 2 waste 3 ถุง 80 + 80 + 77 → หลังรมรวม 475 กก. 5 ถุง", async () => {
     const edit = dialog(page);
     await setValue(edit, "น้ำหนักเข้าเตา รอบ 2", "240");
     await setValue(edit, "น้ำหนักถุงใหญ่ รอบ 2", "80\n80\n77");
@@ -293,23 +293,23 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
       smokeRows.filter({ hasText: "เข้าเตา 240.00 · หลังรม 238.00 · Waste 2.00 กก." }),
     ).toHaveCount(1);
     await expect(
-      page.getByRole("row").filter({ hasText: "Chef_house · Waste ก่อนสโมค" }),
+      page.getByRole("row").filter({ hasText: "Chef House · Waste ก่อนสโมค" }),
     ).toContainText("20.00 กก.");
     await expect(
-      page.getByRole("row").filter({ hasText: "Chef_house · รอเข้ารอบสโมค" }),
+      page.getByRole("row").filter({ hasText: "Chef House · รอเข้ารอบสโมค" }),
     ).toContainText("0.00 กก.");
   });
 
-  await step(page, "Chef_house: D6 ยืนยันปิด Lot → stage ขนส่ง Chef_house → Foodiva · ปุ่ม Edit หาย · count pill งานผลิตหมด", async () => {
+  await step(page, "Chef House: D6 ยืนยันปิด Lot → stage ขนส่ง Chef House → Foodiva · ปุ่ม Edit หาย · count pill งานผลิตหมด", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "งานผลิต");
     await button(page, "ยืนยันปิด Lot");
     await expect(dialog(page)).toContainText("475.00 กก.");
     await expect(dialog(page)).toContainText("5 ถุง");
     await submitAndExpectError(page, "กรอกชื่อผู้ยืนยัน");
-    await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef_house");
+    await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
     await saveEntry(page);
-    await expect(chefLotCell(page, 4)).toHaveText("ขนส่ง Chef_house → Foodiva");
+    await expect(chefLotCell(page, 4)).toHaveText("ขนส่ง Chef House → Foodiva");
     // Edit is stage-5-only in mutate() ("แก้ไขได้เฉพาะก่อนยืนยันปิด Lot"); the UI no longer offers it.
     await expect(page.getByRole("button", { name: "Edit ข้อมูลก่อนปิด Lot" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "ยืนยันปิด Lot" })).toHaveCount(0);
@@ -341,13 +341,13 @@ test("D1–D11 Chef_house ผลิต → กลับสต๊อกกลา�
     await field(page, /ทะเบียนรถ/, "กท 1002");
     await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
     await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-    await field(page, /น้ำหนักส่งจาก Chef_house/, "475");
+    await field(page, /น้ำหนักส่งจาก Chef House/, "475");
     await dialog(page).getByLabel(/ปลายทาง/).selectOption({ label: "เชียงใหม่" });
     await submitAndExpectError(page, "ต้นทางและปลายทางต้องต่างกัน");
     await dialog(page).getByLabel(/ปลายทาง/).selectOption({ label: "กรุงเทพฯ" });
-    await field(page, /น้ำหนักส่งจาก Chef_house/, "480");
+    await field(page, /น้ำหนักส่งจาก Chef House/, "480");
     await submitAndExpectError(page, "น้ำหนักส่งกลับเกินผลผลิต");
-    await field(page, /น้ำหนักส่งจาก Chef_house/, "475");
+    await field(page, /น้ำหนักส่งจาก Chef House/, "475");
     await saveEntry(page);
     const row = tableSection(page, "รายการขนส่งตาม Lot").locator("tbody tr").first();
     await expect(row).toContainText("กท 1002");
@@ -464,7 +464,7 @@ test("E2E-D1: Edit ข้อมูลก่อนปิด Lot น้ำหน�
   test.setTimeout(10 * 60_000);
   await startFresh(page);
   await reachPreSmoke(page);
-  await step(page, "Chef_house: ก่อนสโมค 480 · สโมครอบเดียว 480 = 478 + waste 2 → stage ปิด Lot", async () => {
+  await step(page, "Chef House: ก่อนสโมค 480 · สโมครอบเดียว 480 = 478 + waste 2 → stage ปิด Lot", async () => {
     await button(page, "น้ำหนักก่อนสโมค");
     await field(page, /น้ำหนักหลังแกะซับ/, "480");
     await saveEntry(page);
@@ -473,7 +473,7 @@ test("E2E-D1: Edit ข้อมูลก่อนปิด Lot น้ำหน�
     await saveEntry(page);
     await expect(chefLotCell(page, 4)).toHaveText("ปิด Lot");
   });
-  await step(page, "Chef_house: Edit น้ำหนักรับจริง 0 → ข้อความในฟอร์ม", async () => {
+  await step(page, "Chef House: Edit น้ำหนักรับจริง 0 → ข้อความในฟอร์ม", async () => {
     await button(page, "Edit ข้อมูลก่อนปิด Lot");
     await setValue(dialog(page), "น้ำหนักรับจริง (กก.)", "0");
     await submitAndExpectError(page, "กรอกน้ำหนักให้ถูกต้อง");

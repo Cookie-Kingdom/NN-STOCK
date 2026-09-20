@@ -184,7 +184,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await signInAs(page, ACCOUNTS.chef);
   await button(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
   await button(page, "สร้าง / Submit ใบวางบิล");
   await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
@@ -233,7 +233,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await page.getByLabel(/ต้นทาง/).selectOption({ label: "กรุงเทพฯ" });
   await saveEntry(page);
 
-  // Chef_house: 500 kg in, one 500 kg bag out, lot closed.
+  // Chef House: 500 kg in, one 500 kg bag out, lot closed.
   await signInAs(page, ACCOUNTS.chef);
   await button(page, "ยืนยันรับเนื้อ");
   await page.getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
@@ -248,19 +248,19 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, "น้ำหนักถุงที่ 1", "500");
   await saveEntry(page);
   await button(page, "ยืนยันปิด Lot");
-  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
 
   // Return trip, Foodiva intake, central stock, one bag to Saladaeng.
   await signInAs(page, ACCOUNTS.owner);
   await button(page, "ใบขนส่ง");
   await button(page, /เรียกรถขากลับ/);
-  await field(page, /เวลารถรับจาก Chef_house|เวลารถรับ/, "09:00");
+  await field(page, /เวลารถรับจาก Chef House|เวลารถรับ/, "09:00");
   await field(page, /ประเภทรถ/, "รถห้องเย็น");
   await field(page, /ทะเบียนรถ/, "กท 1002");
   await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
   await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-  await field(page, /น้ำหนักส่งจาก Chef_house/, "500");
+  await field(page, /น้ำหนักส่งจาก Chef House/, "500");
   await saveEntry(page);
   await signInAs(page, ACCOUNTS.foodiva);
   await button(page, "ยืนยันรับเข้าตู้");

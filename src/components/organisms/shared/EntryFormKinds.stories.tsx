@@ -63,7 +63,7 @@ const form = (
 /** PO for the smoking service, priced from the kg Foodiva confirmed. */
 export const OwnerSmokeOrder: Story = form(confirmedDb, "owner", "smokeOrder");
 
-/** The Owner checks Chef_house's submitted bill and accepts or sends it back. */
+/** The Owner checks Chef House's submitted bill and accepts or sends it back. */
 export const OwnerInvoiceReview: Story = form(
   submittedInvoiceDb,
   "owner",
@@ -83,9 +83,9 @@ export const OwnerCentral: Story = form(returnedDb, "owner", "central");
 /** Chili tubes go to a branch straight from the Owner's stock, no lot involved. */
 export const OwnerChiliAllocate: Story = form(demoDb, "owner", "chiliAllocate");
 
-// --- Chef_house ----------------------------------------------------------
+// --- Chef House ----------------------------------------------------------
 
-/** Chef_house accepts the smoke PO before the meat is trucked up. */
+/** Chef House accepts the smoke PO before the meat is trucked up. */
 export const ChefSmokeOrderAccept: Story = form(
   smokeOrderDb,
   "cm",

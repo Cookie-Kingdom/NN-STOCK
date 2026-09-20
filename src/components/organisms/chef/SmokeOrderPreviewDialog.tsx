@@ -21,7 +21,7 @@ export function SmokeOrderPreviewDialog({
   return (
     <Dialog
       size="document"
-      overline="อ่านอย่างเดียว · Chef_house"
+      overline="อ่านอย่างเดียว · Chef House"
       title="ใบสั่ง PO โรงรมควัน"
       closeLabel="ปิดเอกสาร PO"
       onClose={onClose}

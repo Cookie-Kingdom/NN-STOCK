@@ -68,7 +68,7 @@ type Profile = { actor: string; path: string; tabs: TabDef[] };
 const PROFILES: Record<AccountKey, Profile> = {
   owner: { actor: "Owner", path: "/owner", tabs: OWNER_TABS },
   foodiva: { actor: "Foodiva", path: "/foodiva", tabs: FOODIVA_TABS },
-  chef: { actor: "Chef_house", path: "/chef", tabs: CHEF_TABS },
+  chef: { actor: "Chef House", path: "/chef", tabs: CHEF_TABS },
   saladaeng: { actor: "สาขาศาลาแดง", path: "/branch", tabs: BRANCH_TABS },
   minburi: { actor: "สาขามีนบุรี", path: "/branch", tabs: BRANCH_TABS },
 };
@@ -148,21 +148,21 @@ function pipelineState(date: string): Database {
       "owner",
       "smokeOrder",
       {
-        smoker: "Chef_house",
+        smoker: "Chef House",
         rawKg: "50",
         requestedSmokeDate: date,
         expectedFinishedDate: date,
       },
       lotId,
     );
-    run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" }, lotId);
+    run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
     run(
       "cm",
       "smokingInvoice",
       {
         invoiceNumber: `CH-${lotId}`,
         invoiceDate: date,
-        serviceProvider: "Chef_house",
+        serviceProvider: "Chef House",
         serviceQuantity: "50",
         vat: "770",
         withholdingTax: "330",
@@ -197,7 +197,7 @@ function pipelineState(date: string): Database {
         dispatchKg: "50",
         pickupDate: date,
         origin: "Foodiva · กรุงเทพฯ",
-        destination: "Chef_house · เชียงใหม่",
+        destination: "Chef House · เชียงใหม่",
         trip: "ไปกลับ",
         pickupTime: "06:30",
         vehicleType: "รถห้องเย็น",
@@ -223,14 +223,14 @@ function pipelineState(date: string): Database {
     },
     a,
   );
-  run("cm", "closeLot", { confirm: "Chef_house" }, a);
+  run("cm", "closeLot", { confirm: "Chef House" }, a);
   run(
     "owner",
     "return",
     {
       returnDate: date,
       returnTime: "09:00",
-      origin: "Chef_house · เชียงใหม่",
+      origin: "Chef House · เชียงใหม่",
       destination: "Foodiva · กรุงเทพฯ",
       vehicleType: "รถห้องเย็น",
       plate: "H-02",
@@ -496,7 +496,7 @@ test.describe("มือถือ 390 px", () => {
     );
     await step(
       page,
-      "ระบบ: เตรียม Lot A ถึงสาขาทั้งสอง และ Lot B รอสโมคที่ Chef_house",
+      "ระบบ: เตรียม Lot A ถึงสาขาทั้งสอง และ Lot B รอสโมคที่ Chef House",
       () => pushState(page, pipelineState(today())),
     );
 
@@ -533,7 +533,7 @@ test.describe("มือถือ 390 px", () => {
         );
         await expect(row).toContainText("รอยืนยัน");
         // mutate("purchase") opens the lot at stage 1; LotWorkflowAction says what it waits for.
-        await expect(row).toContainText("ขนส่ง Foodiva → Chef_house");
+        await expect(row).toContainText("ขนส่ง Foodiva → Chef House");
         await expect(row).toContainText("รอ Foodiva ออก Invoice");
         await expectNoSidewaysScroll(page);
       },
@@ -565,7 +565,7 @@ test.describe("มือถือ 390 px", () => {
 
     await step(
       page,
-      "Chef_house: เข้าสู่ระบบ → งานผลิต → เปิด บันทึก Lot สโมครายวัน",
+      "Chef House: เข้าสู่ระบบ → งานผลิต → เปิด บันทึก Lot สโมครายวัน",
       async () => {
         await signInAs(page, ACCOUNTS.chef);
         await pointAndClick(page, menuItem(page, "งานผลิต"));
@@ -578,7 +578,7 @@ test.describe("มือถือ 390 px", () => {
         ).toBeInViewport();
       },
     );
-    await step(page, "Chef_house: ยกเลิก → Lot ยังรอสโมค", async () => {
+    await step(page, "Chef House: ยกเลิก → Lot ยังรอสโมค", async () => {
       await cancelDialog(page);
       await expect(
         page.getByRole("button", { name: "บันทึก Lot สโมครายวัน" }),

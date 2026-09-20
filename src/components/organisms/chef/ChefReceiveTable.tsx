@@ -17,7 +17,7 @@ export function ChefReceiveTable({
   return (
     <>
       <SectionHeading
-        title="ยืนยันรับเนื้อที่ Chef_house"
+        title="ยืนยันรับเนื้อที่ Chef House"
         description="เลือกรายการที่รถมาถึง แล้วบันทึกเวลาและน้ำหนักรับจริง"
       />
       <DataTable

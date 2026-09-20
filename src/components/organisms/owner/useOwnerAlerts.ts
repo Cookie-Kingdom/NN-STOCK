@@ -81,15 +81,15 @@ export function useOwnerAlerts(db: Database) {
       if (!accepted)
         return [
           {
-            title: `รอ Chef_house ยืนยัน PO โรงรมควัน · ${item.id}`,
-            detail: "Chef_house ต้องกดยืนยันรับ PO ก่อน Owner เรียกรถส่งเนื้อ",
+            title: `รอ Chef House ยืนยัน PO โรงรมควัน · ${item.id}`,
+            detail: "Chef House ต้องกดยืนยันรับ PO ก่อน Owner เรียกรถส่งเนื้อ",
             tab: "smoke-po",
           },
         ];
       if (!smokeInvoice)
         return [
           {
-            title: `รอ Chef_house Submit Invoice ค่ารมควัน · ${item.id}`,
+            title: `รอ Chef House Submit Invoice ค่ารมควัน · ${item.id}`,
             detail: "รอเลข Invoice และไฟล์แนบเพื่อให้ Owner ตรวจยอด",
             tab: "invoices",
           },
@@ -114,15 +114,15 @@ export function useOwnerAlerts(db: Database) {
       if (invoiceStatus === "ส่งกลับแก้ไข")
         return [
           {
-            title: `รอ Chef_house แก้ Invoice · ${smokeInvoice.values.invoiceNumber}`,
-            detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef_house Submit ใหม่",
+            title: `รอ Chef House แก้ Invoice · ${smokeInvoice.values.invoiceNumber}`,
+            detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef House Submit ใหม่",
             tab: "invoices",
           },
         ];
       if (item.stage === 1)
         return [
           {
-            title: `พร้อมทำใบขนส่งไป Chef_house · ${item.id}`,
+            title: `พร้อมทำใบขนส่งไป Chef House · ${item.id}`,
             detail: `เรียกรถรับเนื้อพร้อมส่ง ${fmt(readyForChefHouse(db, item.id))} กก.`,
             tab: "transport",
           },
@@ -134,14 +134,14 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอ Foodiva รับเนื้อรมควัน · ${item.id}`,
-            detail: "ติดตาม Foodiva ให้ชั่งรับเนื้อจาก Chef_house เข้าตู้",
+            detail: "ติดตาม Foodiva ให้ชั่งรับเนื้อจาก Chef House เข้าตู้",
             tab: "transport",
           },
         ];
       return [];
     }),
     ...returnReady.map((item): OwnerNotification => ({
-      title: `Chef_house ปิด Lot แล้ว · ${item.id}`,
+      title: `Chef House ปิด Lot แล้ว · ${item.id}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} ถุง`,
       tab: "transport",
     })),

@@ -12,7 +12,7 @@
         "reference": "PO-WEEK-001",
         "pickupDate": "2026-09-04",
         "origin": "กรุงเทพ",
-        "destination": "Chef_house",
+        "destination": "Chef House",
         "trip": "ไปกลับ",
         "vehicle": "รถทดสอบ",
         "dispatchKg": "50",
@@ -121,7 +121,7 @@
       "values": {
         "pickupDate": "2026-09-04",
         "origin": "กรุงเทพ",
-        "destination": "Chef_house",
+        "destination": "Chef House",
         "trip": "ไปกลับ",
         "vehicle": "รถทดสอบ",
         "dispatchKg": "50",

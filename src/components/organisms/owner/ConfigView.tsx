@@ -557,7 +557,7 @@ export function ConfigView({ db }: { db: Database }) {
               type="file"
             />,
             "รูปภาพ",
-            "แสดงหัวเอกสารทั้ง PO Foodiva และ PO Chef_house",
+            "แสดงหัวเอกสารทั้ง PO Foodiva และ PO Chef House",
           ),
           settingRow(
             "ผู้รับออเดอร์ Foodiva",
@@ -582,7 +582,7 @@ export function ConfigView({ db }: { db: Database }) {
             "แสดงฝั่งผู้ขายใน PO เนื้อ",
           ),
           settingRow(
-            "ผู้รับออเดอร์ Chef_house",
+            "ผู้รับออเดอร์ Chef House",
             <ConfigValue
               {...edit}
               section="documents"
@@ -593,7 +593,7 @@ export function ConfigView({ db }: { db: Database }) {
             "แสดงฝั่งผู้ให้บริการใน PO โรงรมควัน",
           ),
           settingRow(
-            "ที่อยู่บริษัท Chef_house",
+            "ที่อยู่บริษัท Chef House",
             <ConfigValue
               {...edit}
               section="documents"
@@ -755,7 +755,7 @@ export function ConfigView({ db }: { db: Database }) {
               display={baht}
             />,
             "บาท / เที่ยว",
-            "ต้นทุนส่งไป Chef_house เที่ยวเดียว",
+            "ต้นทุนส่งไป Chef House เที่ยวเดียว",
           ),
           settingRow(
             "ค่าขนส่งขากลับ (Return delivery fee)",
@@ -795,7 +795,7 @@ export function ConfigView({ db }: { db: Database }) {
               type="branch"
             />,
             "สาขา",
-            "ใช้เมื่อ Owner, Foodiva หรือ Chef_house ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
+            "ใช้เมื่อ Owner, Foodiva หรือ Chef House ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
           ),
           settingRow(
             "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)",

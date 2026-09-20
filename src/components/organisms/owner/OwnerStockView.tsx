@@ -53,7 +53,7 @@ const locationOptions = [
   ...branches,
 ];
 const meatTypeOptions = [
-  "เนื้อดิบพร้อมส่ง Chef_house",
+  "เนื้อดิบพร้อมส่ง Chef House",
   "เนื้อรมควัน",
   "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
 ];
@@ -132,14 +132,14 @@ export function OwnerStockView({
       return [
         {
           genre: "เนื้อ",
-          item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef_house`,
+          item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
           location: "Foodiva",
           quantity: fmt(invoiceConfirmed ? readyAtFoodiva : 0),
           unit: "กก.",
           detail: invoiceConfirmed
             ? "จาก Invoice Foodiva · รอ Owner เรียกรถไปเชียงใหม่"
             : "รอ Foodiva ยืนยัน Invoice",
-          meatType: "เนื้อดิบพร้อมส่ง Chef_house",
+          meatType: "เนื้อดิบพร้อมส่ง Chef House",
         },
         ...(invoiceConfirmed
           ? [

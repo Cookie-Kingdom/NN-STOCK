@@ -12,7 +12,7 @@ const notoSansThai = Noto_Sans_Thai({
 export const metadata: Metadata = {
   title: "NerdNuea Stock — ระบบสต๊อกและต้นทุนเนื้อรมควัน",
   description:
-    "ระบบบันทึกสต๊อกและต้นทุน ตั้งแต่รับเนื้อจาก Foodiva ผ่าน Chef_house เข้าสต๊อกกลาง กระจายสู่สาขา จนถึงการขาย",
+    "ระบบบันทึกสต๊อกและต้นทุน ตั้งแต่รับเนื้อจาก Foodiva ผ่าน Chef House เข้าสต๊อกกลาง กระจายสู่สาขา จนถึงการขาย",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

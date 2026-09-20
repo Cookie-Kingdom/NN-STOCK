@@ -131,7 +131,7 @@ export function ChefLotEditForm({
   const balanced = Math.abs(smokeTotal - preSmokeKgValue) < 0.001;
   return (
     <Dialog
-      overline={`Chef_house · ${lot.id}`}
+      overline={`Chef House · ${lot.id}`}
       title="Edit ข้อมูลก่อนปิด Lot"
       onClose={onClose}
     >
@@ -187,7 +187,7 @@ export function ChefLotEditForm({
               "Lot สโมค",
               "น้ำหนักเข้าเตา",
               "น้ำหนัก Waste",
-              "น้ำหนักถุงใหญ่จาก Chef_house (กก. / 1 บรรทัดต่อถุง)",
+              "น้ำหนักถุงใหญ่จาก Chef House (กก. / 1 บรรทัดต่อถุง)",
             ]}
             rowKeys={smokeDrafts.map((draft) => draft.id)}
             rows={smokeDrafts.map((draft, index) => [

@@ -16,7 +16,7 @@ import {
 
 /* The QA team's data walk (vault: QA-REPORT.md, PO-2026-0002 / Lot F260916-002):
  * 100 kg ordered, 90 kg shipped + 10 kg waste kept for Owner, 88 kg weighed in at
- * Chef_house, 85 kg to the smoker, 80 kg packed in two 40 kg bags, 79 kg received
+ * Chef House, 85 kg to the smoker, 80 kg packed in two 40 kg bags, 79 kg received
  * back at Foodiva. Every loss in that walk exposed a bug (BUG-1, 4, 6, 7, 10),
  * so the numbers here are load-bearing. */
 
@@ -29,7 +29,7 @@ async function submitAndExpectError(page: Page, message: RegExp) {
   ).toBeVisible();
 }
 
-test("full business loop across Owner, Foodiva, Chef_house and both branches", async ({
+test("full business loop across Owner, Foodiva, Chef House and both branches", async ({
   page,
 }) => {
   skipUnlessCredentials(
@@ -83,12 +83,12 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, /หมายเหตุ/, "QA TEST loop");
   await button(page, "บันทึก PO เนื้อ");
 
-  // Foodiva uploads the supplier invoice: 90 kg to Chef_house, 10 kg waste for Owner.
+  // Foodiva uploads the supplier invoice: 90 kg to Chef House, 10 kg waste for Owner.
   await signInAs(page, ACCOUNTS.foodiva);
   await button(page, /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/);
   await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
   await field(page, /น้ำหนักตาม Invoice/, "100");
-  await field(page, /พร้อมส่งไป Chef_house/, "90");
+  await field(page, /พร้อมส่งไป Chef House/, "90");
   await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "10");
   await field(page, /ยอดรวม Invoice/, "25000");
   await page
@@ -97,20 +97,20 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, /ชื่อผู้ยืนยันจาก Foodiva/, "เจ้าหน้าที่ Foodiva");
   await saveEntry(page);
 
-  // Owner issues the Chef_house service PO for the 90 kg that ship.
+  // Owner issues the Chef House service PO for the 90 kg that ship.
   await signInAs(page, ACCOUNTS.owner);
   await button(page, "ใบสั่ง PO โรงรมควัน");
   await button(page, "ออก PO รมควันเนื้อ");
-  await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef_house");
+  await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef House");
   await field(page, /Raw Meat Quantity/, "90");
   await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
   await button(page, "บันทึก PO รมควันเนื้อ");
 
-  // Chef_house accepts the PO and submits its invoice.
+  // Chef House accepts the PO and submits its invoice.
   await signInAs(page, ACCOUNTS.chef);
   await button(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
   await button(page, "สร้าง / Submit ใบวางบิล");
   await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
@@ -146,7 +146,7 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "90");
   await saveEntry(page);
 
-  // Chef_house weighs in 88 kg, trims to 85 kg, smokes into two 40 kg bags, closes the lot.
+  // Chef House weighs in 88 kg, trims to 85 kg, smokes into two 40 kg bags, closes the lot.
   await signInAs(page, ACCOUNTS.chef);
   await pointAndClick(page, menuItem(page, "ยืนยันรับเนื้อ"));
   // BUG-10d: the waiting-lot table names the truck instead of "-".
@@ -175,21 +175,21 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await field(page, "น้ำหนักถุงที่ 2", "40");
   await saveEntry(page);
   await button(page, "ยืนยันปิด Lot");
-  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
 
   // Owner books the return trip for 80 kg; Foodiva receives 79 kg (drip loss).
   await signInAs(page, ACCOUNTS.owner);
   await button(page, "ใบขนส่ง");
   await button(page, /เรียกรถขากลับ/);
-  await field(page, /เวลารถรับจาก Chef_house|เวลารถรับ/, "09:00");
+  await field(page, /เวลารถรับจาก Chef House|เวลารถรับ/, "09:00");
   await page.getByLabel(/ต้นทาง/).selectOption({ label: "เชียงใหม่" });
   await page.getByLabel(/ปลายทาง/).selectOption({ label: "กรุงเทพฯ" });
   await field(page, /ประเภทรถ/, "รถห้องเย็น");
   await field(page, /ทะเบียนรถ/, "กท 1002");
   await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
   await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-  await field(page, /น้ำหนักส่งจาก Chef_house/, "80");
+  await field(page, /น้ำหนักส่งจาก Chef House/, "80");
   await saveEntry(page);
   await signInAs(page, ACCOUNTS.foodiva);
   await button(page, "ยืนยันรับเข้าตู้");
@@ -235,13 +235,13 @@ test("full business loop across Owner, Foodiva, Chef_house and both branches", a
   await expect(page.getByText("ส่งจาก Foodiva: 90.00 กก.")).toBeVisible();
   await expect(page.getByText(/ส่วนต่าง 2\.00 กก\./)).toBeVisible();
 
-  // BUG-7: the 3 kg trimmed before smoking is named as loss, nothing is left waiting at Chef_house.
+  // BUG-7: the 3 kg trimmed before smoking is named as loss, nothing is left waiting at Chef House.
   await button(page, "Log เนื้อคงเหลือ");
   await expect(
-    page.getByRole("row").filter({ hasText: "Chef_house · Waste ก่อนสโมค" }),
+    page.getByRole("row").filter({ hasText: "Chef House · Waste ก่อนสโมค" }),
   ).toContainText("3.00 กก.");
   await expect(
-    page.getByRole("row").filter({ hasText: "Chef_house · รอเข้ารอบสโมค" }),
+    page.getByRole("row").filter({ hasText: "Chef House · รอเข้ารอบสโมค" }),
   ).toContainText("0.00 กก.");
 
   // BUG-4: the printed PO keeps its own note; the central-receive note must not overwrite it.

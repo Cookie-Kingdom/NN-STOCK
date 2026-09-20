@@ -69,14 +69,14 @@ export function confirm(s: Setup, kg: string, readyKg = kg) {
   });
 }
 
-/** Smoke PO, Chef_house acceptance and the submitted smoking invoice. */
+/** Smoke PO, Chef House acceptance and the submitted smoking invoice. */
 export function invoice(s: Setup, kg: string) {
   s.run("owner", "smokeOrder", {
     requestedSmokeDate: day,
-    smoker: "Chef_house",
+    smoker: "Chef House",
     rawKg: kg,
   });
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   s.run("cm", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
@@ -103,7 +103,7 @@ export function readyToDispatch(s: Setup, kg: string) {
   });
 }
 
-/** Lot at stage 5: fully smoked (36 kg in 360 bags), waiting for Chef_house to close it. */
+/** Lot at stage 5: fully smoked (36 kg in 360 bags), waiting for Chef House to close it. */
 export function smoked() {
   const s = setup();
   readyToDispatch(s, "50");
@@ -132,7 +132,7 @@ export function returned() {
   s.run("owner", "return", {
     returnDate: day,
     returnTime: "09:00",
-    origin: "Chef_house",
+    origin: "Chef House",
     destination: "Foodiva",
     vehicleType: "รถห้องเย็น",
     plate: "กข123",

@@ -126,7 +126,7 @@ export const forms: Record<string, Field[]> = {
     date("expectedFinishedDate", "วันที่คาดว่าจะเสร็จ"),
   ],
   smokeOrderAccept: [
-    text("acceptedBy", "ชื่อผู้รับ PO ของ Chef_house"),
+    text("acceptedBy", "ชื่อผู้รับ PO ของ Chef House"),
     note,
   ],
   smokingInvoice: [
@@ -137,14 +137,14 @@ export const forms: Record<string, Field[]> = {
       label: "แนบไฟล์ Invoice ค่ารมควัน",
       type: "file",
       accept: ".pdf,image/*",
-      hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef_house",
+      hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef House",
     },
     { key: "invoiceDetail", label: "รายละเอียดเพิ่มเติม", type: "textarea", optional: true },
   ],
   invoiceReview: [
     { key: "decision", label: "ผลการตรวจยอด", type: "select", options: ["รับยอด", "ส่งกลับแก้ไข"] },
     text("reviewedBy", "ชื่อผู้ตรวจ"),
-    { key: "comment", label: "หมายเหตุถึง Chef_house", type: "textarea", optional: true },
+    { key: "comment", label: "หมายเหตุถึง Chef House", type: "textarea", optional: true },
   ],
   invoicePayment: [
     date("paymentDate", "วันที่ชำระเงิน", true),
@@ -157,7 +157,7 @@ export const forms: Record<string, Field[]> = {
     text("invoiceNo", "เลข Invoice เนื้อ"),
     date("invoiceDate", "วันที่ Invoice", true),
     number("confirmedKg", "น้ำหนักตาม Invoice (กก.)"),
-    number("readyForChiangMaiKg", "พร้อมส่งไป Chef_house · เชียงใหม่ (กก.)"),
+    number("readyForChiangMaiKg", "พร้อมส่งไป Chef House · เชียงใหม่ (กก.)"),
     number("reservedForOwnerKg", "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", true),
     number("invoiceAmount", "ยอดรวม Invoice (บาท)", true),
     {
@@ -200,7 +200,7 @@ export const forms: Record<string, Field[]> = {
     number("wasteKg", "น้ำหนัก Waste (กก.)", true),
     {
       key: "packs",
-      label: "น้ำหนักถุงใหญ่จาก Chef_house (กก./ถุง)",
+      label: "น้ำหนักถุงใหญ่จาก Chef House (กก./ถุง)",
       type: "textarea",
       hint: "กรอกน้ำหนักจริงของแต่ละถุง ระบบจะรวมจำนวนถุงและน้ำหนักให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
     },
@@ -208,7 +208,7 @@ export const forms: Record<string, Field[]> = {
   ],
   closeLot: [text("confirm", "ชื่อผู้ยืนยันปิด Lot"), note],
   return: [
-    date("returnDate", "วันที่รถรับจาก Chef_house"),
+    date("returnDate", "วันที่รถรับจาก Chef House"),
     { key: "returnTime", label: "เวลารถรับ", type: "time" },
     location("origin", "ต้นทาง (Origin)"),
     location("destination", "ปลายทาง (Destination)"),
@@ -216,7 +216,7 @@ export const forms: Record<string, Field[]> = {
     text("plate", "ทะเบียนรถ"),
     text("driverName", "ชื่อคนขับ"),
     tel("driverPhone", "เบอร์ติดต่อคนขับ"),
-    number("returnKg", "น้ำหนักส่งจาก Chef_house (กก.)"),
+    number("returnKg", "น้ำหนักส่งจาก Chef House (กก.)"),
     note,
   ],
   foodivaReturnReceive: [

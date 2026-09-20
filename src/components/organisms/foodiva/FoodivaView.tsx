@@ -94,7 +94,7 @@ export function FoodivaView({
               : lot.stage === 1
                 ? "รอ Owner เรียกรถ"
                 : lot.stage < 7
-                  ? "ส่งให้ Chef_house แล้ว"
+                  ? "ส่งให้ Chef House แล้ว"
                   : returnWaiting.includes(lot)
                     ? "รอรับเนื้อรมควัน"
                     : "รับเนื้อรมควันแล้ว",

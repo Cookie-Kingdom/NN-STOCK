@@ -18,8 +18,8 @@ import {
 } from "../helpers";
 
 /* Lane C (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): PO 500 kg @ 250 →
- * Foodiva invoices 490 kg for Chef_house + 10 kg kept for Owner → smoke PO 490 kg
- * @ 220 = 107,800 → outbound 490 → Chef_house weighs in 488. Every negative case
+ * Foodiva invoices 490 kg for Chef House + 10 kg kept for Owner → smoke PO 490 kg
+ * @ 220 = 107,800 → outbound 490 → Chef House weighs in 488. Every negative case
  * expects the exact message mutate() throws in src/lib/store.ts. */
 
 test.skip(
@@ -109,7 +109,7 @@ async function expectPrintPopup(
   await popup.close();
 }
 
-/** Foodiva splits the invoice: `ready` kg go to Chef_house, `reserved` kg wait for Owner. */
+/** Foodiva splits the invoice: `ready` kg go to Chef House, `reserved` kg wait for Owner. */
 async function foodivaSplitsInvoice(
   page: Page,
   invoiceNo: string,
@@ -118,7 +118,7 @@ async function foodivaSplitsInvoice(
 ) {
   await button(page, /ออกและอัปโหลด Invoice/);
   await field(page, /เลข Invoice เนื้อ/, invoiceNo);
-  await field(page, /พร้อมส่งไป Chef_house/, ready);
+  await field(page, /พร้อมส่งไป Chef House/, ready);
   await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, reserved);
   await dialog(page).locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
   await field(page, /ชื่อผู้ยืนยันจาก Foodiva/, "เจ้าหน้าที่ Foodiva");
@@ -127,7 +127,7 @@ async function foodivaSplitsInvoice(
 async function chefAcceptsAndInvoices(page: Page, invoiceNo: string) {
   await tab(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
   await button(page, "สร้าง / Submit ใบวางบิล");
   await field(page, /เลข Invoice ค่ารมควัน/, invoiceNo);
@@ -157,7 +157,7 @@ async function ownerDispatches(page: Page, kg: string) {
   await saveEntry(page);
 }
 
-test("C1–C13 จัดซื้อ → รมควัน → ขนส่งขาไป: PO 500 → Invoice 490/10 → PO รมควัน 490 = 107,800 → ส่ง 490 → Chef_house รับ 488", async ({
+test("C1–C13 จัดซื้อ → รมควัน → ขนส่งขาไป: PO 500 → Invoice 490/10 → PO รมควัน 490 = 107,800 → ส่ง 490 → Chef House รับ 488", async ({
   page,
 }) => {
   test.setTimeout(12 * 60_000);
@@ -214,7 +214,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(row).toContainText(LOT);
     await expect(row).toContainText("500.00 กก.");
     await expect(row).toContainText("รอยืนยัน");
-    await expect(row).toContainText("ขนส่ง Foodiva → Chef_house");
+    await expect(row).toContainText("ขนส่ง Foodiva → Chef House");
     await expect(row).toContainText("รอ Foodiva ออก Invoice");
   });
   await step(page, "Owner: C1 พิมพ์ / PDF เปิดเอกสาร PO พร้อมหมายเหตุ QA-C1", async () => {
@@ -268,7 +268,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     );
   });
   await step(page, "Foodiva: C4 Invoice 490 ส่ง + 10 รอ Owner → บันทึก · count pill หาย · ตารางแสดง 490 / 10 / คงเหลือ 500", async () => {
-    await field(page, /พร้อมส่งไป Chef_house/, "490");
+    await field(page, /พร้อมส่งไป Chef House/, "490");
     await saveEntry(page);
     await expect(menuItem(page, "PO และสต๊อก Foodiva")).toHaveText("PO และสต๊อก Foodiva");
     const row = rowIn(page, "PO เนื้อที่ต้องออก Invoice", LOT);
@@ -309,12 +309,12 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
   /* ---- C6: smoke PO 490 @ 220 ---- */
   await step(page, "Owner: C6 ออก PO รมควัน 491 > 490 พร้อมส่ง → บล็อก", async () => {
     await button(page, "ออก PO รมควันเนื้อ");
-    await expect(dialog(page).getByLabel(/โรงรม \/ ผู้ให้บริการ/)).toHaveValue("Chef_house");
+    await expect(dialog(page).getByLabel(/โรงรม \/ ผู้ให้บริการ/)).toHaveValue("Chef House");
     await expect(dialog(page).getByLabel(/Raw Meat Quantity/)).toHaveValue("490");
     await field(page, /Raw Meat Quantity/, "491");
     await submitAndExpectError(page, "น้ำหนักใน PO รมควันเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่");
   });
-  await step(page, "Owner: C6 PO รมควัน 490 → บันทึก · อัตรา ฿220 / กก. · รอ Chef_house ยืนยัน 1 ใบ", async () => {
+  await step(page, "Owner: C6 PO รมควัน 490 → บันทึก · อัตรา ฿220 / กก. · รอ Chef House ยืนยัน 1 ใบ", async () => {
     await field(page, /Raw Meat Quantity/, "490");
     await saveEntry(page);
     const row = rowIn(page, "รายการ PO โรงรมควัน", LOT);
@@ -322,17 +322,17 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(row).toContainText("490.00 กก.");
     await expect(row).toContainText("฿220.00 / กก.");
     await expect(row).toContainText("รอยืนยัน");
-    await expect(row).toContainText("รอ Chef_house");
-    await expect(stat(page, "PO รอยืนยันจาก Chef_house")).toContainText("1 ใบ");
+    await expect(row).toContainText("รอ Chef House");
+    await expect(stat(page, "PO รอยืนยันจาก Chef House")).toContainText("1 ใบ");
   });
-  await step(page, "Owner: C9 gate ก่อน Chef_house ยืนยัน PO → ใบขนส่งแสดง \"รอ Chef_house รับ PO\"", async () => {
+  await step(page, "Owner: C9 gate ก่อน Chef House ยืนยัน PO → ใบขนส่งแสดง \"รอ Chef House รับ PO\"", async () => {
     await tab(page, "ใบขนส่ง");
-    await expect(rowIn(page, "รายการขนส่งตาม Lot", LOT)).toContainText("รอ Chef_house รับ PO");
+    await expect(rowIn(page, "รายการขนส่งตาม Lot", LOT)).toContainText("รอ Chef House รับ PO");
     await expect(page.getByRole("button", { name: "ทำใบขนส่งขาไป" })).toHaveCount(0);
   });
 
-  /* ---- C6 / C7: Chef_house accepts and bills 490 × 220 ---- */
-  await step(page, "Chef_house: C6 งานผลิต pill 1 · \"ดู PO รมควัน\" เปิด SmokeOrderPreviewDialog แสดงเลข SO และ 490 กก.", async () => {
+  /* ---- C6 / C7: Chef House accepts and bills 490 × 220 ---- */
+  await step(page, "Chef House: C6 งานผลิต pill 1 · \"ดู PO รมควัน\" เปิด SmokeOrderPreviewDialog แสดงเลข SO และ 490 กก.", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await expect(menuItem(page, "งานผลิต")).toContainText("1");
     await tab(page, "งานผลิต");
@@ -349,24 +349,24 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await pointAndClick(page, preview.getByRole("button", { name: "ปิด", exact: true }));
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
-  await step(page, "Chef_house: C7 ยังไม่ยืนยันรับ PO → ไม่มีปุ่มใบวางบิล (พฤติกรรมจริง: ปุ่มถูกซ่อน ข้อความ store ไม่ถึง UI)", async () => {
+  await step(page, "Chef House: C7 ยังไม่ยืนยันรับ PO → ไม่มีปุ่มใบวางบิล (พฤติกรรมจริง: ปุ่มถูกซ่อน ข้อความ store ไม่ถึง UI)", async () => {
     await expect(page.getByRole("button", { name: "สร้าง / Submit ใบวางบิล" })).toHaveCount(0);
   });
-  await step(page, "Chef_house: C6 ยืนยันรับ PO: ชื่อผู้รับว่าง → กรอกชื่อผู้รับ PO · กรอกแล้ว → ปุ่มยืนยันหาย (ยืนยันซ้ำไม่ได้จาก UI)", async () => {
+  await step(page, "Chef House: C6 ยืนยันรับ PO: ชื่อผู้รับว่าง → กรอกชื่อผู้รับ PO · กรอกแล้ว → ปุ่มยืนยันหาย (ยืนยันซ้ำไม่ได้จาก UI)", async () => {
     await button(page, "ยืนยันรับ PO รมควัน");
     await submitAndExpectError(page, "กรอกชื่อผู้รับ PO");
-    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
     await saveEntry(page);
     await expect(page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "สร้าง / Submit ใบวางบิล" })).toBeVisible();
   });
-  await step(page, "Chef_house: C7 ใบวางบิล: เลขว่าง → กรอกเลข Invoice ค่ารม · ไม่แนบไฟล์ → กรอกInvoice ที่แนบ", async () => {
+  await step(page, "Chef House: C7 ใบวางบิล: เลขว่าง → กรอกเลข Invoice ค่ารม · ไม่แนบไฟล์ → กรอกInvoice ที่แนบ", async () => {
     await button(page, "สร้าง / Submit ใบวางบิล");
     await submitAndExpectError(page, "กรอกเลข Invoice ค่ารม");
     await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-C7");
     await submitAndExpectError(page, "กรอกInvoice ที่แนบ");
   });
-  await step(page, "Chef_house: C7 แนบไฟล์ → Submit → สถานะรอตรวจยอด · งานผลิต pill หาย", async () => {
+  await step(page, "Chef House: C7 แนบไฟล์ → Submit → สถานะรอตรวจยอด · งานผลิต pill หาย", async () => {
     await dialog(page).locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
     await field(page, /รายละเอียดเพิ่มเติม/, "ค่าบริการรมควันเนื้อ 490 กก.");
     await button(page, "Submit ใบวางบิล");
@@ -377,11 +377,11 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
   });
 
   /* ---- C7 / C8: Owner sees 107,800, reviews, pays ---- */
-  await step(page, "Owner: C7 เห็น Invoice Chef_house ฿107,800.00 (490 × 220) สถานะรอตรวจยอด · C8 ยังไม่มีปุ่มชำระเงินก่อนตรวจ", async () => {
+  await step(page, "Owner: C7 เห็น Invoice Chef House ฿107,800.00 (490 × 220) สถานะรอตรวจยอด · C8 ยังไม่มีปุ่มชำระเงินก่อนตรวจ", async () => {
     await signInAs(page, ACCOUNTS.owner);
     await tab(page, "ใบ Invoice");
     await expect(stat(page, "Invoice รอตรวจยอด")).toContainText("1 ใบ");
-    const row = rowIn(page, "Invoice Chef_house", "CH-INV-C7");
+    const row = rowIn(page, "Invoice Chef House", "CH-INV-C7");
     await expect(row).toContainText(`${PO} / ${LOT}`);
     await expect(row).toContainText("฿107,800.00");
     await expect(row).toContainText("ค่าบริการรมควันเนื้อ 490 กก.");
@@ -395,7 +395,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await submitAndExpectError(page, "กรอกชื่อผู้ตรวจ");
     await field(page, /ชื่อผู้ตรวจ/, "Owner QA");
     await saveEntry(page);
-    const row = rowIn(page, "Invoice Chef_house", "CH-INV-C7");
+    const row = rowIn(page, "Invoice Chef House", "CH-INV-C7");
     await expect(row).toContainText("รอชำระ");
     await expect(row.getByRole("button", { name: "ชำระเงิน" })).toBeVisible();
     await expect(stat(page, "Invoice รอตรวจยอด")).toContainText("0 ใบ");
@@ -419,7 +419,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await field(page, /ยอดชำระ/, "107800");
     await field(page, /เลขอ้างอิงการชำระ/, "PAY-C8");
     await saveEntry(page);
-    const row = rowIn(page, "Invoice Chef_house", "CH-INV-C7");
+    const row = rowIn(page, "Invoice Chef House", "CH-INV-C7");
     await expect(row).toContainText("ชำระแล้ว");
     await expect(page.getByRole("button", { name: "ชำระเงิน" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "ตรวจยอด" })).toHaveCount(0);
@@ -444,21 +444,21 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "600");
     await submitAndExpectError(page, "น้ำหนักใบขนส่งเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่");
   });
-  await step(page, "Owner: C9 ส่ง 490 หมายเหตุ QA-C9 → ใบขนส่งแสดง 490 กก. · กท 1001 · พรีวิว / PDF · stage รับที่ Chef_house", async () => {
+  await step(page, "Owner: C9 ส่ง 490 หมายเหตุ QA-C9 → ใบขนส่งแสดง 490 กก. · กท 1001 · พรีวิว / PDF · stage รับที่ Chef House", async () => {
     await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "490");
     await field(page, /หมายเหตุ/, "QA-C9 dispatch");
     await saveEntry(page);
     const row = rowIn(page, "รายการขนส่งตาม Lot", LOT);
     await expect(row).toContainText("490.00 กก. · กท 1001");
-    await expect(row).toContainText("รอ Chef_house ชั่งรับ");
-    await expect(row).toContainText("กำลังดำเนินงานที่ Chef_house");
+    await expect(row).toContainText("รอ Chef House ชั่งรับ");
+    await expect(row).toContainText("กำลังดำเนินงานที่ Chef House");
     await expectPrintPopup(page, "พรีวิว / PDF", async (body) => {
       await expect(body).toContainText("ใบขนส่งเนื้อขาไป");
       await expect(body).toContainText(TR);
       await expect(body).toContainText("490.00 กก.");
     });
     await tab(page, "ใบสั่งซื้อ PO");
-    await expect(rowIn(page, "รายการใบสั่งซื้อ PO", PO)).toContainText("รับที่ Chef_house");
+    await expect(rowIn(page, "รายการใบสั่งซื้อ PO", PO)).toContainText("รับที่ Chef House");
   });
   await step(page, "Owner: C1 หมายเหตุ PO ยังเป็น QA-C1 หลังทำใบขนส่ง (BUG-4)", async () => {
     await expectPrintPopup(page, "พิมพ์ / PDF", async (body) => {
@@ -467,8 +467,8 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     });
   });
 
-  /* ---- C10: Chef_house weighs in 488 ---- */
-  await step(page, "Chef_house: C10 ยืนยันรับเนื้อ pill 1 · Lot รอรับ 490 กก. รถห้องเย็น · กท 1001", async () => {
+  /* ---- C10: Chef House weighs in 488 ---- */
+  await step(page, "Chef House: C10 ยืนยันรับเนื้อ pill 1 · Lot รอรับ 490 กก. รถห้องเย็น · กท 1001", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await expect(menuItem(page, "ยืนยันรับเนื้อ")).toContainText("1");
     await expect(menuItem(page, "งานผลิต")).toHaveText("งานผลิต");
@@ -478,14 +478,14 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(row).toContainText("490.00 กก.");
     await expect(row).toContainText("รถห้องเย็น · กท 1001");
   });
-  await step(page, "Chef_house: C10 น้ำหนักรับจริง 0 → กรอกน้ำหนักรับเป็นตัวเลขมากกว่าศูนย์", async () => {
+  await step(page, "Chef House: C10 น้ำหนักรับจริง 0 → กรอกน้ำหนักรับเป็นตัวเลขมากกว่าศูนย์", async () => {
     await pointAndClick(page, rowIn(page, "Lot ที่รอยืนยันรับ", LOT).getByRole("button", { name: "ยืนยันรับเนื้อ" }));
-    await expect(dialog(page).getByRole("heading", { name: "ยืนยันรับเนื้อที่ Chef_house" })).toBeVisible();
+    await expect(dialog(page).getByRole("heading", { name: "ยืนยันรับเนื้อที่ Chef House" })).toBeVisible();
     await dialog(page).getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
     await field(page, /น้ำหนักรับจริง/, "0");
     await submitAndExpectError(page, "กรอกน้ำหนักรับเป็นตัวเลขมากกว่าศูนย์");
   });
-  await step(page, "Chef_house: C10 รับ 488 → หน้ายืนยันรับเนื้อว่าง · งานผลิต pill 1 · Lot อยู่ขั้น \"ก่อนสโมค\"", async () => {
+  await step(page, "Chef House: C10 รับ 488 → หน้ายืนยันรับเนื้อว่าง · งานผลิต pill 1 · Lot อยู่ขั้น \"ก่อนสโมค\"", async () => {
     await field(page, /น้ำหนักรับจริง/, "488");
     await saveEntry(page);
     await expect(page.getByText("ไม่มี Lot รอยืนยันรับในขณะนี้")).toBeVisible();
@@ -499,12 +499,12 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
   });
 
   /* ---- C10 / C11: Owner compares 490 vs 488 and collects the 10 kg ---- */
-  await step(page, "Owner: C10 ใบขนส่งเทียบ ส่งจาก Foodiva 490 / Chef_house 488 / ส่วนต่าง 2.00 ไม่มีเครื่องหมายลบ (BUG-6)", async () => {
+  await step(page, "Owner: C10 ใบขนส่งเทียบ ส่งจาก Foodiva 490 / Chef House 488 / ส่วนต่าง 2.00 ไม่มีเครื่องหมายลบ (BUG-6)", async () => {
     await signInAs(page, ACCOUNTS.owner);
     await tab(page, "ใบขนส่ง");
     const row = rowIn(page, "รายการขนส่งตาม Lot", LOT);
     await expect(row).toContainText("ส่งจาก Foodiva: 490.00 กก.");
-    await expect(row).toContainText("Chef_house: 488.00 กก.");
+    await expect(row).toContainText("Chef House: 488.00 กก.");
     await expect(row).toContainText("ส่วนต่าง 2.00 กก.");
     await expect(row).not.toContainText(/ส่วนต่าง [-−]/);
     await tab(page, "ใบสั่งซื้อ PO");
@@ -520,7 +520,7 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await field(page, /ผู้รับเนื้อ/, "Owner QA");
     await submitAndExpectError(page, "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ");
   });
-  await step(page, "Owner: C11 รับ 10 → Owner รับครบแล้ว · เนื้อดิบพร้อมส่ง Chef_house ที่ Foodiva = 0", async () => {
+  await step(page, "Owner: C11 รับ 10 → Owner รับครบแล้ว · เนื้อดิบพร้อมส่ง Chef House ที่ Foodiva = 0", async () => {
     await field(page, /น้ำหนักรับจริง/, "10");
     await saveEntry(page);
     const table = "ตารางสต๊อกทั้งหมด (All inventory)";
@@ -529,15 +529,15 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(waiting).toContainText("Owner รับครบแล้ว");
     await expect(waiting.getByRole("button", { name: "บันทึกรับเนื้อ" })).toHaveCount(0);
     await expect(rowIn(page, table, `${LOT} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`).getByRole("cell").nth(3)).toHaveText("10.00");
-    await expect(rowIn(page, table, `${LOT} · เนื้อดิบพร้อมส่ง Chef_house`).getByRole("cell").nth(3)).toHaveText("0.00");
+    await expect(rowIn(page, table, `${LOT} · เนื้อดิบพร้อมส่ง Chef House`).getByRole("cell").nth(3)).toHaveText("0.00");
   });
 
   /* ---- C13: the same numbers on every read-only screen ---- */
-  await step(page, "Owner: C13 Log เนื้อคงเหลือ: Chef_house รอเข้ารอบสโมค 488 · Foodiva เนื้อดิบ 0 · Owner รับแล้ว 10 · ประวัติครบทุกก้าว", async () => {
+  await step(page, "Owner: C13 Log เนื้อคงเหลือ: Chef House รอเข้ารอบสโมค 488 · Foodiva เนื้อดิบ 0 · Owner รับแล้ว 10 · ประวัติครบทุกก้าว", async () => {
     await tab(page, "Log เนื้อคงเหลือ");
     const spots = "เนื้อคงเหลือแยกตามจุด";
     const balance = (label: string) => rowIn(page, spots, label).getByRole("cell").nth(3);
-    await expect(balance("Chef_house · รอเข้ารอบสโมค")).toHaveText("488.00 กก.");
+    await expect(balance("Chef House · รอเข้ารอบสโมค")).toHaveText("488.00 กก.");
     await expect(balance("Foodiva · เนื้อดิบ")).toHaveText("0.00 กก.");
     await expect(balance("Foodiva · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)")).toHaveText("0.00 กก.");
     await expect(balance("Owner · เนื้อส่วนที่รับแล้ว (Waste)")).toHaveText("10.00 กก.");
@@ -549,29 +549,29 @@ test("C1–C13 จัดซื้อ → รมควัน → ขนส่ง�
     await expect(rowIn(page, history, "ชั่งรับเนื้อจริง")).toContainText("488.00 กก.");
     await expect(rowIn(page, history, "รับเนื้อส่วนที่เหลือจาก Foodiva")).toContainText("10.00 กก. · Owner QA");
   });
-  await step(page, "Owner: C13 เอกสารและ Traceability: Invoice Foodiva 500 · PO รมควัน 490 · Invoice Chef_house ชำระแล้ว · ใบขนส่ง TR 490 · รับที่ Chef_house 488", async () => {
+  await step(page, "Owner: C13 เอกสารและ Traceability: Invoice Foodiva 500 · PO รมควัน 490 · Invoice Chef House ชำระแล้ว · ใบขนส่ง TR 490 · รับที่ Chef House 488", async () => {
     await tab(page, "เอกสารและ Traceability");
     const row = registerRow(page);
     await expect(row).toContainText("ก่อนสโมค");
-    await expect(row).toContainText("Invoice Chef_house · CH-INV-C7");
-    await expect(row).toContainText("Foodiva → Chef_house");
+    await expect(row).toContainText("Invoice Chef House · CH-INV-C7");
+    await expect(row).toContainText("Foodiva → Chef House");
     await pointAndClick(page, row.getByRole("button", { name: "ดู", exact: true }));
     const cells = (label: string) => traceDetail(page, label).getByRole("cell");
     await expect(cells("Invoice Foodiva").nth(1)).toHaveText("FD-INV-C4");
     await expect(cells("Invoice Foodiva").nth(3)).toHaveText("ยืนยัน 500.00 กก.");
     await expect(cells("PO โรงรมควัน").nth(1)).toHaveText(SO);
     await expect(cells("PO โรงรมควัน").nth(3)).toHaveText("490.00 กก.");
-    await expect(cells("Invoice Chef_house").nth(1)).toHaveText("CH-INV-C7");
-    await expect(cells("Invoice Chef_house").nth(3)).toHaveText("ชำระแล้ว");
-    await expect(cells("ใบขนส่งไป Chef_house").nth(1)).toHaveText(TR);
-    await expect(cells("ใบขนส่งไป Chef_house").nth(3)).toHaveText("490.00 กก.");
-    await expect(cells("รับที่ Chef_house").nth(1)).toHaveText("488.00 กก.");
-    await expect(cells("รับที่ Chef_house").nth(3)).toHaveText("รับแล้ว");
+    await expect(cells("Invoice Chef House").nth(1)).toHaveText("CH-INV-C7");
+    await expect(cells("Invoice Chef House").nth(3)).toHaveText("ชำระแล้ว");
+    await expect(cells("ใบขนส่งไป Chef House").nth(1)).toHaveText(TR);
+    await expect(cells("ใบขนส่งไป Chef House").nth(3)).toHaveText("490.00 กก.");
+    await expect(cells("รับที่ Chef House").nth(1)).toHaveText("488.00 กก.");
+    await expect(cells("รับที่ Chef House").nth(3)).toHaveText("รับแล้ว");
   });
-  await step(page, "Foodiva: C13 PO และสต๊อก: คงเหลือ Foodiva 0 · สถานะส่งให้ Chef_house แล้ว", async () => {
+  await step(page, "Foodiva: C13 PO และสต๊อก: คงเหลือ Foodiva 0 · สถานะส่งให้ Chef House แล้ว", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
     const row = rowIn(page, "PO เนื้อที่ต้องออก Invoice", LOT);
-    await expect(row).toContainText("ส่งให้ Chef_house แล้ว");
+    await expect(row).toContainText("ส่งให้ Chef House แล้ว");
     await expect(row.getByRole("cell").nth(6)).toHaveText("0.00 กก.");
     await expect(stat(page, "เนื้อดิบคงเหลือ Foodiva")).toContainText("0.00 กก.");
   });
@@ -604,7 +604,7 @@ test("E2E-C2: หน้า Foodiva แสดงเนื้อรอ Owner ร�
   });
 });
 
-test("E2E-C3: Chef_house รับเนื้อ 300 จากที่ส่ง 500 (เกิน tolerance 20 %) ต้องกรอกเหตุผลส่วนต่าง (C10)", async ({
+test("E2E-C3: Chef House รับเนื้อ 300 จากที่ส่ง 500 (เกิน tolerance 20 %) ต้องกรอกเหตุผลส่วนต่าง (C10)", async ({
   page,
 }) => {
   test.fail(
@@ -626,7 +626,7 @@ test("E2E-C3: Chef_house รับเนื้อ 300 จากที่ส่�
     await ownerReviewsAndPays(page);
     await ownerDispatches(page, "500");
   });
-  await step(page, "Chef_house: C10 รับ 300 จาก 500 → กรอกเหตุผลส่วนต่าง", async () => {
+  await step(page, "Chef House: C10 รับ 300 จาก 500 → กรอกเหตุผลส่วนต่าง", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "ยืนยันรับเนื้อ");
     await pointAndClick(page, rowIn(page, "Lot ที่รอยืนยันรับ", LOT).getByRole("button", { name: "ยืนยันรับเนื้อ" }));
@@ -635,7 +635,7 @@ test("E2E-C3: Chef_house รับเนื้อ 300 จากที่ส่�
   });
 });
 
-test("E2E-C4: Chef_house \"ดู PO รมควัน\" แสดงเลข PO รมควันที่บันทึกแล้ว ไม่ใช่เลขฉบับร่างถัดไป (C6)", async ({
+test("E2E-C4: Chef House \"ดู PO รมควัน\" แสดงเลข PO รมควันที่บันทึกแล้ว ไม่ใช่เลขฉบับร่างถัดไป (C6)", async ({
   page,
 }) => {
   test.setTimeout(5 * 60_000);
@@ -648,7 +648,7 @@ test("E2E-C4: Chef_house \"ดู PO รมควัน\" แสดงเลข 
     await signInAs(page, ACCOUNTS.owner);
     await ownerIssuesSmokePo(page, "500");
   });
-  await step(page, "Chef_house: C6 ดู PO รมควัน → เลขเอกสาร SO-…-0001 ไม่ใช่ฉบับร่าง", async () => {
+  await step(page, "Chef House: C6 ดู PO รมควัน → เลขเอกสาร SO-…-0001 ไม่ใช่ฉบับร่าง", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await tab(page, "งานผลิต");
     const row = rowIn(page, "รายการ Lot ทั้งหมด", LOT);

@@ -107,12 +107,12 @@ export function EntryDetails({
               บันทึกย้อนหลัง
             </Badge>
           )}
-          {/* The review's outcome and note to Chef_house, readable without expanding. */}
+          {/* The review's outcome and note to Chef House, readable without expanding. */}
           {e.kind === "invoiceReview" && (
             <small>
               {e.values.decision}
               {e.values.comment?.trim() &&
-                ` · หมายเหตุถึง Chef_house: ${e.values.comment.trim()}`}
+                ` · หมายเหตุถึง Chef House: ${e.values.comment.trim()}`}
             </small>
           )}
         </span>

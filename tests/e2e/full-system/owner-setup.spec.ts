@@ -249,7 +249,7 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
     });
   });
 
-  await step(page, "Owner: B1 ข้อมูลใบ PO (โลโก้ Foodiva Chef_house)", async () => {
+  await step(page, "Owner: B1 ข้อมูลใบ PO (โลโก้ Foodiva Chef House)", async () => {
     await editSection(page, S_DOCS, async () => {
       await page
         .getByLabel("อัปโหลดโลโก้ NerdNuea")

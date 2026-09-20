@@ -71,7 +71,7 @@ export function AppSidebar({
           </Fragment>
         ))}
       </nav>
-      <div className="mt-auto flex items-center gap-2.5 border-t border-border px-2.5 pt-3 pb-0.5 max-md:mt-3 max-md:px-0 max-md:pt-2.5 max-md:pb-0">
+      <div className="mt-auto flex items-center gap-2.5 border-t border-border pt-3 pb-0.5 max-md:mt-3 max-md:pt-2.5 max-md:pb-0">
         <span className="grid size-8.5 flex-none place-items-center rounded-md bg-accent-subtle text-accent">
           <account.icon size={18} />
         </span>

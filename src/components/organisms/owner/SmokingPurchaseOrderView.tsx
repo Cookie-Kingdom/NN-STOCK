@@ -26,7 +26,7 @@ const columns = [
   "Invoice Foodiva",
   "น้ำหนักสั่งรม",
   "อัตราค่ารม",
-  "Chef_house รับ PO",
+  "Chef House รับ PO",
   "ใบวางบิล",
   "การทำงาน",
 ];
@@ -51,10 +51,10 @@ export function SmokingPurchaseOrderView({
       <PanelHeading
         overline="CHEF_HOUSE SERVICE PO"
         title="ใบสั่ง PO โรงรมควัน"
-        description="Owner ออก PO รมควันหลัง Foodiva ออก Invoice แล้ว Chef_house ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ"
+        description="Owner ออก PO รมควันหลัง Foodiva ออก Invoice แล้ว Chef House ต้องกดยืนยันรับ PO และ Submit ใบวางบิลก่อน Owner เรียกรถไปรับเนื้อ"
         aside={
           <Stat
-            label="PO รอยืนยันจาก Chef_house"
+            label="PO รอยืนยันจาก Chef House"
             value={`${waitingForChefHouse} ใบ`}
           />
         }
@@ -71,7 +71,7 @@ export function SmokingPurchaseOrderView({
           const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
           const invoiceStatus = invoice
             ? smokingInvoiceStatus(db, invoice)
-            : "รอ Chef_house Submit";
+            : "รอ Chef House Submit";
           return [
             <PoLotCell key="lot" poId={lot.poId} lotId={lot.id} />,
             lotIssueDate(db, lot),
@@ -89,7 +89,7 @@ export function SmokingPurchaseOrderView({
             ),
             invoice
               ? `${invoice.values.invoiceNumber} · ${invoiceStatus}`
-              : "รอ Chef_house",
+              : "รอ Chef House",
             <ButtonRow key="actions">
               {!order ? (
                 <Button

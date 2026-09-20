@@ -467,7 +467,7 @@ export function EntryForm({
             )}
             {kind === "foodivaConfirm" && (
               <Notice>
-                แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef_house
+                แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef House
                 ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste)
                 ต้องรวมเท่ากับน้ำหนักตาม Invoice
               </Notice>

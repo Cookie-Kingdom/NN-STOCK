@@ -25,7 +25,7 @@ function nextSave(page: Page) {
 }
 
 /** Drives one 500 kg lot to stage 5 (smoked, not closed): the only stage where
- * Chef_house may use "Edit ข้อมูลก่อนปิด Lot". Same steps as full-loop.spec.ts. */
+ * Chef House may use "Edit ข้อมูลก่อนปิด Lot". Same steps as full-loop.spec.ts. */
 async function lotReadyToClose(page: Page) {
   await signInAs(page, ACCOUNTS.owner);
   await ownerCreatesMeatPo(page, "500");
@@ -37,7 +37,7 @@ async function lotReadyToClose(page: Page) {
   await signInAs(page, ACCOUNTS.chef);
   await button(page, "งานผลิต");
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
   await button(page, "สร้าง / Submit ใบวางบิล");
   await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
@@ -93,7 +93,7 @@ async function lotReadyToClose(page: Page) {
   await saveEntry(page);
 }
 
-test("บัก 1: Chef_house แก้ข้อมูลก่อนปิด Lot แล้วบันทึกได้ และค่าที่แก้ขึ้นใน Log เนื้อคงเหลือ", async ({
+test("บัก 1: Chef House แก้ข้อมูลก่อนปิด Lot แล้วบันทึกได้ และค่าที่แก้ขึ้นใน Log เนื้อคงเหลือ", async ({
   page,
 }) => {
   await startFresh(page);

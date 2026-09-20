@@ -12,7 +12,7 @@ import {
 
 /* Lane F (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): the read-only
  * screens — dashboard, stock, meat log, traceability, report, history, the
- * Foodiva/Chef_house/branch read views — on the seven-day sample set, and every
+ * Foodiva/Chef House/branch read views — on the seven-day sample set, and every
  * tab of every account on the empty seed. Expected numbers are derived from
  * roleplay() in src/lib/store.ts (7 days, 2 branches):
  *   lot: 50 kg @ 250 (12,500) + smoke 50 × 220 (11,000) + round trip 2,000 = 25,500 → 510 / kg
@@ -125,7 +125,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     });
   });
 
-  test("F2 สต๊อกของทั้งหมด: เนื้อ ข้าว น้ำพริก วัสดุ ตรงกับหน้าสต๊อกของ Chef_house และสาขา", async ({
+  test("F2 สต๊อกของทั้งหมด: เนื้อ ข้าว น้ำพริก วัสดุ ตรงกับหน้าสต๊อกของ Chef House และสาขา", async ({
     page,
   }) => {
     await step(page, "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Owner เข้าสู่ระบบ", () =>
@@ -141,7 +141,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           rowIn(page, all, new RegExp(`เนื้อรมควัน\\s*${branch}`)),
         ).toContainText(/14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
       await expect(
-        rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef_house\s*Foodiva/),
+        rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef House\s*Foodiva/),
       ).toContainText(/0\.00\s*กก\./);
       await expectCleanNumbers(page);
     });
@@ -165,11 +165,11 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       ).toContainText(/280\.00 หลอด\s*฿20\.00\s*฿5,600\.00/);
     });
 
-    await step(page, "Chef_house: หน้าสต๊อก ก่อนสโมค 50 · รอผลิต 0 · หลังรม 50", async () => {
+    await step(page, "Chef House: หน้าสต๊อก ก่อนสโมค 50 · รอผลิต 0 · หลังรม 50", async () => {
       await signInAs(page, "chef");
       await tab(page, "สต๊อก");
       await expect(
-        rowIn(page, "สต๊อกและงานผลิต Chef_house", LOT),
+        rowIn(page, "สต๊อกและงานผลิต Chef House", LOT),
       ).toContainText(/50\.00 กก\.\s*0\.00 กก\.\s*50\.00 กก\.\s*จัดสรร \/ ขาย/);
     });
 
@@ -218,7 +218,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
             .filter({ has: page.getByRole("cell", { name: branch, exact: true }) }),
         ).toContainText(/14\.35 กก\.\s*แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
       await expect(rowIn(page, points, "คลังกลาง Owner")).toContainText("0.00 กก.");
-      await expect(rowIn(page, points, "Chef_house · เนื้อรมพร้อมเรียกรถ")).toContainText("0.00 กก.");
+      await expect(rowIn(page, points, "Chef House · เนื้อรมพร้อมเรียกรถ")).toContainText("0.00 กก.");
       await expectCleanNumbers(page);
     });
 
@@ -273,7 +273,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       await tab(page, "เอกสารและ Traceability");
       await expect(tableSection(page, register)).toContainText("1 รายการ");
       await expect(rowIn(page, register, LOT)).toContainText(
-        new RegExp(`จัดสรร / ขาย\\s*${PO}\\s*${LOT}\\s*${FIRST_DAY}\\s*ใบขนส่งกลับ · 50\\.00 กก\\.\\s*Chef_house → Foodiva\\s*Owner`),
+        new RegExp(`จัดสรร / ขาย\\s*${PO}\\s*${LOT}\\s*${FIRST_DAY}\\s*ใบขนส่งกลับ · 50\\.00 กก\\.\\s*Chef House → Foodiva\\s*Owner`),
       );
     });
 
@@ -284,9 +284,9 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         ["PO เนื้อ", new RegExp(`${PO}\\s*${FIRST_DAY}\\s*ออกแล้ว`)],
         ["Invoice Foodiva", /INV-DEMO-001\s*\S+\s*ยืนยัน 50\.00 กก\./],
         ["PO โรงรมควัน", new RegExp(`SO-${YEAR}-0001\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`)],
-        ["Invoice Chef_house", /CH-INV-DEMO-001/],
-        ["ใบขนส่งไป Chef_house", new RegExp(`TR-${YEAR}-\\d{4}\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`)],
-        ["รับที่ Chef_house", /50\.00 กก\.\s*\S+\s*รับแล้ว/],
+        ["Invoice Chef House", /CH-INV-DEMO-001/],
+        ["ใบขนส่งไป Chef House", new RegExp(`TR-${YEAR}-\\d{4}\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`)],
+        ["รับที่ Chef House", /50\.00 กก\.\s*\S+\s*รับแล้ว/],
         ["Lot สโมครายวัน", /เข้าเตา 50\.00 กก\. · หลังรม 50\.00 กก\. · Waste 0\.00 กก\. · 500 ถุง/],
         ["ผลผลิตหลังรม", /50\.00 กก\. · 500 ถุง\s*บันทึกแล้ว\s*ผลิตแล้ว/],
         ["ใบขนส่งกลับ Foodiva", new RegExp(`TR-${YEAR}-R\\d{4}\\s*\\d{4}-\\d{2}-\\d{2}\\s*50\\.00 กก\\.`)],
@@ -305,12 +305,12 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
             .filter({ has: page.getByRole("cell", { name: type, exact: true }) }),
           type,
         ).toContainText(value);
-      await expect(section).not.toContainText(/รอ Foodiva|รอ Owner ออก PO|รอ Chef_house|รอเรียกรถ|รอยืนยันรับ|รอผลิต|รอจัดสรร|ยังไม่มียอดขาย/);
+      await expect(section).not.toContainText(/รอ Foodiva|รอ Owner ออก PO|รอ Chef House|รอเรียกรถ|รอยืนยันรับ|รอผลิต|รอจัดสรร|ยังไม่มียอดขาย/);
     });
 
     await step(page, "Owner: พรีวิวทุกเอกสาร เปิดหน้าต่างพิมพ์ได้ ไม่มีค่าว่างผิดรูป", async () => {
       const previews = tableSection(page, register).getByRole("button", { name: "พรีวิว / PDF" });
-      // summary + PO, Invoice Foodiva, smoke PO, Invoice Chef_house, outbound, Chef receipt, smoke log, yield, return
+      // summary + PO, Invoice Foodiva, smoke PO, Invoice Chef House, outbound, Chef receipt, smoke log, yield, return
       await expect(previews).toHaveCount(10);
       const titles: string[] = [];
       for (let index = 0; index < 10; index++) {
@@ -459,19 +459,19 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       await tab(page, "ประวัติ");
       await expect(history(page)).toHaveCount(all.filter((e) => e.role === "foodiva").length);
       await expect(history(page)).toHaveCount(2);
-      await expect(main(page)).not.toContainText(/Owner\s*ดูรายละเอียด|ผู้ดูแลสาขา|· Chef_house/);
+      await expect(main(page)).not.toContainText(/Owner\s*ดูรายละเอียด|ผู้ดูแลสาขา|· Chef House/);
     });
 
-    await step(page, "Chef_house: ประวัติเฉพาะรายการของ Chef_house", async () => {
+    await step(page, "Chef House: ประวัติเฉพาะรายการของ Chef House", async () => {
       await signInAs(page, "chef");
       await tab(page, "ประวัติ");
-      // visibleEntries also shows Chef_house the Owner's review of its billing invoice
+      // visibleEntries also shows Chef House the Owner's review of its billing invoice
       // (the reject reason, QA round 7 BUG-H), and nothing else from other roles.
       const own = all.filter((e) => e.role === "cm");
       const reviews = all.filter((e) => e.kind === "invoiceReview");
       expect(reviews).toHaveLength(1);
       await expect(history(page)).toHaveCount(own.length + reviews.length);
-      await expect(history(page).filter({ hasText: "· Chef_house" })).toHaveCount(own.length);
+      await expect(history(page).filter({ hasText: "· Chef House" })).toHaveCount(own.length);
       await expect(history(page).filter({ hasText: "ตรวจยอด Invoice ค่ารมควัน" })).toHaveCount(reviews.length);
     });
 
@@ -488,7 +488,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     });
   });
 
-  test("F7 มุมมองอ่านของ Foodiva, Chef_house และสรุปสาขา ตรงกับวันปิดล่าสุด", async ({
+  test("F7 มุมมองอ่านของ Foodiva, Chef House และสรุปสาขา ตรงกับวันปิดล่าสุด", async ({
     page,
   }) => {
     await step(page, "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ", () =>
@@ -505,7 +505,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       await expect(tableSection(page, "เนื้อรมควันรอ Foodiva รับเข้าตู้")).toContainText("0 แถว");
     });
 
-    await step(page, "Chef_house: งานผลิต 500 ถุง ไม่มีเนื้อค้างรอผลิต", async () => {
+    await step(page, "Chef House: งานผลิต 500 ถุง ไม่มีเนื้อค้างรอผลิต", async () => {
       await signInAs(page, "chef");
       await tab(page, "งานผลิต");
       await expect(rowIn(page, "รายการ Lot ทั้งหมด", LOT)).toContainText(
@@ -575,7 +575,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         "Log เนื้อคงเหลือ", "เอกสารและ Traceability", "รายงาน", "Log", "ตั้งค่า",
       ]],
       ["foodiva", "Foodiva", ["PO และสต๊อก Foodiva", "ประวัติ"]],
-      ["chef", "Chef_house", ["ยืนยันรับเนื้อ", "งานผลิต", "สต๊อก", "ประวัติ"]],
+      ["chef", "Chef House", ["ยืนยันรับเนื้อ", "งานผลิต", "สต๊อก", "ประวัติ"]],
       ["saladaeng", "สาขาศาลาแดง", ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]],
       ["minburi", "สาขามีนบุรี", ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]],
     ];

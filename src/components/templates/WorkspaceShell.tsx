@@ -57,7 +57,11 @@ export function WorkspaceShell({
   children,
 }: Props) {
   return (
-    <div className="min-h-screen bg-bg text-body text-text-primary">
+    /* A column that fills the viewport, so the nav/main row below is stretched to
+     * the bottom of the screen. Without it the row is only as tall as whichever
+     * column holds more, and a short page (the chef's, most days) leaves the
+     * sidebar ending mid-screen with its sign-out block floating there. */
+    <div className="flex min-h-screen flex-col bg-bg text-body text-text-primary">
       <AppHeader
         actions={
           notifications && (
@@ -70,7 +74,7 @@ export function WorkspaceShell({
           )
         }
       />
-      <div className="grid grid-cols-[218px_minmax(0,1fr)] max-[1100px]:grid-cols-[205px_minmax(0,1fr)] max-md:block">
+      <div className="grid flex-1 grid-cols-[218px_minmax(0,1fr)] max-[1100px]:grid-cols-[205px_minmax(0,1fr)] max-md:block">
         <AppSidebar
           account={account}
           nav={nav}

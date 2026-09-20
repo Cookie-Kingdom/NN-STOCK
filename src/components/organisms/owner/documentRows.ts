@@ -61,7 +61,7 @@ export function foodivaInvoiceRows(
   ];
 }
 
-/** Chef_house smoking invoice (`smokingInvoice` entry). */
+/** Chef House smoking invoice (`smokingInvoice` entry). */
 export function smokingInvoiceRows(
   db: Database,
   lot: Lot,
@@ -72,7 +72,7 @@ export function smokingInvoiceRows(
     ["วันที่ Invoice", invoice.values.invoiceDate],
     ["PO โรงรมควัน", order?.values.orderNumber || "—"],
     ["Lot เนื้อ", lot.id],
-    ["ผู้ให้บริการ", invoice.values.serviceProvider || "Chef_house"],
+    ["ผู้ให้บริการ", invoice.values.serviceProvider || "Chef House"],
     ["น้ำหนักคิดค่าบริการ", `${fmt(n(invoice.values, "serviceQuantity"))} กก.`],
     ["ยอดสุทธิ", `฿${fmt(n(invoice.values, "netPayable"))}`],
     ["สถานะ", smokingInvoiceStatus(db, invoice)],
@@ -96,7 +96,7 @@ export function smokeOrderPrintRows(
     ["โทร.", db.config.companyPhone || "—"],
     ["Tax ID", db.config.taxId || "—"],
     ["โลโก้", db.config.logoData || ""],
-    ["Supplier", order.values.smoker || "Chef_house"],
+    ["Supplier", order.values.smoker || "Chef House"],
     ["ผู้รับออเดอร์", db.config.chefHouseContact || "—"],
     ["ที่อยู่ผู้ให้บริการ", db.config.chefHouseAddress || "—"],
     ["วันที่ PO", order.values.requestedSmokeDate || order.date],
@@ -123,7 +123,7 @@ export function smokeOrderTraceRows(
 ): DocumentRows {
   return [
     ["วันที่ PO", order.date],
-    ["Supplier", order.values.smoker || "Chef_house"],
+    ["Supplier", order.values.smoker || "Chef House"],
     ["ลูกค้า", lot.values.customerName],
     ["ที่อยู่", lot.values.customerAddress],
     ["Attention", lot.values.attention],

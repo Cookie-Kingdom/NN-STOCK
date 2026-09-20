@@ -15,7 +15,7 @@ import {
   startFresh,
 } from "./helpers";
 
-test("Chef_house รับ PO รมควันแล้ว Submit ใบวางบิลให้ Owner ตรวจ", async ({
+test("Chef House รับ PO รมควันแล้ว Submit ใบวางบิลให้ Owner ตรวจ", async ({
   page,
 }) => {
   await startFresh(page);
@@ -32,7 +32,7 @@ test("Chef_house รับ PO รมควันแล้ว Submit ใบวา
   await expect(page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" })).toBeVisible();
 
   await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
 
   await button(page, "สร้าง / Submit ใบวางบิล");
@@ -56,7 +56,7 @@ test("Chef_house รับ PO รมควันแล้ว Submit ใบวา
   await expect(page.locator("main")).toContainText("รอตรวจยอด");
 });
 
-test("Chef_house เห็นเฉพาะเมนูและงานของฝ่ายผลิต", async ({ page }) => {
+test("Chef House เห็นเฉพาะเมนูและงานของฝ่ายผลิต", async ({ page }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.chef);
 

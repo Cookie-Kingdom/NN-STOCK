@@ -11,7 +11,7 @@ const meta = {
   title: "Organisms/Dialog",
   component: Dialog,
   tags: ["!autodocs"],
-  args: { title: "รับเนื้อเข้า", overline: "Chef_house", onClose: () => {} },
+  args: { title: "รับเนื้อเข้า", overline: "Chef House", onClose: () => {} },
   argTypes: {
     size: {
       control: "select",

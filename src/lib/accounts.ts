@@ -41,7 +41,7 @@ export const accounts: Account[] = [
   {
     id: "chef",
     role: "cm",
-    name: "Chef_house",
+    name: "Chef House",
     title: "ฝ่ายผลิต · เชียงใหม่",
     summary: "รับเนื้อ ผลิต และส่งมอบสต๊อกกลับส่วนกลาง",
     path: "/chef",

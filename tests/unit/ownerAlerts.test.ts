@@ -39,12 +39,12 @@ test("a lot's notification follows its next missing document", () => {
   expect(alerts().badges["smoke-po"]).toBe(1);
   s.run("owner", "smokeOrder", {
     requestedSmokeDate: day,
-    smoker: "Chef_house",
+    smoker: "Chef House",
     rawKg: "40",
   });
-  expect(first().title).toMatch(/^รอ Chef_house ยืนยัน PO/);
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house" });
-  expect(first().title).toMatch(/^รอ Chef_house Submit Invoice/);
+  expect(first().title).toMatch(/^รอ Chef House ยืนยัน PO/);
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  expect(first().title).toMatch(/^รอ Chef House Submit Invoice/);
   s.run("cm", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
@@ -63,7 +63,7 @@ test("a lot's notification follows its next missing document", () => {
     paidAmount: "8800",
   });
   expect(first()).toMatchObject({
-    title: "พร้อมทำใบขนส่งไป Chef_house · F260909-001",
+    title: "พร้อมทำใบขนส่งไป Chef House · F260909-001",
     tab: "transport",
   });
 });
@@ -74,7 +74,7 @@ test("after smoking the owner is sent to transport, central receive and allocati
   const afterClose = ownerAlerts(closed.db);
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({
-    title: "Chef_house ปิด Lot แล้ว · F260909-001",
+    title: "Chef House ปิด Lot แล้ว · F260909-001",
     detail: "เรียกรถขากลับ 36.00 กก. · 360 ถุง",
     tab: "transport",
   });

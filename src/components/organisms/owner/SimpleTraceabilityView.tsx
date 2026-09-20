@@ -203,18 +203,18 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   const latestDocument = returnTrip
                     ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
                     : chefInvoice
-                      ? `Invoice Chef_house · ${chefInvoice.values.invoiceNumber}`
+                      ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
                       : smokeOrder
                         ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
                         : foodInvoice
                           ? `Invoice Foodiva · ${foodInvoice.values.invoiceNo}`
                           : "รอ Invoice Foodiva";
                   const route = returnTrip
-                    ? "Chef_house → Foodiva"
+                    ? "Chef House → Foodiva"
                     : lot.stage >= 2 && lot.stage <= 5
-                      ? "Foodiva → Chef_house"
+                      ? "Foodiva → Chef House"
                       : lot.stage >= 6
-                        ? "Chef_house → Foodiva"
+                        ? "Chef House → Foodiva"
                         : "Foodiva · รอเริ่มขนส่ง";
                   const foodivaFile = uploadedAttachment(
                     db,
@@ -294,12 +294,12 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ),
                     ],
                     [
-                      "Invoice Chef_house",
+                      "Invoice Chef House",
                       chefInvoice?.values.invoiceNumber || "—",
                       chefInvoice?.values.invoiceDate || "—",
                       chefInvoice
                         ? smokingInvoiceStatus(db, chefInvoice)
-                        : "รอ Chef_house Submit",
+                        : "รอ Chef House Submit",
                       chefFile ? (
                         <AttachmentViewButton
                           key="chef-file"
@@ -309,7 +309,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ) : chefInvoice ? (
                         <DocumentPreview
                           key="chef-invoice"
-                          title="Invoice Chef_house"
+                          title="Invoice Chef House"
                           number={chefInvoice.values.invoiceNumber || lot.poId}
                           rows={smokingInvoiceRows(
                             db,
@@ -323,7 +323,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ),
                     ],
                     [
-                      "ใบขนส่งไป Chef_house",
+                      "ใบขนส่งไป Chef House",
                       dispatch?.values.transferNumber || "—",
                       dispatch?.values.pickupDate || "—",
                       dispatch
@@ -345,7 +345,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       ),
                     ],
                     [
-                      "รับที่ Chef_house",
+                      "รับที่ Chef House",
                       chefReceive
                         ? `${fmt(n(chefReceive.values, "receivedKg"))} กก.`
                         : "—",
@@ -354,7 +354,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       chefReceive ? (
                         <DocumentPreview
                           key="chef-receive"
-                          title="ใบยืนยันรับเนื้อ Chef_house"
+                          title="ใบยืนยันรับเนื้อ Chef House"
                           number={`RCV-${lot.id}`}
                           rows={[
                             ["PO", lot.poId],
@@ -417,7 +417,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง`
                         : "—",
                       produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต",
-                      produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef_house",
+                      produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef House",
                       smokeEntries.length ? (
                         <DocumentPreview
                           key="yield"
@@ -583,7 +583,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                     smokeOrder?.values.orderNumber || "—",
                                   ],
                                   [
-                                    "Invoice Chef_house",
+                                    "Invoice Chef House",
                                     chefInvoice?.values.invoiceNumber || "—",
                                   ],
                                   [

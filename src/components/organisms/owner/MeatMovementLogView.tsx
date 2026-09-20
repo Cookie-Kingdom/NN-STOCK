@@ -48,22 +48,22 @@ const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
       `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`,
     ],
     dispatch: (entry) => [
-      "Foodiva → Chef_house",
+      "Foodiva → Chef House",
       "ส่งเนื้อดิบ",
       `${fmt(n(entry.values, "dispatchKg"))} กก.`,
     ],
     cmReceive: (entry) => [
-      "Chef_house",
+      "Chef House",
       "ชั่งรับเนื้อจริง",
       `${fmt(n(entry.values, "receivedKg"))} กก.`,
     ],
     smoke: (entry) => [
-      "Chef_house",
+      "Chef House",
       `สโมครอบ ${entry.values.subLot || "—"}`,
       `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
     ],
     return: (entry) => [
-      "Chef_house → Foodiva",
+      "Chef House → Foodiva",
       "เรียกรถขากลับ",
       `${fmt(n(entry.values, "returnKg"))} กก.`,
     ],
@@ -123,7 +123,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         lot.id,
         "Foodiva · เนื้อดิบ",
         `${fmt(rawAtFoodiva(db, lot))} กก.`,
-        "คงเหลือจาก PO ก่อนส่ง Chef_house",
+        "คงเหลือจาก PO ก่อนส่ง Chef House",
       ],
       [
         lot.poId,
@@ -142,21 +142,21 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       [
         lot.poId,
         lot.id,
-        "Chef_house · รอเข้ารอบสโมค",
+        "Chef House · รอเข้ารอบสโมค",
         `${fmt(rawAtSmoker(db, lot))} กก.`,
         "น้ำหนักรับจริง หัก Waste ก่อนสโมค และรอบที่สโมคแล้ว",
       ],
       [
         lot.poId,
         lot.id,
-        "Chef_house · Waste ก่อนสโมค",
+        "Chef House · Waste ก่อนสโมค",
         `${fmt(preSmokeTrimKg(db, lot))} กก.`,
         "น้ำหนักรับจริง หักน้ำหนักก่อนสโมค (ตัดแต่ง)",
       ],
       [
         lot.poId,
         lot.id,
-        "Chef_house · เนื้อรมพร้อมเรียกรถ",
+        "Chef House · เนื้อรมพร้อมเรียกรถ",
         `${fmt(chefSmoked)} กก.`,
         chefSmoked > 0 ? `${producedBags(db, lot.id)} ถุง · ปิด Lot แล้ว` : "—",
       ],
@@ -166,7 +166,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         "Foodiva · เนื้อรมควัน",
         `${fmt(foodivaSmoked)} กก.`,
         foodivaSmoked > 0
-          ? "รับจาก Chef_house แล้ว รอ Owner รับเข้าสต๊อกกลาง"
+          ? "รับจาก Chef House แล้ว รอ Owner รับเข้าสต๊อกกลาง"
           : "—",
       ],
       [

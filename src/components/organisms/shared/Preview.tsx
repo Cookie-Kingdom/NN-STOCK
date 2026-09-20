@@ -42,7 +42,7 @@ export function Preview({
     const reserved = n(v, "reservedForOwnerKg");
     rows = [
       ["น้ำหนักตาม Invoice", `${fmt(invoiced)} กก.`],
-      ["พร้อมส่ง Chef_house · เชียงใหม่", `${fmt(ready)} กก.`],
+      ["พร้อมส่ง Chef House · เชียงใหม่", `${fmt(ready)} กก.`],
       ["เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", `${fmt(reserved)} กก.`],
       ["รวมที่แบ่งแล้ว", `${fmt(ready + reserved)} / ${fmt(invoiced)} กก.`],
     ];
@@ -81,7 +81,7 @@ export function Preview({
   }
   if (kind === "cmReceive" && lot)
     rows = [
-      ["การตรวจรับ", "กรอกน้ำหนักจากตาชั่งของ Chef_house"],
+      ["การตรวจรับ", "กรอกน้ำหนักจากตาชั่งของ Chef House"],
       ["การตรวจสอบ", "Owner จะเปรียบเทียบน้ำหนักกับ Foodiva ภายหลัง"],
     ];
   if (kind === "prepare" && lot)
@@ -89,7 +89,7 @@ export function Preview({
   if (kind === "smoke" && lot) {
     const weights = validPackWeights(v.packs);
     rows = [
-      ["ถุงใหญ่จาก Chef_house", `${weights.length} ถุง`],
+      ["ถุงใหญ่จาก Chef House", `${weights.length} ถุง`],
       [
         "น้ำหนักเนื้อหลังรมควัน",
         `${fmt(weights.reduce((s, w) => s + w, 0))} กก.`,

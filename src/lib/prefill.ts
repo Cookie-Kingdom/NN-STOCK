@@ -43,7 +43,7 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
   }
   if (kind === "smokeOrder")
     return {
-      smoker: "Chef_house",
+      smoker: "Chef House",
       rawKg: String(readyForChefHouse(db, lot.id)),
     };
   if (kind === "smokingInvoice")

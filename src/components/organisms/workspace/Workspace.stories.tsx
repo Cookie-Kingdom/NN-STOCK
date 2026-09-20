@@ -9,7 +9,7 @@ import { Toast } from "./Toast";
 const notifications: Notification[] = [
   {
     title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
-    detail: "Chef_house ส่งมอบแล้ว",
+    detail: "Chef House ส่งมอบแล้ว",
     tab: "work",
   },
   { title: "PO-0412 รอออกใบแจ้งหนี้", detail: "Foodiva", tab: "invoices" },

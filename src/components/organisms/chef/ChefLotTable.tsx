@@ -150,7 +150,7 @@ export function ChefLotTable({
   return (
     <>
       <SectionHeading
-        title="Lot งานผลิต Chef_house"
+        title="Lot งานผลิต Chef House"
         description="ดูสถานะและทำงานต่อจากตาราง โดยไม่ต้องเปิดทีละการ์ด"
       />
       <DataTable

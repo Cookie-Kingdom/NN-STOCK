@@ -27,11 +27,11 @@ const labels: Record<
 > = {
   "purchase-order": {
     smokeOrder: "ไปใบสั่ง PO โรงรมควัน",
-    smokingInvoice: "รอ Chef_house Submit ใบวางบิล",
+    smokingInvoice: "รอ Chef House Submit ใบวางบิล",
   },
   transport: {
     smokeOrder: "รอ Owner ออก PO รมควัน",
-    smokingInvoice: "รอ Chef_house Submit Invoice",
+    smokingInvoice: "รอ Chef House Submit Invoice",
   },
 };
 
@@ -62,7 +62,7 @@ export function LotWorkflowAction({
         <Badge tone="danger">{text.smokeOrder}</Badge>
       );
     if (!entries(db, "smokeOrderAccept", lot.id).length)
-      return <Badge tone="danger">รอ Chef_house รับ PO</Badge>;
+      return <Badge tone="danger">รอ Chef House รับ PO</Badge>;
     const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
     if (!invoice) return <Badge tone="danger">{text.smokingInvoice}</Badge>;
     const invoiceStatus = smokingInvoiceStatus(db, invoice);
@@ -83,7 +83,7 @@ export function LotWorkflowAction({
         ? invoiceStatus === "ส่งกลับแก้ไข"
         : invoiceStatus !== "ชำระแล้ว";
     if (waitingForFix)
-      return <Badge tone="danger">รอ Chef_house แก้ Invoice</Badge>;
+      return <Badge tone="danger">รอ Chef House แก้ Invoice</Badge>;
     return (
       <Button variant="table" onClick={() => open("dispatch", lot.id)}>
         {titles.dispatch}
@@ -97,7 +97,7 @@ export function LotWorkflowAction({
         {titles.return} · {fmt(produced(db, lot.id))} กก.
       </Button>
     );
-  if (lot.stage < 6) return <>กำลังดำเนินงานที่ Chef_house</>;
+  if (lot.stage < 6) return <>กำลังดำเนินงานที่ Chef House</>;
   if (lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length)
     return <>รอ Foodiva รับเข้าตู้</>;
   return <>Foodiva รับเข้าตู้แล้ว</>;

@@ -22,9 +22,9 @@ import { fmt } from "@/lib/format";
 const columns = [
   "เลข PO",
   "Lot",
-  "ขาไป · Foodiva → Chef_house",
+  "ขาไป · Foodiva → Chef House",
   "เทียบน้ำหนัก Owner",
-  "ขากลับ · Chef_house → Foodiva",
+  "ขากลับ · Chef House → Foodiva",
   "การทำงาน",
 ];
 
@@ -39,7 +39,7 @@ export function TransportManifestView({
     <>
       <SectionHeading
         title="ใบขนส่งเนื้อ"
-        description="Owner เรียกรถและบันทึกใบขนส่งทั้ง Foodiva → Chef_house และ Chef_house → Foodiva"
+        description="Owner เรียกรถและบันทึกใบขนส่งทั้ง Foodiva → Chef House และ Chef House → Foodiva"
       />
       <DataTable
         title="รายการขนส่งตาม Lot"
@@ -78,7 +78,7 @@ export function TransportManifestView({
               <span key={`${lot.id}-owner-check`}>
                 <strong>ส่งจาก Foodiva:</strong> {fmt(foodivaKg)} กก.
                 <br />
-                <strong>Chef_house:</strong> {fmt(chefKg)} กก.
+                <strong>Chef House:</strong> {fmt(chefKg)} กก.
                 <br />
                 <Badge
                   tone={Math.abs(difference) > 0.001 ? "danger" : "success"}
@@ -87,7 +87,7 @@ export function TransportManifestView({
                 </Badge>
               </span>
             ) : (
-              "รอ Chef_house ชั่งรับ"
+              "รอ Chef House ชั่งรับ"
             ),
             back ? (
               <ButtonRow key={`${lot.id}-return`}>
@@ -101,7 +101,7 @@ export function TransportManifestView({
                 />
               </ButtonRow>
             ) : lot.stage < 6 ? (
-              "รอ Chef_house ปิด Lot"
+              "รอ Chef House ปิด Lot"
             ) : (
               `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`
             ),

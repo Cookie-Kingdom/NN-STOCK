@@ -77,7 +77,7 @@ export function InvoiceView({
       <PanelHeading
         overline="INVOICE CENTER"
         title="ใบ Invoice"
-        description="Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef_house แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO"
+        description="Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef House แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO"
         aside={
           <Stat label="Invoice รอตรวจยอด" value={`${waitingForReview} ใบ`} />
         }
@@ -119,7 +119,7 @@ export function InvoiceView({
         })}
       />
       <DataTable
-        title="Invoice Chef_house"
+        title="Invoice Chef House"
         defaultSort={{ column: "วันที่ Invoice", desc: true }}
         columns={chefHouseColumns}
         rowKeys={smokingInvoices.map((entry) => entry.id)}

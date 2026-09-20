@@ -97,7 +97,7 @@ export function referenceDocument(
     smokeInvoice
   )
     return {
-      title: "Invoice Chef_house",
+      title: "Invoice Chef House",
       number: smokeInvoice.values.invoiceNumber || lot.poId,
       rows: smokingInvoiceRows(db, lot, smokeInvoice, order),
       summary: ["PO โรงรมควัน", "น้ำหนักคิดค่าบริการ", "ยอดสุทธิ", "สถานะ"],

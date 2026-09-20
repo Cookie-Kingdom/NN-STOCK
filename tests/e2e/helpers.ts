@@ -244,7 +244,7 @@ export async function foodivaIssuesInvoice(page: Page, kg = "500") {
   await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
   await field(page, /น้ำหนักตาม Invoice/, kg);
   // BR: ส่งไปเชียงใหม่ + เนื้อที่เหลือรอ Owner ต้องรวมเท่ากับน้ำหนักตาม Invoice
-  await field(page, /พร้อมส่งไป Chef_house/, kg);
+  await field(page, /พร้อมส่งไป Chef House/, kg);
   await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "0");
   await field(page, /ยอดรวม Invoice/, "125000");
   await page.locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
@@ -255,7 +255,7 @@ export async function foodivaIssuesInvoice(page: Page, kg = "500") {
 export async function ownerIssuesSmokePo(page: Page, kg = "500") {
   await button(page, "ใบสั่ง PO โรงรมควัน");
   await button(page, "ออก PO รมควันเนื้อ");
-  await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef_house");
+  await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef House");
   await field(page, /Raw Meat Quantity/, kg);
   await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
   await button(page, "บันทึก PO รมควันเนื้อ");
@@ -264,7 +264,7 @@ export async function ownerIssuesSmokePo(page: Page, kg = "500") {
 /* ---- flow steps --------------------------------------------------------- */
 
 /** One named step of a flow spec. Start the title with the actor ("Owner: …",
- * "Foodiva: …", "Chef_house: …", "สาขาศาลาแดง: …") so the flow report
+ * "Foodiva: …", "Chef House: …", "สาขาศาลาแดง: …") so the flow report
  * (scripts/e2e-flow-report.mjs, fed by the JSON reporter) can lay the steps out
  * per role. A viewport screenshot is attached after the body, also when it fails. */
 export async function step(

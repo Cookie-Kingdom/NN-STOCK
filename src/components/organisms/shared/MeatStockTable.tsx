@@ -72,7 +72,7 @@ export function MeatStockTable({
   if (role === "cm")
     return (
       <DataTable
-        title="สต๊อกและงานผลิต Chef_house"
+        title="สต๊อกและงานผลิต Chef House"
         columns={[
           "Lot",
           "ก่อนสโมค",

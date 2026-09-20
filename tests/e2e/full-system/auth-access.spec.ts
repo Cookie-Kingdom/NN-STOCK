@@ -79,9 +79,9 @@ const PROFILES: Record<AccountKey, Profile> = {
     tabs: FOODIVA_TABS,
   },
   chef: {
-    actor: "Chef_house",
+    actor: "Chef House",
     path: "/chef",
-    name: "Chef_house",
+    name: "Chef House",
     title: "ฝ่ายผลิต · เชียงใหม่",
     tabs: CHEF_TABS,
   },

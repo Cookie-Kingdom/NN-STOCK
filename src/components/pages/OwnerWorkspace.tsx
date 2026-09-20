@@ -77,7 +77,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
               </Button>
             }
           >
-            งานใหม่จาก Chef_house · ปิด Lot แล้ว {alerts.returnReady.length}{" "}
+            งานใหม่จาก Chef House · ปิด Lot แล้ว {alerts.returnReady.length}{" "}
             รายการ · ต้องเรียกรถขากลับรวม{" "}
             {fmt(
               alerts.returnReady.reduce(

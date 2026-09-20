@@ -137,7 +137,7 @@ async function reachAllocation(page: Page) {
     await signInAs(page, ACCOUNTS.owner);
     await ownerCreatesMeatPo(page, "500");
   });
-  await step(page, "Foodiva: ออก Invoice 500 กก. พร้อมส่ง Chef_house ทั้งหมด", async () => {
+  await step(page, "Foodiva: ออก Invoice 500 กก. พร้อมส่ง Chef House ทั้งหมด", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
     await foodivaIssuesInvoice(page, "500");
   });
@@ -145,11 +145,11 @@ async function reachAllocation(page: Page) {
     await signInAs(page, ACCOUNTS.owner);
     await ownerIssuesSmokePo(page, "500");
   });
-  await step(page, "Chef_house: ยืนยันรับ PO รมควัน และ Submit ใบวางบิล", async () => {
+  await step(page, "Chef House: ยืนยันรับ PO รมควัน และ Submit ใบวางบิล", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await button(page, "งานผลิต");
     await button(page, "ยืนยันรับ PO รมควัน");
-    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef_house");
+    await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
     await saveEntry(page);
     await button(page, "สร้าง / Submit ใบวางบิล");
     await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
@@ -182,7 +182,7 @@ async function reachAllocation(page: Page) {
     await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
     await saveEntry(page);
   });
-  await step(page, "Chef_house: รับ 500 · ก่อนสโมค 500 · สโมค 5 ถุง × 100 กก. · ปิด Lot", async () => {
+  await step(page, "Chef House: รับ 500 · ก่อนสโมค 500 · สโมค 5 ถุง × 100 กก. · ปิด Lot", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await nav(page, "ยืนยันรับเนื้อ");
     await pointAndClick(
@@ -207,19 +207,19 @@ async function reachAllocation(page: Page) {
     }
     await saveEntry(page);
     await button(page, "ยืนยันปิด Lot");
-    await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef_house");
+    await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
     await saveEntry(page);
   });
   await step(page, "Owner: เรียกรถขากลับ 500 กก.", async () => {
     await signInAs(page, ACCOUNTS.owner);
     await button(page, "ใบขนส่ง");
     await button(page, /เรียกรถขากลับ/);
-    await field(page, /เวลารถรับจาก Chef_house|เวลารถรับ/, "09:00");
+    await field(page, /เวลารถรับจาก Chef House|เวลารถรับ/, "09:00");
     await field(page, /ประเภทรถ/, "รถห้องเย็น");
     await field(page, /ทะเบียนรถ/, "กท 1002");
     await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
     await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-    await field(page, /น้ำหนักส่งจาก Chef_house/, "500");
+    await field(page, /น้ำหนักส่งจาก Chef House/, "500");
     await saveEntry(page);
   });
   await step(page, "Foodiva: ยืนยันรับเข้าตู้ 500 กก. 5 ถุง", async () => {

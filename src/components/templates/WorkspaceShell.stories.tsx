@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { accountById, type Account } from "@/lib/accounts";
-import { branchNav, ownerNav, type NavGroup, type Tab } from "@/lib/nav";
+import {
+  branchNav,
+  chefNav,
+  ownerNav,
+  type NavGroup,
+  type Tab,
+} from "@/lib/nav";
 import { WorkspaceShell, type Notification } from "./WorkspaceShell";
 
 // A template is the page layout with placeholder content; real data lives in Pages/*.
@@ -34,12 +40,14 @@ function Shell({
   badges,
   notifications,
   toast: initialToast = "",
+  children = <Placeholder />,
 }: {
   account: Account;
   nav: NavGroup[];
   badges?: Partial<Record<Tab, number>>;
   notifications?: Notification[];
   toast?: string;
+  children?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>(account.homeTab);
   const [date, setDate] = useState("2026-09-15");
@@ -60,7 +68,7 @@ function Shell({
       toast={toast}
       onCloseToast={() => setToast("")}
     >
-      <Placeholder />
+      {children}
     </WorkspaceShell>
   );
 }
@@ -74,7 +82,7 @@ export const Owner: Story = {
       notifications={[
         {
           title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
-          detail: "Chef_house ส่งมอบแล้ว",
+          detail: "Chef House ส่งมอบแล้ว",
           tab: "central-receive",
         },
         {
@@ -105,4 +113,16 @@ export const WithToast: Story = {
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile1" } },
   render: () => <Shell account={accountById("minburi")!} nav={branchNav} />,
+};
+
+/** The chef's page is often one short panel. The sidebar still has to reach the
+ *  bottom of the screen, or its sign-out block floats in the middle of the page. */
+export const ChefShortPage: Story = {
+  render: () => (
+    <Shell account={accountById("chef")!} nav={chefNav}>
+      <div className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary">
+        ไม่มีล็อตรอรับวันนี้
+      </div>
+    </Shell>
+  ),
 };

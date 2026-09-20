@@ -32,7 +32,7 @@ test("each lot form references the document it builds on, once that document exi
     number: "SO-2026-0001",
   });
   expect(doc(s, "invoiceReview")).toMatchObject({
-    title: "Invoice Chef_house",
+    title: "Invoice Chef House",
     number: "CH-1",
   });
   expect(doc(s, "cmReceive")).toBeUndefined();

@@ -27,7 +27,7 @@ export function PackWeightFields({
     <FieldGroup
       wide
       className="grid gap-2.5"
-      label="น้ำหนักถุงใหญ่จาก Chef_house"
+      label="น้ำหนักถุงใหญ่จาก Chef House"
       hint={
         <span className="-mt-3 block">
           กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”

@@ -20,14 +20,14 @@ export { day };
 /** One lot through every stage, split to both branches, 7 days of sales. */
 export const demoDb: Database = sevenDayRoleplay(day);
 
-/** Lot at stage 1: paid and waiting for dispatch to Chef_house. */
+/** Lot at stage 1: paid and waiting for dispatch to Chef House. */
 export const dispatchDb: Database = (() => {
   const s = setup();
   readyToDispatch(s, "50");
   return s.db;
 })();
 
-/** Lot at stage 5: smoked, waiting for Chef_house to close it. */
+/** Lot at stage 5: smoked, waiting for Chef House to close it. */
 export const smokedDb: Database = smoked().db;
 
 /** Lot at stage 8: 35 kg in central stock, bags ready to allocate. */
@@ -41,20 +41,20 @@ export const confirmedDb: Database = (() => {
   return s.db;
 })();
 
-/** Smoke PO sent to Chef_house, waiting for Chef_house to accept it. */
+/** Smoke PO sent to Chef House, waiting for Chef House to accept it. */
 export const smokeOrderDb: Database = (() => {
   const s = setup();
   purchase(s, "30");
   confirm(s, "30");
   s.run("owner", "smokeOrder", {
     requestedSmokeDate: day,
-    smoker: "Chef_house",
+    smoker: "Chef House",
     rawKg: "30",
   });
   return s.db;
 })();
 
-/** Chef_house's smoking invoice submitted, waiting for the Owner to check the amount. */
+/** Chef House's smoking invoice submitted, waiting for the Owner to check the amount. */
 export const submittedInvoiceDb: Database = (() => {
   const s = setup();
   purchase(s, "30");
@@ -77,7 +77,7 @@ export const acceptedInvoiceDb: Database = (() => {
   return s.db;
 })();
 
-/** A 50 kg lot trucked to Chef_house, then advanced `steps` Chef_house stages further. */
+/** A 50 kg lot trucked to Chef House, then advanced `steps` Chef House stages further. */
 function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
@@ -88,10 +88,10 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   return s.db;
 }
 
-/** Lot at stage 2: on the truck to Chiang Mai, waiting for Chef_house to weigh it in. */
+/** Lot at stage 2: on the truck to Chiang Mai, waiting for Chef House to weigh it in. */
 export const dispatchedDb: Database = chefHouseLot(0);
 
-/** Lot at stage 3: received at Chef_house, waiting for the pre-smoke weight. */
+/** Lot at stage 3: received at Chef House, waiting for the pre-smoke weight. */
 export const cmReceivedDb: Database = chefHouseLot(1);
 
 /** Lot at stage 4: weighed before smoking, waiting for the daily smoke rounds. */
@@ -104,7 +104,7 @@ export const returnTruckDb: Database = (() => {
   s.run("owner", "return", {
     returnDate: day,
     returnTime: "09:00",
-    origin: "Chef_house",
+    origin: "Chef House",
     destination: "Foodiva",
     vehicleType: "รถห้องเย็น",
     plate: "กข123",

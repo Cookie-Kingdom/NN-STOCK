@@ -474,7 +474,7 @@ describe("lot workflow", () => {
     const order = (rawKg: string) =>
       s.run("owner", "smokeOrder", {
         requestedSmokeDate: day,
-        smoker: "Chef_house",
+        smoker: "Chef House",
         rawKg,
       });
     expect(() => order("40")).toThrow(/รอ Foodiva/);
@@ -533,7 +533,7 @@ describe("lot workflow", () => {
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
   });
 
-  test("BUG-H: Chef_house sees the Owner's reason for sending an invoice back, only while it is sent back", () => {
+  test("BUG-H: Chef House sees the Owner's reason for sending an invoice back, only while it is sent back", () => {
     const s = setup();
     purchase(s, "40");
     confirm(s, "40");
@@ -548,7 +548,7 @@ describe("lot workflow", () => {
     expect(
       smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment,
     ).toBe("ยอดคลาดเคลื่อน");
-    // The review shows in Chef_house history; other Owner entries stay hidden.
+    // The review shows in Chef House history; other Owner entries stay hidden.
     const chef = visibleEntries(s.db, "cm");
     expect(chef.map((e) => e.kind)).toContain("invoiceReview");
     expect(chef.some((e) => e.role === "owner" && e.kind !== "invoiceReview")).toBe(false);
@@ -804,7 +804,7 @@ describe("lot workflow", () => {
     s.run("owner", "return", {
       returnDate: day,
       returnTime: "09:00",
-      origin: "Chef_house",
+      origin: "Chef House",
       destination: "Foodiva",
       vehicleType: "รถห้องเย็น",
       plate: "กข123",

@@ -20,7 +20,7 @@ export default meta;
 type Story = StoryObj;
 
 const title = "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง";
-const detail = "Chef_house ส่งมอบแล้ว 2 วัน";
+const detail = "Chef House ส่งมอบแล้ว 2 วัน";
 
 export const Card: Story = {
   render: () => (

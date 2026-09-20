@@ -28,7 +28,7 @@ export type Database = {
 export const roleName = {
   owner: "Owner",
   foodiva: "Foodiva",
-  cm: "Chef_house",
+  cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
 export const materials = [
@@ -43,12 +43,12 @@ export const materials = [
 export const branches = ["ศาลาแดง", "มีนบุรี"];
 export const stages = [
   "รอ Invoice จาก Foodiva",
-  "ขนส่ง Foodiva → Chef_house",
-  "รับที่ Chef_house",
+  "ขนส่ง Foodiva → Chef House",
+  "รับที่ Chef House",
   "ก่อนสโมค",
   "บันทึกสโมค",
   "ปิด Lot",
-  "ขนส่ง Chef_house → Foodiva",
+  "ขนส่ง Chef House → Foodiva",
   "Foodiva รับเนื้อรมควัน",
   "จัดสรร / ขาย",
 ];
@@ -86,7 +86,7 @@ export const titles: Record<string, string> = {
   foodivaConfirm: "ออกและอัปโหลด Invoice เนื้อ",
   foodivaReturnReceive: "ยืนยันรับเข้าตู้ที่ Foodiva",
   dispatch: "ทำใบขนส่งขาไป",
-  cmReceive: "ยืนยันรับเนื้อที่ Chef_house",
+  cmReceive: "ยืนยันรับเนื้อที่ Chef House",
   prepare: "น้ำหนักก่อนสโมค",
   smoke: "บันทึก Lot สโมครายวัน",
   closeLot: "ยืนยันปิด Lot",
@@ -211,9 +211,9 @@ function roleplay(endDate: string, dayCount: number): Database {
   });
   const lotId = db.lots[0].id;
   run("foodiva", "foodivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, lotId);
-  run("owner", "smokeOrder", { smoker: "Chef_house", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
-  run("cm", "smokeOrderAccept", { acceptedBy: "Chef_house Demo" }, lotId);
-  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef_house", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
+  run("owner", "smokeOrder", { smoker: "Chef House", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
+  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef House", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
   const chefInvoice = db.entries.at(-1)?.id || "";
   run("owner", "invoiceReview", { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" }, lotId);
   run("owner", "invoicePayment", { invoiceId: chefInvoice, paymentDate: dates[0], paidAmount: String(smokingAmount * 1.04), paidBy: "Owner", paymentReference: "DEMO-PAY-001" }, lotId);
@@ -221,7 +221,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     dispatchKg: String(rawKg),
     pickupDate: dates[0],
     origin: "Foodiva · กรุงเทพฯ",
-    destination: "Chef_house · เชียงใหม่",
+    destination: "Chef House · เชียงใหม่",
     trip: "ไปกลับ",
     pickupTime: "06:30",
     vehicleType: "รถห้องเย็น",
@@ -237,8 +237,8 @@ function roleplay(endDate: string, dayCount: number): Database {
     wasteKg: "0",
     packs,
   }, lotId);
-  run("cm", "closeLot", { confirm: "Chef_house" }, lotId);
-  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef_house · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
+  run("cm", "closeLot", { confirm: "Chef House" }, lotId);
+  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef House · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
   run("foodiva", "foodivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
   const firstBags = availableBags(db, lotId);
@@ -487,7 +487,7 @@ export function ownerWasteReceived(db: Database, lotId: string) {
 export function ownerWasteOutstanding(db: Database, lotId: string) {
   return Math.max(0, reservedForOwnerContent(db, lotId) - ownerWasteReceived(db, lotId));
 }
-/** Trim between what Chef_house weighed in and what went to pre-smoke prep. It is
+/** Trim between what Chef House weighed in and what went to pre-smoke prep. It is
  * loss, not stock: without naming it the remainder sat at the smoker forever. */
 export function preSmokeTrimKg(db: Database, lot: Lot) {
   if (!entries(db, "prepare", lot.id).length) return 0;
@@ -745,7 +745,7 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
       (e) =>
         role === "owner" ||
         (e.role === role && (role !== "branch" || e.branch === branch)) ||
-        // Chef_house needs the Owner's review of its own billing invoices (reason to fix).
+        // Chef House needs the Owner's review of its own billing invoices (reason to fix).
         (role === "cm" && e.kind === "invoiceReview"),
     )
     .map((e) =>
@@ -951,7 +951,7 @@ export function mutate(
     assert(smokeOrder, "ไม่พบ PO รมควันที่อ้างอิง");
     required(v, "invoiceNumber", "เลข Invoice ค่ารม");
     required(v, "invoiceDate", "วันที่ Invoice");
-    v.serviceProvider = smokeOrder.values.smoker || "Chef_house";
+    v.serviceProvider = smokeOrder.values.smoker || "Chef House";
     v.serviceQuantity = String(n(smokeOrder.values, "rawKg"));
     v.serviceRate = String(smokeServiceRate(n(v, "serviceQuantity")));
     v.amountBeforeVat = String(n(v, "serviceQuantity") * n(v, "serviceRate"));
@@ -998,8 +998,8 @@ export function mutate(
       "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
   } else if (kind === "foodivaReturnReceive" && lot) {
-    assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef_house ก่อน");
-    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef_house → Foodiva");
+    assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef House ก่อน");
+    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef House → Foodiva");
     required(v, "receivedDate", "วันที่รับ");
     required(v, "receivedTime", "เวลารับ");
     positive(v, "receivedKg", "น้ำหนักรับ");
@@ -1008,7 +1008,7 @@ export function mutate(
     variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
     assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
-    assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef_house ยืนยันรับ PO รมควันก่อนเรียกรถ");
+    assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef House ยืนยันรับ PO รมควันก่อนเรียกรถ");
     assert(entries(db, "smokingInvoice", lotId).some((invoice) => smokingInvoiceStatus(db, invoice) === "ชำระแล้ว"), "รอ Owner ตรวจยอดและชำระ Invoice ค่ารมควันก่อนเรียกรถ");
     positive(v, "dispatchKg", "น้ำหนักส่ง");
     required(v, "pickupDate", "วันรับ");
@@ -1042,7 +1042,7 @@ export function mutate(
     const weights = packWeights(v.packs);
     assert(
       weights.length > 0 && weights.every(isPackWeight),
-      "น้ำหนักถุงใหญ่จาก Chef_house ต้องมากกว่า 0 กก.",
+      "น้ำหนักถุงใหญ่จาก Chef House ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
