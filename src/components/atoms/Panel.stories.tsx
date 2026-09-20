@@ -24,6 +24,19 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Compact: Story = { args: { compact: true } };
 
+/** `flush` hands the padding to the molecule — how KpiCard and ChartPanel use it. */
+export const Flush: Story = {
+  args: {
+    flush: true,
+    children: (
+      <div className="grid gap-2 px-6 py-5.5">
+        <h3 className="m-0">ยอดขายรวม</h3>
+        <strong className="text-num-lg tabular-nums">฿128,400.00</strong>
+      </div>
+    ),
+  },
+};
+
 export const Stats: Story = {
   render: () => (
     <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">

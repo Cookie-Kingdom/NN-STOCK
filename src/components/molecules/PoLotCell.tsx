@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Caption } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
 /** Table cell: PO number (bold, "-" when missing), Lot id underneath, optional muted line. */
@@ -18,9 +19,7 @@ export function PoLotCell({
       <strong>{poId || "-"}</strong>
       <br />
       {lotId}
-      {sub && (
-        <small className="block text-caption text-text-secondary">{sub}</small>
-      )}
+      {sub && <Caption className="block">{sub}</Caption>}
     </span>
   );
 }

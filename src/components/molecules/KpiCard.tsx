@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Panel } from "@/components/atoms/Panel";
 import { cn } from "@/lib/utils";
 
 const kpiIconVariants = cva(
@@ -40,9 +41,11 @@ export function KpiCard({
     captionTone?: "gain" | "loss";
   }) {
   return (
-    <article
+    <Panel
+      as="article"
+      flush
       className={cn(
-        "grid min-w-0 gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs transition-[transform,box-shadow] duration-(--motion-base) ease-(--ease-standard) hover:-translate-y-0.5 hover:shadow-sm",
+        "grid gap-3 p-5 shadow-xs transition-[transform,box-shadow] duration-(--motion-base) ease-(--ease-standard) hover:-translate-y-0.5 hover:shadow-sm",
         className,
       )}
       {...props}
@@ -65,6 +68,6 @@ export function KpiCard({
           {caption}
         </small>
       )}
-    </article>
+    </Panel>
   );
 }

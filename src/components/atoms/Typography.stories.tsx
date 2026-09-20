@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Overline } from "./Overline";
-import { Footnote, Muted } from "./Text";
+import { Caption, Footnote, Muted } from "./Text";
 
 const meta = {
   title: "Atoms/Typography",
@@ -27,6 +27,7 @@ export const Scale: Story = {
       <h3>หัวข้อ H3 · รายการล็อต</h3>
       <p>ข้อความปกติ (body) 1,234.50 กก.</p>
       <Muted>Muted — ข้อความรอง</Muted>
+      <Caption>Caption — บรรทัดเล็กใต้ฟิลด์หรือในช่องตาราง</Caption>
       <Footnote>Footnote — หมายเหตุท้ายตาราง</Footnote>
     </div>
   ),
