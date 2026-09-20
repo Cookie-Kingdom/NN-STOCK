@@ -13,6 +13,7 @@ import {
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documents";
 import { InvoiceDownloadButton } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
 import {
   entries,
   n,
@@ -106,11 +107,13 @@ export function InvoiceView({
             `${fmt(n(entry.values, "confirmedKg"))} กก.`,
             `฿${fmt(n(entry.values, "invoiceAmount"))}`,
             entry.values.confirmedBy || "—",
+            /* The file, not the row: re-saving an invoice writes a new entry that
+               keeps the file name but not the bytes, so the download falls back to
+               the newest version of this document that still carries the upload. */
             <InvoiceDownloadButton
               key={entry.id}
               name={entry.values.attachment}
-              data={entry.values.attachmentData}
-              storageKey={entry.values.attachmentStorageKey}
+              {...uploadedAttachment(db, "foodivaConfirm", entry.lotId)}
             />,
           ];
         })}
@@ -138,8 +141,7 @@ export function InvoiceView({
             <InvoiceDownloadButton
               key={`file-${entry.id}`}
               name={entry.values.attachment}
-              data={entry.values.attachmentData}
-              storageKey={entry.values.attachmentStorageKey}
+              {...uploadedAttachment(db, "smokingInvoice", entry.lotId)}
             />,
             <ButtonRow key={`action-${entry.id}`}>
               {status === "รอตรวจยอด" && (

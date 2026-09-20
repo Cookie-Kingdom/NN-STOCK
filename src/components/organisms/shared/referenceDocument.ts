@@ -40,6 +40,11 @@ function attachmentOf(history: Entry[]) {
   };
 }
 
+/** The newest file the counterparty uploaded for this document of this lot. */
+export function uploadedAttachment(db: Database, kind: string, lotId: string) {
+  return attachmentOf(entries(db, kind, lotId));
+}
+
 /** The earlier document a lot form builds on, or undefined when the form has none. */
 export function referenceDocument(
   db: Database,
