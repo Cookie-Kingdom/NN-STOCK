@@ -72,3 +72,18 @@ test("every summary label exists in the printed rows", () => {
     ).toEqual(expect.arrayContaining(reference.summary));
   }
 });
+
+test("the Foodiva invoice reference carries the uploaded file, not just its name", () => {
+  const s = setup();
+  purchase(s, "40");
+  confirm(s, "40");
+  // A name with no stored bytes has nothing to open: the form keeps the sheet.
+  expect(doc(s, "smokeOrder")!.attachment).toBeUndefined();
+  const entry = s.db.entries.find((e) => e.kind === "foodivaConfirm")!;
+  entry.values.attachmentStorageKey = "key-1";
+  expect(doc(s, "smokeOrder")!.attachment).toEqual({
+    name: "inv.pdf",
+    data: undefined,
+    storageKey: "key-1",
+  });
+});
