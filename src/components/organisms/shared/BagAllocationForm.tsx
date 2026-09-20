@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Select } from "@/components/atoms/Select";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
@@ -87,10 +88,10 @@ export function BagAllocationForm({
   }
   return (
     <Dialog overline={lotId} title="จัดสรรถุงเนื้อไปสาขา" onClose={onClose}>
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+      <DialogForm onSubmit={submit}>
         <DialogBody>
           <WorkingDateField
-            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            asField
             date={date}
             onDate={onDate}
             minDate={minDate}
@@ -130,7 +131,7 @@ export function BagAllocationForm({
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }

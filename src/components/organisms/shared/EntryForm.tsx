@@ -4,9 +4,11 @@ import { useMemo, useRef, useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
+import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
@@ -356,11 +358,7 @@ export function EntryForm({
     >
       {/* noValidate: a native `required` bubble is not in the DOM and Escape on it
           also closes the dialog. Let mutate() refuse and say why in FormError. */}
-      <form
-        className="flex min-h-0 flex-1 flex-col"
-        noValidate
-        onSubmit={submit}
-      >
+      <DialogForm noValidate onSubmit={submit}>
         {/* Below lg the PO form and its preview stack in one scroll area: two nested
             scrollers in a fixed-height grid each shrink to a sliver on a phone. */}
         <div
@@ -378,7 +376,7 @@ export function EntryForm({
             )}
           >
             <WorkingDateField
-              className="mb-4.5 max-w-xs text-body-sm font-medium"
+              asField
               date={date}
               onDate={onDate}
               minDate={minDate}
@@ -497,7 +495,7 @@ export function EntryForm({
                     : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
                 </Notice>
               )}
-            <div className="my-4.5 grid grid-cols-2 gap-4.5 max-md:grid-cols-1 max-md:gap-4">
+            <FormGrid>
               {formFields.map((f, index) => (
                 <EntryFieldControl
                   key={f.key}
@@ -515,7 +513,7 @@ export function EntryForm({
                   onChange={(value) => set("packs", value)}
                 />
               )}
-            </div>
+            </FormGrid>
             {reference && (
               <ReferenceCard
                 title={reference.title}
@@ -572,7 +570,7 @@ export function EntryForm({
           onCancel={onClose}
           submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }

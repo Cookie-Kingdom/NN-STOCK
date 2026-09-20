@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
+import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { newId } from "@/lib/id";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -235,10 +237,10 @@ export function GeneralPurchaseForm({
       size="xl"
       onClose={onClose}
     >
-      <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+      <DialogForm onSubmit={submit}>
         <DialogBody>
           <WorkingDateField
-            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            asField
             date={date}
             onDate={onDate}
             minDate={minDate}
@@ -264,9 +266,11 @@ export function GeneralPurchaseForm({
                 ? ingredientUnits[line.item]
                 : undefined;
               return (
-                <article
+                <Panel
+                  as="article"
+                  flush
                   key={line.id}
-                  className="overflow-hidden rounded-lg border border-border bg-surface"
+                  className="overflow-hidden"
                 >
                   <div className="flex items-center gap-3.5 bg-bg px-4.5 py-3.5 max-[560px]:flex-wrap">
                     <strong className="mr-auto">รายการซื้อ {index + 1}</strong>
@@ -418,7 +422,7 @@ export function GeneralPurchaseForm({
                       />
                     </FormField>
                   </div>
-                </article>
+                </Panel>
               );
             })}
           </div>
@@ -439,7 +443,7 @@ export function GeneralPurchaseForm({
           onCancel={onClose}
           submitLabel={`บันทึก ${lines.length} รายการ`}
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }

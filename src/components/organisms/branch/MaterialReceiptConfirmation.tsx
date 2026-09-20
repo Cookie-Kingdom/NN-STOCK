@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
+import { ActionWithError } from "@/components/molecules/ActionWithError";
+import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { TableFilter } from "@/components/molecules/TableFilter";
@@ -137,10 +139,7 @@ export function MaterialReceiptConfirmation({
                 }))
               }
             />,
-            <div
-              key={`b-${transfer.id}`}
-              className="grid justify-items-end gap-1"
-            >
+            <ActionWithError key={`b-${transfer.id}`} error={rowError}>
               <Button
                 variant="table"
                 disabled={closed || saving}
@@ -153,16 +152,11 @@ export function MaterialReceiptConfirmation({
                   ? "กำลังยืนยัน…"
                   : "ยืนยันรับ"}
               </Button>
-              {rowError && (
-                <span role="alert" className="text-caption text-danger">
-                  {rowError}
-                </span>
-              )}
-            </div>,
+            </ActionWithError>,
           ];
         })}
         action={
-          <div className="flex flex-wrap items-end gap-3">
+          <FilterBar>
             <WorkingDateField
               variant="filter"
               className="text-caption text-text-secondary"
@@ -183,7 +177,7 @@ export function MaterialReceiptConfirmation({
                 }
               />
             </TableFilter>
-          </div>
+          </FilterBar>
         }
       />
       {message && <Notice>{message}</Notice>}

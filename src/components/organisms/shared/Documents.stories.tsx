@@ -5,7 +5,10 @@ import { day, demoDb } from "../../../../.storybook/fixtures";
 import { DocumentFilterBar } from "./DocumentFilterBar";
 import { DocumentPrintButton } from "./DocumentPrintButton";
 import type { DocumentReferenceType } from "./documentRows";
-import { InvoiceDownloadButton } from "./InvoiceDownloadButton";
+import {
+  AttachmentViewButton,
+  InvoiceDownloadButton,
+} from "./InvoiceDownloadButton";
 import { PackWeightFields } from "./PackWeightFields";
 import { Preview } from "./Preview";
 import { PurchaseOrderDocumentPreview } from "./PurchaseOrderDocumentPreview";
@@ -71,6 +74,20 @@ export const PrintAndDownloadButtons: Story = {
       />
       {/* Key that exists in no browser and no bucket: the click reports it inline. */}
       <InvoiceDownloadButton name="INV-DEMO-003.pdf" storageKey="missing" />
+    </div>
+  ),
+};
+
+export const AttachmentButtons: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <AttachmentViewButton
+        name="ใบกำกับภาษี.txt"
+        data="data:text/plain;base64,4Lia4Lix4LiZ4LiX4Li24LiB"
+      />
+      <AttachmentViewButton name="สลิปโอนเงิน.jpg" label="ดูสลิป" />
+      {/* Key that exists in no browser and no bucket: the click reports it inline. */}
+      <AttachmentViewButton name="ใบส่งของ.pdf" storageKey="missing" />
     </div>
   ),
 };

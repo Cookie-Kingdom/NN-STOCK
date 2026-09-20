@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
+import { Panel } from "@/components/atoms/Panel";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
@@ -177,14 +179,10 @@ export function MaterialPurchaseForm({
       {/* noValidate: the checks in submit() were unreachable behind the native
           `required` bubble, which is not in the DOM and closes with the dialog
           on Escape. */}
-      <form
-        className="flex min-h-0 flex-1 flex-col"
-        noValidate
-        onSubmit={submit}
-      >
+      <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
           <WorkingDateField
-            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            asField
             date={date}
             onDate={onDate}
             minDate={minDate}
@@ -198,12 +196,11 @@ export function MaterialPurchaseForm({
               const selectedRow = !!checked[line.key];
               const amount = n(quantities, line.key) * n(unitPrices, line.key);
               return (
-                <article
+                <Panel
+                  as="article"
+                  flush
                   key={line.key}
-                  className={cn(
-                    "overflow-hidden rounded-lg border border-border bg-surface",
-                    selectedRow && "bg-bg",
-                  )}
+                  className={cn("overflow-hidden", selectedRow && "bg-bg")}
                 >
                   <label className="grid cursor-pointer grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.25 px-4.5 py-4 max-[560px]:grid-cols-[24px_minmax(0,1fr)]">
                     <Checkbox
@@ -317,7 +314,7 @@ export function MaterialPurchaseForm({
                       </FormField>
                     </div>
                   )}
-                </article>
+                </Panel>
               );
             })}
           </div>
@@ -333,7 +330,7 @@ export function MaterialPurchaseForm({
           onCancel={onClose}
           submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`}
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }

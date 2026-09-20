@@ -4,6 +4,7 @@ import { fn } from "storybook/test";
 import { day } from "../../../.storybook/fixtures";
 import { today } from "@/lib/format";
 import { FilterBar } from "./FilterBar";
+import { Notice } from "./Notice";
 import { WorkingDateField } from "./WorkingDateField";
 
 const meta = {
@@ -19,10 +20,12 @@ type Story = StoryObj<typeof meta>;
 function Picker({
   initial,
   variant,
+  asField,
   minDate,
 }: {
   initial: string;
   variant?: "form" | "filter";
+  asField?: boolean;
   minDate?: string;
 }) {
   const [date, setDate] = useState(initial);
@@ -31,6 +34,7 @@ function Picker({
       date={date}
       onDate={setDate}
       variant={variant}
+      asField={asField}
       minDate={minDate}
     />
   );
@@ -38,6 +42,17 @@ function Picker({
 
 /** Full-size field, as every lot form shows it. Today's date, so no badge. */
 export const Form: Story = { render: () => <Picker initial={today()} /> };
+
+/** `asField` gives the wrapper the label typography and width of a FormField and
+ * the gap under it — how every dialog form opens. */
+export const AsField: Story = {
+  render: () => (
+    <>
+      <Picker initial={today()} asField />
+      <Notice>ติ๊กวัสดุที่ซื้อ แล้วกรอกจำนวนของรายการนั้น</Notice>
+    </>
+  ),
+};
 
 /** The compact `filter` input, sized for a filter bar next to the other filters. */
 export const Filter: Story = {

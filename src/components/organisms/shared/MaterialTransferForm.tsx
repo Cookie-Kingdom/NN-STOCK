@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
+import { Panel } from "@/components/atoms/Panel";
+import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
@@ -141,14 +143,10 @@ export function MaterialTransferForm({
       size="wide"
       onClose={onClose}
     >
-      <form
-        className="flex min-h-0 flex-1 flex-col"
-        noValidate
-        onSubmit={submit}
-      >
+      <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
           <WorkingDateField
-            className="mb-4.5 max-w-xs text-body-sm font-medium"
+            asField
             date={date}
             onDate={onDate}
             minDate={minDate}
@@ -157,7 +155,11 @@ export function MaterialTransferForm({
             ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน
             สามารถเลือกหลายรายการและบันทึกพร้อมกันได้
           </Notice>
-          <div className="mt-5.5 mb-7 max-w-full overflow-auto overscroll-x-contain rounded-lg border border-border bg-surface">
+          <Panel
+            as="div"
+            flush
+            className="mt-5.5 mb-7 max-w-full overflow-auto overscroll-x-contain"
+          >
             <table className="w-full table-fixed border-separate border-spacing-0 [&_tbody_tr:last-child_td]:border-b-0">
               <thead>
                 <tr>
@@ -224,8 +226,13 @@ export function MaterialTransferForm({
                 ))}
               </tbody>
             </table>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-lg border border-border bg-bg p-5 max-md:grid-cols-1 max-md:gap-4">
+          </Panel>
+          {/* Not FormGrid: this card sets its own split gaps, so only the surface is shared. */}
+          <Panel
+            as="div"
+            flush
+            className="grid grid-cols-2 gap-x-6 gap-y-5 bg-bg p-5 max-md:grid-cols-1 max-md:gap-4"
+          >
             {branches.map((branch) => (
               <FormField key={branch} label={`ผู้รับของสาขา${branch}`}>
                 <Input
@@ -256,7 +263,7 @@ export function MaterialTransferForm({
                 onChange={(event) => setNote(event.target.value)}
               />
             </FormField>
-          </div>
+          </Panel>
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
@@ -266,7 +273,7 @@ export function MaterialTransferForm({
           onCancel={onClose}
           submitLabel="บันทึกส่งวัสดุ"
         />
-      </form>
+      </DialogForm>
     </Dialog>
   );
 }
