@@ -55,6 +55,13 @@ export type ButtonProps = ComponentProps<"button"> &
     icon?: ReactNode;
   };
 
+/**
+ * The only button in the app. `variant` picks the look: `primary`, `secondary` and
+ * `danger` are boxed and default to a 44px touch target, while `table`, `text` and
+ * `link` sit inline in a table row or a sentence. `size` overrides the height,
+ * `icon` renders a 16px glyph before the label, and `asChild` gives an `<a>` the
+ * button styling without nesting an anchor inside a button.
+ */
 export function Button({
   className,
   variant = "secondary",

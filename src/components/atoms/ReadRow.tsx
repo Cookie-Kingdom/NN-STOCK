@@ -1,7 +1,11 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Label/value row (the old `.read-row`). */
+/**
+ * One label/value line of a read-only detail list — lot summaries, modal recaps,
+ * anything printed rather than edited. Values are right-aligned and tabular so
+ * numbers line up down the column, and the last row drops its divider.
+ */
 export function ReadRow({
   label,
   value,

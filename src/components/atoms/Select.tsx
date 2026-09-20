@@ -5,6 +5,11 @@ import {
 } from "@/components/atoms/Input";
 import { cn } from "@/lib/utils";
 
+/**
+ * Native `<select>` sharing Input's variants, so a dropdown and a text field on the
+ * same row line up. Native on purpose: on a phone the OS wheel picker beats any
+ * custom menu we would build.
+ */
 export function Select({
   variant,
   reason,

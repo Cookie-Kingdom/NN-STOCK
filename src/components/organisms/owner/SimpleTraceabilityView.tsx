@@ -3,6 +3,7 @@
 import { Fragment, type ReactNode, useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
 import { Footnote, Muted } from "@/components/atoms/Text";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
@@ -517,14 +518,13 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     <Fragment key={lot.id}>
                       <tr className="hover:bg-bg">
                         <td className={`${tdClass} ${expandCellClass}`}>
-                          <button
-                            type="button"
-                            className="grid size-6 place-items-center rounded-sm border border-border bg-surface text-h2 leading-none text-text-secondary hover:bg-bg"
-                            aria-label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
+                          <IconButton
+                            size="sm"
+                            className="rounded-sm border border-border bg-surface text-h2 leading-none"
+                            label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
                             onClick={() => toggle(lot.id)}
-                          >
-                            {isOpen ? "−" : "+"}
-                          </button>
+                            icon={isOpen ? "−" : "+"}
+                          />
                         </td>
                         <td className={tdClass}>
                           <Badge tone={lot.stage >= 8 ? "success" : "danger"}>

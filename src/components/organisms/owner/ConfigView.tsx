@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Footnote } from "@/components/atoms/Text";
@@ -452,9 +453,9 @@ export function ConfigView({ db }: { db: Database }) {
         description="รายการด้านล่างคือค่าที่ Owner ปรับได้ทั้งหมดในเดโม ค่าต้นทุนการผลิตจะถูกบันทึกติดกับ PO ตอนสร้างรายการ ส่วนค่ารถใช้ค่าปัจจุบัน ณ ตอนสร้างใบขนส่ง"
         aside={
           message && !editing ? (
-            <span className="flex-none rounded-full bg-text-primary px-3 py-2 text-caption text-text-inverse">
+            <Badge tone="inverse" className="flex-none">
               {message}
-            </span>
+            </Badge>
           ) : undefined
         }
       />

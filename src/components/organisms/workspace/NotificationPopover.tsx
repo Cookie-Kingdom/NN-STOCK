@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { CountPill } from "@/components/atoms/CountPill";
+import { IconButton } from "@/components/atoms/IconButton";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import type { Tab } from "@/lib/nav";
@@ -22,21 +23,23 @@ export function NotificationPopover({
 }) {
   return (
     <div className="relative">
-      <button
-        type="button"
+      <IconButton
         className={cn(
-          "relative grid size-11 cursor-pointer place-items-center rounded-md border border-border bg-surface text-accent transition-colors hover:bg-bg",
+          "relative border border-border bg-surface text-accent",
           open && "bg-bg",
         )}
-        aria-label={`การแจ้งเตือน ${notifications.length} รายการ`}
+        label={`การแจ้งเตือน ${notifications.length} รายการ`}
         aria-expanded={open}
         onClick={onToggle}
-      >
-        <Bell size={19} />
-        {notifications.length > 0 && (
-          <CountPill variant="overlay">{notifications.length}</CountPill>
-        )}
-      </button>
+        icon={
+          <>
+            <Bell size={19} />
+            {notifications.length > 0 && (
+              <CountPill variant="overlay">{notifications.length}</CountPill>
+            )}
+          </>
+        }
+      />
       {open && (
         <section
           className="absolute top-[calc(100%+10px)] right-0 z-20 w-[min(390px,calc(100vw-32px))] origin-top-right animate-scale-in rounded-lg border border-border bg-surface p-3.5 shadow-lg"

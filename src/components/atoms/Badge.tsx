@@ -11,6 +11,8 @@ const badgeVariants = cva(
         success: "bg-success-subtle text-success",
         warning: "bg-warning-subtle text-warning",
         danger: "bg-danger-subtle text-danger",
+        /** Inverted — a transient confirmation ("saved") that must outrank the panel. */
+        inverse: "bg-text-primary px-3 py-2 text-text-inverse",
       },
     },
     defaultVariants: { tone: "neutral" },
@@ -19,6 +21,11 @@ const badgeVariants = cva(
 
 export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
 
+/**
+ * Status chip. `neutral`, `success`, `warning` and `danger` map to the semantic
+ * colours; `inverse` is the loud one, for a confirmation that must be noticed. The
+ * text carries the meaning — the colour only reinforces it.
+ */
 export function Badge({
   tone,
   className,

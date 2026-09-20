@@ -315,24 +315,23 @@ export function OwnerDashboard({
             ภาพรวมร้านเนื้อรมควัน · อัปเดตจากข้อมูลที่ทุกบทบาทบันทึก
           </p>
         </div>
-        <button
-          type="button"
+        <Button
           className={cn(
-            "flex flex-none items-center gap-2 rounded-full border px-3.5 py-2.5 font-semibold max-sm:w-full max-sm:justify-center",
+            "flex-none rounded-full px-3.5 py-2.5 font-semibold max-sm:w-full",
             alertCount
-              ? "border-warning/40 bg-warning-subtle text-warning"
-              : "border-success/40 bg-success-subtle text-success",
+              ? "border-warning/40 bg-warning-subtle text-warning hover:bg-warning/10"
+              : "border-success/40 bg-success-subtle text-success hover:bg-success/10",
           )}
           onClick={() => setShowAlerts((value) => !value)}
           aria-expanded={showAlerts}
           aria-controls="owner-alert-details"
+          icon={<CircleAlert size={17} />}
         >
-          <CircleAlert size={17} />
           {alertCount ? `ต้องดูแล ${alertCount} จุด` : "การทำงานปกติ"}
           <span className="ml-0.5 border-l border-current pl-2.5 text-caption font-semibold opacity-80">
             {showAlerts ? "ซ่อน" : "ดูรายละเอียด"}
           </span>
-        </button>
+        </Button>
       </section>
       {showAlerts && (
         <section

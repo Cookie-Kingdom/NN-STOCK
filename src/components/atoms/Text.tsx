@@ -5,7 +5,7 @@ type MutedProps =
   | ({ as?: "p" } & ComponentProps<"p">)
   | ({ as: "span" } & ComponentProps<"span">);
 
-/** `.muted` */
+/** Secondary text — a supporting paragraph, or a `span` when it sits inside a line. */
 export function Muted({ as, className, ...props }: MutedProps) {
   const classes = cn("text-text-secondary", className);
   if (as === "span")
@@ -13,7 +13,7 @@ export function Muted({ as, className, ...props }: MutedProps) {
   return <p className={classes} {...(props as ComponentProps<"p">)} />;
 }
 
-/** `.footnote` */
+/** Quiet trailing note under a panel or form: the smallest text in the system. */
 export function Footnote({ className, ...props }: ComponentProps<"p">) {
   return (
     <p

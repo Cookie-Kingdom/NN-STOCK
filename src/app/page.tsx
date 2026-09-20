@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
+import { Panel } from "@/components/atoms/Panel";
 import { Muted } from "@/components/atoms/Text";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 import { signIn, signUp, useSession } from "@/lib/session";
@@ -43,7 +44,7 @@ export default function SignInPage() {
   }
   return (
     <div className="grid min-h-screen place-items-center bg-bg px-4 py-8 text-body text-text-primary">
-      <section className="w-full max-w-115 rounded-lg border border-border bg-surface p-7.5 shadow-xs">
+      <Panel className="w-full max-w-115 p-7.5 shadow-xs">
         <div className="mb-5.5 border-b border-border pb-5.5">
           <AppBrand />
         </div>
@@ -127,7 +128,7 @@ export default function SignInPage() {
           บัญชีแรกจะเป็น Owner อัตโนมัติ บัญชีถัดไปต้องให้ Owner
           เปิดใช้งานและกำหนดสิทธิ์
         </p>
-      </section>
+      </Panel>
     </div>
   );
 }

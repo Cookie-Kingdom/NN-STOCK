@@ -1,7 +1,10 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Label over a number (the old `.stat`). */
+/**
+ * A single figure with its label, boxed. Use it for a plain number inside a panel;
+ * KpiCard is the richer dashboard version with a trend and an icon.
+ */
 export function Stat({
   label,
   value,
