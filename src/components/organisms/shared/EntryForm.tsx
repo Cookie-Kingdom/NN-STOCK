@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -22,7 +22,7 @@ import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/Purc
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
-import { defaults, forms } from "@/lib/forms";
+import { defaults, forms, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import { prefillValues } from "@/lib/prefill";
 import {
@@ -42,7 +42,7 @@ import {
   type Role,
   type Values,
 } from "@/lib/store";
-import { fmt } from "@/lib/format";
+import { fmt, today } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +58,23 @@ const submitLabels: Record<string, string> = {
 };
 
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+
+/** A `location` field keeps a free-typed place in `<key>Custom`; the entry stores the
+ *  place itself. Shared by the save and the live check so both see the same values. */
+function resolveLocations(values: Values) {
+  const out = { ...values };
+  for (const key of ["origin", "destination"]) {
+    if (out[key] === "อื่น ๆ") {
+      const custom = out[`${key}Custom`]?.trim();
+      if (!custom)
+        throw new Error(
+          `กรุณาระบุ${key === "origin" ? "ต้นทาง" : "ปลายทาง"}เอง`,
+        );
+      out[key] = custom;
+    }
+  }
+  return out;
+}
 
 /** One control from `forms[kind]`, rendered by its `type`. */
 function EntryFieldControl({
@@ -127,6 +144,17 @@ function EntryFieldControl({
             />
           )}
         </>
+      ) : f.type === "time" ? (
+        <Select
+          value={values[f.key] || ""}
+          required={!f.optional}
+          onChange={(e) => set(f.key, e.target.value)}
+        >
+          <option value="">เลือกเวลา</option>
+          {timeOptions(values[f.key]).map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </Select>
       ) : f.type === "textarea" ? (
         <Textarea
           compact={f.key === "note"}
@@ -139,12 +167,11 @@ function EntryFieldControl({
         <Input
           autoFocus={autoFocus}
           data-autofocus={autoFocus || undefined}
-          type={f.type === "time" ? "text" : f.type || "text"}
-          placeholder={f.type === "time" ? "08:00" : undefined}
-          pattern={
-            f.type === "time" ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
+          type={f.type || "text"}
+          maxLength={f.digits}
+          inputMode={
+            f.type === "number" ? "decimal" : f.digits ? "numeric" : undefined
           }
-          inputMode={f.type === "number" ? "decimal" : undefined}
           min={
             f.type === "number"
               ? f.zero
@@ -163,7 +190,7 @@ function EntryFieldControl({
                   : 0.01
               : undefined
           }
-          max={f.key === "tolerance" ? 100 : undefined}
+          max={f.key === "tolerance" ? 100 : f.past ? today() : undefined}
           required={!f.optional}
           value={values[f.key] ?? ""}
           onChange={(e) => set(f.key, e.target.value)}
@@ -266,6 +293,29 @@ export function EntryForm({
     attachmentFiles.current[key] = file;
     set(key, file.name);
   };
+  // Controls mutate() insists on that are rendered outside `formFields`.
+  const extraRequired =
+    kind === "smoke" ? ["packs"] : kind === "receive" ? ["allocation"] : [];
+  const complete =
+    (!useLot || Boolean(lotId)) &&
+    [
+      ...formFields.filter((f) => !f.optional).map((f) => f.key),
+      ...extraRequired,
+    ].every((key) => String(values[key] ?? "").trim());
+  /* The save's own mutate, run on the values as they stand, so the form can say a
+   * weight is over stock while it is being typed instead of after ยืนยัน. mutate
+   * clones the database, so a dry run changes nothing. Held back until every
+   * required control has something in it: an unfinished form must not be told off
+   * for being unfinished. */
+  const liveError = useMemo(() => {
+    if (!complete) return "";
+    try {
+      mutate(db, role, kind, resolveLocations(values), lotId, date, branch);
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [complete, db, role, kind, values, lotId, date, branch]);
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
   const title =
     kind === "ricePurchase" && branch === "ศาลาแดง"
@@ -276,17 +326,7 @@ export function EntryForm({
     // run() rebuilds the change after a revision conflict; upload each file once.
     const uploaded: Record<string, string> = {};
     const saved = await run(async () => {
-      const resolvedValues = { ...values };
-      for (const key of ["origin", "destination"]) {
-        if (resolvedValues[key] === "อื่น ๆ") {
-          const custom = resolvedValues[`${key}Custom`]?.trim();
-          if (!custom)
-            throw new Error(
-              `กรุณาระบุ${key === "origin" ? "ต้นทาง" : "ปลายทาง"}เอง`,
-            );
-          resolvedValues[key] = custom;
-        }
-      }
+      const resolvedValues = resolveLocations(values);
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
         resolvedValues[`${key}StorageKey`] = uploaded[key] ??=
           await saveAttachment(file);
@@ -521,6 +561,7 @@ export function EntryForm({
         </div>
         <DialogFooter
           submitting={saving}
+          error={liveError}
           hint={
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"

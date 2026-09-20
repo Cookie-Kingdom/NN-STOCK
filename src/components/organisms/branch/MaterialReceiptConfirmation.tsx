@@ -50,26 +50,26 @@ export function MaterialReceiptConfirmation({
   } = useSaveMutation("ยืนยันรับไม่สำเร็จ");
   // Which row is waiting on the server, so only that button spins.
   const [confirming, setConfirming] = useState("");
+  // The row's own change. Shared by the confirm and the live check so both refuse alike.
+  const build = (from: Database, transfer: Entry) =>
+    mutate(
+      from,
+      "branch",
+      "materialConfirm",
+      {
+        transferId: transfer.id,
+        receivedQuantity:
+          draft[`quantity-${transfer.id}`] || transfer.values.quantity,
+        receiver: draft.receiver || `ผู้ดูแลสาขา ${branch}`,
+        reason: draft[`reason-${transfer.id}`] || "",
+      },
+      "",
+      date,
+      branch,
+    );
   const confirm = async (transfer: Entry) => {
     setConfirming(transfer.id);
-    const next = await run(() => {
-      const receivedQuantity =
-        draft[`quantity-${transfer.id}`] || transfer.values.quantity;
-      return mutate(
-        latestDatabase(),
-        "branch",
-        "materialConfirm",
-        {
-          transferId: transfer.id,
-          receivedQuantity,
-          receiver: draft.receiver || `ผู้ดูแลสาขา ${branch}`,
-          reason: draft[`reason-${transfer.id}`] || "",
-        },
-        "",
-        date,
-        branch,
-      );
-    });
+    const next = await run(() => build(latestDatabase(), transfer));
     if (next) setMessage(`ยืนยันรับ ${transfer.values.material} แล้ว`);
   };
   return (
@@ -86,54 +86,81 @@ export function MaterialReceiptConfirmation({
           "การทำงาน",
         ]}
         rowKeys={pending.map((transfer) => transfer.id)}
-        rows={pending.map((transfer) => [
-          transfer.date,
-          transfer.values.material,
-          transfer.values.quantity,
-          <Input
-            key={`q-${transfer.id}`}
-            variant="table"
-            type="number"
-            min="1"
-            max={transfer.values.quantity}
-            step="1"
-            aria-label={`จำนวนที่รับจริง ${transfer.values.material}`}
-            value={draft[`quantity-${transfer.id}`] ?? transfer.values.quantity}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                [`quantity-${transfer.id}`]: event.target.value,
-              }))
+        rows={pending.map((transfer) => {
+          const quantity =
+            draft[`quantity-${transfer.id}`] ?? transfer.values.quantity;
+          /* The confirm's own mutate, run on the row as it stands, so รับเกินจำนวนที่ส่ง
+           * is said while the number is being typed instead of after ยืนยันรับ. mutate
+           * clones the database, so a dry run changes nothing. Held back while the
+           * quantity box is empty: a half-typed row must not be told off. */
+          let rowError = "";
+          if (String(quantity).trim())
+            try {
+              build(db, transfer);
+            } catch (caught) {
+              rowError = caught instanceof Error ? caught.message : "";
             }
-          />,
-          <Input
-            key={`r-${transfer.id}`}
-            variant="table"
-            reason
-            placeholder="กรอกเมื่อรับไม่ครบ"
-            aria-label={`เหตุผลส่วนต่าง ${transfer.values.material}`}
-            value={draft[`reason-${transfer.id}`] || ""}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                [`reason-${transfer.id}`]: event.target.value,
-              }))
-            }
-          />,
-          <Button
-            key={`b-${transfer.id}`}
-            variant="table"
-            disabled={closed || saving}
-            icon={
-              saving && confirming === transfer.id ? <Spinner /> : undefined
-            }
-            onClick={() => confirm(transfer)}
-          >
-            {saving && confirming === transfer.id
-              ? "กำลังยืนยัน…"
-              : "ยืนยันรับ"}
-          </Button>,
-        ])}
+          return [
+            transfer.date,
+            transfer.values.material,
+            transfer.values.quantity,
+            <Input
+              key={`q-${transfer.id}`}
+              variant="table"
+              type="number"
+              inputMode="numeric"
+              min="1"
+              max={transfer.values.quantity}
+              step="1"
+              aria-label={`จำนวนที่รับจริง ${transfer.values.material}`}
+              value={
+                draft[`quantity-${transfer.id}`] ?? transfer.values.quantity
+              }
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  [`quantity-${transfer.id}`]: event.target.value,
+                }))
+              }
+            />,
+            <Input
+              key={`r-${transfer.id}`}
+              variant="table"
+              reason
+              placeholder="กรอกเมื่อรับไม่ครบ"
+              aria-label={`เหตุผลส่วนต่าง ${transfer.values.material}`}
+              value={draft[`reason-${transfer.id}`] || ""}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  [`reason-${transfer.id}`]: event.target.value,
+                }))
+              }
+            />,
+            <div
+              key={`b-${transfer.id}`}
+              className="grid justify-items-end gap-1"
+            >
+              <Button
+                variant="table"
+                disabled={closed || saving}
+                icon={
+                  saving && confirming === transfer.id ? <Spinner /> : undefined
+                }
+                onClick={() => confirm(transfer)}
+              >
+                {saving && confirming === transfer.id
+                  ? "กำลังยืนยัน…"
+                  : "ยืนยันรับ"}
+              </Button>
+              {rowError && (
+                <span role="alert" className="text-caption text-danger">
+                  {rowError}
+                </span>
+              )}
+            </div>,
+          ];
+        })}
         action={
           <div className="flex flex-wrap items-end gap-3">
             <WorkingDateField

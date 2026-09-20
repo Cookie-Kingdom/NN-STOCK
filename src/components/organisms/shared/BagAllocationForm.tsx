@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Select } from "@/components/atoms/Select";
 import { FormError } from "@/components/molecules/FormError";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -12,6 +12,38 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
 import { availableBags, branches, mutate, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+/** One allocate per destination branch, built from the choices as they stand. Shared by
+ *  the save and the live check so both refuse for the same reason. */
+function buildAllocation(
+  from: Database,
+  bags: ReturnType<typeof availableBags>,
+  destinations: Record<string, string>,
+  lotId: string,
+  date: string,
+) {
+  let next = from;
+  let count = 0;
+  for (const branchName of branches) {
+    const selected = bags.filter((bag) => destinations[bag.id] === branchName);
+    if (!selected.length) continue;
+    next = mutate(
+      next,
+      "owner",
+      "allocate",
+      {
+        branch: branchName,
+        bagIds: selected.map((bag) => bag.id).join(","),
+        deliveryDate: date,
+      },
+      lotId,
+      date,
+    );
+    count += selected.length;
+  }
+  if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 ถุง");
+  return next;
+}
 
 export function BagAllocationForm({
   db,
@@ -33,33 +65,24 @@ export function BagAllocationForm({
   const bags = availableBags(db, lotId);
   const [destinations, setDestinations] = useState<Record<string, string>>({});
   const { error, run, saving } = useSaveMutation("จัดสรรไม่สำเร็จ");
+  /* The save's own change, run on the choices as they stand, so a bag that cannot go
+   * where it was sent is said so while choosing instead of after บันทึก. mutate clones
+   * the database, so a dry run changes nothing. Held back until at least one bag has a
+   * destination: an untouched table must not be told off for being untouched. */
+  const liveError = useMemo(() => {
+    if (!Object.values(destinations).some(Boolean)) return "";
+    try {
+      buildAllocation(db, bags, destinations, lotId, date);
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [db, bags, destinations, lotId, date]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const saved = await run(() => {
-      let next = latestDatabase();
-      let count = 0;
-      for (const branchName of branches) {
-        const selected = bags.filter(
-          (bag) => destinations[bag.id] === branchName,
-        );
-        if (!selected.length) continue;
-        next = mutate(
-          next,
-          "owner",
-          "allocate",
-          {
-            branch: branchName,
-            bagIds: selected.map((bag) => bag.id).join(","),
-            deliveryDate: date,
-          },
-          lotId,
-          date,
-        );
-        count += selected.length;
-      }
-      if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 ถุง");
-      return next;
-    });
+    const saved = await run(() =>
+      buildAllocation(latestDatabase(), bags, destinations, lotId, date),
+    );
     if (saved) onSaved();
   }
   return (
@@ -102,6 +125,7 @@ export function BagAllocationForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
+          error={liveError}
           hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"

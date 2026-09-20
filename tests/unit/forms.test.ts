@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { defaults, forms } from "@/lib/forms";
-import { materials, ownerMaterialStock, titles } from "@/lib/store";
+import { defaults, forms, timeOptions } from "@/lib/forms";
+import { materials, mutate, ownerMaterialStock, titles } from "@/lib/store";
 import { last, ready, setup } from "./fixtures";
 
 const day = "2026-09-09";
@@ -76,4 +76,55 @@ test("every form is a titled entry kind with unique keys and selectable options"
     for (const field of fields.filter((item) => item.type === "select"))
       expect(field.options?.length, `${kind}.${field.key}`).toBeGreaterThan(0);
   }
+});
+
+test("every time field picks from the half-hour grid that mutate accepts", () => {
+  const slots = timeOptions();
+  expect(slots).toHaveLength(48);
+  expect([slots.at(0), slots.at(1), slots.at(-1)]).toEqual([
+    "00:00",
+    "00:30",
+    "23:30",
+  ]);
+  // The same shape mutate() insists on for arrival / time / closeTime / pickupTime.
+  for (const slot of slots) expect(slot).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
+  // A time an older entry already holds must survive reopening its form.
+  expect(timeOptions("08:15")).toHaveLength(49);
+  expect(timeOptions("08:15").slice(16, 19)).toEqual([
+    "08:00",
+    "08:15",
+    "08:30",
+  ]);
+  const timeFields = Object.entries(forms).flatMap(([kind, fields]) =>
+    fields.filter((f) => f.type === "time").map((f) => `${kind}.${f.key}`),
+  );
+  expect(timeFields).toEqual(
+    expect.arrayContaining([
+      "dispatch.pickupTime",
+      "cmReceive.arrival",
+      "return.returnTime",
+      "foodivaReturnReceive.receivedTime",
+      "closeDay.time",
+      "config.closeTime",
+    ]),
+  );
+  // No `time` field may keep a free-text default: the grid is the only source.
+  for (const [kind, fields] of Object.entries(forms))
+    for (const field of fields.filter((f) => f.type === "time"))
+      expect(defaults(kind, day)[field.key], `${kind}.${field.key}`).toBe("");
+});
+
+// Every form now runs the save's own mutate() on each keystroke to show what is
+// wrong before ยืนยัน. That is only safe while a run leaves its input alone.
+test("a dry run of mutate changes neither the database nor the values given to it", () => {
+  const s = ready();
+  const lotId = s.db.lots[0].id;
+  const before = JSON.stringify(s.db);
+  const values = { branch: "ศาลาแดง", kg: "9999", bags: "1" };
+  expect(() =>
+    mutate(s.db, "owner", "allocate", values, lotId, day),
+  ).toThrowError();
+  mutate(s.db, "owner", "allocate", { ...values, kg: "1" }, lotId, day);
+  expect(JSON.stringify(s.db)).toBe(before);
+  expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999", bags: "1" });
 });

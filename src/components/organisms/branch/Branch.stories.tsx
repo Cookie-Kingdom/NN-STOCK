@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { day, demoDb, open } from "../../../../.storybook/fixtures";
+import {
+  day,
+  demoDb,
+  materialTransferDb,
+  open,
+} from "../../../../.storybook/fixtures";
 import { isClosed } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
 import { ChiliDailySummary } from "./ChiliDailySummary";
@@ -76,14 +81,17 @@ export const Materials: Story = {
   ),
 };
 
+// demoDb confirms every shipment it makes, so the pending-row state (and its live
+// "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding.
 export const MaterialReceipt: Story = {
+  parameters: { db: materialTransferDb },
   render: () => (
     <MaterialReceiptConfirmation
-      db={db}
+      db={materialTransferDb}
       branch={branch}
       date={day}
       onDate={fn()}
-      closed={closed}
+      closed={false}
     />
   ),
 };

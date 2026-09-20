@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -25,6 +25,50 @@ const cell = "border-b border-border px-4.5 py-3.5 align-middle max-md:px-2.5";
 const headCell =
   "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
 
+/** The change the save would make, from whichever database it is given. Shared by
+ *  submit and the live check so both refuse for exactly the same reason. */
+function build(
+  from: Database,
+  date: string,
+  checked: Record<string, boolean>,
+  quantities: Values,
+  receivers: Values,
+  reference: string,
+  note: string,
+) {
+  let next = from;
+  let count = 0;
+  for (const [index, material] of materials.entries()) {
+    for (const branch of branches) {
+      const field = key(index, branch);
+      if (!checked[field]) continue;
+      const quantity = Number(quantities[field]);
+      if (!Number.isInteger(quantity) || quantity <= 0)
+        throw new Error(`กรอกจำนวน ${material} ที่ส่งไป${branch}`);
+      if (!receivers[branch]?.trim())
+        throw new Error(`กรอกชื่อผู้รับของสาขา${branch}`);
+      next = mutate(
+        next,
+        "owner",
+        "materialTransfer",
+        {
+          material,
+          branch,
+          quantity: String(quantity),
+          receiver: receivers[branch],
+          reference,
+          note,
+        },
+        "",
+        date,
+      );
+      count++;
+    }
+  }
+  if (!count) throw new Error("ติ๊กเลือกวัสดุและสาขาที่ต้องการส่ง");
+  return next;
+}
+
 export function MaterialTransferForm({
   db,
   date,
@@ -48,42 +92,44 @@ export function MaterialTransferForm({
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const selectedFor = (branch: string) =>
     materials.some((_, index) => checked[key(index, branch)]);
+  const ticked = materials.flatMap((_, index) =>
+    branches
+      .filter((branch) => checked[key(index, branch)])
+      .map((branch) => ({ field: key(index, branch), branch })),
+  );
+  const complete =
+    ticked.length > 0 &&
+    ticked.every(
+      (t) => quantities[t.field]?.trim() && receivers[t.branch]?.trim(),
+    );
+  /* The save's own mutate, run on the values as they stand, so the form can say the
+   * Owner stock is short while the number is being typed instead of after ยืนยัน.
+   * mutate clones the database, so a dry run changes nothing. Held back until every
+   * ticked row has its จำนวน and ผู้รับ: an unfinished form must not be told off for
+   * being unfinished. */
+  const liveError = useMemo(() => {
+    if (!complete) return "";
+    try {
+      build(db, date, checked, quantities, receivers, reference, note);
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [complete, db, date, checked, quantities, receivers, reference, note]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const saved = await run(() => {
-      let next = latestDatabase();
-      let count = 0;
-      for (const [index, material] of materials.entries()) {
-        for (const branch of branches) {
-          const field = key(index, branch);
-          if (!checked[field]) continue;
-          const quantity = Number(quantities[field]);
-          if (!Number.isInteger(quantity) || quantity <= 0)
-            throw new Error(`กรอกจำนวน ${material} ที่ส่งไป${branch}`);
-          if (!receivers[branch]?.trim())
-            throw new Error(`กรอกชื่อผู้รับของสาขา${branch}`);
-          next = mutate(
-            next,
-            "owner",
-            "materialTransfer",
-            {
-              material,
-              branch,
-              quantity: String(quantity),
-              receiver: receivers[branch],
-              reference,
-              note,
-            },
-            "",
-            date,
-          );
-          count++;
-        }
-      }
-      if (!count) throw new Error("ติ๊กเลือกวัสดุและสาขาที่ต้องการส่ง");
-      return next;
-    });
+    const saved = await run(() =>
+      build(
+        latestDatabase(),
+        date,
+        checked,
+        quantities,
+        receivers,
+        reference,
+        note,
+      ),
+    );
     if (saved) onSaved(saved);
   }
 
@@ -158,6 +204,7 @@ export function MaterialTransferForm({
                               type="number"
                               min="1"
                               step="1"
+                              inputMode="numeric"
                               placeholder="จำนวน"
                               aria-label={`จำนวน ${material} ไป${branch}`}
                               className="mt-0 min-h-10.5 px-2.75 py-2.25 max-md:px-1.5"
@@ -215,6 +262,7 @@ export function MaterialTransferForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
+          error={liveError}
           hint="ทุกรายการจะบันทึกพร้อมกัน"
           onCancel={onClose}
           submitLabel="บันทึกส่งวัสดุ"

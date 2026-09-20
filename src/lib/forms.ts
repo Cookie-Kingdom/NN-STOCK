@@ -2,13 +2,17 @@ import { branches, materials, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;
-  type?: "number" | "text" | "date" | "time" | "textarea" | "select" | "location" | "file";
+  type?: "number" | "text" | "tel" | "date" | "time" | "textarea" | "select" | "location" | "file";
   options?: string[];
   optional?: boolean;
   hint?: string;
   accept?: string;
   integer?: boolean;
   zero?: boolean;
+  /** Fixed-length digit string (a tax id): numeric keypad and a length cap. */
+  digits?: number;
+  /** A date that records something that already happened: the picker stops at today. */
+  past?: boolean;
 };
 const number = (
   key: string,
@@ -21,21 +25,33 @@ const text = (key: string, label: string, optional = false): Field => ({
   label,
   optional,
 });
+/** Phone number: `type=tel` is what puts a phone keypad on a phone. */
+const tel = (key: string, label: string): Field => ({ key, label, type: "tel" });
 const location = (key: string, label: string): Field => ({
   key,
   label,
   type: "location",
   options: ["เชียงใหม่", "กรุงเทพฯ", "อื่น ๆ"],
 });
-const date = (key: string, label: string): Field => ({
+const date = (key: string, label: string, past = false): Field => ({
   key,
   label,
   type: "date",
+  past,
 });
-const arrivalTimes = Array.from({ length: 48 }, (_, index) => {
+/** Every half hour of the day. Every `time` field picks from this grid rather than
+ *  taking a typed HH:mm — every time this app records lands on one. */
+const timeSlots = Array.from({ length: 48 }, (_, index) => {
   const hour = String(Math.floor(index / 2)).padStart(2, "0");
   return `${hour}:${index % 2 ? "30" : "00"}`;
 });
+/** The grid, plus whatever off-grid time an older entry already holds, so reopening
+ *  its form never silently drops it. */
+export function timeOptions(current?: string) {
+  return current && !timeSlots.includes(current)
+    ? [...timeSlots, current].sort()
+    : timeSlots;
+}
 const reason: Field = {
   key: "reason",
   label: "เหตุผลส่วนต่าง / Waste / ข้าม FIFO",
@@ -50,7 +66,7 @@ const note: Field = {
 };
 export const forms: Record<string, Field[]> = {
   materialReceive: [
-    date("purchaseDate", "วันที่ซื้อวัสดุ"),
+    date("purchaseDate", "วันที่ซื้อวัสดุ", true),
     {
       key: "material",
       label: "วัสดุที่ซื้อเข้าคลัง (Material)",
@@ -64,7 +80,7 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   ownerWasteReceive: [
-    date("receivedDate", "วันที่ Owner รับเนื้อ"),
+    date("receivedDate", "วันที่ Owner รับเนื้อ", true),
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     text("receiver", "ผู้รับเนื้อ"),
     note,
@@ -92,8 +108,8 @@ export const forms: Record<string, Field[]> = {
     text("customerName", "ชื่อบริษัท / ลูกค้า"),
     { key: "customerAddress", label: "ที่อยู่บริษัท / ที่อยู่ออก PO", type: "textarea" },
     text("attention", "ชื่อผู้ติดต่อ (Attention)"),
-    text("phone", "เบอร์ติดต่อ"),
-    text("taxId", "เลขประจำตัวผู้เสียภาษี"),
+    tel("phone", "เบอร์ติดต่อ"),
+    { key: "taxId", label: "เลขประจำตัวผู้เสียภาษี", digits: 13 },
     text("packSize", "ขนาดบรรจุ เช่น 6 ชิ้นต่อถุง"),
     text("productName", "รายการสินค้า"),
     text("productCode", "รหัสสินค้า (เก็บหลังบ้าน / ไม่บังคับ)", true),
@@ -115,7 +131,7 @@ export const forms: Record<string, Field[]> = {
   ],
   smokingInvoice: [
     text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
-    date("invoiceDate", "วันที่ Invoice"),
+    date("invoiceDate", "วันที่ Invoice", true),
     {
       key: "attachment",
       label: "แนบไฟล์ Invoice ค่ารมควัน",
@@ -131,7 +147,7 @@ export const forms: Record<string, Field[]> = {
     { key: "comment", label: "หมายเหตุถึง Chef_house", type: "textarea", optional: true },
   ],
   invoicePayment: [
-    date("paymentDate", "วันที่ชำระเงิน"),
+    date("paymentDate", "วันที่ชำระเงิน", true),
     number("paidAmount", "ยอดชำระ (บาท)"),
     text("paidBy", "ผู้ดำเนินการชำระ"),
     text("paymentReference", "เลขอ้างอิงการชำระ", true),
@@ -139,7 +155,7 @@ export const forms: Record<string, Field[]> = {
   ],
   foodivaConfirm: [
     text("invoiceNo", "เลข Invoice เนื้อ"),
-    date("invoiceDate", "วันที่ Invoice"),
+    date("invoiceDate", "วันที่ Invoice", true),
     number("confirmedKg", "น้ำหนักตาม Invoice (กก.)"),
     number("readyForChiangMaiKg", "พร้อมส่งไป Chef_house · เชียงใหม่ (กก.)"),
     number("reservedForOwnerKg", "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", true),
@@ -168,18 +184,18 @@ export const forms: Record<string, Field[]> = {
     text("vehicleType", "ประเภทรถ"),
     text("plate", "ทะเบียนรถ"),
     text("driverName", "ชื่อคนขับ"),
-    text("driverPhone", "เบอร์ติดต่อคนขับ"),
+    tel("driverPhone", "เบอร์ติดต่อคนขับ"),
     number("dispatchKg", "น้ำหนักที่ส่งเที่ยวนี้ (กก.)"),
     note,
   ],
   cmReceive: [
-    { key: "arrival", label: "เวลาที่รถมาถึง", type: "select", options: arrivalTimes },
+    { key: "arrival", label: "เวลาที่รถมาถึง", type: "time" },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     note,
   ],
   prepare: [number("preSmokeKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
   smoke: [
-    date("smokeDate", "วันที่สโมค"),
+    date("smokeDate", "วันที่สโมค", true),
     number("inputKg", "น้ำหนักเข้าเตารอบนี้ (กก.)"),
     number("wasteKg", "น้ำหนัก Waste (กก.)", true),
     {
@@ -199,12 +215,12 @@ export const forms: Record<string, Field[]> = {
     text("vehicleType", "ประเภทรถ"),
     text("plate", "ทะเบียนรถ"),
     text("driverName", "ชื่อคนขับ"),
-    text("driverPhone", "เบอร์ติดต่อคนขับ"),
+    tel("driverPhone", "เบอร์ติดต่อคนขับ"),
     number("returnKg", "น้ำหนักส่งจาก Chef_house (กก.)"),
     note,
   ],
   foodivaReturnReceive: [
-    date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน"),
+    date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน", true),
     { key: "receivedTime", label: "เวลารับ", type: "time" },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     number("receivedBags", "จำนวนถุงที่รับ", false, true),
