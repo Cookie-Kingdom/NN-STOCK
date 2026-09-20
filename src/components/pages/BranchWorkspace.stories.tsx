@@ -20,6 +20,7 @@ type Story = StoryObj;
 export const Day: Story = { parameters: at("day") };
 export const Stock: Story = { parameters: at("stock") };
 export const Summary: Story = { parameters: at("branch-summary") };
+export const History: Story = { parameters: at("history") };
 export const MinburiDay: Story = {
   parameters: at("day"),
   render: () => <BranchWorkspace account={accountById("minburi")!} />,

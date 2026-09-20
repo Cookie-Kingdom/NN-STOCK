@@ -20,3 +20,4 @@ type Story = StoryObj;
 export const Receive: Story = { parameters: at("cm-receive") };
 export const Work: Story = { parameters: at("work") };
 export const Stock: Story = { parameters: { ...at("stock"), db: demoDb } };
+export const History: Story = { parameters: { ...at("history"), db: demoDb } };
