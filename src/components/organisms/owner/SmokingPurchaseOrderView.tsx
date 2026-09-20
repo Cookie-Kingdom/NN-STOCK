@@ -10,6 +10,8 @@ import { PoLotCell } from "@/components/molecules/PoLotCell";
 import { smokeOrderPrintRows } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { lotIssueDate } from "@/components/organisms/shared/documents";
+import { useTableSort } from "@/components/organisms/shared/useTableSort";
 import {
   entries,
   n,
@@ -21,6 +23,7 @@ import { fmt } from "@/lib/format";
 
 const columns = [
   "PO เนื้อ / Lot",
+  "วันที่ออก PO",
   "Invoice Foodiva",
   "น้ำหนักสั่งรม",
   "อัตราค่ารม",
@@ -36,8 +39,21 @@ export function SmokingPurchaseOrderView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const eligibleLots = db.lots.filter(
-    (lot) => entries(db, "foodivaConfirm", lot.id).length > 0,
+  const [eligibleLots, sortControl] = useTableSort(
+    db.lots.filter((lot) => entries(db, "foodivaConfirm", lot.id).length > 0),
+    [
+      {
+        label: "วันที่ออก PO (ล่าสุดก่อน)",
+        by: (lot) => lotIssueDate(db, lot),
+        desc: true,
+      },
+      {
+        label: "วันที่ออก PO (เก่าสุดก่อน)",
+        by: (lot) => lotIssueDate(db, lot),
+      },
+      { label: "เลข PO", by: (lot) => lot.poId },
+      { label: "Lot", by: (lot) => lot.id },
+    ],
   );
   const waitingForChefHouse = eligibleLots.filter(
     (lot) =>
@@ -59,6 +75,7 @@ export function SmokingPurchaseOrderView({
       />
       <DataTable
         title="รายการ PO โรงรมควัน"
+        action={sortControl}
         columns={columns}
         rowKeys={eligibleLots.map((lot) => lot.id)}
         rows={eligibleLots.map((lot) => {
@@ -71,6 +88,7 @@ export function SmokingPurchaseOrderView({
             : "รอ Chef_house Submit";
           return [
             <PoLotCell key="lot" poId={lot.poId} lotId={lot.id} />,
+            lotIssueDate(db, lot),
             `${foodivaInvoice?.values.invoiceNo || "-"} · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก.`,
             order ? `${fmt(n(order.values, "rawKg"))} กก.` : "ยังไม่ออก PO",
             order ? `฿${fmt(n(order.values, "serviceRate"))} / กก.` : "—",
