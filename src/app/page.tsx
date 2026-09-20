@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 import { signIn, signUp, useSession } from "@/lib/session";
@@ -99,12 +100,15 @@ export default function SignInPage() {
             // ponytail: stays disabled until hydrated and the session check is back; a click
             // before that is a native GET submit that reloads "/" and silently drops the sign-in.
             disabled={busy || !ready}
+            icon={busy || !ready ? <Spinner /> : undefined}
           >
             {busy
               ? "กำลังดำเนินการ…"
-              : mode === "login"
-                ? "เข้าสู่ระบบ"
-                : "สมัครสมาชิก"}
+              : !ready
+                ? "กำลังเตรียมระบบ…"
+                : mode === "login"
+                  ? "เข้าสู่ระบบ"
+                  : "สมัครสมาชิก"}
           </Button>
         </form>
         <Button

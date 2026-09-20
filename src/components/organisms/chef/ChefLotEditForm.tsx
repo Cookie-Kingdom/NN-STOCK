@@ -208,7 +208,7 @@ export function ChefLotEditForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           onCancel={onClose}
           submitLabel="บันทึกการแก้ไข"
         />

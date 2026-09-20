@@ -210,7 +210,7 @@ export function MaterialTransferForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           hint="ทุกรายการจะบันทึกพร้อมกัน"
           onCancel={onClose}
           submitLabel="บันทึกส่งวัสดุ"

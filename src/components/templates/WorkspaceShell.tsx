@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { LoadingPanel } from "@/components/molecules/LoadingState";
 import { AppHeader } from "@/components/organisms/workspace/AppHeader";
 import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
 import {
@@ -33,6 +34,8 @@ type Props = {
   onToggleNotifications?: () => void;
   toast: string;
   onCloseToast: () => void;
+  /** Server payload still loading: the views would show seed data, so show its shape instead. */
+  loading?: boolean;
   children: ReactNode;
 };
 
@@ -50,6 +53,7 @@ export function WorkspaceShell({
   onToggleNotifications,
   toast,
   onCloseToast,
+  loading = false,
   children,
 }: Props) {
   return (
@@ -86,9 +90,13 @@ export function WorkspaceShell({
           <Toast message={toast} onClose={onCloseToast} />
           <DatabaseErrorToast />
           {/* Views are conditionally rendered per tab, so remounting on tab change loses no state. */}
-          <div key={tab} className="animate-fade-in">
-            {children}
-          </div>
+          {loading ? (
+            <LoadingPanel />
+          ) : (
+            <div key={tab} className="animate-fade-in">
+              {children}
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -399,7 +399,7 @@ export function GeneralPurchaseForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           hint="กดเพิ่มรายการเพื่อบันทึกได้ต่อเนื่อง"
           onCancel={onClose}
           submitLabel={`บันทึก ${lines.length} รายการ`}

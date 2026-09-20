@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -52,6 +53,7 @@ export function DailyMaterialsTable({
     error: message,
     setError: setMessage,
     run,
+    saving,
   } = useSaveMutation("บันทึกไม่สำเร็จ");
   const opening = (i: number) => branchMaterialStock(db, branch, i, date);
   const used = (i: number) => n(draft, "used" + i);
@@ -109,10 +111,15 @@ export function DailyMaterialsTable({
             />
             <Button
               variant="primary"
-              disabled={disabled}
+              disabled={disabled || saving}
+              icon={saving ? <Spinner /> : undefined}
               onClick={saveMaterials}
             >
-              {saved ? "บันทึกแก้ไข" : "บันทึกการใช้วัสดุ"}
+              {saving
+                ? "กำลังบันทึก…"
+                : saved
+                  ? "บันทึกแก้ไข"
+                  : "บันทึกการใช้วัสดุ"}
             </Button>
           </div>
         }

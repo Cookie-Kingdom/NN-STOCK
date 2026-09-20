@@ -101,7 +101,7 @@ export function BagAllocationForm({
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
-          submitDisabled={saving}
+          submitting={saving}
           hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"

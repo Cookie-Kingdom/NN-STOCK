@@ -30,6 +30,7 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
         onDate={ws.setDate}
         minDate={ws.db.config.systemStartDate}
         badges={ws.loaded ? { foodiva: openTasks } : {}}
+        loading={!ws.loaded}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

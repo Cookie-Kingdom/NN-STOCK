@@ -43,6 +43,7 @@ export function ChefWorkspace({ account }: { account: Account }) {
         badges={
           ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
         }
+        loading={!ws.loaded}
         toast={ws.toast}
         onCloseToast={() => ws.setToast("")}
       >

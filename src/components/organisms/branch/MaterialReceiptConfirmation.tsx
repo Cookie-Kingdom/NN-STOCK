@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -45,8 +46,12 @@ export function MaterialReceiptConfirmation({
     error: message,
     setError: setMessage,
     run,
+    saving,
   } = useSaveMutation("ยืนยันรับไม่สำเร็จ");
+  // Which row is waiting on the server, so only that button spins.
+  const [confirming, setConfirming] = useState("");
   const confirm = async (transfer: Entry) => {
+    setConfirming(transfer.id);
     const next = await run(() => {
       const receivedQuantity =
         draft[`quantity-${transfer.id}`] || transfer.values.quantity;
@@ -118,10 +123,15 @@ export function MaterialReceiptConfirmation({
           <Button
             key={`b-${transfer.id}`}
             variant="table"
-            disabled={closed}
+            disabled={closed || saving}
+            icon={
+              saving && confirming === transfer.id ? <Spinner /> : undefined
+            }
             onClick={() => confirm(transfer)}
           >
-            ยืนยันรับ
+            {saving && confirming === transfer.id
+              ? "กำลังยืนยัน…"
+              : "ยืนยันรับ"}
           </Button>,
         ])}
         action={

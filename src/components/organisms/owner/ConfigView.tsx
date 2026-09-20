@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Footnote } from "@/components/atoms/Text";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
@@ -129,9 +130,10 @@ function SectionAction({
             variant="primary"
             size="sm"
             disabled={saving}
+            icon={saving ? <Spinner /> : undefined}
             onClick={onSave}
           >
-            บันทึกและล็อก (Save & lock)
+            {saving ? "กำลังบันทึก…" : "บันทึกและล็อก (Save & lock)"}
           </Button>
         </>
       ) : (

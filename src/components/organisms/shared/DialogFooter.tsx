@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Spinner } from "@/components/atoms/Spinner";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,6 +14,7 @@ export function DialogFooter({
   submitLabel,
   submitType = "submit",
   submitDisabled,
+  submitting = false,
   onSubmit,
   className,
   children,
@@ -25,6 +27,8 @@ export function DialogFooter({
   submitLabel?: ReactNode;
   submitType?: "submit" | "button";
   submitDisabled?: boolean;
+  /** Save in flight: the submit button spins and stays disabled until it settles. */
+  submitting?: boolean;
   /** Click handler for the submit button (use with `submitType="button"`). */
   onSubmit?: () => void;
   className?: string;
@@ -52,9 +56,12 @@ export function DialogFooter({
         <Button
           variant="primary"
           type={submitType}
-          disabled={submitDisabled}
+          disabled={submitDisabled || submitting}
+          icon={submitting ? <Spinner /> : undefined}
           onClick={onSubmit}
         >
+          {/* The label stays put while saving: only the spinner is added, so the
+              footer keeps its width and nothing shifts under the cursor. */}
           {submitLabel}
         </Button>
       )}
