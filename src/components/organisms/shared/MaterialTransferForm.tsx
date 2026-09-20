@@ -115,7 +115,9 @@ export function MaterialTransferForm({
               <thead>
                 <tr>
                   <th className={`${headCell} w-[28%]`}>วัสดุ</th>
-                  <th className={`${headCell} w-[14%]`}>คลัง Owner</th>
+                  <th className={`${headCell} w-[14%] text-right`}>
+                    คลัง Owner
+                  </th>
                   {branches.map((branch) => (
                     <th key={branch} className={`${headCell} w-[29%]`}>
                       {branch}
@@ -129,7 +131,9 @@ export function MaterialTransferForm({
                     <td className={`${cell} leading-snug whitespace-normal`}>
                       <strong>{material}</strong>
                     </td>
-                    <td className={`${cell} font-semibold text-accent`}>
+                    <td
+                      className={`${cell} text-right font-semibold text-accent tabular-nums`}
+                    >
                       {ownerMaterialStock(db, material)} ชิ้น
                     </td>
                     {branches.map((branch) => {
