@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/atoms/Input";
+import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -12,6 +13,7 @@ import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   entries,
@@ -20,7 +22,7 @@ import {
   type Database,
   type Values,
 } from "@/lib/store";
-import { fmt } from "@/lib/format";
+import { fmt, today } from "@/lib/format";
 
 export function ChefLotEditForm({
   db,
@@ -58,6 +60,38 @@ export function ChefLotEditForm({
     })),
   );
   const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
+  const complete =
+    [values.receivedKg, values.arrival, values.preSmokeKg].every((value) =>
+      String(value ?? "").trim(),
+    ) &&
+    smokeDrafts.every(
+      (draft) =>
+        draft.smokeDate &&
+        draft.inputKg.trim() &&
+        draft.wasteKg.trim() &&
+        draft.packs.trim(),
+    );
+  /* The save's own mutate, run on the values as they stand, so a weight over the
+   * one received or a round that does not balance shows while it is being typed
+   * instead of after บันทึก. mutate clones the database, so a dry run changes
+   * nothing. Held back until every control has something in it: an unfinished
+   * form must not be told off for being unfinished. */
+  const liveError = useMemo(() => {
+    if (!complete) return "";
+    try {
+      mutate(
+        db,
+        "cm",
+        "chefEdit",
+        { ...values, batches: JSON.stringify(smokeDrafts) },
+        lotId,
+        date,
+      );
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [complete, db, values, smokeDrafts, lotId, date]);
   if (!lot || !received || !prepared || !smokeEntries.length) return null;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -119,22 +153,28 @@ export function ChefLotEditForm({
                 type="number"
                 min="0.001"
                 step="0.001"
+                inputMode="decimal"
                 value={values.receivedKg}
                 onChange={(event) => set("receivedKg", event.target.value)}
               />
             </FormField>
-            <FormField label="เวลารับ (HH:mm)">
-              <Input
-                type="time"
+            <FormField label="เวลารับ">
+              <Select
                 value={values.arrival}
                 onChange={(event) => set("arrival", event.target.value)}
-              />
+              >
+                <option value="">เลือกเวลา</option>
+                {timeOptions(values.arrival).map((slot) => (
+                  <option key={slot}>{slot}</option>
+                ))}
+              </Select>
             </FormField>
             <FormField label="น้ำหนักก่อนสโมค (กก.)">
               <Input
                 type="number"
                 min="0.001"
                 step="0.001"
+                inputMode="decimal"
                 value={values.preSmokeKg}
                 onChange={(event) => set("preSmokeKg", event.target.value)}
               />
@@ -155,6 +195,7 @@ export function ChefLotEditForm({
                 key={`${draft.id}-date`}
                 variant="table"
                 type="date"
+                max={today()}
                 aria-label={`วันที่สโมค รอบ ${index + 1}`}
                 value={draft.smokeDate}
                 onChange={(event) =>
@@ -168,6 +209,7 @@ export function ChefLotEditForm({
                 type="number"
                 min="0.001"
                 step="0.001"
+                inputMode="decimal"
                 aria-label={`น้ำหนักเข้าเตา รอบ ${index + 1}`}
                 value={draft.inputKg}
                 onChange={(event) =>
@@ -180,6 +222,7 @@ export function ChefLotEditForm({
                 type="number"
                 min="0"
                 step="0.001"
+                inputMode="decimal"
                 aria-label={`น้ำหนัก Waste รอบ ${index + 1}`}
                 value={draft.wasteKg}
                 onChange={(event) =>
@@ -209,6 +252,7 @@ export function ChefLotEditForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
+          error={liveError}
           onCancel={onClose}
           submitLabel="บันทึกการแก้ไข"
         />

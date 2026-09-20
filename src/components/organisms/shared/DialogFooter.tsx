@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * `.form-dialog form > footer` / `.form-dialog > footer`.
- * Order: hint (left, hidden below md) · children · cancel · submit.
+ * Order: hint or error (left) · children · cancel · submit.
  */
 export function DialogFooter({
   hint,
+  error,
   cancelLabel = "ยกเลิก",
   onCancel,
   submitLabel,
@@ -20,6 +21,10 @@ export function DialogFooter({
   children,
 }: {
   hint?: ReactNode;
+  /** What the form would be refused for, checked as the user types. Takes the
+   *  hint's place: while something is wrong, that is the useful thing to read.
+   *  Unlike the hint it stays visible on a phone, and it never hides the buttons. */
+  error?: string;
   cancelLabel?: ReactNode;
   /** Cancel button is rendered only when this is given. */
   onCancel?: () => void;
@@ -37,14 +42,23 @@ export function DialogFooter({
   return (
     <footer
       className={cn(
-        "flex items-center justify-end gap-2.5 border-t border-border bg-bg px-6.5 py-4 max-md:px-4.5 max-md:py-3.5",
+        "flex flex-wrap items-center justify-end gap-2.5 border-t border-border bg-bg px-6.5 py-4 max-md:px-4.5 max-md:py-3.5",
         className,
       )}
     >
-      {hint && (
-        <p className="mr-auto text-caption text-text-secondary max-md:hidden">
-          {hint}
+      {error ? (
+        <p
+          role="alert"
+          className="mr-auto min-w-40 flex-1 text-caption text-danger"
+        >
+          {error}
         </p>
+      ) : (
+        hint && (
+          <p className="mr-auto text-caption text-text-secondary max-md:hidden">
+            {hint}
+          </p>
+        )
       )}
       {children}
       {onCancel && (

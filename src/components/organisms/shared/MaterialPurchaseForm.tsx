@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -19,7 +19,7 @@ import {
   type Database,
   type Values,
 } from "@/lib/store";
-import { fmt } from "@/lib/format";
+import { fmt, today } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const purchaseLines = materials.map((material) => ({
@@ -29,6 +29,53 @@ const purchaseLines = materials.map((material) => ({
 }));
 
 const lineField = "text-caption";
+
+/** The change the save would make, from whichever database it is given. Shared by
+ *  submit and the live check so both refuse for exactly the same reason. */
+function build(
+  from: Database,
+  date: string,
+  checked: Record<string, boolean>,
+  quantities: Values,
+  unitPrices: Values,
+  purchaseDates: Values,
+  suppliers: Values,
+  references: Values,
+) {
+  const selected = purchaseLines.filter((line) => checked[line.key]);
+  if (!selected.length) throw new Error("ติ๊กเลือกอย่างน้อย 1 รายการ");
+  let next = from;
+  for (const line of selected) {
+    const item = line.label;
+    const purchaseDate = purchaseDates[line.key] || date;
+    const quantity = Number(quantities[line.key]);
+    const unitPrice = Number(unitPrices[line.key]);
+    const supplier = suppliers[line.key]?.trim();
+    const reference = references[line.key]?.trim() || "";
+    if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
+    if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
+    if (!Number.isInteger(quantity) || quantity <= 0)
+      throw new Error(`กรอกจำนวน ${item} เป็นจำนวนเต็มที่มากกว่า 0`);
+    if (!Number.isFinite(unitPrice) || unitPrice < 0)
+      throw new Error(`กรอกราคาซื้อ ${item}`);
+    next = mutate(
+      next,
+      "owner",
+      "materialReceive",
+      {
+        purchaseDate,
+        material: item,
+        quantity: String(quantity),
+        unitPrice: String(unitPrice),
+        supplier,
+        reference,
+      },
+      "",
+      purchaseDate,
+    );
+  }
+  return next;
+}
 
 export function MaterialPurchaseForm({
   db,
@@ -59,43 +106,63 @@ export function MaterialPurchaseForm({
     (sum, line) => sum + n(quantities, line.key) * n(unitPrices, line.key),
     0,
   );
+  /* The save's own mutate, run on the values as they stand, so a refusal shows while
+   * the line is being typed instead of after บันทึก. mutate clones the database, so a
+   * dry run changes nothing. Held back until every ticked line has its วันที่ จำนวน
+   * ราคา and ผู้จำหน่าย: an unfinished form must not be told off for being
+   * unfinished. */
+  const liveError = useMemo(() => {
+    const ticked = purchaseLines.filter((line) => checked[line.key]);
+    const complete =
+      ticked.length > 0 &&
+      ticked.every(
+        (line) =>
+          (purchaseDates[line.key] ?? date) &&
+          quantities[line.key]?.trim() &&
+          unitPrices[line.key]?.trim() &&
+          suppliers[line.key]?.trim(),
+      );
+    if (!complete) return "";
+    try {
+      build(
+        db,
+        date,
+        checked,
+        quantities,
+        unitPrices,
+        purchaseDates,
+        suppliers,
+        references,
+      );
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [
+    db,
+    date,
+    checked,
+    quantities,
+    unitPrices,
+    purchaseDates,
+    suppliers,
+    references,
+  ]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const saved = await run(() => {
-      if (!selected.length) throw new Error("ติ๊กเลือกอย่างน้อย 1 รายการ");
-      let next = latestDatabase();
-      for (const line of selected) {
-        const item = line.label;
-        const purchaseDate = purchaseDates[line.key] || date;
-        const quantity = Number(quantities[line.key]);
-        const unitPrice = Number(unitPrices[line.key]);
-        const supplier = suppliers[line.key]?.trim();
-        const reference = references[line.key]?.trim() || "";
-        if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
-        if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
-        if (!Number.isInteger(quantity) || quantity <= 0)
-          throw new Error(`กรอกจำนวน ${item} เป็นจำนวนเต็มที่มากกว่า 0`);
-        if (!Number.isFinite(unitPrice) || unitPrice < 0)
-          throw new Error(`กรอกราคาซื้อ ${item}`);
-        next = mutate(
-          next,
-          "owner",
-          "materialReceive",
-          {
-            purchaseDate,
-            material: item,
-            quantity: String(quantity),
-            unitPrice: String(unitPrice),
-            supplier,
-            reference,
-          },
-          "",
-          purchaseDate,
-        );
-      }
-      return next;
-    });
+    const saved = await run(() =>
+      build(
+        latestDatabase(),
+        date,
+        checked,
+        quantities,
+        unitPrices,
+        purchaseDates,
+        suppliers,
+        references,
+      ),
+    );
     if (saved) onSaved(saved);
   }
 
@@ -169,6 +236,8 @@ export function MaterialPurchaseForm({
                       <FormField className={lineField} label="วันที่ซื้อ">
                         <Input
                           type="date"
+                          // What is already bought cannot have been bought tomorrow.
+                          max={today()}
                           aria-label={`วันที่ซื้อ ${line.label}`}
                           value={purchaseDates[line.key] ?? date}
                           onChange={(event) =>
@@ -260,6 +329,7 @@ export function MaterialPurchaseForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
+          error={liveError}
           hint="บันทึกครั้งเดียวได้หลายวัสดุ"
           onCancel={onClose}
           submitLabel={`บันทึกการซื้อ ${selected.length ? `${selected.length} รายการ` : ""}`}

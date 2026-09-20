@@ -5,6 +5,7 @@ import {
   isValidElement,
   type ReactNode,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { Button } from "@/components/atoms/Button";
@@ -17,6 +18,7 @@ import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branches,
@@ -79,6 +81,19 @@ function draftFromConfig(config: Values): Values {
   return values;
 }
 
+/** The save's own change, rebased on the config it starts from. Shared by the save and
+ *  the live check so both refuse for the same reason. */
+function buildConfig(from: Database, changed: Values) {
+  return mutate(
+    from,
+    "owner",
+    "config",
+    { ...draftFromConfig(from.config), ...changed },
+    "",
+    new Date().toISOString().slice(0, 10),
+  );
+}
+
 function settingRow(
   label: string,
   value: ReactNode,
@@ -105,6 +120,7 @@ function SectionAction({
   section,
   editing,
   message,
+  error,
   saving,
   onCancel,
   onSave,
@@ -113,6 +129,9 @@ function SectionAction({
   section: ConfigSection;
   editing: ConfigSection | null;
   message: string;
+  /** What the save would be refused for, checked as the user types. Takes the
+   *  message's place: while something is wrong, that is the useful thing to read. */
+  error: string;
   saving: boolean;
   onCancel: () => void;
   onSave: () => void;
@@ -120,7 +139,14 @@ function SectionAction({
 }) {
   return (
     <div className="flex items-center gap-3 max-md:justify-between">
-      {editing === section && message && <span>{message}</span>}
+      {editing === section && (error || message) && (
+        <span
+          role={error ? "alert" : undefined}
+          className={error ? "text-danger" : undefined}
+        >
+          {error || message}
+        </span>
+      )}
       {editing === section ? (
         <>
           <Button size="sm" onClick={onCancel}>
@@ -200,6 +226,21 @@ function ConfigValue({
       </ReadOnlyValue>
     );
   }
+  if (type === "time") {
+    const current = draft[name] || "";
+    return (
+      <Select
+        variant="table"
+        aria-label={ariaLabel}
+        value={current}
+        onChange={(event) => onChange(name, event.target.value)}
+      >
+        {timeOptions(current).map((slot) => (
+          <option key={slot}>{slot}</option>
+        ))}
+      </Select>
+    );
+  }
   if (type === "branch")
     return (
       <Select
@@ -255,15 +296,8 @@ function ConfigValue({
     <Input
       variant="table"
       aria-label={ariaLabel}
-      type={
-        type === "time"
-          ? "time"
-          : type === "date"
-            ? "date"
-            : type === "text"
-              ? "text"
-              : "number"
-      }
+      type={type === "date" ? "date" : type === "text" ? "text" : "number"}
+      inputMode={type === "number" ? "decimal" : undefined}
       min={type === "number" ? "0" : undefined}
       step={name === "packKg" ? "0.001" : name === "tolerance" ? "1" : "0.01"}
       value={draft[name] ?? ""}
@@ -325,22 +359,30 @@ export function ConfigView({ db }: { db: Database }) {
     };
     reader.readAsDataURL(file);
   };
+  // Only the fields touched in this section are sent, so a setting someone else saved
+  // meanwhile is kept.
+  const changed = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(draft).filter(([key, value]) => value !== base[key]),
+      ),
+    [draft, base],
+  );
+  /* The save's own mutate, run on the draft as it stands, so a value the rules refuse is
+   * said while it is being typed instead of after บันทึกและล็อก. mutate clones the
+   * database, so a dry run changes nothing. Only while a section is open: the read-only
+   * table has nothing to complain about. */
+  const liveError = useMemo(() => {
+    if (!editing) return "";
+    try {
+      buildConfig(db, changed);
+      return "";
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "";
+    }
+  }, [editing, db, changed]);
   const save = async () => {
-    const changed = Object.fromEntries(
-      Object.entries(draft).filter(([key, value]) => value !== base[key]),
-    );
-    // Rebased on the latest config, so a setting someone else saved meanwhile is kept.
-    const next = await run(() => {
-      const latest = latestDatabase();
-      return mutate(
-        latest,
-        "owner",
-        "config",
-        { ...draftFromConfig(latest.config), ...changed },
-        "",
-        new Date().toISOString().slice(0, 10),
-      );
-    });
+    const next = await run(() => buildConfig(latestDatabase(), changed));
     if (!next) return;
     setEditing(null);
     setMessage("บันทึกแล้ว · กลับสู่โหมดดูข้อมูล");
@@ -356,6 +398,7 @@ export function ConfigView({ db }: { db: Database }) {
   const actionProps = {
     editing,
     message,
+    error: liveError,
     saving,
     onCancel: () => setEditing(null),
     onSave: save,

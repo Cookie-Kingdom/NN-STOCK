@@ -1,7 +1,7 @@
 // Databases for organism stories, built by the real `mutate` so every derived number
 // (stock, cost, yield) is what the app would show.
 import { fn } from "storybook/test";
-import { sevenDayRoleplay, type Database } from "@/lib/store";
+import { materials, sevenDayRoleplay, type Database } from "@/lib/store";
 import {
   confirm,
   day,
@@ -141,6 +141,25 @@ export const rejectedInvoiceDb: Database = (() => {
     decision: "ส่งกลับแก้ไข",
     reviewedBy: "Owner",
     comment: "ยอดคลาดเคลื่อน โปรดออกใหม่",
+  });
+  return s.db;
+})();
+
+/** A material shipment to ศาลาแดง still waiting for the branch to confirm what arrived. */
+export const materialTransferDb: Database = (() => {
+  const s = setup();
+  s.run("owner", "materialReceive", {
+    purchaseDate: day,
+    material: materials[0],
+    quantity: "200",
+    unitPrice: "3",
+    supplier: "ร้านวัสดุ",
+  });
+  s.run("owner", "materialTransfer", {
+    material: materials[0],
+    branch: "ศาลาแดง",
+    quantity: "60",
+    receiver: "ผู้ดูแลสาขา",
   });
   return s.db;
 })();
