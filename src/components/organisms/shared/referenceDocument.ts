@@ -20,13 +20,21 @@ export type ReferenceDocument = {
   attachment?: { name: string; data?: string; storageKey?: string };
 };
 
-/* Only a stored file counts: a name alone (demo rows, an upload that failed) has
- * nothing to show, so the form falls back to the generated sheet. */
-function attachmentOf(entry?: Entry) {
+const hasFile = (entry: Entry) =>
+  Boolean(entry.values.attachmentData || entry.values.attachmentStorageKey);
+
+/* An invoice the counterparty uploaded is never the generated sheet, so any
+ * uploaded file on the document wins: the newest version that still carries the
+ * bytes, and otherwise the latest entry, whose button says the file is missing.
+ * Re-saving an invoice without picking the file again (Foodiva "แก้ไข / อัปโหลดใหม่")
+ * used to leave the newest entry holding the file name only, and the form then
+ * showed the generated sheet as if it were the upload. */
+function attachmentOf(history: Entry[]) {
+  const entry = history.filter(hasFile).at(-1) ?? history.at(-1);
   const v = entry?.values;
-  if (!v || (!v.attachmentData && !v.attachmentStorageKey)) return undefined;
+  if (!v || !v.attachment) return undefined;
   return {
-    name: v.attachment || "",
+    name: v.attachment,
     data: v.attachmentData,
     storageKey: v.attachmentStorageKey,
   };
@@ -38,7 +46,8 @@ export function referenceDocument(
   kind: string,
   lot: Lot,
 ): ReferenceDocument | undefined {
-  const latest = (k: string) => entries(db, k, lot.id).at(-1);
+  const history = (k: string) => entries(db, k, lot.id);
+  const latest = (k: string) => history(k).at(-1);
   const foodInvoice = latest("foodivaConfirm");
   const order = latest("smokeOrder");
   const smokeInvoice = latest("smokingInvoice");
@@ -62,7 +71,7 @@ export function referenceDocument(
       number: foodInvoice.values.invoiceNo || lot.poId,
       rows: foodivaInvoiceRows(db, lot, foodInvoice),
       summary: ["วันที่ Invoice", "น้ำหนักยืนยัน", "พร้อมส่งเชียงใหม่"],
-      attachment: attachmentOf(foodInvoice),
+      attachment: attachmentOf(history("foodivaConfirm")),
     };
   if ((kind === "smokeOrderAccept" || kind === "smokingInvoice") && order)
     return {
@@ -87,7 +96,7 @@ export function referenceDocument(
       number: smokeInvoice.values.invoiceNumber || lot.poId,
       rows: smokingInvoiceRows(db, lot, smokeInvoice, order),
       summary: ["PO โรงรมควัน", "น้ำหนักคิดค่าบริการ", "ยอดสุทธิ", "สถานะ"],
-      attachment: attachmentOf(smokeInvoice),
+      attachment: attachmentOf(history("smokingInvoice")),
     };
   const direction =
     kind === "cmReceive"
