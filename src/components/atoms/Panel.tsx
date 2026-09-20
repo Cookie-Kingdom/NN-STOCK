@@ -7,7 +7,11 @@ type PanelProps = Omit<ComponentProps<"section">, "ref"> & {
   compact?: boolean;
 };
 
-/** `.panel` — plain bordered surface */
+/**
+ * Plain bordered surface — the default container for one block of a workspace.
+ * `compact` tightens the padding for dense side-by-side panels, and `as` swaps the
+ * tag when `<section>` is wrong for the document outline.
+ */
 export function Panel({
   as: Tag = "section",
   compact = false,

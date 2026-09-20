@@ -14,6 +14,11 @@ const overlineVariants = cva("text-caption", {
   defaultVariants: { tone: "default" },
 });
 
+/**
+ * Small bold kicker above a heading or a figure, naming the section it introduces.
+ * `accent` is the louder dashboard variant; it is decoration, not a heading, so it
+ * never replaces the `<h2>` under it.
+ */
 export function Overline({
   tone,
   className,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -205,9 +206,7 @@ export function MaterialPurchaseForm({
                   )}
                 >
                   <label className="grid cursor-pointer grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.25 px-4.5 py-4 max-[560px]:grid-cols-[24px_minmax(0,1fr)]">
-                    <input
-                      type="checkbox"
-                      className="size-4.75"
+                    <Checkbox
                       aria-label={`ซื้อ ${line.label}`}
                       checked={selectedRow}
                       onChange={(event) => {

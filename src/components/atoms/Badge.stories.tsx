@@ -8,7 +8,7 @@ const meta = {
   argTypes: {
     tone: {
       control: "inline-radio",
-      options: ["neutral", "success", "warning", "danger"],
+      options: ["neutral", "success", "warning", "danger", "inverse"],
     },
   },
 } satisfies Meta<typeof Badge>;
@@ -25,6 +25,7 @@ export const AllTones: Story = {
       <Badge tone="success">ปิดล็อตแล้ว</Badge>
       <Badge tone="warning">ใกล้หมด</Badge>
       <Badge tone="danger">ติดลบ</Badge>
+      <Badge tone="inverse">บันทึกแล้ว</Badge>
     </div>
   ),
 };

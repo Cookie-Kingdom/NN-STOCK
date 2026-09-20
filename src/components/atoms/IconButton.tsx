@@ -24,6 +24,11 @@ export type IconButtonProps = Omit<ComponentProps<"button">, "children"> &
     icon: ReactNode;
   };
 
+/**
+ * Icon-only button with a 44px touch target (34px for `sm`, used in the sidebar).
+ * `label` is required and becomes both `aria-label` and the hover `title`, so the
+ * action keeps a name even though nothing visible says what it does.
+ */
 export function IconButton({
   label,
   icon,

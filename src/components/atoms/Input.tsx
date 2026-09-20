@@ -33,6 +33,12 @@ export const controlVariants = cva(
 
 export type ControlVariantProps = VariantProps<typeof controlVariants>;
 
+/**
+ * Single-line control for text, numbers and dates. `variant` says where it lives:
+ * `form` inside a FormField, `table` in an editable table cell (right-aligned,
+ * tabular), `filter` in a filter bar. All three stay 16px on mobile so iOS does not
+ * zoom the page when the field takes focus.
+ */
 export function Input({
   variant,
   reason,

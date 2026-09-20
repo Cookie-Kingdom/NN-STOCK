@@ -17,6 +17,12 @@ const countPillVariants = cva("rounded-full font-bold tabular-nums", {
   defaultVariants: { variant: "menu" },
 });
 
+/**
+ * Red count of items still waiting for someone — pending tasks, unread alerts.
+ * `menu` sits at the end of a sidebar nav item, `overlay` on the corner of a
+ * (relatively positioned) icon button, `task` inside a table cell. Render it only
+ * when the count is above zero; a pill reading 0 is noise.
+ */
 export function CountPill({
   variant,
   className,

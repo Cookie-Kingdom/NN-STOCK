@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
@@ -187,9 +188,7 @@ export function MaterialTransferForm({
                       return (
                         <td key={branch} className={cell}>
                           <div className="grid grid-cols-[24px_minmax(100px,1fr)] items-center gap-3 max-md:grid-cols-[20px_minmax(48px,1fr)] max-md:gap-1.5">
-                            <input
-                              type="checkbox"
-                              className="size-4.5"
+                            <Checkbox
                               aria-label={`ส่ง ${material} ไป${branch}`}
                               checked={!!checked[field]}
                               onChange={(event) => {
