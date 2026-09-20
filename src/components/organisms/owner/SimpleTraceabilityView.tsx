@@ -17,6 +17,8 @@ import {
 } from "@/components/organisms/owner/documentRows";
 import { TableSection } from "@/components/organisms/shared/TableSection";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
 import {
   DocumentFilterBar,
   lotIssueDate,
@@ -210,6 +212,16 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       : lot.stage >= 6
                         ? "Chef_house → Foodiva"
                         : "Foodiva · รอเริ่มขนส่ง";
+                  const foodivaFile = uploadedAttachment(
+                    db,
+                    "foodivaConfirm",
+                    lot.id,
+                  );
+                  const chefFile = uploadedAttachment(
+                    db,
+                    "smokingInvoice",
+                    lot.id,
+                  );
                   const detailRows: [
                     string,
                     ReactNode,
@@ -236,7 +248,15 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       foodInvoice
                         ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`
                         : "รอ Foodiva",
-                      foodInvoice ? (
+                      /* An invoice is the counterparty's own file. Only a lot that
+                         never got one falls back to the generated sheet. */
+                      foodivaFile ? (
+                        <AttachmentViewButton
+                          key="food-file"
+                          {...foodivaFile}
+                          label="พรีวิว / PDF"
+                        />
+                      ) : foodInvoice ? (
                         <DocumentPreview
                           key="food-invoice"
                           title="Invoice Foodiva"
@@ -276,7 +296,13 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       chefInvoice
                         ? smokingInvoiceStatus(db, chefInvoice)
                         : "รอ Chef_house Submit",
-                      chefInvoice ? (
+                      chefFile ? (
+                        <AttachmentViewButton
+                          key="chef-file"
+                          {...chefFile}
+                          label="พรีวิว / PDF"
+                        />
+                      ) : chefInvoice ? (
                         <DocumentPreview
                           key="chef-invoice"
                           title="Invoice Chef_house"
