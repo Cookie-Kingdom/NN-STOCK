@@ -8,6 +8,9 @@ import { createClient } from "./supabase/browser";
 type StoredDatabase = Partial<Database>;
 type AppStateRow = { payload: StoredDatabase; revision: number };
 type RowResult = { data: AppStateRow | null; error: { message: string } | null };
+/* save_app_state returns the new revision and nothing else: shipping the payload back
+ * only to read one number off it was a large slice of every save (migration 0017). */
+type SaveResult = { data: { revision: number } | null; error: { message: string } | null };
 const supabase = LOCAL_DB ? null : createClient();
 const listeners = new Set<() => void>();
 let revision: number | null = null;
@@ -80,10 +83,10 @@ async function localRequest(init?: RequestInit): Promise<RowResult> {
  * before it: a request that never settles (stalled fetch, auth session read that never
  * resolves) would leave every later save unsent with no message until a reload. */
 const REQUEST_TIMEOUT_MS = 20_000;
-function withTimeout(request: PromiseLike<RowResult>): Promise<RowResult> {
+function withTimeout<T extends { data: unknown; error: { message: string } | null }>(request: PromiseLike<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<RowResult>((resolve) => {
-    timer = setTimeout(() => resolve({ data: null, error: { message: "เชื่อมต่อเซิร์ฟเวอร์ไม่ทันเวลา กรุณาลองใหม่" } }), REQUEST_TIMEOUT_MS);
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve({ data: null, error: { message: "เชื่อมต่อเซิร์ฟเวอร์ไม่ทันเวลา กรุณาลองใหม่" } } as T), REQUEST_TIMEOUT_MS);
   });
   return Promise.race([Promise.resolve(request), timeout]).finally(() => clearTimeout(timer));
 }
@@ -91,10 +94,10 @@ function readRow(): Promise<RowResult> {
   if (!supabase) return localRequest();
   return withTimeout(supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>());
 }
-function saveRow(payload: Database, expectedRevision: number | null): Promise<RowResult> {
+function saveRow(payload: Database, expectedRevision: number | null): Promise<SaveResult> {
   if (!supabase) return localRequest({ method: "POST", body: JSON.stringify({ payload, expectedRevision }) });
   return withTimeout(supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
-    .then(({ data, error }) => ({ data: (data as AppStateRow[] | null)?.[0] ?? null, error })));
+    .then(({ data, error }) => ({ data: (data as { revision: number }[] | null)?.[0] ?? null, error })));
 }
 /** Resolves to whether the server payload replaced the cache. */
 async function loadDatabase(): Promise<boolean> {
@@ -104,7 +107,8 @@ async function loadDatabase(): Promise<boolean> {
     const created = await saveRow(initialDatabase, null);
     const row = created.data;
     if (created.error) { reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`); return false; }
-    if (row) adopt(row.payload, row.revision);
+    // The save no longer echoes the payload; what the server holds is what we just sent.
+    if (row) adopt(initialDatabase, row.revision);
     return Boolean(row);
   }
   adopt(data.payload, data.revision);
