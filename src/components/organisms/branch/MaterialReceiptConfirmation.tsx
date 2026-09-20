@@ -71,6 +71,7 @@ export function MaterialReceiptConfirmation({
     <>
       <DataTable
         title="รายการวัสดุรอยืนยันรับ (Pending material receipts)"
+        defaultSort={{ column: "วันที่ส่ง", desc: true }}
         columns={[
           "วันที่ส่ง",
           "วัสดุ",

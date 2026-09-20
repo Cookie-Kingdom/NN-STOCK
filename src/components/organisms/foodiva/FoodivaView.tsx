@@ -7,7 +7,10 @@ import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { purchaseOrderRows } from "@/components/organisms/shared/documents";
+import {
+  lotIssueDate,
+  purchaseOrderRows,
+} from "@/components/organisms/shared/documents";
 import {
   entries,
   n,
@@ -55,9 +58,11 @@ export function FoodivaView({
       />
       <DataTable
         title="PO เนื้อที่ต้องออก Invoice"
+        defaultSort={{ column: "วันที่ออก PO", desc: true }}
         columns={[
           "เลข PO",
           "Lot",
+          "วันที่ออก PO",
           "ยอดสั่ง",
           "Invoice เนื้อ",
           "พร้อมส่งเชียงใหม่",
@@ -72,6 +77,7 @@ export function FoodivaView({
           return [
             <strong key={lot.poId}>{lot.poId}</strong>,
             lot.id,
+            lotIssueDate(db, lot),
             `${fmt(n(lot.values, "orderedKg"))} กก.`,
             confirm ? (
               `${confirm.values.invoiceNo} · ${fmt(n(confirm.values, "confirmedKg"))} กก.`

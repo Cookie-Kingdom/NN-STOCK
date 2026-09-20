@@ -22,6 +22,7 @@ export function ChefReceiveTable({
       />
       <DataTable
         title="Lot ที่รอยืนยันรับ"
+        defaultSort={{ column: "วันที่รถรับ", desc: true }}
         columns={[
           "Lot",
           "วันที่รถรับ",
@@ -35,7 +36,9 @@ export function ChefReceiveTable({
           lot.id,
           lot.values.pickupDate || "-",
           `${fmt(n(lot.values, "dispatchKg"))} กก.`,
-          [lot.values.vehicleType, lot.values.plate].filter(Boolean).join(" · ") || "-",
+          [lot.values.vehicleType, lot.values.plate]
+            .filter(Boolean)
+            .join(" · ") || "-",
           <Button
             variant="table"
             key={lot.id}

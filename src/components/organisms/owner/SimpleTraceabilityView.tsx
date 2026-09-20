@@ -3,8 +3,10 @@
 import { Fragment, type ReactNode, useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { Select } from "@/components/atoms/Select";
 import { Footnote, Muted } from "@/components/atoms/Text";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { TableFilter } from "@/components/molecules/TableFilter";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
 import {
   foodivaInvoiceRows,
@@ -88,9 +90,21 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [expandedLot, setExpandedLot] = useState<string | null>(null);
-  const visibleLots = db.lots.filter((lot) =>
-    matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
-  );
+  const [sort, setSort] = useState("date-desc");
+  // The register is one row per lot, so it sorts here rather than through DataTable.
+  const visibleLots = db.lots
+    .filter((lot) =>
+      matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
+    )
+    .sort((a, b) =>
+      sort === "po"
+        ? a.poId.localeCompare(b.poId)
+        : sort === "lot"
+          ? a.id.localeCompare(b.id)
+          : sort === "date-asc"
+            ? lotIssueDate(db, a).localeCompare(lotIssueDate(db, b))
+            : lotIssueDate(db, b).localeCompare(lotIssueDate(db, a)),
+    );
   const toggle = (lotId: string) =>
     setExpandedLot((current) => (current === lotId ? null : lotId));
   return (
@@ -116,9 +130,23 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
         title="ทะเบียนเอกสารตาม Lot"
         count={`${visibleLots.length} รายการ`}
         actions={
-          <Muted as="span" className="text-caption">
-            กด ดู เพื่อเปิดเส้นทางเอกสาร
-          </Muted>
+          <div className="flex flex-wrap items-center gap-3 max-md:justify-between">
+            <Muted as="span" className="text-caption">
+              กด ดู เพื่อเปิดเส้นทางเอกสาร
+            </Muted>
+            <TableFilter label="เรียงตาม">
+              <Select
+                variant="filter"
+                value={sort}
+                onChange={(event) => setSort(event.target.value)}
+              >
+                <option value="date-desc">วันที่ออก PO (ล่าสุดก่อน)</option>
+                <option value="date-asc">วันที่ออก PO (เก่าสุดก่อน)</option>
+                <option value="po">เลข PO</option>
+                <option value="lot">Lot</option>
+              </Select>
+            </TableFilter>
+          </div>
         }
       >
         <div className="max-w-full overflow-auto">
