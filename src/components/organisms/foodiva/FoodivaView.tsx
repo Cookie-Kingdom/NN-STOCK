@@ -130,6 +130,14 @@ export function FoodivaView({
                 >
                   แก้ไข / อัปโหลดใหม่
                 </Button>
+                <Button
+                  variant="table"
+                  onClick={() => open("packingList", lot.id)}
+                >
+                  {entries(db, "packingList", lot.id).length
+                    ? "แก้ไข Packing List"
+                    : "สร้าง Packing List"}
+                </Button>
               </ButtonRow>
             ),
           ];

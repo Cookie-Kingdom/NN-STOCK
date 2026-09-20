@@ -22,7 +22,14 @@ const preview: Preview = {
     // Atomic Design order; folders would otherwise sort Pages before Templates.
     options: {
       storySort: {
-        order: ["Atoms", "Molecules", "Organisms", "Templates", "Pages"],
+        order: [
+          "Atoms",
+          "Molecules",
+          "Organisms",
+          "Templates",
+          "Pages",
+          "Develop",
+        ],
       },
     },
   },

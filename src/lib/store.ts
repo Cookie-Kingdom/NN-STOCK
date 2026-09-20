@@ -84,6 +84,7 @@ export const titles: Record<string, string> = {
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
   invoicePayment: "ชำระ Invoice ค่ารมควัน",
   foodivaConfirm: "ออกและอัปโหลด Invoice เนื้อ",
+  packingList: "สร้าง Packing List",
   foodivaReturnReceive: "ยืนยันรับเข้าตู้ที่ Foodiva",
   dispatch: "ทำใบขนส่งขาไป",
   cmReceive: "ยืนยันรับเนื้อที่ Chef House",
@@ -769,6 +770,7 @@ const ownership: Record<string, Role> = {
   invoiceReview: "owner",
   invoicePayment: "owner",
   foodivaConfirm: "foodiva",
+  packingList: "foodiva",
   foodivaReturnReceive: "foodiva",
   dispatch: "owner",
   cmReceive: "cm",
@@ -804,6 +806,15 @@ const ownership: Record<string, Role> = {
   unlock: "owner",
   void: "owner",
 };
+/** Per-กล่องรับเข้า weights of a Packing List. They live in one entry value, one
+ *  line each, the way `smoke` stores its pack weights. */
+export function packingListBoxes(value = "") {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(Number);
+}
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
@@ -883,6 +894,7 @@ export function mutate(
   // excluded: they carry the selected lot as context, not as the lot they belong to.
   const lotPipeline = [
     "foodivaConfirm",
+    "packingList",
     "foodivaReturnReceive",
     "smokeOrder",
     "smokeOrderAccept",
@@ -988,6 +1000,22 @@ export function mutate(
     positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
     assert(n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001, "น้ำหนักยืนยันเกินยอด PO");
     assert(Math.abs(n(v, "readyForChiangMaiKg") + n(v, "reservedForOwnerKg") - n(v, "confirmedKg")) < 0.001, "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice");
+  } else if (kind === "packingList" && lot) {
+    assert(entries(db, "foodivaConfirm", lotId).length, "ต้องออก Invoice เนื้อก่อนทำ Packing List");
+    required(v, "invoiceNo", "เลข Invoice");
+    required(v, "product", "รายการสินค้า");
+    const boxes = packingListBoxes(v.boxes);
+    assert(boxes.length, "กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
+    assert(boxes.every((kg) => Number.isFinite(kg) && kg > 0), "น้ำหนักกล่องรับเข้าต้องเป็นตัวเลขมากกว่าศูนย์");
+    // Blank rows are dropped at save, so the stored list is contiguous: box no = line no.
+    v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
+    v.boxCount = String(boxes.length);
+    v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
+    if (v.invWeightKg?.trim()) {
+      positive(v, "invWeightKg", "Inv. Weight");
+      assert(n(v, "slicedNetKg") <= n(v, "invWeightKg") + 0.001, "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight");
+      v.slicedLostKg = String(n(v, "invWeightKg") - n(v, "slicedNetKg"));
+    }
   } else if (kind === "ownerWasteReceive" && lot) {
     required(v, "receivedDate", "วันที่ Owner รับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับจริง");

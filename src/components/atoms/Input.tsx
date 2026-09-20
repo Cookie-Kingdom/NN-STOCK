@@ -33,21 +33,44 @@ export const controlVariants = cva(
 
 export type ControlVariantProps = VariantProps<typeof controlVariants>;
 
+/** Hides the native number spinners. */
+const noSpinner =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
 /**
  * Single-line control for text, numbers and dates. `variant` says where it lives:
  * `form` inside a FormField, `table` in an editable table cell (right-aligned,
  * tabular), `filter` in a filter bar. All three stay 16px on mobile so iOS does not
  * zoom the page when the field takes focus.
+ *
+ * A `type="number"` field has no spinners and ignores the wheel and the up/down
+ * arrows: they used to change a figure the user had already typed, silently. Pass
+ * `spinner` where the steppers are wanted (PackingListTable).
  */
 export function Input({
   variant,
   reason,
+  spinner,
   className,
   ...props
-}: ComponentProps<"input"> & ControlVariantProps) {
+}: ComponentProps<"input"> & ControlVariantProps & { spinner?: boolean }) {
+  const mute = props.type === "number" && !spinner;
   return (
     <input
-      className={cn(controlVariants({ variant, reason }), className)}
+      className={cn(
+        controlVariants({ variant, reason }),
+        mute && noSpinner,
+        className,
+      )}
+      onWheel={mute ? (event) => event.currentTarget.blur() : undefined}
+      onKeyDown={
+        mute
+          ? (event) => {
+              if (event.key === "ArrowUp" || event.key === "ArrowDown")
+                event.preventDefault();
+            }
+          : undefined
+      }
       {...props}
     />
   );
