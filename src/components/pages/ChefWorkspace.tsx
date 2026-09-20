@@ -5,7 +5,6 @@ import { ChefLotTable } from "@/components/organisms/chef/ChefLotTable";
 import { ChefReceiveTable } from "@/components/organisms/chef/ChefReceiveTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
-import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -31,48 +30,44 @@ export function ChefWorkspace({ account }: { account: Account }) {
   }).length;
 
   return (
-    <>
-      <WorkspaceShell
-        account={account}
-        nav={chefNav}
-        tab={tab}
-        onTab={ws.setTab}
-        date={ws.date}
-        onDate={ws.setDate}
-        minDate={ws.db.config.systemStartDate}
-        badges={
-          ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
-        }
-        loading={!ws.loaded}
-        toast={ws.toast}
-        onCloseToast={() => ws.setToast("")}
-      >
-        {tab === "cm-receive" && <ChefReceiveTable db={db} open={ws.open} />}
-        {tab === "work" && (
-          <ChefLotTable db={db} lots={ws.lots} open={ws.open} />
-        )}
-        {tab === "stock" && (
-          <>
-            <SectionHeading title="ความคืบหน้างานผลิต" />
-            <MeatStockTable
-              db={db}
-              role={ws.role}
-              branch={ws.branch}
-              lots={ws.lots}
-              open={ws.open}
-            />
-          </>
-        )}
-        {tab === "history" && (
-          <HistoryPanel
+    <WorkspaceShell
+      account={account}
+      nav={chefNav}
+      tab={tab}
+      onTab={ws.setTab}
+      date={ws.date}
+      onDate={ws.setDate}
+      minDate={ws.db.config.systemStartDate}
+      badges={
+        ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
+      }
+      loading={!ws.loaded}
+      toast={ws.toast}
+      onCloseToast={() => ws.setToast("")}
+      ws={ws}
+    >
+      {tab === "cm-receive" && <ChefReceiveTable db={db} open={ws.open} />}
+      {tab === "work" && <ChefLotTable db={db} lots={ws.lots} open={ws.open} />}
+      {tab === "stock" && (
+        <>
+          <SectionHeading title="ความคืบหน้างานผลิต" />
+          <MeatStockTable
             db={db}
             role={ws.role}
             branch={ws.branch}
-            onChanged={ws.setToast}
+            lots={ws.lots}
+            open={ws.open}
           />
-        )}
-      </WorkspaceShell>
-      <WorkspaceModals ws={ws} />
-    </>
+        </>
+      )}
+      {tab === "history" && (
+        <HistoryPanel
+          db={db}
+          role={ws.role}
+          branch={ws.branch}
+          onChanged={ws.setToast}
+        />
+      )}
+    </WorkspaceShell>
   );
 }

@@ -13,6 +13,8 @@ import {
   DatabaseErrorToast,
   Toast,
 } from "@/components/organisms/workspace/Toast";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
 import type { Account } from "@/lib/accounts";
 import { navLabel, type NavGroup, type Tab } from "@/lib/nav";
 
@@ -36,6 +38,12 @@ type Props = {
   onCloseToast: () => void;
   /** Server payload still loading: the views would show seed data, so show its shape instead. */
   loading?: boolean;
+  /**
+   * The workspace the page runs on. Only the dialog layer needs it — every other prop is
+   * passed apart so a story can drive the shell without a database. Leave it out and the
+   * page keeps no dialogs.
+   */
+  ws?: Workspace;
   children: ReactNode;
 };
 
@@ -54,6 +62,7 @@ export function WorkspaceShell({
   toast,
   onCloseToast,
   loading = false,
+  ws,
   children,
 }: Props) {
   return (
@@ -103,6 +112,9 @@ export function WorkspaceShell({
           )}
         </main>
       </div>
+      {/* Last, not inside <main>: a showModal() dialog renders in the top layer, so it is
+       * placed here only to keep the layout's own markup above it. */}
+      {ws && <WorkspaceModals ws={ws} />}
     </div>
   );
 }
