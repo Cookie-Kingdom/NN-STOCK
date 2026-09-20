@@ -29,6 +29,18 @@ const isoDate = /^\d{4}-\d{2}-\d{2}/;
  *  Ids such as "PO-2026-01" start with a letter or hold a second number, so they stay text. */
 const numeric = /^[^\p{L}\d]*(-?\d+(?:\.\d+)?)[^\d]*$/u;
 
+/** A cell that carries a date: an ISO date ("2026-01-05") or a lot id ("F260105-001").
+ *  Both already sort chronologically as text. */
+const dated = /^(\d{4}-\d{2}-\d{2}|F\d{6}-\d{3})/;
+
+/** First column holding dates, or -1. A table with no `defaultSort` uses it so that
+ *  every table starts newest first without touching its call site. */
+export function datedColumn(rows: ReactNode[][]) {
+  return (rows[0] ?? []).findIndex((_, index) =>
+    rows.some((row) => dated.test(cellText(row[index]))),
+  );
+}
+
 /** Numbers compare by value ("9 กก." < "10 กก."), everything else as Thai text.
  *  ISO dates already sort right as text, so they skip the numeric branch. */
 export function compareCells(a: string, b: string) {
@@ -66,10 +78,21 @@ export function DataTable({
   className?: string;
 }) {
   const [page, setPage] = useState(0);
-  const [sort, setSort] = useState(() => ({
-    column: defaultSort ? columns.indexOf(defaultSort.column) : -1,
-    desc: defaultSort?.desc ?? false,
-  }));
+  // ponytail: kept out of state so the fallback still finds its column once rows load.
+  const [chosen, setChosen] = useState<{
+    column: number;
+    desc: boolean;
+  } | null>(null);
+  const dateColumn = datedColumn(rows);
+  const auto = defaultSort
+    ? {
+        column: columns.indexOf(defaultSort.column),
+        desc: defaultSort.desc ?? false,
+      }
+    : { column: dateColumn, desc: dateColumn >= 0 };
+  const sort = chosen ?? auto;
+  const setSort = (next: (current: typeof sort) => typeof sort) =>
+    setChosen(next(sort));
   const sortable = columns
     .map((_, index) => index)
     .filter((index) => rows.some((row) => cellText(row[index])));
