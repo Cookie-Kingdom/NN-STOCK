@@ -22,3 +22,12 @@ export const TableReason: Story = {
 };
 export const Filter: Story = { args: { variant: "filter", type: "date" } };
 export const Disabled: Story = { args: { disabled: true, value: "ล็อก" } };
+
+/** ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน */
+export const Number: Story = {
+  args: { type: "number", step: "0.01", defaultValue: "12.50" },
+};
+/** เฉพาะ PackingListTable ที่ยังใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ */
+export const NumberWithSpinner: Story = {
+  args: { type: "number", step: "0.01", defaultValue: "12.50", spinner: true },
+};
