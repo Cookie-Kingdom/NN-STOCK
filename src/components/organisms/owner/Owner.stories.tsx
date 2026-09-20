@@ -4,6 +4,7 @@ import { centralDb, day, demoDb, open } from "../../../../.storybook/fixtures";
 import { CentralReceiveView } from "./CentralReceiveView";
 import { ConfigView } from "./ConfigView";
 import { MeatMovementLogView } from "./MeatMovementLogView";
+import { OwnerAlertBanners } from "./OwnerAlertBanners";
 import { OwnerDailyStatus } from "./OwnerDailyStatus";
 import { OwnerDashboard } from "./OwnerDashboard";
 import { OwnerStockView } from "./OwnerStockView";
@@ -19,6 +20,18 @@ const meta: Meta = {
 
 export default meta;
 type Story = StoryObj;
+
+/** Both banners at once; in the app each hides on the tab its button leads to. */
+export const AlertBanners: Story = {
+  render: () => (
+    <OwnerAlertBanners
+      db={db}
+      alerts={{ missingMaterialSettings: 2, returnReady: db.lots.slice(0, 2) }}
+      tab="owner-dashboard"
+      onTab={fn()}
+    />
+  ),
+};
 
 export const Dashboard: Story = {
   render: () => <OwnerDashboard db={db} date={day} onNavigate={fn()} />,
