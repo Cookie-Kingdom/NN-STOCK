@@ -13,7 +13,14 @@ import {
 import { LotWorkflowAction } from "@/components/organisms/owner/LotWorkflowAction";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { entries, n, produced, shipments, type Database } from "@/lib/store";
+import {
+  entries,
+  n,
+  packingListKg,
+  produced,
+  shipments,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -60,12 +67,12 @@ export function TransportManifestView({
           const back = entries(db, "return", lot.id).at(-1);
           const outbound = entries(db, "dispatch", lot.id).at(-1);
           const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
-          // Compare against what left Foodiva, not the invoice total: the waste share stays behind for Owner.
-          const foodivaKg = outbound
-            ? n(outbound.values, "dispatchKg")
-            : n(lot.values, "requestedKg");
+          // What went is the Packing List box total; the Request kg is only what was asked for.
+          const requestedKg = n(lot.values, "requestedKg");
+          const sentKg = packingListKg(db, lot.id);
+          const requestedLine = `ขอใน Request: ${fmt(requestedKg)} กก.`;
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
-          const difference = chefKg - foodivaKg;
+          const difference = chefKg - (sentKg ?? 0);
           const foodivaBack = entries(db, "foodivaReturnReceive", lot.id).at(
             -1,
           );
@@ -84,7 +91,13 @@ export function TransportManifestView({
             </span>,
             outbound ? (
               <ButtonRow key={`${lot.id}-outbound`}>
-                <span>{`${fmt(n(outbound.values, "dispatchKg"))} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}</span>
+                <span>
+                  {sentKg === undefined
+                    ? `รอ Packing List · ${outbound.values.plate || "ยังไม่ระบุรถ"}`
+                    : `Packing List ${fmt(sentKg)} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}
+                  <br />
+                  <small className="text-text-secondary">{requestedLine}</small>
+                </span>
                 <DocumentPrintButton
                   title={transportDocumentTitle.outbound}
                   number={
@@ -96,18 +109,20 @@ export function TransportManifestView({
                 />
               </ButtonRow>
             ) : (
-              `Request ${fmt(foodivaKg)} กก. · รอ Foodiva ทำใบขนส่ง`
+              `Request ${fmt(requestedKg)} กก. · รอ Foodiva ทำใบขนส่ง`
             ),
-            chefReceive ? (
+            chefReceive && sentKg !== undefined ? (
               <span key={`${lot.id}-owner-check`}>
-                <strong>ส่งจาก Foodiva:</strong> {fmt(foodivaKg)} กก.
+                <strong>ส่งไป (Packing List):</strong> {fmt(sentKg)} กก.
                 <br />
                 <strong>Chef House:</strong> {fmt(chefKg)} กก.
+                <br />
+                <small className="text-text-secondary">{requestedLine}</small>
                 <br />
                 <Badge
                   tone={Math.abs(difference) > 0.001 ? "danger" : "success"}
                 >
-                  ส่วนต่าง {fmt(Math.abs(difference))} กก.
+                  {`ส่วนต่าง ${difference < -0.001 ? "−" : difference > 0.001 ? "+" : ""}${fmt(Math.abs(difference))} กก.`}
                 </Badge>
               </span>
             ) : (

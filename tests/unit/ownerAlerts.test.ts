@@ -89,7 +89,7 @@ test("after smoking the owner is sent to transport, central receive and allocati
   const afterClose = ownerAlerts(closed.db);
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({
-    title: "Chef House ปิด Lot แล้ว · S260909-001",
+    title: "Chef House ปิด Lot แล้ว · SH-2026-0001",
     detail: "เรียกรถขากลับ 36.00 กก. · 360 กล่องรมควัน",
     tab: "transport",
   });
@@ -118,7 +118,12 @@ test("an unpaid Foodiva meat invoice asks the Owner to pay it until meatPayment 
   s.run(
     "owner",
     "meatPayment",
-    { paymentDate: "2026-09-09", paidBy: "Owner", paidAmount: "1", slips: "[]" },
+    {
+      paymentDate: "2026-09-09",
+      paidBy: "Owner",
+      paidAmount: "1",
+      slips: "[]",
+    },
     po.id,
   );
   expect(meatAlert()).toBeUndefined();

@@ -18,7 +18,15 @@ export function ActionWithError({
   errorClassName?: string;
 }) {
   return (
-    <div className={cn("grid justify-items-end gap-1", className)} {...props}>
+    <div
+      // min-content track: a plain auto track takes the button's min-w-22 as its floor, so a
+      // squeezed table column would shrink below the label and buttons would overlap.
+      className={cn(
+        "grid grid-cols-[minmax(min-content,auto)] justify-items-end gap-1",
+        className,
+      )}
+      {...props}
+    >
       {children}
       {error && (
         <small

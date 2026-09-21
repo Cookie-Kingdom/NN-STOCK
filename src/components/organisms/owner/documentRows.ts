@@ -2,6 +2,7 @@ import { fmt } from "@/lib/format";
 import {
   latestPackingList,
   n,
+  packingListKg,
   readyForChefHouse,
   shipmentLines,
   smokingInvoiceStatus,
@@ -41,13 +42,17 @@ export function transportDocumentRows(
   direction: TransportDirection,
 ): DocumentRows {
   const keys = transportKeys[direction];
+  // The outbound truck carries the Packing List's boxes; the Request kg only until there is one.
+  const kg =
+    (direction === "outbound" ? packingListKg(db, lot.id) : undefined) ??
+    n(trip.values, keys.kg);
   return [
     ["วันที่รถรับ", trip.values[keys.date] || trip.date],
     ["เลขที่การส่ง", lot.poId],
     ["PO ซื้อ", shipmentPoLabels(db, lot).join(", ") || "—"],
     ["ต้นทาง", trip.values.origin],
     ["ปลายทาง", trip.values.destination],
-    ["น้ำหนักส่ง", `${fmt(n(trip.values, keys.kg))} กก.`],
+    ["น้ำหนักส่ง", `${fmt(kg)} กก.`],
     ["ประเภทรถ", trip.values.vehicleType || "—"],
     ["ทะเบียนรถ", trip.values.plate || "—"],
     ["คนขับ", trip.values.driverName || "—"],
@@ -101,6 +106,12 @@ export function packingListRows(lot: Lot, list: Entry): DocumentRows {
       "Inv. Weight",
       list.values.invWeightKg
         ? `${fmt(n(list.values, "invWeightKg"))} กก.`
+        : "—",
+    ],
+    [
+      "Sliced Weight Lost",
+      list.values.slicedLostKg
+        ? `${fmt(n(list.values, "slicedLostKg"))} กก.`
         : "—",
     ],
   ];

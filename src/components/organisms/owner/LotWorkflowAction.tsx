@@ -26,7 +26,19 @@ export function LotWorkflowAction({
   /** Navigate to the smoking PO tab. */
   onOpenSmokePo: () => void;
 }) {
-  if (lot.stage === 1) return <Badge tone="danger">รอ Foodiva ทำใบขนส่ง</Badge>;
+  // Until Foodiva makes the manifest the Owner may still change the Request (A10).
+  if (lot.stage === 1)
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        <Badge tone="danger">รอ Foodiva ทำใบขนส่ง</Badge>
+        <Button
+          variant="table"
+          onClick={() => open("shipmentRequestEdit", lot.id)}
+        >
+          แก้ไข Request
+        </Button>
+      </span>
+    );
   if (lot.stage < 6) {
     if (!latestPackingList(db, lot.id))
       return <Badge tone="danger">รอ Foodiva ทำ Packing List</Badge>;

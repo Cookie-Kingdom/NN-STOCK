@@ -45,7 +45,9 @@ export type NavGroup = { label?: string; items: NavItem[] };
 export const ownerNav: NavGroup[] = [
   {
     label: "ภาพรวม",
-    items: [{ id: "owner-dashboard", label: "แดชบอร์ด", icon: LayoutDashboard }],
+    items: [
+      { id: "owner-dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
+    ],
   },
   {
     label: "จัดซื้อและใบสั่ง",
@@ -59,13 +61,21 @@ export const ownerNav: NavGroup[] = [
     label: "ขนส่งและรับเข้า",
     items: [
       { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
-      { id: "central-receive", label: "รับเนื้อเข้าสต๊อกกลาง", icon: Warehouse },
+      {
+        id: "central-receive",
+        label: "รับเนื้อเข้าสต๊อกกลาง",
+        icon: Warehouse,
+      },
     ],
   },
   {
     label: "สต๊อกและสาขา",
     items: [
-      { id: "branch-status", label: "จัดสรรเนื้อ และสต๊อกไปสาขา", icon: ListChecks },
+      {
+        id: "branch-status",
+        label: "จัดสรรเนื้อ และสต๊อกไปสาขา",
+        icon: ListChecks,
+      },
       { id: "stock", label: "สต๊อกของทั้งหมด", icon: Package },
       { id: "meat-log", label: "Log เนื้อคงเหลือ", icon: Beef },
     ],

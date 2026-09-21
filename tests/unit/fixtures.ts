@@ -1,6 +1,7 @@
 import {
   materials,
   mutate,
+  packingListBoxes,
   seed,
   type Database,
   type Role,
@@ -85,12 +86,21 @@ export function dispatch(s: Setup) {
 
 /** Foodiva's Packing List, one กล่องรับเข้า weight per line. */
 export function packingList(s: Setup, boxes: string) {
-  s.run("foodiva", "packingList", { invoiceNo: "INV-1", product: "เนื้อวัว", boxes });
+  s.run("foodiva", "packingList", {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    // Foodiva types Lost; in practice it matches the box total.
+    slicedLostKg: String(packingListBoxes(boxes).reduce((a, kg) => a + kg, 0)),
+    boxes,
+  });
 }
 
 /** Owner's smoke PO; its quantity comes from the Packing List. */
 export function smokeOrder(s: Setup) {
-  s.run("owner", "smokeOrder", { requestedSmokeDate: day, smoker: "Chef House" });
+  s.run("owner", "smokeOrder", {
+    requestedSmokeDate: day,
+    smoker: "Chef House",
+  });
 }
 
 /** Chef House's smoking invoice for a closed run. */
@@ -112,7 +122,12 @@ export function readyToDispatch(s: Setup, kg: string) {
 
 /** Shipment at stage 3: `kg` requested and trucked as the Packing List `boxes`, smoke PO
  * accepted, weighed in at Chef House as `receivedBoxes` (the yellow cells). */
-export function received(s: Setup, kg: string, boxes = kg, receivedBoxes = boxes) {
+export function received(
+  s: Setup,
+  kg: string,
+  boxes = kg,
+  receivedBoxes = boxes,
+) {
   readyToDispatch(s, kg);
   dispatch(s);
   packingList(s, boxes);

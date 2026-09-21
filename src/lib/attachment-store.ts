@@ -31,10 +31,17 @@ function storage() {
 function openStore(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(databaseName, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(storeName, { keyPath: "id" });
+    request.onupgradeneeded = () =>
+      request.result.createObjectStore(storeName, { keyPath: "id" });
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้"));
-    request.onblocked = () => reject(new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้ กรุณาปิดแท็บอื่นแล้วลองใหม่"));
+    request.onerror = () =>
+      reject(request.error || new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้"));
+    request.onblocked = () =>
+      reject(
+        new Error(
+          "ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้ กรุณาปิดแท็บอื่นแล้วลองใหม่",
+        ),
+      );
   });
 }
 
@@ -59,8 +66,10 @@ async function getLocal(id: string): Promise<StoredAttachment | undefined> {
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, "readonly");
     const request = transaction.objectStore(storeName).get(id);
-    request.onsuccess = () => resolve(request.result as StoredAttachment | undefined);
-    request.onerror = () => reject(request.error || new Error("ไม่สามารถเปิดไฟล์ Invoice ได้"));
+    request.onsuccess = () =>
+      resolve(request.result as StoredAttachment | undefined);
+    request.onerror = () =>
+      reject(request.error || new Error("ไม่สามารถเปิดไฟล์ Invoice ได้"));
     transaction.oncomplete = () => database.close();
   });
 }
@@ -71,7 +80,9 @@ export async function saveAttachment(file: File): Promise<string> {
   const remote = storage();
   if (remote) {
     // The object name carries the original file name so a download keeps it.
-    const { error } = await remote.upload(`${id}/${file.name}`, file, { contentType: file.type });
+    const { error } = await remote.upload(`${id}/${file.name}`, file, {
+      contentType: file.type,
+    });
     if (error) throw new Error(`อัปโหลดไฟล์ไม่สำเร็จ: ${error.message}`);
   }
   return id;
@@ -88,17 +99,23 @@ export async function saveLegacyDataUrl(
   );
 }
 
-export async function getAttachment(id: string): Promise<StoredAttachment | undefined> {
+export async function getAttachment(
+  id: string,
+): Promise<StoredAttachment | undefined> {
   // A broken or unavailable IndexedDB is only a missed cache: still try the bucket.
   const local = await getLocal(id).catch(() => undefined);
   const remote = storage();
   if (local || !remote) return local;
-  const { data: listed, error: listError } = await remote.list(id, { limit: 1 });
-  if (listError) throw new Error(`เปิดที่เก็บไฟล์ไม่สำเร็จ: ${listError.message}`);
+  const { data: listed, error: listError } = await remote.list(id, {
+    limit: 1,
+  });
+  if (listError)
+    throw new Error(`เปิดที่เก็บไฟล์ไม่สำเร็จ: ${listError.message}`);
   const name = listed?.[0]?.name;
   if (!name) return undefined;
   const { data: blob, error } = await remote.download(`${id}/${name}`);
-  if (error || !blob) throw new Error(`ดาวน์โหลดไฟล์ไม่สำเร็จ: ${error?.message || "ไม่พบไฟล์"}`);
+  if (error || !blob)
+    throw new Error(`ดาวน์โหลดไฟล์ไม่สำเร็จ: ${error?.message || "ไม่พบไฟล์"}`);
   const record = { id, name, type: blob.type, blob };
   await putLocal(record).catch(() => undefined);
   return record;

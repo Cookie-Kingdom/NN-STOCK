@@ -37,7 +37,7 @@ export function PackWeightFields({
     >
       {weights.map((weight, index) => (
         <div
-          className="grid grid-cols-[90px_minmax(140px,1fr)_38px_44px] items-center gap-2.5 rounded-md border border-border bg-bg px-3 py-2.5"
+          className="grid grid-cols-[90px_minmax(0,1fr)_38px_44px] items-center gap-2.5 rounded-md border border-border bg-bg px-3 py-2.5"
           key={index}
         >
           <span>กล่องรมควันที่ {index + 1}</span>

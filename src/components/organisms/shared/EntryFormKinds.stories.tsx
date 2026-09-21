@@ -3,6 +3,7 @@ import { fn } from "storybook/test";
 import {
   acceptedInvoiceDb,
   allocatedDb,
+  closedDb,
   cmReceivedDb,
   day,
   confirmedDb,
@@ -61,7 +62,8 @@ const form = (
 
 // --- Owner ---------------------------------------------------------------
 
-/** PO for the smoking service: quantity and rate come from the shipment's Packing List. */
+/** PO for the smoking service: the kg is pre-filled from the Packing List total and editable
+ *  (A6); the rate follows the kg entered. */
 export const OwnerSmokeOrder: Story = form(
   packedDb,
   "owner",
@@ -123,6 +125,10 @@ export const ChefSmoke: Story = form(preparedDb, "cm", "smoke");
 
 /** Closing the lot freezes the yield and hands it back to the Owner. */
 export const ChefCloseLot: Story = form(smokedDb, "cm", "closeLot");
+
+/** After close Chef House bills the smoking itself: invoice number, file (required) and an
+ *  amount pre-filled from smoke PO kg × rate that Chef House may change (A7). */
+export const ChefSmokingInvoice: Story = form(closedDb, "cm", "smokingInvoice");
 
 // --- Foodiva -------------------------------------------------------------
 

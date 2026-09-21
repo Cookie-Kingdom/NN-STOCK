@@ -16,11 +16,11 @@ export function fieldClassName(wide?: boolean, className?: string) {
  * `FormField` and `FileUploadField` add it from their `optional` prop, so render it by
  * hand only when a label is assembled outside those.
  */
-export function OptionalMark() {
+export function OptionalMark({ text = "ถ้ามี" }: { text?: string }) {
   return (
     <Caption as="span" className="font-normal">
       {" "}
-      (ถ้ามี)
+      ({text})
     </Caption>
   );
 }

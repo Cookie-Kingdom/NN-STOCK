@@ -24,10 +24,15 @@ const CUSTOM_DIALOGS = [
   "chefEdit",
   "smokeOrderPreview",
   "shipmentRequest",
+  "shipmentRequestEdit",
   "cmReceive",
   "dispatch",
   "packingListView",
 ];
+
+// "ยืนยันปิด Lot" + "แล้ว" needs a space after a Latin word; Thai-to-Thai stays joined.
+const savedMessage = (title: string) =>
+  `${title}${/[A-Za-z0-9.)]$/.test(title) ? " " : ""}แล้ว`;
 
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
   const {
@@ -97,7 +102,14 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     );
   }
   if (modal.kind === "packingListView") {
-    return <PackingListDialog db={db} lotId={modal.lotId} onClose={close} />;
+    return (
+      <PackingListDialog
+        db={db}
+        lotId={modal.lotId}
+        onClose={close}
+        showPurchaseOrders={role === "owner"}
+      />
+    );
   }
   if (modal.kind === "dispatch") {
     return (
@@ -143,7 +155,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() => done(`${titles.cmReceive}แล้ว`)}
+        onSaved={() => done(savedMessage(titles.cmReceive))}
       />
     );
   }
@@ -162,6 +174,18 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           setChosen(next.lots.at(-1)?.id || chosen);
           done("สร้าง Request แล้ว · รอ Foodiva ทำใบขนส่ง");
         }}
+      />
+    );
+  }
+  if (modal.kind === "shipmentRequestEdit") {
+    return (
+      <ShipmentRequestForm
+        key={modal.lotId}
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={() => done("แก้ไข Request แล้ว · รอ Foodiva ทำใบขนส่ง")}
       />
     );
   }
@@ -184,7 +208,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
             "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
           );
         } else {
-          done(`${titles[modal.kind]}แล้ว`);
+          done(savedMessage(titles[modal.kind]));
         }
       }}
     />

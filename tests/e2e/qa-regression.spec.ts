@@ -2,12 +2,19 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chefSmokesShipment,
   field,
+  foodivaFillsPackingList,
   foodivaIssuesInvoice,
+  foodivaOpensManifest,
+  foodivaReceivesReturn,
   INVOICE_FIXTURE,
   menuItem,
+  ownerCallsReturnTruck,
   ownerCreatesMeatPo,
+  ownerCreatesShipmentRequest,
   ownerIssuesSmokePo,
+  ownerReceivesCentral,
   pointAndClick,
   saveEntry,
   signInAs,
@@ -36,8 +43,9 @@ const openDialog = (page: Page) => page.getByRole("dialog").last();
 async function submitAndExpectError(page: Page, message: RegExp) {
   const dialog = openDialog(page);
   await pointAndClick(page, dialog.locator('button[type="submit"]').last());
+  // The footer and the form body can both carry the same message.
   await expect(
-    dialog.getByRole("alert").filter({ hasText: message }),
+    dialog.getByRole("alert").filter({ hasText: message }).first(),
   ).toBeVisible();
 }
 
@@ -100,7 +108,9 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   await field(page, `ราคาซื้อ ${MATERIALS[0]}`, "1");
   await pointAndClick(page, purchase.locator('button[type="submit"]'));
   await expect(purchase).toBeVisible();
-  await expect(purchase.getByText("กรอกผู้จำหน่าย", { exact: false })).toBeVisible();
+  await expect(
+    purchase.getByText("กรอกผู้จำหน่าย", { exact: false }),
+  ).toBeVisible();
   await expect(purchase.getByLabel(`ผู้จำหน่าย ${MATERIALS[0]}`)).toHaveValue(
     "",
   );
@@ -175,26 +185,9 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   );
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  await ownerCreatesMeatPo(page, "500");
+  const poId = await ownerCreatesMeatPo(page, "500");
   await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaIssuesInvoice(page, "500");
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerIssuesSmokePo(page, "500");
-
-  await signInAs(page, ACCOUNTS.chef);
-  await button(page, "งานผลิต");
-  await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
-  await saveEntry(page);
-  await button(page, "สร้าง / Submit ใบวางบิล");
-  await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
-  await page
-    .getByRole("dialog")
-    .locator('input[type="file"]')
-    .setInputFiles(INVOICE_FIXTURE);
-  await field(page, /รายละเอียดเพิ่มเติม/, "ค่าบริการรมควันเนื้อ 500 กก.");
-  await button(page, "Submit ใบวางบิล");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await foodivaIssuesInvoice(page, "500", { poId });
 
   await signInAs(page, ACCOUNTS.owner);
   await button(page, /ใบ Invoice/);
@@ -208,71 +201,45 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   );
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/\.pdf$/);
-
-  await button(page, "ตรวจยอด");
-  await field(page, /ชื่อผู้ตรวจ/, "Owner Demo");
-  await saveEntry(page);
-  await button(page, "ชำระเงิน");
-  await field(page, /ยอดชำระ/, "110000");
-  await field(page, /ผู้ดำเนินการชำระ/, "Owner Demo");
-  await field(page, /เลขอ้างอิงการชำระ/, "PAY-001");
-  await saveEntry(page);
+  const shipment = await ownerCreatesShipmentRequest(page, [
+    { poId, kg: "500" },
+  ]);
 
   // BUG-10a: origin = destination is rejected with a message instead of saving.
-  await button(page, "ใบขนส่ง");
-  await button(page, "ทำใบขนส่งขาไป");
-  await page.getByLabel(/ต้นทาง/).selectOption({ label: "เชียงใหม่" });
-  await page.getByLabel(/ปลายทาง/).selectOption({ label: "เชียงใหม่" });
-  await field(page, /เวลารถรับ/, "06:30");
-  await field(page, /ประเภทรถ/, "รถห้องเย็น");
-  await field(page, /ทะเบียนรถ/, "กท 1001");
-  await field(page, /ชื่อคนขับ/, "คนขับทดสอบ");
-  await field(page, /เบอร์ติดต่อคนขับ/, "0811111111");
-  await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
-  await submitAndExpectError(page, /ต้นทางและปลายทางต้องต่างกัน/);
-  await page.getByLabel(/ต้นทาง/).selectOption({ label: "กรุงเทพฯ" });
-  await saveEntry(page);
-
-  // Chef House: 500 kg in, one 500 kg bag out, lot closed.
-  await signInAs(page, ACCOUNTS.chef);
-  await button(page, "ยืนยันรับเนื้อ");
-  await page.getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
-  await field(page, /น้ำหนักรับจริง/, "500");
-  await saveEntry(page);
-  await button(page, "งานผลิต");
-  await button(page, "น้ำหนักก่อนสโมค");
-  await field(page, /น้ำหนักหลังแกะซับ/, "500");
-  await saveEntry(page);
-  await button(page, "บันทึก Lot สโมครายวัน");
-  await field(page, /น้ำหนักเข้าเตารอบนี้/, "500");
-  await field(page, "น้ำหนักถุงที่ 1", "500");
-  await saveEntry(page);
-  await button(page, "ยืนยันปิด Lot");
-  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
-  await saveEntry(page);
-
-  // Return trip, Foodiva intake, central stock, one bag to Saladaeng.
-  await signInAs(page, ACCOUNTS.owner);
-  await button(page, "ใบขนส่ง");
-  await button(page, /เรียกรถขากลับ/);
-  await field(page, /เวลารถรับจาก Chef House|เวลารถรับ/, "09:00");
-  await field(page, /ประเภทรถ/, "รถห้องเย็น");
-  await field(page, /ทะเบียนรถ/, "กท 1002");
-  await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
-  await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-  await field(page, /น้ำหนักส่งจาก Chef House/, "500");
-  await saveEntry(page);
+  // Foodiva makes the outbound transport document now, so the check moved to its form.
   await signInAs(page, ACCOUNTS.foodiva);
-  await button(page, "ยืนยันรับเข้าตู้");
-  await field(page, /เวลารับ/, "10:00");
-  await field(page, /น้ำหนักรับจริง/, "500");
-  await field(page, /จำนวนถุงที่รับ/, "1");
+  await foodivaOpensManifest(page, shipment);
+  await foodivaFillsPackingList(page, ["500"], { attachment: INVOICE_FIXTURE });
+  const origin = openDialog(page).getByRole("combobox", {
+    name: "ต้นทาง",
+    exact: true,
+  });
+  await origin.selectOption({ label: "เชียงใหม่" });
+  await expect(
+    openDialog(page).getByRole("combobox", { name: "ปลายทาง", exact: true }),
+  ).toHaveValue("เชียงใหม่");
+  await submitAndExpectError(page, /ต้นทางและปลายทางต้องต่างกัน/);
+  await origin.selectOption({ label: "กรุงเทพฯ" });
   await saveEntry(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Owner: smoke PO from the Packing List. Chef House: 500 kg in, one 500 kg
+  // กล่องรมควัน out, lot closed.
   await signInAs(page, ACCOUNTS.owner);
-  await button(page, "รับเนื้อเข้าสต๊อกกลาง");
-  await button(page, "รับเข้าสต๊อกกลาง");
-  await field(page, /น้ำหนักรับสต๊อกกลาง/, "500");
-  await saveEntry(page);
+  await ownerIssuesSmokePo(page, "", shipment);
+  await chefSmokesShipment(page, shipment, {
+    received: ["500"],
+    preSmokeKg: "500",
+    packs: ["500"],
+  });
+
+  // Return trip, Foodiva intake, central stock, the one กล่องรมควัน to Saladaeng.
+  await signInAs(page, ACCOUNTS.owner);
+  await ownerCallsReturnTruck(page, shipment);
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaReceivesReturn(page, shipment, { kg: "500" });
+  await signInAs(page, ACCOUNTS.owner);
+  await ownerReceivesCentral(page, "500");
   await button(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
   await button(page, "จัดสรร");
   await openDialog(page)
@@ -282,7 +249,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await button(page, "บันทึกการจัดสรร");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // Saladaeng receives the bag and thaws 0.5 kg.
+  // Saladaeng receives the กล่องรมควัน and thaws 0.5 kg.
   await signInAs(page, ACCOUNTS.saladaeng);
   await button(page, "รับของ");
   await page.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
@@ -329,6 +296,9 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await expect(
     closeDay.getByText(/ปิดวันได้ตั้งแต่เวลาเริ่มปิดวันในตั้งค่า/),
   ).toBeVisible();
-  await expect(closeDay.getByText(/21:00/)).toHaveCount(0);
+  // The time picker lists every half hour, 21:00 included; only the text counts.
+  await expect(
+    closeDay.getByText(/21:00/).and(page.locator(":not(option)")),
+  ).toHaveCount(0);
   await cancelDialog(page);
 });

@@ -20,7 +20,10 @@ export default defineConfig({
   timeout: 600_000,
   expect: { timeout: 10_000 },
   outputDir: "artifacts/playwright",
-  reporter: [["list"], ["html", { outputFolder: "artifacts/playwright-report", open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "artifacts/playwright-report", open: "never" }],
+  ],
   use: {
     baseURL: "http://localhost:3000",
     actionTimeout: 10_000,

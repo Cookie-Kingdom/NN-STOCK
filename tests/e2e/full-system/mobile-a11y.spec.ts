@@ -98,10 +98,12 @@ const withPill = (label: string) => new RegExp(`^${escapeRe(label)}\\s*\\d*$`);
 const today = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 
-/* ---- state: two lots built with the domain core, written as the owner --------
- * Lot A is all the way at both branches (sale enabled today), lot B waits at the
- * smoker (stage 4 → "บันทึก Lot สโมครายวัน"). The owner cookie lets POST
- * /api/local-db take any append-only payload (local-db.server.ts saveState). */
+/* ---- state: two shipments built with the domain core ------------------------
+ * Shipment A is all the way at both branches (sale enabled today), shipment B waits
+ * at the smoker (pre-smoke done → "บันทึก Lot สโมครายวัน"). Each draws on its own
+ * purchase PO (Shipment Flow: PO → Invoice → Request → ใบขนส่ง + Packing List →
+ * PO รมควัน → Chef House). The owner cookie lets POST /api/local-db take any
+ * append-only payload (local-db.server.ts saveState). */
 function pipelineState(date: string): Database {
   let db = structuredClone(seed);
   const run = (
@@ -113,7 +115,9 @@ function pipelineState(date: string): Database {
   ) => {
     db = mutate(db, role, kind, values, lotId, date, branch);
   };
-  const newPo = () => {
+  /** 50 kg purchase PO → Foodiva invoice → Request → truck with 50 kg in 2 boxes →
+   * smoke PO → Chef House weighs in and preps; returns the shipment lot. */
+  const toSmoker = () => {
     run("owner", "purchase", {
       supplier: "Foodiva",
       customerName: "บริษัท เนิร์ดเนื้อ จำกัด",
@@ -126,14 +130,12 @@ function pipelineState(date: string): Database {
       orderedKg: "50",
       price: "250",
     });
-    return db.lots.at(-1)!.id;
-  };
-  const toSmoker = (lotId: string) => {
+    const po = db.lots.at(-1)!.id;
     run(
       "foodiva",
       "foodivaConfirm",
       {
-        invoiceNo: `INV-${lotId}`,
+        invoiceNo: `INV-${po}`,
         invoiceDate: date,
         confirmedKg: "50",
         readyForChiangMaiKg: "50",
@@ -142,59 +144,17 @@ function pipelineState(date: string): Database {
         attachment: "inv.pdf",
         confirmedBy: "Foodiva",
       },
-      lotId,
+      po,
     );
+    run("owner", "shipmentRequest", {
+      lines: JSON.stringify([{ lotId: po, kg: "50" }]),
+    });
+    const lotId = db.lots.at(-1)!.id;
+    const boxes = "25\n25";
     run(
-      "owner",
-      "smokeOrder",
-      {
-        smoker: "Chef House",
-        rawKg: "50",
-        requestedSmokeDate: date,
-        expectedFinishedDate: date,
-      },
-      lotId,
-    );
-    run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
-    run(
-      "cm",
-      "smokingInvoice",
-      {
-        invoiceNumber: `CH-${lotId}`,
-        invoiceDate: date,
-        serviceProvider: "Chef House",
-        serviceQuantity: "50",
-        vat: "770",
-        withholdingTax: "330",
-        netPayable: "11440",
-        attachment: "ch.pdf",
-      },
-      lotId,
-    );
-    const invoiceId = db.entries.at(-1)!.id;
-    run(
-      "owner",
-      "invoiceReview",
-      { invoiceId, decision: "รับยอด", reviewedBy: "Owner" },
-      lotId,
-    );
-    run(
-      "owner",
-      "invoicePayment",
-      {
-        invoiceId,
-        paymentDate: date,
-        paidAmount: "11440",
-        paidBy: "Owner",
-        paymentReference: "PAY",
-      },
-      lotId,
-    );
-    run(
-      "owner",
+      "foodiva",
       "dispatch",
       {
-        dispatchKg: "50",
         pickupDate: date,
         origin: "Foodiva · กรุงเทพฯ",
         destination: "Chef House · เชียงใหม่",
@@ -207,11 +167,34 @@ function pipelineState(date: string): Database {
       },
       lotId,
     );
-    run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" }, lotId);
+    run(
+      "foodiva",
+      "packingList",
+      {
+        invoiceNo: `INV-${po}`,
+        product: "เนื้อวัว",
+        invWeightKg: "50",
+        slicedLostKg: "50",
+        boxes,
+      },
+      lotId,
+    );
+    run(
+      "owner",
+      "smokeOrder",
+      {
+        smoker: "Chef House",
+        requestedSmokeDate: date,
+        expectedFinishedDate: date,
+      },
+      lotId,
+    );
+    run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
+    run("cm", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
     run("cm", "prepare", { preSmokeKg: "50" }, lotId);
+    return lotId;
   };
-  const a = newPo();
-  toSmoker(a);
+  const a = toSmoker();
   run(
     "cm",
     "smoke",
@@ -224,6 +207,40 @@ function pipelineState(date: string): Database {
     a,
   );
   run("cm", "closeLot", { confirm: "Chef House" }, a);
+  run(
+    "cm",
+    "smokingInvoice",
+    {
+      invoiceNumber: `CH-${a}`,
+      invoiceDate: date,
+      serviceProvider: "Chef House",
+      serviceQuantity: "50",
+      vat: "770",
+      withholdingTax: "330",
+      netPayable: "11440",
+      attachment: "ch.pdf",
+    },
+    a,
+  );
+  const invoiceId = db.entries.at(-1)!.id;
+  run(
+    "owner",
+    "invoiceReview",
+    { invoiceId, decision: "รับยอด", reviewedBy: "Owner" },
+    a,
+  );
+  run(
+    "owner",
+    "invoicePayment",
+    {
+      invoiceId,
+      paymentDate: date,
+      paidAmount: "11440",
+      paidBy: "Owner",
+      paymentReference: "PAY",
+    },
+    a,
+  );
   run(
     "owner",
     "return",
@@ -261,7 +278,7 @@ function pipelineState(date: string): Database {
     const allocation = db.entries.at(-1)!.id;
     run("branch", "receive", { kg: "25", bags: "250", allocation }, a, branch);
   }
-  toSmoker(newPo());
+  toSmoker();
   return db;
 }
 
@@ -531,10 +548,10 @@ test.describe("มือถือ 390 px", () => {
         await expect(row).toContainText(
           "บริษัท เนิร์ดเนื้อ จำกัด / ฝ่ายจัดซื้อ",
         );
+        // Shipment Flow: a purchase PO has no stage; it waits for Foodiva's invoice
+        // ("รอยืนยัน") and has nothing to send to Chef House until then ("—").
         await expect(row).toContainText("รอยืนยัน");
-        // mutate("purchase") opens the lot at stage 1; LotWorkflowAction says what it waits for.
-        await expect(row).toContainText("ขนส่ง Foodiva → Chef House");
-        await expect(row).toContainText("รอ Foodiva ออก Invoice");
+        await expect(row.getByRole("cell").nth(7)).toHaveText("—");
         await expectNoSidewaysScroll(page);
       },
     );
@@ -818,7 +835,8 @@ test("H4 คีย์บอร์ด: Enter บนปุ่มเปิด PO �
         .filter({ hasText: "บริษัท คีย์บอร์ด จำกัด" });
       await expect(row).toHaveCount(1);
       await expect(row).toContainText("120.00 กก.");
-      await expect(row).toContainText("รอ Foodiva ออก Invoice");
+      // Waits for Foodiva's invoice (Shipment Flow: purchase POs have no stage).
+      await expect(row).toContainText("รอยืนยัน");
     },
   );
 });

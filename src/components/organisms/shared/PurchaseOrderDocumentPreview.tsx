@@ -29,7 +29,7 @@ export function PurchaseOrderDocumentPreview({
   date: string;
 }) {
   const isSmokeOrder = kind === "smokeOrder";
-  // A smoke PO is ordered from its shipment's Packing List; mutate() fills rawKg from it.
+  // A smoke PO's kg is the entered rawKg, pre-filled from the Packing List total (A6).
   const packingList = lot ? latestPackingList(db, lot.id) : undefined;
   const quantity = isSmokeOrder
     ? n(values, "rawKg") || n(packingList?.values || {}, "slicedNetKg")
@@ -58,7 +58,7 @@ export function PurchaseOrderDocumentPreview({
     ? values.orderNumber
     : isSmokeOrder
       ? `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
-      : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
+      : `PO-${date.slice(0, 4)}-${String(db.lots.filter((lot) => !lot.kind).length + 1).padStart(4, "0")}`;
   const issueDate = isSmokeOrder ? values.requestedSmokeDate || date : date;
   const dueDate = isSmokeOrder
     ? values.expectedFinishedDate || "—"
@@ -199,7 +199,7 @@ export function PurchaseOrderDocumentPreview({
         </div>
         <div className="po-paper-footer">
           <span>ผู้จัดทำ: {attention}</span>
-          <span>สถานะ: รอการบันทึก</span>
+          <span>สถานะ: {saved ? "บันทึกแล้ว" : "รอการบันทึก"}</span>
         </div>
       </article>
     </aside>

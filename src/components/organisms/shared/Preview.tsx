@@ -76,7 +76,8 @@ export function Preview({
     rows = [
       ["น้ำหนักตาม PO รมควัน", `${fmt(quantity)} กก.`],
       ["อัตราค่ารมอัตโนมัติ", `฿${fmt(rate)} / กก.`],
-      ["ยอดก่อน VAT อัตโนมัติ", `฿${fmt(quantity * rate)}`],
+      ["ยอดตามอัตรา (ตั้งต้น)", `฿${fmt(quantity * rate)}`],
+      ["ยอดเรียกเก็บ", `฿${fmt(n(v, "netPayable"))}`],
     ];
   }
   if (kind === "cmReceive" && lot)
@@ -116,7 +117,8 @@ export function Preview({
     rows = [
       [
         "ของที่ส่งกลับ Foodiva",
-        `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(produced(db, lot.id))} กก.`,
+        // Follows the weight typed in the form; the lot's output until one is entered.
+        `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(v.returnKg?.trim() ? n(v, "returnKg") : produced(db, lot.id))} กก.`,
       ],
       [
         "ค่ารถขากลับ",

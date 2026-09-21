@@ -11,12 +11,6 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
-import {
-  packingListView,
-  receivedDraft,
-  receivedValue,
-} from "@/components/organisms/chef/receivedBoxes";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -25,8 +19,8 @@ import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   entries,
-  latestPackingList,
   mutate,
+  n,
   packWeights,
   type Database,
   type Values,
@@ -52,7 +46,6 @@ export function ChefLotEditForm({
 }) {
   const lot = db.lots.find((item) => item.id === lotId);
   const received = entries(db, "cmReceive", lotId).at(-1);
-  const list = latestPackingList(db, lotId);
   const prepared = entries(db, "prepare", lotId).at(-1);
   const smokeEntries = entries(db, "smoke", lotId);
   const [values, setValues] = useState<Values>(() => ({
@@ -68,15 +61,11 @@ export function ChefLotEditForm({
       packs: packWeights(entry.values.packs).join("\n"),
     })),
   );
-  const [boxes, setBoxes] = useState(() =>
-    receivedDraft(list, received?.values.receivedBoxes),
-  );
   const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
   const complete =
     [values.arrival, values.preSmokeKg].every((value) =>
       String(value ?? "").trim(),
     ) &&
-    boxes.every((kg) => kg !== undefined) &&
     smokeDrafts.every(
       (draft) =>
         draft.smokeDate &&
@@ -96,11 +85,7 @@ export function ChefLotEditForm({
         db,
         "cm",
         "chefEdit",
-        {
-          ...values,
-          receivedBoxes: receivedValue(boxes),
-          batches: JSON.stringify(smokeDrafts),
-        },
+        { ...values, batches: JSON.stringify(smokeDrafts) },
         lotId,
         date,
       );
@@ -108,9 +93,8 @@ export function ChefLotEditForm({
     } catch (caught) {
       return caught instanceof Error ? caught.message : "";
     }
-  }, [complete, db, values, boxes, smokeDrafts, lotId, date]);
-  if (!lot || !list || !received || !prepared || !smokeEntries.length)
-    return null;
+  }, [complete, db, values, smokeDrafts, lotId, date]);
+  if (!lot || !received || !prepared || !smokeEntries.length) return null;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setError("");
@@ -134,11 +118,7 @@ export function ChefLotEditForm({
         latestDatabase(),
         "cm",
         "chefEdit",
-        {
-          ...values,
-          receivedBoxes: receivedValue(boxes),
-          batches: JSON.stringify(smokeDrafts),
-        },
+        { ...values, batches: JSON.stringify(smokeDrafts) },
         lotId,
         date,
       ),
@@ -167,7 +147,9 @@ export function ChefLotEditForm({
           />
           <Notice>
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
-            เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว
+            เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว · น้ำหนักรับจริง{" "}
+            {fmt(n(lot.values, "receivedKg"))} กก. (ช่องเหลือง)
+            บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้
           </Notice>
           <FormGrid>
             <FormField label="เวลารับ">
@@ -192,15 +174,6 @@ export function ChefLotEditForm({
               />
             </FormField>
           </FormGrid>
-          <PackingListTable
-            {...packingListView(list, boxes)}
-            onReceived={(no, kg) => {
-              setBoxes((current) =>
-                current.map((value, i) => (i === no - 1 ? kg : value)),
-              );
-              setError("");
-            }}
-          />
           <DataTable
             title="ตรวจสอบและแก้ไข Log Lot สโมครายวัน"
             columns={[

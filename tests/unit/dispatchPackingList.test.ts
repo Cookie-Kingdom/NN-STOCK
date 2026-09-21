@@ -8,8 +8,21 @@ describe("dispatchWithPackingList", () => {
     const s = setup();
     readyToDispatch(s, "50");
     const lotId = s.db.lots.at(-1)!.id;
-    const next = dispatchWithPackingList(s.db, lotId, send, { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "25\n25" }, day);
-    expect(next.entries.slice(-2).map((e) => [e.kind, e.role, e.lotId])).toEqual([
+    const next = dispatchWithPackingList(
+      s.db,
+      lotId,
+      send,
+      {
+        invoiceNo: "INV-1",
+        product: "เนื้อวัว",
+        slicedLostKg: "50",
+        boxes: "25\n25",
+      },
+      day,
+    );
+    expect(
+      next.entries.slice(-2).map((e) => [e.kind, e.role, e.lotId]),
+    ).toEqual([
       ["dispatch", "foodiva", lotId],
       ["packingList", "foodiva", lotId],
     ]);
@@ -21,7 +34,13 @@ describe("dispatchWithPackingList", () => {
     const s = setup();
     readyToDispatch(s, "50");
     expect(() =>
-      dispatchWithPackingList(s.db, s.db.lots.at(-1)!.id, send, { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "" }, day),
+      dispatchWithPackingList(
+        s.db,
+        s.db.lots.at(-1)!.id,
+        send,
+        { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "" },
+        day,
+      ),
     ).toThrow("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
     expect(s.db.lots.at(-1)!.stage).toBe(1);
   });

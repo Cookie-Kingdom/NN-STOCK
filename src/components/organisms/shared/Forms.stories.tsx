@@ -4,7 +4,6 @@ import {
   centralDb,
   day,
   demoDb,
-  dispatchDb,
   multiPoPackedDb,
   rejectedInvoiceDb,
   smokedDb,
@@ -62,22 +61,6 @@ export const OwnerPurchaseTablet: Story = {
   globals: { viewport: { value: "tablet", isRotated: false } },
 };
 
-export const OwnerDispatch: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <EntryForm
-      db={dispatchDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "dispatch", lotId: dispatchDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
 export const OwnerReturn: Story = {
   parameters: { db: smokedDb },
   render: () => (
@@ -111,7 +94,8 @@ export const FoodivaInvoiceEdit: Story = {
   ),
 };
 
-// Sent back by the Owner: the note is shown and the amount comes from the smoke PO.
+// Sent back by the Owner: the note is shown and the amount starts at the sent-back invoice's,
+// editable by Chef House (A7).
 export const ChefInvoiceSentBack: Story = {
   parameters: { db: rejectedInvoiceDb },
   render: () => (
@@ -187,7 +171,7 @@ export const BagAllocation: Story = {
   render: () => (
     <BagAllocationForm
       db={centralDb}
-      lotId={centralDb.lots[0].id}
+      lotId={centralDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}
@@ -234,7 +218,8 @@ export const GeneralPurchase: Story = {
   ),
 };
 
-/** Before closing, Chef House can still correct the yellow cells of the Packing List. */
+/** Before closing, Chef House can still correct arrival, pre-smoke kg and the smoke log.
+ *  The yellow cells are not here: they are weighed once at cmReceive (A5). */
 export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (

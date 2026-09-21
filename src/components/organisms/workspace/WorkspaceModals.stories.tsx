@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { centralDb, demoDb, multiPoDb } from "../../../../.storybook/fixtures";
+import {
+  centralDb,
+  demoDb,
+  multiPoDb,
+  requestedDb,
+  smokedDb,
+} from "../../../../.storybook/fixtures";
 import { accountById, type AccountId } from "@/lib/accounts";
 import { useWorkspace } from "./useWorkspace";
 import { WorkspaceModals } from "./WorkspaceModals";
@@ -60,15 +66,15 @@ export const MaterialTransfer: Story = {
 export const BagAllocation: Story = {
   parameters: { db: centralDb },
   render: () => (
-    <Modals account="owner" kind="allocate" lotId={centralDb.lots[0].id} />
+    <Modals account="owner" kind="allocate" lotId={centralDb.lots.at(-1)!.id} />
   ),
 };
 
 /** `chefEdit` routes to the Chef's lot-edit dialog for the lot it was opened on. */
 export const ChefLotEdit: Story = {
-  parameters: { db: centralDb },
+  parameters: { db: smokedDb },
   render: () => (
-    <Modals account="chef" kind="chefEdit" lotId={centralDb.lots[0].id} />
+    <Modals account="chef" kind="chefEdit" lotId={smokedDb.lots.at(-1)!.id} />
   ),
 };
 
@@ -76,6 +82,18 @@ export const ChefLotEdit: Story = {
 export const ShipmentRequest: Story = {
   parameters: { db: multiPoDb },
   render: () => <Modals account="owner" kind="shipmentRequest" lotId="" />,
+};
+
+/** `shipmentRequestEdit` opens the same form pre-filled with that Request's lines. */
+export const ShipmentRequestEdit: Story = {
+  parameters: { db: requestedDb },
+  render: () => (
+    <Modals
+      account="owner"
+      kind="shipmentRequestEdit"
+      lotId={requestedDb.lots.at(-1)!.id}
+    />
+  ),
 };
 
 /** No modal open: the router renders nothing, the page keeps its own content. */

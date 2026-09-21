@@ -1,9 +1,11 @@
 import {
   entries,
   n,
+  packingListKg,
   produced,
   producedBags,
   readyForChefHouse,
+  smokeServiceRate,
   type Database,
   type Lot,
   type Values,
@@ -41,15 +43,28 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
       invoiceAmount: String(kg * n(lot.values, "price")),
     };
   }
-  // The quantity is not a form value: mutate takes it from the Packing List.
-  if (kind === "smokeOrder") return { smoker: "Chef House" };
-  if (kind === "smokingInvoice")
-    // Display only: mutate recomputes the billed quantity from the smoke PO.
+  // The kg starts at the Packing List total; the Owner may change it (A6).
+  if (kind === "smokeOrder") {
+    const listKg = packingListKg(db, lot.id);
     return {
-      serviceQuantity: String(
-        n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "rawKg"),
-      ),
+      smoker: "Chef House",
+      ...(listKg !== undefined && { rawKg: String(listKg) }),
     };
+  }
+  if (kind === "smokingInvoice") {
+    // serviceQuantity is display only: mutate takes the billed kg from the smoke PO.
+    // The amount starts at kg × rate (or the sent-back invoice's) and Chef House may change it (A7).
+    const quantity = n(
+      entries(db, "smokeOrder", lot.id).at(-1)?.values || {},
+      "rawKg",
+    );
+    return {
+      serviceQuantity: String(quantity),
+      netPayable:
+        entries(db, "smokingInvoice", lot.id).at(-1)?.values.netPayable ||
+        String(quantity * smokeServiceRate(quantity)),
+    };
+  }
   if (kind === "invoicePayment")
     return {
       paidAmount:

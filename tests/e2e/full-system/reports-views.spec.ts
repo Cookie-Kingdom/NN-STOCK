@@ -14,9 +14,12 @@ import {
  * screens — dashboard, stock, meat log, traceability, report, history, the
  * Foodiva/Chef House/branch read views — on the seven-day sample set, and every
  * tab of every account on the empty seed. Expected numbers are derived from
- * roleplay() in src/lib/store.ts (7 days, 2 branches):
- *   lot: 50 kg @ 250 (12,500) + smoke 50 × 220 (11,000) + round trip 2,000 = 25,500 → 510 / kg
- *   produced 500 bags × 0.100 = 50 kg, 250 bags (25 kg) to each branch
+ * roleplay() in src/lib/store.ts (7 days, 2 branches). Shipment Flow: purchase PO
+ * PO-yyyy-0001 (lot F…-001) holds the raw beef; one Request SH-yyyy-0001 (lot S…-001)
+ * draws all 50 kg and carries every step from the truck to the branches:
+ *   shipment: 50 kg @ 250 (12,500) + smoke 50 × 220 (11,000) + round trip 2,000 = 25,500 → 510 / kg
+ *   Packing List 3 กล่องรับเข้า (20 + 20 + 10), produced 500 กล่องรมควัน × 0.100 = 50 kg,
+ *   250 (25 kg) to each branch
  *   each branch each day: thaw 1.521 kg, sell 1.421 + waste 0.100, 14 boxes × 350 = 4,900
  *     → meat cost 1.521 × 510 = 775.71 / branch / day
  *   Saladaeng rice: buy 5 kg raw (275) and issue 3 kg a day; Minburi buys 32 kg cooked (1,440)
@@ -41,7 +44,11 @@ const bangkok = (offsetDays = 0) => {
 const TODAY = bangkok();
 const FIRST_DAY = bangkok(-6);
 const YEAR = FIRST_DAY.slice(0, 4);
-const LOT = `F${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
+/** The shipment lot: branch stock, costs and documents all hang off it. */
+const LOT = `S${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
+const SH = `SH-${YEAR}-0001`;
+/** The purchase PO the shipment draws from (raw beef at Foodiva only). */
+const PO_LOT = `F${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
 const PO = `PO-${YEAR}-0001`;
 
 const main = (page: Page) => page.getByRole("main");
@@ -64,7 +71,12 @@ async function withSample(page: Page, account: AccountKey) {
   await signInAs(page, account);
 }
 
-type Entry = { kind: string; role: string; branch: string; values: Record<string, string> };
+type Entry = {
+  kind: string;
+  role: string;
+  branch: string;
+  values: Record<string, string>;
+};
 async function sampleEntries(page: Page): Promise<Entry[]> {
   const state = await (await page.request.get("/api/local-db")).json();
   return state.payload.entries;
@@ -78,51 +90,83 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       withSample(page, "owner"),
     );
 
-    await step(page, "Owner: แดชบอร์ด KPI ตรงกับยอดขายและต้นทุน 7 วัน", async () => {
-      await tab(page, "แดชบอร์ด");
-      const view = main(page);
-      // 196 boxes × 350 = 68,600; cost = meat 2 × 7 × 775.71 + rice 7 × (275 + 1,440) + owner purchases 7,000
-      await expect(view).toContainText(pair("ยอดขายช่วงที่เลือก", "฿68,600.00"));
-      await expect(view).toContainText(pair("ต้นทุนที่บันทึก", "฿29,864.94"));
-      await expect(view).toContainText(pair("ส่วนต่างหลังต้นทุน", "฿38,735.06"));
-      await expect(view).toContainText(pair("กล่องที่ขาย", "196"));
-      await expectCleanNumbers(page);
-    });
+    await step(
+      page,
+      "Owner: แดชบอร์ด KPI ตรงกับยอดขายและต้นทุน 7 วัน",
+      async () => {
+        await tab(page, "แดชบอร์ด");
+        const view = main(page);
+        // 196 boxes × 350 = 68,600; cost = meat 2 × 7 × 775.71 + rice 7 × (275 + 1,440) + owner purchases 7,000
+        await expect(view).toContainText(
+          pair("ยอดขายช่วงที่เลือก", "฿68,600.00"),
+        );
+        await expect(view).toContainText(pair("ต้นทุนที่บันทึก", "฿29,864.94"));
+        await expect(view).toContainText(
+          pair("ส่วนต่างหลังต้นทุน", "฿38,735.06"),
+        );
+        await expect(view).toContainText(pair("กล่องที่ขาย", "196"));
+        await expectCleanNumbers(page);
+      },
+    );
 
-    await step(page, "Owner: กราฟยอดขายสองสาขา และสัดส่วนต้นทุน render", async () => {
-      const view = main(page);
-      await expect(
-        view.getByRole("img", { name: "กราฟยอดขายรายวัน" }),
-      ).toHaveCount(2);
-      await expect(view).toContainText(pair("ยอดขายสาขาศาลาแดง", "฿34,300.00"));
-      await expect(view).toContainText(pair("ยอดขายสาขามีนบุรี", "฿34,300.00"));
-      // Cost mix: Saladaeng 5,429.97 + 1,925 · Minburi 5,429.97 + 10,080 · shop 29,864.94
-      await expect(view).toContainText(pair("ศาลาแดง", "฿7,354.97"));
-      await expect(view).toContainText(pair("มีนบุรี", "฿15,509.97"));
-      await expect(view).toContainText(pair("รวมทั้งร้าน", "฿29,864.94"));
-      await expect(
-        rowIn(page, "สถานะ Lot และการผลิต", LOT),
-      ).toContainText(/จัดสรร \/ ขาย\s*50\.00 กก\.\s*0\.00 กก\.\s*14\.35 กก\.\s*14\.35 กก\./);
-    });
+    await step(
+      page,
+      "Owner: กราฟยอดขายสองสาขา และสัดส่วนต้นทุน render",
+      async () => {
+        const view = main(page);
+        await expect(
+          view.getByRole("img", { name: "กราฟยอดขายรายวัน" }),
+        ).toHaveCount(2);
+        await expect(view).toContainText(
+          pair("ยอดขายสาขาศาลาแดง", "฿34,300.00"),
+        );
+        await expect(view).toContainText(
+          pair("ยอดขายสาขามีนบุรี", "฿34,300.00"),
+        );
+        // Cost mix: Saladaeng 5,429.97 + 1,925 · Minburi 5,429.97 + 10,080 · shop 29,864.94
+        await expect(view).toContainText(pair("ศาลาแดง", "฿7,354.97"));
+        await expect(view).toContainText(pair("มีนบุรี", "฿15,509.97"));
+        await expect(view).toContainText(pair("รวมทั้งร้าน", "฿29,864.94"));
+        // The dashboard lists shipments by their SH- number.
+        await expect(rowIn(page, "สถานะ Lot และการผลิต", SH)).toContainText(
+          /จัดสรร \/ ขาย\s*50\.00 กก\.\s*0\.00 กก\.\s*14\.35 กก\.\s*14\.35 กก\./,
+        );
+      },
+    );
 
-    await step(page, "Owner: เปิดรายการที่ต้องดูแล — ทุกสาขาปิดวันแล้ว ไม่มีงานค้าง", async () => {
-      await pointAndClick(page, main(page).getByRole("button", { name: /การทำงานปกติ/ }));
-      await expect(
-        main(page).getByRole("heading", { name: "รายการที่ต้องดูแล" }),
-      ).toBeVisible();
-      await expect(rowIn(page, "สถานะสาขาวันนี้", "ศาลาแดง")).toContainText(
-        /34,300\.00\s*98\s*ครบแล้ว\s*ปกติ\s*ปิดวันแล้ว/,
-      );
-    });
+    await step(
+      page,
+      "Owner: เปิดรายการที่ต้องดูแล — ทุกสาขาปิดวันแล้ว ไม่มีงานค้าง",
+      async () => {
+        await pointAndClick(
+          page,
+          main(page).getByRole("button", { name: /การทำงานปกติ/ }),
+        );
+        await expect(
+          main(page).getByRole("heading", { name: "รายการที่ต้องดูแล" }),
+        ).toBeVisible();
+        await expect(rowIn(page, "สถานะสาขาวันนี้", "ศาลาแดง")).toContainText(
+          /34,300\.00\s*98\s*ครบแล้ว\s*ปกติ\s*ปิดวันแล้ว/,
+        );
+      },
+    );
 
-    await step(page, "Owner: เปลี่ยนช่วงข้อมูลเป็นวันนี้วันเดียว ตัวเลขเปลี่ยนตาม", async () => {
-      await main(page).getByLabel("ตั้งแต่").fill(TODAY);
-      // 1 day: 2 × 4,900 sales; cost 2 × 775.71 + 275 + 1,440 (owner purchases are on day 1)
-      await expect(main(page)).toContainText(pair("ยอดขายช่วงที่เลือก", "฿9,800.00"));
-      await expect(main(page)).toContainText(pair("ต้นทุนที่บันทึก", "฿3,266.42"));
-      await expect(main(page)).toContainText(pair("กล่องที่ขาย", "28"));
-      await expectCleanNumbers(page);
-    });
+    await step(
+      page,
+      "Owner: เปลี่ยนช่วงข้อมูลเป็นวันนี้วันเดียว ตัวเลขเปลี่ยนตาม",
+      async () => {
+        await main(page).getByLabel("ตั้งแต่").fill(TODAY);
+        // 1 day: 2 × 4,900 sales; cost 2 × 775.71 + 275 + 1,440 (owner purchases are on day 1)
+        await expect(main(page)).toContainText(
+          pair("ยอดขายช่วงที่เลือก", "฿9,800.00"),
+        );
+        await expect(main(page)).toContainText(
+          pair("ต้นทุนที่บันทึก", "฿3,266.42"),
+        );
+        await expect(main(page)).toContainText(pair("กล่องที่ขาย", "28"));
+        await expectCleanNumbers(page);
+      },
+    );
   });
 
   test("F2 สต๊อกของทั้งหมด: เนื้อ ข้าว น้ำพริก วัสดุ ตรงกับหน้าสต๊อกของ Chef House และสาขา", async ({
@@ -133,45 +177,81 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     );
 
     const all = "ตารางสต๊อกทั้งหมด (All inventory)";
-    await step(page, "Owner: สต๊อกเนื้อ คลังกลาง 0 · สาขาละ 25 − 7 × 1.521 = 14.35 กก.", async () => {
-      await tab(page, "สต๊อกของทั้งหมด");
-      await expect(rowIn(page, all, /เนื้อรมควัน\s*คลังกลาง/)).toContainText("0.00");
-      for (const branch of ["ศาลาแดง", "มีนบุรี"])
+    await step(
+      page,
+      "Owner: สต๊อกเนื้อ คลังกลาง 0 · สาขาละ 25 − 7 × 1.521 = 14.35 กก.",
+      async () => {
+        await tab(page, "สต๊อกของทั้งหมด");
+        await expect(rowIn(page, all, /เนื้อรมควัน\s*คลังกลาง/)).toContainText(
+          "0.00",
+        );
+        for (const branch of ["ศาลาแดง", "มีนบุรี"])
+          await expect(
+            rowIn(page, all, new RegExp(`เนื้อรมควัน\\s*${branch}`)),
+          ).toContainText(
+            /14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · พร้อมขาย 0\.00/,
+          );
         await expect(
-          rowIn(page, all, new RegExp(`เนื้อรมควัน\\s*${branch}`)),
-        ).toContainText(/14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
-      await expect(
-        rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef House\s*Foodiva/),
-      ).toContainText(/0\.00\s*กก\./);
-      await expectCleanNumbers(page);
-    });
+          rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef House\s*Foodiva/),
+        ).toContainText(/0\.00\s*กก\./);
+        await expectCleanNumbers(page);
+      },
+    );
 
-    await step(page, "Owner: กรองสถานที่ ศาลาแดง — เนื้อ 1 + ข้าว/น้ำพริก 3 + วัสดุ 7 = 11 แถว", async () => {
-      await tableSection(page, all).getByLabel("สถานที่").selectOption("ศาลาแดง");
-      await expect(tableSection(page, all)).toContainText("11 แถว");
-      await expect(rowIn(page, all, "ข้าวเหนียวดิบ (ข้าวสาร)")).toContainText(/14\.00\s*กก\./);
-      await expect(rowIn(page, all, "ข้าวเหนียวสุก")).toContainText(/1\.40\s*กก\./);
-      await expect(rowIn(page, all, "น้ำพริกหลอด")).toContainText(/140\.00\s*หลอด/);
-      await expect(rowIn(page, all, "กล่องพิมพ์ลาย")).toContainText(/30\.00\s*ชิ้น/);
-      await expect(
-        tableSection(page, all).getByRole("row").filter({ hasText: "มีนบุรี" }),
-      ).toHaveCount(0);
-    });
+    await step(
+      page,
+      "Owner: กรองสถานที่ ศาลาแดง — เนื้อ 1 + ข้าว/น้ำพริก 3 + วัสดุ 7 = 11 แถว",
+      async () => {
+        await tableSection(page, all)
+          .getByRole("combobox", { name: /^สถานที่/ })
+          .selectOption("ศาลาแดง");
+        await expect(tableSection(page, all)).toContainText("11 แถว");
+        await expect(rowIn(page, all, "ข้าวเหนียวดิบ (ข้าวสาร)")).toContainText(
+          /14\.00\s*กก\./,
+        );
+        await expect(rowIn(page, all, "ข้าวเหนียวสุก")).toContainText(
+          /1\.40\s*กก\./,
+        );
+        await expect(rowIn(page, all, "น้ำพริกหลอด")).toContainText(
+          /140\.00\s*หลอด/,
+        );
+        await expect(rowIn(page, all, "กล่องพิมพ์ลาย")).toContainText(
+          /30\.00\s*ชิ้น/,
+        );
+        await expect(
+          tableSection(page, all)
+            .getByRole("row")
+            .filter({ hasText: "มีนบุรี" }),
+        ).toHaveCount(0);
+      },
+    );
 
-    await step(page, "Owner: ประวัติการซื้อ = วัสดุ 1,400 + น้ำพริก 5,600", async () => {
-      await expect(main(page)).toContainText("ต้นทุนซื้อเข้าที่แสดง ฿7,000.00");
-      await expect(
-        rowIn(page, /ประวัติการซื้อและบัญชี/, "CHILI-DEMO-001"),
-      ).toContainText(/280\.00 หลอด\s*฿20\.00\s*฿5,600\.00/);
-    });
+    await step(
+      page,
+      "Owner: ประวัติการซื้อ = วัสดุ 1,400 + น้ำพริก 5,600",
+      async () => {
+        await expect(main(page)).toContainText(
+          "ต้นทุนซื้อเข้าที่แสดง ฿7,000.00",
+        );
+        await expect(
+          rowIn(page, /ประวัติการซื้อและบัญชี/, "CHILI-DEMO-001"),
+        ).toContainText(/280\.00 หลอด\s*฿20\.00\s*฿5,600\.00/);
+      },
+    );
 
-    await step(page, "Chef House: หน้าสต๊อก ก่อนสโมค 50 · รอผลิต 0 · หลังรม 50", async () => {
-      await signInAs(page, "chef");
-      await tab(page, "สต๊อก");
-      await expect(
-        rowIn(page, "สต๊อกและงานผลิต Chef House", LOT),
-      ).toContainText(/50\.00 กก\.\s*0\.00 กก\.\s*50\.00 กก\.\s*จัดสรร \/ ขาย/);
-    });
+    await step(
+      page,
+      "Chef House: หน้าสต๊อก ก่อนสโมค 50 · รอผลิต 0 · หลังรม 50",
+      async () => {
+        await signInAs(page, "chef");
+        await tab(page, "สต๊อก");
+        await expect(
+          rowIn(page, "สต๊อกและงานผลิต Chef House", LOT),
+        ).toContainText(
+          /50\.00 กก\.\s*0\.00 กก\.\s*50\.00 กก\.\s*จัดสรร \/ ขาย/,
+        );
+      },
+    );
 
     await step(page, "สาขาศาลาแดง: หน้าสต๊อกตรงกับของ Owner", async () => {
       await signInAs(page, "saladaeng");
@@ -180,23 +260,42 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         /25\.00 กก\.\s*14\.35 กก\.\s*0\.00 กก\./,
       );
       await expect(
-        rowIn(page, "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)", "ศาลาแดง"),
-      ).toContainText(/14\.00 กก\.\s*0\.00 กก\.\s*1\.40 กก\.\s*140\.00 หลอด\s*140\.00 หลอด/);
-      const materials = tableSection(page, "สต๊อกวัสดุ 7 รายการ (Material inventory)");
-      await expect(materials.getByRole("row").filter({ hasText: "30 ชิ้น" })).toHaveCount(7);
+        rowIn(
+          page,
+          "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)",
+          "ศาลาแดง",
+        ),
+      ).toContainText(
+        /14\.00 กก\.\s*0\.00 กก\.\s*1\.40 กก\.\s*140\.00 หลอด\s*140\.00 หลอด/,
+      );
+      const materials = tableSection(
+        page,
+        "สต๊อกวัสดุ 7 รายการ (Material inventory)",
+      );
+      await expect(
+        materials.getByRole("row").filter({ hasText: "30 ชิ้น" }),
+      ).toHaveCount(7);
     });
 
-    await step(page, "สาขามีนบุรี: หน้าสต๊อกเนื้อและข้าวสุกตรงกับของ Owner", async () => {
-      await signInAs(page, "minburi");
-      await tab(page, "สต๊อก");
-      await expect(rowIn(page, "สต๊อกเนื้อ · มีนบุรี", LOT)).toContainText(
-        /25\.00 กก\.\s*14\.35 กก\.\s*0\.00 กก\./,
-      );
-      // 7 × 32 kg bought − 7 × 14 boxes of rice; roleplay carries it all over
-      await expect(
-        rowIn(page, "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)", "มีนบุรี"),
-      ).toContainText(/204\.40 กก\.\s*140\.00 หลอด\s*140\.00 หลอด/);
-    });
+    await step(
+      page,
+      "สาขามีนบุรี: หน้าสต๊อกเนื้อและข้าวสุกตรงกับของ Owner",
+      async () => {
+        await signInAs(page, "minburi");
+        await tab(page, "สต๊อก");
+        await expect(rowIn(page, "สต๊อกเนื้อ · มีนบุรี", LOT)).toContainText(
+          /25\.00 กก\.\s*14\.35 กก\.\s*0\.00 กก\./,
+        );
+        // 7 × 32 kg bought − 7 × 14 boxes of rice; roleplay carries it all over
+        await expect(
+          rowIn(
+            page,
+            "สต๊อกข้าวเหนียวและน้ำพริก (Rice & chili inventory)",
+            "มีนบุรี",
+          ),
+        ).toContainText(/204\.40 กก\.\s*140\.00 หลอด\s*140\.00 หลอด/);
+      },
+    );
   });
 
   test("F3 Log เนื้อคงเหลือ: คงเหลือแยกจุด filter Lot และประวัติเรียงใหม่ → เก่า", async ({
@@ -208,52 +307,88 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
 
     const points = "เนื้อคงเหลือแยกตามจุด";
     const history = "ประวัติการเคลื่อนไหวเนื้อ";
-    await step(page, "Owner: คงเหลือแยกจุด — สาขาละ 14.35 กก. ที่อื่นเป็นศูนย์", async () => {
-      await tab(page, "Log เนื้อคงเหลือ");
-      await expect(tableSection(page, points)).toContainText("10 แถว");
-      for (const branch of ["ศาลาแดง", "มีนบุรี"])
+    await step(
+      page,
+      "Owner: คงเหลือแยกจุด — สาขาละ 14.35 กก. ที่อื่นเป็นศูนย์",
+      async () => {
+        await tab(page, "Log เนื้อคงเหลือ");
+        await expect(tableSection(page, points)).toContainText("10 แถว");
+        for (const branch of ["ศาลาแดง", "มีนบุรี"])
+          await expect(
+            tableSection(page, points)
+              .getByRole("row")
+              .filter({
+                has: page.getByRole("cell", { name: branch, exact: true }),
+              }),
+          ).toContainText(/14\.35 กก\.\s*แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
+        await expect(rowIn(page, points, "คลังกลาง Owner")).toContainText(
+          "0.00 กก.",
+        );
         await expect(
-          tableSection(page, points)
-            .getByRole("row")
-            .filter({ has: page.getByRole("cell", { name: branch, exact: true }) }),
-        ).toContainText(/14\.35 กก\.\s*แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
-      await expect(rowIn(page, points, "คลังกลาง Owner")).toContainText("0.00 กก.");
-      await expect(rowIn(page, points, "Chef House · เนื้อรมพร้อมเรียกรถ")).toContainText("0.00 กก.");
-      await expectCleanNumbers(page);
-    });
+          rowIn(page, points, "Chef House · เนื้อรมพร้อมเรียกรถ"),
+        ).toContainText("0.00 กก.");
+        await expectCleanNumbers(page);
+      },
+    );
 
-    await step(page, "Owner: filter Lot เลือก Lot ของ sample แล้วกลับเป็นทั้งหมด", async () => {
-      const select = tableSection(page, points).getByLabel("Lot");
-      await select.selectOption(LOT);
-      await expect(tableSection(page, points)).toContainText("10 แถว");
-      await expect(rowIn(page, points, PO)).toHaveCount(10);
-      await select.selectOption("ทั้งหมด");
-      await expect(tableSection(page, points)).toContainText("10 แถว");
-    });
+    await step(
+      page,
+      "Owner: filter Lot — การส่ง 7 จุด · PO ซื้อ 3 จุด แล้วกลับเป็นทั้งหมด",
+      async () => {
+        // A shipment lot has 5 points + 2 branches, a purchase PO 3 (MeatMovementLogView).
+        // The sort select's name lists "Lot" too, so match the filter's start.
+        const select = tableSection(page, points).getByRole("combobox", {
+          name: /^Lot/,
+        });
+        await select.selectOption(LOT);
+        await expect(tableSection(page, points)).toContainText("7 แถว");
+        await expect(rowIn(page, points, SH)).toHaveCount(7);
+        await select.selectOption(PO_LOT);
+        await expect(tableSection(page, points)).toContainText("3 แถว");
+        await expect(rowIn(page, points, PO)).toHaveCount(3);
+        await select.selectOption("ทั้งหมด");
+        await expect(tableSection(page, points)).toContainText("10 แถว");
+      },
+    );
 
-    await step(page, "Owner: ประวัติเรียงวันที่ล่าสุดก่อน — ขาย 1.42 · Waste 0.10 · ละลาย 1.52 กก.", async () => {
-      const section = tableSection(page, history);
-      await expect(section).toContainText("39 แถว");
-      // newest day first; a day's sample entries share one timestamp, so their order within the day is not asserted
-      await expect(section.getByRole("row").nth(1)).toContainText(TODAY);
-      const today = section.getByRole("row").filter({ hasText: TODAY });
-      await expect(today).toHaveCount(4);
-      await expect(
-        today.filter({ hasText: "ตัดสต๊อกจากยอดขายขาย 1.42 · Waste 0.10 กก." }),
-      ).toHaveCount(2);
-      await expect(
-        section.getByRole("row").filter({ hasText: "แบ่งละลาย" }).first(),
-      ).toContainText("1.52 กก.");
-      await expect(section).toContainText("หน้า 1 / 2");
-    });
+    await step(
+      page,
+      "Owner: ประวัติเรียงวันที่ล่าสุดก่อน — ขาย 1.42 · Waste 0.10 · ละลาย 1.52 กก.",
+      async () => {
+        const section = tableSection(page, history);
+        await expect(section).toContainText("39 แถว");
+        // newest day first; a day's sample entries share one timestamp, so their order within the day is not asserted
+        await expect(section.getByRole("row").nth(1)).toContainText(TODAY);
+        const today = section.getByRole("row").filter({ hasText: TODAY });
+        await expect(today).toHaveCount(4);
+        await expect(
+          today.filter({
+            hasText: "ตัดสต๊อกจากยอดขายขาย 1.42 · Waste 0.10 กก.",
+          }),
+        ).toHaveCount(2);
+        await expect(
+          section.getByRole("row").filter({ hasText: "แบ่งละลาย" }).first(),
+        ).toContainText("1.52 กก.");
+        await expect(section).toContainText("หน้า 1 / 2");
+      },
+    );
 
-    await step(page, "Owner: หน้า 2 ของประวัติจบที่วันแรกของ sample", async () => {
-      const section = tableSection(page, history);
-      await pointAndClick(page, section.getByRole("button", { name: "ถัดไป" }));
-      await expect(section).toContainText("หน้า 2 / 2");
-      await expect(section.getByRole("row").last()).toContainText(FIRST_DAY);
-      await expect(section.getByRole("row").filter({ hasText: TODAY })).toHaveCount(0);
-    });
+    await step(
+      page,
+      "Owner: หน้า 2 ของประวัติจบที่วันแรกของ sample",
+      async () => {
+        const section = tableSection(page, history);
+        await pointAndClick(
+          page,
+          section.getByRole("button", { name: "ถัดไป" }),
+        );
+        await expect(section).toContainText("หน้า 2 / 2");
+        await expect(section.getByRole("row").last()).toContainText(FIRST_DAY);
+        await expect(
+          section.getByRole("row").filter({ hasText: TODAY }),
+        ).toHaveCount(0);
+      },
+    );
   });
 
   test("F4 เอกสารและ Traceability: เส้นทาง Lot ครบทุกขั้น พรีวิวทุกเอกสาร และ filter", async ({
@@ -268,114 +403,212 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       withSample(page, "owner"),
     );
 
-    const register = "ทะเบียนเอกสารตาม Lot";
-    await step(page, "Owner: ทะเบียนเอกสาร 1 Lot สถานะ จัดสรร / ขาย", async () => {
-      await tab(page, "เอกสารและ Traceability");
-      await expect(tableSection(page, register)).toContainText("1 รายการ");
-      await expect(rowIn(page, register, LOT)).toContainText(
-        new RegExp(`จัดสรร / ขาย\\s*${PO}\\s*${LOT}\\s*${FIRST_DAY}\\s*ใบขนส่งกลับ · 50\\.00 กก\\.\\s*Chef House → Foodiva\\s*Owner`),
-      );
-    });
+    const register = "ทะเบียนเอกสารตามการส่ง";
+    await step(
+      page,
+      "Owner: ทะเบียนเอกสาร 1 การส่ง สถานะ จัดสรร / ขาย",
+      async () => {
+        await tab(page, "เอกสารและ Traceability");
+        await expect(tableSection(page, register)).toContainText("1 รายการ");
+        await expect(rowIn(page, register, LOT)).toContainText(
+          new RegExp(
+            `จัดสรร / ขาย\\s*${SH}\\s*${LOT}\\s*${FIRST_DAY}\\s*Foodiva รับเข้าตู้ · 50\\.00 กก\\.\\s*Chef House → Foodiva\\s*Owner`,
+          ),
+        );
+      },
+    );
 
-    await step(page, "Owner: กดดู — เส้นทางครบตั้งแต่ PO ถึงขายที่สาขา ไม่มีขั้นที่ยังรอ", async () => {
-      await pointAndClick(page, rowIn(page, register, LOT).getByRole("button", { name: "ดู" }));
-      const section = tableSection(page, register);
-      const expected: [string, RegExp][] = [
-        ["PO เนื้อ", new RegExp(`${PO}\\s*${FIRST_DAY}\\s*ออกแล้ว`)],
-        ["Invoice Foodiva", /INV-DEMO-001\s*\S+\s*ยืนยัน 50\.00 กก\./],
-        ["PO โรงรมควัน", new RegExp(`SO-${YEAR}-0001\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`)],
-        ["Invoice Chef House", /CH-INV-DEMO-001/],
-        ["ใบขนส่งไป Chef House", new RegExp(`TR-${YEAR}-\\d{4}\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`)],
-        ["รับที่ Chef House", /50\.00 กก\.\s*\S+\s*รับแล้ว/],
-        ["Lot สโมครายวัน", /เข้าเตา 50\.00 กก\. · หลังรม 50\.00 กก\. · Waste 0\.00 กก\. · 500 ถุง/],
-        ["ผลผลิตหลังรม", /50\.00 กก\. · 500 ถุง\s*บันทึกแล้ว\s*ผลิตแล้ว/],
-        ["ใบขนส่งกลับ Foodiva", new RegExp(`TR-${YEAR}-R\\d{4}\\s*\\d{4}-\\d{2}-\\d{2}\\s*50\\.00 กก\\.`)],
-        ["Foodiva รับเข้าตู้", /50\.00 กก\. · 500 ถุง/],
-        ["รับเข้าสต๊อกกลาง", /50\.00 กก\./],
-        ["จัดสรรไปสาขา", /2 ใบ\s*\S+\s*ศาลาแดง 25\.00 กก\. · มีนบุรี 25\.00 กก\./],
-        // 14 sales × 1.421 = 19.894 · 14 × 0.100 = 1.40
-        ["ขายที่สาขา", /14 วัน\s*\S+\s*ขาย 19\.89 กก\. · Waste 1\.40 กก\./],
-      ];
-      for (const [type, value] of expected)
-        await expect(
-          // the detail table is nested inside the register row, so address its own rows
+    await step(
+      page,
+      "Owner: กดดู — เส้นทางครบตั้งแต่ PO ถึงขายที่สาขา ไม่มีขั้นที่ยังรอ",
+      async () => {
+        await pointAndClick(
+          page,
+          rowIn(page, register, LOT).getByRole("button", { name: "ดู" }),
+        );
+        const section = tableSection(page, register);
+        const expected: [string, RegExp][] = [
+          ["PO เนื้อ", new RegExp(`${PO}\\s*${FIRST_DAY}\\s*ออกแล้ว`)],
+          ["Invoice Foodiva", /INV-DEMO-001\s*\S+\s*ยืนยัน 50\.00 กก\./],
+          [
+            "PO โรงรมควัน",
+            new RegExp(`SO-${YEAR}-0001\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`),
+          ],
+          ["Invoice Chef House", /CH-INV-DEMO-001/],
+          [
+            "ใบขนส่งไป Chef House",
+            new RegExp(`TR-${YEAR}-\\d{4}\\s*${FIRST_DAY}\\s*50\\.00 กก\\.`),
+          ],
+          ["รับที่ Chef House", /50\.00 กก\.\s*\S+\s*รับแล้ว/],
+          [
+            "Lot สโมครายวัน",
+            /เข้าเตา 50\.00 กก\. · หลังรม 50\.00 กก\. · Waste 0\.00 กก\. · 500 กล่องรมควัน/,
+          ],
+          [
+            "ผลผลิตหลังรม",
+            /50\.00 กก\. · 500 กล่องรมควัน\s*บันทึกแล้ว\s*ผลิตแล้ว/,
+          ],
+          [
+            "ใบขนส่งกลับ Foodiva",
+            new RegExp(
+              `TR-${YEAR}-R\\d{4}\\s*\\d{4}-\\d{2}-\\d{2}\\s*50\\.00 กก\\.`,
+            ),
+          ],
+          ["Foodiva รับเข้าตู้", /50\.00 กก\. · 500 กล่องรมควัน/],
+          ["รับเข้าสต๊อกกลาง", /50\.00 กก\./],
+          [
+            "จัดสรรไปสาขา",
+            /2 ใบ\s*\S+\s*ศาลาแดง 25\.00 กก\. · มีนบุรี 25\.00 กก\./,
+          ],
+          // 14 sales × 1.421 = 19.894 · 14 × 0.100 = 1.40
+          ["ขายที่สาขา", /14 วัน\s*\S+\s*ขาย 19\.89 กก\. · Waste 1\.40 กก\./],
+        ];
+        for (const [type, value] of expected)
+          await expect(
+            // the detail table is nested inside the register row, so address its own rows
+            section
+              .locator("table table")
+              .getByRole("row")
+              .filter({
+                has: page.getByRole("cell", { name: type, exact: true }),
+              }),
+            type,
+          ).toContainText(value);
+        await expect(section).not.toContainText(
+          /รอ Foodiva|รอ Owner ออก PO|รอ Chef House|รอเรียกรถ|รอยืนยันรับ|รอผลิต|รอจัดสรร|ยังไม่มียอดขาย/,
+        );
+      },
+    );
+
+    await step(
+      page,
+      "Owner: พรีวิวทุกเอกสาร เปิดหน้าต่างพิมพ์ได้ ไม่มีค่าว่างผิดรูป",
+      async () => {
+        const section = tableSection(page, register);
+        const label = { name: "พรีวิว / PDF" };
+        const detailRow = (type: string) =>
           section
             .locator("table table")
             .getByRole("row")
-            .filter({ has: page.getByRole("cell", { name: type, exact: true }) }),
-          type,
-        ).toContainText(value);
-      await expect(section).not.toContainText(/รอ Foodiva|รอ Owner ออก PO|รอ Chef House|รอเรียกรถ|รอยืนยันรับ|รอผลิต|รอจัดสรร|ยังไม่มียอดขาย/);
-    });
-
-    await step(page, "Owner: พรีวิวทุกเอกสาร เปิดหน้าต่างพิมพ์ได้ ไม่มีค่าว่างผิดรูป", async () => {
-      const previews = tableSection(page, register).getByRole("button", { name: "พรีวิว / PDF" });
-      // summary + PO, Invoice Foodiva, smoke PO, Invoice Chef House, outbound, Chef receipt, smoke log, yield, return
-      await expect(previews).toHaveCount(10);
-      const titles: string[] = [];
-      for (let index = 0; index < 10; index++) {
-        const [popup] = await Promise.all([
-          page.waitForEvent("popup"),
-          previews.nth(index).click(),
-        ]);
-        await expect(popup.locator("body")).toContainText("เลขที่เอกสาร");
-        await expect(popup.locator("body")).not.toContainText(/undefined|NaN|\[object/);
-        titles.push(await popup.title());
-        await popup.evaluate(() => {
-          const w = window as unknown as { printed: number };
-          w.printed = 0;
-          window.print = () => {
-            w.printed += 1;
-          };
-        });
-        await popup.getByRole("button", { name: "ดาวน์โหลด / พิมพ์ PDF" }).click();
+            .filter({
+              has: page.getByRole("cell", { name: type, exact: true }),
+            });
+        const detailButton = (type: string) =>
+          detailRow(type).getByRole("button", label);
+        // summary + PO, Invoice Foodiva, smoke PO, Invoice Chef House, outbound, Chef receipt, smoke log, yield, return
+        await expect(section.getByRole("button", label)).toHaveCount(10);
+        // The two invoices open the counterparty's uploaded file (ae0e099); the sample
+        // holds only their file names, so each says the file is missing instead.
+        for (const type of ["Invoice Foodiva", "Invoice Chef House"]) {
+          await detailButton(type).click();
+          await expect(detailRow(type).getByRole("alert"), type).toContainText(
+            "ไม่พบไฟล์แนบในระบบ",
+          );
+        }
+        // The eight generated documents: the summary sits above the detail table.
+        const previews = [
+          section.getByRole("button", label).first(),
+          ...[
+            "PO เนื้อ",
+            "PO โรงรมควัน",
+            "ใบขนส่งไป Chef House",
+            "รับที่ Chef House",
+            "Lot สโมครายวัน",
+            "ผลผลิตหลังรม",
+            "ใบขนส่งกลับ Foodiva",
+          ].map(detailButton),
+        ];
+        const titles: string[] = [];
+        for (const [index, preview] of previews.entries()) {
+          const [popup] = await Promise.all([
+            page.waitForEvent("popup"),
+            preview.click(),
+          ]);
+          await expect(
+            popup.locator("body"),
+            `preview ${index + 1}`,
+          ).toContainText("เลขที่เอกสาร");
+          await expect(popup.locator("body")).not.toContainText(
+            /undefined|NaN|\[object/,
+          );
+          titles.push(await popup.title());
+          await popup.evaluate(() => {
+            const w = window as unknown as { printed: number };
+            w.printed = 0;
+            window.print = () => {
+              w.printed += 1;
+            };
+          });
+          await popup
+            .getByRole("button", { name: "ดาวน์โหลด / พิมพ์ PDF" })
+            .click();
+          expect(
+            await popup.evaluate(
+              () => (window as unknown as { printed: number }).printed,
+            ),
+          ).toBe(1);
+          await popup.close();
+        }
+        expect(titles).toEqual(
+          expect.arrayContaining([
+            `TRACE-${LOT}`,
+            PO,
+            `SO-${YEAR}-0001`,
+            `RCV-${LOT}`,
+            `YIELD-${LOT}`,
+          ]),
+        );
         expect(
-          await popup.evaluate(() => (window as unknown as { printed: number }).printed),
-        ).toBe(1);
-        await popup.close();
-      }
-      expect(titles).toEqual(
-        expect.arrayContaining([
-          `TRACE-${LOT}`,
-          PO,
-          "INV-DEMO-001",
-          `SO-${YEAR}-0001`,
-          "CH-INV-DEMO-001",
-          `RCV-${LOT}`,
-          `YIELD-${LOT}`,
-        ]),
-      );
-      expect(titles.filter((title) => title.startsWith(`TR-${YEAR}-`))).toHaveLength(2);
-      expect(dialogs, "no pop-up blocked alert").toEqual([]);
-    });
+          titles.filter((title) => title.startsWith(`TR-${YEAR}-`)),
+        ).toHaveLength(2);
+        expect(dialogs, "no pop-up blocked alert").toEqual([]);
+      },
+    );
 
-    await step(page, "Owner: filter เลข Lot / เลข PO / ช่วงวันที่ และล้าง Filter", async () => {
-      const section = tableSection(page, register);
-      await main(page).getByLabel("กรองตาม").selectOption("lot");
-      const search = main(page).getByLabel("ค้นหา เลข Lot");
-      await search.fill("F000000-999");
-      await expect(section).toContainText("0 รายการ");
-      await expect(section).toContainText("ยังไม่มีเอกสารตามเงื่อนไขที่เลือก");
-      await search.fill(LOT);
-      await expect(section).toContainText("1 รายการ");
-      await main(page).getByLabel("กรองตาม").selectOption("po");
-      await main(page).getByLabel("ค้นหา เลข PO").fill(PO);
-      await expect(section).toContainText("1 รายการ");
-      await main(page).getByLabel("ตั้งแต่วันที่ PO / Lot").fill(bangkok(1));
-      await expect(section).toContainText("0 รายการ");
-      await pointAndClick(page, main(page).getByRole("button", { name: "ล้าง Filter" }));
-      await expect(section).toContainText("1 รายการ");
-      await expect(main(page).getByLabel("ค้นหา เลข PO")).toHaveValue("");
-    });
+    await step(
+      page,
+      "Owner: filter เลข Lot / เลข PO / ช่วงวันที่ และล้าง Filter",
+      async () => {
+        const section = tableSection(page, register);
+        await main(page).getByLabel("กรองตาม").selectOption("lot");
+        const search = main(page).getByLabel("ค้นหา เลข Lot");
+        await search.fill("F000000-999");
+        await expect(section).toContainText("0 รายการ");
+        await expect(section).toContainText(
+          "ยังไม่มีเอกสารตามเงื่อนไขที่เลือก",
+        );
+        await search.fill(LOT);
+        await expect(section).toContainText("1 รายการ");
+        await main(page).getByLabel("กรองตาม").selectOption("po");
+        await main(page).getByLabel("ค้นหา เลข PO").fill(PO);
+        await expect(section).toContainText("1 รายการ");
+        await main(page).getByLabel("ตั้งแต่วันที่ PO / Lot").fill(bangkok(1));
+        await expect(section).toContainText("0 รายการ");
+        await pointAndClick(
+          page,
+          main(page).getByRole("button", { name: "ล้าง Filter" }),
+        );
+        await expect(section).toContainText("1 รายการ");
+        await expect(main(page).getByLabel("ค้นหา เลข PO")).toHaveValue("");
+      },
+    );
 
-    await step(page, "Owner: ใบ Invoice — ไฟล์แนบของ sample มีแต่ชื่อ ดาวน์โหลดแล้วแจ้งว่าไม่พบไฟล์", async () => {
-      await tab(page, "ใบ Invoice");
-      const download = main(page).getByRole("button", { name: "ดาวน์โหลด" }).first();
-      await pointAndClick(page, download);
-      await expect(
-        main(page).getByRole("alert").filter({ hasText: "ไม่พบไฟล์แนบในระบบ" }),
-      ).toBeVisible();
-    });
+    await step(
+      page,
+      "Owner: ใบ Invoice — ไฟล์แนบของ sample มีแต่ชื่อ ดาวน์โหลดแล้วแจ้งว่าไม่พบไฟล์",
+      async () => {
+        await tab(page, "ใบ Invoice");
+        const download = main(page)
+          .getByRole("button", { name: "ดาวน์โหลด" })
+          .first();
+        await pointAndClick(page, download);
+        await expect(
+          main(page)
+            .getByRole("alert")
+            .filter({ hasText: "ไม่พบไฟล์แนบในระบบ" }),
+        ).toBeVisible();
+      },
+    );
   });
 
   test("F5 รายงาน: ยอดขาย ต้นทุน ส่วนต่าง ตามช่วงวันที่และสาขา รวม ETC", async ({
@@ -390,49 +623,86 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       main(p)
         .getByRole("heading", { name: "ตัวกรองรายงาน (Report filters)" })
         .locator("xpath=ancestor::*[.//input[@type='date']][1]");
-    const expectSummary = async (sales: string, cost: string, etc: string, margin: string) => {
-      await expect(rowIn(page, summary, "ยอดขาย LINE MAN")).toContainText(sales);
-      await expect(rowIn(page, summary, "ต้นทุนรวมทั้งหมด")).toContainText(cost);
-      await expect(rowIn(page, summary, "ซื้อวัตถุดิบ / ETC")).toContainText(etc);
-      await expect(rowIn(page, summary, "ส่วนต่างหลังต้นทุนที่บันทึก")).toContainText(margin);
+    const expectSummary = async (
+      sales: string,
+      cost: string,
+      etc: string,
+      margin: string,
+    ) => {
+      await expect(rowIn(page, summary, "ยอดขาย LINE MAN")).toContainText(
+        sales,
+      );
+      await expect(rowIn(page, summary, "ต้นทุนรวมทั้งหมด")).toContainText(
+        cost,
+      );
+      await expect(rowIn(page, summary, "ซื้อวัตถุดิบ / ETC")).toContainText(
+        etc,
+      );
+      await expect(
+        rowIn(page, summary, "ส่วนต่างหลังต้นทุนที่บันทึก"),
+      ).toContainText(margin);
     };
 
-    await step(page, "Owner: ทั้ง 7 วันทุกสาขา — ต้นทุนรวม ETC 5,600 และวัสดุ 1,400 แล้ว", async () => {
-      await tab(page, "รายงาน");
-      await expect(filters(page).getByLabel("ตั้งแต่")).toHaveValue(FIRST_DAY);
-      await expect(filters(page).getByLabel("ถึง")).toHaveValue(TODAY);
-      await expectSummary("68,600.00", "29,864.94", "5,600.00", "38,735.06");
-      await expect(rowIn(page, summary, "ซื้อวัสดุบรรจุภัณฑ์")).toContainText("1,400.00");
-      await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText("14 แถว");
-      await expect(rowIn(page, "ต้นทุนแยก Lot", LOT)).toContainText(
-        /12,500\.00\s*11,000\.00\s*2,000\.00\s*25,500\.00\s*510\.00/,
-      );
-      await expectCleanNumbers(page);
-    });
+    await step(
+      page,
+      "Owner: ทั้ง 7 วันทุกสาขา — ต้นทุนรวม ETC 5,600 และวัสดุ 1,400 แล้ว",
+      async () => {
+        await tab(page, "รายงาน");
+        await expect(filters(page).getByLabel("ตั้งแต่")).toHaveValue(
+          FIRST_DAY,
+        );
+        await expect(filters(page).getByLabel("ถึง")).toHaveValue(TODAY);
+        await expectSummary("68,600.00", "29,864.94", "5,600.00", "38,735.06");
+        await expect(rowIn(page, summary, "ซื้อวัสดุบรรจุภัณฑ์")).toContainText(
+          "1,400.00",
+        );
+        await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText(
+          "14 แถว",
+        );
+        await expect(rowIn(page, "ต้นทุนแยก Lot", LOT)).toContainText(
+          /12,500\.00\s*11,000\.00\s*2,000\.00\s*25,500\.00\s*510\.00/,
+        );
+        await expectCleanNumbers(page);
+      },
+    );
 
-    await step(page, "Owner: เลือกสาขาศาลาแดง — ยอดขายครึ่งหนึ่ง ต้นทุนเฉพาะสาขา ไม่รวมรายการซื้อของ Owner", async () => {
-      await filters(page).getByLabel("สาขา").selectOption("ศาลาแดง");
-      // 5,429.97 meat + 1,925 rice; Owner-wide purchases (ETC 5,600 + materials 1,400) only count under "ทั้งหมด",
-      // so ศาลาแดง 7,354.97 + มีนบุรี 15,509.97 + Owner 7,000 = 29,864.94 (all branches)
-      await expectSummary("34,300.00", "7,354.97", "0.00", "26,945.03");
-      await expect(rowIn(page, summary, "ซื้อวัสดุบรรจุภัณฑ์")).toContainText("0.00");
-      await expect(main(page)).toContainText("ไม่รวมค่าใช้จ่าย Owner");
-      await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText("7 แถว");
-      await expect(
-        rowIn(page, "รายงานยอดขายรายวัน", "มีนบุรี"),
-      ).toHaveCount(0);
-    });
+    await step(
+      page,
+      "Owner: เลือกสาขาศาลาแดง — ยอดขายครึ่งหนึ่ง ต้นทุนเฉพาะสาขา ไม่รวมรายการซื้อของ Owner",
+      async () => {
+        await filters(page).getByLabel("สาขา").selectOption("ศาลาแดง");
+        // 5,429.97 meat + 1,925 rice; Owner-wide purchases (ETC 5,600 + materials 1,400) only count under "ทั้งหมด",
+        // so ศาลาแดง 7,354.97 + มีนบุรี 15,509.97 + Owner 7,000 = 29,864.94 (all branches)
+        await expectSummary("34,300.00", "7,354.97", "0.00", "26,945.03");
+        await expect(rowIn(page, summary, "ซื้อวัสดุบรรจุภัณฑ์")).toContainText(
+          "0.00",
+        );
+        await expect(main(page)).toContainText("ไม่รวมค่าใช้จ่าย Owner");
+        await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText(
+          "7 แถว",
+        );
+        await expect(rowIn(page, "รายงานยอดขายรายวัน", "มีนบุรี")).toHaveCount(
+          0,
+        );
+      },
+    );
 
-    await step(page, "Owner: กลับทุกสาขา เลือกวันนี้วันเดียว — รายการซื้อวันแรกหลุดช่วง", async () => {
-      await filters(page).getByLabel("สาขา").selectOption("ทั้งหมด");
-      await filters(page).getByLabel("ตั้งแต่").fill(TODAY);
-      // 2 × 4,900 · 2 × 775.71 + 275 + 1,440 = 3,266.42
-      await expectSummary("9,800.00", "3,266.42", "0.00", "6,533.58");
-      await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText("2 แถว");
-      await expect(rowIn(page, "ยอดขายสะสมแยกสาขา", "ศาลาแดง")).toContainText(
-        /14\s*0\s*0\s*0\.10\s*4,900\.00/,
-      );
-    });
+    await step(
+      page,
+      "Owner: กลับทุกสาขา เลือกวันนี้วันเดียว — รายการซื้อวันแรกหลุดช่วง",
+      async () => {
+        await filters(page).getByLabel("สาขา").selectOption("ทั้งหมด");
+        await filters(page).getByLabel("ตั้งแต่").fill(TODAY);
+        // 2 × 4,900 · 2 × 775.71 + 275 + 1,440 = 3,266.42
+        await expectSummary("9,800.00", "3,266.42", "0.00", "6,533.58");
+        await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText(
+          "2 แถว",
+        );
+        await expect(rowIn(page, "ยอดขายสะสมแยกสาขา", "ศาลาแดง")).toContainText(
+          /14\s*0\s*0\s*0\.10\s*4,900\.00/,
+        );
+      },
+    );
   });
 
   test("F6 Log / ประวัติ: Owner เห็นทุกรายการ บทบาทอื่นเห็นเฉพาะของตน ไม่เห็นต้นทุนเนื้อ", async ({
@@ -444,110 +714,203 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     const all = await sampleEntries(page);
     const history = (p: Page) => main(p).locator("details");
 
-    await step(page, "Owner: Log แสดงทุก entry และเปิดรายละเอียดยอดขายเห็นต้นทุนเนื้อ", async () => {
-      await tab(page, "Log");
-      await expect(history(page)).toHaveCount(all.length);
-      const sale = history(page).filter({ hasText: "บันทึกยอดขาย / Waste" }).first();
-      await sale.locator("summary").click();
-      await expect(sale).toContainText(pair("ต้นทุนเนื้อที่ตัดสต๊อก", "724.71"));
-      await expect(sale).toContainText(pair("ต้นทุนเนื้อ Waste", "51"));
-      await expect(sale).toContainText(pair("ยอดขายบันทึก", "4900"));
-    });
+    await step(
+      page,
+      "Owner: Log แสดงทุก entry และเปิดรายละเอียดยอดขายเห็นต้นทุนเนื้อ",
+      async () => {
+        await tab(page, "Log");
+        await expect(history(page)).toHaveCount(all.length);
+        const sale = history(page)
+          .filter({ hasText: "บันทึกยอดขาย / Waste" })
+          .first();
+        await sale.locator("summary").click();
+        await expect(sale).toContainText(
+          pair("ต้นทุนเนื้อที่ตัดสต๊อก", "724.71"),
+        );
+        await expect(sale).toContainText(pair("ต้นทุนเนื้อ Waste", "51"));
+        await expect(sale).toContainText(pair("ยอดขายบันทึก", "4900"));
+      },
+    );
 
     await step(page, "Foodiva: ประวัติเฉพาะรายการของ Foodiva", async () => {
       await signInAs(page, "foodiva");
       await tab(page, "ประวัติ");
-      await expect(history(page)).toHaveCount(all.filter((e) => e.role === "foodiva").length);
-      await expect(history(page)).toHaveCount(2);
-      await expect(main(page)).not.toContainText(/Owner\s*ดูรายละเอียด|ผู้ดูแลสาขา|· Chef House/);
+      await expect(history(page)).toHaveCount(
+        all.filter((e) => e.role === "foodiva").length,
+      );
+      // Foodiva's invoice, transport document, Packing List and freezer receipt
+      await expect(history(page)).toHaveCount(4);
+      await expect(main(page)).not.toContainText(
+        /Owner\s*ดูรายละเอียด|ผู้ดูแลสาขา|· Chef House/,
+      );
     });
 
-    await step(page, "Chef House: ประวัติเฉพาะรายการของ Chef House", async () => {
-      await signInAs(page, "chef");
-      await tab(page, "ประวัติ");
-      // visibleEntries also shows Chef House the Owner's review of its billing invoice
-      // (the reject reason, QA round 7 BUG-H), and nothing else from other roles.
-      const own = all.filter((e) => e.role === "cm");
-      const reviews = all.filter((e) => e.kind === "invoiceReview");
-      expect(reviews).toHaveLength(1);
-      await expect(history(page)).toHaveCount(own.length + reviews.length);
-      await expect(history(page).filter({ hasText: "· Chef House" })).toHaveCount(own.length);
-      await expect(history(page).filter({ hasText: "ตรวจยอด Invoice ค่ารมควัน" })).toHaveCount(reviews.length);
-    });
+    await step(
+      page,
+      "Chef House: ประวัติเฉพาะรายการของ Chef House",
+      async () => {
+        await signInAs(page, "chef");
+        await tab(page, "ประวัติ");
+        // visibleEntries (chefHouseKinds) also shows Chef House, on its shipments, the
+        // Owner's smoke PO, Foodiva's Packing List, the Owner's review of its billing
+        // invoice (the reject reason, QA round 7 BUG-H) and its payment — nothing else.
+        const own = all.filter((e) => e.role === "cm");
+        const shared = all.filter((e) =>
+          [
+            "smokeOrder",
+            "packingList",
+            "invoiceReview",
+            "invoicePayment",
+          ].includes(e.kind),
+        );
+        const reviews = all.filter((e) => e.kind === "invoiceReview");
+        expect(shared).toHaveLength(4);
+        expect(reviews).toHaveLength(1);
+        await expect(history(page)).toHaveCount(own.length + shared.length);
+        await expect(
+          history(page).filter({ hasText: "· Chef House" }),
+        ).toHaveCount(own.length);
+        await expect(
+          history(page).filter({ hasText: "ตรวจยอด Invoice ค่ารมควัน" }),
+        ).toHaveCount(reviews.length);
+      },
+    );
 
-    await step(page, "สาขาศาลาแดง: ประวัติเฉพาะสาขาตน ยอดขายไม่มีต้นทุนเนื้อ", async () => {
-      await signInAs(page, "saladaeng");
-      await tab(page, "ประวัติ");
-      const own = all.filter((e) => e.role === "branch" && e.branch === "ศาลาแดง");
-      await expect(history(page)).toHaveCount(own.length);
-      await expect(history(page).filter({ hasText: "มีนบุรี" })).toHaveCount(0);
-      const sale = history(page).filter({ hasText: "บันทึกยอดขาย / Waste" }).first();
-      await sale.locator("summary").click();
-      await expect(sale).toContainText(pair("ยอดขายบันทึก", "4900"));
-      await expect(sale).not.toContainText(/ต้นทุนเนื้อที่ตัดสต๊อก|ต้นทุนเนื้อ Waste/);
-    });
+    await step(
+      page,
+      "สาขาศาลาแดง: ประวัติเฉพาะสาขาตน ยอดขายไม่มีต้นทุนเนื้อ",
+      async () => {
+        await signInAs(page, "saladaeng");
+        await tab(page, "ประวัติ");
+        const own = all.filter(
+          (e) => e.role === "branch" && e.branch === "ศาลาแดง",
+        );
+        await expect(history(page)).toHaveCount(own.length);
+        await expect(history(page).filter({ hasText: "มีนบุรี" })).toHaveCount(
+          0,
+        );
+        const sale = history(page)
+          .filter({ hasText: "บันทึกยอดขาย / Waste" })
+          .first();
+        await sale.locator("summary").click();
+        await expect(sale).toContainText(pair("ยอดขายบันทึก", "4900"));
+        await expect(sale).not.toContainText(
+          /ต้นทุนเนื้อที่ตัดสต๊อก|ต้นทุนเนื้อ Waste/,
+        );
+      },
+    );
   });
 
   test("F7 มุมมองอ่านของ Foodiva, Chef House และสรุปสาขา ตรงกับวันปิดล่าสุด", async ({
     page,
   }) => {
-    await step(page, "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ", () =>
-      withSample(page, "foodiva"),
+    await step(
+      page,
+      "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ",
+      () => withSample(page, "foodiva"),
     );
 
-    await step(page, "Foodiva: ไม่มีเนื้อดิบค้าง ไม่มีเนื้อรอ Owner รับ และไม่มีเนื้อรมควันรอรับเข้าตู้", async () => {
-      await tab(page, "PO และสต๊อก Foodiva");
-      await expect(main(page)).toContainText(pair("เนื้อดิบคงเหลือ Foodiva", "0.00 กก."));
-      await expect(main(page)).toContainText(pair("เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", "0.00 กก."));
-      await expect(rowIn(page, "PO เนื้อที่ต้องออก Invoice", PO)).toContainText(
-        /50\.00 กก\.\s*INV-DEMO-001 · 50\.00 กก\.\s*50\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\./,
-      );
-      await expect(tableSection(page, "เนื้อรมควันรอ Foodiva รับเข้าตู้")).toContainText("0 แถว");
-    });
+    await step(
+      page,
+      "Foodiva: ไม่มีเนื้อดิบค้าง ไม่มีเนื้อรอ Owner รับ และไม่มีเนื้อรมควันรอรับเข้าตู้",
+      async () => {
+        await tab(page, "PO และสต๊อก Foodiva");
+        await expect(main(page)).toContainText(
+          pair("เนื้อดิบคงเหลือ Foodiva", "0.00 กก."),
+        );
+        await expect(main(page)).toContainText(
+          pair("เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", "0.00 กก."),
+        );
+        await expect(
+          rowIn(page, "PO เนื้อที่ต้องออก Invoice", PO),
+        ).toContainText(
+          // ordered · invoice · ready for Chef House · waste · held · left to send
+          /50\.00 กก\.\s*INV-DEMO-001 · 50\.00 กก\.\s*50\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\./,
+        );
+        await expect(
+          tableSection(page, "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva"),
+        ).toContainText("ไม่มีเนื้อรมควันบนรถขากลับ");
+      },
+    );
 
-    await step(page, "Chef House: งานผลิต 500 ถุง ไม่มีเนื้อค้างรอผลิต", async () => {
-      await signInAs(page, "chef");
-      await tab(page, "งานผลิต");
-      await expect(rowIn(page, "รายการ Lot ทั้งหมด", LOT)).toContainText(
-        /50\.00 กก\.\s*จัดสรร \/ ขาย\s*50\.00 กก\.\s*500 ถุง/,
-      );
-      await expect(rowIn(page, /Log Lot สโมครายวัน/, LOT)).toContainText(/0\.00 กก\.$/);
-    });
+    await step(
+      page,
+      "Chef House: งานผลิต 500 กล่องรมควัน ไม่มีเนื้อค้างรอผลิต",
+      async () => {
+        await signInAs(page, "chef");
+        await tab(page, "งานผลิต");
+        await expect(rowIn(page, "รายการ Lot ทั้งหมด", LOT)).toContainText(
+          /50\.00 กก\.\s*จัดสรร \/ ขาย\s*50\.00 กก\.\s*500 กล่องรมควัน/,
+        );
+        await expect(rowIn(page, /Log Lot สโมครายวัน/, LOT)).toContainText(
+          /0\.00 กก\.$/,
+        );
+      },
+    );
 
-    await step(page, "สาขาศาลาแดง: สรุปสาขาวันนี้ (ปิดแล้ว) ตรงกับรายงานของ Owner", async () => {
-      await signInAs(page, "saladaeng");
-      await tab(page, "สรุปสาขา");
-      const title = `สรุปรายวัน · ${TODAY} · ศาลาแดง`;
-      await expect(rowIn(page, title, "ยอดขาย LINE MAN")).toContainText("4,900.00");
-      await expect(rowIn(page, title, "เนื้อพร้อมขายทั้งหมด")).toContainText("0.00");
-      await expect(rowIn(page, title, "ข้าวเหนียวดิบคงเหลือ")).toContainText("14.00");
-      await expect(rowIn(page, title, "ข้าวเหนียวสุกคงเหลือ")).toContainText("1.40");
-      await expect(rowIn(page, title, "น้ำพริกคงเหลือหลังหักยอดขาย")).toContainText("140");
-    });
+    await step(
+      page,
+      "สาขาศาลาแดง: สรุปสาขาวันนี้ (ปิดแล้ว) ตรงกับรายงานของ Owner",
+      async () => {
+        await signInAs(page, "saladaeng");
+        await tab(page, "สรุปสาขา");
+        const title = `สรุปรายวัน · ${TODAY} · ศาลาแดง`;
+        await expect(rowIn(page, title, "ยอดขาย LINE MAN")).toContainText(
+          "4,900.00",
+        );
+        await expect(rowIn(page, title, "เนื้อพร้อมขายทั้งหมด")).toContainText(
+          "0.00",
+        );
+        await expect(rowIn(page, title, "ข้าวเหนียวดิบคงเหลือ")).toContainText(
+          "14.00",
+        );
+        await expect(rowIn(page, title, "ข้าวเหนียวสุกคงเหลือ")).toContainText(
+          "1.40",
+        );
+        await expect(
+          rowIn(page, title, "น้ำพริกคงเหลือหลังหักยอดขาย"),
+        ).toContainText("140");
+      },
+    );
 
-    await step(page, "สาขามีนบุรี: สรุปสาขาวันนี้ ข้าวสุกคงเหลือตรงกับรายงานปลายวัน", async () => {
-      await signInAs(page, "minburi");
-      await tab(page, "สรุปสาขา");
-      const title = `สรุปรายวัน · ${TODAY} · มีนบุรี`;
-      await expect(rowIn(page, title, "ยอดขาย LINE MAN")).toContainText("4,900.00");
-      await expect(rowIn(page, title, "ข้าวเหนียวสุกคงเหลือ")).toContainText("204.40");
-      await expect(rowIn(page, title, "น้ำพริกที่ Owner จัดสรร")).toContainText("140");
-    });
+    await step(
+      page,
+      "สาขามีนบุรี: สรุปสาขาวันนี้ ข้าวสุกคงเหลือตรงกับรายงานปลายวัน",
+      async () => {
+        await signInAs(page, "minburi");
+        await tab(page, "สรุปสาขา");
+        const title = `สรุปรายวัน · ${TODAY} · มีนบุรี`;
+        await expect(rowIn(page, title, "ยอดขาย LINE MAN")).toContainText(
+          "4,900.00",
+        );
+        await expect(rowIn(page, title, "ข้าวเหนียวสุกคงเหลือ")).toContainText(
+          "204.40",
+        );
+        await expect(
+          rowIn(page, title, "น้ำพริกที่ Owner จัดสรร"),
+        ).toContainText("140");
+      },
+    );
   });
 
   test("E2E-F1 Foodiva: Lot ที่รับเนื้อรมควันเข้าตู้แล้วไม่ควรขึ้นสถานะ รอรับเนื้อรมควัน", async ({
     page,
   }) => {
-    await step(page, "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ", () =>
-      withSample(page, "foodiva"),
+    await step(
+      page,
+      "ระบบ: โหลดข้อมูลจำลอง 7 วัน แล้ว Foodiva เข้าสู่ระบบ",
+      () => withSample(page, "foodiva"),
     );
-    await step(page, "Foodiva: PO ที่ยืนยันรับเข้าตู้แล้วแสดงสถานะว่ารับแล้ว", async () => {
-      await tab(page, "PO และสต๊อก Foodiva");
-      await expect(rowIn(page, "PO เนื้อที่ต้องออก Invoice", PO)).not.toContainText(
-        "รอรับเนื้อรมควัน",
-        { timeout: 5_000 },
-      );
-    });
+    await step(
+      page,
+      "Foodiva: PO ที่ยืนยันรับเข้าตู้แล้วแสดงสถานะว่ารับแล้ว",
+      async () => {
+        await tab(page, "PO และสต๊อก Foodiva");
+        await expect(
+          rowIn(page, "PO เนื้อที่ต้องออก Invoice", PO),
+        ).not.toContainText("รอรับเนื้อรมควัน", { timeout: 5_000 });
+      },
+    );
   });
 
   test("F8 Empty state: ข้อมูลตั้งต้นว่าง เปิดทุกเมนูของทุกบัญชี ไม่มี error และไม่มี NaN", async ({
@@ -562,22 +925,47 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       // reports as a hydration mismatch on the sign-in inputs; that one is ours, not the app's.
       if (
         message.type() === "error" &&
-        !(message.text().includes("hydration-mismatch") && message.text().includes("caret-color"))
+        !(
+          message.text().includes("hydration-mismatch") &&
+          message.text().includes("caret-color")
+        )
       )
         consoleErrors.push(message.text());
     });
     await step(page, "ระบบ: เริ่มจาก seed ว่าง", () => startFresh(page));
 
     const menus: [AccountKey, string, string[]][] = [
-      ["owner", "Owner", [
-        "แดชบอร์ด", "ใบสั่งซื้อ PO", "ใบสั่ง PO โรงรมควัน", "ใบ Invoice", "ใบขนส่ง",
-        "รับเนื้อเข้าสต๊อกกลาง", "จัดสรรเนื้อ และสต๊อกไปสาขา", "สต๊อกของทั้งหมด",
-        "Log เนื้อคงเหลือ", "เอกสารและ Traceability", "รายงาน", "Log", "ตั้งค่า",
-      ]],
+      [
+        "owner",
+        "Owner",
+        [
+          "แดชบอร์ด",
+          "ใบสั่งซื้อ PO",
+          "ใบสั่ง PO โรงรมควัน",
+          "ใบ Invoice",
+          "ใบขนส่ง",
+          "รับเนื้อเข้าสต๊อกกลาง",
+          "จัดสรรเนื้อ และสต๊อกไปสาขา",
+          "สต๊อกของทั้งหมด",
+          "Log เนื้อคงเหลือ",
+          "เอกสารและ Traceability",
+          "รายงาน",
+          "Log",
+          "ตั้งค่า",
+        ],
+      ],
       ["foodiva", "Foodiva", ["PO และสต๊อก Foodiva", "ประวัติ"]],
       ["chef", "Chef House", ["ยืนยันรับเนื้อ", "งานผลิต", "สต๊อก", "ประวัติ"]],
-      ["saladaeng", "สาขาศาลาแดง", ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]],
-      ["minburi", "สาขามีนบุรี", ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]],
+      [
+        "saladaeng",
+        "สาขาศาลาแดง",
+        ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"],
+      ],
+      [
+        "minburi",
+        "สาขามีนบุรี",
+        ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"],
+      ],
     ];
     for (const [account, actor, labels] of menus)
       await step(page, `${actor}: เปิดทุกเมนูบนข้อมูลว่าง`, async () => {
@@ -591,15 +979,25 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         }
       });
 
-    await step(page, "ระบบ: ตาราง/รายงานว่างแสดงข้อความว่าง ไม่มี error ใน console", async () => {
-      await signInAs(page, "owner");
-      await tab(page, "เอกสารและ Traceability");
-      await expect(main(page)).toContainText("ยังไม่มีเอกสารตามเงื่อนไขที่เลือก");
-      await tab(page, "รายงาน");
-      await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText("ยังไม่มีข้อมูล");
-      await expect(rowIn(page, "สรุปผลรวม", "ยอดขาย LINE MAN")).toContainText("0.00");
-      expect(pageErrors, "uncaught page errors").toEqual([]);
-      expect(consoleErrors, "console errors").toEqual([]);
-    });
+    await step(
+      page,
+      "ระบบ: ตาราง/รายงานว่างแสดงข้อความว่าง ไม่มี error ใน console",
+      async () => {
+        await signInAs(page, "owner");
+        await tab(page, "เอกสารและ Traceability");
+        await expect(main(page)).toContainText(
+          "ยังไม่มีเอกสารตามเงื่อนไขที่เลือก",
+        );
+        await tab(page, "รายงาน");
+        await expect(tableSection(page, "รายงานยอดขายรายวัน")).toContainText(
+          "ยังไม่มีข้อมูล",
+        );
+        await expect(rowIn(page, "สรุปผลรวม", "ยอดขาย LINE MAN")).toContainText(
+          "0.00",
+        );
+        expect(pageErrors, "uncaught page errors").toEqual([]);
+        expect(consoleErrors, "console errors").toEqual([]);
+      },
+    );
   });
 });

@@ -2,13 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chefAcceptsSmokePo,
+  chefReceivesMeat,
+  chefRecordsPreSmoke,
+  chefSmokes,
   field,
-  foodivaIssuesInvoice,
-  INVOICE_FIXTURE,
-  ownerCreatesMeatPo,
-  ownerIssuesSmokePo,
-  pointAndClick,
   saveEntry,
+  sendMeatToChefHouse,
   signInAs,
   startFresh,
 } from "./helpers";
@@ -24,73 +24,20 @@ function nextSave(page: Page) {
   );
 }
 
-/** Drives one 500 kg lot to stage 5 (smoked, not closed): the only stage where
- * Chef House may use "Edit ข้อมูลก่อนปิด Lot". Same steps as full-loop.spec.ts. */
+/** Drives one 500 kg shipment to stage 5 (smoked, not closed): the only stage where
+ * Chef House may use "Edit ข้อมูลก่อนปิด Lot". PO → Request → Packing List of one
+ * 500 kg กล่องรับเข้า → smoke PO, then Chef House weighs in 500 kg and smokes it into
+ * five 100 kg กล่องรมควัน. Ends signed in as Chef House. */
 async function lotReadyToClose(page: Page) {
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerCreatesMeatPo(page, "500");
-  await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaIssuesInvoice(page, "500");
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerIssuesSmokePo(page, "500");
-
+  const { shipment } = await sendMeatToChefHouse(page, { orderedKg: "500" });
   await signInAs(page, ACCOUNTS.chef);
-  await button(page, "งานผลิต");
-  await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
-  await saveEntry(page);
-  await button(page, "สร้าง / Submit ใบวางบิล");
-  await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
-  await page
-    .getByRole("dialog")
-    .locator('input[type="file"]')
-    .setInputFiles(INVOICE_FIXTURE);
-  await field(page, /รายละเอียดเพิ่มเติม/, "ค่าบริการรมควันเนื้อ 500 กก.");
-  await pointAndClick(
-    page,
-    page.getByRole("button", { name: "Submit ใบวางบิล" }).last(),
-  );
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  await signInAs(page, ACCOUNTS.owner);
-  await button(page, /ใบ Invoice/);
-  await button(page, "ตรวจยอด");
-  await field(page, /ชื่อผู้ตรวจ/, "Owner Demo");
-  await saveEntry(page);
-  await button(page, "ชำระเงิน");
-  await field(page, /ยอดชำระ/, "110000");
-  await field(page, /ผู้ดำเนินการชำระ/, "Owner Demo");
-  await field(page, /เลขอ้างอิงการชำระ/, "PAY-001");
-  await saveEntry(page);
-  await button(page, "ใบขนส่ง");
-  await button(page, "ทำใบขนส่งขาไป");
-  await page.getByLabel(/ต้นทาง/).selectOption({ label: "กรุงเทพฯ" });
-  await page.getByLabel(/ปลายทาง/).selectOption({ label: "เชียงใหม่" });
-  await field(page, /เวลารถรับ/, "06:30");
-  await field(page, /ประเภทรถ/, "รถห้องเย็น");
-  await field(page, /ทะเบียนรถ/, "กท 1001");
-  await field(page, /ชื่อคนขับ/, "คนขับทดสอบ");
-  await field(page, /เบอร์ติดต่อคนขับ/, "0811111111");
-  await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
-  await saveEntry(page);
-
-  await signInAs(page, ACCOUNTS.chef);
-  await button(page, "ยืนยันรับเนื้อ");
-  await page.getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
-  await field(page, /น้ำหนักรับจริง/, "500");
-  await saveEntry(page);
-  await button(page, "งานผลิต");
-  await button(page, "น้ำหนักก่อนสโมค");
-  await field(page, /น้ำหนักหลังแกะซับ/, "500");
-  await saveEntry(page);
-  await button(page, "บันทึก Lot สโมครายวัน");
-  await field(page, /น้ำหนักเข้าเตารอบนี้/, "500");
-  await field(page, "น้ำหนักถุงที่ 1", "100");
-  for (let bag = 2; bag <= 5; bag += 1) {
-    await button(page, "เพิ่มถุง");
-    await field(page, `น้ำหนักถุงที่ ${bag}`, "100");
-  }
-  await saveEntry(page);
+  await chefAcceptsSmokePo(page);
+  await chefReceivesMeat(page, shipment, ["500"]);
+  await chefRecordsPreSmoke(page, "500");
+  await chefSmokes(page, {
+    inputKg: "500",
+    packs: ["100", "100", "100", "100", "100"],
+  });
 }
 
 test("บัก 1: Chef House แก้ข้อมูลก่อนปิด Lot แล้วบันทึกได้ และค่าที่แก้ขึ้นใน Log เนื้อคงเหลือ", async ({
@@ -101,10 +48,10 @@ test("บัก 1: Chef House แก้ข้อมูลก่อนปิด L
 
   await button(page, "Edit ข้อมูลก่อนปิด Lot");
   const dialog = page.getByRole("dialog");
-  // ถุงสุดท้ายหายไป 2 กก. เป็น Waste: 4×100 + 98 + 2 = 500 เท่าน้ำหนักเข้าเตา
+  // กล่องรมควันสุดท้ายหายไป 2 กก. เป็น Waste: 4×100 + 98 + 2 = 500 เท่าน้ำหนักเข้าเตา
   await field(page, "น้ำหนัก Waste รอบ 1", "2");
   await dialog
-    .getByLabel("น้ำหนักถุงใหญ่ รอบ 1")
+    .getByLabel("น้ำหนักกล่องรมควัน รอบ 1")
     .fill("100\n100\n100\n100\n98");
   const saved = nextSave(page);
   await saveEntry(page);
@@ -140,7 +87,18 @@ test("บัก 5: บันทึกไม่สำเร็จแล้วต�
         })
       : route.continue(),
   );
-  await ownerCreatesMeatPo(page, "500");
+  // Not ownerCreatesMeatPo: it waits for the dialog to close, and here it must not.
+  await button(page, "ใบสั่งซื้อ PO");
+  await button(page, "สร้าง PO เนื้อ");
+  await field(page, /ชื่อบริษัท \/ ลูกค้า/, "บริษัท เนิร์ดเนื้อ จำกัด");
+  await field(page, /ที่อยู่บริษัท/, "295/87 แขวงมีนบุรี กรุงเทพมหานคร");
+  await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
+  await field(page, /เบอร์ติดต่อ/, "0800000000");
+  await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /น้ำหนักสั่งซื้อ/, "500");
+  await field(page, /ราคาเนื้อ/, "250");
+  await button(page, "บันทึก PO เนื้อ");
 
   // toast สีแดงของ database-error บนหน้า (นอก dialog) — ตั้งแต่ 91340f3 ข้อความ
   // เดียวกันขึ้นในฟอร์มด้วย จึงต้องจำกัดที่ <main>

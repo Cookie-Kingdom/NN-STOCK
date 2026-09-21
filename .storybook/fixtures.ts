@@ -17,6 +17,7 @@ import {
   purchase,
   ready,
   readyToDispatch,
+  received,
   request,
   returned,
   setup,
@@ -62,6 +63,39 @@ export const multiPoDb: Database = (() => {
     confirm(s, kg);
   }
   return s.db;
+})();
+
+/** A8 — a PO of 100 kg: Foodiva sends 90 kg to Chiang Mai and keeps 10 kg for the Owner, who
+ *  has picked up 4 kg of it — 6 kg still kept for the Owner, 90 kg left to send. */
+export const ownerReservedDb: Database = (() => {
+  const s = setup();
+  purchase(s, "100");
+  confirm(s, "100", "90");
+  s.run("owner", "ownerWasteReceive", {
+    receivedDate: day,
+    receivedKg: "4",
+    receiver: "Owner",
+  });
+  return s.db;
+})();
+
+/** `multiPoDb` plus a Request of 200 + 300 kg from the 300 and 700 kg POs that Foodiva has
+ *  not trucked yet: still editable by the Owner (A10). */
+export const requestedDb: Database = (() => {
+  const [a, b] = multiPoDb.lots.filter((lot) => !lot.kind).slice(-3);
+  return mutate(
+    multiPoDb,
+    "owner",
+    "shipmentRequest",
+    {
+      lines: JSON.stringify([
+        { lotId: a.id, kg: "200" },
+        { lotId: b.id, kg: "300" },
+      ]),
+    },
+    "",
+    day,
+  );
 })();
 
 /** `multiPoDb` after a 1,400 kg Request drawing 300 / 600 / 500 kg from the three new POs,
@@ -115,6 +149,9 @@ export const smokeOrderDb: Database = (() => {
   smokeOrder(s);
   return s.db;
 })();
+
+/** Lot closed by Chef House (50 kg smoke PO), no smoking invoice yet: Chef House bills now. */
+export const closedDb: Database = closed().db;
 
 /** Chef House's smoking invoice for a closed run, waiting for the Owner to check the amount. */
 export const submittedInvoiceDb: Database = (() => {
@@ -179,7 +216,14 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
   dispatch(s);
-  packingList(s, "25\n25");
+  // Inv. Weight is the meat before cutting; Sliced Weight Lost is Foodiva's own figure.
+  s.run("foodiva", "packingList", {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    invWeightKg: "52",
+    slicedLostKg: "50",
+    boxes: "25\n25",
+  });
   smokeOrder(s);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   if (steps > 0)
@@ -187,6 +231,14 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   if (steps > 1) s.run("cm", "prepare", { preSmokeKg: "48" });
   return s.db;
 }
+
+/** Request 1,500 kg but Foodiva packed only 70 kg (40 + 30); Chef House weighed in 69 kg.
+ *  "ส่งไป" is the Packing List's 70 kg, so the gap is −1 kg, not −1,431. */
+export const packingShortDb: Database = (() => {
+  const s = setup();
+  received(s, "1500", "40\n30", "39\n30");
+  return s.db;
+})();
 
 /** Shipment at stage 2: on the truck to Chiang Mai, waiting for Chef House to weigh it in. */
 export const dispatchedDb: Database = chefHouseLot(0);
@@ -276,4 +328,5 @@ export const materialTransferDb: Database = (() => {
   return s.db;
 })();
 
-export const open = fn();
+// Named so the Actions panel logs each open("kind", lotId) call.
+export const open = fn().mockName("open");

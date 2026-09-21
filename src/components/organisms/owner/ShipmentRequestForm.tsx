@@ -21,6 +21,8 @@ import {
   poRemainingKg,
   purchaseLots,
   readyForChefHouse,
+  shipmentLines,
+  titles,
   type Database,
 } from "@/lib/store";
 
@@ -28,9 +30,12 @@ import {
  * Owner's Request to send meat to Chef House: several purchase POs, a different kg from
  * each. Only POs with kg left are listed, each showing what it still has, so the Owner
  * sees the remaining while choosing; whatever is not asked for stays for the next Request.
+ * With `lotId` it edits that Request instead (until Foodiva makes the manifest): its own
+ * lines are pre-filled and count as still available to their POs.
  */
 export function ShipmentRequestForm({
   db,
+  lotId,
   date,
   onDate,
   minDate,
@@ -38,18 +43,30 @@ export function ShipmentRequestForm({
   onSaved,
 }: {
   db: Database;
+  /** The shipment whose Request is edited; omitted for a new Request. */
+  lotId?: string;
   date: string;
   onDate: (date: string) => void;
   minDate?: string;
   onClose: () => void;
   onSaved: (next: Database) => void;
 }) {
-  const pos = purchaseLots(db).filter(
-    (lot) => poRemainingKg(db, lot.id) > 0.001,
+  const editing = db.lots.find((lot) => lot.id === lotId);
+  const own = editing ? shipmentLines(editing) : [];
+  const ownKg = (poId: string) =>
+    own
+      .filter((line) => line.lotId === poId)
+      .reduce((total, line) => total + line.kg, 0);
+  const remaining = (poId: string) => poRemainingKg(db, poId) + ownKg(poId);
+  const pos = purchaseLots(db).filter((lot) => remaining(lot.id) > 0.001);
+  const [kg, setKg] = useState<Record<string, string>>(() =>
+    Object.fromEntries(own.map((line) => [line.lotId, String(line.kg)])),
   );
-  const [kg, setKg] = useState<Record<string, string>>({});
-  const [note, setNote] = useState("");
-  const { error, run, saving } = useSaveMutation("สร้าง Request ไม่สำเร็จ");
+  const [note, setNote] = useState(editing?.values.note || "");
+  const kind = editing ? "shipmentRequestEdit" : "shipmentRequest";
+  const { error, run, saving } = useSaveMutation(
+    editing ? "แก้ไข Request ไม่สำเร็จ" : "สร้าง Request ไม่สำเร็จ",
+  );
   const input = {
     lines: JSON.stringify(
       pos
@@ -63,7 +80,7 @@ export function ShipmentRequestForm({
   let liveError = "";
   if (Object.values(kg).some((value) => value.trim())) {
     try {
-      mutate(db, "owner", "shipmentRequest", input, "", date);
+      mutate(db, "owner", kind, input, lotId || "", date);
     } catch (caught) {
       liveError = caught instanceof Error ? caught.message : "";
     }
@@ -71,14 +88,16 @@ export function ShipmentRequestForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const saved = await run(() =>
-      mutate(latestDatabase(), "owner", "shipmentRequest", input, "", date),
+      mutate(latestDatabase(), "owner", kind, input, lotId || "", date),
     );
     if (saved) onSaved(saved);
   }
   return (
     <Dialog
-      overline="Request ส่งเนื้อไป Chef House"
-      title="สร้าง Request ส่งเนื้อไป Chef House"
+      overline={
+        editing ? `Request ${editing.poId}` : "Request ส่งเนื้อไป Chef House"
+      }
+      title={editing ? titles.shipmentRequestEdit : titles.shipmentRequest}
       size="wide"
       onClose={onClose}
     >
@@ -107,10 +126,8 @@ export function ShipmentRequestForm({
               entries(db, "foodivaConfirm", lot.id).at(-1)?.values.invoiceNo ||
                 "-",
               `${fmt(readyForChefHouse(db, lot.id))} กก.`,
-              `${fmt(drawnKg(db, lot.id))} กก.`,
-              <strong key="remaining">
-                {fmt(poRemainingKg(db, lot.id))} กก.
-              </strong>,
+              `${fmt(drawnKg(db, lot.id) - ownKg(lot.id))} กก.`,
+              <strong key="remaining">{fmt(remaining(lot.id))} กก.</strong>,
               <Input
                 key="kg"
                 variant="table"
@@ -143,7 +160,7 @@ export function ShipmentRequestForm({
           error={liveError}
           hint={`รวมเที่ยวนี้ ${fmt(total)} กก. · ส่วนที่ไม่ได้ส่งยังคงเหลือไว้ส่งรอบหน้า`}
           onCancel={onClose}
-          submitLabel="สร้าง Request"
+          submitLabel={editing ? "บันทึกการแก้ไข Request" : "สร้าง Request"}
         />
       </DialogForm>
     </Dialog>

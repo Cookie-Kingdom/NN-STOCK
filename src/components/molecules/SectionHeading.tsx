@@ -20,7 +20,10 @@ export function SectionHeading({
 }) {
   return (
     <div
-      className={cn("mb-4 flex items-center justify-between gap-3", className)}
+      className={cn(
+        "mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-start",
+        className,
+      )}
       {...props}
     >
       <div className="min-w-0">
