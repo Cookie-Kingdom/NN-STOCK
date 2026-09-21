@@ -119,6 +119,21 @@ if (supabase) {
   if (localAccountId()) void loadDatabase();
 }
 
+/** Reloads when someone else saved since our load. Reads only `revision`, not the payload.
+ * ponytail: poll ทุก 15 วิ, เปลี่ยนเป็น realtime ถ้า payload เล็กลง */
+export async function checkForUpdates() {
+  if (!loaded || pendingWrites || (typeof document !== "undefined" && document.hidden)) return;
+  const { data } = supabase
+    ? await withTimeout(supabase.from("app_state").select("revision").eq("singleton", true).maybeSingle<{ revision: number }>())
+    : await localRequest();
+  // A failed poll stays quiet; the next one (or a save) reports a real outage.
+  if (data && data.revision !== revision && !pendingWrites) await loadDatabase();
+}
+if (typeof window !== "undefined") {
+  setInterval(() => void checkForUpdates(), 15_000);
+  document.addEventListener("visibilitychange", () => void checkForUpdates());
+}
+
 /** False until the server payload has replaced the seed. Anything that tells the
  * user someone is waiting on them should stay quiet until this is true. */
 export function useDatabaseLoaded() {

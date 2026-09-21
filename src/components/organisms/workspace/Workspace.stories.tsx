@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { packedDb } from "../../../../.storybook/fixtures";
+import { useOwnerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { AppBrand, AppHeader } from "./AppHeader";
 import { NotificationPopover, type Notification } from "./NotificationPopover";
 import { PageHeading } from "./PageHeading";
@@ -53,6 +55,19 @@ export const Header: Story = {
       <AppHeader actions={<Bell items={notifications} />} />
     </div>
   ),
+};
+
+/** Owner's bell once Foodiva saved the transport document with its Packing List (P4):
+ * "Packing List พร้อมแล้ว" leads to the smoke PO tab. */
+export const HeaderPackingListReady: Story = {
+  render: function Render() {
+    const { notifications } = useOwnerAlerts(packedDb);
+    return (
+      <div className="min-h-80">
+        <AppHeader actions={<Bell items={notifications} />} />
+      </div>
+    );
+  },
 };
 
 export const HeaderNoNotifications: Story = {

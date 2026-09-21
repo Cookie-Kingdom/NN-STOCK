@@ -6,12 +6,15 @@ import {
   centralStock,
   type Database,
   entries,
+  latestPackingList,
   materialPar,
   materialUnitPrice,
   materials,
   produced,
+  n,
   producedBags,
-  readyForChefHouse,
+  purchaseLots,
+  shipments,
   smokingInvoiceStatus,
 } from "@/lib/store";
 
@@ -34,62 +37,84 @@ export function useOwnerAlerts(db: Database) {
       materialUnitPrice(db, "ศาลาแดง", index) <= 0,
   ).length;
 
-  const transportCount = db.lots.filter(
+  const shipmentLots = shipments(db);
+  const transportCount = shipmentLots.filter(
     (lot) => lot.stage === 1 || lot.stage === 6,
   ).length;
-  const returnReady = db.lots.filter(
+  const returnReady = shipmentLots.filter(
     (lot) => lot.stage === 6 && !entries(db, "return", lot.id).length,
   );
-  const centralReceiveCount = db.lots.filter(
+  const centralReceiveCount = shipmentLots.filter(
     (lot) =>
       lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
   ).length;
-  const allocationCount = db.lots.filter(
+  const allocationCount = shipmentLots.filter(
     (lot) => lot.stage >= 8 && centralStock(db, lot.id) > 0.001,
   ).length;
   const billingCount = entries(db, "smokingInvoice").filter(
     (invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด",
   ).length;
-  const foodivaInvoiceCount = db.lots.filter(
+  const packedCount = shipmentLots.filter(
     (lot) =>
-      entries(db, "foodivaConfirm", lot.id).length > 0 &&
+      latestPackingList(db, lot.id) &&
       !entries(db, "smokeOrder", lot.id).length,
   ).length;
 
   const notifications: OwnerNotification[] = [
-    ...db.lots.flatMap((item): OwnerNotification[] => {
-      const foodInvoice = entries(db, "foodivaConfirm", item.id).at(-1);
+    ...purchaseLots(db).flatMap((item): OwnerNotification[] =>
+      entries(db, "foodivaConfirm", item.id).length
+        ? []
+        : [
+            {
+              title: `รอ Foodiva ออก Invoice · ${item.id}`,
+              detail: "ติดตาม Foodiva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
+              tab: "po",
+            },
+          ],
+    ),
+    ...shipmentLots.flatMap((item): OwnerNotification[] => {
+      const packingList = latestPackingList(db, item.id);
       const smokeOrder = entries(db, "smokeOrder", item.id).at(-1);
       const accepted = entries(db, "smokeOrderAccept", item.id).at(-1);
       const smokeInvoice = entries(db, "smokingInvoice", item.id).at(-1);
-      if (!foodInvoice)
+      if (item.stage === 1)
         return [
           {
-            title: `รอ Foodiva ออก Invoice · ${item.id}`,
-            detail: "ติดตาม Foodiva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
-            tab: "po",
+            title: `รอ Foodiva ทำใบขนส่ง · ${item.poId}`,
+            detail: `Request ส่งเนื้อ ${fmt(n(item.values, "requestedKg"))} กก. ไป Chef House`,
+            tab: "transport",
+          },
+        ];
+      if (!packingList)
+        return [
+          {
+            title: `รอ Foodiva ทำ Packing List · ${item.poId}`,
+            detail: "ต้องมี Packing List ก่อน Owner ออก PO รมควัน",
+            tab: "smoke-po",
           },
         ];
       if (!smokeOrder)
         return [
           {
-            title: `Foodiva ออก Invoice แล้ว · ${item.id}`,
-            detail: `Owner ต้องออก PO โรงรมควันต่อ · พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, item.id))} กก.`,
+            title: `Packing List พร้อมแล้ว · ${item.poId}`,
+            detail: `ออก PO รมควัน · ${packingList.values.boxCount} กล่องรับเข้า · ${fmt(n(packingList.values, "slicedNetKg"))} กก.`,
             tab: "smoke-po",
           },
         ];
       if (!accepted)
         return [
           {
-            title: `รอ Chef House ยืนยัน PO โรงรมควัน · ${item.id}`,
-            detail: "Chef House ต้องกดยืนยันรับ PO ก่อน Owner เรียกรถส่งเนื้อ",
+            title: `รอ Chef House ยืนยัน PO โรงรมควัน · ${item.poId}`,
+            detail: "Chef House ต้องกดยืนยันรับ PO ก่อนรับเนื้อเข้า",
             tab: "smoke-po",
           },
         ];
+      // Stages 2–5: Chef House is working; the smoking invoice only comes once the run is closed.
+      if (item.stage < 6) return [];
       if (!smokeInvoice)
         return [
           {
-            title: `รอ Chef House Submit Invoice ค่ารมควัน · ${item.id}`,
+            title: `รอ Chef House Submit Invoice ค่ารมควัน · ${item.poId}`,
             detail: "รอเลข Invoice และไฟล์แนบเพื่อให้ Owner ตรวจยอด",
             tab: "invoices",
           },
@@ -99,7 +124,7 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอตรวจ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
-            detail: `ตรวจยอด Lot ${item.id} ก่อนชำระและเรียกรถ`,
+            detail: `ตรวจยอดการส่ง ${item.poId} ก่อนชำระ`,
             tab: "invoices",
           },
         ];
@@ -107,7 +132,7 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอชำระ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
-            detail: `ชำระเงิน Lot ${item.id} ก่อนทำใบขนส่งขาไป`,
+            detail: `ชำระเงินค่ารมควันการส่ง ${item.poId}`,
             tab: "invoices",
           },
         ];
@@ -117,14 +142,6 @@ export function useOwnerAlerts(db: Database) {
             title: `รอ Chef House แก้ Invoice · ${smokeInvoice.values.invoiceNumber}`,
             detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef House Submit ใหม่",
             tab: "invoices",
-          },
-        ];
-      if (item.stage === 1)
-        return [
-          {
-            title: `พร้อมทำใบขนส่งไป Chef House · ${item.id}`,
-            detail: `เรียกรถรับเนื้อพร้อมส่ง ${fmt(readyForChefHouse(db, item.id))} กก.`,
-            tab: "transport",
           },
         ];
       if (
@@ -181,7 +198,7 @@ export function useOwnerAlerts(db: Database) {
     badges: {
       transport: transportCount,
       invoices: billingCount,
-      "smoke-po": foodivaInvoiceCount,
+      "smoke-po": packedCount,
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,
