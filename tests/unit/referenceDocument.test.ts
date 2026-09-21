@@ -108,6 +108,7 @@ test("the Packing List reference carries Foodiva's uploaded file, not the genera
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     boxes: "40",
+    slicedLostKg: "40",
     attachment: "pl.xlsx",
   };
   s.run("foodiva", "packingList", { ...list, attachmentStorageKey: "key-1" });

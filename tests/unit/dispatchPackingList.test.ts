@@ -12,7 +12,12 @@ describe("dispatchWithPackingList", () => {
       s.db,
       lotId,
       send,
-      { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "25\n25" },
+      {
+        invoiceNo: "INV-1",
+        product: "เนื้อวัว",
+        slicedLostKg: "50",
+        boxes: "25\n25",
+      },
       day,
     );
     expect(

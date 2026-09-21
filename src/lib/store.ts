@@ -274,6 +274,7 @@ function roleplay(endDate: string, dayCount: number): Database {
       invoiceNo: "INV-DEMO-001",
       product: "เนื้อวัว",
       invWeightKg: String(rawKg),
+      slicedLostKg: String(rawKg),
       boxes,
     },
     lotId,
@@ -1546,13 +1547,15 @@ export function mutate(
     v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
     v.boxCount = String(boxes.length);
     v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
+    // A2: Sliced Weight Lost is Foodiva's own figure (usable meat after cutting), never
+    // derived from Inv. Weight or Chef House's yellow cells.
+    positive(v, "slicedLostKg", "Sliced Weight Lost");
     if (v.invWeightKg?.trim()) {
       positive(v, "invWeightKg", "Inv. Weight");
       assert(
         n(v, "slicedNetKg") <= n(v, "invWeightKg") + 0.001,
         "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight",
       );
-      v.slicedLostKg = String(n(v, "invWeightKg") - n(v, "slicedNetKg"));
     }
   } else if (kind === "ownerWasteReceive" && lot) {
     required(v, "receivedDate", "วันที่ Owner รับเนื้อ");

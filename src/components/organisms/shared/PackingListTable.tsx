@@ -23,8 +23,12 @@ export type PackingListHeader = {
   product: string;
   /** Supplier code line, e.g. "0037 Aust.Beef Icon XB Wagyu Chuck Roll 6/7". */
   code?: string;
+  /** Weight on Foodiva's invoice, before cutting. */
   invWeight?: number;
+  /** Box total of the list. */
   slicedNet?: number;
+  /** Usable meat after cutting, as Foodiva typed it (A2) — never derived from the
+   *  yellow cells or from Inv. Weight. */
   slicedLost?: number;
 };
 
@@ -175,11 +179,6 @@ export function PackingListTable({
   const missing = onWeight
     ? boxes.length - listed.length
     : boxes.length - filled.length;
-  // Once every box is weighed, the loss is Chef House's count against the invoice (A2).
-  const slicedLost =
-    filled.length === boxes.length && boxes.length && header.invWeight
-      ? header.invWeight - receivedTotal
-      : header.slicedLost;
   const removingWeight = boxes.find((box) => box.no === removing)?.weight;
   return (
     <TableSection
@@ -229,7 +228,11 @@ export function PackingListTable({
           />
           <Stat
             label="Sliced Weight Lost"
-            value={slicedLost === undefined ? "—" : `${kg(slicedLost)} กก.`}
+            value={
+              header.slicedLost === undefined
+                ? "—"
+                : `${kg(header.slicedLost)} กก.`
+            }
           />
           <Stat
             label="รับจริงที่ Chef House"

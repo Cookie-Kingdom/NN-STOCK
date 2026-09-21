@@ -1,6 +1,7 @@
 import {
   materials,
   mutate,
+  packingListBoxes,
   seed,
   type Database,
   type Role,
@@ -88,6 +89,8 @@ export function packingList(s: Setup, boxes: string) {
   s.run("foodiva", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
+    // Foodiva types Lost; in practice it matches the box total.
+    slicedLostKg: String(packingListBoxes(boxes).reduce((a, kg) => a + kg, 0)),
     boxes,
   });
 }

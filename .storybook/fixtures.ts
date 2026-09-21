@@ -180,11 +180,12 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
   dispatch(s);
-  // With Inv. Weight, so Chef House's weigh-in recomputes Sliced Weight Lost.
+  // Inv. Weight is the meat before cutting; Sliced Weight Lost is Foodiva's own figure.
   s.run("foodiva", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
-    invWeightKg: "50",
+    invWeightKg: "52",
+    slicedLostKg: "50",
     boxes: "25\n25",
   });
   smokeOrder(s);

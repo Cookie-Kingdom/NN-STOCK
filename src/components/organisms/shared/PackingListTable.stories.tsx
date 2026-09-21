@@ -10,7 +10,9 @@ const header = {
   code: "0037 Aust.Beef Icon XB Wagyu Chuck Roll 6/7",
   invWeight: 356.95,
   slicedNet: 325.76,
-  slicedLost: 31.19,
+  // A2: Foodiva types Lost — the usable meat after cutting, in line with the box total.
+  // It stays as typed however Chef House fills the yellow cells.
+  slicedLost: 325.76,
 };
 
 // 22 boxes adding up to the sheet's GRAND TOTAL of 325.76.
