@@ -1177,8 +1177,8 @@ export function mutate(
     required(v, "receivedDate", "วันที่รับ");
     required(v, "receivedTime", "เวลารับ");
     positive(v, "receivedKg", "น้ำหนักรับ");
-    positive(v, "receivedBags", "จำนวนถุง", true);
-    assert(Number.isInteger(n(v, "receivedBags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
+    positive(v, "receivedBags", "จำนวนกล่องรมควัน", true);
+    assert(Number.isInteger(n(v, "receivedBags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
     assert(shipments(db).some((s) => s.id === lotId), "Request นี้ถูกยกเลิกแล้ว");
@@ -1214,7 +1214,7 @@ export function mutate(
     const weights = packWeights(v.packs);
     assert(
       weights.length > 0 && weights.every(isPackWeight),
-      "น้ำหนักถุงใหญ่จาก Chef House ต้องมากกว่า 0 กก.",
+      "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
@@ -1223,7 +1223,7 @@ export function mutate(
     );
     assert(
       Math.abs(output + n(v, "wasteKg") - n(v, "inputKg")) <= 0.001,
-      "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
+      "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
     );
     v.wasteKg = String(n(v, "wasteKg"));
     v.postSmokeKg = output.toFixed(2);
@@ -1267,11 +1267,11 @@ export function mutate(
         draft.smokeDate && Number.isFinite(inputKg) && Number.isFinite(wasteKg) && inputKg > 0 && wasteKg >= 0,
         "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ",
       );
-      assert(weights.length && weights.every(isPackWeight), "กรอกน้ำหนักถุงใหญ่ให้ครบและมากกว่า 0 ทุกรอบ");
+      assert(weights.length && weights.every(isPackWeight), "กรอกน้ำหนักกล่องรมควันให้ครบและมากกว่า 0 ทุกรอบ");
       const postSmokeKg = weights.reduce((total, weight) => total + weight, 0);
       assert(
         Math.abs(postSmokeKg + wasteKg - inputKg) <= 0.001,
-        "น้ำหนักถุงรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
+        "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
       );
       return {
         smokeDate: draft.smokeDate,
@@ -1336,16 +1336,16 @@ export function mutate(
     if (selectedBagIds.length) {
       const available = availableBags(db, lotId);
       const selected = available.filter((bag) => selectedBagIds.includes(bag.id));
-      assert(selected.length === selectedBagIds.length, "มีถุงที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่");
+      assert(selected.length === selectedBagIds.length, "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่");
       v.kg = String(selected.reduce((sum, bag) => sum + bag.weight, 0));
       v.bags = String(selected.length);
     }
     positive(v, "kg", "น้ำหนักจัดสรร");
-    positive(v, "bags", "จำนวนถุง");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
+    positive(v, "bags", "จำนวนกล่องรมควัน");
+    assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     assert(branches.includes(v.branch), "เลือกสาขา");
     assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
-    assert(n(v, "bags") <= centralBagStock(db, lotId), "จำนวนถุงในสต๊อกกลางไม่พอ");
+    assert(n(v, "bags") <= centralBagStock(db, lotId), "จำนวนกล่องรมควันในสต๊อกกลางไม่พอ");
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
     positive(v, "bags", "จำนวนถุง");

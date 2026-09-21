@@ -44,32 +44,15 @@ function ChefLotAction({
         ยืนยันรับ PO รมควัน
       </Button>
     );
-  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") {
-    const note = latestInvoice
-      ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()
-      : "";
+  if (lot.stage === 2) return "ไปเมนูยืนยันรับเนื้อ";
+  if (lot.stage === 3 || lot.stage === 4) {
+    const kind = lot.stage === 3 ? "prepare" : "smoke";
     return (
-      <ButtonRow compact>
-        {latestInvoice && (
-          <Badge tone="danger">
-            ส่งกลับแก้ไข{note ? ` · ${note}` : ""}
-          </Badge>
-        )}
-        <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
-          {latestInvoice ? "แก้ไขและ Submit ใบวางบิล" : "สร้าง / Submit ใบวางบิล"}
-        </Button>
-      </ButtonRow>
+      <Button variant="table" onClick={() => open(kind, lot.id)}>
+        {titles[kind]}
+      </Button>
     );
   }
-  if (lot.stage < 2) return <Badge>{invoiceStatus} · รอ Owner เรียกรถ</Badge>;
-  const kind =
-    lot.stage === 3
-      ? "prepare"
-      : lot.stage === 4
-        ? "smoke"
-        : lot.stage === 5
-          ? "closeLot"
-          : "";
   if (lot.stage === 5)
     return (
       <ButtonRow compact>
@@ -84,20 +67,28 @@ function ChefLotAction({
         </Button>
       </ButtonRow>
     );
-  if (lot.stage >= 6)
+  // Closed: the smoking invoice goes out only now.
+  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") {
+    const note = latestInvoice
+      ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()
+      : "";
     return (
-      <Badge tone={invoiceStatus === "ชำระแล้ว" ? "success" : "neutral"}>
-        {invoiceStatus}
-      </Badge>
+      <ButtonRow compact>
+        {latestInvoice && (
+          <Badge tone="danger">ส่งกลับแก้ไข{note ? ` · ${note}` : ""}</Badge>
+        )}
+        <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
+          {latestInvoice
+            ? "แก้ไขและ Submit ใบวางบิล"
+            : "สร้าง / Submit ใบวางบิล"}
+        </Button>
+      </ButtonRow>
     );
-  return kind ? (
-    <Button variant="table" onClick={() => open(kind, lot.id)}>
-      {titles[kind]}
-    </Button>
-  ) : lot.stage === 2 ? (
-    "ไปเมนูยืนยันรับเนื้อ"
-  ) : (
-    "ส่งต่องานแล้ว"
+  }
+  return (
+    <Badge tone={invoiceStatus === "ชำระแล้ว" ? "success" : "neutral"}>
+      {invoiceStatus}
+    </Badge>
   );
 }
 
@@ -162,7 +153,7 @@ export function ChefLotTable({
           "รับจริง",
           "สถานะ",
           "น้ำหนักหลังรมควัน",
-          "จำนวนถุง",
+          "กล่องรมควัน",
           "การทำงาน",
         ]}
         rowKeys={lots.map((lot) => lot.id)}
@@ -186,7 +177,9 @@ export function ChefLotTable({
             : "รอยืนยันรับ",
           stages[lot.stage],
           produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
-          producedBags(db, lot.id) ? `${producedBags(db, lot.id)} ถุง` : "-",
+          producedBags(db, lot.id)
+            ? `${producedBags(db, lot.id)} กล่องรมควัน`
+            : "-",
           <ChefLotAction
             key={`${lot.id}-action`}
             db={db}
@@ -203,7 +196,7 @@ export function ChefLotTable({
           "Lot หลัก",
           "Lot สโมค",
           "น้ำหนักเข้าเตา",
-          "ถุงที่ได้",
+          "กล่องรมควันที่ได้",
           "น้ำหนักหลังรม",
           "น้ำหนัก Waste",
           "คงเหลือรอผลิต",
@@ -215,7 +208,9 @@ export function ChefLotTable({
             lot.id,
             entry.values.subLot || "—",
             `${fmt(n(entry.values, "inputKg"))} กก.`,
-            weights.length ? `${weights.length} ถุง · ${bagDetail} กก.` : "—",
+            weights.length
+              ? `${weights.length} กล่องรมควัน · ${bagDetail} กก.`
+              : "—",
             `${fmt(n(entry.values, "postSmokeKg"))} กก.`,
             `${fmt(n(entry.values, "wasteKg"))} กก.`,
             `${fmt(remainingKg)} กก.`,

@@ -10,7 +10,7 @@ import { fmt } from "@/lib/format";
 const columns = [
   "Lot",
   "Foodiva รับจริง",
-  "จำนวนถุง",
+  "จำนวนกล่องรมควัน",
   "ใบขนส่งกลับ",
   "สถานะ",
   "การทำงาน",
@@ -43,7 +43,7 @@ export function CentralReceiveView({
           return [
             lot.id,
             `${fmt(n(received?.values || {}, "receivedKg"))} กก.`,
-            `${received?.values.receivedBags || producedBags(db, lot.id)} ถุง`,
+            `${received?.values.receivedBags || producedBags(db, lot.id)} กล่องรมควัน`,
             back
               ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`
               : "ยังไม่มีใบขนส่งขากลับ",

@@ -174,6 +174,11 @@ export function PackingListTable({
   const missing = onWeight
     ? boxes.length - listed.length
     : boxes.length - filled.length;
+  // Once every box is weighed, the loss is Chef House's count against the invoice (A2).
+  const slicedLost =
+    filled.length === boxes.length && boxes.length && header.invWeight
+      ? header.invWeight - receivedTotal
+      : header.slicedLost;
   const removingWeight = boxes.find((box) => box.no === removing)?.weight;
   return (
     <TableSection
@@ -185,7 +190,7 @@ export function PackingListTable({
             <Badge tone="warning">
               {onWeight
                 ? `ยังไม่ได้กรอก ${missing} แถว`
-                : `รอ Chef House กรอก ${missing} กล่อง`}
+                : `รอ Chef House กรอก ${missing} กล่องรับเข้า`}
             </Badge>
           ) : (
             <Badge tone="success">กรอกครบแล้ว</Badge>
@@ -223,11 +228,7 @@ export function PackingListTable({
           />
           <Stat
             label="Sliced Weight Lost"
-            value={
-              header.slicedLost === undefined
-                ? "—"
-                : `${kg(header.slicedLost)} กก.`
-            }
+            value={slicedLost === undefined ? "—" : `${kg(slicedLost)} กก.`}
           />
           <Stat
             label="รับจริงที่ Chef House"

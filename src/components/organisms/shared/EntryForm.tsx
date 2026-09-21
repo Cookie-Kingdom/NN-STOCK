@@ -408,7 +408,7 @@ export function EntryForm({
                     <option key={l.id} value={l.id}>
                       {l.id} ·{" "}
                       {kind === "allocate"
-                        ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} ถุงในคลังกลาง`
+                        ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} กล่องรมควันในคลังกลาง`
                         : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} พร้อมขาย`}
                     </option>
                   ))}
@@ -460,7 +460,8 @@ export function EntryForm({
             {kind === "smoke" && (
               <Notice>
                 บันทึกครั้งละ 1 รอบสโมค ระบบจะสร้าง Lot สโมครายวันแยกให้
-                และเก็บวันที่ จำนวนถุง น้ำหนักถุง และ Waste ใน Log
+                และเก็บวันที่ จำนวนกล่องรมควัน น้ำหนักกล่องรมควัน และ Waste ใน
+                Log
               </Notice>
             )}
             {kind === "foodivaConfirm" && (

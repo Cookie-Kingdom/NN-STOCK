@@ -7,7 +7,6 @@ import {
   confirmedDb,
   day,
   demoDb,
-  dispatchedDb,
   preparedDb,
   returnTruckDb,
   returnedDb,
@@ -35,13 +34,13 @@ const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
 
-/** A story that opens `kind` for `role` on the first lot of `db`. */
+/** A story that opens `kind` for `role` on the last lot of `db` (the shipment; purchase POs come first). */
 const form = (
   db: Database,
   role: Role,
   kind: string,
   branch = "",
-  lotId = db.lots[0]?.id ?? "",
+  lotId = db.lots.at(-1)?.id ?? "",
 ): Story => ({
   parameters: { db },
   render: () => (
@@ -91,9 +90,6 @@ export const ChefSmokeOrderAccept: Story = form(
   "cm",
   "smokeOrderAccept",
 );
-
-/** Weigh-in on arrival; the scale reading stays blank so the variance is real. */
-export const ChefReceive: Story = form(dispatchedDb, "cm", "cmReceive");
 
 /** Weight after trimming and blotting, just before the smoker. */
 export const ChefPrepare: Story = form(cmReceivedDb, "cm", "prepare");

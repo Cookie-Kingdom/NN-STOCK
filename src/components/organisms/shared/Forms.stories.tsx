@@ -16,6 +16,7 @@ import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
 import { MaterialTransferForm } from "./MaterialTransferForm";
 import { today } from "@/lib/format";
+import { visibleDatabase } from "@/lib/store";
 
 // Every story opens a native modal <dialog>; a Docs page would stack them all.
 // Saves go through the mocked persistence and appear in the Actions panel.
@@ -232,12 +233,13 @@ export const GeneralPurchase: Story = {
   ),
 };
 
+/** Before closing, Chef House can still correct the yellow cells of the Packing List. */
 export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (
     <ChefLotEditForm
-      db={smokedDb}
-      lotId={smokedDb.lots[0].id}
+      db={visibleDatabase(smokedDb, "cm")}
+      lotId={smokedDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}

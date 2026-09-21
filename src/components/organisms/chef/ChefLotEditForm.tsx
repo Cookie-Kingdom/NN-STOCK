@@ -11,6 +11,12 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
+import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
+import {
+  packingListView,
+  receivedDraft,
+  receivedValue,
+} from "@/components/organisms/chef/receivedBoxes";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -19,6 +25,7 @@ import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   entries,
+  latestPackingList,
   mutate,
   packWeights,
   type Database,
@@ -45,10 +52,10 @@ export function ChefLotEditForm({
 }) {
   const lot = db.lots.find((item) => item.id === lotId);
   const received = entries(db, "cmReceive", lotId).at(-1);
+  const list = latestPackingList(db, lotId);
   const prepared = entries(db, "prepare", lotId).at(-1);
   const smokeEntries = entries(db, "smoke", lotId);
   const [values, setValues] = useState<Values>(() => ({
-    receivedKg: received?.values.receivedKg || "",
     arrival: received?.values.arrival || "",
     preSmokeKg: prepared?.values.preSmokeKg || "",
   }));
@@ -61,11 +68,15 @@ export function ChefLotEditForm({
       packs: packWeights(entry.values.packs).join("\n"),
     })),
   );
+  const [boxes, setBoxes] = useState(() =>
+    receivedDraft(list, received?.values.receivedBoxes),
+  );
   const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
   const complete =
-    [values.receivedKg, values.arrival, values.preSmokeKg].every((value) =>
+    [values.arrival, values.preSmokeKg].every((value) =>
       String(value ?? "").trim(),
     ) &&
+    boxes.every((kg) => kg !== undefined) &&
     smokeDrafts.every(
       (draft) =>
         draft.smokeDate &&
@@ -85,7 +96,11 @@ export function ChefLotEditForm({
         db,
         "cm",
         "chefEdit",
-        { ...values, batches: JSON.stringify(smokeDrafts) },
+        {
+          ...values,
+          receivedBoxes: receivedValue(boxes),
+          batches: JSON.stringify(smokeDrafts),
+        },
         lotId,
         date,
       );
@@ -93,8 +108,9 @@ export function ChefLotEditForm({
     } catch (caught) {
       return caught instanceof Error ? caught.message : "";
     }
-  }, [complete, db, values, smokeDrafts, lotId, date]);
-  if (!lot || !received || !prepared || !smokeEntries.length) return null;
+  }, [complete, db, values, boxes, smokeDrafts, lotId, date]);
+  if (!lot || !list || !received || !prepared || !smokeEntries.length)
+    return null;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setError("");
@@ -118,7 +134,11 @@ export function ChefLotEditForm({
         latestDatabase(),
         "cm",
         "chefEdit",
-        { ...values, batches: JSON.stringify(smokeDrafts) },
+        {
+          ...values,
+          receivedBoxes: receivedValue(boxes),
+          batches: JSON.stringify(smokeDrafts),
+        },
         lotId,
         date,
       ),
@@ -150,16 +170,6 @@ export function ChefLotEditForm({
             เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว
           </Notice>
           <FormGrid>
-            <FormField label="น้ำหนักรับจริง (กก.)">
-              <Input
-                type="number"
-                min="0.001"
-                step="0.001"
-                inputMode="decimal"
-                value={values.receivedKg}
-                onChange={(event) => set("receivedKg", event.target.value)}
-              />
-            </FormField>
             <FormField label="เวลารับ">
               <Select
                 value={values.arrival}
@@ -182,6 +192,15 @@ export function ChefLotEditForm({
               />
             </FormField>
           </FormGrid>
+          <PackingListTable
+            {...packingListView(list, boxes)}
+            onReceived={(no, kg) => {
+              setBoxes((current) =>
+                current.map((value, i) => (i === no - 1 ? kg : value)),
+              );
+              setError("");
+            }}
+          />
           <DataTable
             title="ตรวจสอบและแก้ไข Log Lot สโมครายวัน"
             columns={[
@@ -189,7 +208,7 @@ export function ChefLotEditForm({
               "Lot สโมค",
               "น้ำหนักเข้าเตา",
               "น้ำหนัก Waste",
-              "น้ำหนักถุงใหญ่จาก Chef House (กก. / 1 บรรทัดต่อถุง)",
+              "น้ำหนักกล่องรมควัน (กก. / 1 บรรทัดต่อกล่องรมควัน)",
             ]}
             rowKeys={smokeDrafts.map((draft) => draft.id)}
             rows={smokeDrafts.map((draft, index) => [
@@ -235,7 +254,7 @@ export function ChefLotEditForm({
                 key={`${draft.id}-packs`}
                 variant="table"
                 rows={3}
-                aria-label={`น้ำหนักถุงใหญ่ รอบ ${index + 1}`}
+                aria-label={`น้ำหนักกล่องรมควัน รอบ ${index + 1}`}
                 value={draft.packs}
                 onChange={(event) =>
                   setSmoke(draft.id, "packs", event.target.value)

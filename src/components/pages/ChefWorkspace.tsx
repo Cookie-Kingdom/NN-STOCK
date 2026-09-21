@@ -22,10 +22,10 @@ export function ChefWorkspace({ account }: { account: Account }) {
     const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
     return (
       [3, 4, 5].includes(lot.stage) ||
-      (ordered &&
-        (!accepted ||
-          !invoice ||
-          smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
+      (ordered && !accepted) ||
+      // The smoking invoice is due once the run is closed.
+      (lot.stage >= 6 &&
+        (!invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
     );
   }).length;
 

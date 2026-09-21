@@ -42,7 +42,7 @@ function buildAllocation(
     );
     count += selected.length;
   }
-  if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 ถุง");
+  if (!count) throw new Error("เลือกสาขาปลายทางอย่างน้อย 1 กล่องรมควัน");
   return next;
 }
 
@@ -87,7 +87,7 @@ export function BagAllocationForm({
     if (saved) onSaved();
   }
   return (
-    <Dialog overline={lotId} title="จัดสรรถุงเนื้อไปสาขา" onClose={onClose}>
+    <Dialog overline={lotId} title="จัดสรรกล่องรมควันไปสาขา" onClose={onClose}>
       <DialogForm onSubmit={submit}>
         <DialogBody>
           <WorkingDateField
@@ -97,16 +97,16 @@ export function BagAllocationForm({
             minDate={minDate}
           />
           <DataTable
-            title="เลือกปลายทางทีละถุง"
-            columns={["ถุง", "น้ำหนัก", "สาขาปลายทาง"]}
+            title="เลือกปลายทางทีละกล่องรมควัน"
+            columns={["กล่องรมควัน", "น้ำหนัก", "สาขาปลายทาง"]}
             rowKeys={bags.map((bag) => bag.id)}
             rows={bags.map((bag, index) => [
-              `ถุงที่ ${index + 1}`,
+              `กล่องรมควันที่ ${index + 1}`,
               `${fmt(bag.weight)} กก.`,
               <Select
                 key={bag.id}
                 variant="filter"
-                aria-label={`เลือกสาขาให้ถุงที่ ${index + 1}`}
+                aria-label={`เลือกสาขาให้กล่องรมควันที่ ${index + 1}`}
                 value={destinations[bag.id] || ""}
                 onChange={(event) =>
                   setDestinations((current) => ({
@@ -127,7 +127,7 @@ export function BagAllocationForm({
         <DialogFooter
           submitting={saving}
           error={liveError}
-          hint="เลือกหลายถุงและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
+          hint="เลือกหลายกล่องรมควันและส่งให้ทั้งสองสาขาได้ในครั้งเดียว"
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"
         />
