@@ -164,3 +164,12 @@ test("BUG-I: the smoking invoice form carries the smoke PO quantity for its prev
     serviceQuantity: "28",
   });
 });
+
+test("the meat payment starts from Foodiva's invoice amount", () => {
+  const s = setup();
+  purchase(s, "40");
+  confirm(s, "40");
+  expect(prefillValues(s.db, "meatPayment", s.db.lots[0])).toEqual({
+    paidAmount: "1",
+  });
+});

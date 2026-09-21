@@ -35,13 +35,13 @@ const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
 
-/** A story that opens `kind` for `role` on the first lot of `db`. */
+/** A story that opens `kind` for `role` on the newest lot of `db` (the shipment, when there is one). */
 const form = (
   db: Database,
   role: Role,
   kind: string,
   branch = "",
-  lotId = db.lots[0]?.id ?? "",
+  lotId = db.lots.at(-1)?.id ?? "",
 ): Story => ({
   parameters: { db },
   render: () => (
@@ -70,11 +70,18 @@ export const OwnerInvoiceReview: Story = form(
   "invoiceReview",
 );
 
-/** Payment of an already accepted bill; the amount is prefilled from the invoice. */
+/** Payment of an already accepted bill; the amount is prefilled from the invoice, slips optional. */
 export const OwnerInvoicePayment: Story = form(
   acceptedInvoiceDb,
   "owner",
   "invoicePayment",
+);
+
+/** Paying Foodiva's meat invoice on the purchase PO; amount prefilled, slips optional. */
+export const OwnerMeatPayment: Story = form(
+  confirmedDb,
+  "owner",
+  "meatPayment",
 );
 
 /** Weighing the smoked meat into central stock after Foodiva received it back. */

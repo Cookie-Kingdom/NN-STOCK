@@ -157,6 +157,18 @@ export function useOwnerAlerts(db: Database) {
         ];
       return [];
     }),
+    ...db.lots
+      .filter(
+        (item) =>
+          !item.kind &&
+          entries(db, "foodivaConfirm", item.id).length &&
+          !entries(db, "meatPayment", item.id).length,
+      )
+      .map((item): OwnerNotification => ({
+        title: `รอชำระ Invoice เนื้อ · ${item.poId}`,
+        detail: `ชำระ Invoice ${entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo || ""} ของ Foodiva และแนบสลิป`,
+        tab: "invoices",
+      })),
     ...returnReady.map((item): OwnerNotification => ({
       title: `Chef House ปิด Lot แล้ว · ${item.id}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} ถุง`,

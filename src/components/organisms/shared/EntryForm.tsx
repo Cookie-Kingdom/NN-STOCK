@@ -85,6 +85,8 @@ function EntryFieldControl({
   values,
   set,
   onFile,
+  files,
+  onFiles,
   onFileError,
 }: {
   field: FieldSpec;
@@ -92,8 +94,25 @@ function EntryFieldControl({
   values: Values;
   set: (key: string, value: string) => void;
   onFile: (key: string, file: File | null) => void;
+  files: File[];
+  onFiles: (key: string, files: File[]) => void;
   onFileError: (message: string) => void;
 }) {
+  if (f.type === "files")
+    return (
+      <FileUploadField
+        label={f.label}
+        optional={f.optional}
+        hint={f.hint}
+        accept={f.accept}
+        multiple
+        maxBytes={MAX_ATTACHMENT_BYTES}
+        oversizeMessage="ไฟล์แต่ละไฟล์ต้องมีขนาดไม่เกิน 2 MB"
+        onError={onFileError}
+        onFiles={(picked) => onFiles(f.key, picked)}
+        fileName={files.map((file) => file.name).join("\n")}
+      />
+    );
   if (f.type === "file")
     return (
       <FileUploadField
@@ -257,6 +276,9 @@ export function EntryForm({
   );
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const attachmentFiles = useRef<Record<string, File>>({});
+  /* `files` fields (payment slips) stay out of `values` until the save: the live
+   * mutate check would read a list of names as a broken slips JSON. */
+  const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => {
@@ -332,6 +354,16 @@ export function EntryForm({
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
         resolvedValues[`${key}StorageKey`] = uploaded[key] ??=
           await saveAttachment(file);
+      }
+      for (const [key, files] of Object.entries(multiFiles)) {
+        const list = [];
+        for (const [index, file] of files.entries())
+          list.push({
+            name: file.name,
+            storageKey: (uploaded[`${key}.${index}`] ??=
+              await saveAttachment(file)),
+          });
+        resolvedValues[key] = JSON.stringify(list);
       }
       /* ponytail: no legacy-attachment migration here any more. Persistence sends
        * the loaded history back untouched (the server rejects edited entries), so
@@ -504,6 +536,11 @@ export function EntryForm({
                   values={values}
                   set={set}
                   onFile={setFile}
+                  files={multiFiles[f.key] ?? []}
+                  onFiles={(key, files) => {
+                    setMultiFiles((current) => ({ ...current, [key]: files }));
+                    setError("");
+                  }}
                   onFileError={setError}
                 />
               ))}

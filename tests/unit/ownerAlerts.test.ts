@@ -97,3 +97,26 @@ test("after smoking the owner is sent to transport, central receive and allocati
     "มีเนื้อพร้อมจัดสรร 1 Lot",
   );
 });
+
+test("an unpaid Foodiva meat invoice asks the Owner to pay it until meatPayment is saved", () => {
+  const s = setup();
+  purchase(s, "40");
+  const po = s.db.lots[0];
+  const meatAlert = () =>
+    ownerAlerts(s.db).notifications.find((item) =>
+      item.title.startsWith("รอชำระ Invoice เนื้อ"),
+    );
+  expect(meatAlert()).toBeUndefined();
+  confirm(s, "40");
+  expect(meatAlert()).toMatchObject({
+    title: `รอชำระ Invoice เนื้อ · ${po.poId}`,
+    tab: "invoices",
+  });
+  s.run(
+    "owner",
+    "meatPayment",
+    { paymentDate: "2026-09-09", paidBy: "Owner", paidAmount: "1", slips: "[]" },
+    po.id,
+  );
+  expect(meatAlert()).toBeUndefined();
+});

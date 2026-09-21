@@ -64,3 +64,32 @@ function LogoUpload() {
 
 /** `onFile` hands the File back; the caller keeps the name and any preview. */
 export const Interactive: Story = { render: () => <LogoUpload /> };
+
+function SlipUpload() {
+  const [names, setNames] = useState<string[]>([]);
+  return (
+    <FileUploadField
+      label="แนบสลิปการชำระ"
+      optional
+      multiple
+      accept=".pdf,image/*"
+      maxBytes={2 * 1024 * 1024}
+      fileName={names.join("\n")}
+      hint="เลือกได้หลายไฟล์พร้อมกัน"
+      onFiles={(files) => setNames(files.map((file) => file.name))}
+    />
+  );
+}
+
+/** `multiple` + `onFiles`: several slips at once, one name per line. */
+export const MultipleFiles: Story = {
+  args: {
+    label: "แนบสลิปการชำระ",
+    optional: true,
+    multiple: true,
+    fileName: "slip-2026-09-20.jpg\nslip-2026-09-20-2.pdf",
+  },
+};
+
+/** Pick several files; every name is listed. */
+export const MultipleInteractive: Story = { render: () => <SlipUpload /> };

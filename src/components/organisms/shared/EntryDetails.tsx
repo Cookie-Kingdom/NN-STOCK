@@ -6,6 +6,7 @@ import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadRow } from "@/components/atoms/ReadRow";
 import { FormError } from "@/components/molecules/FormError";
+import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import { mutate, roleName, titles, type Entry } from "@/lib/store";
@@ -129,7 +130,7 @@ export function EntryDetails({
               derivedLabels[k] ||
               k
             }
-            value={v}
+            value={k === "slips" ? <SlipList value={v} /> : v}
           />
         ))}
       <small className="text-text-secondary">

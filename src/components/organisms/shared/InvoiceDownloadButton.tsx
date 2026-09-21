@@ -7,6 +7,7 @@ import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
 import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { getAttachment } from "@/lib/attachment-store";
+import { uploadedFiles } from "@/lib/forms";
 
 /* Inline `data:` URLs (entries saved before the storage bucket) and bucket files
  * share one path: fetch to a Blob, then download it. A plain `<a href download>`
@@ -92,6 +93,22 @@ export function InvoiceDownloadButton({
         {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
       </Button>
     </ActionWithError>
+  );
+}
+
+/** Payment slips (a `files` value): each one can be opened or downloaded. */
+export function SlipList({ value }: { value?: string }) {
+  const slips = uploadedFiles(value);
+  if (!slips.length) return <Muted as="span">ไม่มีสลิป</Muted>;
+  return (
+    <span className="grid justify-items-end gap-1.5">
+      {slips.map((slip) => (
+        <span key={slip.storageKey} className="flex items-center gap-1.5">
+          <AttachmentViewButton {...slip} label={slip.name} />
+          <InvoiceDownloadButton {...slip} />
+        </span>
+      ))}
+    </span>
   );
 }
 
