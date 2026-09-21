@@ -6,7 +6,9 @@ import {
   multiPoDb,
   multiPoPackedDb,
   open,
+  ownerReservedDb,
   packedDb,
+  packingShortDb,
   returnGapDb,
 } from "../../../../.storybook/fixtures";
 import { InvoiceView } from "./InvoiceView";
@@ -33,6 +35,13 @@ export const PurchaseOrders: Story = {
 export const PurchaseOrdersRemaining: Story = {
   parameters: { db: multiPoDb },
   render: () => <PurchaseOrderView db={multiPoDb} open={open} />,
+};
+
+/** "เก็บไว้ให้ Owner คงเหลือ": Foodiva kept 10 kg for the Owner, who took 4 → 6 kg left;
+ *  "คงเหลือส่ง Chef House" still counts from the 90 kg ready for Chiang Mai. */
+export const PurchaseOrdersKeptForOwner: Story = {
+  parameters: { db: ownerReservedDb },
+  render: () => <PurchaseOrderView db={ownerReservedDb} open={open} />,
 };
 
 export const SmokingPurchaseOrders: Story = {
@@ -64,11 +73,25 @@ export const TransportManifest: Story = {
   ),
 };
 
-/** A Request waiting for Foodiva's transport document: no outbound button for the Owner. */
+/** A Request waiting for Foodiva's transport document: no outbound button for the Owner,
+ *  only "แก้ไข Request" (A10), which disappears once Foodiva makes the manifest. */
 export const TransportManifestAwaitingFoodiva: Story = {
   parameters: { db: dispatchDb },
   render: () => (
     <TransportManifestView db={dispatchDb} open={open} onOpenSmokePo={fn()} />
+  ),
+};
+
+/** Request 1,500 kg, Packing List 70 kg, Chef House 69 kg: the comparison runs on the
+ *  Packing List (gap −1 kg) and the Request kg shows on its own line. */
+export const TransportManifestPackingListBelowRequest: Story = {
+  parameters: { db: packingShortDb },
+  render: () => (
+    <TransportManifestView
+      db={packingShortDb}
+      open={open}
+      onOpenSmokePo={fn()}
+    />
   ),
 };
 
@@ -84,7 +107,7 @@ export const Invoices: Story = {
   render: () => <InvoiceView db={db} open={open} />,
 };
 
-/** Stage 1 (waiting for Foodiva) and a trucked shipment with its Packing List (go to the smoke PO). */
+/** Stage 1 (waiting for Foodiva, Request still editable) and a trucked shipment with its Packing List (go to the smoke PO). */
 export const WorkflowAction: Story = {
   parameters: { db: dispatchDb },
   render: () => (

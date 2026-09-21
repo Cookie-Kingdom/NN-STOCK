@@ -14,6 +14,7 @@ import {
   n,
   ownerWasteOutstanding,
   ownerWasteReceived,
+  packingListKg,
   produced,
   producedBags,
   purchaseLots,
@@ -37,69 +38,77 @@ const movementColumns = [
 ];
 
 /** entry kind → [location, action, amount] */
-const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
-  {
-    foodivaConfirm: (entry) => [
-      "Foodiva",
-      "ยืนยัน Invoice และแบ่งเนื้อ",
-      `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`,
-    ],
-    ownerWasteReceive: (entry) => [
-      "Owner",
-      "รับเนื้อส่วนที่เหลือจาก Foodiva",
-      `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`,
-    ],
-    dispatch: (entry) => [
+const descriptions: Record<
+  string,
+  (entry: Entry, db: Database) => [string, string, string]
+> = {
+  foodivaConfirm: (entry) => [
+    "Foodiva",
+    "ยืนยัน Invoice และแบ่งเนื้อ",
+    `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`,
+  ],
+  ownerWasteReceive: (entry) => [
+    "Owner",
+    "รับเนื้อส่วนที่เหลือจาก Foodiva",
+    `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`,
+  ],
+  // What went is the Packing List box total; the Request kg until Foodiva makes one.
+  dispatch: (entry, db) => {
+    const sent = packingListKg(db, entry.lotId);
+    return [
       "Foodiva → Chef House",
       "ส่งเนื้อดิบ",
-      `${fmt(n(entry.values, "dispatchKg"))} กก.`,
-    ],
-    cmReceive: (entry) => [
-      "Chef House",
-      "ชั่งรับเนื้อจริง",
-      `${fmt(n(entry.values, "receivedKg"))} กก.`,
-    ],
-    smoke: (entry) => [
-      "Chef House",
-      `สโมครอบ ${entry.values.subLot || "—"}`,
-      `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
-    ],
-    return: (entry) => [
-      "Chef House → Foodiva",
-      "เรียกรถขากลับ",
-      `${fmt(n(entry.values, "returnKg"))} กก.`,
-    ],
-    foodivaReturnReceive: (entry) => [
-      "Foodiva",
-      "รับเนื้อรมควันเข้าตู้",
-      `${fmt(n(entry.values, "receivedKg"))} กก.`,
-    ],
-    central: (entry) => [
-      "คลังกลาง Owner",
-      "รับเข้าสต๊อกกลาง",
-      `${fmt(n(entry.values, "centralKg"))} กก.`,
-    ],
-    allocate: (entry) => [
-      "Owner → สาขา",
-      `จัดสรรไป ${entry.values.branch}`,
-      `${fmt(n(entry.values, "kg"))} กก.`,
-    ],
-    receive: (entry) => [
-      entry.branch || "สาขา",
-      "รับเนื้อเข้าสาขา",
-      `${fmt(n(entry.values, "kg"))} กก.`,
-    ],
-    thaw: (entry) => [
-      entry.branch || "สาขา",
-      "แบ่งละลาย",
-      `${fmt(n(entry.values, "kg"))} กก.`,
-    ],
-    sale: (entry) => [
-      entry.branch || "สาขา",
-      "ตัดสต๊อกจากยอดขาย",
-      `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
-    ],
-  };
+      sent === undefined
+        ? `ขอใน Request ${fmt(n(entry.values, "dispatchKg"))} กก.`
+        : `${fmt(sent)} กก. (Packing List)`,
+    ];
+  },
+  cmReceive: (entry) => [
+    "Chef House",
+    "ชั่งรับเนื้อจริง",
+    `${fmt(n(entry.values, "receivedKg"))} กก.`,
+  ],
+  smoke: (entry) => [
+    "Chef House",
+    `สโมครอบ ${entry.values.subLot || "—"}`,
+    `เข้าเตา ${fmt(n(entry.values, "inputKg"))} · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
+  ],
+  return: (entry) => [
+    "Chef House → Foodiva",
+    "เรียกรถขากลับ",
+    `${fmt(n(entry.values, "returnKg"))} กก.`,
+  ],
+  foodivaReturnReceive: (entry) => [
+    "Foodiva",
+    "รับเนื้อรมควันเข้าตู้",
+    `${fmt(n(entry.values, "receivedKg"))} กก.`,
+  ],
+  central: (entry) => [
+    "คลังกลาง Owner",
+    "รับเข้าสต๊อกกลาง",
+    `${fmt(n(entry.values, "centralKg"))} กก.`,
+  ],
+  allocate: (entry) => [
+    "Owner → สาขา",
+    `จัดสรรไป ${entry.values.branch}`,
+    `${fmt(n(entry.values, "kg"))} กก.`,
+  ],
+  receive: (entry) => [
+    entry.branch || "สาขา",
+    "รับเนื้อเข้าสาขา",
+    `${fmt(n(entry.values, "kg"))} กก.`,
+  ],
+  thaw: (entry) => [
+    entry.branch || "สาขา",
+    "แบ่งละลาย",
+    `${fmt(n(entry.values, "kg"))} กก.`,
+  ],
+  sale: (entry) => [
+    entry.branch || "สาขา",
+    "ตัดสต๊อกจากยอดขาย",
+    `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
+  ],
+};
 
 export function MeatMovementLogView({ db }: { db: Database }) {
   const [lotFilter, setLotFilter] = useState("ทั้งหมด");
@@ -203,7 +212,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     // Oldest first, the order DataTable's sort expects; the table flips it.
     .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
     .map((entry) => {
-      const [location, action, amount] = descriptions[entry.kind](entry);
+      const [location, action, amount] = descriptions[entry.kind](entry, db);
       return [
         entry.date,
         entry.at.slice(11, 16),

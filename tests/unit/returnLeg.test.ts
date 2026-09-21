@@ -6,6 +6,7 @@ import {
   dispatch,
   packingList,
   readyToDispatch,
+  received,
   setup,
 } from "./fixtures";
 
@@ -63,6 +64,24 @@ test("a shipment still on the outbound truck has no later steps", () => {
     chefReceivedKg: undefined,
     smokedKg: undefined,
     returnKg: undefined,
+  });
+});
+
+test("sent to Chef House is the Packing List total, not the Request kg", () => {
+  const s = setup();
+  readyToDispatch(s, "1500");
+  dispatch(s);
+  // Trucked but no Packing List yet: only the Request kg is known.
+  expect(shipmentChain(s.db, s.db.lots.at(-1)!)).toMatchObject({
+    requestedKg: 1500,
+    sentKg: undefined,
+  });
+  const t = setup();
+  received(t, "1500", "40\n30", "39\n30");
+  expect(shipmentChain(t.db, t.db.lots.at(-1)!)).toMatchObject({
+    requestedKg: 1500,
+    sentKg: 70,
+    chefReceivedKg: 69,
   });
 });
 

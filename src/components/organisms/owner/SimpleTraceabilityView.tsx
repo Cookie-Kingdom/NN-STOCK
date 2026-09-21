@@ -32,6 +32,7 @@ import {
 import {
   entries,
   n,
+  packingListKg,
   processLoss,
   processed,
   produced,
@@ -215,7 +216,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         : smokeOrder
                           ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
                           : dispatch
-                            ? `ใบขนส่งขาไป · ${fmt(n(dispatch.values, "dispatchKg"))} กก.`
+                            ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
                             : "รอ Foodiva ทำใบขนส่ง";
                   const route = returnTrip
                     ? "Chef House → Foodiva"
@@ -340,7 +341,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       dispatch?.values.transferNumber || "—",
                       dispatch?.values.pickupDate || "—",
                       dispatch
-                        ? `${fmt(n(dispatch.values, "dispatchKg"))} กก.`
+                        ? `${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
                         : "รอเรียกรถ",
                       dispatch ? (
                         <DocumentPreview

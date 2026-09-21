@@ -174,6 +174,7 @@ function pipelineState(date: string): Database {
         invoiceNo: `INV-${po}`,
         product: "เนื้อวัว",
         invWeightKg: "50",
+        slicedLostKg: "50",
         boxes,
       },
       lotId,

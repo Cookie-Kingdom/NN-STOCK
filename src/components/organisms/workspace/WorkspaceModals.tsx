@@ -24,6 +24,7 @@ const CUSTOM_DIALOGS = [
   "chefEdit",
   "smokeOrderPreview",
   "shipmentRequest",
+  "shipmentRequestEdit",
   "cmReceive",
   "dispatch",
   "packingListView",
@@ -101,7 +102,14 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     );
   }
   if (modal.kind === "packingListView") {
-    return <PackingListDialog db={db} lotId={modal.lotId} onClose={close} />;
+    return (
+      <PackingListDialog
+        db={db}
+        lotId={modal.lotId}
+        onClose={close}
+        showPurchaseOrders={role === "owner"}
+      />
+    );
   }
   if (modal.kind === "dispatch") {
     return (
@@ -166,6 +174,18 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           setChosen(next.lots.at(-1)?.id || chosen);
           done("สร้าง Request แล้ว · รอ Foodiva ทำใบขนส่ง");
         }}
+      />
+    );
+  }
+  if (modal.kind === "shipmentRequestEdit") {
+    return (
+      <ShipmentRequestForm
+        key={modal.lotId}
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={() => done("แก้ไข Request แล้ว · รอ Foodiva ทำใบขนส่ง")}
       />
     );
   }

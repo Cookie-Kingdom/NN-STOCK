@@ -18,7 +18,7 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
-import { nextTimeSlot, timeOptions } from "@/lib/forms";
+import { nextTimeSlot } from "@/lib/forms";
 import { fmt } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
@@ -211,17 +211,13 @@ export function FoodivaDispatchForm({
                 ) : undefined
               }
             >
-              {/* ข้อ 12 — เลือกจากช่วงครึ่งชั่วโมง ไม่ต้องพิมพ์ HH:mm เอง */}
-              <Select
+              {/* A9 — any minute (e.g. 08:15); the default is still the next half-hour slot. */}
+              <Input
+                type="time"
+                step={60}
                 value={values.pickupTime}
                 onChange={(event) => set("pickupTime", event.target.value)}
-              >
-                {timeOptions(values.pickupTime).map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot} น.
-                  </option>
-                ))}
-              </Select>
+              />
             </FormField>
             <FormField label="รูปแบบเที่ยวรถ">
               <Select

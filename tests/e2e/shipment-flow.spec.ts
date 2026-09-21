@@ -19,6 +19,7 @@ import {
   foodivaIssuesInvoice,
   foodivaMakesManifest,
   foodivaOpensManifest,
+  INVOICE_FIXTURE,
   installVisibleCursor,
   menuItem,
   openMenu,
@@ -58,7 +59,6 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
 }) => {
   await startFresh(page);
   const pos: string[] = [];
-  const invoices: string[] = [];
   let shipment = "";
 
   await step(page, "Owner: C0 สร้าง PO ซื้อ 300 / 700 / 500 กก.", async () => {
@@ -75,11 +75,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
   await step(page, "Foodiva: C0 ออก Invoice เนื้อให้ทั้ง 3 ใบ", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
     for (const [index, poId] of pos.entries())
-      invoices.push(
-        await foodivaIssuesInvoice(page, ["300", "700", "500"][index], {
-          poId,
-        }),
-      );
+      await foodivaIssuesInvoice(page, ["300", "700", "500"][index], { poId });
   });
 
   await step(
@@ -158,7 +154,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
   await step(page, "Chef House: C6 รับ PO แล้วกรอกช่องเหลือง", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await chefAcceptsSmokePo(page);
-    await expectNoPurchaseData(page, [MEAT_PRICE, ...invoices]);
+    await expectNoPurchaseData(page, [MEAT_PRICE]);
     await chefReceivesMeat(page, shipment, ["478.5", "512", "499"]);
     await openMenu(page, "งานผลิต");
     await expect(page.locator("main")).toContainText("1,489.50 กก.");
@@ -177,7 +173,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
       await chefClosesLot(page);
       await chefSubmitsInvoice(page, "CH-INV-0001");
       await expect(page.locator("main")).toContainText("รอตรวจยอด");
-      await expectNoPurchaseData(page, [MEAT_PRICE, ...invoices]);
+      await expectNoPurchaseData(page, [MEAT_PRICE]);
     },
   );
 
@@ -259,6 +255,11 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
     const main = page.locator("main");
     await expect(main).toContainText(`สายการส่ง ${shipment}`);
     await expect(main).toContainText("Chef House รับจริง");
+    // ส่งไป = ยอดรวม Packing List (1,490) ไม่ใช่ Request (1,500) · ส่วนต่าง = ช่องเหลือง 1,489.50 − 1,490
+    await expect(main).toContainText(
+      "ตาม Packing List · ขอใน Request: 1,500.00 กก.",
+    );
+    await expect(main).toContainText("ส่วนต่าง −0.50 กก.");
     await expect(main).toContainText("3 กล่องรมควัน · 1,440.00 กก.");
     await expect(main).toContainText("Foodiva รับจริง");
   });
@@ -463,12 +464,13 @@ test("ช่องเหลือง: เว้นว่างถูกปฏิ
   await openMenu(page, "งานผลิต");
   await expect(page.locator("main")).toContainText("51.50 กก.");
 
-  // Owner เห็นยอดช่องเหลืองและส่วนต่างจาก Foodiva
+  // Owner เห็นยอดช่องเหลืองและส่วนต่างเทียบยอดรวม Packing List
   await signInAs(page, ACCOUNTS.owner);
   await openMenu(page, "ใบขนส่ง");
   const row = tableRow(page, "รายการส่ง", shipment);
+  await expect(row).toContainText("ส่งไป (Packing List): 50.00 กก.");
   await expect(row).toContainText("Chef House: 51.50 กก.");
-  await expect(row).toContainText("ส่วนต่าง 1.50 กก.");
+  await expect(row).toContainText("ส่วนต่าง +1.50 กก.");
   await openMenu(page, "ใบสั่ง PO โรงรมควัน");
   await pointAndClick(
     page,
@@ -633,7 +635,7 @@ test("Owner ได้แจ้งเตือน Packing List โดยไม่
   ).toBeEnabled();
 });
 
-test("Chef House มองไม่เห็นเลข PO ซื้อ ราคาเนื้อ หรือเลข Invoice Foodiva ในทุกหน้าและทุก dialog", async ({
+test("Chef House มองไม่เห็นเลข PO ซื้อหรือราคาเนื้อในทุกหน้าและทุก dialog แต่เห็นเลข Invoice บน Packing List", async ({
   page,
 }) => {
   await startFresh(page);
@@ -643,7 +645,7 @@ test("Chef House มองไม่เห็นเลข PO ซื้อ รา�
     boxes: ["30", "30"],
     price: MEAT_PRICE,
   });
-  const secrets = [MEAT_PRICE, `FD-INV-${poId.slice(-4)}`];
+  const secrets = [MEAT_PRICE];
   const dialog = page.getByRole("dialog");
   const cancel = () =>
     pointAndClick(
@@ -672,6 +674,8 @@ test("Chef House มองไม่เห็นเลข PO ซื้อ รา�
 
   await chefFillsYellowCells(page, shipment, ["30", "29.5"]);
   await expect(dialog).toContainText("กล่องรับเข้า");
+  // Decision 2026-09-22: Chef House sees the whole Packing List, its invoice number too.
+  await expect(dialog).toContainText(`INV FD-INV-${poId.slice(-4)}`);
   await expectNoPurchaseData(page, secrets);
   await saveEntry(page);
 
@@ -709,4 +713,238 @@ test("Chef House มองไม่เห็นเลข PO ซื้อ รา�
   for (const summary of await page.locator("main details summary").all())
     await summary.click();
   await expectNoPurchaseData(page, secrets);
+});
+
+test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้ Request ก่อนส่ง · Lost ตามที่กรอก · kg PO รมควันแก้ได้ · Chef แก้ยอดเรียกเก็บ", async ({
+  page,
+  browser,
+}) => {
+  await startFresh(page);
+  await signInAs(page, ACCOUNTS.owner);
+  const poA = await ownerCreatesMeatPo(page, "500");
+  const poB = await ownerCreatesMeatPo(page, "300");
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaIssuesInvoice(page, "500", { poId: poA, reservedKg: "20" });
+  await foodivaIssuesInvoice(page, "300", { poId: poB });
+
+  await step(page, "Foodiva + Owner: A8 เก็บไว้ให้ Owner คงเหลือ", async () => {
+    const foodivaRow = tableRow(page, "PO เนื้อที่ต้องออก Invoice", poA);
+    await expect(foodivaRow.getByRole("cell").nth(6)).toHaveText("20.00 กก.");
+    await expect(foodivaRow.getByRole("cell").nth(8)).toHaveText("480.00 กก.");
+    await signInAs(page, ACCOUNTS.owner);
+    await openMenu(page, "ใบสั่งซื้อ PO");
+    const cells = tableRow(page, "รายการใบสั่งซื้อ PO", poA).getByRole("cell");
+    await expect(cells.nth(7)).toHaveText("480.00 กก.");
+    await expect(cells.nth(8)).toHaveText("20.00 กก.");
+  });
+
+  let shipment = "";
+  const editRequest = async () => {
+    await openMenu(page, "ใบขนส่ง");
+    await pointAndClick(
+      page,
+      tableRow(page, "รายการส่ง", shipment).getByRole("button", {
+        name: "แก้ไข Request",
+      }),
+    );
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("แก้ไข Request ส่งเนื้อไป Chef House");
+    return dialog;
+  };
+
+  await step(
+    page,
+    "Owner: A10 แก้ Request ก่อน Foodiva ทำใบขนส่ง → เลข SH เดิม คงเหลือ PO อัปเดต",
+    async () => {
+      shipment = await ownerCreatesShipmentRequest(page, [
+        { poId: poA, kg: "200" },
+      ]);
+      const dialog = await editRequest();
+      const kgA = dialog.getByLabel(`น้ำหนักที่จะส่งของ ${poA}`);
+      await expect(kgA).toHaveValue("200");
+      // The Request's own 200 kg counts as still available to PO A.
+      await expect(
+        dialog.getByRole("row").filter({ hasText: poA }),
+      ).toContainText("480.00 กก.");
+      await typeValue(page, kgA, "300");
+      await typeValue(
+        page,
+        dialog.getByLabel(`น้ำหนักที่จะส่งของ ${poB}`),
+        "100",
+      );
+      await pointAndClick(
+        page,
+        dialog.getByRole("button", { name: "บันทึกการแก้ไข Request" }),
+      );
+      await expect(dialog).toHaveCount(0);
+      await expect(
+        page.getByText("แก้ไข Request แล้ว · รอ Foodiva ทำใบขนส่ง"),
+      ).toBeVisible();
+      const rows = tableSection(page, /^รายการส่ง$/);
+      await expect(rows.getByRole("row")).toHaveCount(2); // header + the same SH
+      await expect(rows).toContainText(shipment);
+      await openMenu(page, "ใบสั่งซื้อ PO");
+      await expect(
+        tableRow(page, "รายการใบสั่งซื้อ PO", poA).getByRole("cell").nth(7),
+      ).toHaveText("180.00 กก.");
+      await expect(
+        tableRow(page, "รายการใบสั่งซื้อ PO", poB).getByRole("cell").nth(7),
+      ).toHaveText("200.00 กก.");
+    },
+  );
+
+  await step(
+    page,
+    "Foodiva: A9 เวลารถรับ 08:15 · A2 Sliced Weight Lost 395 (ไม่เท่ายอดกล่อง) → Owner: A10 แก้ Request ที่ส่งแล้วถูกปฏิเสธ",
+    async () => {
+      const dialog = await editRequest();
+      await typeValue(
+        page,
+        dialog.getByLabel(`น้ำหนักที่จะส่งของ ${poA}`),
+        "250",
+      );
+      // Foodiva dispatches in a second browser while the Owner's form is still open.
+      const foodivaContext = await browser.newContext();
+      try {
+        const foodiva = await foodivaContext.newPage();
+        await installVisibleCursor(foodiva);
+        await foodiva.goto("/");
+        await signInAs(foodiva, ACCOUNTS.foodiva);
+        await foodivaMakesManifest(foodiva, shipment, ["200", "199.5"], {
+          pickupTime: "08:15",
+          slicedLostKg: "395",
+        });
+      } finally {
+        await foodivaContext.close();
+      }
+      const refused = "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้";
+      await expect(dialog).toContainText(refused, { timeout: 40_000 });
+      await pointAndClick(
+        page,
+        dialog.getByRole("button", { name: "บันทึกการแก้ไข Request" }),
+      );
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText(refused);
+      await pointAndClick(
+        page,
+        dialog.getByRole("button", { name: "ยกเลิก", exact: true }),
+      );
+      await expect(
+        tableRow(page, "รายการส่ง", shipment).getByRole("button", {
+          name: "แก้ไข Request",
+        }),
+      ).toHaveCount(0);
+    },
+  );
+
+  await step(
+    page,
+    "Owner: A1 Packing List บอก PO ซื้อในการส่งนี้ · A2 Lost ตามที่ Foodiva กรอก · A6 kg PO รมควันแก้เป็น 350",
+    async () => {
+      await openMenu(page, "ใบสั่ง PO โรงรมควัน");
+      const row = tableRow(page, "รายการ PO โรงรมควัน", shipment);
+      await pointAndClick(
+        page,
+        row.getByRole("button", { name: "ดู Packing List" }),
+      );
+      const list = page.getByRole("dialog");
+      await expect(list).toContainText("PO ซื้อในการส่งนี้");
+      await expect(list).toContainText(
+        `${poA} · Invoice Foodiva FD-INV-${poA.slice(-4)} · 300.00 กก.`,
+      );
+      await expect(list).toContainText(
+        `${poB} · Invoice Foodiva FD-INV-${poB.slice(-4)} · 100.00 กก.`,
+      );
+      await expect(list).toContainText(/Sliced Weight Lost\s*395\.00 กก\./);
+      await page.keyboard.press("Escape");
+      await expect(list).toHaveCount(0);
+
+      await pointAndClick(
+        page,
+        row.getByRole("button", { name: "ออก PO รมควันเนื้อ" }),
+      );
+      await expect(
+        page.getByRole("dialog").getByLabel(/น้ำหนัก PO รมควัน/),
+      ).toHaveValue("399.5");
+      await field(page, /น้ำหนัก PO รมควัน/, "350");
+      await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
+      await button(page, "บันทึก PO รมควันเนื้อ");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(row).toContainText("350.00 กก.");
+    },
+  );
+
+  await step(
+    page,
+    "Chef House: A6 เห็น PO รมควัน 350 กก. · A5 Edit ไม่มีช่องเหลือง · A7 แก้ยอดเรียกเก็บ 77,000 → 76,500",
+    async () => {
+      await signInAs(page, ACCOUNTS.chef);
+      await openMenu(page, "งานผลิต");
+      await pointAndClick(page, chefLotButton(page, "ดู PO รมควัน"));
+      await expect(page.getByRole("dialog")).toContainText("350.00");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await chefAcceptsSmokePo(page);
+      await chefReceivesMeat(page, shipment, ["200", "199"]);
+      await chefRecordsPreSmoke(page, "399");
+      await chefSmokes(page, {
+        inputKg: "399",
+        wasteKg: "9",
+        packs: ["195", "195"],
+      });
+
+      await pointAndClick(page, chefLotButton(page, "Edit ข้อมูลก่อนปิด Lot"));
+      const edit = page.getByRole("dialog");
+      await expect(edit.getByLabel(/^น้ำหนักจริงกล่องรับเข้าที่/)).toHaveCount(
+        0,
+      );
+      await expect(edit).toContainText(
+        "น้ำหนักรับจริง 399.00 กก. (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
+      );
+      await pointAndClick(
+        page,
+        edit.getByRole("button", { name: "ยกเลิก", exact: true }),
+      );
+      await chefClosesLot(page);
+
+      await pointAndClick(page, chefLotButton(page, "สร้าง / Submit ใบวางบิล"));
+      const invoice = page.getByRole("dialog");
+      // 350 kg × 220 ฿ (under 1,000 kg) from the smoke PO, not the Packing List's 399.5.
+      await expect(invoice.getByLabel(/ยอดเรียกเก็บค่ารมควัน/)).toHaveValue(
+        "77000",
+      );
+      await expect(invoice).toContainText("ยอดตามอัตรา (ตั้งต้น)");
+      await field(page, /ยอดเรียกเก็บค่ารมควัน/, "76500");
+      await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-0922");
+      await invoice
+        .locator('input[type="file"]')
+        .setInputFiles(INVOICE_FIXTURE);
+      await saveEntry(page);
+    },
+  );
+
+  await step(
+    page,
+    "Owner: A7 ชำระค่ารมต้องเท่ายอดที่ Chef House เรียกเก็บ (76,500)",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await ownerApprovesSmokingInvoice(page, shipment);
+      await pointAndClick(
+        page,
+        tableRow(page, "Invoice Chef House", shipment).getByRole("button", {
+          name: "ชำระเงิน",
+        }),
+      );
+      const pay = page.getByRole("dialog");
+      await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
+      await field(page, /ยอดชำระ/, "77000");
+      await pointAndClick(page, pay.locator('button[type="submit"]'));
+      await expect(pay).toContainText("ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
+      await field(page, /ยอดชำระ/, "76500");
+      await saveEntry(page);
+      await expect(
+        tableRow(page, "Invoice Chef House", shipment),
+      ).toContainText("ชำระแล้ว");
+    },
+  );
 });

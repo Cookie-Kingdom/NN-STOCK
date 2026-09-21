@@ -121,13 +121,9 @@ test("the smoke PO takes its quantity from the Packing List, not the form; Foodi
   dispatch(s);
   packingList(s, "700\n690");
   const prefill = prefillValues(s.db, "smokeOrder", s.db.lots.at(-1));
-  expect(prefill).toEqual({ smoker: "Chef House" });
-  // 3 purchase POs, 1 smoke PO for the Packing List total (not the 1,400 kg requested).
-  s.run("owner", "smokeOrder", {
-    ...prefill,
-    requestedSmokeDate: day,
-    rawKg: "9999",
-  });
+  // 3 purchase POs, 1 smoke PO pre-filled with the Packing List total (not the 1,400 kg requested).
+  expect(prefill).toEqual({ smoker: "Chef House", rawKg: "1390" });
+  s.run("owner", "smokeOrder", { ...prefill, requestedSmokeDate: day });
   expect(last(s).values.rawKg).toBe("1390");
   expect(entries(s.db, "smokeOrder")).toHaveLength(1);
   expect(poRemainingKg(s.db, b)).toBe(100);
@@ -182,6 +178,7 @@ test("BUG-I: the smoking invoice form carries the smoke PO quantity for its prev
   });
   expect(prefillValues(s.db, "smokingInvoice", s.db.lots.at(-1))).toEqual({
     serviceQuantity: "28",
+    netPayable: String(28 * 220),
   });
 });
 

@@ -29,7 +29,7 @@ export function PurchaseOrderDocumentPreview({
   date: string;
 }) {
   const isSmokeOrder = kind === "smokeOrder";
-  // A smoke PO is ordered from its shipment's Packing List; mutate() fills rawKg from it.
+  // A smoke PO's kg is the entered rawKg, pre-filled from the Packing List total (A6).
   const packingList = lot ? latestPackingList(db, lot.id) : undefined;
   const quantity = isSmokeOrder
     ? n(values, "rawKg") || n(packingList?.values || {}, "slicedNetKg")

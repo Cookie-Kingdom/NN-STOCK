@@ -604,7 +604,7 @@ export function EntryForm({
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"
               : kind === "smokingInvoice"
-                ? "ระบบจะคำนวณยอดตาม PO ให้ Owner ตรวจหลัง Submit"
+                ? "Owner ตรวจยอดเรียกเก็บหลัง Submit และชำระตามยอดนี้"
                 : "ไฟล์แนบจะถูกอัปโหลดไปเก็บบนระบบ (สำรองไว้ในเบราว์เซอร์นี้ด้วย)"
           }
           onCancel={onClose}

@@ -4,6 +4,7 @@ import {
   centralDb,
   demoDb,
   multiPoDb,
+  requestedDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
 import { accountById, type AccountId } from "@/lib/accounts";
@@ -81,6 +82,18 @@ export const ChefLotEdit: Story = {
 export const ShipmentRequest: Story = {
   parameters: { db: multiPoDb },
   render: () => <Modals account="owner" kind="shipmentRequest" lotId="" />,
+};
+
+/** `shipmentRequestEdit` opens the same form pre-filled with that Request's lines. */
+export const ShipmentRequestEdit: Story = {
+  parameters: { db: requestedDb },
+  render: () => (
+    <Modals
+      account="owner"
+      kind="shipmentRequestEdit"
+      lotId={requestedDb.lots.at(-1)!.id}
+    />
+  ),
 };
 
 /** No modal open: the router renders nothing, the page keeps its own content. */

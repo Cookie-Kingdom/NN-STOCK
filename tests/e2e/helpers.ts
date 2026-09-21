@@ -316,7 +316,14 @@ export async function foodivaIssuesInvoice(
     poId,
     invoiceNo = poId ? `FD-INV-${poId.slice(-4)}` : "FD-INV-001",
     amount = "125000",
-  }: { poId?: string; invoiceNo?: string; amount?: string } = {},
+    reservedKg = "0",
+  }: {
+    poId?: string;
+    invoiceNo?: string;
+    amount?: string;
+    /** Kept by Foodiva for the Owner; the rest is ready for Chef House. */
+    reservedKg?: string;
+  } = {},
 ): Promise<string> {
   const name = /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/;
   if (poId)
@@ -330,8 +337,12 @@ export async function foodivaIssuesInvoice(
   await field(page, /เลข Invoice เนื้อ/, invoiceNo);
   await field(page, /น้ำหนักตาม Invoice/, kg);
   // BR: ส่งไปเชียงใหม่ + เนื้อที่เหลือรอ Owner ต้องรวมเท่ากับน้ำหนักตาม Invoice
-  await field(page, /พร้อมส่งไป Chef House/, kg);
-  await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "0");
+  await field(
+    page,
+    /พร้อมส่งไป Chef House/,
+    String(Number(kg) - Number(reservedKg)),
+  );
+  await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, reservedKg);
   await field(page, /ยอดรวม Invoice/, amount);
   await page
     .getByRole("dialog")
@@ -418,7 +429,11 @@ export async function ownerCancelsLatestRequest(page: Page, reason: string) {
 export async function foodivaOpensManifest(
   page: Page,
   shipment: string,
-  { trip = "เที่ยวเดียว", plate = "70-1234 กทม." } = {},
+  {
+    trip = "เที่ยวเดียว",
+    plate = "70-1234 กทม.",
+    pickupTime,
+  }: { trip?: string; plate?: string; pickupTime?: string } = {},
 ) {
   await openMenu(page, "PO และสต๊อก Foodiva");
   await pointAndClick(
@@ -433,6 +448,10 @@ export async function foodivaOpensManifest(
   await typeValue(page, dialog.getByLabel("ทะเบียนรถ"), plate);
   await typeValue(page, dialog.getByLabel("ชื่อคนขับ"), "สมชาย ขับดี");
   await typeValue(page, dialog.getByLabel("เบอร์ติดต่อคนขับ"), "0811111111");
+  if (pickupTime) {
+    await dialog.getByLabel("เวลารถรับ").fill(pickupTime);
+    await expect(dialog.getByLabel("เวลารถรับ")).toHaveValue(pickupTime);
+  }
 }
 
 /** Foodiva, inside the transport document: "สร้าง Packing List" (or "แก้ไข Packing List"),
@@ -443,8 +462,13 @@ export async function foodivaFillsPackingList(
   boxes: string[],
   {
     invWeightKg,
+    slicedLostKg,
     attachment,
-  }: { invWeightKg?: string; attachment?: string | UploadFile } = {},
+  }: {
+    invWeightKg?: string;
+    slicedLostKg?: string;
+    attachment?: string | UploadFile;
+  } = {},
 ) {
   await pointAndClick(
     page,
@@ -464,6 +488,15 @@ export async function foodivaFillsPackingList(
     );
   if (invWeightKg !== undefined)
     await typeValue(page, list.getByLabel(/Inv\. Weight/), invWeightKg);
+  // Foodiva's usable weight after cutting; by default it matches the box total.
+  await typeValue(
+    page,
+    list.getByLabel(/Sliced Weight Lost/),
+    slicedLostKg ??
+      String(
+        Math.round(boxes.reduce((sum, kg) => sum + Number(kg), 0) * 100) / 100,
+      ),
+  );
   if (attachment)
     await list.locator('input[type="file"]').setInputFiles(attachment);
   await pointAndClick(
@@ -485,13 +518,16 @@ export async function foodivaMakesManifest(
   options: {
     trip?: string;
     plate?: string;
+    pickupTime?: string;
     invWeightKg?: string;
+    slicedLostKg?: string;
     attachment?: string | UploadFile;
   } = {},
 ) {
   await foodivaOpensManifest(page, shipment, options);
   await foodivaFillsPackingList(page, boxes, {
     invWeightKg: options.invWeightKg,
+    slicedLostKg: options.slicedLostKg,
     attachment: options.attachment ?? INVOICE_FIXTURE,
   });
   await pointAndClick(
@@ -890,8 +926,8 @@ export async function closeNotifications(page: Page) {
 }
 
 /** Chef House must never see purchase data (checklist D): no purchase PO number, no
- * meat price, no Foodiva invoice number. Checks the page and every open dialog;
- * `secrets` are extra strings (invoice numbers, a distinctive price) to look for. */
+ * meat price. (The Foodiva invoice number on the Packing List is allowed.) Checks the
+ * page and every open dialog; `secrets` are extra strings (a distinctive price) to look for. */
 export async function expectNoPurchaseData(page: Page, secrets: string[] = []) {
   const text = await page.locator("body").innerText();
   expect(text, "purchase PO number").not.toMatch(/PO-\d{4}-\d{4}/);

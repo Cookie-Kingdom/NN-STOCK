@@ -4,6 +4,7 @@ import {
   dispatchDb,
   multiPoDb,
   open,
+  ownerReservedDb,
   returnGapDb,
   returnTruckDb,
 } from "../../../../.storybook/fixtures";
@@ -23,6 +24,12 @@ export const WaitingForDispatch: Story = {
 export const PurchasePosRemaining: Story = {
   parameters: { db: multiPoDb },
   render: () => <FoodivaView db={multiPoDb} open={open} />,
+};
+
+/** 10 kg kept for the Owner, 4 kg already picked up: "เก็บไว้ให้ Owner คงเหลือ" shows 6 kg. */
+export const KeptForOwner: Story = {
+  parameters: { db: ownerReservedDb },
+  render: () => <FoodivaView db={ownerReservedDb} open={open} />,
 };
 
 /** Return truck on its way: "ยืนยันรับเข้าตู้" next to what Chef House sent (กล่องรมควัน / kg). */

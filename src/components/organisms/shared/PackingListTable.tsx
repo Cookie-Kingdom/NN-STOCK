@@ -17,14 +17,18 @@ import { TableSection } from "@/components/organisms/shared/TableSection";
 export type PackingListHeader = {
   /** Date of the list, e.g. "16/9/2026". */
   date: string;
-  /** Foodiva's meat invoice numbers. Left out for Chef House, which must not see them. */
-  invoiceNo?: string;
+  /** Foodiva's meat invoice numbers; Chef House sees them too. */
+  invoiceNo: string;
   /** Product line, e.g. "NERD NUEA FZ .. SLICED 6mm.". */
   product: string;
   /** Supplier code line, e.g. "0037 Aust.Beef Icon XB Wagyu Chuck Roll 6/7". */
   code?: string;
+  /** Weight on Foodiva's invoice, before cutting. */
   invWeight?: number;
+  /** Box total of the list. */
   slicedNet?: number;
+  /** Usable meat after cutting, as Foodiva typed it (A2) — never derived from the
+   *  yellow cells or from Inv. Weight. */
   slicedLost?: number;
 };
 
@@ -116,7 +120,6 @@ function WeightCell({
     <Input
       variant="table"
       type="number"
-      spinner
       step="0.01"
       min="0"
       className="w-28"
@@ -175,11 +178,6 @@ export function PackingListTable({
   const missing = onWeight
     ? boxes.length - listed.length
     : boxes.length - filled.length;
-  // Once every box is weighed, the loss is Chef House's count against the invoice (A2).
-  const slicedLost =
-    filled.length === boxes.length && boxes.length && header.invWeight
-      ? header.invWeight - receivedTotal
-      : header.slicedLost;
   const removingWeight = boxes.find((box) => box.no === removing)?.weight;
   return (
     <TableSection
@@ -208,9 +206,7 @@ export function PackingListTable({
     >
       <div className="border-b border-border px-6 py-5 max-md:px-4">
         <p className="m-0 text-caption text-text-secondary">
-          วันที่ {header.date}
-          {header.invoiceNo !== undefined &&
-            ` · INV ${header.invoiceNo || "—"}`}
+          วันที่ {header.date} · INV {header.invoiceNo || "—"}
         </p>
         <p className="mt-1.5 mb-4 text-body font-semibold">
           {header.product || "—"}{" "}
@@ -231,7 +227,11 @@ export function PackingListTable({
           />
           <Stat
             label="Sliced Weight Lost"
-            value={slicedLost === undefined ? "—" : `${kg(slicedLost)} กก.`}
+            value={
+              header.slicedLost === undefined
+                ? "—"
+                : `${kg(header.slicedLost)} กก.`
+            }
           />
           <Stat
             label="รับจริงที่ Chef House"

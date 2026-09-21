@@ -214,10 +214,10 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await field(page, /ผู้รับเนื้อ/, "Owner QA");
   await saveEntry(page);
 
-  // BUG-6: the Owner weight check compares against what left Foodiva (90), not the invoice (100).
+  // BUG-6: the Owner weight check compares against the Packing List (90), not the invoice (100).
   await button(page, "ใบขนส่ง");
-  await expect(page.getByText("ส่งจาก Foodiva: 90.00 กก.")).toBeVisible();
-  await expect(page.getByText(/ส่วนต่าง 2\.00 กก\./)).toBeVisible();
+  await expect(page.getByText("ส่งไป (Packing List): 90.00 กก.")).toBeVisible();
+  await expect(page.getByText(/ส่วนต่าง −2\.00 กก\./)).toBeVisible();
 
   // BUG-7: the 3 kg trimmed before smoking is named as loss, nothing is left waiting at Chef House.
   await button(page, "Log เนื้อคงเหลือ");
