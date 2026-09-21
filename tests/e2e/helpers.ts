@@ -890,8 +890,8 @@ export async function closeNotifications(page: Page) {
 }
 
 /** Chef House must never see purchase data (checklist D): no purchase PO number, no
- * meat price, no Foodiva invoice number. Checks the page and every open dialog;
- * `secrets` are extra strings (invoice numbers, a distinctive price) to look for. */
+ * meat price. (The Foodiva invoice number on the Packing List is allowed.) Checks the
+ * page and every open dialog; `secrets` are extra strings (a distinctive price) to look for. */
 export async function expectNoPurchaseData(page: Page, secrets: string[] = []) {
   const text = await page.locator("body").innerText();
   expect(text, "purchase PO number").not.toMatch(/PO-\d{4}-\d{4}/);

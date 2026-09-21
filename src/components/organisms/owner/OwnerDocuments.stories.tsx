@@ -7,6 +7,7 @@ import {
   multiPoPackedDb,
   open,
   packedDb,
+  packingShortDb,
   returnGapDb,
 } from "../../../../.storybook/fixtures";
 import { InvoiceView } from "./InvoiceView";
@@ -69,6 +70,19 @@ export const TransportManifestAwaitingFoodiva: Story = {
   parameters: { db: dispatchDb },
   render: () => (
     <TransportManifestView db={dispatchDb} open={open} onOpenSmokePo={fn()} />
+  ),
+};
+
+/** Request 1,500 kg, Packing List 70 kg, Chef House 69 kg: the comparison runs on the
+ *  Packing List (gap −1 kg) and the Request kg shows on its own line. */
+export const TransportManifestPackingListBelowRequest: Story = {
+  parameters: { db: packingShortDb },
+  render: () => (
+    <TransportManifestView
+      db={packingShortDb}
+      open={open}
+      onOpenSmokePo={fn()}
+    />
   ),
 };
 

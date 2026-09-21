@@ -685,6 +685,12 @@ export function poRemainingKg(db: Database, purchaseLotId: string) {
 export function latestPackingList(db: Database, lotId: string) {
   return entries(db, "packingList", lotId).at(-1);
 }
+/** What actually went to Chef House: the box total of the shipment's latest Packing List.
+ *  `undefined` until Foodiva makes one; the Request kg is only what was asked for. */
+export function packingListKg(db: Database, lotId: string) {
+  const list = latestPackingList(db, lotId);
+  return list ? n(list.values, "slicedNetKg") : undefined;
+}
 /** Foodiva's one outbound form: the transport document and its Packing List land in one save,
  *  the document first (packingList refuses a shipment with no dispatch). */
 export const dispatchWithPackingList = (
@@ -733,7 +739,7 @@ export function shipmentChain(db: Database, shipment: Lot) {
   return {
     lines: shipmentShares(db, shipment),
     requestedKg: n(shipment.values, "requestedKg"),
-    sentKg: kg("dispatch", "dispatchKg"),
+    sentKg: packingListKg(db, shipment.id),
     chefReceivedKg: entries(db, "cmReceive", shipment.id).length
       ? n(shipment.values, "receivedKg")
       : undefined,
@@ -1063,19 +1069,11 @@ export function currentSmokingInvoices(db: Database) {
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
-/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices, freight
- *  or Foodiva's meat invoice numbers (`invoiceNo` on the Packing List). */
+/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices or freight.
+ *  It does see the Foodiva invoice number on the Packing List (`invoiceNo`). */
 const hiddenKeys = (role: Role) =>
   role === "cm"
-    ? [
-        "meatCost",
-        "wasteCost",
-        "lines",
-        "price",
-        "outboundCost",
-        "returnCost",
-        "invoiceNo",
-      ]
+    ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
     : ["meatCost", "wasteCost"];
 const hide = (values: Values, role: Role) =>
   Object.fromEntries(

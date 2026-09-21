@@ -38,7 +38,22 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
       </span>,
       `รวม ${fmt(chain.requestedKg)} กก.`,
     ],
-    ["ส่งไป Chef House", kg(chain.sentKg)],
+    // Sent is the Packing List box total; before Foodiva makes one only the Request kg is known.
+    [
+      "ส่งไป Chef House",
+      chain.sentKg === undefined
+        ? `ขอใน Request: ${fmt(chain.requestedKg)} กก.`
+        : kg(chain.sentKg),
+      chain.sentKg === undefined ? (
+        <small key="requested" className="text-caption text-text-secondary">
+          รอ Foodiva ทำ Packing List
+        </small>
+      ) : (
+        <small key="requested" className="text-caption text-text-secondary">
+          {`ตาม Packing List · ขอใน Request: ${fmt(chain.requestedKg)} กก.`}
+        </small>
+      ),
+    ],
     [
       "Chef House รับจริง",
       kg(chain.chefReceivedKg),

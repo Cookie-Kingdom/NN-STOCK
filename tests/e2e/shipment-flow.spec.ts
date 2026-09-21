@@ -58,7 +58,6 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
 }) => {
   await startFresh(page);
   const pos: string[] = [];
-  const invoices: string[] = [];
   let shipment = "";
 
   await step(page, "Owner: C0 สร้าง PO ซื้อ 300 / 700 / 500 กก.", async () => {
@@ -75,11 +74,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
   await step(page, "Foodiva: C0 ออก Invoice เนื้อให้ทั้ง 3 ใบ", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
     for (const [index, poId] of pos.entries())
-      invoices.push(
-        await foodivaIssuesInvoice(page, ["300", "700", "500"][index], {
-          poId,
-        }),
-      );
+      await foodivaIssuesInvoice(page, ["300", "700", "500"][index], { poId });
   });
 
   await step(
@@ -158,7 +153,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
   await step(page, "Chef House: C6 รับ PO แล้วกรอกช่องเหลือง", async () => {
     await signInAs(page, ACCOUNTS.chef);
     await chefAcceptsSmokePo(page);
-    await expectNoPurchaseData(page, [MEAT_PRICE, ...invoices]);
+    await expectNoPurchaseData(page, [MEAT_PRICE]);
     await chefReceivesMeat(page, shipment, ["478.5", "512", "499"]);
     await openMenu(page, "งานผลิต");
     await expect(page.locator("main")).toContainText("1,489.50 กก.");
@@ -177,7 +172,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
       await chefClosesLot(page);
       await chefSubmitsInvoice(page, "CH-INV-0001");
       await expect(page.locator("main")).toContainText("รอตรวจยอด");
-      await expectNoPurchaseData(page, [MEAT_PRICE, ...invoices]);
+      await expectNoPurchaseData(page, [MEAT_PRICE]);
     },
   );
 
@@ -259,6 +254,11 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
     const main = page.locator("main");
     await expect(main).toContainText(`สายการส่ง ${shipment}`);
     await expect(main).toContainText("Chef House รับจริง");
+    // ส่งไป = ยอดรวม Packing List (1,490) ไม่ใช่ Request (1,500) · ส่วนต่าง = ช่องเหลือง 1,489.50 − 1,490
+    await expect(main).toContainText(
+      "ตาม Packing List · ขอใน Request: 1,500.00 กก.",
+    );
+    await expect(main).toContainText("ส่วนต่าง −0.50 กก.");
     await expect(main).toContainText("3 กล่องรมควัน · 1,440.00 กก.");
     await expect(main).toContainText("Foodiva รับจริง");
   });
@@ -463,12 +463,13 @@ test("ช่องเหลือง: เว้นว่างถูกปฏิ
   await openMenu(page, "งานผลิต");
   await expect(page.locator("main")).toContainText("51.50 กก.");
 
-  // Owner เห็นยอดช่องเหลืองและส่วนต่างจาก Foodiva
+  // Owner เห็นยอดช่องเหลืองและส่วนต่างเทียบยอดรวม Packing List
   await signInAs(page, ACCOUNTS.owner);
   await openMenu(page, "ใบขนส่ง");
   const row = tableRow(page, "รายการส่ง", shipment);
+  await expect(row).toContainText("ส่งไป (Packing List): 50.00 กก.");
   await expect(row).toContainText("Chef House: 51.50 กก.");
-  await expect(row).toContainText("ส่วนต่าง 1.50 กก.");
+  await expect(row).toContainText("ส่วนต่าง +1.50 กก.");
   await openMenu(page, "ใบสั่ง PO โรงรมควัน");
   await pointAndClick(
     page,
@@ -633,7 +634,7 @@ test("Owner ได้แจ้งเตือน Packing List โดยไม่
   ).toBeEnabled();
 });
 
-test("Chef House มองไม่เห็นเลข PO ซื้อ ราคาเนื้อ หรือเลข Invoice Foodiva ในทุกหน้าและทุก dialog", async ({
+test("Chef House มองไม่เห็นเลข PO ซื้อหรือราคาเนื้อในทุกหน้าและทุก dialog แต่เห็นเลข Invoice บน Packing List", async ({
   page,
 }) => {
   await startFresh(page);
@@ -643,7 +644,7 @@ test("Chef House มองไม่เห็นเลข PO ซื้อ รา�
     boxes: ["30", "30"],
     price: MEAT_PRICE,
   });
-  const secrets = [MEAT_PRICE, `FD-INV-${poId.slice(-4)}`];
+  const secrets = [MEAT_PRICE];
   const dialog = page.getByRole("dialog");
   const cancel = () =>
     pointAndClick(
@@ -672,6 +673,8 @@ test("Chef House มองไม่เห็นเลข PO ซื้อ รา�
 
   await chefFillsYellowCells(page, shipment, ["30", "29.5"]);
   await expect(dialog).toContainText("กล่องรับเข้า");
+  // Decision 2026-09-22: Chef House sees the whole Packing List, its invoice number too.
+  await expect(dialog).toContainText(`INV FD-INV-${poId.slice(-4)}`);
   await expectNoPurchaseData(page, secrets);
   await saveEntry(page);
 

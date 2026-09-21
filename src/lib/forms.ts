@@ -257,7 +257,7 @@ export const forms: Record<string, Field[]> = {
     text("plate", "ทะเบียนรถ"),
     text("driverName", "ชื่อคนขับ"),
     tel("driverPhone", "เบอร์ติดต่อคนขับ"),
-    number("dispatchKg", "น้ำหนักที่ส่งเที่ยวนี้ (กก.)"),
+    number("dispatchKg", "น้ำหนักตาม Request (กก.)"),
     note,
   ],
   cmReceive: [{ key: "arrival", label: "เวลาที่รถมาถึง", type: "time" }, note],

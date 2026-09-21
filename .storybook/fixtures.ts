@@ -17,6 +17,7 @@ import {
   purchase,
   ready,
   readyToDispatch,
+  received,
   request,
   returned,
   setup,
@@ -193,6 +194,14 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   if (steps > 1) s.run("cm", "prepare", { preSmokeKg: "48" });
   return s.db;
 }
+
+/** Request 1,500 kg but Foodiva packed only 70 kg (40 + 30); Chef House weighed in 69 kg.
+ *  "ส่งไป" is the Packing List's 70 kg, so the gap is −1 kg, not −1,431. */
+export const packingShortDb: Database = (() => {
+  const s = setup();
+  received(s, "1500", "40\n30", "39\n30");
+  return s.db;
+})();
 
 /** Shipment at stage 2: on the truck to Chiang Mai, waiting for Chef House to weigh it in. */
 export const dispatchedDb: Database = chefHouseLot(0);
