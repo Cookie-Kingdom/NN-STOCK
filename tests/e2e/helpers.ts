@@ -228,8 +228,65 @@ export async function loadSampleData(page: Page) {
 
 /* ---- pipeline steps, so a role spec can build the state it needs ---------- */
 
-export async function ownerCreatesMeatPo(page: Page, orderedKg = "500") {
-  await button(page, "ใบสั่งซื้อ PO");
+/* Shipment Flow (Features/Shipment Flow in the vault): purchase PO → Foodiva invoice →
+ * Owner Request (SH-…) → Foodiva transport document + Packing List → Owner smoke PO →
+ * Chef House yellow cells, smoking, close, invoice → Owner return truck → Foodiva
+ * freezer → payments. Each helper is one role's step: it expects the page to be
+ * signed in as that role already (see signInAs) unless its comment says otherwise,
+ * and scopes its clicks to the row of the PO / shipment it is given. */
+
+/** A file for `setInputFiles` built in memory, so slips need no fixture on disk. */
+export type UploadFile = { name: string; mimeType: string; buffer: Buffer };
+
+/** A 1×1 PNG, the photo half of a two-slip payment. */
+export function slipImage(name = "slip-photo.png"): UploadFile {
+  return {
+    name,
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  };
+}
+
+/** A tiny PDF slip. */
+export function slipPdf(name = "slip-transfer.pdf"): UploadFile {
+  return {
+    name,
+    mimeType: "application/pdf",
+    buffer: Buffer.from(
+      "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[]/Count 0>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+    ),
+  };
+}
+
+/** Opens a sidebar tab by its label ("ใบขนส่ง", "งานผลิต", …). */
+export async function openMenu(page: Page, label: string) {
+  await pointAndClick(page, menuItem(page, label));
+}
+
+/** The table rows of one DataTable (addressed by its exact title) that mention `text`. */
+export function tableRow(page: Page, table: string, text: string) {
+  const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return tableSection(page, new RegExp(`^${escaped}$`))
+    .getByRole("row")
+    .filter({ hasText: text });
+}
+
+/** The dialog on top (a Packing List opens over the transport document). */
+export function topDialog(page: Page) {
+  return page.getByRole("dialog").last();
+}
+
+/** Owner: creates a purchase PO for `orderedKg` at `price` ฿/kg and returns its number
+ * (`PO-yyyy-NNNN`), read off the live document preview before saving. Ends on the PO tab. */
+export async function ownerCreatesMeatPo(
+  page: Page,
+  orderedKg = "500",
+  price = "250",
+): Promise<string> {
+  await openMenu(page, "ใบสั่งซื้อ PO");
   await button(page, "สร้าง PO เนื้อ");
   await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
   await field(page, /ชื่อบริษัท \/ ลูกค้า/, "บริษัท เนิร์ดเนื้อ จำกัด");
@@ -239,30 +296,607 @@ export async function ownerCreatesMeatPo(page: Page, orderedKg = "500") {
   await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
   await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
   await field(page, /น้ำหนักสั่งซื้อ/, orderedKg);
-  await field(page, /ราคาเนื้อ/, "250");
+  await field(page, /ราคาเนื้อ/, price);
+  const poId = (await page.getByRole("dialog").innerText()).match(
+    /PO-\d{4}-\d{4}/,
+  )?.[0];
+  expect(poId, "the PO preview shows the number it will get").toBeTruthy();
   await button(page, "บันทึก PO เนื้อ");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  return poId!;
 }
 
-export async function foodivaIssuesInvoice(page: Page, kg = "500") {
-  await button(page, /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/);
-  await field(page, /เลข Invoice เนื้อ/, "FD-INV-001");
+/** Foodiva: issues the meat invoice for a PO (`poId`, or the last row when omitted) with
+ * all `kg` ready for Chef House, and returns the invoice number. Without `poId` the
+ * number is "FD-INV-001" as before; with it, "FD-INV-<last 4 digits of the PO>". */
+export async function foodivaIssuesInvoice(
+  page: Page,
+  kg = "500",
+  {
+    poId,
+    invoiceNo = poId ? `FD-INV-${poId.slice(-4)}` : "FD-INV-001",
+    amount = "125000",
+  }: { poId?: string; invoiceNo?: string; amount?: string } = {},
+): Promise<string> {
+  const name = /ออกและอัปโหลด Invoice|อัปโหลด Invoice เนื้อ/;
+  if (poId)
+    await pointAndClick(
+      page,
+      tableRow(page, "PO เนื้อที่ต้องออก Invoice", poId).getByRole("button", {
+        name,
+      }),
+    );
+  else await button(page, name);
+  await field(page, /เลข Invoice เนื้อ/, invoiceNo);
   await field(page, /น้ำหนักตาม Invoice/, kg);
   // BR: ส่งไปเชียงใหม่ + เนื้อที่เหลือรอ Owner ต้องรวมเท่ากับน้ำหนักตาม Invoice
   await field(page, /พร้อมส่งไป Chef House/, kg);
   await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "0");
-  await field(page, /ยอดรวม Invoice/, "125000");
-  await page.locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
+  await field(page, /ยอดรวม Invoice/, amount);
+  await page
+    .getByRole("dialog")
+    .locator('input[type="file"]')
+    .setInputFiles(INVOICE_FIXTURE);
   await field(page, /ชื่อผู้ยืนยันจาก Foodiva/, "เจ้าหน้าที่ Foodiva");
+  await saveEntry(page);
+  return invoiceNo;
+}
+
+/** Owner: opens "สร้าง Request ส่งเนื้อไป Chef House" and types each line's kg against
+ * its PO (`poId` omitted = the first PO listed). Leaves the dialog open, so a test can
+ * read the live error before saving. */
+export async function ownerFillsShipmentRequest(
+  page: Page,
+  lines: { poId?: string; kg: string }[],
+) {
+  await openMenu(page, "ใบขนส่ง");
+  await button(page, "สร้าง Request ส่งเนื้อไป Chef House");
+  const dialog = page.getByRole("dialog");
+  for (const line of lines)
+    await typeValue(
+      page,
+      line.poId
+        ? dialog.getByLabel(`น้ำหนักที่จะส่งของ ${line.poId}`)
+        : dialog.getByLabel(/^น้ำหนักที่จะส่งของ /).first(),
+      line.kg,
+    );
+}
+
+/** The SH-… numbers in the Owner's transport table (ใบขนส่ง tab must be open). */
+async function shipmentNumbers(page: Page) {
+  const text = await tableSection(page, /^รายการส่ง$/).innerText();
+  return new Set(text.match(/SH-\d{4}-\d{4}/g) ?? []);
+}
+
+/** Owner: creates a Request drawing `kg` from each PO and returns its `SH-…` number.
+ * Checks the toast; ends on the ใบขนส่ง tab. */
+export async function ownerCreatesShipmentRequest(
+  page: Page,
+  lines: { poId?: string; kg: string }[],
+): Promise<string> {
+  await openMenu(page, "ใบขนส่ง");
+  const before = await shipmentNumbers(page);
+  await ownerFillsShipmentRequest(page, lines);
+  await saveEntry(page);
+  await expect(
+    page.getByText("สร้าง Request แล้ว · รอ Foodiva ทำใบขนส่ง"),
+  ).toBeVisible();
+  let shipment = "";
+  await expect(async () => {
+    const after = await shipmentNumbers(page);
+    shipment = [...after].find((number) => !before.has(number)) ?? "";
+    expect(shipment).not.toBe("");
+  }).toPass();
+  return shipment;
+}
+
+/** Owner, ใบประวัติ ("Log" tab): cancels the newest Request that is not cancelled yet,
+ * with `reason`. Does not assert the outcome: the store refuses once Foodiva has made
+ * the transport document, and the caller checks which one happened. */
+export async function ownerCancelsLatestRequest(page: Page, reason: string) {
+  await openMenu(page, "Log");
+  const entry = page
+    .locator("details")
+    .filter({ hasText: "สร้าง Request ส่งเนื้อไป Chef House" })
+    .filter({ hasNotText: "ยกเลิกแล้ว" })
+    .first();
+  await pointAndClick(page, entry.locator("summary"));
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "แก้รายการผิดด้วยการยกเลิก" }),
+  );
+  await typeValue(page, entry.getByLabel("เหตุผลที่ยกเลิกรายการ"), reason);
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "ยืนยันยกเลิก" }),
+  );
+  return entry;
+}
+
+/** Foodiva: opens "ทำใบขนส่ง" for one Request and fills the truck. The Packing List is
+ * not made yet, so "บันทึกใบขนส่ง" is still disabled. */
+export async function foodivaOpensManifest(
+  page: Page,
+  shipment: string,
+  { trip = "เที่ยวเดียว", plate = "70-1234 กทม." } = {},
+) {
+  await openMenu(page, "PO และสต๊อก Foodiva");
+  await pointAndClick(
+    page,
+    tableRow(page, "Request เข้า", shipment).getByRole("button", {
+      name: "ทำใบขนส่ง",
+    }),
+  );
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText(shipment);
+  await dialog.getByLabel("รูปแบบเที่ยวรถ").selectOption(trip);
+  await typeValue(page, dialog.getByLabel("ทะเบียนรถ"), plate);
+  await typeValue(page, dialog.getByLabel("ชื่อคนขับ"), "สมชาย ขับดี");
+  await typeValue(page, dialog.getByLabel("เบอร์ติดต่อคนขับ"), "0811111111");
+}
+
+/** Foodiva, inside the transport document: "สร้าง Packing List" (or "แก้ไข Packing List"),
+ * one row per box weight, optional Inv. Weight and evidence file, then "ใส่ Packing List
+ * ในใบขนส่ง". Nothing is saved yet. */
+export async function foodivaFillsPackingList(
+  page: Page,
+  boxes: string[],
+  {
+    invWeightKg,
+    attachment,
+  }: { invWeightKg?: string; attachment?: string | UploadFile } = {},
+) {
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: /^(สร้าง|แก้ไข) Packing List$/ }),
+  );
+  const list = topDialog(page);
+  await expect(list).toContainText("กรอกน้ำหนักรายกล่องรับเข้า");
+  // Exactly as many rows as boxes, so the "ยังกรอกไม่ครบ" confirmation never shows.
+  await list.getByLabel("จำนวนแถวของตาราง").fill(String(boxes.length));
+  for (const [index, kg] of boxes.entries())
+    await typeValue(
+      page,
+      list.getByLabel(`น้ำหนักตาม Packing List กล่องรับเข้าที่ ${index + 1}`, {
+        exact: true,
+      }),
+      kg,
+    );
+  if (invWeightKg !== undefined)
+    await typeValue(page, list.getByLabel(/Inv\. Weight/), invWeightKg);
+  if (attachment)
+    await list.locator('input[type="file"]').setInputFiles(attachment);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: "ใส่ Packing List ในใบขนส่ง" }),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(page.getByRole("dialog")).toContainText(
+    `${boxes.length} กล่องรับเข้า`,
+  );
+}
+
+/** Foodiva: the whole outbound step for one Request — transport document plus a
+ * Packing List of `boxes` (kg per กล่องรับเข้า) — saved together. Checks the toast. */
+export async function foodivaMakesManifest(
+  page: Page,
+  shipment: string,
+  boxes: string[],
+  options: {
+    trip?: string;
+    plate?: string;
+    invWeightKg?: string;
+    attachment?: string | UploadFile;
+  } = {},
+) {
+  await foodivaOpensManifest(page, shipment, options);
+  await foodivaFillsPackingList(page, boxes, {
+    invWeightKg: options.invWeightKg,
+    attachment: options.attachment ?? INVOICE_FIXTURE,
+  });
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: "บันทึกใบขนส่ง", exact: true }),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน",
+    ),
+  ).toBeVisible();
+}
+
+/** Owner: issues the smoke PO for a shipment from its Packing List and returns the
+ * shipment number. The weight comes from the Packing List, so there is no kg to type.
+ *
+ * Legacy call (`ownerIssuesSmokePo(page, "500")`, no `shipment`): the Owner can no
+ * longer issue a smoke PO straight off a purchase PO, so this first runs the steps in
+ * between — Request of `kg` from the first PO with meat left, Foodiva's transport
+ * document with one box of `kg` — signing in as Foodiva and back as Owner. */
+export async function ownerIssuesSmokePo(
+  page: Page,
+  kg = "500",
+  shipment?: string,
+): Promise<string> {
+  if (!shipment) {
+    shipment = await ownerCreatesShipmentRequest(page, [{ kg }]);
+    await signInAs(page, ACCOUNTS.foodiva);
+    await foodivaMakesManifest(page, shipment, [kg]);
+    await signInAs(page, ACCOUNTS.owner);
+  }
+  await openMenu(page, "ใบสั่ง PO โรงรมควัน");
+  await pointAndClick(
+    page,
+    tableRow(page, "รายการ PO โรงรมควัน", shipment).getByRole("button", {
+      name: "ออก PO รมควันเนื้อ",
+    }),
+  );
+  await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
+  await button(page, "บันทึก PO รมควันเนื้อ");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  return shipment;
+}
+
+/** Signs in as Owner and takes one purchase PO all the way to an issued smoke PO:
+ * PO of `orderedKg` → Foodiva invoice → Request of `requestKg` → transport document with
+ * `boxes` → smoke PO. Ends signed in as Owner. */
+export async function sendMeatToChefHouse(
+  page: Page,
+  {
+    orderedKg = "500",
+    requestKg = orderedKg,
+    boxes = [requestKg],
+    price = "250",
+  }: {
+    orderedKg?: string;
+    requestKg?: string;
+    boxes?: string[];
+    price?: string;
+  } = {},
+): Promise<{ poId: string; shipment: string }> {
+  await signInAs(page, ACCOUNTS.owner);
+  const poId = await ownerCreatesMeatPo(page, orderedKg, price);
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaIssuesInvoice(page, orderedKg, { poId });
+  await signInAs(page, ACCOUNTS.owner);
+  const shipment = await ownerCreatesShipmentRequest(page, [
+    { poId, kg: requestKg },
+  ]);
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaMakesManifest(page, shipment, boxes);
+  await signInAs(page, ACCOUNTS.owner);
+  await ownerIssuesSmokePo(page, requestKg, shipment);
+  return { poId, shipment };
+}
+
+/** Chef House, งานผลิต: the action button of a lot row. `match` narrows to the row
+ * holding that text (Lot or SO- number); without it the first such button is used. */
+export function chefLotButton(page: Page, name: string, match?: string) {
+  const rows = page.locator("main").getByRole("row");
+  return (match ? rows.filter({ hasText: match }) : rows)
+    .getByRole("button", { name, exact: true })
+    .first();
+}
+
+/** Chef House: "ยืนยันรับ PO รมควัน" on the งานผลิต tab. */
+export async function chefAcceptsSmokePo(page: Page, match?: string) {
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(page, chefLotButton(page, "ยืนยันรับ PO รมควัน", match));
+  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
   await saveEntry(page);
 }
 
-export async function ownerIssuesSmokePo(page: Page, kg = "500") {
-  await button(page, "ใบสั่ง PO โรงรมควัน");
-  await button(page, "ออก PO รมควันเนื้อ");
-  await field(page, /โรงรม \/ ผู้ให้บริการ/, "Chef House");
-  await field(page, /Raw Meat Quantity/, kg);
-  await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
-  await button(page, "บันทึก PO รมควันเนื้อ");
+/** Chef House, ยืนยันรับเนื้อ: opens the weigh-in for a shipment and types the yellow
+ * cells (`received[i]` for box i+1; "" leaves that cell blank) and the arrival time.
+ * Leaves the dialog open. */
+export async function chefFillsYellowCells(
+  page: Page,
+  shipment: string,
+  received: string[],
+  arrival = "08:00",
+) {
+  await openMenu(page, "ยืนยันรับเนื้อ");
+  await pointAndClick(
+    page,
+    tableRow(page, "การส่งที่รอยืนยันรับ", shipment).getByRole("button", {
+      name: "ยืนยันรับเนื้อ",
+    }),
+  );
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("เวลาที่รถมาถึง").selectOption(arrival);
+  for (const [index, kg] of received.entries())
+    if (kg)
+      await typeValue(
+        page,
+        dialog.getByLabel(`น้ำหนักจริงกล่องรับเข้าที่ ${index + 1}`, {
+          exact: true,
+        }),
+        kg,
+      );
+}
+
+/** Chef House: weighs in a shipment with the yellow cells and saves. */
+export async function chefReceivesMeat(
+  page: Page,
+  shipment: string,
+  received: string[],
+) {
+  await chefFillsYellowCells(page, shipment, received);
+  await saveEntry(page);
+}
+
+/** Chef House: "น้ำหนักก่อนสโมค" for a lot at stage 3. */
+export async function chefRecordsPreSmoke(
+  page: Page,
+  kg: string,
+  match?: string,
+) {
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(page, chefLotButton(page, "น้ำหนักก่อนสโมค", match));
+  await field(page, /น้ำหนักหลังแกะซับ ก่อนสโมค/, kg);
+  await saveEntry(page);
+}
+
+/** Chef House: one smoking run — `inputKg` into the smoker, `wasteKg`, and one
+ * กล่องรมควัน per `packs` weight (packs + waste must equal input). */
+export async function chefSmokes(
+  page: Page,
+  {
+    inputKg,
+    wasteKg = "0",
+    packs,
+  }: { inputKg: string; wasteKg?: string; packs: string[] },
+  match?: string,
+) {
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(
+    page,
+    chefLotButton(page, "บันทึก Lot สโมครายวัน", match),
+  );
+  await field(page, /น้ำหนักเข้าเตารอบนี้/, inputKg);
+  await field(page, /น้ำหนัก Waste/, wasteKg);
+  const dialog = page.getByRole("dialog");
+  for (const [index, kg] of packs.entries()) {
+    if (index > 0)
+      await pointAndClick(
+        page,
+        dialog.getByRole("button", { name: "เพิ่มกล่องรมควัน" }),
+      );
+    await typeValue(
+      page,
+      dialog.getByLabel(`กล่องรมควันที่ ${index + 1} กี่กิโล`),
+      kg,
+    );
+  }
+  await saveEntry(page);
+}
+
+/** Chef House: "ยืนยันปิด Lot" (stage 5). */
+export async function chefClosesLot(page: Page, match?: string) {
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(page, chefLotButton(page, "ยืนยันปิด Lot", match));
+  await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
+  await saveEntry(page);
+}
+
+/** Chef House: submits the smoking invoice of a closed lot. */
+export async function chefSubmitsInvoice(
+  page: Page,
+  invoiceNo = "CH-INV-001",
+  match?: string,
+) {
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(
+    page,
+    chefLotButton(page, "สร้าง / Submit ใบวางบิล", match),
+  );
+  await field(page, /เลข Invoice ค่ารมควัน/, invoiceNo);
+  await page
+    .getByRole("dialog")
+    .locator('input[type="file"]')
+    .setInputFiles(INVOICE_FIXTURE);
+  await saveEntry(page);
+}
+
+/** Signs in as Chef House and runs a shipment from the smoke PO to a closed lot:
+ * accept → yellow cells → pre-smoke → one smoking run → close. `packs` + `wasteKg`
+ * must equal `preSmokeKg`. Ends signed in as Chef House. */
+export async function chefSmokesShipment(
+  page: Page,
+  shipment: string,
+  {
+    received,
+    preSmokeKg,
+    packs,
+    wasteKg = "0",
+  }: {
+    received: string[];
+    preSmokeKg: string;
+    packs: string[];
+    wasteKg?: string;
+  },
+) {
+  await signInAs(page, ACCOUNTS.chef);
+  await chefAcceptsSmokePo(page);
+  await chefReceivesMeat(page, shipment, received);
+  await chefRecordsPreSmoke(page, preSmokeKg);
+  await chefSmokes(page, { inputKg: preSmokeKg, wasteKg, packs });
+  await chefClosesLot(page);
+}
+
+/** Owner, ใบขนส่ง: "เรียกรถขากลับ" for a closed shipment. `returnKg` omitted keeps the
+ * prefilled weight (everything produced). Fills the truck unless the outbound trip was
+ * "ไปกลับ" and already prefilled it. */
+export async function ownerCallsReturnTruck(
+  page: Page,
+  shipment: string,
+  returnKg?: string,
+) {
+  await openMenu(page, "ใบขนส่ง");
+  await pointAndClick(
+    page,
+    tableRow(page, "รายการส่ง", shipment).getByRole("button", {
+      name: /^เรียกรถขากลับ/,
+    }),
+  );
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("เวลารถรับ").selectOption("10:00");
+  for (const [label, value] of [
+    ["ประเภทรถ", "รถห้องเย็น 4 ล้อ"],
+    ["ทะเบียนรถ", "80-5678 เชียงใหม่"],
+    ["ชื่อคนขับ", "สมศักดิ์ ส่งกลับ"],
+    ["เบอร์ติดต่อคนขับ", "0822222222"],
+  ] as const) {
+    const input = dialog.getByLabel(label, { exact: true });
+    if (!(await input.inputValue())) await typeValue(page, input, value);
+  }
+  if (returnKg !== undefined)
+    await field(page, /น้ำหนักส่งจาก Chef House/, returnKg);
+  await saveEntry(page);
+}
+
+/** Foodiva: opens "ยืนยันรับเข้าตู้" for a shipment on the return truck and types the
+ * weight (and `reason` when given). Leaves the dialog open. */
+export async function foodivaFillsReturnReceive(
+  page: Page,
+  shipment: string,
+  { kg, reason }: { kg: string; reason?: string },
+) {
+  await openMenu(page, "PO และสต๊อก Foodiva");
+  await pointAndClick(
+    page,
+    tableRow(
+      page,
+      "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva",
+      shipment,
+    ).getByRole("button", { name: "ยืนยันรับเข้าตู้" }),
+  );
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("เวลารับ").selectOption("16:00");
+  await field(page, /น้ำหนักรับจริง/, kg);
+  if (reason) await field(page, /เหตุผลส่วนต่าง/, reason);
+}
+
+/** Foodiva: receives the smoked meat of a shipment into the freezer. */
+export async function foodivaReceivesReturn(
+  page: Page,
+  shipment: string,
+  options: { kg: string; reason?: string },
+) {
+  await foodivaFillsReturnReceive(page, shipment, options);
+  await saveEntry(page);
+}
+
+/** Owner: "รับเข้าสต๊อกกลาง" for the first lot waiting (or the row matching `match`). */
+export async function ownerReceivesCentral(
+  page: Page,
+  kg: string,
+  match?: string,
+) {
+  await openMenu(page, "รับเนื้อเข้าสต๊อกกลาง");
+  const rows = page.locator("main").getByRole("row");
+  await pointAndClick(
+    page,
+    (match ? rows.filter({ hasText: match }) : rows)
+      .getByRole("button", { name: "รับเข้าสต๊อกกลาง" })
+      .first(),
+  );
+  await field(page, /น้ำหนักรับสต๊อกกลาง/, kg);
+  await saveEntry(page);
+}
+
+/** Owner, ใบ Invoice: opens "ชำระเงิน" on a Foodiva meat invoice (row of `poId`),
+ * attaches `slips` if any, and saves. The amount is prefilled from the invoice. */
+export async function ownerPaysMeatInvoice(
+  page: Page,
+  poId: string,
+  slips: UploadFile[] = [],
+) {
+  await openMenu(page, "ใบ Invoice");
+  await pointAndClick(
+    page,
+    tableRow(page, "Invoice Foodiva", poId).getByRole("button", {
+      name: "ชำระเงิน",
+    }),
+  );
+  await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
+  if (slips.length)
+    await page
+      .getByRole("dialog")
+      .locator('input[type="file"]')
+      .setInputFiles(slips);
+  await saveEntry(page);
+}
+
+/** Owner, ใบ Invoice: "ตรวจยอด" → "รับยอด" on the Chef House invoice of a shipment. */
+export async function ownerApprovesSmokingInvoice(
+  page: Page,
+  shipment: string,
+) {
+  await openMenu(page, "ใบ Invoice");
+  await pointAndClick(
+    page,
+    tableRow(page, "Invoice Chef House", shipment).getByRole("button", {
+      name: "ตรวจยอด",
+    }),
+  );
+  await page
+    .getByRole("dialog")
+    .getByLabel("ผลการตรวจยอด")
+    .selectOption("รับยอด");
+  await field(page, /ชื่อผู้ตรวจ/, "Owner");
+  await saveEntry(page);
+}
+
+/** Owner, ใบ Invoice: pays an approved Chef House invoice, with optional slips. */
+export async function ownerPaysSmokingInvoice(
+  page: Page,
+  shipment: string,
+  slips: UploadFile[] = [],
+) {
+  await openMenu(page, "ใบ Invoice");
+  await pointAndClick(
+    page,
+    tableRow(page, "Invoice Chef House", shipment).getByRole("button", {
+      name: "ชำระเงิน",
+    }),
+  );
+  await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
+  if (slips.length)
+    await page
+      .getByRole("dialog")
+      .locator('input[type="file"]')
+      .setInputFiles(slips);
+  await saveEntry(page);
+}
+
+/** Opens the header bell and returns the list of things to do next. */
+export async function openNotifications(page: Page) {
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: /^การแจ้งเตือน/ }),
+  );
+  return page.getByLabel("รายการที่ต้องทำต่อ");
+}
+
+/** Closes the bell's list (it has its own "ปิด"; Escape does not close it). */
+export async function closeNotifications(page: Page) {
+  await pointAndClick(
+    page,
+    page
+      .getByLabel("รายการที่ต้องทำต่อ")
+      .getByRole("button", { name: "ปิด", exact: true }),
+  );
+}
+
+/** Chef House must never see purchase data (checklist D): no purchase PO number, no
+ * meat price, no Foodiva invoice number. Checks the page and every open dialog;
+ * `secrets` are extra strings (invoice numbers, a distinctive price) to look for. */
+export async function expectNoPurchaseData(page: Page, secrets: string[] = []) {
+  const text = await page.locator("body").innerText();
+  expect(text, "purchase PO number").not.toMatch(/PO-\d{4}-\d{4}/);
+  expect(text, "meat price label").not.toContain("ราคาเนื้อ");
+  for (const secret of secrets) expect(text).not.toContain(secret);
 }
 
 /* ---- flow steps --------------------------------------------------------- */
