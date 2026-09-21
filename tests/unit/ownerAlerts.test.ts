@@ -118,7 +118,12 @@ test("an unpaid Foodiva meat invoice asks the Owner to pay it until meatPayment 
   s.run(
     "owner",
     "meatPayment",
-    { paymentDate: "2026-09-09", paidBy: "Owner", paidAmount: "1", slips: "[]" },
+    {
+      paymentDate: "2026-09-09",
+      paidBy: "Owner",
+      paidAmount: "1",
+      slips: "[]",
+    },
     po.id,
   );
   expect(meatAlert()).toBeUndefined();

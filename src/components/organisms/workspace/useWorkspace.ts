@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter, useSelectedLayoutSegment } from "next/navigation";
-import { startTransition, useMemo, useOptimistic, useRef, useState } from "react";
+import {
+  startTransition,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+} from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import type { Modal, Tab } from "@/lib/nav";
@@ -48,7 +54,10 @@ export function useWorkspace(account: Account) {
   const branch = account.branch ?? raw.config.branch;
   const role = account.role;
   // Chef House's screens read a copy without purchase POs or prices; saves use latestDatabase().
-  const db = useMemo(() => visibleDatabase(raw, role, branch), [raw, role, branch]);
+  const db = useMemo(
+    () => visibleDatabase(raw, role, branch),
+    [raw, role, branch],
+  );
   const lots = db.lots.filter(
     (l) =>
       role !== "branch" || entries(db, "allocate", l.id, branch).length > 0,

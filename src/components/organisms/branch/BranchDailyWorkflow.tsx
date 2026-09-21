@@ -29,7 +29,9 @@ export function BranchDailyWorkflow({
   closed: boolean;
   open: (kind: string, lotId?: string) => void;
 }) {
-  const pending = lots.filter((lot) => pendingReceiveKg(db, lot.id, branch) > 0);
+  const pending = lots.filter(
+    (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
+  );
   const frozen = lots.filter(
     (lot) => balance(db, lot.id, branch).frozen > 0.001,
   );

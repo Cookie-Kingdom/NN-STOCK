@@ -2,7 +2,17 @@ import { branches, materials, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;
-  type?: "number" | "text" | "tel" | "date" | "time" | "textarea" | "select" | "location" | "file" | "files";
+  type?:
+    | "number"
+    | "text"
+    | "tel"
+    | "date"
+    | "time"
+    | "textarea"
+    | "select"
+    | "location"
+    | "file"
+    | "files";
   options?: string[];
   optional?: boolean;
   hint?: string;
@@ -26,7 +36,11 @@ const text = (key: string, label: string, optional = false): Field => ({
   optional,
 });
 /** Phone number: `type=tel` is what puts a phone keypad on a phone. */
-const tel = (key: string, label: string): Field => ({ key, label, type: "tel" });
+const tel = (key: string, label: string): Field => ({
+  key,
+  label,
+  type: "tel",
+});
 const location = (key: string, label: string): Field => ({
   key,
   label,
@@ -135,7 +149,11 @@ export const forms: Record<string, Field[]> = {
   purchase: [
     text("supplier", "ผู้ขาย · Foodiva"),
     text("customerName", "ชื่อบริษัท / ลูกค้า"),
-    { key: "customerAddress", label: "ที่อยู่บริษัท / ที่อยู่ออก PO", type: "textarea" },
+    {
+      key: "customerAddress",
+      label: "ที่อยู่บริษัท / ที่อยู่ออก PO",
+      type: "textarea",
+    },
     text("attention", "ชื่อผู้ติดต่อ (Attention)"),
     tel("phone", "เบอร์ติดต่อ"),
     { key: "taxId", label: "เลขประจำตัวผู้เสียภาษี", digits: 13 },
@@ -150,13 +168,15 @@ export const forms: Record<string, Field[]> = {
   smokeOrder: [
     text("smoker", "โรงรม / ผู้ให้บริการ"),
     date("requestedSmokeDate", "วันที่ขอรมควัน"),
-    { key: "instruction", label: "คำสั่งพิเศษ", type: "textarea", optional: true },
+    {
+      key: "instruction",
+      label: "คำสั่งพิเศษ",
+      type: "textarea",
+      optional: true,
+    },
     date("expectedFinishedDate", "วันที่คาดว่าจะเสร็จ"),
   ],
-  smokeOrderAccept: [
-    text("acceptedBy", "ชื่อผู้รับ PO ของ Chef House"),
-    note,
-  ],
+  smokeOrderAccept: [text("acceptedBy", "ชื่อผู้รับ PO ของ Chef House"), note],
   smokingInvoice: [
     text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
     date("invoiceDate", "วันที่ Invoice", true),
@@ -167,12 +187,27 @@ export const forms: Record<string, Field[]> = {
       accept: ".pdf,image/*",
       hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef House",
     },
-    { key: "invoiceDetail", label: "รายละเอียดเพิ่มเติม", type: "textarea", optional: true },
+    {
+      key: "invoiceDetail",
+      label: "รายละเอียดเพิ่มเติม",
+      type: "textarea",
+      optional: true,
+    },
   ],
   invoiceReview: [
-    { key: "decision", label: "ผลการตรวจยอด", type: "select", options: ["รับยอด", "ส่งกลับแก้ไข"] },
+    {
+      key: "decision",
+      label: "ผลการตรวจยอด",
+      type: "select",
+      options: ["รับยอด", "ส่งกลับแก้ไข"],
+    },
     text("reviewedBy", "ชื่อผู้ตรวจ"),
-    { key: "comment", label: "หมายเหตุถึง Chef House", type: "textarea", optional: true },
+    {
+      key: "comment",
+      label: "หมายเหตุถึง Chef House",
+      type: "textarea",
+      optional: true,
+    },
   ],
   invoicePayment: [
     date("paymentDate", "วันที่ชำระเงิน", true),
@@ -225,10 +260,7 @@ export const forms: Record<string, Field[]> = {
     number("dispatchKg", "น้ำหนักที่ส่งเที่ยวนี้ (กก.)"),
     note,
   ],
-  cmReceive: [
-    { key: "arrival", label: "เวลาที่รถมาถึง", type: "time" },
-    note,
-  ],
+  cmReceive: [{ key: "arrival", label: "เวลาที่รถมาถึง", type: "time" }, note],
   prepare: [number("preSmokeKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
   smoke: [
     date("smokeDate", "วันที่สโมค", true),
@@ -278,7 +310,12 @@ export const forms: Record<string, Field[]> = {
     reason,
     note,
   ],
-  thaw: [number("kg", "น้ำหนักละลาย (กก.)"), number("bags", "จำนวนถุงที่ละลาย", false, true), reason, note],
+  thaw: [
+    number("kg", "น้ำหนักละลาย (กก.)"),
+    number("bags", "จำนวนถุงที่ละลาย", false, true),
+    reason,
+    note,
+  ],
   supplyPurchase: [
     text("supplier", "ผู้จำหน่าย (Supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
@@ -306,8 +343,16 @@ export const forms: Record<string, Field[]> = {
     text("supplier", "ผู้จำหน่ายข้าว (Rice supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
     number("rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ (Purchase cost) · บาท", true),
-    number("cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า (Cooked sticky rice) · กก.", true),
-    number("cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก (Purchase cost) · บาท", true),
+    number(
+      "cookedRiceKg",
+      "ข้าวเหนียวสุกซื้อเข้า (Cooked sticky rice) · กก.",
+      true,
+    ),
+    number(
+      "cookedRiceCost",
+      "ยอดซื้อข้าวเหนียวสุก (Purchase cost) · บาท",
+      true,
+    ),
     text("reference", "เลขที่ใบเสร็จ (Reference)", true),
     note,
   ],
@@ -346,12 +391,20 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   riceIssue: [
-    number("rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิกวันนี้ (Raw rice issued) · กก."),
+    number(
+      "rawRiceIssuedKg",
+      "ข้าวเหนียวดิบที่เบิกวันนี้ (Raw rice issued) · กก.",
+    ),
     text("receiver", "ผู้รับของ (Receiver)"),
     note,
   ],
   chiliIssue: [
-    number("chiliIssuedTubes", "น้ำพริกที่เบิกวันนี้ (Chili issued) · หลอด", false, true),
+    number(
+      "chiliIssuedTubes",
+      "น้ำพริกที่เบิกวันนี้ (Chili issued) · หลอด",
+      false,
+      true,
+    ),
     text("receiver", "ผู้รับของ (Receiver)"),
     note,
   ],
@@ -376,12 +429,33 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   sale: [
-    number("boxes", "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
+    number(
+      "boxes",
+      "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)",
+      true,
+      true,
+    ),
     number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
-    { ...number("chiliCount", "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)", true), optional: true },
-    { key: "chiliRemark", label: "หมายเหตุเมื่อน้ำพริกไม่ตรง", type: "textarea", optional: true },
-    number("soldKg", "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
+    {
+      ...number(
+        "chiliCount",
+        "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)",
+        true,
+      ),
+      optional: true,
+    },
+    {
+      key: "chiliRemark",
+      label: "หมายเหตุเมื่อน้ำพริกไม่ตรง",
+      type: "textarea",
+      optional: true,
+    },
+    number(
+      "soldKg",
+      "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
+      true,
+    ),
     number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
     number("riceWasteKg", "Waste ข้าว (กก.)", true),
     number("lineMan", "ยอดขาย LINE MAN ที่บันทึก (บาท)", true),
@@ -392,10 +466,19 @@ export const forms: Record<string, Field[]> = {
   ],
   influencerBox: [
     text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง"),
-    number("boxes", "กล่องมาตรฐานที่ส่ง · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)", true, true),
+    number(
+      "boxes",
+      "กล่องมาตรฐานที่ส่ง · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)",
+      true,
+      true,
+    ),
     number("addons", "เนื้อซีลเพิ่ม (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
-    number("soldKg", "น้ำหนักเนื้อที่ส่งจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)", true),
+    number(
+      "soldKg",
+      "น้ำหนักเนื้อที่ส่งจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
+      true,
+    ),
     number("shippingFee", "ค่าส่ง (บาท)", true),
     note,
   ],
@@ -507,7 +590,9 @@ export function defaults(kind: string, dateValue: string): Values {
             ? "0"
             : "";
   if (kind === "purchase") out.supplier = "Foodiva";
-  if (kind === "dispatch") Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
-  if (kind === "return") Object.assign(out, { origin: "เชียงใหม่", destination: "กรุงเทพฯ" });
+  if (kind === "dispatch")
+    Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
+  if (kind === "return")
+    Object.assign(out, { origin: "เชียงใหม่", destination: "กรุงเทพฯ" });
   return out;
 }

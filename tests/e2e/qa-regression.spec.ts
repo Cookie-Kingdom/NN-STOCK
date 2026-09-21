@@ -100,7 +100,9 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   await field(page, `ราคาซื้อ ${MATERIALS[0]}`, "1");
   await pointAndClick(page, purchase.locator('button[type="submit"]'));
   await expect(purchase).toBeVisible();
-  await expect(purchase.getByText("กรอกผู้จำหน่าย", { exact: false })).toBeVisible();
+  await expect(
+    purchase.getByText("กรอกผู้จำหน่าย", { exact: false }),
+  ).toBeVisible();
   await expect(purchase.getByLabel(`ผู้จำหน่าย ${MATERIALS[0]}`)).toHaveValue(
     "",
   );

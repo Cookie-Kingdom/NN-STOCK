@@ -26,13 +26,39 @@ const ROLES = [
     env: "OWNER",
     path: "/owner",
     tabs: [
-      "owner-dashboard", "po", "smoke-po", "invoices", "transport", "central-receive",
-      "branch-status", "stock", "meat-log", "documents", "report", "history", "config",
+      "owner-dashboard",
+      "po",
+      "smoke-po",
+      "invoices",
+      "transport",
+      "central-receive",
+      "branch-status",
+      "stock",
+      "meat-log",
+      "documents",
+      "report",
+      "history",
+      "config",
     ],
   },
-  { role: "foodiva", env: "FOODIVA", path: "/foodiva", tabs: ["foodiva", "history"] },
-  { role: "chef", env: "CHEF", path: "/chef", tabs: ["cm-receive", "work", "stock", "history"] },
-  { role: "saladaeng", env: "SALADAENG", path: "/branch", tabs: ["day", "stock", "branch-summary", "history"] },
+  {
+    role: "foodiva",
+    env: "FOODIVA",
+    path: "/foodiva",
+    tabs: ["foodiva", "history"],
+  },
+  {
+    role: "chef",
+    env: "CHEF",
+    path: "/chef",
+    tabs: ["cm-receive", "work", "stock", "history"],
+  },
+  {
+    role: "saladaeng",
+    env: "SALADAENG",
+    path: "/branch",
+    tabs: ["day", "stock", "branch-summary", "history"],
+  },
 ] as const;
 
 test.use({ video: "off", viewport: { width: 1440, height: 900 } });
@@ -62,7 +88,9 @@ async function shot(page: Page, name: string, width: number) {
 
 test("sign-in page", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "เข้าสู่ระบบ" }),
+  ).toBeVisible();
   await settle(page);
   await shot(page, "signin-index", 1440);
   await shot(page, "signin-index", 390);
@@ -72,13 +100,20 @@ for (const r of ROLES) {
   test(`${r.role} tabs`, async ({ page }) => {
     const email = process.env[`E2E_${r.env}_EMAIL`];
     const password = process.env[`E2E_${r.env}_PASSWORD`];
-    test.skip(!email || !password, `missing E2E_${r.env}_EMAIL / E2E_${r.env}_PASSWORD`);
+    test.skip(
+      !email || !password,
+      `missing E2E_${r.env}_EMAIL / E2E_${r.env}_PASSWORD`,
+    );
 
     await page.goto("/");
     await page.getByLabel("อีเมล").fill(email!);
     await page.getByLabel("รหัสผ่าน").fill(password!);
-    await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
-    await expect(page.getByRole("button", { name: "ออกจากระบบ" })).toBeVisible({ timeout: 30_000 });
+    await page
+      .getByRole("button", { name: "เข้าสู่ระบบ", exact: true })
+      .click();
+    await expect(page.getByRole("button", { name: "ออกจากระบบ" })).toBeVisible({
+      timeout: 30_000,
+    });
 
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -90,7 +125,9 @@ for (const r of ROLES) {
       await expect(page.locator("main")).toBeVisible({ timeout: 30_000 });
       await settle(page);
       const text = (await page.locator("main").innerText()).trim();
-      expect.soft(text.length, `${r.role}/${tab} main is blank`).toBeGreaterThan(0);
+      expect
+        .soft(text.length, `${r.role}/${tab} main is blank`)
+        .toBeGreaterThan(0);
       await shot(page, `${r.role}-${tab}`, 1440);
       if (i === 0) await shot(page, `${r.role}-${tab}`, 390);
     }

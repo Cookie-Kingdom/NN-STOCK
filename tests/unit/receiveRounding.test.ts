@@ -17,7 +17,12 @@ test("pro-rated allocation kg: the shown 0.01 figure is accepted and a bag-compl
   const second = last(s);
   expect(allocationOutstanding(s.db, second).kg).toBe(5.01);
   // 0.01 under the shown figure, all bags in: the lot no longer waits to be received.
-  s.run("branch", "receive", { kg: "5", bags: "2", allocation: second.id, reason: "ตาชั่ง" });
+  s.run("branch", "receive", {
+    kg: "5",
+    bags: "2",
+    allocation: second.id,
+    reason: "ตาชั่ง",
+  });
   expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
 });
 

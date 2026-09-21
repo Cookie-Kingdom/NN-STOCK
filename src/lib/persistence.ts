@@ -7,10 +7,16 @@ import { createClient } from "./supabase/browser";
 
 type StoredDatabase = Partial<Database>;
 type AppStateRow = { payload: StoredDatabase; revision: number };
-type RowResult = { data: AppStateRow | null; error: { message: string } | null };
+type RowResult = {
+  data: AppStateRow | null;
+  error: { message: string } | null;
+};
 /* save_app_state returns the new revision and nothing else: shipping the payload back
  * only to read one number off it was a large slice of every save (migration 0017). */
-type SaveResult = { data: { revision: number } | null; error: { message: string } | null };
+type SaveResult = {
+  data: { revision: number } | null;
+  error: { message: string } | null;
+};
 const supabase = LOCAL_DB ? null : createClient();
 const listeners = new Set<() => void>();
 let revision: number | null = null;
@@ -19,14 +25,29 @@ let pendingWrites = 0;
 
 /* v8 (shipment flow) started from an empty log (migration 0019), so there is nothing older to
  * convert: any other version reads as the seed. */
-function normalize(parsed: StoredDatabase | null, fallback: Database): Database {
-  if (!parsed || parsed.version !== 8 || !Array.isArray(parsed.entries) || !Array.isArray(parsed.lots)) return fallback;
+function normalize(
+  parsed: StoredDatabase | null,
+  fallback: Database,
+): Database {
+  if (
+    !parsed ||
+    parsed.version !== 8 ||
+    !Array.isArray(parsed.entries) ||
+    !Array.isArray(parsed.lots)
+  )
+    return fallback;
   const config = parsed.config || seed.config;
   return {
     version: 8,
     lots: parsed.lots,
     entries: parsed.entries,
-    config: { ...seed.config, ...config, branch: branches.includes(config.branch || "") ? config.branch : seed.config.branch },
+    config: {
+      ...seed.config,
+      ...config,
+      branch: branches.includes(config.branch || "")
+        ? config.branch
+        : seed.config.branch,
+    },
   };
 }
 
@@ -37,12 +58,25 @@ let cached = initialDatabase;
  * the loaded config (seed defaults filled in), so a save rebuilds the payload
  * from the stored entries/config plus only what was appended locally since the load.
  * `count` is how many normalized entries the stored ones became, `lastId` the last of them. */
-let stored: { payload: StoredDatabase; count: number; lastId?: string; config: Database["config"] } | null = null;
+let stored: {
+  payload: StoredDatabase;
+  count: number;
+  lastId?: string;
+  config: Database["config"];
+} | null = null;
 function adopt(payload: StoredDatabase, rev: number) {
   cached = normalize(payload, initialDatabase);
   /* A pre-v8 payload reads as empty but is not history to build on: with nothing stored, the
    * next save sends the whole database and the server refuses it until the reset migration runs. */
-  stored = payload?.version === 8 ? { payload, count: cached.entries.length, lastId: cached.entries.at(-1)?.id, config: cached.config } : null;
+  stored =
+    payload?.version === 8
+      ? {
+          payload,
+          count: cached.entries.length,
+          lastId: cached.entries.at(-1)?.id,
+          config: cached.config,
+        }
+      : null;
   revision = rev;
   loaded = true;
   notify();
@@ -51,7 +85,10 @@ function adopt(payload: StoredDatabase, rev: number) {
  * first payload lands is demo data wearing the user's colours. */
 let loaded = false;
 const notify = () => listeners.forEach((listener) => listener());
-const subscribe = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); };
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
 
 /** Shown by DatabaseErrorToast in every workspace. */
 function reportError(message: string) {
@@ -62,7 +99,9 @@ async function localRequest(init?: RequestInit): Promise<RowResult> {
   try {
     const response = await fetch("/api/local-db", init);
     const body = await response.json();
-    return response.ok ? { data: body, error: null } : { data: null, error: { message: body.message } };
+    return response.ok
+      ? { data: body, error: null }
+      : { data: null, error: { message: body.message } };
   } catch (error) {
     return { data: null, error: { message: (error as Error).message } };
   }
@@ -71,30 +110,69 @@ async function localRequest(init?: RequestInit): Promise<RowResult> {
  * before it: a request that never settles (stalled fetch, auth session read that never
  * resolves) would leave every later save unsent with no message until a reload. */
 const REQUEST_TIMEOUT_MS = 20_000;
-function withTimeout<T extends { data: unknown; error: { message: string } | null }>(request: PromiseLike<T>): Promise<T> {
+function withTimeout<
+  T extends { data: unknown; error: { message: string } | null },
+>(request: PromiseLike<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve({ data: null, error: { message: "เชื่อมต่อเซิร์ฟเวอร์ไม่ทันเวลา กรุณาลองใหม่" } } as T), REQUEST_TIMEOUT_MS);
+    timer = setTimeout(
+      () =>
+        resolve({
+          data: null,
+          error: { message: "เชื่อมต่อเซิร์ฟเวอร์ไม่ทันเวลา กรุณาลองใหม่" },
+        } as T),
+      REQUEST_TIMEOUT_MS,
+    );
   });
-  return Promise.race([Promise.resolve(request), timeout]).finally(() => clearTimeout(timer));
+  return Promise.race([Promise.resolve(request), timeout]).finally(() =>
+    clearTimeout(timer),
+  );
 }
 function readRow(): Promise<RowResult> {
   if (!supabase) return localRequest();
-  return withTimeout(supabase.from("app_state").select("payload, revision").eq("singleton", true).maybeSingle<AppStateRow>());
+  return withTimeout(
+    supabase
+      .from("app_state")
+      .select("payload, revision")
+      .eq("singleton", true)
+      .maybeSingle<AppStateRow>(),
+  );
 }
-function saveRow(payload: Database, expectedRevision: number | null): Promise<SaveResult> {
-  if (!supabase) return localRequest({ method: "POST", body: JSON.stringify({ payload, expectedRevision }) });
-  return withTimeout(supabase.rpc("save_app_state", { p_payload: payload, p_expected_revision: expectedRevision })
-    .then(({ data, error }) => ({ data: (data as { revision: number }[] | null)?.[0] ?? null, error })));
+function saveRow(
+  payload: Database,
+  expectedRevision: number | null,
+): Promise<SaveResult> {
+  if (!supabase)
+    return localRequest({
+      method: "POST",
+      body: JSON.stringify({ payload, expectedRevision }),
+    });
+  return withTimeout(
+    supabase
+      .rpc("save_app_state", {
+        p_payload: payload,
+        p_expected_revision: expectedRevision,
+      })
+      .then(({ data, error }) => ({
+        data: (data as { revision: number }[] | null)?.[0] ?? null,
+        error,
+      })),
+  );
 }
 /** Resolves to whether the server payload replaced the cache. */
 async function loadDatabase(): Promise<boolean> {
   const { data, error } = await readRow();
-  if (error) { reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`); return false; }
+  if (error) {
+    reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
+    return false;
+  }
   if (!data) {
     const created = await saveRow(initialDatabase, null);
     const row = created.data;
-    if (created.error) { reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`); return false; }
+    if (created.error) {
+      reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
+      return false;
+    }
     // The save no longer echoes the payload; what the server holds is what we just sent.
     if (row) adopt(initialDatabase, row.revision);
     return Boolean(row);
@@ -107,27 +185,52 @@ function onAuthEvent(event: string) {
   // Deferred: Supabase warns that calling the client inside onAuthStateChange can deadlock.
   // A save in flight reloads on its own; adopting now would swap its optimistic change out
   // of the cache and its base (revision, stored history) out from under it.
-  if (event === "SIGNED_IN") setTimeout(() => { if (!pendingWrites) void loadDatabase(); }, 0);
-  if (event === "SIGNED_OUT") { cached = initialDatabase; stored = null; revision = null; loaded = false; notify(); }
+  if (event === "SIGNED_IN")
+    setTimeout(() => {
+      if (!pendingWrites) void loadDatabase();
+    }, 0);
+  if (event === "SIGNED_OUT") {
+    cached = initialDatabase;
+    stored = null;
+    revision = null;
+    loaded = false;
+    notify();
+  }
 }
 if (supabase) {
-  void supabase.auth.getSession().then(({ data }) => { if (data.session) void loadDatabase(); });
+  void supabase.auth.getSession().then(({ data }) => {
+    if (data.session) void loadDatabase();
+  });
   supabase.auth.onAuthStateChange(onAuthEvent);
 } else if (typeof window !== "undefined") {
   // session.ts dispatches these in local mode.
-  window.addEventListener("local-auth", (event) => onAuthEvent((event as CustomEvent<string>).detail));
+  window.addEventListener("local-auth", (event) =>
+    onAuthEvent((event as CustomEvent<string>).detail),
+  );
   if (localAccountId()) void loadDatabase();
 }
 
 /** Reloads when someone else saved since our load. Reads only `revision`, not the payload.
  * ponytail: poll ทุก 15 วิ, เปลี่ยนเป็น realtime ถ้า payload เล็กลง */
 export async function checkForUpdates() {
-  if (!loaded || pendingWrites || (typeof document !== "undefined" && document.hidden)) return;
+  if (
+    !loaded ||
+    pendingWrites ||
+    (typeof document !== "undefined" && document.hidden)
+  )
+    return;
   const { data } = supabase
-    ? await withTimeout(supabase.from("app_state").select("revision").eq("singleton", true).maybeSingle<{ revision: number }>())
+    ? await withTimeout(
+        supabase
+          .from("app_state")
+          .select("revision")
+          .eq("singleton", true)
+          .maybeSingle<{ revision: number }>(),
+      )
     : await localRequest();
   // A failed poll stays quiet; the next one (or a save) reports a real outage.
-  if (data && data.revision !== revision && !pendingWrites) await loadDatabase();
+  if (data && data.revision !== revision && !pendingWrites)
+    await loadDatabase();
 }
 if (typeof window !== "undefined") {
   setInterval(() => void checkForUpdates(), 15_000);
@@ -140,7 +243,11 @@ export function useDatabaseLoaded() {
   return useSyncExternalStore(subscribe, databaseLoaded, () => false);
 }
 export function useDatabase() {
-  return useSyncExternalStore(subscribe, () => cached, () => initialDatabase);
+  return useSyncExternalStore(
+    subscribe,
+    () => cached,
+    () => initialDatabase,
+  );
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */
 export function saveDatabase(db: Database): Promise<boolean> {
@@ -152,52 +259,106 @@ export function saveDatabase(db: Database): Promise<boolean> {
 export function saveDatabaseOrConflict(db: Database) {
   return writeDatabase(db, true);
 }
-const isConflict = (message: string) => message.includes("State changed on another device");
-function writeDatabase(db: Database, quietConflict: boolean): Promise<"saved" | "conflict" | "failed"> {
+const isConflict = (message: string) =>
+  message.includes("State changed on another device");
+function writeDatabase(
+  db: Database,
+  quietConflict: boolean,
+): Promise<"saved" | "conflict" | "failed"> {
   const before = { cached, stored };
-  const strip = (entry: Database["entries"][number]) => ({ ...entry, values: Object.fromEntries(Object.entries(entry.values).filter(([key]) => key !== "attachmentData")) });
+  const strip = (entry: Database["entries"][number]) => ({
+    ...entry,
+    values: Object.fromEntries(
+      Object.entries(entry.values).filter(([key]) => key !== "attachmentData"),
+    ),
+  });
   cached = { ...db, entries: db.entries.map(strip) };
   // Only splice when `db` continues the loaded history; a wholesale reset goes out as is.
-  const continues = stored && db.entries.length >= stored.count && db.entries[stored.count - 1]?.id === stored.lastId;
-  const portable: Database = !continues || !stored ? cached : {
-    ...db,
-    entries: [...(stored.payload.entries ?? []), ...db.entries.slice(stored.count).map(strip)],
-    config: JSON.stringify(db.config) === JSON.stringify(stored.config) ? stored.payload.config ?? db.config : db.config,
+  const continues =
+    stored &&
+    db.entries.length >= stored.count &&
+    db.entries[stored.count - 1]?.id === stored.lastId;
+  const portable: Database =
+    !continues || !stored
+      ? cached
+      : {
+          ...db,
+          entries: [
+            ...(stored.payload.entries ?? []),
+            ...db.entries.slice(stored.count).map(strip),
+          ],
+          config:
+            JSON.stringify(db.config) === JSON.stringify(stored.config)
+              ? (stored.payload.config ?? db.config)
+              : db.config,
+        };
+  stored = {
+    payload: portable,
+    count: db.entries.length,
+    lastId: db.entries.at(-1)?.id,
+    config: db.config,
   };
-  stored = { payload: portable, count: db.entries.length, lastId: db.entries.at(-1)?.id, config: db.config };
   const mine = cached;
   notify();
   pendingWrites++;
-  const saved = writeQueue.then(async () => {
-    const { data: row, error } = await saveRow(portable, revision);
-    if (error) {
-      if (await loadDatabase()) {
-        if (quietConflict && isConflict(error.message)) return "conflict" as const;
-        reportError(`บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`);
+  const saved = writeQueue
+    .then(async () => {
+      const { data: row, error } = await saveRow(portable, revision);
+      if (error) {
+        if (await loadDatabase()) {
+          if (quietConflict && isConflict(error.message))
+            return "conflict" as const;
+          reportError(
+            `บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`,
+          );
+          return "failed" as const;
+        }
+        // The server copy could not be read (offline): drop the unsaved change so a retry
+        // does not send it twice. ponytail: skipped when a later save already built on it.
+        if (cached === mine) {
+          ({ cached, stored } = before);
+          notify();
+        }
+        reportError(
+          `บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ · ${error.message}`,
+        );
         return "failed" as const;
       }
-      // The server copy could not be read (offline): drop the unsaved change so a retry
-      // does not send it twice. ponytail: skipped when a later save already built on it.
-      if (cached === mine) { ({ cached, stored } = before); notify(); }
-      reportError(`บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ · ${error.message}`);
-      return "failed" as const;
-    }
-    if (row) revision = row.revision;
-    return "saved" as const;
-  }).finally(() => { pendingWrites--; });
+      if (row) revision = row.revision;
+      return "saved" as const;
+    })
+    .finally(() => {
+      pendingWrites--;
+    });
   writeQueue = saved.then(() => undefined);
   return saved;
 }
-export async function migrateLegacyAttachments(db: Database): Promise<Database> {
+export async function migrateLegacyAttachments(
+  db: Database,
+): Promise<Database> {
   let changed = false;
-  const entries = await Promise.all(db.entries.map(async (entry) => {
-    const data = entry.values.attachmentData;
-    if (!data || entry.values.attachmentStorageKey) return entry;
-    const storageKey = await saveLegacyDataUrl(data, entry.values.attachment || "attachment");
-    const values = { ...entry.values }; delete values.attachmentData; changed = true;
-    return { ...entry, values: { ...values, attachmentStorageKey: storageKey } };
-  }));
+  const entries = await Promise.all(
+    db.entries.map(async (entry) => {
+      const data = entry.values.attachmentData;
+      if (!data || entry.values.attachmentStorageKey) return entry;
+      const storageKey = await saveLegacyDataUrl(
+        data,
+        entry.values.attachment || "attachment",
+      );
+      const values = { ...entry.values };
+      delete values.attachmentData;
+      changed = true;
+      return {
+        ...entry,
+        values: { ...values, attachmentStorageKey: storageKey },
+      };
+    }),
+  );
   return changed ? { ...db, entries } : db;
 }
-export function latestDatabase() { return cached; }
-export function databaseLoaded() { return loaded; }
+export function latestDatabase() {
+  return cached;
+}
+export function databaseLoaded() {
+  return loaded;
+}

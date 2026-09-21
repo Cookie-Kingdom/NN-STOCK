@@ -190,7 +190,13 @@ describe("derived values from the entry log", () => {
         returnCost: "0",
       },
     };
-    const po: Lot = { id: "P1", poId: "PO-1", stage: 1, config: {}, values: { price: "250" } };
+    const po: Lot = {
+      id: "P1",
+      poId: "PO-1",
+      stage: 1,
+      config: {},
+      values: { price: "250" },
+    };
     const db = {
       ...withEntries(
         entry({
@@ -225,7 +231,16 @@ describe("derived values from the entry log", () => {
     });
     const db = {
       ...withEntries(sala, minburi, smoke),
-      lots: [{ id: "S1", poId: "SH-1", kind: "shipment" as const, stage: 5, config: {}, values: {} }],
+      lots: [
+        {
+          id: "S1",
+          poId: "SH-1",
+          kind: "shipment" as const,
+          stage: 5,
+          config: {},
+          values: {},
+        },
+      ],
     };
     expect(visibleEntries(db, "owner")).toEqual(db.entries);
     expect(visibleEntries(db, "branch", "ศาลาแดง")).toEqual([
@@ -557,9 +572,9 @@ describe("lot workflow", () => {
       reviewedBy: "Owner",
       comment: "ยอดคลาดเคลื่อน",
     });
-    expect(
-      smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment,
-    ).toBe("ยอดคลาดเคลื่อน");
+    expect(smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment).toBe(
+      "ยอดคลาดเคลื่อน",
+    );
     // The review shows in Chef House history next to the Packing List and smoke PO it works
     // from; the purchase PO, the Request and the transport documents stay hidden.
     const chef = visibleEntries(s.db, "cm");
@@ -596,7 +611,12 @@ describe("lot workflow", () => {
     expect(ownerWasteOutstanding(s.db, id)).toBe(6);
     expect(rawAtFoodiva(s.db, lot())).toBe(36);
     // Legacy "steakTransfer" entries (no UI creates them now) still leave Foodiva.
-    s.db.entries.push({ ...last(s), id: "legacy-steak", kind: "steakTransfer", values: { quantityKg: "5" } });
+    s.db.entries.push({
+      ...last(s),
+      id: "legacy-steak",
+      kind: "steakTransfer",
+      values: { quantityKg: "5" },
+    });
     expect(rawAtFoodiva(s.db, lot())).toBe(31);
     // A Request leaves the beef at Foodiva until its truck goes; the shipment holds none itself.
     request(s, [[id, "10"]]);
@@ -661,7 +681,12 @@ describe("lot workflow", () => {
     const s = setup();
     received(s, "50");
     s.run("cm", "prepare", { preSmokeKg: "50" });
-    s.run("cm", "smoke", { smokeDate: day, inputKg: "50", wasteKg: "5", packs: packs(450) });
+    s.run("cm", "smoke", {
+      smokeDate: day,
+      inputKg: "50",
+      wasteKg: "5",
+      packs: packs(450),
+    });
     const lot = s.db.lots.at(-1)!;
     const id = lot.id;
     delete last(s).values.postSmokeKg;
@@ -807,7 +832,12 @@ describe("lot workflow", () => {
     const s = setup();
     received(s, "90", "90", "88");
     s.run("cm", "prepare", { preSmokeKg: "85" });
-    s.run("cm", "smoke", { smokeDate: day, inputKg: "85", wasteKg: "5", packs: "40\n40" });
+    s.run("cm", "smoke", {
+      smokeDate: day,
+      inputKg: "85",
+      wasteKg: "5",
+      packs: "40\n40",
+    });
     s.run("cm", "closeLot", { confirm: "สมชาย" });
     s.run("owner", "return", {
       returnDate: day,
@@ -832,7 +862,11 @@ describe("lot workflow", () => {
     expect(centralStock(s.db, id)).toBe(39);
     const [bag] = availableBags(s.db, id);
     expect(bag.weight).toBeCloseTo(39);
-    s.run("owner", "allocate", { branch: "มีนบุรี", deliveryDate: day, bagIds: bag.id });
+    s.run("owner", "allocate", {
+      branch: "มีนบุรี",
+      deliveryDate: day,
+      bagIds: bag.id,
+    });
     expect(Number(last(s).values.kg)).toBeCloseTo(39);
     expect(centralStock(s.db, id)).toBeCloseTo(0);
     expect(centralBagStock(s.db, id)).toBe(0);
@@ -944,7 +978,9 @@ describe("branch supplies", () => {
     expect(() => s.run("branch", "materials", sheet("40"))).toThrow(/เหตุผล/);
     s.run("branch", "materials", sheet("40", { correctionReason: "กรอกผิด" }));
     expect(last(s).values.revision).toBe("2");
-    expect(entries(s.db, "materials", undefined, "ศาลาแดง", day)).toHaveLength(2);
+    expect(entries(s.db, "materials", undefined, "ศาลาแดง", day)).toHaveLength(
+      2,
+    );
     // Only the newest sheet of the day counts, so the fix does not deduct twice.
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0, "2026-09-10")).toBe(60);
   });

@@ -19,7 +19,10 @@ describe("getAttachment", () => {
     const blob = new Blob(["invoice"]);
     bucket.list.mockResolvedValue({ data: [{ name: "INV.pdf" }], error: null });
     bucket.download.mockResolvedValue({ data: blob, error: null });
-    await expect(getAttachment("key")).resolves.toMatchObject({ name: "INV.pdf", blob });
+    await expect(getAttachment("key")).resolves.toMatchObject({
+      name: "INV.pdf",
+      blob,
+    });
     expect(bucket.download).toHaveBeenCalledWith("key/INV.pdf");
   });
 
@@ -29,7 +32,12 @@ describe("getAttachment", () => {
   });
 
   it("throws a Thai message when the bucket cannot be read", async () => {
-    bucket.list.mockResolvedValue({ data: null, error: { message: "Bucket not found" } });
-    await expect(getAttachment("key")).rejects.toThrow("เปิดที่เก็บไฟล์ไม่สำเร็จ: Bucket not found");
+    bucket.list.mockResolvedValue({
+      data: null,
+      error: { message: "Bucket not found" },
+    });
+    await expect(getAttachment("key")).rejects.toThrow(
+      "เปิดที่เก็บไฟล์ไม่สำเร็จ: Bucket not found",
+    );
   });
 });

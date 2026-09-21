@@ -144,7 +144,9 @@ async function expectWorkspace(page: Page, p: Profile, [id, label]: TabDef) {
 
 async function expectSignInPage(page: Page) {
   await expect(page).toHaveURL(SIGN_IN_URL, { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "เข้าสู่ระบบ" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "ออกจากระบบ" })).toHaveCount(0);
   await expect(sidebar(page)).toHaveCount(0);
 }
@@ -252,7 +254,12 @@ test("A4 ยังไม่เข้าสู่ระบบ เปิด /owner
   page,
 }) => {
   await startFresh(page);
-  for (const url of ["/owner/po", "/branch/day", "/chef/work", "/foodiva/foodiva"]) {
+  for (const url of [
+    "/owner/po",
+    "/branch/day",
+    "/chef/work",
+    "/foodiva/foodiva",
+  ]) {
     await step(
       page,
       `ระบบ: ยังไม่เข้าสู่ระบบ เปิด ${url} → หน้าเข้าสู่ระบบ`,
@@ -342,7 +349,9 @@ test("A7 saladaeng กับ minburi เห็นชื่อสาขาตั�
   page,
 }) => {
   await startFresh(page);
-  await step(page, "ระบบ: โหลดข้อมูลตัวอย่าง 7 วัน", () => loadSampleData(page));
+  await step(page, "ระบบ: โหลดข้อมูลตัวอย่าง 7 วัน", () =>
+    loadSampleData(page),
+  );
 
   const summaries: Partial<Record<AccountKey, string>> = {};
   for (const account of ["saladaeng", "minburi"] as const) {

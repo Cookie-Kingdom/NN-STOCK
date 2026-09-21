@@ -24,9 +24,14 @@ describe("packingList", () => {
 
   test("Inv. Weight gives the sliced loss", () => {
     const s = dispatched();
-    s.run("foodiva", "packingList", { ...list, boxes: "10\n20", invWeightKg: "33" });
+    s.run("foodiva", "packingList", {
+      ...list,
+      boxes: "10\n20",
+      invWeightKg: "33",
+    });
     expect(
-      entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!.values.slicedLostKg,
+      entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!.values
+        .slicedLostKg,
     ).toBe("3");
   });
 
@@ -56,8 +61,14 @@ describe("packingList", () => {
     const save = (role: "foodiva" | "owner", lotId: string) =>
       mutate(s.db, role, "packingList", { ...list, boxes: "10" }, lotId, date);
     const shipment = s.db.lots.at(-1)!.id;
-    expect(() => save("foodiva", shipment)).toThrow("ต้องทำใบขนส่งขาไปก่อนทำ Packing List");
-    expect(() => save("foodiva", s.db.lots[0].id)).toThrow("ต้องทำใบขนส่งขาไปก่อนทำ Packing List");
-    expect(() => save("owner", shipment)).toThrow("บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
+    expect(() => save("foodiva", shipment)).toThrow(
+      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
+    );
+    expect(() => save("foodiva", s.db.lots[0].id)).toThrow(
+      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
+    );
+    expect(() => save("owner", shipment)).toThrow(
+      "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+    );
   });
 });

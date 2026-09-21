@@ -29,7 +29,9 @@ test("Chef House รับ PO รมควันแล้ว Submit ใบวา
 
   await signInAs(page, ACCOUNTS.chef);
   await button(page, "งานผลิต");
-  await expect(page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" }),
+  ).toBeVisible();
 
   await button(page, "ยืนยันรับ PO รมควัน");
   await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");

@@ -5,19 +5,20 @@
 
 ## ชื่อที่เปลี่ยน
 
-| ชื่อเก่า (ยังอยู่ใน `app_state.payload`) | ชื่อใหม่ (โค้ดใน `main`) | อยู่ตรงไหนใน payload |
-|---|---|---|
-| `fooddiva` | `foodiva` | `entries[].role` |
-| `foodDivaConfirm` | `foodivaConfirm` | `entries[].kind` |
-| `foodDivaReturnReceive` | `foodivaReturnReceive` | `entries[].kind` |
-| `foodDivaContact` | `foodivaContact` | `config`, `lots[].config` |
-| `foodDivaAddress` | `foodivaAddress` | `config`, `lots[].config` |
+| ชื่อเก่า (ยังอยู่ใน `app_state.payload`) | ชื่อใหม่ (โค้ดใน `main`) | อยู่ตรงไหนใน payload      |
+| ---------------------------------------- | ------------------------ | ------------------------- |
+| `fooddiva`                               | `foodiva`                | `entries[].role`          |
+| `foodDivaConfirm`                        | `foodivaConfirm`         | `entries[].kind`          |
+| `foodDivaReturnReceive`                  | `foodivaReturnReceive`   | `entries[].kind`          |
+| `foodDivaContact`                        | `foodivaContact`         | `config`, `lots[].config` |
+| `foodDivaAddress`                        | `foodivaAddress`         | `config`, `lots[].config` |
 
 และ `save_app_state` (migration `20260914000009`) ยังเช็ก role ของบัญชี `L4_SUPPLIER` เป็น `'fooddiva'`
 
 ## ⚠️ ห้าม deploy `main` ขึ้นระบบจริงก่อนรัน migration
 
 ถ้า deploy ก่อน:
+
 - Foodiva บันทึกอะไรไม่ได้เลย — `Entry role does not match signed-in account`
 - Lot เก่าที่ Foodiva ยืนยัน Invoice / รับเนื้อรมควันไปแล้ว ระบบจะมองไม่เห็นรายการนั้น → ยอดพร้อมส่ง, stage, สต๊อก คำนวณผิด
 - หน้าตั้งค่าแสดงผู้ติดต่อ / ที่อยู่ Foodiva ว่าง — **อย่ากดบันทึกตั้งค่า** เพราะจะมีทั้ง key เก่าและใหม่ใน config แล้วตอนรัน migration ค่าเก่าจะทับค่าใหม่

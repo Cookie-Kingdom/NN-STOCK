@@ -11,11 +11,15 @@ const lane = port === "3100" ? "" : `-${port}`;
 process.env.NEXT_PUBLIC_LOCAL_DB = "1";
 process.env.LOCAL_DB_FILE = `artifacts/e2e-local${lane}.db`;
 // Workers re-evaluate this file; only the runner may wipe the database.
-if (!process.env.TEST_WORKER_INDEX) rmSync(process.env.LOCAL_DB_FILE, { force: true });
+if (!process.env.TEST_WORKER_INDEX)
+  rmSync(process.env.LOCAL_DB_FILE, { force: true });
 // Every run keeps its own results folder so reruns never overwrite earlier evidence
 // (videos, failure screenshots, HTML report, results.json). The runner stamps
 // E2E_RUN once; workers inherit it, so they resolve the same folder.
-process.env.E2E_RUN ??= new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+process.env.E2E_RUN ??= new Date()
+  .toISOString()
+  .slice(0, 19)
+  .replace(/[T:]/g, "-");
 const runDir = `artifacts/e2e-runs/${process.env.E2E_RUN}-${port}`;
 
 export default defineConfig({

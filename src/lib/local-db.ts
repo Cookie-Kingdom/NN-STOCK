@@ -6,5 +6,7 @@ export const LOCAL_ACCOUNT_COOKIE = "local-account";
 
 export function localAccountId() {
   if (typeof document === "undefined") return undefined;
-  return document.cookie.match(new RegExp(`(?:^|; )${LOCAL_ACCOUNT_COOKIE}=([^;]*)`))?.[1];
+  return document.cookie.match(
+    new RegExp(`(?:^|; )${LOCAL_ACCOUNT_COOKIE}=([^;]*)`),
+  )?.[1];
 }

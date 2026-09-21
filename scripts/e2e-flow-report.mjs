@@ -7,33 +7,56 @@
 //
 // Default input: every artifacts/e2e-runs/*/results.json (pass files to pick one
 // run per spec). Default output: artifacts/e2e-flows. Screenshots are copied next to the pages.
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 const args = process.argv.slice(2);
 const outIdx = args.indexOf("--out");
-const OUT =
-  outIdx >= 0
-    ? args.splice(outIdx, 2)[1]
-    : "artifacts/e2e-flows";
+const OUT = outIdx >= 0 ? args.splice(outIdx, 2)[1] : "artifacts/e2e-flows";
 const inputs = args.length
   ? args
   : readdirSync("artifacts/e2e-runs")
       .map((d) => path.join("artifacts/e2e-runs", d, "results.json"))
       .filter((f) => existsSync(f));
 
-const ACTORS = ["Owner", "Foodiva", "Chef_house", "สาขาศาลาแดง", "สาขามีนบุรี", "ระบบ"];
+const ACTORS = [
+  "Owner",
+  "Foodiva",
+  "Chef_house",
+  "สาขาศาลาแดง",
+  "สาขามีนบุรี",
+  "ระบบ",
+];
 const ACTOR_CLASS = Object.fromEntries(ACTORS.map((a, i) => [a, `a${i}`]));
 
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const ms = (d) => (d >= 60_000 ? `${(d / 60_000).toFixed(1)} นาที` : d >= 1000 ? `${(d / 1000).toFixed(1)} วิ` : `${Math.round(d)} มส.`);
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+const ms = (d) =>
+  d >= 60_000
+    ? `${(d / 60_000).toFixed(1)} นาที`
+    : d >= 1000
+      ? `${(d / 1000).toFixed(1)} วิ`
+      : `${Math.round(d)} มส.`;
 const slug = (s) => s.replace(/\.spec\.ts$/, "").replace(/[\\/]/g, "__");
 
 /** Walks a suite tree and yields { file, spec } for every spec. */
 function* specs(suite, file = suite.file) {
   for (const spec of suite.specs ?? []) yield { file: spec.file ?? file, spec };
-  for (const child of suite.suites ?? []) yield* specs(child, child.file ?? file);
+  for (const child of suite.suites ?? [])
+    yield* specs(child, child.file ?? file);
 }
 
 /** Flattens nested test.step entries into rows with depth. */
@@ -50,7 +73,10 @@ function actorOf(title) {
   return m && ACTORS.includes(m[1].trim()) ? m[1].trim() : "";
 }
 
-const runs = inputs.map((file) => ({ file, json: JSON.parse(readFileSync(file, "utf8")) }));
+const runs = inputs.map((file) => ({
+  file,
+  json: JSON.parse(readFileSync(file, "utf8")),
+}));
 mkdirSync(OUT, { recursive: true });
 
 // Group by spec file across lanes; the last result of each test wins.
@@ -58,11 +84,14 @@ const byFile = new Map();
 for (const { json } of runs)
   for (const suite of json.suites)
     for (const { file, spec } of specs(suite)) {
-      if (!byFile.has(file)) byFile.set(file, { file, tests: [], startTime: json.stats.startTime });
+      if (!byFile.has(file))
+        byFile.set(file, { file, tests: [], startTime: json.stats.startTime });
       for (const test of spec.tests) {
         const result = test.results[test.results.length - 1];
         if (!result) continue;
-        byFile.get(file).tests.push({ title: spec.title, line: spec.line, test, result });
+        byFile
+          .get(file)
+          .tests.push({ title: spec.title, line: spec.line, test, result });
       }
     }
 
@@ -91,7 +120,10 @@ td.n{color:var(--muted);width:2.5em}td.t{width:100%}td.d{white-space:nowrap;colo
 
 function statusOf(test, result) {
   if (result.status === "skipped") return ["ข้าม", "skip"];
-  if (test.status === "expected") return result.status === "passed" ? ["ผ่าน", "ok"] : ["ตกตามคาด (บั๊กเปิดอยู่)", "warn"];
+  if (test.status === "expected")
+    return result.status === "passed"
+      ? ["ผ่าน", "ok"]
+      : ["ตกตามคาด (บั๊กเปิดอยู่)", "warn"];
   if (test.status === "flaky") return ["ผ่านหลังรันซ้ำ", "warn"];
   return ["ตก", "bad"];
 }
@@ -122,7 +154,9 @@ for (const [file, group] of byFile) {
     total += result.duration;
     const rows = flatten(result.steps);
     // Attachments named step:<title> are matched to steps in order of appearance.
-    const shots = (result.attachments ?? []).filter((a) => a.name.startsWith("step:"));
+    const shots = (result.attachments ?? []).filter((a) =>
+      a.name.startsWith("step:"),
+    );
     let shotIdx = 0;
     const actors = [];
     const body = rows
@@ -130,20 +164,34 @@ for (const [file, group] of byFile) {
         const actor = actorOf(s.title);
         if (actor && actors[actors.length - 1] !== actor) actors.push(actor);
         let shot = "";
-        if (shots[shotIdx] && shots[shotIdx].name === `step:${s.title}`) shot = copyShot(shots[shotIdx++]);
+        if (shots[shotIdx] && shots[shotIdx].name === `step:${s.title}`)
+          shot = copyShot(shots[shotIdx++]);
         const text = actor ? s.title.slice(actor.length + 1).trim() : s.title;
         return `<tr><td class="n">${n + 1}</td><td>${actor ? `<span class="actor ${ACTOR_CLASS[actor]}">${esc(actor)}</span>` : ""}</td>
 <td class="t"><div class="sub" style="--depth:${s.depth}">${esc(text)}${s.error ? ` <span class="badge bad">ตก</span>` : ""}</div>${
-          s.error ? `<div class="err">${esc(s.error.message ?? s.error).slice(0, 1500)}</div>` : ""
+          s.error
+            ? `<div class="err">${esc(s.error.message ?? s.error).slice(0, 1500)}</div>`
+            : ""
         }</td><td class="d">${ms(s.duration)}</td><td>${shot ? `<a href="${shot}" target="_blank"><img class="shot" loading="lazy" src="${shot}" alt=""></a>` : ""}</td></tr>`;
       })
       .join("\n");
     const failShots = (result.attachments ?? [])
-      .filter((a) => a.name === "screenshot" && a.contentType?.startsWith("image/"))
+      .filter(
+        (a) => a.name === "screenshot" && a.contentType?.startsWith("image/"),
+      )
       .map(copyShot)
       .filter(Boolean);
-    const annotations = (test.annotations ?? []).map((a) => `<span class="badge warn">${esc(a.type)}${a.description ? `: ${esc(a.description)}` : ""}</span>`).join(" ");
-    const errors = (result.errors ?? []).map((e) => `<div class="err">${esc(e.message ?? "").slice(0, 3000)}</div>`).join("");
+    const annotations = (test.annotations ?? [])
+      .map(
+        (a) =>
+          `<span class="badge warn">${esc(a.type)}${a.description ? `: ${esc(a.description)}` : ""}</span>`,
+      )
+      .join(" ");
+    const errors = (result.errors ?? [])
+      .map(
+        (e) => `<div class="err">${esc(e.message ?? "").slice(0, 3000)}</div>`,
+      )
+      .join("");
     return `<section class="card" id="t${i}">
 <div class="top"><h2>${esc(title)}</h2><span class="badge ${cls}">${label}</span><span class="muted">${ms(result.duration)} · บรรทัด ${line} · ${rows.length} ก้าว</span></div>
 ${annotations ? `<div style="margin-top:6px">${annotations}</div>` : ""}
@@ -169,10 +217,27 @@ ${failShots.length ? `<div class="grid">${failShots.map((s) => `<a href="${s}" t
 ${sections.join("\n")}
 </main></body></html>`;
   writeFileSync(path.join(OUT, `${name}.html`), html);
-  pages.push({ file, name, counts, total, n: group.tests.length, startTime: group.startTime });
+  pages.push({
+    file,
+    name,
+    counts,
+    total,
+    n: group.tests.length,
+    startTime: group.startTime,
+  });
 }
 
-const sum = pages.reduce((a, p) => ({ ok: a.ok + p.counts.ok, bad: a.bad + p.counts.bad, warn: a.warn + p.counts.warn, skip: a.skip + p.counts.skip, n: a.n + p.n, total: a.total + p.total }), { ok: 0, bad: 0, warn: 0, skip: 0, n: 0, total: 0 });
+const sum = pages.reduce(
+  (a, p) => ({
+    ok: a.ok + p.counts.ok,
+    bad: a.bad + p.counts.bad,
+    warn: a.warn + p.counts.warn,
+    skip: a.skip + p.counts.skip,
+    n: a.n + p.n,
+    total: a.total + p.total,
+  }),
+  { ok: 0, bad: 0, warn: 0, skip: 0, n: 0, total: 0 },
+);
 const index = `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>E2E Full System — flows</title><style>${CSS}</style></head><body><main>
 <h1>E2E Full System — flow การทดสอบ</h1>
@@ -180,7 +245,10 @@ const index = `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta 
 <div class="card"><table><thead><tr><th>spec</th><th>test</th><th>ผ่าน</th><th>ตก</th><th>ตกตามคาด</th><th>ข้าม</th><th>เวลา</th></tr></thead><tbody>
 ${pages
   .sort((a, b) => a.file.localeCompare(b.file))
-  .map((p) => `<tr><td><a href="${p.name}.html">${esc(p.file)}</a></td><td>${p.n}</td><td class="ok">${p.counts.ok}</td><td class="${p.counts.bad ? "bad" : ""}">${p.counts.bad}</td><td class="${p.counts.warn ? "warn" : ""}">${p.counts.warn}</td><td>${p.counts.skip}</td><td class="d">${ms(p.total)}</td></tr>`)
+  .map(
+    (p) =>
+      `<tr><td><a href="${p.name}.html">${esc(p.file)}</a></td><td>${p.n}</td><td class="ok">${p.counts.ok}</td><td class="${p.counts.bad ? "bad" : ""}">${p.counts.bad}</td><td class="${p.counts.warn ? "warn" : ""}">${p.counts.warn}</td><td>${p.counts.skip}</td><td class="d">${ms(p.total)}</td></tr>`,
+  )
   .join("\n")}
 </tbody></table></div>
 <p class="muted">สีของผู้ทำ: ${ACTORS.map((a) => `<span class="actor ${ACTOR_CLASS[a]}">${esc(a)}</span>`).join(" ")}</p>

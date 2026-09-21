@@ -52,7 +52,9 @@ export function skipUnlessCredentials(...accounts: AccountKey[]) {
   test.skip(
     missing.length > 0,
     `missing credentials: ${missing
-      .map((a) => `E2E_${ACCOUNT_ENV[a]}_EMAIL / E2E_${ACCOUNT_ENV[a]}_PASSWORD`)
+      .map(
+        (a) => `E2E_${ACCOUNT_ENV[a]}_EMAIL / E2E_${ACCOUNT_ENV[a]}_PASSWORD`,
+      )
       .join(", ")}`,
   );
 }
@@ -176,7 +178,9 @@ export async function startFresh(page: Page) {
   // behind (loadSampleData closes today) cannot leak into the next spec.
   if (process.env.NEXT_PUBLIC_LOCAL_DB === "1") {
     const response = await page.request.put("/api/local-db?state=seed");
-    expect(response.ok(), `PUT /api/local-db → ${response.status()}`).toBe(true);
+    expect(response.ok(), `PUT /api/local-db → ${response.status()}`).toBe(
+      true,
+    );
   }
   await page.goto("/");
 }
