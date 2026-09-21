@@ -5,6 +5,7 @@ import {
   foodivaIssuesInvoice,
   menuItem,
   ownerCreatesMeatPo,
+  ownerCreatesShipmentRequest,
   sidebar,
   signInAs,
   startFresh,
@@ -46,6 +47,12 @@ test("Foodiva รับ PO จาก Owner แล้วออก Invoice เน�
   await expect(tableSection(page, "รายการใบสั่งซื้อ PO")).toContainText(
     "FD-INV-001",
   );
+
+  // Request ที่ Owner ส่งมาให้ทำใบขนส่ง ก็นับเป็นงานค้างบนเมนูด้วย
+  const shipment = await ownerCreatesShipmentRequest(page, [{ kg: "200" }]);
+  await signInAs(page, ACCOUNTS.foodiva);
+  await expect(pending).toHaveText(String(pendingBefore));
+  await expect(tableSection(page, "Request เข้า")).toContainText(shipment);
 });
 
 test("Foodiva เห็นเฉพาะเมนูของตัวเอง", async ({ page }) => {

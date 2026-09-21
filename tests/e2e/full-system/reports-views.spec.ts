@@ -14,9 +14,12 @@ import {
  * screens — dashboard, stock, meat log, traceability, report, history, the
  * Foodiva/Chef House/branch read views — on the seven-day sample set, and every
  * tab of every account on the empty seed. Expected numbers are derived from
- * roleplay() in src/lib/store.ts (7 days, 2 branches):
- *   lot: 50 kg @ 250 (12,500) + smoke 50 × 220 (11,000) + round trip 2,000 = 25,500 → 510 / kg
- *   produced 500 bags × 0.100 = 50 kg, 250 bags (25 kg) to each branch
+ * roleplay() in src/lib/store.ts (7 days, 2 branches). Shipment Flow: purchase PO
+ * PO-yyyy-0001 (lot F…-001) holds the raw beef; one Request SH-yyyy-0001 (lot S…-001)
+ * draws all 50 kg and carries every step from the truck to the branches:
+ *   shipment: 50 kg @ 250 (12,500) + smoke 50 × 220 (11,000) + round trip 2,000 = 25,500 → 510 / kg
+ *   Packing List 3 กล่องรับเข้า (20 + 20 + 10), produced 500 กล่องรมควัน × 0.100 = 50 kg,
+ *   250 (25 kg) to each branch
  *   each branch each day: thaw 1.521 kg, sell 1.421 + waste 0.100, 14 boxes × 350 = 4,900
  *     → meat cost 1.521 × 510 = 775.71 / branch / day
  *   Saladaeng rice: buy 5 kg raw (275) and issue 3 kg a day; Minburi buys 32 kg cooked (1,440)
@@ -41,7 +44,11 @@ const bangkok = (offsetDays = 0) => {
 const TODAY = bangkok();
 const FIRST_DAY = bangkok(-6);
 const YEAR = FIRST_DAY.slice(0, 4);
-const LOT = `F${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
+/** The shipment lot: branch stock, costs and documents all hang off it. */
+const LOT = `S${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
+const SH = `SH-${YEAR}-0001`;
+/** The purchase PO the shipment draws from (raw beef at Foodiva only). */
+const PO_LOT = `F${FIRST_DAY.slice(2).replaceAll("-", "")}-001`;
 const PO = `PO-${YEAR}-0001`;
 
 const main = (page: Page) => page.getByRole("main");
@@ -120,7 +127,8 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         await expect(view).toContainText(pair("ศาลาแดง", "฿7,354.97"));
         await expect(view).toContainText(pair("มีนบุรี", "฿15,509.97"));
         await expect(view).toContainText(pair("รวมทั้งร้าน", "฿29,864.94"));
-        await expect(rowIn(page, "สถานะ Lot และการผลิต", LOT)).toContainText(
+        // The dashboard lists shipments by their SH- number.
+        await expect(rowIn(page, "สถานะ Lot และการผลิต", SH)).toContainText(
           /จัดสรร \/ ขาย\s*50\.00 กก\.\s*0\.00 กก\.\s*14\.35 กก\.\s*14\.35 กก\./,
         );
       },
@@ -195,7 +203,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       "Owner: กรองสถานที่ ศาลาแดง — เนื้อ 1 + ข้าว/น้ำพริก 3 + วัสดุ 7 = 11 แถว",
       async () => {
         await tableSection(page, all)
-          .getByLabel("สถานที่")
+          .getByRole("combobox", { name: /^สถานที่/ })
           .selectOption("ศาลาแดง");
         await expect(tableSection(page, all)).toContainText("11 แถว");
         await expect(rowIn(page, all, "ข้าวเหนียวดิบ (ข้าวสาร)")).toContainText(
@@ -325,12 +333,19 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
 
     await step(
       page,
-      "Owner: filter Lot เลือก Lot ของ sample แล้วกลับเป็นทั้งหมด",
+      "Owner: filter Lot — การส่ง 7 จุด · PO ซื้อ 3 จุด แล้วกลับเป็นทั้งหมด",
       async () => {
-        const select = tableSection(page, points).getByLabel("Lot");
+        // A shipment lot has 5 points + 2 branches, a purchase PO 3 (MeatMovementLogView).
+        // The sort select's name lists "Lot" too, so match the filter's start.
+        const select = tableSection(page, points).getByRole("combobox", {
+          name: /^Lot/,
+        });
         await select.selectOption(LOT);
-        await expect(tableSection(page, points)).toContainText("10 แถว");
-        await expect(rowIn(page, points, PO)).toHaveCount(10);
+        await expect(tableSection(page, points)).toContainText("7 แถว");
+        await expect(rowIn(page, points, SH)).toHaveCount(7);
+        await select.selectOption(PO_LOT);
+        await expect(tableSection(page, points)).toContainText("3 แถว");
+        await expect(rowIn(page, points, PO)).toHaveCount(3);
         await select.selectOption("ทั้งหมด");
         await expect(tableSection(page, points)).toContainText("10 แถว");
       },
@@ -388,16 +403,16 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       withSample(page, "owner"),
     );
 
-    const register = "ทะเบียนเอกสารตาม Lot";
+    const register = "ทะเบียนเอกสารตามการส่ง";
     await step(
       page,
-      "Owner: ทะเบียนเอกสาร 1 Lot สถานะ จัดสรร / ขาย",
+      "Owner: ทะเบียนเอกสาร 1 การส่ง สถานะ จัดสรร / ขาย",
       async () => {
         await tab(page, "เอกสารและ Traceability");
         await expect(tableSection(page, register)).toContainText("1 รายการ");
         await expect(rowIn(page, register, LOT)).toContainText(
           new RegExp(
-            `จัดสรร / ขาย\\s*${PO}\\s*${LOT}\\s*${FIRST_DAY}\\s*ใบขนส่งกลับ · 50\\.00 กก\\.\\s*Chef House → Foodiva\\s*Owner`,
+            `จัดสรร / ขาย\\s*${SH}\\s*${LOT}\\s*${FIRST_DAY}\\s*Foodiva รับเข้าตู้ · 50\\.00 กก\\.\\s*Chef House → Foodiva\\s*Owner`,
           ),
         );
       },
@@ -427,16 +442,19 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           ["รับที่ Chef House", /50\.00 กก\.\s*\S+\s*รับแล้ว/],
           [
             "Lot สโมครายวัน",
-            /เข้าเตา 50\.00 กก\. · หลังรม 50\.00 กก\. · Waste 0\.00 กก\. · 500 ถุง/,
+            /เข้าเตา 50\.00 กก\. · หลังรม 50\.00 กก\. · Waste 0\.00 กก\. · 500 กล่องรมควัน/,
           ],
-          ["ผลผลิตหลังรม", /50\.00 กก\. · 500 ถุง\s*บันทึกแล้ว\s*ผลิตแล้ว/],
+          [
+            "ผลผลิตหลังรม",
+            /50\.00 กก\. · 500 กล่องรมควัน\s*บันทึกแล้ว\s*ผลิตแล้ว/,
+          ],
           [
             "ใบขนส่งกลับ Foodiva",
             new RegExp(
               `TR-${YEAR}-R\\d{4}\\s*\\d{4}-\\d{2}-\\d{2}\\s*50\\.00 กก\\.`,
             ),
           ],
-          ["Foodiva รับเข้าตู้", /50\.00 กก\. · 500 ถุง/],
+          ["Foodiva รับเข้าตู้", /50\.00 กก\. · 500 กล่องรมควัน/],
           ["รับเข้าสต๊อกกลาง", /50\.00 กก\./],
           [
             "จัดสรรไปสาขา",
@@ -466,18 +484,50 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       page,
       "Owner: พรีวิวทุกเอกสาร เปิดหน้าต่างพิมพ์ได้ ไม่มีค่าว่างผิดรูป",
       async () => {
-        const previews = tableSection(page, register).getByRole("button", {
-          name: "พรีวิว / PDF",
-        });
+        const section = tableSection(page, register);
+        const label = { name: "พรีวิว / PDF" };
+        const detailRow = (type: string) =>
+          section
+            .locator("table table")
+            .getByRole("row")
+            .filter({
+              has: page.getByRole("cell", { name: type, exact: true }),
+            });
+        const detailButton = (type: string) =>
+          detailRow(type).getByRole("button", label);
         // summary + PO, Invoice Foodiva, smoke PO, Invoice Chef House, outbound, Chef receipt, smoke log, yield, return
-        await expect(previews).toHaveCount(10);
+        await expect(section.getByRole("button", label)).toHaveCount(10);
+        // The two invoices open the counterparty's uploaded file (ae0e099); the sample
+        // holds only their file names, so each says the file is missing instead.
+        for (const type of ["Invoice Foodiva", "Invoice Chef House"]) {
+          await detailButton(type).click();
+          await expect(detailRow(type).getByRole("alert"), type).toContainText(
+            "ไม่พบไฟล์แนบในระบบ",
+          );
+        }
+        // The eight generated documents: the summary sits above the detail table.
+        const previews = [
+          section.getByRole("button", label).first(),
+          ...[
+            "PO เนื้อ",
+            "PO โรงรมควัน",
+            "ใบขนส่งไป Chef House",
+            "รับที่ Chef House",
+            "Lot สโมครายวัน",
+            "ผลผลิตหลังรม",
+            "ใบขนส่งกลับ Foodiva",
+          ].map(detailButton),
+        ];
         const titles: string[] = [];
-        for (let index = 0; index < 10; index++) {
+        for (const [index, preview] of previews.entries()) {
           const [popup] = await Promise.all([
             page.waitForEvent("popup"),
-            previews.nth(index).click(),
+            preview.click(),
           ]);
-          await expect(popup.locator("body")).toContainText("เลขที่เอกสาร");
+          await expect(
+            popup.locator("body"),
+            `preview ${index + 1}`,
+          ).toContainText("เลขที่เอกสาร");
           await expect(popup.locator("body")).not.toContainText(
             /undefined|NaN|\[object/,
           );
@@ -503,9 +553,7 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           expect.arrayContaining([
             `TRACE-${LOT}`,
             PO,
-            "INV-DEMO-001",
             `SO-${YEAR}-0001`,
-            "CH-INV-DEMO-001",
             `RCV-${LOT}`,
             `YIELD-${LOT}`,
           ]),
@@ -690,7 +738,8 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       await expect(history(page)).toHaveCount(
         all.filter((e) => e.role === "foodiva").length,
       );
-      await expect(history(page)).toHaveCount(2);
+      // Foodiva's invoice, transport document, Packing List and freezer receipt
+      await expect(history(page)).toHaveCount(4);
       await expect(main(page)).not.toContainText(
         /Owner\s*ดูรายละเอียด|ผู้ดูแลสาขา|· Chef House/,
       );
@@ -702,12 +751,22 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       async () => {
         await signInAs(page, "chef");
         await tab(page, "ประวัติ");
-        // visibleEntries also shows Chef House the Owner's review of its billing invoice
-        // (the reject reason, QA round 7 BUG-H), and nothing else from other roles.
+        // visibleEntries (chefHouseKinds) also shows Chef House, on its shipments, the
+        // Owner's smoke PO, Foodiva's Packing List, the Owner's review of its billing
+        // invoice (the reject reason, QA round 7 BUG-H) and its payment — nothing else.
         const own = all.filter((e) => e.role === "cm");
+        const shared = all.filter((e) =>
+          [
+            "smokeOrder",
+            "packingList",
+            "invoiceReview",
+            "invoicePayment",
+          ].includes(e.kind),
+        );
         const reviews = all.filter((e) => e.kind === "invoiceReview");
+        expect(shared).toHaveLength(4);
         expect(reviews).toHaveLength(1);
-        await expect(history(page)).toHaveCount(own.length + reviews.length);
+        await expect(history(page)).toHaveCount(own.length + shared.length);
         await expect(
           history(page).filter({ hasText: "· Chef House" }),
         ).toHaveCount(own.length);
@@ -765,22 +824,23 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         await expect(
           rowIn(page, "PO เนื้อที่ต้องออก Invoice", PO),
         ).toContainText(
-          /50\.00 กก\.\s*INV-DEMO-001 · 50\.00 กก\.\s*50\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\./,
+          // ordered · invoice · ready for Chef House · waste · held · left to send
+          /50\.00 กก\.\s*INV-DEMO-001 · 50\.00 กก\.\s*50\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\.\s*0\.00 กก\./,
         );
         await expect(
-          tableSection(page, "เนื้อรมควันรอ Foodiva รับเข้าตู้"),
-        ).toContainText("0 แถว");
+          tableSection(page, "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva"),
+        ).toContainText("ไม่มีเนื้อรมควันบนรถขากลับ");
       },
     );
 
     await step(
       page,
-      "Chef House: งานผลิต 500 ถุง ไม่มีเนื้อค้างรอผลิต",
+      "Chef House: งานผลิต 500 กล่องรมควัน ไม่มีเนื้อค้างรอผลิต",
       async () => {
         await signInAs(page, "chef");
         await tab(page, "งานผลิต");
         await expect(rowIn(page, "รายการ Lot ทั้งหมด", LOT)).toContainText(
-          /50\.00 กก\.\s*จัดสรร \/ ขาย\s*50\.00 กก\.\s*500 ถุง/,
+          /50\.00 กก\.\s*จัดสรร \/ ขาย\s*50\.00 กก\.\s*500 กล่องรมควัน/,
         );
         await expect(rowIn(page, /Log Lot สโมครายวัน/, LOT)).toContainText(
           /0\.00 กก\.$/,
