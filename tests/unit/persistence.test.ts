@@ -64,43 +64,45 @@ test("nothing counts as loaded until a payload has landed", async () => {
   expect(databaseLoaded()).toBe(false);
 });
 
-test("loading migrates an older payload into the current shape", async () => {
+test("loading a v8 payload keeps its history and fills missing settings from the seed", async () => {
+  const sale = entry({ boxes: "2" });
   await signInWithRow({
     revision: 3,
     payload: {
-      version: 5,
-      lots: [
-        { id: "F1", poId: "PO1", stage: 6, values: { preKg: "5", outputKg: "4" }, config: {} },
-      ],
-      config: { branch: "ปิดสาขาแล้ว", boxPrice: "999", brinePrice: "3" },
-      entries: [
-        entry({}, "brinePurchase"),
-        entry({ brineMl: "1", material: "ถุงซิปข้าว", boxes: "2" }),
-        entry({ inputKg: "5", outputKg: "4", batches: '[{"outputKg":"4","preKg":"5"}]' }, "smoke"),
-      ],
+      version: 8,
+      lots: [{ id: "S1", poId: "SH-1", kind: "shipment", stage: 6, values: {}, config: {} }],
+      config: { branch: "ปิดสาขาแล้ว", boxPrice: "999" },
+      entries: [sale],
     },
   });
   const db = latestDatabase();
-  expect(db.version).toBe(7);
-  expect(db.entries.map((item) => item.values)).toEqual([
-    { material: "ถุงซีลข้าว", boxes: "2" },
-    { inputKg: "5", postSmokeKg: "4", batches: '[{"postSmokeKg":"4","preSmokeKg":"5"}]' },
-  ]);
-  expect(db.lots[0].values).toEqual({ preSmokeKg: "5", postSmokeKg: "4" });
+  expect(db.version).toBe(8);
+  expect(db.entries).toEqual([sale]);
+  expect(db.lots[0].kind).toBe("shipment");
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
 });
 
-test("an unsupported payload falls back to the seed", async () => {
+test("a payload from before v8 falls back to the seed", async () => {
   await signInWithRow({
     revision: 1,
-    payload: { version: 5, lots: [], entries: [entry({ boxes: "1" })] },
+    payload: { version: 8, lots: [], entries: [entry({ boxes: "1" })] },
   });
   expect(latestDatabase().entries).toHaveLength(1);
   await signInWithRow({
     revision: 2,
-    payload: { version: 2, lots: [], entries: [] },
+    payload: { version: 7, lots: [], entries: [entry({ boxes: "1" })] },
   });
   expect(latestDatabase()).toBe(seed);
+});
+
+test("a save on top of a pre-v8 payload sends the whole database, so the server refuses it", async () => {
+  const old = entry({ boxes: "1" });
+  await signInWithRow({ revision: 4, payload: { version: 7, lots: [], entries: [old] } });
+  mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 5 }], error: null });
+  const added = entry({ boxes: "2" });
+  await saveDatabase({ ...latestDatabase(), entries: [added] });
+  // Not spliced onto the v7 history: without `old` the append-only guard rejects it.
+  expect(mocks.rpc.mock.lastCall![1].p_payload).toMatchObject({ version: 8, entries: [added] });
 });
 
 test("the first sign-in creates the row from the seed", async () => {
@@ -145,21 +147,19 @@ test("saving strips attachment bytes, updates the cache first and sends the know
 });
 
 test("saving sends the stored history back untouched and appends only the new entries", async () => {
-  const brine = entry({ brinePrice: "3" }, "brinePurchase");
-  const smoke = entry({ inputKg: "5", outputKg: "4", batches: '[{"outputKg":"4","preKg":"5"}]' }, "smoke");
-  const config = { ...seed.config, boxPrice: "999", brinePrice: "3" };
-  const payload = { version: 5, lots: [], entries: [brine, smoke], config };
+  const smoke = entry({ inputKg: "5", postSmokeKg: "4" }, "smoke");
+  const config = { branch: "ศาลาแดง", boxPrice: "999" };
+  const payload = { version: 8, lots: [], entries: [smoke], config };
   await signInWithRow({ revision: 4, payload });
   const db = latestDatabase();
-  expect(db.entries).toHaveLength(1);
-  expect(db.entries[0].values).toEqual({ inputKg: "5", postSmokeKg: "4", batches: '[{"postSmokeKg":"4","preSmokeKg":"5"}]' });
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
   mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 5 }], error: null });
   const added = entry({ boxes: "1", attachmentData: "data:x" });
   await expect(saveDatabase({ ...db, entries: [...db.entries, added] })).resolves.toBe(true);
-  expect(latestDatabase().entries.map((item) => item.values)).toEqual([db.entries[0].values, { boxes: "1" }]);
+  expect(latestDatabase().entries.map((item) => item.values)).toEqual([smoke.values, { boxes: "1" }]);
+  // The stored config goes back as it was, not with the seed defaults normalize() filled in.
   expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
-    p_payload: expect.objectContaining({ entries: [brine, smoke, { ...added, values: { boxes: "1" } }], config }),
+    p_payload: expect.objectContaining({ entries: [smoke, { ...added, values: { boxes: "1" } }], config }),
     p_expected_revision: 4,
   });
 });

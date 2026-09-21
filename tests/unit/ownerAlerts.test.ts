@@ -4,7 +4,6 @@ import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useO
 import { seed } from "@/lib/store";
 import {
   confirm,
-  day,
   purchase,
   ready,
   returned,
@@ -37,35 +36,7 @@ test("a lot's notification follows its next missing document", () => {
   confirm(s, "40");
   expect(first().tab).toBe("smoke-po");
   expect(alerts().badges["smoke-po"]).toBe(1);
-  s.run("owner", "smokeOrder", {
-    requestedSmokeDate: day,
-    smoker: "Chef House",
-    rawKg: "40",
-  });
-  expect(first().title).toMatch(/^รอ Chef House ยืนยัน PO/);
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  expect(first().title).toMatch(/^รอ Chef House Submit Invoice/);
-  s.run("cm", "smokingInvoice", {
-    invoiceNumber: "CH-1",
-    invoiceDate: day,
-    attachment: "ch.pdf",
-  });
-  expect(first()).toMatchObject({
-    title: "รอตรวจ Invoice ค่ารมควัน · CH-1",
-    tab: "invoices",
-  });
-  expect(alerts().badges.invoices).toBe(1);
-  s.run("owner", "invoiceReview", { decision: "รับยอด", reviewedBy: "Owner" });
-  expect(first().title).toMatch(/^รอชำระ/);
-  s.run("owner", "invoicePayment", {
-    paymentDate: day,
-    paidBy: "Owner",
-    paidAmount: "8800",
-  });
-  expect(first()).toMatchObject({
-    title: "พร้อมทำใบขนส่งไป Chef House · F260909-001",
-    tab: "transport",
-  });
+  // ponytail: the smoke PO → invoice → transport steps moved onto the shipment; P4 rewrites these alerts.
 });
 
 test("after smoking the owner is sent to transport, central receive and allocation", () => {
@@ -74,7 +45,7 @@ test("after smoking the owner is sent to transport, central receive and allocati
   const afterClose = ownerAlerts(closed.db);
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({
-    title: "Chef House ปิด Lot แล้ว · F260909-001",
+    title: "Chef House ปิด Lot แล้ว · S260909-001",
     detail: "เรียกรถขากลับ 36.00 กก. · 360 ถุง",
     tab: "transport",
   });

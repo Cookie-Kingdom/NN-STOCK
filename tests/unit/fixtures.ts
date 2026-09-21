@@ -22,6 +22,7 @@ export const purchaseInfo = {
 };
 export const send = {
   pickupDate: day,
+  pickupTime: "06:30",
   origin: "กรุงเทพ",
   destination: "เชียงใหม่",
   trip: "ไปกลับ",
@@ -32,7 +33,8 @@ export type Setup = {
   readonly db: Database;
 };
 
-/** A seed database with material pars set, plus `run` that applies `mutate` on `day` as a `branch` account. */
+/** A seed database with material pars set, plus `run` that applies `mutate` on `day` as a
+ * `branch` account. `run` works on the newest lot unless given one. */
 export function setup(branch = seed.config.branch): Setup {
   let db = structuredClone(seed);
   for (let index = 0; index < materials.length; index++) {
@@ -42,7 +44,7 @@ export function setup(branch = seed.config.branch): Setup {
     db.config[`materialPrice${index}_minburi`] = "1";
   }
   return {
-    run: (role, kind, values = {}, lotId = db.lots[0]?.id || "") =>
+    run: (role, kind, values = {}, lotId = db.lots.at(-1)?.id || "") =>
       (db = mutate(db, role, kind, values, lotId, day, branch)),
     get db() {
       return db;
@@ -52,8 +54,8 @@ export function setup(branch = seed.config.branch): Setup {
 
 export const last = (s: Setup) => s.db.entries.at(-1)!;
 
-export function purchase(s: Setup, kg: string) {
-  s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price: "250" });
+export function purchase(s: Setup, kg: string, price = "250") {
+  s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price });
 }
 
 export function confirm(s: Setup, kg: string, readyKg = kg) {
@@ -69,14 +71,30 @@ export function confirm(s: Setup, kg: string, readyKg = kg) {
   });
 }
 
-/** Smoke PO, Chef House acceptance and the submitted smoking invoice. */
-export function invoice(s: Setup, kg: string) {
-  s.run("owner", "smokeOrder", {
-    requestedSmokeDate: day,
-    smoker: "Chef House",
-    rawKg: kg,
+/** Owner's Request: one shipment lot drawing `[purchaseLotId, kg]` from each purchase PO. */
+export function request(s: Setup, lines: [string, string][]) {
+  s.run("owner", "shipmentRequest", {
+    lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
   });
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+}
+
+/** Foodiva's outbound transport document for the newest shipment (stage 1 → 2). */
+export function dispatch(s: Setup) {
+  s.run("foodiva", "dispatch", send);
+}
+
+/** Foodiva's Packing List, one กล่องรับเข้า weight per line. */
+export function packingList(s: Setup, boxes: string) {
+  s.run("foodiva", "packingList", { invoiceNo: "INV-1", product: "เนื้อวัว", boxes });
+}
+
+/** Owner's smoke PO; its quantity comes from the Packing List. */
+export function smokeOrder(s: Setup) {
+  s.run("owner", "smokeOrder", { requestedSmokeDate: day, smoker: "Chef House" });
+}
+
+/** Chef House's smoking invoice for a closed run. */
+export function invoice(s: Setup) {
   s.run("cm", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
@@ -85,30 +103,29 @@ export function invoice(s: Setup, kg: string) {
   return last(s);
 }
 
-/** Purchase through a paid smoking invoice: everything dispatch waits for. */
+/** Purchase PO with Foodiva's invoice and a Request for all of it: a shipment waiting for Foodiva's truck. */
 export function readyToDispatch(s: Setup, kg: string) {
   purchase(s, kg);
   confirm(s, kg);
-  const smokingInvoice = invoice(s, kg);
-  s.run("owner", "invoiceReview", {
-    invoiceId: smokingInvoice.id,
-    decision: "รับยอด",
-    reviewedBy: "Owner",
-  });
-  s.run("owner", "invoicePayment", {
-    invoiceId: smokingInvoice.id,
-    paymentDate: day,
-    paidBy: "Owner",
-    paidAmount: smokingInvoice.values.netPayable,
-  });
+  request(s, [[s.db.lots.at(-1)!.id, kg]]);
 }
 
-/** Lot at stage 5: fully smoked (36 kg in 360 bags), waiting for Chef House to close it. */
+/** Shipment at stage 3: `kg` requested and trucked as the Packing List `boxes`, smoke PO
+ * accepted, weighed in at Chef House as `receivedBoxes` (the yellow cells). */
+export function received(s: Setup, kg: string, boxes = kg, receivedBoxes = boxes) {
+  readyToDispatch(s, kg);
+  dispatch(s);
+  packingList(s, boxes);
+  smokeOrder(s);
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
+}
+
+/** Shipment at stage 5: 50 kg sent in two 25 kg boxes, 49 kg weighed in, fully smoked
+ * (36 kg in 360 bags), waiting for Chef House to close it. */
 export function smoked() {
   const s = setup();
-  readyToDispatch(s, "50");
-  s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
-  s.run("cm", "cmReceive", { receivedKg: "49", arrival: "08:00" });
+  received(s, "50", "25\n25", "24.5\n24.5");
   s.run("cm", "prepare", { preSmokeKg: "48" });
   s.run("cm", "smoke", {
     smokeDate: day,
@@ -125,10 +142,16 @@ export function smoked() {
   return s;
 }
 
-/** Lot at stage 7: closed, trucked back and received by Foodiva. */
-export function returned() {
+/** Shipment at stage 6: run closed at Chef House, waiting for the return truck. */
+export function closed() {
   const s = smoked();
   s.run("cm", "closeLot", { confirm: "สมชาย" });
+  return s;
+}
+
+/** Lot at stage 7: closed, trucked back and received by Foodiva. */
+export function returned() {
+  const s = closed();
   s.run("owner", "return", {
     returnDate: day,
     returnTime: "09:00",

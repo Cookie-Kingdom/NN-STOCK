@@ -1,7 +1,9 @@
 import { expect, test } from "vitest";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
 import {
+  closed,
   confirm,
+  day,
   invoice,
   purchase,
   ready,
@@ -9,8 +11,9 @@ import {
   type Setup,
 } from "./fixtures";
 
-const doc = (s: Setup, kind: string) =>
-  referenceDocument(s.db, kind, s.db.lots[0]);
+/** Reference of `kind` on the newest lot (the shipment once there is one), or on `lot`. */
+const doc = (s: Setup, kind: string, lot = s.db.lots.at(-1)!) =>
+  referenceDocument(s.db, kind, lot);
 
 test("each lot form references the document it builds on, once that document exists", () => {
   const s = setup();
@@ -26,17 +29,18 @@ test("each lot form references the document it builds on, once that document exi
     number: "INV-1",
   });
   expect(doc(s, "smokeOrderAccept")).toBeUndefined();
-  invoice(s, "40");
-  expect(doc(s, "smokingInvoice")).toMatchObject({
+  expect(doc(s, "cmReceive")).toBeUndefined();
+  expect(doc(s, "sale")).toBeUndefined();
+  const c = closed();
+  invoice(c);
+  expect(doc(c, "smokingInvoice")).toMatchObject({
     title: "Smoke Service Purchase Order",
     number: "SO-2026-0001",
   });
-  expect(doc(s, "invoiceReview")).toMatchObject({
+  expect(doc(c, "invoiceReview")).toMatchObject({
     title: "Invoice Chef House",
     number: "CH-1",
   });
-  expect(doc(s, "cmReceive")).toBeUndefined();
-  expect(doc(s, "sale")).toBeUndefined();
 });
 
 test("receiving forms reference the transport document", () => {
@@ -53,9 +57,22 @@ test("receiving forms reference the transport document", () => {
 
 test("every summary label exists in the printed rows", () => {
   const s = ready();
+  const sent = invoice(s);
+  s.run("owner", "invoiceReview", { invoiceId: sent.id, decision: "รับยอด", reviewedBy: "Owner" });
+  s.run("owner", "invoicePayment", {
+    invoiceId: sent.id,
+    paymentDate: day,
+    paidBy: "Owner",
+    paidAmount: sent.values.netPayable,
+  });
+  // The purchase PO's own documents, until P5 points the smoke PO at the Packing List.
+  for (const kind of ["foodivaConfirm", "smokeOrder"]) {
+    const reference = doc(s, kind, s.db.lots[0])!;
+    expect(reference.rows.map(([label]) => label), kind).toEqual(
+      expect.arrayContaining(reference.summary),
+    );
+  }
   const kinds = [
-    "foodivaConfirm",
-    "smokeOrder",
     "smokeOrderAccept",
     "smokingInvoice",
     "invoiceReview",

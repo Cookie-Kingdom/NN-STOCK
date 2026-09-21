@@ -14,7 +14,7 @@ import {
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documentRows";
 import { entries, type Entry, type Lot } from "@/lib/store";
-import { day, purchase, readyToDispatch, setup } from "./fixtures";
+import { closed, day, invoice, purchase, setup } from "./fixtures";
 
 const asObject = (rows: [string, string][]) => Object.fromEntries(rows);
 
@@ -57,15 +57,23 @@ test("transport rows read the direction's own date and weight keys", () => {
 });
 
 test("invoice and smoke PO rows follow the lot's documents", () => {
-  const s = setup();
-  readyToDispatch(s, "40");
-  const lot = s.db.lots[0];
-  const latest = (kind: string) => entries(s.db, kind, lot.id).at(-1)!;
+  const s = closed();
+  const sent = invoice(s);
+  s.run("owner", "invoiceReview", { invoiceId: sent.id, decision: "รับยอด", reviewedBy: "Owner" });
+  s.run("owner", "invoicePayment", {
+    invoiceId: sent.id,
+    paymentDate: day,
+    paidBy: "Owner",
+    paidAmount: sent.values.netPayable,
+  });
+  const po = s.db.lots[0];
+  const lot = s.db.lots.at(-1)!;
+  const latest = (kind: string, from = lot) => entries(s.db, kind, from.id).at(-1)!;
   expect(
-    asObject(foodivaInvoiceRows(s.db, lot, latest("foodivaConfirm"))),
+    asObject(foodivaInvoiceRows(s.db, po, latest("foodivaConfirm", po))),
   ).toMatchObject({
-    น้ำหนักยืนยัน: "40.00 กก.",
-    พร้อมส่งเชียงใหม่: "40.00 กก.",
+    น้ำหนักยืนยัน: "50.00 กก.",
+    พร้อมส่งเชียงใหม่: "50.00 กก.",
     "ยอด Invoice": "฿1.00",
     ผู้ยืนยัน: "Foodiva",
   });
@@ -80,7 +88,7 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
     ),
   ).toMatchObject({
     "PO โรงรมควัน": "SO-2026-0001",
-    ยอดสุทธิ: "฿8,800.00",
+    ยอดสุทธิ: "฿11,000.00",
     สถานะ: "ชำระแล้ว",
   });
   expect(
@@ -94,19 +102,19 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
         s.db,
         lot,
         latest("smokeOrder"),
-        latest("foodivaConfirm"),
+        latest("foodivaConfirm", po),
       ),
     ),
   ).toMatchObject({
     ลูกค้า: "บริษัท เนิร์ดเนื้อ จำกัด",
     ที่อยู่: "—",
     "Foodiva Invoice": "INV-1",
-    จำนวน: "40.00 กก.",
+    จำนวน: "50.00 กก.",
     "ราคา / กก.": "฿220.00",
-    "ยอดรวมก่อน VAT": "฿8,800.00",
+    "ยอดรวมก่อน VAT": "฿11,000.00",
   });
   expect(
-    asObject(smokeOrderTraceRows(lot, latest("smokeOrder"), undefined)),
+    asObject(smokeOrderTraceRows(po, latest("smokeOrder"), undefined)),
   ).toMatchObject({
     ลูกค้า: "บริษัททดสอบ",
     "Foodiva Invoice": "รอระบุ",

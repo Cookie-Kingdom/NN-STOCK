@@ -1,17 +1,17 @@
 "use client";
 
 import { useRouter, useSelectedLayoutSegment } from "next/navigation";
-import { startTransition, useOptimistic, useRef, useState } from "react";
+import { startTransition, useMemo, useOptimistic, useRef, useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import type { Modal, Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
-import { entries, isClosed } from "@/lib/store";
+import { entries, isClosed, visibleDatabase } from "@/lib/store";
 
 /** State every workspace needs: the database, which day is being worked on,
  * which lots this account may see, and the open dialog. */
 export function useWorkspace(account: Account) {
-  const db = useDatabase();
+  const raw = useDatabase();
   const loaded = useDatabaseLoaded();
   const router = useRouter();
   // The tab is the URL segment under the role's layout: /owner/po → "po".
@@ -45,15 +45,13 @@ export function useWorkspace(account: Account) {
   }
   const toast = note.page === segment ? note.message : "";
 
-  const branch = account.branch ?? db.config.branch;
+  const branch = account.branch ?? raw.config.branch;
   const role = account.role;
+  // Chef House's screens read a copy without purchase POs or prices; saves use latestDatabase().
+  const db = useMemo(() => visibleDatabase(raw, role, branch), [raw, role, branch]);
   const lots = db.lots.filter(
     (l) =>
-      role === "owner" ||
-      role === "foodiva" ||
-      (role === "cm" &&
-        (l.stage >= 2 || entries(db, "smokeOrder", l.id).length > 0)) ||
-      (role === "branch" && entries(db, "allocate", l.id, branch).length > 0),
+      role !== "branch" || entries(db, "allocate", l.id, branch).length > 0,
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];
   const open = (kind: string, lotId = lot?.id || "") =>

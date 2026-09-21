@@ -17,29 +17,15 @@ let revision: number | null = null;
 let writeQueue = Promise.resolve();
 let pendingWrites = 0;
 
-function clean(values: Record<string, string>) {
-  const next = Object.fromEntries(Object.entries(values).filter(([key]) => !["brinePrice", "brineOpeningMl", "brineMl", "brineKg", "smokeRate"].includes(key)));
-  if (next.material === "ถุงซิปเนื้อ") next.material = "ถุงซีลเนื้อ";
-  if (next.material === "ถุงซิปข้าว") next.material = "ถุงซีลข้าว";
-  // Payloads written before the preKg/outputKg rename (migration 0014 only fixed Supabase rows).
-  for (const [old, key] of [["preKg", "preSmokeKg"], ["outputKg", "postSmokeKg"]]) {
-    if (old in next) {
-      next[key] ??= next[old];
-      delete next[old];
-    }
-  }
-  if (next.batches)
-    next.batches = next.batches.replace(/"preKg"/g, '"preSmokeKg"').replace(/"outputKg"/g, '"postSmokeKg"');
-  return next;
-}
+/* v8 (shipment flow) started from an empty log (migration 0019), so there is nothing older to
+ * convert: any other version reads as the seed. */
 function normalize(parsed: StoredDatabase | null, fallback: Database): Database {
-  const version = parsed?.version;
-  if (!parsed || typeof version !== "number" || ![3, 4, 5, 6, 7].includes(version) || !Array.isArray(parsed.entries) || !Array.isArray(parsed.lots)) return fallback;
-  const config = clean(parsed.config || seed.config);
+  if (!parsed || parsed.version !== 8 || !Array.isArray(parsed.entries) || !Array.isArray(parsed.lots)) return fallback;
+  const config = parsed.config || seed.config;
   return {
-    version: 7,
-    lots: parsed.lots.map((lot) => ({ ...lot, values: clean(lot.values) })),
-    entries: parsed.entries.filter((entry) => entry.kind !== "brinePurchase").map((entry) => ({ ...entry, values: clean(entry.values) })),
+    version: 8,
+    lots: parsed.lots,
+    entries: parsed.entries,
     config: { ...seed.config, ...config, branch: branches.includes(config.branch || "") ? config.branch : seed.config.branch },
   };
 }
@@ -48,13 +34,15 @@ const initialDatabase = seed;
 export const demoInitialDatabase = initialDatabase;
 let cached = initialDatabase;
 /* ponytail: server history is append-only; send it back untouched. normalize() rewrites
- * the loaded payload (renamed keys, brine entries dropped), so a save rebuilds the payload
+ * the loaded config (seed defaults filled in), so a save rebuilds the payload
  * from the stored entries/config plus only what was appended locally since the load.
  * `count` is how many normalized entries the stored ones became, `lastId` the last of them. */
 let stored: { payload: StoredDatabase; count: number; lastId?: string; config: Database["config"] } | null = null;
 function adopt(payload: StoredDatabase, rev: number) {
   cached = normalize(payload, initialDatabase);
-  stored = { payload, count: cached.entries.length, lastId: cached.entries.at(-1)?.id, config: cached.config };
+  /* A pre-v8 payload reads as empty but is not history to build on: with nothing stored, the
+   * next save sends the whole database and the server refuses it until the reset migration runs. */
+  stored = payload?.version === 8 ? { payload, count: cached.entries.length, lastId: cached.entries.at(-1)?.id, config: cached.config } : null;
   revision = rev;
   loaded = true;
   notify();

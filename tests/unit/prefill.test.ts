@@ -2,11 +2,16 @@ import { expect, test } from "vitest";
 import { prefillValues } from "@/lib/prefill";
 import { seed } from "@/lib/store";
 import {
+  closed,
   confirm,
   day,
+  dispatch,
+  invoice,
   last,
+  packingList,
   purchase,
   readyToDispatch,
+  request,
   send,
   setup,
   smoked,
@@ -45,7 +50,7 @@ test("Foodiva's confirmation starts from the full PO weight and amount", () => {
 
 test("prefilled weights and amounts pass mutate as-is; receiving weights stay blank", () => {
   const s = setup();
-  const prefill = (kind: string) => prefillValues(s.db, kind, s.db.lots[0]);
+  const prefill = (kind: string) => prefillValues(s.db, kind, s.db.lots.at(-1));
   purchase(s, "40");
   s.run("foodiva", "foodivaConfirm", {
     ...prefill("foodivaConfirm"),
@@ -54,44 +59,44 @@ test("prefilled weights and amounts pass mutate as-is; receiving weights stay bl
     attachment: "inv.pdf",
     confirmedBy: "Foodiva",
   });
-  s.run("owner", "smokeOrder", {
-    ...prefill("smokeOrder"),
-    requestedSmokeDate: day,
-  });
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  s.run("cm", "smokingInvoice", {
-    invoiceNumber: "CH-1",
-    invoiceDate: day,
-    attachment: "ch.pdf",
-  });
-  s.run("owner", "invoiceReview", { decision: "รับยอด", reviewedBy: "Owner" });
-  s.run("owner", "invoicePayment", {
-    ...prefill("invoicePayment"),
-    paymentDate: day,
-    paidBy: "Owner",
-  });
-  s.run("owner", "dispatch", {
+  request(s, [[s.db.lots[0].id, "40"]]);
+  s.run("foodiva", "dispatch", {
     ...prefill("dispatch"),
     pickupDate: day,
+    pickupTime: "06:30",
     trip: "ไปกลับ",
     plate: "กข123",
     driverName: "คนขับ",
   });
   expect(last(s).values.dispatchKg).toBe("40");
+  packingList(s, "20\n20");
+  s.run("owner", "smokeOrder", {
+    ...prefill("smokeOrder"),
+    requestedSmokeDate: day,
+  });
+  expect(last(s).values.rawKg).toBe("40");
   expect(prefill("return").plate).toBe("กข123");
   expect(prefill("cmReceive")).toEqual({});
+
+  const done = closed();
+  invoice(done);
+  done.run("owner", "invoiceReview", { decision: "รับยอด", reviewedBy: "Owner" });
+  done.run("owner", "invoicePayment", {
+    ...prefillValues(done.db, "invoicePayment", done.db.lots.at(-1)),
+    paymentDate: day,
+    paidBy: "Owner",
+  });
 });
 
 test("a one-way trip does not copy the outbound truck into the return form", () => {
   const s = setup();
   readyToDispatch(s, "40");
-  s.run("owner", "dispatch", {
+  s.run("foodiva", "dispatch", {
     ...send,
     trip: "เที่ยวเดียว",
-    dispatchKg: "40",
     plate: "กข123",
   });
-  expect(prefillValues(s.db, "return", s.db.lots[0])).toEqual({
+  expect(prefillValues(s.db, "return", s.db.lots.at(-1))).toEqual({
     returnKg: "0",
     origin: "เชียงใหม่",
     destination: "กรุงเทพฯ",
@@ -108,7 +113,7 @@ test("smoke PO and Foodiva's return receipt start from earlier weights", () => {
   });
   const done = smoked();
   expect(
-    prefillValues(done.db, "foodivaReturnReceive", done.db.lots[0]),
+    prefillValues(done.db, "foodivaReturnReceive", done.db.lots.at(-1)),
   ).toEqual({ receivedBags: "360" });
 });
 
@@ -148,11 +153,14 @@ test("BUG-I: the smoking invoice form carries the smoke PO quantity for its prev
   const s = setup();
   purchase(s, "30");
   confirm(s, "30", "28");
+  request(s, [[s.db.lots[0].id, "28"]]);
+  dispatch(s);
+  packingList(s, "28");
   s.run("owner", "smokeOrder", {
-    ...prefillValues(s.db, "smokeOrder", s.db.lots[0]),
+    ...prefillValues(s.db, "smokeOrder", s.db.lots.at(-1)),
     requestedSmokeDate: day,
   });
-  expect(prefillValues(s.db, "smokingInvoice", s.db.lots[0])).toEqual({
+  expect(prefillValues(s.db, "smokingInvoice", s.db.lots.at(-1))).toEqual({
     serviceQuantity: "28",
   });
 });
