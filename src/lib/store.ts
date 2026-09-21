@@ -1190,17 +1190,23 @@ export function receivedBoxWeights(value = "") {
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
+/** Thai runs together without spaces, but a label starting or ending in Latin/digits needs a
+ *  space on that side ("กรอก Sliced Weight Lost เป็นตัวเลข…"). */
+function spaced(label: string) {
+  const latin = /[A-Za-z0-9)]/;
+  return `${latin.test(label[0] ?? "") ? " " : ""}${label}${latin.test(label.at(-1) ?? "") ? " " : ""}`;
+}
 function positive(v: Values, k: string, label: string, allowZero = false) {
   const value = Number(v[k]);
   assert(
     v[k]?.trim() &&
       Number.isFinite(value) &&
       (allowZero ? value >= 0 : value > 0),
-    `กรอก${label}เป็นตัวเลข${allowZero ? "ตั้งแต่ศูนย์" : "มากกว่าศูนย์"}`,
+    `กรอก${spaced(label)}เป็นตัวเลข${allowZero ? "ตั้งแต่ศูนย์" : "มากกว่าศูนย์"}`,
   );
 }
 function required(v: Values, k: string, label: string) {
-  assert(v[k]?.trim(), `กรอก${label}`);
+  assert(v[k]?.trim(), `กรอก${spaced(label).trimEnd()}`);
 }
 function variance(actual: number, expected: number, v: Values, always = true) {
   if (

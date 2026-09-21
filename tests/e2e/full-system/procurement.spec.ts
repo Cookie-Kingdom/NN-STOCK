@@ -864,13 +864,13 @@ test("C7–C8 ใบวางบิลค่ารมควัน: ส่ง 490
   );
   await step(
     page,
-    "Chef House: C7 ใบวางบิล: เลขว่าง → กรอกเลข Invoice ค่ารม · ไม่แนบไฟล์ → กรอกInvoice ที่แนบ",
+    "Chef House: C7 ใบวางบิล: เลขว่าง → กรอกเลข Invoice ค่ารม · ไม่แนบไฟล์ → กรอก Invoice ที่แนบ",
     async () => {
       await tab(page, "งานผลิต");
       await button(page, "สร้าง / Submit ใบวางบิล");
       await submitAndExpectError(page, "กรอกเลข Invoice ค่ารม");
       await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-C7");
-      await submitAndExpectError(page, "กรอกInvoice ที่แนบ");
+      await submitAndExpectError(page, "กรอก Invoice ที่แนบ");
     },
   );
   await step(
