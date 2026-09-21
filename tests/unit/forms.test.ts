@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { defaults, forms, timeOptions } from "@/lib/forms";
+import { defaults, forms, timeOptions, uploadedFiles } from "@/lib/forms";
 import { materials, mutate, ownerMaterialStock, titles } from "@/lib/store";
 import { last, ready, setup } from "./fixtures";
 
@@ -127,4 +127,21 @@ test("a dry run of mutate changes neither the database nor the values given to i
   mutate(s.db, "owner", "allocate", { ...values, kg: "1" }, lotId, day);
   expect(JSON.stringify(s.db)).toBe(before);
   expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999", bags: "1" });
+});
+
+test("payment slips: optional multi-file field on both payments, stored as JSON storage keys", () => {
+  for (const kind of ["invoicePayment", "meatPayment"])
+    expect(forms[kind].find((f) => f.key === "slips")).toMatchObject({
+      type: "files",
+      optional: true,
+    });
+  const slips = [
+    { name: "a.jpg", storageKey: "k1" },
+    { name: "b.pdf", storageKey: "k2" },
+  ];
+  expect(uploadedFiles(JSON.stringify(slips))).toEqual(slips);
+  expect(uploadedFiles(undefined)).toEqual([]);
+  expect(uploadedFiles("[]")).toEqual([]);
+  expect(uploadedFiles("not json")).toEqual([]);
+  expect(uploadedFiles('[{"name":"a.jpg"},null]')).toEqual([]);
 });

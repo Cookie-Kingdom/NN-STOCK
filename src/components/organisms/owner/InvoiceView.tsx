@@ -12,7 +12,10 @@ import {
   matchesDocumentFilter,
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documents";
-import { InvoiceDownloadButton } from "@/components/organisms/shared/InvoiceDownloadButton";
+import {
+  InvoiceDownloadButton,
+  SlipList,
+} from "@/components/organisms/shared/InvoiceDownloadButton";
 import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
 import {
   entries,
@@ -33,7 +36,10 @@ const foodivaColumns = [
   "น้ำหนัก",
   "ยอดรวม",
   "ผู้ยืนยัน",
+  "สถานะ",
   "ไฟล์",
+  "สลิป",
+  "การทำงาน",
 ];
 
 const chefHouseColumns = [
@@ -45,6 +51,7 @@ const chefHouseColumns = [
   "รายละเอียด",
   "สถานะ",
   "ไฟล์",
+  "สลิป",
   "การทำงาน",
 ];
 
@@ -99,6 +106,10 @@ export function InvoiceView({
         rowKeys={foodivaInvoices.map((entry) => entry.id)}
         rows={foodivaInvoices.map((entry) => {
           const lot = lotOf(entry);
+          const payment = entries(db, "meatPayment", entry.lotId).at(-1);
+          // Re-saved invoices leave older rows behind: only the newest one is payable.
+          const latest =
+            entries(db, "foodivaConfirm", entry.lotId).at(-1)?.id === entry.id;
           return [
             entry.values.invoiceNo,
             entry.values.invoiceDate,
@@ -107,6 +118,7 @@ export function InvoiceView({
             `${fmt(n(entry.values, "confirmedKg"))} กก.`,
             `฿${fmt(n(entry.values, "invoiceAmount"))}`,
             entry.values.confirmedBy || "—",
+            payment ? "ชำระแล้ว" : "รอชำระ",
             /* The file, not the row: re-saving an invoice writes a new entry that
                keeps the file name but not the bytes, so the download falls back to
                the newest version of this document that still carries the upload. */
@@ -115,6 +127,24 @@ export function InvoiceView({
               name={entry.values.attachment}
               {...uploadedAttachment(db, "foodivaConfirm", entry.lotId)}
             />,
+            payment ? (
+              <SlipList
+                key={`slips-${entry.id}`}
+                value={payment.values.slips}
+              />
+            ) : (
+              "—"
+            ),
+            <ButtonRow key={`action-${entry.id}`}>
+              {!payment && latest && (
+                <Button
+                  variant="table"
+                  onClick={() => open("meatPayment", entry.lotId)}
+                >
+                  ชำระเงิน
+                </Button>
+              )}
+            </ButtonRow>,
           ];
         })}
       />
@@ -126,6 +156,9 @@ export function InvoiceView({
         rows={smokingInvoices.map((entry) => {
           const lot = lotOf(entry);
           const status = smokingInvoiceStatus(db, entry);
+          const payment = entries(db, "invoicePayment", entry.lotId).find(
+            (item) => item.values.invoiceId === entry.id,
+          );
           const reviewNote = smokingInvoiceReview(
             db,
             entry,
@@ -143,6 +176,14 @@ export function InvoiceView({
               name={entry.values.attachment}
               {...uploadedAttachment(db, "smokingInvoice", entry.lotId)}
             />,
+            payment ? (
+              <SlipList
+                key={`slips-${entry.id}`}
+                value={payment.values.slips}
+              />
+            ) : (
+              "—"
+            ),
             <ButtonRow key={`action-${entry.id}`}>
               {status === "รอตรวจยอด" && (
                 <Button

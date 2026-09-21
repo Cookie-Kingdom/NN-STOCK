@@ -2,7 +2,7 @@ import { branches, materials, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;
-  type?: "number" | "text" | "tel" | "date" | "time" | "textarea" | "select" | "location" | "file";
+  type?: "number" | "text" | "tel" | "date" | "time" | "textarea" | "select" | "location" | "file" | "files";
   options?: string[];
   optional?: boolean;
   hint?: string;
@@ -64,6 +64,27 @@ const note: Field = {
   type: "textarea",
   optional: true,
 };
+/** Payment slips: several files, saved as JSON `[{ name, storageKey }]` (see `uploadedFiles`). */
+const slips: Field = {
+  key: "slips",
+  label: "แนบสลิปการชำระ",
+  type: "files",
+  optional: true,
+  accept: ".pdf,image/*",
+  hint: "เลือกได้หลายไฟล์พร้อมกัน ไม่บังคับ",
+};
+export type UploadedFile = { name: string; storageKey: string };
+/** A `files` field's stored value; anything unreadable is no files. */
+export function uploadedFiles(value?: string): UploadedFile[] {
+  try {
+    const parsed: unknown = JSON.parse(value || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((file) => file?.name && file?.storageKey)
+      : [];
+  } catch {
+    return [];
+  }
+}
 export const forms: Record<string, Field[]> = {
   materialReceive: [
     date("purchaseDate", "วันที่ซื้อวัสดุ", true),
@@ -151,6 +172,15 @@ export const forms: Record<string, Field[]> = {
     number("paidAmount", "ยอดชำระ (บาท)"),
     text("paidBy", "ผู้ดำเนินการชำระ"),
     text("paymentReference", "เลขอ้างอิงการชำระ", true),
+    slips,
+    note,
+  ],
+  meatPayment: [
+    date("paymentDate", "วันที่ชำระเงิน", true),
+    number("paidAmount", "ยอดชำระ (บาท)"),
+    text("paidBy", "ผู้ดำเนินการชำระ"),
+    text("paymentReference", "เลขอ้างอิงการชำระ", true),
+    slips,
     note,
   ],
   foodivaConfirm: [

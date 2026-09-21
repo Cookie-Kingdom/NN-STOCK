@@ -21,10 +21,13 @@ export type FileUploadFieldProps = {
   /** Message shown on oversize. Defaults to "ไฟล์ต้องมีขนาดไม่เกิน N MB". */
   oversizeMessage?: string;
   /** Selected file, or `null` when the selection is cleared. Callers do any FileReader work. */
-  onFile: (file: File | null) => void;
+  onFile?: (file: File | null) => void;
+  /** Pick several files at once; `onFiles` gets them all (`[]` when cleared) instead of `onFile`. */
+  multiple?: boolean;
+  onFiles?: (files: File[]) => void;
   /** Also receives the oversize message, for callers that show errors at form level. */
   onError?: (message: string) => void;
-  /** Name of the currently chosen file → "เลือกแล้ว: {name}". */
+  /** Name(s) of the chosen file(s) → "เลือกแล้ว: {name}", one line per name. */
   fileName?: string;
   hint?: ReactNode;
   /** Rendered inside the upload box, under the input (e.g. a logo preview). */
@@ -54,6 +57,8 @@ export function FileUploadField({
   maxBytes,
   oversizeMessage,
   onFile,
+  multiple = false,
+  onFiles,
   onError,
   fileName,
   hint,
@@ -79,12 +84,16 @@ export function FileUploadField({
       >
         <FileInput
           accept={accept}
+          multiple={multiple}
           required={required}
           disabled={disabled}
           aria-invalid={error ? true : undefined}
           onChange={(event) => {
-            const file = event.currentTarget.files?.[0] ?? null;
-            if (file && maxBytes !== undefined && file.size > maxBytes) {
+            const files = Array.from(event.currentTarget.files ?? []);
+            if (
+              maxBytes !== undefined &&
+              files.some((file) => file.size > maxBytes)
+            ) {
               const message =
                 oversizeMessage ??
                 `ไฟล์ต้องมีขนาดไม่เกิน ${megabytes(maxBytes)} MB`;
@@ -94,11 +103,15 @@ export function FileUploadField({
               return;
             }
             setError("");
-            onFile(file);
+            if (multiple) onFiles?.(files);
+            else onFile?.(files[0] ?? null);
           }}
         />
         {fileName && (
-          <Caption as="span" className="font-normal [overflow-wrap:anywhere]">
+          <Caption
+            as="span"
+            className="font-normal [overflow-wrap:anywhere] whitespace-pre-line"
+          >
             เลือกแล้ว: {fileName}
           </Caption>
         )}

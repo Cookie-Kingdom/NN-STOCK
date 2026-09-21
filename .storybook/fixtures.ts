@@ -98,6 +98,45 @@ export const acceptedInvoiceDb: Database = (() => {
   return s.db;
 })();
 
+/** Both invoices of `acceptedInvoiceDb` paid: the smoking bill with two slips, the
+ * Foodiva meat invoice with one. Slips point at storage keys only (no bytes). */
+export const paidDb: Database = (() => {
+  const s = closed();
+  const sent = invoice(s);
+  s.run("owner", "invoiceReview", {
+    invoiceId: sent.id,
+    decision: "รับยอด",
+    reviewedBy: "Owner",
+  });
+  const payment = {
+    paymentDate: day,
+    paidBy: "Owner",
+    paymentReference: "TRF-0920",
+  };
+  s.run("owner", "invoicePayment", {
+    ...payment,
+    invoiceId: sent.id,
+    paidAmount: sent.values.netPayable,
+    slips: JSON.stringify([
+      { name: "slip-chef-house-1.jpg", storageKey: "story-slip-1" },
+      { name: "slip-chef-house-2.pdf", storageKey: "story-slip-2" },
+    ]),
+  });
+  s.run(
+    "owner",
+    "meatPayment",
+    {
+      ...payment,
+      paidAmount: "1",
+      slips: JSON.stringify([
+        { name: "slip-foodiva.jpg", storageKey: "story-slip-3" },
+      ]),
+    },
+    s.db.lots[0].id,
+  );
+  return s.db;
+})();
+
 /** A 50 kg shipment trucked to Chef House with its smoke PO accepted, then advanced `steps` Chef House stages further. */
 function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();

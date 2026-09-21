@@ -1,7 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { centralDb, day, demoDb, open } from "../../../../.storybook/fixtures";
+import {
+  acceptedInvoiceDb,
+  centralDb,
+  day,
+  demoDb,
+  open,
+  paidDb,
+} from "../../../../.storybook/fixtures";
 import { CentralReceiveView } from "./CentralReceiveView";
+import { InvoiceView } from "./InvoiceView";
 import { ConfigView } from "./ConfigView";
 import { MeatMovementLogView } from "./MeatMovementLogView";
 import { OwnerAlertBanners } from "./OwnerAlertBanners";
@@ -65,3 +73,15 @@ export const Traceability: Story = {
 export const ReportView: Story = { render: () => <Report db={db} /> };
 
 export const Config: Story = { render: () => <ConfigView db={db} /> };
+
+/** Both Foodiva and Chef House invoices waiting to be paid: "ชำระเงิน" on each. */
+export const Invoices: Story = {
+  parameters: { db: acceptedInvoiceDb },
+  render: () => <InvoiceView db={acceptedInvoiceDb} open={open} />,
+};
+
+/** Both paid: the สลิป column lists each slip with view and download. */
+export const InvoicesPaid: Story = {
+  parameters: { db: paidDb },
+  render: () => <InvoiceView db={paidDb} open={open} />,
+};

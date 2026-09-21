@@ -58,6 +58,12 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
       paidAmount:
         entries(db, "smokingInvoice", lot.id).at(-1)?.values.netPayable || "",
     };
+  if (kind === "meatPayment")
+    return {
+      paidAmount:
+        entries(db, "foodivaConfirm", lot.id).at(-1)?.values.invoiceAmount ||
+        "",
+    };
   if (kind === "dispatch")
     return {
       dispatchKg: String(readyForChefHouse(db, lot.id)),
