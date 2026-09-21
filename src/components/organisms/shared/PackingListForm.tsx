@@ -84,6 +84,7 @@ export function PackingListForm({
       "",
     code: saved?.values.code ?? "",
     invWeightKg: saved?.values.invWeightKg ?? lot?.values.requestedKg ?? "",
+    slicedLostKg: saved?.values.slicedLostKg ?? "",
   });
   const set = (key: keyof typeof values, value: string) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -112,10 +113,14 @@ export function PackingListForm({
   const boxes = weights.map((weight, index) => ({ no: index + 1, weight }));
   const filled = boxes.filter((box) => box.weight !== undefined);
   const blank = boxes.length - filled.length;
+  const filledTotal = filled.reduce((sum, box) => sum + (box.weight ?? 0), 0);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!filled.length) return setError("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
+    // Checked here too: as a draft nothing reaches mutate() until the transport document saves.
+    if (!(Number(values.slicedLostKg) > 0))
+      return setError("กรอก Sliced Weight Lost เป็นตัวเลขมากกว่าศูนย์");
     // First press on an unfinished list only asks; the second one saves what is there.
     if (blank && !confirmPartial) {
       setError("");
@@ -204,7 +209,7 @@ export function PackingListForm({
             <FormField
               label="Inv. Weight (กก.)"
               optional
-              hint="ใส่ไว้เพื่อให้ระบบคิด Sliced Weight Lost ให้"
+              hint="น้ำหนักตาม Invoice ก่อนตัด"
             >
               <Input
                 type="number"
@@ -212,6 +217,19 @@ export function PackingListForm({
                 min="0"
                 value={values.invWeightKg}
                 onChange={(event) => set("invWeightKg", event.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Sliced Weight Lost (กก.)"
+              hint={`น้ำหนักเนื้อที่ใช้ได้จริงหลังตัด ควรตรงกับยอดรวมกล่องรับเข้า (${filledTotal.toFixed(2)} กก.)`}
+            >
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={values.slicedLostKg}
+                onChange={(event) => set("slicedLostKg", event.target.value)}
               />
             </FormField>
             <FileUploadField
@@ -236,6 +254,7 @@ export function PackingListForm({
               product: values.product,
               code: values.code,
               invWeight: Number(values.invWeightKg) || undefined,
+              slicedLost: Number(values.slicedLostKg) || undefined,
             }}
             boxes={boxes}
             onRows={(count) =>

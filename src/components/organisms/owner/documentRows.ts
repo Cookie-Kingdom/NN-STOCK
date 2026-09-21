@@ -108,6 +108,12 @@ export function packingListRows(lot: Lot, list: Entry): DocumentRows {
         ? `${fmt(n(list.values, "invWeightKg"))} กก.`
         : "—",
     ],
+    [
+      "Sliced Weight Lost",
+      list.values.slicedLostKg
+        ? `${fmt(n(list.values, "slicedLostKg"))} กก.`
+        : "—",
+    ],
   ];
 }
 

@@ -15,7 +15,8 @@ export default meta;
 type Story = StoryObj;
 
 /** The Owner's 50 kg Request, waiting for Foodiva's transport document. Save stays
- *  off until the Packing List is filled in the dialog on top. */
+ *  off until the Packing List is filled in the dialog on top. "เวลารถรับ" starts on the
+ *  next half-hour slot but takes any minute (e.g. 08:15). */
 export const New: Story = {
   render: () => (
     <FoodivaDispatchForm

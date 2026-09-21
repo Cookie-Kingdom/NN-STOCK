@@ -75,7 +75,7 @@ export function referenceDocument(
       title: "Packing List",
       number: lot.poId,
       rows: packingListRows(lot, packing),
-      summary: ["กล่องรับเข้า", "ยอดรวม", "Inv. Weight"],
+      summary: ["กล่องรับเข้า", "ยอดรวม", "Inv. Weight", "Sliced Weight Lost"],
       attachment: attachmentOf(history("packingList")),
     };
   if ((kind === "smokeOrderAccept" || kind === "smokingInvoice") && order)

@@ -65,6 +65,20 @@ export const multiPoDb: Database = (() => {
   return s.db;
 })();
 
+/** A8 — a PO of 100 kg: Foodiva sends 90 kg to Chiang Mai and keeps 10 kg for the Owner, who
+ *  has picked up 4 kg of it — 6 kg still kept for the Owner, 90 kg left to send. */
+export const ownerReservedDb: Database = (() => {
+  const s = setup();
+  purchase(s, "100");
+  confirm(s, "100", "90");
+  s.run("owner", "ownerWasteReceive", {
+    receivedDate: day,
+    receivedKg: "4",
+    receiver: "Owner",
+  });
+  return s.db;
+})();
+
 /** `multiPoDb` after a 1,400 kg Request drawing 300 / 600 / 500 kg from the three new POs,
  * trucked with a 1,390 kg Packing List: one smoke PO to issue from three purchase POs,
  * next to the 400 kg shipment still without a Packing List (button disabled). */
@@ -180,11 +194,12 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
   dispatch(s);
-  // With Inv. Weight, so Chef House's weigh-in recomputes Sliced Weight Lost.
+  // Inv. Weight is the meat before cutting; Sliced Weight Lost is Foodiva's own figure.
   s.run("foodiva", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
-    invWeightKg: "50",
+    invWeightKg: "52",
+    slicedLostKg: "50",
     boxes: "25\n25",
   });
   smokeOrder(s);

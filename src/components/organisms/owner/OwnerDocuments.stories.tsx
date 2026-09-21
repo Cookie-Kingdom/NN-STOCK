@@ -6,6 +6,7 @@ import {
   multiPoDb,
   multiPoPackedDb,
   open,
+  ownerReservedDb,
   packedDb,
   packingShortDb,
   returnGapDb,
@@ -34,6 +35,13 @@ export const PurchaseOrders: Story = {
 export const PurchaseOrdersRemaining: Story = {
   parameters: { db: multiPoDb },
   render: () => <PurchaseOrderView db={multiPoDb} open={open} />,
+};
+
+/** "เก็บไว้ให้ Owner คงเหลือ": Foodiva kept 10 kg for the Owner, who took 4 → 6 kg left;
+ *  "คงเหลือส่ง Chef House" still counts from the 90 kg ready for Chiang Mai. */
+export const PurchaseOrdersKeptForOwner: Story = {
+  parameters: { db: ownerReservedDb },
+  render: () => <PurchaseOrderView db={ownerReservedDb} open={open} />,
 };
 
 export const SmokingPurchaseOrders: Story = {

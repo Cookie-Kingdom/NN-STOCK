@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { entries, mutate, packingListBoxes } from "@/lib/store";
 import { dispatch, readyToDispatch, setup } from "./fixtures";
 
-const list = { invoiceNo: "INV-1", product: "เนื้อวัว" };
+const list = { invoiceNo: "INV-1", product: "เนื้อวัว", slicedLostKg: "30" };
 
 /** A shipment with its outbound transport document, which is what a Packing List needs. */
 function dispatched() {
@@ -22,17 +22,18 @@ describe("packingList", () => {
     expect(saved.values.slicedNetKg).toBe("30");
   });
 
-  test("Inv. Weight gives the sliced loss", () => {
+  test("Sliced Weight Lost is stored as Foodiva typed it, not derived from Inv. Weight", () => {
     const s = dispatched();
     s.run("foodiva", "packingList", {
       ...list,
       boxes: "10\n20",
       invWeightKg: "33",
+      slicedLostKg: "29.5",
     });
     expect(
       entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!.values
         .slicedLostKg,
-    ).toBe("3");
+    ).toBe("29.5");
   });
 
   test("refuses an empty list, a bad weight and an over-weight total", () => {
@@ -49,6 +50,12 @@ describe("packingList", () => {
       );
     expect(() => save({ ...list, boxes: "" })).toThrow(/อย่างน้อย 1 กล่อง/);
     expect(() => save({ ...list, boxes: "-2" })).toThrow(/มากกว่าศูนย์/);
+    expect(() => save({ ...list, boxes: "10", slicedLostKg: "" })).toThrow(
+      /Sliced Weight Lost/,
+    );
+    expect(() => save({ ...list, boxes: "10", slicedLostKg: "0" })).toThrow(
+      /Sliced Weight Lost/,
+    );
     expect(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })).toThrow(
       /เกิน Inv. Weight/,
     );
