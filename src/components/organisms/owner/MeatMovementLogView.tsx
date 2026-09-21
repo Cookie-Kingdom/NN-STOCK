@@ -16,9 +16,11 @@ import {
   ownerWasteReceived,
   produced,
   producedBags,
+  purchaseLots,
   rawAtFoodiva,
   preSmokeTrimKg,
   rawAtSmoker,
+  shipments,
   type Database,
   type Entry,
 } from "@/lib/store";
@@ -101,7 +103,9 @@ const descriptions: Record<string, (entry: Entry) => [string, string, string]> =
 
 export function MeatMovementLogView({ db }: { db: Database }) {
   const [lotFilter, setLotFilter] = useState("ทั้งหมด");
-  const lots = db.lots.filter(
+  // Raw beef is tracked on purchase POs, everything from the truck on on shipments.
+  const allLots = [...purchaseLots(db), ...shipments(db)];
+  const lots = allLots.filter(
     (lot) => lotFilter === "ทั้งหมด" || lot.id === lotFilter,
   );
   const locationRows = lots.flatMap((lot) => {
@@ -117,28 +121,31 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       lot.stage === 6 && !entries(db, "return", lot.id).length
         ? produced(db, lot.id)
         : 0;
+    if (!lot.kind)
+      return [
+        [
+          lot.poId,
+          lot.id,
+          "Foodiva · เนื้อดิบ",
+          `${fmt(rawAtFoodiva(db, lot))} กก.`,
+          "คงเหลือจาก PO ก่อนส่ง Chef House",
+        ],
+        [
+          lot.poId,
+          lot.id,
+          "Foodiva · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+          `${fmt(ownerWasteOutstanding(db, lot.id))} กก.`,
+          `Owner รับแล้ว ${fmt(ownerWasteReceived(db, lot.id))} กก.`,
+        ],
+        [
+          lot.poId,
+          lot.id,
+          "Owner · เนื้อส่วนที่รับแล้ว (Waste)",
+          `${fmt(ownerWasteReceived(db, lot.id))} กก.`,
+          "รับจาก Foodiva สำหรับใช้งาน Owner",
+        ],
+      ];
     return [
-      [
-        lot.poId,
-        lot.id,
-        "Foodiva · เนื้อดิบ",
-        `${fmt(rawAtFoodiva(db, lot))} กก.`,
-        "คงเหลือจาก PO ก่อนส่ง Chef House",
-      ],
-      [
-        lot.poId,
-        lot.id,
-        "Foodiva · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
-        `${fmt(ownerWasteOutstanding(db, lot.id))} กก.`,
-        `Owner รับแล้ว ${fmt(ownerWasteReceived(db, lot.id))} กก.`,
-      ],
-      [
-        lot.poId,
-        lot.id,
-        "Owner · เนื้อส่วนที่รับแล้ว (Waste)",
-        `${fmt(ownerWasteReceived(db, lot.id))} กก.`,
-        "รับจาก Foodiva สำหรับใช้งาน Owner",
-      ],
       [
         lot.poId,
         lot.id,
@@ -223,7 +230,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
               onChange={(event) => setLotFilter(event.target.value)}
             >
               <option>ทั้งหมด</option>
-              {db.lots.map((lot) => (
+              {allLots.map((lot) => (
                 <option key={lot.id}>{lot.id}</option>
               ))}
             </Select>

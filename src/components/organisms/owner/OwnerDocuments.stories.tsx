@@ -7,6 +7,7 @@ import {
   multiPoPackedDb,
   open,
   packedDb,
+  returnGapDb,
 } from "../../../../.storybook/fixtures";
 import { InvoiceView } from "./InvoiceView";
 import { LotWorkflowAction } from "./LotWorkflowAction";
@@ -68,6 +69,14 @@ export const TransportManifestAwaitingFoodiva: Story = {
   parameters: { db: dispatchDb },
   render: () => (
     <TransportManifestView db={dispatchDb} open={open} onOpenSmokePo={fn()} />
+  ),
+};
+
+/** Return leg: Chef House sent 36 kg, Foodiva received 35.5 kg, with the gap badge. */
+export const TransportManifestReturnLeg: Story = {
+  parameters: { db: returnGapDb },
+  render: () => (
+    <TransportManifestView db={returnGapDb} open={open} onOpenSmokePo={fn()} />
   ),
 };
 

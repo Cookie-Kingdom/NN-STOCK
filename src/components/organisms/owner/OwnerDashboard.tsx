@@ -34,6 +34,7 @@ import {
   chiliStock,
   cookedRiceStock,
   currentSmokingInvoices,
+  drawnKg,
   entries,
   isClosed,
   materialPar,
@@ -46,6 +47,7 @@ import {
   rawRiceStock,
   readyForChefHouse,
   reservedForOwnerContent,
+  shipments,
   smokingInvoiceStatus,
   stages,
   type Database,
@@ -73,7 +75,7 @@ const branchColumns = [
   "ปิดวัน",
 ];
 const lotColumns = [
-  "Lot",
+  "เลขที่การส่ง",
   "ขั้นตอน",
   "ผลผลิต",
   "คลังกลาง",
@@ -163,11 +165,14 @@ export function OwnerDashboard({
       isClosed(db, branchName, date) ? "ปิดวันแล้ว" : "ยังไม่ปิดวัน",
     ];
   });
-  const activeLots = db.lots.filter((lot) => lot.stage < 8).length;
+  // Production runs are shipments; purchase POs sit at stage 1 forever and are not pending work.
+  const runs = shipments(db);
+  const activeLots = runs.filter((lot) => lot.stage < 8).length;
   const foodivaInvoicesForOwner = db.lots.filter(
     (lot) =>
+      !lot.kind &&
       entries(db, "foodivaConfirm", lot.id).length > 0 &&
-      !entries(db, "smokeOrder", lot.id).length,
+      !drawnKg(db, lot.id),
   );
   const alertDetails: {
     title: string;
@@ -212,10 +217,10 @@ export function OwnerDashboard({
         },
       ];
     }),
-    ...db.lots
+    ...runs
       .filter((lot) => lot.stage < 8)
       .map((lot) => ({
-        title: `Lot ${lot.id}`,
+        title: `การส่ง ${lot.poId}`,
         detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,
         kind: "lot" as const,
       })),
@@ -440,7 +445,7 @@ export function OwnerDashboard({
         columns={summaryColumns}
         rows={[
           [
-            String(db.lots.filter((lot) => lot.stage < 8).length),
+            String(activeLots),
             String(
               currentSmokingInvoices(db).filter(
                 (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",
@@ -559,9 +564,9 @@ export function OwnerDashboard({
       <DataTable
         title="สถานะ Lot และการผลิต"
         columns={lotColumns}
-        rowKeys={db.lots.map((lot) => lot.id)}
-        rows={db.lots.map((lot) => [
-          lot.id,
+        rowKeys={runs.map((lot) => lot.id)}
+        rows={runs.map((lot) => [
+          lot.poId,
           stages[lot.stage],
           `${fmt(produced(db, lot.id))} กก.`,
           `${fmt(centralStock(db, lot.id))} กก.`,

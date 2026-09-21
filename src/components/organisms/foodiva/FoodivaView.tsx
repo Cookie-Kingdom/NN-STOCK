@@ -5,6 +5,7 @@ import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import {
@@ -15,13 +16,12 @@ import {
   entries,
   n,
   poRemainingKg,
-  produced,
+  producedBags,
   purchaseLots,
   rawAtFoodiva,
   readyForChefHouse,
   latestPackingList,
   ownerWasteOutstanding,
-  shipmentLines,
   shipments,
   type Database,
 } from "@/lib/store";
@@ -48,10 +48,9 @@ export function FoodivaView({
     (sum, lot) => sum + ownerWasteOutstanding(db, lot.id),
     0,
   );
-  const returnWaiting = db.lots.filter(
-    (lot) =>
-      lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length,
-  );
+  // Stage 7 = on the return truck until the Owner counts it into central stock; a received
+  // row stays so Foodiva sees its weigh-in against what Chef House sent.
+  const returnLeg = shipments(db).filter((lot) => lot.stage === 7);
   return (
     <div className="grid gap-6">
       <PanelHeading
@@ -85,9 +84,9 @@ export function FoodivaView({
           <strong key="shipment">{lot.poId}</strong>,
           entries(db, "shipmentRequest", lot.id).at(-1)?.date || "—",
           <span key="lines">
-            {shipmentLines(lot).map((line) => (
-              <span key={line.lotId} className="block">
-                {`${db.lots.find((po) => po.id === line.lotId)?.poId || line.lotId} × ${fmt(line.kg)} กก.`}
+            {shipmentPoLabels(db, lot).map((label) => (
+              <span key={label} className="block">
+                {label}
               </span>
             ))}
           </span>,
@@ -187,33 +186,52 @@ export function FoodivaView({
         })}
       />
       <DataTable
-        title="เนื้อรมควันรอ Foodiva รับเข้าตู้"
+        title="เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva"
         columns={[
-          "PO / Lot",
-          "ใบขนส่ง",
-          "น้ำหนักหลังรม",
-          "รับจริง",
+          "เลขที่การส่ง",
+          "ใบขนส่งขากลับ",
+          "Chef House ส่ง",
+          "Foodiva รับจริง",
           "สถานะ",
           "การทำงาน",
         ]}
-        rowKeys={returnWaiting.map((lot) => lot.id)}
-        rows={returnWaiting.map((lot) => {
+        emptyText="ไม่มีเนื้อรมควันบนรถขากลับ"
+        rowKeys={returnLeg.map((lot) => lot.id)}
+        rows={returnLeg.map((lot) => {
           const trip = entries(db, "return", lot.id).at(-1);
+          const got = entries(db, "foodivaReturnReceive", lot.id).at(-1);
+          const sentKg = n(trip?.values || {}, "returnKg");
+          const gap = got ? n(got.values, "receivedKg") - sentKg : 0;
           return [
-            `${lot.poId} / ${lot.id}`,
-            `${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`,
-            `${fmt(produced(db, lot.id))} กก.`,
-            "รอชั่งรับ",
-            <Badge tone="danger" key="status">
-              ต้องรับเข้า
-            </Badge>,
-            <Button
-              key="receive"
-              variant="table"
-              onClick={() => open("foodivaReturnReceive", lot.id)}
-            >
-              ยืนยันรับเข้าตู้
-            </Button>,
+            <strong key="shipment">{lot.poId}</strong>,
+            `${trip?.values.transferNumber || "-"} · ${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`,
+            `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(sentKg)} กก.`,
+            got
+              ? `${got.values.receivedBags} กล่องรมควัน · ${fmt(n(got.values, "receivedKg"))} กก.`
+              : "รอชั่งรับ",
+            got ? (
+              <Badge
+                key="status"
+                tone={Math.abs(gap) > 0.001 ? "danger" : "success"}
+              >
+                {`รับแล้ว · ส่วนต่าง ${fmt(Math.abs(gap))} กก.`}
+              </Badge>
+            ) : (
+              <Badge tone="danger" key="status">
+                ต้องรับเข้า
+              </Badge>
+            ),
+            got ? (
+              "รอ Owner รับเข้าสต๊อกกลาง"
+            ) : (
+              <Button
+                key="receive"
+                variant="table"
+                onClick={() => open("foodivaReturnReceive", lot.id)}
+              >
+                ยืนยันรับเข้าตู้
+              </Button>
+            ),
           ];
         })}
       />

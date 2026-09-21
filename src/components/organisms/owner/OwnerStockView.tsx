@@ -17,6 +17,7 @@ import {
   chiliSold,
   chiliStock,
   cookedRiceStock,
+  drawnKg,
   entries,
   issuedRawRiceStock,
   materialPar,
@@ -118,66 +119,66 @@ export function OwnerStockView({
     ...lots.flatMap((lot) => {
       const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
-      const dispatched = n(
-        entries(db, "dispatch", lot.id).at(-1)?.values || {},
-        "dispatchKg",
-      );
+      // Raw beef sits on the purchase PO until a shipment trucks it; smoked beef on the shipment.
       const readyAtFoodiva = Math.max(
         0,
-        readyForChefHouse(db, lot.id) - dispatched,
+        readyForChefHouse(db, lot.id) - drawnKg(db, lot.id, true),
       );
       const ownerReserved = reservedForOwnerContent(db, lot.id);
       const ownerWaiting = ownerWasteOutstanding(db, lot.id);
       const ownerReceived = ownerWasteReceived(db, lot.id);
+      if (!lot.kind)
+        return [
+          {
+            genre: "เนื้อ",
+            item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
+            location: "Foodiva",
+            quantity: fmt(invoiceConfirmed ? readyAtFoodiva : 0),
+            unit: "กก.",
+            detail: invoiceConfirmed
+              ? "จาก Invoice Foodiva · รอส่งไป Chef House"
+              : "รอ Foodiva ยืนยัน Invoice",
+            meatType: "เนื้อดิบพร้อมส่ง Chef House",
+          },
+          ...(invoiceConfirmed
+            ? [
+                {
+                  genre: "เนื้อ",
+                  item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
+                  location: "Foodiva",
+                  quantity: fmt(ownerWaiting),
+                  unit: "กก.",
+                  detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
+                  meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+                  action:
+                    ownerWaiting > 0.001 ? (
+                      <Button
+                        variant="table"
+                        onClick={() => open("ownerWasteReceive", lot.id)}
+                      >
+                        บันทึกรับเนื้อ
+                      </Button>
+                    ) : (
+                      <Badge tone="success">Owner รับครบแล้ว</Badge>
+                    ),
+                },
+                ...(ownerReceived > 0.001
+                  ? [
+                      {
+                        genre: "เนื้อ",
+                        item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
+                        location: "Owner",
+                        quantity: fmt(ownerReceived),
+                        unit: "กก.",
+                        detail: "รับจาก Foodiva แล้ว · สำหรับใช้งาน Owner",
+                        meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+                      },
+                    ]
+                  : []),
+              ]
+            : []),
+        ];
       return [
-        {
-          genre: "เนื้อ",
-          item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
-          location: "Foodiva",
-          quantity: fmt(invoiceConfirmed ? readyAtFoodiva : 0),
-          unit: "กก.",
-          detail: invoiceConfirmed
-            ? "จาก Invoice Foodiva · รอ Owner เรียกรถไปเชียงใหม่"
-            : "รอ Foodiva ยืนยัน Invoice",
-          meatType: "เนื้อดิบพร้อมส่ง Chef House",
-        },
-        ...(invoiceConfirmed
-          ? [
-              {
-                genre: "เนื้อ",
-                item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
-                location: "Foodiva",
-                quantity: fmt(ownerWaiting),
-                unit: "กก.",
-                detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
-                meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
-                action:
-                  ownerWaiting > 0.001 ? (
-                    <Button
-                      variant="table"
-                      onClick={() => open("ownerWasteReceive", lot.id)}
-                    >
-                      บันทึกรับเนื้อ
-                    </Button>
-                  ) : (
-                    <Badge tone="success">Owner รับครบแล้ว</Badge>
-                  ),
-              },
-              ...(ownerReceived > 0.001
-                ? [
-                    {
-                      genre: "เนื้อ",
-                      item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
-                      location: "Owner",
-                      quantity: fmt(ownerReceived),
-                      unit: "กก.",
-                      detail: "รับจาก Foodiva แล้ว · สำหรับใช้งาน Owner",
-                      meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
-                    },
-                  ]
-                : []),
-            ]
-          : []),
         {
           genre: "เนื้อ",
           item: `${lot.id} · เนื้อรมควัน`,

@@ -50,9 +50,12 @@ export function MeatStockTable({
         rowKeys={lotIds}
         rows={lots.map((lot) => [
           lot.id,
-          entries(db, "foodivaConfirm", lot.id).length
-            ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
-            : "รอ Foodiva ยืนยัน Invoice",
+          // Shipments hold no raw beef at Foodiva; it is counted on their purchase POs.
+          lot.kind
+            ? "—"
+            : entries(db, "foodivaConfirm", lot.id).length
+              ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
+              : "รอ Foodiva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${centralBagStock(db, lot.id)} กล่องรมควัน`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,

@@ -4,6 +4,8 @@ import {
   dispatchDb,
   multiPoDb,
   open,
+  returnGapDb,
+  returnTruckDb,
 } from "../../../../.storybook/fixtures";
 import { FoodivaView } from "./FoodivaView";
 
@@ -21,6 +23,18 @@ export const WaitingForDispatch: Story = {
 export const PurchasePosRemaining: Story = {
   parameters: { db: multiPoDb },
   render: () => <FoodivaView db={multiPoDb} open={open} />,
+};
+
+/** Return truck on its way: "ยืนยันรับเข้าตู้" next to what Chef House sent (กล่องรมควัน / kg). */
+export const ReturnLegWaiting: Story = {
+  parameters: { db: returnTruckDb },
+  render: () => <FoodivaView db={returnTruckDb} open={open} />,
+};
+
+/** Weighed in 0.5 kg short of what Chef House sent: the gap is flagged until the Owner's central count. */
+export const ReturnLegReceived: Story = {
+  parameters: { db: returnGapDb },
+  render: () => <FoodivaView db={returnGapDb} open={open} />,
 };
 
 export const Completed: Story = {

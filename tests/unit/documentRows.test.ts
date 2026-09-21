@@ -13,7 +13,13 @@ import {
   purchaseOrderRows,
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documentRows";
-import { entries, visibleDatabase, type Entry, type Lot } from "@/lib/store";
+import {
+  entries,
+  seed,
+  visibleDatabase,
+  type Entry,
+  type Lot,
+} from "@/lib/store";
 import {
   closed,
   confirm,
@@ -54,14 +60,18 @@ test("transport rows read the direction's own date and weight keys", () => {
       plate: "กข123",
     },
   };
-  expect(asObject(transportDocumentRows(lot, trip, "outbound"))).toMatchObject({
+  expect(
+    asObject(transportDocumentRows(seed, lot, trip, "outbound")),
+  ).toMatchObject({
     วันที่รถรับ: day,
-    PO: "PO-2026-0001",
+    เลขที่การส่ง: "PO-2026-0001",
     น้ำหนักส่ง: "12.50 กก.",
     ทะเบียนรถ: "กข123",
     คนขับ: "—",
   });
-  expect(asObject(transportDocumentRows(lot, trip, "return"))).toMatchObject({
+  expect(
+    asObject(transportDocumentRows(seed, lot, trip, "return")),
+  ).toMatchObject({
     วันที่รถรับ: "2026-09-12",
     น้ำหนักส่ง: "3.00 กก.",
   });
