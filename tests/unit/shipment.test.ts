@@ -123,6 +123,63 @@ describe("shipment request", () => {
       s.run("owner", "void", { targetId: second.id, reason: "x" }),
     ).toThrow("Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้");
   });
+
+  test("the Owner edits a Request's lines in place until Foodiva trucks it (A10)", () => {
+    const s = setup();
+    const [a, b, c] = purchases(s, ["300"], ["700"], ["500"]);
+    request(s, [
+      [a, "200"],
+      [b, "300"],
+    ]);
+    const shipment = s.db.lots.at(-1)!;
+    const edit = (lines: [string, string][]) =>
+      s.run(
+        "owner",
+        "shipmentRequestEdit",
+        {
+          lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
+        },
+        shipment.id,
+      );
+    // Its own 300 kg on PO b count as available again: 700 is the whole PO, 701 is not.
+    expect(() => edit([[b, "701"]])).toThrow(/เกินยอดคงเหลือ.*เหลือ 700\.00/);
+    expect(() => edit([])).toThrow("เลือก PO ซื้ออย่างน้อย 1 ใบ");
+    edit([
+      [b, "700"],
+      [c, "100"],
+    ]);
+    const edited = shipments(s.db).find((lot) => lot.id === shipment.id)!;
+    expect(edited.poId).toBe(shipment.poId);
+    expect(edited.values.requestedKg).toBe("800");
+    expect(shipments(s.db)).toHaveLength(1);
+    expect(poRemainingKg(s.db, a)).toBe(300);
+    expect(poRemainingKg(s.db, b)).toBe(0);
+    expect(poRemainingKg(s.db, c)).toBe(400);
+    expect(last(s).kind).toBe("shipmentRequestEdit");
+    // Chef House never sees it.
+    expect(
+      visibleDatabase(s.db, "cm").entries.some(
+        (e) => e.kind === "shipmentRequestEdit",
+      ),
+    ).toBe(false);
+    dispatch(s);
+    expect(s.db.entries.at(-1)!.values.dispatchKg).toBe("800");
+    expect(() => edit([[b, "10"]])).toThrow(
+      "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้",
+    );
+    // A cancelled Request cannot be edited either.
+    request(s, [[a, "50"]]);
+    const cancelled = last(s);
+    s.run("owner", "void", { targetId: cancelled.id, reason: "ขอผิด" });
+    expect(() =>
+      s.run(
+        "owner",
+        "shipmentRequestEdit",
+        { lines: JSON.stringify([{ lotId: a, kg: "10" }]) },
+        cancelled.lotId,
+      ),
+    ).toThrow("Request นี้ถูกยกเลิกแล้ว");
+  });
 });
 
 describe("shipment at Chef House", () => {

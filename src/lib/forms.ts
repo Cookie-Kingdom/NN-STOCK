@@ -167,6 +167,10 @@ export const forms: Record<string, Field[]> = {
   ],
   smokeOrder: [
     text("smoker", "โรงรม / ผู้ให้บริการ"),
+    {
+      ...number("rawKg", "น้ำหนัก PO รมควัน (กก.)"),
+      hint: "ตั้งต้นจากยอดรวม Packing List แก้ได้ถ้าจะสั่งรมไม่เท่ายอดนั้น",
+    },
     date("requestedSmokeDate", "วันที่ขอรมควัน"),
     {
       key: "instruction",
@@ -180,6 +184,10 @@ export const forms: Record<string, Field[]> = {
   smokingInvoice: [
     text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
     date("invoiceDate", "วันที่ Invoice", true),
+    {
+      ...number("netPayable", "ยอดเรียกเก็บค่ารมควัน (บาท)"),
+      hint: "ตั้งต้นจากน้ำหนัก PO รมควัน × อัตราค่ารม แก้ให้ตรงกับใบวางบิลจริงได้",
+    },
     {
       key: "attachment",
       label: "แนบไฟล์ Invoice ค่ารมควัน",

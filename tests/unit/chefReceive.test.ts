@@ -10,6 +10,7 @@ import {
   produced,
   producedBags,
   visibleDatabase,
+  type Values,
 } from "@/lib/store";
 import {
   closed,
@@ -60,7 +61,7 @@ describe("Chef House yellow cells", () => {
     expect(lotCost(s.db, lot).meat).toBeCloseTo(51.5 * 250);
   });
 
-  it("chefEdit re-weighs the yellow cells before close and cost follows", () => {
+  it("chefEdit refuses the yellow cells: they are weighed once at cmReceive (A5)", () => {
     const s = smoked();
     const lot = s.db.lots.at(-1)!;
     const receive = entries(s.db, "cmReceive", lot.id).at(-1)!;
@@ -75,19 +76,26 @@ describe("Chef House yellow cells", () => {
       wasteKg: e.values.wasteKg,
       packs: e.values.packs,
     }));
-    s.run("cm", "chefEdit", {
-      arrival: "09:00",
-      preSmokeKg: "48",
-      receivedBoxes: receivedValue([30, 25]),
-      batches: JSON.stringify(batches),
-    });
+    const edit = (values: Values) =>
+      s.run("cm", "chefEdit", {
+        arrival: "09:00",
+        preSmokeKg: "48",
+        batches: JSON.stringify(batches),
+        ...values,
+      });
+    expect(() => edit({ receivedBoxes: receivedValue([30, 25]) })).toThrow(
+      "น้ำหนักรับจริง (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
+    );
+    expect(() => edit({ receivedKg: "55" })).toThrow(/ช่องเหลือง/);
+    // The other fields still save; the received weight and cost stay as weighed in.
+    edit({});
     const edited = s.db.lots.at(-1)!;
-    // Over the 50 kg Packing List is not an error: it is the weight cost runs on.
-    expect(edited.values.receivedKg).toBe("55");
+    expect(edited.values.arrival).toBe("09:00");
+    expect(edited.values.receivedKg).toBe("49");
     expect(
       entries(s.db, "cmReceive", lot.id).at(-1)!.values.receivedBoxes,
-    ).toBe("30\n25");
-    expect(lotCost(s.db, edited).meat).toBeCloseTo(55 * 250);
+    ).toBe(receive.values.receivedBoxes);
+    expect(lotCost(s.db, edited).meat).toBeCloseTo(49 * 250);
   });
 
   it("closing yields the กล่องรมควัน count and kg for the next step", () => {

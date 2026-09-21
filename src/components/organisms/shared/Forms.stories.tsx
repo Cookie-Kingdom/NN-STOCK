@@ -94,7 +94,8 @@ export const FoodivaInvoiceEdit: Story = {
   ),
 };
 
-// Sent back by the Owner: the note is shown and the amount comes from the smoke PO.
+// Sent back by the Owner: the note is shown and the amount starts at the sent-back invoice's,
+// editable by Chef House (A7).
 export const ChefInvoiceSentBack: Story = {
   parameters: { db: rejectedInvoiceDb },
   render: () => (
@@ -217,7 +218,8 @@ export const GeneralPurchase: Story = {
   ),
 };
 
-/** Before closing, Chef House can still correct the yellow cells of the Packing List. */
+/** Before closing, Chef House can still correct arrival, pre-smoke kg and the smoke log.
+ *  The yellow cells are not here: they are weighed once at cmReceive (A5). */
 export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (

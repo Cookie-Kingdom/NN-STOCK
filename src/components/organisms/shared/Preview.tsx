@@ -76,7 +76,8 @@ export function Preview({
     rows = [
       ["น้ำหนักตาม PO รมควัน", `${fmt(quantity)} กก.`],
       ["อัตราค่ารมอัตโนมัติ", `฿${fmt(rate)} / กก.`],
-      ["ยอดก่อน VAT อัตโนมัติ", `฿${fmt(quantity * rate)}`],
+      ["ยอดตามอัตรา (ตั้งต้น)", `฿${fmt(quantity * rate)}`],
+      ["ยอดเรียกเก็บ", `฿${fmt(n(v, "netPayable"))}`],
     ];
   }
   if (kind === "cmReceive" && lot)
