@@ -73,7 +73,8 @@ export const TransportManifest: Story = {
   ),
 };
 
-/** A Request waiting for Foodiva's transport document: no outbound button for the Owner. */
+/** A Request waiting for Foodiva's transport document: no outbound button for the Owner,
+ *  only "แก้ไข Request" (A10), which disappears once Foodiva makes the manifest. */
 export const TransportManifestAwaitingFoodiva: Story = {
   parameters: { db: dispatchDb },
   render: () => (
@@ -106,7 +107,7 @@ export const Invoices: Story = {
   render: () => <InvoiceView db={db} open={open} />,
 };
 
-/** Stage 1 (waiting for Foodiva) and a trucked shipment with its Packing List (go to the smoke PO). */
+/** Stage 1 (waiting for Foodiva, Request still editable) and a trucked shipment with its Packing List (go to the smoke PO). */
 export const WorkflowAction: Story = {
   parameters: { db: dispatchDb },
   render: () => (

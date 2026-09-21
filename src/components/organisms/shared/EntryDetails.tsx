@@ -166,7 +166,8 @@ export function EntryDetails({
             value={
               k === "slips" ? (
                 <SlipList value={v} />
-              ) : k === "lines" && e.kind === "shipmentRequest" ? (
+              ) : k === "lines" &&
+                ["shipmentRequest", "shipmentRequestEdit"].includes(e.kind) ? (
                 <span className="whitespace-pre-line">
                   {requestLines(v, db)}
                 </span>

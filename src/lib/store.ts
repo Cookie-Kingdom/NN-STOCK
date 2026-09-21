@@ -83,6 +83,7 @@ export const stageAction = [
 export const titles: Record<string, string> = {
   purchase: "สร้าง PO เนื้อ",
   shipmentRequest: "สร้าง Request ส่งเนื้อไป Chef House",
+  shipmentRequestEdit: "แก้ไข Request ส่งเนื้อไป Chef House",
   meatPayment: "ชำระ Invoice เนื้อ Foodiva",
   smokeOrder: "ออก PO รมควันเนื้อ",
   smokeOrderAccept: "ยืนยันรับ PO รมควัน",
@@ -1128,6 +1129,7 @@ export function visibleDatabase(
 const ownership: Record<string, Role> = {
   purchase: "owner",
   shipmentRequest: "owner",
+  shipmentRequestEdit: "owner",
   meatPayment: "owner",
   smokeOrder: "owner",
   smokingInvoice: "cm",
@@ -1240,6 +1242,47 @@ function checkSlips(v: Values) {
     "ไฟล์สลิปไม่ถูกต้อง กรุณาแนบใหม่",
   );
 }
+/** Checks a Request's `lines` and writes them back normalised with `requestedKg`. When
+ *  editing (`own`), that Request's current lines count as still available to their POs. */
+function requestLines(db: Database, v: Values, own?: Lot) {
+  let lines: Values[] = [];
+  try {
+    lines = JSON.parse(v.lines || "");
+  } catch {}
+  assert(Array.isArray(lines) && lines.length, "เลือก PO ซื้ออย่างน้อย 1 ใบ");
+  const current = own ? shipmentLines(own) : [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    const po = purchaseLots(db).find((l) => l.id === line?.lotId);
+    assert(po, "ไม่พบ PO ซื้อที่เลือก");
+    assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
+    seen.add(po.id);
+    const kg = Number(String(line.kg ?? "").trim() || NaN);
+    assert(
+      Number.isFinite(kg) && kg > 0,
+      `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
+    );
+    assert(
+      entries(db, "foodivaConfirm", po.id).length,
+      `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`,
+    );
+    const remaining =
+      poRemainingKg(db, po.id) +
+      current
+        .filter((mine) => mine.lotId === po.id)
+        .reduce((total, mine) => total + mine.kg, 0);
+    assert(
+      kg <= remaining + 0.001,
+      `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
+    );
+  }
+  v.lines = JSON.stringify(
+    lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
+  );
+  v.requestedKg = String(
+    lines.reduce((total, line) => total + Number(line.kg), 0),
+  );
+}
 export function mutate(
   db: Database,
   role: Role,
@@ -1316,6 +1359,7 @@ export function mutate(
     "invoicePayment",
     "chefEdit",
     "meatPayment",
+    "shipmentRequestEdit",
   ];
   if (lot && lotPipeline.includes(kind)) {
     const lotRef = lot.id;
@@ -1358,38 +1402,7 @@ export function mutate(
     };
     next.lots.push(lot);
   } else if (kind === "shipmentRequest") {
-    let lines: Values[] = [];
-    try {
-      lines = JSON.parse(v.lines || "");
-    } catch {}
-    assert(Array.isArray(lines) && lines.length, "เลือก PO ซื้ออย่างน้อย 1 ใบ");
-    const seen = new Set<string>();
-    for (const line of lines) {
-      const po = purchaseLots(db).find((l) => l.id === line?.lotId);
-      assert(po, "ไม่พบ PO ซื้อที่เลือก");
-      assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
-      seen.add(po.id);
-      const kg = Number(String(line.kg ?? "").trim() || NaN);
-      assert(
-        Number.isFinite(kg) && kg > 0,
-        `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
-      );
-      assert(
-        entries(db, "foodivaConfirm", po.id).length,
-        `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`,
-      );
-      const remaining = poRemainingKg(db, po.id);
-      assert(
-        kg <= remaining + 0.001,
-        `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
-      );
-    }
-    v.lines = JSON.stringify(
-      lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
-    );
-    v.requestedKg = String(
-      lines.reduce((total, line) => total + Number(line.kg), 0),
-    );
+    requestLines(db, v);
     const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
     lotId = `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
     lot = {
@@ -1401,6 +1414,24 @@ export function mutate(
       config: { ...db.config },
     };
     next.lots.push(lot);
+  } else if (kind === "shipmentRequestEdit") {
+    // Replaces the Request's lines in place (same SH number) until Foodiva makes the manifest.
+    // The entry records the new lines; the lot carries the latest, which everything reads.
+    assert(
+      lot?.kind === "shipment" && shipments(db).some((s) => s.id === lotId),
+      "Request นี้ถูกยกเลิกแล้ว",
+    );
+    assert(
+      lot.stage === 1 && !entries(db, "dispatch", lotId).length,
+      "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้",
+    );
+    requestLines(db, v, lot);
+    lot.values = {
+      ...lot.values,
+      lines: v.lines,
+      requestedKg: v.requestedKg,
+      note: v.note ?? lot.values.note ?? "",
+    };
   } else if (kind === "smokeOrder" && lot) {
     const list = latestPackingList(db, lotId);
     assert(list, "รอ Foodiva ทำ Packing List ก่อนออก PO รมควัน");
@@ -1410,8 +1441,11 @@ export function mutate(
     );
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
-    // One shipment, one Packing List, one smoke PO: the quantity is the Packing List total.
-    v.rawKg = list.values.slicedNetKg;
+    // One shipment, one Packing List, one smoke PO. The kg starts at the Packing List total
+    // and the Owner may change it (A6); no upper cap.
+    if (!v.rawKg?.trim()) v.rawKg = list.values.slicedNetKg;
+    positive(v, "rawKg", "น้ำหนัก PO รมควัน");
+    v.rawKg = String(Number(v.rawKg));
     v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
     v.orderNumber = `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
     v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
@@ -1443,10 +1477,13 @@ export function mutate(
     v.amountBeforeVat = String(n(v, "serviceQuantity") * n(v, "serviceRate"));
     v.vat = String(n(v, "vat"));
     v.withholdingTax = String(n(v, "withholdingTax"));
-    v.netPayable = String(
-      n(v, "netPayable") ||
+    // Chef House bills the amount itself (A7): it starts at kg × rate and Chef may change it.
+    if (!v.netPayable?.trim())
+      v.netPayable = String(
         n(v, "amountBeforeVat") + n(v, "vat") - n(v, "withholdingTax"),
-    );
+      );
+    positive(v, "netPayable", "ยอดเรียกเก็บค่ารมควัน");
+    v.netPayable = String(Number(v.netPayable));
     required(v, "attachment", "Invoice ที่แนบ");
     v.status = "Submitted";
   } else if (kind === "invoiceReview" && lot) {
@@ -1667,12 +1704,12 @@ export function mutate(
         smokeEntries.every((entry, index) => drafts[index]?.id === entry.id),
       "ไม่พบข้อมูล Lot ล่าสุด",
     );
-    if (v.receivedBoxes !== undefined) {
-      const received = receivedTotal(db, lotId, v.receivedBoxes);
-      v.receivedBoxes = received.boxes;
-      v.receivedKg = String(received.total);
-    }
-    const receivedKg = Number(v.receivedKg);
+    // The yellow cells are weighed once, at cmReceive, and never edited again (A5).
+    assert(
+      v.receivedBoxes === undefined && v.receivedKg === undefined,
+      "น้ำหนักรับจริง (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
+    );
+    const receivedKg = n(lot.values, "receivedKg");
     const preSmokeKg = Number(v.preSmokeKg);
     assert(
       Number.isFinite(receivedKg) &&
@@ -1730,8 +1767,6 @@ export function mutate(
     const latestBatch = batches.at(-1)!;
     lot.values = {
       ...lot.values,
-      receivedKg: String(receivedKg),
-      ...(v.receivedBoxes !== undefined && { receivedBoxes: v.receivedBoxes }),
       arrival: v.arrival,
       preSmokeKg: String(preSmokeKg),
       inputKg: latestBatch.inputKg,

@@ -496,23 +496,25 @@ describe("lot workflow", () => {
     ).toThrow(/รวมเท่ากับ/);
   });
 
-  test("smoke PO waits for the Packing List, takes its total and prices the service", () => {
+  test("smoke PO waits for the Packing List, takes the kg entered (no cap) and prices the service", () => {
     const s = setup();
     readyToDispatch(s, "30");
-    const order = () =>
+    const order = (rawKg = "32") =>
       s.run("owner", "smokeOrder", {
         requestedSmokeDate: day,
         smoker: "Chef House",
-        rawKg: "999",
+        rawKg,
       });
     expect(() => order()).toThrow(/รอ Foodiva ทำ Packing List/);
     dispatch(s);
     packingList(s, "15\n15");
+    expect(() => order("0")).toThrow(/น้ำหนัก PO รมควัน/);
+    // A6: pre-filled from the 30 kg Packing List but the Owner may order more.
     order();
     expect(last(s).values).toMatchObject({
-      rawKg: "30",
+      rawKg: "32",
       serviceRate: "220",
-      estimatedCost: "6600",
+      estimatedCost: "7040",
       orderNumber: "SO-2026-0001",
       status: "Sent",
     });
@@ -525,6 +527,42 @@ describe("lot workflow", () => {
         attachment: "x",
       }),
     ).toThrow(/ปิดรอบ/);
+  });
+
+  test("Chef House bills its own amount and the Owner pays exactly that (A7)", () => {
+    const s = closed();
+    const bill = (netPayable: string, attachment = "ch.pdf") =>
+      s.run("cm", "smokingInvoice", {
+        invoiceNumber: "CH-9",
+        invoiceDate: day,
+        attachment,
+        netPayable,
+      });
+    expect(() => bill("0")).toThrow(/ยอดเรียกเก็บค่ารมควัน/);
+    expect(() => bill("10500", "")).toThrow(/Invoice ที่แนบ/);
+    bill("10500");
+    const sent = last(s);
+    // The 50 kg smoke PO at ฿220 still shows as the reference quantity and amount.
+    expect(sent.values).toMatchObject({
+      serviceQuantity: "50",
+      amountBeforeVat: "11000",
+      netPayable: "10500",
+    });
+    s.run("owner", "invoiceReview", {
+      invoiceId: sent.id,
+      decision: "รับยอด",
+      reviewedBy: "Owner",
+    });
+    const pay = (paidAmount: string) =>
+      s.run("owner", "invoicePayment", {
+        invoiceId: sent.id,
+        paymentDate: day,
+        paidBy: "Owner",
+        paidAmount,
+      });
+    expect(() => pay("11000")).toThrow(/เท่ากับยอดสุทธิ/);
+    pay("10500");
+    expect(smokingInvoiceStatus(s.db, sent)).toBe("ชำระแล้ว");
   });
 
   test("smoking invoice goes from review to payment and cannot be paid twice", () => {
@@ -733,7 +771,6 @@ describe("lot workflow", () => {
         "cm",
         "chefEdit",
         {
-          receivedKg: "49",
           arrival: "08:00",
           preSmokeKg: "48",
           ...values,

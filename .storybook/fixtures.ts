@@ -79,6 +79,25 @@ export const ownerReservedDb: Database = (() => {
   return s.db;
 })();
 
+/** `multiPoDb` plus a Request of 200 + 300 kg from the 300 and 700 kg POs that Foodiva has
+ *  not trucked yet: still editable by the Owner (A10). */
+export const requestedDb: Database = (() => {
+  const [a, b] = multiPoDb.lots.filter((lot) => !lot.kind).slice(-3);
+  return mutate(
+    multiPoDb,
+    "owner",
+    "shipmentRequest",
+    {
+      lines: JSON.stringify([
+        { lotId: a.id, kg: "200" },
+        { lotId: b.id, kg: "300" },
+      ]),
+    },
+    "",
+    day,
+  );
+})();
+
 /** `multiPoDb` after a 1,400 kg Request drawing 300 / 600 / 500 kg from the three new POs,
  * trucked with a 1,390 kg Packing List: one smoke PO to issue from three purchase POs,
  * next to the 400 kg shipment still without a Packing List (button disabled). */
@@ -130,6 +149,9 @@ export const smokeOrderDb: Database = (() => {
   smokeOrder(s);
   return s.db;
 })();
+
+/** Lot closed by Chef House (50 kg smoke PO), no smoking invoice yet: Chef House bills now. */
+export const closedDb: Database = closed().db;
 
 /** Chef House's smoking invoice for a closed run, waiting for the Owner to check the amount. */
 export const submittedInvoiceDb: Database = (() => {
