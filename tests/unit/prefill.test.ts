@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { prefillValues } from "@/lib/prefill";
-import { seed } from "@/lib/store";
+import { entries, poRemainingKg, seed } from "@/lib/store";
 import {
   closed,
   confirm,
@@ -80,7 +80,10 @@ test("prefilled weights and amounts pass mutate as-is; receiving weights stay bl
 
   const done = closed();
   invoice(done);
-  done.run("owner", "invoiceReview", { decision: "รับยอด", reviewedBy: "Owner" });
+  done.run("owner", "invoiceReview", {
+    decision: "รับยอด",
+    reviewedBy: "Owner",
+  });
   done.run("owner", "invoicePayment", {
     ...prefillValues(done.db, "invoicePayment", done.db.lots.at(-1)),
     paymentDate: day,
@@ -103,14 +106,31 @@ test("a one-way trip does not copy the outbound truck into the return form", () 
   });
 });
 
-test("smoke PO and Foodiva's return receipt start from earlier weights", () => {
+test("the smoke PO takes its quantity from the Packing List, not the form; Foodiva's return receipt starts from earlier weights", () => {
   const s = setup();
-  purchase(s, "40");
-  confirm(s, "40", "30");
-  expect(prefillValues(s.db, "smokeOrder", s.db.lots[0])).toEqual({
-    smoker: "Chef House",
-    rawKg: "30",
+  for (const kg of ["300", "700", "500"]) {
+    purchase(s, kg);
+    confirm(s, kg);
+  }
+  const [a, b, c] = s.db.lots.map((lot) => lot.id);
+  request(s, [
+    [a, "300"],
+    [b, "600"],
+    [c, "500"],
+  ]);
+  dispatch(s);
+  packingList(s, "700\n690");
+  const prefill = prefillValues(s.db, "smokeOrder", s.db.lots.at(-1));
+  expect(prefill).toEqual({ smoker: "Chef House" });
+  // 3 purchase POs, 1 smoke PO for the Packing List total (not the 1,400 kg requested).
+  s.run("owner", "smokeOrder", {
+    ...prefill,
+    requestedSmokeDate: day,
+    rawKg: "9999",
   });
+  expect(last(s).values.rawKg).toBe("1390");
+  expect(entries(s.db, "smokeOrder")).toHaveLength(1);
+  expect(poRemainingKg(s.db, b)).toBe(100);
   const done = smoked();
   expect(
     prefillValues(done.db, "foodivaReturnReceive", done.db.lots.at(-1)),

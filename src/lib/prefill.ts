@@ -41,11 +41,8 @@ export function prefillValues(db: Database, kind: string, lot?: Lot): Values {
       invoiceAmount: String(kg * n(lot.values, "price")),
     };
   }
-  if (kind === "smokeOrder")
-    return {
-      smoker: "Chef House",
-      rawKg: String(readyForChefHouse(db, lot.id)),
-    };
+  // The quantity is not a form value: mutate takes it from the Packing List.
+  if (kind === "smokeOrder") return { smoker: "Chef House" };
   if (kind === "smokingInvoice")
     // Display only: mutate recomputes the billed quantity from the smoke PO.
     return {

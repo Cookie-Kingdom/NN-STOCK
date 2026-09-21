@@ -48,10 +48,42 @@ export const multiPoDb: Database = (() => {
   confirm(s, "1000");
   request(s, [[s.db.lots.at(-1)!.id, "400"]]);
   dispatch(s);
-  for (const [kg, price] of [["300", "250"], ["700", "200"], ["500", "230"]]) {
+  for (const [kg, price] of [
+    ["300", "250"],
+    ["700", "200"],
+    ["500", "230"],
+  ]) {
     purchase(s, kg, price);
     confirm(s, kg);
   }
+  return s.db;
+})();
+
+/** `multiPoDb` after a 1,400 kg Request drawing 300 / 600 / 500 kg from the three new POs,
+ * trucked with a 1,390 kg Packing List: one smoke PO to issue from three purchase POs,
+ * next to the 400 kg shipment still without a Packing List (button disabled). */
+export const multiPoPackedDb: Database = (() => {
+  const s = setup();
+  purchase(s, "1000", "240");
+  confirm(s, "1000");
+  request(s, [[s.db.lots.at(-1)!.id, "400"]]);
+  dispatch(s);
+  for (const [kg, price] of [
+    ["300", "250"],
+    ["700", "200"],
+    ["500", "230"],
+  ]) {
+    purchase(s, kg, price);
+    confirm(s, kg);
+  }
+  const [a, b, c] = s.db.lots.slice(-3).map((lot) => lot.id);
+  request(s, [
+    [a, "300"],
+    [b, "600"],
+    [c, "500"],
+  ]);
+  dispatch(s);
+  packingList(s, "700\n690");
   return s.db;
 })();
 

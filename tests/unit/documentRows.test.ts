@@ -13,8 +13,19 @@ import {
   purchaseOrderRows,
   type DocumentReferenceType,
 } from "@/components/organisms/shared/documentRows";
-import { entries, type Entry, type Lot } from "@/lib/store";
-import { closed, day, invoice, purchase, setup } from "./fixtures";
+import { entries, visibleDatabase, type Entry, type Lot } from "@/lib/store";
+import {
+  closed,
+  confirm,
+  day,
+  dispatch,
+  invoice,
+  packingList,
+  purchase,
+  request,
+  setup,
+  smokeOrder,
+} from "./fixtures";
 
 const asObject = (rows: [string, string][]) => Object.fromEntries(rows);
 
@@ -59,7 +70,11 @@ test("transport rows read the direction's own date and weight keys", () => {
 test("invoice and smoke PO rows follow the lot's documents", () => {
   const s = closed();
   const sent = invoice(s);
-  s.run("owner", "invoiceReview", { invoiceId: sent.id, decision: "รับยอด", reviewedBy: "Owner" });
+  s.run("owner", "invoiceReview", {
+    invoiceId: sent.id,
+    decision: "รับยอด",
+    reviewedBy: "Owner",
+  });
   s.run("owner", "invoicePayment", {
     invoiceId: sent.id,
     paymentDate: day,
@@ -68,7 +83,8 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
   });
   const po = s.db.lots[0];
   const lot = s.db.lots.at(-1)!;
-  const latest = (kind: string, from = lot) => entries(s.db, kind, from.id).at(-1)!;
+  const latest = (kind: string, from = lot) =>
+    entries(s.db, kind, from.id).at(-1)!;
   expect(
     asObject(foodivaInvoiceRows(s.db, po, latest("foodivaConfirm", po))),
   ).toMatchObject({
@@ -97,29 +113,57 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
     )["PO โรงรมควัน"],
   ).toBe("—");
   expect(
-    asObject(
-      smokeOrderPrintRows(
-        s.db,
-        lot,
-        latest("smokeOrder"),
-        latest("foodivaConfirm", po),
-      ),
-    ),
+    asObject(smokeOrderPrintRows(s.db, lot, latest("smokeOrder"))),
   ).toMatchObject({
     ลูกค้า: "บริษัท เนิร์ดเนื้อ จำกัด",
     ที่อยู่: "—",
-    "Foodiva Invoice": "INV-1",
+    เลขที่การส่ง: "SH-2026-0001",
+    "Packing List": "2 กล่องรับเข้า · 50.00 กก.",
+    ขนาดบรรจุ: "2 กล่องรับเข้า",
     จำนวน: "50.00 กก.",
     "ราคา / กก.": "฿220.00",
     "ยอดรวมก่อน VAT": "฿11,000.00",
   });
   expect(
-    asObject(smokeOrderTraceRows(po, latest("smokeOrder"), undefined)),
+    asObject(smokeOrderTraceRows(s.db, lot, latest("smokeOrder"))),
   ).toMatchObject({
-    ลูกค้า: "บริษัททดสอบ",
-    "Foodiva Invoice": "รอระบุ",
+    เลขที่การส่ง: "SH-2026-0001",
+    "Packing List": "2 กล่องรับเข้า · 50.00 กก.",
     ผู้รับออเดอร์: "—",
   });
+});
+
+test("the smoke PO of a 3-PO shipment, as Chef House opens it, names no purchase PO, meat price or Foodiva invoice", () => {
+  const s = setup();
+  for (const [kg, price] of [
+    ["300", "250"],
+    ["700", "200"],
+    ["500", "230"],
+  ]) {
+    purchase(s, kg, price);
+    confirm(s, kg);
+  }
+  request(
+    s,
+    s.db.lots.map((lot) => [lot.id, lot.values.orderedKg]),
+  );
+  dispatch(s);
+  packingList(s, "750\n740");
+  smokeOrder(s);
+  const chef = visibleDatabase(s.db, "cm");
+  const lot = chef.lots[0];
+  const rows = smokeOrderPrintRows(
+    chef,
+    lot,
+    entries(chef, "smokeOrder", lot.id)[0],
+  );
+  expect(asObject(rows)).toMatchObject({
+    เลขที่การส่ง: "SH-2026-0001",
+    จำนวน: "1,490.00 กก.",
+    "ราคา / กก.": "฿200.00",
+  });
+  const text = JSON.stringify(rows);
+  expect(text).not.toMatch(/PO-2026|INV-1|฿250|฿230/);
 });
 
 test("purchase order rows prefer the lot, then its config snapshot, then current config", () => {

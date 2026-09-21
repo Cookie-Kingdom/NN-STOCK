@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { demoDb, dispatchDb, open } from "../../../../.storybook/fixtures";
+import {
+  demoDb,
+  dispatchDb,
+  multiPoPackedDb,
+  open,
+  packedDb,
+} from "../../../../.storybook/fixtures";
 import { InvoiceView } from "./InvoiceView";
 import { LotWorkflowAction } from "./LotWorkflowAction";
 import { PurchaseOrderView } from "./PurchaseOrderView";
@@ -30,6 +36,25 @@ export const PurchaseOrdersAwaitingDispatch: Story = {
 
 export const SmokingPurchaseOrders: Story = {
   render: () => <SmokingPurchaseOrderView db={db} open={open} />,
+};
+
+/** Packing List in: the create button is live and the quantity is the Packing List total. */
+export const SmokingPurchaseOrdersPacked: Story = {
+  parameters: { db: packedDb },
+  render: () => <SmokingPurchaseOrderView db={packedDb} open={open} />,
+};
+
+/** Request still waiting for Foodiva: the create button is disabled with its reason. */
+export const SmokingPurchaseOrdersAwaitingPackingList: Story = {
+  parameters: { db: dispatchDb },
+  render: () => <SmokingPurchaseOrderView db={dispatchDb} open={open} />,
+};
+
+/** One shipment drawing on three purchase POs (kg each and what each has left), next to
+ * a trucked shipment with no Packing List yet. */
+export const SmokingPurchaseOrdersMultiPo: Story = {
+  parameters: { db: multiPoPackedDb },
+  render: () => <SmokingPurchaseOrderView db={multiPoPackedDb} open={open} />,
 };
 
 export const TransportManifest: Story = {

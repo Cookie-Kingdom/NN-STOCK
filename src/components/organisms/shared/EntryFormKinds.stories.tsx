@@ -4,10 +4,11 @@ import {
   acceptedInvoiceDb,
   allocatedDb,
   cmReceivedDb,
-  confirmedDb,
   day,
   demoDb,
   dispatchedDb,
+  multiPoPackedDb,
+  packedDb,
   preparedDb,
   returnTruckDb,
   returnedDb,
@@ -60,8 +61,23 @@ const form = (
 
 // --- Owner ---------------------------------------------------------------
 
-/** PO for the smoking service, priced from the kg Foodiva confirmed. */
-export const OwnerSmokeOrder: Story = form(confirmedDb, "owner", "smokeOrder");
+/** PO for the smoking service: quantity and rate come from the shipment's Packing List. */
+export const OwnerSmokeOrder: Story = form(
+  packedDb,
+  "owner",
+  "smokeOrder",
+  "",
+  packedDb.lots.at(-1)!.id,
+);
+
+/** One smoke PO for a shipment drawn from three purchase POs (1,390 kg Packing List). */
+export const OwnerSmokeOrderMultiPo: Story = form(
+  multiPoPackedDb,
+  "owner",
+  "smokeOrder",
+  "",
+  multiPoPackedDb.lots.at(-1)!.id,
+);
 
 /** The Owner checks Chef House's submitted bill and accepts or sends it back. */
 export const OwnerInvoiceReview: Story = form(

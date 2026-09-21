@@ -5,9 +5,11 @@ import {
   day,
   demoDb,
   dispatchDb,
+  multiPoPackedDb,
   rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
+import { mutate, visibleDatabase } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { BagAllocationForm } from "./BagAllocationForm";
@@ -246,12 +248,26 @@ export const ChefLotEdit: Story = {
   ),
 };
 
+/* The smoke PO of a shipment drawn from three purchase POs, as Chef House's workspace
+ * reads it (visibleDatabase): shipment number and Packing List, no purchase PO or meat price. */
+const chefSmokeDb = visibleDatabase(
+  mutate(
+    multiPoPackedDb,
+    "owner",
+    "smokeOrder",
+    { smoker: "Chef House", requestedSmokeDate: day },
+    multiPoPackedDb.lots.at(-1)!.id,
+    day,
+  ),
+  "cm",
+);
+
 export const SmokeOrderPreview: Story = {
-  parameters: { db: demoDb },
+  parameters: { db: chefSmokeDb },
   render: () => (
     <SmokeOrderPreviewDialog
-      db={demoDb}
-      lotId={demoDb.lots[0].id}
+      db={chefSmokeDb}
+      lotId={chefSmokeDb.lots[0].id}
       onClose={onClose}
     />
   ),

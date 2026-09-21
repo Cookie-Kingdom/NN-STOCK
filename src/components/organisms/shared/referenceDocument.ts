@@ -1,5 +1,5 @@
 import {
-  foodivaInvoiceRows,
+  packingListRows,
   smokeOrderPrintRows,
   smokingInvoiceRows,
   transportDocumentRows,
@@ -53,7 +53,7 @@ export function referenceDocument(
 ): ReferenceDocument | undefined {
   const history = (k: string) => entries(db, k, lot.id);
   const latest = (k: string) => history(k).at(-1);
-  const foodInvoice = latest("foodivaConfirm");
+  const packing = latest("packingList");
   const order = latest("smokeOrder");
   const smokeInvoice = latest("smokingInvoice");
   if (kind === "foodivaConfirm")
@@ -70,19 +70,19 @@ export function referenceDocument(
         "หมายเหตุ",
       ],
     };
-  if (kind === "smokeOrder" && foodInvoice)
+  if (kind === "smokeOrder" && packing)
     return {
-      title: "Invoice Foodiva",
-      number: foodInvoice.values.invoiceNo || lot.poId,
-      rows: foodivaInvoiceRows(db, lot, foodInvoice),
-      summary: ["วันที่ Invoice", "น้ำหนักยืนยัน", "พร้อมส่งเชียงใหม่"],
-      attachment: attachmentOf(history("foodivaConfirm")),
+      title: "Packing List",
+      number: lot.poId,
+      rows: packingListRows(lot, packing),
+      summary: ["กล่องรับเข้า", "ยอดรวม", "Inv. Weight"],
+      attachment: attachmentOf(history("packingList")),
     };
   if ((kind === "smokeOrderAccept" || kind === "smokingInvoice") && order)
     return {
       title: "Smoke Service Purchase Order",
       number: order.values.orderNumber,
-      rows: smokeOrderPrintRows(db, lot, order, foodInvoice),
+      rows: smokeOrderPrintRows(db, lot, order),
       summary: [
         "วันที่ PO",
         "กำหนดเสร็จ",
@@ -103,19 +103,13 @@ export function referenceDocument(
       summary: ["PO โรงรมควัน", "น้ำหนักคิดค่าบริการ", "ยอดสุทธิ", "สถานะ"],
       attachment: attachmentOf(history("smokingInvoice")),
     };
-  const direction =
-    kind === "cmReceive"
-      ? "outbound"
-      : kind === "foodivaReturnReceive"
-        ? "return"
-        : undefined;
-  const trip =
-    direction && latest(direction === "outbound" ? "dispatch" : "return");
-  if (direction && trip)
+  // cmReceive has its own Packing List form (P6), so only the return leg quotes a transport document.
+  const trip = kind === "foodivaReturnReceive" && latest("return");
+  if (trip)
     return {
-      title: transportDocumentTitle[direction],
+      title: transportDocumentTitle.return,
       number: trip.values.transferNumber || trip.id.slice(0, 8),
-      rows: transportDocumentRows(lot, trip, direction),
+      rows: transportDocumentRows(lot, trip, "return"),
       summary: ["วันที่รถรับ", "ทะเบียนรถ", "คนขับ", "น้ำหนักส่ง"],
     };
   return undefined;

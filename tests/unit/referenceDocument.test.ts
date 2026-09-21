@@ -4,9 +4,13 @@ import {
   closed,
   confirm,
   day,
+  dispatch,
   invoice,
+  packingList,
   purchase,
   ready,
+  readyToDispatch,
+  request,
   setup,
   type Setup,
 } from "./fixtures";
@@ -24,9 +28,17 @@ test("each lot form references the document it builds on, once that document exi
   });
   expect(doc(s, "smokeOrder")).toBeUndefined();
   confirm(s, "40");
+  request(s, [[s.db.lots[0].id, "40"]]);
+  dispatch(s);
+  expect(doc(s, "smokeOrder")).toBeUndefined();
+  packingList(s, "20\n20");
   expect(doc(s, "smokeOrder")).toMatchObject({
-    title: "Invoice Foodiva",
-    number: "INV-1",
+    title: "Packing List",
+    number: "SH-2026-0001",
+  });
+  expect(Object.fromEntries(doc(s, "smokeOrder")!.rows)).toMatchObject({
+    กล่องรับเข้า: "2 กล่องรับเข้า",
+    ยอดรวม: "40.00 กก.",
   });
   expect(doc(s, "smokeOrderAccept")).toBeUndefined();
   expect(doc(s, "cmReceive")).toBeUndefined();
@@ -43,12 +55,9 @@ test("each lot form references the document it builds on, once that document exi
   });
 });
 
-test("receiving forms reference the transport document", () => {
+test("Foodiva's return receipt references the return transport document; Chef House's receipt has its own form", () => {
   const s = ready();
-  expect(doc(s, "cmReceive")).toMatchObject({
-    title: "ใบขนส่งเนื้อขาไป",
-    number: "TR-2026-0001",
-  });
+  expect(doc(s, "cmReceive")).toBeUndefined();
   expect(doc(s, "foodivaReturnReceive")).toMatchObject({
     title: "ใบขนส่งเนื้อขากลับ",
     number: "TR-2026-R0001",
@@ -58,27 +67,28 @@ test("receiving forms reference the transport document", () => {
 test("every summary label exists in the printed rows", () => {
   const s = ready();
   const sent = invoice(s);
-  s.run("owner", "invoiceReview", { invoiceId: sent.id, decision: "รับยอด", reviewedBy: "Owner" });
+  s.run("owner", "invoiceReview", {
+    invoiceId: sent.id,
+    decision: "รับยอด",
+    reviewedBy: "Owner",
+  });
   s.run("owner", "invoicePayment", {
     invoiceId: sent.id,
     paymentDate: day,
     paidBy: "Owner",
     paidAmount: sent.values.netPayable,
   });
-  // The purchase PO's own documents, until P5 points the smoke PO at the Packing List.
-  for (const kind of ["foodivaConfirm", "smokeOrder"]) {
-    const reference = doc(s, kind, s.db.lots[0])!;
-    expect(reference.rows.map(([label]) => label), kind).toEqual(
-      expect.arrayContaining(reference.summary),
-    );
-  }
+  const po = doc(s, "foodivaConfirm", s.db.lots[0])!;
+  expect(po.rows.map(([label]) => label)).toEqual(
+    expect.arrayContaining(po.summary),
+  );
   const kinds = [
+    "smokeOrder",
     "smokeOrderAccept",
     "smokingInvoice",
     "invoiceReview",
     "invoicePayment",
     "dispatch",
-    "cmReceive",
     "foodivaReturnReceive",
   ];
   for (const kind of kinds) {
@@ -90,22 +100,27 @@ test("every summary label exists in the printed rows", () => {
   }
 });
 
-test("the Foodiva invoice reference carries the uploaded file, not the generated sheet", () => {
+test("the Packing List reference carries Foodiva's uploaded file, not the generated sheet", () => {
   const s = setup();
-  purchase(s, "40");
-  confirm(s, "40");
-  const entry = s.db.entries.find((e) => e.kind === "foodivaConfirm")!;
-  entry.values.attachmentStorageKey = "key-1";
+  readyToDispatch(s, "40");
+  dispatch(s);
+  const list = {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    boxes: "40",
+    attachment: "pl.xlsx",
+  };
+  s.run("foodiva", "packingList", { ...list, attachmentStorageKey: "key-1" });
   expect(doc(s, "smokeOrder")!.attachment).toEqual({
-    name: "inv.pdf",
+    name: "pl.xlsx",
     data: undefined,
     storageKey: "key-1",
   });
-  // Re-saving the invoice without picking the file again: the newest entry has
+  // Re-saving the list without picking the file again: the newest entry has
   // the name only, so the earlier version that still holds the file is used.
-  confirm(s, "40");
+  s.run("foodiva", "packingList", list);
   expect(doc(s, "smokeOrder")!.attachment).toEqual({
-    name: "inv.pdf",
+    name: "pl.xlsx",
     data: undefined,
     storageKey: "key-1",
   });
