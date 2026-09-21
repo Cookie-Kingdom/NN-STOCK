@@ -71,7 +71,7 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
         {steps.map(([label, value, extra], index) => (
           <li
             key={label}
-            className="grid content-start gap-1 rounded-lg border border-border bg-bg p-3 text-body-sm"
+            className="grid content-start justify-items-start gap-1 rounded-lg border border-border bg-bg p-3 text-body-sm"
           >
             <small className="text-caption text-text-secondary">{`${index + 1}. ${label}`}</small>
             <strong className="tabular-nums">{value ?? "รอดำเนินการ"}</strong>

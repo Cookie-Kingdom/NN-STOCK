@@ -17,7 +17,8 @@ import { TableSection } from "@/components/organisms/shared/TableSection";
 export type PackingListHeader = {
   /** Date of the list, e.g. "16/9/2026". */
   date: string;
-  invoiceNo: string;
+  /** Foodiva's meat invoice numbers. Left out for Chef House, which must not see them. */
+  invoiceNo?: string;
   /** Product line, e.g. "NERD NUEA FZ .. SLICED 6mm.". */
   product: string;
   /** Supplier code line, e.g. "0037 Aust.Beef Icon XB Wagyu Chuck Roll 6/7". */
@@ -207,7 +208,9 @@ export function PackingListTable({
     >
       <div className="border-b border-border px-6 py-5 max-md:px-4">
         <p className="m-0 text-caption text-text-secondary">
-          วันที่ {header.date} · INV {header.invoiceNo || "—"}
+          วันที่ {header.date}
+          {header.invoiceNo !== undefined &&
+            ` · INV ${header.invoiceNo || "—"}`}
         </p>
         <p className="mt-1.5 mb-4 text-body font-semibold">
           {header.product || "—"}{" "}

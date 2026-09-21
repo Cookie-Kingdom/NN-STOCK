@@ -179,7 +179,13 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
   dispatch(s);
-  packingList(s, "25\n25");
+  // With Inv. Weight, so Chef House's weigh-in recomputes Sliced Weight Lost.
+  s.run("foodiva", "packingList", {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    invWeightKg: "50",
+    boxes: "25\n25",
+  });
   smokeOrder(s);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   if (steps > 0)
@@ -276,4 +282,5 @@ export const materialTransferDb: Database = (() => {
   return s.db;
 })();
 
-export const open = fn();
+// Named so the Actions panel logs each open("kind", lotId) call.
+export const open = fn().mockName("open");

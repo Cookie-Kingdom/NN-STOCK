@@ -46,7 +46,7 @@ export function PanelHeading({
         {description && <Muted>{description}</Muted>}
       </div>
       {aside && (
-        <div className="flex flex-none flex-wrap items-center gap-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           {aside}
         </div>
       )}

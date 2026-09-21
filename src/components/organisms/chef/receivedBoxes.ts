@@ -20,7 +20,8 @@ export function receivedDraft(list: Entry | undefined, value?: string) {
 export const receivedValue = (draft: ReceivedDraft) =>
   draft.map((kg) => (kg === undefined ? "" : String(kg))).join("\n");
 
-/** What PackingListTable needs to show Foodiva's saved list beside the yellow cells. */
+/** What PackingListTable needs to show Foodiva's saved list beside the yellow cells.
+ *  Leaves out `invoiceNo` (Foodiva's meat invoices), which Chef House must not see. */
 export function packingListView(
   list: Entry,
   draft: ReceivedDraft,
@@ -31,7 +32,6 @@ export function packingListView(
   return {
     header: {
       date: list.date,
-      invoiceNo: v.invoiceNo ?? "",
       product: v.product ?? "",
       code: v.code,
       invWeight: num(v.invWeightKg),

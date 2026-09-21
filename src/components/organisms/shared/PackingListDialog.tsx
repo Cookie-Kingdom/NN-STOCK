@@ -45,7 +45,13 @@ export function PackingListDialog({
                 label={`ไฟล์ที่ Foodiva แนบ · ${list.values.attachment}`}
               />
             )}
-            <PackingListTable header={view.header} boxes={view.boxes} />
+            <PackingListTable
+              header={{
+                ...view.header,
+                invoiceNo: list.values.invoiceNo ?? "",
+              }}
+              boxes={view.boxes}
+            />
           </>
         ) : (
           <Notice>ยังไม่มี Packing List ของการส่งนี้</Notice>

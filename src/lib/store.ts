@@ -217,55 +217,183 @@ function roleplay(endDate: string, dayCount: number): Database {
     price: "250",
   });
   const poLotId = db.lots[0].id;
-  run("foodiva", "foodivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, poLotId);
-  run("owner", "meatPayment", { paymentDate: dates[0], paidAmount: String(rawKg * 250), paidBy: "Owner", paymentReference: "DEMO-MEAT-001" }, poLotId);
-  run("owner", "shipmentRequest", { lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]) });
+  run(
+    "foodiva",
+    "foodivaConfirm",
+    {
+      invoiceNo: "INV-DEMO-001",
+      invoiceDate: dates[0],
+      confirmedKg: String(rawKg),
+      readyForChiangMaiKg: String(rawKg),
+      reservedForOwnerKg: "0",
+      invoiceAmount: String(rawKg * 250),
+      attachment: "INV-DEMO-001.pdf",
+      confirmedBy: "Foodiva Demo",
+    },
+    poLotId,
+  );
+  run(
+    "owner",
+    "meatPayment",
+    {
+      paymentDate: dates[0],
+      paidAmount: String(rawKg * 250),
+      paidBy: "Owner",
+      paymentReference: "DEMO-MEAT-001",
+    },
+    poLotId,
+  );
+  run("owner", "shipmentRequest", {
+    lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]),
+  });
   const lotId = db.lots.at(-1)!.id;
   // Packing List: 20 kg กล่องรับเข้า, the last one takes the remainder; Chef House weighs in the same.
-  const boxes = Array.from({ length: Math.ceil(rawKg / 20) }, (_, i) => String(Math.min(20, rawKg - i * 20))).join("\n");
-  run("foodiva", "dispatch", {
-    pickupDate: dates[0],
-    origin: "Foodiva · กรุงเทพฯ",
-    destination: "Chef House · เชียงใหม่",
-    trip: "ไปกลับ",
-    pickupTime: "06:30",
-    vehicleType: "รถห้องเย็น",
-    plate: "DEMO-01",
-    driverName: "คนขับทดสอบ",
-    driverPhone: "0800000000",
-  }, lotId);
-  run("foodiva", "packingList", { invoiceNo: "INV-DEMO-001", product: "เนื้อวัว", invWeightKg: String(rawKg), boxes }, lotId);
-  run("owner", "smokeOrder", { smoker: "Chef House", requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
+  const boxes = Array.from({ length: Math.ceil(rawKg / 20) }, (_, i) =>
+    String(Math.min(20, rawKg - i * 20)),
+  ).join("\n");
+  run(
+    "foodiva",
+    "dispatch",
+    {
+      pickupDate: dates[0],
+      origin: "Foodiva · กรุงเทพฯ",
+      destination: "Chef House · เชียงใหม่",
+      trip: "ไปกลับ",
+      pickupTime: "06:30",
+      vehicleType: "รถห้องเย็น",
+      plate: "DEMO-01",
+      driverName: "คนขับทดสอบ",
+      driverPhone: "0800000000",
+    },
+    lotId,
+  );
+  run(
+    "foodiva",
+    "packingList",
+    {
+      invoiceNo: "INV-DEMO-001",
+      product: "เนื้อวัว",
+      invWeightKg: String(rawKg),
+      boxes,
+    },
+    lotId,
+  );
+  run(
+    "owner",
+    "smokeOrder",
+    {
+      smoker: "Chef House",
+      requestedSmokeDate: dates[0],
+      expectedFinishedDate: dates[2],
+    },
+    lotId,
+  );
   run("cm", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
   run("cm", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
   run("cm", "prepare", { preSmokeKg: String(rawKg) }, lotId);
-  run("cm", "smoke", {
-    smokeDate: dates[0],
-    inputKg: String(rawKg),
-    wasteKg: "0",
-    packs,
-  }, lotId);
+  run(
+    "cm",
+    "smoke",
+    {
+      smokeDate: dates[0],
+      inputKg: String(rawKg),
+      wasteKg: "0",
+      packs,
+    },
+    lotId,
+  );
   run("cm", "closeLot", { confirm: "Chef House" }, lotId);
-  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef House", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
+  run(
+    "cm",
+    "smokingInvoice",
+    {
+      invoiceNumber: "CH-INV-DEMO-001",
+      invoiceDate: dates[0],
+      serviceProvider: "Chef House",
+      serviceQuantity: String(rawKg),
+      vat: String(smokingAmount * 0.07),
+      withholdingTax: String(smokingAmount * 0.03),
+      netPayable: String(smokingAmount * 1.04),
+      attachment: "CH-INV-DEMO-001.pdf",
+    },
+    lotId,
+  );
   const chefInvoice = db.entries.at(-1)?.id || "";
-  run("owner", "invoiceReview", { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" }, lotId);
-  run("owner", "invoicePayment", { invoiceId: chefInvoice, paymentDate: dates[0], paidAmount: String(smokingAmount * 1.04), paidBy: "Owner", paymentReference: "DEMO-PAY-001" }, lotId);
-  run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef House · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
-  run("foodiva", "foodivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
+  run(
+    "owner",
+    "invoiceReview",
+    { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" },
+    lotId,
+  );
+  run(
+    "owner",
+    "invoicePayment",
+    {
+      invoiceId: chefInvoice,
+      paymentDate: dates[0],
+      paidAmount: String(smokingAmount * 1.04),
+      paidBy: "Owner",
+      paymentReference: "DEMO-PAY-001",
+    },
+    lotId,
+  );
+  run(
+    "owner",
+    "return",
+    {
+      returnDate: dates[3],
+      returnTime: "09:00",
+      origin: "Chef House · เชียงใหม่",
+      destination: "Foodiva · กรุงเทพฯ",
+      vehicleType: "รถห้องเย็น",
+      plate: "DEMO-02",
+      driverName: "คนขับทดสอบ",
+      driverPhone: "0800000000",
+      returnKg: String(rawKg),
+    },
+    lotId,
+  );
+  run(
+    "foodiva",
+    "foodivaReturnReceive",
+    {
+      receivedDate: dates[4],
+      receivedTime: "10:00",
+      receivedKg: String(rawKg),
+      receivedBags: String(packCount),
+    },
+    lotId,
+  );
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
   const firstBags = availableBags(db, lotId);
-  run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    deliveryDate: dates[0],
-    bagIds: firstBags.slice(0, branchBagCount).map((bag) => bag.id).join(","),
-  }, lotId);
+  run(
+    "owner",
+    "allocate",
+    {
+      branch: "ศาลาแดง",
+      deliveryDate: dates[0],
+      bagIds: firstBags
+        .slice(0, branchBagCount)
+        .map((bag) => bag.id)
+        .join(","),
+    },
+    lotId,
+  );
   const salaAllocation = db.entries.at(-1)?.id || "";
   const secondBags = availableBags(db, lotId);
-  run("owner", "allocate", {
-    branch: "มีนบุรี",
-    deliveryDate: dates[0],
-    bagIds: secondBags.slice(0, branchBagCount).map((bag) => bag.id).join(","),
-  }, lotId);
+  run(
+    "owner",
+    "allocate",
+    {
+      branch: "มีนบุรี",
+      deliveryDate: dates[0],
+      bagIds: secondBags
+        .slice(0, branchBagCount)
+        .map((bag) => bag.id)
+        .join(","),
+    },
+    lotId,
+  );
   const minburiAllocation = db.entries.at(-1)?.id || "";
   for (const material of materials) {
     run("owner", "materialReceive", {
@@ -308,11 +436,17 @@ function roleplay(endDate: string, dayCount: number): Database {
         }),
       );
       if (dayIndex === 0) {
-        run("branch", "receive", {
-          kg: String(rawKg / 2),
-          bags: String(branchBagCount),
-          allocation: branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
-        }, lotId);
+        run(
+          "branch",
+          "receive",
+          {
+            kg: String(rawKg / 2),
+            bags: String(branchBagCount),
+            allocation:
+              branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
+          },
+          lotId,
+        );
       }
       if (branch === "ศาลาแดง") {
         run("branch", "ricePurchase", {
@@ -336,20 +470,28 @@ function roleplay(endDate: string, dayCount: number): Database {
       run("branch", "thaw", { kg: "1.521", bags: "1" }, lotId);
       run("branch", "materials", materialValues);
       if (branch === "ศาลาแดง") {
-        run("branch", "riceIssue", { rawRiceIssuedKg: "3", receiver: "ผู้ดูแลทดสอบ" });
+        run("branch", "riceIssue", {
+          rawRiceIssuedKg: "3",
+          receiver: "ผู้ดูแลทดสอบ",
+        });
         run("branch", "rice", { rawUsedKg: "3", riceKg: "3" });
       }
-      run("branch", "sale", {
-        boxes: "14",
-        addons: "0",
-        chiliAddons: "0",
-        soldKg: "1.421",
-        wasteKg: "0.100",
-        riceWasteKg: "0",
-        expense: "0",
-        lineMan: "4900",
-        reason: "ทดสอบปิดยอด",
-      }, lotId);
+      run(
+        "branch",
+        "sale",
+        {
+          boxes: "14",
+          addons: "0",
+          chiliAddons: "0",
+          soldKg: "1.421",
+          wasteKg: "0.100",
+          riceWasteKg: "0",
+          expense: "0",
+          lineMan: "4900",
+          reason: "ทดสอบปิดยอด",
+        },
+        lotId,
+      );
       if (branch === "มีนบุรี") {
         run("branch", "riceCarry", {
           leftoverKg: cookedRiceStock(db, branch).toFixed(3),
@@ -396,10 +538,15 @@ export function entries(
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
       arrival: e.values.arrival,
-      ...(e.values.receivedBoxes !== undefined && { receivedBoxes: e.values.receivedBoxes }),
+      ...(e.values.receivedBoxes !== undefined && {
+        receivedBoxes: e.values.receivedBoxes,
+      }),
     });
     fix(e.values.prepareId, { preSmokeKg: e.values.preSmokeKg });
-    for (const { id, ...batch } of JSON.parse(e.values.batches || "[]") as Values[]) fix(id, batch);
+    for (const { id, ...batch } of JSON.parse(
+      e.values.batches || "[]",
+    ) as Values[])
+      fix(id, batch);
   }
   return db.entries
     .filter(
@@ -422,14 +569,20 @@ const smokeOutputKg = (values: Values) =>
     ? num(values, "postSmokeKg")
     : validPackWeights(values.packs).reduce((a, b) => a + b, 0);
 export function produced(db: Database, lotId: string) {
-  return entries(db, "smoke", lotId).reduce((a, e) => a + smokeOutputKg(e.values), 0);
+  return entries(db, "smoke", lotId).reduce(
+    (a, e) => a + smokeOutputKg(e.values),
+    0,
+  );
 }
 export function producedBags(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "packCount");
 }
 /** Bag weights typed one per line or comma-separated. Bad tokens stay NaN so `mutate` can reject them. */
 export const packWeights = (packs = "") =>
-  packs.split(/[\s,]+/).filter(Boolean).map(Number);
+  packs
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map(Number);
 export const isPackWeight = (weight: number) =>
   Number.isFinite(weight) && weight > 0;
 export const validPackWeights = (packs = "") =>
@@ -439,12 +592,14 @@ export type StockBag = { id: string; weight: number };
  * still in central stock over the bags still there, so allocating every remaining bag
  * drains central stock to 0 even after allocations recorded at the smoker weight. */
 export function availableBags(db: Database, lotId: string): StockBag[] {
-  let bags = entries(db, "smoke", lotId).flatMap((entry) =>
-    packWeights(entry.values.packs).map((weight, index) => ({
-      id: `${entry.id}:${index + 1}`,
-      weight,
-    })),
-  ).filter((bag) => isPackWeight(bag.weight));
+  let bags = entries(db, "smoke", lotId)
+    .flatMap((entry) =>
+      packWeights(entry.values.packs).map((weight, index) => ({
+        id: `${entry.id}:${index + 1}`,
+        weight,
+      })),
+    )
+    .filter((bag) => isPackWeight(bag.weight));
   for (const allocation of entries(db, "allocate", lotId)) {
     const ids = (allocation.values.bagIds || "").split(",").filter(Boolean);
     bags = ids.length
@@ -491,20 +646,32 @@ export function readyForChefHouse(db: Database, lotId: string) {
     ? n(confirmation.values, "readyForChiangMaiKg")
     : n(confirmation.values, "confirmedKg");
 }
-export const purchaseLots = (db: Database) => db.lots.filter((lot) => !lot.kind);
+export const purchaseLots = (db: Database) =>
+  db.lots.filter((lot) => !lot.kind);
 export function shipmentLines(lot: Lot): ShipmentLine[] {
-  return (JSON.parse(lot.values.lines || "[]") as Values[]).map((line) => ({ lotId: line.lotId, kg: Number(line.kg) }));
+  return (JSON.parse(lot.values.lines || "[]") as Values[]).map((line) => ({
+    lotId: line.lotId,
+    kg: Number(line.kg),
+  }));
 }
 /** Shipment lots whose Request was not voided. Reads only the log's voids, so it also works on visibleDatabase. */
 export function shipments(db: Database) {
   const voided = new Set(entries(db, "void").map((e) => e.values.targetId));
   const cancelled = new Set(
-    db.entries.filter((e) => e.kind === "shipmentRequest" && voided.has(e.id)).map((e) => e.lotId),
+    db.entries
+      .filter((e) => e.kind === "shipmentRequest" && voided.has(e.id))
+      .map((e) => e.lotId),
   );
-  return db.lots.filter((lot) => lot.kind === "shipment" && !cancelled.has(lot.id));
+  return db.lots.filter(
+    (lot) => lot.kind === "shipment" && !cancelled.has(lot.id),
+  );
 }
 /** Kg of one purchase PO that shipments have requested (only those already trucked with `dispatchedOnly`). */
-export function drawnKg(db: Database, purchaseLotId: string, dispatchedOnly = false) {
+export function drawnKg(
+  db: Database,
+  purchaseLotId: string,
+  dispatchedOnly = false,
+) {
   return shipments(db)
     .filter((lot) => !dispatchedOnly || lot.stage >= 2)
     .flatMap(shipmentLines)
@@ -520,8 +687,21 @@ export function latestPackingList(db: Database, lotId: string) {
 }
 /** Foodiva's one outbound form: the transport document and its Packing List land in one save,
  *  the document first (packingList refuses a shipment with no dispatch). */
-export const dispatchWithPackingList = (db: Database, lotId: string, trip: Values, packing: Values, date: string) =>
-  mutate(mutate(db, "foodiva", "dispatch", trip, lotId, date), "foodiva", "packingList", packing, lotId, date);
+export const dispatchWithPackingList = (
+  db: Database,
+  lotId: string,
+  trip: Values,
+  packing: Values,
+  date: string,
+) =>
+  mutate(
+    mutate(db, "foodiva", "dispatch", trip, lotId, date),
+    "foodiva",
+    "packingList",
+    packing,
+    lotId,
+    date,
+  );
 /** A shipment's kg and meat cost split back to its purchase POs, pro rata to what each was asked
  * for: on Chef House's received kg once weighed in, on the requested kg before that. */
 export function shipmentShares(db: Database, shipment: Lot) {
@@ -532,7 +712,14 @@ export function shipmentShares(db: Database, shipment: Lot) {
     const po = db.lots.find((lot) => lot.id === line.lotId);
     const kg = requested > 0 ? (base * line.kg) / requested : 0;
     const price = n(po?.values || {}, "price");
-    return { lotId: line.lotId, poId: po?.poId || "", requestedKg: line.kg, kg, price, meat: kg * price };
+    return {
+      lotId: line.lotId,
+      poId: po?.poId || "",
+      requestedKg: line.kg,
+      kg,
+      price,
+      meat: kg * price,
+    };
   });
 }
 /** One shipment end to end for the Owner: purchase POs → truck → Chef House's yellow total →
@@ -547,7 +734,9 @@ export function shipmentChain(db: Database, shipment: Lot) {
     lines: shipmentShares(db, shipment),
     requestedKg: n(shipment.values, "requestedKg"),
     sentKg: kg("dispatch", "dispatchKg"),
-    chefReceivedKg: entries(db, "cmReceive", shipment.id).length ? n(shipment.values, "receivedKg") : undefined,
+    chefReceivedKg: entries(db, "cmReceive", shipment.id).length
+      ? n(shipment.values, "receivedKg")
+      : undefined,
     smokedBoxes: smoked ? producedBags(db, shipment.id) : undefined,
     smokedKg: smoked ? produced(db, shipment.id) : undefined,
     returnKg: kg("return", "returnKg"),
@@ -563,7 +752,10 @@ export function ownerWasteReceived(db: Database, lotId: string) {
   return sum(entries(db, "ownerWasteReceive", lotId), "receivedKg");
 }
 export function ownerWasteOutstanding(db: Database, lotId: string) {
-  return Math.max(0, reservedForOwnerContent(db, lotId) - ownerWasteReceived(db, lotId));
+  return Math.max(
+    0,
+    reservedForOwnerContent(db, lotId) - ownerWasteReceived(db, lotId),
+  );
 }
 /** Trim between what Chef House weighed in and what went to pre-smoke prep. It is
  * loss, not stock: without naming it the remainder sat at the smoker forever. */
@@ -574,7 +766,9 @@ export function preSmokeTrimKg(db: Database, lot: Lot) {
 export function rawAtSmoker(db: Database, lot: Lot) {
   return Math.max(
     0,
-    n(lot.values, "receivedKg") - preSmokeTrimKg(db, lot) - processed(db, lot.id),
+    n(lot.values, "receivedKg") -
+      preSmokeTrimKg(db, lot) -
+      processed(db, lot.id),
   );
 }
 /** Pre-smoke weight not yet through the smoker; never negative, even for lots whose old payload lacks the field. */
@@ -586,7 +780,10 @@ export function processLoss(db: Database, lotId: string) {
 }
 export function averageYield(db: Database) {
   const input = sum(entries(db, "smoke"), "inputKg");
-  const output = entries(db, "smoke").reduce((a, e) => a + smokeOutputKg(e.values), 0);
+  const output = entries(db, "smoke").reduce(
+    (a, e) => a + smokeOutputKg(e.values),
+    0,
+  );
   return input > 0 ? (output / input) * 100 : 0;
 }
 /** Sales and influencer boxes both take finished product off the branch shelf.
@@ -615,11 +812,15 @@ export function balance(db: Database, lotId: string, branch: string) {
  * more decimals than the form shows, so kg is rounded to the 0.01 the user sees and
  * types; once every bag is in, the allocation is done whatever kg residue is left. */
 export function allocationOutstanding(db: Database, allocation: Entry) {
-  const received = entries(db, "receive", allocation.lotId, allocation.branch).filter(
-    (r) => r.values.allocation === allocation.id,
-  );
+  const received = entries(
+    db,
+    "receive",
+    allocation.lotId,
+    allocation.branch,
+  ).filter((r) => r.values.allocation === allocation.id);
   const bags = n(allocation.values, "bags") - sum(received, "bags");
-  const kg = Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
+  const kg =
+    Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
   return { kg: bags > 0 && kg > 0 ? kg : 0, bags: Math.max(0, bags) };
 }
 export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
@@ -658,13 +859,26 @@ export function cookedRiceStock(db: Database, branch: string) {
   );
 }
 /** Chili tubes are issued to branches only by Owner. Sales reduce the branch balance. */
-export function chiliAllocated(db: Database, branch: string, throughDate?: string) {
+export function chiliAllocated(
+  db: Database,
+  branch: string,
+  throughDate?: string,
+) {
   const inRange = (entry: Entry) => !throughDate || entry.date <= throughDate;
   return (
-    sum(entries(db, "chiliAllocate", undefined, branch).filter(inRange), "chiliTubes") +
+    sum(
+      entries(db, "chiliAllocate", undefined, branch).filter(inRange),
+      "chiliTubes",
+    ) +
     // Keep old demo records readable after the workflow changed to Owner allocation.
-    sum(entries(db, "supplyPurchase", undefined, branch).filter(inRange), "chiliTubes") +
-    sum(entries(db, "chiliPurchase", undefined, branch).filter(inRange), "chiliTubes")
+    sum(
+      entries(db, "supplyPurchase", undefined, branch).filter(inRange),
+      "chiliTubes",
+    ) +
+    sum(
+      entries(db, "chiliPurchase", undefined, branch).filter(inRange),
+      "chiliTubes",
+    )
   );
 }
 /** Owner stock is purchased centrally, then reduced only by allocations to branches. */
@@ -675,7 +889,11 @@ export function ownerChiliStock(db: Database) {
   const legacyBranchPurchases =
     sum(entries(db, "supplyPurchase"), "chiliTubes") +
     sum(entries(db, "chiliPurchase"), "chiliTubes");
-  return purchased + legacyBranchPurchases - sum(entries(db, "chiliAllocate"), "chiliTubes");
+  return (
+    purchased +
+    legacyBranchPurchases -
+    sum(entries(db, "chiliAllocate"), "chiliTubes")
+  );
 }
 export function chiliSold(db: Database, branch: string, throughDate?: string) {
   return sum(
@@ -686,7 +904,9 @@ export function chiliSold(db: Database, branch: string, throughDate?: string) {
   );
 }
 export function chiliStock(db: Database, branch: string, throughDate?: string) {
-  return chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate);
+  return (
+    chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate)
+  );
 }
 /** Kept for old components; it now means the current branch balance, not a branch issue. */
 export function issuedChiliStock(db: Database, branch: string) {
@@ -722,10 +942,17 @@ export function branchMaterialStock(
         (!throughDate || entry.date <= throughDate),
     )
     .reduce((total, entry) => {
-      if (!entry.values.requiresConfirm) return total + n(entry.values, "quantity");
-      const confirmation = entries(db, "materialConfirm", undefined, branch)
-        .find((item) => item.values.transferId === entry.id);
-      return total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0);
+      if (!entry.values.requiresConfirm)
+        return total + n(entry.values, "quantity");
+      const confirmation = entries(
+        db,
+        "materialConfirm",
+        undefined,
+        branch,
+      ).find((item) => item.values.transferId === entry.id);
+      return (
+        total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0)
+      );
     }, 0);
   /* A branch may save a day's count again to fix a typo, so only the newest record
    * of each day counts; the earlier ones stay in the log as the audit trail. */
@@ -751,14 +978,18 @@ export function branchMaterialStock(
   return transferred - used + adjustments;
 }
 export function materialPar(db: Database, branch: string, index: number) {
-  return n(db.config, `material${index}`)
-    || n(db.config, `material${index}_saladaeng`)
-    || n(db.config, `material${index}_minburi`);
+  return (
+    n(db.config, `material${index}`) ||
+    n(db.config, `material${index}_saladaeng`) ||
+    n(db.config, `material${index}_minburi`)
+  );
 }
 export function materialUnitPrice(db: Database, branch: string, index: number) {
-  return n(db.config, `materialPrice${index}`)
-    || n(db.config, `materialPrice${index}_saladaeng`)
-    || n(db.config, `materialPrice${index}_minburi`);
+  return (
+    n(db.config, `materialPrice${index}`) ||
+    n(db.config, `materialPrice${index}_saladaeng`) ||
+    n(db.config, `materialPrice${index}_minburi`)
+  );
 }
 export function isClosed(db: Database, branch: string, date: string) {
   return (
@@ -772,8 +1003,14 @@ export function isClosed(db: Database, branch: string, date: string) {
 }
 export function lotCost(db: Database, lot: Lot) {
   const v = lot.values;
-  const meat = shipmentShares(db, lot).reduce((total, share) => total + share.meat, 0);
-  const smoke = n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "estimatedCost");
+  const meat = shipmentShares(db, lot).reduce(
+    (total, share) => total + share.meat,
+    0,
+  );
+  const smoke = n(
+    entries(db, "smokeOrder", lot.id).at(-1)?.values || {},
+    "estimatedCost",
+  );
   const freight = num(v, "outboundCost") + num(v, "returnCost");
   return {
     meat,
@@ -792,15 +1029,24 @@ export function smokeServiceRate(quantityKg: number) {
   return 220;
 }
 export function smokingInvoiceStatus(db: Database, invoice: Entry) {
-  if (entries(db, "invoicePayment", invoice.lotId).some((entry) => entry.values.invoiceId === invoice.id)) return "ชำระแล้ว";
-  const review = entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+  if (
+    entries(db, "invoicePayment", invoice.lotId).some(
+      (entry) => entry.values.invoiceId === invoice.id,
+    )
+  )
+    return "ชำระแล้ว";
+  const review = entries(db, "invoiceReview", invoice.lotId)
+    .filter((entry) => entry.values.invoiceId === invoice.id)
+    .at(-1);
   if (review?.values.decision === "รับยอด") return "รอชำระ";
   if (review?.values.decision === "ส่งกลับแก้ไข") return "ส่งกลับแก้ไข";
   return "รอตรวจยอด";
 }
 /** The Owner's latest review of this invoice (either decision), if any. */
 export function smokingInvoiceReview(db: Database, invoice: Entry) {
-  return entries(db, "invoiceReview", invoice.lotId).filter((entry) => entry.values.invoiceId === invoice.id).at(-1);
+  return entries(db, "invoiceReview", invoice.lotId)
+    .filter((entry) => entry.values.invoiceId === invoice.id)
+    .at(-1);
 }
 /** The Owner's latest "ส่งกลับแก้ไข" review of this invoice, if that is its current state. */
 export function smokingInvoiceRejection(db: Database, invoice: Entry) {
@@ -810,21 +1056,38 @@ export function smokingInvoiceRejection(db: Database, invoice: Entry) {
 /** One smoking invoice per lot: the latest. Earlier ones were sent back and superseded by a resubmission. */
 export function currentSmokingInvoices(db: Database) {
   const latest = new Map<string, Entry>();
-  for (const invoice of entries(db, "smokingInvoice")) latest.set(invoice.lotId, invoice);
+  for (const invoice of entries(db, "smokingInvoice"))
+    latest.set(invoice.lotId, invoice);
   return [...latest.values()];
 }
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
-/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices or freight. */
+/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices, freight
+ *  or Foodiva's meat invoice numbers (`invoiceNo` on the Packing List). */
 const hiddenKeys = (role: Role) =>
   role === "cm"
-    ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
+    ? [
+        "meatCost",
+        "wasteCost",
+        "lines",
+        "price",
+        "outboundCost",
+        "returnCost",
+        "invoiceNo",
+      ]
     : ["meatCost", "wasteCost"];
 const hide = (values: Values, role: Role) =>
-  Object.fromEntries(Object.entries(values).filter(([k]) => !hiddenKeys(role).includes(k)));
+  Object.fromEntries(
+    Object.entries(values).filter(([k]) => !hiddenKeys(role).includes(k)),
+  );
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
-const chefHouseKinds = ["smokeOrder", "packingList", "invoiceReview", "invoicePayment"];
+const chefHouseKinds = [
+  "smokeOrder",
+  "packingList",
+  "invoiceReview",
+  "invoicePayment",
+];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
@@ -833,21 +1096,32 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
       (e) =>
         role === "owner" ||
         (role === "cm"
-          ? shipmentIds.has(e.lotId) && (e.role === "cm" || chefHouseKinds.includes(e.kind))
+          ? shipmentIds.has(e.lotId) &&
+            (e.role === "cm" || chefHouseKinds.includes(e.kind))
           : e.role === role && (role !== "branch" || e.branch === branch)),
     )
-    .map((e) => (role === "owner" ? e : { ...e, values: hide(e.values, role) }));
+    .map((e) =>
+      role === "owner" ? e : { ...e, values: hide(e.values, role) },
+    );
 }
 /** The database a role's screens read. Chef House gets only shipments with a smoke PO, stripped of
  * purchase POs and prices; other roles get `db` untouched. Saves still go through the full database.
  * ponytail: screen-level only, the full payload still reaches the browser (RLS reads all of app_state). */
-export function visibleDatabase(db: Database, role: Role, branch?: string): Database {
+export function visibleDatabase(
+  db: Database,
+  role: Role,
+  branch?: string,
+): Database {
   if (role !== "cm") return db;
   const lots = shipments(db)
     .filter((lot) => entries(db, "smokeOrder", lot.id).length)
     .map((lot) => ({ ...lot, values: hide(lot.values, role) }));
   const ids = new Set(lots.map((lot) => lot.id));
-  return { ...db, lots, entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)) };
+  return {
+    ...db,
+    lots,
+    entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)),
+  };
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
@@ -936,8 +1210,14 @@ function variance(actual: number, expected: number, v: Values, always = true) {
 function receivedTotal(db: Database, lotId: string, value = "") {
   const listed = packingListBoxes(latestPackingList(db, lotId)?.values.boxes);
   const got = receivedBoxWeights(value);
-  assert(got.length === listed.length, "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List กรุณาเปิดฟอร์มใหม่");
-  assert(got.every((kg) => Number.isFinite(kg) && kg >= 0), "กรอกน้ำหนักจริงทุกกล่องรับเข้า (ใส่ 0 ถ้าไม่ได้รับกล่องนั้น)");
+  assert(
+    got.length === listed.length,
+    "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List กรุณาเปิดฟอร์มใหม่",
+  );
+  assert(
+    got.every((kg) => Number.isFinite(kg) && kg >= 0),
+    "กรอกน้ำหนักจริงทุกกล่องรับเข้า (ใส่ 0 ถ้าไม่ได้รับกล่องนั้น)",
+  );
   const total = got.reduce((a, b) => a + b, 0);
   assert(total > 0, "น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
   return { total, boxes: got.join("\n") };
@@ -951,7 +1231,10 @@ function checkSlips(v: Values) {
   } catch {}
   assert(
     Array.isArray(slips) &&
-      slips.every((slip: Values | null) => slip?.name?.trim?.() && slip?.storageKey?.trim?.()),
+      slips.every(
+        (slip: Values | null) =>
+          slip?.name?.trim?.() && slip?.storageKey?.trim?.(),
+      ),
     "ไฟล์สลิปไม่ถูกต้อง กรุณาแนบใหม่",
   );
 }
@@ -968,18 +1251,28 @@ export function mutate(
   assert(ownership[kind] === role, "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
   assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
   // Same clock as format.ts `today` (kept inline: this module has no imports).
-  const todayDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const todayDate = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Bangkok",
+  });
   assert(date <= todayDate, "วันที่ทำรายการต้องไม่เกินวันนี้");
   const startDate = db.config.systemStartDate || "";
   // Only once the system has gone live; a future start date means setup is still in progress.
   if (kind !== "config" && startDate && startDate <= todayDate)
-    assert(date >= startDate, `วันที่ทำรายการต้องไม่ก่อนวันเริ่มใช้ระบบ (${startDate})`);
+    assert(
+      date >= startDate,
+      `วันที่ทำรายการต้องไม่ก่อนวันเริ่มใช้ระบบ (${startDate})`,
+    );
   const next: Database = structuredClone(db),
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
-  const branch =
-    role === "branch" ? actorBranch : v.branch || db.config.branch;
-  for (const key of ["arrival", "time", "closeTime", "pickupTime", "dispatchTime"]) {
+  const branch = role === "branch" ? actorBranch : v.branch || db.config.branch;
+  for (const key of [
+    "arrival",
+    "time",
+    "closeTime",
+    "pickupTime",
+    "dispatchTime",
+  ]) {
     if (key in v)
       assert(
         /^([01]\d|2[0-3]):[0-5]\d$/.test(v[key]),
@@ -996,10 +1289,7 @@ export function mutate(
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate") {
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
-    assert(
-      lot.stage === expected,
-      "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
-    );
+    assert(lot.stage === expected, "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่");
     // A backdated step must not land before the step it depends on.
     const latest = db.entries
       .filter((e) => e.lotId === lotId)
@@ -1030,7 +1320,10 @@ export function mutate(
     const first = db.entries
       .filter((e) => e.lotId === lotRef)
       .reduce((min, e) => (!min || e.date < min ? e.date : min), "");
-    assert(!first || date >= first, `วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${first})`);
+    assert(
+      !first || date >= first,
+      `วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${first})`,
+    );
   }
   const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
   if (lotRequired.includes(kind))
@@ -1075,13 +1368,26 @@ export function mutate(
       assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
       seen.add(po.id);
       const kg = Number(String(line.kg ?? "").trim() || NaN);
-      assert(Number.isFinite(kg) && kg > 0, `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`);
-      assert(entries(db, "foodivaConfirm", po.id).length, `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`);
+      assert(
+        Number.isFinite(kg) && kg > 0,
+        `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
+      );
+      assert(
+        entries(db, "foodivaConfirm", po.id).length,
+        `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`,
+      );
       const remaining = poRemainingKg(db, po.id);
-      assert(kg <= remaining + 0.001, `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`);
+      assert(
+        kg <= remaining + 0.001,
+        `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
+      );
     }
-    v.lines = JSON.stringify(lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })));
-    v.requestedKg = String(lines.reduce((total, line) => total + Number(line.kg), 0));
+    v.lines = JSON.stringify(
+      lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
+    );
+    v.requestedKg = String(
+      lines.reduce((total, line) => total + Number(line.kg), 0),
+    );
     const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
     lotId = `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
     lot = {
@@ -1096,7 +1402,10 @@ export function mutate(
   } else if (kind === "smokeOrder" && lot) {
     const list = latestPackingList(db, lotId);
     assert(list, "รอ Foodiva ทำ Packing List ก่อนออก PO รมควัน");
-    assert(!entries(db, "smokeOrder", lotId).length, "ออก PO รมควันของการส่งนี้แล้ว");
+    assert(
+      !entries(db, "smokeOrder", lotId).length,
+      "ออก PO รมควันของการส่งนี้แล้ว",
+    );
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
     // One shipment, one Packing List, one smoke PO: the quantity is the Packing List total.
@@ -1108,14 +1417,20 @@ export function mutate(
   } else if (kind === "smokeOrderAccept" && lot) {
     const order = entries(db, "smokeOrder", lotId).at(-1);
     assert(order, "ยังไม่มี PO รมควันจาก Owner");
-    assert(!entries(db, "smokeOrderAccept", lotId).length, "รับ PO รมควันนี้แล้ว");
+    assert(
+      !entries(db, "smokeOrderAccept", lotId).length,
+      "รับ PO รมควันนี้แล้ว",
+    );
     required(v, "acceptedBy", "ชื่อผู้รับ PO");
     v.orderId = order.id;
     v.orderNumber = order.values.orderNumber;
     v.status = "Accepted";
   } else if (kind === "smokingInvoice" && lot) {
     assert(lot.stage >= 6, "ต้องยืนยันปิดรอบก่อนออกใบวางบิลค่ารมควัน");
-    assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล");
+    assert(
+      entries(db, "smokeOrderAccept", lotId).length,
+      "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล",
+    );
     const smokeOrder = entries(db, "smokeOrder", lotId).at(-1);
     assert(smokeOrder, "ไม่พบ PO รมควันที่อ้างอิง");
     required(v, "invoiceNumber", "เลข Invoice ค่ารม");
@@ -1126,36 +1441,64 @@ export function mutate(
     v.amountBeforeVat = String(n(v, "serviceQuantity") * n(v, "serviceRate"));
     v.vat = String(n(v, "vat"));
     v.withholdingTax = String(n(v, "withholdingTax"));
-    v.netPayable = String(n(v, "netPayable") || n(v, "amountBeforeVat") + n(v, "vat") - n(v, "withholdingTax"));
+    v.netPayable = String(
+      n(v, "netPayable") ||
+        n(v, "amountBeforeVat") + n(v, "vat") - n(v, "withholdingTax"),
+    );
     required(v, "attachment", "Invoice ที่แนบ");
     v.status = "Submitted";
   } else if (kind === "invoiceReview" && lot) {
-    const invoice = entries(db, "smokingInvoice", lotId).find((entry) => entry.id === v.invoiceId) || entries(db, "smokingInvoice", lotId).at(-1);
+    const invoice =
+      entries(db, "smokingInvoice", lotId).find(
+        (entry) => entry.id === v.invoiceId,
+      ) || entries(db, "smokingInvoice", lotId).at(-1);
     assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องตรวจ");
     v.invoiceId = invoice.id;
-    assert(smokingInvoiceStatus(db, invoice) !== "ชำระแล้ว", "Invoice นี้ชำระแล้ว");
-    assert(["รับยอด", "ส่งกลับแก้ไข"].includes(v.decision), "เลือกผลการตรวจยอด");
+    assert(
+      smokingInvoiceStatus(db, invoice) !== "ชำระแล้ว",
+      "Invoice นี้ชำระแล้ว",
+    );
+    assert(
+      ["รับยอด", "ส่งกลับแก้ไข"].includes(v.decision),
+      "เลือกผลการตรวจยอด",
+    );
     required(v, "reviewedBy", "ชื่อผู้ตรวจ");
     v.reviewedAt = new Date().toISOString();
   } else if (kind === "invoicePayment" && lot) {
-    const invoice = entries(db, "smokingInvoice", lotId).find((entry) => entry.id === v.invoiceId) || entries(db, "smokingInvoice", lotId).at(-1);
+    const invoice =
+      entries(db, "smokingInvoice", lotId).find(
+        (entry) => entry.id === v.invoiceId,
+      ) || entries(db, "smokingInvoice", lotId).at(-1);
     assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องชำระ");
     v.invoiceId = invoice.id;
-    assert(smokingInvoiceStatus(db, invoice) === "รอชำระ", "ต้องรับยอด Invoice ก่อนชำระเงิน");
+    assert(
+      smokingInvoiceStatus(db, invoice) === "รอชำระ",
+      "ต้องรับยอด Invoice ก่อนชำระเงิน",
+    );
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
-    assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
+    assert(
+      Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01,
+      "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice",
+    );
     checkSlips(v);
   } else if (kind === "meatPayment" && lot) {
     const invoice = entries(db, "foodivaConfirm", lotId).at(-1);
     assert(invoice, "ยังไม่มี Invoice เนื้อจาก Foodiva");
-    assert(!entries(db, "meatPayment", lotId).length, "ชำระ Invoice เนื้อใบนี้แล้ว");
+    assert(
+      !entries(db, "meatPayment", lotId).length,
+      "ชำระ Invoice เนื้อใบนี้แล้ว",
+    );
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
     if (n(invoice.values, "invoiceAmount") > 0)
-      assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "invoiceAmount")) < 0.01, "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ");
+      assert(
+        Math.abs(n(v, "paidAmount") - n(invoice.values, "invoiceAmount")) <
+          0.01,
+        "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ",
+      );
     v.invoiceNo = invoice.values.invoiceNo;
     checkSlips(v);
   } else if (kind === "foodivaConfirm" && lot) {
@@ -1165,48 +1508,92 @@ export function mutate(
     required(v, "confirmedBy", "ชื่อผู้ยืนยัน");
     positive(v, "confirmedKg", "น้ำหนักที่ยืนยันได้");
     positive(v, "readyForChiangMaiKg", "น้ำหนักพร้อมส่งเชียงใหม่", true);
-    positive(v, "reservedForOwnerKg", "น้ำหนักเนื้อส่วนที่เหลือรอ Owner รับ", true);
+    positive(
+      v,
+      "reservedForOwnerKg",
+      "น้ำหนักเนื้อส่วนที่เหลือรอ Owner รับ",
+      true,
+    );
     positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
-    assert(n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001, "น้ำหนักยืนยันเกินยอด PO");
-    assert(Math.abs(n(v, "readyForChiangMaiKg") + n(v, "reservedForOwnerKg") - n(v, "confirmedKg")) < 0.001, "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice");
+    assert(
+      n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001,
+      "น้ำหนักยืนยันเกินยอด PO",
+    );
+    assert(
+      Math.abs(
+        n(v, "readyForChiangMaiKg") +
+          n(v, "reservedForOwnerKg") -
+          n(v, "confirmedKg"),
+      ) < 0.001,
+      "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice",
+    );
   } else if (kind === "packingList" && lot) {
-    assert(lot.kind === "shipment" && entries(db, "dispatch", lotId).length, "ต้องทำใบขนส่งขาไปก่อนทำ Packing List");
-    assert(!entries(db, "smokeOrder", lotId).length, "Owner ออก PO รมควันจาก Packing List นี้แล้ว แก้ไขไม่ได้");
+    assert(
+      lot.kind === "shipment" && entries(db, "dispatch", lotId).length,
+      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
+    );
+    assert(
+      !entries(db, "smokeOrder", lotId).length,
+      "Owner ออก PO รมควันจาก Packing List นี้แล้ว แก้ไขไม่ได้",
+    );
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "product", "รายการสินค้า");
     const boxes = packingListBoxes(v.boxes);
     assert(boxes.length, "กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    assert(boxes.every((kg) => Number.isFinite(kg) && kg > 0), "น้ำหนักกล่องรับเข้าต้องเป็นตัวเลขมากกว่าศูนย์");
+    assert(
+      boxes.every((kg) => Number.isFinite(kg) && kg > 0),
+      "น้ำหนักกล่องรับเข้าต้องเป็นตัวเลขมากกว่าศูนย์",
+    );
     // Blank rows are dropped at save, so the stored list is contiguous: box no = line no.
     v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
     v.boxCount = String(boxes.length);
     v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
     if (v.invWeightKg?.trim()) {
       positive(v, "invWeightKg", "Inv. Weight");
-      assert(n(v, "slicedNetKg") <= n(v, "invWeightKg") + 0.001, "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight");
+      assert(
+        n(v, "slicedNetKg") <= n(v, "invWeightKg") + 0.001,
+        "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight",
+      );
       v.slicedLostKg = String(n(v, "invWeightKg") - n(v, "slicedNetKg"));
     }
   } else if (kind === "ownerWasteReceive" && lot) {
     required(v, "receivedDate", "วันที่ Owner รับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับจริง");
     required(v, "receiver", "ผู้รับเนื้อ");
-    assert(reservedForOwnerContent(db, lotId) > 0, "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ");
+    assert(
+      reservedForOwnerContent(db, lotId) > 0,
+      "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ",
+    );
     assert(
       n(v, "receivedKg") <= ownerWasteOutstanding(db, lotId) + 0.001,
       "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
   } else if (kind === "foodivaReturnReceive" && lot) {
     assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef House ก่อน");
-    assert(entries(db, "return", lotId).length, "ยังไม่มีใบขนส่ง Chef House → Foodiva");
+    assert(
+      entries(db, "return", lotId).length,
+      "ยังไม่มีใบขนส่ง Chef House → Foodiva",
+    );
     required(v, "receivedDate", "วันที่รับ");
     required(v, "receivedTime", "เวลารับ");
     positive(v, "receivedKg", "น้ำหนักรับ");
     positive(v, "receivedBags", "จำนวนกล่องรมควัน", true);
-    assert(Number.isInteger(n(v, "receivedBags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
+    assert(
+      Number.isInteger(n(v, "receivedBags")),
+      "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม",
+    );
     // Foodiva weighs against what the return truck carried, not the full smoke output.
-    variance(n(v, "receivedKg"), n(entries(db, "return", lotId).at(-1)!.values, "returnKg"), v, false);
+    variance(
+      n(v, "receivedKg"),
+      n(entries(db, "return", lotId).at(-1)!.values, "returnKg"),
+      v,
+      false,
+    );
   } else if (kind === "dispatch" && lot) {
-    assert(shipments(db).some((s) => s.id === lotId), "Request นี้ถูกยกเลิกแล้ว");
+    assert(
+      shipments(db).some((s) => s.id === lotId),
+      "Request นี้ถูกยกเลิกแล้ว",
+    );
     // The truck carries what the Owner requested; Foodiva does not type a weight.
     v.dispatchKg = lot.values.requestedKg;
     required(v, "pickupDate", "วันรับ");
@@ -1216,12 +1603,15 @@ export function mutate(
     // Fees come from the settings in force when the manifest is made, not the lot's purchase-time snapshot.
     v.outboundCost =
       v.trip === "ไปกลับ"
-        ? db.config.roundFee ?? lot.config.roundFee
-        : db.config.outboundFee ?? lot.config.outboundFee;
+        ? (db.config.roundFee ?? lot.config.roundFee)
+        : (db.config.outboundFee ?? lot.config.outboundFee);
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
-    assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ");
+    assert(
+      entries(db, "smokeOrderAccept", lotId).length,
+      "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ",
+    );
     required(v, "arrival", "เวลาถึง");
     const received = receivedTotal(db, lotId, v.receivedBoxes);
     v.receivedBoxes = received.boxes;
@@ -1243,7 +1633,8 @@ export function mutate(
     );
     const output = weights.reduce((a, b) => a + b, 0);
     assert(
-      n(v, "inputKg") <= n(lot.values, "preSmokeKg") - processed(db, lotId) + 0.001,
+      n(v, "inputKg") <=
+        n(lot.values, "preSmokeKg") - processed(db, lotId) + 0.001,
       "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
     );
     assert(
@@ -1280,19 +1671,32 @@ export function mutate(
     const receivedKg = Number(v.receivedKg);
     const preSmokeKg = Number(v.preSmokeKg);
     assert(
-      Number.isFinite(receivedKg) && Number.isFinite(preSmokeKg) && receivedKg > 0 && preSmokeKg > 0,
+      Number.isFinite(receivedKg) &&
+        Number.isFinite(preSmokeKg) &&
+        receivedKg > 0 &&
+        preSmokeKg > 0,
       "กรอกน้ำหนักให้ถูกต้อง",
     );
-    assert(preSmokeKg <= receivedKg + 0.001, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
+    assert(
+      preSmokeKg <= receivedKg + 0.001,
+      "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง",
+    );
     const batches = drafts.map((draft) => {
       const inputKg = Number(draft.inputKg);
       const wasteKg = Number(draft.wasteKg);
       const weights = packWeights(draft.packs);
       assert(
-        draft.smokeDate && Number.isFinite(inputKg) && Number.isFinite(wasteKg) && inputKg > 0 && wasteKg >= 0,
+        draft.smokeDate &&
+          Number.isFinite(inputKg) &&
+          Number.isFinite(wasteKg) &&
+          inputKg > 0 &&
+          wasteKg >= 0,
         "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ",
       );
-      assert(weights.length && weights.every(isPackWeight), "กรอกน้ำหนักกล่องรมควันให้ครบและมากกว่า 0 ทุกรอบ");
+      assert(
+        weights.length && weights.every(isPackWeight),
+        "กรอกน้ำหนักกล่องรมควันให้ครบและมากกว่า 0 ทุกรอบ",
+      );
       const postSmokeKg = weights.reduce((total, weight) => total + weight, 0);
       assert(
         Math.abs(postSmokeKg + wasteKg - inputKg) <= 0.001,
@@ -1308,7 +1712,10 @@ export function mutate(
       };
     });
     assert(
-      Math.abs(batches.reduce((total, batch) => total + Number(batch.inputKg), 0) - preSmokeKg) <= 0.001,
+      Math.abs(
+        batches.reduce((total, batch) => total + Number(batch.inputKg), 0) -
+          preSmokeKg,
+      ) <= 0.001,
       "ก่อนปิด Lot น้ำหนักเข้าเตารวมจาก Log ต้องเท่ากับน้ำหนักก่อนสโมค",
     );
     // Recorded, not applied: save_app_state refuses changed history, so entries() overlays these.
@@ -1329,7 +1736,9 @@ export function mutate(
       postSmokeKg: latestBatch.postSmokeKg,
       packCount: latestBatch.packCount,
     };
-    v.batches = JSON.stringify(batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })));
+    v.batches = JSON.stringify(
+      batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })),
+    );
   } else if (kind === "closeLot" && lot) {
     assert(
       Math.abs(n(lot.values, "preSmokeKg") - processed(db, lotId)) < 0.005,
@@ -1349,19 +1758,40 @@ export function mutate(
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
     v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
-    assert(n(v, "returnKg") <= produced(db, lotId) + 0.001, "น้ำหนักส่งกลับเกินผลผลิต");
+    assert(
+      n(v, "returnKg") <= produced(db, lotId) + 0.001,
+      "น้ำหนักส่งกลับเกินผลผลิต",
+    );
     v.returnCost =
-      lot.values.trip === "ไปกลับ" ? "0" : db.config.returnFee ?? lot.config.returnFee;
+      lot.values.trip === "ไปกลับ"
+        ? "0"
+        : (db.config.returnFee ?? lot.config.returnFee);
   } else if (kind === "central" && lot) {
-    assert(entries(db, "foodivaReturnReceive", lotId).length, "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน");
+    assert(
+      entries(db, "foodivaReturnReceive", lotId).length,
+      "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน",
+    );
     positive(v, "centralKg", "น้ำหนักรับกลาง");
-    variance(n(v, "centralKg"), n(entries(db, "foodivaReturnReceive", lotId).at(-1)?.values || {}, "receivedKg"), v, false);
+    variance(
+      n(v, "centralKg"),
+      n(
+        entries(db, "foodivaReturnReceive", lotId).at(-1)?.values || {},
+        "receivedKg",
+      ),
+      v,
+      false,
+    );
   } else if (kind === "allocate") {
     const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
     if (selectedBagIds.length) {
       const available = availableBags(db, lotId);
-      const selected = available.filter((bag) => selectedBagIds.includes(bag.id));
-      assert(selected.length === selectedBagIds.length, "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่");
+      const selected = available.filter((bag) =>
+        selectedBagIds.includes(bag.id),
+      );
+      assert(
+        selected.length === selectedBagIds.length,
+        "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่",
+      );
       v.kg = String(selected.reduce((sum, bag) => sum + bag.weight, 0));
       v.bags = String(selected.length);
     }
@@ -1370,7 +1800,10 @@ export function mutate(
     assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     assert(branches.includes(v.branch), "เลือกสาขา");
     assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
-    assert(n(v, "bags") <= centralBagStock(db, lotId), "จำนวนกล่องรมควันในสต๊อกกลางไม่พอ");
+    assert(
+      n(v, "bags") <= centralBagStock(db, lotId),
+      "จำนวนกล่องรมควันในสต๊อกกลางไม่พอ",
+    );
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
     positive(v, "bags", "จำนวนถุง");
@@ -1397,7 +1830,12 @@ export function mutate(
       )[0];
     if (oldest && oldest.id !== lotId) required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
-    for (const key of ["rawRiceKg", "rawRiceCost", "cookedRiceKg", "cookedRiceCost"])
+    for (const key of [
+      "rawRiceKg",
+      "rawRiceCost",
+      "cookedRiceKg",
+      "cookedRiceCost",
+    ])
       v[key] ??= "0";
     required(v, "supplier", "ผู้จำหน่ายข้าว");
     if (branch === "มีนบุรี") {
@@ -1417,19 +1855,28 @@ export function mutate(
   } else if (kind === "chiliAllocate") {
     assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
     positive(v, "chiliTubes", "จำนวนน้ำพริกที่จัดสรร");
-    assert(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+    assert(
+      Number.isInteger(n(v, "chiliTubes")),
+      "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
+    );
     assert(
       n(v, "chiliTubes") <= ownerChiliStock(db),
       "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าบัญชีก่อน",
     );
   } else if (kind === "chiliPurchase") {
     positive(v, "chiliTubes", "น้ำพริกซื้อเข้า");
-    assert(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+    assert(
+      Number.isInteger(n(v, "chiliTubes")),
+      "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
+    );
     positive(v, "chiliCost", "ยอดซื้อน้ำพริก");
     required(v, "supplier", "ผู้จำหน่ายน้ำพริก");
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
-    assert(branch === "ศาลาแดง", "สาขามีนบุรีซื้อข้าวเหนียวสุก ไม่ต้องเบิกข้าวดิบ");
+    assert(
+      branch === "ศาลาแดง",
+      "สาขามีนบุรีซื้อข้าวเหนียวสุก ไม่ต้องเบิกข้าวดิบ",
+    );
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
     assert(
       n(v, "rawRiceIssuedKg") <= rawRiceStock(db, branch) + 0.001,
@@ -1438,7 +1885,10 @@ export function mutate(
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "chiliIssue") {
     positive(v, "chiliIssuedTubes", "น้ำพริกที่เบิก");
-    assert(Number.isInteger(n(v, "chiliIssuedTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+    assert(
+      Number.isInteger(n(v, "chiliIssuedTubes")),
+      "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
+    );
     assert(
       n(v, "chiliIssuedTubes") <= chiliStock(db, branch),
       "น้ำพริกในสต๊อกไม่พอ",
@@ -1543,7 +1993,10 @@ export function mutate(
           `จำนวนใช้ ${materials[i]} เกินยอดตั้งต้น`,
         );
         const expectedRemaining = expectedOpening - n(v, "used" + i);
-        assert(n(v, "material" + i) >= 0, `ยอดตรวจนับ ${materials[i]} ติดลบไม่ได้`);
+        assert(
+          n(v, "material" + i) >= 0,
+          `ยอดตรวจนับ ${materials[i]} ติดลบไม่ได้`,
+        );
         if (Math.abs(n(v, "material" + i) - expectedRemaining) > 0.001)
           required(v, "materialReason" + i, `เหตุผลส่วนต่าง ${materials[i]}`);
       }
@@ -1590,17 +2043,25 @@ export function mutate(
     required(v, "receiver", "ผู้รับของ");
     v.requiresConfirm = "1";
   } else if (kind === "materialConfirm") {
-    const transfer = entries(db, "materialTransfer", undefined, branch)
-      .find((entry) => entry.id === v.transferId);
+    const transfer = entries(db, "materialTransfer", undefined, branch).find(
+      (entry) => entry.id === v.transferId,
+    );
     assert(transfer, "ไม่พบรายการส่งวัสดุ");
     assert(
-      !entries(db, "materialConfirm", undefined, branch)
-        .some((entry) => entry.values.transferId === v.transferId),
+      !entries(db, "materialConfirm", undefined, branch).some(
+        (entry) => entry.values.transferId === v.transferId,
+      ),
       "ยืนยันรับรายการนี้แล้ว",
     );
     positive(v, "receivedQuantity", "จำนวนที่รับจริง");
-    assert(Number.isInteger(n(v, "receivedQuantity")), "จำนวนรับจริงต้องเป็นจำนวนเต็ม");
-    assert(n(v, "receivedQuantity") <= n(transfer.values, "quantity"), "จำนวนรับจริงเกินจำนวนที่ส่ง");
+    assert(
+      Number.isInteger(n(v, "receivedQuantity")),
+      "จำนวนรับจริงต้องเป็นจำนวนเต็ม",
+    );
+    assert(
+      n(v, "receivedQuantity") <= n(transfer.values, "quantity"),
+      "จำนวนรับจริงเกินจำนวนที่ส่ง",
+    );
     variance(n(v, "receivedQuantity"), n(transfer.values, "quantity"), v);
     required(v, "receiver", "ชื่อผู้รับจริง");
   } else if (kind === "sale") {
@@ -1625,7 +2086,7 @@ export function mutate(
       soldPacks === 0
         ? n(v, "soldKg") === 0
         : n(v, "soldKg") >= soldPacks * 0.1 - 0.001 &&
-          n(v, "soldKg") <= soldPacks * 0.103 + 0.001,
+            n(v, "soldKg") <= soldPacks * 0.103 + 0.001,
       "น้ำหนักเนื้อขายต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
     );
     assert(
@@ -1647,7 +2108,10 @@ export function mutate(
     v.chiliExpected = String(expectedChili);
     if (hasChiliCount) {
       positive(v, "chiliCount", "ยอดตรวจนับน้ำพริก", true);
-      assert(Number.isInteger(n(v, "chiliCount")), "ยอดตรวจนับน้ำพริกต้องเป็นจำนวนหลอดเต็ม");
+      assert(
+        Number.isInteger(n(v, "chiliCount")),
+        "ยอดตรวจนับน้ำพริกต้องเป็นจำนวนหลอดเต็ม",
+      );
       if (n(v, "chiliCount") !== expectedChili)
         required(v, "chiliRemark", "หมายเหตุเมื่อน้ำพริกไม่ตรง");
     }
@@ -1745,10 +2209,27 @@ export function mutate(
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
     const reversible = [
-      "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
-      "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "influencerBox", "materials",
-      "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
-      "expense", "unlock", "shipmentRequest",
+      "allocate",
+      "chiliAllocate",
+      "receive",
+      "thaw",
+      "ricePurchase",
+      "chiliPurchase",
+      "riceIssue",
+      "chiliIssue",
+      "rice",
+      "riceCarry",
+      "sale",
+      "influencerBox",
+      "materials",
+      "materialReceive",
+      "generalPurchase",
+      "materialTransfer",
+      "materialConfirm",
+      "closeDay",
+      "expense",
+      "unlock",
+      "shipmentRequest",
     ];
     assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
     if (target.kind === "shipmentRequest")
@@ -1758,7 +2239,8 @@ export function mutate(
       );
     assert(
       !db.entries.some(
-        (entry) => entry.kind === "void" && entry.values.targetId === v.targetId,
+        (entry) =>
+          entry.kind === "void" && entry.values.targetId === v.targetId,
       ),
       "รายการนี้ถูกยกเลิกแล้ว",
     );
@@ -1796,9 +2278,19 @@ export function mutate(
       positive(v, "materialPrice" + i, `ราคาต่อหน่วย ${materials[i]}`, true);
       for (const suffix of ["saladaeng", "minburi"]) {
         if (v[`material${i}_${suffix}`] !== undefined)
-          positive(v, `material${i}_${suffix}`, `จำนวนฐาน ${materials[i]}`, true);
+          positive(
+            v,
+            `material${i}_${suffix}`,
+            `จำนวนฐาน ${materials[i]}`,
+            true,
+          );
         if (v[`materialPrice${i}_${suffix}`] !== undefined)
-          positive(v, `materialPrice${i}_${suffix}`, `ราคาต่อหน่วย ${materials[i]}`, true);
+          positive(
+            v,
+            `materialPrice${i}_${suffix}`,
+            `ราคาต่อหน่วย ${materials[i]}`,
+            true,
+          );
       }
     }
     next.config = { ...db.config, ...v };

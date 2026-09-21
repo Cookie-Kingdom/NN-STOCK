@@ -187,7 +187,7 @@ export const BagAllocation: Story = {
   render: () => (
     <BagAllocationForm
       db={centralDb}
-      lotId={centralDb.lots[0].id}
+      lotId={centralDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}

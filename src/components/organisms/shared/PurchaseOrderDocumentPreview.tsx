@@ -58,7 +58,7 @@ export function PurchaseOrderDocumentPreview({
     ? values.orderNumber
     : isSmokeOrder
       ? `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`
-      : `PO-${date.slice(0, 4)}-${String(db.lots.length + 1).padStart(4, "0")}`;
+      : `PO-${date.slice(0, 4)}-${String(db.lots.filter((lot) => !lot.kind).length + 1).padStart(4, "0")}`;
   const issueDate = isSmokeOrder ? values.requestedSmokeDate || date : date;
   const dueDate = isSmokeOrder
     ? values.expectedFinishedDate || "—"
