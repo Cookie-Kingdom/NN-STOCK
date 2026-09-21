@@ -119,7 +119,7 @@ export function ChefLotTable({
       );
       const bagDetail = weightGroups.length
         ? weightGroups
-            .map(([weight, count]) => `${weight} × ${count}`)
+            .map(([weight, count]) => `${count} × ${weight}`)
             .join(" + ")
         : "—";
       return {

@@ -116,7 +116,8 @@ export function Preview({
     rows = [
       [
         "ของที่ส่งกลับ Foodiva",
-        `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(produced(db, lot.id))} กก.`,
+        // Follows the weight typed in the form; the lot's output until one is entered.
+        `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(v.returnKg?.trim() ? n(v, "returnKg") : produced(db, lot.id))} กก.`,
       ],
       [
         "ค่ารถขากลับ",

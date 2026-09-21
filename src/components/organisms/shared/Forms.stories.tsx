@@ -4,7 +4,6 @@ import {
   centralDb,
   day,
   demoDb,
-  dispatchDb,
   multiPoPackedDb,
   rejectedInvoiceDb,
   smokedDb,
@@ -60,22 +59,6 @@ export const OwnerPurchaseMobile: Story = {
 export const OwnerPurchaseTablet: Story = {
   ...OwnerPurchase,
   globals: { viewport: { value: "tablet", isRotated: false } },
-};
-
-export const OwnerDispatch: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <EntryForm
-      db={dispatchDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "dispatch", lotId: dispatchDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
 };
 
 export const OwnerReturn: Story = {

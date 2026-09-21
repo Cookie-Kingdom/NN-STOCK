@@ -29,6 +29,10 @@ const CUSTOM_DIALOGS = [
   "packingListView",
 ];
 
+// "ยืนยันปิด Lot" + "แล้ว" needs a space after a Latin word; Thai-to-Thai stays joined.
+const savedMessage = (title: string) =>
+  `${title}${/[A-Za-z0-9.)]$/.test(title) ? " " : ""}แล้ว`;
+
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
   const {
     db,
@@ -143,7 +147,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() => done(`${titles.cmReceive}แล้ว`)}
+        onSaved={() => done(savedMessage(titles.cmReceive))}
       />
     );
   }
@@ -184,7 +188,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
             "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
           );
         } else {
-          done(`${titles[modal.kind]}แล้ว`);
+          done(savedMessage(titles[modal.kind]));
         }
       }}
     />

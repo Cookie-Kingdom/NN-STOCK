@@ -91,8 +91,9 @@ export function PackingListForm({
    * number is the position in the list, the way the saved value stores it. */
   const [weights, setWeights] = useState<(number | undefined)[]>(() => {
     const listed = packingListBoxes(saved?.values.boxes);
+    // Editing keeps the saved rows only: padding would re-ask the blank-row confirmation.
     return Array.from(
-      { length: Math.max(DEFAULT_ROWS, listed.length) },
+      { length: listed.length || DEFAULT_ROWS },
       (_, index) => listed[index],
     );
   });
@@ -160,7 +161,7 @@ export function PackingListForm({
   return (
     <Dialog
       overline={`${date} · Foodiva · ${lot?.poId ?? ""}`}
-      title={titles.packingList}
+      title={saved ? "แก้ไข Packing List" : titles.packingList}
       size="wide"
       onClose={onClose}
     >

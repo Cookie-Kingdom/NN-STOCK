@@ -34,6 +34,8 @@ export type FileUploadFieldProps = {
   preview?: ReactNode;
   required?: boolean;
   optional?: boolean;
+  /** Replaces "ถ้ามี" in the optional marker, e.g. "ไม่บังคับ". */
+  optionalText?: string;
   wide?: boolean;
   disabled?: boolean;
   className?: string;
@@ -65,6 +67,7 @@ export function FileUploadField({
   preview,
   required,
   optional = false,
+  optionalText,
   wide = false,
   disabled,
   className,
@@ -74,7 +77,7 @@ export function FileUploadField({
     <label className={fieldClassName(wide, className)}>
       <span className={cn(hideLabel && "sr-only")}>
         {label}
-        {optional && <OptionalMark />}
+        {optional && <OptionalMark text={optionalText} />}
       </span>
       <Panel
         as="div"
