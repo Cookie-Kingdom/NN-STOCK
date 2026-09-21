@@ -8,6 +8,7 @@ import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTran
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { titles } from "@/lib/store";
 
@@ -19,6 +20,7 @@ const CUSTOM_DIALOGS = [
   "allocate",
   "chefEdit",
   "smokeOrderPreview",
+  "shipmentRequest",
 ];
 
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
@@ -115,6 +117,19 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "smokeOrderPreview") {
     return (
       <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />
+    );
+  }
+  if (modal.kind === "shipmentRequest") {
+    return (
+      <ShipmentRequestForm
+        db={db}
+        {...dateProps}
+        onClose={close}
+        onSaved={(next) => {
+          setChosen(next.lots.at(-1)?.id || chosen);
+          done("สร้าง Request แล้ว · รอ Foodiva ทำใบขนส่ง");
+        }}
+      />
     );
   }
   if (CUSTOM_DIALOGS.includes(modal.kind)) return null;

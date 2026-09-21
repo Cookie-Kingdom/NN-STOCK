@@ -6,17 +6,23 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { foodivaNav } from "@/lib/nav";
-import { entries } from "@/lib/store";
+import { entries, purchaseLots, shipments } from "@/lib/store";
 
 export function FoodivaWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, tab } = ws;
 
-  const openTasks = db.lots.filter(
-    (lot) =>
-      !entries(db, "foodivaConfirm", lot.id).length ||
-      (lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length),
-  ).length;
+  // Invoices to issue, Requests to truck, smoked meat to take into the freezer.
+  const openTasks =
+    purchaseLots(db).filter(
+      (lot) => !entries(db, "foodivaConfirm", lot.id).length,
+    ).length +
+    shipments(db).filter(
+      (lot) =>
+        lot.stage === 1 ||
+        (lot.stage === 7 &&
+          !entries(db, "foodivaReturnReceive", lot.id).length),
+    ).length;
 
   return (
     <WorkspaceShell

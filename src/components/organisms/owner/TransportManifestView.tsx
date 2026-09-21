@@ -1,6 +1,8 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import {
@@ -14,14 +16,15 @@ import {
   entries,
   n,
   produced,
-  readyForChefHouse,
+  shipmentLines,
+  shipments,
   type Database,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
-  "เลข PO",
-  "Lot",
+  "เลขที่การส่ง",
+  "PO ซื้อ (กก.)",
   "ขาไป · Foodiva → Chef House",
   "เทียบน้ำหนัก Owner",
   "ขากลับ · Chef House → Foodiva",
@@ -31,33 +34,53 @@ const columns = [
 export function TransportManifestView({
   db,
   open,
+  onOpenSmokePo,
 }: {
   db: Database;
   open: (kind: string, lotId?: string) => void;
+  onOpenSmokePo: () => void;
 }) {
+  const rows = shipments(db);
   return (
     <>
       <SectionHeading
         title="ใบขนส่งเนื้อ"
-        description="Owner เรียกรถและบันทึกใบขนส่งทั้ง Foodiva → Chef House และ Chef House → Foodiva"
+        description="Owner สร้าง Request ส่งเนื้อ · Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva"
+        actions={
+          <ButtonRow>
+            <Button
+              variant="primary"
+              icon={<Plus />}
+              onClick={() => open("shipmentRequest", "")}
+            >
+              สร้าง Request ส่งเนื้อไป Chef House
+            </Button>
+          </ButtonRow>
+        }
       />
       <DataTable
-        title="รายการขนส่งตาม Lot"
+        title="รายการส่ง"
         columns={columns}
-        rowKeys={db.lots.map((lot) => lot.id)}
-        rows={db.lots.map((lot) => {
+        rowKeys={rows.map((lot) => lot.id)}
+        rows={rows.map((lot) => {
           const back = entries(db, "return", lot.id).at(-1);
           const outbound = entries(db, "dispatch", lot.id).at(-1);
           const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
           // Compare against what left Foodiva, not the invoice total: the waste share stays behind for Owner.
           const foodivaKg = outbound
             ? n(outbound.values, "dispatchKg")
-            : readyForChefHouse(db, lot.id);
+            : n(lot.values, "requestedKg");
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
           const difference = chefKg - foodivaKg;
           return [
-            lot.poId,
-            lot.id,
+            <strong key="shipment">{lot.poId}</strong>,
+            <span key="lines">
+              {shipmentLines(lot).map((line) => (
+                <span key={line.lotId} className="block">
+                  {`${db.lots.find((po) => po.id === line.lotId)?.poId || line.lotId} × ${fmt(line.kg)} กก.`}
+                </span>
+              ))}
+            </span>,
             outbound ? (
               <ButtonRow key={`${lot.id}-outbound`}>
                 <span>{`${fmt(n(outbound.values, "dispatchKg"))} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}</span>
@@ -72,7 +95,7 @@ export function TransportManifestView({
                 />
               </ButtonRow>
             ) : (
-              `พร้อมส่งเชียงใหม่ ${fmt(readyForChefHouse(db, lot.id))} กก. · รอทำใบขนส่ง`
+              `Request ${fmt(foodivaKg)} กก. · รอ Foodiva ทำใบขนส่ง`
             ),
             chefReceive ? (
               <span key={`${lot.id}-owner-check`}>
@@ -109,8 +132,8 @@ export function TransportManifestView({
               key={`${lot.id}-action`}
               db={db}
               lot={lot}
-              context="transport"
               open={open}
+              onOpenSmokePo={onOpenSmokePo}
             />,
           ];
         })}
