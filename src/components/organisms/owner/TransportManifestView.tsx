@@ -6,20 +6,14 @@ import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import {
+  shipmentPoLabels,
   transportDocumentRows,
   transportDocumentTitle,
 } from "@/components/organisms/owner/documentRows";
 import { LotWorkflowAction } from "@/components/organisms/owner/LotWorkflowAction";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import {
-  entries,
-  n,
-  produced,
-  shipmentLines,
-  shipments,
-  type Database,
-} from "@/lib/store";
+import { entries, n, produced, shipments, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -72,12 +66,19 @@ export function TransportManifestView({
             : n(lot.values, "requestedKg");
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
           const difference = chefKg - foodivaKg;
+          const foodivaBack = entries(db, "foodivaReturnReceive", lot.id).at(
+            -1,
+          );
+          const backGap = foodivaBack
+            ? n(foodivaBack.values, "receivedKg") -
+              n(back?.values || {}, "returnKg")
+            : 0;
           return [
             <strong key="shipment">{lot.poId}</strong>,
             <span key="lines">
-              {shipmentLines(lot).map((line) => (
-                <span key={line.lotId} className="block">
-                  {`${db.lots.find((po) => po.id === line.lotId)?.poId || line.lotId} × ${fmt(line.kg)} กก.`}
+              {shipmentPoLabels(db, lot).map((label) => (
+                <span key={label} className="block">
+                  {label}
                 </span>
               ))}
             </span>,
@@ -91,7 +92,7 @@ export function TransportManifestView({
                   }
                   label="พรีวิว / PDF"
                   preview
-                  rows={transportDocumentRows(lot, outbound, "outbound")}
+                  rows={transportDocumentRows(db, lot, outbound, "outbound")}
                 />
               </ButtonRow>
             ) : (
@@ -114,13 +115,32 @@ export function TransportManifestView({
             ),
             back ? (
               <ButtonRow key={`${lot.id}-return`}>
-                <span>{`${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`}</span>
+                <span>
+                  {`${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`}
+                  <br />
+                  <strong>ส่งจาก Chef House:</strong>{" "}
+                  {`${fmt(n(back.values, "returnKg"))} กก.`}
+                  <br />
+                  <strong>Foodiva รับจริง:</strong>{" "}
+                  {foodivaBack ? (
+                    <>
+                      {`${fmt(n(foodivaBack.values, "receivedKg"))} กก. · ${foodivaBack.values.receivedBags} กล่องรมควัน `}
+                      <Badge
+                        tone={Math.abs(backGap) > 0.001 ? "danger" : "success"}
+                      >
+                        ส่วนต่าง {fmt(Math.abs(backGap))} กก.
+                      </Badge>
+                    </>
+                  ) : (
+                    "รอ Foodiva รับเข้าตู้"
+                  )}
+                </span>
                 <DocumentPrintButton
                   title={transportDocumentTitle.return}
                   number={back.values.transferNumber || back.id.slice(0, 8)}
                   label="พรีวิว / PDF"
                   preview
-                  rows={transportDocumentRows(lot, back, "return")}
+                  rows={transportDocumentRows(db, lot, back, "return")}
                 />
               </ButtonRow>
             ) : lot.stage < 6 ? (

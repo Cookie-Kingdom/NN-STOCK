@@ -535,6 +535,26 @@ export function shipmentShares(db: Database, shipment: Lot) {
     return { lotId: line.lotId, poId: po?.poId || "", requestedKg: line.kg, kg, price, meat: kg * price };
   });
 }
+/** One shipment end to end for the Owner: purchase POs → truck → Chef House's yellow total →
+ *  smoked boxes → return truck → Foodiva's freezer. A step not reached yet is `undefined`. */
+export function shipmentChain(db: Database, shipment: Lot) {
+  const kg = (kind: string, key: string) => {
+    const entry = entries(db, kind, shipment.id).at(-1);
+    return entry ? n(entry.values, key) : undefined;
+  };
+  const smoked = entries(db, "smoke", shipment.id).length > 0;
+  return {
+    lines: shipmentShares(db, shipment),
+    requestedKg: n(shipment.values, "requestedKg"),
+    sentKg: kg("dispatch", "dispatchKg"),
+    chefReceivedKg: entries(db, "cmReceive", shipment.id).length ? n(shipment.values, "receivedKg") : undefined,
+    smokedBoxes: smoked ? producedBags(db, shipment.id) : undefined,
+    smokedKg: smoked ? produced(db, shipment.id) : undefined,
+    returnKg: kg("return", "returnKg"),
+    foodivaKg: kg("foodivaReturnReceive", "receivedKg"),
+    foodivaBoxes: kg("foodivaReturnReceive", "receivedBags"),
+  };
+}
 export function reservedForOwnerContent(db: Database, lotId: string) {
   const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
   return confirmation ? n(confirmation.values, "reservedForOwnerKg") : 0;
@@ -1183,7 +1203,8 @@ export function mutate(
     positive(v, "receivedKg", "น้ำหนักรับ");
     positive(v, "receivedBags", "จำนวนกล่องรมควัน", true);
     assert(Number.isInteger(n(v, "receivedBags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
-    variance(n(v, "receivedKg"), produced(db, lotId), v, false);
+    // Foodiva weighs against what the return truck carried, not the full smoke output.
+    variance(n(v, "receivedKg"), n(entries(db, "return", lotId).at(-1)!.values, "returnKg"), v, false);
   } else if (kind === "dispatch" && lot) {
     assert(shipments(db).some((s) => s.id === lotId), "Request นี้ถูกยกเลิกแล้ว");
     // The truck carries what the Owner requested; Foodiva does not type a weight.

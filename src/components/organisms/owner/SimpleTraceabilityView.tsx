@@ -10,6 +10,7 @@ import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
+import { ShipmentChainCard } from "@/components/organisms/owner/ShipmentChainCard";
 import {
   foodivaInvoiceRows,
   smokeOrderTraceRows,
@@ -36,16 +37,19 @@ import {
   produced,
   producedBags,
   roleName,
+  shipmentLines,
+  shipments,
   smokingInvoiceStatus,
   stages,
   type Database,
+  type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const registerColumns = [
   "สถานะ",
-  "เลข PO / Lot",
-  "วันที่ออก PO",
+  "เลขที่การส่ง / Lot",
+  "วันที่ Request",
   "เอกสารล่าสุด",
   "เส้นทางล่าสุด",
   "ผู้ดำเนินการล่าสุด",
@@ -95,11 +99,16 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
   const [toDate, setToDate] = useState("");
   const [expandedLot, setExpandedLot] = useState<string | null>(null);
   const [sort, setSort] = useState("date-desc");
-  // The register is one row per lot, so it sorts here rather than through DataTable.
-  const visibleLots = db.lots
-    .filter((lot) =>
-      matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate),
-    )
+  // The register is one row per shipment (purchase POs never move through the stages), so it
+  // sorts here rather than through DataTable. A purchase PO number still finds its shipments.
+  const matches = (lot: Lot | undefined) =>
+    matchesDocumentFilter(db, lot, referenceType, query, fromDate, toDate);
+  const poLots = (lot: Lot) =>
+    shipmentLines(lot).flatMap(
+      (line) => db.lots.find((po) => po.id === line.lotId) ?? [],
+    );
+  const visibleLots = shipments(db)
+    .filter((lot) => matches(lot) || poLots(lot).some(matches))
     .sort((a, b) =>
       sort === "po"
         ? a.poId.localeCompare(b.poId)
@@ -131,7 +140,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
       />
 
       <TableSection
-        title="ทะเบียนเอกสารตาม Lot"
+        title="ทะเบียนเอกสารตามการส่ง"
         count={`${visibleLots.length} รายการ`}
         actions={
           <TableActions>
@@ -144,9 +153,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
               >
-                <option value="date-desc">วันที่ออก PO (ล่าสุดก่อน)</option>
-                <option value="date-asc">วันที่ออก PO (เก่าสุดก่อน)</option>
-                <option value="po">เลข PO</option>
+                <option value="date-desc">วันที่ Request (ล่าสุดก่อน)</option>
+                <option value="date-asc">วันที่ Request (เก่าสุดก่อน)</option>
+                <option value="po">เลขที่การส่ง</option>
                 <option value="lot">Lot</option>
               </Select>
             </TableFilter>
@@ -174,9 +183,6 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
             <tbody>
               {visibleLots.length ? (
                 visibleLots.map((lot) => {
-                  const foodInvoice = entries(db, "foodivaConfirm", lot.id).at(
-                    -1,
-                  );
                   const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
                   const chefInvoice = entries(db, "smokingInvoice", lot.id).at(
                     -1,
@@ -199,17 +205,18 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     dispatch,
                     chefInvoice,
                     smokeOrder,
-                    foodInvoice,
                   ].find(Boolean);
-                  const latestDocument = returnTrip
-                    ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
-                    : chefInvoice
-                      ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
-                      : smokeOrder
-                        ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
-                        : foodInvoice
-                          ? `Invoice Foodiva · ${foodInvoice.values.invoiceNo}`
-                          : "รอ Invoice Foodiva";
+                  const latestDocument = foodivaReturn
+                    ? `Foodiva รับเข้าตู้ · ${fmt(n(foodivaReturn.values, "receivedKg"))} กก.`
+                    : returnTrip
+                      ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
+                      : chefInvoice
+                        ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
+                        : smokeOrder
+                          ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
+                          : dispatch
+                            ? `ใบขนส่งขาไป · ${fmt(n(dispatch.values, "dispatchKg"))} กก.`
+                            : "รอ Foodiva ทำใบขนส่ง";
                   const route = returnTrip
                     ? "Chef House → Foodiva"
                     : lot.stage >= 2 && lot.stage <= 5
@@ -217,11 +224,6 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       : lot.stage >= 6
                         ? "Chef House → Foodiva"
                         : "Foodiva · รอเริ่มขนส่ง";
-                  const foodivaFile = uploadedAttachment(
-                    db,
-                    "foodivaConfirm",
-                    lot.id,
-                  );
                   const chefFile = uploadedAttachment(
                     db,
                     "smokingInvoice",
@@ -234,44 +236,58 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     string,
                     ReactNode,
                   ][] = [
-                    [
-                      "PO เนื้อ",
-                      lot.poId,
-                      lotIssueDate(db, lot),
-                      "ออกแล้ว",
-                      <DocumentPreview
-                        key="po"
-                        title="Purchase Order"
-                        number={lot.poId}
-                        rows={purchaseOrderRows(lot, db)}
-                      />,
-                    ],
-                    [
-                      "Invoice Foodiva",
-                      foodInvoice?.values.invoiceNo || "—",
-                      foodInvoice?.values.invoiceDate || "—",
-                      foodInvoice
-                        ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`
-                        : "รอ Foodiva",
-                      /* An invoice is the counterparty's own file. Only a lot that
-                         never got one falls back to the generated sheet. */
-                      foodivaFile ? (
-                        <AttachmentViewButton
-                          key="food-file"
-                          {...foodivaFile}
-                          label="พรีวิว / PDF"
-                        />
-                      ) : foodInvoice ? (
-                        <DocumentPreview
-                          key="food-invoice"
-                          title="Invoice Foodiva"
-                          number={foodInvoice.values.invoiceNo || lot.poId}
-                          rows={foodivaInvoiceRows(db, lot, foodInvoice)}
-                        />
-                      ) : (
-                        "—"
-                      ),
-                    ],
+                    ...poLots(lot).flatMap((po) => {
+                      const foodInvoice = entries(
+                        db,
+                        "foodivaConfirm",
+                        po.id,
+                      ).at(-1);
+                      const foodivaFile = uploadedAttachment(
+                        db,
+                        "foodivaConfirm",
+                        po.id,
+                      );
+                      return [
+                        [
+                          "PO เนื้อ",
+                          po.poId,
+                          lotIssueDate(db, po),
+                          "ออกแล้ว",
+                          <DocumentPreview
+                            key={`po-${po.id}`}
+                            title="Purchase Order"
+                            number={po.poId}
+                            rows={purchaseOrderRows(po, db)}
+                          />,
+                        ],
+                        [
+                          "Invoice Foodiva",
+                          foodInvoice?.values.invoiceNo || "—",
+                          foodInvoice?.values.invoiceDate || "—",
+                          foodInvoice
+                            ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`
+                            : "รอ Foodiva",
+                          /* An invoice is the counterparty's own file. Only a PO that
+                             never got one falls back to the generated sheet. */
+                          foodivaFile ? (
+                            <AttachmentViewButton
+                              key={`food-file-${po.id}`}
+                              {...foodivaFile}
+                              label="พรีวิว / PDF"
+                            />
+                          ) : foodInvoice ? (
+                            <DocumentPreview
+                              key={`food-invoice-${po.id}`}
+                              title="Invoice Foodiva"
+                              number={foodInvoice.values.invoiceNo || po.poId}
+                              rows={foodivaInvoiceRows(db, po, foodInvoice)}
+                            />
+                          ) : (
+                            "—"
+                          ),
+                        ],
+                      ] as [string, ReactNode, string, string, ReactNode][];
+                    }),
                     [
                       "PO โรงรมควัน",
                       smokeOrder?.values.orderNumber || "—",
@@ -332,6 +348,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           title={transportDocumentTitle.outbound}
                           number={dispatch.values.transferNumber || lot.id}
                           rows={transportDocumentRows(
+                            db,
                             lot,
                             dispatch,
                             "outbound",
@@ -354,7 +371,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           title="ใบยืนยันรับเนื้อ Chef House"
                           number={`RCV-${lot.id}`}
                           rows={[
-                            ["PO", lot.poId],
+                            ["เลขที่การส่ง", lot.poId],
                             ["Lot เนื้อ", lot.id],
                             ["วันที่รับ", chefReceive.date],
                             ["เวลาถึง", chefReceive.values.arrival],
@@ -421,7 +438,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           title="สรุปผลผลิตหลังรม"
                           number={`YIELD-${lot.id}`}
                           rows={[
-                            ["PO", lot.poId],
+                            ["เลขที่การส่ง", lot.poId],
                             ["Lot เนื้อ", lot.id],
                             ["จำนวน Lot สโมค", `${smokeEntries.length} รอบ`],
                             [
@@ -459,6 +476,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           title={transportDocumentTitle.return}
                           number={returnTrip.values.transferNumber || lot.id}
                           rows={transportDocumentRows(
+                            db,
                             lot,
                             returnTrip,
                             "return",
@@ -568,15 +586,17 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                 </span>
                               </div>
                               <DocumentPreview
-                                title="สรุปเอกสารตาม Lot"
+                                title="สรุปเอกสารตามการส่ง"
                                 number={`TRACE-${lot.id}`}
                                 rows={[
-                                  ["PO", lot.poId],
+                                  ["เลขที่การส่ง", lot.poId],
                                   ["Lot", lot.id],
                                   ["สถานะล่าสุด", stages[lot.stage]],
                                   [
-                                    "Invoice Foodiva",
-                                    foodInvoice?.values.invoiceNo || "—",
+                                    "PO ซื้อ",
+                                    poLots(lot)
+                                      .map((po) => po.poId)
+                                      .join(", ") || "—",
                                   ],
                                   [
                                     "PO โรงรมควัน",
@@ -604,6 +624,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                 ]}
                               />
                             </div>
+                            <ShipmentChainCard db={db} lot={lot} />
                             <div className="overflow-x-auto">
                               <table className="w-full min-w-190 border-collapse bg-surface">
                                 <thead>

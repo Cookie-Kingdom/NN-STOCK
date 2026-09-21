@@ -28,6 +28,7 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { ownerNav } from "@/lib/nav";
+import { shipments } from "@/lib/store";
 
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
@@ -83,7 +84,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
             db={db}
             role={ws.role}
             branch={ws.branch}
-            lots={ws.lots}
+            lots={shipments(db)}
             open={open}
           />
         </>

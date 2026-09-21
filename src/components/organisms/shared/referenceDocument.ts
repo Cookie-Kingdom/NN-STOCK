@@ -109,7 +109,7 @@ export function referenceDocument(
     return {
       title: transportDocumentTitle.return,
       number: trip.values.transferNumber || trip.id.slice(0, 8),
-      rows: transportDocumentRows(lot, trip, "return"),
+      rows: transportDocumentRows(db, lot, trip, "return"),
       summary: ["วันที่รถรับ", "ทะเบียนรถ", "คนขับ", "น้ำหนักส่ง"],
     };
   return undefined;

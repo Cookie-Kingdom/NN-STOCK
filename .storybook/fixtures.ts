@@ -1,7 +1,12 @@
 // Databases for organism stories, built by the real `mutate` so every derived number
 // (stock, cost, yield) is what the app would show.
 import { fn } from "storybook/test";
-import { materials, sevenDayRoleplay, type Database } from "@/lib/store";
+import {
+  materials,
+  mutate,
+  sevenDayRoleplay,
+  type Database,
+} from "@/lib/store";
 import {
   closed,
   confirm,
@@ -211,6 +216,21 @@ export const returnTruckDb: Database = (() => {
 
 /** Shipment at stage 8: back in Foodiva's freezer, waiting for the Owner's central count. */
 export const returnedDb: Database = returned().db;
+
+/** Return leg weighed short: Chef House sent 36 kg (360 กล่องรมควัน), Foodiva counted 35.5 kg in. */
+export const returnGapDb: Database = mutate(
+  returnTruckDb,
+  "foodiva",
+  "foodivaReturnReceive",
+  {
+    receivedDate: day,
+    receivedTime: "10:00",
+    receivedKg: "35.5",
+    receivedBags: "360",
+  },
+  returnTruckDb.lots.at(-1)!.id,
+  day,
+);
 
 /** Shipment at stage 8: 17.5 kg / 180 bags allocated to ศาลาแดง, waiting for the branch to receive. */
 export const allocatedDb: Database = (() => {

@@ -3,6 +3,7 @@ import {
   latestPackingList,
   n,
   readyForChefHouse,
+  shipmentLines,
   smokingInvoiceStatus,
   type Database,
   type Entry,
@@ -24,8 +25,17 @@ export const transportDocumentTitle: Record<TransportDirection, string> = {
   return: "ใบขนส่งเนื้อขากลับ",
 };
 
-/** Print rows for a `dispatch` (outbound) or `return` transport entry. */
+/** "PO-2026-0001 × 300.00 กก." for each purchase PO a shipment draws from (Owner and Foodiva only). */
+export const shipmentPoLabels = (db: Database, lot: Lot) =>
+  shipmentLines(lot).map(
+    (line) =>
+      `${db.lots.find((po) => po.id === line.lotId)?.poId || line.lotId} × ${fmt(line.kg)} กก.`,
+  );
+
+/** Print rows for a `dispatch` (outbound) or `return` transport entry of a shipment.
+ *  Lists the purchase POs it carries, so only the Owner and Foodiva may see it. */
 export function transportDocumentRows(
+  db: Database,
   lot: Lot,
   trip: Entry,
   direction: TransportDirection,
@@ -33,8 +43,8 @@ export function transportDocumentRows(
   const keys = transportKeys[direction];
   return [
     ["วันที่รถรับ", trip.values[keys.date] || trip.date],
-    ["PO", lot.poId],
-    ["Lot เนื้อ", lot.id],
+    ["เลขที่การส่ง", lot.poId],
+    ["PO ซื้อ", shipmentPoLabels(db, lot).join(", ") || "—"],
     ["ต้นทาง", trip.values.origin],
     ["ปลายทาง", trip.values.destination],
     ["น้ำหนักส่ง", `${fmt(n(trip.values, keys.kg))} กก.`],
