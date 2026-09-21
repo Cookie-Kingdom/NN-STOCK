@@ -90,7 +90,17 @@ export function SmokingPurchaseOrderView({
                 </span>
               ))}
             </span>,
-            boxes || (
+            boxes ? (
+              <span key="packing" className="grid justify-items-start gap-1">
+                {boxes}
+                <Button
+                  variant="table"
+                  onClick={() => open("packingListView", lot.id)}
+                >
+                  ดู Packing List
+                </Button>
+              </span>
+            ) : (
               <Badge tone="warning" key="packing">
                 รอ Packing List
               </Badge>

@@ -518,6 +518,10 @@ export function poRemainingKg(db: Database, purchaseLotId: string) {
 export function latestPackingList(db: Database, lotId: string) {
   return entries(db, "packingList", lotId).at(-1);
 }
+/** Foodiva's one outbound form: the transport document and its Packing List land in one save,
+ *  the document first (packingList refuses a shipment with no dispatch). */
+export const dispatchWithPackingList = (db: Database, lotId: string, trip: Values, packing: Values, date: string) =>
+  mutate(mutate(db, "foodiva", "dispatch", trip, lotId, date), "foodiva", "packingList", packing, lotId, date);
 /** A shipment's kg and meat cost split back to its purchase POs, pro rata to what each was asked
  * for: on Chef House's received kg once weighed in, on the requested kg before that. */
 export function shipmentShares(db: Database, shipment: Lot) {

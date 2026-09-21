@@ -19,6 +19,7 @@ import {
   purchaseLots,
   rawAtFoodiva,
   readyForChefHouse,
+  latestPackingList,
   ownerWasteOutstanding,
   shipmentLines,
   shipments,
@@ -34,7 +35,14 @@ export function FoodivaView({
   open: (kind: string, lotId?: string) => void;
 }) {
   const pos = purchaseLots(db);
-  const requests = shipments(db).filter((lot) => lot.stage === 1);
+  // Stage 1 waits for the transport document; after it, the Packing List stays
+  // editable here until the Owner issues the smoke PO from it.
+  const requests = shipments(db).filter(
+    (lot) =>
+      lot.stage === 1 ||
+      (latestPackingList(db, lot.id) &&
+        !entries(db, "smokeOrder", lot.id).length),
+  );
   const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0);
   const reservedForContent = db.lots.reduce(
     (sum, lot) => sum + ownerWasteOutstanding(db, lot.id),
@@ -84,13 +92,25 @@ export function FoodivaView({
             ))}
           </span>,
           `${fmt(n(lot.values, "requestedKg"))} กก.`,
-          <Button
-            key="dispatch"
-            variant="table"
-            onClick={() => open("dispatch", lot.id)}
-          >
-            ทำใบขนส่ง
-          </Button>,
+          lot.stage === 1 ? (
+            <Button
+              key="dispatch"
+              variant="table"
+              onClick={() => open("dispatch", lot.id)}
+            >
+              ทำใบขนส่ง
+            </Button>
+          ) : (
+            <ButtonRow key="packing">
+              <Badge tone="success">ทำใบขนส่งแล้ว · รอ PO รมควัน</Badge>
+              <Button
+                variant="table"
+                onClick={() => open("packingList", lot.id)}
+              >
+                แก้ไข Packing List
+              </Button>
+            </ButtonRow>
+          ),
         ])}
       />
       <DataTable

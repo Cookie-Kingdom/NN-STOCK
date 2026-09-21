@@ -20,8 +20,10 @@ import {
   entries,
   mutate,
   packingListBoxes,
+  shipmentLines,
   titles,
   type Database,
+  type Values,
 } from "@/lib/store";
 
 const DEFAULT_ROWS = 10;
@@ -37,6 +39,9 @@ const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
  * Foodiva fills the Packing List column; the yellow one stays read-only, it belongs
  * to Chef House. Saving with rows left blank asks for confirmation and then stores
  * only the rows that were filled.
+ *
+ * With `onDraft` nothing is saved here: the values (file already uploaded) go back to
+ * FoodivaDispatchForm, which saves them together with the transport document.
  */
 export function PackingListForm({
   db,
@@ -46,6 +51,8 @@ export function PackingListForm({
   minDate,
   onClose,
   onSaved,
+  draft,
+  onDraft,
 }: {
   db: Database;
   lotId: string;
@@ -53,17 +60,30 @@ export function PackingListForm({
   onDate: (date: string) => void;
   minDate?: string;
   onClose: () => void;
-  onSaved: (db: Database) => void;
+  onSaved?: (db: Database) => void;
+  /** Values from an earlier `onDraft`, when Foodiva reopens the list before saving. */
+  draft?: Values;
+  onDraft?: (input: Values) => void;
 }) {
   const lot = db.lots.find((l) => l.id === lotId);
-  const saved = entries(db, "packingList", lotId).at(-1);
-  const invoice = entries(db, "foodivaConfirm", lotId).at(-1);
+  const saved = draft
+    ? { values: draft }
+    : entries(db, "packingList", lotId).at(-1);
+  // Defaults come from the purchase POs on this shipment.
+  const pos = lot ? shipmentLines(lot).map((line) => line.lotId) : [];
   const [values, setValues] = useState({
-    invoiceNo: saved?.values.invoiceNo ?? invoice?.values.invoiceNo ?? "",
-    product: saved?.values.product ?? lot?.values.productName ?? "",
+    invoiceNo:
+      saved?.values.invoiceNo ??
+      pos
+        .map((id) => entries(db, "foodivaConfirm", id).at(-1)?.values.invoiceNo)
+        .filter(Boolean)
+        .join(", "),
+    product:
+      saved?.values.product ??
+      db.lots.find((l) => l.id === pos[0])?.values.productName ??
+      "",
     code: saved?.values.code ?? "",
-    invWeightKg:
-      saved?.values.invWeightKg ?? invoice?.values.readyForChiangMaiKg ?? "",
+    invWeightKg: saved?.values.invWeightKg ?? lot?.values.requestedKg ?? "",
   });
   const set = (key: keyof typeof values, value: string) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -100,8 +120,8 @@ export function PackingListForm({
       setError("");
       return setConfirmPartial(true);
     }
-    const next = await run(async () => {
-      const input: Record<string, string> = {
+    const collect = async () => {
+      const input: Values = {
         ...values,
         boxes: filled.map((box) => String(box.weight)).join("\n"),
       };
@@ -113,16 +133,28 @@ export function PackingListForm({
         if (saved?.values.attachmentStorageKey)
           input.attachmentStorageKey = saved.values.attachmentStorageKey;
       }
-      return mutate(
+      return input;
+    };
+    if (onDraft) {
+      try {
+        return onDraft(await collect());
+      } catch (caught) {
+        return setError(
+          caught instanceof Error ? caught.message : "แนบไฟล์ไม่สำเร็จ",
+        );
+      }
+    }
+    const next = await run(async () =>
+      mutate(
         latestDatabase(),
         "foodiva",
         "packingList",
-        input,
+        await collect(),
         lotId,
         date,
-      );
-    });
-    if (next) onSaved(next);
+      ),
+    );
+    if (next) onSaved?.(next);
   }
 
   return (
@@ -239,7 +271,9 @@ export function PackingListForm({
           submitLabel={
             confirmPartial
               ? `ยืนยันบันทึก ${filled.length} กล่องรับเข้า`
-              : "บันทึก Packing List"
+              : onDraft
+                ? "ใส่ Packing List ในใบขนส่ง"
+                : "บันทึก Packing List"
           }
         />
       </DialogForm>

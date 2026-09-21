@@ -52,6 +52,14 @@ export function timeOptions(current?: string) {
     ? [...timeSlots, current].sort()
     : timeSlots;
 }
+/** The first half-hour slot after `now`, Bangkok time — a pickup time that needs no typing. */
+export function nextTimeSlot(now = new Date()) {
+  const [hour, minute] = now
+    .toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hourCycle: "h23" })
+    .split(":")
+    .map(Number);
+  return timeSlots[(hour * 2 + (minute < 30 ? 1 : 2)) % 48];
+}
 const reason: Field = {
   key: "reason",
   label: "เหตุผลส่วนต่าง / Waste / ข้าม FIFO",
