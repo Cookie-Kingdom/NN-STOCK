@@ -84,7 +84,9 @@ export function FoodivaDispatchForm({
   ].slice(0, 3);
   const [packingOpen, setPackingOpen] = useState(false);
   const [draft, setDraft] = useState<Values>();
-  const { error, run, saving } = useSaveMutation("บันทึกใบขนส่งไม่สำเร็จ");
+  const { error, setError, run, saving } = useSaveMutation(
+    "บันทึกใบขนส่งไม่สำเร็จ",
+  );
 
   const lines = (lot ? shipmentLines(lot) : []).map((line) => ({
     ...line,
@@ -337,6 +339,8 @@ export function FoodivaDispatchForm({
           onClose={() => setPackingOpen(false)}
           onDraft={(input) => {
             setDraft(input);
+            // The last save error was about the old Packing List.
+            setError("");
             setPackingOpen(false);
           }}
         />

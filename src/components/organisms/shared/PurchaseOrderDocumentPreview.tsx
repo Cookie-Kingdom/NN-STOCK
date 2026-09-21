@@ -199,7 +199,7 @@ export function PurchaseOrderDocumentPreview({
         </div>
         <div className="po-paper-footer">
           <span>ผู้จัดทำ: {attention}</span>
-          <span>สถานะ: รอการบันทึก</span>
+          <span>สถานะ: {saved ? "บันทึกแล้ว" : "รอการบันทึก"}</span>
         </div>
       </article>
     </aside>
