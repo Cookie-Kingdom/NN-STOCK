@@ -14,10 +14,14 @@ import {
 import {
   entries,
   n,
+  poRemainingKg,
   produced,
+  purchaseLots,
   rawAtFoodiva,
   readyForChefHouse,
   ownerWasteOutstanding,
+  shipmentLines,
+  shipments,
   type Database,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -29,6 +33,8 @@ export function FoodivaView({
   db: Database;
   open: (kind: string, lotId?: string) => void;
 }) {
+  const pos = purchaseLots(db);
+  const requests = shipments(db).filter((lot) => lot.stage === 1);
   const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0);
   const reservedForContent = db.lots.reduce(
     (sum, lot) => sum + ownerWasteOutstanding(db, lot.id),
@@ -57,6 +63,37 @@ export function FoodivaView({
         }
       />
       <DataTable
+        title="Request เข้า"
+        columns={[
+          "เลขที่การส่ง",
+          "วันที่ Request",
+          "PO ซื้อ (กก.)",
+          "รวม",
+          "การทำงาน",
+        ]}
+        emptyText="ไม่มี Request ที่รอทำใบขนส่ง"
+        rowKeys={requests.map((lot) => lot.id)}
+        rows={requests.map((lot) => [
+          <strong key="shipment">{lot.poId}</strong>,
+          entries(db, "shipmentRequest", lot.id).at(-1)?.date || "—",
+          <span key="lines">
+            {shipmentLines(lot).map((line) => (
+              <span key={line.lotId} className="block">
+                {`${db.lots.find((po) => po.id === line.lotId)?.poId || line.lotId} × ${fmt(line.kg)} กก.`}
+              </span>
+            ))}
+          </span>,
+          `${fmt(n(lot.values, "requestedKg"))} กก.`,
+          <Button
+            key="dispatch"
+            variant="table"
+            onClick={() => open("dispatch", lot.id)}
+          >
+            ทำใบขนส่ง
+          </Button>,
+        ])}
+      />
+      <DataTable
         title="PO เนื้อที่ต้องออก Invoice"
         defaultSort={{ column: "วันที่ออก PO", desc: true }}
         columns={[
@@ -68,11 +105,11 @@ export function FoodivaView({
           "พร้อมส่งเชียงใหม่",
           "รอ Owner รับ (Waste)",
           "คงเหลือ Foodiva",
-          "สถานะ",
+          "คงเหลือส่ง Chef House",
           "การทำงาน",
         ]}
-        rowKeys={db.lots.map((lot) => lot.id)}
-        rows={db.lots.map((lot) => {
+        rowKeys={pos.map((lot) => lot.id)}
+        rows={pos.map((lot) => {
           const confirm = entries(db, "foodivaConfirm", lot.id).at(-1);
           return [
             <strong key={lot.poId}>{lot.poId}</strong>,
@@ -89,15 +126,9 @@ export function FoodivaView({
             confirm ? `${fmt(readyForChefHouse(db, lot.id))} กก.` : "—",
             confirm ? `${fmt(ownerWasteOutstanding(db, lot.id))} กก.` : "—",
             `${fmt(rawAtFoodiva(db, lot))} กก.`,
-            !confirm
-              ? "ต้องออก Invoice"
-              : lot.stage === 1
-                ? "รอ Owner เรียกรถ"
-                : lot.stage < 7
-                  ? "ส่งให้ Chef House แล้ว"
-                  : returnWaiting.includes(lot)
-                    ? "รอรับเนื้อรมควัน"
-                    : "รับเนื้อรมควันแล้ว",
+            confirm
+              ? `${fmt(poRemainingKg(db, lot.id))} กก.`
+              : "ต้องออก Invoice",
             !confirm ? (
               <ButtonRow key="confirm-actions">
                 <DocumentPrintButton
@@ -129,14 +160,6 @@ export function FoodivaView({
                   onClick={() => open("foodivaConfirm", lot.id)}
                 >
                   แก้ไข / อัปโหลดใหม่
-                </Button>
-                <Button
-                  variant="table"
-                  onClick={() => open("packingList", lot.id)}
-                >
-                  {entries(db, "packingList", lot.id).length
-                    ? "แก้ไข Packing List"
-                    : "สร้าง Packing List"}
                 </Button>
               </ButtonRow>
             ),

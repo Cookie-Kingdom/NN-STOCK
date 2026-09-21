@@ -59,16 +59,16 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "owner-dashboard" && (
         <OwnerDashboard db={db} date={date} onNavigate={setTab} />
       )}
-      {tab === "po" && (
-        <PurchaseOrderView
+      {tab === "po" && <PurchaseOrderView db={db} open={open} />}
+      {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
+      {tab === "invoices" && <InvoiceView db={db} open={open} />}
+      {tab === "transport" && (
+        <TransportManifestView
           db={db}
           open={open}
           onOpenSmokePo={() => setTab("smoke-po")}
         />
       )}
-      {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
-      {tab === "invoices" && <InvoiceView db={db} open={open} />}
-      {tab === "transport" && <TransportManifestView db={db} open={open} />}
       {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}
       {tab === "documents" && <SimpleTraceabilityView db={db} />}
       {tab === "meat-log" && <MeatMovementLogView db={db} />}

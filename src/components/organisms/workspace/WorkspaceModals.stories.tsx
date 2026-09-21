@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { centralDb, demoDb } from "../../../../.storybook/fixtures";
+import { centralDb, demoDb, multiPoDb } from "../../../../.storybook/fixtures";
 import { accountById, type AccountId } from "@/lib/accounts";
 import { useWorkspace } from "./useWorkspace";
 import { WorkspaceModals } from "./WorkspaceModals";
@@ -70,6 +70,12 @@ export const ChefLotEdit: Story = {
   render: () => (
     <Modals account="chef" kind="chefEdit" lotId={centralDb.lots[0].id} />
   ),
+};
+
+/** `shipmentRequest` routes to the Owner's Request form, no lot involved. */
+export const ShipmentRequest: Story = {
+  parameters: { db: multiPoDb },
+  render: () => <Modals account="owner" kind="shipmentRequest" lotId="" />,
 };
 
 /** No modal open: the router renders nothing, the page keeps its own content. */
