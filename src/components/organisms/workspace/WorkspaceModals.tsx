@@ -5,9 +5,11 @@ import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
 import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTransferForm";
+import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
+import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispatchForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -23,6 +25,8 @@ const CUSTOM_DIALOGS = [
   "smokeOrderPreview",
   "shipmentRequest",
   "cmReceive",
+  "dispatch",
+  "packingListView",
 ];
 
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
@@ -89,6 +93,22 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึก Packing List แล้ว")}
+      />
+    );
+  }
+  if (modal.kind === "packingListView") {
+    return <PackingListDialog db={db} lotId={modal.lotId} onClose={close} />;
+  }
+  if (modal.kind === "dispatch") {
+    return (
+      <FoodivaDispatchForm
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={() =>
+          done("บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน")
+        }
       />
     );
   }
