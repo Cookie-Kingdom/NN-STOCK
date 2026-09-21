@@ -165,7 +165,12 @@ function lotState(stop: Stop): Database {
   run(
     "foodiva",
     "packingList",
-    { invoiceNo: "INV-G", product: "เนื้อวัว", boxes: "25\n25" },
+    {
+      invoiceNo: "INV-G",
+      product: "เนื้อวัว",
+      slicedLostKg: "50",
+      boxes: "25\n25",
+    },
     lotId,
   );
   run(

@@ -3,6 +3,7 @@ import {
   ACCOUNTS,
   button,
   chefAcceptsSmokePo,
+  chefFillsYellowCells,
   chefReceivesMeat,
   field,
   menuItem,
@@ -264,9 +265,10 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       await expect(
         edit.getByRole("heading", { name: "Edit ข้อมูลก่อนปิด Lot" }),
       ).toBeVisible();
-      await expect(
-        edit.getByLabel("น้ำหนักจริงกล่องรับเข้าที่ 1", { exact: true }),
-      ).toHaveValue("500");
+      // A5: the yellow cells are weighed in once at ยืนยันรับเนื้อ and are not in Edit.
+      await expect(edit.getByLabel(/^น้ำหนักจริงกล่องรับเข้าที่/)).toHaveCount(
+        0,
+      );
       await expect(edit.getByLabel("น้ำหนักก่อนสโมค (กก.)")).toHaveValue("480");
       await expect(edit).toContainText("ยอดตรงกัน พร้อมปิด Lot");
 
@@ -622,12 +624,33 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
   );
 });
 
-test("E2E-D1: Edit ข้อมูลก่อนปิด Lot ช่องเหลืองรวม 0 กก. ต้องขึ้นข้อความในฟอร์ม ไม่ใช่ bubble ของเบราว์เซอร์ (D5)", async ({
+test("E2E-D1: ช่องเหลืองรวม 0 กก. ถูกกันตอนยืนยันรับเนื้อ · Edit ข้อมูลก่อนปิด Lot ไม่มีช่องเหลือง (D5, A5)", async ({
   page,
 }) => {
   test.setTimeout(10 * 60_000);
   await startFresh(page);
-  await reachPreSmoke(page);
+  let shipment = "";
+  await step(
+    page,
+    "ระบบ: Owner PO 500 → Foodiva Invoice 500 → Request 500 → ใบขนส่ง + Packing List 500 → PO รมควัน",
+    async () => {
+      ({ shipment } = await sendMeatToChefHouse(page, { orderedKg: "500" }));
+    },
+  );
+  await step(
+    page,
+    "Chef House: ยืนยันรับเนื้อ ช่องเหลืองกล่องรับเข้าที่ 1 = 0 → ข้อความในฟอร์ม · 500 → ผ่าน",
+    async () => {
+      await signInAs(page, ACCOUNTS.chef);
+      await chefAcceptsSmokePo(page);
+      await chefFillsYellowCells(page, shipment, ["0"]);
+      await submitAndExpectError(page, "น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
+      await setValue(dialog(page), /^น้ำหนักจริงกล่องรับเข้าที่ 1$/, "500");
+      await saveEntry(page);
+      await tab(page, "งานผลิต");
+      await expect(chefLotCell(page, 4)).toHaveText("ก่อนสโมค");
+    },
+  );
   await step(
     page,
     "Chef House: ก่อนสโมค 480 · สโมครอบเดียว 480 = 478 + waste 2 → stage ปิด Lot",
@@ -643,11 +666,15 @@ test("E2E-D1: Edit ข้อมูลก่อนปิด Lot ช่องเ�
   );
   await step(
     page,
-    "Chef House: Edit ช่องเหลืองกล่องรับเข้าที่ 1 = 0 → ข้อความในฟอร์ม",
+    "Chef House: Edit ข้อมูลก่อนปิด Lot ไม่มีช่องเหลือง · แจ้งว่าน้ำหนักรับจริงแก้ไขไม่ได้",
     async () => {
       await button(page, "Edit ข้อมูลก่อนปิด Lot");
-      await setValue(dialog(page), /^น้ำหนักจริงกล่องรับเข้าที่ 1$/, "0");
-      await submitAndExpectError(page, "น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
+      await expect(
+        dialog(page).getByLabel(/^น้ำหนักจริงกล่องรับเข้าที่/),
+      ).toHaveCount(0);
+      await expect(dialog(page)).toContainText(
+        "น้ำหนักรับจริง 500.00 กก. (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
+      );
     },
   );
 });
