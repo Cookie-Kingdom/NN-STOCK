@@ -18,9 +18,13 @@ export type Lot = {
   stage: number;
   values: Values;
   config: Values;
+  /** "shipment" = one trip to Chef House built from purchase POs; absent = a purchase PO, which stays at stage 1. */
+  kind?: "shipment";
 };
+/** One purchase PO's share of a shipment request. */
+export type ShipmentLine = { lotId: string; kg: number };
 export type Database = {
-  version: 7;
+  version: 8;
   lots: Lot[];
   entries: Entry[];
   config: Values;
@@ -54,7 +58,7 @@ export const stages = [
 ];
 export const stageRole: Role[] = [
   "owner",
-  "owner",
+  "foodiva",
   "cm",
   "cm",
   "cm",
@@ -78,6 +82,8 @@ export const stageAction = [
  * it, or make the button its prefix: two names for one action reads as two actions. */
 export const titles: Record<string, string> = {
   purchase: "สร้าง PO เนื้อ",
+  shipmentRequest: "สร้าง Request ส่งเนื้อไป Chef House",
+  meatPayment: "ชำระ Invoice เนื้อ Foodiva",
   smokeOrder: "ออก PO รมควันเนื้อ",
   smokeOrderAccept: "ยืนยันรับ PO รมควัน",
   smokingInvoice: "สร้าง / Submit ใบวางบิลค่ารมควัน",
@@ -121,7 +127,7 @@ export const titles: Record<string, string> = {
   void: "ยกเลิกรายการ",
 };
 export const seed: Database = {
-  version: 7,
+  version: 8,
   lots: [],
   entries: [],
   config: {
@@ -210,16 +216,14 @@ function roleplay(endDate: string, dayCount: number): Database {
     orderedKg: String(rawKg),
     price: "250",
   });
-  const lotId = db.lots[0].id;
-  run("foodiva", "foodivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, lotId);
-  run("owner", "smokeOrder", { smoker: "Chef House", rawKg: String(rawKg), requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
-  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
-  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef House", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
-  const chefInvoice = db.entries.at(-1)?.id || "";
-  run("owner", "invoiceReview", { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" }, lotId);
-  run("owner", "invoicePayment", { invoiceId: chefInvoice, paymentDate: dates[0], paidAmount: String(smokingAmount * 1.04), paidBy: "Owner", paymentReference: "DEMO-PAY-001" }, lotId);
-  run("owner", "dispatch", {
-    dispatchKg: String(rawKg),
+  const poLotId = db.lots[0].id;
+  run("foodiva", "foodivaConfirm", { invoiceNo: "INV-DEMO-001", invoiceDate: dates[0], confirmedKg: String(rawKg), readyForChiangMaiKg: String(rawKg), reservedForOwnerKg: "0", invoiceAmount: String(rawKg * 250), attachment: "INV-DEMO-001.pdf", confirmedBy: "Foodiva Demo" }, poLotId);
+  run("owner", "meatPayment", { paymentDate: dates[0], paidAmount: String(rawKg * 250), paidBy: "Owner", paymentReference: "DEMO-MEAT-001" }, poLotId);
+  run("owner", "shipmentRequest", { lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]) });
+  const lotId = db.lots.at(-1)!.id;
+  // Packing List: 20 kg กล่องรับเข้า, the last one takes the remainder; Chef House weighs in the same.
+  const boxes = Array.from({ length: Math.ceil(rawKg / 20) }, (_, i) => String(Math.min(20, rawKg - i * 20))).join("\n");
+  run("foodiva", "dispatch", {
     pickupDate: dates[0],
     origin: "Foodiva · กรุงเทพฯ",
     destination: "Chef House · เชียงใหม่",
@@ -230,7 +234,10 @@ function roleplay(endDate: string, dayCount: number): Database {
     driverName: "คนขับทดสอบ",
     driverPhone: "0800000000",
   }, lotId);
-  run("cm", "cmReceive", { receivedKg: String(rawKg), arrival: "08:00" }, lotId);
+  run("foodiva", "packingList", { invoiceNo: "INV-DEMO-001", product: "เนื้อวัว", invWeightKg: String(rawKg), boxes }, lotId);
+  run("owner", "smokeOrder", { smoker: "Chef House", requestedSmokeDate: dates[0], expectedFinishedDate: dates[2] }, lotId);
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
+  run("cm", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
   run("cm", "prepare", { preSmokeKg: String(rawKg) }, lotId);
   run("cm", "smoke", {
     smokeDate: dates[0],
@@ -239,6 +246,10 @@ function roleplay(endDate: string, dayCount: number): Database {
     packs,
   }, lotId);
   run("cm", "closeLot", { confirm: "Chef House" }, lotId);
+  run("cm", "smokingInvoice", { invoiceNumber: "CH-INV-DEMO-001", invoiceDate: dates[0], serviceProvider: "Chef House", serviceQuantity: String(rawKg), vat: String(smokingAmount * 0.07), withholdingTax: String(smokingAmount * 0.03), netPayable: String(smokingAmount * 1.04), attachment: "CH-INV-DEMO-001.pdf" }, lotId);
+  const chefInvoice = db.entries.at(-1)?.id || "";
+  run("owner", "invoiceReview", { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" }, lotId);
+  run("owner", "invoicePayment", { invoiceId: chefInvoice, paymentDate: dates[0], paidAmount: String(smokingAmount * 1.04), paidBy: "Owner", paymentReference: "DEMO-PAY-001" }, lotId);
   run("owner", "return", { returnDate: dates[3], returnTime: "09:00", origin: "Chef House · เชียงใหม่", destination: "Foodiva · กรุงเทพฯ", vehicleType: "รถห้องเย็น", plate: "DEMO-02", driverName: "คนขับทดสอบ", driverPhone: "0800000000", returnKg: String(rawKg) }, lotId);
   run("foodiva", "foodivaReturnReceive", { receivedDate: dates[4], receivedTime: "10:00", receivedKg: String(rawKg), receivedBags: String(packCount) }, lotId);
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
@@ -382,7 +393,11 @@ export function entries(
   };
   for (const e of db.entries) {
     if (e.kind !== "chefEdit" || voided.has(e.id)) continue;
-    fix(e.values.receiveId, { receivedKg: e.values.receivedKg, arrival: e.values.arrival });
+    fix(e.values.receiveId, {
+      receivedKg: e.values.receivedKg,
+      arrival: e.values.arrival,
+      ...(e.values.receivedBoxes !== undefined && { receivedBoxes: e.values.receivedBoxes }),
+    });
     fix(e.values.prepareId, { preSmokeKg: e.values.preSmokeKg });
     for (const { id, ...batch } of JSON.parse(e.values.batches || "[]") as Values[]) fix(id, batch);
   }
@@ -456,15 +471,13 @@ export function centralBagStock(db: Database, lotId: string) {
 }
 /** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
-  // A remainder lot is a transport child of the same PO, not a second purchase.
-  if (lot.id.includes("-R")) return 0;
+  // A shipment's beef is counted on the purchase POs it draws from.
+  if (lot.kind) return 0;
   const confirmation = entries(db, "foodivaConfirm", lot.id).at(-1);
   const invoicedKg = confirmation
     ? n(confirmation.values, "confirmedKg")
     : n(lot.values, "orderedKg");
-  const smoker = db.lots
-    .filter((item) => item.poId === lot.poId)
-    .reduce((total, item) => total + n(item.values, "dispatchKg"), 0);
+  const smoker = drawnKg(db, lot.id, true);
   // Legacy: early builds could record "steakTransfer" (raw beef moved to Steak). No UI creates
   // it any more, but app_state history is append-only, so old transfers still leave Foodiva.
   const steak = sum(entries(db, "steakTransfer", lot.id), "quantityKg");
@@ -477,6 +490,46 @@ export function readyForChefHouse(db: Database, lotId: string) {
   return confirmation.values.readyForChiangMaiKg !== undefined
     ? n(confirmation.values, "readyForChiangMaiKg")
     : n(confirmation.values, "confirmedKg");
+}
+export const purchaseLots = (db: Database) => db.lots.filter((lot) => !lot.kind);
+export function shipmentLines(lot: Lot): ShipmentLine[] {
+  return (JSON.parse(lot.values.lines || "[]") as Values[]).map((line) => ({ lotId: line.lotId, kg: Number(line.kg) }));
+}
+/** Shipment lots whose Request was not voided. Reads only the log's voids, so it also works on visibleDatabase. */
+export function shipments(db: Database) {
+  const voided = new Set(entries(db, "void").map((e) => e.values.targetId));
+  const cancelled = new Set(
+    db.entries.filter((e) => e.kind === "shipmentRequest" && voided.has(e.id)).map((e) => e.lotId),
+  );
+  return db.lots.filter((lot) => lot.kind === "shipment" && !cancelled.has(lot.id));
+}
+/** Kg of one purchase PO that shipments have requested (only those already trucked with `dispatchedOnly`). */
+export function drawnKg(db: Database, purchaseLotId: string, dispatchedOnly = false) {
+  return shipments(db)
+    .filter((lot) => !dispatchedOnly || lot.stage >= 2)
+    .flatMap(shipmentLines)
+    .filter((line) => line.lotId === purchaseLotId)
+    .reduce((total, line) => total + line.kg, 0);
+}
+/** What a purchase PO can still send to Chef House: Foodiva's ready-for-Chiang-Mai kg less every Request. */
+export function poRemainingKg(db: Database, purchaseLotId: string) {
+  return readyForChefHouse(db, purchaseLotId) - drawnKg(db, purchaseLotId);
+}
+export function latestPackingList(db: Database, lotId: string) {
+  return entries(db, "packingList", lotId).at(-1);
+}
+/** A shipment's kg and meat cost split back to its purchase POs, pro rata to what each was asked
+ * for: on Chef House's received kg once weighed in, on the requested kg before that. */
+export function shipmentShares(db: Database, shipment: Lot) {
+  const lines = shipmentLines(shipment);
+  const requested = lines.reduce((total, line) => total + line.kg, 0);
+  const base = n(shipment.values, "receivedKg") || requested;
+  return lines.map((line) => {
+    const po = db.lots.find((lot) => lot.id === line.lotId);
+    const kg = requested > 0 ? (base * line.kg) / requested : 0;
+    const price = n(po?.values || {}, "price");
+    return { lotId: line.lotId, poId: po?.poId || "", requestedKg: line.kg, kg, price, meat: kg * price };
+  });
 }
 export function reservedForOwnerContent(db: Database, lotId: string) {
   const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
@@ -695,7 +748,7 @@ export function isClosed(db: Database, branch: string, date: string) {
 }
 export function lotCost(db: Database, lot: Lot) {
   const v = lot.values;
-  const meat = num(v, "dispatchKg") * num(v, "price");
+  const meat = shipmentShares(db, lot).reduce((total, share) => total + share.meat, 0);
   const smoke = n(entries(db, "smokeOrder", lot.id).at(-1)?.values || {}, "estimatedCost");
   const freight = num(v, "outboundCost") + num(v, "returnCost");
   return {
@@ -739,31 +792,43 @@ export function currentSmokingInvoices(db: Database) {
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
+/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices or freight. */
+const hiddenKeys = (role: Role) =>
+  role === "cm"
+    ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
+    : ["meatCost", "wasteCost"];
+const hide = (values: Values, role: Role) =>
+  Object.fromEntries(Object.entries(values).filter(([k]) => !hiddenKeys(role).includes(k)));
+/** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
+const chefHouseKinds = ["smokeOrder", "packingList", "invoiceReview", "invoicePayment"];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
+  const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
   return db.entries
     .filter(
       (e) =>
         role === "owner" ||
-        (e.role === role && (role !== "branch" || e.branch === branch)) ||
-        // Chef House needs the Owner's review of its own billing invoices (reason to fix).
-        (role === "cm" && e.kind === "invoiceReview"),
+        (role === "cm"
+          ? shipmentIds.has(e.lotId) && (e.role === "cm" || chefHouseKinds.includes(e.kind))
+          : e.role === role && (role !== "branch" || e.branch === branch)),
     )
-    .map((e) =>
-      role === "owner"
-        ? e
-        : {
-            ...e,
-            values: Object.fromEntries(
-              Object.entries(e.values).filter(
-                ([k]) => !["meatCost", "wasteCost"].includes(k),
-              ),
-            ),
-          },
-    );
+    .map((e) => (role === "owner" ? e : { ...e, values: hide(e.values, role) }));
+}
+/** The database a role's screens read. Chef House gets only shipments with a smoke PO, stripped of
+ * purchase POs and prices; other roles get `db` untouched. Saves still go through the full database.
+ * ponytail: screen-level only, the full payload still reaches the browser (RLS reads all of app_state). */
+export function visibleDatabase(db: Database, role: Role, branch?: string): Database {
+  if (role !== "cm") return db;
+  const lots = shipments(db)
+    .filter((lot) => entries(db, "smokeOrder", lot.id).length)
+    .map((lot) => ({ ...lot, values: hide(lot.values, role) }));
+  const ids = new Set(lots.map((lot) => lot.id));
+  return { ...db, lots, entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)) };
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
+  shipmentRequest: "owner",
+  meatPayment: "owner",
   smokeOrder: "owner",
   smokingInvoice: "cm",
   smokeOrderAccept: "cm",
@@ -772,7 +837,7 @@ const ownership: Record<string, Role> = {
   foodivaConfirm: "foodiva",
   packingList: "foodiva",
   foodivaReturnReceive: "foodiva",
-  dispatch: "owner",
+  dispatch: "foodiva",
   cmReceive: "cm",
   prepare: "cm",
   smoke: "cm",
@@ -815,6 +880,11 @@ export function packingListBoxes(value = "") {
     .filter(Boolean)
     .map(Number);
 }
+/** Chef House's weighed-in kg per กล่องรับเข้า, one line per Packing List box and in its order.
+ *  Unlike packingListBoxes a blank line stays (as NaN), so a skipped box is caught, not shifted. */
+export function receivedBoxWeights(value = "") {
+  return value.split("\n").map((line) => (line.trim() ? Number(line) : NaN));
+}
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
@@ -836,6 +906,30 @@ function variance(actual: number, expected: number, v: Values, always = true) {
     (always || expected === 0 || Math.abs(actual - expected) / expected > 0.2)
   )
     required(v, "reason", "เหตุผลส่วนต่าง");
+}
+/** Sum of Chef House's yellow cells: one weight per box of the shipment's latest Packing List.
+ *  A total off the Packing List is not an error; it is what stock and cost run on. */
+function receivedTotal(db: Database, lotId: string, value = "") {
+  const listed = packingListBoxes(latestPackingList(db, lotId)?.values.boxes);
+  const got = receivedBoxWeights(value);
+  assert(got.length === listed.length, "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List กรุณาเปิดฟอร์มใหม่");
+  assert(got.every((kg) => Number.isFinite(kg) && kg >= 0), "กรอกน้ำหนักจริงทุกกล่องรับเข้า (ใส่ 0 ถ้าไม่ได้รับกล่องนั้น)");
+  const total = got.reduce((a, b) => a + b, 0);
+  assert(total > 0, "น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
+  return { total, boxes: got.join("\n") };
+}
+/** Optional payment slips: JSON [{ name, storageKey }], the bytes already in attachment storage. */
+function checkSlips(v: Values) {
+  if (!v.slips) return;
+  let slips: unknown;
+  try {
+    slips = JSON.parse(v.slips);
+  } catch {}
+  assert(
+    Array.isArray(slips) &&
+      slips.every((slip: Values | null) => slip?.name?.trim?.() && slip?.storageKey?.trim?.()),
+    "ไฟล์สลิปไม่ถูกต้อง กรุณาแนบใหม่",
+  );
 }
 export function mutate(
   db: Database,
@@ -877,8 +971,9 @@ export function mutate(
   }
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate") {
+    assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
     assert(
-      lot && lot.stage === expected,
+      lot.stage === expected,
       "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
     );
     // A backdated step must not land before the step it depends on.
@@ -890,6 +985,8 @@ export function mutate(
       `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${latest})`,
     );
   }
+  if (["foodivaConfirm", "ownerWasteReceive", "meatPayment"].includes(kind))
+    assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
   // Non-stage lot-pipeline entries still can't predate the lot's PO. Branch kinds are
   // excluded: they carry the selected lot as context, not as the lot they belong to.
   const lotPipeline = [
@@ -902,6 +999,7 @@ export function mutate(
     "invoiceReview",
     "invoicePayment",
     "chefEdit",
+    "meatPayment",
   ];
   if (lot && lotPipeline.includes(kind)) {
     const lotRef = lot.id;
@@ -930,21 +1028,55 @@ export function mutate(
     positive(v, "orderedKg", "น้ำหนักสั่งซื้อ");
     positive(v, "price", "ราคา / กก.");
     const year = date.slice(0, 4);
-    lotId = `F${date.slice(2).replaceAll("-", "")}-${String(next.lots.length + 1).padStart(3, "0")}`;
+    const count = next.lots.filter((l) => !l.kind).length + 1;
+    lotId = `F${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
     lot = {
       id: lotId,
-      poId: `PO-${year}-${String(next.lots.length + 1).padStart(4, "0")}`,
+      poId: `PO-${year}-${String(count).padStart(4, "0")}`,
+      stage: 1,
+      values: v,
+      config: { ...db.config },
+    };
+    next.lots.push(lot);
+  } else if (kind === "shipmentRequest") {
+    let lines: Values[] = [];
+    try {
+      lines = JSON.parse(v.lines || "");
+    } catch {}
+    assert(Array.isArray(lines) && lines.length, "เลือก PO ซื้ออย่างน้อย 1 ใบ");
+    const seen = new Set<string>();
+    for (const line of lines) {
+      const po = purchaseLots(db).find((l) => l.id === line?.lotId);
+      assert(po, "ไม่พบ PO ซื้อที่เลือก");
+      assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
+      seen.add(po.id);
+      const kg = Number(String(line.kg ?? "").trim() || NaN);
+      assert(Number.isFinite(kg) && kg > 0, `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`);
+      assert(entries(db, "foodivaConfirm", po.id).length, `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`);
+      const remaining = poRemainingKg(db, po.id);
+      assert(kg <= remaining + 0.001, `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`);
+    }
+    v.lines = JSON.stringify(lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })));
+    v.requestedKg = String(lines.reduce((total, line) => total + Number(line.kg), 0));
+    const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
+    lotId = `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
+    lot = {
+      id: lotId,
+      poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
+      kind: "shipment",
       stage: 1,
       values: v,
       config: { ...db.config },
     };
     next.lots.push(lot);
   } else if (kind === "smokeOrder" && lot) {
-    assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ออก Invoice เนื้อก่อน");
+    const list = latestPackingList(db, lotId);
+    assert(list, "รอ Foodiva ทำ Packing List ก่อนออก PO รมควัน");
+    assert(!entries(db, "smokeOrder", lotId).length, "ออก PO รมควันของการส่งนี้แล้ว");
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
-    positive(v, "rawKg", "น้ำหนักเนื้อดิบ");
-    assert(n(v, "rawKg") <= readyForChefHouse(db, lotId) + 0.001, "น้ำหนักใน PO รมควันเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่");
+    // One shipment, one Packing List, one smoke PO: the quantity is the Packing List total.
+    v.rawKg = list.values.slicedNetKg;
     v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
     v.orderNumber = `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
     v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
@@ -958,6 +1090,7 @@ export function mutate(
     v.orderNumber = order.values.orderNumber;
     v.status = "Accepted";
   } else if (kind === "smokingInvoice" && lot) {
+    assert(lot.stage >= 6, "ต้องยืนยันปิดรอบก่อนออกใบวางบิลค่ารมควัน");
     assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล");
     const smokeOrder = entries(db, "smokeOrder", lotId).at(-1);
     assert(smokeOrder, "ไม่พบ PO รมควันที่อ้างอิง");
@@ -989,6 +1122,18 @@ export function mutate(
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
     assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
+    checkSlips(v);
+  } else if (kind === "meatPayment" && lot) {
+    const invoice = entries(db, "foodivaConfirm", lotId).at(-1);
+    assert(invoice, "ยังไม่มี Invoice เนื้อจาก Foodiva");
+    assert(!entries(db, "meatPayment", lotId).length, "ชำระ Invoice เนื้อใบนี้แล้ว");
+    required(v, "paymentDate", "วันที่ชำระ");
+    required(v, "paidBy", "ผู้ดำเนินการชำระ");
+    positive(v, "paidAmount", "ยอดชำระ");
+    if (n(invoice.values, "invoiceAmount") > 0)
+      assert(Math.abs(n(v, "paidAmount") - n(invoice.values, "invoiceAmount")) < 0.01, "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ");
+    v.invoiceNo = invoice.values.invoiceNo;
+    checkSlips(v);
   } else if (kind === "foodivaConfirm" && lot) {
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "invoiceDate", "วันที่ Invoice");
@@ -1001,7 +1146,8 @@ export function mutate(
     assert(n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001, "น้ำหนักยืนยันเกินยอด PO");
     assert(Math.abs(n(v, "readyForChiangMaiKg") + n(v, "reservedForOwnerKg") - n(v, "confirmedKg")) < 0.001, "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice");
   } else if (kind === "packingList" && lot) {
-    assert(entries(db, "foodivaConfirm", lotId).length, "ต้องออก Invoice เนื้อก่อนทำ Packing List");
+    assert(lot.kind === "shipment" && entries(db, "dispatch", lotId).length, "ต้องทำใบขนส่งขาไปก่อนทำ Packing List");
+    assert(!entries(db, "smokeOrder", lotId).length, "Owner ออก PO รมควันจาก Packing List นี้แล้ว แก้ไขไม่ได้");
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "product", "รายการสินค้า");
     const boxes = packingListBoxes(v.boxes);
@@ -1035,17 +1181,13 @@ export function mutate(
     assert(Number.isInteger(n(v, "receivedBags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     variance(n(v, "receivedKg"), produced(db, lotId), v, false);
   } else if (kind === "dispatch" && lot) {
-    assert(entries(db, "foodivaConfirm", lotId).length, "รอ Foodiva ยืนยัน PO และน้ำหนักก่อนสร้างใบขนส่ง");
-    assert(entries(db, "smokeOrderAccept", lotId).length, "รอ Chef House ยืนยันรับ PO รมควันก่อนเรียกรถ");
-    assert(entries(db, "smokingInvoice", lotId).some((invoice) => smokingInvoiceStatus(db, invoice) === "ชำระแล้ว"), "รอ Owner ตรวจยอดและชำระ Invoice ค่ารมควันก่อนเรียกรถ");
-    positive(v, "dispatchKg", "น้ำหนักส่ง");
+    assert(shipments(db).some((s) => s.id === lotId), "Request นี้ถูกยกเลิกแล้ว");
+    // The truck carries what the Owner requested; Foodiva does not type a weight.
+    v.dispatchKg = lot.values.requestedKg;
     required(v, "pickupDate", "วันรับ");
+    required(v, "pickupTime", "เวลารถรับ");
     required(v, "origin", "ต้นทาง");
     required(v, "destination", "ปลายทาง");
-    assert(
-      num(v, "dispatchKg") <= readyForChefHouse(db, lotId) + 0.001,
-      "น้ำหนักใบขนส่งเกินยอดที่ Foodiva ระบุว่าพร้อมส่งเชียงใหม่",
-    );
     // Fees come from the settings in force when the manifest is made, not the lot's purchase-time snapshot.
     v.outboundCost =
       v.trip === "ไปกลับ"
@@ -1055,8 +1197,10 @@ export function mutate(
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
     assert(entries(db, "smokeOrderAccept", lotId).length, "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ");
-    positive(v, "receivedKg", "น้ำหนักรับ");
     required(v, "arrival", "เวลาถึง");
+    const received = receivedTotal(db, lotId, v.receivedBoxes);
+    v.receivedBoxes = received.boxes;
+    v.receivedKg = String(received.total);
   } else if (kind === "prepare" && lot) {
     positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
     assert(
@@ -1103,13 +1247,17 @@ export function mutate(
         smokeEntries.every((entry, index) => drafts[index]?.id === entry.id),
       "ไม่พบข้อมูล Lot ล่าสุด",
     );
+    if (v.receivedBoxes !== undefined) {
+      const received = receivedTotal(db, lotId, v.receivedBoxes);
+      v.receivedBoxes = received.boxes;
+      v.receivedKg = String(received.total);
+    }
     const receivedKg = Number(v.receivedKg);
     const preSmokeKg = Number(v.preSmokeKg);
     assert(
       Number.isFinite(receivedKg) && Number.isFinite(preSmokeKg) && receivedKg > 0 && preSmokeKg > 0,
       "กรอกน้ำหนักให้ถูกต้อง",
     );
-    assert(receivedKg <= n(lot.values, "dispatchKg") + 0.001, "น้ำหนักรับจริงมากกว่าน้ำหนักที่ส่ง");
     assert(preSmokeKg <= receivedKg + 0.001, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
     const batches = drafts.map((draft) => {
       const inputKg = Number(draft.inputKg);
@@ -1147,6 +1295,7 @@ export function mutate(
     lot.values = {
       ...lot.values,
       receivedKg: String(receivedKg),
+      ...(v.receivedBoxes !== undefined && { receivedBoxes: v.receivedBoxes }),
       arrival: v.arrival,
       preSmokeKg: String(preSmokeKg),
       inputKg: latestBatch.inputKg,
@@ -1574,9 +1723,14 @@ export function mutate(
       "allocate", "chiliAllocate", "receive", "thaw", "ricePurchase", "chiliPurchase",
       "riceIssue", "chiliIssue", "rice", "riceCarry", "sale", "influencerBox", "materials",
       "materialReceive", "generalPurchase", "materialTransfer", "materialConfirm", "closeDay",
-      "expense", "unlock",
+      "expense", "unlock", "shipmentRequest",
     ];
     assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
+    if (target.kind === "shipmentRequest")
+      assert(
+        db.lots.find((l) => l.id === target.lotId)?.stage === 1,
+        "Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้",
+      );
     assert(
       !db.entries.some(
         (entry) => entry.kind === "void" && entry.values.targetId === v.targetId,

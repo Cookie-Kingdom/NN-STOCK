@@ -118,7 +118,7 @@ test("every time field picks from the half-hour grid that mutate accepts", () =>
 // wrong before ยืนยัน. That is only safe while a run leaves its input alone.
 test("a dry run of mutate changes neither the database nor the values given to it", () => {
   const s = ready();
-  const lotId = s.db.lots[0].id;
+  const lotId = s.db.lots.at(-1)!.id;
   const before = JSON.stringify(s.db);
   const values = { branch: "ศาลาแดง", kg: "9999", bags: "1" };
   expect(() =>

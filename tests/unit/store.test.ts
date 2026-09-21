@@ -44,15 +44,19 @@ import {
   type Values,
 } from "@/lib/store";
 import {
+  closed,
   confirm,
   day,
+  dispatch,
   invoice,
   last,
+  packingList,
   packs,
   purchase,
-  purchaseInfo,
   ready,
   readyToDispatch,
+  received,
+  request,
   send,
   setup,
   smoked,
@@ -176,24 +180,28 @@ describe("derived values from the entry log", () => {
   test("lot cost adds meat, smoking and freight; per kg needs central stock", () => {
     const lot: Lot = {
       id: "L1",
-      poId: "PO-1",
+      poId: "SH-1",
+      kind: "shipment",
       stage: 8,
       config: {},
       values: {
-        dispatchKg: "10",
-        price: "250",
+        lines: JSON.stringify([{ lotId: "P1", kg: "10" }]),
         outboundCost: "2000",
         returnCost: "0",
       },
     };
-    const db = withEntries(
-      entry({
-        kind: "smokeOrder",
-        role: "owner",
-        lotId: "L1",
-        values: { estimatedCost: "2200" },
-      }),
-    );
+    const po: Lot = { id: "P1", poId: "PO-1", stage: 1, config: {}, values: { price: "250" } };
+    const db = {
+      ...withEntries(
+        entry({
+          kind: "smokeOrder",
+          role: "owner",
+          lotId: "L1",
+          values: { estimatedCost: "2200" },
+        }),
+      ),
+      lots: [po, lot],
+    };
     expect(lotCost(db, lot)).toEqual({
       meat: 2500,
       smoke: 2200,
@@ -212,9 +220,13 @@ describe("derived values from the entry log", () => {
     const smoke = entry({
       kind: "smoke",
       role: "cm",
+      lotId: "S1",
       values: { wasteCost: "1", packs: "1" },
     });
-    const db = withEntries(sala, minburi, smoke);
+    const db = {
+      ...withEntries(sala, minburi, smoke),
+      lots: [{ id: "S1", poId: "SH-1", kind: "shipment" as const, stage: 5, config: {}, values: {} }],
+    };
     expect(visibleEntries(db, "owner")).toEqual(db.entries);
     expect(visibleEntries(db, "branch", "ศาลาแดง")).toEqual([
       { ...sala, values: { boxes: "1" } },
@@ -468,43 +480,45 @@ describe("lot workflow", () => {
     ).toThrow(/รวมเท่ากับ/);
   });
 
-  test("smoke PO waits for Foodiva, is capped at the ready weight and prices the service", () => {
+  test("smoke PO waits for the Packing List, takes its total and prices the service", () => {
     const s = setup();
-    purchase(s, "40");
-    const order = (rawKg: string) =>
+    readyToDispatch(s, "30");
+    const order = () =>
       s.run("owner", "smokeOrder", {
         requestedSmokeDate: day,
         smoker: "Chef House",
-        rawKg,
+        rawKg: "999",
       });
-    expect(() => order("40")).toThrow(/รอ Foodiva/);
-    confirm(s, "40", "30");
-    expect(() => order("31")).toThrow(/เกินยอด/);
-    order("30");
+    expect(() => order()).toThrow(/รอ Foodiva ทำ Packing List/);
+    dispatch(s);
+    packingList(s, "15\n15");
+    order();
     expect(last(s).values).toMatchObject({
+      rawKg: "30",
       serviceRate: "220",
       estimatedCost: "6600",
       orderNumber: "SO-2026-0001",
       status: "Sent",
     });
+    expect(() => order()).toThrow(/ออก PO รมควันของการส่งนี้แล้ว/);
+    expect(() => packingList(s, "30")).toThrow(/แก้ไขไม่ได้/);
     expect(() =>
       s.run("cm", "smokingInvoice", {
         invoiceNumber: "CH-1",
         invoiceDate: day,
         attachment: "x",
       }),
-    ).toThrow(/ยืนยันรับ PO/);
+    ).toThrow(/ปิดรอบ/);
   });
 
   test("smoking invoice goes from review to payment and cannot be paid twice", () => {
-    const s = setup();
-    purchase(s, "40");
-    confirm(s, "40");
-    const smokingInvoice = invoice(s, "40");
+    const s = closed();
+    const smokingInvoice = invoice(s);
     expect(smokingInvoice.values).toMatchObject({
+      serviceQuantity: "50",
       serviceRate: "220",
-      amountBeforeVat: "8800",
-      netPayable: "8800",
+      amountBeforeVat: "11000",
+      netPayable: "11000",
       status: "Submitted",
     });
     const status = () => smokingInvoiceStatus(s.db, smokingInvoice);
@@ -524,20 +538,18 @@ describe("lot workflow", () => {
     expect(status()).toBe("รอตรวจยอด");
     review("ส่งกลับแก้ไข");
     expect(status()).toBe("ส่งกลับแก้ไข");
-    expect(() => pay("8800")).toThrow(/ต้องรับยอด/);
+    expect(() => pay("11000")).toThrow(/ต้องรับยอด/);
     review("รับยอด");
     expect(status()).toBe("รอชำระ");
-    expect(() => pay("8000")).toThrow(/เท่ากับยอดสุทธิ/);
-    pay("8800");
+    expect(() => pay("10000")).toThrow(/เท่ากับยอดสุทธิ/);
+    pay("11000");
     expect(status()).toBe("ชำระแล้ว");
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
   });
 
   test("BUG-H: Chef House sees the Owner's reason for sending an invoice back, only while it is sent back", () => {
-    const s = setup();
-    purchase(s, "40");
-    confirm(s, "40");
-    const smokingInvoice = invoice(s, "40");
+    const s = closed();
+    const smokingInvoice = invoice(s);
     expect(smokingInvoiceRejection(s.db, smokingInvoice)).toBeUndefined();
     s.run("owner", "invoiceReview", {
       invoiceId: smokingInvoice.id,
@@ -548,10 +560,14 @@ describe("lot workflow", () => {
     expect(
       smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment,
     ).toBe("ยอดคลาดเคลื่อน");
-    // The review shows in Chef House history; other Owner entries stay hidden.
+    // The review shows in Chef House history next to the Packing List and smoke PO it works
+    // from; the purchase PO, the Request and the transport documents stay hidden.
     const chef = visibleEntries(s.db, "cm");
-    expect(chef.map((e) => e.kind)).toContain("invoiceReview");
-    expect(chef.some((e) => e.role === "owner" && e.kind !== "invoiceReview")).toBe(false);
+    expect(chef.filter((e) => e.role !== "cm").map((e) => e.kind)).toEqual([
+      "packingList",
+      "smokeOrder",
+      "invoiceReview",
+    ]);
     s.run("owner", "invoiceReview", {
       invoiceId: smokingInvoice.id,
       decision: "รับยอด",
@@ -582,41 +598,39 @@ describe("lot workflow", () => {
     // Legacy "steakTransfer" entries (no UI creates them now) still leave Foodiva.
     s.db.entries.push({ ...last(s), id: "legacy-steak", kind: "steakTransfer", values: { quantityKg: "5" } });
     expect(rawAtFoodiva(s.db, lot())).toBe(31);
-    expect(rawAtFoodiva(s.db, { ...lot(), id: `${id}-R1` })).toBe(0);
+    // A Request leaves the beef at Foodiva until its truck goes; the shipment holds none itself.
+    request(s, [[id, "10"]]);
+    expect(rawAtFoodiva(s.db, lot())).toBe(31);
+    dispatch(s);
+    expect(rawAtFoodiva(s.db, lot())).toBe(21);
+    expect(rawAtFoodiva(s.db, s.db.lots.at(-1)!)).toBe(0);
   });
 
-  test("dispatch waits for a paid smoking invoice and cannot exceed Foodiva's ready weight", () => {
-    const s = setup();
-    s.run("owner", "purchase", {
-      ...purchaseInfo,
-      orderedKg: "40",
-      price: "10",
-    });
-    expect(() =>
-      s.run("owner", "dispatch", { ...send, dispatchKg: "40" }),
-    ).toThrow(/Foodiva/);
+  test("only Foodiva trucks a Request, and it carries the requested kg", () => {
     const t = setup();
     readyToDispatch(t, "40");
-    expect(() =>
-      t.run("owner", "dispatch", { ...send, dispatchKg: "41" }),
-    ).toThrow(/เกิน/);
-    t.run("owner", "dispatch", {
+    expect(() => t.run("owner", "dispatch", send)).toThrow(/ไม่มีสิทธิ์/);
+    expect(() => t.run("foodiva", "dispatch", send, t.db.lots[0].id)).toThrow(
+      /ไม่ใช่ PO ซื้อ/,
+    );
+    t.run("foodiva", "dispatch", {
       ...send,
       trip: "เที่ยวเดียว",
-      dispatchKg: "40",
+      dispatchKg: "999",
     });
-    expect(t.db.lots[0].stage).toBe(2);
-    expect(t.db.lots[0].values.outboundCost).toBe("1200");
+    const shipment = t.db.lots.at(-1)!;
+    expect(shipment.stage).toBe(2);
+    expect(shipment.values.dispatchKg).toBe("40");
+    expect(shipment.values.outboundCost).toBe("1200");
     expect(last(t).values.transferNumber).toBe("TR-2026-0001");
+    expect(t.db.lots[0].stage).toBe(1);
   });
 
   test("smoke batches validate bag weights and close the stage when the input is used up", () => {
     const s = setup();
-    readyToDispatch(s, "50");
-    s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
-    s.run("cm", "cmReceive", { receivedKg: "49", arrival: "08:00" });
+    received(s, "50", "50", "49");
     s.run("cm", "prepare", { preSmokeKg: "48" });
-    const lot = () => s.db.lots[0];
+    const lot = () => s.db.lots.at(-1)!;
     const id = lot().id;
     const smoke = (inputKg: string, wasteKg: string, bags: string) =>
       s.run("cm", "smoke", { smokeDate: day, inputKg, wasteKg, packs: bags });
@@ -645,13 +659,11 @@ describe("lot workflow", () => {
 
   test("a smoke batch saved before the postSmokeKg rename still counts its bags", () => {
     const s = setup();
-    readyToDispatch(s, "50");
-    s.run("owner", "dispatch", { ...send, dispatchKg: "50" });
-    s.run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" });
+    received(s, "50");
     s.run("cm", "prepare", { preSmokeKg: "50" });
     s.run("cm", "smoke", { smokeDate: day, inputKg: "50", wasteKg: "5", packs: packs(450) });
-    const id = s.db.lots[0].id;
-    const lot = s.db.lots[0];
+    const lot = s.db.lots.at(-1)!;
+    const id = lot.id;
     delete last(s).values.postSmokeKg;
     delete lot.values.preSmokeKg;
     expect(produced(s.db, id)).toBeCloseTo(45);
@@ -662,9 +674,7 @@ describe("lot workflow", () => {
 
   test("excess pre-smoke, over-smoke and incomplete close blocked", () => {
     const s = setup();
-    readyToDispatch(s, "10");
-    s.run("owner", "dispatch", { ...send, dispatchKg: "10" });
-    s.run("cm", "cmReceive", { receivedKg: "10", arrival: "08:00" });
+    received(s, "10");
     expect(() => s.run("cm", "prepare", { preSmokeKg: "11" })).toThrow(/เกิน/);
     s.run("cm", "prepare", { preSmokeKg: "10" });
     expect(() => s.run("cm", "closeLot", { confirm: "x" })).toThrow(/ขั้นตอน/);
@@ -680,7 +690,7 @@ describe("lot workflow", () => {
 
   test("chef edit before close validates in mutate, never touches the old database and is logged", () => {
     const s = smoked();
-    const id = s.db.lots[0].id;
+    const id = s.db.lots.at(-1)!.id;
     const smokes = s.db.entries.filter((item) => item.kind === "smoke");
     const draft = (item: Entry, change: Values = {}) => ({
       id: item.id,
@@ -729,7 +739,7 @@ describe("lot workflow", () => {
     expect(entries(s.db, "smoke", id)[0].values.wasteKg).toBe("4");
     expect(produced(s.db, id)).toBe(37);
     expect(last(s).kind).toBe("chefEdit");
-    expect(s.db.lots[0].stage).toBe(5);
+    expect(s.db.lots.at(-1)!.stage).toBe(5);
     s.run("cm", "closeLot", { confirm: "x" }, id);
     expect(() =>
       edit(
@@ -741,7 +751,7 @@ describe("lot workflow", () => {
 
   test("allocating by bag id takes those bags out of central stock once", () => {
     const s = ready();
-    const id = s.db.lots[0].id;
+    const id = s.db.lots.at(-1)!.id;
     const bags = availableBags(s.db, id);
     expect(bags).toHaveLength(360);
     // 360 bags weighed 0.1 at the smoker, 35 kg on the central scale: each bag carries its share.
@@ -774,7 +784,7 @@ describe("lot workflow", () => {
 
   test("every bag can be allocated even when central stock weighs less than the bags", () => {
     const s = ready();
-    const id = s.db.lots[0].id;
+    const id = s.db.lots.at(-1)!.id;
     const bags = availableBags(s.db, id);
     const half = Math.floor(bags.length / 2);
     for (const [branch, chunk] of [
@@ -795,9 +805,7 @@ describe("lot workflow", () => {
     // QA round 2: two 40 kg bags, 79 kg on the central scale, the first bag allocated
     // as 40 kg before pro-rating existed. The last bag is 39 kg (central stock), not 39.5.
     const s = setup();
-    readyToDispatch(s, "90");
-    s.run("owner", "dispatch", { ...send, dispatchKg: "90" });
-    s.run("cm", "cmReceive", { receivedKg: "88", arrival: "08:00" });
+    received(s, "90", "90", "88");
     s.run("cm", "prepare", { preSmokeKg: "85" });
     s.run("cm", "smoke", { smokeDate: day, inputKg: "85", wasteKg: "5", packs: "40\n40" });
     s.run("cm", "closeLot", { confirm: "สมชาย" });
@@ -819,7 +827,7 @@ describe("lot workflow", () => {
       receivedBags: "2",
     });
     s.run("owner", "central", { centralKg: "79" });
-    const id = s.db.lots[0].id;
+    const id = s.db.lots.at(-1)!.id;
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "40", bags: "1" });
     expect(centralStock(s.db, id)).toBe(39);
     const [bag] = availableBags(s.db, id);
@@ -1017,7 +1025,7 @@ describe("branch supplies", () => {
 
 test("an influencer box leaves the shelf and costs meat plus postage", () => {
   const s = ready();
-  const id = s.db.lots[0].id;
+  const id = s.db.lots.at(-1)!.id;
   s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
   s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "5", bags: "2" });
@@ -1071,10 +1079,10 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
 
 test("full loop: partial smoke, central, two branches, partial receipt, sale and lock", () => {
   const s = ready();
-  const id = s.db.lots[0].id;
+  const id = s.db.lots.at(-1)!.id;
   expect(produced(s.db, id)).toBe(36);
-  expect(s.db.lots[0].stage).toBe(8);
-  expect(lotCost(s.db, s.db.lots[0]).freight).toBe(2000);
+  expect(s.db.lots.at(-1)!.stage).toBe(8);
+  expect(lotCost(s.db, s.db.lots.at(-1)!).freight).toBe(2000);
   s.run("owner", "allocate", {
     branch: "ศาลาแดง",
     kg: "10",
@@ -1184,8 +1192,12 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
 
 test("seven-day roleplay replays every role through mutate", () => {
   const db = sevenDayRoleplay(day);
-  expect(db.lots).toHaveLength(1);
-  expect(db.lots[0].stage).toBe(8);
+  // One purchase PO (stays at stage 1) and the one shipment built from it.
+  expect(db.lots.map((lot) => [lot.kind, lot.stage])).toEqual([
+    [undefined, 1],
+    ["shipment", 8],
+  ]);
+  expect(entries(db, "meatPayment")).toHaveLength(1);
   expect(entries(db, "closeDay")).toHaveLength(14);
   for (const branch of branches) expect(isClosed(db, branch, day)).toBe(true);
   expect(db.config.branch).toBe("ศาลาแดง");
@@ -1198,10 +1210,10 @@ describe("backdated entries", () => {
     expect(() =>
       mutate(
         s.db,
-        "owner",
+        "foodiva",
         "dispatch",
-        { ...send, dispatchKg: "50" },
-        s.db.lots[0].id,
+        send,
+        s.db.lots.at(-1)!.id,
         "2026-09-01",
       ),
     ).toThrow(`วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${day})`);
@@ -1213,13 +1225,13 @@ describe("backdated entries", () => {
     const backdated = "2026-09-10"; // after `day`, before the real today
     const db = mutate(
       s.db,
-      "owner",
+      "foodiva",
       "dispatch",
-      { ...send, dispatchKg: "50" },
-      s.db.lots[0].id,
+      send,
+      s.db.lots.at(-1)!.id,
       backdated,
     );
-    expect(db.lots[0].stage).toBe(2);
+    expect(db.lots.at(-1)!.stage).toBe(2);
     expect(db.entries.at(-1)!.date).toBe(backdated);
   });
 
