@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { centralDb, demoDb } from "../../../.storybook/fixtures";
+import { centralDb, demoDb, packedDb } from "../../../.storybook/fixtures";
 import { accountById } from "@/lib/accounts";
 import type { Tab } from "@/lib/nav";
 import { OwnerWorkspace } from "./OwnerWorkspace";
@@ -27,6 +27,10 @@ export const Dashboard: Story = { parameters: at("owner-dashboard") };
 // จัดซื้อและใบสั่ง
 export const PurchaseOrders: Story = { parameters: at("po") };
 export const SmokingPurchaseOrders: Story = { parameters: at("smoke-po") };
+/** Packing List saved, no smoke PO yet: the bell and the smoke PO badge point here. */
+export const SmokingPurchaseOrdersPackingListReady: Story = {
+  parameters: { ...at("smoke-po"), db: packedDb },
+};
 export const Invoices: Story = { parameters: at("invoices") };
 
 // ขนส่งและรับเข้า

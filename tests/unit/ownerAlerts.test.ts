@@ -3,12 +3,18 @@ import { expect, test } from "vitest";
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { seed } from "@/lib/store";
 import {
+  closed,
   confirm,
+  dispatch,
+  invoice,
+  packingList,
   purchase,
   ready,
+  request,
   returned,
   setup,
   smoked,
+  smokeOrder,
 } from "./fixtures";
 
 test("an empty database only asks for material settings", () => {
@@ -23,20 +29,55 @@ test("an empty database only asks for material settings", () => {
   ]);
 });
 
-test("a lot's notification follows its next missing document", () => {
+test("a purchase PO waits on Foodiva's invoice, a shipment on its next document", () => {
   const s = setup();
   const alerts = () => ownerAlerts(s.db);
   const first = () => alerts().notifications[0];
-  purchase(s, "40");
+  purchase(s, "50");
   expect(first()).toMatchObject({
     title: "รอ Foodiva ออก Invoice · F260909-001",
     tab: "po",
   });
+  expect(alerts().badges.transport).toBe(0); // a purchase PO is never a truck job
+  confirm(s, "50");
+  request(s, [["F260909-001", "50"]]);
+  expect(first()).toMatchObject({
+    title: "รอ Foodiva ทำใบขนส่ง · SH-2026-0001",
+    tab: "transport",
+  });
   expect(alerts().badges.transport).toBe(1);
-  confirm(s, "40");
-  expect(first().tab).toBe("smoke-po");
+  dispatch(s);
+  expect(first()).toMatchObject({
+    title: "รอ Foodiva ทำ Packing List · SH-2026-0001",
+    tab: "smoke-po",
+  });
+  expect(alerts().badges["smoke-po"]).toBe(0);
+  packingList(s, "25\n24.5");
+  expect(first()).toEqual({
+    title: "Packing List พร้อมแล้ว · SH-2026-0001",
+    detail: "ออก PO รมควัน · 2 กล่องรับเข้า · 49.50 กก.",
+    tab: "smoke-po",
+  });
   expect(alerts().badges["smoke-po"]).toBe(1);
-  // ponytail: the smoke PO → invoice → transport steps moved onto the shipment; P4 rewrites these alerts.
+  smokeOrder(s);
+  expect(first().title).toBe(
+    "รอ Chef House ยืนยัน PO โรงรมควัน · SH-2026-0001",
+  );
+  expect(alerts().badges["smoke-po"]).toBe(0);
+  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  expect(alerts().notifications).toEqual([]); // Chef House is working: nothing waits on the owner
+});
+
+test("a closed run waits on the smoking invoice, then its review", () => {
+  const s = closed();
+  const titles = () =>
+    ownerAlerts(s.db).notifications.map((item) => item.title);
+  expect(titles()).toContain(
+    "รอ Chef House Submit Invoice ค่ารมควัน · SH-2026-0001",
+  );
+  invoice(s);
+  expect(titles()).toContain("รอตรวจ Invoice ค่ารมควัน · CH-1");
+  expect(ownerAlerts(s.db).badges.invoices).toBe(1);
 });
 
 test("after smoking the owner is sent to transport, central receive and allocation", () => {

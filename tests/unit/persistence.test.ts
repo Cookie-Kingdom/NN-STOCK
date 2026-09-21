@@ -1,5 +1,6 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import {
+  checkForUpdates,
   databaseLoaded,
   latestDatabase,
   migrateLegacyAttachments,
@@ -70,7 +71,16 @@ test("loading a v8 payload keeps its history and fills missing settings from the
     revision: 3,
     payload: {
       version: 8,
-      lots: [{ id: "S1", poId: "SH-1", kind: "shipment", stage: 6, values: {}, config: {} }],
+      lots: [
+        {
+          id: "S1",
+          poId: "SH-1",
+          kind: "shipment",
+          stage: 6,
+          values: {},
+          config: {},
+        },
+      ],
       config: { branch: "ปิดสาขาแล้ว", boxPrice: "999" },
       entries: [sale],
     },
@@ -97,12 +107,18 @@ test("a payload from before v8 falls back to the seed", async () => {
 
 test("a save on top of a pre-v8 payload sends the whole database, so the server refuses it", async () => {
   const old = entry({ boxes: "1" });
-  await signInWithRow({ revision: 4, payload: { version: 7, lots: [], entries: [old] } });
+  await signInWithRow({
+    revision: 4,
+    payload: { version: 7, lots: [], entries: [old] },
+  });
   mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 5 }], error: null });
   const added = entry({ boxes: "2" });
   await saveDatabase({ ...latestDatabase(), entries: [added] });
   // Not spliced onto the v7 history: without `old` the append-only guard rejects it.
-  expect(mocks.rpc.mock.lastCall![1].p_payload).toMatchObject({ version: 8, entries: [added] });
+  expect(mocks.rpc.mock.lastCall![1].p_payload).toMatchObject({
+    version: 8,
+    entries: [added],
+  });
 });
 
 test("the first sign-in creates the row from the seed", async () => {
@@ -155,11 +171,19 @@ test("saving sends the stored history back untouched and appends only the new en
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
   mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 5 }], error: null });
   const added = entry({ boxes: "1", attachmentData: "data:x" });
-  await expect(saveDatabase({ ...db, entries: [...db.entries, added] })).resolves.toBe(true);
-  expect(latestDatabase().entries.map((item) => item.values)).toEqual([smoke.values, { boxes: "1" }]);
+  await expect(
+    saveDatabase({ ...db, entries: [...db.entries, added] }),
+  ).resolves.toBe(true);
+  expect(latestDatabase().entries.map((item) => item.values)).toEqual([
+    smoke.values,
+    { boxes: "1" },
+  ]);
   // The stored config goes back as it was, not with the seed defaults normalize() filled in.
   expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
-    p_payload: expect.objectContaining({ entries: [smoke, { ...added, values: { boxes: "1" } }], config }),
+    p_payload: expect.objectContaining({
+      entries: [smoke, { ...added, values: { boxes: "1" } }],
+      config,
+    }),
     p_expected_revision: 4,
   });
 });
@@ -195,19 +219,35 @@ test("a failed save that cannot reload rolls the cache back, so a retry does not
   );
   await signInWithRow({ revision: 1, payload: seed });
   const before = latestDatabase();
-  mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Failed to fetch" } });
-  mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: "Failed to fetch" } });
-  const next = { ...before, entries: [...before.entries, entry({ boxes: "1" })] };
+  mocks.rpc.mockResolvedValueOnce({
+    data: null,
+    error: { message: "Failed to fetch" },
+  });
+  mocks.maybeSingle.mockResolvedValueOnce({
+    data: null,
+    error: { message: "Failed to fetch" },
+  });
+  const next = {
+    ...before,
+    entries: [...before.entries, entry({ boxes: "1" })],
+  };
   const saved = saveDatabase(next);
   expect(latestDatabase().entries).toHaveLength(next.entries.length);
   await expect(saved).resolves.toBe(false);
   expect(latestDatabase()).toBe(before);
-  expect(messages.at(-1)).toMatch(/บันทึกไม่สำเร็จ ยังไม่ได้บันทึก.*Failed to fetch/);
+  expect(messages.at(-1)).toMatch(
+    /บันทึกไม่สำเร็จ ยังไม่ได้บันทึก.*Failed to fetch/,
+  );
   expect(messages.at(-1)).not.toMatch(/โหลดข้อมูลล่าสุดแล้ว/);
 
-  mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 2, payload: next }], error: null });
+  mocks.rpc.mockResolvedValueOnce({
+    data: [{ revision: 2, payload: next }],
+    error: null,
+  });
   await expect(saveDatabase(next)).resolves.toBe(true);
-  expect(mocks.rpc.mock.lastCall![1].p_payload.entries).toHaveLength(next.entries.length);
+  expect(mocks.rpc.mock.lastCall![1].p_payload.entries).toHaveLength(
+    next.entries.length,
+  );
 });
 
 test("a failed load reports the error instead of silently showing seed data", async () => {
@@ -254,4 +294,27 @@ test("legacy inline attachments move to the attachment store", async () => {
   expect(next.entries[1]).toBe(stored);
   const clean: Database = { ...seed, entries: [entry({ boxes: "1" })] };
   expect(await migrateLegacyAttachments(clean)).toBe(clean);
+});
+
+test("the revision poll reloads only when someone else saved", async () => {
+  await checkForUpdates();
+  expect(mocks.maybeSingle).not.toHaveBeenCalled(); // signed out: nothing to poll
+  await signInWithRow({ revision: 3, payload: seed });
+  mocks.maybeSingle.mockResolvedValueOnce({
+    data: { revision: 3 },
+    error: null,
+  });
+  await checkForUpdates();
+  expect(mocks.maybeSingle).toHaveBeenCalledTimes(2);
+  const packed = { ...seed, entries: [entry({ total: "1" })] };
+  mocks.maybeSingle.mockResolvedValueOnce({
+    data: { revision: 4 },
+    error: null,
+  });
+  mocks.maybeSingle.mockResolvedValueOnce({
+    data: { revision: 4, payload: packed },
+    error: null,
+  });
+  await checkForUpdates();
+  expect(latestDatabase().entries).toHaveLength(1);
 });
