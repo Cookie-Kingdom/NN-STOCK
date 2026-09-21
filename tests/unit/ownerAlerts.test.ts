@@ -65,7 +65,10 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   );
   expect(alerts().badges["smoke-po"]).toBe(0);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  expect(alerts().notifications).toEqual([]); // Chef House is working: nothing waits on the owner
+  // Chef House is working: only the unpaid meat invoice still waits on the owner
+  expect(alerts().notifications.map((n) => n.title)).toEqual([
+    "รอชำระ Invoice เนื้อ · PO-2026-0001",
+  ]);
 });
 
 test("a closed run waits on the smoking invoice, then its review", () => {
