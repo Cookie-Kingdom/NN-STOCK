@@ -103,6 +103,8 @@ function EntryFieldControl({
       <FileUploadField
         label={f.label}
         optional={f.optional}
+        // Payment slips (Owner meat and smoking-invoice payments) read "(ไม่บังคับ)".
+        optionalText="ไม่บังคับ"
         hint={f.hint}
         accept={f.accept}
         multiple

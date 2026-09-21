@@ -150,7 +150,7 @@ export function useOwnerAlerts(db: Database) {
       )
         return [
           {
-            title: `รอ Foodiva รับเนื้อรมควัน · ${item.id}`,
+            title: `รอ Foodiva รับเนื้อรมควัน · ${item.poId}`,
             detail: "ติดตาม Foodiva ให้ชั่งรับเนื้อจาก Chef House เข้าตู้",
             tab: "transport",
           },
@@ -170,7 +170,7 @@ export function useOwnerAlerts(db: Database) {
         tab: "invoices",
       })),
     ...returnReady.map((item): OwnerNotification => ({
-      title: `Chef House ปิด Lot แล้ว · ${item.id}`,
+      title: `Chef House ปิด Lot แล้ว · ${item.poId}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
       tab: "transport",
     })),

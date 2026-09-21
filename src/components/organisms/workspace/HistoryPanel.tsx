@@ -34,6 +34,7 @@ export function HistoryPanel({
             <EntryDetails
               key={entry.id}
               entry={entry}
+              db={db}
               owner={role === "owner"}
               voided={voided.has(entry.id)}
               onChanged={onChanged}

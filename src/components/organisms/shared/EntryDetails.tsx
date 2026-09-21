@@ -9,8 +9,14 @@ import { FormError } from "@/components/molecules/FormError";
 import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
-import { mutate, roleName, titles, type Entry } from "@/lib/store";
-import { today } from "@/lib/format";
+import {
+  mutate,
+  roleName,
+  titles,
+  type Database,
+  type Entry,
+} from "@/lib/store";
+import { fmt, today } from "@/lib/format";
 
 const reversibleKinds = [
   "allocate",
@@ -54,15 +60,35 @@ const derivedLabels: Record<string, string> = {
   wasteCost: "ต้นทุนเนื้อ Waste",
   revision: "บันทึกครั้งที่",
   correctionReason: "เหตุผลที่แก้ไข",
+  lines: "PO ที่ขอส่ง",
+  requestedKg: "น้ำหนักที่ขอส่งรวม (กก.)",
 };
+
+/** A Request's `lines` JSON as one "PO-2026-0001 × 300.00 กก." per line. */
+function requestLines(value: string, db?: Database) {
+  try {
+    const lines: { lotId?: string; kg?: string }[] = JSON.parse(value);
+    return lines
+      .map((line) => {
+        const po = db?.lots.find((l) => l.id === line.lotId)?.poId;
+        return `${po || line.lotId} × ${fmt(Number(line.kg))} กก.`;
+      })
+      .join("\n");
+  } catch {
+    return value;
+  }
+}
 
 export function EntryDetails({
   entry: e,
+  db,
   owner,
   voided = false,
   onChanged,
 }: {
   entry: Entry;
+  /** Resolves a Request's lot ids to PO numbers. */
+  db?: Database;
   owner: boolean;
   /** A later "void" entry targets this one: no second cancel. */
   voided?: boolean;
@@ -97,7 +123,14 @@ export function EntryDetails({
         <span>
           {titles[e.kind] || e.kind}{" "}
           <small>
-            {e.date} · {e.lotId || e.branch} · {roleName[e.role]}
+            {/* A void has no lot, and its branch is only the config default. */}
+            {[
+              e.date,
+              e.kind === "void" ? "" : e.lotId || e.branch,
+              roleName[e.role],
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             {voided && " · ยกเลิกแล้ว"}
           </small>
           {/* Recorded on a later Bangkok day than its business date: owner audits these. */}
@@ -130,7 +163,17 @@ export function EntryDetails({
               derivedLabels[k] ||
               k
             }
-            value={k === "slips" ? <SlipList value={v} /> : v}
+            value={
+              k === "slips" ? (
+                <SlipList value={v} />
+              ) : k === "lines" && e.kind === "shipmentRequest" ? (
+                <span className="whitespace-pre-line">
+                  {requestLines(v, db)}
+                </span>
+              ) : (
+                v
+              )
+            }
           />
         ))}
       <small className="text-text-secondary">
