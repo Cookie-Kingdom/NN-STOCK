@@ -14,6 +14,7 @@ import { fmt } from "@/lib/format";
 import {
   entries,
   n,
+  ownerWasteOutstanding,
   poRemainingKg,
   purchaseLots,
   type Database,
@@ -28,6 +29,7 @@ const columns = [
   "น้ำหนักสั่งซื้อ",
   "Invoice Foodiva",
   "คงเหลือส่ง Chef House",
+  "เก็บไว้ให้ Owner คงเหลือ",
   "การทำงาน",
 ];
 
@@ -72,6 +74,8 @@ export function PurchaseOrderView({
             `${fmt(n(item.values, "orderedKg"))} กก.`,
             confirm?.values.invoiceNo || "รอยืนยัน",
             confirm ? `${fmt(poRemainingKg(db, item.id))} กก.` : "—",
+            // A8: of what Foodiva keeps for the Owner, what the Owner has not taken yet.
+            confirm ? `${fmt(ownerWasteOutstanding(db, item.id))} กก.` : "—",
             <DocumentPrintButton
               key="print"
               title="Purchase Order"

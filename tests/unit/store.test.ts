@@ -20,6 +20,7 @@ import {
   ownerChiliStock,
   ownerMaterialStock,
   ownerWasteOutstanding,
+  poRemainingKg,
   packWeights,
   processLoss,
   produced,
@@ -609,6 +610,8 @@ describe("lot workflow", () => {
     pickup("4");
     expect(last(s).date).toBe("2026-09-10");
     expect(ownerWasteOutstanding(s.db, id)).toBe(6);
+    // A8: the Owner's pickup leaves the PO's kg left to send (ready for Chiang Mai) alone.
+    expect(poRemainingKg(s.db, id)).toBe(30);
     expect(rawAtFoodiva(s.db, lot())).toBe(36);
     // Legacy "steakTransfer" entries (no UI creates them now) still leave Foodiva.
     s.db.entries.push({

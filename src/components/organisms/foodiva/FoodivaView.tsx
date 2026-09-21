@@ -122,7 +122,7 @@ export function FoodivaView({
           "ยอดสั่ง",
           "Invoice เนื้อ",
           "พร้อมส่งเชียงใหม่",
-          "รอ Owner รับ (Waste)",
+          "เก็บไว้ให้ Owner คงเหลือ",
           "คงเหลือ Foodiva",
           "คงเหลือส่ง Chef House",
           "การทำงาน",

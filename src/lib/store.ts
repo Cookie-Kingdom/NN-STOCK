@@ -758,6 +758,9 @@ export function reservedForOwnerContent(db: Database, lotId: string) {
 export function ownerWasteReceived(db: Database, lotId: string) {
   return sum(entries(db, "ownerWasteReceive", lotId), "receivedKg");
 }
+/** A8 — of the meat Foodiva keeps for the Owner on a purchase PO (`reservedForOwnerKg` on its
+ *  latest invoice), what the Owner has not picked up yet (`ownerWasteReceive`). It is apart
+ *  from `poRemainingKg`, which counts only the ready-for-Chiang-Mai kg. */
 export function ownerWasteOutstanding(db: Database, lotId: string) {
   return Math.max(
     0,
