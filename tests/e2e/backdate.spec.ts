@@ -3,11 +3,12 @@ import {
   ACCOUNTS,
   button,
   field,
+  foodivaFillsPackingList,
   foodivaIssuesInvoice,
-  INVOICE_FIXTURE,
+  foodivaOpensManifest,
   menuItem,
   ownerCreatesMeatPo,
-  ownerIssuesSmokePo,
+  ownerCreatesShipmentRequest,
   pointAndClick,
   saveEntry,
   signInAs,
@@ -65,7 +66,8 @@ async function setFormDate(page: Page, date: string) {
 async function submitAndExpectError(page: Page, message: string | RegExp) {
   const open = dialog(page);
   await pointAndClick(page, open.locator('button[type="submit"]').last());
-  await expect(alertIn(open, message)).toBeVisible();
+  // The footer and the form body can both carry the same message.
+  await expect(alertIn(open, message).first()).toBeVisible();
   await expect(open).toBeVisible();
 }
 
@@ -175,55 +177,23 @@ test("Owner: ซื้อวัสดุเข้าคลังย้อนห�
   await expect(entry.locator("summary").getByText(BACKDATED)).toBeVisible();
 });
 
-/** Chef House accepts the smoking PO and submits its invoice (as in procurement.spec). */
-async function chefAcceptsAndInvoices(page: Page) {
-  await tab(page, "งานผลิต");
-  await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
-  await saveEntry(page);
-  await button(page, "สร้าง / Submit ใบวางบิล");
-  await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-BACK");
-  await dialog(page)
-    .locator('input[type="file"]')
-    .setInputFiles(INVOICE_FIXTURE);
-  await button(page, "Submit ใบวางบิล");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-}
-
-/** Owner accepts the smoking invoice and pays the prefilled net amount. */
-async function ownerReviewsAndPays(page: Page) {
-  await tab(page, "ใบ Invoice");
-  await button(page, "ตรวจยอด");
-  await field(page, /ชื่อผู้ตรวจ/, "Owner QA");
-  await saveEntry(page);
-  await button(page, "ชำระเงิน");
-  await field(page, /ผู้ดำเนินการชำระ/, "Owner QA");
-  await saveEntry(page);
-}
-
-test("Owner: ใบขนส่งขาไปลงวันที่ก่อนขั้นตอนก่อนหน้าของ Lot ถูกปฏิเสธ ไม่บันทึกอะไร · ลงวันเดียวกันผ่าน", async ({
+test("Foodiva: ใบขนส่งขาไปลงวันที่ก่อนขั้นตอนก่อนหน้าของ Lot ถูกปฏิเสธ ไม่บันทึกอะไร · ลงวันเดียวกันผ่าน", async ({
   page,
 }) => {
-  test.setTimeout(6 * 60_000);
-  // Every earlier step of the lot is dated today.
+  // Every earlier step of the shipment (PO, invoice, Request) is dated today.
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  await ownerCreatesMeatPo(page, "500");
+  const poId = await ownerCreatesMeatPo(page, "500");
   await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaIssuesInvoice(page, "500");
+  await foodivaIssuesInvoice(page, "500", { poId });
   await signInAs(page, ACCOUNTS.owner);
-  await ownerIssuesSmokePo(page, "500");
-  await signInAs(page, ACCOUNTS.chef);
-  await chefAcceptsAndInvoices(page);
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerReviewsAndPays(page);
+  const shipment = await ownerCreatesShipmentRequest(page, [
+    { poId, kg: "500" },
+  ]);
 
-  await tab(page, "ใบขนส่ง");
-  await button(page, "ทำใบขนส่งขาไป");
-  await field(page, /เวลารถรับ/, "06:30");
-  await field(page, /ประเภทรถ/, "รถห้องเย็น");
-  await field(page, /ทะเบียนรถ/, "กท 1001");
-  await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaOpensManifest(page, shipment);
+  await foodivaFillsPackingList(page, ["250", "250"]);
 
   await setFormDate(page, bangkokDate(-1));
   await expect(dialog(page).getByText(BACKDATED)).toBeVisible();
@@ -231,20 +201,20 @@ test("Owner: ใบขนส่งขาไปลงวันที่ก่อ�
     page,
     `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${TODAY})`,
   );
-  expect(
-    (await storedEntries(page)).filter((e) => e.kind === "dispatch"),
-  ).toHaveLength(0);
+  const stored = await storedEntries(page);
+  expect(stored.filter((e) => e.kind === "dispatch")).toHaveLength(0);
+  expect(stored.filter((e) => e.kind === "packingList")).toHaveLength(0);
 
-  // Same day as the previous step: allowed.
+  // Same day as the previous step: allowed, and the Packing List draft is still there.
   await setFormDate(page, TODAY);
   await saveEntry(page);
   await expect
     .poll(async () =>
       (await storedEntries(page))
-        .filter((e) => e.kind === "dispatch")
-        .map((e) => e.date),
+        .filter((e) => e.kind === "dispatch" || e.kind === "packingList")
+        .map((e) => `${e.kind} ${e.date}`),
     )
-    .toEqual([TODAY]);
+    .toEqual([`dispatch ${TODAY}`, `packingList ${TODAY}`]);
 });
 
 test("Owner: วันที่นอกช่วง (หลังวันนี้ / ก่อนวันเริ่มใช้งานจริง) ขึ้นคำเตือนและบันทึกไม่ได้", async ({

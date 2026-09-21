@@ -190,7 +190,13 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
 
   const poTable = tableSection(page, "รายการใบสั่งซื้อ PO");
   await expect(poTable).toContainText("500.00 กก.");
-  await expect(poTable).toContainText("รอ Foodiva ออก Invoice");
+  // A new PO waits for Foodiva's invoice; nothing is left to send before it.
+  await expect(
+    poTable.getByRole("columnheader", { name: "คงเหลือส่ง Chef House" }),
+  ).toBeVisible();
+  const newPo = poTable.getByRole("row").filter({ hasText: "500.00 กก." });
+  await expect(newPo).toContainText("รอยืนยัน");
+  await expect(newPo).toContainText("—");
 });
 
 test("Owner เปิดได้ทุกหน้าจอในเมนูของตัวเอง", async ({ page }) => {
@@ -228,10 +234,13 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
 });
 
 /** Date and time inputs take a whole value at once — typing them key by key
- * leaves the control in a half-filled state. */
+ * leaves the control in a half-filled state. Times are picked from a half-hour
+ * <select> grid. */
 async function fillControl(page: Page, label: string, value: string) {
   const input = page.getByLabel(label).last();
   await input.scrollIntoViewIfNeeded();
-  await input.fill(value);
+  if ((await input.evaluate((element) => element.tagName)) === "SELECT")
+    await input.selectOption(value);
+  else await input.fill(value);
   await expect(input).toHaveValue(value);
 }

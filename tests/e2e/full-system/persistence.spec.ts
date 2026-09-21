@@ -10,7 +10,10 @@ import {
   ACCOUNTS,
   button,
   field,
+  foodivaFillsPackingList,
   foodivaIssuesInvoice,
+  foodivaMakesManifest,
+  foodivaOpensManifest,
   INVOICE_FIXTURE,
   menuItem,
   ownerCreatesMeatPo,
@@ -20,7 +23,9 @@ import {
   signInAs,
   startFresh,
   step,
+  tableRow,
   tableSection,
+  type AccountKey,
 } from "../helpers";
 import {
   availableBags,
@@ -92,9 +97,11 @@ async function reloadWorkspace(page: Page) {
 }
 
 /* ---- state built with the domain core, written as the owner ---------------- */
-type Stop = "paid" | "central";
-/** One 50 kg lot. "paid": smoke invoice paid, the next step is the outbound
- * dispatch (stage 1). "central": 5 × 10 kg bags in central stock (stage 8). */
+type Stop = "requested" | "central";
+/** One 50 kg purchase PO sent to Chef House as one shipment (Database v8).
+ * "requested": the Owner's Request (SH-…) exists, the next step is Foodiva's
+ * transport document (shipment stage 1). "central": 5 × 10 kg กล่องรมควัน in
+ * central stock (stage 8). The shipment is always the last lot. */
 function lotState(stop: Stop): Database {
   const date = today();
   let db = structuredClone(seed);
@@ -118,7 +125,7 @@ function lotState(stop: Stop): Database {
     orderedKg: "50",
     price: "250",
   });
-  const lotId = db.lots.at(-1)!.id;
+  const poLotId = db.lots.at(-1)!.id;
   run(
     "foodiva",
     "foodivaConfirm",
@@ -132,60 +139,17 @@ function lotState(stop: Stop): Database {
       attachment: "inv.pdf",
       confirmedBy: "Foodiva",
     },
-    lotId,
+    poLotId,
   );
+  run("owner", "shipmentRequest", {
+    lines: JSON.stringify([{ lotId: poLotId, kg: "50" }]),
+  });
+  const lotId = db.lots.at(-1)!.id;
+  if (stop === "requested") return db;
   run(
-    "owner",
-    "smokeOrder",
-    {
-      smoker: "Chef House",
-      rawKg: "50",
-      requestedSmokeDate: date,
-      expectedFinishedDate: date,
-    },
-    lotId,
-  );
-  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
-  run(
-    "cm",
-    "smokingInvoice",
-    {
-      invoiceNumber: "CH-G",
-      invoiceDate: date,
-      serviceProvider: "Chef House",
-      serviceQuantity: "50",
-      vat: "770",
-      withholdingTax: "330",
-      netPayable: "11440",
-      attachment: "ch.pdf",
-    },
-    lotId,
-  );
-  const invoiceId = db.entries.at(-1)!.id;
-  run(
-    "owner",
-    "invoiceReview",
-    { invoiceId, decision: "รับยอด", reviewedBy: "Owner" },
-    lotId,
-  );
-  run(
-    "owner",
-    "invoicePayment",
-    {
-      invoiceId,
-      paymentDate: date,
-      paidAmount: "11440",
-      paidBy: "Owner",
-      paymentReference: "PAY",
-    },
-    lotId,
-  );
-  if (stop === "paid") return db;
-  run(
-    "owner",
+    "foodiva",
     "dispatch",
     {
-      dispatchKg: "50",
       pickupDate: date,
       origin: "Foodiva · กรุงเทพฯ",
       destination: "Chef House · เชียงใหม่",
@@ -198,7 +162,24 @@ function lotState(stop: Stop): Database {
     },
     lotId,
   );
-  run("cm", "cmReceive", { receivedKg: "50", arrival: "08:00" }, lotId);
+  run(
+    "foodiva",
+    "packingList",
+    { invoiceNo: "INV-G", product: "เนื้อวัว", boxes: "25\n25" },
+    lotId,
+  );
+  run(
+    "owner",
+    "smokeOrder",
+    {
+      smoker: "Chef House",
+      requestedSmokeDate: date,
+      expectedFinishedDate: date,
+    },
+    lotId,
+  );
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
+  run("cm", "cmReceive", { receivedBoxes: "25\n25", arrival: "08:00" }, lotId);
   run("cm", "prepare", { preSmokeKg: "50" }, lotId);
   run(
     "cm",
@@ -254,12 +235,16 @@ async function pushState(page: Page, db: Database) {
   await reloadWorkspace(page);
 }
 
-/** A second owner browser (own cookies, own module cache). */
-async function secondOwner(browser: Browser, baseURL: string | undefined) {
+/** A second browser for `account` (own cookies, own module cache). */
+async function secondBrowser(
+  browser: Browser,
+  baseURL: string | undefined,
+  account: AccountKey = ACCOUNTS.owner,
+) {
   const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
   await page.goto("/");
-  await signInAs(page, ACCOUNTS.owner);
+  await signInAs(page, account);
   return { context, page };
 }
 
@@ -276,23 +261,6 @@ async function fillMeatPo(page: Page, orderedKg: string) {
   await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
   await field(page, /น้ำหนักสั่งซื้อ/, orderedKg);
   await field(page, /ราคาเนื้อ/, "250");
-}
-
-async function fillDispatch(page: Page, plate: string) {
-  await page
-    .getByLabel(/ต้นทาง/)
-    .last()
-    .selectOption({ label: "กรุงเทพฯ" });
-  await page
-    .getByLabel(/ปลายทาง/)
-    .last()
-    .selectOption({ label: "เชียงใหม่" });
-  await field(page, /เวลารถรับ/, "06:30");
-  await field(page, /ประเภทรถ/, "รถห้องเย็น");
-  await field(page, /ทะเบียนรถ/, plate);
-  await field(page, /ชื่อคนขับ/, "คนขับทดสอบ");
-  await field(page, /เบอร์ติดต่อคนขับ/, "0811111111");
-  await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "50");
 }
 
 async function submit(page: Page) {
@@ -345,6 +313,7 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
   );
 
   let po = "";
+  let shipment = "";
   await step(
     page,
     "ระบบ: G1 server มี purchase 1 รายการ · reload แล้ว PO ยังอยู่ในตาราง",
@@ -392,14 +361,14 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
       await expect(rowIn(page, "รายการใบสั่งซื้อ PO", po)).toContainText(
         "FD-INV-001",
       );
-      await ownerIssuesSmokePo(page, "500");
+      shipment = await ownerIssuesSmokePo(page, "500");
       await expect(page.getByRole("dialog")).toHaveCount(0);
     },
   );
 
   await step(
     page,
-    "Chef House: G1 ยืนยันรับ PO รมควัน → reload และออก-เข้าใหม่ ปุ่มยืนยันยังหาย ปุ่มใบวางบิลยังอยู่",
+    "Chef House: G1 ยืนยันรับ PO รมควัน → reload และออก-เข้าใหม่ ปุ่มยืนยันยังหาย · การส่งยังรอยืนยันรับเนื้อ (ช่องเหลือง)",
     async () => {
       await signInAs(page, ACCOUNTS.chef);
       await tab(page, "งานผลิต");
@@ -418,9 +387,13 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
         await expect(
           page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" }),
         ).toHaveCount(0);
+        await tab(page, "ยืนยันรับเนื้อ");
         await expect(
-          page.getByRole("button", { name: "สร้าง / Submit ใบวางบิล" }),
+          tableRow(page, "การส่งที่รอยืนยันรับ", shipment).getByRole("button", {
+            name: "ยืนยันรับเนื้อ",
+          }),
         ).toBeVisible();
+        await tab(page, "งานผลิต");
       }
       const accepted = kinds(
         (await serverState(page)).payload,
@@ -495,7 +468,9 @@ test("G2 บันทึกล้มเหลว (mock 409) → ไม่มี 
             })
           : route.continue(),
       );
-      await ownerCreatesMeatPo(page, "321");
+      // ownerCreatesMeatPo expects the dialog to close, so fill and click here.
+      await fillMeatPo(page, "321");
+      await button(page, "บันทึก PO เนื้อ");
       await expect(dialog(page)).toBeVisible();
       await expect(formAlert(page, "บันทึกไม่สำเร็จ")).toContainText(
         "State changed on another device",
@@ -534,7 +509,7 @@ test("G3 Owner 2 browser บันทึก PO ชนกัน → server ปฏ
 }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  const b = await secondOwner(browser, baseURL);
+  const b = await secondBrowser(browser, baseURL);
 
   try {
     await step(
@@ -583,45 +558,48 @@ test("G3 Owner 2 browser บันทึก PO ชนกัน → server ปฏ
 });
 
 /* ---- G4 --------------------------------------------------------------------- */
-test("G4 A เปิดฟอร์มใบขนส่งขาไปค้าง · B ทำใบขนส่งก่อน → A ถูกปฏิเสธ ขั้นตอนเปลี่ยนไปแล้ว", async ({
+test("G4 Foodiva A เปิดฟอร์มใบขนส่งค้าง · B ทำใบขนส่งก่อน → A ถูกปฏิเสธ ขั้นตอนเปลี่ยนไปแล้ว", async ({
   page,
   browser,
   baseURL,
 }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  await pushState(page, lotState("paid"));
-  const b = await secondOwner(browser, baseURL);
+  const state = lotState("requested");
+  const shipment = state.lots.at(-1)!.poId;
+  await pushState(page, state);
+  await signInAs(page, ACCOUNTS.foodiva);
+  const b = await secondBrowser(browser, baseURL, ACCOUNTS.foodiva);
 
   try {
     await step(
       page,
-      'Owner: G4 browser A เปิด "ทำใบขนส่งขาไป" กรอกครบแต่ยังไม่กดบันทึก',
+      'Foodiva: G4 browser A เปิด "ทำใบขนส่ง" กรอกรถและ Packing List ครบแต่ยังไม่กดบันทึก',
       async () => {
-        await tab(page, "ใบขนส่ง");
-        await button(page, "ทำใบขนส่งขาไป");
-        await fillDispatch(page, "A-111");
+        await foodivaOpensManifest(page, shipment, { plate: "A-111" });
+        await foodivaFillsPackingList(page, ["25", "25"]);
       },
     );
 
     await step(
       b.page,
-      "Owner: G4 browser B ทำใบขนส่งขาไป 50 กก. → ผ่าน",
+      "Foodiva: G4 browser B ทำใบขนส่ง + Packing List 50 กก. → ผ่าน",
       async () => {
-        await tab(b.page, "ใบขนส่ง");
-        await button(b.page, "ทำใบขนส่งขาไป");
-        await fillDispatch(b.page, "B-222");
-        await saveEntry(b.page);
-        await expect(successToast(b.page, "ทำใบขนส่งขาไปแล้ว")).toBeVisible();
+        await foodivaMakesManifest(b.page, shipment, ["25", "25"], {
+          plate: "B-222",
+        });
       },
     );
 
     await step(
       page,
-      "Owner: G4 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
+      "Foodiva: G4 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่",
       async () => {
         const saves = saveStatuses(page);
-        await submit(page);
+        await pointAndClick(
+          page,
+          page.getByRole("button", { name: "บันทึกใบขนส่ง", exact: true }),
+        );
         await expect(
           formAlert(page, "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่"),
         ).toBeVisible();
@@ -632,13 +610,14 @@ test("G4 A เปิดฟอร์มใบขนส่งขาไปค้า
 
     await step(
       page,
-      "ระบบ: G4 server มีใบขนส่งขาไปใบเดียว (ของ B) · lot อยู่ stage 2",
+      "ระบบ: G4 server มีใบขนส่งขาไปและ Packing List อย่างละใบ (ของ B) · การส่งอยู่ stage 2",
       async () => {
         const { payload } = await serverState(page);
         const dispatches = kinds(payload, "dispatch");
         expect(dispatches).toHaveLength(1);
         expect(dispatches[0].values.plate).toBe("B-222");
-        expect(payload.lots[0].stage).toBe(2);
+        expect(kinds(payload, "packingList")).toHaveLength(1);
+        expect(payload.lots.at(-1)!.stage).toBe(2);
       },
     );
   } finally {
@@ -655,10 +634,10 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   const state = lotState("central");
-  const lotId = state.lots[0].id;
+  const lotId = state.lots.at(-1)!.id;
   const bagIds = availableBags(state, lotId).map((bag) => bag.id);
   await pushState(page, state);
-  const b = await secondOwner(browser, baseURL);
+  const b = await secondBrowser(browser, baseURL);
   const meatTable = (p: Page) =>
     tableSection(p, "สต๊อกเนื้อทุกจุด (Meat inventory)");
   const openAllocate = async (p: Page) => {
@@ -670,7 +649,9 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
         .filter({ hasText: lotId })
         .getByRole("button", { name: "จัดสรร" }),
     );
-    await expect(dialog(p).getByLabel("เลือกสาขาให้ถุงที่ 5")).toBeVisible();
+    await expect(
+      dialog(p).getByLabel("เลือกสาขาให้กล่องรมควันที่ 5"),
+    ).toBeVisible();
   };
 
   try {
@@ -680,10 +661,10 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       async () => {
         await openAllocate(page);
         await dialog(page)
-          .getByLabel("เลือกสาขาให้ถุงที่ 1")
+          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 1")
           .selectOption({ label: "ศาลาแดง" });
         await dialog(page)
-          .getByLabel("เลือกสาขาให้ถุงที่ 2")
+          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 2")
           .selectOption({ label: "ศาลาแดง" });
       },
     );
@@ -694,12 +675,12 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       async () => {
         await openAllocate(b.page);
         await dialog(b.page)
-          .getByLabel("เลือกสาขาให้ถุงที่ 1")
+          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 1")
           .selectOption({ label: "มีนบุรี" });
         await button(b.page, "บันทึกการจัดสรร");
         await expect(b.page.getByRole("dialog")).toHaveCount(0);
         await expect(
-          successToast(b.page, "จัดสรรถุงเนื้อไปสาขาแล้ว"),
+          successToast(b.page, "จัดสรรกล่องรมควันไปสาขาแล้ว"),
         ).toBeVisible();
       },
     );
@@ -711,7 +692,7 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       async () => {
         await submit(page);
         await expect(
-          formAlert(page, "มีถุงที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่"),
+          formAlert(page, "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่"),
         ).toBeVisible();
         await expect(dialog(page)).toBeVisible();
         expect(saves).toEqual([409]);
@@ -723,10 +704,10 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       "Owner: G5 หลังโหลดใหม่ ตารางในฟอร์มเหลือ 4 ถุง ถุงที่ B จัดสรรหายไป",
       async () => {
         await expect(
-          dialog(page).getByLabel("เลือกสาขาให้ถุงที่ 4"),
+          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 4"),
         ).toBeVisible();
         await expect(
-          dialog(page).getByLabel("เลือกสาขาให้ถุงที่ 5"),
+          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 5"),
         ).toHaveCount(0);
       },
     );
@@ -736,10 +717,10 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
       "Owner: G5 ฟอร์มยังจำถุงเดิมที่ 2 (ตอนนี้แสดงเป็นถุงที่ 1 → ศาลาแดง) · ถุงที่ B เอาไปไม่อยู่ในรายการ",
       async () => {
         await expect(
-          dialog(page).getByLabel("เลือกสาขาให้ถุงที่ 1"),
+          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 1"),
         ).toHaveValue("ศาลาแดง");
         await expect(
-          dialog(page).getByLabel("เลือกสาขาให้ถุงที่ 2"),
+          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 2"),
         ).toHaveValue("");
       },
     );
@@ -754,7 +735,7 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
         await expect(page.getByRole("dialog")).toHaveCount(0);
         expect(saves).toEqual([409, 200]);
         await expect(
-          successToast(page, "จัดสรรถุงเนื้อไปสาขาแล้ว"),
+          successToast(page, "จัดสรรกล่องรมควันไปสาขาแล้ว"),
         ).toBeVisible();
       },
     );
@@ -794,7 +775,7 @@ test("G6 API guard ของ local db: append-only, revision, role/สาขา�
 }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  await pushState(page, lotState("paid"));
+  await pushState(page, lotState("requested"));
 
   const as = (account: string | null) =>
     playwright.request.newContext({

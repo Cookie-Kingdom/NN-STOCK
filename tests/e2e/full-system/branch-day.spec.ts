@@ -2,14 +2,18 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chefSmokesShipment,
+  chefSubmitsInvoice,
   field,
-  foodivaIssuesInvoice,
-  INVOICE_FIXTURE,
+  foodivaReceivesReturn,
   loadSampleData,
   menuItem,
-  ownerCreatesMeatPo,
-  ownerIssuesSmokePo,
+  ownerApprovesSmokingInvoice,
+  ownerCallsReturnTruck,
+  ownerPaysSmokingInvoice,
+  ownerReceivesCentral,
   pointAndClick,
+  sendMeatToChefHouse,
   saveEntry,
   signInAs,
   skipUnlessCredentials,
@@ -18,9 +22,9 @@ import {
   tableSection,
 } from "../helpers";
 
-/* Lane E (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): one lot of
- * 500 kg goes through the loop into central stock as 5 × 100 kg bags, Owner
- * allocates 3 bags to Saladaeng and 2 to Minburi, both branches run a full day
+/* Lane E (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): one shipment of
+ * 500 kg goes through the Shipment Flow into central stock as 5 × 100 kg กล่องรมควัน,
+ * Owner allocates 3 to Saladaeng and 2 to Minburi, both branches run a full day
  * (receive → thaw → rice → sale → influencer box → materials → close) and Owner
  * unlocks, re-closes and reads the report and the stock views. Every number
  * below is derived from mutate() in src/lib/store.ts. */
@@ -35,8 +39,8 @@ const MATERIALS = [
   "การ์ด / สติกเกอร์วิธีอุ่น",
 ];
 const BOX = MATERIALS[0];
-/** Lot ids look like F260917-001 (see mutate() "purchase"). */
-const LOT = /F\d{6}-\d{3}/;
+/** Branch stock is kept per shipment lot, S260917-001 (see mutate() "shipmentRequest"). */
+const LOT = /S\d{6}-\d{3}/;
 
 const openDialog = (page: Page) => page.getByRole("dialog").last();
 
@@ -55,7 +59,8 @@ async function submitAndExpectError(page: Page, message: RegExp) {
   const dialog = openDialog(page);
   await pointAndClick(page, dialog.locator('button[type="submit"]').last());
   await expect(
-    dialog.getByRole("alert").filter({ hasText: message }),
+    // The form's error and DialogFooter's live check (e2c8fef) both show it.
+    dialog.getByRole("alert").filter({ hasText: message }).first(),
   ).toBeVisible();
 }
 
@@ -118,10 +123,16 @@ async function openSale(page: Page) {
   await button(page, "บันทึกยอดขาย");
 }
 
+/** The simulated clock is a half-hour slot picker (timeOptions), not a text field. */
+const pickCloseTime = (page: Page, time: string) =>
+  openDialog(page)
+    .getByLabel(/เวลาจำลองสำหรับทดสอบปิดวัน/)
+    .selectOption(time);
+
 /** Opens "ตรวจและปิดวัน", submits with the simulated clock and expects mutate() to refuse. */
 async function closeDayRefused(page: Page, time: string, message: RegExp) {
   await pointAndClick(page, rowButton(page, "ยืนยันปิดวัน", "ตรวจและปิดวัน"));
-  await field(page, /เวลาจำลองสำหรับทดสอบปิดวัน/, time);
+  await pickCloseTime(page, time);
   await field(page, /ชื่อผู้ยืนยันปิดวัน/, "ผู้ดูแลสาขา");
   await submitAndExpectError(page, message);
   await cancelDialog(page);
@@ -129,136 +140,59 @@ async function closeDayRefused(page: Page, time: string, message: RegExp) {
 
 async function closeDay(page: Page, who: string) {
   await pointAndClick(page, rowButton(page, "ยืนยันปิดวัน", "ตรวจและปิดวัน"));
-  await field(page, /เวลาจำลองสำหรับทดสอบปิดวัน/, "22:00");
+  await pickCloseTime(page, "22:00");
   await field(page, /ชื่อผู้ยืนยันปิดวัน/, who);
   await saveEntry(page);
   await expect(page.locator("main")).toContainText("ปิดแล้ว");
 }
 
-/** Walks the lot from PO to central stock: 500 kg everywhere, 5 bags × 100 kg. */
+/** Walks one shipment from PO to central stock (Shipment Flow): 500 kg everywhere,
+ * 5 กล่องรับเข้า × 100 kg out and 5 กล่องรมควัน × 100 kg back. */
 async function reachAllocation(page: Page) {
-  await step(page, "Owner: สร้าง PO เนื้อ 500 กก.", async () => {
-    await signInAs(page, ACCOUNTS.owner);
-    await ownerCreatesMeatPo(page, "500");
-  });
+  const boxes = ["100", "100", "100", "100", "100"];
+  let shipment = "";
   await step(
     page,
-    "Foodiva: ออก Invoice 500 กก. พร้อมส่ง Chef House ทั้งหมด",
+    "Owner: PO เนื้อ 500 กก. → Foodiva: Invoice → Owner: Request → Foodiva: ใบขนส่ง + Packing List 5 กล่องรับเข้า → Owner: PO รมควัน",
     async () => {
-      await signInAs(page, ACCOUNTS.foodiva);
-      await foodivaIssuesInvoice(page, "500");
-    },
-  );
-  await step(page, "Owner: ออก PO รมควัน 500 กก.", async () => {
-    await signInAs(page, ACCOUNTS.owner);
-    await ownerIssuesSmokePo(page, "500");
-  });
-  await step(
-    page,
-    "Chef House: ยืนยันรับ PO รมควัน และ Submit ใบวางบิล",
-    async () => {
-      await signInAs(page, ACCOUNTS.chef);
-      await button(page, "งานผลิต");
-      await button(page, "ยืนยันรับ PO รมควัน");
-      await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
-      await saveEntry(page);
-      await button(page, "สร้าง / Submit ใบวางบิล");
-      await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
-      await page
-        .getByRole("dialog")
-        .locator('input[type="file"]')
-        .setInputFiles(INVOICE_FIXTURE);
-      await field(page, /รายละเอียดเพิ่มเติม/, "ค่าบริการรมควันเนื้อ 500 กก.");
-      await button(page, "Submit ใบวางบิล");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
+      ({ shipment } = await sendMeatToChefHouse(page, {
+        orderedKg: "500",
+        boxes,
+      }));
     },
   );
   await step(
     page,
-    "Owner: ตรวจยอด ชำระ 110,000 และทำใบขนส่งขาไป 500 กก.",
+    "Chef House: รับ PO · ช่องเหลือง 5 × 100 · ก่อนสโมค 500 · สโมค 5 กล่องรมควัน × 100 กก. · ปิด Lot · Submit ใบวางบิล",
+    async () => {
+      await chefSmokesShipment(page, shipment, {
+        received: boxes,
+        preSmokeKg: "500",
+        packs: boxes,
+      });
+      await chefSubmitsInvoice(page, "CH-INV-001");
+    },
+  );
+  await step(
+    page,
+    "Owner: ตรวจยอด ชำระ 110,000 และเรียกรถขากลับ 500 กก.",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await button(page, /ใบ Invoice/);
-      await button(page, "ตรวจยอด");
-      await field(page, /ชื่อผู้ตรวจ/, "Owner Demo");
-      await saveEntry(page);
-      await button(page, "ชำระเงิน");
-      await field(page, /ยอดชำระ/, "110000");
-      await field(page, /ผู้ดำเนินการชำระ/, "Owner Demo");
-      await field(page, /เลขอ้างอิงการชำระ/, "PAY-001");
-      await saveEntry(page);
-      await button(page, "ใบขนส่ง");
-      await button(page, "ทำใบขนส่งขาไป");
-      await field(page, /เวลารถรับ/, "06:30");
-      await field(page, /ประเภทรถ/, "รถห้องเย็น");
-      await field(page, /ทะเบียนรถ/, "กท 1001");
-      await field(page, /ชื่อคนขับ/, "คนขับทดสอบ");
-      await field(page, /เบอร์ติดต่อคนขับ/, "0811111111");
-      await field(page, /น้ำหนักที่ส่งเที่ยวนี้/, "500");
-      await saveEntry(page);
+      await ownerApprovesSmokingInvoice(page, shipment);
+      await ownerPaysSmokingInvoice(page, shipment);
+      await ownerCallsReturnTruck(page, shipment, "500");
     },
   );
-  await step(
-    page,
-    "Chef House: รับ 500 · ก่อนสโมค 500 · สโมค 5 ถุง × 100 กก. · ปิด Lot",
-    async () => {
-      await signInAs(page, ACCOUNTS.chef);
-      await nav(page, "ยืนยันรับเนื้อ");
-      await pointAndClick(
-        page,
-        tableSection(page, "Lot ที่รอยืนยันรับ").getByRole("button", {
-          name: "ยืนยันรับเนื้อ",
-        }),
-      );
-      await page.getByLabel(/เวลาที่รถมาถึง/).selectOption({ label: "08:00" });
-      await field(page, /น้ำหนักรับจริง/, "500");
-      await saveEntry(page);
-      await button(page, "งานผลิต");
-      await button(page, "น้ำหนักก่อนสโมค");
-      await field(page, /น้ำหนักหลังแกะซับ/, "500");
-      await saveEntry(page);
-      await button(page, "บันทึก Lot สโมครายวัน");
-      await field(page, /น้ำหนักเข้าเตารอบนี้/, "500");
-      await field(page, "น้ำหนักถุงที่ 1", "100");
-      for (let bag = 2; bag <= 5; bag += 1) {
-        await button(page, "เพิ่มถุง");
-        await field(page, `น้ำหนักถุงที่ ${bag}`, "100");
-      }
-      await saveEntry(page);
-      await button(page, "ยืนยันปิด Lot");
-      await field(page, /ชื่อผู้ยืนยันปิด Lot/, "หัวหน้าผลิต Chef House");
-      await saveEntry(page);
-    },
-  );
-  await step(page, "Owner: เรียกรถขากลับ 500 กก.", async () => {
-    await signInAs(page, ACCOUNTS.owner);
-    await button(page, "ใบขนส่ง");
-    await button(page, /เรียกรถขากลับ/);
-    await field(page, /เวลารถรับจาก Chef House|เวลารถรับ/, "09:00");
-    await field(page, /ประเภทรถ/, "รถห้องเย็น");
-    await field(page, /ทะเบียนรถ/, "กท 1002");
-    await field(page, /ชื่อคนขับ/, "คนขับขากลับ");
-    await field(page, /เบอร์ติดต่อคนขับ/, "0822222222");
-    await field(page, /น้ำหนักส่งจาก Chef House/, "500");
-    await saveEntry(page);
-  });
-  await step(page, "Foodiva: ยืนยันรับเข้าตู้ 500 กก. 5 ถุง", async () => {
+  await step(page, "Foodiva: ยืนยันรับเข้าตู้ 500 กก.", async () => {
     await signInAs(page, ACCOUNTS.foodiva);
-    await button(page, "ยืนยันรับเข้าตู้");
-    await field(page, /เวลารับ/, "10:00");
-    await field(page, /น้ำหนักรับจริง/, "500");
-    await field(page, /จำนวนถุงที่รับ/, "5");
-    await saveEntry(page);
+    await foodivaReceivesReturn(page, shipment, { kg: "500" });
   });
   await step(
     page,
     "Owner: รับเข้าสต๊อกกลาง 500 กก. → stage จัดสรร / ขาย",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await button(page, "รับเนื้อเข้าสต๊อกกลาง");
-      await button(page, "รับเข้าสต๊อกกลาง");
-      await field(page, /น้ำหนักรับสต๊อกกลาง/, "500");
-      await saveEntry(page);
+      await ownerReceivesCentral(page, "500");
     },
   );
 }
@@ -370,11 +304,11 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
   const meatTable = tableSection(page, "สต๊อกเนื้อทุกจุด (Meat inventory)");
   await step(
     page,
-    "Owner: E1 จัดสรรไปสาขา — คลังกลาง 500 กก. 5 ถุง · ไม่เลือกสาขา → เลือกสาขาปลายทางอย่างน้อย 1 ถุง",
+    "Owner: E1 จัดสรรไปสาขา — คลังกลาง 500 กก. 5 กล่องรมควัน · ไม่เลือกสาขา → เลือกสาขาปลายทางอย่างน้อย 1 กล่องรมควัน",
     async () => {
       await button(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
       await expect(cell(meatTable, LOT, 2)).toHaveText("500.00 กก.");
-      await expect(cell(meatTable, LOT, 3)).toHaveText("5 ถุง");
+      await expect(cell(meatTable, LOT, 3)).toHaveText("5 กล่องรมควัน");
       await pointAndClick(
         page,
         meatTable
@@ -386,25 +320,30 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
       );
       const dialog = openDialog(page);
       for (let bag = 1; bag <= 5; bag += 1)
-        await expect(cell(dialog, `ถุงที่ ${bag}`, 1)).toHaveText("100.00 กก.");
+        await expect(cell(dialog, `กล่องรมควันที่ ${bag}`, 1)).toHaveText(
+          "100.00 กก.",
+        );
       // BagAllocationForm refuses before mutate() gets to see "เลือกสาขา".
-      await submitAndExpectError(page, /เลือกสาขาปลายทางอย่างน้อย 1 ถุง/);
+      await submitAndExpectError(
+        page,
+        /เลือกสาขาปลายทางอย่างน้อย 1 กล่องรมควัน/,
+      );
     },
   );
 
   await step(
     page,
-    "Owner: E1 ศาลาแดง 3 ถุง / มีนบุรี 2 ถุง → คลังกลาง 0 กก. 0 ถุง ปุ่มจัดสรรปิด (BUG-1: ถุงสุดท้ายออกได้)",
+    "Owner: E1 ศาลาแดง 3 / มีนบุรี 2 กล่องรมควัน → คลังกลาง 0 กก. 0 กล่องรมควัน ปุ่มจัดสรรปิด (BUG-1: กล่องสุดท้ายออกได้)",
     async () => {
       const dialog = openDialog(page);
       for (let bag = 1; bag <= 5; bag += 1)
         await dialog
-          .getByLabel(`เลือกสาขาให้ถุงที่ ${bag}`)
+          .getByLabel(`เลือกสาขาให้กล่องรมควันที่ ${bag}`)
           .selectOption({ label: bag <= 3 ? "ศาลาแดง" : "มีนบุรี" });
       await button(page, "บันทึกการจัดสรร");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(cell(meatTable, LOT, 2)).toHaveText("0.00 กก.");
-      await expect(cell(meatTable, LOT, 3)).toHaveText("0 ถุง");
+      await expect(cell(meatTable, LOT, 3)).toHaveText("0 กล่องรมควัน");
       await expect(
         meatTable
           .getByRole("row")
@@ -1001,38 +940,44 @@ test("Lane E: จัดสรร → สาขาศาลาแดง/มีน
     async () => {
       await button(page, "สต๊อกของทั้งหมด");
       const all = tableSection(page, "ตารางสต๊อกทั้งหมด (All inventory)");
-      const rowOf = (item: string | RegExp, location: string) =>
-        all
+      /** The table pages at 20 rows and the purchase PO adds its own, so narrow it
+       * to the location first. The sort select's name lists "สถานที่" too. */
+      const cellOf = async (
+        item: string | RegExp,
+        location: string,
+        index = 3,
+      ) => {
+        await all
+          .getByRole("combobox", { name: /^สถานที่/ })
+          .selectOption(location);
+        return all
           .getByRole("row")
           .filter({ hasText: item })
           .filter({ hasText: location })
-          .getByRole("cell");
+          .getByRole("cell")
+          .nth(index);
+      };
+      const smoked = /S\d{6}-\d{3} · เนื้อรมควัน/;
+      await expect(await cellOf(smoked, "คลังกลาง")).toHaveText("0.00");
+      await expect(await cellOf(smoked, "ศาลาแดง")).toHaveText("249.80");
+      await expect(await cellOf(smoked, "ศาลาแดง", 5)).toHaveText(
+        "จากจัดสรร Owner · แช่แข็ง 249.80 · พร้อมขาย 0.00",
+      );
+      await expect(await cellOf(smoked, "มีนบุรี")).toHaveText("198.00");
       await expect(
-        rowOf(/F\d{6}-\d{3} · เนื้อรมควัน/, "คลังกลาง").nth(3),
-      ).toHaveText("0.00");
-      await expect(
-        rowOf(/F\d{6}-\d{3} · เนื้อรมควัน/, "ศาลาแดง").nth(3),
-      ).toHaveText("249.80");
-      await expect(
-        rowOf(/F\d{6}-\d{3} · เนื้อรมควัน/, "ศาลาแดง").nth(5),
-      ).toHaveText("จากจัดสรร Owner · แช่แข็ง 249.80 · พร้อมขาย 0.00");
-      await expect(
-        rowOf(/F\d{6}-\d{3} · เนื้อรมควัน/, "มีนบุรี").nth(3),
-      ).toHaveText("198.00");
-      await expect(
-        rowOf("ข้าวเหนียวดิบ (ข้าวสาร)", "ศาลาแดง").nth(3),
+        await cellOf("ข้าวเหนียวดิบ (ข้าวสาร)", "ศาลาแดง"),
       ).toHaveText("10.00");
-      await expect(rowOf("ข้าวเหนียวสุก", "ศาลาแดง").nth(3)).toHaveText("8.60");
-      await expect(rowOf("ข้าวเหนียวสุก", "มีนบุรี").nth(3)).toHaveText(
+      await expect(await cellOf("ข้าวเหนียวสุก", "ศาลาแดง")).toHaveText("8.60");
+      await expect(await cellOf("ข้าวเหนียวสุก", "มีนบุรี")).toHaveText(
         "30.00",
       );
-      await expect(rowOf("น้ำพริกหลอด", "ศาลาแดง").nth(3)).toHaveText("30.00");
-      await expect(rowOf("น้ำพริกหลอด", "มีนบุรี").nth(3)).toHaveText("20.00");
-      await expect(rowOf("น้ำพริกหลอด", "คลัง Owner").nth(3)).toHaveText(
+      await expect(await cellOf("น้ำพริกหลอด", "ศาลาแดง")).toHaveText("30.00");
+      await expect(await cellOf("น้ำพริกหลอด", "มีนบุรี")).toHaveText("20.00");
+      await expect(await cellOf("น้ำพริกหลอด", "คลัง Owner")).toHaveText(
         "30.00",
       );
-      await expect(rowOf(BOX, "ศาลาแดง").nth(3)).toHaveText("70.00");
-      await expect(rowOf(BOX, "คลัง Owner").nth(3)).toHaveText("100.00");
+      await expect(await cellOf(BOX, "ศาลาแดง")).toHaveText("70.00");
+      await expect(await cellOf(BOX, "คลัง Owner")).toHaveText("100.00");
     },
   );
 });

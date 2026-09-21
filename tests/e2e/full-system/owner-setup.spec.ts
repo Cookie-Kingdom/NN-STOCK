@@ -55,9 +55,11 @@ const SAVE_LOCK = "บันทึกและล็อก (Save & lock)";
 const CANCEL_EDIT = "ยกเลิก (Cancel)";
 
 const dialog = (page: Page) => page.getByRole("dialog").last();
-/** role=alert also matches Next's route announcer and page banners, so scope + text. */
+/** role=alert also matches Next's route announcer and page banners, so scope + text.
+ * A refused save shows its message twice (the form's error and DialogFooter's live
+ * check, e2c8fef), so take the first. */
 const alertIn = (scope: Locator, text: string | RegExp) =>
-  scope.getByRole("alert").filter({ hasText: text });
+  scope.getByRole("alert").filter({ hasText: text }).first();
 
 const tab = (page: Page, label: string) =>
   pointAndClick(page, menuItem(page, label));
@@ -142,7 +144,10 @@ function cellOf(scope: Locator, texts: (string | RegExp)[], index: number) {
  * at 20 rows, so narrow it to the location first. */
 async function ownerStock(page: Page, item: string | RegExp, location: string) {
   const table = tableSection(page, INVENTORY);
-  await table.getByLabel("สถานที่").selectOption(location);
+  // The sort select's name lists the column names too, so match the filter's start.
+  await table
+    .getByRole("combobox", { name: /^สถานที่/ })
+    .selectOption(location);
   return cellOf(table, [item, location], 3);
 }
 
@@ -279,24 +284,15 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
     },
   );
 
-  await step(
-    page,
-    "Owner: B2 ชื่อบริษัทว่าง → กรอกชื่อบริษัท · เวลาปิดวันว่าง → กรอกเวลาเป็น HH:mm",
-    async () => {
-      await sectionRefuses(
-        page,
-        S_MAIN,
-        () => field(page, "companyName", ""),
-        "กรอกชื่อบริษัท",
-      );
-      await sectionRefuses(
-        page,
-        S_BRANCH,
-        () => fillControl(page, "closeTime", ""),
-        "กรอกเวลาเป็น HH:mm เช่น 08:00",
-      );
-    },
-  );
+  await step(page, "Owner: B2 ชื่อบริษัทว่าง → กรอกชื่อบริษัท", async () => {
+    await sectionRefuses(
+      page,
+      S_MAIN,
+      () => field(page, "companyName", ""),
+      "กรอกชื่อบริษัท",
+    );
+    // No blank closeTime case: it is a half-hour slot picker (timeOptions) now.
+  });
 
   await step(
     page,
@@ -383,7 +379,10 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
           .getByLabel("branch")
           .selectOption({ label: "มีนบุรี" });
         await field(page, "tolerance", "12");
-        await fillControl(page, "closeTime", "21:30");
+        // closeTime is a half-hour slot picker (timeOptions), not a free time input.
+        await tableSection(page, S_BRANCH)
+          .getByLabel("closeTime")
+          .selectOption("21:30");
       });
       await setMaterialPars(
         page,
@@ -747,8 +746,9 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
         page,
         pending.getByRole("button", { name: "ยืนยันรับ" }),
       );
+      // Shown under the row's button (live check, e2c8fef) and in the page notice.
       await expect(
-        page.getByRole("main").getByText("กรอกเหตุผลส่วนต่าง"),
+        page.getByRole("main").getByText("กรอกเหตุผลส่วนต่าง").first(),
       ).toBeVisible();
       await expect(
         pending.getByRole("row").filter({ hasText: BOX }),
@@ -770,7 +770,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
         pending.getByRole("button", { name: "ยืนยันรับ" }),
       );
       await expect(
-        page.getByRole("main").getByText("จำนวนรับจริงเกินจำนวนที่ส่ง"),
+        page.getByRole("main").getByText("จำนวนรับจริงเกินจำนวนที่ส่ง").first(),
       ).toBeVisible();
     },
   );

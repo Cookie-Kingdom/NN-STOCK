@@ -2,42 +2,38 @@ import { expect, test } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chefLotButton,
+  chefSmokesShipment,
   field,
-  foodivaIssuesInvoice,
   INVOICE_FIXTURE,
   menuItem,
-  ownerCreatesMeatPo,
-  ownerIssuesSmokePo,
+  openMenu,
   pointAndClick,
-  saveEntry,
+  sendMeatToChefHouse,
   sidebar,
   signInAs,
   startFresh,
 } from "./helpers";
 
-test("Chef House รับ PO รมควันแล้ว Submit ใบวางบิลให้ Owner ตรวจ", async ({
+test("Chef House รับ PO รมควัน รมเสร็จปิด Lot แล้ว Submit ใบวางบิลให้ Owner ตรวจ", async ({
   page,
 }) => {
   await startFresh(page);
 
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerCreatesMeatPo(page, "500");
-  await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaIssuesInvoice(page, "500");
-  await signInAs(page, ACCOUNTS.owner);
-  await ownerIssuesSmokePo(page, "500");
+  // PO → Invoice → Request → ใบขนส่ง + Packing List → PO รมควัน
+  const { shipment } = await sendMeatToChefHouse(page, { orderedKg: "500" });
 
-  await signInAs(page, ACCOUNTS.chef);
-  await button(page, "งานผลิต");
-  await expect(
-    page.getByRole("button", { name: "ยืนยันรับ PO รมควัน" }),
-  ).toBeVisible();
+  // รับ PO → ช่องเหลืองน้ำหนักจริง → ก่อนสโมค → รมควัน → ปิด Lot
+  await chefSmokesShipment(page, shipment, {
+    received: ["500"],
+    preSmokeKg: "480",
+    packs: ["470"],
+    wasteKg: "10",
+  });
 
-  await button(page, "ยืนยันรับ PO รมควัน");
-  await field(page, /ชื่อผู้รับ PO/, "หัวหน้าผลิต Chef House");
-  await saveEntry(page);
-
-  await button(page, "สร้าง / Submit ใบวางบิล");
+  // ใบวางบิลออกได้หลังปิด Lot เท่านั้น
+  await openMenu(page, "งานผลิต");
+  await pointAndClick(page, chefLotButton(page, "สร้าง / Submit ใบวางบิล"));
   await field(page, /เลข Invoice ค่ารมควัน/, "CH-INV-001");
   await page
     .getByRole("dialog")
