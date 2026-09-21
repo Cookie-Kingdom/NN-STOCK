@@ -120,7 +120,6 @@ function WeightCell({
     <Input
       variant="table"
       type="number"
-      spinner
       step="0.01"
       min="0"
       className="w-28"
