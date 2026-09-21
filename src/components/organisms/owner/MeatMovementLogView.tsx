@@ -158,7 +158,9 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         lot.id,
         "Chef House · เนื้อรมพร้อมเรียกรถ",
         `${fmt(chefSmoked)} กก.`,
-        chefSmoked > 0 ? `${producedBags(db, lot.id)} ถุง · ปิด Lot แล้ว` : "—",
+        chefSmoked > 0
+          ? `${producedBags(db, lot.id)} กล่องรมควัน · ปิด Lot แล้ว`
+          : "—",
       ],
       [
         lot.poId,
@@ -174,7 +176,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         lot.id,
         "คลังกลาง Owner",
         `${fmt(centralStock(db, lot.id))} กก.`,
-        `${centralBagStock(db, lot.id)} ถุง พร้อมจัดสรร`,
+        `${centralBagStock(db, lot.id)} กล่องรมควัน พร้อมจัดสรร`,
       ],
       ...branches.map((branchName) => {
         const stock = balance(db, lot.id, branchName);

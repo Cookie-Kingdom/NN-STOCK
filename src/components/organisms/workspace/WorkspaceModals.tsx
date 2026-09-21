@@ -7,6 +7,7 @@ import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurc
 import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTransferForm";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
+import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -21,6 +22,7 @@ const CUSTOM_DIALOGS = [
   "chefEdit",
   "smokeOrderPreview",
   "shipmentRequest",
+  "cmReceive",
 ];
 
 export function WorkspaceModals({ ws }: { ws: Workspace }) {
@@ -97,7 +99,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() => done("จัดสรรถุงเนื้อไปสาขาแล้ว")}
+        onSaved={() => done("จัดสรรกล่องรมควันไปสาขาแล้ว")}
       />
     );
   }
@@ -111,6 +113,17 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         onSaved={() =>
           done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")
         }
+      />
+    );
+  }
+  if (modal.kind === "cmReceive") {
+    return (
+      <ChefReceiveForm
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={() => done(`${titles.cmReceive}แล้ว`)}
       />
     );
   }

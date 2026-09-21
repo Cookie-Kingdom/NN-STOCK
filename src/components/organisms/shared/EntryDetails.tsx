@@ -39,7 +39,7 @@ const reversibleKinds = [
 /** Labels for computed values that are not fields of the entry's form. */
 const derivedLabels: Record<string, string> = {
   postSmokeKg: "น้ำหนักผลิตรวม",
-  packCount: "จำนวนถุงใหญ่",
+  packCount: "จำนวนกล่องรมควัน",
   outboundCost: "ค่ารถขาไป",
   returnCost: "ค่ารถขากลับ",
   revenue: "ยอดขายบันทึก",

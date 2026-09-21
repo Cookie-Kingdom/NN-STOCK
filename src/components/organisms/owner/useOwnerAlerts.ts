@@ -171,7 +171,7 @@ export function useOwnerAlerts(db: Database) {
       })),
     ...returnReady.map((item): OwnerNotification => ({
       title: `Chef House ปิด Lot แล้ว · ${item.id}`,
-      detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} ถุง`,
+      detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
       tab: "transport",
     })),
     ...(centralReceiveCount

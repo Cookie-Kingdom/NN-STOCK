@@ -379,7 +379,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           "Lot สโมครายวัน",
                           entry.values.subLot || "—",
                           entry.values.smokeDate || entry.date,
-                          `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} ถุง`,
+                          `เข้าเตา ${fmt(n(entry.values, "inputKg"))} กก. · หลังรม ${fmt(n(entry.values, "postSmokeKg"))} กก. · Waste ${fmt(n(entry.values, "wasteKg"))} กก. · ${entry.values.packCount || "0"} กล่องรมควัน`,
                           <DocumentPreview
                             key={entry.id}
                             title="บันทึก Lot สโมครายวัน"
@@ -404,10 +404,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                 `${fmt(n(entry.values, "wasteKg"))} กก.`,
                               ],
                               [
-                                "จำนวนถุง",
-                                `${entry.values.packCount || "0"} ถุง`,
+                                "จำนวนกล่องรมควัน",
+                                `${entry.values.packCount || "0"} กล่องรมควัน`,
                               ],
-                              ["น้ำหนักถุง", entry.values.packs || "—"],
+                              ["น้ำหนักกล่องรมควัน", entry.values.packs || "—"],
                             ]}
                           />,
                         ] as [string, ReactNode, string, string, ReactNode],
@@ -415,7 +415,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     [
                       "ผลผลิตหลังรม",
                       produced(db, lot.id)
-                        ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} ถุง`
+                        ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} กล่องรมควัน`
                         : "—",
                       produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต",
                       produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef House",
@@ -436,7 +436,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                               "น้ำหนักหลังรมรวม",
                               `${fmt(produced(db, lot.id))} กก.`,
                             ],
-                            ["จำนวนถุง", `${producedBags(db, lot.id)} ถุง`],
+                            [
+                              "จำนวนกล่องรมควัน",
+                              `${producedBags(db, lot.id)} กล่องรมควัน`,
+                            ],
                             [
                               "Waste รวม",
                               `${fmt(processLoss(db, lot.id))} กก.`,
@@ -476,7 +479,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         "—",
                       foodivaReturn?.date || "—",
                       foodivaReturn
-                        ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} ถุง`
+                        ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} กล่องรมควัน`
                         : "รอ Foodiva รับ",
                       "—",
                     ],

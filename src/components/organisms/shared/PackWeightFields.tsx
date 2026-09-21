@@ -27,10 +27,11 @@ export function PackWeightFields({
     <FieldGroup
       wide
       className="grid gap-2.5"
-      label="น้ำหนักถุงใหญ่จาก Chef House"
+      label="น้ำหนักกล่องรมควัน (กก./กล่องรมควัน)"
       hint={
         <span className="-mt-3 block">
-          กรอกน้ำหนักจริงทีละถุง หากมีหลายถุงให้กด “เพิ่มถุง”
+          กรอกว่ากล่องรมควันนี้กี่กิโล ทีละกล่องรมควัน หากมีหลายกล่องรมควันให้กด
+          “เพิ่มกล่องรมควัน”
         </span>
       }
     >
@@ -39,9 +40,9 @@ export function PackWeightFields({
           className="grid grid-cols-[90px_minmax(140px,1fr)_38px_44px] items-center gap-2.5 rounded-md border border-border bg-bg px-3 py-2.5"
           key={index}
         >
-          <span>ถุงที่ {index + 1}</span>
+          <span>กล่องรมควันที่ {index + 1}</span>
           <Input
-            aria-label={`น้ำหนักถุงที่ ${index + 1}`}
+            aria-label={`กล่องรมควันที่ ${index + 1} กี่กิโล`}
             className="mt-0 text-right"
             type="number"
             inputMode="decimal"
@@ -71,10 +72,11 @@ export function PackWeightFields({
         icon={<Plus />}
         onClick={() => onChange([...weights, ""].join(","))}
       >
-        เพิ่มถุง
+        เพิ่มกล่องรมควัน
       </Button>
       <Notice tone="success" role="none" className="my-0">
-        ส่งกลับกรุงเทพฯ {validWeights.length} ถุง · น้ำหนักรวม {fmt(total)} กก.
+        ส่งกลับกรุงเทพฯ {validWeights.length} กล่องรมควัน · น้ำหนักรวม{" "}
+        {fmt(total)} กก.
       </Notice>
     </FieldGroup>
   );

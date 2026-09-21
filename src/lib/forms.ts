@@ -220,7 +220,6 @@ export const forms: Record<string, Field[]> = {
   ],
   cmReceive: [
     { key: "arrival", label: "เวลาที่รถมาถึง", type: "time" },
-    number("receivedKg", "น้ำหนักรับจริง (กก.)"),
     note,
   ],
   prepare: [number("preSmokeKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
@@ -230,9 +229,9 @@ export const forms: Record<string, Field[]> = {
     number("wasteKg", "น้ำหนัก Waste (กก.)", true),
     {
       key: "packs",
-      label: "น้ำหนักถุงใหญ่จาก Chef House (กก./ถุง)",
+      label: "น้ำหนักกล่องรมควัน (กก./กล่องรมควัน)",
       type: "textarea",
-      hint: "กรอกน้ำหนักจริงของแต่ละถุง ระบบจะรวมจำนวนถุงและน้ำหนักให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
+      hint: "กรอกว่ากล่องรมควันนี้กี่กิโล ทีละกล่องรมควัน ระบบจะรวมจำนวนกล่องรมควันและน้ำหนักให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
     },
     note,
   ],
@@ -253,7 +252,7 @@ export const forms: Record<string, Field[]> = {
     date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน", true),
     { key: "receivedTime", label: "เวลารับ", type: "time" },
     number("receivedKg", "น้ำหนักรับจริง (กก.)"),
-    number("receivedBags", "จำนวนถุงที่รับ", false, true),
+    number("receivedBags", "จำนวนกล่องรมควันที่รับ", false, true),
     reason,
     note,
   ],
@@ -261,7 +260,7 @@ export const forms: Record<string, Field[]> = {
   allocate: [
     { key: "branch", label: "สาขาปลายทาง", type: "select", options: branches },
     number("kg", "น้ำหนักจัดสรร (กก.)"),
-    number("bags", "จำนวนถุง", false, true),
+    number("bags", "จำนวนกล่องรมควัน", false, true),
     date("deliveryDate", "วันที่ส่งสาขา"),
     reason,
     note,

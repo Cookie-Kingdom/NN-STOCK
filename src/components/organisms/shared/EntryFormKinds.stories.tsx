@@ -7,7 +7,6 @@ import {
   confirmedDb,
   day,
   demoDb,
-  dispatchedDb,
   preparedDb,
   returnTruckDb,
   returnedDb,
@@ -98,9 +97,6 @@ export const ChefSmokeOrderAccept: Story = form(
   "cm",
   "smokeOrderAccept",
 );
-
-/** Weigh-in on arrival; the scale reading stays blank so the variance is real. */
-export const ChefReceive: Story = form(dispatchedDb, "cm", "cmReceive");
 
 /** Weight after trimming and blotting, just before the smoker. */
 export const ChefPrepare: Story = form(cmReceivedDb, "cm", "prepare");

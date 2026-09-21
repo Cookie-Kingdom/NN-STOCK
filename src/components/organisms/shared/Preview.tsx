@@ -89,7 +89,7 @@ export function Preview({
   if (kind === "smoke" && lot) {
     const weights = validPackWeights(v.packs);
     rows = [
-      ["ถุงใหญ่จาก Chef House", `${weights.length} ถุง`],
+      ["กล่องรมควัน", `${weights.length} กล่องรมควัน`],
       [
         "น้ำหนักเนื้อหลังรมควัน",
         `${fmt(weights.reduce((s, w) => s + w, 0))} กก.`,
@@ -103,8 +103,10 @@ export function Preview({
   }
   if (kind === "closeLot" && lot)
     rows = [
-      ["น้ำหนักเนื้อหลังรมควัน", `${fmt(produced(db, lot.id))} กก.`],
-      ["จำนวนถุงส่งกลับกรุงเทพฯ", `${producedBags(db, lot.id)} ถุง`],
+      [
+        "ผลผลิตรอบนี้",
+        `รวม ${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(produced(db, lot.id))} กก.`,
+      ],
       [
         "น้ำหนักรอผลิต",
         `${fmt(n(lot.values, "preSmokeKg") - processed(db, lot.id))} กก.`,
@@ -114,7 +116,7 @@ export function Preview({
     rows = [
       [
         "ของที่ส่งกลับ Foodiva",
-        `${producedBags(db, lot.id)} ถุง · ${fmt(produced(db, lot.id))} กก.`,
+        `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(produced(db, lot.id))} กก.`,
       ],
       [
         "ค่ารถขากลับ",
@@ -128,7 +130,10 @@ export function Preview({
         "Foodiva รับเข้าตู้แล้ว",
         `${fmt(n(entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {}, "receivedKg"))} กก.`,
       ],
-      ["จำนวนถุงที่ควรได้รับ", `${producedBags(db, lot.id)} ถุง`],
+      [
+        "จำนวนกล่องรมควันที่ควรได้รับ",
+        `${producedBags(db, lot.id)} กล่องรมควัน`,
+      ],
       [
         "ส่วนต่าง (ก่อน−หลัง สโมค)",
         `${fmt(Math.abs(n(lot.values, "preSmokeKg") - produced(db, lot.id)))} กก.`,
