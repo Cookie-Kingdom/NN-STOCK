@@ -284,11 +284,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           key="smoke-order"
                           title="Smoke Service Purchase Order"
                           number={smokeOrder.values.orderNumber || lot.poId}
-                          rows={smokeOrderTraceRows(
-                            lot,
-                            smokeOrder,
-                            foodInvoice,
-                          )}
+                          rows={smokeOrderTraceRows(db, lot, smokeOrder)}
                         />
                       ) : (
                         "—"

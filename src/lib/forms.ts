@@ -141,7 +141,6 @@ export const forms: Record<string, Field[]> = {
   ],
   smokeOrder: [
     text("smoker", "โรงรม / ผู้ให้บริการ"),
-    number("rawKg", "Raw Meat Quantity (กก.)"),
     date("requestedSmokeDate", "วันที่ขอรมควัน"),
     { key: "instruction", label: "คำสั่งพิเศษ", type: "textarea", optional: true },
     date("expectedFinishedDate", "วันที่คาดว่าจะเสร็จ"),

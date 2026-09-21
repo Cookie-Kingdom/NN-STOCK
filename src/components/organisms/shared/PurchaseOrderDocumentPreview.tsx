@@ -2,9 +2,11 @@
 
 import "@/styles/print-document.css";
 import { Badge } from "@/components/atoms/Badge";
+import { packingListSummary } from "@/components/organisms/owner/documentRows";
 import { dateLabel } from "@/components/organisms/shared/documentRows";
 import {
   entries,
+  latestPackingList,
   n,
   smokeServiceRate,
   type Database,
@@ -27,10 +29,11 @@ export function PurchaseOrderDocumentPreview({
   date: string;
 }) {
   const isSmokeOrder = kind === "smokeOrder";
-  const latestFoodivaInvoice = lot
-    ? entries(db, "foodivaConfirm", lot.id).slice(-1)[0]
-    : undefined;
-  const quantity = n(values, isSmokeOrder ? "rawKg" : "orderedKg");
+  // A smoke PO is ordered from its shipment's Packing List; mutate() fills rawKg from it.
+  const packingList = lot ? latestPackingList(db, lot.id) : undefined;
+  const quantity = isSmokeOrder
+    ? n(values, "rawKg") || n(packingList?.values || {}, "slicedNetKg")
+    : n(values, "orderedKg");
   const rate = isSmokeOrder ? smokeServiceRate(quantity) : n(values, "price");
   const total = quantity * rate;
   const buyerName =
@@ -64,7 +67,9 @@ export function PurchaseOrderDocumentPreview({
     ? "บริการรมควันเนื้อ"
     : values.productName || "เนื้อวัว";
   const packDetail = isSmokeOrder
-    ? lot?.id || "เลือก Lot ที่ได้รับ Invoice จาก Foodiva"
+    ? packingList
+      ? `${packingList.values.boxCount} กล่องรับเข้า`
+      : "รอ Foodiva ทำ Packing List"
     : values.packSize || "—";
 
   return (
@@ -131,10 +136,8 @@ export function PurchaseOrderDocumentPreview({
               <>
                 <p>บริการรมควันเนื้อตามคำสั่งซื้อ</p>
                 <p>
-                  อ้างอิง Invoice Foodiva:{" "}
-                  {latestFoodivaInvoice?.values.invoiceNo ||
-                    latestFoodivaInvoice?.values.invoiceNumber ||
-                    "รอระบุ"}
+                  อ้างอิง Packing List:{" "}
+                  {(lot && packingListSummary(db, lot.id)) || "รอระบุ"}
                 </p>
               </>
             )}
@@ -151,9 +154,9 @@ export function PurchaseOrderDocumentPreview({
             <strong>{dateLabel(dueDate)}</strong>
           </div>
           <div>
-            <span>{isSmokeOrder ? "Lot เนื้อ" : "อ้างอิงผู้ขาย"}</span>
+            <span>{isSmokeOrder ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย"}</span>
             <strong>
-              {isSmokeOrder ? lot?.id || "—" : values.reference || "—"}
+              {isSmokeOrder ? lot?.poId || "—" : values.reference || "—"}
             </strong>
           </div>
         </div>

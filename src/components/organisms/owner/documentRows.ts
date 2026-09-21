@@ -1,5 +1,6 @@
 import { fmt } from "@/lib/format";
 import {
+  latestPackingList,
   n,
   readyForChefHouse,
   smokingInvoiceStatus,
@@ -79,16 +80,41 @@ export function smokingInvoiceRows(
   ];
 }
 
+/** Foodiva's Packing List of a shipment: what the smoke PO is ordered from. */
+export function packingListRows(lot: Lot, list: Entry): DocumentRows {
+  return [
+    ["เลขที่การส่ง", lot.poId],
+    ["สินค้า", list.values.product || "—"],
+    ["กล่องรับเข้า", `${list.values.boxCount || "0"} กล่องรับเข้า`],
+    ["ยอดรวม", `${fmt(n(list.values, "slicedNetKg"))} กก.`],
+    [
+      "Inv. Weight",
+      list.values.invWeightKg
+        ? `${fmt(n(list.values, "invWeightKg"))} กก.`
+        : "—",
+    ],
+  ];
+}
+
+/** "N กล่องรับเข้า · X กก." of the shipment's latest Packing List, "" before there is one. */
+export function packingListSummary(db: Database, lotId: string) {
+  const list = latestPackingList(db, lotId);
+  return list
+    ? `${list.values.boxCount} กล่องรับเข้า · ${fmt(n(list.values, "slicedNetKg"))} กก.`
+    : "";
+}
+
 /**
  * Smoke-service PO as printed from the smoking PO tab: customer block comes from
- * the current company config.
+ * the current company config. Chef House reads it too, so it names the shipment and
+ * its Packing List, never a purchase PO, meat price or Foodiva invoice.
  */
 export function smokeOrderPrintRows(
   db: Database,
   lot: Lot,
   order: Entry,
-  foodivaInvoice: Entry | undefined,
 ): DocumentRows {
+  const list = latestPackingList(db, lot.id);
   return [
     ["ลูกค้า", db.config.companyName || "บริษัท เนิร์ดเนื้อ จำกัด"],
     ["ที่อยู่", db.config.companyAddress || "—"],
@@ -101,10 +127,10 @@ export function smokeOrderPrintRows(
     ["ที่อยู่ผู้ให้บริการ", db.config.chefHouseAddress || "—"],
     ["วันที่ PO", order.values.requestedSmokeDate || order.date],
     ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
-    ["Lot เนื้อ", lot.id],
-    ["Foodiva Invoice", foodivaInvoice?.values.invoiceNo || "—"],
+    ["เลขที่การส่ง", lot.poId],
+    ["Packing List", packingListSummary(db, lot.id) || "—"],
     ["สินค้า", "บริการรมควันเนื้อ"],
-    ["ขนาดบรรจุ", lot.id],
+    ["ขนาดบรรจุ", list ? `${list.values.boxCount} กล่องรับเข้า` : "—"],
     ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
     ["ราคา / กก.", `฿${fmt(n(order.values, "serviceRate"))}`],
     ["ยอดรวมก่อน VAT", `฿${fmt(n(order.values, "estimatedCost"))}`],
@@ -117,9 +143,9 @@ export function smokeOrderPrintRows(
  * from the lot and the contact / address from the order itself.
  */
 export function smokeOrderTraceRows(
+  db: Database,
   lot: Lot,
   order: Entry,
-  foodInvoice: Entry | undefined,
 ): DocumentRows {
   return [
     ["วันที่ PO", order.date],
@@ -134,10 +160,10 @@ export function smokeOrderTraceRows(
     ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
     ["ราคา / กก.", `฿${fmt(n(order.values, "serviceRate"))}`],
     ["ยอดรวมก่อน VAT", `฿${fmt(n(order.values, "estimatedCost"))}`],
-    ["Lot เนื้อ", lot.id],
+    ["เลขที่การส่ง", lot.poId],
     ["ผู้รับออเดอร์", order.values.contactName || "—"],
     ["ที่อยู่ผู้ให้บริการ", order.values.address || "—"],
-    ["Foodiva Invoice", foodInvoice?.values.invoiceNo || "รอระบุ"],
+    ["Packing List", packingListSummary(db, lot.id) || "รอระบุ"],
     ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
     ["หมายเหตุ", order.values.instruction || "—"],
   ];
