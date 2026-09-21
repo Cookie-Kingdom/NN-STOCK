@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
-import { shipmentChain, type Database, type Lot } from "@/lib/store";
+import { entries, shipmentChain, type Database, type Lot } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const kg = (value: number | undefined) =>
@@ -30,11 +30,21 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
     [
       "PO ซื้อ (Request)",
       <span key="lines" className="grid">
-        {chain.lines.map((line) => (
-          <span
-            key={line.lotId}
-          >{`${line.poId} × ${fmt(line.requestedKg)} กก.`}</span>
-        ))}
+        {chain.lines.map((line) => {
+          // A1: each purchase PO with its Foodiva invoice, so a lot traces back to both.
+          const invoiceNo = entries(db, "foodivaConfirm", line.lotId).at(-1)
+            ?.values.invoiceNo;
+          return (
+            <span key={line.lotId}>
+              {`${line.poId} × ${fmt(line.requestedKg)} กก.`}
+              {invoiceNo && (
+                <small className="block text-caption font-normal text-text-secondary">
+                  {`Invoice Foodiva ${invoiceNo}`}
+                </small>
+              )}
+            </span>
+          );
+        })}
       </span>,
       `รวม ${fmt(chain.requestedKg)} กก.`,
     ],
@@ -99,6 +109,7 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
           db={db}
           lotId={lot.id}
           onClose={() => setShowList(false)}
+          showPurchaseOrders
         />
       )}
     </section>

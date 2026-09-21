@@ -101,7 +101,14 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     );
   }
   if (modal.kind === "packingListView") {
-    return <PackingListDialog db={db} lotId={modal.lotId} onClose={close} />;
+    return (
+      <PackingListDialog
+        db={db}
+        lotId={modal.lotId}
+        onClose={close}
+        showPurchaseOrders={role === "owner"}
+      />
+    );
   }
   if (modal.kind === "dispatch") {
     return (
