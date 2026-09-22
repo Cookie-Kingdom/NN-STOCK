@@ -57,7 +57,7 @@ const dialog = (page: Page) => page.getByRole("dialog").last();
  * disabled) or on save. */
 const submitAndExpectError = a_expectRefused;
 
-/** Sidebar tab by label: `button(page, "ใบขนส่ง")` would also hit "ทำใบขนส่ง" in <main>. */
+/** Sidebar tab by label: `button(page, "ใบขนส่ง")` would also hit "ทำใบขนส่ง" in <main> and the second transport menu. */
 const tab = (page: Page, label: string) =>
   pointAndClick(page, menuItem(page, label));
 
@@ -253,7 +253,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
     page,
     "Owner: C5 ก่อน Foodiva ออก Invoice → Request ไม่มี PO ให้เลือก · Owner ไม่มีปุ่มทำใบขนส่ง",
     async () => {
-      await tab(page, "ใบขนส่ง");
+      await tab(page, "Request ใบขนส่งขาไป");
       await button(page, "สร้าง Request ส่งเนื้อไป Chef House");
       await expect(dialog(page)).toContainText(
         "ไม่มี PO ซื้อที่มีเนื้อคงเหลือให้ส่ง",
@@ -474,7 +474,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
     'Owner: C6 ใบขนส่ง 490 กก. · กท 1001 · พรีวิว / PDF · ปุ่ม "ไปออก PO รมควัน"',
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await tab(page, "ใบขนส่ง");
+      await tab(page, "Request ใบขนส่งขาไป");
       const row = rowIn(page, "รายการส่ง", SH);
       await expect(row).toContainText("490.00 กก. · กท 1001");
       await expect(row).toContainText("รอ Chef House ชั่งรับ");
@@ -532,7 +532,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
     page,
     'Owner: C9 ก่อน Chef House ยืนยัน PO → ใบขนส่งแสดง "รอ Chef House รับ PO"',
     async () => {
-      await tab(page, "ใบขนส่ง");
+      await tab(page, "Request ใบขนส่งขาไป");
       await expect(rowIn(page, "รายการส่ง", SH)).toContainText(
         "รอ Chef House รับ PO",
       );
@@ -686,7 +686,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
     "Owner: C10 ใบขนส่งเทียบ ส่งไป (Packing List) 490 / Chef House 488 / ส่วนต่าง −2.00 (ช่องเหลืองลบ Packing List, BUG-6)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await tab(page, "ใบขนส่ง");
+      await tab(page, "Request ใบขนส่งขาไป");
       const row = rowIn(page, "รายการส่ง", SH);
       // Customer decision 2026-09-22: "ส่งไป" is the Packing List total and the gap is
       // signed (yellow cells − Packing List); the Request kg is shown beside it.

@@ -18,6 +18,7 @@ import {
   foodivaReceivesReturn,
   INVOICE_FIXTURE,
   openMenu,
+  OUTBOUND_MENU,
   ownerApprovesSmokingInvoice,
   ownerCallsReturnTruck,
   ownerCreatesMeatPo,
@@ -29,6 +30,7 @@ import {
   pointAndClick,
   saveEntry,
   signInAs,
+  slicedLostCard,
   slipImage,
   slipPdf,
   startFresh,
@@ -286,7 +288,7 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
 
   await step(
     page,
-    "Owner → Foodiva → Owner: PO 100 · Invoice · Request 60 · ใบขนส่ง + Packing List 30 + 30 (Inv. Weight 65, Lost 60)",
+    "Owner → Foodiva → Owner: PO 100 · Invoice · Request 60 · ใบขนส่ง + Packing List 30 + 30 (Inv. Weight 65 → Lost 5 คำนวณให้)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       poId = await ownerCreatesMeatPo(page, "100");
@@ -297,7 +299,6 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
       await signInAs(page, ACCOUNTS.foodiva);
       await foodivaMakesManifest(page, shipment, ["30", "30"], {
         invWeightKg: "65",
-        slicedLostKg: "60",
       });
     },
   );
@@ -317,7 +318,8 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
       const list = page.getByRole("dialog");
       await expect(list).toContainText(/Inv\. Weight\s*65\.00 กก\./);
       await expect(list).toContainText(/Sliced Weight Net\s*60\.00 กก\./);
-      await expect(list).toContainText(/Sliced Weight Lost\s*60\.00 กก\./);
+      // Computed, not typed: Inv. Weight 65 − Sliced Weight Net 60.
+      await expect(list).toContainText(slicedLostCard("65", ["30", "30"]));
       await expect(list).toContainText("รวม 2 กล่องรับเข้า");
       const popup = page.waitForEvent("popup");
       await pointAndClick(
@@ -342,7 +344,7 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
       await chefFillsYellowCells(page, shipment, []);
       const dialog = page.getByRole("dialog");
       await expect(dialog).toContainText(/Inv\. Weight\s*65\.00 กก\./);
-      await expect(dialog).toContainText(/Sliced Weight Lost\s*60\.00 กก\./);
+      await expect(dialog).toContainText(slicedLostCard("65", ["30", "30"]));
       await expect(
         dialog.getByLabel(/^น้ำหนักตาม Packing List กล่องรับเข้าที่/),
       ).toHaveCount(0);
@@ -409,7 +411,7 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
     "Owner → Foodiva: ข้อ 4.1 ขากลับ 2 กล่องรมควัน · 58 กก. → Foodiva รับเข้าตู้ 58",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await openMenu(page, "ใบขนส่ง");
+      await openMenu(page, OUTBOUND_MENU);
       await expect(tableRow(page, "รายการส่ง", shipment)).toContainText(
         "เรียกรถขากลับ · 58.00 กก.",
       );

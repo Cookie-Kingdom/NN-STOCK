@@ -4,6 +4,7 @@ import {
   ACCOUNTS,
   button,
   field,
+  openMenu,
   pointAndClick,
   sidebar,
   signInAs,
@@ -208,7 +209,8 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
     ["ใบสั่งซื้อ PO", "ใบสั่งซื้อเนื้อ (Purchase orders)"],
     ["ใบสั่ง PO โรงรมควัน", /PO โรงรมควัน|ใบสั่งผลิต/],
     ["ใบ Invoice", /Invoice/],
-    ["ใบขนส่ง", /ใบขนส่ง/],
+    ["Request ใบขนส่งขาไป", "ใบขนส่งเนื้อ"],
+    ["สร้างใบขนส่งขากลับ", "สร้างใบขนส่งขากลับ"],
     ["รับเนื้อเข้าสต๊อกกลาง", /สต๊อกกลาง/],
     ["จัดสรรเนื้อ และสต๊อกไปสาขา", "จัดสรรเนื้อและสต๊อกไปสาขา"],
     ["สต๊อกของทั้งหมด", "สต๊อกกลางและสาขา"],
@@ -218,8 +220,10 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
     ["ตั้งค่า", "ตั้งค่าระบบ (Settings)"],
   ];
 
+  // openMenu, not button(): two menus carry the word "ใบขนส่ง" and the
+  // สร้างใบขนส่งขากลับ screen repeats its own label in <main>.
   for (const [menu, heading] of screens) {
-    await button(page, menu);
+    await openMenu(page, menu);
     await expect(
       page.getByRole("heading", { name: heading }).first(),
     ).toBeVisible();
