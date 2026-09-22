@@ -141,7 +141,8 @@ export const FoodivaReturnReceive: Story = form(
 
 // --- Branch --------------------------------------------------------------
 
-/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it. */
+/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it.
+ *  The Lot option reads ส่งมา / รับแล้ว / ค้างรับ, not the 0.00 frozen/chill stock. */
 export const BranchReceive: Story = form(
   allocatedDb,
   "branch",

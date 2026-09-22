@@ -272,7 +272,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     attention: "ฝ่ายจัดซื้อ",
     phone: "0800000000",
     taxId: "0100000000000",
-    packSize: "6 ชิ้นต่อถุง",
+    packSize: "6 ชิ้นต่อกล่อง",
     productName: "เนื้อวัว",
     orderedKg: String(rawKg),
     price: "250",
@@ -2202,8 +2202,8 @@ function record(
       balance(db, lotId, branch).frozen,
       "สต๊อกแช่แข็งไม่พอ",
     );
-    positive(v, "bags", "จำนวนถุงที่ละลาย");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
+    positive(v, "bags", "จำนวนกล่องรมควันที่ละลาย");
+    assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     const oldest = db.lots
       .filter((l) => balance(db, l.id, branch).frozen > 0.001)
       .sort((a, b) =>
