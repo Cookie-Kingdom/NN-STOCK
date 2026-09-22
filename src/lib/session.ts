@@ -5,6 +5,7 @@ import { accountById, type Account, type AccountId } from "@/lib/accounts";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
+import { setSaveActor } from "@/lib/persistence";
 
 type Profile = {
   display_name: string;
@@ -30,6 +31,7 @@ let state = initialState;
 
 function publish(next: SessionState) {
   state = next;
+  setSaveActor(next.account?.id === "manager" ? "manager" : undefined);
   listeners.forEach((listener) => listener());
 }
 

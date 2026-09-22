@@ -33,7 +33,7 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** JS port of `save_app_state` (supabase/migrations/20260915000012_save_app_state_guards.sql).
+/** JS port of `save_app_state` (supabase/migrations/20260922000020_account_manager.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -67,6 +67,14 @@ export function saveState(
     )
   )
     fail("Existing history cannot be changed");
+  // The Account Manager writes as role "owner" and stamps every new entry; nobody else may.
+  const manager = account!.id === "manager";
+  for (const entry of payload.entries.slice(old.entries.length)) {
+    if (manager && entry?.role !== "owner")
+      fail("Entry role does not match signed-in account");
+    if (entry?.actor !== (manager ? "manager" : undefined))
+      fail("Entry actor does not match signed-in account");
+  }
   if (role !== "owner") {
     for (const entry of payload.entries.slice(old.entries.length)) {
       if (entry?.role !== role)

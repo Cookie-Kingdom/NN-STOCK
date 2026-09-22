@@ -23,7 +23,7 @@ import {
   entryEdits,
   mutate,
   openEditRequest,
-  roleName,
+  entryBy,
   titles,
   unpack,
   type Database,
@@ -214,8 +214,8 @@ function EditTrail({ db, edits }: { db: Database; edits: Entry[] }) {
               label="ผู้แก้ไข"
               value={
                 request
-                  ? `ขอโดย ${roleName[request.role]}${request.role === "branch" ? ` ${request.branch}` : ""} · ${at(request.at)}\nอนุมัติโดย ${roleName[edit.role]} · ${at(edit.at)}`
-                  : `${roleName[edit.role]} แก้ไขโดยตรง · ${at(edit.at)}`
+                  ? `ขอโดย ${entryBy(request)}${request.role === "branch" ? ` ${request.branch}` : ""} · ${at(request.at)}\nอนุมัติโดย ${entryBy(edit)} · ${at(edit.at)}`
+                  : `${entryBy(edit)} แก้ไขโดยตรง · ${at(edit.at)}`
               }
             />
             <ReadRow
@@ -295,7 +295,7 @@ export function EntryDetails({
             {[
               isEdit ? e.values.targetDate : e.date,
               e.kind === "void" ? "" : e.lotId || e.branch,
-              roleName[e.role],
+              entryBy(e),
             ]
               .filter(Boolean)
               .join(" · ")}

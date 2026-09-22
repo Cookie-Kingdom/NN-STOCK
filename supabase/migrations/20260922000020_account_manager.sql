@@ -4,8 +4,10 @@
 -- every active profile reads (see visibleDatabase in src/lib/store.ts).
 --
 -- save_app_state is 20260920000018 with L1_MANAGER treated as L1_OWNER, except that its new
--- entries must say role "owner". Role checks compare ::text so this file also runs inside one
--- transaction, where the enum value added below may not be used yet.
+-- entries must say role "owner". So the log still tells the two apart, every new entry from
+-- L1_MANAGER must carry "actor": "manager" and no other account may send an actor at all
+-- (old entries have none: absent = the role's own account). Role checks compare ::text so this
+-- file also runs inside one transaction, where the enum value added below may not be used yet.
 
 alter type public.user_role add value if not exists 'L1_MANAGER';
 
@@ -46,6 +48,11 @@ begin
   ) then raise exception 'Existing history cannot be changed' using errcode = '42501'; end if;
   expected_entry_role := case current_profile.role::text when 'L1_MANAGER' then 'owner' when 'L2_BRANCH_ADMIN' then 'branch'
     when 'L3_CM_OPERATOR' then 'cm' when 'L4_SUPPLIER' then 'foodiva' else null end;
+  if exists (
+    select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
+    where n.ord > old_entry_count and n.entry ->> 'actor' is distinct from
+      case when current_profile.role::text = 'L1_MANAGER' then 'manager' end
+  ) then raise exception 'Entry actor does not match signed-in account' using errcode = '42501'; end if;
   if expected_entry_role is not null and new_entry_count > old_entry_count then
     if exists (
       select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)

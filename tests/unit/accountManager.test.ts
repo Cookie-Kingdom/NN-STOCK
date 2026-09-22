@@ -5,6 +5,7 @@ import {
   editApprovers,
   editDecisions,
   entries,
+  entryBy,
   revenue,
   saleMoneyKeys,
   visibleDatabase,
@@ -62,6 +63,14 @@ describe("C4 Account Manager", () => {
     expect(entries(db, "purchase")[0].values.price).toBe("250");
     // The Owner's own view is the database itself.
     expect(visibleDatabase(s.db, "owner")).toBe(s.db);
+  });
+
+  test("the log names the Account Manager apart from the Owner", () => {
+    expect(entryBy({ role: "owner", actor: "manager" })).toBe(
+      "Account Manager",
+    );
+    // Entries from before C4 have no actor: the Owner's.
+    expect(entryBy({ role: "owner" })).toBe("Owner");
   });
 
   test("has the Owner's nav without the dashboard", () => {

@@ -18,7 +18,7 @@ import {
   editDecisions,
   editRequestRows,
   mutate,
-  roleName,
+  entryBy,
   titles,
   type Database,
   type Entry,
@@ -28,7 +28,7 @@ import { today } from "@/lib/format";
 
 const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
 const who = (e: Entry) =>
-  `${roleName[e.role]}${e.role === "branch" ? ` ${e.branch}` : ""}`;
+  `${entryBy(e)}${e.role === "branch" ? ` ${e.branch}` : ""}`;
 
 function RequestRow({
   request,

@@ -12,6 +12,9 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
+  /** "manager": the Account Manager wrote it as role "owner" (C4). Absent: the role's own
+   *  account (for "owner", the Owner). Stamped at save by persistence, checked by save_app_state. */
+  actor?: "manager";
 };
 export type Lot = {
   id: string;
@@ -36,6 +39,9 @@ export const roleName = {
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
+/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner. */
+export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
+  e.actor === "manager" ? "Account Manager" : roleName[e.role];
 export const materials = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",
