@@ -80,7 +80,8 @@ test("a closed run waits on the smoking invoice, then its review", () => {
   );
   invoice(s);
   expect(titles()).toContain("รอตรวจ Invoice ค่ารมควัน · CH-1");
-  expect(ownerAlerts(s.db).badges.invoices).toBe(1);
+  // the badge counts the unpaid meat invoice too, same as the bell
+  expect(ownerAlerts(s.db).badges.invoices).toBe(2);
 });
 
 test("after smoking the owner is sent to transport, central receive and allocation", () => {
