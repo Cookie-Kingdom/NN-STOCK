@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { ChefLotTable } from "@/components/organisms/chef/ChefLotTable";
 import { ChefReceiveTable } from "@/components/organisms/chef/ChefReceiveTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
+import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -14,6 +16,7 @@ import { entries, smokingInvoiceStatus } from "@/lib/store";
 export function ChefWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, tab } = ws;
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const waitingReceipt = db.lots.filter((lot) => lot.stage === 2).length;
   const inProduction = db.lots.filter((lot) => {
@@ -41,6 +44,9 @@ export function ChefWorkspace({ account }: { account: Account }) {
       badges={
         ws.loaded ? { "cm-receive": waitingReceipt, work: inProduction } : {}
       }
+      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      showNotifications={showNotifications}
+      onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}
       toast={ws.toast}
       onCloseToast={() => ws.setToast("")}
