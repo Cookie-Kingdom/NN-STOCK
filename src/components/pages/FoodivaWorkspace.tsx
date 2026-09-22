@@ -2,30 +2,25 @@
 
 import { useState } from "react";
 import { FoodivaView } from "@/components/organisms/foodiva/FoodivaView";
+import {
+  noFoodivaAlerts,
+  useFoodivaAlerts,
+} from "@/components/organisms/foodiva/useFoodivaAlerts";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
-import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { foodivaNav } from "@/lib/nav";
-import { entries, purchaseLots, shipments } from "@/lib/store";
 
 export function FoodivaWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Invoices to issue, Requests to truck, smoked meat to take into the freezer.
-  const openTasks =
-    purchaseLots(db).filter(
-      (lot) => !entries(db, "foodivaConfirm", lot.id).length,
-    ).length +
-    shipments(db).filter(
-      (lot) =>
-        lot.stage === 1 ||
-        (lot.stage === 7 &&
-          !entries(db, "foodivaReturnReceive", lot.id).length),
-    ).length;
+  // Invoices to issue, Requests to truck, Packing Lists to write, smoked meat to
+  // take into the freezer. Held back until the server payload replaces the seed.
+  const alerts = useFoodivaAlerts(db);
+  const { badges, notifications } = ws.loaded ? alerts : noFoodivaAlerts;
 
   return (
     <WorkspaceShell
@@ -36,8 +31,8 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
       date={ws.date}
       onDate={ws.setDate}
       minDate={ws.db.config.systemStartDate}
-      badges={ws.loaded ? { foodiva: openTasks } : {}}
-      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      badges={badges}
+      notifications={notifications}
       showNotifications={showNotifications}
       onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}
