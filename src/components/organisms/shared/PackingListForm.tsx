@@ -36,7 +36,7 @@ const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
 /** Two decimals like the fields, so float noise never shows. */
 const round2 = (kg: number) => Math.round(kg * 100) / 100;
-/** The filled box weights added up — what the truck carries, not Sliced Weight Net. */
+/** The filled box weights added up — Sliced Weight Net. */
 const boxTotal = (rows: (number | undefined)[]) =>
   round2(rows.reduce<number>((sum, kg) => sum + (kg ?? 0), 0));
 
@@ -50,14 +50,13 @@ const boxTotal = (rows: (number | undefined)[]) =>
  * to Chef House. Saving with rows left blank asks for confirmation and then stores
  * only the rows that were filled.
  *
- * The three weights in the head are three different things:
- * - **Inv. Weight** is not typed at all — it is the kg this shipment's Request asked
- *   for from its purchase PO(s), shown read-only. Change it by changing the Request.
- * - **Sliced Weight Net** is typed: the usable meat after cutting. It is no longer the
- *   box total, so the two are shown side by side and a gap only warns, never blocks.
- *   Over Inv. Weight it does block — `mutate` refuses the save.
- * - **Sliced Weight Lost** is not typed either: it is shown, and saved, as the gap
- *   between Inv. Weight and Sliced Weight Net, always positive. Zero is a normal list.
+ * None of the three weights in the head is typed — the box rows are the only input:
+ * - **Inv. Weight** is the kg this shipment's Request asked for from its purchase
+ *   PO(s), shown read-only. Change it by changing the Request.
+ * - **Sliced Weight Net** is the rows added up. Over Inv. Weight it blocks the save —
+ *   `mutate` refuses it.
+ * - **Sliced Weight Lost** is the gap between the two, always positive. Zero is a
+ *   normal list.
  *
  * With `onDraft` nothing is saved here: the values (file already uploaded) go back to
  * FoodivaDispatchForm, which saves them together with the transport document.
@@ -143,7 +142,6 @@ export function PackingListForm({
       invoiceNo: saved?.values.invoiceNo ?? "",
       product: saved?.values.product ?? "",
       code: saved?.values.code ?? "",
-      slicedNetKg: saved?.values.slicedNetKg ?? "",
     };
     const product =
       saved?.values.product ??
@@ -167,14 +165,10 @@ export function PackingListForm({
   const boxes = weights.map((weight, index) => ({ no: index + 1, weight }));
   const filled = boxes.filter((box) => box.weight !== undefined);
   const blank = boxes.length - filled.length;
-  /** What the truck carries. It is allowed to differ from Sliced Weight Net — the boxes
-   *  are weighed as packed, the net is the meat that came out of the cutting. */
-  const listedTotal = boxTotal(weights);
-  /** Sliced Weight Net: typed, the usable meat after cutting. */
-  const slicedNet = round2(Number(values.slicedNetKg) || 0);
-  /** The box total against Sliced Weight Net. Only a warning — the list still saves. */
-  const boxGap = round2(listedTotal - slicedNet);
-  /** Sliced Weight Lost is not typed — it is what cutting took away, the gap between
+  /** Sliced Weight Net is not typed — it is the rows added up, the meat that came out
+   *  of the cutting. */
+  const slicedNet = boxTotal(weights);
+  /** Sliced Weight Lost is not typed either — it is what cutting took away, the gap between
    *  Inv. Weight and Sliced Weight Net, as a plain number that is never negative.
    *  Zero is a normal list: the meat weighs exactly what the Request asked for. */
   const slicedLost = round2(Math.abs(invWeight - slicedNet));
@@ -182,12 +176,10 @@ export function PackingListForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!filled.length) return setError("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    if (!(slicedNet > 0))
-      return setError("กรอก Sliced Weight Net เป็นตัวเลขมากกว่าศูนย์");
     // The same rule mutate() enforces, said here so it shows before the save is tried.
     if (invWeight && slicedNet > invWeight + 0.001)
       return setError(
-        `Sliced Weight Net เกิน Inv. Weight · กรอกได้สูงสุด ${fmt(invWeight)} กก.`,
+        `น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight · รวมได้สูงสุด ${fmt(invWeight)} กก.`,
       );
     // First press on an unfinished list only asks; the second one saves what is there.
     if (blank && !confirmPartial) {
@@ -257,9 +249,9 @@ export function PackingListForm({
             แถว) แนบไฟล์ได้เพื่อเก็บเป็นหลักฐาน ระบบยังไม่ดึงข้อมูลจากไฟล์
             <span className="mt-2 block">
               Inv. Weight มาจาก PO ที่ขอในเที่ยวนี้ แก้ที่นี่ไม่ได้ ·{" "}
-              <strong>Sliced Weight Net</strong> กรอกเอง
-              และไม่จำเป็นต้องเท่ากับยอดรวมกล่องรับเข้า แต่ต้องไม่เกิน Inv.
-              Weight · Sliced Weight Lost ระบบคิดให้จากสองค่านี้
+              <strong>Sliced Weight Net</strong> คือผลรวมของทุกแถวในตาราง
+              ระบบคิดให้ ต้องไม่เกิน Inv. Weight · Sliced Weight Lost
+              ระบบคิดให้จากสองค่านี้
             </span>
           </Notice>
           <FormGrid>
@@ -301,18 +293,18 @@ export function PackingListForm({
               }
               value={invWeight ? `${invWeight.toFixed(2)} กก.` : "—"}
             />
-            <FormField
-              label="Sliced Weight Net (กก.)"
-              hint="น้ำหนักเนื้อที่ใช้ได้หลังตัด — กรอกเอง ไม่ใช่ยอดรวมกล่องรับเข้า"
-            >
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={values.slicedNetKg}
-                onChange={(event) => set("slicedNetKg", event.target.value)}
-              />
-            </FormField>
+            {/* Not a field either: the rows are the input, this is their total. */}
+            <Stat
+              label={
+                <>
+                  Sliced Weight Net (กก.)
+                  <span className="mt-1 block">
+                    น้ำหนักเนื้อที่ใช้ได้หลังตัด = ผลรวมทุกแถวในตาราง
+                  </span>
+                </>
+              }
+              value={`${slicedNet.toFixed(2)} กก.`}
+            />
             {/* Not a field: the figure is derived, so it is shown the way the summary
                 cards above the table show theirs. */}
             <Stat
@@ -371,16 +363,6 @@ export function PackingListForm({
               )
             }
           />
-          {/* The two totals may differ — the boxes are weighed as packed. Say by how
-              much so it is a decision, not a surprise, and never hold up the save. */}
-          {slicedNet > 0 && Math.abs(boxGap) > 0.001 && (
-            <Notice tone="warning">
-              ยอดรวมกล่องรับเข้า {fmt(listedTotal)} กก. ไม่เท่ากับ Sliced Weight
-              Net {fmt(slicedNet)} กก. (ต่างกัน {boxGap > 0 ? "+" : "−"}
-              {fmt(Math.abs(boxGap))} กก.) บันทึกได้ตามปกติ —
-              ตรวจอีกครั้งว่ากรอกถูกทั้งสองค่า
-            </Notice>
-          )}
           {confirmPartial && (
             <Notice tone="warning" role="alert">
               ยังกรอกไม่ครบ — กรอกแล้ว {filled.length} จาก {boxes.length} แถว
