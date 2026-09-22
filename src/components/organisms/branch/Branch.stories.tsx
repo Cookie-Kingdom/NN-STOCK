@@ -1,18 +1,23 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
+  chillDb,
   day,
+  dayClosedDb,
   demoDb,
   materialTransferDb,
+  nextDay,
   open,
 } from "../../../../.storybook/fixtures";
-import { isClosed } from "@/lib/store";
+import { closeDayChecklist, isClosed, requiredRiceKinds } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
+import { CloseDayChecklist } from "./CloseDayChecklist";
 import { ChiliDailySummary } from "./ChiliDailySummary";
 import { DailyMaterialsTable } from "./DailyMaterialsTable";
 import { DailySummary } from "./DailySummary";
 import { DailyTaskTable } from "./DailyTaskTable";
 import { MaterialReceiptConfirmation } from "./MaterialReceiptConfirmation";
+import { MeatDaySummary } from "./MeatDaySummary";
 
 const db = demoDb;
 const branch = "ศาลาแดง";
@@ -39,11 +44,38 @@ export const DailyWorkflow: Story = {
   ),
 };
 
+/** The one close button, after ปิดวัน: status reads locked and every action is disabled. */
+export const DailyWorkflowClosed: Story = {
+  parameters: { db: dayClosedDb },
+  render: () => (
+    <BranchDailyWorkflow
+      db={dayClosedDb}
+      branch={branch}
+      date={day}
+      lots={dayClosedDb.lots}
+      closed={isClosed(dayClosedDb, branch, day)}
+      open={open}
+    />
+  ),
+};
+
+/** The checklist on its own: materials and cooked rice still missing. */
+export const CloseChecklistMissing: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <CloseDayChecklist
+      items={closeDayChecklist(chillDb, branch, day)}
+      onGo={open}
+    />
+  ),
+};
+
 export const RiceTasks: Story = {
   render: () => (
     <DailyTaskTable
-      title="ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
-      kinds={["ricePurchase", "riceIssue", "rice"]}
+      title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
+      kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
+      required={requiredRiceKinds(db, branch, day)}
       db={db}
       branch={branch}
       date={day}
@@ -57,8 +89,8 @@ export const RiceTasks: Story = {
 export const SalesTasks: Story = {
   render: () => (
     <DailyTaskTable
-      title="ยอดขายและปิดวัน (Sales & day close)"
-      kinds={["sale", "influencerBox", "closeDay"]}
+      title="ยอดขายและกล่องโปรโมท"
+      kinds={["sale", "influencerBox"]}
       db={db}
       branch={branch}
       date={day}
@@ -103,4 +135,16 @@ export const Summary: Story = {
       <ChiliDailySummary db={db} branch={branch} date={day} />
     </>
   ),
+};
+
+/** 70 kg thawed, 65.5 kg used: 4.5 kg คงเหลือชิล goes to tomorrow, and the day can close. */
+export const MeatDay: Story = {
+  parameters: { db: chillDb },
+  render: () => <MeatDaySummary db={chillDb} branch={branch} date={day} />,
+};
+
+/** The next day: yesterday's 4.5 kg shows as ชิลยกมา. */
+export const MeatDayChillCarriedIn: Story = {
+  parameters: { db: chillDb },
+  render: () => <MeatDaySummary db={chillDb} branch={branch} date={nextDay} />,
 };

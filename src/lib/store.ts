@@ -1,4 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
+import { fmt } from "./format";
 import { newId } from "./id";
 export type Role = "owner" | "foodiva" | "cm" | "branch";
 export type Values = Record<string, string>;
@@ -126,7 +127,67 @@ export const titles: Record<string, string> = {
   config: "บันทึกการตั้งค่า",
   unlock: "ปลดล็อกวัน",
   void: "ยกเลิกรายการ",
+  entryEdit: "แก้ไขรายการ",
+  editRequest: "ขอแก้ไขรายการ",
+  editDecision: "พิจารณาคำขอแก้ไข",
 };
+/** Roles that correct history directly and decide edit requests (spec 8.1). The Manager role
+ *  (item 11) joins this list once it exists; every check reads the list, none names "owner". */
+export const editApprovers: Role[] = ["owner"];
+/** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
+ *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
+ *  stage steps, whose numbers also live on the lot (chefEdit fixes those before ปิด Lot);
+ *  kinds fixed by saving again (materials, packingList); closeDay (Owner unlocks instead). */
+export const editableKinds = [
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materialConfirm",
+  "allocate",
+  "chiliAllocate",
+  "materialReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "expense",
+  "foodivaConfirm",
+  "smokingInvoice",
+];
+export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
+/** Values an edit may not change: they tie the entry to a branch, a day or another entry.
+ *  Changing one is a void and a new entry. */
+export const editLockedKeys = [
+  "branch",
+  "allocation",
+  "transferId",
+  "purchaseDate",
+];
+/** An edit stores the corrected values as `to.<key>` and the ones it replaced as `from.<key>`:
+ *  flat keys, so `hide` strips prices from them like from any other entry. */
+const pack = (prefix: string, values: Values) =>
+  Object.fromEntries(
+    Object.entries(values)
+      .filter(([key]) => key !== "attachmentData")
+      .map(([key, value]) => [prefix + key, value]),
+  );
+export const unpack = (prefix: string, values: Values): Values =>
+  Object.fromEntries(
+    Object.entries(values)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, value]) => [key.slice(prefix.length), value]),
+  );
+/** Entries whose `to.` values overlay their target: a direct edit, or an approved request.
+ *  Only an approver's entry counts, so a forged branch-role edit changes nothing. */
+const isEditOverlay = (e: Entry) =>
+  editApprovers.includes(e.role) &&
+  (e.kind === "entryEdit" ||
+    (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
 export const seed: Database = {
   version: 8,
   lots: [],
@@ -181,7 +242,6 @@ function roleplay(endDate: string, dayCount: number): Database {
   });
   const rawKg = dayCount >= 30 ? 100 : 50;
   const packCount = rawKg * 10;
-  const branchBagCount = packCount / 2;
   const smokingAmount = rawKg * 220;
   const materialPerBranch = dayCount >= 30 ? 400 : 100;
   const materialPurchased = materialPerBranch * 2;
@@ -367,33 +427,17 @@ function roleplay(endDate: string, dayCount: number): Database {
     lotId,
   );
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
-  const firstBags = availableBags(db, lotId);
   run(
     "owner",
     "allocate",
-    {
-      branch: "ศาลาแดง",
-      deliveryDate: dates[0],
-      bagIds: firstBags
-        .slice(0, branchBagCount)
-        .map((bag) => bag.id)
-        .join(","),
-    },
+    { branch: "ศาลาแดง", deliveryDate: dates[0], kg: String(rawKg / 2) },
     lotId,
   );
   const salaAllocation = db.entries.at(-1)?.id || "";
-  const secondBags = availableBags(db, lotId);
   run(
     "owner",
     "allocate",
-    {
-      branch: "มีนบุรี",
-      deliveryDate: dates[0],
-      bagIds: secondBags
-        .slice(0, branchBagCount)
-        .map((bag) => bag.id)
-        .join(","),
-    },
+    { branch: "มีนบุรี", deliveryDate: dates[0], kg: String(rawKg / 2) },
     lotId,
   );
   const minburiAllocation = db.entries.at(-1)?.id || "";
@@ -443,7 +487,6 @@ function roleplay(endDate: string, dayCount: number): Database {
           "receive",
           {
             kg: String(rawKg / 2),
-            bags: String(branchBagCount),
             allocation:
               branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
           },
@@ -452,12 +495,14 @@ function roleplay(endDate: string, dayCount: number): Database {
       }
       if (branch === "ศาลาแดง") {
         run("branch", "ricePurchase", {
+          riceSource: riceSources[0],
           supplier: "ร้านข้าวทดสอบ",
           rawRiceKg: "5",
           rawRiceCost: "275",
         });
       } else {
         run("branch", "ricePurchase", {
+          riceSource: riceSources[1],
           supplier: "ร้านข้าวทดสอบ",
           cookedRiceKg: "32",
           cookedRiceCost: "1440",
@@ -494,13 +539,11 @@ function roleplay(endDate: string, dayCount: number): Database {
         },
         lotId,
       );
-      if (branch === "มีนบุรี") {
-        run("branch", "riceCarry", {
-          leftoverKg: cookedRiceStock(db, branch).toFixed(3),
-          reheat: "เก็บไว้อุ่นวันถัดไป",
-        });
-      }
-      run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแลทดสอบ" });
+      run("branch", "riceCarry", {
+        leftoverKg: cookedRiceStock(db, branch).toFixed(3),
+        reheat: "เก็บไว้อุ่นวันถัดไป",
+      });
+      run("branch", "closeDay", { confirm: "ผู้ดูแลทดสอบ" });
     }
   }
   return db;
@@ -527,7 +570,8 @@ export function entries(
 ) {
   const voided = new Set(
     db.entries
-      .filter((entry) => entry.kind === "void")
+      // Only the Owner voids; a void appended under another role changes nothing.
+      .filter((entry) => entry.kind === "void" && entry.role === "owner")
       .map((entry) => entry.values.targetId),
   );
   // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
@@ -536,7 +580,10 @@ export function entries(
     if (id) fixes.set(id, { ...fixes.get(id), ...values });
   };
   for (const e of db.entries) {
-    if (e.kind !== "chefEdit" || voided.has(e.id)) continue;
+    if (voided.has(e.id)) continue;
+    // B5 edits overlay the same way, in log order: a later edit wins.
+    if (isEditOverlay(e)) fix(e.values.targetId, unpack("to.", e.values));
+    if (e.kind !== "chefEdit") continue;
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
       arrival: e.values.arrival,
@@ -589,30 +636,6 @@ export const isPackWeight = (weight: number) =>
   Number.isFinite(weight) && weight > 0;
 export const validPackWeights = (packs = "") =>
   packWeights(packs).filter(isPackWeight);
-export type StockBag = { id: string; weight: number };
-/** Bags are weighed at the smoker, central stock at the Owner's scale. Spread what is
- * still in central stock over the bags still there, so allocating every remaining bag
- * drains central stock to 0 even after allocations recorded at the smoker weight. */
-export function availableBags(db: Database, lotId: string): StockBag[] {
-  let bags = entries(db, "smoke", lotId)
-    .flatMap((entry) =>
-      packWeights(entry.values.packs).map((weight, index) => ({
-        id: `${entry.id}:${index + 1}`,
-        weight,
-      })),
-    )
-    .filter((bag) => isPackWeight(bag.weight));
-  for (const allocation of entries(db, "allocate", lotId)) {
-    const ids = (allocation.values.bagIds || "").split(",").filter(Boolean);
-    bags = ids.length
-      ? bags.filter((bag) => !ids.includes(bag.id))
-      : bags.slice(Math.max(0, n(allocation.values, "bags")));
-  }
-  const packedKg = bags.reduce((a, bag) => a + bag.weight, 0);
-  const stock = centralStock(db, lotId);
-  const factor = stock > 0 && packedKg > 0 ? stock / packedKg : 1;
-  return bags.map((bag) => ({ ...bag, weight: bag.weight * factor }));
-}
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
@@ -622,9 +645,6 @@ export function centralStock(db: Database, lotId: string) {
     num(lot?.values || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg")
   );
-}
-export function centralBagStock(db: Database, lotId: string) {
-  return availableBags(db, lotId).length;
 }
 /** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
@@ -658,7 +678,11 @@ export function shipmentLines(lot: Lot): ShipmentLine[] {
 }
 /** Shipment lots whose Request was not voided. Reads only the log's voids, so it also works on visibleDatabase. */
 export function shipments(db: Database) {
-  const voided = new Set(entries(db, "void").map((e) => e.values.targetId));
+  const voided = new Set(
+    entries(db, "void")
+      .filter((e) => e.role === "owner")
+      .map((e) => e.values.targetId),
+  );
   const cancelled = new Set(
     db.entries
       .filter((e) => e.kind === "shipmentRequest" && voided.has(e.id))
@@ -810,36 +834,169 @@ export function offShelf(
     ...entries(db, "influencerBox", lotId, branch, date),
   ];
 }
+const usedKg = (items: Entry[]) => sum(items, "soldKg");
+const wastedKg = (items: Entry[]) => sum(items, "wasteKg");
+/** Branch meat of one lot, all dates. `ready` is thawed meat not yet used or wasted:
+ * the chill the branch can still use, whatever day it was thawed. */
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
     thawed = sum(entries(db, "thaw", lotId, branch), "kg");
-  const used = offShelf(db, lotId, branch).reduce(
-    (s, e) => s + num(e.values, "soldKg") + num(e.values, "wasteKg"),
-    0,
-  );
-  return { received, frozen: received - thawed, ready: thawed - used };
+  const out = offShelf(db, lotId, branch);
+  return {
+    received,
+    frozen: received - thawed,
+    ready: thawed - usedKg(out) - wastedKg(out),
+  };
 }
-/** What a branch still has to receive on one allocation. Pro-rated bag weights carry
- * more decimals than the form shows, so kg is rounded to the 0.01 the user sees and
- * types; once every bag is in, the allocation is done whatever kg residue is left. */
-export function allocationOutstanding(db: Database, allocation: Entry) {
+/** One branch day of one lot. Thawed meat left at the end of a day stays in the chiller
+ * and carries into the next day (`chillIn`); nothing forces it to zero at close.
+ * chillIn + thawed = used + waste + chillOut. The end-of-day stock as of `date`:
+ * `pending` still to receive, `received` so far, `frozen` (received − thawed),
+ * and `usedTotal` so far (waste excluded). */
+export function branchMeatDay(
+  db: Database,
+  lotId: string,
+  branch: string,
+  date: string,
+) {
+  const before = (items: Entry[]) => items.filter((e) => e.date < date);
+  const thaws = entries(db, "thaw", lotId, branch);
+  const out = offShelf(db, lotId, branch);
+  const today = offShelf(db, lotId, branch, date);
+  const chillIn =
+    sum(before(thaws), "kg") - usedKg(before(out)) - wastedKg(before(out));
+  const thawed = sum(entries(db, "thaw", lotId, branch, date), "kg");
+  const used = usedKg(today),
+    waste = wastedKg(today);
+  const through = (items: Entry[]) => items.filter((e) => e.date <= date);
+  const received = sum(through(entries(db, "receive", lotId, branch)), "kg");
+  return {
+    chillIn,
+    thawed,
+    used,
+    waste,
+    chillOut: chillIn + thawed - used - waste,
+    pending: pendingReceiveKg(db, lotId, branch, date),
+    received,
+    frozen: received - sum(through(thaws), "kg"),
+    usedTotal: usedKg(through(out)),
+  };
+}
+/** Meat used per sealed pack outside 100–103 g: a warning for the form, never a
+ * block — the branch types what it really used. "" when it is fine. */
+export function packWeightWarning(v: Values) {
+  const packs = num(v, "boxes") + num(v, "addons"),
+    kg = num(v, "soldKg");
+  if (!packs) return kg > 0 ? "มีน้ำหนักเนื้อที่ใช้ แต่ยังไม่มีจำนวนซีล" : "";
+  const grams = (kg / packs) * 1000;
+  return grams < 99.99 || grams > 103.01
+    ? `เฉลี่ย ${grams.toFixed(1)} กรัมต่อซีล อยู่นอกช่วง 100–103 กรัม · บันทึกได้ แต่ควรตรวจน้ำหนักอีกครั้ง`
+    : "";
+}
+/** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
+ * sees and types; the allocation is done once that reaches 0, or once a receive was
+ * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
+export function allocationOutstanding(
+  db: Database,
+  allocation: Entry,
+  throughDate?: string,
+) {
   const received = entries(
     db,
     "receive",
     allocation.lotId,
     allocation.branch,
-  ).filter((r) => r.values.allocation === allocation.id);
-  const bags = n(allocation.values, "bags") - sum(received, "bags");
+  ).filter(
+    (r) =>
+      r.values.allocation === allocation.id &&
+      (!throughDate || r.date <= throughDate),
+  );
+  if (received.some((r) => r.values.complete === "1")) return 0;
   const kg =
     Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
-  return { kg: bags > 0 && kg > 0 ? kg : 0, bags: Math.max(0, bags) };
+  return Math.max(0, kg);
 }
-export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
-  return entries(db, "allocate", lotId, branch).reduce(
-    (total, allocation) => total + allocationOutstanding(db, allocation).kg,
+/** Kg allocated to a branch and not yet received; with `throughDate`, as of the end
+ * of that day (allocations and receives dated after it do not count). */
+export function pendingReceiveKg(
+  db: Database,
+  lotId: string,
+  branch: string,
+  throughDate?: string,
+) {
+  return entries(db, "allocate", lotId, branch)
+    .filter((a) => !throughDate || a.date <= throughDate)
+    .reduce(
+      (total, allocation) =>
+        total + allocationOutstanding(db, allocation, throughDate),
+      0,
+    );
+}
+/** The two ways a branch gets its sticky rice, picked on every `ricePurchase` (B2). */
+export const riceSources = ["นึ่งเอง (ซื้อข้าวดิบ)", "ซื้อข้าวสุกจากข้างนอก"];
+/** Rice records a branch owes for `date`, from what it did rather than which branch it is:
+ *  every day ends with a cooked-rice confirmation (`riceCarry`); a day that issued raw rice
+ *  for cooking also owes the cook itself (`rice`). closeDay and the Owner's daily status
+ *  both read this. */
+export function requiredRiceKinds(db: Database, branch: string, date: string) {
+  const issuedRaw = ["riceIssue", "supplyIssue"].some((kind) =>
+    entries(db, kind, undefined, branch, date).some(
+      (entry) => num(entry.values, "rawRiceIssuedKg") > 0,
+    ),
+  );
+  return issuedRaw ? ["rice", "riceCarry"] : ["riceCarry"];
+}
+/** What closing `date` needs, in the order the close dialog lists it. mutate's closeDay
+ *  refuses on the first required item not done, with its `message`, so the dialog and
+ *  the save never disagree. `kind` is the form that fills the item, when it has one
+ *  (materials are counted in the day screen's own table). The chill line is information
+ *  only: thawed meat left over carries into tomorrow. */
+export function closeDayChecklist(db: Database, branch: string, date: string) {
+  const has = (kind: string) =>
+    entries(db, kind, undefined, branch, date).length > 0;
+  const chillOut = db.lots.reduce(
+    (total, lot) => total + branchMeatDay(db, lot.id, branch, date).chillOut,
     0,
   );
+  return [
+    {
+      key: "sale",
+      label: "ยอดขายวันนี้",
+      done: has("sale"),
+      required: true,
+      message: "ยังไม่มีรายการขายวันนี้",
+      kind: "sale" as string | undefined,
+    },
+    {
+      key: "materials",
+      label: "เช็ควัสดุ",
+      done: has("materials"),
+      required: true,
+      message: "ยังไม่เช็ควัสดุวันนี้",
+      kind: undefined,
+    },
+    ...requiredRiceKinds(db, branch, date).map((kind) => ({
+      key: kind,
+      label: titles[kind],
+      done: has(kind),
+      required: true,
+      message:
+        kind === "rice"
+          ? "เบิกข้าวเหนียวดิบวันนี้แล้ว ยังไม่บันทึกข้าวช่วงเช้า (หุงข้าว)"
+          : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
+      kind,
+    })),
+    {
+      key: "chill",
+      label: `เนื้อชิลยกไปวันถัดไป ${fmt(chillOut)} กก.`,
+      done: true,
+      required: false,
+      message: "",
+      kind: undefined,
+    },
+  ];
 }
+export type CloseDayItem = ReturnType<typeof closeDayChecklist>[number];
 export function rawRiceStock(db: Database, branch: string) {
   return (
     sum(entries(db, "supplyPurchase", undefined, branch), "rawRiceKg") +
@@ -1082,8 +1239,11 @@ const hiddenKeys = (role: Role) =>
     : ["meatCost", "wasteCost"];
 const hide = (values: Values, role: Role) =>
   Object.fromEntries(
-    Object.entries(values).filter(([k]) => !hiddenKeys(role).includes(k)),
+    Object.entries(values).filter(
+      ([k]) => !hiddenKeys(role).includes(k.replace(/^(to|from)\./, "")),
+    ),
   );
+const editKinds = ["entryEdit", "editRequest", "editDecision"];
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
 const chefHouseKinds = [
   "smokeOrder",
@@ -1094,14 +1254,20 @@ const chefHouseKinds = [
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
+  // Edits, requests and decisions about this role's own entries (its branch's, for a branch).
+  const aboutMine = (e: Entry) =>
+    editKinds.includes(e.kind) &&
+    e.values.targetRole === role &&
+    (role !== "branch" || e.values.targetBranch === branch);
   return db.entries
     .filter(
       (e) =>
         role === "owner" ||
         (role === "cm"
           ? shipmentIds.has(e.lotId) &&
-            (e.role === "cm" || chefHouseKinds.includes(e.kind))
-          : e.role === role && (role !== "branch" || e.branch === branch)),
+            (e.role === "cm" || chefHouseKinds.includes(e.kind) || aboutMine(e))
+          : (e.role === role && (role !== "branch" || e.branch === branch)) ||
+            aboutMine(e)),
     )
     .map((e) =>
       role === "owner" ? e : { ...e, values: hide(e.values, role) },
@@ -1125,6 +1291,149 @@ export function visibleDatabase(
     lots,
     entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)),
   };
+}
+/** Why `role` may not edit `target` ("" when it may). Approvers edit any editable entry;
+ *  anyone else only their own (a branch: its own branch's), and only by request. */
+export function editBlock(
+  db: Database,
+  target: Entry,
+  role: Role,
+  branch = "",
+) {
+  if (!editableKinds.includes(target.kind))
+    return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
+  if (!entries(db, target.kind).some((e) => e.id === target.id))
+    return "รายการนี้ถูกยกเลิกแล้ว";
+  if (
+    target.kind === "smokingInvoice" &&
+    smokingInvoiceStatus(db, target) === "ชำระแล้ว"
+  )
+    return "Invoice นี้ชำระแล้ว แก้ไขไม่ได้";
+  if (
+    !editApprovers.includes(role) &&
+    (target.role !== role || (role === "branch" && target.branch !== branch))
+  )
+    return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
+  return "";
+}
+export const editDecisionOf = (db: Database, requestId: string) =>
+  entries(db, "editDecision").find((e) => e.values.requestId === requestId);
+/** The request on `targetId` still waiting for a decision. One at a time per entry. */
+export const openEditRequest = (db: Database, targetId: string) =>
+  entries(db, "editRequest").find(
+    (e) => e.values.targetId === targetId && !editDecisionOf(db, e.id),
+  );
+/** Direct edits and approved requests applied to one entry, oldest first. */
+export const entryEdits = (db: Database, targetId: string) =>
+  db.entries.filter((e) => isEditOverlay(e) && e.values.targetId === targetId);
+/** Every edit request in `db` with its decision: waiting ones first, then newest first.
+ *  Pass a role's visible database to get only that role's own requests. */
+export function editRequestRows(db: Database) {
+  return entries(db, "editRequest")
+    .map((request) => ({ request, decision: editDecisionOf(db, request.id) }))
+    .sort(
+      (a, b) =>
+        Number(!!a.decision) - Number(!!b.decision) ||
+        (b.decision?.at || b.request.at).localeCompare(
+          a.decision?.at || a.request.at,
+        ),
+    );
+}
+/** Stock figures an edit must not push below zero, keyed `label#id`. */
+function stockLevels(db: Database) {
+  const levels = new Map<string, number>();
+  for (const b of branches) {
+    for (const lot of db.lots) {
+      const x = balance(db, lot.id, b);
+      levels.set(`เนื้อแช่แข็ง ${lot.id} สาขา${b}#`, x.frozen);
+      levels.set(`เนื้อละลายแล้ว ${lot.id} สาขา${b}#`, x.ready);
+    }
+    levels.set(`ข้าวเหนียวดิบ สาขา${b}#`, rawRiceStock(db, b));
+    levels.set(`ข้าวเหนียวดิบที่เบิก สาขา${b}#`, issuedRawRiceStock(db, b));
+    levels.set(`ข้าวเหนียวสุก สาขา${b}#`, cookedRiceStock(db, b));
+    levels.set(`น้ำพริก สาขา${b}#`, chiliStock(db, b));
+  }
+  for (const lot of db.lots) {
+    levels.set(`สต๊อกกลาง ${lot.id}#`, centralStock(db, lot.id));
+    if (!lot.kind)
+      levels.set(`ยอดพร้อมส่ง ${lot.poId}#`, poRemainingKg(db, lot.id));
+  }
+  for (const a of entries(db, "allocate"))
+    levels.set(
+      `ยอดค้างรับใบจัดสรร ${a.lotId} สาขา${a.branch}#${a.id}`,
+      n(a.values, "kg") -
+        sum(
+          entries(db, "receive", a.lotId, a.branch).filter(
+            (r) => r.values.allocation === a.id,
+          ),
+          "kg",
+        ),
+    );
+  levels.set("น้ำพริกในคลัง Owner#", ownerChiliStock(db));
+  for (const m of materials)
+    levels.set(`${m} ในคลัง Owner#`, ownerMaterialStock(db, m));
+  return levels;
+}
+/** The target's values as `proposed` would leave them, normalised and checked by the target
+ *  kind's own rules as if it were saved again now without the original (so its own kg are
+ *  back in stock). Then no stock may go below zero that was not already there. */
+function correctedValues(db: Database, target: Entry, proposed: Values) {
+  for (const key of editLockedKeys)
+    assert(
+      proposed[key] === undefined ||
+        proposed[key] === (target.values[key] ?? ""),
+      "แก้สาขา วันที่ซื้อ หรือรายการอ้างอิงไม่ได้ · ให้ Owner ยกเลิกแล้วบันทึกใหม่",
+    );
+  const as = (kind: string, values: Values): Database => ({
+    ...db,
+    entries: [
+      ...db.entries,
+      { ...target, id: newId(), kind, role: editApprovers[0], values },
+    ],
+  });
+  const corrected = record(
+    as("void", { targetId: target.id }),
+    target.role,
+    target.kind,
+    { ...target.values, ...proposed },
+    target.lotId,
+    target.date,
+    target.branch,
+    true,
+  ).entries.at(-1)!.values;
+  const before = stockLevels(db);
+  for (const [key, level] of stockLevels(
+    as("entryEdit", { targetId: target.id, ...pack("to.", corrected) }),
+  ))
+    assert(
+      level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
+      `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
+    );
+  return corrected;
+}
+/** What an edit entry stores about its target: the before and after values and whose it is. */
+function editValues(db: Database, target: Entry, proposed: Values) {
+  return {
+    targetKind: target.kind,
+    targetDate: target.date,
+    targetRole: target.role,
+    targetBranch: target.branch,
+    ...pack("from.", target.values),
+    ...pack("to.", correctedValues(db, target, proposed)),
+  };
+}
+/** `targetId`'s entry with its current (edited) values, if `role` may edit it. */
+function editTarget(
+  db: Database,
+  targetId: string,
+  role: Role,
+  branch: string,
+) {
+  const target = db.entries.find((e) => e.id === targetId);
+  assert(target, "ไม่พบรายการที่จะแก้ไข");
+  const block = editBlock(db, target, role, branch);
+  assert(!block, block);
+  return entries(db, target.kind).find((e) => e.id === targetId)!;
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
@@ -1299,7 +1608,27 @@ export function mutate(
   /** The acting branch account's branch. Required for role "branch"; never taken from config. */
   actorBranch = "",
 ): Database {
-  assert(ownership[kind] === role, "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
+  return record(db, role, kind, input, lotId, date, actorBranch);
+}
+/** `mutate`, plus `correcting`: re-checks an entry being edited, whose day may be closed. */
+function record(
+  db: Database,
+  role: Role,
+  kind: string,
+  input: Values,
+  lotId: string,
+  date: string,
+  actorBranch = "",
+  correcting = false,
+): Database {
+  assert(
+    kind === "editRequest"
+      ? !editApprovers.includes(role)
+      : kind === "entryEdit" || kind === "editDecision"
+        ? editApprovers.includes(role)
+        : ownership[kind] === role,
+    "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+  );
   assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
@@ -1332,10 +1661,12 @@ export function mutate(
   }
   if (role === "branch") {
     assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
-    assert(
-      !isClosed(db, branch, date),
-      "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
-    );
+    // A request changes nothing until an approver decides, so a closed day still takes one.
+    if (!correcting && kind !== "editRequest")
+      assert(
+        !isClosed(db, branch, date),
+        "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
+      );
   }
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate") {
@@ -1827,39 +2158,20 @@ export function mutate(
       false,
     );
   } else if (kind === "allocate") {
-    const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
-    if (selectedBagIds.length) {
-      const available = availableBags(db, lotId);
-      const selected = available.filter((bag) =>
-        selectedBagIds.includes(bag.id),
-      );
-      assert(
-        selected.length === selectedBagIds.length,
-        "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่",
-      );
-      v.kg = String(selected.reduce((sum, bag) => sum + bag.weight, 0));
-      v.bags = String(selected.length);
-    }
     positive(v, "kg", "น้ำหนักจัดสรร");
-    positive(v, "bags", "จำนวนกล่องรมควัน");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     assert(branches.includes(v.branch), "เลือกสาขา");
     assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
-    assert(
-      n(v, "bags") <= centralBagStock(db, lotId),
-      "จำนวนกล่องรมควันในสต๊อกกลางไม่พอ",
-    );
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
-    positive(v, "bags", "จำนวนถุง");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     const allocation = entries(db, "allocate", lotId, branch).find(
       (e) => e.id === v.allocation,
     );
     assert(allocation, "เลือกใบจัดสรร");
-    const outstanding = allocationOutstanding(db, allocation).kg;
+    const outstanding = allocationOutstanding(db, allocation);
     assert(n(v, "kg") <= outstanding + 0.001, "รับเกินยอดค้างรับ");
-    variance(n(v, "kg"), outstanding, v);
+    // Closing the allocation makes any shortfall final, so it needs a reason; a
+    // partial receive leaves the rest pending.
+    if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
     positive(v, "bags", "จำนวนถุงที่ละลาย");
@@ -1875,27 +2187,24 @@ export function mutate(
       )[0];
     if (oldest && oldest.id !== lotId) required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
-    for (const key of [
-      "rawRiceKg",
-      "rawRiceCost",
-      "cookedRiceKg",
-      "cookedRiceCost",
-    ])
-      v[key] ??= "0";
+    // Every purchase says which way this round goes, at either branch (B2):
+    // self-cook buys raw rice, bought-cooked buys cooked rice. The other side is zeroed.
+    assert(riceSources.includes(v.riceSource), "เลือกที่มาของข้าวเหนียวรอบนี้");
+    const selfCook = v.riceSource === riceSources[0];
+    for (const key of selfCook
+      ? ["cookedRiceKg", "cookedRiceCost"]
+      : ["rawRiceKg", "rawRiceCost"])
+      v[key] = "0";
     required(v, "supplier", "ผู้จำหน่ายข้าว");
-    if (branch === "มีนบุรี") {
-      positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า");
-      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
-      assert(
-        cookedRiceStock(db, branch) + n(v, "cookedRiceKg") >=
-          n(db.config, "cookedRicePar"),
-        `ยอดข้าวเหนียวสุกหลังซื้อควรมีอย่างน้อย ${db.config.cookedRicePar} กก.`,
-      );
-      v.totalCost = v.cookedRiceCost;
-    } else {
+    if (selfCook) {
       positive(v, "rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า");
       positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ");
       v.totalCost = v.rawRiceCost;
+    } else {
+      // cookedRicePar is only a hint in the form now, never a block (FB-12).
+      positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า");
+      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
+      v.totalCost = v.cookedRiceCost;
     }
   } else if (kind === "chiliAllocate") {
     assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
@@ -1918,10 +2227,6 @@ export function mutate(
     required(v, "supplier", "ผู้จำหน่ายน้ำพริก");
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
-    assert(
-      branch === "ศาลาแดง",
-      "สาขามีนบุรีซื้อข้าวเหนียวสุก ไม่ต้องเบิกข้าวดิบ",
-    );
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
     assert(
       n(v, "rawRiceIssuedKg") <= rawRiceStock(db, branch) + 0.001,
@@ -1971,16 +2276,6 @@ export function mutate(
       positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
     if (n(v, "chiliTubes") > 0) positive(v, "chiliCost", "ยอดซื้อน้ำพริก");
     required(v, "supplier", "ผู้จำหน่าย");
-    if (branch === "มีนบุรี") {
-      assert(n(v, "rawRiceKg") === 0, "สาขามีนบุรีซื้อข้าวเหนียวสุก");
-      assert(
-        cookedRiceStock(db, branch) + n(v, "cookedRiceKg") >=
-          n(db.config, "cookedRicePar"),
-        `ยอดข้าวเหนียวสุกหลังซื้อควรมีอย่างน้อย ${db.config.cookedRicePar} กก.`,
-      );
-    } else {
-      assert(n(v, "cookedRiceKg") === 0, "สาขาศาลาแดงซื้อข้าวเหนียวดิบ");
-    }
     v.totalCost = String(
       n(v, "rawRiceCost") + n(v, "cookedRiceCost") + n(v, "chiliCost"),
     );
@@ -2005,7 +2300,7 @@ export function mutate(
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
-    assert(branch === "ศาลาแดง", "ขั้นตอนหุงข้าวใช้สำหรับสาขาศาลาแดง");
+    // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
     positive(v, "rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง");
     positive(v, "riceKg", "ข้าวเหนียวสุกที่ได้");
     assert(
@@ -2126,18 +2421,11 @@ export function mutate(
     v.riceServings = v.boxes;
     v.chiliComplimentary = "0";
     v.chiliSold = String(n(v, "chiliAddons"));
-    const soldPacks = n(v, "boxes") + n(v, "addons");
-    assert(
-      soldPacks === 0
-        ? n(v, "soldKg") === 0
-        : n(v, "soldKg") >= soldPacks * 0.1 - 0.001 &&
-            n(v, "soldKg") <= soldPacks * 0.103 + 0.001,
-      "น้ำหนักเนื้อขายต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
-    );
+    // 100–103 g per pack is only a warning (packWeightWarning): the form shows it.
     assert(
       n(v, "soldKg") + n(v, "wasteKg") <=
         balance(db, lotId, branch).ready + 0.001,
-      "น้ำหนักขายและ Waste เกินเนื้อพร้อมขาย",
+      "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
     );
     assert(
       n(v, "riceServings") * 0.2 + n(v, "riceWasteKg") <=
@@ -2192,15 +2480,8 @@ export function mutate(
       "กรอกของที่ส่งให้อินฟลูเอนเซอร์อย่างน้อย 1 รายการ",
     );
     assert(
-      sentPacks === 0
-        ? n(v, "soldKg") === 0
-        : n(v, "soldKg") >= sentPacks * 0.1 - 0.001 &&
-            n(v, "soldKg") <= sentPacks * 0.103 + 0.001,
-      "น้ำหนักเนื้อที่ส่งต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
-    );
-    assert(
       n(v, "soldKg") <= balance(db, lotId, branch).ready + 0.001,
-      "น้ำหนักที่ส่งเกินเนื้อพร้อมขาย",
+      "น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
     );
     v.riceServings = v.boxes;
     v.chiliSold = String(n(v, "chiliAddons"));
@@ -2214,35 +2495,12 @@ export function mutate(
     );
     v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
   } else if (kind === "closeDay") {
-    required(v, "time", "เวลาปิด");
-    assert(
-      v.time >= db.config.closeTime,
-      `ปิดวันได้ตั้งแต่ ${db.config.closeTime} (นาฬิกาจำลอง)`,
+    // Any time of day (FB-14): what blocks a close is missing data, not the clock.
+    const missing = closeDayChecklist(db, branch, date).find(
+      (item) => item.required && !item.done,
     );
-    assert(
-      entries(db, "sale", undefined, branch, date).length,
-      "ยังไม่มีรายการขายวันนี้",
-    );
-    assert(
-      entries(db, "materials", undefined, branch, date).length,
-      "ยังไม่เช็ควัสดุวันนี้",
-    );
-    assert(
-      entries(
-        db,
-        branch === "มีนบุรี" ? "riceCarry" : "rice",
-        undefined,
-        branch,
-        date,
-      ).length,
-      branch === "มีนบุรี"
-        ? "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ"
-        : "ยังไม่บันทึกข้าวช่วงเช้า",
-    );
-    assert(
-      db.lots.every((l) => Math.abs(balance(db, l.id, branch).ready) < 0.005),
-      "ยังมีเนื้อพร้อมขาย ต้องบันทึกขายหรือ Waste ให้เป็นศูนย์",
-    );
+    assert(!missing, missing?.message ?? "");
+    // Thawed meat left over is not an error: it carries into tomorrow as chill.
     required(v, "confirm", "ชื่อผู้ยืนยัน");
   } else if (kind === "expense") {
     positive(v, "amount", "ยอดเงิน");
@@ -2293,6 +2551,50 @@ export function mutate(
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetBranch = target.branch;
+  } else if (kind === "entryEdit" || kind === "editRequest") {
+    // Recorded, not applied: entries() overlays the `to.` values on the target (like chefEdit).
+    const target = editTarget(db, v.targetId, role, branch);
+    if (kind === "editRequest")
+      assert(
+        !openEditRequest(db, target.id),
+        "รายการนี้มีคำขอแก้ไขรอพิจารณาอยู่แล้ว",
+      );
+    required(v, "reason", "เหตุผลที่แก้ไข");
+    let proposed: Values = {};
+    try {
+      proposed = JSON.parse(v.values || "{}");
+    } catch {}
+    delete v.values;
+    Object.assign(v, editValues(db, target, proposed));
+    lotId = target.lotId;
+  } else if (kind === "editDecision") {
+    const request = entries(db, "editRequest").find(
+      (e) => e.id === v.requestId,
+    );
+    assert(request, "ไม่พบคำขอแก้ไข");
+    assert(!editDecisionOf(db, request.id), "คำขอนี้พิจารณาแล้ว");
+    assert(
+      Object.values(editDecisions).includes(v.decision),
+      "เลือกอนุมัติหรือไม่อนุมัติ",
+    );
+    v.targetId = request.values.targetId;
+    v.requesterRole = request.role;
+    v.requesterBranch = request.branch;
+    if (v.decision === editDecisions.approve) {
+      // Checked again now: the log may have moved on since the request was filed.
+      const target = editTarget(db, v.targetId, role, branch);
+      Object.assign(v, editValues(db, target, unpack("to.", request.values)));
+    } else {
+      required(v, "note", "เหตุผลที่ไม่อนุมัติ");
+      for (const key of [
+        "targetKind",
+        "targetDate",
+        "targetRole",
+        "targetBranch",
+      ])
+        v[key] = request.values[key];
+    }
+    lotId = request.lotId;
   } else if (kind === "config") {
     v.ricePrice = "0";
     // Labels match the Thai setting names in ConfigView.
@@ -2306,7 +2608,7 @@ export function mutate(
       rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
       chiliPar: "จำนวนฐานน้ำพริก",
       chiliUnitPrice: "ราคาต่อหน่วยน้ำพริก",
-      cookedRicePar: "จำนวนฐานข้าวเหนียวสุกมีนบุรี",
+      cookedRicePar: "จำนวนฐานข้าวเหนียวสุก",
       cookedRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวสุก",
       outboundFee: "ค่าขนส่งขาไป",
       returnFee: "ค่าขนส่งขากลับ",
@@ -2316,7 +2618,6 @@ export function mutate(
       positive(v, key, label, key !== "packKg");
     assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
-    required(v, "closeTime", "เวลาเริ่มปิดวัน");
     required(v, "companyName", "ชื่อบริษัท");
     for (let i = 0; i < materials.length; i++) {
       positive(v, "material" + i, `จำนวนฐาน ${materials[i]}`, true);

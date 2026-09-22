@@ -1,6 +1,6 @@
 "use client";
 
-import { BagAllocationForm } from "@/components/organisms/shared/BagAllocationForm";
+import { AllocationForm } from "@/components/organisms/shared/AllocationForm";
 import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
@@ -126,12 +126,12 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   }
   if (modal.kind === "allocate") {
     return (
-      <BagAllocationForm
+      <AllocationForm
         db={db}
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() => done("จัดสรรกล่องรมควันไปสาขาแล้ว")}
+        onSaved={(summary) => done(`จัดสรรไปสาขาแล้ว · ${summary}`)}
       />
     );
   }
@@ -200,6 +200,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       {...dateProps}
       modal={modal}
       onClose={close}
+      onOpen={ws.open}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {

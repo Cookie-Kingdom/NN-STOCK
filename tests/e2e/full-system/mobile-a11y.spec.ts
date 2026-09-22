@@ -16,7 +16,6 @@ import {
   typeValue,
 } from "../helpers";
 import {
-  availableBags,
   branches,
   mutate,
   seed,
@@ -270,11 +269,7 @@ function pipelineState(date: string): Database {
   );
   run("owner", "central", { centralKg: "50" }, a);
   for (const branch of branches) {
-    const bagIds = availableBags(db, a)
-      .slice(0, 250)
-      .map((bag) => bag.id)
-      .join(",");
-    run("owner", "allocate", { branch, deliveryDate: date, bagIds }, a);
+    run("owner", "allocate", { branch, deliveryDate: date, kg: "25" }, a);
     const allocation = db.entries.at(-1)!.id;
     run("branch", "receive", { kg: "25", bags: "250", allocation }, a, branch);
   }

@@ -153,7 +153,7 @@ export function Preview({
         `${fmt(expected)} กก.`,
       ],
       [
-        "พร้อมขายหลังรายการนี้",
+        "คงเหลือชิลหลังรายการนี้",
         `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
       ],
       ["ข้าวที่จะหัก", `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`],

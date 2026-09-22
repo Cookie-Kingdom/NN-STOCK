@@ -62,8 +62,8 @@ export const MaterialTransfer: Story = {
   render: () => <Modals account="owner" kind="materialTransfer" />,
 };
 
-/** `allocate` routes to `BagAllocationForm`; `centralDb` has bags ready to split. */
-export const BagAllocation: Story = {
+/** `allocate` routes to `AllocationForm`; `centralDb` has central kg ready to split. */
+export const Allocation: Story = {
   parameters: { db: centralDb },
   render: () => (
     <Modals account="owner" kind="allocate" lotId={centralDb.lots.at(-1)!.id} />

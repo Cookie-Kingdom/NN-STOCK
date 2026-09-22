@@ -6,6 +6,7 @@ import { CountPill } from "@/components/atoms/CountPill";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
+  closeDayChecklist,
   entries,
   pendingReceiveKg,
   type Database,
@@ -37,6 +38,9 @@ export function BranchDailyWorkflow({
   );
   const ready = lots.filter((lot) => balance(db, lot.id, branch).ready > 0.001);
   const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
+  const missing = closeDayChecklist(db, branch, date).filter(
+    (item) => item.required && !item.done,
+  ).length;
   const tasks: ReactNode[][] = [
     [
       <strong key="receive">1. รับเนื้อเข้าสาขา</strong>,
@@ -89,7 +93,7 @@ export function BranchDailyWorkflow({
       ) : saleDone ? (
         "บันทึกแล้ว"
       ) : (
-        "รอเนื้อพร้อมขาย"
+        "รอเนื้อละลาย"
       ),
       ready.length ? (
         <Button
@@ -105,14 +109,19 @@ export function BranchDailyWorkflow({
     ],
     [
       <strong key="close">4. ปิดวัน</strong>,
-      closed ? "ปิดวันแล้ว" : saleDone ? "พร้อมตรวจและปิดวัน" : "รอยอดขาย",
+      closed
+        ? "ปิดวันแล้ว · ข้อมูลวันนี้ถูกล็อก"
+        : missing
+          ? `ยังขาด ${missing} รายการก่อนปิดวัน`
+          : "พร้อมปิดวัน",
+      // The day screen's only close button: the dialog lists what is still missing.
       <Button
         key="close-action"
         variant="table"
-        disabled={closed || !saleDone}
+        disabled={closed}
         onClick={() => open("closeDay")}
       >
-        ปิดวัน
+        ตรวจและปิดวัน
       </Button>,
     ],
   ];

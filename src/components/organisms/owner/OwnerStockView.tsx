@@ -11,7 +11,6 @@ import {
   balance,
   branchMaterialStock,
   branches,
-  centralBagStock,
   centralStock,
   chiliAllocated,
   chiliSold,
@@ -185,7 +184,7 @@ export function OwnerStockView({
           location: "คลังกลาง",
           quantity: fmt(central),
           unit: "กก.",
-          detail: `จากรับเข้าสต๊อกกลาง · ${centralBagStock(db, lot.id)} กล่องรมควัน พร้อมจัดสรร`,
+          detail: `จากรับเข้าสต๊อกกลาง · ${fmt(central)} กก. พร้อมจัดสรร`,
           meatType: "เนื้อรมควัน",
         },
         ...branches.map((branchName) => {
@@ -196,7 +195,7 @@ export function OwnerStockView({
             location: branchName,
             quantity: fmt(stock.frozen + stock.ready),
             unit: "กก.",
-            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
             meatType: "เนื้อรมควัน",
           };
         }),

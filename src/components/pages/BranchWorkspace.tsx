@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
@@ -8,18 +9,27 @@ import { DailyMaterialsTable } from "@/components/organisms/branch/DailyMaterial
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { DailyTaskTable } from "@/components/organisms/branch/DailyTaskTable";
 import { MaterialReceiptConfirmation } from "@/components/organisms/branch/MaterialReceiptConfirmation";
+import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
+import { BranchStockSummary } from "@/components/organisms/shared/BranchStockSummary";
 import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
+import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { branchNav } from "@/lib/nav";
+import { requiredRiceKinds } from "@/lib/store";
+
+/** Same rice rows at every branch: each round is self-cooked or bought cooked (B2). */
+const riceTaskTitle = "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก";
+const riceTaskKinds = ["ricePurchase", "riceIssue", "rice", "riceCarry"];
 
 export function BranchWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { branch, closed, date, db, tab } = ws;
+  const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <WorkspaceShell
@@ -30,6 +40,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
       date={date}
       onDate={ws.setDate}
       minDate={ws.db.config.systemStartDate}
+      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      showNotifications={showNotifications}
+      onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}
       toast={ws.toast}
       onCloseToast={() => ws.setToast("")}
@@ -37,14 +50,15 @@ export function BranchWorkspace({ account }: { account: Account }) {
     >
       {closed && (
         <Notice tone="warning">
-          วันที่ {date} ปิดแล้ว ฟอร์มวันนี้ถูกล็อก Owner ปลดล็อกได้จากหน้ารายงาน
+          ปิดวันแล้ว · ข้อมูลวันที่ {date} ถูกล็อก แก้ไขไม่ได้ · Owner
+          ปลดล็อกได้จากหน้ารายงาน
         </Notice>
       )}
       {tab === "day" && (
         <>
           <Notice>
-            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้
-            ส่วนเนื้อละลายต้องขายหรือบันทึก Waste ให้หมดก่อนปิดวัน
+            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้ ·
+            เนื้อละลายแล้วที่ใช้ไม่หมดเก็บเป็นคงเหลือชิล ยกไปวันถัดไปได้
           </Notice>
           <BranchDailyWorkflow
             db={db}
@@ -74,16 +88,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
             disabled={closed}
           />
           <DailyTaskTable
-            title={
-              branch === "ศาลาแดง"
-                ? "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
-                : "ข้าวเหนียวสุก · ซื้อที่สาขามีนบุรี"
-            }
-            kinds={[
-              "ricePurchase",
-              ...(branch === "ศาลาแดง" ? ["riceIssue"] : []),
-              branch === "มีนบุรี" ? "riceCarry" : "rice",
-            ]}
+            title={riceTaskTitle}
+            kinds={riceTaskKinds}
+            required={requiredRiceKinds(db, branch, date)}
             db={db}
             branch={branch}
             date={date}
@@ -92,9 +99,10 @@ export function BranchWorkspace({ account }: { account: Account }) {
             open={ws.open}
           />
           <ChiliDailySummary db={db} branch={branch} date={date} />
+          <MeatDaySummary db={db} branch={branch} date={date} />
           <DailyTaskTable
-            title="ยอดขาย กล่องโปรโมท และปิดวัน"
-            kinds={["sale", "influencerBox", "closeDay"]}
+            title="ยอดขายและกล่องโปรโมท"
+            kinds={["sale", "influencerBox"]}
             db={db}
             branch={branch}
             date={date}
@@ -113,6 +121,12 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             lots={ws.lots}
             open={ws.open}
+          />
+          <BranchStockSummary
+            key={branch}
+            db={db}
+            branches={[branch]}
+            initialDate={date}
           />
           <SupplyStock db={db} branches={[branch]} />
           <MaterialStockTable

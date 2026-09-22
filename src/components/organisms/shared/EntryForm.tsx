@@ -1,18 +1,21 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField } from "@/components/molecules/FormField";
+import { FieldHint, FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
+import { CloseDayChecklist } from "@/components/organisms/branch/CloseDayChecklist";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
+import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -30,12 +33,14 @@ import { prefillValues } from "@/lib/prefill";
 import {
   allocationOutstanding,
   balance,
-  centralBagStock,
   centralStock,
+  closeDayChecklist,
   cookedRiceStock,
   entries,
   mutate,
   n,
+  packWeightWarning,
+  riceSources,
   roleName,
   smokingInvoiceRejection,
   stages,
@@ -79,7 +84,7 @@ function resolveLocations(values: Values) {
 }
 
 /** One control from `forms[kind]`, rendered by its `type`. */
-function EntryFieldControl({
+export function EntryFieldControl({
   field: f,
   autoFocus,
   values,
@@ -143,6 +148,7 @@ function EntryFieldControl({
           required={!f.optional}
           onChange={(e) => set(f.key, e.target.value)}
         >
+          {!values[f.key] && <option value="">เลือก</option>}
           {f.options!.map((o) => (
             <option key={o}>{o}</option>
           ))}
@@ -232,6 +238,7 @@ export function EntryForm({
   modal,
   onClose,
   onSaved,
+  onOpen,
   branch,
 }: {
   db: Database;
@@ -245,6 +252,8 @@ export function EntryForm({
   modal: Modal;
   onClose: () => void;
   onSaved: (db: Database) => void;
+  /** Opens another workspace form in place of this one (the close-day checklist). */
+  onOpen?: (kind: string) => void;
 }) {
   const kind = modal.kind;
   const [values, setValues] = useState<Values>(() => {
@@ -254,7 +263,7 @@ export function EntryForm({
       ...defaults(kind, date),
       ...prefillValues(db, kind, modalLot),
     };
-    if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
+    if (kind === "receive") base.complete = "1";
     return base;
   });
   const useLot = [
@@ -283,10 +292,7 @@ export function EntryForm({
   const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
-    .map((e) => {
-      const left = allocationOutstanding(db, e);
-      return { entry: e, outstanding: left.kg, outstandingBags: left.bags };
-    })
+    .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
     .filter((a) => a.outstanding > 0);
   const latestSmokingInvoice =
     kind === "smokingInvoice" && lot
@@ -298,7 +304,14 @@ export function EntryForm({
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
-    if (kind === "supplyPurchase" || kind === "ricePurchase")
+    // ricePurchase follows the round's choice, not the branch (B2); nothing before a pick.
+    if (kind === "ricePurchase")
+      return values.riceSource === riceSources[0]
+        ? !["cookedRiceKg", "cookedRiceCost"].includes(field.key)
+        : values.riceSource === riceSources[1]
+          ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
+          : !/^(raw|cooked)Rice/.test(field.key);
+    if (kind === "supplyPurchase")
       return branch === "มีนบุรี"
         ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
         : !["cookedRiceKg", "cookedRiceCost"].includes(field.key);
@@ -342,11 +355,11 @@ export function EntryForm({
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, role, kind, values, lotId, date, branch]);
+  const checklist =
+    kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
+  const missing = checklist.find((item) => item.required && !item.done);
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
-  const title =
-    kind === "ricePurchase" && branch === "ศาลาแดง"
-      ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
-      : titles[kind];
+  const title = titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     // run() rebuilds the change after a revision conflict; upload each file once.
@@ -442,8 +455,8 @@ export function EntryForm({
                     <option key={l.id} value={l.id}>
                       {l.id} ·{" "}
                       {kind === "allocate"
-                        ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} กล่องรมควันในคลังกลาง`
-                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} พร้อมขาย`}
+                        ? `${fmt(centralStock(db, l.id))} กก. ในคลังกลาง`
+                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} คงเหลือชิล`}
                     </option>
                   ))}
                 </Select>
@@ -462,13 +475,7 @@ export function EntryForm({
                   required
                   value={values.allocation || ""}
                   onChange={(e) => {
-                    const picked = allocations.find(
-                      (a) => a.entry.id === e.target.value,
-                    );
                     set("allocation", e.target.value);
-                    // Bag count only: the kg is weighed at the branch.
-                    if (picked && picked.outstandingBags > 0)
-                      set("bags", String(picked.outstandingBags));
                   }}
                 >
                   <option value="">เลือกใบจัดสรร</option>
@@ -481,8 +488,34 @@ export function EntryForm({
                 </Select>
               </FormField>
             )}
+            {kind === "receive" && (
+              <label className="mt-4 flex cursor-pointer items-start gap-3 text-body-sm font-medium">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={values.complete === "1"}
+                  onChange={(e) => set("complete", e.target.checked ? "1" : "")}
+                />
+                <span>
+                  รับครบใบจัดสรรนี้แล้ว
+                  <FieldHint>
+                    ปิดใบจัดสรรหลังบันทึก
+                    ถ้ารับน้อยกว่ายอดค้างรับต้องใส่เหตุผลส่วนต่าง ·
+                    เอาเครื่องหมายออกถ้ายังมีของตามมาอีก
+                  </FieldHint>
+                </span>
+              </label>
+            )}
             {kind === "closeDay" && (
-              <DailySummary db={db} branch={branch} date={date} />
+              <>
+                <CloseDayChecklist
+                  items={checklist}
+                  onGo={(item) =>
+                    item.kind && onOpen ? onOpen(item.kind) : onClose()
+                  }
+                />
+                <MeatDaySummary db={db} branch={branch} date={date} />
+                <DailySummary db={db} branch={branch} date={date} />
+              </>
             )}
             {rejection && (
               <Notice tone="warning" className="mt-3">
@@ -511,25 +544,25 @@ export function EntryForm({
                 สต๊อก และรายงานจะคำนวณเพิ่มจากรายการใหม่
               </Notice>
             )}
-            {(kind === "supplyPurchase" || kind === "ricePurchase") &&
-              branch === "มีนบุรี" && (
-                <Notice>
-                  ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
-                  ควรซื้อเพิ่มอย่างน้อย{" "}
-                  {fmt(
-                    Math.max(
-                      0,
-                      n(db.config, "cookedRicePar") -
-                        cookedRiceStock(db, branch),
-                    ),
-                  )}{" "}
-                  กก. เพื่อให้พร้อมขายไม่น้อยกว่า{" "}
-                  {fmt(n(db.config, "cookedRicePar"))} กก.
-                  {cookedRiceStock(db, branch) <= 0.001
-                    ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
-                    : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
-                </Notice>
-              )}
+            {((kind === "supplyPurchase" && branch === "มีนบุรี") ||
+              (kind === "ricePurchase" &&
+                values.riceSource === riceSources[1])) && (
+              <Notice>
+                ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
+                ควรซื้อเพิ่มอย่างน้อย{" "}
+                {fmt(
+                  Math.max(
+                    0,
+                    n(db.config, "cookedRicePar") - cookedRiceStock(db, branch),
+                  ),
+                )}{" "}
+                กก. เพื่อให้มีข้าวสุกไม่น้อยกว่า{" "}
+                {fmt(n(db.config, "cookedRicePar"))} กก.
+                {cookedRiceStock(db, branch) <= 0.001
+                  ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
+                  : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
+              </Notice>
+            )}
             <FormGrid>
               {formFields.map((f, index) => (
                 <EntryFieldControl
@@ -554,6 +587,13 @@ export function EntryForm({
                 />
               )}
             </FormGrid>
+            {(kind === "sale" || kind === "influencerBox") &&
+              n(values, "soldKg") > 0 &&
+              packWeightWarning(values) && (
+                <Notice tone="warning" className="mt-3">
+                  {packWeightWarning(values)}
+                </Notice>
+              )}
             {reference && (
               <ReferenceCard
                 title={reference.title}
@@ -599,7 +639,8 @@ export function EntryForm({
         </div>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={missing ? `ยังปิดวันไม่ได้ · ${missing.message}` : liveError}
+          submitDisabled={!!missing}
           hint={
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"

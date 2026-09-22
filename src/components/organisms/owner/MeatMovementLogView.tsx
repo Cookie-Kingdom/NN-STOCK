@@ -8,7 +8,6 @@ import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
   branches,
-  centralBagStock,
   centralStock,
   entries,
   n,
@@ -192,7 +191,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         lot.id,
         "คลังกลาง Owner",
         `${fmt(centralStock(db, lot.id))} กก.`,
-        `${centralBagStock(db, lot.id)} กล่องรมควัน พร้อมจัดสรร`,
+        `${fmt(centralStock(db, lot.id))} กก. พร้อมจัดสรร`,
       ],
       ...branches.map((branchName) => {
         const stock = balance(db, lot.id, branchName);
@@ -201,7 +200,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
           lot.id,
           branchName,
           `${fmt(stock.frozen + stock.ready)} กก.`,
-          `แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+          `แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
         ];
       }),
     ];

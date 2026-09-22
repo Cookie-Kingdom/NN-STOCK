@@ -8,6 +8,7 @@ import {
   type Database,
 } from "@/lib/store";
 import {
+  chillDay,
   closed,
   confirm,
   day,
@@ -129,7 +130,7 @@ export const multiPoPackedDb: Database = (() => {
 /** Shipment at stage 5: smoked, waiting for Chef House to close it. */
 export const smokedDb: Database = smoked().db;
 
-/** Shipment at stage 8: 35 kg in central stock, bags ready to allocate. */
+/** Shipment at stage 8: 35 kg in central stock, ready to allocate. */
 export const centralDb: Database = ready().db;
 
 /** Purchase PO with Foodiva's 30 kg Invoice in, nothing requested yet. */
@@ -284,13 +285,12 @@ export const returnGapDb: Database = mutate(
   day,
 );
 
-/** Shipment at stage 8: 17.5 kg / 180 bags allocated to ศาลาแดง, waiting for the branch to receive. */
+/** Shipment at stage 8: 17.5 kg allocated to ศาลาแดง, waiting for the branch to receive. */
 export const allocatedDb: Database = (() => {
   const s = ready();
   s.run("owner", "allocate", {
     branch: "ศาลาแดง",
     kg: "17.5",
-    bags: "180",
     deliveryDate: day,
   });
   return s.db;
@@ -330,3 +330,83 @@ export const materialTransferDb: Database = (() => {
 
 // Named so the Actions panel logs each open("kind", lotId) call.
 export const open = fn().mockName("open");
+
+/** ศาลาแดง on `day`: 70 kg thawed, 65.5 kg used, no waste, so 4.5 kg goes into the
+ * chiller. The day is still open, so its close dialog can be shown. */
+export const chillDb: Database = chillDay().db;
+/** The day after `day`: chillDb's 4.5 kg shows as ชิลยกมา and can be used. */
+export const nextDay = "2026-09-10";
+
+const chillBranchRun = (
+  db: Database,
+  kind: string,
+  values: Record<string, string>,
+) => mutate(db, "branch", kind, values, "", day, "ศาลาแดง");
+/** chillDb with materials counted and cooked rice confirmed: every close item is done. */
+export const closeReadyDb: Database = chillBranchRun(
+  chillBranchRun(
+    chillDb,
+    "materials",
+    Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
+  ),
+  "riceCarry",
+  { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
+);
+/** closeReadyDb after ปิดวัน: ศาลาแดง's `day` is locked. */
+export const dayClosedDb: Database = chillBranchRun(closeReadyDb, "closeDay", {
+  confirm: "ผู้ดูแล",
+});
+
+/** B5: ศาลาแดง asks to correct one of its entries on the closed `day`. */
+const branchEdit = (
+  db: Database,
+  kind: string,
+  values: Record<string, string>,
+  reason: string,
+) =>
+  mutate(
+    db,
+    "branch",
+    "editRequest",
+    {
+      targetId: db.entries.find((e) => e.kind === kind)!.id,
+      values: JSON.stringify(values),
+      reason,
+    },
+    "",
+    day,
+    "ศาลาแดง",
+  );
+/** The Owner decides the newest request. */
+const decide = (db: Database, decision: string, note = "") =>
+  mutate(
+    db,
+    "owner",
+    "editDecision",
+    { requestId: db.entries.at(-1)!.id, decision, note },
+    "",
+    day,
+  );
+/** dayClosedDb with one request waiting: the sale's 65.5 kg should have been 60. */
+export const editPendingDb: Database = branchEdit(
+  dayClosedDb,
+  "sale",
+  { soldKg: "60", lineMan: "190000" },
+  "พิมพ์น้ำหนักเนื้อผิด",
+);
+/** The sale edit approved, a thaw edit rejected, a rice-carry edit still waiting. */
+export const editDecidedDb: Database = branchEdit(
+  decide(
+    branchEdit(
+      decide(editPendingDb, "อนุมัติ"),
+      "thaw",
+      { kg: "70", bags: "8" },
+      "นับถุงผิด",
+    ),
+    "ไม่อนุมัติ",
+    "ตรวจแล้ว 7 ถุงถูกต้อง",
+  ),
+  "riceCarry",
+  { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" },
+  "เลือกการจัดการผิด",
+);

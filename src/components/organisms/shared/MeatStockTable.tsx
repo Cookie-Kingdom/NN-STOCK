@@ -4,7 +4,6 @@ import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
-  centralBagStock,
   centralStock,
   entries,
   n,
@@ -41,7 +40,6 @@ export function MeatStockTable({
           "Lot",
           "ค้างที่ Foodiva",
           "ส่วนกลาง",
-          "กล่องรมควันในคลังกลาง",
           "ศาลาแดง",
           "มีนบุรี",
           "สถานะ",
@@ -57,9 +55,8 @@ export function MeatStockTable({
               ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
               : "รอ Foodiva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,
-          `${centralBagStock(db, lot.id)} กล่องรมควัน`,
-          `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} พร้อมขาย`,
-          `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} พร้อมขาย`,
+          `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} ชิล/ละลายแล้ว`,
+          `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} ชิล/ละลายแล้ว`,
           stages[lot.stage],
           <Button
             key={lot.id}
@@ -101,7 +98,7 @@ export function MeatStockTable({
         "รอรับจาก Owner",
         "รับแล้ว",
         "แช่แข็ง",
-        "พร้อมขาย",
+        "คงเหลือชิล (ละลายแล้ว)",
         "สถานะ",
       ]}
       rowKeys={lotIds}

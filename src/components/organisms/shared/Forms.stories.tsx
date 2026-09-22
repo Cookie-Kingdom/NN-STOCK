@@ -1,17 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import {
+  allocatedDb,
   centralDb,
+  chillDb,
+  closeReadyDb,
   day,
   demoDb,
   multiPoPackedDb,
+  nextDay,
   rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
 import { mutate, visibleDatabase } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
-import { BagAllocationForm } from "./BagAllocationForm";
+import { AllocationForm } from "./AllocationForm";
 import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
@@ -33,6 +37,8 @@ const onClose = fn();
 const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
+// A close-day checklist's ไปกรอก opens that item's form.
+const onOpen = fn().mockName("onOpen");
 
 export const OwnerPurchase: Story = {
   parameters: { db: demoDb },
@@ -166,12 +172,28 @@ export const BranchInfluencerBoxMobile: Story = {
   globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 
-export const BagAllocation: Story = {
+/** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock. */
+export const Allocation: Story = {
   parameters: { db: centralDb },
   render: () => (
-    <BagAllocationForm
+    <AllocationForm
       db={centralDb}
       lotId={centralDb.lots.at(-1)!.id}
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+/** A lot already partly sent to ศาลาแดง: only the rest of central stock is offered. */
+export const AllocationPartlyAllocated: Story = {
+  parameters: { db: allocatedDb },
+  render: () => (
+    <AllocationForm
+      db={allocatedDb}
+      lotId={allocatedDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}
@@ -255,6 +277,72 @@ export const SmokeOrderPreview: Story = {
       db={chefSmokeDb}
       lotId={chefSmokeDb.lots[0].id}
       onClose={onClose}
+    />
+  ),
+};
+
+/** 95 g per pack: the form warns, but the sale still saves (no FormError). */
+export const BranchSalePackWeightWarning: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <EntryForm
+      db={chillDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={nextDay}
+      onDate={onDate}
+      modal={{ kind: "sale", lotId: chillDb.lots.at(-1)!.id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    const addons = form.getByLabelText(/เนื้อซีล Add-on/);
+    await userEvent.clear(addons);
+    await userEvent.type(addons, "10");
+    await userEvent.type(
+      form.getByLabelText(/น้ำหนักที่ใช้ไปจริงวันนี้/),
+      "0.95",
+    );
+  },
+};
+
+/** Close dialog with everything done: the checklist is all ✓ and ยืนยันปิดวัน is enabled
+ *  at any time of day (no close-time rule, FB-14). */
+export const BranchCloseDayReady: Story = {
+  parameters: { db: closeReadyDb },
+  render: () => (
+    <EntryForm
+      db={closeReadyDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      onDate={onDate}
+      modal={{ kind: "closeDay", lotId: "" }}
+      onClose={onClose}
+      onSaved={onSaved}
+      onOpen={onOpen}
+    />
+  ),
+};
+
+/** Close dialog with 4.5 kg left and materials + cooked rice not yet recorded: the
+ *  checklist lists both with ไปกรอก, and ยืนยันปิดวัน stays disabled with the reason.
+ *  The 4.5 kg shows as คงเหลือชิล, no "use it all" error. */
+export const BranchCloseDayWithChill: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <EntryForm
+      db={chillDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      onDate={onDate}
+      modal={{ kind: "closeDay", lotId: "" }}
+      onClose={onClose}
+      onSaved={onSaved}
+      onOpen={onOpen}
     />
   ),
 };

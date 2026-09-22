@@ -1,4 +1,4 @@
-import { branches, materials, type Values } from "./store";
+import { branches, materials, riceSources, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;
@@ -307,17 +307,11 @@ export const forms: Record<string, Field[]> = {
   allocate: [
     { key: "branch", label: "สาขาปลายทาง", type: "select", options: branches },
     number("kg", "น้ำหนักจัดสรร (กก.)"),
-    number("bags", "จำนวนกล่องรมควัน", false, true),
     date("deliveryDate", "วันที่ส่งสาขา"),
     reason,
     note,
   ],
-  receive: [
-    number("kg", "น้ำหนักรับเข้าสาขา (กก.)"),
-    number("bags", "จำนวนถุงที่รับ", false, true),
-    reason,
-    note,
-  ],
+  receive: [number("kg", "น้ำหนักรับเข้าสาขา (กก.)"), reason, note],
   thaw: [
     number("kg", "น้ำหนักละลาย (กก.)"),
     number("bags", "จำนวนถุงที่ละลาย", false, true),
@@ -348,6 +342,12 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   ricePurchase: [
+    {
+      key: "riceSource",
+      label: "รอบนี้ข้าวเหนียวมาจาก (Rice source)",
+      type: "select",
+      options: riceSources,
+    },
     text("supplier", "ผู้จำหน่ายข้าว (Rice supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
     number("rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ (Purchase cost) · บาท", true),
@@ -459,12 +459,11 @@ export const forms: Record<string, Field[]> = {
       type: "textarea",
       optional: true,
     },
-    number(
-      "soldKg",
-      "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
-      true,
-    ),
-    number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
+    {
+      ...number("soldKg", "น้ำหนักที่ใช้ไปจริงวันนี้ (กก.)", true),
+      hint: "ปกติ 100–103 กรัมต่อซีล · เนื้อที่เหลือระบบคำนวณเป็นคงเหลือชิลยกไปวันถัดไป",
+    },
+    number("wasteKg", "น้ำหนักเวสต์ (กก.)", true),
     number("riceWasteKg", "Waste ข้าว (กก.)", true),
     number("lineMan", "ยอดขาย LINE MAN ที่บันทึก (บาท)", true),
     number("expense", "ค่าใช้จ่ายสาขา (บาท)", true),
@@ -482,27 +481,17 @@ export const forms: Record<string, Field[]> = {
     ),
     number("addons", "เนื้อซีลเพิ่ม (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
-    number(
-      "soldKg",
-      "น้ำหนักเนื้อที่ส่งจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
-      true,
-    ),
+    {
+      ...number("soldKg", "น้ำหนักเนื้อที่ใช้ส่งจริง (กก.)", true),
+      hint: "ปกติ 100–103 กรัมต่อซีล",
+    },
     number("shippingFee", "ค่าส่ง (บาท)", true),
     note,
   ],
   materials: materials.map((m, i) =>
     number("material" + i, m + " (ชิ้น)", true, true),
   ),
-  closeDay: [
-    {
-      key: "time",
-      label: "เวลาจำลองสำหรับทดสอบปิดวัน",
-      type: "time",
-      hint: "ปิดวันได้ตั้งแต่เวลาเริ่มปิดวันในตั้งค่า ปรับเวลาจำลองเพื่อทดสอบเงื่อนไข",
-    },
-    text("confirm", "ชื่อผู้ยืนยันปิดวัน"),
-    note,
-  ],
+  closeDay: [text("confirm", "ชื่อผู้ยืนยันปิดวัน"), note],
   expense: [
     {
       key: "category",
@@ -559,7 +548,7 @@ export const forms: Record<string, Field[]> = {
     ),
     number(
       "cookedRicePar",
-      "จำนวนฐานข้าวเหนียวสุกมีนบุรี (Cooked rice par level) · กก.",
+      "จำนวนฐานข้าวเหนียวสุก (Cooked rice par level) · กก.",
       true,
     ),
     number(
@@ -571,11 +560,6 @@ export const forms: Record<string, Field[]> = {
     number("returnFee", "ค่าขนส่งขากลับ (Return delivery fee) · บาท", true),
     number("roundFee", "ค่าขนส่งไป-กลับ (Round-trip fee) · บาท", true),
     number("tolerance", "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance) · %", true),
-    {
-      key: "closeTime",
-      label: "เวลาเริ่มปิดวัน (Day-closing time)",
-      type: "time",
-    },
     ...materials.flatMap((m, i) => [
       number("material" + i, `จำนวนฐาน ${m} (Par level) · ชิ้น`, true, true),
       number(
@@ -586,6 +570,10 @@ export const forms: Record<string, Field[]> = {
     ]),
   ],
 };
+/** The Owner's ready-made ingredient picks. Raw sticky rice is no longer one: each branch
+ *  buys (or cooks) its own rice (B2). Older entries that name it still display as saved. */
+export const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง"];
+
 export function defaults(kind: string, dateValue: string): Values {
   const out: Values = {};
   for (const f of forms[kind] || [])
@@ -598,6 +586,8 @@ export function defaults(kind: string, dateValue: string): Values {
             ? "0"
             : "";
   if (kind === "purchase") out.supplier = "Foodiva";
+  // Picked on every purchase, never preselected: a wrong default would book the wrong stock.
+  if (kind === "ricePurchase") out.riceSource = "";
   if (kind === "dispatch")
     Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
   if (kind === "return")

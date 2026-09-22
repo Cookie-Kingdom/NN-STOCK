@@ -193,3 +193,54 @@ export function ready() {
   s.run("owner", "central", { centralKg: "35" });
   return s;
 }
+
+/** ศาลาแดง on `day`: 70 kg of one lot thawed, 65.5 kg used in 655 packs, no waste,
+ * so 4.5 kg is left in the chiller for tomorrow. The day is not closed yet. */
+export function chillDay() {
+  const s = setup();
+  received(s, "100", "50\n50", "49\n49");
+  s.run("cm", "prepare", { preSmokeKg: "96" });
+  s.run("cm", "smoke", {
+    smokeDate: day,
+    inputKg: "96",
+    wasteKg: "24",
+    packs: packs(720),
+  });
+  s.run("cm", "closeLot", { confirm: "สมชาย" });
+  s.run("owner", "return", {
+    returnDate: day,
+    returnTime: "09:00",
+    origin: "Chef House",
+    destination: "Foodiva",
+    vehicleType: "รถห้องเย็น",
+    plate: "กข123",
+    driverName: "คนขับ",
+    driverPhone: "0800000000",
+    returnKg: "72",
+  });
+  s.run("foodiva", "foodivaReturnReceive", {
+    receivedDate: day,
+    receivedTime: "10:00",
+    receivedKg: "72",
+    receivedBags: "720",
+  });
+  s.run("owner", "central", { centralKg: "72" });
+  s.run("owner", "allocate", {
+    branch: "ศาลาแดง",
+    kg: "70",
+    deliveryDate: day,
+  });
+  s.run("branch", "receive", { kg: "70", allocation: last(s).id });
+  s.run("branch", "thaw", { kg: "70", bags: "7" });
+  s.run("branch", "sale", {
+    boxes: "0",
+    addons: "655",
+    chiliAddons: "0",
+    soldKg: "65.5",
+    wasteKg: "0",
+    riceWasteKg: "0",
+    expense: "0",
+    lineMan: "209600",
+  });
+  return s;
+}

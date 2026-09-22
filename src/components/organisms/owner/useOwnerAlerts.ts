@@ -1,5 +1,6 @@
 "use client";
 
+import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
@@ -60,7 +61,9 @@ export function useOwnerAlerts(db: Database) {
       !entries(db, "smokeOrder", lot.id).length,
   ).length;
 
+  const editAlerts = editRequestAlerts(db, "owner", "");
   const notifications: OwnerNotification[] = [
+    ...editAlerts,
     ...purchaseLots(db).flatMap((item): OwnerNotification[] =>
       entries(db, "foodivaConfirm", item.id).length
         ? []
@@ -214,6 +217,7 @@ export function useOwnerAlerts(db: Database) {
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,
+      history: editAlerts.length,
     } satisfies Partial<Record<Tab, number>>,
   };
 }

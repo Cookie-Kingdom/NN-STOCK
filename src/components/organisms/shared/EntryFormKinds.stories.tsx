@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import {
   acceptedInvoiceDb,
   allocatedDb,
@@ -18,7 +18,7 @@ import {
   submittedInvoiceDb,
 } from "../../../../.storybook/fixtures";
 import { EntryForm } from "./EntryForm";
-import type { Database, Role } from "@/lib/store";
+import { riceSources, type Database, type Role } from "@/lib/store";
 
 // One story per `titles` kind that EntryForm renders, on top of the kinds already
 // covered by Forms.stories.tsx. Every story opens a native modal <dialog>, so a
@@ -141,7 +141,7 @@ export const FoodivaReturnReceive: Story = form(
 
 // --- Branch --------------------------------------------------------------
 
-/** The branch picks the outstanding allocation; the bag count follows it. */
+/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it. */
 export const BranchReceive: Story = form(
   allocatedDb,
   "branch",
@@ -152,7 +152,18 @@ export const BranchReceive: Story = form(
 /** Moving frozen bags to ready-to-sell stock. */
 export const BranchThaw: Story = form(demoDb, "branch", "thaw", "ศาลาแดง");
 
-/** Raw rice for ศาลาแดง, which cooks its own. */
+/** Rice purchase with the round's source picked: the fields follow the pick, not the branch. */
+const ricePurchase = (branch: string, source: string): Story => ({
+  ...form(demoDb, "branch", "ricePurchase", branch),
+  play: async ({ canvasElement }) => {
+    await userEvent.selectOptions(
+      within(canvasElement).getByLabelText(/ข้าวเหนียวมาจาก/),
+      source,
+    );
+  },
+});
+
+/** Nothing picked yet: only the source, supplier and reference show. */
 export const BranchRicePurchase: Story = form(
   demoDb,
   "branch",
@@ -160,12 +171,25 @@ export const BranchRicePurchase: Story = form(
   "ศาลาแดง",
 );
 
-/** มีนบุรี buys rice already cooked, so the form swaps to the cooked-rice fields. */
-export const BranchRicePurchaseMinburi: Story = form(
-  demoDb,
-  "branch",
-  "ricePurchase",
+export const BranchRicePurchaseSelfCook = ricePurchase(
+  "ศาลาแดง",
+  riceSources[0],
+);
+
+export const BranchRicePurchaseBoughtCooked = ricePurchase(
+  "ศาลาแดง",
+  riceSources[1],
+);
+
+export const BranchRicePurchaseMinburiSelfCook = ricePurchase(
   "มีนบุรี",
+  riceSources[0],
+);
+
+/** Bought cooked: the cooked-rice par shows as a hint, it never blocks the save. */
+export const BranchRicePurchaseMinburiBoughtCooked = ricePurchase(
+  "มีนบุรี",
+  riceSources[1],
 );
 
 export const BranchChiliPurchase: Story = form(
@@ -198,6 +222,13 @@ export const BranchRiceIssue: Story = form(
   "ศาลาแดง",
 );
 
+export const BranchRiceIssueMinburi: Story = form(
+  demoDb,
+  "branch",
+  "riceIssue",
+  "มีนบุรี",
+);
+
 export const BranchChiliIssue: Story = form(
   demoDb,
   "branch",
@@ -205,10 +236,24 @@ export const BranchChiliIssue: Story = form(
   "ศาลาแดง",
 );
 
-/** Morning cook: raw rice in, cooked rice out. */
+/** Morning cook: raw rice in, cooked rice out. Cooked may weigh more than raw. */
 export const BranchRice: Story = form(demoDb, "branch", "rice", "ศาลาแดง");
 
-/** End of day at มีนบุรี: what is left of the cooked rice and whether it is reheated. */
+export const BranchRiceMinburi: Story = form(
+  demoDb,
+  "branch",
+  "rice",
+  "มีนบุรี",
+);
+
+/** End of day at either branch: what is left of the cooked rice and whether it is reheated. */
+export const BranchRiceCarrySaladaeng: Story = form(
+  demoDb,
+  "branch",
+  "riceCarry",
+  "ศาลาแดง",
+);
+
 export const BranchRiceCarry: Story = form(
   demoDb,
   "branch",

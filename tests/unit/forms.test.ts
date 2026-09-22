@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { defaults, forms, timeOptions, uploadedFiles } from "@/lib/forms";
+import {
+  defaults,
+  forms,
+  standardIngredients,
+  timeOptions,
+  uploadedFiles,
+} from "@/lib/forms";
 import { materials, mutate, ownerMaterialStock, titles } from "@/lib/store";
 import { last, ready, setup } from "./fixtures";
 
@@ -26,10 +32,10 @@ test("a material purchase with every material ticked lands each one in Owner sto
 });
 
 // QA round 2, BUG-3: the sale form's refusal must carry a reason for FormError.
-test("a sale over the ready stock is refused with a message", () => {
+test("a sale over the thawed stock is refused with a message", () => {
   const s = ready();
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
-  s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+  s.run("branch", "receive", { kg: "5", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "0.5", bags: "1" });
   expect(() =>
     s.run("branch", "sale", {
@@ -42,7 +48,7 @@ test("a sale over the ready stock is refused with a message", () => {
       expense: "0",
       lineMan: "0",
     }),
-  ).toThrow("น้ำหนักขายและ Waste เกินเนื้อพร้อมขาย");
+  ).toThrow("น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)");
 });
 
 test("defaults fill dates, the first select option and zero-allowed numbers", () => {
@@ -104,8 +110,6 @@ test("every time field picks from the half-hour grid that mutate accepts", () =>
       "cmReceive.arrival",
       "return.returnTime",
       "foodivaReturnReceive.receivedTime",
-      "closeDay.time",
-      "config.closeTime",
     ]),
   );
   // No `time` field may keep a free-text default: the grid is the only source.
@@ -120,13 +124,13 @@ test("a dry run of mutate changes neither the database nor the values given to i
   const s = ready();
   const lotId = s.db.lots.at(-1)!.id;
   const before = JSON.stringify(s.db);
-  const values = { branch: "ศาลาแดง", kg: "9999", bags: "1" };
+  const values = { branch: "ศาลาแดง", kg: "9999" };
   expect(() =>
     mutate(s.db, "owner", "allocate", values, lotId, day),
   ).toThrowError();
   mutate(s.db, "owner", "allocate", { ...values, kg: "1" }, lotId, day);
   expect(JSON.stringify(s.db)).toBe(before);
-  expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999", bags: "1" });
+  expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999" });
 });
 
 test("payment slips: optional multi-file field on both payments, stored as JSON storage keys", () => {
@@ -144,4 +148,17 @@ test("payment slips: optional multi-file field on both payments, stored as JSON 
   expect(uploadedFiles("[]")).toEqual([]);
   expect(uploadedFiles("not json")).toEqual([]);
   expect(uploadedFiles('[{"name":"a.jpg"},null]')).toEqual([]);
+});
+
+// B2: raw sticky rice moved to the branches; the Owner purchase form stops offering it.
+test("Owner general purchase no longer lists raw sticky rice", () => {
+  expect(standardIngredients.some((item) => item.includes("ข้าว"))).toBe(false);
+});
+
+test("the rice purchase asks for its source every time, with nothing preselected", () => {
+  expect(forms.ricePurchase[0]).toMatchObject({
+    key: "riceSource",
+    type: "select",
+  });
+  expect(defaults("ricePurchase", day).riceSource).toBe("");
 });
