@@ -78,14 +78,26 @@ async function setWorkingDate(page: Page, date: string) {
   await expect(input).toHaveValue(date);
 }
 
-/** Submits the open dialog and expects it to stay open with a validation message. */
+/** The dialog refuses with `message`. A complete form shows mutate()'s refusal live in
+ * the footer and disables the save (DialogFooter); a form the live check holds back
+ * (allocation left empty) only says why once the save is pressed. */
 async function submitAndExpectError(page: Page, message: RegExp) {
   const dialog = openDialog(page);
-  await pointAndClick(page, dialog.locator('button[type="submit"]').last());
+  const submit = dialog.locator('button[type="submit"]').last();
+  const alert = dialog.getByRole("alert").filter({ hasText: message }).first();
+  if (!(await alert.isVisible()) && (await submit.isEnabled()))
+    await pointAndClick(page, submit);
+  await expect(alert).toBeVisible();
+}
+
+/** An amount over stock: the red "… · กรอกได้สูงสุด X" shows as it is typed and the
+ * save stays disabled, so nothing is clicked. */
+async function expectOverStock(page: Page, message: string) {
+  const dialog = openDialog(page);
   await expect(
-    // The form's error and DialogFooter's live check (e2c8fef) both show it.
     dialog.getByRole("alert").filter({ hasText: message }).first(),
   ).toBeVisible();
+  await expect(dialog.locator('button[type="submit"]').last()).toBeDisabled();
 }
 
 async function cancelDialog(page: Page) {
@@ -249,15 +261,39 @@ async function confirmRiceLeft(page: Page, kg: string) {
   await saveEntry(page);
 }
 
+/** Opens "แบ่งละลาย"; the lot picker shows frozen and chill kg. */
+async function openThaw(page: Page, frozen: string, chill: string) {
+  await button(page, "แบ่งละลาย");
+  await expect(
+    openDialog(page).getByLabel("Lot ต้นทาง").locator("option:checked"),
+  ).toHaveText(
+    new RegExp(
+      `S\\d{6}-\\d{3} · แช่แข็ง ${frozen} กก\\. / คงเหลือชิล ${chill} กก\\.`,
+    ),
+  );
+}
+
 /** Saves the inline materials check with whatever the table holds. */
 async function saveMaterials(page: Page) {
   await button(page, "บันทึกการใช้วัสดุ");
   await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
 }
 
-/** Opens "รับของ" and picks the only allocation waiting for this branch. */
-async function openReceive(page: Page, outstanding: string) {
+/** Opens "รับของ" and picks the only allocation waiting for this branch. The lot
+ * picker says what Owner sent, what is in and what is still to come. */
+async function openReceive(
+  page: Page,
+  outstanding: string,
+  { sent, received }: { sent: string; received: string },
+) {
   await button(page, "รับของ");
+  await expect(
+    openDialog(page).getByLabel("Lot ต้นทาง").locator("option:checked"),
+  ).toHaveText(
+    new RegExp(
+      `S\\d{6}-\\d{3} · ส่งมา ${sent} กก\\. · รับแล้ว ${received} กก\\. · ค้างรับ ${outstanding} กก\\.`,
+    ),
+  );
   const allocation = openDialog(page).getByLabel("ใบจัดสรรที่รับ");
   await expect(allocation.locator("option")).toHaveCount(2);
   await expect(allocation.locator("option").nth(1)).toContainText(
@@ -486,10 +522,16 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await signInAs(page, ACCOUNTS.saladaeng);
       await setWorkingDate(page, DAY1);
       await expect(page.locator("main")).toContainText("งานเข้าใหม่ 1 Lot");
-      const complete = await openReceive(page, "300.00");
+      const complete = await openReceive(page, "300.00", {
+        sent: "300.00",
+        received: "0.00",
+      });
       await expect(complete).toBeChecked();
       await field(page, /น้ำหนักรับเข้าสาขา/, "350");
-      await submitAndExpectError(page, /รับเกินยอดค้างรับ/);
+      await expectOverStock(
+        page,
+        "รับเกินยอดค้างรับ · กรอกได้สูงสุด 300.00 กก.",
+      );
       await field(page, /น้ำหนักรับเข้าสาขา/, "290");
       // Ticked, a shortfall closes the allocation and needs a reason.
       await submitAndExpectError(page, /กรอกเหตุผลส่วนต่าง/);
@@ -503,7 +545,10 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     "สาขาศาลาแดง: รับส่วนที่เหลือ 10 กก. + รับครบใบจัดสรรนี้แล้ว → ไม่มีรายการรอรับ",
     async () => {
-      const complete = await openReceive(page, "10.00");
+      const complete = await openReceive(page, "10.00", {
+        sent: "300.00",
+        received: "290.00",
+      });
       await expect(complete).toBeChecked();
       await field(page, /น้ำหนักรับเข้าสาขา/, "10");
       await saveEntry(page);
@@ -515,11 +560,17 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     "สาขาศาลาแดง: แบ่งละลาย 400 > 300 → สต๊อกแช่แข็งไม่พอ · 70 กก. → ผ่าน · สต๊อก รับ 300 แช่แข็ง 230 ชิล 70",
     async () => {
-      await button(page, "แบ่งละลาย");
+      await openThaw(page, "300.00", "0.00");
+      // The over-stock amount shows before the rest of the form is filled.
       await field(page, /น้ำหนักละลาย/, "400");
-      await field(page, /จำนวนถุงที่ละลาย/, "1");
-      await submitAndExpectError(page, /สต๊อกแช่แข็งไม่พอ/);
+      await expectOverStock(
+        page,
+        "สต๊อกแช่แข็งไม่พอ · กรอกได้สูงสุด 300.00 กก.",
+      );
       await field(page, /น้ำหนักละลาย/, "70");
+      await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1.5");
+      await submitAndExpectError(page, /จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม/);
+      await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
       await saveEntry(page);
       await nav(page, "สต๊อก");
       const stock = tableSection(page, "สต๊อกเนื้อ · ศาลาแดง");
@@ -537,14 +588,35 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await buyRice(page, "นึ่งเอง (ซื้อข้าวดิบ)", "100", "5500");
       await pointAndClick(page, rowButton(page, "เบิกข้าวเหนียวดิบวันนี้"));
       await field(page, /ข้าวเหนียวดิบที่เบิกวันนี้/, "150");
-      await field(page, /ผู้รับของ/, "ผู้ดูแลศาลาแดง");
-      await submitAndExpectError(page, /ข้าวเหนียวดิบในสต๊อกไม่พอ/);
+      await expectOverStock(
+        page,
+        "ข้าวเหนียวดิบในสต๊อกไม่พอ · กรอกได้สูงสุด 100.00 กก.",
+      );
       await field(page, /ข้าวเหนียวดิบที่เบิกวันนี้/, "60");
+      await field(page, /ผู้รับของ/, "ผู้ดูแลศาลาแดง");
+      // The withdrawal card: what leaves, stock now and after.
+      await expect(openDialog(page)).toContainText("ตรวจสอบก่อนบันทึก");
+      await expect(openDialog(page)).toContainText(
+        /ข้าวเหนียวดิบที่เบิก\s*60\.00 กก\./,
+      );
+      await expect(openDialog(page)).toContainText(
+        /ข้าวเหนียวดิบคงเหลือตอนนี้\s*100\.00 กก\./,
+      );
+      await expect(openDialog(page)).toContainText(
+        /ข้าวเหนียวดิบคงเหลือหลังรายการนี้\s*40\.00 กก\./,
+      );
+      await expect(openDialog(page)).toContainText(
+        /ผู้รับของ\s*ผู้ดูแลศาลาแดง/,
+      );
       await saveEntry(page);
       await pointAndClick(page, rowButton(page, "ข้าวเหนียวช่วงเช้า"));
-      await field(page, /ข้าวเหนียวดิบที่นำมาหุง/, "70");
+      // mutate() checks the cooked weight before the raw one, so both are typed first.
       await field(page, /ข้าวเหนียวสุกที่ได้/, "130");
-      await submitAndExpectError(page, /ข้าวเหนียวดิบที่เบิกไว้ไม่พอ/);
+      await field(page, /ข้าวเหนียวดิบที่นำมาหุง/, "70");
+      await expectOverStock(
+        page,
+        "ข้าวเหนียวดิบที่เบิกไว้ไม่พอ กรุณาบันทึกเบิกก่อนหุง · กรอกได้สูงสุด 60.00 กก.",
+      );
       await field(page, /ข้าวเหนียวดิบที่นำมาหุง/, "60");
       await saveEntry(page);
     },
@@ -587,9 +659,9 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await field(page, /น้ำหนักเวสต์/, "5");
       await field(page, /ยอดขาย LINE MAN/, "219600");
       await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "Waste ทดสอบ");
-      await submitAndExpectError(
+      await expectOverStock(
         page,
-        /น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว \(รวมชิลยกมา\)/,
+        "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 70.00 กก.",
       );
     },
   );
@@ -740,10 +812,13 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     async () => {
       await fillCell(page, `จำนวนใช้ ${BOX} วันนี้`, "150");
       await fillCell(page, `ยอดตรวจนับจริง ${BOX}`, "0");
-      await button(page, "บันทึกการใช้วัสดุ");
+      // Over the opening count: the red message shows as typed and the save is disabled.
       await expect(
-        page.getByText(`จำนวนใช้ ${BOX} เกินยอดตั้งต้น`),
+        page.getByText(`จำนวนใช้ ${BOX} เกินยอดตั้งต้น · กรอกได้สูงสุด 100`),
       ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "บันทึกการใช้วัสดุ" }),
+      ).toBeDisabled();
       await fillCell(page, `จำนวนใช้ ${BOX} วันนี้`, "30");
       await fillCell(page, `ยอดตรวจนับจริง ${BOX}`, "-1");
       await button(page, "บันทึกการใช้วัสดุ");
@@ -786,6 +861,10 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     "สาขาศาลาแดง: ขายจากชิลยกมา 45 กล่อง ใช้จริง 4.5 กก. + น้ำพริก 20 หลอด · ฿16,350 ตามเมนู",
     async () => {
       await button(page, "บันทึกยอดขาย");
+      // The lot picker counts the carried-in chill as usable.
+      await expect(
+        openDialog(page).getByLabel("Lot ต้นทาง").locator("option:checked"),
+      ).toHaveText(/ · แช่แข็ง 230\.00 กก\. \/ คงเหลือชิล 4\.50 กก\.$/);
       await field(page, /กล่องมาตรฐาน/, "45");
       await field(page, /น้ำพริกหลอด · จำหน่ายแยก/, "20");
       await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.5");
@@ -906,7 +985,10 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     async () => {
       await signInAs(page, ACCOUNTS.minburi);
       await expect(page.locator("main")).toContainText("งานเข้าใหม่ 1 Lot");
-      const complete = await openReceive(page, "200.00");
+      const complete = await openReceive(page, "200.00", {
+        sent: "200.00",
+        received: "0.00",
+      });
       await expect(
         openDialog(page).getByLabel("ใบจัดสรรที่รับ").locator("option").nth(1),
       ).not.toContainText("300.00");
@@ -949,9 +1031,9 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     "สาขามีนบุรี: แบ่งละลาย 2 กก. · ขาย 10 กล่อง ใช้จริง 1.0 เวสต์ 1.0 · LINE MAN 3,500 · เช็ควัสดุ",
     async () => {
-      await button(page, "แบ่งละลาย");
+      await openThaw(page, "199.50", "0.00");
       await field(page, /น้ำหนักละลาย/, "2");
-      await field(page, /จำนวนถุงที่ละลาย/, "1");
+      await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
       await saveEntry(page);
       await button(page, "บันทึกยอดขาย");
       await field(page, /กล่องมาตรฐาน/, "10");
@@ -1087,9 +1169,9 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await expect(page.locator("main")).not.toContainText(
         "ถูกล็อก แก้ไขไม่ได้",
       );
-      await button(page, "แบ่งละลาย");
+      await openThaw(page, "230.00", "0.00");
       await field(page, /น้ำหนักละลาย/, "0.2");
-      await field(page, /จำนวนถุงที่ละลาย/, "1");
+      await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
       await saveEntry(page);
       await button(page, "บันทึกยอดขาย");
       await field(page, /กล่องมาตรฐาน/, "2");

@@ -976,7 +976,11 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         await signInAs(page, account);
         for (const label of labels) {
           await tab(page, label);
-          await expect(page).toHaveURL(/\/(owner|foodiva|chef|branch)\/[\w-]+/);
+          // The first tab is what the account root already shows, so its click may
+          // leave the URL at /<account>; any other tab has its own path.
+          await expect(page).toHaveURL(
+            /\/(owner|foodiva|chef|branch)(\/[\w-]+)?(?:[?#]|$)/,
+          );
           await expectCleanNumbers(page);
           if (label === "ประวัติ" || label === "Log")
             await expect(main(page)).toContainText("ยังไม่มีประวัติ");

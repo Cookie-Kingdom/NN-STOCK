@@ -62,12 +62,17 @@ async function setFormDate(page: Page, date: string) {
   await expect(input).toHaveValue(date);
 }
 
-/** Submits the open dialog and expects it to stay open with the message. */
+/** Expects the open dialog to refuse with the message and stay open. A complete form
+ * shows mutate()'s refusal live in the footer with the save disabled, so it is only
+ * pressed when it still can be (a form that checks on save). */
 async function submitAndExpectError(page: Page, message: string | RegExp) {
   const open = dialog(page);
-  await pointAndClick(page, open.locator('button[type="submit"]').last());
+  const submit = open.locator('button[type="submit"]').last();
   // The footer and the form body can both carry the same message.
-  await expect(alertIn(open, message).first()).toBeVisible();
+  const alert = alertIn(open, message).first();
+  if (!(await alert.isVisible()) && (await submit.isEnabled()))
+    await pointAndClick(page, submit);
+  await expect(alert).toBeVisible();
   await expect(open).toBeVisible();
 }
 
