@@ -4,7 +4,7 @@ import {
   editApprovers,
   editDecisions,
   editRequestRows,
-  roleName,
+  entryBy,
   titles,
   visibleEntries,
   type Database,
@@ -54,7 +54,7 @@ export function editRequestAlerts(
     .map(({ request, decision }) => ({
       title: `คำขอแก้ไข${editOutcome(decision)} · ${titles[request.values.targetKind] || request.values.targetKind} ${request.values.targetDate}`,
       detail: decision
-        ? `${roleName[decision.role]} ${decision.values.decision}${decision.values.note ? ` · ${decision.values.note}` : ""}`
+        ? `${entryBy(decision)} ${decision.values.decision}${decision.values.note ? ` · ${decision.values.note}` : ""}`
         : "รอพิจารณา · ค่าจะเปลี่ยนเมื่ออนุมัติแล้ว",
       tab: "history" as const,
     }));

@@ -1,14 +1,17 @@
-import { Beef, Building2, Factory, Store } from "lucide-react";
+import { Beef, Briefcase, Building2, Factory, Store } from "lucide-react";
 import type { Role } from "@/lib/store";
 import type { Tab } from "@/lib/nav";
 
-export type AccountId = "owner" | "foodiva" | "chef" | "saladaeng" | "minburi";
+export type AccountId =
+  "owner" | "manager" | "foodiva" | "chef" | "saladaeng" | "minburi";
 
 export type Account = {
   id: AccountId;
   role: Role;
   /** Set only for branch accounts — the branch whose data this account may touch. */
   branch?: string;
+  /** No Owner Dashboard and no sales money (Account Manager). */
+  hidesSales?: boolean;
   name: string;
   title: string;
   summary: string;
@@ -27,6 +30,20 @@ export const accounts: Account[] = [
     path: "/owner",
     homeTab: "owner-dashboard",
     icon: Building2,
+  },
+  {
+    /* Runs the business for the Owner, so it writes as role "owner" (entries cannot tell the
+     * two apart). Everything the Owner does except the dashboard and sales money. */
+    id: "manager",
+    role: "owner",
+    hidesSales: true,
+    name: "Account Manager",
+    title: "ผู้จัดการบัญชี · ทำงานแทนเจ้าของ",
+    summary:
+      "จัดซื้อ PO, Invoice, การจ่ายเงิน ต้นทุน สต๊อก และตั้งค่าแทนเจ้าของ",
+    path: "/owner",
+    homeTab: "po",
+    icon: Briefcase,
   },
   {
     id: "foodiva",

@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "artifacts/**",
     "storybook-static/**",
     "uat-work/**",
+    // Agent worktrees: full checkouts with their own .next builds.
+    ".claude/**",
   ]),
 ]);
 

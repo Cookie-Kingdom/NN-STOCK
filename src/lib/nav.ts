@@ -94,6 +94,11 @@ export const ownerNav: NavGroup[] = [
   },
 ];
 
+/** Account Manager: the Owner's workspace without the dashboard (it shows sales money). */
+export const managerNav: NavGroup[] = ownerNav.filter(
+  (group) => !group.items.some((item) => item.id === "owner-dashboard"),
+);
+
 export const foodivaNav: NavGroup[] = [
   {
     items: [

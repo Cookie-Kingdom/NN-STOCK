@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
@@ -28,20 +29,29 @@ import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
-import { ownerNav } from "@/lib/nav";
+import { managerNav, ownerNav } from "@/lib/nav";
 import { branches, shipments } from "@/lib/store";
 
+/** The Owner's workspace, also the Account Manager's (`hidesSales`): same screens minus the
+ *  dashboard, and useWorkspace hands it a database without sales money. */
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, date, open, setTab, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
   const everyAlert = useOwnerAlerts(db);
   const alerts = ws.loaded ? everyAlert : noOwnerAlerts;
+  const hideSales = !!account.hidesSales;
+  const router = useRouter();
+  // /owner lands on the dashboard; send the manager to its own home tab instead.
+  const noDashboard = hideSales && tab === "owner-dashboard";
+  useEffect(() => {
+    if (noDashboard) router.replace(`${account.path}/${account.homeTab}`);
+  }, [noDashboard, router, account.path, account.homeTab]);
 
   return (
     <WorkspaceShell
       account={account}
-      nav={ownerNav}
+      nav={hideSales ? managerNav : ownerNav}
       tab={tab}
       onTab={setTab}
       date={date}
@@ -58,7 +68,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
     >
       <OwnerAlertBanners db={db} alerts={alerts} tab={tab} onTab={setTab} />
 
-      {tab === "owner-dashboard" && (
+      {tab === "owner-dashboard" && !hideSales && (
         <OwnerDashboard db={db} date={date} onNavigate={setTab} />
       )}
       {tab === "po" && <PurchaseOrderView db={db} open={open} />}
@@ -133,7 +143,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
             <Button onClick={() => open("unlock", "")}>ปลดล็อกวัน</Button>
           </ButtonRow>
           <OwnerDailyStatus db={db} date={date} />
-          <Report db={db} />
+          <Report db={db} hideSales={hideSales} />
         </>
       )}
 
@@ -143,6 +153,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           db={db}
           role={ws.role}
           branch={ws.branch}
+          hideSales={hideSales}
           onChanged={ws.setToast}
         />
       )}

@@ -12,6 +12,9 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
+  /** "manager": the Account Manager wrote it as role "owner" (C4). Absent: the role's own
+   *  account (for "owner", the Owner). Stamped at save by persistence, checked by save_app_state. */
+  actor?: "manager";
 };
 export type Lot = {
   id: string;
@@ -36,6 +39,9 @@ export const roleName = {
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
+/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner. */
+export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
+  e.actor === "manager" ? "Account Manager" : roleName[e.role];
 export const materials = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",
@@ -131,8 +137,9 @@ export const titles: Record<string, string> = {
   editRequest: "ขอแก้ไขรายการ",
   editDecision: "พิจารณาคำขอแก้ไข",
 };
-/** Roles that correct history directly and decide edit requests (spec 8.1). The Manager role
- *  (item 11) joins this list once it exists; every check reads the list, none names "owner". */
+/** Roles that correct history directly and decide edit requests (spec 8.1). The Account Manager
+ *  (C4) signs in as role "owner", so it is an approver through this entry; every check reads the
+ *  list, none names "owner". */
 export const editApprovers: Role[] = ["owner"];
 /** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
  *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
@@ -1237,12 +1244,15 @@ const hiddenKeys = (role: Role) =>
   role === "cm"
     ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
     : ["meatCost", "wasteCost"];
-const hide = (values: Values, role: Role) =>
+const omit = (values: Values, keys: string[]) =>
   Object.fromEntries(
     Object.entries(values).filter(
-      ([k]) => !hiddenKeys(role).includes(k.replace(/^(to|from)\./, "")),
+      ([k]) => !keys.includes(k.replace(/^(to|from)\./, "")),
     ),
   );
+const hide = (values: Values, role: Role) => omit(values, hiddenKeys(role));
+/** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
+export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
 const editKinds = ["entryEdit", "editRequest", "editDecision"];
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
 const chefHouseKinds = [
@@ -1274,13 +1284,24 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
     );
 }
 /** The database a role's screens read. Chef House gets only shipments with a smoke PO, stripped of
- * purchase POs and prices; other roles get `db` untouched. Saves still go through the full database.
- * ponytail: screen-level only, the full payload still reaches the browser (RLS reads all of app_state). */
+ * purchase POs and prices; other roles get `db` untouched. `hideSales` (Account Manager) also drops
+ * every sale's money in (`saleMoneyKeys`, edits included). Saves still go through the full database.
+ * ponytail: screen-level only, the full payload still reaches the browser (RLS reads all of app_state),
+ * so a manager with devtools can read sales. Real hiding needs sales split out of the one payload. */
 export function visibleDatabase(
   db: Database,
   role: Role,
   branch?: string,
+  hideSales = false,
 ): Database {
+  if (hideSales)
+    db = {
+      ...db,
+      entries: db.entries.map((e) => ({
+        ...e,
+        values: omit(e.values, saleMoneyKeys),
+      })),
+    };
   if (role !== "cm") return db;
   const lots = shipments(db)
     .filter((lot) => entries(db, "smokeOrder", lot.id).length)
