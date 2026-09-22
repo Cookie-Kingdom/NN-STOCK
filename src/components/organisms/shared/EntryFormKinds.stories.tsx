@@ -256,6 +256,39 @@ export const BranchChiliIssue: Story = form(
   "ศาลาแดง",
 );
 
+/** A filled withdrawal: ตรวจสอบก่อนบันทึก shows what is taken, stock now and stock after. */
+const issueFilled = (
+  kind: string,
+  branch: string,
+  typed: [RegExp, string][],
+): Story => ({
+  ...form(demoDb, "branch", kind, branch),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    for (const [label, value] of typed) {
+      const field = body.getByLabelText(label);
+      await userEvent.clear(field);
+      await userEvent.type(field, value);
+    }
+  },
+});
+
+export const BranchRiceIssueFilled = issueFilled("riceIssue", "ศาลาแดง", [
+  [/ข้าวเหนียวดิบที่เบิก/, "2"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
+
+export const BranchChiliIssueFilled = issueFilled("chiliIssue", "ศาลาแดง", [
+  [/น้ำพริกที่เบิก/, "3"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
+
+export const BranchSupplyIssueFilled = issueFilled("supplyIssue", "ศาลาแดง", [
+  [/ข้าวเหนียวดิบที่เบิก/, "2"],
+  [/น้ำพริกที่เบิก/, "3"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
+
 /** Morning cook: raw rice in, cooked rice out. Cooked may weigh more than raw. */
 export const BranchRice: Story = form(demoDb, "branch", "rice", "ศาลาแดง");
 
