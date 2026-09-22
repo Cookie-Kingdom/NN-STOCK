@@ -5,7 +5,7 @@ import { Input } from "@/components/atoms/Input";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField } from "@/components/molecules/FormField";
+import { FormField, PrefillCaption } from "@/components/molecules/FormField";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { Dialog } from "@/components/organisms/shared/Dialog";
@@ -31,7 +31,8 @@ import {
  * each. Only POs with kg left are listed, each showing what it still has, so the Owner
  * sees the remaining while choosing; whatever is not asked for stays for the next Request.
  * With `lotId` it edits that Request instead (until Foodiva makes the manifest): its own
- * lines are pre-filled and count as still available to their POs.
+ * lines are pre-filled and count as still available to their POs. A new Request starts
+ * with every PO's whole remaining kg, captioned, for the Owner to lower or clear.
  */
 export function ShipmentRequestForm({
   db,
@@ -60,7 +61,15 @@ export function ShipmentRequestForm({
   const remaining = (poId: string) => poRemainingKg(db, poId) + ownKg(poId);
   const pos = purchaseLots(db).filter((lot) => remaining(lot.id) > 0.001);
   const [kg, setKg] = useState<Record<string, string>>(() =>
-    Object.fromEntries(own.map((line) => [line.lotId, String(line.kg)])),
+    editing
+      ? Object.fromEntries(own.map((line) => [line.lotId, String(line.kg)]))
+      : Object.fromEntries(
+          pos.map((lot) => [lot.id, String(+remaining(lot.id).toFixed(6))]),
+        ),
+  );
+  /** POs still holding the remaining kg a new Request opened with; an edit drops one. */
+  const [prefilled, setPrefilled] = useState(
+    () => new Set(editing ? [] : pos.map((lot) => lot.id)),
   );
   const [note, setNote] = useState(editing?.values.note || "");
   const kind = editing ? "shipmentRequestEdit" : "shipmentRequest";
@@ -128,23 +137,33 @@ export function ShipmentRequestForm({
               `${fmt(readyForChefHouse(db, lot.id))} กก.`,
               `${fmt(drawnKg(db, lot.id) - ownKg(lot.id))} กก.`,
               <strong key="remaining">{fmt(remaining(lot.id))} กก.</strong>,
-              <Input
-                key="kg"
-                variant="table"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                aria-label={`น้ำหนักที่จะส่งของ ${lot.poId}`}
-                placeholder="0"
-                value={kg[lot.id] || ""}
-                onChange={(event) =>
-                  setKg((current) => ({
-                    ...current,
-                    [lot.id]: event.target.value,
-                  }))
-                }
-              />,
+              <div key="kg">
+                <Input
+                  variant="table"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  aria-label={`น้ำหนักที่จะส่งของ ${lot.poId}`}
+                  placeholder="0"
+                  prefilled={prefilled.has(lot.id) ? "auto" : undefined}
+                  value={kg[lot.id] || ""}
+                  onChange={(event) => {
+                    setKg((current) => ({
+                      ...current,
+                      [lot.id]: event.target.value,
+                    }));
+                    setPrefilled((current) => {
+                      const next = new Set(current);
+                      next.delete(lot.id);
+                      return next;
+                    });
+                  }}
+                />
+                {prefilled.has(lot.id) && (
+                  <PrefillCaption label="ยอดคงเหลือ PO" />
+                )}
+              </div>,
             ])}
           />
           <FormField label="หมายเหตุ" optional>

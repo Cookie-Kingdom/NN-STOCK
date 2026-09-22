@@ -9,10 +9,11 @@ import {
   demoDb,
   multiPoPackedDb,
   nextDay,
+  prefillHistoryDb,
   rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
-import { mutate, visibleDatabase } from "@/lib/store";
+import { materials, mutate, visibleDatabase } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { AllocationForm } from "./AllocationForm";
@@ -202,6 +203,22 @@ export const AllocationPartlyAllocated: Story = {
   ),
 };
 
+/** The last allocation went ศาลาแดง 6 / มีนบุรี 4, so the 25 kg left open split
+ *  15 / 10, captioned ตามสัดส่วนครั้งก่อน. Typing or ที่เหลือทั้งหมด drops the caption. */
+export const AllocationLastRatio: Story = {
+  parameters: { db: prefillHistoryDb },
+  render: () => (
+    <AllocationForm
+      db={prefillHistoryDb}
+      lotId={prefillHistoryDb.lots.at(-1)!.id}
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
 export const MaterialPurchase: Story = {
   parameters: { db: demoDb },
   render: () => (
@@ -213,6 +230,25 @@ export const MaterialPurchase: Story = {
       onSaved={onSaved}
     />
   ),
+};
+
+/** Ticking a material bought before fills จำนวน ราคา and ผู้จำหน่าย from that
+ *  purchase (200 × ฿3 from ร้านวัสดุ), each captioned with its date. */
+export const MaterialPurchasePrefilled: Story = {
+  parameters: { db: prefillHistoryDb },
+  render: () => (
+    <MaterialPurchaseForm
+      db={prefillHistoryDb}
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    await userEvent.click(form.getByLabelText(`ซื้อ ${materials[0]}`));
+  },
 };
 
 export const MaterialTransfer: Story = {
@@ -228,6 +264,25 @@ export const MaterialTransfer: Story = {
   ),
 };
 
+/** Ticking ศาลาแดง fills the จำนวน up to the branch's par (เติมถึง par) and ผู้รับ
+ *  from the branch's last transfer. */
+export const MaterialTransferPrefilled: Story = {
+  parameters: { db: prefillHistoryDb },
+  render: () => (
+    <MaterialTransferForm
+      db={prefillHistoryDb}
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    await userEvent.click(form.getByLabelText(`ส่ง ${materials[0]} ไปศาลาแดง`));
+  },
+};
+
 export const GeneralPurchase: Story = {
   parameters: { db: demoDb },
   render: () => (
@@ -238,6 +293,27 @@ export const GeneralPurchase: Story = {
       onSaved={onSaved}
     />
   ),
+};
+
+/** Picking an item bought before fills หน่วย ราคา and ผู้จำหน่าย (and กลุ่ม) from its
+ *  last purchase, each captioned with the date. */
+export const GeneralPurchasePrefilled: Story = {
+  parameters: { db: prefillHistoryDb },
+  render: () => (
+    <GeneralPurchaseForm
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    await userEvent.selectOptions(
+      form.getByLabelText("เลือกวัตถุดิบ 1"),
+      "น้ำพริกหลอด",
+    );
+  },
 };
 
 /** Before closing, Chef House can still correct arrival, pre-smoke kg and the smoke log.

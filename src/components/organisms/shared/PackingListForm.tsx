@@ -13,9 +13,11 @@ import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
+import { usePrefill } from "@/components/organisms/shared/usePrefill";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
+import { lastLabel, lastValue, type Prefill } from "@/lib/prefill";
 import {
   entries,
   mutate,
@@ -29,6 +31,10 @@ import {
 const DEFAULT_ROWS = 10;
 const MAX_ROWS = 200;
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+
+/** The filled box weights added up, to 0.01 kg like the field, so float noise never shows. */
+const boxTotal = (rows: (number | undefined)[]) =>
+  Math.round(rows.reduce<number>((sum, kg) => sum + (kg ?? 0), 0) * 100) / 100;
 
 /**
  * Foodiva's own Packing List, kept apart from the transport document: the file can
@@ -71,23 +77,6 @@ export function PackingListForm({
     : entries(db, "packingList", lotId).at(-1);
   // Defaults come from the purchase POs on this shipment.
   const pos = lot ? shipmentLines(lot).map((line) => line.lotId) : [];
-  const [values, setValues] = useState({
-    invoiceNo:
-      saved?.values.invoiceNo ??
-      pos
-        .map((id) => entries(db, "foodivaConfirm", id).at(-1)?.values.invoiceNo)
-        .filter(Boolean)
-        .join(", "),
-    product:
-      saved?.values.product ??
-      db.lots.find((l) => l.id === pos[0])?.values.productName ??
-      "",
-    code: saved?.values.code ?? "",
-    invWeightKg: saved?.values.invWeightKg ?? lot?.values.requestedKg ?? "",
-    slicedLostKg: saved?.values.slicedLostKg ?? "",
-  });
-  const set = (key: keyof typeof values, value: string) =>
-    setValues((current) => ({ ...current, [key]: value }));
   /* One entry per row, so deleting a row shifts the ones under it up — the box
    * number is the position in the list, the way the saved value stores it. */
   const [weights, setWeights] = useState<(number | undefined)[]>(() => {
@@ -98,6 +87,62 @@ export function PackingListForm({
       (_, index) => listed[index],
     );
   });
+  /** The prefill for the current product and box weights. A saved list or draft keeps
+   *  its own values: nothing is filled over them. */
+  const prefillFor = (
+    product: string,
+    rows: (number | undefined)[],
+  ): Prefill => {
+    const out: Prefill = { values: {}, sources: {} };
+    if (saved) return out;
+    const add = (key: string, value: string | undefined, label: string) => {
+      if (!value) return;
+      out.values[key] = value;
+      out.sources[key] = { label };
+    };
+    add(
+      "invoiceNo",
+      pos
+        .map((id) => entries(db, "foodivaConfirm", id).at(-1)?.values.invoiceNo)
+        .filter(Boolean)
+        .join(", "),
+      "ตาม Invoice",
+    );
+    add(
+      "product",
+      db.lots.find((l) => l.id === pos[0])?.values.productName,
+      "ตาม PO",
+    );
+    add("invWeightKg", lot?.values.requestedKg, "ตาม Request");
+    const code = lastValue(db, "packingList", "code", {
+      where: (entry) => entry.values.product === product,
+    });
+    if (code) add("code", code.value, lastLabel(code.date));
+    // Lost should match the box total, so it follows the weights until Foodiva types it.
+    const total = boxTotal(rows);
+    if (total > 0) {
+      out.values.slicedLostKg = String(total);
+      out.sources.slicedLostKg = {
+        label: "ตามยอดรวมกล่องรับเข้า",
+        expected: true,
+      };
+    }
+    return out;
+  };
+  const { values, sources, set, refill } = usePrefill(() => {
+    const base = {
+      invoiceNo: saved?.values.invoiceNo ?? "",
+      product: saved?.values.product ?? "",
+      code: saved?.values.code ?? "",
+      invWeightKg: saved?.values.invWeightKg ?? "",
+      slicedLostKg: saved?.values.slicedLostKg ?? "",
+    };
+    const product =
+      saved?.values.product ??
+      db.lots.find((l) => l.id === pos[0])?.values.productName ??
+      "";
+    return { base, prefill: prefillFor(product, weights) };
+  });
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState(saved?.values.attachment ?? "");
   const [confirmPartial, setConfirmPartial] = useState(false);
@@ -107,7 +152,9 @@ export function PackingListForm({
   const editRows = (
     next: (current: (number | undefined)[]) => typeof current,
   ) => {
-    setWeights(next);
+    const rows = next(weights);
+    setWeights(rows);
+    refill(prefillFor(values.product, rows));
     setConfirmPartial(false);
   };
   const boxes = weights.map((weight, index) => ({ no: index + 1, weight }));
@@ -185,21 +232,25 @@ export function PackingListForm({
             แถว) แนบไฟล์ได้เพื่อเก็บเป็นหลักฐาน ระบบยังไม่ดึงข้อมูลจากไฟล์
           </Notice>
           <FormGrid>
-            <FormField label="เลข Invoice">
+            <FormField label="เลข Invoice" prefilled={sources.invoiceNo}>
               <Input
                 type="text"
                 value={values.invoiceNo}
                 onChange={(event) => set("invoiceNo", event.target.value)}
               />
             </FormField>
-            <FormField label="รายการสินค้า">
+            <FormField label="รายการสินค้า" prefilled={sources.product}>
               <Input
                 type="text"
                 value={values.product}
-                onChange={(event) => set("product", event.target.value)}
+                onChange={(event) => {
+                  set("product", event.target.value);
+                  // The CODE follows the product until Foodiva types one.
+                  refill(prefillFor(event.target.value, weights));
+                }}
               />
             </FormField>
-            <FormField label="CODE สินค้า" optional>
+            <FormField label="CODE สินค้า" optional prefilled={sources.code}>
               <Input
                 type="text"
                 value={values.code}
@@ -210,6 +261,7 @@ export function PackingListForm({
               label="Inv. Weight (กก.)"
               optional
               hint="น้ำหนักตาม Invoice ก่อนตัด"
+              prefilled={sources.invWeightKg}
             >
               <Input
                 type="number"
@@ -222,6 +274,7 @@ export function PackingListForm({
             <FormField
               label="Sliced Weight Lost (กก.)"
               hint={`น้ำหนักเนื้อที่ใช้ได้จริงหลังตัด ควรตรงกับยอดรวมกล่องรับเข้า (${filledTotal.toFixed(2)} กก.)`}
+              prefilled={sources.slicedLostKg}
             >
               <Input
                 type="number"

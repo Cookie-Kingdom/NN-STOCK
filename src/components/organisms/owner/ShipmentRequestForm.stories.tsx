@@ -18,7 +18,8 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
-/** PO 1,000 kg with 400 already requested (600 left) plus PO 300 / 700 / 500 with nothing sent. */
+/** PO 1,000 kg with 400 already requested (600 left) plus PO 300 / 700 / 500 with nothing
+ *  sent. A new Request starts with each PO's whole remaining kg, captioned ยอดคงเหลือ PO. */
 export const SeveralPurchasePos: Story = {
   render: () => (
     <ShipmentRequestForm

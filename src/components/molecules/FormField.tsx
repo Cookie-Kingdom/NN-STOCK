@@ -43,7 +43,37 @@ export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
   wide?: boolean;
   /** The control — use `Input` / `Select` / `Textarea` with `variant="form"`. */
   children: ReactNode;
+  /** The system filled this value in: tints the control and says where it came from.
+   *  `expected` marks a predicted scale or count reading the user must check. */
+  prefilled?: { label: string; expected?: boolean };
 };
+
+/** The control inside a prefilled field, by `data-prefilled` on the label. Same look as
+ *  `controlVariants`' `prefilled` variant. */
+const prefilledControl =
+  "data-[prefilled=auto]:[&_:is(input,select,textarea)]:bg-accent-subtle/60 data-[prefilled=expected]:[&_:is(input,select,textarea)]:border-warning data-[prefilled=expected]:[&_:is(input,select,textarea)]:bg-warning-subtle";
+
+/**
+ * The caption under a prefilled control: where the value came from, and for a
+ * predicted reading a warning to weigh or count it. aria-hidden keeps it out of the
+ * field's accessible name, which the wrapping label would otherwise extend.
+ */
+export function PrefillCaption({
+  label,
+  expected,
+}: {
+  label: string;
+  expected?: boolean;
+}) {
+  return (
+    <Caption
+      aria-hidden
+      className={cn("mt-1.5 block", expected && "font-medium text-warning")}
+    >
+      {expected ? `${label} · ค่าคาดการณ์ — ตรวจ/ชั่งจริงแล้วแก้` : label}
+    </Caption>
+  );
+}
 
 /**
  * One labelled control in a form: a `<label>` wrapping its control, so no `htmlFor`/`id`
@@ -56,15 +86,23 @@ export function FormField({
   optional = false,
   hint,
   wide = false,
+  prefilled,
   className,
   children,
   ...props
 }: FormFieldProps) {
   return (
-    <label className={fieldClassName(wide, className)} {...props}>
+    <label
+      className={fieldClassName(wide, cn(prefilledControl, className))}
+      data-prefilled={
+        prefilled ? (prefilled.expected ? "expected" : "auto") : undefined
+      }
+      {...props}
+    >
       {label}
       {optional && <OptionalMark />}
       {children}
+      {prefilled && <PrefillCaption {...prefilled} />}
       {hint && <FieldHint>{hint}</FieldHint>}
     </label>
   );

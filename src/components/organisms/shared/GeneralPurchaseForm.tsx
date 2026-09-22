@@ -18,6 +18,7 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
+import { lastLabel, lastValue, type PrefillSource } from "@/lib/prefill";
 import { mutate, type Database } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 import { standardIngredients } from "@/lib/forms";
@@ -70,6 +71,29 @@ function readSavedIngredients(): string[] {
 }
 
 const lineField = "text-caption";
+
+/** Line fields an item brings from its last purchase, and the entry key each is
+ *  stored under. */
+const carried = [
+  ["category", "purchaseCategory"],
+  ["unit", "unit"],
+  ["unitPrice", "unitPrice"],
+  ["supplier", "supplier"],
+] as const;
+type CarriedKey = (typeof carried)[number][0];
+
+/** What the last purchase of `item` had in each carried field. */
+function suggestFromItem(db: Database, item: string) {
+  const out: Partial<Record<CarriedKey, { value: string; date: string }>> = {};
+  if (!item || item === "__custom__") return out;
+  for (const [key, stored] of carried) {
+    const last = lastValue(db, "generalPurchase", stored, {
+      where: (entry) => entry.values.item?.trim() === item,
+    });
+    if (last) out[key] = last;
+  }
+  return out;
+}
 
 /** The whole save, as a pure function of the starting database, so the live check
  *  can dry-run the very same code the ยืนยัน does. */
@@ -161,32 +185,63 @@ export function GeneralPurchaseForm({
       sum + Number(line.quantity || 0) * Number(line.unitPrice || 0),
     0,
   );
+  /** Captions of the values an item filled in, by `lineId:key`. */
+  const [sources, setSources] = useState<Record<string, PrefillSource>>({});
+  /** `lineId:key` of the fields the user has changed: an item never refills them. */
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
   const update = (
     id: string,
     key: keyof Omit<GeneralPurchaseLine, "id">,
     value: string,
   ) => {
+    if (key === "item") return chooseItem(id, value);
     setLines((current) =>
       current.map((line) =>
         line.id === id ? { ...line, [key]: value } : line,
       ),
     );
+    const name = `${id}:${key}`;
+    setTouched((current) => new Set(current).add(name));
+    setSources((current) => {
+      const next = { ...current };
+      delete next[name];
+      return next;
+    });
     setError("");
   };
-  const chooseIngredient = (id: string, item: string) => {
+  /** Sets the line's item and, in the fields the user has not changed, what the last
+   *  purchase of that item had. Fields an earlier item filled go back to blank when the
+   *  new one was never bought. */
+  const chooseItem = (id: string, item: string) => {
+    const line = lines.find((current) => current.id === id);
+    if (!line) return;
+    const suggestion = suggestFromItem(latestDatabase(), item.trim());
+    const blank = newGeneralPurchaseLine("");
+    const next: GeneralPurchaseLine = { ...line, item };
+    const nextSources = { ...sources };
+    for (const [key] of carried) {
+      const name = `${id}:${key}`;
+      if (touched.has(name)) continue;
+      const last = suggestion[key];
+      if (last) {
+        next[key] = last.value;
+        nextSources[name] = { label: lastLabel(last.date) };
+      } else if (nextSources[name]) {
+        next[key] = blank[key];
+        delete nextSources[name];
+      }
+    }
+    if (ingredientUnits[item]) {
+      next.unit = ingredientUnits[item];
+      delete nextSources[`${id}:unit`];
+    }
     setLines((current) =>
-      current.map((line) =>
-        line.id === id
-          ? {
-              ...line,
-              item,
-              unit: ingredientUnits[item] || line.unit,
-            }
-          : line,
-      ),
+      current.map((other) => (other.id === id ? next : other)),
     );
+    setSources(nextSources);
     setError("");
   };
+  const source = (id: string, key: CarriedKey) => sources[`${id}:${key}`];
   const complete = lines.every(
     (line) =>
       line.item.trim() &&
@@ -284,7 +339,11 @@ export function GeneralPurchaseForm({
                     </Button>
                   </div>
                   <div className="grid grid-cols-4 gap-4 p-4.5 max-[800px]:grid-cols-2 max-[560px]:grid-cols-1">
-                    <FormField className={lineField} label="กลุ่มการซื้อ">
+                    <FormField
+                      className={lineField}
+                      label="กลุ่มการซื้อ"
+                      prefilled={source(line.id, "category")}
+                    >
                       <Select
                         aria-label={`กลุ่มการซื้อ ${index + 1}`}
                         value={line.category}
@@ -303,7 +362,7 @@ export function GeneralPurchaseForm({
                           aria-label={`เลือกวัตถุดิบ ${index + 1}`}
                           value={ingredientChoice}
                           onChange={(event) =>
-                            chooseIngredient(line.id, event.target.value)
+                            chooseItem(line.id, event.target.value)
                           }
                         >
                           <option value="">เลือกวัตถุดิบ</option>
@@ -365,7 +424,13 @@ export function GeneralPurchaseForm({
                         }
                       />
                     </FormField>
-                    <FormField className={lineField} label="หน่วย">
+                    <FormField
+                      className={lineField}
+                      label="หน่วย"
+                      prefilled={
+                        fixedUnit ? undefined : source(line.id, "unit")
+                      }
+                    >
                       <Input
                         type="text"
                         aria-label={`หน่วย ${index + 1}`}
@@ -377,7 +442,11 @@ export function GeneralPurchaseForm({
                         }
                       />
                     </FormField>
-                    <FormField className={lineField} label="ราคาซื้อ / หน่วย">
+                    <FormField
+                      className={lineField}
+                      label="ราคาซื้อ / หน่วย"
+                      prefilled={source(line.id, "unitPrice")}
+                    >
                       <Input
                         type="number"
                         min="0"
@@ -391,7 +460,11 @@ export function GeneralPurchaseForm({
                         }
                       />
                     </FormField>
-                    <FormField className={lineField} label="ผู้จำหน่าย">
+                    <FormField
+                      className={lineField}
+                      label="ผู้จำหน่าย"
+                      prefilled={source(line.id, "supplier")}
+                    >
                       <Input
                         type="text"
                         aria-label={`ผู้จำหน่าย ${index + 1}`}

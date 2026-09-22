@@ -14,11 +14,52 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
-import { branches, centralStock, mutate, type Database } from "@/lib/store";
+import type { PrefillSource } from "@/lib/prefill";
+import {
+  branches,
+  centralStock,
+  entries,
+  mutate,
+  n,
+  type Database,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const typed = (kg: Record<string, string>) =>
   branches.filter((name) => (kg[name] || "").trim() && Number(kg[name]) !== 0);
+
+const byLastRatio: PrefillSource = { label: "ตามสัดส่วนครั้งก่อน" };
+
+/** `stock` split between the branches in the proportion of the last allocation (the
+ *  allocates saved together with the latest one: same lot, same day). The last branch
+ *  takes what rounding leaves, so the split adds up to the stock exactly. Empty when
+ *  nothing was allocated before or there is no stock. */
+function splitByLastRatio(db: Database, stock: number) {
+  const all = entries(db, "allocate");
+  const last = all.at(-1);
+  if (!last || stock <= 0) return {};
+  const round = all.filter(
+    (entry) => entry.lotId === last.lotId && entry.date === last.date,
+  );
+  const share = (branch: string) =>
+    round
+      .filter((entry) => entry.values.branch === branch)
+      .reduce((sum, entry) => sum + n(entry.values, "kg"), 0);
+  const total = branches.reduce((sum, branch) => sum + share(branch), 0);
+  if (total <= 0) return {};
+  const shared = branches.filter((branch) => share(branch) > 0);
+  const kg: Record<string, string> = {};
+  let given = 0;
+  for (const [index, branch] of shared.entries()) {
+    const value =
+      index === shared.length - 1
+        ? +(stock - given).toFixed(6)
+        : Math.round(((stock * share(branch)) / total) * 100) / 100;
+    kg[branch] = String(value);
+    given += value;
+  }
+  return kg;
+}
 
 /** One allocate per branch with kg typed, built from the inputs as they stand. Shared
  *  by the save and the live check so both refuse for the same reason. */
@@ -68,7 +109,17 @@ export function AllocationForm({
   onSaved: (summary: string) => void;
 }) {
   const stock = centralStock(db, lotId);
-  const [kg, setKg] = useState<Record<string, string>>({});
+  const [kg, setKg] = useState<Record<string, string>>(() =>
+    splitByLastRatio(db, stock),
+  );
+  /** Branches still holding the split the form opened with; an edit drops one. */
+  const [prefilled, setPrefilled] = useState(() => new Set(Object.keys(kg)));
+  const own = (branch: string) =>
+    setPrefilled((current) => {
+      const next = new Set(current);
+      next.delete(branch);
+      return next;
+    });
   const { error, run, saving } = useSaveMutation("จัดสรรไม่สำเร็จ");
   const total = typed(kg).reduce((sum, name) => sum + Number(kg[name]), 0);
   const remaining = stock - total;
@@ -90,6 +141,7 @@ export function AllocationForm({
       .reduce((sum, name) => sum + Number(kg[name]), 0);
     const rest = Math.max(0, +(stock - others).toFixed(6));
     setKg((current) => ({ ...current, [branch]: String(rest) }));
+    own(branch);
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -119,6 +171,7 @@ export function AllocationForm({
               <FormField
                 key={name}
                 label={`${name} (กก.)`}
+                prefilled={prefilled.has(name) ? byLastRatio : undefined}
                 hint={
                   <Button
                     type="button"
@@ -136,12 +189,13 @@ export function AllocationForm({
                   step="any"
                   placeholder="0.00"
                   value={kg[name] || ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setKg((current) => ({
                       ...current,
                       [name]: event.target.value,
-                    }))
-                  }
+                    }));
+                    own(name);
+                  }}
                 />
               </FormField>
             ))}

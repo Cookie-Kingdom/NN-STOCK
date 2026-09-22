@@ -14,8 +14,10 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
+import { lastLabel, lastValue, type PrefillSource } from "@/lib/prefill";
 import {
   materials,
+  materialUnitPrice,
   mutate,
   n,
   ownerMaterialStock,
@@ -32,6 +34,25 @@ const purchaseLines = materials.map((material) => ({
 }));
 
 const lineField = "text-caption";
+
+type LineField = "quantity" | "unitPrice" | "supplier";
+
+/** What a ticked line starts with: จำนวน ราคา and ผู้จำหน่าย from the last purchase
+ *  of that material, the price falling back to the one set in ตั้งค่า. */
+function suggestLine(db: Database, material: string) {
+  const out: Partial<Record<LineField, { value: string } & PrefillSource>> = {};
+  const where = {
+    where: (e: { values: Values }) => e.values.material === material,
+  };
+  for (const field of ["quantity", "unitPrice", "supplier"] as const) {
+    const last = lastValue(db, "materialReceive", field, where);
+    if (last) out[field] = { value: last.value, label: lastLabel(last.date) };
+  }
+  const configured = materialUnitPrice(db, "", materials.indexOf(material));
+  if (!out.unitPrice && configured)
+    out.unitPrice = { value: String(configured), label: "ราคาตั้งค่า" };
+  return out;
+}
 
 /** The change the save would make, from whichever database it is given. Shared by
  *  submit and the live check so both refuse for exactly the same reason. */
@@ -101,6 +122,39 @@ export function MaterialPurchaseForm({
   const [purchaseDates, setPurchaseDates] = useState<Values>({});
   const [suppliers, setSuppliers] = useState<Values>({});
   const [references, setReferences] = useState<Values>({});
+  /** Captions of the values a tick filled in, by `field:lineKey`; an edit drops one. */
+  const [sources, setSources] = useState<Record<string, PrefillSource>>({});
+  const setters = {
+    quantity: setQuantities,
+    unitPrice: setUnitPrices,
+    supplier: setSuppliers,
+  };
+  const given = {
+    quantity: quantities,
+    unitPrice: unitPrices,
+    supplier: suppliers,
+  };
+  /** Fills the ticked line's fields that were never given a value; one the user has
+   *  typed in, even cleared, is left as it is. */
+  function fillLine(lineKey: string, material: string) {
+    const suggestion = suggestLine(db, material);
+    const filled: Record<string, PrefillSource> = {};
+    for (const field of ["quantity", "unitPrice", "supplier"] as const) {
+      const value = suggestion[field];
+      if (!value || given[field][lineKey] !== undefined) continue;
+      setters[field]((values) => ({ ...values, [lineKey]: value.value }));
+      filled[`${field}:${lineKey}`] = { label: value.label };
+    }
+    setSources((all) => ({ ...all, ...filled }));
+  }
+  function edit(field: LineField, lineKey: string, value: string) {
+    setters[field]((values) => ({ ...values, [lineKey]: value }));
+    setSources((all) => {
+      const next = { ...all };
+      delete next[`${field}:${lineKey}`];
+      return next;
+    });
+  }
   const { error, setError, run, saving } = useSaveMutation(
     "บันทึกการซื้อวัสดุไม่สำเร็จ",
   );
@@ -211,6 +265,8 @@ export function MaterialPurchaseForm({
                           ...current,
                           [line.key]: event.target.checked,
                         }));
+                        if (event.target.checked)
+                          fillLine(line.key, line.label);
                         setError("");
                       }}
                     />
@@ -244,7 +300,11 @@ export function MaterialPurchaseForm({
                           }
                         />
                       </FormField>
-                      <FormField className={lineField} label="จำนวนที่ซื้อ">
+                      <FormField
+                        className={lineField}
+                        label="จำนวนที่ซื้อ"
+                        prefilled={sources[`quantity:${line.key}`]}
+                      >
                         <Input
                           type="number"
                           min="1"
@@ -255,14 +315,15 @@ export function MaterialPurchaseForm({
                           placeholder="จำนวน"
                           value={quantities[line.key] || ""}
                           onChange={(event) =>
-                            setQuantities((current) => ({
-                              ...current,
-                              [line.key]: event.target.value,
-                            }))
+                            edit("quantity", line.key, event.target.value)
                           }
                         />
                       </FormField>
-                      <FormField className={lineField} label="ราคาซื้อ / หน่วย">
+                      <FormField
+                        className={lineField}
+                        label="ราคาซื้อ / หน่วย"
+                        prefilled={sources[`unitPrice:${line.key}`]}
+                      >
                         <Input
                           type="number"
                           min="0"
@@ -273,14 +334,15 @@ export function MaterialPurchaseForm({
                           placeholder="0.00"
                           value={unitPrices[line.key] || ""}
                           onChange={(event) =>
-                            setUnitPrices((current) => ({
-                              ...current,
-                              [line.key]: event.target.value,
-                            }))
+                            edit("unitPrice", line.key, event.target.value)
                           }
                         />
                       </FormField>
-                      <FormField className={lineField} label="ผู้จำหน่าย">
+                      <FormField
+                        className={lineField}
+                        label="ผู้จำหน่าย"
+                        prefilled={sources[`supplier:${line.key}`]}
+                      >
                         <Input
                           type="text"
                           aria-label={`ผู้จำหน่าย ${line.label}`}
@@ -288,10 +350,7 @@ export function MaterialPurchaseForm({
                           placeholder="ผู้ขาย"
                           value={suppliers[line.key] || ""}
                           onChange={(event) =>
-                            setSuppliers((current) => ({
-                              ...current,
-                              [line.key]: event.target.value,
-                            }))
+                            edit("supplier", line.key, event.target.value)
                           }
                         />
                       </FormField>

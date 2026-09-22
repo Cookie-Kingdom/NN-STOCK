@@ -26,6 +26,12 @@ export const controlVariants = cva(
         true: "min-w-52.5 text-left text-body-sm font-normal",
         false: "",
       },
+      /** A value the system filled in (see `FormField`'s `prefilled`): `auto` is a
+       *  faint tint, `expected` a predicted scale or count reading to check. */
+      prefilled: {
+        auto: "bg-accent-subtle/60",
+        expected: "border-warning bg-warning-subtle inset-ring-warning/20",
+      },
     },
     defaultVariants: { variant: "form", reason: false },
   },
@@ -50,6 +56,7 @@ const noSpinner =
 export function Input({
   variant,
   reason,
+  prefilled,
   spinner,
   className,
   ...props
@@ -58,10 +65,11 @@ export function Input({
   return (
     <input
       className={cn(
-        controlVariants({ variant, reason }),
+        controlVariants({ variant, reason, prefilled }),
         mute && noSpinner,
         className,
       )}
+      data-prefilled={prefilled || undefined}
       onWheel={mute ? (event) => event.currentTarget.blur() : undefined}
       onKeyDown={
         mute

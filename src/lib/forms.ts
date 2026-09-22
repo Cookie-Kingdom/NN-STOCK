@@ -74,6 +74,15 @@ export function nextTimeSlot(now = new Date()) {
     .map(Number);
   return timeSlots[(hour * 2 + (minute < 30 ? 1 : 2)) % 48];
 }
+/** The half-hour slot `now` falls in, Bangkok time (10:47 → "10:30") — for a time that
+ *  records something happening now. */
+export function currentTimeSlot(now = new Date()) {
+  const [hour, minute] = now
+    .toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hourCycle: "h23" })
+    .split(":")
+    .map(Number);
+  return timeSlots[hour * 2 + (minute < 30 ? 0 : 1)];
+}
 const reason: Field = {
   key: "reason",
   label: "เหตุผลส่วนต่าง / Waste / ข้าม FIFO",
@@ -586,8 +595,6 @@ export function defaults(kind: string, dateValue: string): Values {
             ? "0"
             : "";
   if (kind === "purchase") out.supplier = "Foodiva";
-  // Picked on every purchase, never preselected: a wrong default would book the wrong stock.
-  if (kind === "ricePurchase") out.riceSource = "";
   if (kind === "dispatch")
     Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
   if (kind === "return")

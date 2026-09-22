@@ -25,11 +25,17 @@ import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
+import { usePrefill } from "@/components/organisms/shared/usePrefill";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, forms, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
-import { prefillValues } from "@/lib/prefill";
+import {
+  oldestFrozenLot,
+  prefillDrivers,
+  prefillValues,
+  type PrefillSource,
+} from "@/lib/prefill";
 import {
   allocationOutstanding,
   balance,
@@ -89,6 +95,7 @@ export function EntryFieldControl({
   field: f,
   autoFocus,
   values,
+  source,
   set,
   onFile,
   files,
@@ -98,6 +105,8 @@ export function EntryFieldControl({
   field: FieldSpec;
   autoFocus: boolean;
   values: Values;
+  /** Where the prefilled value came from; absent once the user has changed it. */
+  source?: PrefillSource;
   set: (key: string, value: string) => void;
   onFile: (key: string, file: File | null) => void;
   files: File[];
@@ -142,6 +151,7 @@ export function EntryFieldControl({
       optional={f.optional}
       hint={f.hint}
       wide={f.type === "textarea"}
+      prefilled={source}
     >
       {f.type === "select" ? (
         <Select
@@ -257,16 +267,6 @@ export function EntryForm({
   onOpen?: (kind: string) => void;
 }) {
   const kind = modal.kind;
-  const [values, setValues] = useState<Values>(() => {
-    if (kind === "config") return { ...db.config };
-    const modalLot = db.lots.find((item) => item.id === modal.lotId);
-    const base = {
-      ...defaults(kind, date),
-      ...prefillValues(db, kind, modalLot),
-    };
-    if (kind === "receive") base.complete = "1";
-    return base;
-  });
   const useLot = [
     "receive",
     "thaw",
@@ -281,17 +281,40 @@ export function EntryForm({
   );
   // A lot the form cannot use would leave the required select empty and the
   // browser would block submit before onSubmit, with no message from us.
-  const [lotId, setLotId] = useState(
-    useLot && !choices.some((l) => l.id === modal.lotId)
-      ? (choices[0]?.id ?? "")
-      : modal.lotId,
-  );
+  // Thawing starts on the oldest frozen lot (FIFO), the one mutate expects.
+  const [lotId, setLotId] = useState(() => {
+    if (!useLot || choices.some((l) => l.id === modal.lotId))
+      return modal.lotId;
+    const fifo = kind === "thaw" ? oldestFrozenLot(db, branch) : undefined;
+    return fifo && choices.some((l) => l.id === fifo.id)
+      ? fifo.id
+      : (choices[0]?.id ?? "");
+  });
+  const lot = db.lots.find((l) => l.id === lotId);
+  const {
+    values,
+    sources,
+    set: setValue,
+    refill,
+  } = usePrefill(() => {
+    if (kind === "config")
+      return { base: { ...db.config }, prefill: { values: {}, sources: {} } };
+    const base = { ...defaults(kind, date) };
+    if (kind === "receive") base.complete = "1";
+    return { base, prefill: prefillValues(db, kind, lot, { branch, date }) };
+  });
+  /** The prefill for `lotFor` with the form as it stands after `changes`. */
+  const prefillFor = (lotFor: typeof lot, changes: Values) =>
+    prefillValues(db, kind, lotFor, {
+      branch,
+      date,
+      values: { ...values, ...changes },
+    });
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const attachmentFiles = useRef<Record<string, File>>({});
   /* `files` fields (payment slips) stay out of `values` until the save: the live
    * mutate check would read a list of names as a broken slips JSON. */
   const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
-  const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
     .filter((a) => a.outstanding > 0);
@@ -323,7 +346,8 @@ export function EntryForm({
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
-    // ricePurchase follows the round's choice, not the branch (B2); nothing before a pick.
+    // ricePurchase follows the round's choice, not the branch (B2); it starts on the
+    // branch's last choice.
     if (kind === "ricePurchase")
       return values.riceSource === riceSources[0]
         ? !["cookedRiceKg", "cookedRiceCost"].includes(field.key)
@@ -339,8 +363,11 @@ export function EntryForm({
     return true;
   });
   const set = (key: string, value: string) => {
-    setValues((v) => ({ ...v, [key]: value }));
+    setValue(key, value);
     setError("");
+    // A field other prefills follow (a branch, a pack count): refill the untouched ones.
+    if (prefillDrivers[kind]?.includes(key))
+      refill(prefillFor(lot, { [key]: value }));
   };
   const setFile = (key: string, file: File | null) => {
     if (!file) {
@@ -385,6 +412,19 @@ export function EntryForm({
     const uploaded: Record<string, string> = {};
     const saved = await run(async () => {
       const resolvedValues = resolveLocations(values);
+      // A conflict retry sees the entries saved meanwhile: an untouched running
+      // number is counted again from them, so two entries never share one.
+      const latest = latestDatabase();
+      for (const key of ["invoiceNo", "invoiceNumber"]) {
+        if (!sources[key]) continue;
+        const next = prefillValues(
+          latest,
+          kind,
+          latest.lots.find((l) => l.id === lotId),
+          { branch, date, values },
+        ).values[key];
+        if (next) resolvedValues[key] = next;
+      }
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
         resolvedValues[`${key}StorageKey`] = uploaded[key] ??=
           await saveAttachment(file);
@@ -466,7 +506,16 @@ export function EntryForm({
                   required
                   onChange={(e) => {
                     setLotId(e.target.value);
-                    set("allocation", "");
+                    setError("");
+                    // Refill what the user has not changed from the new lot; the
+                    // allocation picked for the old lot goes back to the prefill.
+                    refill(
+                      prefillFor(
+                        db.lots.find((l) => l.id === e.target.value),
+                        kind === "receive" ? { allocation: "" } : {},
+                      ),
+                      kind === "receive" ? ["allocation"] : [],
+                    );
                   }}
                 >
                   <option value="">เลือก Lot</option>
@@ -492,6 +541,7 @@ export function EntryForm({
                   value={values.allocation || ""}
                   onChange={(e) => {
                     set("allocation", e.target.value);
+                    refill(prefillFor(lot, { allocation: e.target.value }));
                   }}
                 >
                   <option value="">เลือกใบจัดสรร</option>
@@ -586,6 +636,7 @@ export function EntryForm({
                   field={f}
                   autoFocus={index === 0 && !useLot}
                   values={values}
+                  source={sources[f.key]}
                   set={set}
                   onFile={setFile}
                   files={multiFiles[f.key] ?? []}

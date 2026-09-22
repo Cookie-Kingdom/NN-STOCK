@@ -6,7 +6,7 @@ import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField } from "@/components/molecules/FormField";
+import { FormField, PrefillCaption } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { Dialog } from "@/components/organisms/shared/Dialog";
@@ -14,8 +14,11 @@ import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
+import { lastLabel, lastValue, type PrefillSource } from "@/lib/prefill";
 import {
   branches,
+  branchMaterialStock,
+  materialPar,
   materials,
   mutate,
   OverStockError,
@@ -28,6 +31,16 @@ const key = (index: number, branch: string) => `${index}-${branch}`;
 const cell = "border-b border-border px-4.5 py-3.5 align-middle max-md:px-2.5";
 const headCell =
   "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
+
+const toPar = { label: "เติมถึง par" };
+
+/** What brings the branch back up to its par on `date`, if it is short. */
+function shortfall(db: Database, branch: string, index: number, date: string) {
+  const short =
+    materialPar(db, branch, index) -
+    branchMaterialStock(db, branch, index, date);
+  return short > 0 ? String(short) : undefined;
+}
 
 /** The change the save would make, from whichever database it is given. Shared by
  *  submit and the live check so both refuse for exactly the same reason. */
@@ -93,6 +106,30 @@ export function MaterialTransferForm({
   const [receivers, setReceivers] = useState<Values>({});
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+  /** Captions of the values a tick filled in, by quantity field or branch name. */
+  const [sources, setSources] = useState<Record<string, PrefillSource>>({});
+  const dropSource = (name: string) =>
+    setSources((all) => {
+      const next = { ...all };
+      delete next[name];
+      return next;
+    });
+  /** Fills what the tick needs and nobody has typed yet: the จำนวน up to the branch's
+   *  par, and the branch's ผู้รับ from its last transfer. */
+  function fillTick(field: string, branch: string, index: number) {
+    const filled: Record<string, PrefillSource> = {};
+    const quantity = shortfall(db, branch, index, date);
+    if (quantity && quantities[field] === undefined) {
+      setQuantities((values) => ({ ...values, [field]: quantity }));
+      filled[field] = toPar;
+    }
+    const receiver = lastValue(db, "materialTransfer", "receiver", { branch });
+    if (receiver && receivers[branch] === undefined) {
+      setReceivers((values) => ({ ...values, [branch]: receiver.value }));
+      filled[branch] = { label: lastLabel(receiver.date) };
+    }
+    setSources((all) => ({ ...all, ...filled }));
+  }
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const selectedFor = (branch: string) =>
     materials.some((_, index) => checked[key(index, branch)]);
@@ -204,6 +241,8 @@ export function MaterialTransferForm({
                                   ...current,
                                   [field]: event.target.checked,
                                 }));
+                                if (event.target.checked)
+                                  fillTick(field, branch, index);
                                 setError("");
                               }}
                             />
@@ -216,14 +255,25 @@ export function MaterialTransferForm({
                               aria-label={`จำนวน ${material} ไป${branch}`}
                               className="mt-0 min-h-10.5 px-2.75 py-2.25 max-md:px-1.5"
                               disabled={!checked[field]}
+                              prefilled={
+                                checked[field] && sources[field]
+                                  ? "auto"
+                                  : undefined
+                              }
                               value={quantities[field] || ""}
-                              onChange={(event) =>
+                              onChange={(event) => {
                                 setQuantities((current) => ({
                                   ...current,
                                   [field]: event.target.value,
-                                }))
-                              }
+                                }));
+                                dropSource(field);
+                              }}
                             />
+                            {checked[field] && sources[field] && (
+                              <div className="col-start-2 -mt-1.5">
+                                <PrefillCaption {...sources[field]} />
+                              </div>
+                            )}
                           </div>
                         </td>
                       );
@@ -240,18 +290,23 @@ export function MaterialTransferForm({
             className="grid grid-cols-2 gap-x-6 gap-y-5 bg-bg p-5 max-md:grid-cols-1 max-md:gap-4"
           >
             {branches.map((branch) => (
-              <FormField key={branch} label={`ผู้รับของสาขา${branch}`}>
+              <FormField
+                key={branch}
+                label={`ผู้รับของสาขา${branch}`}
+                prefilled={selectedFor(branch) ? sources[branch] : undefined}
+              >
                 <Input
                   type="text"
                   value={receivers[branch] || ""}
                   disabled={!selectedFor(branch)}
                   required={selectedFor(branch)}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setReceivers((current) => ({
                       ...current,
                       [branch]: event.target.value,
-                    }))
-                  }
+                    }));
+                    dropSource(branch);
+                  }}
                 />
               </FormField>
             ))}

@@ -155,10 +155,10 @@ test("Owner general purchase no longer lists raw sticky rice", () => {
   expect(standardIngredients.some((item) => item.includes("ข้าว"))).toBe(false);
 });
 
-test("the rice purchase asks for its source every time, with nothing preselected", () => {
+// 2026-09-22: owner reversed B2; the source now prefills from the branch's last purchase (prefill.ts).
+test("the rice purchase source is a select", () => {
   expect(forms.ricePurchase[0]).toMatchObject({
     key: "riceSource",
     type: "select",
   });
-  expect(defaults("ricePurchase", day).riceSource).toBe("");
 });
