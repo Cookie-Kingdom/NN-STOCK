@@ -33,6 +33,7 @@ export type Tab =
   | "branch-status"
   | "branch-summary"
   | "stock"
+  | "meat-summary"
   | "meat-log"
   | "day"
   | "material-receive"
@@ -144,6 +145,11 @@ export const branchNav: NavGroup[] = [
       },
       { id: "rice", label: "ข้าวเหนียววันนี้", icon: Wheat },
       { id: "stock", label: "สต๊อก", icon: Package },
+      {
+        id: "meat-summary",
+        label: "สรุปคงเหลือเนื้อ รายวัน / รายล็อต",
+        icon: Beef,
+      },
       { id: "branch-summary", label: "สรุปสาขา", icon: LayoutDashboard },
       { id: "history", label: "ประวัติ", icon: History },
     ],

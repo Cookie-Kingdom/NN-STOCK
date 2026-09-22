@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import {
   chillDb,
   closeReadyDb,
@@ -10,8 +10,14 @@ import {
   nextDay,
   open,
 } from "../../../../.storybook/fixtures";
-import { closeDayChecklist, isClosed, requiredRiceKinds } from "@/lib/store";
+import {
+  closeDayChecklist,
+  entries,
+  isClosed,
+  requiredRiceKinds,
+} from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
+import { BranchStockView } from "./BranchStockView";
 import { CloseDayChecklist } from "./CloseDayChecklist";
 import { ChiliDailySummary } from "./ChiliDailySummary";
 import { DailyMaterialsTable } from "./DailyMaterialsTable";
@@ -23,6 +29,19 @@ import { MeatDaySummary } from "./MeatDaySummary";
 const db = demoDb;
 const branch = "ศาลาแดง";
 const closed = isClosed(db, branch, day);
+/** The same list the workspace hands the branch: Lots allocated to this branch only. */
+const branchLots = db.lots.filter(
+  (lot) => entries(db, "allocate", lot.id, branch).length > 0,
+);
+
+/** Storybook's stand-in for the user picking a กลุ่มสต๊อก in the filter bar. */
+const pickGenre =
+  (genre: string): Story["play"] =>
+  async ({ canvasElement }) => {
+    fireEvent.change(within(canvasElement).getByLabelText("กลุ่มสต๊อก"), {
+      target: { value: genre },
+    });
+  };
 
 const meta: Meta = {
   title: "Organisms/Branch",
@@ -41,6 +60,7 @@ export const DailyWorkflow: Story = {
       lots={db.lots}
       closed={closed}
       open={open}
+      onTab={fn()}
     />
   ),
 };
@@ -56,8 +76,32 @@ export const DailyWorkflowClosed: Story = {
       lots={dayClosedDb.lots}
       closed={isClosed(dayClosedDb, branch, day)}
       open={open}
+      onTab={fn()}
     />
   ),
+};
+
+/** สต๊อก: ทุกอย่างที่อยู่ที่สาขานี้จริง ๆ ในตารางเดียว กรองด้วยกลุ่มสต๊อกและรายการ */
+export const StockView: Story = {
+  render: () => <BranchStockView db={db} branch={branch} lots={branchLots} />,
+};
+
+/** กลุ่มสต๊อก = เนื้อ: เหลือเฉพาะ Lot ที่สาขานี้ถือหรือรออยู่ */
+export const StockViewMeat: Story = {
+  render: StockView.render,
+  play: pickGenre("เนื้อ"),
+};
+
+/** กลุ่มสต๊อก = วัตถุดิบ: ข้าวสาร ข้าวสุก และน้ำพริกหลอดของสาขา */
+export const StockViewSupplies: Story = {
+  render: StockView.render,
+  play: pickGenre("วัตถุดิบ"),
+};
+
+/** กลุ่มสต๊อก = วัสดุบรรจุภัณฑ์: วัสดุทั้ง 7 รายการ พร้อมฐานและราคาต่อชิ้น */
+export const StockViewMaterials: Story = {
+  render: StockView.render,
+  play: pickGenre("วัสดุบรรจุภัณฑ์"),
 };
 
 /** The checklist on its own: materials and cooked rice still missing. */
