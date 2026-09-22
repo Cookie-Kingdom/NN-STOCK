@@ -1,11 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
-  type AccountKey,
   button,
   field,
   loadSampleData,
+  MATERIAL_COUNT_EDIT,
   menuItem,
+  openMaterialCount,
   pointAndClick,
   saveEntry,
   sidebar,
@@ -13,6 +14,7 @@ import {
   startFresh,
   step,
   tableSection,
+  type AccountKey,
   typeValue,
 } from "../helpers";
 import {
@@ -634,23 +636,28 @@ test.describe("มือถือ 390 px", () => {
         const section = tableSection(page, "วัสดุ 7 รายการ · กรอกการใช้วันนี้");
         await expect(section).toBeVisible();
         await expectAccessible(section);
+        // Locked by default: the boxes and the save button appear only after ขอแก้ไข.
+        await openMaterialCount(page, section);
         const used = section.getByLabel(/^จำนวนใช้ .* วันนี้$/).first();
         await typeValue(page, used, "0");
-        const save = section.getByRole("button", { name: "บันทึกการใช้วัสดุ" });
+        const save = section.getByRole("button", {
+          name: "บันทึกและล็อก (Save & lock)",
+        });
         await save.scrollIntoViewIfNeeded();
         await expect(save).toBeEnabled();
         await expect(save).toBeInViewport();
         await expectNoSidewaysScroll(page);
         await pointAndClick(page, save);
-        // The success Notice renders after the DataTable section (DailyMaterialsTable), not inside it.
+        // The confirmation sits beside the button that was pressed, in the table's
+        // action row, not below seven rows where it would be off the screen.
         await expect(
-          page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว"),
+          section.getByText("บันทึกการใช้วัสดุวันนี้แล้ว"),
         ).toBeVisible();
         await expect(
           section.getByRole("row").filter({ hasText: "บันทึกแล้ว" }),
         ).toHaveCount(7);
         await expect(
-          section.getByRole("button", { name: "บันทึกแก้ไข" }),
+          section.getByRole("button", { name: MATERIAL_COUNT_EDIT }),
         ).toBeVisible();
       },
     );

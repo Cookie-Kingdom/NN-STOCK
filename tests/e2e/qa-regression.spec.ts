@@ -12,6 +12,7 @@ import {
   foodivaReceivesReturn,
   INVOICE_FIXTURE,
   menuItem,
+  openMaterialCount,
   ownerCallsReturnTruck,
   ownerCreatesMeatPo,
   ownerCreatesShipmentRequest,
@@ -142,6 +143,8 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   await expect(page.getByText(`ยืนยันรับ ${MATERIALS[0]} แล้ว`)).toBeVisible();
 
   const daily = tableSection(page, "วัสดุ 7 รายการ · กรอกการใช้วันนี้");
+  // The count table is locked until ขอแก้ไข; the boxes only exist while it is open.
+  await openMaterialCount(page, daily);
   await expect(
     daily.getByLabel(`จำนวนใช้ ${MATERIALS[0]} วันนี้`),
   ).toHaveAttribute("max", "100");

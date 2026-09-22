@@ -4,19 +4,21 @@ import {
   button,
   chefSmokesShipment,
   chefSubmitsInvoice,
+  closeNotifications,
   field,
   foodivaReceivesReturn,
   loadSampleData,
   menuItem,
+  openMaterialCount,
   openNotifications,
-  closeNotifications,
   ownerApprovesSmokingInvoice,
   ownerCallsReturnTruck,
   ownerPaysSmokingInvoice,
   ownerReceivesCentral,
   pointAndClick,
-  sendMeatToChefHouse,
   saveEntry,
+  saveMaterialCount,
+  sendMeatToChefHouse,
   signInAs,
   skipUnlessCredentials,
   startFresh,
@@ -275,8 +277,8 @@ async function openThaw(page: Page, frozen: string, chill: string) {
 
 /** Saves the inline materials check with whatever the table holds. */
 async function saveMaterials(page: Page) {
-  await button(page, "บันทึกการใช้วัสดุ");
-  await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+  await openMaterialCount(page);
+  await saveMaterialCount(page);
 }
 
 /** Opens "รับของ" and picks the only allocation waiting for this branch. The lot
@@ -744,7 +746,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await cancelDialog(page);
       await closeDay(page, "ผู้ดูแลศาลาแดง", DAY1);
       const locked = page.locator("main").getByRole("button", {
-        name: /กรอกข้อมูล|ตรวจและปิดวัน|บันทึกการใช้วัสดุ|แบ่งละลาย|บันทึกยอดขาย/,
+        name: /กรอกข้อมูล|ตรวจและปิดวัน|ปิดวันแล้ว · แก้ไขไม่ได้|แบ่งละลาย|บันทึกยอดขาย/,
       });
       const count = await locked.count();
       expect(count).toBeGreaterThanOrEqual(7);
@@ -801,6 +803,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     `สาขาศาลาแดง: E9 ใช้ 150 > 100 → จำนวนใช้ ${BOX} เกินยอดตั้งต้น · ตรวจนับ -1 → บล็อก · 2.5 → จำนวนเต็ม`,
     async () => {
+      await openMaterialCount(page);
       await fillCell(page, `จำนวนใช้ ${BOX} วันนี้`, "150");
       await fillCell(page, `ยอดตรวจนับจริง ${BOX}`, "0");
       // Over the opening count: the red message shows as typed and the save is disabled.
@@ -808,11 +811,11 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
         page.getByText(`จำนวนใช้ ${BOX} เกินยอดตั้งต้น · กรอกได้สูงสุด 100`),
       ).toBeVisible();
       await expect(
-        page.getByRole("button", { name: "บันทึกการใช้วัสดุ" }),
+        page.getByRole("button", { name: "บันทึกและล็อก (Save & lock)" }),
       ).toBeDisabled();
       await fillCell(page, `จำนวนใช้ ${BOX} วันนี้`, "30");
       await fillCell(page, `ยอดตรวจนับจริง ${BOX}`, "-1");
-      await button(page, "บันทึกการใช้วัสดุ");
+      await button(page, "บันทึกและล็อก (Save & lock)");
       // positive() runs before the dedicated "ติดลบไม่ได้" assert in mutate(), so this is the text users get.
       await expect(
         page.getByText(
@@ -822,7 +825,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
         ),
       ).toBeVisible();
       await fillCell(page, `ยอดตรวจนับจริง ${BOX}`, "2.5");
-      await button(page, "บันทึกการใช้วัสดุ");
+      await button(page, "บันทึกและล็อก (Save & lock)");
       await expect(page.getByText("วัสดุต้องเป็นจำนวนเต็ม")).toBeVisible();
     },
   );

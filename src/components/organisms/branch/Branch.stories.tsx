@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fireEvent, fn, within } from "storybook/test";
 import {
+  branchTasksDb,
   chillDb,
   closeReadyDb,
   day,
@@ -143,6 +144,8 @@ export const RiceTasks: Story = {
   ),
 };
 
+/** ล็อกไว้เป็นค่าเริ่มต้นเหมือนตาราง "ตั้งค่า" ของ Owner: ยอดที่บันทึกไว้ของวันนี้
+ *  อ่านเป็นตัวอักษรล้วน ไม่มีช่องกรอกและไม่มีปุ่มบันทึกค้างอยู่บนหน้าจอ */
 export const Materials: Story = {
   render: () => (
     <DailyMaterialsTable
@@ -151,6 +154,46 @@ export const Materials: Story = {
       date={day}
       onDate={fn()}
       disabled={false}
+    />
+  ),
+};
+
+/** ล็อกไว้เหมือนกัน แต่ยังไม่เคยตรวจนับวันนี้: ทุกช่องเป็น "—" และปุ่มเดียวคือ
+ *  "ตรวจนับวัสดุวันนี้" */
+export const MaterialsNotCounted: Story = {
+  parameters: { db: branchTasksDb },
+  render: () => (
+    <DailyMaterialsTable
+      db={branchTasksDb}
+      branch={branch}
+      date={day}
+      onDate={fn()}
+      disabled={false}
+    />
+  ),
+};
+
+/** โหมดแก้ไข: กด "ขอแก้ไขยอดนับ" แล้วช่องกรอกจึงปรากฏ พร้อมกล่องเหตุผลที่แก้ไข
+ *  (บังคับกรอกเมื่อวันนี้เคยบันทึกไว้แล้ว) และปุ่ม ยกเลิก / บันทึกและล็อก */
+export const MaterialsEditing: Story = {
+  render: Materials.render,
+  play: async ({ canvasElement }) => {
+    fireEvent.click(
+      within(canvasElement).getByRole("button", { name: /ขอแก้ไขยอดนับ/ }),
+    );
+  },
+};
+
+/** ปิดวันแล้ว: ตารางล็อกถาวร ปุ่มบอกเหตุผลและกดไม่ได้ */
+export const MaterialsClosedDay: Story = {
+  parameters: { db: dayClosedDb },
+  render: () => (
+    <DailyMaterialsTable
+      db={dayClosedDb}
+      branch={branch}
+      date={day}
+      onDate={fn()}
+      disabled={isClosed(dayClosedDb, branch, day)}
     />
   ),
 };

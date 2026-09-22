@@ -137,6 +137,23 @@ export async function button(page: Page, name: string | RegExp) {
   await pointAndClick(page, page.getByRole("button", { name }).last());
 }
 
+/** The button that opens DailyMaterialsTable for editing: the day has been counted
+ *  already, or it has not. */
+export const MATERIAL_COUNT_EDIT = /ตรวจนับวัสดุวันนี้|ขอแก้ไขยอดนับ/;
+/** DailyMaterialsTable is locked the way the Owner's ตั้งค่า tables are: the boxes
+ *  and the save button appear only after ขอแก้ไข. Does nothing when already open. */
+export async function openMaterialCount(page: Page, scope?: Locator) {
+  const edit = (scope ?? page)
+    .getByRole("button", { name: MATERIAL_COUNT_EDIT })
+    .last();
+  if (await edit.count()) await pointAndClick(page, edit);
+}
+/** Saves the open materials count and waits for the confirmation beside the button. */
+export async function saveMaterialCount(page: Page) {
+  await button(page, "บันทึกและล็อก (Save & lock)");
+  await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+}
+
 export async function field(page: Page, label: string | RegExp, value: string) {
   await typeValue(page, page.getByLabel(label).last(), value);
 }
