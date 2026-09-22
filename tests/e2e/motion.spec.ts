@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  openMenu,
   pointAndClick,
   signInAs,
   startFresh,
@@ -58,7 +59,7 @@ test("Motion: dialog, เปลี่ยน tab และ popover เคลื�
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
-  await button(page, "ใบขนส่ง");
+  await openMenu(page, "Request ใบขนส่งขาไป");
   const tabContent = page.locator("main > div.animate-fade-in");
   expect(await style(tabContent, "animationName")).toBe("fade-in");
   expect(longest(await style(tabContent, "animationDuration"))).toBeGreaterThan(

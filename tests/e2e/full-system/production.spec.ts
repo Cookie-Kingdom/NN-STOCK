@@ -413,7 +413,7 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
     page,
     "Owner: D7 เรียกรถขากลับ ต้นทาง = ปลายทาง → บล็อก · 480 เกินผลผลิต 475 → บล็อก · 475 → ผ่าน",
     async () => {
-      await tab(page, "ใบขนส่ง");
+      await tab(page, "Request ใบขนส่งขาไป");
       await button(page, "เรียกรถขากลับ · 475.00 กก.");
       await expect(dialog(page)).toContainText("5 กล่องรมควัน · 475.00 กก.");
       await dialog(page).getByLabel("เวลารถรับ").selectOption("09:00");

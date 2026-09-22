@@ -17,6 +17,8 @@ import {
   foodivaOpensManifest,
   INVOICE_FIXTURE,
   menuItem,
+  openMenu,
+  OUTBOUND_MENU,
   ownerApprovesSmokingInvoice,
   ownerCallsReturnTruck,
   ownerCreatesShipmentRequest,
@@ -229,7 +231,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await saveEntry(page);
 
   // BUG-6: the Owner weight check compares against the Packing List (90), not the invoice (100).
-  await button(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await expect(page.getByText("ส่งไป (Packing List): 90.00 กก.")).toBeVisible();
   await expect(page.getByText(/ส่วนต่าง −2\.00 กก\./)).toBeVisible();
 

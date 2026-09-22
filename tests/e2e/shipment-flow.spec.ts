@@ -21,13 +21,16 @@ import {
   foodivaIssuesInvoice,
   foodivaMakesManifest,
   foodivaOpensManifest,
+  foodivaReceivesReturn,
   INVOICE_FIXTURE,
   installVisibleCursor,
   menuItem,
   openMenu,
   openNotifications,
+  OUTBOUND_MENU,
   ownerApprovesSmokingInvoice,
   ownerCallsReturnTruck,
+  ownerCallsReturnTruckFromMenu,
   ownerCancelsLatestRequest,
   ownerCreatesMeatPo,
   ownerCreatesShipmentRequest,
@@ -37,16 +40,19 @@ import {
   ownerPaysSmokingInvoice,
   ownerReceivesCentral,
   pointAndClick,
+  RETURN_MENU,
   saveEntry,
   sendMeatToChefHouse,
   sidebar,
   signInAs,
+  slicedLostCard,
   slipImage,
   slipPdf,
   startFresh,
   step,
   tableRow,
   tableSection,
+  topDialog,
   typeValue,
 } from "./helpers";
 
@@ -186,7 +192,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
     const bell = await openNotifications(page);
     await expect(bell).toContainText("รอตรวจ Invoice ค่ารมควัน · CH-INV-0001");
     await closeNotifications(page);
-    await openMenu(page, "ใบขนส่ง");
+    await openMenu(page, OUTBOUND_MENU);
     await expect(tableRow(page, "รายการส่ง", shipment)).toContainText(
       "เรียกรถขากลับ · 1,440.00 กก.",
     );
@@ -309,7 +315,7 @@ test("ส่งบางส่วน: PO 1,000 → ส่ง 400 เหลือ
   await expect(
     tableRow(page, "รายการใบสั่งซื้อ PO", poId).getByRole("cell").nth(7),
   ).toHaveText("0.00 กก.");
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await button(page, "สร้าง Request ส่งเนื้อไป Chef House");
   await expect(page.getByRole("dialog")).toContainText(
     "ไม่มี PO ซื้อที่มีเนื้อคงเหลือให้ส่ง",
@@ -344,7 +350,7 @@ test("ยกเลิก Request (A10): ก่อน Foodiva ทำใบขน�
   await ownerCancelsLatestRequest(page, "ใส่น้ำหนักผิด");
   await expect(page.getByText(/ยกเลิกรายการแล้ว/)).toBeVisible();
 
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await expect(tableSection(page, /^รายการส่ง$/)).not.toContainText(cancelled);
   await openMenu(page, "ใบสั่ง PO โรงรมควัน");
   await expect(page.locator("main")).not.toContainText(cancelled);
@@ -370,11 +376,11 @@ test("ยกเลิก Request (A10): ก่อน Foodiva ทำใบขน�
   await expect(entry).toContainText(
     "Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้",
   );
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await expect(tableSection(page, /^รายการส่ง$/)).toContainText(shipped);
 });
 
-test("Packing List: ไม่มี PL บันทึกไม่ได้ · ปิดฟอร์มแล้วไม่มีอะไรถูกบันทึก · Inv. Weight น้อยกว่ายอดกล่องถูกปฏิเสธ", async ({
+test("Packing List: ไม่มี PL บันทึกไม่ได้ · ปิดฟอร์มแล้วไม่มีอะไรถูกบันทึก · ยอดรวมกล่องเกิน Inv. Weight ถูกปฏิเสธ", async ({
   page,
 }) => {
   await startFresh(page);
@@ -397,7 +403,9 @@ test("Packing List: ไม่มี PL บันทึกไม่ได้ · �
   );
 
   await foodivaFillsPackingList(page, ["125", "125"]);
-  await expect(dialog).toContainText("2 กล่องรับเข้า · 250.00 กก.");
+  await expect(dialog).toContainText(
+    "2 กล่องรับเข้า · Sliced Weight Net 250.00 กก.",
+  );
   await expect(dialog).toContainText("ทำแล้ว");
   await expect(save).toBeEnabled();
 
@@ -412,10 +420,40 @@ test("Packing List: ไม่มี PL บันทึกไม่ได้ · �
     page.getByRole("button", { name: "สร้าง Packing List", exact: true }),
   ).toBeVisible();
 
-  // Inv. Weight น้อยกว่ายอดรวมกล่อง → ปฏิเสธทั้งใบขนส่งและ Packing List
-  await foodivaFillsPackingList(page, ["125", "125"], { invWeightKg: "200" });
-  await pointAndClick(page, save);
-  await expect(dialog).toContainText("น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight");
+  /* Inv. Weight ไม่ใช่ช่องกรอกแล้ว — เป็นยอดที่ Request ขอ (250) · ยอดรวมกล่องเกิน
+   * ยอดนั้นถูกปฏิเสธตั้งแต่ในฟอร์ม ใบขนส่งจึงไม่ได้รับ Packing List เลย */
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: /^สร้าง Packing List$/ }),
+  );
+  const list = topDialog(page);
+  await expect(list.getByLabel(/Inv\. Weight/)).toHaveCount(0);
+  await expect(list).toContainText(/Inv\. Weight\s*\(กก\.\)/);
+  await list.getByLabel("จำนวนแถวของตาราง").fill("2");
+  for (const no of [1, 2])
+    await typeValue(
+      page,
+      list.getByLabel(`น้ำหนักตาม Packing List กล่องรับเข้าที่ ${no}`, {
+        exact: true,
+      }),
+      "150",
+    );
+  await expect(list).toContainText(/Sliced Weight Net\s*300\.00 กก\./);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: "ใส่ Packing List ในใบขนส่ง" }),
+  );
+  await expect(list).toContainText(
+    "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight · รวมได้สูงสุด 250.00 กก.",
+  );
+  // ฟอร์ม Packing List ยังเปิดอยู่ ไม่มีอะไรไหลเข้าใบขนส่ง
+  await expect(page.getByRole("dialog")).toHaveCount(2);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: "ยกเลิก", exact: true }),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(save).toBeDisabled();
   await pointAndClick(
     page,
     dialog.getByRole("button", { name: "ยกเลิก", exact: true }),
@@ -429,10 +467,8 @@ test("Packing List: ไม่มี PL บันทึกไม่ได้ · �
   await expect(page.locator("main")).not.toContainText("ทำใบขนส่งขาไป");
   await expect(page.locator("main")).not.toContainText("สร้าง Packing List");
 
-  // แก้ Inv. Weight แล้วบันทึกได้
-  await foodivaMakesManifest(page, shipment, ["125", "125"], {
-    invWeightKg: "250",
-  });
+  // ยอดรวมกล่องไม่เกิน Inv. Weight แล้วบันทึกได้
+  await foodivaMakesManifest(page, shipment, ["125", "125"]);
   await expect(tableRow(page, "Request เข้า", shipment)).toContainText(
     "ทำใบขนส่งแล้ว · รอ PO รมควัน",
   );
@@ -468,7 +504,7 @@ test("ช่องเหลือง: เว้นว่างถูกปฏิ
 
   // Owner เห็นยอดช่องเหลืองและส่วนต่างเทียบยอดรวม Packing List
   await signInAs(page, ACCOUNTS.owner);
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   const row = tableRow(page, "รายการส่ง", shipment);
   await expect(row).toContainText("ส่งไป (Packing List): 50.00 กก.");
   await expect(row).toContainText("Chef House: 51.50 กก.");
@@ -738,7 +774,7 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
 
   let shipment = "";
   const editRequest = async () => {
-    await openMenu(page, "ใบขนส่ง");
+    await openMenu(page, OUTBOUND_MENU);
     await pointAndClick(
       page,
       tableRow(page, "รายการส่ง", shipment).getByRole("button", {
@@ -793,7 +829,7 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
 
   await step(
     page,
-    "Foodiva: A9 เวลารถรับ 08:15 · A2 Sliced Weight Lost 395 (ไม่เท่ายอดกล่อง) → Owner: A10 แก้ Request ที่ส่งแล้วถูกปฏิเสธ",
+    "Foodiva: A9 เวลารถรับ 08:15 · A2 Sliced Weight Lost คำนวณจาก Inv. Weight 400 − Net 399.5 → Owner: A10 แก้ Request ที่ส่งแล้วถูกปฏิเสธ",
     async () => {
       const dialog = await editRequest();
       await typeValue(
@@ -808,9 +844,10 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
         await installVisibleCursor(foodiva);
         await foodiva.goto("/");
         await signInAs(foodiva, ACCOUNTS.foodiva);
+        /* Nothing in the head is typed: Inv. Weight is the Request's 400 kg and
+         * Sliced Weight Net the box total, so Lost comes out as 400 − 399.5. */
         await foodivaMakesManifest(foodiva, shipment, ["200", "199.5"], {
           pickupTime: "08:15",
-          slicedLostKg: "395",
         });
       } finally {
         await foodivaContext.close();
@@ -835,7 +872,7 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
 
   await step(
     page,
-    "Owner: A1 Packing List บอก PO ซื้อในการส่งนี้ · A2 Lost ตามที่ Foodiva กรอก · A6 kg PO รมควันแก้เป็น 350",
+    "Owner: A1 Packing List บอก PO ซื้อในการส่งนี้ · A2 Lost = Inv. Weight − Sliced Weight Net · A6 kg PO รมควันแก้เป็น 350",
     async () => {
       await openMenu(page, "ใบสั่ง PO โรงรมควัน");
       const row = tableRow(page, "รายการ PO โรงรมควัน", shipment);
@@ -851,7 +888,9 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
       await expect(list).toContainText(
         `${poB} · Invoice Foodiva FD-INV-${poB.slice(-4)} · 100.00 กก.`,
       );
-      await expect(list).toContainText(/Sliced Weight Lost\s*395\.00 กก\./);
+      await expect(list).toContainText(/Inv\. Weight\s*400\.00 กก\./);
+      await expect(list).toContainText(/Sliced Weight Net\s*399\.50 กก\./);
+      await expect(list).toContainText(slicedLostCard("400", ["200", "199.5"]));
       await page.keyboard.press("Escape");
       await expect(list).toHaveCount(0);
 
@@ -941,4 +980,158 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
       ).toContainText("ชำระแล้ว");
     },
   );
+});
+
+test("Packing List (A2): หัวตารางไม่มีช่องกรอกสักค่า · Net = ผลรวมแถว · รวมเกิน Inv. Weight ถูกบล็อก · เท่ากันพอดี Lost 0.00 บันทึกได้", async ({
+  page,
+}) => {
+  await startFresh(page);
+  await signInAs(page, ACCOUNTS.owner);
+  const poId = await ownerCreatesMeatPo(page, "200");
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaIssuesInvoice(page, "200", { poId });
+  await signInAs(page, ACCOUNTS.owner);
+  const shipment = await ownerCreatesShipmentRequest(page, [
+    { poId, kg: "100" },
+  ]);
+
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaOpensManifest(page, shipment);
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: /^สร้าง Packing List$/ }),
+  );
+  const list = topDialog(page);
+  const submit = list.getByRole("button", {
+    name: "ใส่ Packing List ในใบขนส่ง",
+  });
+  // ทั้งสามค่าในหัวตารางแสดงอย่างเดียว แถวกล่องคือ input เดียวของฟอร์ม
+  for (const label of [
+    /Inv\. Weight/,
+    /Sliced Weight Net/,
+    /Sliced Weight Lost/,
+  ])
+    await expect(list.getByLabel(label)).toHaveCount(0);
+  // Inv. Weight = ยอดที่ Request ขอ (100) ไม่ใช่ยอดสั่งซื้อทั้ง PO (200)
+  await expect(list).toContainText(/Inv\. Weight\s*100\.00 กก\./);
+
+  await list.getByLabel("จำนวนแถวของตาราง").fill("2");
+  const box = (no: number) =>
+    list.getByLabel(`น้ำหนักตาม Packing List กล่องรับเข้าที่ ${no}`, {
+      exact: true,
+    });
+  await typeValue(page, box(1), "40");
+  await typeValue(page, box(2), "35");
+
+  // Net ขยับตามแถวที่กรอก (40 + 35) · Lost = 100 − 75
+  await expect(list).toContainText(/Sliced Weight Net\s*75\.00 กก\./);
+  await expect(list).toContainText(slicedLostCard("100", ["40", "35"]));
+
+  // ยอดรวมกล่องเกิน Inv. Weight → บล็อก พร้อมบอกยอดสูงสุด
+  await typeValue(page, box(2), "70");
+  await expect(list).toContainText(/Sliced Weight Net\s*110\.00 กก\./);
+  await pointAndClick(page, submit);
+  await expect(list).toContainText(
+    "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight · รวมได้สูงสุด 100.00 กก.",
+  );
+
+  // รวมเท่า Inv. Weight พอดี → Lost 0.00 กก. และบันทึกได้ (ไม่ใช่ทางตัน)
+  await typeValue(page, box(2), "60");
+  await expect(list).toContainText(/Sliced Weight Net\s*100\.00 กก\./);
+  await expect(list).toContainText(/Sliced Weight Lost\s*0\.00 กก\./);
+  await pointAndClick(page, submit);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: "บันทึกใบขนส่ง", exact: true }),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน",
+    ),
+  ).toBeVisible();
+
+  // ใบที่บันทึกแล้วเก็บ Net และ Lost 0.00 ไว้จริง ไม่ใช่ "—"
+  await signInAs(page, ACCOUNTS.owner);
+  await openMenu(page, "ใบสั่ง PO โรงรมควัน");
+  await pointAndClick(
+    page,
+    tableRow(page, "รายการ PO โรงรมควัน", shipment).getByRole("button", {
+      name: "ดู Packing List",
+    }),
+  );
+  const saved = page.getByRole("dialog");
+  await expect(saved).toContainText(/Inv\. Weight\s*100\.00 กก\./);
+  await expect(saved).toContainText(/Sliced Weight Net\s*100\.00 กก\./);
+  await expect(saved).toContainText(/Sliced Weight Lost\s*0\.00 กก\./);
+});
+
+test("เมนูสร้างใบขนส่งขากลับ: Lot ที่ Chef House ปิดแล้วขึ้นในหน้านี้ · ปุ่มเปิด dialog ขากลับใบเดิมและบันทึกได้", async ({
+  page,
+}) => {
+  await startFresh(page);
+  const { shipment } = await sendMeatToChefHouse(page, {
+    orderedKg: "100",
+    requestKg: "60",
+    boxes: ["30", "30"],
+  });
+  await chefSmokesShipment(page, shipment, {
+    received: ["30", "30"],
+    preSmokeKg: "60",
+    packs: ["29", "29"],
+    wasteKg: "2",
+  });
+
+  await signInAs(page, ACCOUNTS.owner);
+
+  // เมนูใหม่แยกจาก "Request ใบขนส่งขาไป" — ทั้งสองอันมีคำว่า "ใบขนส่ง"
+  const nav = sidebar(page);
+  await expect(menuItem(page, OUTBOUND_MENU)).toBeVisible();
+  await expect(menuItem(page, RETURN_MENU)).toBeVisible();
+  await expect(nav.getByRole("button", { name: /ใบขนส่ง/ })).toHaveCount(2);
+
+  await openMenu(page, RETURN_MENU);
+  await expect(
+    page.getByRole("heading", { name: RETURN_MENU }).first(),
+  ).toBeVisible();
+  const waiting = tableRow(page, "Lot ที่รอเรียกรถขากลับ", shipment);
+  await expect(waiting).toContainText("58.00 กก. · 2 กล่องรมควัน");
+  const call = waiting.getByRole("button", {
+    name: `${RETURN_MENU} · 58.00 กก.`,
+  });
+  await expect(call).toBeVisible();
+
+  // ปุ่มเปิดฟอร์ม `return` ใบเดียวกับที่แท็บขาไปเปิด
+  await pointAndClick(page, call);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("เรียกรถขากลับ");
+  await expect(dialog.getByLabel(/น้ำหนักส่งจาก Chef House/)).toHaveValue("58");
+  await pointAndClick(
+    page,
+    dialog.getByRole("button", { name: "ยกเลิก", exact: true }),
+  );
+  await expect(dialog).toHaveCount(0);
+
+  // บันทึกจากหน้านี้ → Lot หลุดออกจากรายการ และใบขากลับไปโผล่ในแท็บขาไป
+  await ownerCallsReturnTruckFromMenu(page, shipment);
+  await expect(tableRow(page, "Lot ที่รอเรียกรถขากลับ", shipment)).toHaveCount(
+    0,
+  );
+  await expect(page.locator("main")).toContainText(
+    "ไม่มี Lot รอเรียกรถขากลับในขณะนี้",
+  );
+
+  await openMenu(page, OUTBOUND_MENU);
+  const row = tableRow(page, "รายการส่ง", shipment);
+  await expect(row).toContainText("ส่งจาก Chef House:");
+  await expect(row).toContainText("58.00 กก.");
+  await expect(row).toContainText("รอ Foodiva รับเข้าตู้");
+
+  // Foodiva รับเข้าตู้ได้ตามปกติ — entry เดียวกัน ไม่ใช่ทางเขียนที่สอง
+  await signInAs(page, ACCOUNTS.foodiva);
+  await foodivaReceivesReturn(page, shipment, { kg: "58" });
+  await expect(
+    tableRow(page, "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva", shipment),
+  ).toContainText("รับแล้ว · ส่วนต่าง 0.00 กก.");
 });

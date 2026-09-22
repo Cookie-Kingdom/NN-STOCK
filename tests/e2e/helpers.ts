@@ -261,7 +261,12 @@ export function slipPdf(name = "slip-transfer.pdf"): UploadFile {
   };
 }
 
-/** Opens a sidebar tab by its label ("ใบขนส่ง", "งานผลิต", …). */
+/* The Owner's two transport menus (src/lib/nav.ts). Both labels contain "ใบขนส่ง",
+ * so every locator has to name one of them in full or it matches both. */
+export const OUTBOUND_MENU = "Request ใบขนส่งขาไป";
+export const RETURN_MENU = "สร้างใบขนส่งขากลับ";
+
+/** Opens a sidebar tab by its label ("Request ใบขนส่งขาไป", "งานผลิต", …). */
 export async function openMenu(page: Page, label: string) {
   await pointAndClick(page, menuItem(page, label));
 }
@@ -360,7 +365,7 @@ export async function ownerFillsShipmentRequest(
   page: Page,
   lines: { poId?: string; kg: string }[],
 ) {
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await button(page, "สร้าง Request ส่งเนื้อไป Chef House");
   const dialog = page.getByRole("dialog");
   for (const line of lines)
@@ -373,19 +378,20 @@ export async function ownerFillsShipmentRequest(
     );
 }
 
-/** The SH-… numbers in the Owner's transport table (ใบขนส่ง tab must be open). */
+/** The SH-… numbers in the Owner's transport table (the Request ใบขนส่งขาไป tab
+ * must be open). */
 async function shipmentNumbers(page: Page) {
   const text = await tableSection(page, /^รายการส่ง$/).innerText();
   return new Set(text.match(/SH-\d{4}-\d{4}/g) ?? []);
 }
 
 /** Owner: creates a Request drawing `kg` from each PO and returns its `SH-…` number.
- * Checks the toast; ends on the ใบขนส่ง tab. */
+ * Checks the toast; ends on the Request ใบขนส่งขาไป tab. */
 export async function ownerCreatesShipmentRequest(
   page: Page,
   lines: { poId?: string; kg: string }[],
 ): Promise<string> {
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   const before = await shipmentNumbers(page);
   await ownerFillsShipmentRequest(page, lines);
   await saveEntry(page);
@@ -454,21 +460,43 @@ export async function foodivaOpensManifest(
   }
 }
 
+/** Sliced Weight Net: the box rows added up, to two decimals. It is what
+ * `packingListKg()` stores, so it is also "ส่งไป (Packing List)" everywhere. */
+export const boxTotalKg = (boxes: string[]) =>
+  Math.round(boxes.reduce((sum, kg) => sum + Number(kg), 0) * 100) / 100;
+
+/** Sliced Weight Lost, computed: |Inv. Weight − Sliced Weight Net|, to two decimals.
+ * Neither side is typed — Inv. Weight is the kg the shipment's Request asked for, the
+ * net is the box total. */
+export function slicedLostKg(invWeightKg: string, boxes: string[]) {
+  return (
+    Math.round(Math.abs(Number(invWeightKg) - boxTotalKg(boxes)) * 100) / 100
+  );
+}
+
+/** Matches the Sliced Weight Lost summary card of a Packing List — the form's own,
+ * the read-only copy and Chef House's all print label then figure. */
+export function slicedLostCard(invWeightKg: string, boxes: string[]) {
+  return new RegExp(
+    `Sliced Weight Lost\\s*${slicedLostKg(invWeightKg, boxes)
+      .toFixed(2)
+      .replace(".", "\\.")} กก\\.`,
+  );
+}
+
 /** Foodiva, inside the transport document: "สร้าง Packing List" (or "แก้ไข Packing List"),
- * one row per box weight, optional Inv. Weight and evidence file, then "ใส่ Packing List
- * ในใบขนส่ง". Nothing is saved yet. */
+ * one row per box weight, an optional evidence file, then "ใส่ Packing List ในใบขนส่ง".
+ * Nothing is saved yet.
+ *
+ * The box rows are the only input — none of the three head weights is typed:
+ * - **Inv. Weight** is the kg the shipment's Request asked for.
+ * - **Sliced Weight Net** is those rows added up (`boxTotalKg`), and over Inv. Weight
+ *   the form refuses the list.
+ * - **Sliced Weight Lost** is the gap between the two — assert on `slicedLostCard(...)`. */
 export async function foodivaFillsPackingList(
   page: Page,
   boxes: string[],
-  {
-    invWeightKg,
-    slicedLostKg,
-    attachment,
-  }: {
-    invWeightKg?: string;
-    slicedLostKg?: string;
-    attachment?: string | UploadFile;
-  } = {},
+  { attachment }: { attachment?: string | UploadFile } = {},
 ) {
   await pointAndClick(
     page,
@@ -486,17 +514,6 @@ export async function foodivaFillsPackingList(
       }),
       kg,
     );
-  if (invWeightKg !== undefined)
-    await typeValue(page, list.getByLabel(/Inv\. Weight/), invWeightKg);
-  // Foodiva's usable weight after cutting; by default it matches the box total.
-  await typeValue(
-    page,
-    list.getByLabel(/Sliced Weight Lost/),
-    slicedLostKg ??
-      String(
-        Math.round(boxes.reduce((sum, kg) => sum + Number(kg), 0) * 100) / 100,
-      ),
-  );
   if (attachment)
     await list.locator('input[type="file"]').setInputFiles(attachment);
   await pointAndClick(
@@ -519,15 +536,11 @@ export async function foodivaMakesManifest(
     trip?: string;
     plate?: string;
     pickupTime?: string;
-    invWeightKg?: string;
-    slicedLostKg?: string;
     attachment?: string | UploadFile;
   } = {},
 ) {
   await foodivaOpensManifest(page, shipment, options);
   await foodivaFillsPackingList(page, boxes, {
-    invWeightKg: options.invWeightKg,
-    slicedLostKg: options.slicedLostKg,
     attachment: options.attachment ?? INVOICE_FIXTURE,
   });
   await pointAndClick(
@@ -761,21 +774,45 @@ export async function chefSmokesShipment(
   await chefClosesLot(page);
 }
 
-/** Owner, ใบขนส่ง: "เรียกรถขากลับ" for a closed shipment. `returnKg` omitted keeps the
- * prefilled weight (everything produced). Fills the truck unless the outbound trip was
- * "ไปกลับ" and already prefilled it. */
+/** Owner, Request ใบขนส่งขาไป: "เรียกรถขากลับ" for a closed shipment — the lot's own
+ * workflow action in the รายการส่ง table. `returnKg` omitted keeps the prefilled weight
+ * (everything produced). Fills the truck unless the outbound trip was "ไปกลับ" and
+ * already prefilled it. */
 export async function ownerCallsReturnTruck(
   page: Page,
   shipment: string,
   returnKg?: string,
 ) {
-  await openMenu(page, "ใบขนส่ง");
+  await openMenu(page, OUTBOUND_MENU);
   await pointAndClick(
     page,
     tableRow(page, "รายการส่ง", shipment).getByRole("button", {
       name: /^เรียกรถขากลับ/,
     }),
   );
+  await fillReturnTruck(page, returnKg);
+}
+
+/** Owner, สร้างใบขนส่งขากลับ: the same `return` dialog reached from the menu of its
+ * own — the row of `shipment` in "Lot ที่รอเรียกรถขากลับ" and its
+ * "สร้างใบขนส่งขากลับ · X กก." button. */
+export async function ownerCallsReturnTruckFromMenu(
+  page: Page,
+  shipment: string,
+  returnKg?: string,
+) {
+  await openMenu(page, RETURN_MENU);
+  await pointAndClick(
+    page,
+    tableRow(page, "Lot ที่รอเรียกรถขากลับ", shipment).getByRole("button", {
+      name: new RegExp(`^${RETURN_MENU} · `),
+    }),
+  );
+  await fillReturnTruck(page, returnKg);
+}
+
+/** The `return` dialog, already open: truck, time and weight, then save. */
+async function fillReturnTruck(page: Page, returnKg?: string) {
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("เวลารถรับ").selectOption("10:00");
   for (const [label, value] of [
