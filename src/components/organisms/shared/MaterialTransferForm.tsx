@@ -18,6 +18,7 @@ import {
   branches,
   materials,
   mutate,
+  OverStockError,
   ownerMaterialStock,
   type Database,
   type Values,
@@ -107,15 +108,20 @@ export function MaterialTransferForm({
     );
   /* The save's own mutate, run on the values as they stand, so the form can say the
    * Owner stock is short while the number is being typed instead of after ยืนยัน.
-   * mutate clones the database, so a dry run changes nothing. Held back until every
-   * ticked row has its จำนวน and ผู้รับ: an unfinished form must not be told off for
-   * being unfinished. */
+   * mutate clones the database, so a dry run changes nothing. Until every ticked row
+   * has its จำนวน and ผู้รับ only a short stock is said (a blank ผู้รับ stands in for
+   * the run): an unfinished form must not be told off for being unfinished. */
   const liveError = useMemo(() => {
-    if (!complete) return "";
+    const standIn = complete
+      ? receivers
+      : Object.fromEntries(
+          branches.map((branch) => [branch, receivers[branch]?.trim() || "-"]),
+        );
     try {
-      build(db, date, checked, quantities, receivers, reference, note);
+      build(db, date, checked, quantities, standIn, reference, note);
       return "";
     } catch (caught) {
+      if (!complete && !(caught instanceof OverStockError)) return "";
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, date, checked, quantities, receivers, reference, note]);
