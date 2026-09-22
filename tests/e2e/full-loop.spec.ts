@@ -389,14 +389,14 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     // The sale form (B1): meat "used today" and "waste"; what is left of the thawed
     // 10 kg stays chilled for tomorrow instead of having to be written off.
     await expect(page.getByRole("dialog").last()).toContainText(
-      "น้ำหนักที่ใช้ไปจริงวันนี้",
+      "น้ำหนักเนื้อที่ใช้ไปจริงวันนี้",
     );
     await field(page, /กล่องมาตรฐาน/, "1");
     await field(page, /น้ำพริกหลอด/, "1");
     await field(page, /ตรวจนับน้ำพริกจริง/, "9");
     await field(page, /หมายเหตุเมื่อน้ำพริกไม่ตรง/, "QA TEST chili count");
-    await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.1");
-    await field(page, /น้ำหนักเวสต์/, "0.5");
+    await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0.1");
+    await field(page, /น้ำหนักเนื้อที่เสียไป/, "0.5");
     await field(page, /ยอดขาย LINE MAN/, "380");
     // BUG-3: waste needs a reason, and the form says so.
     await submitAndExpectError(page, /เหตุผล/);
@@ -516,8 +516,8 @@ test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → �
   await openMaterialCount(page);
   await saveMaterialCount(page);
   await button(page, "บันทึกยอดขาย");
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "65.5");
-  await field(page, /น้ำหนักเวสต์/, "0");
+  await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "65.5");
+  await field(page, /น้ำหนักเนื้อที่เสียไป/, "0");
   await saveEntry(page);
   const riceTable = tableSection(
     page,
@@ -572,13 +572,13 @@ test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → �
   await expect(meatDay(today).nth(1)).toHaveText("4.50 กก.");
   await expect(meatDay(today).nth(2)).toHaveText("0.00 กก.");
   await button(page, "บันทึกยอดขาย");
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.6");
-  await field(page, /น้ำหนักเวสต์/, "0");
+  await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "4.6");
+  await field(page, /น้ำหนักเนื้อที่เสียไป/, "0");
   await a_expectOverStock(
     page,
     "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 4.50 กก.",
   );
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.5");
+  await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "4.5");
   await saveEntry(page);
   await expect(meatDay(today).nth(3)).toHaveText("4.50 กก.");
   await expect(meatDay(today).nth(5)).toHaveText("0.00 กก.");

@@ -181,10 +181,9 @@ export function Preview({
        * Only for sale — a giveaway's kg is derived from the box count, so the two
        * rows would print the same number and read as something the user typed. */
       ...(kind === "sale"
-        ? ([["น้ำหนักที่ใช้ไปจริงวันนี้", `${fmt(n(v, "soldKg"))} กก.`]] as [
-            string,
-            ReactNode,
-          ][])
+        ? ([
+            ["น้ำหนักเนื้อที่ใช้ไปจริงวันนี้", `${fmt(n(v, "soldKg"))} กก.`],
+          ] as [string, ReactNode][])
         : []),
       [
         "คงเหลือชิลหลังรายการนี้",
