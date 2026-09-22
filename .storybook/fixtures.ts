@@ -336,3 +336,23 @@ export const open = fn().mockName("open");
 export const chillDb: Database = chillDay().db;
 /** The day after `day`: chillDb's 4.5 kg shows as ชิลยกมา and can be used. */
 export const nextDay = "2026-09-10";
+
+const chillBranchRun = (
+  db: Database,
+  kind: string,
+  values: Record<string, string>,
+) => mutate(db, "branch", kind, values, "", day, "ศาลาแดง");
+/** chillDb with materials counted and cooked rice confirmed: every close item is done. */
+export const closeReadyDb: Database = chillBranchRun(
+  chillBranchRun(
+    chillDb,
+    "materials",
+    Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
+  ),
+  "riceCarry",
+  { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
+);
+/** closeReadyDb after ปิดวัน: ศาลาแดง's `day` is locked. */
+export const dayClosedDb: Database = chillBranchRun(closeReadyDb, "closeDay", {
+  confirm: "ผู้ดูแล",
+});

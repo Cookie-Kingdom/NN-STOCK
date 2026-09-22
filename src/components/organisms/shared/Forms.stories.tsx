@@ -4,6 +4,7 @@ import {
   allocatedDb,
   centralDb,
   chillDb,
+  closeReadyDb,
   day,
   demoDb,
   multiPoPackedDb,
@@ -36,6 +37,8 @@ const onClose = fn();
 const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
+// A close-day checklist's ไปกรอก opens that item's form.
+const onOpen = fn().mockName("onOpen");
 
 export const OwnerPurchase: Story = {
   parameters: { db: demoDb },
@@ -305,7 +308,28 @@ export const BranchSalePackWeightWarning: Story = {
   },
 };
 
-/** Close dialog with 4.5 kg left: shown as คงเหลือชิล, no "use it all" error. */
+/** Close dialog with everything done: the checklist is all ✓ and ยืนยันปิดวัน is enabled
+ *  at any time of day (no close-time rule, FB-14). */
+export const BranchCloseDayReady: Story = {
+  parameters: { db: closeReadyDb },
+  render: () => (
+    <EntryForm
+      db={closeReadyDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      onDate={onDate}
+      modal={{ kind: "closeDay", lotId: "" }}
+      onClose={onClose}
+      onSaved={onSaved}
+      onOpen={onOpen}
+    />
+  ),
+};
+
+/** Close dialog with 4.5 kg left and materials + cooked rice not yet recorded: the
+ *  checklist lists both with ไปกรอก, and ยืนยันปิดวัน stays disabled with the reason.
+ *  The 4.5 kg shows as คงเหลือชิล, no "use it all" error. */
 export const BranchCloseDayWithChill: Story = {
   parameters: { db: chillDb },
   render: () => (
@@ -318,6 +342,7 @@ export const BranchCloseDayWithChill: Story = {
       modal={{ kind: "closeDay", lotId: "" }}
       onClose={onClose}
       onSaved={onSaved}
+      onOpen={onOpen}
     />
   ),
 };

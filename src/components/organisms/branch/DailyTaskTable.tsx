@@ -57,7 +57,7 @@ export function DailyTaskTable({
             }
             onClick={() => open(kind)}
           >
-            {kind === "closeDay" ? "ตรวจและปิดวัน" : "กรอกข้อมูล"}
+            กรอกข้อมูล
           </Button>,
         ];
       })}

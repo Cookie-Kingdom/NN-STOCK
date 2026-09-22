@@ -110,8 +110,6 @@ test("every time field picks from the half-hour grid that mutate accepts", () =>
       "cmReceive.arrival",
       "return.returnTime",
       "foodivaReturnReceive.receivedTime",
-      "closeDay.time",
-      "config.closeTime",
     ]),
   );
   // No `time` field may keep a free-text default: the grid is the only source.

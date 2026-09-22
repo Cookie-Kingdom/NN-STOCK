@@ -1,4 +1,5 @@
 /** Local demo domain. Every mutation is validated here; the UI never advances stages itself. */
+import { fmt } from "./format";
 import { newId } from "./id";
 export type Role = "owner" | "foodiva" | "cm" | "branch";
 export type Values = Record<string, string>;
@@ -482,7 +483,7 @@ function roleplay(endDate: string, dayCount: number): Database {
         leftoverKg: cookedRiceStock(db, branch).toFixed(3),
         reheat: "เก็บไว้อุ่นวันถัดไป",
       });
-      run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแลทดสอบ" });
+      run("branch", "closeDay", { confirm: "ผู้ดูแลทดสอบ" });
     }
   }
   return db;
@@ -877,6 +878,57 @@ export function requiredRiceKinds(db: Database, branch: string, date: string) {
   );
   return issuedRaw ? ["rice", "riceCarry"] : ["riceCarry"];
 }
+/** What closing `date` needs, in the order the close dialog lists it. mutate's closeDay
+ *  refuses on the first required item not done, with its `message`, so the dialog and
+ *  the save never disagree. `kind` is the form that fills the item, when it has one
+ *  (materials are counted in the day screen's own table). The chill line is information
+ *  only: thawed meat left over carries into tomorrow. */
+export function closeDayChecklist(db: Database, branch: string, date: string) {
+  const has = (kind: string) =>
+    entries(db, kind, undefined, branch, date).length > 0;
+  const chillOut = db.lots.reduce(
+    (total, lot) => total + branchMeatDay(db, lot.id, branch, date).chillOut,
+    0,
+  );
+  return [
+    {
+      key: "sale",
+      label: "ยอดขายวันนี้",
+      done: has("sale"),
+      required: true,
+      message: "ยังไม่มีรายการขายวันนี้",
+      kind: "sale" as string | undefined,
+    },
+    {
+      key: "materials",
+      label: "เช็ควัสดุ",
+      done: has("materials"),
+      required: true,
+      message: "ยังไม่เช็ควัสดุวันนี้",
+      kind: undefined,
+    },
+    ...requiredRiceKinds(db, branch, date).map((kind) => ({
+      key: kind,
+      label: titles[kind],
+      done: has(kind),
+      required: true,
+      message:
+        kind === "rice"
+          ? "เบิกข้าวเหนียวดิบวันนี้แล้ว ยังไม่บันทึกข้าวช่วงเช้า (หุงข้าว)"
+          : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
+      kind,
+    })),
+    {
+      key: "chill",
+      label: `เนื้อชิลยกไปวันถัดไป ${fmt(chillOut)} กก.`,
+      done: true,
+      required: false,
+      message: "",
+      kind: undefined,
+    },
+  ];
+}
+export type CloseDayItem = ReturnType<typeof closeDayChecklist>[number];
 export function rawRiceStock(db: Database, branch: string) {
   return (
     sum(entries(db, "supplyPurchase", undefined, branch), "rawRiceKg") +
@@ -2201,26 +2253,11 @@ export function mutate(
     );
     v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
   } else if (kind === "closeDay") {
-    required(v, "time", "เวลาปิด");
-    assert(
-      v.time >= db.config.closeTime,
-      `ปิดวันได้ตั้งแต่ ${db.config.closeTime} (นาฬิกาจำลอง)`,
+    // Any time of day (FB-14): what blocks a close is missing data, not the clock.
+    const missing = closeDayChecklist(db, branch, date).find(
+      (item) => item.required && !item.done,
     );
-    assert(
-      entries(db, "sale", undefined, branch, date).length,
-      "ยังไม่มีรายการขายวันนี้",
-    );
-    assert(
-      entries(db, "materials", undefined, branch, date).length,
-      "ยังไม่เช็ควัสดุวันนี้",
-    );
-    for (const riceKind of requiredRiceKinds(db, branch, date))
-      assert(
-        entries(db, riceKind, undefined, branch, date).length,
-        riceKind === "rice"
-          ? "เบิกข้าวเหนียวดิบวันนี้แล้ว ยังไม่บันทึกข้าวช่วงเช้า (หุงข้าว)"
-          : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
-      );
+    assert(!missing, missing?.message ?? "");
     // Thawed meat left over is not an error: it carries into tomorrow as chill.
     required(v, "confirm", "ชื่อผู้ยืนยัน");
   } else if (kind === "expense") {
@@ -2295,7 +2332,6 @@ export function mutate(
       positive(v, key, label, key !== "packKg");
     assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
-    required(v, "closeTime", "เวลาเริ่มปิดวัน");
     required(v, "companyName", "ชื่อบริษัท");
     for (let i = 0; i < materials.length; i++) {
       positive(v, "material" + i, `จำนวนฐาน ${materials[i]}`, true);

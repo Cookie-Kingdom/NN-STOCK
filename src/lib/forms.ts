@@ -491,16 +491,7 @@ export const forms: Record<string, Field[]> = {
   materials: materials.map((m, i) =>
     number("material" + i, m + " (ชิ้น)", true, true),
   ),
-  closeDay: [
-    {
-      key: "time",
-      label: "เวลาจำลองสำหรับทดสอบปิดวัน",
-      type: "time",
-      hint: "ปิดวันได้ตั้งแต่เวลาเริ่มปิดวันในตั้งค่า ปรับเวลาจำลองเพื่อทดสอบเงื่อนไข",
-    },
-    text("confirm", "ชื่อผู้ยืนยันปิดวัน"),
-    note,
-  ],
+  closeDay: [text("confirm", "ชื่อผู้ยืนยันปิดวัน"), note],
   expense: [
     {
       key: "category",
@@ -569,11 +560,6 @@ export const forms: Record<string, Field[]> = {
     number("returnFee", "ค่าขนส่งขากลับ (Return delivery fee) · บาท", true),
     number("roundFee", "ค่าขนส่งไป-กลับ (Round-trip fee) · บาท", true),
     number("tolerance", "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance) · %", true),
-    {
-      key: "closeTime",
-      label: "เวลาเริ่มปิดวัน (Day-closing time)",
-      type: "time",
-    },
     ...materials.flatMap((m, i) => [
       number("material" + i, `จำนวนฐาน ${m} (Par level) · ชิ้น`, true, true),
       number(

@@ -44,7 +44,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
     >
       {closed && (
         <Notice tone="warning">
-          วันที่ {date} ปิดแล้ว ฟอร์มวันนี้ถูกล็อก Owner ปลดล็อกได้จากหน้ารายงาน
+          ปิดวันแล้ว · ข้อมูลวันที่ {date} ถูกล็อก แก้ไขไม่ได้ · Owner
+          ปลดล็อกได้จากหน้ารายงาน
         </Notice>
       )}
       {tab === "day" && (
@@ -94,8 +95,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
           <ChiliDailySummary db={db} branch={branch} date={date} />
           <MeatDaySummary db={db} branch={branch} date={date} />
           <DailyTaskTable
-            title="ยอดขาย กล่องโปรโมท และปิดวัน"
-            kinds={["sale", "influencerBox", "closeDay"]}
+            title="ยอดขายและกล่องโปรโมท"
+            kinds={["sale", "influencerBox"]}
             db={db}
             branch={branch}
             date={date}

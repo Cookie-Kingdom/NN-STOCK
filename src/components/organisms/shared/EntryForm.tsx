@@ -13,6 +13,7 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
+import { CloseDayChecklist } from "@/components/organisms/branch/CloseDayChecklist";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
@@ -33,6 +34,7 @@ import {
   allocationOutstanding,
   balance,
   centralStock,
+  closeDayChecklist,
   cookedRiceStock,
   entries,
   mutate,
@@ -236,6 +238,7 @@ export function EntryForm({
   modal,
   onClose,
   onSaved,
+  onOpen,
   branch,
 }: {
   db: Database;
@@ -249,6 +252,8 @@ export function EntryForm({
   modal: Modal;
   onClose: () => void;
   onSaved: (db: Database) => void;
+  /** Opens another workspace form in place of this one (the close-day checklist). */
+  onOpen?: (kind: string) => void;
 }) {
   const kind = modal.kind;
   const [values, setValues] = useState<Values>(() => {
@@ -258,7 +263,6 @@ export function EntryForm({
       ...defaults(kind, date),
       ...prefillValues(db, kind, modalLot),
     };
-    if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
     if (kind === "receive") base.complete = "1";
     return base;
   });
@@ -351,6 +355,9 @@ export function EntryForm({
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, role, kind, values, lotId, date, branch]);
+  const checklist =
+    kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
+  const missing = checklist.find((item) => item.required && !item.done);
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
   const title = titles[kind];
   async function submit(e: React.FormEvent) {
@@ -500,6 +507,12 @@ export function EntryForm({
             )}
             {kind === "closeDay" && (
               <>
+                <CloseDayChecklist
+                  items={checklist}
+                  onGo={(item) =>
+                    item.kind && onOpen ? onOpen(item.kind) : onClose()
+                  }
+                />
                 <MeatDaySummary db={db} branch={branch} date={date} />
                 <DailySummary db={db} branch={branch} date={date} />
               </>
@@ -626,7 +639,8 @@ export function EntryForm({
         </div>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={missing ? `ยังปิดวันไม่ได้ · ${missing.message}` : liveError}
+          submitDisabled={!!missing}
           hint={
             isPurchaseOrder
               ? "ตรวจ Preview ก่อนบันทึก PO"

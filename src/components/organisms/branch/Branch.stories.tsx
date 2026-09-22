@@ -3,13 +3,15 @@ import { fn } from "storybook/test";
 import {
   chillDb,
   day,
+  dayClosedDb,
   demoDb,
   materialTransferDb,
   nextDay,
   open,
 } from "../../../../.storybook/fixtures";
-import { isClosed, requiredRiceKinds } from "@/lib/store";
+import { closeDayChecklist, isClosed, requiredRiceKinds } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
+import { CloseDayChecklist } from "./CloseDayChecklist";
 import { ChiliDailySummary } from "./ChiliDailySummary";
 import { DailyMaterialsTable } from "./DailyMaterialsTable";
 import { DailySummary } from "./DailySummary";
@@ -42,6 +44,32 @@ export const DailyWorkflow: Story = {
   ),
 };
 
+/** The one close button, after ปิดวัน: status reads locked and every action is disabled. */
+export const DailyWorkflowClosed: Story = {
+  parameters: { db: dayClosedDb },
+  render: () => (
+    <BranchDailyWorkflow
+      db={dayClosedDb}
+      branch={branch}
+      date={day}
+      lots={dayClosedDb.lots}
+      closed={isClosed(dayClosedDb, branch, day)}
+      open={open}
+    />
+  ),
+};
+
+/** The checklist on its own: materials and cooked rice still missing. */
+export const CloseChecklistMissing: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <CloseDayChecklist
+      items={closeDayChecklist(chillDb, branch, day)}
+      onGo={open}
+    />
+  ),
+};
+
 export const RiceTasks: Story = {
   render: () => (
     <DailyTaskTable
@@ -61,8 +89,8 @@ export const RiceTasks: Story = {
 export const SalesTasks: Story = {
   render: () => (
     <DailyTaskTable
-      title="ยอดขายและปิดวัน (Sales & day close)"
-      kinds={["sale", "influencerBox", "closeDay"]}
+      title="ยอดขายและกล่องโปรโมท"
+      kinds={["sale", "influencerBox"]}
       db={db}
       branch={branch}
       date={day}
