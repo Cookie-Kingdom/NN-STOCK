@@ -7,7 +7,6 @@ import { entries, titles, type Database } from "@/lib/store";
 const optionalHint: Record<string, string> = {
   ricePurchase: "บันทึกเฉพาะวันที่ซื้อ",
   chiliPurchase: "บันทึกเฉพาะวันที่ซื้อ",
-  influencerBox: "บันทึกเฉพาะวันที่ส่ง",
   riceIssue: "บันทึกเฉพาะวันที่นึ่งเอง",
   rice: "ต้องบันทึกเมื่อเบิกข้าวดิบวันนั้น",
 };
@@ -43,7 +42,7 @@ export function DailyTaskTable({
         const count = entries(db, kind, undefined, branch, date).length;
         const optional = required
           ? !required.includes(kind)
-          : ["ricePurchase", "chiliPurchase", "influencerBox"].includes(kind);
+          : ["ricePurchase", "chiliPurchase"].includes(kind);
         const label = titles[kind];
         return [
           optional ? `${label} · ${optionalHint[kind] ?? "ไม่บังคับ"}` : label,
@@ -52,9 +51,7 @@ export function DailyTaskTable({
           <Button
             key={kind}
             variant="table"
-            disabled={
-              disabled || (!hasLots && ["sale", "influencerBox"].includes(kind))
-            }
+            disabled={disabled || (!hasLots && kind === "sale")}
             onClick={() => open(kind)}
           >
             กรอกข้อมูล

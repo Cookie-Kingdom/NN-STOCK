@@ -156,7 +156,7 @@ const dayCount = (fromDate: string, toDate: string) =>
       86_400_000,
   );
 
-/** Sale / influencer kg from the sealed-pack count: an estimate the branch weighs. */
+/** Sale kg from the sealed-pack count: an estimate the branch weighs. */
 function packKg(db: Database, current?: Values) {
   const packs = n(current || {}, "boxes") + n(current || {}, "addons");
   return packs > 0
@@ -566,11 +566,9 @@ export function prefillValues(
       packKg(db, current),
       carryLast(db, "sale", ["payer"], { branch }),
     );
+  // No soldKg prefill here any more: mutate derives a giveaway's kg from the box count.
   if (kind === "influencerBox")
-    return merge(
-      packKg(db, current),
-      carryLast(db, "influencerBox", ["influencer", "shippingFee"], { branch }),
-    );
+    return carryLast(db, "influencerBox", ["shippingFee"], { branch });
   return lotless(db, kind, ctx);
 }
 
@@ -582,6 +580,5 @@ export const prefillDrivers: Record<string, string[]> = {
   ricePurchase: ["riceSource", "rawRiceKg", "cookedRiceKg"],
   rice: ["rawUsedKg"],
   sale: ["boxes", "addons"],
-  influencerBox: ["boxes", "addons"],
   smokeOrder: ["requestedSmokeDate"],
 };

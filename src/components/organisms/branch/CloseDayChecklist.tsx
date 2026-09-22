@@ -7,8 +7,8 @@ import type { CloseDayItem } from "@/lib/store";
 
 /** What closing the day needs (closeDayChecklist, the same list mutate checks), with a
  *  way to go fill each missing item. `onGo` opens that item's form, or, for an item
- *  filled on the day screen itself (materials), just closes this dialog. An optional
- *  item with a form (influencer boxes) can be opened too, but never blocks the close. */
+ *  filled on the day screen itself (materials), just closes this dialog. An item with
+ *  no form (the chill carried into tomorrow) is information and never blocks. */
 export function CloseDayChecklist({
   items,
   onGo,

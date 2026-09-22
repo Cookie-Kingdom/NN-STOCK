@@ -279,20 +279,18 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
   await saveEntry(page);
 
-  // BUG-3: the influencer box form refuses over-stock out loud too.
+  // BUG-3: a giveaway refuses over-stock out loud too. It is entered inside
+  // ตรวจและปิดวัน now, and the message names the block that was refused.
+  await button(page, "ตรวจและปิดวัน");
   await pointAndClick(
     page,
-    page
-      .getByRole("row")
-      .filter({ hasText: "บันทึกกล่องโปรโมทให้อินฟลูเอนเซอร์" })
-      .getByRole("button", { name: "กรอกข้อมูล" }),
+    openDialog(page).getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ }),
   );
   await field(page, /ชื่ออินฟลูเอนเซอร์/, "QA Influencer");
   await field(page, /กล่องมาตรฐานที่ส่ง/, "6");
-  await field(page, /น้ำหนักเนื้อที่ใช้ส่งจริง/, "0.6");
   await a_expectOverStock(
     page,
-    "น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · กรอกได้สูงสุด 0.00 กก.",
+    /อินฟลูเอนเซอร์ที่ 1 \(QA Influencer\) · น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว/,
   );
   await cancelDialog(page);
 

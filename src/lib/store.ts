@@ -121,7 +121,7 @@ export const titles: Record<string, string> = {
   rice: "ข้าวเหนียวช่วงเช้า",
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
   sale: "บันทึกยอดขาย / Waste",
-  influencerBox: "บันทึกกล่องโปรโมทให้อินฟลูเอนเซอร์",
+  influencerBox: "อินฟลูเอนเซอร์",
   materials: "เช็ควัสดุ 7 รายการ",
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
   ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",
@@ -740,6 +740,48 @@ export const dispatchWithPackingList = (
     lotId,
     date,
   );
+/** How one giveaway block is named in a message: its number, plus the name once typed. */
+export const influencerLabel = (index: number, values: Values) =>
+  `อินฟลูเอนเซอร์ที่ ${index + 1}${values.influencer?.trim() ? ` (${values.influencer.trim()})` : ""}`;
+/** The branch's close: each influencer giveaway is its own entry, then the day is closed
+ *  (a closed day refuses further entries, so the giveaways must land first). Folding over
+ *  the cloned database makes the save all-or-nothing: one invalid giveaway throws before
+ *  anything reaches the caller, so the day stays open and nothing is written. */
+export const closeDayWithInfluencers = (
+  db: Database,
+  branch: string,
+  date: string,
+  giveaways: { lotId: string; values: Values }[],
+  closeValues: Values,
+) =>
+  mutate(
+    giveaways.reduce((current, giveaway, index) => {
+      try {
+        return mutate(
+          current,
+          "branch",
+          "influencerBox",
+          giveaway.values,
+          giveaway.lotId,
+          date,
+          branch,
+        );
+      } catch (caught) {
+        // Say which block was refused — several are saved at once, and the form
+        // shows one message. The error object itself is kept (OverStockError is
+        // what tells the form to speak up before every field is filled).
+        if (caught instanceof Error)
+          caught.message = `${influencerLabel(index, giveaway.values)} · ${caught.message}`;
+        throw caught;
+      }
+    }, db),
+    "branch",
+    "closeDay",
+    closeValues,
+    "",
+    date,
+    branch,
+  );
 /** A shipment's kg and meat cost split back to its purchase POs, pro rata to what each was asked
  * for: on Chef House's received kg once weighed in, on the requested kg before that. */
 export function shipmentShares(db: Database, shipment: Lot) {
@@ -955,10 +997,10 @@ export function requiredRiceKinds(db: Database, branch: string, date: string) {
 /** What closing `date` needs, in the order the close dialog lists it. mutate's closeDay
  *  refuses on the first required item not done, with its `message`, so the dialog and
  *  the save never disagree. `kind` is the form that fills the item, when it has one
- *  (materials are counted in the day screen's own table). The influencer-box line is
- *  optional (FB 20-09 ข้อ 17): only days that sent promo boxes record one, so it shows
- *  whether today's was entered and never blocks. The chill line is information only:
- *  thawed meat left over carries into tomorrow. */
+ *  (materials are counted in the day screen's own table). Influencer giveaways are no
+ *  longer a line here: they are entered inside the close dialog itself (closeDayWith-
+ *  Influencers), so an optional line pointing at another form would only mislead. The
+ *  chill line is information only: thawed meat left over carries into tomorrow. */
 export function closeDayChecklist(db: Database, branch: string, date: string) {
   const has = (kind: string) =>
     entries(db, kind, undefined, branch, date).length > 0;
@@ -994,14 +1036,6 @@ export function closeDayChecklist(db: Database, branch: string, date: string) {
           : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
       kind,
     })),
-    {
-      key: "influencerBox",
-      label: "กล่องโปรโมทอินฟลูเอนเซอร์ · บันทึกเฉพาะวันที่ส่ง",
-      done: has("influencerBox"),
-      required: false,
-      message: "",
-      kind: "influencerBox",
-    },
     {
       key: "chill",
       label: `เนื้อชิลยกไปวันถัดไป ${fmt(chillOut)} กก.`,
@@ -2569,15 +2603,19 @@ function record(
     required(v, "influencer", "ชื่ออินฟลูเอนเซอร์");
     for (const [key, label] of [
       ["boxes", "จำนวนกล่องสินค้า"],
-      ["addons", "จำนวนเนื้อซีลเพิ่ม"],
       ["chiliAddons", "จำนวนน้ำพริก"],
-      ["soldKg", "น้ำหนักเนื้อที่ส่ง"],
       ["shippingFee", "ค่าส่ง"],
     ])
       positive(v, key, label, true);
-    for (const k of ["boxes", "addons", "chiliAddons"])
+    for (const k of ["boxes", "chiliAddons"])
       assert(Number.isInteger(n(v, k)), "จำนวนที่ส่งต้องเป็นจำนวนเต็ม");
-    const sentPacks = n(v, "boxes") + n(v, "addons");
+    /* A giveaway sends whole standard boxes only, so the meat it costs follows the
+     * box count (`packKg`, น้ำหนักเฉลี่ยต่อซีล) instead of being weighed and typed —
+     * the same discipline as packingList's slicedNetKg. Whatever the form sent for
+     * these two keys is overwritten, and every stock helper keeps reading `soldKg`. */
+    v.addons = "0";
+    v.soldKg = String(n(v, "boxes") * n(db.config, "packKg"));
+    const sentPacks = n(v, "boxes");
     assert(
       sentPacks + n(v, "chiliAddons") > 0,
       "กรอกของที่ส่งให้อินฟลูเอนเซอร์อย่างน้อย 1 รายการ",

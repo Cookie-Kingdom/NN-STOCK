@@ -33,6 +33,9 @@ const dialogVariants = cva(
         document: "w-180",
         /** `.form-dialog` */
         default: "w-190",
+        /** closeDay: the checklist, the day summaries and repeated influencer blocks.
+         *  Wider than a form, still `max-w` capped, so a phone gets the same sheet. */
+        formWide: "w-230",
         /** `.material-transfer-dialog` */
         wide: "w-270",
         /** `.material-purchase-dialog` / `.general-purchase-dialog` */

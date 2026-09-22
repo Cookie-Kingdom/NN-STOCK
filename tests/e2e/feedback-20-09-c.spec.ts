@@ -281,13 +281,19 @@ test("ข้อ 17: ขั้นตอนปิดวันของสาขา
       );
       const checklist = tableSection(page, "ตรวจก่อนปิดวัน");
       await expect(checklist).toBeVisible();
-      // Whether it is required and which fields it asks for are still open (vault
-      // "ค้างอยู่"); only that closing the day walks through it is asserted.
-      await expect(
-        checklist
-          .getByRole("row")
-          .filter({ hasText: /อินฟลูเอนเซอร์|กล่องโปรโมท/ }),
-      ).toHaveCount(1);
+      // The giveaway is part of the close itself now: the section starts collapsed,
+      // and one press of เพิ่มอินฟลูเอนเซอร์ opens a block with its own fields.
+      const dialog = page.getByRole("dialog").last();
+      const add = dialog.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ });
+      await expect(add).toBeVisible();
+      await expect(dialog.getByLabel(/ชื่ออินฟลูเอนเซอร์/)).toHaveCount(0);
+      await pointAndClick(page, add);
+      await expect(dialog.getByLabel(/ชื่ออินฟลูเอนเซอร์/)).toHaveCount(1);
+      await expect(dialog.getByLabel(/กล่องมาตรฐานที่ส่ง/)).toHaveCount(1);
+      // No weight field any more: the kg follows the box count.
+      await expect(dialog.getByLabel(/น้ำหนักเนื้อที่ใช้ส่งจริง/)).toHaveCount(
+        0,
+      );
     },
   );
 });

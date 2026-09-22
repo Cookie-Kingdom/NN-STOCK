@@ -5,6 +5,7 @@ import {
   centralDb,
   chillDb,
   closeReadyDb,
+  closeReadyWithSuppliesDb,
   day,
   demoDb,
   multiPoPackedDb,
@@ -401,6 +402,59 @@ export const BranchCloseDayReady: Story = {
       onOpen={onOpen}
     />
   ),
+};
+
+/** The close dialog as it opens: the influencer section is collapsed to
+ *  เพิ่มอินฟลูเอนเซอร์, and closing the day with no block added saves only closeDay. */
+export const BranchCloseDayInfluencersCollapsed: Story = {
+  parameters: { db: closeReadyWithSuppliesDb },
+  render: () => (
+    <EntryForm
+      db={closeReadyWithSuppliesDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      onDate={onDate}
+      modal={{ kind: "closeDay", lotId: "" }}
+      onClose={onClose}
+      onSaved={onSaved}
+      onOpen={onOpen}
+    />
+  ),
+};
+
+/** One press of เพิ่มอินฟลูเอนเซอร์: one block, focus on ชื่ออินฟลูเอนเซอร์. */
+export const BranchCloseDayOneInfluencer: Story = {
+  ...BranchCloseDayInfluencersCollapsed,
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      form.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ }),
+    );
+    await userEvent.type(form.getByLabelText(/ชื่ออินฟลูเอนเซอร์/), "คุณเอ");
+    await userEvent.clear(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/));
+    await userEvent.type(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/), "2");
+  },
+};
+
+/** Pressing it again appends a second block: one close can record several influencers. */
+export const BranchCloseDayTwoInfluencers: Story = {
+  ...BranchCloseDayInfluencersCollapsed,
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    const add = form.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ });
+    await userEvent.click(add);
+    await userEvent.type(form.getByLabelText(/ชื่ออินฟลูเอนเซอร์/), "คุณเอ");
+    await userEvent.click(add);
+    const names = form.getAllByLabelText(/ชื่ออินฟลูเอนเซอร์/);
+    await userEvent.type(names[1], "ช่องบี");
+  },
+};
+
+/** The same two blocks on a phone: the wider close dialog is still one column. */
+export const BranchCloseDayTwoInfluencersMobile: Story = {
+  ...BranchCloseDayTwoInfluencers,
+  globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 
 /** Close dialog with 4.5 kg left and materials + cooked rice not yet recorded: the

@@ -177,6 +177,15 @@ export function Preview({
         kind === "sale" ? "น้ำหนักตามจำนวนขาย" : "น้ำหนักตามจำนวนที่ส่ง",
         `${fmt(expected)} กก.`,
       ],
+      /* The pair: what the pack count says, and what the branch actually weighed.
+       * Only for sale — a giveaway's kg is derived from the box count, so the two
+       * rows would print the same number and read as something the user typed. */
+      ...(kind === "sale"
+        ? ([["น้ำหนักที่ใช้ไปจริงวันนี้", `${fmt(n(v, "soldKg"))} กก.`]] as [
+            string,
+            ReactNode,
+          ][])
+        : []),
       [
         "คงเหลือชิลหลังรายการนี้",
         `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,

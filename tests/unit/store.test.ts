@@ -10,6 +10,7 @@ import {
   chiliAllocated,
   chiliStock,
   closeDayChecklist,
+  closeDayWithInfluencers,
   cookedRiceStock,
   entries,
   isClosed,
@@ -1126,12 +1127,10 @@ describe("branch supplies", () => {
     expect(
       closeDayChecklist(s.db, "ศาลาแดง", day).find((i) => i.key === "chill"),
     ).toMatchObject({ required: false, done: true });
-    // FB 20-09 ข้อ 17: the influencer-box line is listed with its form, but optional.
+    // Giveaways are entered inside the close itself, so they are no longer a line here.
     expect(
-      closeDayChecklist(s.db, "ศาลาแดง", day).find(
-        (i) => i.key === "influencerBox",
-      ),
-    ).toMatchObject({ required: false, done: false, kind: "influencerBox" });
+      closeDayChecklist(s.db, "ศาลาแดง", day).map((i) => i.key),
+    ).not.toContain("influencerBox");
     s.run("branch", "sale", {
       boxes: "0",
       addons: "40",
@@ -1152,12 +1151,6 @@ describe("branch supplies", () => {
     );
     s.run("branch", "riceCarry", { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" });
     expect(missing()).toEqual([]);
-    // No influencer box today, and the day still closes.
-    expect(
-      closeDayChecklist(s.db, "ศาลาแดง", day).find(
-        (i) => i.key === "influencerBox",
-      )?.done,
-    ).toBe(false);
     // No close-time rule any more (FB-14): 09:00 closes like 22:00 did.
     s.run("branch", "closeDay", { time: "09:00", confirm: "x" });
     expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
@@ -1192,9 +1185,10 @@ describe("branch supplies", () => {
   });
 });
 
-test("an influencer box leaves the shelf and costs meat plus postage", () => {
+/** ศาลาแดง on `day`: 5 kg thawed, 10 kg cooked rice, 5 chili tubes — everything an
+ *  influencer giveaway draws on. */
+function giveawayReady() {
   const s = ready();
-  const id = s.db.lots.at(-1)!.id;
   s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
   s.run("branch", "receive", { kg: "5", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "5" });
@@ -1215,35 +1209,33 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
     supplier: "ผู้ผลิตน้ำพริก",
   });
   s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "5" });
-  const box = {
-    influencer: "@nong",
-    boxes: "2",
-    addons: "0",
-    chiliAddons: "1",
-    soldKg: "0.202",
-    shippingFee: "60",
-  };
+  return s;
+}
+
+const box = {
+  influencer: "@nong",
+  boxes: "2",
+  chiliAddons: "1",
+  shippingFee: "60",
+};
+
+test("an influencer box leaves the shelf and costs meat plus postage", () => {
+  const s = giveawayReady();
+  const id = s.db.lots.at(-1)!.id;
   expect(() =>
     s.run("branch", "influencerBox", { ...box, influencer: "" }),
   ).toThrow(/อินฟลูเอนเซอร์/);
   expect(() =>
-    s.run("branch", "influencerBox", { ...box, soldKg: "9" }),
+    s.run("branch", "influencerBox", { ...box, boxes: "50" }),
   ).toThrow(/เกินเนื้อที่ละลายแล้ว/);
   expect(() =>
-    s.run("branch", "influencerBox", {
-      ...box,
-      chiliAddons: "6",
-      soldKg: "0.202",
-    }),
+    s.run("branch", "influencerBox", { ...box, chiliAddons: "6" }),
   ).toThrow(/น้ำพริก/);
-  s.run("branch", "influencerBox", box);
-  expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.798, 3);
-  // Today's box shows as done on the close-day checklist (FB 20-09 ข้อ 17).
-  expect(
-    closeDayChecklist(s.db, "ศาลาแดง", day).find(
-      (i) => i.key === "influencerBox",
-    ),
-  ).toMatchObject({ done: true, required: false });
+  // The kg is derived from the box count, so whatever the form sends is overwritten.
+  s.run("branch", "influencerBox", { ...box, soldKg: "9", addons: "7" });
+  expect(last(s).values.soldKg).toBe(String(2 * Number(seed.config.packKg)));
+  expect(last(s).values.addons).toBe("0");
+  expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.797, 3);
   expect(cookedRiceStock(s.db, "ศาลาแดง")).toBeCloseTo(9.6, 3);
   expect(chiliStock(s.db, "ศาลาแดง")).toBe(4);
   expect(Number(last(s).values.meatCost)).toBeGreaterThan(0);
@@ -1251,6 +1243,123 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   expect(
     visibleEntries(s.db, "branch", "ศาลาแดง").at(-1)!.values.meatCost,
   ).toBeUndefined();
+});
+
+/** giveawayReady, plus the sale, materials and rice the close insists on. */
+function closeReady() {
+  const s = giveawayReady();
+  // 45 boxes sold: 1 kg of meat and 9 of the 10 kg of cooked rice are gone, so a
+  // giveaway added at the close is short of rice before it is short of meat.
+  s.run("branch", "sale", {
+    boxes: "45",
+    addons: "0",
+    chiliAddons: "0",
+    soldKg: "1",
+    wasteKg: "0",
+    riceWasteKg: "0",
+    expense: "0",
+    lineMan: "9450",
+  });
+  s.run(
+    "branch",
+    "materials",
+    Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
+  );
+  s.run("branch", "riceCarry", {
+    leftoverKg: String(cookedRiceStock(s.db, "ศาลาแดง")),
+    reheat: "เก็บไว้อุ่นวันถัดไป",
+  });
+  return s;
+}
+
+const giveaway = (lotId: string, values: Values) => ({ lotId, values });
+
+describe("closing the day with influencer giveaways", () => {
+  test("two giveaways are written first, then the close", () => {
+    const s = closeReady();
+    const id = s.db.lots.at(-1)!.id;
+    const before = s.db.entries.length;
+    const db = closeDayWithInfluencers(
+      s.db,
+      "ศาลาแดง",
+      day,
+      [
+        giveaway(id, { ...box, influencer: "@a" }),
+        giveaway(id, { ...box, influencer: "@b", boxes: "1" }),
+      ],
+      { confirm: "ผู้ดูแล" },
+    );
+    expect(db.entries.slice(before).map((e) => e.kind)).toEqual([
+      "influencerBox",
+      "influencerBox",
+      "closeDay",
+    ]);
+    expect(
+      entries(db, "influencerBox", undefined, "ศาลาแดง", day).map(
+        (e) => e.values.influencer,
+      ),
+    ).toEqual(["@a", "@b"]);
+    // Each giveaway's kg follows its own box count.
+    expect(
+      entries(db, "influencerBox", undefined, "ศาลาแดง", day).map(
+        (e) => e.values.soldKg,
+      ),
+    ).toEqual([
+      String(2 * Number(seed.config.packKg)),
+      String(1 * Number(seed.config.packKg)),
+    ]);
+    expect(isClosed(db, "ศาลาแดง", day)).toBe(true);
+  });
+
+  test("an invalid giveaway leaves the day open and writes nothing", () => {
+    const s = closeReady();
+    const id = s.db.lots.at(-1)!.id;
+    const before = s.db.entries.length;
+    for (const [bad, reason] of [
+      [{ ...box, boxes: "60" }, /เกินเนื้อที่ละลายแล้ว/], // more meat than is thawed
+      [{ ...box, boxes: "4" }, /ข้าวเหนียวไม่พอ/], // meat is enough, cooked rice is not
+      [{ ...box, chiliAddons: "9" }, /น้ำพริก/], // more chili than was allocated
+    ] as [Values, RegExp][]) {
+      const save = () =>
+        closeDayWithInfluencers(
+          s.db,
+          "ศาลาแดง",
+          day,
+          [giveaway(id, box), giveaway(id, bad)],
+          { confirm: "ผู้ดูแล" },
+        );
+      // The message says which block was refused, and why.
+      expect(save).toThrow(/อินฟลูเอนเซอร์ที่ 2 \(@nong\)/);
+      expect(save).toThrow(reason);
+    }
+    expect(s.db.entries.length).toBe(before);
+    expect(entries(s.db, "influencerBox", undefined, "ศาลาแดง", day)).toEqual(
+      [],
+    );
+    expect(isClosed(s.db, "ศาลาแดง", day)).toBe(false);
+  });
+
+  test("no giveaway: the save is the plain closeDay it always was", () => {
+    const s = closeReady();
+    const plain = closeDayWithInfluencers(s.db, "ศาลาแดง", day, [], {
+      confirm: "ผู้ดูแล",
+    });
+    const direct = mutate(
+      s.db,
+      "branch",
+      "closeDay",
+      { confirm: "ผู้ดูแล" },
+      "",
+      day,
+      "ศาลาแดง",
+    );
+    const tail = (db: Database) => {
+      const { id, at, ...rest } = db.entries.at(-1)!;
+      return { count: db.entries.length, ...rest, id: !!id, at: !!at };
+    };
+    expect(tail(plain)).toEqual(tail(direct));
+    expect(isClosed(plain, "ศาลาแดง", day)).toBe(true);
+  });
 });
 
 test("full loop: partial smoke, central, two branches, partial receipt, sale and lock", () => {
