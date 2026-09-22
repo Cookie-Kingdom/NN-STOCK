@@ -479,7 +479,11 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await expect(
         dialog
           .getByRole("alert")
-          .filter({ hasText: "น้ำหนักรวม 550.00 กก. เกินสต๊อกกลาง 500.00 กก." })
+          // Feedback 13: the live error states the maximum that may be typed.
+          .filter({
+            hasText:
+              "น้ำหนักรวม 550.00 กก. เกินสต๊อกกลาง · กรอกได้สูงสุด 500.00 กก.",
+          })
           .first(),
       ).toBeVisible();
     },

@@ -196,7 +196,7 @@ test("A2 บัญชีที่ไม่มีในระบบ (nobody@local
       );
       await expect(
         page.getByText(
-          "โหมด local: ใช้อีเมล owner@local.test, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
+          "โหมด local: ใช้อีเมล owner@local.test, manager@, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
           { exact: true },
         ),
       ).toBeVisible();

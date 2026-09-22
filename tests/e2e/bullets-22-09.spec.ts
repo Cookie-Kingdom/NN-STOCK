@@ -104,8 +104,8 @@ test("C1 + C2: จัดสรรเกินคลังกลาง · รั�
       await typeValue(page, dialog.getByLabel("ศาลาแดง (กก.)"), "101");
       await expect(alert(page)).toBeVisible();
       await expect(submit(page)).toBeDisabled();
-      // Checklist C1: "สต๊อกกลางไม่พอ · กรอกได้สูงสุด X กก." (soft: the flow goes on).
-      await expect.soft(alert(page)).toContainText("กรอกได้สูงสุด 100.00 กก.");
+      // Feedback 13: the live error states the maximum that may be typed.
+      await expect(alert(page)).toContainText("กรอกได้สูงสุด 100.00 กก.");
       await typeValue(page, dialog.getByLabel("ศาลาแดง (กก.)"), "60");
       await expect(alert(page)).toHaveCount(0);
       await expect(submit(page)).toBeEnabled();
