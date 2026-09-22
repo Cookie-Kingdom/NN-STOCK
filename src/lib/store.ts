@@ -956,8 +956,10 @@ export function requiredRiceKinds(db: Database, branch: string, date: string) {
 /** What closing `date` needs, in the order the close dialog lists it. mutate's closeDay
  *  refuses on the first required item not done, with its `message`, so the dialog and
  *  the save never disagree. `kind` is the form that fills the item, when it has one
- *  (materials are counted in the day screen's own table). The chill line is information
- *  only: thawed meat left over carries into tomorrow. */
+ *  (materials are counted in the day screen's own table). The influencer-box line is
+ *  optional (FB 20-09 ข้อ 17): only days that sent promo boxes record one, so it shows
+ *  whether today's was entered and never blocks. The chill line is information only:
+ *  thawed meat left over carries into tomorrow. */
 export function closeDayChecklist(db: Database, branch: string, date: string) {
   const has = (kind: string) =>
     entries(db, kind, undefined, branch, date).length > 0;
@@ -993,6 +995,14 @@ export function closeDayChecklist(db: Database, branch: string, date: string) {
           : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
       kind,
     })),
+    {
+      key: "influencerBox",
+      label: "กล่องโปรโมทอินฟลูเอนเซอร์ · บันทึกเฉพาะวันที่ส่ง",
+      done: has("influencerBox"),
+      required: false,
+      message: "",
+      kind: "influencerBox",
+    },
     {
       key: "chill",
       label: `เนื้อชิลยกไปวันถัดไป ${fmt(chillOut)} กก.`,

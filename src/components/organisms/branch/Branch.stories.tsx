@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
   chillDb,
+  closeReadyDb,
   day,
   dayClosedDb,
   demoDb,
@@ -65,6 +66,18 @@ export const CloseChecklistMissing: Story = {
   render: () => (
     <CloseDayChecklist
       items={closeDayChecklist(chillDb, branch, day)}
+      onGo={open}
+    />
+  ),
+};
+
+/** Every required item done: the optional influencer-box row still reads "ยังไม่บันทึก"
+ *  with its own ไปกรอก, and the day can close anyway. */
+export const CloseChecklistReady: Story = {
+  parameters: { db: closeReadyDb },
+  render: () => (
+    <CloseDayChecklist
+      items={closeDayChecklist(closeReadyDb, branch, day)}
       onGo={open}
     />
   ),

@@ -1128,6 +1128,12 @@ describe("branch supplies", () => {
     expect(
       closeDayChecklist(s.db, "ศาลาแดง", day).find((i) => i.key === "chill"),
     ).toMatchObject({ required: false, done: true });
+    // FB 20-09 ข้อ 17: the influencer-box line is listed with its form, but optional.
+    expect(
+      closeDayChecklist(s.db, "ศาลาแดง", day).find(
+        (i) => i.key === "influencerBox",
+      ),
+    ).toMatchObject({ required: false, done: false, kind: "influencerBox" });
     s.run("branch", "sale", {
       boxes: "0",
       addons: "40",
@@ -1148,6 +1154,12 @@ describe("branch supplies", () => {
     );
     s.run("branch", "riceCarry", { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" });
     expect(missing()).toEqual([]);
+    // No influencer box today, and the day still closes.
+    expect(
+      closeDayChecklist(s.db, "ศาลาแดง", day).find(
+        (i) => i.key === "influencerBox",
+      )?.done,
+    ).toBe(false);
     // No close-time rule any more (FB-14): 09:00 closes like 22:00 did.
     s.run("branch", "closeDay", { time: "09:00", confirm: "x" });
     expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
@@ -1228,6 +1240,12 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   ).toThrow(/น้ำพริก/);
   s.run("branch", "influencerBox", box);
   expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.798, 3);
+  // Today's box shows as done on the close-day checklist (FB 20-09 ข้อ 17).
+  expect(
+    closeDayChecklist(s.db, "ศาลาแดง", day).find(
+      (i) => i.key === "influencerBox",
+    ),
+  ).toMatchObject({ done: true, required: false });
   expect(cookedRiceStock(s.db, "ศาลาแดง")).toBeCloseTo(9.6, 3);
   expect(chiliStock(s.db, "ศาลาแดง")).toBe(4);
   expect(Number(last(s).values.meatCost)).toBeGreaterThan(0);
