@@ -126,8 +126,10 @@ async function menuLabels(page: Page) {
 /** The workspace is on `tab`: URL, aria-current in the sidebar, page h1 and
  * the overline "<account name>[ · <branch>]" (WorkspaceShell → PageHeading). */
 async function expectWorkspace(page: Page, p: Profile, [id, label]: TabDef) {
+  // Sign-in lands on /<role>, whose server redirect() to the home tab is compiled on
+  // first hit in `next dev`; with parallel e2e lanes that alone can pass 30 s.
   await expect(page).toHaveURL(new RegExp(`${p.path}/${id}$`), {
-    timeout: 30_000,
+    timeout: 90_000,
   });
   const active = sidebar(page).locator('nav button[aria-current="page"]');
   await expect(active).toHaveCount(1);

@@ -189,11 +189,14 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
     await expect(
       page.getByRole("heading", { name: "ตั้งค่าระบบ (Settings)" }),
     ).toBeVisible();
-    // seed: ราคาเริ่มต้น 350 / 320 / 30, tolerance 20, ปิดวัน 22:00
+    // seed: ราคาเริ่มต้น 350 / 320 / 30, tolerance 20 · "เวลาเริ่มปิดวัน" ถูกถอดออกแล้ว (B4)
     const pricing = tableSection(page, S_PRICING);
     await expect(pricing).toContainText("฿350.00");
     await expect(pricing).toContainText("฿320.00");
-    await expect(tableSection(page, S_BRANCH)).toContainText("22:00");
+    await expect(tableSection(page, S_BRANCH)).toContainText("20.00%");
+    await expect(tableSection(page, S_BRANCH)).not.toContainText(
+      "เวลาเริ่มปิดวัน",
+    );
   });
 
   await step(
@@ -291,7 +294,6 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
       () => field(page, "companyName", ""),
       "กรอกชื่อบริษัท",
     );
-    // No blank closeTime case: it is a half-hour slot picker (timeOptions) now.
   });
 
   await step(
@@ -372,17 +374,16 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
 
   await step(
     page,
-    "Owner: B1 กติกาสาขา มีนบุรี · tolerance 12 · ปิดวัน 21:30 · ฐาน/ราคาวัสดุ 7 รายการ",
+    "Owner: B1 กติกาสาขา มีนบุรี · tolerance 12 · ฐาน/ราคาวัสดุ 7 รายการ",
     async () => {
       await editSection(page, S_BRANCH, async () => {
         await tableSection(page, S_BRANCH)
           .getByLabel("branch")
           .selectOption({ label: "มีนบุรี" });
         await field(page, "tolerance", "12");
-        // closeTime is a half-hour slot picker (timeOptions), not a free time input.
-        await tableSection(page, S_BRANCH)
-          .getByLabel("closeTime")
-          .selectOption("21:30");
+        await expect(
+          tableSection(page, S_BRANCH).getByLabel("closeTime"),
+        ).toHaveCount(0);
       });
       await setMaterialPars(
         page,
@@ -460,7 +461,6 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
     await expect(cellOf(rules, ["ค่าคลาดเคลื่อนยอดขาย"], 1)).toHaveText(
       "12.00",
     );
-    await expect(cellOf(rules, ["เวลาเริ่มปิดวัน"], 1)).toHaveText("21:30");
     const materialTable = tableSection(page, S_MATERIALS);
     for (let i = 0; i < MATERIALS.length; i += 1) {
       await expect(cellOf(materialTable, [MATERIALS[i]], 1)).toHaveText(
@@ -1070,11 +1070,11 @@ test("Lane B: B7 หลังโหลดข้อมูลจำลอง Owner
     async () => {
       await signInAs(page, ACCOUNTS.saladaeng);
       await tab(page, "กรอกรายวัน");
-      await expect(page.getByRole("main")).toContainText("ปิดแล้ว");
+      await expect(page.getByRole("main")).toContainText("ปิดวันแล้ว");
       await expect(
         page
           .getByRole("row")
-          .filter({ hasText: "ซื้อข้าวเหนียวดิบเข้าสต๊อก" })
+          .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" })
           .getByRole("button", { name: "กรอกข้อมูล" }),
       ).toBeDisabled();
     },
@@ -1116,14 +1116,19 @@ test("Lane B: B7 หลังโหลดข้อมูลจำลอง Owner
     async () => {
       await signInAs(page, ACCOUNTS.saladaeng);
       await tab(page, "กรอกรายวัน");
-      await expect(page.getByRole("main")).not.toContainText("ปิดแล้ว");
+      await expect(page.getByRole("main")).not.toContainText("ปิดวันแล้ว");
       await pointAndClick(
         page,
         page
           .getByRole("row")
-          .filter({ hasText: "ซื้อข้าวเหนียวดิบเข้าสต๊อก" })
+          .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" })
           .getByRole("button", { name: "กรอกข้อมูล" }),
       );
+      // B2: every rice purchase picks its source; self-cook books raw rice.
+      await page
+        .getByRole("dialog")
+        .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
+        .selectOption("นึ่งเอง (ซื้อข้าวดิบ)");
       await field(page, /ผู้จำหน่ายข้าว/, "ร้านข้าว B7");
       await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "5");
       await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "275");
@@ -1141,7 +1146,7 @@ test("Lane B: B7 หลังโหลดข้อมูลจำลอง Owner
     async () => {
       await signInAs(page, ACCOUNTS.minburi);
       await tab(page, "กรอกรายวัน");
-      await expect(page.getByRole("main")).toContainText("ปิดแล้ว");
+      await expect(page.getByRole("main")).toContainText("ปิดวันแล้ว");
     },
   );
 });

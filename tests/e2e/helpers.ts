@@ -961,3 +961,78 @@ export async function step(
     }
   });
 }
+
+/* ---- group C: edit requests and bells (Branch Day B5) ------------------- */
+
+/** A history row (<details>) whose own summary starts with `title`, not the
+ * "ขอแก้ไขรายการ · <title>" row an edit request adds next to it. */
+export function c_historyEntry(page: Page, title: string) {
+  return page
+    .locator("main details")
+    .filter({
+      has: page.locator("summary").filter({ hasText: new RegExp(`^${title}`) }),
+    })
+    .first();
+}
+
+/** Foodiva / Chef House / branch: ประวัติ → own entry → "ขอแก้ไข", types `fields`
+ * ([label, value]) and a reason, sends. Asserts the request is waiting. */
+export async function c_requestEdit(
+  page: Page,
+  title: string,
+  fields: [label: string | RegExp, value: string][],
+  reason: string,
+) {
+  await openMenu(page, "ประวัติ");
+  const entry = c_historyEntry(page, title);
+  await pointAndClick(page, entry.locator("summary"));
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "ขอแก้ไข", exact: true }),
+  );
+  for (const [label, value] of fields)
+    await typeValue(page, entry.getByLabel(label), value);
+  await typeValue(page, entry.getByLabel("เหตุผลที่ขอแก้ไข"), reason);
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "ส่งคำขอแก้ไข" }),
+  );
+  await expect(page.getByRole("status")).toContainText("ส่งคำขอแก้ไขแล้ว");
+  await expect(entry).toContainText("มีคำขอแก้ไขรอพิจารณา");
+  await expect(
+    entry.getByRole("button", { name: "ขอแก้ไข", exact: true }),
+  ).toHaveCount(0);
+}
+
+/** The header bell lists an item containing `text`; closes the list again. */
+export async function c_expectBell(page: Page, text: string | RegExp) {
+  const list = await openNotifications(page);
+  await expect(list).toContainText(text);
+  await closeNotifications(page);
+}
+
+/** Owner: bell "คำขอแก้ไขรอพิจารณา 1 รายการ" → Log tab → decides the one waiting
+ * request (`note` is required to reject). */
+export async function c_ownerDecidesEdit(
+  page: Page,
+  decision: "อนุมัติ" | "ไม่อนุมัติ",
+  note = "",
+) {
+  const list = await openNotifications(page);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: /คำขอแก้ไขรอพิจารณา 1 รายการ/ }),
+  );
+  await expect(page).toHaveURL(/\/owner\/history$/);
+  const panel = tableSection(page, "คำขอแก้ไขรายการ");
+  await expect(panel).toContainText("รอพิจารณา 1 รายการ");
+  if (note) await typeValue(page, panel.getByLabel("หมายเหตุการพิจารณา"), note);
+  await pointAndClick(
+    page,
+    panel.getByRole("button", { name: decision, exact: true }),
+  );
+  await expect(page.getByRole("status")).toContainText(
+    decision === "อนุมัติ" ? "อนุมัติคำขอแล้ว" : "ไม่อนุมัติคำขอแล้ว",
+  );
+  await expect(panel).toContainText("รอพิจารณา 0 รายการ");
+}
