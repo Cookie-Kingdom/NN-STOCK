@@ -10,6 +10,7 @@ import {
   type Database,
   entries,
   isClosed,
+  materials,
   pendingReceiveKg,
 } from "@/lib/store";
 
@@ -42,8 +43,9 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  this bell.
  *
  *  The day lines follow `BranchDailyWorkflow`'s `["receive","thaw","sale","close"]` and
- *  read the same helpers, so the bell and that table can never disagree. Branches only
- *  have `day`, `stock`, `branch-summary` and `history`, and every task is done on `day`. */
+ *  read the same helpers, so the bell and that table can never disagree. Material work
+ *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
+ *  `material-count` and are counted on those badges, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
   const lots = db.lots.filter(
     (lot) => entries(db, "allocate", lot.id, branch).length > 0,
@@ -56,6 +58,11 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
     0,
   );
   const materialTransfers = pendingMaterialTransfers(db, branch);
+  // One `materials` entry per branch+date covers all 7 rows, so the day is either
+  // counted or not counted at all.
+  const materialsCounted =
+    entries(db, "materials", undefined, branch, date).length > 0;
+  const uncountedMaterials = materialsCounted ? 0 : materials.length;
   const frozen = lots.filter(
     (lot) => balance(db, lot.id, branch).frozen > 0.001,
   );
@@ -75,15 +82,6 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
           {
             title: `รับเนื้อเข้าสาขา ${pendingLots.length} Lot`,
             detail: `Owner จัดสรรมา ${fmt(pendingKg)} กก. ยังไม่ได้รับเข้าสาขา${branch}`,
-            tab: "day" as const,
-          },
-        ]
-      : []),
-    ...(materialTransfers.length
-      ? [
-          {
-            title: `วัสดุรอยืนยันรับ ${materialTransfers.length} รายการ`,
-            detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
             tab: "day" as const,
           },
         ]
@@ -124,11 +122,38 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
         ]),
   ];
 
+  // The two material tabs, each with its own line so the bell and the pill agree.
+  const receiveAlerts: Notification[] = materialTransfers.length
+    ? [
+        {
+          title: `วัสดุรอยืนยันรับ ${materialTransfers.length} รายการ`,
+          detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
+          tab: "material-receive" as const,
+        },
+      ]
+    : [];
+  const countAlerts: Notification[] = uncountedMaterials
+    ? [
+        {
+          title: `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${date}`,
+          detail: `นับของจริง ${uncountedMaterials} รายการแล้วกดบันทึก`,
+          tab: "material-count" as const,
+        },
+      ]
+    : [];
+
   return {
-    notifications: [...editAlerts, ...dayAlerts],
+    notifications: [
+      ...editAlerts,
+      ...dayAlerts,
+      ...receiveAlerts,
+      ...countAlerts,
+    ],
     dayTasks: dayAlerts.length,
     badges: {
       day: dayAlerts.length,
+      "material-receive": materialTransfers.length,
+      "material-count": uncountedMaterials,
       history: editAlerts.length,
     } satisfies Partial<Record<Tab, number>>,
   };

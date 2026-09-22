@@ -103,7 +103,7 @@ export function DailyMaterialsTable({
   return (
     <>
       <DataTable
-        title="วัสดุ 7 รายการ · กรอกการใช้วันนี้"
+        title="ตรวจนับสต๊อกวัสดุวันนี้"
         columns={[
           "วัสดุ",
           "ยอดตั้งต้น",

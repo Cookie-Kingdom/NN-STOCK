@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BarChart3,
   Beef,
+  ClipboardCheck,
   ClipboardList,
   Factory,
   FilePlus2,
@@ -10,9 +11,11 @@ import {
   LayoutDashboard,
   ListChecks,
   Package,
+  PackageCheck,
   Settings,
   Store,
   Warehouse,
+  Wheat,
 } from "lucide-react";
 
 export type Tab =
@@ -32,6 +35,9 @@ export type Tab =
   | "stock"
   | "meat-log"
   | "day"
+  | "material-receive"
+  | "material-count"
+  | "rice"
   | "report"
   | "history"
   | "config";
@@ -130,6 +136,13 @@ export const branchNav: NavGroup[] = [
   {
     items: [
       { id: "day", label: "กรอกรายวัน", icon: Store },
+      { id: "material-receive", label: "ยืนยันรับวัสดุ", icon: PackageCheck },
+      {
+        id: "material-count",
+        label: "ตรวจนับสต๊อกวัสดุวันนี้",
+        icon: ClipboardCheck,
+      },
+      { id: "rice", label: "ข้าวเหนียววันนี้", icon: Wheat },
       { id: "stock", label: "สต๊อก", icon: Package },
       { id: "branch-summary", label: "สรุปสาขา", icon: LayoutDashboard },
       { id: "history", label: "ประวัติ", icon: History },

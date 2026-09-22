@@ -77,6 +77,25 @@ export function BranchWorkspace({ account }: { account: Account }) {
             closed={closed}
             open={ws.open}
           />
+          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 3 ของ BranchDailyWorkflow ที่เดียว —
+           * ตารางนี้เหลือเฉพาะกล่องโปรโมท */}
+          <DailyTaskTable
+            title="กล่องโปรโมทอินฟลูเอนเซอร์"
+            kinds={["influencerBox"]}
+            db={db}
+            branch={branch}
+            date={date}
+            disabled={closed}
+            hasLots={!!ws.lots.length}
+            open={ws.open}
+          />
+        </>
+      )}
+      {tab === "material-receive" && (
+        <>
+          <Notice>
+            วันที่ทำรายการ {date} · สาขา {branch}
+          </Notice>
           <MaterialReceiptConfirmation
             db={db}
             branch={branch}
@@ -85,6 +104,13 @@ export function BranchWorkspace({ account }: { account: Account }) {
             minDate={db.config.systemStartDate}
             closed={closed}
           />
+        </>
+      )}
+      {tab === "material-count" && (
+        <>
+          <Notice>
+            วันที่ทำรายการ {date} · สาขา {branch}
+          </Notice>
           <DailyMaterialsTable
             /* The draft is seeded once from the saved entry, so remount when the
              * server payload replaces the seed db, or saved usage reads as 0. */
@@ -96,6 +122,13 @@ export function BranchWorkspace({ account }: { account: Account }) {
             minDate={db.config.systemStartDate}
             disabled={closed}
           />
+        </>
+      )}
+      {tab === "rice" && (
+        <>
+          <Notice>
+            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้
+          </Notice>
           <DailyTaskTable
             title={riceTaskTitle}
             kinds={riceTaskKinds}
@@ -107,23 +140,11 @@ export function BranchWorkspace({ account }: { account: Account }) {
             hasLots={!!ws.lots.length}
             open={ws.open}
           />
-          <ChiliDailySummary db={db} branch={branch} date={date} />
-          <MeatDaySummary db={db} branch={branch} date={date} />
-          <DailyTaskTable
-            title="ยอดขายและกล่องโปรโมท"
-            kinds={["sale", "influencerBox"]}
-            db={db}
-            branch={branch}
-            date={date}
-            disabled={closed}
-            hasLots={!!ws.lots.length}
-            open={ws.open}
-          />
         </>
       )}
       {tab === "stock" && (
         <>
-          <SectionHeading title="สต๊อกแยก Lot" />
+          <SectionHeading title="สต๊อกเนื้อ" />
           <MeatStockTable
             db={db}
             role={ws.role}
@@ -131,13 +152,17 @@ export function BranchWorkspace({ account }: { account: Account }) {
             lots={ws.lots}
             open={ws.open}
           />
+          <MeatDaySummary db={db} branch={branch} date={date} />
           <BranchStockSummary
             key={branch}
             db={db}
             branches={[branch]}
             initialDate={date}
           />
+          <SectionHeading title="น้ำพริกและของใช้" />
+          <ChiliDailySummary db={db} branch={branch} date={date} />
           <SupplyStock db={db} branches={[branch]} />
+          <SectionHeading title="วัสดุ" />
           <MaterialStockTable
             db={db}
             stockBranches={[branch]}
