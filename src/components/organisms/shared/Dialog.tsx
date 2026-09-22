@@ -19,7 +19,7 @@ const dialogVariants = cva(
   // Phones get a full-screen sheet anchored to the top. A bottom-anchored one
   // (`m-auto mb-0`) sinks on iOS: a fixed box is laid out against the *large*
   // viewport, so its bottom edge lands behind Safari/Chrome's toolbars.
-  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none " +
+  "m-auto max-h-[92dvh] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 backdrop:backdrop-blur-xs open:flex max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none dark:backdrop:bg-black/65 " +
     // Motion: closed state is the exit (fast, accelerate); `open:` the settled state
     // (slow, decelerate); `starting:open:` the @starting-style the enter animates from.
     // ponytail: Dialog closes by unmounting, so today only the enter plays; the exit

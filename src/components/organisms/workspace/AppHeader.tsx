@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Beef } from "lucide-react";
+import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 /** Logo tile + product name. Shared by the workspace header and the sign-in card. */
@@ -26,12 +27,18 @@ export function AppBrand({ responsive = false }: { responsive?: boolean }) {
   );
 }
 
-/** Top bar of every workspace: brand on the left, `actions` (e.g. notifications) on the right. */
+/**
+ * Top bar of every workspace: brand on the left, `actions` (e.g. notifications) and the
+ * theme toggle on the right.
+ */
 export function AppHeader({ actions }: { actions?: ReactNode }) {
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-8 py-4.5 max-md:px-4 max-md:py-3.5">
       <AppBrand responsive />
-      <div className="flex flex-wrap items-center gap-2.5">{actions}</div>
+      <div className="flex flex-wrap items-center gap-2.5">
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

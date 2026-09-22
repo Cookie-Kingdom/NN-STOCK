@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
+import { themeInitScript } from "@/lib/theme";
 
 const notoSansThai = Noto_Sans_Thai({
   variable: "--font-noto-sans-thai",
@@ -8,11 +9,6 @@ const notoSansThai = Noto_Sans_Thai({
   weight: ["400", "500", "600"],
   display: "swap",
 });
-
-// Follows the OS light/dark setting. Runs in <head> before first paint, so there is no
-// flash, and keeps listening so a mid-session switch applies straight away. The `.dark`
-// class is the same switch the token layer and Storybook already use.
-const systemTheme = `(()=>{const m=matchMedia("(prefers-color-scheme: dark)"),s=()=>document.documentElement.classList.toggle("dark",m.matches);s();m.addEventListener("change",s)})()`;
 
 export const metadata: Metadata = {
   title: "NerdNuea Stock — ระบบสต๊อกและต้นทุนเนื้อรมควัน",
@@ -28,7 +24,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: systemTheme }} />
+        {/* Applies the saved (or OS) theme before first paint; see lib/theme.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
