@@ -19,9 +19,9 @@ export default meta;
 type Story = StoryObj;
 
 /** Inside Foodiva's transport form: seeded from the Request's POs, handed back as a draft.
- *  Invoice and product carry their source. Inv. Weight is not a field either — it is the
- *  50 kg this Request asks of its purchase PO, shown read-only; Sliced Weight Net is the
- *  one weight typed here, and Sliced Weight Lost follows from the two. */
+ *  Invoice and product carry their source. None of the three weights is a field: Inv.
+ *  Weight is the 50 kg this Request asks of its purchase PO, Sliced Weight Net is the box
+ *  rows added up, and Sliced Weight Lost is the gap between the two. */
 export const Draft: Story = {
   render: () => (
     <PackingListForm
@@ -36,7 +36,7 @@ export const Draft: Story = {
 };
 
 /** Editing a saved list from the "Request เข้า" row, before the Owner's smoke PO: the
- *  saved Sliced Weight Net (50 kg) is back in its field and Sliced Weight Lost is 0.00. */
+ *  saved rows add back up to 50 kg, so Sliced Weight Lost is 0.00. */
 export const Edit: Story = {
   parameters: { db: packedDb },
   render: () => (

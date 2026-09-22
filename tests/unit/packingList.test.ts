@@ -22,7 +22,7 @@ describe("packingList", () => {
     expect(saved.values.slicedNetKg).toBe("30");
   });
 
-  test("Sliced Weight Net is what Foodiva typed, not the box total", () => {
+  test("Sliced Weight Net is the rows added up, whatever the form sent", () => {
     const s = dispatched();
     s.run("foodiva", "packingList", {
       ...list,
@@ -30,7 +30,7 @@ describe("packingList", () => {
       slicedNetKg: "28",
     });
     const saved = entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!;
-    expect(saved.values.slicedNetKg).toBe("28");
+    expect(saved.values.slicedNetKg).toBe("30");
     expect(packingListBoxes(saved.values.boxes)).toEqual([14.5, 15.5]);
   });
 
@@ -75,17 +75,10 @@ describe("packingList", () => {
     expect(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })).toThrow(
       /เกิน Inv. Weight/,
     );
-    // A typed Sliced Weight Net must be a real weight, and may not beat Inv. Weight.
-    expect(() => save({ ...list, boxes: "10", slicedNetKg: "0" })).toThrow(
-      /Sliced Weight Net/,
-    );
+    // A Sliced Weight Net sent along is ignored, so it can never dodge the rule.
     expect(() =>
-      save({ ...list, boxes: "10\n20", slicedNetKg: "40", invWeightKg: "35" }),
-    ).toThrow(/Sliced Weight Net เกิน Inv. Weight/);
-    // The box total no longer has to match it: 30 kg of boxes, 28 kg net, saves fine.
-    expect(() =>
-      save({ ...list, boxes: "10\n20", slicedNetKg: "28", invWeightKg: "35" }),
-    ).not.toThrow();
+      save({ ...list, boxes: "10\n20", slicedNetKg: "25", invWeightKg: "25" }),
+    ).toThrow(/เกิน Inv. Weight/);
   });
 
   test("needs the transport document first, never goes on a purchase PO, and only Foodiva may save it", () => {
