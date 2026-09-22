@@ -36,6 +36,26 @@ function trucked() {
 }
 
 describe("Chef House yellow cells", () => {
+  it("weighs the meat in before the smoke PO, but smokes only after it", () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    dispatch(s);
+    packingList(s, "25\n25");
+    smokeOrder(s);
+    // The truck is at the door: no PO acceptance needed to weigh the meat in.
+    s.run("cm", "cmReceive", {
+      arrival: "08:00",
+      receivedBoxes: "24.5\n24.5",
+    });
+    expect(s.db.lots.at(-1)!.stage).toBe(3);
+    expect(() => s.run("cm", "prepare", { preSmokeKg: "48" })).toThrow(
+      "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน",
+    );
+    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    s.run("cm", "prepare", { preSmokeKg: "48" });
+    expect(s.db.lots.at(-1)!.stage).toBe(4);
+  });
+
   it("drafts one blank cell per กล่องรับเข้า and keeps a blank as a blank line", () => {
     const list = latestPackingList(trucked().db, trucked().db.lots.at(-1)!.id);
     expect(receivedDraft(list)).toEqual([undefined, undefined]);

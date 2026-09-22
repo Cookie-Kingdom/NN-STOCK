@@ -6,6 +6,7 @@ import {
   rejectedInvoiceDb,
   returnTruckDb,
   smokedDb,
+  smokeOrderDb,
 } from "../../../../.storybook/fixtures";
 import { visibleDatabase, type Database } from "@/lib/store";
 import { ChefLotTable } from "./ChefLotTable";
@@ -23,6 +24,10 @@ const lotTable = (db: Database): Story => ({
   parameters: { db },
   render: () => <ChefLotTable db={chef(db)} lots={chef(db).lots} open={open} />,
 });
+
+/** Stage 2 with the smoke PO not accepted yet: the row offers the PO button and still
+ *  points at the receive tab, because the meat can be weighed in before the PO is accepted. */
+export const LotTableSmokeOrderWaiting: Story = lotTable(smokeOrderDb);
 
 /** Stage 5: edit the yellow cells or close the run. */
 export const LotTableSmoked: Story = lotTable(smokedDb);

@@ -117,7 +117,7 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอ Chef House ยืนยัน PO โรงรมควัน · ${item.poId}`,
-            detail: "Chef House ต้องกดยืนยันรับ PO ก่อนรับเนื้อเข้า",
+            detail: "Chef House ต้องกดยืนยันรับ PO ก่อนเริ่มงานรมควัน",
             tab: "smoke-po",
           },
         ];
