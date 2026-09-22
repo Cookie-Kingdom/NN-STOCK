@@ -7,7 +7,8 @@ import type { CloseDayItem } from "@/lib/store";
 
 /** What closing the day needs (closeDayChecklist, the same list mutate checks), with a
  *  way to go fill each missing item. `onGo` opens that item's form, or, for an item
- *  filled on the day screen itself (materials), just closes this dialog. */
+ *  filled on the day screen itself (materials), just closes this dialog. An optional
+ *  item with a form (influencer boxes) can be opened too, but never blocks the close. */
 export function CloseDayChecklist({
   items,
   onGo,
@@ -24,8 +25,16 @@ export function CloseDayChecklist({
         rowKeys={items.map((item) => item.key)}
         rows={items.map((item) => [
           item.label,
-          !item.required ? "ข้อมูล · ไม่บังคับ" : item.done ? "✓" : "ยังไม่ทำ",
-          item.required && !item.done && onGo ? (
+          item.required
+            ? item.done
+              ? "✓"
+              : "ยังไม่ทำ"
+            : !item.kind
+              ? "ข้อมูล · ไม่บังคับ"
+              : item.done
+                ? "✓ บันทึกแล้ว"
+                : "ไม่บังคับ · ยังไม่บันทึก",
+          (item.required || item.kind) && !item.done && onGo ? (
             <Button key={item.key} variant="table" onClick={() => onGo(item)}>
               {item.kind ? "ไปกรอก" : "ไปกรอกในหน้ารายวัน"}
             </Button>
