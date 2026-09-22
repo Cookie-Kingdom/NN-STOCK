@@ -19,8 +19,8 @@ export default meta;
 type Story = StoryObj;
 
 /** Inside Foodiva's transport form: seeded from the Request's POs, handed back as a draft.
- *  Invoice, product and Inv. Weight carry their source; Sliced Weight Lost follows the
- *  box total (expected marker) until it is typed. */
+ *  Invoice, product and Inv. Weight carry their source; Sliced Weight Lost is not a
+ *  field — it is shown as the difference between Inv. Weight and the box total. */
 export const Draft: Story = {
   render: () => (
     <PackingListForm

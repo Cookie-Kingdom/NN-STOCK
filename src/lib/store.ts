@@ -2006,9 +2006,9 @@ function record(
     v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
     v.boxCount = String(boxes.length);
     v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
-    // A2: Sliced Weight Lost is Foodiva's own figure (usable meat after cutting), never
-    // derived from Inv. Weight or Chef House's yellow cells.
-    positive(v, "slicedLostKg", "Sliced Weight Lost");
+    /* A2: Sliced Weight Lost is what cutting took away — Inv. Weight less the box total,
+     * never Chef House's yellow cells. Zero is a normal list: nothing was lost. */
+    positive(v, "slicedLostKg", "Sliced Weight Lost", true);
     if (v.invWeightKg?.trim()) {
       positive(v, "invWeightKg", "Inv. Weight");
       withinStock(
