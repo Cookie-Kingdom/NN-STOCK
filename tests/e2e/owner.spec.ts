@@ -184,7 +184,7 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
   ).toBeVisible();
 
   await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
-  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
   await field(page, /น้ำหนักสั่งซื้อ/, "500");
   await field(page, /ราคาเนื้อ/, "250");
   await button(page, "บันทึก PO เนื้อ");

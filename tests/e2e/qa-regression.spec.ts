@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  a_expectOverStock,
+  a_expectRefused,
   ACCOUNTS,
   button,
   chefSmokesShipment,
@@ -39,15 +41,8 @@ const MATERIALS = [
 
 const openDialog = (page: Page) => page.getByRole("dialog").last();
 
-/** Submits the open dialog and expects it to stay open with a validation message. */
-async function submitAndExpectError(page: Page, message: RegExp) {
-  const dialog = openDialog(page);
-  await pointAndClick(page, dialog.locator('button[type="submit"]').last());
-  // The footer and the form body can both carry the same message.
-  await expect(
-    dialog.getByRole("alert").filter({ hasText: message }).first(),
-  ).toBeVisible();
-}
+/** The open dialog refuses what was typed (live, save disabled, or on save). */
+const submitAndExpectError = a_expectRefused;
 
 async function cancelDialog(page: Page) {
   await pointAndClick(
@@ -106,11 +101,7 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   await purchase.getByLabel(`ซื้อ ${MATERIALS[0]}`).check();
   await field(page, `จำนวนซื้อ ${MATERIALS[0]}`, "500");
   await field(page, `ราคาซื้อ ${MATERIALS[0]}`, "1");
-  await pointAndClick(page, purchase.locator('button[type="submit"]'));
-  await expect(purchase).toBeVisible();
-  await expect(
-    purchase.getByText("กรอกผู้จำหน่าย", { exact: false }),
-  ).toBeVisible();
+  await submitAndExpectError(page, /กรอกผู้จำหน่าย/);
   await expect(purchase.getByLabel(`ผู้จำหน่าย ${MATERIALS[0]}`)).toHaveValue(
     "",
   );
@@ -250,7 +241,10 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, "ศาลาแดง (กก.)", "0");
   await submitAndExpectError(page, /กรอกน้ำหนักจัดสรรอย่างน้อย 1 สาขา/);
   await field(page, "ศาลาแดง (กก.)", "500.5");
-  await submitAndExpectError(page, /เกินสต๊อกกลาง 500\.00 กก\./);
+  await a_expectOverStock(
+    page,
+    "น้ำหนักรวม 500.50 กก. เกินสต๊อกกลาง 500.00 กก.",
+  );
   await field(page, "ศาลาแดง (กก.)", "500");
   await button(page, "บันทึกการจัดสรร");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -264,7 +258,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await saveEntry(page);
   await button(page, "แบ่งละลาย");
   await field(page, /น้ำหนักละลาย/, "0.5");
-  await field(page, /จำนวนถุงที่ละลาย/, "1");
+  await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
   await saveEntry(page);
 
   // BUG-3: the sales form now says why it refuses to save.
@@ -274,9 +268,9 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, /น้ำหนักเวสต์/, "0");
   await field(page, /กล่องมาตรฐาน/, "6");
   await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.6");
-  await submitAndExpectError(
+  await a_expectOverStock(
     page,
-    /น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว \(รวมชิลยกมา\)/,
+    "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 0.50 กก.",
   );
   // A valid sale: nothing sold, the thawed 0.5 kg written off with a reason.
   await field(page, /กล่องมาตรฐาน/, "0");
@@ -296,7 +290,10 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, /ชื่ออินฟลูเอนเซอร์/, "QA Influencer");
   await field(page, /กล่องมาตรฐานที่ส่ง/, "6");
   await field(page, /น้ำหนักเนื้อที่ใช้ส่งจริง/, "0.6");
-  await submitAndExpectError(page, /เกิน|ไม่พอ/);
+  await a_expectOverStock(
+    page,
+    "น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · กรอกได้สูงสุด 0.00 กก.",
+  );
   await cancelDialog(page);
 
   // BUG-10b (the close-day hint quoting the wrong close time) is gone with the time rule

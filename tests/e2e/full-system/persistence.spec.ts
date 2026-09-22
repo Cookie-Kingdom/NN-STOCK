@@ -121,7 +121,7 @@ function lotState(stop: Stop): Database {
     attention: "ฝ่ายจัดซื้อ",
     phone: "0800000000",
     taxId: "0100000000000",
-    packSize: "6 ชิ้นต่อถุง",
+    packSize: "6 ชิ้นต่อกล่อง",
     productName: "เนื้อวัว",
     orderedKg: "50",
     price: "250",
@@ -276,7 +276,7 @@ async function fillMeatPo(page: Page, orderedKg: string) {
   await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
   await field(page, /เบอร์ติดต่อ/, "0800000000");
   await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
-  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
   await field(page, /น้ำหนักสั่งซื้อ/, orderedKg);
   await field(page, /ราคาเนื้อ/, "250");
 }

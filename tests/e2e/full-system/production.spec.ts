@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  a_expectOverStock,
+  a_expectRefused,
   ACCOUNTS,
   button,
   chefAcceptsSmokePo,
@@ -31,17 +33,10 @@ test.skip(
 );
 
 const dialog = (page: Page) => page.getByRole("dialog").last();
-/** role=alert also matches Next's route announcer and page banners, so scope + text. */
-const alertIn = (scope: Locator, text: string | RegExp) =>
-  scope.getByRole("alert").filter({ hasText: text }).first();
 
-/** Submits the open dialog and expects it to stay open with the store's message. */
-async function submitAndExpectError(page: Page, message: string | RegExp) {
-  const open = dialog(page);
-  await pointAndClick(page, open.locator('button[type="submit"]').last());
-  await expect(alertIn(open, message)).toBeVisible();
-  await expect(open).toBeVisible();
-}
+/** The open dialog refuses what was typed with the store's message: live (save
+ * disabled) or on save. */
+const submitAndExpectError = a_expectRefused;
 
 /** Sidebar tab by label, so a same-named button in <main> is never hit. */
 const tab = (page: Page, label: string) =>
@@ -132,7 +127,10 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       await button(page, "น้ำหนักก่อนสโมค");
       await expect(dialog(page)).toContainText("500.00 กก.");
       await field(page, /น้ำหนักหลังแกะซับ/, "520");
-      await submitAndExpectError(page, "น้ำหนักก่อนสโมคเกินน้ำหนักรับ");
+      await a_expectOverStock(
+        page,
+        "น้ำหนักก่อนสโมคเกินน้ำหนักรับ · กรอกได้สูงสุด 500.00 กก.",
+      );
       await field(page, /น้ำหนักหลังแกะซับ/, "480");
       await saveEntry(page);
       await expect(chefLotCell(page, 4)).toHaveText("บันทึกสโมค");
@@ -163,7 +161,10 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       );
       // More into the smoker than is waiting (480) is refused.
       await fillSmokeRound(page, "600", "362", ["120", "118"]);
-      await submitAndExpectError(page, "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต");
+      await a_expectOverStock(
+        page,
+        "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต · กรอกได้สูงสุด 480.00 กก.",
+      );
       // Blank input weight.
       await setValue(dialog(page), /น้ำหนักเข้าเตารอบนี้/, "");
       await submitAndExpectError(
@@ -265,7 +266,10 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       await expect(edit).toContainText("ยอดตรงกัน พร้อมปิด Lot");
 
       await setValue(edit, "น้ำหนักก่อนสโมค (กก.)", "510");
-      await submitAndExpectError(page, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
+      await a_expectOverStock(
+        page,
+        "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง · กรอกได้สูงสุด 500.00 กก.",
+      );
 
       await setValue(edit, "น้ำหนักก่อนสโมค (กก.)", "470");
       await expect(edit).toContainText("ยอดยังไม่ตรง");
@@ -426,7 +430,10 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
         .getByLabel(/ปลายทาง/)
         .selectOption({ label: "กรุงเทพฯ" });
       await field(page, /น้ำหนักส่งจาก Chef House/, "480");
-      await submitAndExpectError(page, "น้ำหนักส่งกลับเกินผลผลิต");
+      await a_expectOverStock(
+        page,
+        "น้ำหนักส่งกลับเกินผลผลิต · กรอกได้สูงสุด 475.00 กก.",
+      );
       await field(page, /น้ำหนักส่งจาก Chef House/, "475");
       await saveEntry(page);
       const row = tableSection(page, "รายการส่ง").locator("tbody tr").first();

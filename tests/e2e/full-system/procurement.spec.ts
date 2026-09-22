@@ -1,6 +1,8 @@
 import { statSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  a_expectOverStock,
+  a_expectRefused,
   ACCOUNTS,
   button,
   chefSmokesShipment,
@@ -50,18 +52,10 @@ const SO = `SO-${YEAR}-0001`;
 const TR = `TR-${YEAR}-0001`;
 
 const dialog = (page: Page) => page.getByRole("dialog").last();
-/** role=alert also matches Next's route announcer and the page banner, so scope + text.
- * A form can show the same message twice (live check + submit), so take the first. */
-const alertIn = (scope: Locator, text: string | RegExp) =>
-  scope.getByRole("alert").filter({ hasText: text }).first();
 
-/** Submits the open dialog and expects it to stay open with the store's message. */
-async function submitAndExpectError(page: Page, message: string | RegExp) {
-  const open = dialog(page);
-  await pointAndClick(page, open.locator('button[type="submit"]').last());
-  await expect(alertIn(open, message)).toBeVisible();
-  await expect(open).toBeVisible();
-}
+/** The open dialog refuses what was typed with the store's message: live (save
+ * disabled) or on save. */
+const submitAndExpectError = a_expectRefused;
 
 /** Sidebar tab by label: `button(page, "ใบขนส่ง")` would also hit "ทำใบขนส่ง" in <main>. */
 const tab = (page: Page, label: string) =>
@@ -172,7 +166,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
       await field(page, /เบอร์ติดต่อ/, "0800000000");
       await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
-      await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+      await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
       await field(page, /ราคาเนื้อ/, "250");
     },
   );
@@ -353,7 +347,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
     "Owner: C5 Request ขอ 491 > คงเหลือ 490 → บล็อก (ระบุเลข PO)",
     async () => {
       await ownerFillsShipmentRequest(page, [{ poId: PO, kg: "491" }]);
-      await submitAndExpectError(
+      await a_expectOverStock(
         page,
         `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${PO} (เหลือ 490.00 กก.)`,
       );
@@ -724,9 +718,9 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       ).toBeVisible();
       await field(page, /น้ำหนักรับจริง/, "11");
       await field(page, /ผู้รับเนื้อ/, "Owner QA");
-      await submitAndExpectError(
+      await a_expectOverStock(
         page,
-        "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
+        "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ · กรอกได้สูงสุด 10.00 กก.",
       );
     },
   );

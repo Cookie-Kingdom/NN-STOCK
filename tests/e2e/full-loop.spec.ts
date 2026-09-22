@@ -1,6 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import path from "node:path";
 import {
+  a_expectOverStock,
+  a_expectRefused,
   ACCOUNTS,
   BRANCH_ACCOUNTS,
   button,
@@ -37,15 +39,8 @@ import { mutate, seed, type Database, type Role } from "../../src/lib/store";
  * to the smoker, 80 kg packed in two 40 kg กล่องรมควัน, 79 kg received back at Foodiva. Every loss in that walk exposed a bug (BUG-1, 4, 6, 7, 10),
  * so the numbers here are load-bearing. */
 
-/** Submits the open dialog and expects it to stay open with a validation message. */
-async function submitAndExpectError(page: Page, message: RegExp) {
-  const dialog = page.getByRole("dialog").last();
-  await pointAndClick(page, dialog.locator('button[type="submit"]').last());
-  // The footer and the form body can both carry the same message.
-  await expect(
-    dialog.getByRole("alert").filter({ hasText: message }).first(),
-  ).toBeVisible();
-}
+/** The open dialog refuses what was typed (live, save disabled, or on save). */
+const submitAndExpectError = a_expectRefused;
 
 test("full business loop across Owner, Foodiva, Chef House and both branches", async ({
   page,
@@ -95,7 +90,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
   await field(page, /เบอร์ติดต่อ/, "0800000000");
   await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
-  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
   await field(page, /น้ำหนักสั่งซื้อ/, "100");
   await field(page, /ราคาเนื้อ/, "250");
   await field(page, /หมายเหตุ/, "QA TEST loop");
@@ -163,7 +158,10 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await button(page, "งานผลิต");
   await button(page, "น้ำหนักก่อนสโมค");
   await field(page, /น้ำหนักหลังแกะซับ/, "200");
-  await submitAndExpectError(page, /เกิน/);
+  await a_expectOverStock(
+    page,
+    "น้ำหนักก่อนสโมคเกินน้ำหนักรับ · กรอกได้สูงสุด 88.00 กก.",
+  );
   await field(page, /น้ำหนักหลังแกะซับ/, "85");
   await saveEntry(page);
   await chefSmokes(page, { inputKg: "85", wasteKg: "5", packs: ["40", "40"] });
@@ -274,7 +272,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   ).toContainText("ค้างรับ 20.00 กก.");
   await receive.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
   await field(page, /น้ำหนักรับเข้าสาขา/, "20.5");
-  await submitAndExpectError(page, /รับเกินยอดค้างรับ/);
+  await a_expectOverStock(page, "รับเกินยอดค้างรับ · กรอกได้สูงสุด 20.00 กก.");
   await field(page, /น้ำหนักรับเข้าสาขา/, "20");
   await saveEntry(page);
   await expect(
@@ -301,8 +299,11 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     await signInAs(page, BRANCH_ACCOUNTS[branch]);
     await button(page, "แบ่งละลาย");
     await field(page, /น้ำหนักละลาย/, "60");
-    await field(page, /จำนวนถุงที่ละลาย/, "1");
-    await submitAndExpectError(page, /ไม่พอ/);
+    await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
+    await a_expectOverStock(
+      page,
+      `สต๊อกแช่แข็งไม่พอ · กรอกได้สูงสุด ${branch === "ศาลาแดง" ? "50.00" : "28.50"} กก.`,
+    );
     await field(page, /น้ำหนักละลาย/, "10");
     await saveEntry(page);
     await button(page, "บันทึกการใช้วัสดุ");
@@ -514,7 +515,7 @@ test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → �
   // Yesterday: thaw 70, use 65.5, no waste. The 4.5 kg left does not block closing.
   await button(page, "แบ่งละลาย");
   await field(page, /น้ำหนักละลาย/, "70");
-  await field(page, /จำนวนถุงที่ละลาย/, "1");
+  await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
   await saveEntry(page);
   await button(page, "บันทึกการใช้วัสดุ");
   await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
@@ -577,7 +578,10 @@ test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → �
   await button(page, "บันทึกยอดขาย");
   await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.6");
   await field(page, /น้ำหนักเวสต์/, "0");
-  await submitAndExpectError(page, /เกิน|ไม่พอ/);
+  await a_expectOverStock(
+    page,
+    "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 4.50 กก.",
+  );
   await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.5");
   await saveEntry(page);
   await expect(meatDay(today).nth(3)).toHaveText("4.50 กก.");
@@ -604,7 +608,7 @@ function receivedAtSaladaeng(date: string): Database {
     attention: "ฝ่ายจัดซื้อ",
     phone: "0800000000",
     taxId: "0100000000000",
-    packSize: "6 ชิ้นต่อถุง",
+    packSize: "6 ชิ้นต่อกล่อง",
     productName: "เนื้อวัว",
     orderedKg: "70",
     price: "250",

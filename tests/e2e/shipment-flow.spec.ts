@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
+  a_expectOverStock,
+  a_expectRefused,
   ACCOUNTS,
   button,
   chefAcceptsSmokePo,
@@ -291,9 +293,8 @@ test("ส่งบางส่วน: PO 1,000 → ส่ง 400 เหลือ
   );
   const overdraw = `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${poId} (เหลือ 600.00 กก.)`;
   await expect(dialog.getByRole("alert").first()).toHaveText(overdraw);
-  await pointAndClick(page, dialog.locator('button[type="submit"]'));
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText(overdraw);
+  // Over what is left is refused as it is typed: save stays disabled.
+  await a_expectOverStock(page, overdraw);
 
   await typeValue(page, dialog.getByLabel(`น้ำหนักที่จะส่งของ ${poId}`), "600");
   await saveEntry(page);
@@ -454,8 +455,7 @@ test("ช่องเหลือง: เว้นว่างถูกปฏิ
   await chefAcceptsSmokePo(page);
   await chefFillsYellowCells(page, shipment, ["24.5", ""]);
   const dialog = page.getByRole("dialog");
-  await pointAndClick(page, dialog.locator('button[type="submit"]'));
-  await expect(dialog).toContainText("กรอกน้ำหนักจริงทุกกล่องรับเข้า");
+  await a_expectRefused(page, "กรอกน้ำหนักจริงทุกกล่องรับเข้า");
 
   await typeValue(
     page,
@@ -504,11 +504,8 @@ test("Foodiva รับเข้าตู้: ต่างจากยอดส�
   await ownerCallsReturnTruck(page, shipment, "20");
 
   await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaFillsReturnReceive(page, shipment, { kg: "15" });
-  const dialog = page.getByRole("dialog");
-  await pointAndClick(page, dialog.locator('button[type="submit"]'));
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("กรอกเหตุผลส่วนต่าง");
+  await foodivaFillsReturnReceive(page, shipment, { kg: "15" });
+  await a_expectRefused(page, "กรอกเหตุผลส่วนต่าง");
 
   await field(page, /เหตุผลส่วนต่าง/, "ถุงรั่ว 1 กล่องรมควัน");
   await saveEntry(page);
@@ -546,8 +543,7 @@ test("ชำระ Invoice เนื้อ: ยอดไม่ตรงถูก
   await expect(dialog.getByLabel(/ยอดชำระ/)).toHaveValue("100000");
   await field(page, /ยอดชำระ/, "99999");
   await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
-  await pointAndClick(page, dialog.locator('button[type="submit"]'));
-  await expect(dialog).toContainText("ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ");
+  await a_expectRefused(page, "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ");
   await pointAndClick(
     page,
     dialog.getByRole("button", { name: "ยกเลิก", exact: true }),
@@ -936,12 +932,10 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
         tableRow(page, "Invoice Chef House", shipment).getByRole("button", {
           name: "ชำระเงิน",
         }),
-      );
-      const pay = page.getByRole("dialog");
+      );
       await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
       await field(page, /ยอดชำระ/, "77000");
-      await pointAndClick(page, pay.locator('button[type="submit"]'));
-      await expect(pay).toContainText("ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
+      await a_expectRefused(page, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");
       await field(page, /ยอดชำระ/, "76500");
       await saveEntry(page);
       await expect(
