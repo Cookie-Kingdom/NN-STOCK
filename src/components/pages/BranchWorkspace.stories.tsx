@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fireEvent, within } from "storybook/test";
-import { day, dayClosedDb, demoDb } from "../../../.storybook/fixtures";
+import {
+  branchTasksDb,
+  day,
+  dayClosedDb,
+  demoDb,
+} from "../../../.storybook/fixtures";
 import { accountById } from "@/lib/accounts";
 import type { Tab } from "@/lib/nav";
 import { BranchWorkspace } from "./BranchWorkspace";
@@ -36,4 +41,24 @@ export const History: Story = { parameters: at("history") };
 export const MinburiDay: Story = {
   parameters: at("day"),
   render: () => <BranchWorkspace account={accountById("minburi")!} />,
+};
+
+/** ศาลาแดง's bell: meat allocated but not received, material waiting to be confirmed and
+ *  the day still short of what closing needs. Every line opens กรอกรายวัน. */
+export const Notifications: Story = {
+  parameters: { ...at("day"), db: branchTasksDb },
+  play: async ({ canvasElement }) => {
+    fireEvent.click(
+      within(canvasElement).getByLabelText(/^การแจ้งเตือน/, {
+        selector: "button",
+      }),
+    );
+  },
+};
+
+/** The same database seen by มีนบุรี: none of ศาลาแดง's work reaches this branch's bell. */
+export const MinburiNotifications: Story = {
+  parameters: { ...at("day"), db: branchTasksDb },
+  render: () => <BranchWorkspace account={accountById("minburi")!} />,
+  play: Notifications.play,
 };

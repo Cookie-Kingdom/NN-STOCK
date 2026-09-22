@@ -10,12 +10,15 @@ import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { DailyTaskTable } from "@/components/organisms/branch/DailyTaskTable";
 import { MaterialReceiptConfirmation } from "@/components/organisms/branch/MaterialReceiptConfirmation";
 import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
+import {
+  noBranchAlerts,
+  useBranchAlerts,
+} from "@/components/organisms/branch/useBranchAlerts";
 import { BranchStockSummary } from "@/components/organisms/shared/BranchStockSummary";
 import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
-import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -31,6 +34,11 @@ export function BranchWorkspace({ account }: { account: Account }) {
   const { branch, closed, date, db, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Meat and material to take in, and the day's own work on `date`. Held back until the
+  // server payload replaces the seed.
+  const alerts = useBranchAlerts(db, branch, date);
+  const { badges, notifications } = ws.loaded ? alerts : noBranchAlerts;
+
   return (
     <WorkspaceShell
       account={account}
@@ -40,7 +48,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
       date={date}
       onDate={ws.setDate}
       minDate={ws.db.config.systemStartDate}
-      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      badges={badges}
+      notifications={notifications}
       showNotifications={showNotifications}
       onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}

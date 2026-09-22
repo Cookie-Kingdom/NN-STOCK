@@ -356,6 +356,53 @@ export const chefBusyDb: Database = (() => {
 })();
 
 /** A material shipment to ศาลาแดง still waiting for the branch to confirm what arrived. */
+/** Foodiva with one of each open task, so its bell lists them all: a 60 kg PO with no
+ *  Invoice, a 40 kg Request with no transport document, and a closed run on the return
+ *  truck waiting to be weighed into Foodiva's freezer. */
+export const foodivaTasksDb: Database = (() => {
+  const s = closed();
+  s.run("owner", "return", {
+    returnDate: day,
+    returnTime: "09:00",
+    origin: "Chef House",
+    destination: "Foodiva",
+    vehicleType: "รถห้องเย็น",
+    plate: "กข123",
+    driverName: "คนขับ",
+    driverPhone: "0800000000",
+    returnKg: "36",
+  });
+  readyToDispatch(s, "40");
+  purchase(s, "60");
+  return s.db;
+})();
+
+/** ศาลาแดง with work waiting at its bell: 17.5 kg allocated but not received, and 60
+ *  units of materials[0] sent but not confirmed. The day itself is still empty, so the
+ *  close line lists what it is missing. */
+export const branchTasksDb: Database = (() => {
+  const s = ready();
+  s.run("owner", "allocate", {
+    branch: "ศาลาแดง",
+    kg: "17.5",
+    deliveryDate: day,
+  });
+  s.run("owner", "materialReceive", {
+    purchaseDate: day,
+    material: materials[0],
+    quantity: "200",
+    unitPrice: "3",
+    supplier: "ร้านวัสดุ",
+  });
+  s.run("owner", "materialTransfer", {
+    material: materials[0],
+    branch: "ศาลาแดง",
+    quantity: "60",
+    receiver: "ผู้ดูแลสาขา",
+  });
+  return s.db;
+})();
+
 export const materialTransferDb: Database = (() => {
   const s = setup();
   s.run("owner", "materialReceive", {
