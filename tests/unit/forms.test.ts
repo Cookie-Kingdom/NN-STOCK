@@ -36,7 +36,7 @@ test("a sale over the thawed stock is refused with a message", () => {
   const s = ready();
   s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
   s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-  s.run("branch", "thaw", { kg: "0.5", bags: "1" });
+  s.run("branch", "thaw", { kg: "0.5" });
   expect(() =>
     s.run("branch", "sale", {
       boxes: "6",

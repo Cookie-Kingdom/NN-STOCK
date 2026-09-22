@@ -521,7 +521,7 @@ function roleplay(endDate: string, dayCount: number): Database {
         receiver: `ผู้ดูแล${branch}`,
         reference: `CHILI-${workDate}`,
       });
-      run("branch", "thaw", { kg: "1.521", bags: "1" }, lotId);
+      run("branch", "thaw", { kg: "1.521" }, lotId);
       run("branch", "materials", materialValues);
       if (branch === "ศาลาแดง") {
         run("branch", "riceIssue", {
@@ -2266,8 +2266,6 @@ function record(
       balance(db, lotId, branch).frozen,
       "สต๊อกแช่แข็งไม่พอ",
     );
-    positive(v, "bags", "จำนวนกล่องรมควันที่ละลาย");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     const oldest = db.lots
       .filter((l) => balance(db, l.id, branch).frozen > 0.001)
       .sort((a, b) =>

@@ -217,8 +217,8 @@ export const BranchReceive: Story = form(
   "ศาลาแดง",
 );
 
-/** Moving frozen bags to ready-to-sell stock: the oldest frozen lot (FIFO), and the last
- *  thaw's kg and bags within its frozen stock, marked expected. */
+/** Moving frozen stock to ready-to-sell stock: the oldest frozen lot (FIFO), and the
+ *  last thaw's kg within its frozen stock, marked expected. */
 export const BranchThaw: Story = form(demoDb, "branch", "thaw", "ศาลาแดง");
 
 /** Only the kg typed, over the frozen stock: the error (with the most allowed) shows at

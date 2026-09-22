@@ -427,8 +427,8 @@ export const editDecidedDb: Database = branchEdit(
     branchEdit(
       decide(editPendingDb, "อนุมัติ"),
       "thaw",
-      { kg: "70", bags: "8" },
-      "นับถุงผิด",
+      { kg: "70" },
+      "ชั่งน้ำหนักผิด",
     ),
     "ไม่อนุมัติ",
     "ตรวจแล้ว 7 ถุงถูกต้อง",

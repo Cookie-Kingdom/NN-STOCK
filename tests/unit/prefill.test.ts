@@ -568,9 +568,9 @@ test("branch meat forms: one open allocation is picked, thaw repeats the last on
   );
   s.run("branch", "receive", { kg: "2", allocation });
 
-  // Last thaw was 70 kg / 7 bags; only 2 kg is frozen now.
+  // Last thaw was 70 kg; only 2 kg is frozen now.
   const thaw = prefillWithSources(s.db, "thaw", lot(), { branch });
-  expect(thaw.values).toEqual({ kg: "2", bags: "1" });
+  expect(thaw.values).toEqual({ kg: "2" });
   expect(thaw.sources.kg.expected).toBe(true);
   expect(thaw.sources.kg.label).toMatch(/เท่าที่มีแช่แข็ง/);
 

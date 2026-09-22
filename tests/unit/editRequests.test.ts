@@ -149,7 +149,7 @@ describe("B5 edit requests", () => {
     expect(() =>
       s.run("owner", "entryEdit", {
         targetId: thaw.id,
-        values: JSON.stringify({ kg: "50", bags: "5" }),
+        values: JSON.stringify({ kg: "50" }),
         reason: "x",
       }),
     ).toThrow("ติดลบ");

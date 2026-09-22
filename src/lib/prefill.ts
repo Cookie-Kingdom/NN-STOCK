@@ -552,10 +552,6 @@ export function prefillValues(
     if (!previous || frozen <= 0.001) return none();
     const lastKg = n(previous.values, "kg");
     const take = Math.min(lastKg, frozen);
-    const bags = Math.max(
-      1,
-      Math.round((n(previous.values, "bags") * take) / lastKg),
-    );
     const source = {
       label:
         take < lastKg
@@ -563,12 +559,7 @@ export function prefillValues(
           : lastLabel(previous.date),
       expected: true,
     };
-    return merge(
-      positive("kg", take, source),
-      n(previous.values, "bags") > 0
-        ? from({ bags: String(bags) }, source)
-        : none(),
-    );
+    return positive("kg", take, source);
   }
   if (kind === "sale")
     return merge(

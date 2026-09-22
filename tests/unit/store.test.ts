@@ -906,9 +906,7 @@ describe("lot workflow", () => {
     ).toThrow(/ไม่ได้จัดสรร/);
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-    expect(() => s.run("branch", "thaw", { kg: "6", bags: "2" })).toThrow(
-      /ไม่พอ/,
-    );
+    expect(() => s.run("branch", "thaw", { kg: "6" })).toThrow(/ไม่พอ/);
   });
 });
 
@@ -1109,7 +1107,7 @@ describe("branch supplies", () => {
     const s = ready();
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-    s.run("branch", "thaw", { kg: "5", bags: "2" });
+    s.run("branch", "thaw", { kg: "5" });
     const missing = () =>
       closeDayChecklist(s.db, "ศาลาแดง", day).filter(
         (item) => item.required && !item.done,
@@ -1178,7 +1176,7 @@ describe("branch supplies", () => {
     const s = ready();
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-    s.run("branch", "thaw", { kg: "5", bags: "2" });
+    s.run("branch", "thaw", { kg: "5" });
     expect(() =>
       s.run("branch", "sale", {
         boxes: "10",
@@ -1199,7 +1197,7 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   const id = s.db.lots.at(-1)!.id;
   s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
   s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-  s.run("branch", "thaw", { kg: "5", bags: "2" });
+  s.run("branch", "thaw", { kg: "5" });
   s.run("branch", "ricePurchase", {
     riceSource: riceSources[0],
     supplier: "ตลาดศาลาแดง",
@@ -1279,7 +1277,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     reason: "ทยอยรับ",
   });
   s.run("branch", "receive", { kg: "6", allocation });
-  s.run("branch", "thaw", { kg: "4.2", bags: "2" });
+  s.run("branch", "thaw", { kg: "4.2" });
   s.run("branch", "ricePurchase", {
     riceSource: riceSources[0],
     supplier: "ตลาดศาลาแดง",
@@ -1359,9 +1357,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   });
   s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" });
   expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
-  expect(() => s.run("branch", "thaw", { kg: "1", bags: "1" })).toThrow(
-    /ปิดยอด/,
-  );
+  expect(() => s.run("branch", "thaw", { kg: "1" })).toThrow(/ปิดยอด/);
   expect(
     visibleEntries(s.db, "branch", "ศาลาแดง").every(
       (item) => !("meatCost" in item.values),
@@ -1527,7 +1523,7 @@ describe("chill carryover", () => {
       kg: "1.5",
       allocation: db.entries.at(-1)!.id,
     });
-    db = run(db, "branch", "thaw", { kg: "1", bags: "1" });
+    db = run(db, "branch", "thaw", { kg: "1" });
     expect(branchMeatDay(db, id, branch, day)).toMatchObject({
       pending: 0,
       received: 70,
@@ -1550,7 +1546,7 @@ describe("chill carryover", () => {
     const s = ready();
     s.run("owner", "allocate", { branch, kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-    s.run("branch", "thaw", { kg: "5", bags: "2" });
+    s.run("branch", "thaw", { kg: "5" });
     const sale = {
       boxes: "0",
       addons: "10",
