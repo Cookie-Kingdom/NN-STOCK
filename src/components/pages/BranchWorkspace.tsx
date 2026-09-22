@@ -17,6 +17,11 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { branchNav } from "@/lib/nav";
+import { requiredRiceKinds } from "@/lib/store";
+
+/** Same rice rows at every branch: each round is self-cooked or bought cooked (B2). */
+const riceTaskTitle = "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก";
+const riceTaskKinds = ["ricePurchase", "riceIssue", "rice", "riceCarry"];
 
 export function BranchWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
@@ -75,16 +80,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
             disabled={closed}
           />
           <DailyTaskTable
-            title={
-              branch === "ศาลาแดง"
-                ? "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
-                : "ข้าวเหนียวสุก · ซื้อที่สาขามีนบุรี"
-            }
-            kinds={[
-              "ricePurchase",
-              ...(branch === "ศาลาแดง" ? ["riceIssue"] : []),
-              branch === "มีนบุรี" ? "riceCarry" : "rice",
-            ]}
+            title={riceTaskTitle}
+            kinds={riceTaskKinds}
+            required={requiredRiceKinds(db, branch, date)}
             db={db}
             branch={branch}
             date={date}

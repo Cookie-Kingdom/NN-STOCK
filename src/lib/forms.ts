@@ -1,4 +1,4 @@
-import { branches, materials, type Values } from "./store";
+import { branches, materials, riceSources, type Values } from "./store";
 export type Field = {
   key: string;
   label: string;
@@ -342,6 +342,12 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   ricePurchase: [
+    {
+      key: "riceSource",
+      label: "รอบนี้ข้าวเหนียวมาจาก (Rice source)",
+      type: "select",
+      options: riceSources,
+    },
     text("supplier", "ผู้จำหน่ายข้าว (Rice supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
     number("rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ (Purchase cost) · บาท", true),
@@ -551,7 +557,7 @@ export const forms: Record<string, Field[]> = {
     ),
     number(
       "cookedRicePar",
-      "จำนวนฐานข้าวเหนียวสุกมีนบุรี (Cooked rice par level) · กก.",
+      "จำนวนฐานข้าวเหนียวสุก (Cooked rice par level) · กก.",
       true,
     ),
     number(
@@ -578,6 +584,10 @@ export const forms: Record<string, Field[]> = {
     ]),
   ],
 };
+/** The Owner's ready-made ingredient picks. Raw sticky rice is no longer one: each branch
+ *  buys (or cooks) its own rice (B2). Older entries that name it still display as saved. */
+export const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง"];
+
 export function defaults(kind: string, dateValue: string): Values {
   const out: Values = {};
   for (const f of forms[kind] || [])
@@ -590,6 +600,8 @@ export function defaults(kind: string, dateValue: string): Values {
             ? "0"
             : "";
   if (kind === "purchase") out.supplier = "Foodiva";
+  // Picked on every purchase, never preselected: a wrong default would book the wrong stock.
+  if (kind === "ricePurchase") out.riceSource = "";
   if (kind === "dispatch")
     Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
   if (kind === "return")

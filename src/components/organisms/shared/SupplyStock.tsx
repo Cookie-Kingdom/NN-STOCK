@@ -41,6 +41,7 @@ export function SupplyStock({
         ]
           .sort((a, b) => a.at.localeCompare(b.at))
           .at(-1);
+        const boughtCooked = n(latest?.values ?? {}, "cookedRiceKg") > 0;
         return [
           <strong key={name}>{name}</strong>,
           `${fmt(rawRiceStock(db, name))} กก.`,
@@ -51,11 +52,9 @@ export function SupplyStock({
           `${fmt(
             Math.max(
               0,
-              n(
-                db.config,
-                name === "มีนบุรี" ? "cookedRicePar" : "rawRicePar",
-              ) -
-                (name === "มีนบุรี"
+              // The branch's latest round decides which rice it tops up (B2).
+              n(db.config, boughtCooked ? "cookedRicePar" : "rawRicePar") -
+                (boughtCooked
                   ? cookedRiceStock(db, name)
                   : rawRiceStock(db, name)),
             ),

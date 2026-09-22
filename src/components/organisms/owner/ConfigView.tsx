@@ -712,7 +712,7 @@ export function ConfigView({ db }: { db: Database }) {
             "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก",
           ),
           settingRow(
-            "จำนวนฐานข้าวเหนียวสุกมีนบุรี (Cooked rice par level)",
+            "จำนวนฐานข้าวเหนียวสุก (Cooked rice par level)",
             <ConfigValue
               {...edit}
               section="supplies"
@@ -720,7 +720,7 @@ export function ConfigView({ db }: { db: Database }) {
               display={plain}
             />,
             "กก.",
-            "ยอดข้าวพร้อมขายขั้นต่ำหลังซื้อเข้า ปัจจุบันตั้งไว้ 30 กก.",
+            "ยอดข้าวสุกที่ควรมีหลังซื้อข้าวสุกเข้า (เตือนเท่านั้น ไม่บล็อก)",
           ),
           settingRow(
             "ราคาต่อหน่วยข้าวเหนียวสุก (Cooked rice unit price)",

@@ -8,7 +8,7 @@ import {
   nextDay,
   open,
 } from "../../../../.storybook/fixtures";
-import { isClosed } from "@/lib/store";
+import { isClosed, requiredRiceKinds } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
 import { ChiliDailySummary } from "./ChiliDailySummary";
 import { DailyMaterialsTable } from "./DailyMaterialsTable";
@@ -45,8 +45,9 @@ export const DailyWorkflow: Story = {
 export const RiceTasks: Story = {
   render: () => (
     <DailyTaskTable
-      title="ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
-      kinds={["ricePurchase", "riceIssue", "rice"]}
+      title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
+      kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
+      required={requiredRiceKinds(db, branch, day)}
       db={db}
       branch={branch}
       date={day}
