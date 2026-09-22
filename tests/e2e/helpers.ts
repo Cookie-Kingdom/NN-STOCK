@@ -460,50 +460,43 @@ export async function foodivaOpensManifest(
   }
 }
 
-/** The box total of a Packing List, to two decimals — what the truck carries, and the
- * helpers' default Sliced Weight Net. */
+/** Sliced Weight Net: the box rows added up, to two decimals. It is what
+ * `packingListKg()` stores, so it is also "ส่งไป (Packing List)" everywhere. */
 export const boxTotalKg = (boxes: string[]) =>
   Math.round(boxes.reduce((sum, kg) => sum + Number(kg), 0) * 100) / 100;
 
-/** Sliced Weight Lost is computed, never typed: |Inv. Weight − Sliced Weight Net|, to
- * two decimals. Inv. Weight is not typed either — it is the kg the shipment's Request
- * asked for, so pass that. */
-export function slicedLostKg(invWeightKg: string, slicedNetKg: string) {
+/** Sliced Weight Lost, computed: |Inv. Weight − Sliced Weight Net|, to two decimals.
+ * Neither side is typed — Inv. Weight is the kg the shipment's Request asked for, the
+ * net is the box total. */
+export function slicedLostKg(invWeightKg: string, boxes: string[]) {
   return (
-    Math.round(Math.abs(Number(invWeightKg) - Number(slicedNetKg)) * 100) / 100
+    Math.round(Math.abs(Number(invWeightKg) - boxTotalKg(boxes)) * 100) / 100
   );
 }
 
 /** Matches the Sliced Weight Lost summary card of a Packing List — the form's own,
  * the read-only copy and Chef House's all print label then figure. */
-export function slicedLostCard(invWeightKg: string, slicedNetKg: string) {
+export function slicedLostCard(invWeightKg: string, boxes: string[]) {
   return new RegExp(
-    `Sliced Weight Lost\\s*${slicedLostKg(invWeightKg, slicedNetKg)
+    `Sliced Weight Lost\\s*${slicedLostKg(invWeightKg, boxes)
       .toFixed(2)
       .replace(".", "\\.")} กก\\.`,
   );
 }
 
 /** Foodiva, inside the transport document: "สร้าง Packing List" (or "แก้ไข Packing List"),
- * one row per box weight, Sliced Weight Net, an optional evidence file, then
- * "ใส่ Packing List ในใบขนส่ง". Nothing is saved yet.
+ * one row per box weight, an optional evidence file, then "ใส่ Packing List ในใบขนส่ง".
+ * Nothing is saved yet.
  *
- * Only two of the three head weights are the caller's to choose:
- * - **Inv. Weight** is read-only, the kg the shipment's Request asked for.
- * - **Sliced Weight Net** is typed and required; it defaults to the box total, which
- *   keeps the "ยอดรวมกล่อง ≠ Net" warning away and makes `packingListKg()` the box
- *   total, the way every downstream assertion reads it. Over Inv. Weight it is refused.
- * - **Sliced Weight Lost** is computed — assert on `slicedLostCard(...)`. */
+ * The box rows are the only input — none of the three head weights is typed:
+ * - **Inv. Weight** is the kg the shipment's Request asked for.
+ * - **Sliced Weight Net** is those rows added up (`boxTotalKg`), and over Inv. Weight
+ *   the form refuses the list.
+ * - **Sliced Weight Lost** is the gap between the two — assert on `slicedLostCard(...)`. */
 export async function foodivaFillsPackingList(
   page: Page,
   boxes: string[],
-  {
-    slicedNetKg,
-    attachment,
-  }: {
-    slicedNetKg?: string;
-    attachment?: string | UploadFile;
-  } = {},
+  { attachment }: { attachment?: string | UploadFile } = {},
 ) {
   await pointAndClick(
     page,
@@ -521,11 +514,6 @@ export async function foodivaFillsPackingList(
       }),
       kg,
     );
-  await typeValue(
-    page,
-    list.getByLabel(/Sliced Weight Net/),
-    slicedNetKg ?? String(boxTotalKg(boxes)),
-  );
   if (attachment)
     await list.locator('input[type="file"]').setInputFiles(attachment);
   await pointAndClick(
@@ -548,13 +536,11 @@ export async function foodivaMakesManifest(
     trip?: string;
     plate?: string;
     pickupTime?: string;
-    slicedNetKg?: string;
     attachment?: string | UploadFile;
   } = {},
 ) {
   await foodivaOpensManifest(page, shipment, options);
   await foodivaFillsPackingList(page, boxes, {
-    slicedNetKg: options.slicedNetKg,
     attachment: options.attachment ?? INVOICE_FIXTURE,
   });
   await pointAndClick(
