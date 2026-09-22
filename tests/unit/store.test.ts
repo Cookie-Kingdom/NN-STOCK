@@ -44,6 +44,7 @@ import {
   type Database,
   type Entry,
   type Lot,
+  type Role,
   type Values,
 } from "@/lib/store";
 import {
@@ -1311,6 +1312,10 @@ describe("chill carryover", () => {
       used: 65.5,
       waste: 0,
       chillOut: 4.5,
+      pending: 0,
+      received: 70,
+      frozen: 0,
+      usedTotal: 65.5,
     });
     // The close only needs today's checklist; leftover meat is not an error.
     const checklist = {
@@ -1360,6 +1365,40 @@ describe("chill carryover", () => {
       chillOut: 0,
     });
     expect(balance(used, id, branch).ready).toBeCloseTo(0, 6);
+  });
+
+  test("stock as of a past date follows the entry log, not today's totals", () => {
+    const s = chillDay();
+    const id = lotOf(s.db);
+    // Day 2: the last 2 kg of central stock allocated, 1.5 kg received, 1 kg thawed.
+    const run = (db: Database, role: Role, kind: string, values: Values) =>
+      mutate(db, role, kind, values, id, nextDay, branch);
+    let db = run(s.db, "owner", "allocate", {
+      branch,
+      kg: "2",
+      deliveryDate: nextDay,
+    });
+    db = run(db, "branch", "receive", {
+      kg: "1.5",
+      allocation: db.entries.at(-1)!.id,
+    });
+    db = run(db, "branch", "thaw", { kg: "1", bags: "1" });
+    expect(branchMeatDay(db, id, branch, day)).toMatchObject({
+      pending: 0,
+      received: 70,
+      frozen: 0,
+      chillOut: 4.5,
+      usedTotal: 65.5,
+    });
+    const two = branchMeatDay(db, id, branch, nextDay);
+    expect(two).toMatchObject({ chillIn: 4.5, thawed: 1, usedTotal: 65.5 });
+    expect(two.pending).toBeCloseTo(0.5, 6);
+    expect(two.received).toBeCloseTo(71.5, 6);
+    expect(two.frozen).toBeCloseTo(0.5, 6);
+    expect(two.chillOut).toBeCloseTo(5.5, 6);
+    // Today's totals agree with the last day.
+    expect(balance(db, id, branch).frozen).toBeCloseTo(two.frozen, 6);
+    expect(balance(db, id, branch).ready).toBeCloseTo(two.chillOut, 6);
   });
 
   test("95 g per pack saves and only warns", () => {

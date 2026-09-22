@@ -22,13 +22,14 @@ import {
   noOwnerAlerts,
   useOwnerAlerts,
 } from "@/components/organisms/owner/useOwnerAlerts";
+import { BranchStockSummary } from "@/components/organisms/shared/BranchStockSummary";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { ownerNav } from "@/lib/nav";
-import { shipments } from "@/lib/store";
+import { branches, shipments } from "@/lib/store";
 
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
@@ -115,6 +116,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
             }
           />
           <OwnerStockView db={db} lots={ws.lots} open={open} />
+          <BranchStockSummary db={db} branches={branches} initialDate={date} />
         </>
       )}
 
