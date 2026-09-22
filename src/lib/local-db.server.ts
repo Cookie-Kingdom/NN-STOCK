@@ -3,6 +3,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { Account } from "./accounts";
+import { restoreSaleMoney } from "./sale-money";
 import { seed, type Database } from "./store";
 
 export type AppStateRow = { payload: Database; revision: number };
@@ -33,7 +34,7 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** JS port of `save_app_state` (supabase/migrations/20260922000020_account_manager.sql).
+/** JS port of `save_app_state` (supabase/migrations/20260922000021_account_manager_hides_sales.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -42,7 +43,7 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
-  const payload = input as Database;
+  let payload = input as Database;
   if (
     !payload ||
     typeof payload !== "object" ||
@@ -54,6 +55,8 @@ export function saveState(
   )
     fail("Invalid application state");
   const { payload: old, revision } = readState(db);
+  // The Account Manager saves from a copy without sale money (GET strips it): put it back.
+  if (account!.hidesSales) payload = restoreSaleMoney(old, payload);
   if (expectedRevision == null || expectedRevision !== revision)
     fail("State changed on another device. Reload and try again.");
   const role = account!.role;

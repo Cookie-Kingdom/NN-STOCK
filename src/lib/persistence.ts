@@ -130,12 +130,13 @@ function withTimeout<
 }
 function readRow(): Promise<RowResult> {
   if (!supabase) return localRequest();
+  /* load_app_state, not a select on app_state: the server strips sale money from the Account
+   * Manager's copy (migration 0021), which has no direct read on the table. */
   return withTimeout(
-    supabase
-      .from("app_state")
-      .select("payload, revision")
-      .eq("singleton", true)
-      .maybeSingle<AppStateRow>(),
+    supabase.rpc("load_app_state").then(({ data, error }) => ({
+      data: (data as AppStateRow[] | null)?.[0] ?? null,
+      error,
+    })),
   );
 }
 function saveRow(
@@ -221,11 +222,10 @@ export async function checkForUpdates() {
     return;
   const { data } = supabase
     ? await withTimeout(
-        supabase
-          .from("app_state")
-          .select("revision")
-          .eq("singleton", true)
-          .maybeSingle<{ revision: number }>(),
+        supabase.rpc("app_state_revision").then(({ data, error }) => ({
+          data: data == null ? null : { revision: Number(data) },
+          error,
+        })),
       )
     : await localRequest();
   // A failed poll stays quiet; the next one (or a save) reports a real outage.

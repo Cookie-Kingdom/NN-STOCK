@@ -1285,9 +1285,9 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
 }
 /** The database a role's screens read. Chef House gets only shipments with a smoke PO, stripped of
  * purchase POs and prices; other roles get `db` untouched. `hideSales` (Account Manager) also drops
- * every sale's money in (`saleMoneyKeys`, edits included). Saves still go through the full database.
- * ponytail: screen-level only, the full payload still reaches the browser (RLS reads all of app_state),
- * so a manager with devtools can read sales. Real hiding needs sales split out of the one payload. */
+ * every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in the
+ * app: the server already strips it (load_app_state, GET /api/local-db) and puts it back on save
+ * (save_app_state, src/lib/sale-money.ts), so sale money never reaches its browser. */
 export function visibleDatabase(
   db: Database,
   role: Role,
@@ -1412,16 +1412,24 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
       { ...target, id: newId(), kind, role: editApprovers[0], values },
     ],
   });
-  const corrected = record(
+  /* The Account Manager's copy has no sale money (C4): a sale without its LINE MAN amount is
+   * checked with a stand-in, and the edit is saved without money for save_app_state to fill in
+   * from the server's copy. */
+  const moneyHidden =
+    target.kind === "sale" && target.values.lineMan === undefined;
+  const input = { ...target.values, ...proposed };
+  if (moneyHidden && input.lineMan === undefined) input.lineMan = "0";
+  const checked = record(
     as("void", { targetId: target.id }),
     target.role,
     target.kind,
-    { ...target.values, ...proposed },
+    input,
     target.lotId,
     target.date,
     target.branch,
     true,
   ).entries.at(-1)!.values;
+  const corrected = moneyHidden ? omit(checked, saleMoneyKeys) : checked;
   const before = stockLevels(db);
   for (const [key, level] of stockLevels(
     as("entryEdit", { targetId: target.id, ...pack("to.", corrected) }),

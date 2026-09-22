@@ -18,10 +18,19 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/browser", () => ({
   createClient: () => ({
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: mocks.maybeSingle }) }),
-    }),
-    rpc: mocks.rpc,
+    /* Reads go through load_app_state / app_state_revision (the server strips sale money for
+     * the Account Manager); `maybeSingle` stands for the one app_state row they read. */
+    rpc: async (name: string, args?: unknown) => {
+      if (name === "load_app_state") {
+        const result = await mocks.maybeSingle();
+        return { ...result, data: result?.data ? [result.data] : [] };
+      }
+      if (name === "app_state_revision") {
+        const result = await mocks.maybeSingle();
+        return { ...result, data: result?.data?.revision ?? null };
+      }
+      return mocks.rpc(name, args);
+    },
     auth: {
       getSession: async () => ({ data: { session: null } }),
       onAuthStateChange: (callback: (event: string) => void) => {
