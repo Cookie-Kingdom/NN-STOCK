@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Panel } from "@/components/atoms/Panel";
 import { Footnote, Muted } from "@/components/atoms/Text";
+import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 
 /**
@@ -25,9 +26,10 @@ export function AuthShell({
   return (
     <div className="grid min-h-screen place-items-center bg-bg px-4 py-8 text-body text-text-primary">
       <Panel className="w-full max-w-115 p-7.5 shadow-xs">
-        <div className="mb-5.5 border-b border-border pb-5.5">
+        <div className="mb-5.5 flex items-start justify-between gap-3 border-b border-border pb-5.5">
           {/* Not `responsive`: the card is already narrow, so the h2 title fits a phone. */}
           <AppBrand />
+          <ThemeToggle className="-mt-1.5 -mr-2" />
         </div>
         <h1 className="mb-1 text-h1">{title}</h1>
         {description && <Muted className="text-body-sm">{description}</Muted>}
