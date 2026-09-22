@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Input } from "@/components/atoms/Input";
+import { Stat } from "@/components/atoms/Stat";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
@@ -46,6 +47,9 @@ const boxTotal = (rows: (number | undefined)[]) =>
  * to Chef House. Saving with rows left blank asks for confirmation and then stores
  * only the rows that were filled.
  *
+ * Sliced Weight Lost is not typed: it is shown, and saved, as the difference between
+ * Inv. Weight and the box total (Sliced Weight Net), always positive.
+ *
  * With `onDraft` nothing is saved here: the values (file already uploaded) go back to
  * FoodivaDispatchForm, which saves them together with the transport document.
  */
@@ -87,12 +91,9 @@ export function PackingListForm({
       (_, index) => listed[index],
     );
   });
-  /** The prefill for the current product and box weights. A saved list or draft keeps
-   *  its own values: nothing is filled over them. */
-  const prefillFor = (
-    product: string,
-    rows: (number | undefined)[],
-  ): Prefill => {
+  /** The prefill for the current product. A saved list or draft keeps its own values:
+   *  nothing is filled over them. */
+  const prefillFor = (product: string): Prefill => {
     const out: Prefill = { values: {}, sources: {} };
     if (saved) return out;
     const add = (key: string, value: string | undefined, label: string) => {
@@ -118,15 +119,6 @@ export function PackingListForm({
       where: (entry) => entry.values.product === product,
     });
     if (code) add("code", code.value, lastLabel(code.date));
-    // Lost should match the box total, so it follows the weights until Foodiva types it.
-    const total = boxTotal(rows);
-    if (total > 0) {
-      out.values.slicedLostKg = String(total);
-      out.sources.slicedLostKg = {
-        label: "ตามยอดรวมกล่องรับเข้า",
-        expected: true,
-      };
-    }
     return out;
   };
   const { values, sources, set, refill } = usePrefill(() => {
@@ -135,13 +127,12 @@ export function PackingListForm({
       product: saved?.values.product ?? "",
       code: saved?.values.code ?? "",
       invWeightKg: saved?.values.invWeightKg ?? "",
-      slicedLostKg: saved?.values.slicedLostKg ?? "",
     };
     const product =
       saved?.values.product ??
       db.lots.find((l) => l.id === pos[0])?.values.productName ??
       "";
-    return { base, prefill: prefillFor(product, weights) };
+    return { base, prefill: prefillFor(product) };
   });
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState(saved?.values.attachment ?? "");
@@ -154,20 +145,28 @@ export function PackingListForm({
   ) => {
     const rows = next(weights);
     setWeights(rows);
-    refill(prefillFor(values.product, rows));
     setConfirmPartial(false);
   };
   const boxes = weights.map((weight, index) => ({ no: index + 1, weight }));
   const filled = boxes.filter((box) => box.weight !== undefined);
   const blank = boxes.length - filled.length;
-  const filledTotal = filled.reduce((sum, box) => sum + (box.weight ?? 0), 0);
+  /** Sliced Weight Net: the box total, the figure the summary card shows. */
+  const slicedNet = boxTotal(weights);
+  /** Sliced Weight Lost is not typed — it is what cutting took away, the gap between
+   *  Inv. Weight and Sliced Weight Net, always as a plain positive number. */
+  const slicedLost =
+    Math.round(Math.abs((Number(values.invWeightKg) || 0) - slicedNet) * 100) /
+    100;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!filled.length) return setError("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    // Checked here too: as a draft nothing reaches mutate() until the transport document saves.
-    if (!(Number(values.slicedLostKg) > 0))
-      return setError("กรอก Sliced Weight Lost เป็นตัวเลขมากกว่าศูนย์");
+    /* Checked here too: as a draft nothing reaches mutate() until the transport document
+     * saves. The figure is computed, so the fix is in the numbers it comes from. */
+    if (!(slicedLost > 0))
+      return setError(
+        "Sliced Weight Lost ต้องมากกว่าศูนย์ — ตรวจ Inv. Weight และน้ำหนักกล่องรับเข้า",
+      );
     // First press on an unfinished list only asks; the second one saves what is there.
     if (blank && !confirmPartial) {
       setError("");
@@ -176,6 +175,7 @@ export function PackingListForm({
     const collect = async () => {
       const input: Values = {
         ...values,
+        slicedLostKg: String(slicedLost),
         boxes: filled.map((box) => String(box.weight)).join("\n"),
       };
       if (file) {
@@ -246,7 +246,7 @@ export function PackingListForm({
                 onChange={(event) => {
                   set("product", event.target.value);
                   // The CODE follows the product until Foodiva types one.
-                  refill(prefillFor(event.target.value, weights));
+                  refill(prefillFor(event.target.value));
                 }}
               />
             </FormField>
@@ -271,20 +271,19 @@ export function PackingListForm({
                 onChange={(event) => set("invWeightKg", event.target.value)}
               />
             </FormField>
-            <FormField
-              label="Sliced Weight Lost (กก.)"
-              hint={`น้ำหนักเนื้อที่ใช้ได้จริงหลังตัด ควรตรงกับยอดรวมกล่องรับเข้า (${filledTotal.toFixed(2)} กก.)`}
-              prefilled={sources.slicedLostKg}
-            >
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={values.slicedLostKg}
-                onChange={(event) => set("slicedLostKg", event.target.value)}
-              />
-            </FormField>
+            {/* Not a field: the figure is derived, so it is shown the way the summary
+                cards above the table show theirs. */}
+            <Stat
+              label={
+                <>
+                  Sliced Weight Lost (กก.)
+                  <span className="mt-1 block">
+                    น้ำหนักที่หายไปจากการตัด = Inv. Weight − Sliced Weight Net
+                  </span>
+                </>
+              }
+              value={`${slicedLost.toFixed(2)} กก.`}
+            />
             <FileUploadField
               label="แนบไฟล์ Packing List"
               optional
@@ -307,7 +306,7 @@ export function PackingListForm({
               product: values.product,
               code: values.code,
               invWeight: Number(values.invWeightKg) || undefined,
-              slicedLost: Number(values.slicedLostKg) || undefined,
+              slicedLost: slicedLost || undefined,
             }}
             boxes={boxes}
             onRows={(count) =>
