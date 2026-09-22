@@ -498,7 +498,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
   );
   await step(
     page,
-    "Owner: C6 ออก PO รมควัน: โรงรม Chef House · ไม่มีช่องน้ำหนัก (มาจาก Packing List) → บันทึก · 490 กก. · อัตรา ฿220 / กก. · รอ Chef House ยืนยัน 1 ใบ",
+    "Owner: C6 ออก PO รมควัน: โรงรม Chef House · น้ำหนัก PO รมควันเติม 490 จาก Packing List (A6) → บันทึก · 490 กก. · อัตรา ฿220 / กก. · รอ Chef House ยืนยัน 1 ใบ",
     async () => {
       const row = rowIn(page, "รายการ PO โรงรมควัน", SH);
       await expect(row).toContainText("1 กล่องรับเข้า");
@@ -509,7 +509,10 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       await expect(
         dialog(page).getByLabel(/โรงรม \/ ผู้ให้บริการ/),
       ).toHaveValue("Chef House");
-      await expect(dialog(page).getByLabel(/Raw Meat Quantity/)).toHaveCount(0);
+      // A6 (customer 2026-09-22): the kg is prefilled from the Packing List total, editable.
+      await expect(dialog(page).getByLabel(/น้ำหนัก PO รมควัน/)).toHaveValue(
+        "490",
+      );
       await field(page, /คำสั่งพิเศษ/, "รมตามมาตรฐาน NerdNuea");
       await saveEntry(page);
       await expect(row).toContainText(PO);

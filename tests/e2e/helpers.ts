@@ -543,7 +543,8 @@ export async function foodivaMakesManifest(
 }
 
 /** Owner: issues the smoke PO for a shipment from its Packing List and returns the
- * shipment number. The weight comes from the Packing List, so there is no kg to type.
+ * shipment number. The kg is prefilled from the Packing List total (A6: editable); this
+ * keeps the prefill.
  *
  * Legacy call (`ownerIssuesSmokePo(page, "500")`, no `shipment`): the Owner can no
  * longer issue a smoke PO straight off a purchase PO, so this first runs the steps in
