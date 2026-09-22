@@ -95,7 +95,7 @@ test("บัก 5: บันทึกไม่สำเร็จแล้วต�
   await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
   await field(page, /เบอร์ติดต่อ/, "0800000000");
   await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
-  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
   await field(page, /น้ำหนักสั่งซื้อ/, "500");
   await field(page, /ราคาเนื้อ/, "250");
   await button(page, "บันทึก PO เนื้อ");

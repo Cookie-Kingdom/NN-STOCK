@@ -18,7 +18,7 @@ export const purchaseInfo = {
   attention: "ฝ่ายจัดซื้อ",
   phone: "0800000000",
   taxId: "0100000000000",
-  packSize: "6 ชิ้นต่อถุง",
+  packSize: "6 ชิ้นต่อกล่อง",
   productName: "เนื้อวัว",
 };
 export const send = {

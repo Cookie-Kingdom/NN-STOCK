@@ -62,12 +62,17 @@ async function setFormDate(page: Page, date: string) {
   await expect(input).toHaveValue(date);
 }
 
-/** Submits the open dialog and expects it to stay open with the message. */
+/** Expects the open dialog to refuse with the message and stay open. A complete form
+ * shows mutate()'s refusal live in the footer with the save disabled, so it is only
+ * pressed when it still can be (a form that checks on save). */
 async function submitAndExpectError(page: Page, message: string | RegExp) {
   const open = dialog(page);
-  await pointAndClick(page, open.locator('button[type="submit"]').last());
+  const submit = open.locator('button[type="submit"]').last();
   // The footer and the form body can both carry the same message.
-  await expect(alertIn(open, message).first()).toBeVisible();
+  const alert = alertIn(open, message).first();
+  if (!(await alert.isVisible()) && (await submit.isEnabled()))
+    await pointAndClick(page, submit);
+  await expect(alert).toBeVisible();
   await expect(open).toBeVisible();
 }
 
@@ -98,15 +103,25 @@ test("สาขาศาลาแดง: บันทึกซื้อข้า
   await signInAs(page, ACCOUNTS.saladaeng);
   await expect(headingDate(page)).toHaveValue(TODAY);
 
-  const riceTable = tableSection(page, "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง");
+  // B2: one rice table at every branch; each purchase picks its source first.
+  const riceTable = tableSection(
+    page,
+    "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
+  );
   await pointAndClick(
     page,
-    riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(0),
+    riceTable
+      .getByRole("row")
+      .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" })
+      .getByRole("button", { name: "กรอกข้อมูล" }),
   );
   // The form opens on the heading date; today carries no badge.
   await expect(formDate(page)).toHaveValue(TODAY);
   await expect(dialog(page).getByText(BACKDATED)).toHaveCount(0);
 
+  await dialog(page)
+    .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
+    .selectOption("นึ่งเอง (ซื้อข้าวดิบ)");
   await field(page, /ผู้จำหน่ายข้าว/, supplier);
   await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "4");
   await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "220");

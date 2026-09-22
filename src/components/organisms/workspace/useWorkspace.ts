@@ -53,10 +53,12 @@ export function useWorkspace(account: Account) {
 
   const branch = account.branch ?? raw.config.branch;
   const role = account.role;
-  // Chef House's screens read a copy without purchase POs or prices; saves use latestDatabase().
+  // Chef House's screens read a copy without purchase POs or prices, the Account Manager's one
+  // without sales money; saves use latestDatabase().
+  const hidesSales = !!account.hidesSales;
   const db = useMemo(
-    () => visibleDatabase(raw, role, branch),
-    [raw, role, branch],
+    () => visibleDatabase(raw, role, branch, hidesSales),
+    [raw, role, branch, hidesSales],
   );
   const lots = db.lots.filter(
     (l) =>

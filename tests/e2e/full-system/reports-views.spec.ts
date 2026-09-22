@@ -189,7 +189,8 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           await expect(
             rowIn(page, all, new RegExp(`เนื้อรมควัน\\s*${branch}`)),
           ).toContainText(
-            /14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · พร้อมขาย 0\.00/,
+            // B1: thawed meat reads "ชิล/ละลายแล้ว", not "พร้อมขาย"
+            /14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · ชิล\/ละลายแล้ว 0\.00/,
           );
         await expect(
           rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef House\s*Foodiva/),
@@ -320,7 +321,9 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
               .filter({
                 has: page.getByRole("cell", { name: branch, exact: true }),
               }),
-          ).toContainText(/14\.35 กก\.\s*แช่แข็ง 14\.35 · พร้อมขาย 0\.00/);
+          ).toContainText(
+            /14\.35 กก\.\s*แช่แข็ง 14\.35 · ชิล\/ละลายแล้ว 0\.00/,
+          );
         await expect(rowIn(page, points, "คลังกลาง Owner")).toContainText(
           "0.00 กก.",
         );
@@ -858,9 +861,10 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         await expect(rowIn(page, title, "ยอดขาย LINE MAN")).toContainText(
           "4,900.00",
         );
-        await expect(rowIn(page, title, "เนื้อพร้อมขายทั้งหมด")).toContainText(
-          "0.00",
-        );
+        // B1: what is left thawed carries over as chill; the sample uses it all up.
+        await expect(
+          rowIn(page, title, "คงเหลือชิลทั้งหมด (ยกไปวันถัดไป)"),
+        ).toContainText("0.00");
         await expect(rowIn(page, title, "ข้าวเหนียวดิบคงเหลือ")).toContainText(
           "14.00",
         );
@@ -972,7 +976,11 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
         await signInAs(page, account);
         for (const label of labels) {
           await tab(page, label);
-          await expect(page).toHaveURL(/\/(owner|foodiva|chef|branch)\/[\w-]+/);
+          // The first tab is what the account root already shows, so its click may
+          // leave the URL at /<account>; any other tab has its own path.
+          await expect(page).toHaveURL(
+            /\/(owner|foodiva|chef|branch)(\/[\w-]+)?(?:[?#]|$)/,
+          );
           await expectCleanNumbers(page);
           if (label === "ประวัติ" || label === "Log")
             await expect(main(page)).toContainText("ยังไม่มีประวัติ");

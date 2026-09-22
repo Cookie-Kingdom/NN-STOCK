@@ -135,12 +135,13 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
       .getByLabel("branch")
       .selectOption({ label: "ศาลาแดง" });
     await field(page, "tolerance", "15");
-    await fillControl(page, "closeTime", "22:30");
+    // B3: closing the day has no time rule any more, so there is no close-time setting.
+    await expect(page.getByLabel("closeTime")).toHaveCount(0);
   });
   const branchRules = tableSection(page, "กติกาสาขา (Branch rules)");
   await expect(branchRules).toContainText("ศาลาแดง");
   await expect(branchRules).toContainText("15.00");
-  await expect(branchRules).toContainText("22:30");
+  await expect(branchRules).not.toContainText("เวลาเริ่มปิดวัน");
 
   // วัสดุทุกตัวต้องมีจำนวนฐานและราคา ไม่งั้นระบบจะเตือนค้างไว้
   await editSection(
@@ -183,7 +184,7 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
   ).toBeVisible();
 
   await field(page, /ผู้ขาย · Foodiva/, "Foodiva");
-  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+  await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
   await field(page, /น้ำหนักสั่งซื้อ/, "500");
   await field(page, /ราคาเนื้อ/, "250");
   await button(page, "บันทึก PO เนื้อ");

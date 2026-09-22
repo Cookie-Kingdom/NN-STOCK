@@ -961,3 +961,104 @@ export async function step(
     }
   });
 }
+
+/* ---- group C: edit requests and bells (Branch Day B5) ------------------- */
+
+/** A history row (<details>) whose own summary starts with `title`, not the
+ * "ขอแก้ไขรายการ · <title>" row an edit request adds next to it. */
+export function c_historyEntry(page: Page, title: string) {
+  return page
+    .locator("main details")
+    .filter({
+      has: page.locator("summary").filter({ hasText: new RegExp(`^${title}`) }),
+    })
+    .first();
+}
+
+/** Foodiva / Chef House / branch: ประวัติ → own entry → "ขอแก้ไข", types `fields`
+ * ([label, value]) and a reason, sends. Asserts the request is waiting. */
+export async function c_requestEdit(
+  page: Page,
+  title: string,
+  fields: [label: string | RegExp, value: string][],
+  reason: string,
+) {
+  await openMenu(page, "ประวัติ");
+  const entry = c_historyEntry(page, title);
+  await pointAndClick(page, entry.locator("summary"));
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "ขอแก้ไข", exact: true }),
+  );
+  for (const [label, value] of fields)
+    await typeValue(page, entry.getByLabel(label), value);
+  await typeValue(page, entry.getByLabel("เหตุผลที่ขอแก้ไข"), reason);
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "ส่งคำขอแก้ไข" }),
+  );
+  await expect(page.getByRole("status")).toContainText("ส่งคำขอแก้ไขแล้ว");
+  await expect(entry).toContainText("มีคำขอแก้ไขรอพิจารณา");
+  await expect(
+    entry.getByRole("button", { name: "ขอแก้ไข", exact: true }),
+  ).toHaveCount(0);
+}
+
+/** The header bell lists an item containing `text`; closes the list again. */
+export async function c_expectBell(page: Page, text: string | RegExp) {
+  const list = await openNotifications(page);
+  await expect(list).toContainText(text);
+  await closeNotifications(page);
+}
+
+/** Owner: bell "คำขอแก้ไขรอพิจารณา 1 รายการ" → Log tab → decides the one waiting
+ * request (`note` is required to reject). */
+export async function c_ownerDecidesEdit(
+  page: Page,
+  decision: "อนุมัติ" | "ไม่อนุมัติ",
+  note = "",
+) {
+  const list = await openNotifications(page);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: /คำขอแก้ไขรอพิจารณา 1 รายการ/ }),
+  );
+  await expect(page).toHaveURL(/\/owner\/history$/);
+  const panel = tableSection(page, "คำขอแก้ไขรายการ");
+  await expect(panel).toContainText("รอพิจารณา 1 รายการ");
+  if (note) await typeValue(page, panel.getByLabel("หมายเหตุการพิจารณา"), note);
+  await pointAndClick(
+    page,
+    panel.getByRole("button", { name: decision, exact: true }),
+  );
+  await expect(page.getByRole("status")).toContainText(
+    decision === "อนุมัติ" ? "อนุมัติคำขอแล้ว" : "ไม่อนุมัติคำขอแล้ว",
+  );
+  await expect(panel).toContainText("รอพิจารณา 0 รายการ");
+}
+
+/* ---- refusals (group A specs) ------------------------------------------------ */
+
+/** The open dialog refuses what was typed and stays open with `message`. A rule the
+ * form checks as you type (DialogFooter `error`) disables the save button and shows the
+ * reason right away; a rule only checked on save shows it after the click. */
+export async function a_expectRefused(page: Page, message: string | RegExp) {
+  const open = topDialog(page);
+  const submit = open.locator('button[type="submit"]').last();
+  if (await submit.isEnabled()) await pointAndClick(page, submit);
+  // The footer and the form body can both carry the same message.
+  await expect(
+    open.getByRole("alert").filter({ hasText: message }).first(),
+  ).toBeVisible();
+  await expect(submit).toBeVisible();
+}
+
+/** An amount over what is on hand is refused while it is typed: the message names the
+ * most that can be entered ("… · กรอกได้สูงสุด 500.00 กก.") and save stays disabled. */
+export async function a_expectOverStock(page: Page, message: string | RegExp) {
+  const open = topDialog(page);
+  await expect(
+    open.getByRole("alert").filter({ hasText: message }).first(),
+  ).toBeVisible();
+  await expect(open.locator('button[type="submit"]').last()).toBeDisabled();
+}

@@ -81,7 +81,7 @@ const PO_LABELS = [
   "ชื่อผู้ติดต่อ (Attention)",
   "เบอร์ติดต่อ",
   "เลขประจำตัวผู้เสียภาษี",
-  "ขนาดบรรจุ เช่น 6 ชิ้นต่อถุง",
+  "ขนาดบรรจุ เช่น 6 ชิ้นต่อกล่อง",
   "รายการสินค้า",
   "รหัสสินค้า (เก็บหลังบ้าน / ไม่บังคับ)",
   "น้ำหนักสั่งซื้อ (กก.)",
@@ -124,7 +124,7 @@ function pipelineState(date: string): Database {
       attention: "ฝ่ายจัดซื้อ",
       phone: "0800000000",
       taxId: "0100000000000",
-      packSize: "6 ชิ้นต่อถุง",
+      packSize: "6 ชิ้นต่อกล่อง",
       productName: "เนื้อวัว",
       orderedKg: "50",
       price: "250",
@@ -347,8 +347,9 @@ async function expectDateInputsFit(root: Page | Locator, atLeast = 0) {
 }
 
 /** H5: every control has an accessible name (label wrap, aria-label/-labelledby or
- * title), every button has a name, the dialog is labelled by its heading. */
-async function expectAccessible(root: Locator) {
+ * title), every button has a name, the dialog is labelled by its heading. A read-only
+ * section (a requester's edit-request list) may have no button: pass `hasButtons: false`. */
+async function expectAccessible(root: Locator, hasButtons = true) {
   const nameless = await root
     .locator('input:not([type="hidden"]), select, textarea')
     .evaluateAll((elements) =>
@@ -378,7 +379,7 @@ async function expectAccessible(root: Locator) {
     expect(all - named, `${role} without a name`).toBe(0);
   }
   const buttons = await root.getByRole("button").count();
-  expect(buttons).toBeGreaterThan(0);
+  if (hasButtons) expect(buttons).toBeGreaterThan(0);
   expect(await root.getByRole("button", { name: /\S/ }).count()).toBe(buttons);
 }
 
@@ -527,7 +528,7 @@ test.describe("มือถือ 390 px", () => {
         await field(page, /ชื่อผู้ติดต่อ/, "ฝ่ายจัดซื้อ");
         await field(page, /เบอร์ติดต่อ/, "0800000000");
         await field(page, /เลขประจำตัวผู้เสียภาษี/, "0100000000000");
-        await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อถุง");
+        await field(page, /ขนาดบรรจุ/, "6 ชิ้นต่อกล่อง");
         await field(page, /น้ำหนักสั่งซื้อ/, "500");
         await field(page, /ราคาเนื้อ/, "250");
         await expect(
@@ -602,7 +603,7 @@ test.describe("มือถือ 390 px", () => {
       "สาขาศาลาแดง: เข้าสู่ระบบ → เปิด บันทึกยอดขาย / Waste",
       async () => {
         await signInAs(page, ACCOUNTS.saladaeng);
-        const row = tableSection(page, "ยอดขาย กล่องโปรโมท และปิดวัน")
+        const row = tableSection(page, "ยอดขายและกล่องโปรโมท")
           .getByRole("row")
           .filter({ hasText: "บันทึกยอดขาย / Waste" });
         await pointAndClick(
@@ -619,7 +620,7 @@ test.describe("มือถือ 390 px", () => {
     await step(page, "สาขาศาลาแดง: ยกเลิก → ยังไม่มียอดขายวันนี้", async () => {
       await cancelDialog(page);
       await expect(
-        tableSection(page, "ยอดขาย กล่องโปรโมท และปิดวัน")
+        tableSection(page, "ยอดขายและกล่องโปรโมท")
           .getByRole("row")
           .filter({ hasText: "บันทึกยอดขาย / Waste" }),
       ).toContainText("รอบันทึก");
@@ -728,6 +729,188 @@ test.describe("มือถือ 390 px", () => {
   });
 });
 
+/** Branch Day state on top of pipelineState: ศาลาแดง thaws 5 kg today and asks to edit
+ * it (Owner rejects with a note); Foodiva asks to edit its meat invoice (waiting). So
+ * every bell has something in it and the new tables have rows. */
+function bellState(date: string): Database {
+  let db = pipelineState(date);
+  const lotId = db.entries.find(
+    (e) => e.kind === "receive" && e.branch === "ศาลาแดง",
+  )!.lotId;
+  db = mutate(
+    db,
+    "branch",
+    "thaw",
+    { kg: "5", bags: "50" },
+    lotId,
+    date,
+    "ศาลาแดง",
+  );
+  const thaw = db.entries.at(-1)!;
+  db = mutate(
+    db,
+    "branch",
+    "editRequest",
+    {
+      targetId: thaw.id,
+      values: JSON.stringify({ kg: "4", bags: "40" }),
+      reason: "ละลายน้อยกว่าที่บันทึก",
+    },
+    lotId,
+    date,
+    "ศาลาแดง",
+  );
+  db = mutate(
+    db,
+    "owner",
+    "editDecision",
+    {
+      requestId: db.entries.at(-1)!.id,
+      decision: "ไม่อนุมัติ",
+      note: "ตรวจแล้วละลาย 5 กก. จริง",
+    },
+    "",
+    date,
+  );
+  const invoice = db.entries.find((e) => e.kind === "foodivaConfirm")!;
+  db = mutate(
+    db,
+    "foodiva",
+    "editRequest",
+    {
+      targetId: invoice.id,
+      values: JSON.stringify({ confirmedBy: "Foodiva ฝ่ายขาย" }),
+      reason: "ชื่อผู้ยืนยันผิด",
+    },
+    invoice.lotId,
+    date,
+  );
+  return db;
+}
+
+/** The bell's list opens inside the phone screen, has names on every control and
+ * does not push the page sideways; closes it again. */
+async function expectPhoneBell(page: Page, text?: string) {
+  const bell = page.getByRole("button", { name: /^การแจ้งเตือน/ });
+  await expect(bell).toBeVisible();
+  await pointAndClick(page, bell);
+  const list = page.getByLabel("รายการที่ต้องทำต่อ");
+  await expect(list).toBeVisible();
+  await expect
+    .poll(() => list.evaluate((el) => getComputedStyle(el).opacity))
+    .toBe("1");
+  if (text) await expect(list).toContainText(text);
+  const box = (await list.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width + 0.5);
+  await expectAccessible(list);
+  await expectNoSidewaysScroll(page);
+  await pointAndClick(
+    page,
+    list.getByRole("button", { name: "ปิด", exact: true }),
+  );
+  await expect(list).toHaveCount(0);
+}
+
+/** A new table section on a phone: visible, every control named, and the page itself
+ * does not scroll sideways (wide tables scroll inside their frame). */
+async function expectPhoneSection(
+  page: Page,
+  title: string | RegExp,
+  text?: string,
+) {
+  const section = tableSection(page, title);
+  await section.scrollIntoViewIfNeeded();
+  await expect(section).toBeVisible();
+  if (text) await expect(section).toContainText(text);
+  await expectAccessible(section, false);
+  await expectNoSidewaysScroll(page);
+}
+
+/** B4 "สรุปคงเหลือเนื้อ รายวัน / รายล็อต" is a heading, a filter bar and two tables
+ * (no section of its own): the date filter is named, both tables pass the section checks. */
+async function expectPhoneStockSummary(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "สรุปคงเหลือเนื้อ รายวัน / รายล็อต" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("ยอด ณ สิ้นวันที่")).toBeVisible();
+  await expectPhoneSection(page, /^คงเหลือแยก Lot · /, "รวม");
+  await expectPhoneSection(page, /^ย้อนหลัง 14 วัน · /);
+}
+
+test.describe("มือถือ 390 px · กระดิ่งและตารางใหม่", () => {
+  test.use({ viewport: PHONE, isMobile: true, hasTouch: true });
+
+  test("H9 กระดิ่งทุก role · เนื้อละลายวันนี้ · สรุปคงเหลือเนื้อ · แผงคำขอแก้ไข บนมือถือ: อยู่ในจอ มีชื่อทุกช่อง ไม่เลื่อนแนวนอน", async ({
+    page,
+  }) => {
+    const errors = collectErrors(page);
+    const date = today();
+    await startFresh(page);
+    await step(
+      page,
+      "Owner: เข้าสู่ระบบ → ใส่ข้อมูล Branch Day + คำขอแก้ไข",
+      async () => {
+        await signInAs(page, ACCOUNTS.owner);
+        await pushState(page, bellState(date));
+      },
+    );
+    await step(
+      page,
+      "Owner: กระดิ่งคำขอรอพิจารณา · แผงคำขอใน Log · สรุปคงเหลือเนื้อในสต๊อก",
+      async () => {
+        await expectPhoneBell(page, "คำขอแก้ไขรอพิจารณา 1 รายการ");
+        await pointAndClick(page, menuItem(page, "Log"));
+        await expectPhoneSection(page, "คำขอแก้ไขรายการ", "รอพิจารณา 1 รายการ");
+        await pointAndClick(page, menuItem(page, "สต๊อกของทั้งหมด"));
+        await expectPhoneStockSummary(page);
+      },
+    );
+    await step(
+      page,
+      "Foodiva: กระดิ่งคำขอรอพิจารณา · แผงคำขอในประวัติ",
+      async () => {
+        await signInAs(page, ACCOUNTS.foodiva);
+        await expectPhoneBell(page, "คำขอแก้ไขรอพิจารณา");
+        await pointAndClick(page, menuItem(page, "ประวัติ"));
+        await expectPhoneSection(page, "คำขอแก้ไขรายการ", "รอพิจารณา");
+      },
+    );
+    await step(
+      page,
+      "Chef House: กระดิ่ง (ว่าง) · แผงคำขอในประวัติ",
+      async () => {
+        await signInAs(page, ACCOUNTS.chef);
+        await expectPhoneBell(page);
+        await pointAndClick(page, menuItem(page, "ประวัติ"));
+        await expectPhoneSection(page, "คำขอแก้ไขรายการ", "ยังไม่มีคำขอแก้ไข");
+      },
+    );
+    await step(
+      page,
+      "สาขาศาลาแดง: กระดิ่งไม่สำเร็จ · เนื้อละลายวันนี้ · สรุปคงเหลือเนื้อ · แผงคำขอ",
+      async () => {
+        await signInAs(page, ACCOUNTS.saladaeng);
+        await expectPhoneBell(page, "คำขอแก้ไขไม่สำเร็จ");
+        await expectPhoneSection(
+          page,
+          `เนื้อละลายวันนี้ · ${date} · ศาลาแดง`,
+          "5.00 กก.",
+        );
+        await pointAndClick(page, menuItem(page, "สต๊อก"));
+        await expectPhoneStockSummary(page);
+        await pointAndClick(page, menuItem(page, "ประวัติ"));
+        await expectPhoneSection(
+          page,
+          "คำขอแก้ไขรายการ",
+          "ตรวจแล้วละลาย 5 กก. จริง",
+        );
+      },
+    );
+    expect(errors.pageErrors).toEqual([]);
+  });
+});
+
 /* ============================ คีย์บอร์ด (desktop) ============================ */
 test("H4 คีย์บอร์ด: Enter บนปุ่มเปิด PO เนื้อ · Tab ไล่ช่องตามลำดับ label · Esc ปิดและ focus คืนปุ่ม · Enter ในช่องสุดท้ายบันทึก PO", async ({
   page,
@@ -811,7 +994,7 @@ test("H4 คีย์บอร์ด: Enter บนปุ่มเปิด PO �
         "ชื่อผู้ติดต่อ (Attention)": "ฝ่ายจัดซื้อ",
         เบอร์ติดต่อ: "0800000000",
         เลขประจำตัวผู้เสียภาษี: "0100000000000",
-        "ขนาดบรรจุ เช่น 6 ชิ้นต่อถุง": "6 ชิ้นต่อถุง",
+        "ขนาดบรรจุ เช่น 6 ชิ้นต่อกล่อง": "6 ชิ้นต่อกล่อง",
         รายการสินค้า: "เนื้อวัว",
         "น้ำหนักสั่งซื้อ (กก.)": "120",
         "ราคาเนื้อ / กก. (บาท)": "250",
