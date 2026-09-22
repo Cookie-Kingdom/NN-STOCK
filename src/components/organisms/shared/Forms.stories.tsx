@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
+  allocatedDb,
   centralDb,
   day,
   demoDb,
@@ -11,7 +12,7 @@ import {
 import { mutate, visibleDatabase } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
-import { BagAllocationForm } from "./BagAllocationForm";
+import { AllocationForm } from "./AllocationForm";
 import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
@@ -166,12 +167,28 @@ export const BranchInfluencerBoxMobile: Story = {
   globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 
-export const BagAllocation: Story = {
+/** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock. */
+export const Allocation: Story = {
   parameters: { db: centralDb },
   render: () => (
-    <BagAllocationForm
+    <AllocationForm
       db={centralDb}
       lotId={centralDb.lots.at(-1)!.id}
+      date={day}
+      onDate={onDate}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+};
+
+/** A lot already partly sent to ศาลาแดง: only the rest of central stock is offered. */
+export const AllocationPartlyAllocated: Story = {
+  parameters: { db: allocatedDb },
+  render: () => (
+    <AllocationForm
+      db={allocatedDb}
+      lotId={allocatedDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}

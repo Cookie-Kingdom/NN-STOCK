@@ -129,7 +129,7 @@ export const multiPoPackedDb: Database = (() => {
 /** Shipment at stage 5: smoked, waiting for Chef House to close it. */
 export const smokedDb: Database = smoked().db;
 
-/** Shipment at stage 8: 35 kg in central stock, bags ready to allocate. */
+/** Shipment at stage 8: 35 kg in central stock, ready to allocate. */
 export const centralDb: Database = ready().db;
 
 /** Purchase PO with Foodiva's 30 kg Invoice in, nothing requested yet. */
@@ -284,13 +284,12 @@ export const returnGapDb: Database = mutate(
   day,
 );
 
-/** Shipment at stage 8: 17.5 kg / 180 bags allocated to ศาลาแดง, waiting for the branch to receive. */
+/** Shipment at stage 8: 17.5 kg allocated to ศาลาแดง, waiting for the branch to receive. */
 export const allocatedDb: Database = (() => {
   const s = ready();
   s.run("owner", "allocate", {
     branch: "ศาลาแดง",
     kg: "17.5",
-    bags: "180",
     deliveryDate: day,
   });
   return s.db;

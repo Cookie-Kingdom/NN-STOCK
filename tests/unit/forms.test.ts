@@ -28,8 +28,8 @@ test("a material purchase with every material ticked lands each one in Owner sto
 // QA round 2, BUG-3: the sale form's refusal must carry a reason for FormError.
 test("a sale over the ready stock is refused with a message", () => {
   const s = ready();
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
-  s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+  s.run("branch", "receive", { kg: "5", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "0.5", bags: "1" });
   expect(() =>
     s.run("branch", "sale", {
@@ -120,13 +120,13 @@ test("a dry run of mutate changes neither the database nor the values given to i
   const s = ready();
   const lotId = s.db.lots.at(-1)!.id;
   const before = JSON.stringify(s.db);
-  const values = { branch: "ศาลาแดง", kg: "9999", bags: "1" };
+  const values = { branch: "ศาลาแดง", kg: "9999" };
   expect(() =>
     mutate(s.db, "owner", "allocate", values, lotId, day),
   ).toThrowError();
   mutate(s.db, "owner", "allocate", { ...values, kg: "1" }, lotId, day);
   expect(JSON.stringify(s.db)).toBe(before);
-  expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999", bags: "1" });
+  expect(values).toEqual({ branch: "ศาลาแดง", kg: "9999" });
 });
 
 test("payment slips: optional multi-file field on both payments, stored as JSON storage keys", () => {

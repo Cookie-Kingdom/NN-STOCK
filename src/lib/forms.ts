@@ -307,17 +307,11 @@ export const forms: Record<string, Field[]> = {
   allocate: [
     { key: "branch", label: "สาขาปลายทาง", type: "select", options: branches },
     number("kg", "น้ำหนักจัดสรร (กก.)"),
-    number("bags", "จำนวนกล่องรมควัน", false, true),
     date("deliveryDate", "วันที่ส่งสาขา"),
     reason,
     note,
   ],
-  receive: [
-    number("kg", "น้ำหนักรับเข้าสาขา (กก.)"),
-    number("bags", "จำนวนถุงที่รับ", false, true),
-    reason,
-    note,
-  ],
+  receive: [number("kg", "น้ำหนักรับเข้าสาขา (กก.)"), reason, note],
   thaw: [
     number("kg", "น้ำหนักละลาย (กก.)"),
     number("bags", "จำนวนถุงที่ละลาย", false, true),

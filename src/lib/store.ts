@@ -181,7 +181,6 @@ function roleplay(endDate: string, dayCount: number): Database {
   });
   const rawKg = dayCount >= 30 ? 100 : 50;
   const packCount = rawKg * 10;
-  const branchBagCount = packCount / 2;
   const smokingAmount = rawKg * 220;
   const materialPerBranch = dayCount >= 30 ? 400 : 100;
   const materialPurchased = materialPerBranch * 2;
@@ -367,33 +366,17 @@ function roleplay(endDate: string, dayCount: number): Database {
     lotId,
   );
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
-  const firstBags = availableBags(db, lotId);
   run(
     "owner",
     "allocate",
-    {
-      branch: "ศาลาแดง",
-      deliveryDate: dates[0],
-      bagIds: firstBags
-        .slice(0, branchBagCount)
-        .map((bag) => bag.id)
-        .join(","),
-    },
+    { branch: "ศาลาแดง", deliveryDate: dates[0], kg: String(rawKg / 2) },
     lotId,
   );
   const salaAllocation = db.entries.at(-1)?.id || "";
-  const secondBags = availableBags(db, lotId);
   run(
     "owner",
     "allocate",
-    {
-      branch: "มีนบุรี",
-      deliveryDate: dates[0],
-      bagIds: secondBags
-        .slice(0, branchBagCount)
-        .map((bag) => bag.id)
-        .join(","),
-    },
+    { branch: "มีนบุรี", deliveryDate: dates[0], kg: String(rawKg / 2) },
     lotId,
   );
   const minburiAllocation = db.entries.at(-1)?.id || "";
@@ -443,7 +426,6 @@ function roleplay(endDate: string, dayCount: number): Database {
           "receive",
           {
             kg: String(rawKg / 2),
-            bags: String(branchBagCount),
             allocation:
               branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
           },
@@ -589,30 +571,6 @@ export const isPackWeight = (weight: number) =>
   Number.isFinite(weight) && weight > 0;
 export const validPackWeights = (packs = "") =>
   packWeights(packs).filter(isPackWeight);
-export type StockBag = { id: string; weight: number };
-/** Bags are weighed at the smoker, central stock at the Owner's scale. Spread what is
- * still in central stock over the bags still there, so allocating every remaining bag
- * drains central stock to 0 even after allocations recorded at the smoker weight. */
-export function availableBags(db: Database, lotId: string): StockBag[] {
-  let bags = entries(db, "smoke", lotId)
-    .flatMap((entry) =>
-      packWeights(entry.values.packs).map((weight, index) => ({
-        id: `${entry.id}:${index + 1}`,
-        weight,
-      })),
-    )
-    .filter((bag) => isPackWeight(bag.weight));
-  for (const allocation of entries(db, "allocate", lotId)) {
-    const ids = (allocation.values.bagIds || "").split(",").filter(Boolean);
-    bags = ids.length
-      ? bags.filter((bag) => !ids.includes(bag.id))
-      : bags.slice(Math.max(0, n(allocation.values, "bags")));
-  }
-  const packedKg = bags.reduce((a, bag) => a + bag.weight, 0);
-  const stock = centralStock(db, lotId);
-  const factor = stock > 0 && packedKg > 0 ? stock / packedKg : 1;
-  return bags.map((bag) => ({ ...bag, weight: bag.weight * factor }));
-}
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
@@ -622,9 +580,6 @@ export function centralStock(db: Database, lotId: string) {
     num(lot?.values || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg")
   );
-}
-export function centralBagStock(db: Database, lotId: string) {
-  return availableBags(db, lotId).length;
 }
 /** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
@@ -819,9 +774,9 @@ export function balance(db: Database, lotId: string, branch: string) {
   );
   return { received, frozen: received - thawed, ready: thawed - used };
 }
-/** What a branch still has to receive on one allocation. Pro-rated bag weights carry
- * more decimals than the form shows, so kg is rounded to the 0.01 the user sees and
- * types; once every bag is in, the allocation is done whatever kg residue is left. */
+/** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
+ * sees and types; the allocation is done once that reaches 0, or once a receive was
+ * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
 export function allocationOutstanding(db: Database, allocation: Entry) {
   const received = entries(
     db,
@@ -829,14 +784,14 @@ export function allocationOutstanding(db: Database, allocation: Entry) {
     allocation.lotId,
     allocation.branch,
   ).filter((r) => r.values.allocation === allocation.id);
-  const bags = n(allocation.values, "bags") - sum(received, "bags");
+  if (received.some((r) => r.values.complete === "1")) return 0;
   const kg =
     Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
-  return { kg: bags > 0 && kg > 0 ? kg : 0, bags: Math.max(0, bags) };
+  return Math.max(0, kg);
 }
 export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
   return entries(db, "allocate", lotId, branch).reduce(
-    (total, allocation) => total + allocationOutstanding(db, allocation).kg,
+    (total, allocation) => total + allocationOutstanding(db, allocation),
     0,
   );
 }
@@ -1827,39 +1782,20 @@ export function mutate(
       false,
     );
   } else if (kind === "allocate") {
-    const selectedBagIds = (v.bagIds || "").split(",").filter(Boolean);
-    if (selectedBagIds.length) {
-      const available = availableBags(db, lotId);
-      const selected = available.filter((bag) =>
-        selectedBagIds.includes(bag.id),
-      );
-      assert(
-        selected.length === selectedBagIds.length,
-        "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่",
-      );
-      v.kg = String(selected.reduce((sum, bag) => sum + bag.weight, 0));
-      v.bags = String(selected.length);
-    }
     positive(v, "kg", "น้ำหนักจัดสรร");
-    positive(v, "bags", "จำนวนกล่องรมควัน");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม");
     assert(branches.includes(v.branch), "เลือกสาขา");
     assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
-    assert(
-      n(v, "bags") <= centralBagStock(db, lotId),
-      "จำนวนกล่องรมควันในสต๊อกกลางไม่พอ",
-    );
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
-    positive(v, "bags", "จำนวนถุง");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     const allocation = entries(db, "allocate", lotId, branch).find(
       (e) => e.id === v.allocation,
     );
     assert(allocation, "เลือกใบจัดสรร");
-    const outstanding = allocationOutstanding(db, allocation).kg;
+    const outstanding = allocationOutstanding(db, allocation);
     assert(n(v, "kg") <= outstanding + 0.001, "รับเกินยอดค้างรับ");
-    variance(n(v, "kg"), outstanding, v);
+    // Closing the allocation makes any shortfall final, so it needs a reason; a
+    // partial receive leaves the rest pending.
+    if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
     positive(v, "bags", "จำนวนถุงที่ละลาย");
