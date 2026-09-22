@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import {
   balance,
@@ -9,6 +10,7 @@ import {
   processed,
   produced,
   producedBags,
+  rawRiceStock,
   smokeServiceRate,
   validPackWeights,
   type Database,
@@ -16,6 +18,29 @@ import {
   type Values,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+/** A withdrawal: what leaves, the stock now and the stock after it. A stock that would
+ *  go negative is shown red; the form's live error is what blocks the save. */
+function issueRows(
+  item: string,
+  stock: number,
+  issued: number,
+  unit: (x: number) => string,
+): [string, ReactNode][] {
+  const after = stock - issued;
+  return [
+    [`${item}ที่เบิก`, unit(issued)],
+    [`${item}คงเหลือตอนนี้`, unit(stock)],
+    [
+      `${item}คงเหลือหลังรายการนี้`,
+      after < -0.001 ? (
+        <span className="text-danger">{unit(after)}</span>
+      ) : (
+        unit(after)
+      ),
+    ],
+  ];
+}
 
 export function Preview({
   db,
@@ -30,7 +55,7 @@ export function Preview({
   kind: string;
   v: Values;
 }) {
-  let rows: [string, string][] = [];
+  let rows: [string, ReactNode][] = [];
   if (kind === "purchase")
     rows = [
       ["ค่าเนื้อ", `฿${fmt(n(v, "orderedKg") * n(v, "price"))}`],
@@ -169,6 +194,31 @@ export function Preview({
         "น้ำพริกควรเหลือ",
         `${fmt(chiliStock(db, branch) - n(v, "chiliAddons"))} หลอด`,
       ],
+    ];
+  }
+  if (kind === "riceIssue" || kind === "chiliIssue" || kind === "supplyIssue") {
+    // มีนบุรี buys cooked rice, so its combined form has no raw rice to issue.
+    const rice =
+      kind === "riceIssue" || (kind === "supplyIssue" && branch !== "มีนบุรี");
+    const chili = kind !== "riceIssue";
+    rows = [
+      ...(rice
+        ? issueRows(
+            "ข้าวเหนียวดิบ",
+            rawRiceStock(db, branch),
+            n(v, "rawRiceIssuedKg"),
+            (x) => `${fmt(x)} กก.`,
+          )
+        : []),
+      ...(chili
+        ? issueRows(
+            "น้ำพริก",
+            chiliStock(db, branch),
+            n(v, "chiliIssuedTubes"),
+            (x) => `${x} หลอด`,
+          )
+        : []),
+      ["ผู้รับของ", v.receiver?.trim() || "—"],
     ];
   }
   return rows.length ? (

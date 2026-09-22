@@ -21,6 +21,7 @@ import {
   entries,
   mutate,
   n,
+  OverStockError,
   packWeights,
   type Database,
   type Values,
@@ -76,10 +77,9 @@ export function ChefLotEditForm({
   /* The save's own mutate, run on the values as they stand, so a weight over the
    * one received or a round that does not balance shows while it is being typed
    * instead of after บันทึก. mutate clones the database, so a dry run changes
-   * nothing. Held back until every control has something in it: an unfinished
-   * form must not be told off for being unfinished. */
+   * nothing. Until every control has something in it only an over-stock weight is
+   * said: an unfinished form must not be told off for being unfinished. */
   const liveError = useMemo(() => {
-    if (!complete) return "";
     try {
       mutate(
         db,
@@ -91,6 +91,7 @@ export function ChefLotEditForm({
       );
       return "";
     } catch (caught) {
+      if (!complete && !(caught instanceof OverStockError)) return "";
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, values, smokeDrafts, lotId, date]);

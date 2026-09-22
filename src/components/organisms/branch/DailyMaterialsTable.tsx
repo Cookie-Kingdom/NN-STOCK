@@ -17,6 +17,7 @@ import {
   materials,
   mutate,
   n,
+  OverStockError,
   type Database,
   type Values,
 } from "@/lib/store";
@@ -61,27 +62,38 @@ export function DailyMaterialsTable({
   const remaining = (i: number) =>
     draft["actual" + i] === "" ? opening(i) - used(i) : n(draft, "actual" + i);
 
+  const values = () => {
+    const out: Values = { correctionReason: draft.correctionReason || "" };
+    materials.forEach((_, i) => {
+      out["opening" + i] = String(opening(i));
+      out["used" + i] = String(used(i));
+      out["material" + i] = String(remaining(i));
+      out["materialReason" + i] = draft["materialReason" + i] || "";
+    });
+    return out;
+  };
+  /* The save's own mutate as a dry run (mutate clones, so it changes nothing): a
+   * จำนวนใช้ over ยอดตั้งต้น shows as it is typed and blocks the save. Only that one:
+   * a reason still to be typed is not an error yet. */
+  let overStock = "";
+  try {
+    mutate(db, "branch", "materials", values(), "", date, branch);
+  } catch (caught) {
+    if (caught instanceof OverStockError) overStock = caught.message;
+  }
+
   async function saveMaterials() {
-    const next = await run(() => {
-      const values: Values = {
-        correctionReason: draft.correctionReason || "",
-      };
-      materials.forEach((_, i) => {
-        values["opening" + i] = String(opening(i));
-        values["used" + i] = String(used(i));
-        values["material" + i] = String(remaining(i));
-        values["materialReason" + i] = draft["materialReason" + i] || "";
-      });
-      return mutate(
+    const next = await run(() =>
+      mutate(
         latestDatabase(),
         "branch",
         "materials",
-        values,
+        values(),
         "",
         date,
         branch,
-      );
-    });
+      ),
+    );
     if (next) {
       setDraft((current) => ({ ...current, correctionReason: "" }));
       setMessage("บันทึกการใช้วัสดุวันนี้แล้ว");
@@ -112,7 +124,7 @@ export function DailyMaterialsTable({
             />
             <Button
               variant="primary"
-              disabled={disabled || saving}
+              disabled={disabled || saving || !!overStock}
               icon={saving ? <Spinner /> : undefined}
               onClick={saveMaterials}
             >
@@ -218,6 +230,7 @@ export function DailyMaterialsTable({
           />
         </Notice>
       )}
+      {overStock && <Notice tone="danger">{overStock}</Notice>}
       {message && <Notice>{message}</Notice>}
     </>
   );

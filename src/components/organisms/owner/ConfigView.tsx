@@ -156,7 +156,7 @@ function SectionAction({
           <Button
             variant="primary"
             size="sm"
-            disabled={saving}
+            disabled={saving || !!error}
             icon={saving ? <Spinner /> : undefined}
             onClick={onSave}
           >
