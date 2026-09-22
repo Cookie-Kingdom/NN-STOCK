@@ -166,7 +166,7 @@ test("ข้อ 3 + 12 + 1 + 2: หลาย PO ซื้อ (บางส่ว
 
   await step(
     page,
-    "Foodiva: ข้อ 1 แก้ Packing List หลังบันทึกใบขนส่ง (กล่องรับเข้าที่ 3: 195 → 198) ก่อน Owner ออก PO รมควัน",
+    "Foodiva: ข้อ 1 แก้ Packing List หลังบันทึกใบขนส่ง (กล่องรับเข้าที่ 3: 195 → 198 · Sliced Weight Net 898) ก่อน Owner ออก PO รมควัน",
     async () => {
       await openMenu(page, "PO และสต๊อก Foodiva");
       const row = tableRow(page, "Request เข้า", first);
@@ -184,6 +184,12 @@ test("ข้อ 3 + 12 + 1 + 2: หลาย PO ซื้อ (บางส่ว
         }),
         "198",
       );
+      /* Sliced Weight Net is typed, so a box weight alone no longer moves it — the
+       * form says so, and Foodiva retypes it. */
+      await expect(list).toContainText(
+        "ยอดรวมกล่องรับเข้า 898.00 กก. ไม่เท่ากับ Sliced Weight Net 895.00 กก.",
+      );
+      await typeValue(page, list.getByLabel(/Sliced Weight Net/), "898");
       await saveEntry(page);
       await expect(page.getByText("บันทึก Packing List แล้ว")).toBeVisible();
     },
@@ -288,7 +294,7 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
 
   await step(
     page,
-    "Owner → Foodiva → Owner: PO 100 · Invoice · Request 60 · ใบขนส่ง + Packing List 30 + 30 (Inv. Weight 65 → Lost 5 คำนวณให้)",
+    "Owner → Foodiva → Owner: PO 100 · Invoice · Request 60 · ใบขนส่ง + Packing List 30 + 30 (Inv. Weight 60 ตาม Request · Net 60 · Lost 0 คำนวณให้)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       poId = await ownerCreatesMeatPo(page, "100");
@@ -297,9 +303,9 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
       await signInAs(page, ACCOUNTS.owner);
       shipment = await ownerCreatesShipmentRequest(page, [{ poId, kg: "60" }]);
       await signInAs(page, ACCOUNTS.foodiva);
-      await foodivaMakesManifest(page, shipment, ["30", "30"], {
-        invWeightKg: "65",
-      });
+      // Inv. Weight is the Request's 60 kg, read-only; Sliced Weight Net is typed and
+      // defaults to the box total, so this list loses nothing.
+      await foodivaMakesManifest(page, shipment, ["30", "30"]);
     },
   );
 
@@ -316,10 +322,10 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
         }),
       );
       const list = page.getByRole("dialog");
-      await expect(list).toContainText(/Inv\. Weight\s*65\.00 กก\./);
+      await expect(list).toContainText(/Inv\. Weight\s*60\.00 กก\./);
       await expect(list).toContainText(/Sliced Weight Net\s*60\.00 กก\./);
-      // Computed, not typed: Inv. Weight 65 − Sliced Weight Net 60.
-      await expect(list).toContainText(slicedLostCard("65", ["30", "30"]));
+      // Computed, not typed: Inv. Weight 60 − Sliced Weight Net 60.
+      await expect(list).toContainText(slicedLostCard("60", "60"));
       await expect(list).toContainText("รวม 2 กล่องรับเข้า");
       const popup = page.waitForEvent("popup");
       await pointAndClick(
@@ -343,8 +349,8 @@ test("ข้อ 1 + 4.1 + 4 + 2: Owner/Chef House เห็นตาราง Pa
       await chefAcceptsSmokePo(page);
       await chefFillsYellowCells(page, shipment, []);
       const dialog = page.getByRole("dialog");
-      await expect(dialog).toContainText(/Inv\. Weight\s*65\.00 กก\./);
-      await expect(dialog).toContainText(slicedLostCard("65", ["30", "30"]));
+      await expect(dialog).toContainText(/Inv\. Weight\s*60\.00 กก\./);
+      await expect(dialog).toContainText(slicedLostCard("60", "60"));
       await expect(
         dialog.getByLabel(/^น้ำหนักตาม Packing List กล่องรับเข้าที่/),
       ).toHaveCount(0);
