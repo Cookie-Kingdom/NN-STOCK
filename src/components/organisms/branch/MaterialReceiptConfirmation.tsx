@@ -6,6 +6,7 @@ import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
 import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { FilterBar } from "@/components/molecules/FilterBar";
+import { PrefillCaption } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { TableFilter } from "@/components/molecules/TableFilter";
@@ -43,6 +44,15 @@ export function MaterialReceiptConfirmation({
       ),
   );
   const [draft, setDraft] = useState<Values>({});
+  // Until the branch types a name, each row's receiver is the one the Owner wrote on
+  // that transfer; the shared box shows the newest pending one's.
+  const typedReceiver = draft.receiver !== undefined;
+  const ownerReceiver = (transfer: Entry) =>
+    transfer.values.receiver?.trim() || `ผู้ดูแลสาขา ${branch}`;
+  const newest = pending.at(-1);
+  const shownReceiver = typedReceiver
+    ? draft.receiver
+    : newest?.values.receiver?.trim() || "";
   // Success and error messages share one Notice, so the hook's error slot doubles as it.
   const {
     error: message,
@@ -62,7 +72,9 @@ export function MaterialReceiptConfirmation({
         transferId: transfer.id,
         receivedQuantity:
           draft[`quantity-${transfer.id}`] || transfer.values.quantity,
-        receiver: draft.receiver || `ผู้ดูแลสาขา ${branch}`,
+        receiver: typedReceiver
+          ? draft.receiver || `ผู้ดูแลสาขา ${branch}`
+          : ownerReceiver(transfer),
         reason: draft[`reason-${transfer.id}`] || "",
       },
       "",
@@ -95,6 +107,8 @@ export function MaterialReceiptConfirmation({
            * is said while the number is being typed instead of after ยืนยันรับ. mutate
            * clones the database, so a dry run changes nothing. Held back while the
            * quantity box is empty: a half-typed row must not be told off. */
+          const quantityTouched =
+            draft[`quantity-${transfer.id}`] !== undefined;
           let rowError = "";
           if (String(quantity).trim())
             try {
@@ -106,25 +120,28 @@ export function MaterialReceiptConfirmation({
             transfer.date,
             transfer.values.material,
             transfer.values.quantity,
-            <Input
-              key={`q-${transfer.id}`}
-              variant="table"
-              type="number"
-              inputMode="numeric"
-              min="1"
-              max={transfer.values.quantity}
-              step="1"
-              aria-label={`จำนวนที่รับจริง ${transfer.values.material}`}
-              value={
-                draft[`quantity-${transfer.id}`] ?? transfer.values.quantity
-              }
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  [`quantity-${transfer.id}`]: event.target.value,
-                }))
-              }
-            />,
+            <div key={`q-${transfer.id}`}>
+              <Input
+                variant="table"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max={transfer.values.quantity}
+                step="1"
+                prefilled={quantityTouched ? undefined : "expected"}
+                aria-label={`จำนวนที่รับจริง ${transfer.values.material}`}
+                value={quantity}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [`quantity-${transfer.id}`]: event.target.value,
+                  }))
+                }
+              />
+              {!quantityTouched && (
+                <PrefillCaption label="ตามยอดส่ง" expected />
+              )}
+            </div>,
             <Input
               key={`r-${transfer.id}`}
               variant="table"
@@ -164,19 +181,27 @@ export function MaterialReceiptConfirmation({
               onDate={onDate}
               minDate={minDate}
             />
-            <TableFilter label="ชื่อผู้รับจริง">
-              <Input
-                variant="filter"
-                value={draft.receiver || ""}
-                placeholder={`ผู้ดูแลสาขา ${branch}`}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    receiver: event.target.value,
-                  }))
-                }
-              />
-            </TableFilter>
+            <div>
+              <TableFilter label="ชื่อผู้รับจริง">
+                <Input
+                  variant="filter"
+                  value={shownReceiver}
+                  placeholder={`ผู้ดูแลสาขา ${branch}`}
+                  prefilled={
+                    !typedReceiver && shownReceiver ? "auto" : undefined
+                  }
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      receiver: event.target.value,
+                    }))
+                  }
+                />
+              </TableFilter>
+              {!typedReceiver && shownReceiver && (
+                <PrefillCaption label="ตามใบส่งวัสดุของ Owner" />
+              )}
+            </div>
           </FilterBar>
         }
       />

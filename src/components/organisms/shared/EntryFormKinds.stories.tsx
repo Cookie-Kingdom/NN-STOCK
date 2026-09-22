@@ -3,12 +3,16 @@ import { fn, userEvent, within } from "storybook/test";
 import {
   acceptedInvoiceDb,
   allocatedDb,
+  chillDb,
   closedDb,
   cmReceivedDb,
   day,
   confirmedDb,
   demoDb,
+  expenseDb,
   multiPoPackedDb,
+  nextInvoiceDb,
+  ownerReservedDb,
   packedDb,
   preparedDb,
   returnTruckDb,
@@ -105,8 +109,60 @@ export const OwnerMeatPayment: Story = form(
 /** Weighing the smoked meat into central stock after Foodiva received it back. */
 export const OwnerCentral: Story = form(returnedDb, "owner", "central");
 
-/** Chili tubes go to a branch straight from the Owner's stock, no lot involved. */
+/** Chili tubes go to a branch straight from the Owner's stock, no lot involved. The tubes
+ *  start at what tops the branch up to its par (capped at the Owner's stock) and the
+ *  receiver at the last one for that branch. */
 export const OwnerChiliAllocate: Story = form(demoDb, "owner", "chiliAllocate");
+
+/** Switching the branch refills the untouched tubes and receiver for มีนบุรี. */
+export const OwnerChiliAllocateMinburi: Story = {
+  ...OwnerChiliAllocate,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.selectOptions(
+      body.getByLabelText(/สาขาปลายทาง/),
+      "มีนบุรี",
+    );
+  },
+};
+
+/** A new purchase PO starts from the last one: pack size, product, kg and price (captioned
+ *  "จาก PO-…"); the vendor reference stays blank. */
+export const OwnerPurchaseFromLastPo: Story = form(
+  confirmedDb,
+  "owner",
+  "purchase",
+  "",
+  "",
+);
+
+/** A8 — the Owner picks up the meat Foodiva kept: 6 kg still outstanding, prefilled as an
+ *  expected weight to check on the scale; the receiver carries from the last pick-up. */
+export const OwnerWasteReceive: Story = form(
+  ownerReservedDb,
+  "owner",
+  "ownerWasteReceive",
+  "",
+  ownerReservedDb.lots[0].id,
+);
+
+/** An expense starts on the last category and payer, and that category's last amount. */
+export const OwnerExpense: Story = form(expenseDb, "owner", "expense");
+
+/** Picking another category refills the untouched amount with that category's last one. */
+export const OwnerExpenseOtherCategory: Story = {
+  ...OwnerExpense,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.selectOptions(
+      body.getByLabelText(/หมวดค่าใช้จ่าย/),
+      "ค่าเช่า",
+    );
+  },
+};
+
+/** The Owner reopens a closed branch day; the reason is always typed. */
+export const OwnerUnlock: Story = form(demoDb, "owner", "unlock");
 
 // --- Chef House ----------------------------------------------------------
 
@@ -132,7 +188,18 @@ export const ChefSmokingInvoice: Story = form(closedDb, "cm", "smokingInvoice");
 
 // --- Foodiva -------------------------------------------------------------
 
-/** Foodiva counts the returning bags into its freezer; the bag count is prefilled. */
+/** A new meat invoice: the number follows the last one (INV-1 → INV-2) and the confirmer
+ *  carries; the weights start from the PO as expected values. */
+export const FoodivaConfirmNew: Story = form(
+  nextInvoiceDb,
+  "foodiva",
+  "foodivaConfirm",
+  "",
+  nextInvoiceDb.lots.at(-1)!.id,
+);
+
+/** Foodiva counts the returning bags into its freezer; the bag count and kg start from
+ *  the return truck (expected), the time from now. */
 export const FoodivaReturnReceive: Story = form(
   returnTruckDb,
   "foodiva",
@@ -141,7 +208,7 @@ export const FoodivaReturnReceive: Story = form(
 
 // --- Branch --------------------------------------------------------------
 
-/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it.
+/** The only outstanding allocation is picked and its kg prefilled (expected); "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it.
  *  The Lot option reads ส่งมา / รับแล้ว / ค้างรับ, not the 0.00 frozen/chill stock. */
 export const BranchReceive: Story = form(
   allocatedDb,
@@ -150,7 +217,8 @@ export const BranchReceive: Story = form(
   "ศาลาแดง",
 );
 
-/** Moving frozen bags to ready-to-sell stock. */
+/** Moving frozen bags to ready-to-sell stock: the oldest frozen lot (FIFO), and the last
+ *  thaw's kg and bags within its frozen stock, marked expected. */
 export const BranchThaw: Story = form(demoDb, "branch", "thaw", "ศาลาแดง");
 
 /** Only the kg typed, over the frozen stock: the error (with the most allowed) shows at
@@ -183,7 +251,8 @@ const ricePurchase = (branch: string, source: string): Story => ({
   },
 });
 
-/** Nothing picked yet: only the source, supplier and reference show. */
+/** Opens on the branch's last source (captioned), its supplier, the kg that tops the stock
+ *  up to par and that kg × the unit price. */
 export const BranchRicePurchase: Story = form(
   demoDb,
   "branch",
@@ -312,4 +381,24 @@ export const BranchRiceCarry: Story = form(
   "branch",
   "riceCarry",
   "มีนบุรี",
+);
+
+/** A sale on an open day: the kg used follows the packs typed (× average pack weight)
+ *  until the branch types the weighed kg itself; LINE MAN and the chili count stay blank. */
+export const BranchSaleFromPacks: Story = {
+  ...form(chillDb, "branch", "sale", "ศาลาแดง"),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const addons = body.getByLabelText(/เนื้อซีล Add-on/);
+    await userEvent.clear(addons);
+    await userEvent.type(addons, "40");
+  },
+};
+
+/** An influencer box: name and shipping fee carry, kg follows the packs. */
+export const BranchInfluencerBox: Story = form(
+  chillDb,
+  "branch",
+  "influencerBox",
+  "ศาลาแดง",
 );

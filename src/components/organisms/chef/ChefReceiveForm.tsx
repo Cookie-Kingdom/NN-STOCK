@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Select } from "@/components/atoms/Select";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField } from "@/components/molecules/FormField";
+import { FormField, PrefillCaption } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -14,11 +14,11 @@ import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import {
+  listedDraft,
   packingListView,
-  receivedDraft,
   receivedValue,
 } from "@/components/organisms/chef/receivedBoxes";
-import { timeOptions } from "@/lib/forms";
+import { currentTimeSlot, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   latestPackingList,
@@ -52,11 +52,18 @@ export function ChefReceiveForm({
 }) {
   const lot = db.lots.find((item) => item.id === lotId);
   const list = latestPackingList(db, lotId);
-  const [arrival, setArrival] = useState("");
-  const [received, setReceived] = useState(() => receivedDraft(list));
+  // The truck is usually weighed in as it arrives, so the time starts at now.
+  const [arrival, setArrival] = useState(() => currentTimeSlot());
+  const [arrivalTouched, setArrivalTouched] = useState(false);
+  // Each yellow cell starts at its Packing List weight, marked until it is edited.
+  const [received, setReceived] = useState(() => listedDraft(list));
+  const [expected, setExpected] = useState(() =>
+    listedDraft(list).map((kg) => kg !== undefined),
+  );
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   if (!lot || !list) return null;
-  const view = packingListView(list, received);
+  const view = packingListView(list, received, expected);
+  const unweighed = expected.filter(Boolean).length;
   const missing = received.filter((kg) => kg === undefined).length;
   const input = { arrival, receivedBoxes: receivedValue(received) };
   /* The save's own mutate as a dry run (mutate clones, so it changes nothing), so a
@@ -94,16 +101,25 @@ export function ChefReceiveForm({
             minDate={minDate}
           />
           <Notice>
-            ชั่งทีละกล่องรับเข้าแล้วกรอกน้ำหนักจริงในช่องสีเหลือง ช่องของ
-            Foodiva แก้ไม่ได้ ใส่ 0 ถ้าไม่ได้รับกล่องนั้น ยอดไม่ตรงกับ Packing
-            List ก็บันทึกได้ และแก้ได้จนกว่าจะยืนยันปิด Lot
+            ช่องสีเหลืองใส่น้ำหนักตาม Packing List ไว้ให้แล้ว
+            ชั่งทีละกล่องรับเข้าแล้วแก้เป็นน้ำหนักจริง ช่องของ Foodiva แก้ไม่ได้
+            ใส่ 0 ถ้าไม่ได้รับกล่องนั้น ยอดไม่ตรงกับ Packing List ก็บันทึกได้
+            และแก้ได้จนกว่าจะยืนยันปิด Lot
           </Notice>
           <FormGrid>
-            <FormField label="เวลาที่รถมาถึง">
+            <FormField
+              label="เวลาที่รถมาถึง"
+              prefilled={
+                arrivalTouched || !arrival
+                  ? undefined
+                  : { label: "เวลาปัจจุบัน" }
+              }
+            >
               <Select
                 value={arrival}
                 onChange={(event) => {
                   setArrival(event.target.value);
+                  setArrivalTouched(true);
                   setError("");
                 }}
               >
@@ -120,9 +136,18 @@ export function ChefReceiveForm({
               setReceived((current) =>
                 current.map((value, i) => (i === no - 1 ? kg : value)),
               );
+              setExpected((current) =>
+                current.map((marked, i) => (i === no - 1 ? false : marked)),
+              );
               setError("");
             }}
           />
+          {unweighed > 0 && (
+            <PrefillCaption
+              label={`ช่องสีเหลือง ${unweighed} กล่อง ตาม Packing List`}
+              expected
+            />
+          )}
           <FormError error={error} />
         </DialogBody>
         <DialogFooter

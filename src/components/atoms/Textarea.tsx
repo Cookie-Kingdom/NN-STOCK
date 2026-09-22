@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 export function Textarea({
   variant,
   reason,
+  prefilled,
   compact = false,
   className,
   ...props
@@ -23,11 +24,12 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        controlVariants({ variant, reason }),
+        controlVariants({ variant, reason, prefilled }),
         "resize-y",
         compact && "h-11.5 min-h-11.5",
         className,
       )}
+      data-prefilled={prefilled || undefined}
       {...props}
     />
   );

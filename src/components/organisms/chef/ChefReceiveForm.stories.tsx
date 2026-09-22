@@ -14,8 +14,10 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
-/** Stage 2, as Chef House sees it: the 25 + 25 kg Packing List with blank yellow
- *  cells. Type e.g. 24.5 and 24.8 — a total off the list still saves. */
+/** Stage 2, as Chef House sees it: the 25 + 25 kg Packing List with the yellow
+ *  cells prefilled at 25 and marked "ตาม Packing List" (expected), and the arrival
+ *  time at the current slot. Type e.g. 24.5 in a cell — its marker goes, and a total
+ *  off the list still saves. */
 export const WeighIn: Story = {
   parameters: { db: dispatchedDb },
   render: () => (

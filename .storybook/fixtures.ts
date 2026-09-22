@@ -47,6 +47,33 @@ export const packedDb: Database = (() => {
   return s.db;
 })();
 
+/** A first 50 kg trip already trucked (driver, plate, product CODE on file), and a new
+ *  40 kg Request at stage 1: the next transport document and Packing List start from it. */
+export const repeatDispatchDb: Database = (() => {
+  const s = setup();
+  readyToDispatch(s, "50");
+  s.run("foodiva", "dispatch", {
+    pickupDate: day,
+    pickupTime: "06:30",
+    origin: "กรุงเทพฯ",
+    destination: "เชียงใหม่",
+    trip: "ไปกลับ",
+    vehicleType: "รถห้องเย็น 10 ล้อ",
+    plate: "1กข-2345",
+    driverName: "สมชาย ใจดี",
+    driverPhone: "0812345678",
+  });
+  s.run("foodiva", "packingList", {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    code: "BF-01",
+    slicedLostKg: "50",
+    boxes: "25\n25",
+  });
+  readyToDispatch(s, "40");
+  return s.db;
+})();
+
 /** Purchase POs of 300, 700 and 500 kg with nothing sent yet, plus a 1,000 kg PO that
  * already sent 400 kg (600 kg remaining): the Owner's choice for the next Request. */
 export const multiPoDb: Database = (() => {
@@ -410,3 +437,68 @@ export const editDecidedDb: Database = branchEdit(
   { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" },
   "เลือกการจัดการผิด",
 );
+
+/** A lot at central stock with history for the purchase, transfer and allocation
+ *  prefills: 10 of 35 kg allocated ศาลาแดง 6 / มีนบุรี 4 (25 left), a purchase of
+ *  materials[0] (200 × ฿3 from ร้านวัสดุ), 60 of it sent to คุณนิด at ศาลาแดง (not
+ *  confirmed yet, so the branch is still 100 short of its par) and น้ำพริกหลอด bought
+ *  from ร้านน้ำพริกแม่ศรี. */
+export const prefillHistoryDb: Database = (() => {
+  const s = ready();
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "6", deliveryDate: day });
+  s.run("owner", "allocate", { branch: "มีนบุรี", kg: "4", deliveryDate: day });
+  s.run("owner", "materialReceive", {
+    purchaseDate: day,
+    material: materials[0],
+    quantity: "200",
+    unitPrice: "3",
+    supplier: "ร้านวัสดุ",
+  });
+  s.run("owner", "materialTransfer", {
+    material: materials[0],
+    branch: "ศาลาแดง",
+    quantity: "60",
+    receiver: "คุณนิด",
+  });
+  s.run("owner", "generalPurchase", {
+    purchaseDate: day,
+    purchaseCategory: "วัตถุดิบ",
+    item: "น้ำพริกหลอด",
+    unit: "หลอด",
+    quantity: "12",
+    unitPrice: "25",
+    supplier: "ร้านน้ำพริกแม่ศรี",
+    reference: "",
+  });
+  return s.db;
+})();
+
+/** demoDb plus two Owner expenses (rent ฿15,000 by Owner, then electricity ฿2,000 by
+ *  คุณบี): the next expense starts on the last category, payer and that category's amount. */
+export const expenseDb: Database = [
+  {
+    category: "ค่าเช่า",
+    amount: "15000",
+    payer: "Owner",
+    detail: "ค่าเช่าเดือนนี้",
+  },
+  {
+    category: "ค่าสาธารณูปโภค",
+    amount: "2000",
+    payer: "คุณบี",
+    detail: "ค่าไฟ",
+  },
+].reduce(
+  (db, values) => mutate(db, "owner", "expense", values, "", day),
+  demoDb,
+);
+
+/** Foodiva invoiced a first 40 kg PO as INV-1 (confirmed by "Foodiva"); a second 50 kg PO
+ *  waits for its invoice, which starts as INV-2. */
+export const nextInvoiceDb: Database = (() => {
+  const s = setup();
+  purchase(s, "40");
+  confirm(s, "40");
+  purchase(s, "50");
+  return s.db;
+})();

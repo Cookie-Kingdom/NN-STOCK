@@ -114,7 +114,9 @@ export const Materials: Story = {
 };
 
 // demoDb confirms every shipment it makes, so the pending-row state (and its live
-// "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding.
+// "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding. The received
+// quantity starts at the sent one ("ตามยอดส่ง", expected) and the receiver at the
+// name the Owner wrote on the transfer.
 export const MaterialReceipt: Story = {
   parameters: { db: materialTransferDb },
   render: () => (

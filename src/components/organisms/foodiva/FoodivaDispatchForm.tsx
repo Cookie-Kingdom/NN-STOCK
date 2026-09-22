@@ -17,10 +17,12 @@ import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
+import { usePrefill } from "@/components/organisms/shared/usePrefill";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { nextTimeSlot } from "@/lib/forms";
 import { fmt } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
+import { lastLabel, lastValues, type Prefill } from "@/lib/prefill";
 import {
   dispatchWithPackingList,
   entries,
@@ -35,6 +37,22 @@ import {
 const cell = "border-b border-border px-4.5 py-3 align-middle max-md:px-2.5";
 const headCell =
   "border-b border-border bg-bg px-4.5 py-3 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
+
+const truckKeys = ["trip", "vehicleType", "plate", "driverName", "driverPhone"];
+
+/** The truck fields of the newest transport document, all from that one trip so the
+ *  plate and driver stay a pair. */
+function lastTruck(db: Database): Prefill {
+  const last = lastValues(db, "dispatch");
+  const out: Prefill = { values: {}, sources: {} };
+  if (!last) return out;
+  for (const key of truckKeys) {
+    if (!last.values[key]?.trim()) continue;
+    out.values[key] = last.values[key];
+    out.sources[key] = { label: lastLabel(last.date) };
+  }
+  return out;
+}
 
 /**
  * Foodiva's outbound transport document for one Owner Request (a shipment at stage 1).
@@ -60,19 +78,21 @@ export function FoodivaDispatchForm({
   onSaved: (db: Database) => void;
 }) {
   const lot = db.lots.find((l) => l.id === lotId);
-  const [values, setValues] = useState({
-    pickupDate: date,
-    pickupTime: nextTimeSlot(),
-    origin: "กรุงเทพฯ",
-    destination: "เชียงใหม่",
-    trip: "เที่ยวเดียว",
-    vehicleType: "รถห้องเย็น 6 ล้อ",
-    plate: "",
-    driverName: "",
-    driverPhone: "",
-  });
-  const set = (key: keyof typeof values, value: string) =>
-    setValues((current) => ({ ...current, [key]: value }));
+  // The truck usually repeats: trip, vehicle and driver start from the last transport document.
+  const { values, sources, set } = usePrefill(() => ({
+    base: {
+      pickupDate: date,
+      pickupTime: nextTimeSlot(),
+      origin: "กรุงเทพฯ",
+      destination: "เชียงใหม่",
+      trip: "เที่ยวเดียว",
+      vehicleType: "รถห้องเย็น 6 ล้อ",
+      plate: "",
+      driverName: "",
+      driverPhone: "",
+    },
+    prefill: lastTruck(db),
+  }));
   // ข้อ 12: the last pickup times used, one click each.
   const recentTimes = [
     ...new Set(
@@ -219,7 +239,7 @@ export function FoodivaDispatchForm({
                 onChange={(event) => set("pickupTime", event.target.value)}
               />
             </FormField>
-            <FormField label="รูปแบบเที่ยวรถ">
+            <FormField label="รูปแบบเที่ยวรถ" prefilled={sources.trip}>
               <Select
                 value={values.trip}
                 onChange={(event) => set("trip", event.target.value)}
@@ -249,28 +269,28 @@ export function FoodivaDispatchForm({
                 ))}
               </Select>
             </FormField>
-            <FormField label="ประเภทรถ">
+            <FormField label="ประเภทรถ" prefilled={sources.vehicleType}>
               <Input
                 type="text"
                 value={values.vehicleType}
                 onChange={(event) => set("vehicleType", event.target.value)}
               />
             </FormField>
-            <FormField label="ทะเบียนรถ">
+            <FormField label="ทะเบียนรถ" prefilled={sources.plate}>
               <Input
                 type="text"
                 value={values.plate}
                 onChange={(event) => set("plate", event.target.value)}
               />
             </FormField>
-            <FormField label="ชื่อคนขับ">
+            <FormField label="ชื่อคนขับ" prefilled={sources.driverName}>
               <Input
                 type="text"
                 value={values.driverName}
                 onChange={(event) => set("driverName", event.target.value)}
               />
             </FormField>
-            <FormField label="เบอร์ติดต่อคนขับ">
+            <FormField label="เบอร์ติดต่อคนขับ" prefilled={sources.driverPhone}>
               <Input
                 type="tel"
                 value={values.driverPhone}

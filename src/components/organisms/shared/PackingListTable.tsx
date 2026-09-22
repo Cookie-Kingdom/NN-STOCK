@@ -38,6 +38,9 @@ export type PackingListBox = {
   no: number;
   weight?: number;
   received?: number;
+  /** `received` is still the Packing List weight the form filled in, not a reading:
+   *  the cell is marked for Chef House to weigh and correct. */
+  receivedExpected?: boolean;
 };
 
 const kg = (value: number) => value.toFixed(2);
@@ -105,10 +108,12 @@ function WeightCell({
   value,
   onChange,
   label,
+  expected,
 }: {
   value: number | undefined;
   onChange?: (value: number | undefined) => void;
   label: string;
+  expected?: boolean;
 }) {
   if (!onChange)
     return (
@@ -123,6 +128,7 @@ function WeightCell({
       step="0.01"
       min="0"
       className="w-28"
+      prefilled={expected ? "expected" : undefined}
       aria-label={label}
       value={value ?? ""}
       onChange={(event) =>
@@ -295,6 +301,7 @@ export function PackingListTable({
                         onReceived && ((value) => onReceived(box.no, value))
                       }
                       label={`น้ำหนักจริงกล่องรับเข้าที่ ${box.no}`}
+                      expected={box.receivedExpected}
                     />
                   </td>
                   <td
