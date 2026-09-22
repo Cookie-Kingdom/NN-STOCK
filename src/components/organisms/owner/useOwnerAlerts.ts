@@ -5,6 +5,7 @@ import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   centralStock,
+  currentSmokingInvoices,
   type Database,
   entries,
   latestPackingList,
@@ -52,9 +53,19 @@ export function useOwnerAlerts(db: Database) {
   const allocationCount = shipmentLots.filter(
     (lot) => lot.stage >= 8 && centralStock(db, lot.id) > 0.001,
   ).length;
-  const billingCount = entries(db, "smokingInvoice").filter(
-    (invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด",
-  ).length;
+  // Invoices the owner has to act on, the same ones the bell lists: a Foodiva meat invoice
+  // still unpaid, a Chef House smoking invoice to review or to pay.
+  const unpaidMeatLots = db.lots.filter(
+    (item) =>
+      !item.kind &&
+      entries(db, "foodivaConfirm", item.id).length &&
+      !entries(db, "meatPayment", item.id).length,
+  );
+  const billingCount =
+    unpaidMeatLots.length +
+    currentSmokingInvoices(db).filter((invoice) =>
+      ["รอตรวจยอด", "รอชำระ"].includes(smokingInvoiceStatus(db, invoice)),
+    ).length;
   const packedCount = shipmentLots.filter(
     (lot) =>
       latestPackingList(db, lot.id) &&
@@ -160,18 +171,11 @@ export function useOwnerAlerts(db: Database) {
         ];
       return [];
     }),
-    ...db.lots
-      .filter(
-        (item) =>
-          !item.kind &&
-          entries(db, "foodivaConfirm", item.id).length &&
-          !entries(db, "meatPayment", item.id).length,
-      )
-      .map((item): OwnerNotification => ({
-        title: `รอชำระ Invoice เนื้อ · ${item.poId}`,
-        detail: `ชำระ Invoice ${entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo || ""} ของ Foodiva และแนบสลิป`,
-        tab: "invoices",
-      })),
+    ...unpaidMeatLots.map((item): OwnerNotification => ({
+      title: `รอชำระ Invoice เนื้อ · ${item.poId}`,
+      detail: `ชำระ Invoice ${entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo || ""} ของ Foodiva และแนบสลิป`,
+      tab: "invoices",
+    })),
     ...returnReady.map((item): OwnerNotification => ({
       title: `Chef House ปิด Lot แล้ว · ${item.poId}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
