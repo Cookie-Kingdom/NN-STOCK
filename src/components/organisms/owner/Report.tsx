@@ -24,7 +24,17 @@ import { fmt, today } from "@/lib/format";
 
 const OWNER_WIDE_KINDS = ["expense", "materialReceive", "generalPurchase"];
 
-export function Report({ db }: { db: Database }) {
+/** `hideSales` (Account Manager): no sales money, no margin; counts, waste and costs stay. */
+export function Report({
+  db,
+  hideSales = false,
+}: {
+  db: Database;
+  hideSales?: boolean;
+}) {
+  // Drops a table's sales-money column (by index) from its header and rows.
+  const noMoney = <T,>(cells: T[], index: number) =>
+    hideSales ? cells.filter((_, i) => i !== index) : cells;
   const allDates = db.entries
     .map((e) => e.date)
     .filter(Boolean)
@@ -133,11 +143,17 @@ export function Report({ db }: { db: Database }) {
         title="สรุปผลรวม"
         columns={["รายการ", "จำนวนเงิน", "ขอบเขต"]}
         rows={[
-          [
-            "ยอดขาย LINE MAN",
-            fmt(sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0)),
-            "บาท",
-          ],
+          ...(hideSales
+            ? []
+            : [
+                [
+                  "ยอดขาย LINE MAN",
+                  fmt(
+                    sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0),
+                  ),
+                  "บาท",
+                ],
+              ]),
           [
             "ต้นทุนรวมทั้งหมด (เนื้อ + Waste + ค่าใช้จ่ายสาขา + รายการย่อยด้านล่าง)",
             fmt(cost),
@@ -155,7 +171,9 @@ export function Report({ db }: { db: Database }) {
             fmt(generalPurchaseCost),
             "บาท",
           ],
-          ["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(margin), "บาท"],
+          ...(hideSales
+            ? []
+            : [["ส่วนต่างหลังต้นทุนที่บันทึก", fmt(margin), "บาท"]]),
         ]}
       />
       <Notice>
@@ -167,39 +185,48 @@ export function Report({ db }: { db: Database }) {
       <DataTable
         className="m-0"
         title="รายงานยอดขายรายวัน"
-        columns={[
-          "วันที่",
-          "สาขา",
-          "กล่อง",
-          "เนื้อ Add-on",
-          "น้ำพริกขายแยก",
-          "Waste (กก.)",
-          "LINE MAN (บาท)",
-          "สถานะ",
-        ]}
-        rows={dayRows}
+        columns={noMoney(
+          [
+            "วันที่",
+            "สาขา",
+            "กล่อง",
+            "เนื้อ Add-on",
+            "น้ำพริกขายแยก",
+            "Waste (กก.)",
+            "LINE MAN (บาท)",
+            "สถานะ",
+          ],
+          6,
+        )}
+        rows={dayRows.map((row) => noMoney(row, 6))}
       />
       <DataTable
         className="m-0"
         title="ยอดขายสะสมแยกสาขา"
-        columns={[
-          "สาขา",
-          "กล่อง",
-          "เนื้อ Add-on",
-          "น้ำพริกขายแยก",
-          "Waste (กก.)",
-          "ยอดขาย (บาท)",
-        ]}
+        columns={noMoney(
+          [
+            "สาขา",
+            "กล่อง",
+            "เนื้อ Add-on",
+            "น้ำพริกขายแยก",
+            "Waste (กก.)",
+            "ยอดขาย (บาท)",
+          ],
+          5,
+        )}
         rows={branches.map((br) => {
           const rows = entries(db, "sale", undefined, br).filter(inRange);
-          return [
-            br,
-            String(rows.reduce((s, e) => s + n(e.values, "boxes"), 0)),
-            String(rows.reduce((s, e) => s + n(e.values, "addons"), 0)),
-            String(rows.reduce((s, e) => s + n(e.values, "chiliAddons"), 0)),
-            fmt(rows.reduce((s, e) => s + n(e.values, "wasteKg"), 0)),
-            fmt(rows.reduce((s, e) => s + n(e.values, "revenue"), 0)),
-          ];
+          return noMoney(
+            [
+              br,
+              String(rows.reduce((s, e) => s + n(e.values, "boxes"), 0)),
+              String(rows.reduce((s, e) => s + n(e.values, "addons"), 0)),
+              String(rows.reduce((s, e) => s + n(e.values, "chiliAddons"), 0)),
+              fmt(rows.reduce((s, e) => s + n(e.values, "wasteKg"), 0)),
+              fmt(rows.reduce((s, e) => s + n(e.values, "revenue"), 0)),
+            ],
+            5,
+          );
         })}
       />
       <DataTable

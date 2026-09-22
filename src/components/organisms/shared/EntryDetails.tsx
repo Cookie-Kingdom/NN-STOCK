@@ -236,6 +236,7 @@ export function EntryDetails({
   role,
   branch = "",
   voided = false,
+  hideSales = false,
   open,
   onChanged,
 }: {
@@ -246,6 +247,8 @@ export function EntryDetails({
   branch?: string;
   /** A later "void" entry targets this one: no second cancel. */
   voided?: boolean;
+  /** Its sales money was stripped (Account Manager): editing a sale would save it blank. */
+  hideSales?: boolean;
   /** Start expanded (stories). */
   open?: boolean;
   onChanged: (message: string) => void;
@@ -261,7 +264,11 @@ export function EntryDetails({
   const current =
     (edits.length && db && entries(db, e.kind).find((x) => x.id === e.id)) || e;
   const pending = db ? openEditRequest(db, e.id) : undefined;
-  const editable = !!db && !voided && !editBlock(db, e, role, branch);
+  const editable =
+    !!db &&
+    !voided &&
+    !(hideSales && e.kind === "sale") &&
+    !editBlock(db, e, role, branch);
   const run = (kind: string, values: Values, done: string, fail: string) => {
     setError("");
     try {

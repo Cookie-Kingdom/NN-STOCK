@@ -8,7 +8,12 @@ import { createClient } from "@/lib/supabase/browser";
 
 type Profile = {
   display_name: string;
-  role: "L1_OWNER" | "L2_BRANCH_ADMIN" | "L3_CM_OPERATOR" | "L4_SUPPLIER";
+  role:
+    | "L1_OWNER"
+    | "L1_MANAGER"
+    | "L2_BRANCH_ADMIN"
+    | "L3_CM_OPERATOR"
+    | "L4_SUPPLIER";
   is_active: boolean;
 };
 export type SessionState = {
@@ -36,13 +41,15 @@ function accountForProfile(
   const id: AccountId =
     profile.role === "L1_OWNER"
       ? "owner"
-      : profile.role === "L3_CM_OPERATOR"
-        ? "chef"
-        : profile.role === "L4_SUPPLIER"
-          ? "foodiva"
-          : locationName?.includes("มีนบุรี")
-            ? "minburi"
-            : "saladaeng";
+      : profile.role === "L1_MANAGER"
+        ? "manager"
+        : profile.role === "L3_CM_OPERATOR"
+          ? "chef"
+          : profile.role === "L4_SUPPLIER"
+            ? "foodiva"
+            : locationName?.includes("มีนบุรี")
+              ? "minburi"
+              : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;
 }
@@ -128,7 +135,7 @@ export async function signIn(email: string, password: string) {
     const account = accountById(email.split("@")[0]);
     if (!account)
       return localAuthError(
-        "โหมด local: ใช้อีเมล owner@local.test, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
+        "โหมด local: ใช้อีเมล owner@local.test, manager@, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
       );
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };
