@@ -11,12 +11,14 @@ import {
   field,
   foodivaReceivesReturn,
   menuItem,
+  openMaterialCount,
   openMenu,
   openNotifications,
   ownerCallsReturnTruck,
   ownerReceivesCentral,
   pointAndClick,
   saveEntry,
+  saveMaterialCount,
   sendMeatToChefHouse,
   signInAs,
   skipUnlessCredentials,
@@ -105,8 +107,8 @@ async function closeDay(page: Page, date: string) {
 }
 
 async function saveMaterials(page: Page) {
-  await button(page, "บันทึกการใช้วัสดุ");
-  await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+  await openMaterialCount(page);
+  await saveMaterialCount(page);
 }
 
 async function confirmRiceLeft(page: Page, kg: string) {

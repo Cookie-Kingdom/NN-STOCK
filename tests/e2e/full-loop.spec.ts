@@ -17,6 +17,7 @@ import {
   foodivaOpensManifest,
   INVOICE_FIXTURE,
   menuItem,
+  openMaterialCount,
   openMenu,
   OUTBOUND_MENU,
   ownerApprovesSmokingInvoice,
@@ -26,6 +27,7 @@ import {
   ownerPaysSmokingInvoice,
   pointAndClick,
   saveEntry,
+  saveMaterialCount,
   signInAs,
   skipUnlessCredentials,
   startFresh,
@@ -308,8 +310,8 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     );
     await field(page, /น้ำหนักละลาย/, "10");
     await saveEntry(page);
-    await button(page, "บันทึกการใช้วัสดุ");
-    await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+    await openMaterialCount(page);
+    await saveMaterialCount(page);
 
     const riceTable = tableSection(
       page,
@@ -511,8 +513,8 @@ test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → �
   await field(page, /น้ำหนักละลาย/, "70");
   await field(page, /จำนวนกล่องรมควันที่ละลาย/, "1");
   await saveEntry(page);
-  await button(page, "บันทึกการใช้วัสดุ");
-  await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+  await openMaterialCount(page);
+  await saveMaterialCount(page);
   await button(page, "บันทึกยอดขาย");
   await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "65.5");
   await field(page, /น้ำหนักเวสต์/, "0");

@@ -9,8 +9,6 @@ import {
   useState,
 } from "react";
 import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { Spinner } from "@/components/atoms/Spinner";
 import { Footnote } from "@/components/atoms/Text";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
@@ -18,6 +16,10 @@ import { Textarea } from "@/components/atoms/Textarea";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
+import {
+  ReadOnlyValue,
+  SectionAction,
+} from "@/components/organisms/shared/SectionAction";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
@@ -106,74 +108,6 @@ function settingRow(
       ? cloneElement(value, { label: label.split(" (")[0] })
       : value;
   return [<strong key="label">{label}</strong>, control, unit, detail];
-}
-
-function ReadOnlyValue({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-block min-w-28 py-0.5 text-right font-semibold text-text-secondary">
-      {children}
-    </span>
-  );
-}
-
-function SectionAction({
-  section,
-  editing,
-  message,
-  error,
-  saving,
-  onCancel,
-  onSave,
-  onStartEdit,
-}: {
-  section: ConfigSection;
-  editing: ConfigSection | null;
-  message: string;
-  /** What the save would be refused for, checked as the user types. Takes the
-   *  message's place: while something is wrong, that is the useful thing to read. */
-  error: string;
-  saving: boolean;
-  onCancel: () => void;
-  onSave: () => void;
-  onStartEdit: (section: ConfigSection) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3 max-md:justify-between">
-      {editing === section && (error || message) && (
-        <span
-          role={error ? "alert" : undefined}
-          className={error ? "text-danger" : undefined}
-        >
-          {error || message}
-        </span>
-      )}
-      {editing === section ? (
-        <>
-          <Button size="sm" onClick={onCancel}>
-            ยกเลิก (Cancel)
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={saving || !!error}
-            icon={saving ? <Spinner /> : undefined}
-            onClick={onSave}
-          >
-            {saving ? "กำลังบันทึก…" : "บันทึกและล็อก (Save & lock)"}
-          </Button>
-        </>
-      ) : (
-        <Button
-          size="sm"
-          className="border-text-primary text-text-primary"
-          disabled={editing !== null}
-          onClick={() => onStartEdit(section)}
-        >
-          {editing ? "กำลังแก้ตารางอื่น" : "ขอแก้ไข (Request edit)"}
-        </Button>
-      )}
-    </div>
-  );
 }
 
 type EditProps = {
