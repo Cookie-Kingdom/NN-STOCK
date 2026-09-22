@@ -92,7 +92,7 @@ test("after smoking the owner is sent to transport, central receive and allocati
   expect(afterClose.notifications).toContainEqual({
     title: "Chef House ปิด Lot แล้ว · SH-2026-0001",
     detail: "เรียกรถขากลับ 36.00 กก. · 360 กล่องรมควัน",
-    tab: "transport",
+    tab: "return-shipment",
   });
   expect(ownerAlerts(returned().db).badges["central-receive"]).toBe(1);
   const stocked = ownerAlerts(ready().db);

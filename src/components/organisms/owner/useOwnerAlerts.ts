@@ -31,6 +31,15 @@ export const noOwnerAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
+/** Shipments Chef House has closed that still need the Owner to book the truck home.
+ *  The return-trip screen and the alerts read the same list, so a lot can never be
+ *  ready in one place and missing in the other. */
+export function returnReadyLots(db: Database) {
+  return shipments(db).filter(
+    (lot) => lot.stage === 6 && !entries(db, "return", lot.id).length,
+  );
+}
+
 /** Every "someone is waiting on the owner" signal, derived from lot state. */
 export function useOwnerAlerts(db: Database) {
   const missingMaterialSettings = materials.filter(
@@ -40,12 +49,9 @@ export function useOwnerAlerts(db: Database) {
   ).length;
 
   const shipmentLots = shipments(db);
-  const transportCount = shipmentLots.filter(
-    (lot) => lot.stage === 1 || lot.stage === 6,
-  ).length;
-  const returnReady = shipmentLots.filter(
-    (lot) => lot.stage === 6 && !entries(db, "return", lot.id).length,
-  );
+  // Outbound only: the return trip has its own tab and counts on its own badge.
+  const transportCount = shipmentLots.filter((lot) => lot.stage === 1).length;
+  const returnReady = returnReadyLots(db);
   const centralReceiveCount = shipmentLots.filter(
     (lot) =>
       lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
@@ -171,7 +177,7 @@ export function useOwnerAlerts(db: Database) {
     ...returnReady.map((item): OwnerNotification => ({
       title: `Chef House ปิด Lot แล้ว · ${item.poId}`,
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
-      tab: "transport",
+      tab: "return-shipment",
     })),
     ...(centralReceiveCount
       ? [
@@ -208,6 +214,7 @@ export function useOwnerAlerts(db: Database) {
     returnReady,
     badges: {
       transport: transportCount,
+      "return-shipment": returnReady.length,
       invoices: billingCount,
       "smoke-po": packedCount,
       "central-receive": centralReceiveCount,

@@ -16,6 +16,7 @@ import { OwnerDashboard } from "@/components/organisms/owner/OwnerDashboard";
 import { OwnerStockView } from "@/components/organisms/owner/OwnerStockView";
 import { PurchaseOrderView } from "@/components/organisms/owner/PurchaseOrderView";
 import { Report } from "@/components/organisms/owner/Report";
+import { ReturnShipmentView } from "@/components/organisms/owner/ReturnShipmentView";
 import { SimpleTraceabilityView } from "@/components/organisms/owner/SimpleTraceabilityView";
 import { SmokingPurchaseOrderView } from "@/components/organisms/owner/SmokingPurchaseOrderView";
 import { TransportManifestView } from "@/components/organisms/owner/TransportManifestView";
@@ -81,6 +82,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           onOpenSmokePo={() => setTab("smoke-po")}
         />
       )}
+      {tab === "return-shipment" && <ReturnShipmentView db={db} open={open} />}
       {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}
       {tab === "documents" && <SimpleTraceabilityView db={db} />}
       {tab === "meat-log" && <MeatMovementLogView db={db} />}

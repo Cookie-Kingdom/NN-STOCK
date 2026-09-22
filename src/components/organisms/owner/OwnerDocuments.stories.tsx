@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
+  closedDb,
   demoDb,
   dispatchDb,
   multiPoDb,
@@ -10,10 +11,12 @@ import {
   packedDb,
   packingShortDb,
   returnGapDb,
+  returnTruckDb,
 } from "../../../../.storybook/fixtures";
 import { InvoiceView } from "./InvoiceView";
 import { LotWorkflowAction } from "./LotWorkflowAction";
 import { PurchaseOrderView } from "./PurchaseOrderView";
+import { ReturnShipmentView } from "./ReturnShipmentView";
 import { SmokingPurchaseOrderView } from "./SmokingPurchaseOrderView";
 import { TransportManifestView } from "./TransportManifestView";
 
@@ -101,6 +104,19 @@ export const TransportManifestReturnLeg: Story = {
   render: () => (
     <TransportManifestView db={returnGapDb} open={open} onOpenSmokePo={fn()} />
   ),
+};
+
+/** The return-trip tab: Chef House closed the lot, so the Owner books the truck home.
+ *  The button opens the same `return` dialog the manifest's workflow action opens. */
+export const ReturnShipment: Story = {
+  parameters: { db: closedDb },
+  render: () => <ReturnShipmentView db={closedDb} open={open} />,
+};
+
+/** Nothing to book: the truck home is already on the road, waiting for Foodiva. */
+export const ReturnShipmentEmpty: Story = {
+  parameters: { db: returnTruckDb },
+  render: () => <ReturnShipmentView db={returnTruckDb} open={open} />,
 };
 
 export const Invoices: Story = {

@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   ArrowRight,
   BarChart3,
   Beef,
@@ -24,6 +25,7 @@ export type Tab =
   | "documents"
   | "foodiva"
   | "transport"
+  | "return-shipment"
   | "central-receive"
   | "branch-status"
   | "branch-summary"
@@ -60,7 +62,12 @@ export const ownerNav: NavGroup[] = [
   {
     label: "ขนส่งและรับเข้า",
     items: [
-      { id: "transport", label: "ใบขนส่ง", icon: ArrowRight },
+      { id: "transport", label: "Request ใบขนส่งขาไป", icon: ArrowRight },
+      {
+        id: "return-shipment",
+        label: "สร้างใบขนส่งขากลับ",
+        icon: ArrowLeft,
+      },
       {
         id: "central-receive",
         label: "รับเนื้อเข้าสต๊อกกลาง",
