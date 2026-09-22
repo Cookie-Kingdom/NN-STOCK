@@ -446,9 +446,9 @@ export const closeReadyDb: Database = chillBranchRun(
   "riceCarry",
   { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
 );
-/** closeReadyDb with cooked rice bought and chili allocated: an influencer giveaway
- *  entered inside the close dialog has meat, rice and chili to draw on. */
-export const closeReadyWithSuppliesDb: Database = (() => {
+/** closeReadyDb with cooked rice bought and chili allocated: a sale form opened on its
+ *  lot (4.5 kg chill left) has meat, rice and chili for influencer giveaways too. */
+export const giveawayReadyDb: Database = (() => {
   const withRice = chillBranchRun(closeReadyDb, "ricePurchase", {
     riceSource: riceSources[1],
     supplier: "ร้านข้าวเหนียว",

@@ -260,7 +260,7 @@ test("ข้อ 13 + 16: เบิกข้าวเหนียวดิบ —
   );
 });
 
-test("ข้อ 17: ขั้นตอนปิดวันของสาขารวมการกรอกกล่องโปรโมทอินฟลูเอนเซอร์ไว้ในรอบเดียว", async ({
+test("ข้อ 17: ฟอร์มบันทึกยอดขายของสาขารวมการกรอกกล่องโปรโมทอินฟลูเอนเซอร์ไว้ในรอบเดียว", async ({
   page,
 }) => {
   await startFresh(page);
@@ -268,7 +268,7 @@ test("ข้อ 17: ขั้นตอนปิดวันของสาขา
 
   await step(
     page,
-    "สาขาศาลาแดง: ตรวจและปิดวัน → รายการตรวจก่อนปิดวันมีแถวกล่องโปรโมทอินฟลูเอนเซอร์",
+    "สาขาศาลาแดง: บันทึกยอดขาย → มีส่วนอินฟลูเอนเซอร์พับไว้ในฟอร์มเดียวกัน",
     async () => {
       await openMenu(page, "กรอกรายวัน");
       await pointAndClick(
@@ -276,12 +276,10 @@ test("ข้อ 17: ขั้นตอนปิดวันของสาขา
         page
           .getByRole("main")
           .getByRole("row")
-          .filter({ hasText: "4. ปิดวัน" })
-          .getByRole("button", { name: "ตรวจและปิดวัน" }),
+          .filter({ hasText: "บันทึกยอดขาย" })
+          .getByRole("button", { name: "บันทึกยอดขาย" }),
       );
-      const checklist = tableSection(page, "ตรวจก่อนปิดวัน");
-      await expect(checklist).toBeVisible();
-      // The giveaway is part of the close itself now: the section starts collapsed,
+      // The giveaway is part of the sale itself now: the section starts collapsed,
       // and one press of เพิ่มอินฟลูเอนเซอร์ opens a block with its own fields.
       const dialog = page.getByRole("dialog").last();
       const add = dialog.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ });
