@@ -98,15 +98,25 @@ test("สาขาศาลาแดง: บันทึกซื้อข้า
   await signInAs(page, ACCOUNTS.saladaeng);
   await expect(headingDate(page)).toHaveValue(TODAY);
 
-  const riceTable = tableSection(page, "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง");
+  // B2: one rice table at every branch; each purchase picks its source first.
+  const riceTable = tableSection(
+    page,
+    "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
+  );
   await pointAndClick(
     page,
-    riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(0),
+    riceTable
+      .getByRole("row")
+      .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" })
+      .getByRole("button", { name: "กรอกข้อมูล" }),
   );
   // The form opens on the heading date; today carries no badge.
   await expect(formDate(page)).toHaveValue(TODAY);
   await expect(dialog(page).getByText(BACKDATED)).toHaveCount(0);
 
+  await dialog(page)
+    .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
+    .selectOption("นึ่งเอง (ซื้อข้าวดิบ)");
   await field(page, /ผู้จำหน่ายข้าว/, supplier);
   await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "4");
   await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "220");
