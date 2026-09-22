@@ -336,6 +336,25 @@ export const rejectedInvoiceDb: Database = (() => {
   return s.db;
 })();
 
+/** Chef House with a full bell: a closed run whose smoking invoice the Owner sent back,
+ *  plus a second 40 kg shipment at the door whose smoke PO is not accepted yet — so the
+ *  meat can be weighed in and the PO accepted at the same time. */
+export const chefBusyDb: Database = (() => {
+  const s = closed();
+  const sent = invoice(s);
+  s.run("owner", "invoiceReview", {
+    invoiceId: sent.id,
+    decision: "ส่งกลับแก้ไข",
+    reviewedBy: "Owner",
+    comment: "ยอดคลาดเคลื่อน โปรดออกใหม่",
+  });
+  readyToDispatch(s, "40");
+  dispatch(s);
+  packingList(s, "20\n20");
+  smokeOrder(s);
+  return s.db;
+})();
+
 /** A material shipment to ศาลาแดง still waiting for the branch to confirm what arrived. */
 export const materialTransferDb: Database = (() => {
   const s = setup();

@@ -38,11 +38,19 @@ function ChefLotAction({
     ? smokingInvoiceStatus(db, latestInvoice)
     : "";
   if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
+  // Receiving the meat does not wait for the PO, so a lot still on the truck's doorstep
+  // has two jobs at once: accept the PO here, weigh the meat in on the receive tab.
   if (!accepted)
     return (
-      <Button variant="table" onClick={() => open("smokeOrderAccept", lot.id)}>
-        ยืนยันรับ PO รมควัน
-      </Button>
+      <ButtonRow compact>
+        {lot.stage === 2 && <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>}
+        <Button
+          variant="table"
+          onClick={() => open("smokeOrderAccept", lot.id)}
+        >
+          ยืนยันรับ PO รมควัน
+        </Button>
+      </ButtonRow>
     );
   if (lot.stage === 2) return "ไปเมนูยืนยันรับเนื้อ";
   if (lot.stage === 3 || lot.stage === 4) {

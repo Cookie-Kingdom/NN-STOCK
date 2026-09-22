@@ -2074,15 +2074,19 @@ function record(
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
-    assert(
-      entries(db, "smokeOrderAccept", lotId).length,
-      "ต้องยืนยันรับ PO รมควันก่อนยืนยันรับเนื้อ",
-    );
+    // The truck is at the door: Chef House weighs the meat in whether or not the smoke PO
+    // has been accepted yet. The PO gates the smoking run instead (see `prepare`).
     required(v, "arrival", "เวลาถึง");
     const received = receivedTotal(db, lotId, v.receivedBoxes);
     v.receivedBoxes = received.boxes;
     v.receivedKg = String(received.total);
   } else if (kind === "prepare" && lot) {
+    // The PO authorises the smoking work, so it is checked at the first production step only:
+    // `smoke` cannot run without a `prepare` (it needs preSmokeKg), so one guard covers both.
+    assert(
+      entries(db, "smokeOrderAccept", lotId).length,
+      "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน",
+    );
     positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
     withinStock(
       n(v, "preSmokeKg"),
