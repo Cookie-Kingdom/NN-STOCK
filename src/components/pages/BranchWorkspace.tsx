@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Notice } from "@/components/molecules/Notice";
-import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
+import { BranchStockView } from "@/components/organisms/branch/BranchStockView";
 import { ChiliDailySummary } from "@/components/organisms/branch/ChiliDailySummary";
 import { DailyMaterialsTable } from "@/components/organisms/branch/DailyMaterialsTable";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
@@ -15,8 +15,6 @@ import {
   useBranchAlerts,
 } from "@/components/organisms/branch/useBranchAlerts";
 import { BranchStockSummary } from "@/components/organisms/shared/BranchStockSummary";
-import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockTable";
-import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
@@ -75,8 +73,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
             lots={ws.lots}
             closed={closed}
             open={ws.open}
+            onTab={ws.setTab}
           />
-          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 3 ของ BranchDailyWorkflow ที่เดียว —
+          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 4 ของ BranchDailyWorkflow ที่เดียว —
            * ตารางนี้เหลือเฉพาะกล่องโปรโมท */}
           <DailyTaskTable
             title="กล่องโปรโมทอินฟลูเอนเซอร์"
@@ -88,6 +87,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
             hasLots={!!ws.lots.length}
             open={ws.open}
           />
+          {/* การนับน้ำพริกประจำวัน ไม่ใช่รายการสต๊อก จึงอยู่ที่หน้ากรอกรายวัน */}
+          <ChiliDailySummary db={db} branch={branch} date={date} />
         </>
       )}
       {tab === "material-receive" && (
@@ -140,31 +141,17 @@ export function BranchWorkspace({ account }: { account: Account }) {
         </>
       )}
       {tab === "stock" && (
+        <BranchStockView db={db} branch={branch} lots={ws.lots} />
+      )}
+      {tab === "meat-summary" && (
         <>
-          <SectionHeading title="สต๊อกเนื้อ" />
-          <MeatStockTable
-            db={db}
-            role={ws.role}
-            branch={branch}
-            lots={ws.lots}
-            open={ws.open}
-          />
-          <MeatDaySummary db={db} branch={branch} date={date} />
           <BranchStockSummary
             key={branch}
             db={db}
             branches={[branch]}
             initialDate={date}
           />
-          <SectionHeading title="น้ำพริกและของใช้" />
-          <ChiliDailySummary db={db} branch={branch} date={date} />
-          <SupplyStock db={db} branches={[branch]} />
-          <SectionHeading title="วัสดุ" />
-          <MaterialStockTable
-            db={db}
-            stockBranches={[branch]}
-            ownerView={false}
-          />
+          <MeatDaySummary db={db} branch={branch} date={date} />
         </>
       )}
       {tab === "branch-summary" && (

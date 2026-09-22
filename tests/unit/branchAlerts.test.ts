@@ -188,6 +188,7 @@ test("every branch alert points at a tab a branch actually has", () => {
     "material-count",
     "rice",
     "stock",
+    "meat-summary",
     "branch-summary",
     "history",
   ]);

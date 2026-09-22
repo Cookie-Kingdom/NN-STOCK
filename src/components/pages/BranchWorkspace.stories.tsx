@@ -31,7 +31,9 @@ const toFixtureDay: Story["play"] = async ({ canvasElement }) => {
   );
 };
 
-export const Day: Story = { parameters: at("day") };
+/** กรอกรายวัน: งานหลัก 5 ขั้น (ขั้นที่ 3 หุงข้าวเหนียว พาไปแท็บข้าวเหนียววันนี้),
+ *  ตารางกล่องโปรโมท และการนับน้ำพริกประจำวันที่ย้ายมาจากแท็บสต๊อก */
+export const Day: Story = { parameters: at("day"), play: toFixtureDay };
 /** ศาลาแดง's `day` after ปิดวัน: the locked notice, and every day form disabled. */
 export const DayClosed: Story = {
   parameters: { ...at("day"), db: dayClosedDb },
@@ -60,8 +62,15 @@ export const Rice: Story = {
   play: toFixtureDay,
 };
 
-/** สต๊อก grouped like the Owner's: สต๊อกเนื้อ, น้ำพริกและของใช้, วัสดุ. */
+/** สต๊อก: ตารางเดียวเหมือนหน้า "สต๊อกของทั้งหมด" ของ Owner — เนื้อ, วัตถุดิบ, วัสดุบรรจุภัณฑ์
+ *  ของสาขานี้เท่านั้น กรองด้วยกลุ่มสต๊อกและรายการ ไม่มีตัวกรองสถานที่ */
 export const Stock: Story = { parameters: at("stock"), play: toFixtureDay };
+
+/** สรุปคงเหลือเนื้อ รายวัน / รายล็อต: ตารางสรุปของสาขา ตามด้วยสรุปเนื้อของวันนั้น */
+export const MeatSummary: Story = {
+  parameters: at("meat-summary"),
+  play: toFixtureDay,
+};
 export const Summary: Story = { parameters: at("branch-summary") };
 export const History: Story = { parameters: at("history") };
 export const MinburiDay: Story = {

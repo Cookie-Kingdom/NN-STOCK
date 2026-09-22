@@ -4,16 +4,18 @@ import { type ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
 import { CountPill } from "@/components/atoms/CountPill";
 import { DataTable } from "@/components/organisms/shared/DataTable";
+import type { Tab } from "@/lib/nav";
 import {
   balance,
   closeDayChecklist,
   entries,
   pendingReceiveKg,
+  requiredRiceKinds,
   type Database,
   type Lot,
 } from "@/lib/store";
 
-const taskKeys = ["receive", "thaw", "sale", "close"];
+const taskKeys = ["receive", "thaw", "rice", "sale", "close"];
 
 export function BranchDailyWorkflow({
   db,
@@ -22,6 +24,7 @@ export function BranchDailyWorkflow({
   lots,
   closed,
   open,
+  onTab,
 }: {
   db: Database;
   branch: string;
@@ -29,6 +32,8 @@ export function BranchDailyWorkflow({
   lots: Lot[];
   closed: boolean;
   open: (kind: string, lotId?: string) => void;
+  /** ขั้นที่ 3 ไม่เปิด modal — มันพาไปแท็บข้าวเหนียววันนี้ ที่มีทุกฟอร์มของข้าว */
+  onTab: (tab: Tab) => void;
 }) {
   const pending = lots.filter(
     (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
@@ -38,6 +43,11 @@ export function BranchDailyWorkflow({
   );
   const ready = lots.filter((lot) => balance(db, lot.id, branch).ready > 0.001);
   const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
+  // Which rice forms today owes: riceCarry always, plus rice once raw rice was issued.
+  const riceRequired = requiredRiceKinds(db, branch, date);
+  const riceMissing = riceRequired.filter(
+    (kind) => entries(db, kind, undefined, branch, date).length === 0,
+  );
   const missing = closeDayChecklist(db, branch, date).filter(
     (item) => item.required && !item.done,
   ).length;
@@ -85,7 +95,27 @@ export function BranchDailyWorkflow({
       ),
     ],
     [
-      <strong key="sale">3. บันทึกยอดขาย</strong>,
+      <strong key="rice">3. หุงข้าวเหนียว</strong>,
+      riceMissing.length ? (
+        <CountPill variant="task" key="rice-todo">
+          ต้องบันทึกข้าวเหนียว {riceMissing.length} รายการก่อนปิดวัน
+        </CountPill>
+      ) : riceRequired.length ? (
+        "บันทึกแล้ว"
+      ) : (
+        "วันนี้ไม่ต้องบันทึกข้าวเหนียว"
+      ),
+      <Button
+        key="rice-action"
+        variant="table"
+        disabled={closed}
+        onClick={() => onTab("rice")}
+      >
+        ไปเมนูข้าวเหนียววันนี้
+      </Button>,
+    ],
+    [
+      <strong key="sale">4. บันทึกยอดขาย</strong>,
       ready.length && !saleDone ? (
         <CountPill variant="task" key="sales">
           ต้องกรอกก่อนปิดวัน
@@ -108,7 +138,7 @@ export function BranchDailyWorkflow({
       ),
     ],
     [
-      <strong key="close">4. ปิดวัน</strong>,
+      <strong key="close">5. ปิดวัน</strong>,
       closed
         ? "ปิดวันแล้ว · ข้อมูลวันนี้ถูกล็อก"
         : missing
