@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField } from "@/components/molecules/FormField";
+import { FieldHint, FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -254,6 +255,7 @@ export function EntryForm({
       ...prefillValues(db, kind, modalLot),
     };
     if (kind === "closeDay") base.time = db.config.closeTime || "22:00";
+    if (kind === "receive") base.complete = "1";
     return base;
   });
   const useLot = [
@@ -470,6 +472,23 @@ export function EntryForm({
                   ))}
                 </Select>
               </FormField>
+            )}
+            {kind === "receive" && (
+              <label className="mt-4 flex cursor-pointer items-start gap-3 text-body-sm font-medium">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={values.complete === "1"}
+                  onChange={(e) => set("complete", e.target.checked ? "1" : "")}
+                />
+                <span>
+                  รับครบใบจัดสรรนี้แล้ว
+                  <FieldHint>
+                    ปิดใบจัดสรรหลังบันทึก
+                    ถ้ารับน้อยกว่ายอดค้างรับต้องใส่เหตุผลส่วนต่าง ·
+                    เอาเครื่องหมายออกถ้ายังมีของตามมาอีก
+                  </FieldHint>
+                </span>
+              </label>
             )}
             {kind === "closeDay" && (
               <DailySummary db={db} branch={branch} date={date} />

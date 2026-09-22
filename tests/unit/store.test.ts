@@ -850,6 +850,30 @@ describe("lot workflow", () => {
     ).toThrow(/รับเกินยอดค้างรับ/);
   });
 
+  test("a receive marked complete closes the allocation on a shortfall, with a reason", () => {
+    const s = returned();
+    s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
+    const id = s.db.lots.at(-1)!.id;
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "500" });
+    const sala = last(s);
+    expect(() =>
+      s.run("branch", "receive", {
+        kg: "499.5",
+        allocation: sala.id,
+        complete: "1",
+      }),
+    ).toThrow(/เหตุผลส่วนต่าง/);
+    s.run("branch", "receive", {
+      kg: "499.5",
+      allocation: sala.id,
+      complete: "1",
+      reason: "น้ำหนักหายระหว่างขนส่ง",
+    });
+    expect(allocationOutstanding(s.db, sala)).toBe(0);
+    expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
+    expect(balance(s.db, id, "ศาลาแดง").received).toBe(499.5);
+  });
+
   test("over-allocation, over-thaw and cross-branch receive rejected", () => {
     const s = ready();
     expect(() =>

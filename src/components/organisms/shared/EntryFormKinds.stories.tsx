@@ -141,7 +141,7 @@ export const FoodivaReturnReceive: Story = form(
 
 // --- Branch --------------------------------------------------------------
 
-/** The branch picks the outstanding allocation; the bag count follows it. */
+/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it. */
 export const BranchReceive: Story = form(
   allocatedDb,
   "branch",

@@ -775,7 +775,8 @@ export function balance(db: Database, lotId: string, branch: string) {
   return { received, frozen: received - thawed, ready: thawed - used };
 }
 /** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
- * sees and types; the allocation is done once that reaches 0. */
+ * sees and types; the allocation is done once that reaches 0, or once a receive was
+ * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
 export function allocationOutstanding(db: Database, allocation: Entry) {
   const received = entries(
     db,
@@ -783,6 +784,7 @@ export function allocationOutstanding(db: Database, allocation: Entry) {
     allocation.lotId,
     allocation.branch,
   ).filter((r) => r.values.allocation === allocation.id);
+  if (received.some((r) => r.values.complete === "1")) return 0;
   const kg =
     Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
   return Math.max(0, kg);
@@ -1791,7 +1793,9 @@ export function mutate(
     assert(allocation, "เลือกใบจัดสรร");
     const outstanding = allocationOutstanding(db, allocation);
     assert(n(v, "kg") <= outstanding + 0.001, "รับเกินยอดค้างรับ");
-    variance(n(v, "kg"), outstanding, v);
+    // Closing the allocation makes any shortfall final, so it needs a reason; a
+    // partial receive leaves the rest pending.
+    if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
     positive(v, "bags", "จำนวนถุงที่ละลาย");
