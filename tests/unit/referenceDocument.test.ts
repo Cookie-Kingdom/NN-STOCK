@@ -38,7 +38,7 @@ test("each lot form references the document it builds on, once that document exi
   });
   expect(Object.fromEntries(doc(s, "smokeOrder")!.rows)).toMatchObject({
     กล่องรับเข้า: "2 กล่องรับเข้า",
-    ยอดรวม: "40.00 กก.",
+    "Sliced Weight Net": "40.00 กก.",
   });
   expect(doc(s, "smokeOrderAccept")).toBeUndefined();
   expect(doc(s, "cmReceive")).toBeUndefined();

@@ -2005,8 +2005,14 @@ function record(
     // Blank rows are dropped at save, so the stored list is contiguous: box no = line no.
     v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
     v.boxCount = String(boxes.length);
-    v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
-    /* A2: Sliced Weight Lost is what cutting took away — Inv. Weight less the box total,
+    /* A2: Sliced Weight Net is the usable meat after cutting, as Foodiva types it — no
+     * longer the box total, which is only what the truck carries and may differ from it.
+     * A list saved without one (seed data, older payloads) still falls back to that total. */
+    if (v.slicedNetKg?.trim()) {
+      positive(v, "slicedNetKg", "Sliced Weight Net");
+      v.slicedNetKg = String(n(v, "slicedNetKg"));
+    } else v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
+    /* Sliced Weight Lost is what cutting took away — Inv. Weight less Sliced Weight Net,
      * never Chef House's yellow cells. Zero is a normal list: nothing was lost. */
     positive(v, "slicedLostKg", "Sliced Weight Lost", true);
     if (v.invWeightKg?.trim()) {
@@ -2014,9 +2020,9 @@ function record(
       withinStock(
         n(v, "slicedNetKg"),
         n(v, "invWeightKg"),
-        "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight",
+        "Sliced Weight Net เกิน Inv. Weight",
         "กก.",
-        "รวมได้สูงสุด",
+        "กรอกได้สูงสุด",
       );
     }
   } else if (kind === "ownerWasteReceive" && lot) {

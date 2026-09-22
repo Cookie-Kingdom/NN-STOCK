@@ -23,12 +23,14 @@ export type PackingListHeader = {
   product: string;
   /** Supplier code line, e.g. "0037 Aust.Beef Icon XB Wagyu Chuck Roll 6/7". */
   code?: string;
-  /** Weight on Foodiva's invoice, before cutting. */
+  /** Weight before cutting: the kg the shipment's Request asked for from its purchase
+   *  PO(s). Read-only wherever it is shown. */
   invWeight?: number;
-  /** Box total of the list. */
+  /** Usable meat after cutting, as Foodiva typed it (A2). It is not the box total — a
+   *  list saved before it was typed falls back to that total. */
   slicedNet?: number;
-  /** Usable meat after cutting, as Foodiva typed it (A2) — never derived from the
-   *  yellow cells or from Inv. Weight. */
+  /** What cutting took away: Inv. Weight less Sliced Weight Net, never derived from the
+   *  yellow cells. */
   slicedLost?: number;
 };
 
@@ -370,7 +372,9 @@ export function PackingListTable({
         </div>
       )}
       <p className="m-0 border-t border-border px-6 py-4 text-caption text-text-secondary max-md:px-4">
-        ยอดรวมช่องเหลืองคือยอดที่ใช้ตัดสต๊อกและคิดต้นทุนจริง —
+        ยอดรวมท้ายตารางคือน้ำหนักรวมของกล่องรับเข้า ไม่ใช่ Sliced Weight Net
+        (Foodiva กรอก Sliced Weight Net เอง) ·
+        ยอดรวมช่องเหลืองคือยอดที่ใช้ตัดสต๊อก และคิดต้นทุนจริง —
         ไม่ต้องตรงกับน้ำหนักตาม Packing List
       </p>
       {removing !== null && onRemoveRow && (
