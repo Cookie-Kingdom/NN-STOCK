@@ -1036,3 +1036,29 @@ export async function c_ownerDecidesEdit(
   );
   await expect(panel).toContainText("รอพิจารณา 0 รายการ");
 }
+
+/* ---- refusals (group A specs) ------------------------------------------------ */
+
+/** The open dialog refuses what was typed and stays open with `message`. A rule the
+ * form checks as you type (DialogFooter `error`) disables the save button and shows the
+ * reason right away; a rule only checked on save shows it after the click. */
+export async function a_expectRefused(page: Page, message: string | RegExp) {
+  const open = topDialog(page);
+  const submit = open.locator('button[type="submit"]').last();
+  if (await submit.isEnabled()) await pointAndClick(page, submit);
+  // The footer and the form body can both carry the same message.
+  await expect(
+    open.getByRole("alert").filter({ hasText: message }).first(),
+  ).toBeVisible();
+  await expect(submit).toBeVisible();
+}
+
+/** An amount over what is on hand is refused while it is typed: the message names the
+ * most that can be entered ("… · กรอกได้สูงสุด 500.00 กก.") and save stays disabled. */
+export async function a_expectOverStock(page: Page, message: string | RegExp) {
+  const open = topDialog(page);
+  await expect(
+    open.getByRole("alert").filter({ hasText: message }).first(),
+  ).toBeVisible();
+  await expect(open.locator('button[type="submit"]').last()).toBeDisabled();
+}
