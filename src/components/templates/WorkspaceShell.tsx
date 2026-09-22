@@ -27,8 +27,6 @@ type Props = {
   onTab: (tab: Tab) => void;
   date: string;
   onDate: (date: string) => void;
-  /** Earliest allowed working date (config `systemStartDate`). */
-  minDate?: string;
   /** Per-tab counters rendered as a red pill in the sidebar. */
   badges?: Partial<Record<Tab, number>>;
   notifications?: Notification[];
@@ -54,7 +52,6 @@ export function WorkspaceShell({
   onTab,
   date,
   onDate,
-  minDate,
   badges,
   notifications,
   showNotifications = false,
@@ -98,7 +95,6 @@ export function WorkspaceShell({
             description={account.summary}
             date={date}
             onDate={onDate}
-            minDate={minDate}
           />
           <Toast message={toast} onClose={onCloseToast} />
           <DatabaseErrorToast />

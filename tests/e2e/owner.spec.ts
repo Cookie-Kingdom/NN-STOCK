@@ -12,8 +12,6 @@ import {
   tableSection,
 } from "./helpers";
 
-const SYSTEM_START_DATE = "2026-10-01";
-
 const MATERIALS = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",
@@ -67,7 +65,6 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
       await field(page, "attention", "ฝ่ายจัดซื้อทดสอบ");
       await field(page, "companyPhone", "0891234567");
       await field(page, "taxId", "0105500000001");
-      await fillControl(page, "systemStartDate", SYSTEM_START_DATE);
     },
   );
   const systemSetup = tableSection(
@@ -75,7 +72,6 @@ test("Owner ตั้งค่าทุกอย่างก่อนเริ�
     "ข้อมูลหลักก่อนเริ่มระบบ (System setup)",
   );
   await expect(systemSetup).toContainText("บริษัท เนิร์ดเนื้อ (ทดสอบ) จำกัด");
-  await expect(systemSetup).toContainText(SYSTEM_START_DATE);
   await expect(systemSetup).toContainText("ศาลาแดง, มีนบุรี");
 
   await editSection(page, "ข้อมูลบนใบ PO (PO document setup)", async () => {
@@ -237,15 +233,3 @@ test("Owner เปิดได้ทุกหน้าจอในเมนู�
     nav.getByRole("button", { name: "PO และสต๊อก Foodiva" }),
   ).toHaveCount(0);
 });
-
-/** Date and time inputs take a whole value at once — typing them key by key
- * leaves the control in a half-filled state. Times are picked from a half-hour
- * <select> grid. */
-async function fillControl(page: Page, label: string, value: string) {
-  const input = page.getByLabel(label).last();
-  await input.scrollIntoViewIfNeeded();
-  if ((await input.evaluate((element) => element.tagName)) === "SELECT")
-    await input.selectOption(value);
-  else await input.fill(value);
-  await expect(input).toHaveValue(value);
-}

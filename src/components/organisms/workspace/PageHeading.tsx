@@ -12,15 +12,12 @@ export function PageHeading({
   description,
   date,
   onDate,
-  minDate,
 }: {
   overline: ReactNode;
   title: ReactNode;
   description: ReactNode;
   date: string;
   onDate: (date: string) => void;
-  /** Configured system start date; enforced once it is not in the future (same rule as mutate). */
-  minDate?: string;
 }) {
   return (
     <div className="mb-6 flex items-center justify-between gap-5 max-md:items-start max-md:gap-2.5">
@@ -37,7 +34,6 @@ export function PageHeading({
           inputClassName="min-w-0 rounded-md p-2 max-md:max-w-34"
           date={date}
           onDate={onDate}
-          minDate={minDate}
         />
         <Button
           variant="text"

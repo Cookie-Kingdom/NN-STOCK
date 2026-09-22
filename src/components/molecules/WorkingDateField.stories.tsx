@@ -21,12 +21,10 @@ function Picker({
   initial,
   variant,
   asField,
-  minDate,
 }: {
   initial: string;
   variant?: "form" | "filter";
   asField?: boolean;
-  minDate?: string;
 }) {
   const [date, setDate] = useState(initial);
   return (
@@ -35,7 +33,6 @@ function Picker({
       onDate={setDate}
       variant={variant}
       asField={asField}
-      minDate={minDate}
     />
   );
 }
@@ -73,10 +70,4 @@ export const BackDatedFilter: Story = {
       <Picker initial={day} variant="filter" />
     </FilterBar>
   ),
-};
-
-/** min/max only limit the picker; a typed date outside the range lands here and
- * gets the `role="alert"` message, the same one `mutate` would refuse on. */
-export const OutOfRange: Story = {
-  render: () => <Picker initial="2020-01-01" minDate={day} />,
 };

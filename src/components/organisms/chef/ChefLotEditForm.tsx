@@ -33,7 +33,6 @@ export function ChefLotEditForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
@@ -41,7 +40,6 @@ export function ChefLotEditForm({
   lotId: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -140,12 +138,7 @@ export function ChefLotEditForm({
     >
       <DialogForm noValidate onSubmit={save}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
             เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว · น้ำหนักรับจริง{" "}

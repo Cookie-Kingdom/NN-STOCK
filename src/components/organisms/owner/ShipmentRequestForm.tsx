@@ -39,7 +39,6 @@ export function ShipmentRequestForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
@@ -48,7 +47,6 @@ export function ShipmentRequestForm({
   lotId?: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: (next: Database) => void;
 }) {
@@ -112,12 +110,7 @@ export function ShipmentRequestForm({
     >
       <DialogForm onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <DataTable
             title="เลือก PO ซื้อและน้ำหนักที่จะส่งเที่ยวนี้"
             columns={[

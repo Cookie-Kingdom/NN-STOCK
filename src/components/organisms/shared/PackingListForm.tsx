@@ -66,7 +66,6 @@ export function PackingListForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
   draft,
@@ -76,7 +75,6 @@ export function PackingListForm({
   lotId: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved?: (db: Database) => void;
   /** Values from an earlier `onDraft`, when Foodiva reopens the list before saving. */
@@ -236,12 +234,7 @@ export function PackingListForm({
     >
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             กรอกน้ำหนักรายกล่องรับเข้าในคอลัมน์ “น้ำหนักตาม Packing List”
             ช่องสีเหลืองเป็นของ Chef House กรอกตอนรับของ เพิ่มแถวได้ที่ท้ายตาราง

@@ -84,18 +84,6 @@ async function cancelDialog(page: Page) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
-/** Date/time inputs take a whole value at once. */
-async function fillControl(
-  scope: Locator | Page,
-  label: string,
-  value: string,
-) {
-  const input = scope.getByLabel(label).last();
-  await input.scrollIntoViewIfNeeded();
-  await input.fill(value);
-  await expect(input).toHaveValue(value);
-}
-
 /** Settings cards are edit-locked until "ขอแก้ไข" is pressed and lock again on save. */
 async function editSection(
   page: Page,
@@ -318,7 +306,7 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
 
   await step(
     page,
-    "Owner: B1 ข้อมูลหลัก (บริษัท ที่อยู่ ผู้ติดต่อ เบอร์ เลขภาษี วันเริ่มใช้)",
+    "Owner: B1 ข้อมูลหลัก (บริษัท ที่อยู่ ผู้ติดต่อ เบอร์ เลขภาษี)",
     async () => {
       await editSection(page, S_MAIN, async () => {
         await field(page, "companyName", "บริษัท เลนบี ทดสอบ จำกัด");
@@ -326,7 +314,6 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
         await field(page, "attention", "ฝ่ายจัดซื้อเลนบี");
         await field(page, "companyPhone", "0877777777");
         await field(page, "taxId", "0105500000077");
-        await fillControl(page, "systemStartDate", "2026-10-15");
       });
     },
   );

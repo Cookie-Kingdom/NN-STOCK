@@ -41,8 +41,7 @@ type ConfigSection =
   | "branch"
   | "materials";
 
-type ValueType =
-  "number" | "time" | "branch" | "text" | "date" | "textarea" | "file";
+type ValueType = "number" | "time" | "branch" | "text" | "textarea" | "file";
 
 const settingColumns = [
   "รายการ (Setting)",
@@ -297,7 +296,7 @@ function ConfigValue({
     <Input
       variant="table"
       aria-label={ariaLabel}
-      type={type === "date" ? "date" : type === "text" ? "text" : "number"}
+      type={type === "text" ? "text" : "number"}
       inputMode={type === "number" ? "decimal" : undefined}
       min={type === "number" ? "0" : undefined}
       step={name === "packKg" ? "0.001" : name === "tolerance" ? "1" : "0.01"}
@@ -518,17 +517,6 @@ export function ConfigView({ db }: { db: Database }) {
             <ConfigValue {...edit} section="main" name="taxId" type="text" />,
             "ข้อความ",
             "เติมใน PO อัตโนมัติ",
-          ),
-          settingRow(
-            "วันเริ่มใช้งานจริง",
-            <ConfigValue
-              {...edit}
-              section="main"
-              name="systemStartDate"
-              type="date"
-            />,
-            "วันที่",
-            "กำหนดวันเริ่มเก็บข้อมูลจริง",
           ),
           settingRow(
             "สาขาที่เปิดใช้งาน",

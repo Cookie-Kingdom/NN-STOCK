@@ -38,7 +38,6 @@ export function ChefReceiveForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
@@ -46,7 +45,6 @@ export function ChefReceiveForm({
   lotId: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -94,12 +92,7 @@ export function ChefReceiveForm({
     >
       <DialogForm noValidate onSubmit={save}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             ช่องสีเหลืองใส่น้ำหนักตาม Packing List ไว้ให้แล้ว
             ชั่งทีละกล่องรับเข้าแล้วแก้เป็นน้ำหนักจริง ช่องของ Foodiva แก้ไม่ได้
