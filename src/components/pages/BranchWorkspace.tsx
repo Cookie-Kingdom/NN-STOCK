@@ -9,6 +9,7 @@ import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { DailyTaskTable } from "@/components/organisms/branch/DailyTaskTable";
 import { MaterialReceiptConfirmation } from "@/components/organisms/branch/MaterialReceiptConfirmation";
 import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
+import { BranchStockSummary } from "@/components/organisms/shared/BranchStockSummary";
 import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
@@ -113,6 +114,12 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             lots={ws.lots}
             open={ws.open}
+          />
+          <BranchStockSummary
+            key={branch}
+            db={db}
+            branches={[branch]}
+            initialDate={date}
           />
           <SupplyStock db={db} branches={[branch]} />
           <MaterialStockTable

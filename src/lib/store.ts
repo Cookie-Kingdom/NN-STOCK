@@ -781,7 +781,9 @@ export function balance(db: Database, lotId: string, branch: string) {
 }
 /** One branch day of one lot. Thawed meat left at the end of a day stays in the chiller
  * and carries into the next day (`chillIn`); nothing forces it to zero at close.
- * chillIn + thawed = used + waste + chillOut. */
+ * chillIn + thawed = used + waste + chillOut. The end-of-day stock as of `date`:
+ * `pending` still to receive, `received` so far, `frozen` (received − thawed),
+ * and `usedTotal` so far (waste excluded). */
 export function branchMeatDay(
   db: Database,
   lotId: string,
@@ -797,12 +799,18 @@ export function branchMeatDay(
   const thawed = sum(entries(db, "thaw", lotId, branch, date), "kg");
   const used = usedKg(today),
     waste = wastedKg(today);
+  const through = (items: Entry[]) => items.filter((e) => e.date <= date);
+  const received = sum(through(entries(db, "receive", lotId, branch)), "kg");
   return {
     chillIn,
     thawed,
     used,
     waste,
     chillOut: chillIn + thawed - used - waste,
+    pending: pendingReceiveKg(db, lotId, branch, date),
+    received,
+    frozen: received - sum(through(thaws), "kg"),
+    usedTotal: usedKg(through(out)),
   };
 }
 /** Meat used per sealed pack outside 100–103 g: a warning for the form, never a
@@ -819,23 +827,41 @@ export function packWeightWarning(v: Values) {
 /** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
  * sees and types; the allocation is done once that reaches 0, or once a receive was
  * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
-export function allocationOutstanding(db: Database, allocation: Entry) {
+export function allocationOutstanding(
+  db: Database,
+  allocation: Entry,
+  throughDate?: string,
+) {
   const received = entries(
     db,
     "receive",
     allocation.lotId,
     allocation.branch,
-  ).filter((r) => r.values.allocation === allocation.id);
+  ).filter(
+    (r) =>
+      r.values.allocation === allocation.id &&
+      (!throughDate || r.date <= throughDate),
+  );
   if (received.some((r) => r.values.complete === "1")) return 0;
   const kg =
     Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
   return Math.max(0, kg);
 }
-export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
-  return entries(db, "allocate", lotId, branch).reduce(
-    (total, allocation) => total + allocationOutstanding(db, allocation),
-    0,
-  );
+/** Kg allocated to a branch and not yet received; with `throughDate`, as of the end
+ * of that day (allocations and receives dated after it do not count). */
+export function pendingReceiveKg(
+  db: Database,
+  lotId: string,
+  branch: string,
+  throughDate?: string,
+) {
+  return entries(db, "allocate", lotId, branch)
+    .filter((a) => !throughDate || a.date <= throughDate)
+    .reduce(
+      (total, allocation) =>
+        total + allocationOutstanding(db, allocation, throughDate),
+      0,
+    );
 }
 /** The two ways a branch gets its sticky rice, picked on every `ricePurchase` (B2). */
 export const riceSources = ["นึ่งเอง (ซื้อข้าวดิบ)", "ซื้อข้าวสุกจากข้างนอก"];
