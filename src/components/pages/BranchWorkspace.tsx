@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
@@ -14,6 +15,7 @@ import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockT
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
+import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -27,6 +29,7 @@ const riceTaskKinds = ["ricePurchase", "riceIssue", "rice", "riceCarry"];
 export function BranchWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { branch, closed, date, db, tab } = ws;
+  const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <WorkspaceShell
@@ -37,6 +40,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
       date={date}
       onDate={ws.setDate}
       minDate={ws.db.config.systemStartDate}
+      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      showNotifications={showNotifications}
+      onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}
       toast={ws.toast}
       onCloseToast={() => ws.setToast("")}

@@ -127,7 +127,67 @@ export const titles: Record<string, string> = {
   config: "บันทึกการตั้งค่า",
   unlock: "ปลดล็อกวัน",
   void: "ยกเลิกรายการ",
+  entryEdit: "แก้ไขรายการ",
+  editRequest: "ขอแก้ไขรายการ",
+  editDecision: "พิจารณาคำขอแก้ไข",
 };
+/** Roles that correct history directly and decide edit requests (spec 8.1). The Manager role
+ *  (item 11) joins this list once it exists; every check reads the list, none names "owner". */
+export const editApprovers: Role[] = ["owner"];
+/** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
+ *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
+ *  stage steps, whose numbers also live on the lot (chefEdit fixes those before ปิด Lot);
+ *  kinds fixed by saving again (materials, packingList); closeDay (Owner unlocks instead). */
+export const editableKinds = [
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materialConfirm",
+  "allocate",
+  "chiliAllocate",
+  "materialReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "expense",
+  "foodivaConfirm",
+  "smokingInvoice",
+];
+export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
+/** Values an edit may not change: they tie the entry to a branch, a day or another entry.
+ *  Changing one is a void and a new entry. */
+export const editLockedKeys = [
+  "branch",
+  "allocation",
+  "transferId",
+  "purchaseDate",
+];
+/** An edit stores the corrected values as `to.<key>` and the ones it replaced as `from.<key>`:
+ *  flat keys, so `hide` strips prices from them like from any other entry. */
+const pack = (prefix: string, values: Values) =>
+  Object.fromEntries(
+    Object.entries(values)
+      .filter(([key]) => key !== "attachmentData")
+      .map(([key, value]) => [prefix + key, value]),
+  );
+export const unpack = (prefix: string, values: Values): Values =>
+  Object.fromEntries(
+    Object.entries(values)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, value]) => [key.slice(prefix.length), value]),
+  );
+/** Entries whose `to.` values overlay their target: a direct edit, or an approved request.
+ *  Only an approver's entry counts, so a forged branch-role edit changes nothing. */
+const isEditOverlay = (e: Entry) =>
+  editApprovers.includes(e.role) &&
+  (e.kind === "entryEdit" ||
+    (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
 export const seed: Database = {
   version: 8,
   lots: [],
@@ -519,7 +579,10 @@ export function entries(
     if (id) fixes.set(id, { ...fixes.get(id), ...values });
   };
   for (const e of db.entries) {
-    if (e.kind !== "chefEdit" || voided.has(e.id)) continue;
+    if (voided.has(e.id)) continue;
+    // B5 edits overlay the same way, in log order: a later edit wins.
+    if (isEditOverlay(e)) fix(e.values.targetId, unpack("to.", e.values));
+    if (e.kind !== "chefEdit") continue;
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
       arrival: e.values.arrival,
@@ -1171,8 +1234,11 @@ const hiddenKeys = (role: Role) =>
     : ["meatCost", "wasteCost"];
 const hide = (values: Values, role: Role) =>
   Object.fromEntries(
-    Object.entries(values).filter(([k]) => !hiddenKeys(role).includes(k)),
+    Object.entries(values).filter(
+      ([k]) => !hiddenKeys(role).includes(k.replace(/^(to|from)\./, "")),
+    ),
   );
+const editKinds = ["entryEdit", "editRequest", "editDecision"];
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
 const chefHouseKinds = [
   "smokeOrder",
@@ -1183,14 +1249,20 @@ const chefHouseKinds = [
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
+  // Edits, requests and decisions about this role's own entries (its branch's, for a branch).
+  const aboutMine = (e: Entry) =>
+    editKinds.includes(e.kind) &&
+    e.values.targetRole === role &&
+    (role !== "branch" || e.values.targetBranch === branch);
   return db.entries
     .filter(
       (e) =>
         role === "owner" ||
         (role === "cm"
           ? shipmentIds.has(e.lotId) &&
-            (e.role === "cm" || chefHouseKinds.includes(e.kind))
-          : e.role === role && (role !== "branch" || e.branch === branch)),
+            (e.role === "cm" || chefHouseKinds.includes(e.kind) || aboutMine(e))
+          : (e.role === role && (role !== "branch" || e.branch === branch)) ||
+            aboutMine(e)),
     )
     .map((e) =>
       role === "owner" ? e : { ...e, values: hide(e.values, role) },
@@ -1214,6 +1286,149 @@ export function visibleDatabase(
     lots,
     entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)),
   };
+}
+/** Why `role` may not edit `target` ("" when it may). Approvers edit any editable entry;
+ *  anyone else only their own (a branch: its own branch's), and only by request. */
+export function editBlock(
+  db: Database,
+  target: Entry,
+  role: Role,
+  branch = "",
+) {
+  if (!editableKinds.includes(target.kind))
+    return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
+  if (!entries(db, target.kind).some((e) => e.id === target.id))
+    return "รายการนี้ถูกยกเลิกแล้ว";
+  if (
+    target.kind === "smokingInvoice" &&
+    smokingInvoiceStatus(db, target) === "ชำระแล้ว"
+  )
+    return "Invoice นี้ชำระแล้ว แก้ไขไม่ได้";
+  if (
+    !editApprovers.includes(role) &&
+    (target.role !== role || (role === "branch" && target.branch !== branch))
+  )
+    return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
+  return "";
+}
+export const editDecisionOf = (db: Database, requestId: string) =>
+  entries(db, "editDecision").find((e) => e.values.requestId === requestId);
+/** The request on `targetId` still waiting for a decision. One at a time per entry. */
+export const openEditRequest = (db: Database, targetId: string) =>
+  entries(db, "editRequest").find(
+    (e) => e.values.targetId === targetId && !editDecisionOf(db, e.id),
+  );
+/** Direct edits and approved requests applied to one entry, oldest first. */
+export const entryEdits = (db: Database, targetId: string) =>
+  db.entries.filter((e) => isEditOverlay(e) && e.values.targetId === targetId);
+/** Every edit request in `db` with its decision: waiting ones first, then newest first.
+ *  Pass a role's visible database to get only that role's own requests. */
+export function editRequestRows(db: Database) {
+  return entries(db, "editRequest")
+    .map((request) => ({ request, decision: editDecisionOf(db, request.id) }))
+    .sort(
+      (a, b) =>
+        Number(!!a.decision) - Number(!!b.decision) ||
+        (b.decision?.at || b.request.at).localeCompare(
+          a.decision?.at || a.request.at,
+        ),
+    );
+}
+/** Stock figures an edit must not push below zero, keyed `label#id`. */
+function stockLevels(db: Database) {
+  const levels = new Map<string, number>();
+  for (const b of branches) {
+    for (const lot of db.lots) {
+      const x = balance(db, lot.id, b);
+      levels.set(`เนื้อแช่แข็ง ${lot.id} สาขา${b}#`, x.frozen);
+      levels.set(`เนื้อละลายแล้ว ${lot.id} สาขา${b}#`, x.ready);
+    }
+    levels.set(`ข้าวเหนียวดิบ สาขา${b}#`, rawRiceStock(db, b));
+    levels.set(`ข้าวเหนียวดิบที่เบิก สาขา${b}#`, issuedRawRiceStock(db, b));
+    levels.set(`ข้าวเหนียวสุก สาขา${b}#`, cookedRiceStock(db, b));
+    levels.set(`น้ำพริก สาขา${b}#`, chiliStock(db, b));
+  }
+  for (const lot of db.lots) {
+    levels.set(`สต๊อกกลาง ${lot.id}#`, centralStock(db, lot.id));
+    if (!lot.kind)
+      levels.set(`ยอดพร้อมส่ง ${lot.poId}#`, poRemainingKg(db, lot.id));
+  }
+  for (const a of entries(db, "allocate"))
+    levels.set(
+      `ยอดค้างรับใบจัดสรร ${a.lotId} สาขา${a.branch}#${a.id}`,
+      n(a.values, "kg") -
+        sum(
+          entries(db, "receive", a.lotId, a.branch).filter(
+            (r) => r.values.allocation === a.id,
+          ),
+          "kg",
+        ),
+    );
+  levels.set("น้ำพริกในคลัง Owner#", ownerChiliStock(db));
+  for (const m of materials)
+    levels.set(`${m} ในคลัง Owner#`, ownerMaterialStock(db, m));
+  return levels;
+}
+/** The target's values as `proposed` would leave them, normalised and checked by the target
+ *  kind's own rules as if it were saved again now without the original (so its own kg are
+ *  back in stock). Then no stock may go below zero that was not already there. */
+function correctedValues(db: Database, target: Entry, proposed: Values) {
+  for (const key of editLockedKeys)
+    assert(
+      proposed[key] === undefined ||
+        proposed[key] === (target.values[key] ?? ""),
+      "แก้สาขา วันที่ซื้อ หรือรายการอ้างอิงไม่ได้ · ให้ Owner ยกเลิกแล้วบันทึกใหม่",
+    );
+  const as = (kind: string, values: Values): Database => ({
+    ...db,
+    entries: [
+      ...db.entries,
+      { ...target, id: newId(), kind, role: editApprovers[0], values },
+    ],
+  });
+  const corrected = record(
+    as("void", { targetId: target.id }),
+    target.role,
+    target.kind,
+    { ...target.values, ...proposed },
+    target.lotId,
+    target.date,
+    target.branch,
+    true,
+  ).entries.at(-1)!.values;
+  const before = stockLevels(db);
+  for (const [key, level] of stockLevels(
+    as("entryEdit", { targetId: target.id, ...pack("to.", corrected) }),
+  ))
+    assert(
+      level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
+      `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
+    );
+  return corrected;
+}
+/** What an edit entry stores about its target: the before and after values and whose it is. */
+function editValues(db: Database, target: Entry, proposed: Values) {
+  return {
+    targetKind: target.kind,
+    targetDate: target.date,
+    targetRole: target.role,
+    targetBranch: target.branch,
+    ...pack("from.", target.values),
+    ...pack("to.", correctedValues(db, target, proposed)),
+  };
+}
+/** `targetId`'s entry with its current (edited) values, if `role` may edit it. */
+function editTarget(
+  db: Database,
+  targetId: string,
+  role: Role,
+  branch: string,
+) {
+  const target = db.entries.find((e) => e.id === targetId);
+  assert(target, "ไม่พบรายการที่จะแก้ไข");
+  const block = editBlock(db, target, role, branch);
+  assert(!block, block);
+  return entries(db, target.kind).find((e) => e.id === targetId)!;
 }
 const ownership: Record<string, Role> = {
   purchase: "owner",
@@ -1388,7 +1603,27 @@ export function mutate(
   /** The acting branch account's branch. Required for role "branch"; never taken from config. */
   actorBranch = "",
 ): Database {
-  assert(ownership[kind] === role, "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้");
+  return record(db, role, kind, input, lotId, date, actorBranch);
+}
+/** `mutate`, plus `correcting`: re-checks an entry being edited, whose day may be closed. */
+function record(
+  db: Database,
+  role: Role,
+  kind: string,
+  input: Values,
+  lotId: string,
+  date: string,
+  actorBranch = "",
+  correcting = false,
+): Database {
+  assert(
+    kind === "editRequest"
+      ? !editApprovers.includes(role)
+      : kind === "entryEdit" || kind === "editDecision"
+        ? editApprovers.includes(role)
+        : ownership[kind] === role,
+    "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+  );
   assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
@@ -1421,10 +1656,12 @@ export function mutate(
   }
   if (role === "branch") {
     assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
-    assert(
-      !isClosed(db, branch, date),
-      "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
-    );
+    // A request changes nothing until an approver decides, so a closed day still takes one.
+    if (!correcting && kind !== "editRequest")
+      assert(
+        !isClosed(db, branch, date),
+        "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
+      );
   }
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate") {
@@ -2309,6 +2546,50 @@ export function mutate(
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetBranch = target.branch;
+  } else if (kind === "entryEdit" || kind === "editRequest") {
+    // Recorded, not applied: entries() overlays the `to.` values on the target (like chefEdit).
+    const target = editTarget(db, v.targetId, role, branch);
+    if (kind === "editRequest")
+      assert(
+        !openEditRequest(db, target.id),
+        "รายการนี้มีคำขอแก้ไขรอพิจารณาอยู่แล้ว",
+      );
+    required(v, "reason", "เหตุผลที่แก้ไข");
+    let proposed: Values = {};
+    try {
+      proposed = JSON.parse(v.values || "{}");
+    } catch {}
+    delete v.values;
+    Object.assign(v, editValues(db, target, proposed));
+    lotId = target.lotId;
+  } else if (kind === "editDecision") {
+    const request = entries(db, "editRequest").find(
+      (e) => e.id === v.requestId,
+    );
+    assert(request, "ไม่พบคำขอแก้ไข");
+    assert(!editDecisionOf(db, request.id), "คำขอนี้พิจารณาแล้ว");
+    assert(
+      Object.values(editDecisions).includes(v.decision),
+      "เลือกอนุมัติหรือไม่อนุมัติ",
+    );
+    v.targetId = request.values.targetId;
+    v.requesterRole = request.role;
+    v.requesterBranch = request.branch;
+    if (v.decision === editDecisions.approve) {
+      // Checked again now: the log may have moved on since the request was filed.
+      const target = editTarget(db, v.targetId, role, branch);
+      Object.assign(v, editValues(db, target, unpack("to.", request.values)));
+    } else {
+      required(v, "note", "เหตุผลที่ไม่อนุมัติ");
+      for (const key of [
+        "targetKind",
+        "targetDate",
+        "targetRole",
+        "targetBranch",
+      ])
+        v[key] = request.values[key];
+    }
+    lotId = request.lotId;
   } else if (kind === "config") {
     v.ricePrice = "0";
     // Labels match the Thai setting names in ConfigView.

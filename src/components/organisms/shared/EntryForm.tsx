@@ -84,7 +84,7 @@ function resolveLocations(values: Values) {
 }
 
 /** One control from `forms[kind]`, rendered by its `type`. */
-function EntryFieldControl({
+export function EntryFieldControl({
   field: f,
   autoFocus,
   values,

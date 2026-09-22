@@ -60,10 +60,10 @@ export function NotificationPopover({
           </div>
           {notifications.length ? (
             <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
-              {notifications.map((notification) => (
+              {notifications.map((notification, index) => (
                 <AlertListItem
                   as="button"
-                  key={`${notification.tab}-${notification.title}`}
+                  key={`${notification.tab}-${notification.title}-${index}`}
                   title={notification.title}
                   detail={notification.detail}
                   onClick={() => {

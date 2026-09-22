@@ -356,3 +356,57 @@ export const closeReadyDb: Database = chillBranchRun(
 export const dayClosedDb: Database = chillBranchRun(closeReadyDb, "closeDay", {
   confirm: "ผู้ดูแล",
 });
+
+/** B5: ศาลาแดง asks to correct one of its entries on the closed `day`. */
+const branchEdit = (
+  db: Database,
+  kind: string,
+  values: Record<string, string>,
+  reason: string,
+) =>
+  mutate(
+    db,
+    "branch",
+    "editRequest",
+    {
+      targetId: db.entries.find((e) => e.kind === kind)!.id,
+      values: JSON.stringify(values),
+      reason,
+    },
+    "",
+    day,
+    "ศาลาแดง",
+  );
+/** The Owner decides the newest request. */
+const decide = (db: Database, decision: string, note = "") =>
+  mutate(
+    db,
+    "owner",
+    "editDecision",
+    { requestId: db.entries.at(-1)!.id, decision, note },
+    "",
+    day,
+  );
+/** dayClosedDb with one request waiting: the sale's 65.5 kg should have been 60. */
+export const editPendingDb: Database = branchEdit(
+  dayClosedDb,
+  "sale",
+  { soldKg: "60", lineMan: "190000" },
+  "พิมพ์น้ำหนักเนื้อผิด",
+);
+/** The sale edit approved, a thaw edit rejected, a rice-carry edit still waiting. */
+export const editDecidedDb: Database = branchEdit(
+  decide(
+    branchEdit(
+      decide(editPendingDb, "อนุมัติ"),
+      "thaw",
+      { kg: "70", bags: "8" },
+      "นับถุงผิด",
+    ),
+    "ไม่อนุมัติ",
+    "ตรวจแล้ว 7 ถุงถูกต้อง",
+  ),
+  "riceCarry",
+  { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" },
+  "เลือกการจัดการผิด",
+);

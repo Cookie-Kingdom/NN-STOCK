@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { FoodivaView } from "@/components/organisms/foodiva/FoodivaView";
 import { HistoryPanel } from "@/components/organisms/workspace/HistoryPanel";
+import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
@@ -11,6 +13,7 @@ import { entries, purchaseLots, shipments } from "@/lib/store";
 export function FoodivaWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, tab } = ws;
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Invoices to issue, Requests to truck, smoked meat to take into the freezer.
   const openTasks =
@@ -34,6 +37,9 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
       onDate={ws.setDate}
       minDate={ws.db.config.systemStartDate}
       badges={ws.loaded ? { foodiva: openTasks } : {}}
+      notifications={ws.loaded ? editRequestAlerts(db, ws.role, ws.branch) : []}
+      showNotifications={showNotifications}
+      onToggleNotifications={() => setShowNotifications((value) => !value)}
       loading={!ws.loaded}
       toast={ws.toast}
       onCloseToast={() => ws.setToast("")}

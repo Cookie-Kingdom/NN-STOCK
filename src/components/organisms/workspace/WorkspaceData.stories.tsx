@@ -74,12 +74,17 @@ export const HistoryBranch: Story = {
 
 export const EntryDetail: Story = {
   render: () => (
-    <EntryDetails entry={db.entries.at(-1)!} owner onChanged={fn()} />
+    <EntryDetails entry={db.entries.at(-1)!} role="owner" onChanged={fn()} />
   ),
 };
 
 export const EntryDetailVoided: Story = {
   render: () => (
-    <EntryDetails entry={db.entries.at(-1)!} owner voided onChanged={fn()} />
+    <EntryDetails
+      entry={db.entries.at(-1)!}
+      role="owner"
+      voided
+      onChanged={fn()}
+    />
   ),
 };
