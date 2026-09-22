@@ -4,6 +4,7 @@ import { fn } from "storybook/test";
 import {
   materials,
   mutate,
+  riceSources,
   sevenDayRoleplay,
   type Database,
 } from "@/lib/store";
@@ -445,6 +446,40 @@ export const closeReadyDb: Database = chillBranchRun(
   "riceCarry",
   { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
 );
+/** closeReadyDb with cooked rice bought and chili allocated: an influencer giveaway
+ *  entered inside the close dialog has meat, rice and chili to draw on. */
+export const closeReadyWithSuppliesDb: Database = (() => {
+  const withRice = chillBranchRun(closeReadyDb, "ricePurchase", {
+    riceSource: riceSources[1],
+    supplier: "ร้านข้าวเหนียว",
+    cookedRiceKg: "20",
+    cookedRiceCost: "600",
+  });
+  const withChili = mutate(
+    withRice,
+    "owner",
+    "generalPurchase",
+    {
+      purchaseDate: day,
+      item: "น้ำพริกหลอด",
+      purchaseCategory: "วัตถุดิบ",
+      quantity: "60",
+      unitPrice: "6",
+      supplier: "ผู้ผลิตน้ำพริก",
+    },
+    "",
+    day,
+  );
+  return mutate(
+    withChili,
+    "owner",
+    "chiliAllocate",
+    { branch: "ศาลาแดง", chiliTubes: "50" },
+    "",
+    day,
+  );
+})();
+
 /** closeReadyDb after ปิดวัน: ศาลาแดง's `day` is locked. */
 export const dayClosedDb: Database = chillBranchRun(closeReadyDb, "closeDay", {
   confirm: "ผู้ดูแล",

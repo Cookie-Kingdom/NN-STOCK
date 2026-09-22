@@ -395,7 +395,9 @@ export const BranchSaleFromPacks: Story = {
   },
 };
 
-/** An influencer box: name and shipping fee carry, kg follows the packs. */
+/** The influencer form as it stands now: name, boxes, chili tubes, shipping fee, note.
+ *  No weight and no add-on packs — the kg is derived from the box count when it saves.
+ *  The branch normally fills this inside ยืนยันปิดวัน; here it is the same form alone. */
 export const BranchInfluencerBox: Story = form(
   chillDb,
   "branch",

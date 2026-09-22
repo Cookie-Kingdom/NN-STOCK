@@ -29,7 +29,7 @@ import {
  * shipment reaches central stock through the Shipment Flow; Owner allocates it by kg,
  * Saladaeng 300 / Minburi 200. Saladaeng runs two days:
  *   day 1 (yesterday): receive by kg (partial, then the rest with "รับครบใบจัดสรรนี้แล้ว"),
- *     thaw 70, self-cooked rice, sale + influencer box use 65.5, close through the
+ *     thaw 70, self-cooked rice, a sale that uses 65.5, close through the
  *     "ตรวจและปิดวัน" checklist (blocked while something is missing) → 4.5 kg chill left.
  *   day 2 (today): ชิลยกมา 4.5 kg is sold without a new thaw, cooked rice is bought,
  *     materials are counted, the day closes; stock summary as of day 1; an edit request on
@@ -685,22 +685,9 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     },
   );
 
-  await step(
-    page,
-    "สาขาศาลาแดง: กล่องโปรโมท 2.5 → จำนวนเต็ม · 20 กล่อง ใช้ส่งจริง 2 กก. → หักเนื้อ ไม่นับรายได้",
-    async () => {
-      await pointAndClick(
-        page,
-        rowButton(page, "บันทึกกล่องโปรโมทให้อินฟลูเอนเซอร์"),
-      );
-      await field(page, /ชื่ออินฟลูเอนเซอร์/, "E2E Influencer");
-      await field(page, /กล่องมาตรฐานที่ส่ง/, "2.5");
-      await submitAndExpectError(page, /จำนวนที่ส่งต้องเป็นจำนวนเต็ม/);
-      await field(page, /กล่องมาตรฐานที่ส่ง/, "20");
-      await field(page, /น้ำหนักเนื้อที่ใช้ส่งจริง/, "2");
-      await saveEntry(page);
-    },
-  );
+  /* The standalone กล่องโปรโมทอินฟลูเอนเซอร์ table is gone: a giveaway is entered
+   * inside ตรวจและปิดวัน now (feedback-20-09-c ข้อ 17 walks that section, and
+   * qa-regression checks an over-stock one), so this lane no longer records one. */
 
   await step(
     page,

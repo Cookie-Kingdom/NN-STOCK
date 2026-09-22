@@ -483,12 +483,8 @@ export const forms: Record<string, Field[]> = {
       true,
       true,
     ),
-    number("addons", "เนื้อซีลเพิ่ม (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
-    {
-      ...number("soldKg", "น้ำหนักเนื้อที่ใช้ส่งจริง (กก.)", true),
-      hint: "ปกติ 100–103 กรัมต่อซีล",
-    },
+    /* ไม่มีช่องน้ำหนักเนื้อ: ระบบคิดจากจำนวนกล่อง × น้ำหนักเฉลี่ยต่อซีล (mutate) */
     number("shippingFee", "ค่าส่ง (บาท)", true),
     note,
   ],

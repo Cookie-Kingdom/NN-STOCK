@@ -595,20 +595,26 @@ test("branch meat forms: one open allocation is picked, thaw repeats the last on
   });
   // LINE MAN and the chili count stay blank: they are the day's own check.
   expect(sale().values).toEqual({ payer: "พี่ซี" });
+  s.run("branch", "ricePurchase", {
+    riceSource: riceSources[1],
+    supplier: "ร้านข้าวสุก",
+    cookedRiceKg: "5",
+    cookedRiceCost: "150",
+  });
   s.run("branch", "influencerBox", {
     influencer: "ช่องเอ",
-    boxes: "0",
-    addons: "1",
+    boxes: "1",
     chiliAddons: "0",
-    soldKg: "0.1",
     shippingFee: "60",
   });
+  // Only the shipping fee carries: the kg is derived on save, and the next giveaway
+  // is a different influencer, so the name starts empty.
   expect(
     prefillValues(s.db, "influencerBox", lot(), {
       branch,
-      values: { addons: "2" },
+      values: { boxes: "2" },
     }),
-  ).toEqual({ influencer: "ช่องเอ", shippingFee: "60", soldKg: "0.2" });
+  ).toEqual({ shippingFee: "60" });
 });
 
 test("branch rice forms carry the branch's last choice and fill up to par or from stock", () => {

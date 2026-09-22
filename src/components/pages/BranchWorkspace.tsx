@@ -75,18 +75,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
             open={ws.open}
             onTab={ws.setTab}
           />
-          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 4 ของ BranchDailyWorkflow ที่เดียว —
-           * ตารางนี้เหลือเฉพาะกล่องโปรโมท */}
-          <DailyTaskTable
-            title="กล่องโปรโมทอินฟลูเอนเซอร์"
-            kinds={["influencerBox"]}
-            db={db}
-            branch={branch}
-            date={date}
-            disabled={closed}
-            hasLots={!!ws.lots.length}
-            open={ws.open}
-          />
+          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 4 ของ BranchDailyWorkflow ที่เดียว ·
+           * กล่องโปรโมทอินฟลูเอนเซอร์ย้ายไปอยู่ในฟอร์ม "ยืนยันปิดวัน" (ขั้นที่ 5) */}
           {/* การนับน้ำพริกประจำวัน ไม่ใช่รายการสต๊อก จึงอยู่ที่หน้ากรอกรายวัน */}
           <ChiliDailySummary db={db} branch={branch} date={date} />
         </>

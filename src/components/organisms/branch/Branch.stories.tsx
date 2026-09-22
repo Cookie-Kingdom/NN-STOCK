@@ -115,8 +115,8 @@ export const CloseChecklistMissing: Story = {
   ),
 };
 
-/** Every required item done: the optional influencer-box row still reads "ยังไม่บันทึก"
- *  with its own ไปกรอก, and the day can close anyway. */
+/** Every required item done: the day can close. Influencer giveaways are no longer a
+ *  row here — they are entered inside the close dialog itself. */
 export const CloseChecklistReady: Story = {
   parameters: { db: closeReadyDb },
   render: () => (
@@ -133,22 +133,6 @@ export const RiceTasks: Story = {
       title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
       kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
       required={requiredRiceKinds(db, branch, day)}
-      db={db}
-      branch={branch}
-      date={day}
-      disabled={closed}
-      hasLots
-      open={open}
-    />
-  ),
-};
-
-/** ยอดขาย/ของเสีย อยู่ในขั้นที่ 3 ของ BranchDailyWorkflow — ตารางนี้เหลือเฉพาะกล่องโปรโมท */
-export const InfluencerBoxTasks: Story = {
-  render: () => (
-    <DailyTaskTable
-      title="กล่องโปรโมทอินฟลูเอนเซอร์"
-      kinds={["influencerBox"]}
       db={db}
       branch={branch}
       date={day}
