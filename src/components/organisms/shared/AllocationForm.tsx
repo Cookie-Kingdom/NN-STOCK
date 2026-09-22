@@ -34,7 +34,7 @@ function buildAllocation(
   const total = names.reduce((sum, name) => sum + Number(kg[name]), 0);
   if (total > stock + 0.001)
     throw new Error(
-      `น้ำหนักรวม ${fmt(total)} กก. เกินสต๊อกกลาง ${fmt(stock)} กก.`,
+      `น้ำหนักรวม ${fmt(total)} กก. เกินสต๊อกกลาง · กรอกได้สูงสุด ${fmt(stock)} กก.`,
     );
   let next = from;
   for (const branch of names)
