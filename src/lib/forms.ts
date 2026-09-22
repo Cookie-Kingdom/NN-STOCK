@@ -157,7 +157,7 @@ export const forms: Record<string, Field[]> = {
     text("attention", "ชื่อผู้ติดต่อ (Attention)"),
     tel("phone", "เบอร์ติดต่อ"),
     { key: "taxId", label: "เลขประจำตัวผู้เสียภาษี", digits: 13 },
-    text("packSize", "ขนาดบรรจุ เช่น 6 ชิ้นต่อถุง"),
+    text("packSize", "ขนาดบรรจุ เช่น 6 ชิ้นต่อกล่อง"),
     text("productName", "รายการสินค้า"),
     text("productCode", "รหัสสินค้า (เก็บหลังบ้าน / ไม่บังคับ)", true),
     number("orderedKg", "น้ำหนักสั่งซื้อ (กก.)"),
@@ -314,7 +314,7 @@ export const forms: Record<string, Field[]> = {
   receive: [number("kg", "น้ำหนักรับเข้าสาขา (กก.)"), reason, note],
   thaw: [
     number("kg", "น้ำหนักละลาย (กก.)"),
-    number("bags", "จำนวนถุงที่ละลาย", false, true),
+    number("bags", "จำนวนกล่องรมควันที่ละลาย", false, true),
     reason,
     note,
   ],

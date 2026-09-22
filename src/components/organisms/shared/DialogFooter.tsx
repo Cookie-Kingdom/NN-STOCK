@@ -23,7 +23,8 @@ export function DialogFooter({
   hint?: ReactNode;
   /** What the form would be refused for, checked as the user types. Takes the
    *  hint's place: while something is wrong, that is the useful thing to read.
-   *  Unlike the hint it stays visible on a phone, and it never hides the buttons. */
+   *  Unlike the hint it stays visible on a phone, and it never hides the buttons.
+   *  While it is set the submit button is disabled: the save would be refused anyway. */
   error?: string;
   cancelLabel?: ReactNode;
   /** Cancel button is rendered only when this is given. */
@@ -70,7 +71,7 @@ export function DialogFooter({
         <Button
           variant="primary"
           type={submitType}
-          disabled={submitDisabled || submitting}
+          disabled={submitDisabled || submitting || !!error}
           icon={submitting ? <Spinner /> : undefined}
           onClick={onSubmit}
         >

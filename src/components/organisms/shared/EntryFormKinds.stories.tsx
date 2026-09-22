@@ -141,7 +141,8 @@ export const FoodivaReturnReceive: Story = form(
 
 // --- Branch --------------------------------------------------------------
 
-/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it. */
+/** The branch picks the outstanding allocation, types kg, and "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it.
+ *  The Lot option reads ส่งมา / รับแล้ว / ค้างรับ, not the 0.00 frozen/chill stock. */
 export const BranchReceive: Story = form(
   allocatedDb,
   "branch",
@@ -151,6 +152,25 @@ export const BranchReceive: Story = form(
 
 /** Moving frozen bags to ready-to-sell stock. */
 export const BranchThaw: Story = form(demoDb, "branch", "thaw", "ศาลาแดง");
+
+/** Only the kg typed, over the frozen stock: the error (with the most allowed) shows at
+ *  once and บันทึกรายการ is disabled, although the other fields are still empty. */
+export const BranchThawOverStock: Story = {
+  ...BranchThaw,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.type(body.getByLabelText(/น้ำหนักละลาย/), "99999");
+  },
+};
+
+/** Raw rice withdrawn over stock: red error at once, save disabled. */
+export const BranchRiceIssueOverStock: Story = {
+  ...form(demoDb, "branch", "riceIssue", "ศาลาแดง"),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.type(body.getByLabelText(/ข้าวเหนียวดิบที่เบิก/), "99999");
+  },
+};
 
 /** Rice purchase with the round's source picked: the fields follow the pick, not the branch. */
 const ricePurchase = (branch: string, source: string): Story => ({
@@ -235,6 +255,39 @@ export const BranchChiliIssue: Story = form(
   "chiliIssue",
   "ศาลาแดง",
 );
+
+/** A filled withdrawal: ตรวจสอบก่อนบันทึก shows what is taken, stock now and stock after. */
+const issueFilled = (
+  kind: string,
+  branch: string,
+  typed: [RegExp, string][],
+): Story => ({
+  ...form(demoDb, "branch", kind, branch),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    for (const [label, value] of typed) {
+      const field = body.getByLabelText(label);
+      await userEvent.clear(field);
+      await userEvent.type(field, value);
+    }
+  },
+});
+
+export const BranchRiceIssueFilled = issueFilled("riceIssue", "ศาลาแดง", [
+  [/ข้าวเหนียวดิบที่เบิก/, "2"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
+
+export const BranchChiliIssueFilled = issueFilled("chiliIssue", "ศาลาแดง", [
+  [/น้ำพริกที่เบิก/, "3"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
+
+export const BranchSupplyIssueFilled = issueFilled("supplyIssue", "ศาลาแดง", [
+  [/ข้าวเหนียวดิบที่เบิก/, "2"],
+  [/น้ำพริกที่เบิก/, "3"],
+  [/ผู้รับของ/, "ครัวศาลาแดง"],
+]);
 
 /** Morning cook: raw rice in, cooked rice out. Cooked may weigh more than raw. */
 export const BranchRice: Story = form(demoDb, "branch", "rice", "ศาลาแดง");

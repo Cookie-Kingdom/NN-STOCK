@@ -18,7 +18,7 @@ export function ReferenceCard({
 }: {
   title: string;
   number?: string;
-  rows: [string, string][];
+  rows: [string, ReactNode][];
   /** e.g. a document preview button. */
   action?: ReactNode;
   className?: string;

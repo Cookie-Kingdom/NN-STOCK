@@ -39,6 +39,7 @@ import {
   entries,
   mutate,
   n,
+  OverStockError,
   packWeightWarning,
   riceSources,
   roleName,
@@ -294,6 +295,24 @@ export function EntryForm({
   const allocations = entries(db, "allocate", lotId, branch)
     .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
     .filter((a) => a.outstanding > 0);
+  /** What a lot option says. Receiving: what Owner sent this branch, what is in and what
+   *  is still to come; a lot not yet received would read "0.00 แช่แข็ง" as nothing came. */
+  const lotSummary = (id: string) => {
+    if (kind === "allocate")
+      return `${fmt(centralStock(db, id))} กก. ในคลังกลาง`;
+    if (kind === "receive") {
+      const sent = entries(db, "allocate", id, branch);
+      const kg = (list: typeof sent) =>
+        list.reduce((total, e) => total + n(e.values, "kg"), 0);
+      const pending = sent.reduce(
+        (total, e) => total + allocationOutstanding(db, e),
+        0,
+      );
+      return `ส่งมา ${fmt(kg(sent))} กก. · รับแล้ว ${fmt(kg(entries(db, "receive", id, branch)))} กก. · ค้างรับ ${fmt(pending)} กก.`;
+    }
+    const stock = balance(db, id, branch);
+    return `แช่แข็ง ${fmt(stock.frozen)} กก. / คงเหลือชิล ${fmt(stock.ready)} กก.`;
+  };
   const latestSmokingInvoice =
     kind === "smokingInvoice" && lot
       ? entries(db, "smokingInvoice", lot.id).at(-1)
@@ -343,15 +362,15 @@ export function EntryForm({
     ].every((key) => String(values[key] ?? "").trim());
   /* The save's own mutate, run on the values as they stand, so the form can say a
    * weight is over stock while it is being typed instead of after ยืนยัน. mutate
-   * clones the database, so a dry run changes nothing. Held back until every
-   * required control has something in it: an unfinished form must not be told off
-   * for being unfinished. */
+   * clones the database, so a dry run changes nothing. Until every required control
+   * has something in it only an over-stock amount is said: an unfinished form must
+   * not be told off for being unfinished, but a quantity over stock is wrong already. */
   const liveError = useMemo(() => {
-    if (!complete) return "";
     try {
       mutate(db, role, kind, resolveLocations(values), lotId, date, branch);
       return "";
     } catch (caught) {
+      if (!complete && !(caught instanceof OverStockError)) return "";
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, role, kind, values, lotId, date, branch]);
@@ -453,10 +472,7 @@ export function EntryForm({
                   <option value="">เลือก Lot</option>
                   {choices.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.id} ·{" "}
-                      {kind === "allocate"
-                        ? `${fmt(centralStock(db, l.id))} กก. ในคลังกลาง`
-                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} คงเหลือชิล`}
+                      {l.id} · {lotSummary(l.id)}
                     </option>
                   ))}
                 </Select>
