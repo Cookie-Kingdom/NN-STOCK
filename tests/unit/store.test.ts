@@ -1,11 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
-  availableBags,
+  allocationOutstanding,
   averageYield,
   balance,
   branchMaterialStock,
   branches,
-  centralBagStock,
   centralStock,
   chiliAllocated,
   chiliStock,
@@ -20,6 +19,7 @@ import {
   ownerChiliStock,
   ownerMaterialStock,
   ownerWasteOutstanding,
+  pendingReceiveKg,
   poRemainingKg,
   packWeights,
   processLoss,
@@ -57,6 +57,7 @@ import {
   ready,
   readyToDispatch,
   received,
+  returned,
   request,
   send,
   setup,
@@ -286,7 +287,7 @@ describe("mutate guards", () => {
     ).toThrow(/ไม่มีสิทธิ์/);
     expect(s.db.lots).toHaveLength(0);
     expect(() =>
-      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "1", bags: "1" }),
+      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "1" }),
     ).toThrow(/สต๊อกกลาง/);
   });
 
@@ -814,119 +815,55 @@ describe("lot workflow", () => {
     ).toThrow(/ก่อนยืนยันปิด Lot/);
   });
 
-  test("allocating by bag id takes those bags out of central stock once", () => {
-    const s = ready();
+  test("allocating by kg: 500 + 200 of 700 kg, received in parts, over-allocation refused", () => {
+    const s = returned();
+    s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
     const id = s.db.lots.at(-1)!.id;
-    const bags = availableBags(s.db, id);
-    expect(bags).toHaveLength(360);
-    // 360 bags weighed 0.1 at the smoker, 35 kg on the central scale: each bag carries its share.
-    const bagKg = 35 / 360;
-    expect(bags[0].id).toBe(`${entries(s.db, "smoke", id)[0].id}:1`);
-    expect(bags[0].weight).toBeCloseTo(bagKg);
-    const bagIds = bags
-      .slice(0, 3)
-      .map((bag) => bag.id)
-      .join(",");
     s.run("owner", "allocate", {
       branch: "ศาลาแดง",
+      kg: "500",
       deliveryDate: day,
-      bagIds,
     });
-    expect(last(s).values.bags).toBe("3");
-    expect(Number(last(s).values.kg)).toBeCloseTo(3 * bagKg);
-    expect(centralBagStock(s.db, id)).toBe(357);
-    expect(centralStock(s.db, id)).toBeCloseTo(35 - 3 * bagKg);
-    expect(() =>
-      s.run("owner", "allocate", {
-        branch: "มีนบุรี",
-        deliveryDate: day,
-        bagIds,
-      }),
-    ).toThrow(/ถูกจัดสรรไปแล้ว/);
-    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "1", bags: "5" });
-    expect(centralBagStock(s.db, id)).toBe(352);
-  });
-
-  test("every bag can be allocated even when central stock weighs less than the bags", () => {
-    const s = ready();
-    const id = s.db.lots.at(-1)!.id;
-    const bags = availableBags(s.db, id);
-    const half = Math.floor(bags.length / 2);
-    for (const [branch, chunk] of [
-      ["ศาลาแดง", bags.slice(0, half)],
-      ["มีนบุรี", bags.slice(half)],
-    ] as const) {
-      s.run("owner", "allocate", {
-        branch,
-        deliveryDate: day,
-        bagIds: chunk.map((bag) => bag.id).join(","),
-      });
-    }
-    expect(centralBagStock(s.db, id)).toBe(0);
-    expect(centralStock(s.db, id)).toBeCloseTo(0);
-  });
-
-  test("a bag sent out at its smoker weight leaves the last bag weighing what is left", () => {
-    // QA round 2: two 40 kg bags, 79 kg on the central scale, the first bag allocated
-    // as 40 kg before pro-rating existed. The last bag is 39 kg (central stock), not 39.5.
-    const s = setup();
-    received(s, "90", "90", "88");
-    s.run("cm", "prepare", { preSmokeKg: "85" });
-    s.run("cm", "smoke", {
-      smokeDate: day,
-      inputKg: "85",
-      wasteKg: "5",
-      packs: "40\n40",
-    });
-    s.run("cm", "closeLot", { confirm: "สมชาย" });
-    s.run("owner", "return", {
-      returnDate: day,
-      returnTime: "09:00",
-      origin: "Chef House",
-      destination: "Foodiva",
-      vehicleType: "รถห้องเย็น",
-      plate: "กข123",
-      driverName: "คนขับ",
-      driverPhone: "0800000000",
-      returnKg: "80",
-    });
-    s.run("foodiva", "foodivaReturnReceive", {
-      receivedDate: day,
-      receivedTime: "10:00",
-      receivedKg: "79",
-      receivedBags: "2",
-    });
-    s.run("owner", "central", { centralKg: "79" });
-    const id = s.db.lots.at(-1)!.id;
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "40", bags: "1" });
-    expect(centralStock(s.db, id)).toBe(39);
-    const [bag] = availableBags(s.db, id);
-    expect(bag.weight).toBeCloseTo(39);
+    const sala = last(s);
     s.run("owner", "allocate", {
       branch: "มีนบุรี",
+      kg: "150",
       deliveryDate: day,
-      bagIds: bag.id,
     });
-    expect(Number(last(s).values.kg)).toBeCloseTo(39);
-    expect(centralStock(s.db, id)).toBeCloseTo(0);
-    expect(centralBagStock(s.db, id)).toBe(0);
+    expect(centralStock(s.db, id)).toBe(50);
+    expect(() =>
+      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "50.01" }),
+    ).toThrow(/สต๊อกกลางไม่พอ/);
+    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "50" });
+    expect(centralStock(s.db, id)).toBe(0);
+    s.run("branch", "receive", {
+      kg: "300",
+      allocation: sala.id,
+      reason: "ทยอยรับ",
+    });
+    expect(allocationOutstanding(s.db, sala)).toBe(200);
+    s.run("branch", "receive", { kg: "200", allocation: sala.id });
+    expect(allocationOutstanding(s.db, sala)).toBe(0);
+    expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
+    expect(() =>
+      s.run("branch", "receive", { kg: "1", allocation: sala.id, reason: "x" }),
+    ).toThrow(/รับเกินยอดค้างรับ/);
   });
 
   test("over-allocation, over-thaw and cross-branch receive rejected", () => {
     const s = ready();
     expect(() =>
-      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "36", bags: "2" }),
+      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "36" }),
     ).toThrow(/ไม่พอ/);
-    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "5", bags: "2" });
+    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "5" });
     expect(() =>
       s.run("branch", "receive", {
         kg: "5",
-        bags: "2",
         allocation: last(s).id,
       }),
     ).toThrow(/ไม่ได้จัดสรร/);
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
-    s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
     expect(() => s.run("branch", "thaw", { kg: "6", bags: "2" })).toThrow(
       /ไม่พอ/,
     );
@@ -1075,8 +1012,8 @@ describe("branch supplies", () => {
 
   test("day close time gate and sales deviation validation", () => {
     const s = ready();
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
-    s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
     s.run("branch", "thaw", { kg: "5", bags: "2" });
     expect(() =>
       s.run("branch", "closeDay", { time: "21:59", confirm: "x" }),
@@ -1102,8 +1039,8 @@ describe("branch supplies", () => {
 test("an influencer box leaves the shelf and costs meat plus postage", () => {
   const s = ready();
   const id = s.db.lots.at(-1)!.id;
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5", bags: "2" });
-  s.run("branch", "receive", { kg: "5", bags: "2", allocation: last(s).id });
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+  s.run("branch", "receive", { kg: "5", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "5", bags: "2" });
   s.run("branch", "ricePurchase", {
     supplier: "ตลาดศาลาแดง",
@@ -1162,24 +1099,21 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   s.run("owner", "allocate", {
     branch: "ศาลาแดง",
     kg: "10",
-    bags: "5",
     deliveryDate: day,
   });
   const allocation = last(s).id;
   s.run("owner", "allocate", {
     branch: "มีนบุรี",
     kg: "5",
-    bags: "2",
     deliveryDate: day,
   });
   expect(centralStock(s.db, id)).toBe(20);
   s.run("branch", "receive", {
     kg: "4",
-    bags: "2",
     allocation,
     reason: "ทยอยรับ",
   });
-  s.run("branch", "receive", { kg: "6", bags: "3", allocation });
+  s.run("branch", "receive", { kg: "6", allocation });
   s.run("branch", "thaw", { kg: "4.2", bags: "2" });
   s.run("branch", "ricePurchase", {
     supplier: "ตลาดศาลาแดง",

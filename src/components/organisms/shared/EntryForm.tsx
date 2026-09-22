@@ -30,7 +30,6 @@ import { prefillValues } from "@/lib/prefill";
 import {
   allocationOutstanding,
   balance,
-  centralBagStock,
   centralStock,
   cookedRiceStock,
   entries,
@@ -283,10 +282,7 @@ export function EntryForm({
   const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
   const lot = db.lots.find((l) => l.id === lotId);
   const allocations = entries(db, "allocate", lotId, branch)
-    .map((e) => {
-      const left = allocationOutstanding(db, e);
-      return { entry: e, outstanding: left.kg, outstandingBags: left.bags };
-    })
+    .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
     .filter((a) => a.outstanding > 0);
   const latestSmokingInvoice =
     kind === "smokingInvoice" && lot
@@ -442,7 +438,7 @@ export function EntryForm({
                     <option key={l.id} value={l.id}>
                       {l.id} ·{" "}
                       {kind === "allocate"
-                        ? `${fmt(centralStock(db, l.id))} กก. · ${centralBagStock(db, l.id)} กล่องรมควันในคลังกลาง`
+                        ? `${fmt(centralStock(db, l.id))} กก. ในคลังกลาง`
                         : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} พร้อมขาย`}
                     </option>
                   ))}
@@ -462,13 +458,7 @@ export function EntryForm({
                   required
                   value={values.allocation || ""}
                   onChange={(e) => {
-                    const picked = allocations.find(
-                      (a) => a.entry.id === e.target.value,
-                    );
                     set("allocation", e.target.value);
-                    // Bag count only: the kg is weighed at the branch.
-                    if (picked && picked.outstandingBags > 0)
-                      set("bags", String(picked.outstandingBags));
                   }}
                 >
                   <option value="">เลือกใบจัดสรร</option>

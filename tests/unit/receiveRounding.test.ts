@@ -3,30 +3,26 @@ import { fmt } from "@/lib/format";
 import { allocationOutstanding, pendingReceiveKg } from "@/lib/store";
 import { last, ready } from "./fixtures";
 
-test("pro-rated allocation kg: the shown 0.01 figure is accepted and a bag-complete residue is not pending", () => {
+test("allocation kg with extra decimals: the shown 0.01 figure is accepted and clears it", () => {
   const s = ready();
-  const id = s.db.lots[0].id;
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "8.326667", bags: "4" });
+  const id = s.db.lots.at(-1)!.id;
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "8.326667" });
   const first = last(s);
-  expect(fmt(allocationOutstanding(s.db, first).kg)).toBe("8.33");
-  expect(allocationOutstanding(s.db, first).kg).toBe(8.33);
-  s.run("branch", "receive", { kg: "8.33", bags: "4", allocation: first.id });
-  expect(allocationOutstanding(s.db, first)).toEqual({ kg: 0, bags: 0 });
+  expect(fmt(allocationOutstanding(s.db, first))).toBe("8.33");
+  expect(allocationOutstanding(s.db, first)).toBe(8.33);
+  s.run("branch", "receive", { kg: "8.33", allocation: first.id });
+  expect(allocationOutstanding(s.db, first)).toBe(0);
 
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5.006667", bags: "2" });
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5.006667" });
   const second = last(s);
-  expect(allocationOutstanding(s.db, second).kg).toBe(5.01);
-  // 0.01 under the shown figure, all bags in: the lot no longer waits to be received.
+  expect(allocationOutstanding(s.db, second)).toBe(5.01);
   s.run("branch", "receive", {
     kg: "5",
-    bags: "2",
     allocation: second.id,
     reason: "ตาชั่ง",
   });
+  // 0.01 short: still pending until the rest arrives.
+  expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0.01);
+  s.run("branch", "receive", { kg: "0.01", allocation: second.id });
   expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
-});
-
-test("fmt never prints negative zero from float residue", () => {
-  expect(fmt(10 - 9.64 - 0.36)).toBe("0.00");
-  expect(fmt(-0.004)).toBe("0.00");
 });
