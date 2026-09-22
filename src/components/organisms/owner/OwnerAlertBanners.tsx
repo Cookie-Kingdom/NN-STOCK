@@ -37,11 +37,13 @@ export function OwnerAlertBanners({
           กรุณากำหนดจำนวนฐานและราคาต่อหน่วยก่อนส่งวัสดุครั้งถัดไป
         </Notice>
       )}
-      {alerts.returnReady.length > 0 && tab !== "transport" && (
+      {alerts.returnReady.length > 0 && tab !== "return-shipment" && (
         <Notice
           tone="danger"
           action={
-            <Button onClick={() => onTab("transport")}>ไปเรียกรถขากลับ</Button>
+            <Button onClick={() => onTab("return-shipment")}>
+              ไปเรียกรถขากลับ
+            </Button>
           }
         >
           งานใหม่จาก Chef House · ปิด Lot แล้ว {alerts.returnReady.length}{" "}

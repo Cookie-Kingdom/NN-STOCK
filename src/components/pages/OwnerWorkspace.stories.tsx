@@ -1,5 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { centralDb, demoDb, packedDb } from "../../../.storybook/fixtures";
+import {
+  centralDb,
+  closedDb,
+  demoDb,
+  packedDb,
+} from "../../../.storybook/fixtures";
 import { accountById } from "@/lib/accounts";
 import type { Tab } from "@/lib/nav";
 import { OwnerWorkspace } from "./OwnerWorkspace";
@@ -35,6 +40,10 @@ export const Invoices: Story = { parameters: at("invoices") };
 
 // ขนส่งและรับเข้า
 export const TransportManifests: Story = { parameters: at("transport") };
+/** Chef House closed the lot: the return-trip tab lists it and its badge counts it. */
+export const ReturnShipment: Story = {
+  parameters: { ...at("return-shipment"), db: closedDb },
+};
 export const CentralReceive: Story = {
   parameters: { ...at("central-receive"), db: centralDb },
 };

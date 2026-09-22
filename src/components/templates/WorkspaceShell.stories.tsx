@@ -78,7 +78,7 @@ export const Owner: Story = {
     <Shell
       account={accountById("owner")!}
       nav={ownerNav}
-      badges={{ transport: 1, invoices: 2 }}
+      badges={{ transport: 1, "return-shipment": 1, invoices: 2 }}
       notifications={[
         {
           title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
