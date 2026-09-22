@@ -321,12 +321,7 @@ export const forms: Record<string, Field[]> = {
     note,
   ],
   receive: [number("kg", "น้ำหนักรับเข้าสาขา (กก.)"), reason, note],
-  thaw: [
-    number("kg", "น้ำหนักละลาย (กก.)"),
-    number("bags", "จำนวนกล่องรมควันที่ละลาย", false, true),
-    reason,
-    note,
-  ],
+  thaw: [number("kg", "น้ำหนักละลาย (กก.)"), reason, note],
   supplyPurchase: [
     text("supplier", "ผู้จำหน่าย (Supplier)"),
     number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),

@@ -231,7 +231,7 @@ export function chillDay() {
     deliveryDate: day,
   });
   s.run("branch", "receive", { kg: "70", allocation: last(s).id });
-  s.run("branch", "thaw", { kg: "70", bags: "7" });
+  s.run("branch", "thaw", { kg: "70" });
   s.run("branch", "sale", {
     boxes: "0",
     addons: "655",
