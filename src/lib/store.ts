@@ -1245,6 +1245,29 @@ export function currentSmokingInvoices(db: Database) {
     latest.set(invoice.lotId, invoice);
   return [...latest.values()];
 }
+/** Invoices the Owner has to act on: Foodiva meat invoices still unpaid, and current
+ *  Chef House smoking invoices to review (`toReview`) or to pay (`toPay`). */
+export function ownerPendingInvoices(db: Database) {
+  const unpaidMeatLots = db.lots.filter(
+    (lot) =>
+      !lot.kind &&
+      entries(db, "foodivaConfirm", lot.id).length &&
+      !entries(db, "meatPayment", lot.id).length,
+  );
+  const smoking = currentSmokingInvoices(db);
+  const toReview = smoking.filter(
+    (invoice) => smokingInvoiceStatus(db, invoice) === "รอตรวจยอด",
+  );
+  const toPay = smoking.filter(
+    (invoice) => smokingInvoiceStatus(db, invoice) === "รอชำระ",
+  );
+  return {
+    unpaidMeatLots,
+    toReview,
+    toPay,
+    total: unpaidMeatLots.length + toReview.length + toPay.length,
+  };
+}
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }

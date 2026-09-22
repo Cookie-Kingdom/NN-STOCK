@@ -20,6 +20,7 @@ import { uploadedAttachment } from "@/components/organisms/shared/referenceDocum
 import {
   entries,
   n,
+  ownerPendingInvoices,
   type Entry,
   smokingInvoiceReview,
   smokingInvoiceStatus,
@@ -76,9 +77,9 @@ export function InvoiceView({
   const smokingInvoices = entries(db, "smokingInvoice").filter((entry) =>
     matches(lotOf(entry)),
   );
-  const waitingForReview = smokingInvoices.filter(
-    (entry) => smokingInvoiceStatus(db, entry) === "รอตรวจยอด",
-  ).length;
+  // Same set as the sidebar Invoice badge, over every invoice (not just the filtered rows).
+  const pending = ownerPendingInvoices(db);
+  const toPay = pending.unpaidMeatLots.length + pending.toPay.length;
   return (
     <div className="grid gap-6">
       <PanelHeading
@@ -86,7 +87,11 @@ export function InvoiceView({
         title="ใบ Invoice"
         description="Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef House แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO"
         aside={
-          <Stat label="Invoice รอตรวจยอด" value={`${waitingForReview} ใบ`} />
+          <Stat
+            label="Invoice รอดำเนินการ"
+            value={`${pending.total} ใบ`}
+            title={`รอตรวจ ${pending.toReview.length} · รอชำระ ${toPay}`}
+          />
         }
       />
       <DocumentFilterBar
