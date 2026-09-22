@@ -65,9 +65,13 @@ const tab = (page: Page, label: string) =>
   pointAndClick(page, menuItem(page, label));
 
 /** Submits the open dialog and expects it to stay open with the message. */
+/** A value the rules refuse is said while typing and the save is disabled until it is
+ * fixed; a form still missing a required field only says so on submit. */
 async function submitAndExpectError(page: Page, message: string | RegExp) {
   const open = dialog(page);
-  await pointAndClick(page, open.locator('button[type="submit"]').last());
+  const submit = open.locator('button[type="submit"]').last();
+  if (await submit.isEnabled()) await pointAndClick(page, submit);
+  else await expect(submit).toBeDisabled();
   await expect(alertIn(open, message)).toBeVisible();
   await expect(open).toBeVisible();
 }
@@ -110,8 +114,8 @@ async function editSection(
   ).toBeVisible();
 }
 
-/** Opens a settings card, runs `fill`, saves and expects the card to stay in edit
- * mode with `message`; then cancels so the stored value is shown again. */
+/** Opens a settings card, runs `fill` and expects `message` with บันทึกและล็อก
+ * disabled; then cancels so the stored value is shown again. */
 async function sectionRefuses(
   page: Page,
   title: string,
@@ -124,9 +128,9 @@ async function sectionRefuses(
     section.getByRole("button", { name: REQUEST_EDIT }),
   );
   await fill();
-  await pointAndClick(page, section.getByRole("button", { name: SAVE_LOCK }));
+  // The draft is checked as it is typed: the error shows and save stays disabled.
   await expect(section.getByText(message)).toBeVisible();
-  await expect(section.getByRole("button", { name: SAVE_LOCK })).toBeVisible();
+  await expect(section.getByRole("button", { name: SAVE_LOCK })).toBeDisabled();
   await pointAndClick(page, section.getByRole("button", { name: CANCEL_EDIT }));
   await expect(
     section.getByRole("button", { name: REQUEST_EDIT }),
@@ -630,13 +634,20 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
 
   await step(
     page,
-    "Owner: B4 ส่งเกินคลัง 101 → วัสดุในคลัง Owner ไม่พอ · ส่งกล่อง 60 ศาลาแดง + กระดาษรอง 30 มีนบุรี",
+    "Owner: B4 ส่งเกินคลัง 101 → กล่องพิมพ์ลาย ในคลัง Owner ไม่พอ · กรอกได้สูงสุด 100 (บันทึกกดไม่ได้) · ส่งกล่อง 60 ศาลาแดง + กระดาษรอง 30 มีนบุรี",
     async () => {
       await button(page, "ส่งวัสดุไปสาขา");
       await dialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "101");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
-      await submitAndExpectError(page, "วัสดุในคลัง Owner ไม่พอ");
+      await submitAndExpectError(
+        page,
+        `${BOX} ในคลัง Owner ไม่พอ · กรอกได้สูงสุด 100`,
+      );
+      // Over stock is said as typed and the save stays disabled until it is fixed.
+      await expect(
+        dialog(page).locator('button[type="submit"]').last(),
+      ).toBeDisabled();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "60");
       await dialog(page).getByLabel(`ส่ง ${PAPER} ไปมีนบุรี`).check();
       await field(page, `จำนวน ${PAPER} ไปมีนบุรี`, "30");
@@ -1291,10 +1302,10 @@ test("E2E-B1: ข้อความ error ตั้งค่าตัวเล�
         pricing.getByRole("button", { name: REQUEST_EDIT }),
       );
       await field(page, "boxPrice", "-5");
-      await pointAndClick(
-        page,
+      // Checked as typed: the message shows and บันทึกและล็อก is disabled.
+      await expect(
         pricing.getByRole("button", { name: SAVE_LOCK }),
-      );
+      ).toBeDisabled();
       const message = pricing.getByText(/เป็นตัวเลขตั้งแต่ศูนย์/);
       await expect(message).toBeVisible();
       await expect(message).not.toContainText("boxPrice", { timeout: 2_000 });
@@ -1320,10 +1331,7 @@ test("E2E-B2: ส่งวัสดุจำนวนทศนิยม ต้�
       await dialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "2.5");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
-      await pointAndClick(
-        page,
-        dialog(page).locator('button[type="submit"]').last(),
-      );
+      await submitAndExpectError(page, `กรอกจำนวน ${BOX} ที่ส่งไปศาลาแดง`);
       await expect(
         alertIn(dialog(page), `กรอกจำนวน ${BOX} ที่ส่งไปศาลาแดง`),
       ).toBeVisible({ timeout: 3_000 });
