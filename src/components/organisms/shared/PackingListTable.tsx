@@ -158,7 +158,7 @@ export function PackingListTable({
   boxes: readonly PackingListBox[];
   /** Adds the row-count control: the list is as long as the sender says it is. */
   onRows?: (count: number) => void;
-  /** Adds a delete button per row, behind a confirmation. */
+  /** Adds a delete button per row; a row holding a weight asks first. */
   onRemoveRow?: (no: number) => void;
   /** Foodiva typing the list; omit once the row is read-only. */
   onWeight?: (no: number, weight: number | undefined) => void;
@@ -315,7 +315,12 @@ export function PackingListTable({
                         label={`ลบกล่องรับเข้าที่ ${box.no}`}
                         disabled={boxes.length <= 1}
                         icon={<Trash2 className="size-4" />}
-                        onClick={() => setRemoving(box.no)}
+                        onClick={() =>
+                          // An empty row loses nothing, so it goes without asking.
+                          box.weight === undefined && box.received === undefined
+                            ? onRemoveRow(box.no)
+                            : setRemoving(box.no)
+                        }
                       />
                     </td>
                   )}
@@ -363,7 +368,7 @@ export function PackingListTable({
       </p>
       {removing !== null && onRemoveRow && (
         <Dialog
-          title="ลบแถวนี้?"
+          title="แถวนี้มีข้อมูลอยู่ ยืนยันจะลบหรือไม่?"
           overline={`กล่องรับเข้าที่ ${removing}`}
           className="w-110"
           onClose={() => setRemoving(null)}
@@ -383,8 +388,8 @@ export function PackingListTable({
             <p className="m-0 text-body">
               กล่องรับเข้าที่ {removing}
               {removingWeight !== undefined &&
-                ` (${kg(removingWeight)} กก.)`}{" "}
-              จะถูกลบออกจากตาราง และแถวถัดไปจะเลื่อนเลขขึ้นมาแทน
+                ` มีน้ำหนักกรอกไว้ ${kg(removingWeight)} กก.`}{" "}
+              ข้อมูลที่กรอกจะถูกลบออกจากตาราง และแถวถัดไปจะเลื่อนเลขขึ้นมาแทน
             </p>
           </DialogBody>
         </Dialog>
