@@ -504,7 +504,7 @@ test("Foodiva รับเข้าตู้: ต่างจากยอดส�
   await ownerCallsReturnTruck(page, shipment, "20");
 
   await signInAs(page, ACCOUNTS.foodiva);
-  await foodivaFillsReturnReceive(page, shipment, { kg: "15" });
+  await foodivaFillsReturnReceive(page, shipment, { kg: "15" });
   await a_expectRefused(page, "กรอกเหตุผลส่วนต่าง");
 
   await field(page, /เหตุผลส่วนต่าง/, "ถุงรั่ว 1 กล่องรมควัน");
@@ -817,12 +817,10 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
       }
       const refused = "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้";
       await expect(dialog).toContainText(refused, { timeout: 40_000 });
-      await pointAndClick(
-        page,
+      // The live check refuses it, so the save stays disabled.
+      await expect(
         dialog.getByRole("button", { name: "บันทึกการแก้ไข Request" }),
-      );
-      await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText(refused);
+      ).toBeDisabled();
       await pointAndClick(
         page,
         dialog.getByRole("button", { name: "ยกเลิก", exact: true }),
@@ -932,7 +930,7 @@ test("คำตอบลูกค้า 2026-09-22 (A1, A2, A5–A10): แก้
         tableRow(page, "Invoice Chef House", shipment).getByRole("button", {
           name: "ชำระเงิน",
         }),
-      );
+      );
       await field(page, /ผู้ดำเนินการชำระ/, "ฝ่ายบัญชี Owner");
       await field(page, /ยอดชำระ/, "77000");
       await a_expectRefused(page, "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice");

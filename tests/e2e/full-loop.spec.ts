@@ -390,11 +390,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     await field(page, /กล่องมาตรฐาน/, "1");
     await field(page, /น้ำพริกหลอด/, "1");
     await field(page, /ตรวจนับน้ำพริกจริง/, "9");
-    await field(
-      page,
-      /หมายเหตุเมื่อน้ำพริกไม่ตรง/,
-      "ตรวจนับจริงต่างจากยอดระบบเพื่อทดสอบการบันทึกเหตุผล",
-    );
+    await field(page, /หมายเหตุเมื่อน้ำพริกไม่ตรง/, "QA TEST chili count");
     await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.1");
     await field(page, /น้ำหนักเวสต์/, "0.5");
     await field(page, /ยอดขาย LINE MAN/, "380");
@@ -415,11 +411,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
       .last()
       .getByLabel(/การจัดการวันถัดไป/)
       .selectOption("เก็บไว้อุ่นวันถัดไป");
-    await field(
-      page,
-      /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/,
-      "ใช้ข้าวเหนียวสุก 0.2 กก. กับกล่องมาตรฐานวันนี้",
-    );
+    await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST rice");
     await saveEntry(page);
 
     await expect(
