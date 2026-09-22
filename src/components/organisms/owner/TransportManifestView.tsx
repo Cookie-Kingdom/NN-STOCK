@@ -90,7 +90,7 @@ export function TransportManifestView({
               ))}
             </span>,
             outbound ? (
-              <ButtonRow key={`${lot.id}-outbound`}>
+              <ButtonRow key={`${lot.id}-outbound`} className="my-0">
                 <span>
                   {sentKg === undefined
                     ? `รอ Packing List · ${outbound.values.plate || "ยังไม่ระบุรถ"}`
@@ -129,7 +129,7 @@ export function TransportManifestView({
               "รอ Chef House ชั่งรับ"
             ),
             back ? (
-              <ButtonRow key={`${lot.id}-return`}>
+              <ButtonRow key={`${lot.id}-return`} className="my-0">
                 <span>
                   {`${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`}
                   <br />

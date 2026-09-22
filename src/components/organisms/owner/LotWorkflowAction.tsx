@@ -14,22 +14,32 @@ import {
 
 /** The Owner's next step on one shipment. The outbound transport document is Foodiva's,
  * so the Owner only waits on it; the Owner acts again at the smoke PO and the return trip. */
-export function LotWorkflowAction({
-  db,
-  lot,
-  open,
-  onOpenSmokePo,
-}: {
+export function LotWorkflowAction(props: {
   db: Database;
   lot: Lot;
   open: (kind: string, lotId?: string) => void;
   /** Navigate to the smoking PO tab. */
   onOpenSmokePo: () => void;
 }) {
+  // One right-aligned box for every state: a bare `flex` ignores the cell's
+  // `text-right`, so a badge-plus-button state used to sit left of the others.
+  return (
+    <span className="inline-flex flex-wrap items-center justify-end gap-2">
+      <Step {...props} />
+    </span>
+  );
+}
+
+function Step({
+  db,
+  lot,
+  open,
+  onOpenSmokePo,
+}: Parameters<typeof LotWorkflowAction>[0]) {
   // Until Foodiva makes the manifest the Owner may still change the Request (A10).
   if (lot.stage === 1)
     return (
-      <span className="flex flex-wrap items-center gap-2">
+      <>
         <Badge tone="danger">รอ Foodiva ทำใบขนส่ง</Badge>
         <Button
           variant="table"
@@ -37,7 +47,7 @@ export function LotWorkflowAction({
         >
           แก้ไข Request
         </Button>
-      </span>
+      </>
     );
   if (lot.stage < 6) {
     if (!latestPackingList(db, lot.id))
