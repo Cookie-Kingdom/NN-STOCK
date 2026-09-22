@@ -5,6 +5,7 @@ import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
 import { FilterBar } from "@/components/molecules/FilterBar";
+import { PrefillCaption } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
@@ -164,23 +165,35 @@ export function DailyMaterialsTable({
             )}
           </div>,
           String(opening(i) - used(i)),
-          <Input
-            key={`actual-${i}`}
-            variant="table"
-            type="number"
-            min="0"
-            step="1"
-            placeholder={String(opening(i) - used(i))}
-            value={draft["actual" + i] ?? ""}
-            disabled={disabled}
-            aria-label={`ยอดตรวจนับจริง ${item}`}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                ["actual" + i]: event.target.value,
-              }))
-            }
-          />,
+          /* Prefilled with ยอดที่ควรเหลือ rather than hinted at with a placeholder:
+           * most counts match, so the branch confirms a number instead of copying one.
+           * An untouched box is the empty string, so it keeps following จำนวนใช้ as it
+           * is typed, and clearing the box hands it back to the system's figure. */
+          <div key={`actual-${i}`}>
+            <Input
+              variant="table"
+              type="number"
+              min="0"
+              step="1"
+              prefilled={draft["actual" + i] === "" ? "expected" : undefined}
+              value={
+                draft["actual" + i] === ""
+                  ? String(opening(i) - used(i))
+                  : (draft["actual" + i] ?? "")
+              }
+              disabled={disabled}
+              aria-label={`ยอดตรวจนับจริง ${item}`}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  ["actual" + i]: event.target.value,
+                }))
+              }
+            />
+            {draft["actual" + i] === "" && (
+              <PrefillCaption label="ตามยอดที่ควรเหลือ" expected />
+            )}
+          </div>,
           <Input
             key={`reason-${i}`}
             variant="table"
