@@ -31,7 +31,7 @@ import {
 /* Feedback 20-09-2026 (vault: Feedback/20-09-2026 รวมฉบับสมบูรณ์.md), items 5–10: the
  * gaps the Branch Day specs (full-system/branch-day, branch, chef, foodiva,
  * account-manager) leave open.
- *   5  the sale form asks "น้ำหนักที่ใช้ไปจริงวันนี้" and "น้ำหนักเวสต์" apart; the rest is
+ *   5  the sale form asks "น้ำหนักเนื้อที่ใช้ไปจริงวันนี้" and "น้ำหนักเนื้อที่เสียไป" apart; the rest is
  *      computed, never typed.
  *   6  one summary of a branch's meat per lot and per day (แช่แข็ง / ชิล / ใช้แล้ว), also
  *      for the Owner with a branch picker.
@@ -257,21 +257,23 @@ test("ข้อ 5 · 6 · 7 · 9.1 · 10: ขาย 150 กรัม/ซีล�
 
   await step(
     page,
-    "สาขาศาลาแดง: ข้อ 5 ฟอร์มขาย — ช่อง 'น้ำหนักที่ใช้ไปจริงวันนี้' กับ 'น้ำหนักเวสต์' แยกกัน · ไม่มีช่องกรอกคงเหลือ · ไม่มีคำว่า พร้อมขาย",
+    "สาขาศาลาแดง: ข้อ 5 ฟอร์มขาย — ช่อง 'น้ำหนักเนื้อที่ใช้ไปจริงวันนี้' กับ 'น้ำหนักเนื้อที่เสียไป' แยกกัน · ไม่มีช่องกรอกคงเหลือ · ไม่มีคำว่า พร้อมขาย",
     async () => {
       await button(page, "บันทึกยอดขาย");
       const dialog = openDialog(page);
-      await expect(dialog.getByLabel(/น้ำหนักที่ใช้ไปจริงวันนี้/)).toHaveCount(
-        1,
-      );
-      await expect(dialog.getByLabel(/น้ำหนักเวสต์/)).toHaveCount(1);
+      await expect(
+        dialog.getByLabel(/น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/),
+      ).toHaveCount(1);
+      await expect(dialog.getByLabel(/น้ำหนักเนื้อที่เสียไป/)).toHaveCount(1);
       // The remainder is computed: no input asks for it, and the hint says so.
       // A <label> wraps its hint and, for the Lot picker, the option texts — both say
       // "คงเหลือ…" — so those two controls are excluded by their own caption.
       await expect(
         dialog
           .getByLabel(/คงเหลือ/)
-          .and(dialog.getByLabel(/^(?!น้ำหนักที่ใช้ไปจริงวันนี้|Lot ต้นทาง)/)),
+          .and(
+            dialog.getByLabel(/^(?!น้ำหนักเนื้อที่ใช้ไปจริงวันนี้|Lot ต้นทาง)/),
+          ),
       ).toHaveCount(0);
       await expect(dialog).toContainText(
         "เนื้อที่เหลือระบบคำนวณเป็นคงเหลือชิลยกไปวันถัดไป",
@@ -287,8 +289,8 @@ test("ข้อ 5 · 6 · 7 · 9.1 · 10: ขาย 150 กรัม/ซีล�
     async () => {
       const dialog = openDialog(page);
       await field(page, /กล่องมาตรฐาน/, "100");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "15");
-      await field(page, /น้ำหนักเวสต์/, "1");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "15");
+      await field(page, /น้ำหนักเนื้อที่เสียไป/, "1");
       await field(page, /ยอดขาย LINE MAN/, "35000");
       await field(
         page,
@@ -428,7 +430,7 @@ test("ข้อ 5 · 6 · 7 · 9.1 · 10: ขาย 150 กรัม/ซีล�
     "สาขาศาลาแดง: ขายจากชิลยกมา 40 กล่อง ใช้จริง 4 กก. · ข้าวสุกคงเหลือ 2 กก. · ข้อ 7 ปิดวันนี้ตามเวลาจริงได้",
     async () => {
       await field(page, /กล่องมาตรฐาน/, "40");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "4");
       await field(page, /ยอดขาย LINE MAN/, "14000");
       await saveEntry(page);
       await expectMeatDay(page, ["4.00", "0.00", "4.00", "0.00", "0.00"]);

@@ -174,7 +174,7 @@ test("C4: รายงานไม่มียอดขาย · manager อน�
       await saveEntry(page);
       await button(page, "บันทึกยอดขาย");
       await field(page, /เนื้อซีล Add-on/, "1");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.1");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0.1");
       await field(page, /ยอดขาย LINE MAN ที่บันทึก/, LINE_MAN);
       await saveEntry(page);
     },

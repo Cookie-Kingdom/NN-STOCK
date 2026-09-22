@@ -379,7 +379,7 @@ export const BranchSalePackWeightWarning: Story = {
     await userEvent.clear(addons);
     await userEvent.type(addons, "10");
     await userEvent.type(
-      form.getByLabelText(/น้ำหนักที่ใช้ไปจริงวันนี้/),
+      form.getByLabelText(/น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/),
       "0.95",
     );
   },

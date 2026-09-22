@@ -657,12 +657,12 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await submitAndExpectError(page, /จำนวนขายต้องเป็นจำนวนเต็ม/);
       await field(page, /กล่องมาตรฐาน/, "600");
       await field(page, /เนื้อซีล Add-on/, "30");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "70");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "70");
       // 70 kg over 630 packs = 111.1 g: a warning, not an error.
       await expect(openDialog(page)).toContainText(
         "เฉลี่ย 111.1 กรัมต่อซีล อยู่นอกช่วง 100–103 กรัม",
       );
-      await field(page, /น้ำหนักเวสต์/, "5");
+      await field(page, /น้ำหนักเนื้อที่เสียไป/, "5");
       await field(page, /ยอดขาย LINE MAN/, "219600");
       await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "Waste ทดสอบ");
       await expectOverStock(
@@ -676,8 +676,8 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     "สาขาศาลาแดง: ใช้จริง 63.5 กก. เวสต์ 0 → ไม่มีคำเตือน · ฿219,600 ตามเมนู → บันทึก",
     async () => {
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "63.5");
-      await field(page, /น้ำหนักเวสต์/, "0");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "63.5");
+      await field(page, /น้ำหนักเนื้อที่เสียไป/, "0");
       await expect(openDialog(page)).not.toContainText(
         "กรัมต่อซีล อยู่นอกช่วง",
       );
@@ -861,7 +861,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       ).toHaveText(/ · แช่แข็ง 230\.00 กก\. \/ คงเหลือชิล 4\.50 กก\.$/);
       await field(page, /กล่องมาตรฐาน/, "45");
       await field(page, /น้ำพริกหลอด · จำหน่ายแยก/, "20");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.5");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "4.5");
       await field(page, /ยอดขาย LINE MAN/, "16350");
       await expect(openDialog(page)).toContainText("฿16,350.00");
       await saveEntry(page);
@@ -1031,8 +1031,8 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await saveEntry(page);
       await button(page, "บันทึกยอดขาย");
       await field(page, /กล่องมาตรฐาน/, "10");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "1");
-      await field(page, /น้ำหนักเวสต์/, "1");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "1");
+      await field(page, /น้ำหนักเนื้อที่เสียไป/, "1");
       await field(page, /ยอดขาย LINE MAN/, "3500");
       await field(
         page,
@@ -1169,7 +1169,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       await saveEntry(page);
       await button(page, "บันทึกยอดขาย");
       await field(page, /กล่องมาตรฐาน/, "2");
-      await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.2");
+      await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0.2");
       await field(page, /ยอดขาย LINE MAN/, "700");
       await saveEntry(page);
       await closeDay(page, "ผู้ดูแลศาลาแดง", TODAY);

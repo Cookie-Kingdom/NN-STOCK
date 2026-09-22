@@ -266,19 +266,19 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
 
   // BUG-3: the sales form now says why it refuses to save.
   await button(page, "บันทึกยอดขาย");
-  await field(page, /น้ำหนักเวสต์/, "0.05");
+  await field(page, /น้ำหนักเนื้อที่เสียไป/, "0.05");
   await submitAndExpectError(page, /เหตุผล Waste/);
-  await field(page, /น้ำหนักเวสต์/, "0");
+  await field(page, /น้ำหนักเนื้อที่เสียไป/, "0");
   await field(page, /กล่องมาตรฐาน/, "6");
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.6");
+  await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0.6");
   await a_expectOverStock(
     page,
     "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 0.50 กก.",
   );
   // A valid sale: nothing sold, the thawed 0.5 kg written off with a reason.
   await field(page, /กล่องมาตรฐาน/, "0");
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0");
-  await field(page, /น้ำหนักเวสต์/, "0.5");
+  await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0");
+  await field(page, /น้ำหนักเนื้อที่เสียไป/, "0.5");
   await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
   await saveEntry(page);
 
