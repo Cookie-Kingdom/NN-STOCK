@@ -5,6 +5,7 @@ import {
   latestDatabase,
   migrateLegacyAttachments,
   saveDatabase,
+  setSaveActor,
 } from "@/lib/persistence";
 import { seed, type Database, type Entry, type Values } from "@/lib/store";
 
@@ -183,6 +184,35 @@ test("saving sends the stored history back untouched and appends only the new en
     p_payload: expect.objectContaining({
       entries: [smoke, { ...added, values: { boxes: "1" } }],
       config,
+    }),
+    p_expected_revision: 4,
+  });
+});
+
+test("the Account Manager's new entries are stamped with its actor, older ones are not", async () => {
+  const old = { ...entry({ boxes: "2" }), role: "owner" as const };
+  await signInWithRow({
+    revision: 4,
+    payload: { version: 8, lots: [], entries: [old], config: seed.config },
+  });
+  mocks.rpc.mockResolvedValue({ data: [{ revision: 5 }], error: null });
+  const added = { ...entry({ boxes: "1" }), role: "owner" as const };
+  setSaveActor("manager");
+  try {
+    await saveDatabase({
+      ...latestDatabase(),
+      entries: [...latestDatabase().entries, added],
+    });
+  } finally {
+    setSaveActor(undefined);
+  }
+  expect(latestDatabase().entries.map((e) => e.actor)).toEqual([
+    undefined,
+    "manager",
+  ]);
+  expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
+    p_payload: expect.objectContaining({
+      entries: [old, { ...added, actor: "manager" }],
     }),
     p_expected_revision: 4,
   });

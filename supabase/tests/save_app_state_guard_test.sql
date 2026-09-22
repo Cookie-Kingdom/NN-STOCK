@@ -7,7 +7,8 @@ declare
   v_branch uuid := gen_random_uuid();
   v_cm     uuid := gen_random_uuid();
   v_food   uuid := gen_random_uuid();
-  v_loc    uuid;
+  v_mgr    uuid := gen_random_uuid();
+  v_loc   uuid;
   v_rev    bigint;
   v_err    text;
   lot1     constant jsonb := '{"id":"L1","poId":"P1","stage":1,"config":{},"values":{}}';
@@ -18,11 +19,11 @@ begin
 
   insert into auth.users (id, email) values
     (v_owner, 'owner@example.invalid'), (v_branch, 'minburi@example.invalid'), (v_cm, 'cm@example.invalid'),
-    (v_food, 'foodiva@example.invalid');
+    (v_food, 'foodiva@example.invalid'), (v_mgr, 'manager@example.invalid');
   -- handle_new_user() already made a profile per user; set the roles this test needs.
   insert into profiles (id, display_name, role, is_active) values
     (v_owner, 'owner', 'L1_OWNER', true), (v_branch, 'minburi', 'L2_BRANCH_ADMIN', true), (v_cm, 'cm', 'L3_CM_OPERATOR', true),
-    (v_food, 'foodiva', 'L4_SUPPLIER', true)
+    (v_food, 'foodiva', 'L4_SUPPLIER', true), (v_mgr, 'manager', 'L1_MANAGER', true)
     on conflict (id) do update set role = excluded.role, is_active = true;
   insert into locations (code, name_th, kind) values ('MB-TEST', 'สาขามีนบุรี', 'BRANCH') returning id into v_loc;
   insert into user_locations (profile_id, location_id) values (v_branch, v_loc);
@@ -69,8 +70,38 @@ begin
   assert v_err = 'Lot changes must follow the workflow', format('stage jump: got %s', v_err);
 
   -- One step forward is the normal workflow.
-  perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
-    'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev);
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
+    'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev) s;
+
+  -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots, changes config and
+  -- appends "owner" entries, but may not write as any other role.
+  perform set_config('test.uid', v_mgr::text, true);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
+      'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry actor does not match signed-in account', format('manager as branch: got %s', v_err);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
+      'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี","actor":"manager"}]'::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry role does not match signed-in account', format('manager as branch with actor: got %s', v_err);
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
+    'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"}]'::jsonb), v_rev) s;
+
+  -- The Owner may not claim to be the manager.
+  perform set_config('test.uid', v_owner::text, true);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
+      'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"},{"id":"e4","role":"owner","actor":"manager"}]'::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry actor does not match signed-in account', format('owner as manager: got %s', v_err);
 
   raise exception 'SAVE_APP_STATE_GUARD_TEST_PASSED';
 end $$;

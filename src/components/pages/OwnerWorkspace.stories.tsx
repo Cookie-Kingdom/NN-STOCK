@@ -51,3 +51,18 @@ export const History: Story = { parameters: at("history") };
 
 // ระบบ
 export const Config: Story = { parameters: at("config") };
+
+/* Account Manager (C4): the same workspace with no dashboard in the sidebar and no sales money.
+ * Report drops LINE MAN and the margin; History shows sales without amounts and no edit button. */
+const asManager = {
+  render: () => <OwnerWorkspace account={accountById("manager")!} />,
+};
+export const ManagerPurchaseOrders: Story = {
+  ...asManager,
+  parameters: at("po"),
+};
+export const ManagerReport: Story = { ...asManager, parameters: at("report") };
+export const ManagerHistory: Story = {
+  ...asManager,
+  parameters: at("history"),
+};

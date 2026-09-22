@@ -11,11 +11,14 @@ export function HistoryPanel({
   db,
   role,
   branch,
+  hideSales,
   onChanged,
 }: {
   db: Database;
   role: Role;
   branch: string;
+  /** Account Manager: sales arrive without their money, so they are not edited here. */
+  hideSales?: boolean;
   onChanged: (message: string) => void;
 }) {
   const list = visibleEntries(db, role, branch);
@@ -43,6 +46,7 @@ export function HistoryPanel({
                 role={role}
                 branch={branch}
                 voided={voided.has(entry.id)}
+                hideSales={hideSales}
                 onChanged={onChanged}
               />
             ))

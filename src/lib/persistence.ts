@@ -1,6 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import { branches, seed, type Database } from "./store";
+import { branches, seed, type Database, type Entry } from "./store";
 import { saveLegacyDataUrl } from "./attachment-store";
 import { LOCAL_DB, localAccountId } from "./local-db";
 import { createClient } from "./supabase/browser";
@@ -259,6 +259,11 @@ export function saveDatabase(db: Database): Promise<boolean> {
 export function saveDatabaseOrConflict(db: Database) {
   return writeDatabase(db, true);
 }
+let actor: Entry["actor"];
+/** session.ts sets this from the signed-in account; each entry saved after that carries it. */
+export function setSaveActor(next: Entry["actor"]) {
+  actor = next;
+}
 const isConflict = (message: string) =>
   message.includes("State changed on another device");
 function writeDatabase(
@@ -266,18 +271,20 @@ function writeDatabase(
   quietConflict: boolean,
 ): Promise<"saved" | "conflict" | "failed"> {
   const before = { cached, stored };
-  const strip = (entry: Database["entries"][number]) => ({
-    ...entry,
-    values: Object.fromEntries(
-      Object.entries(entry.values).filter(([key]) => key !== "attachmentData"),
-    ),
-  });
-  cached = { ...db, entries: db.entries.map(strip) };
   // Only splice when `db` continues the loaded history; a wholesale reset goes out as is.
   const continues =
     stored &&
     db.entries.length >= stored.count &&
     db.entries[stored.count - 1]?.id === stored.lastId;
+  const strip = (entry: Entry, index: number): Entry => ({
+    ...entry,
+    // Entries appended since the load are this account's: stamp the Account Manager's.
+    ...(actor && continues && index >= stored!.count ? { actor } : {}),
+    values: Object.fromEntries(
+      Object.entries(entry.values).filter(([key]) => key !== "attachmentData"),
+    ),
+  });
+  cached = { ...db, entries: db.entries.map(strip) };
   const portable: Database =
     !continues || !stored
       ? cached
@@ -285,7 +292,7 @@ function writeDatabase(
           ...db,
           entries: [
             ...(stored.payload.entries ?? []),
-            ...db.entries.slice(stored.count).map(strip),
+            ...cached.entries.slice(stored.count),
           ],
           config:
             JSON.stringify(db.config) === JSON.stringify(stored.config)

@@ -87,3 +87,27 @@ test("mirrors the save_app_state guards", () => {
     ).revision,
   ).toBe(3);
 });
+
+test("the Account Manager's entries carry its actor, and nobody else's may", () => {
+  const db = openLocalDb(":memory:");
+  const { payload } = readState(db);
+  const manager = accountById("manager");
+  const mine: Entry = { ...entry("owner", ""), actor: "manager" };
+  expect(() =>
+    saveState(db, manager, { ...payload, entries: [entry("owner", "")] }, 1),
+  ).toThrow("actor does not match");
+  expect(() =>
+    saveState(
+      db,
+      manager,
+      { ...payload, entries: [{ ...mine, role: "branch" }] },
+      1,
+    ),
+  ).toThrow("role does not match");
+  expect(() =>
+    saveState(db, owner, { ...payload, entries: [mine] }, 1),
+  ).toThrow("actor does not match");
+  expect(
+    saveState(db, manager, { ...payload, entries: [mine] }, 1).revision,
+  ).toBe(2);
+});

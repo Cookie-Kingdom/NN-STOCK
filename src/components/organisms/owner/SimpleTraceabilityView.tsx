@@ -37,7 +37,7 @@ import {
   processed,
   produced,
   producedBags,
-  roleName,
+  entryBy,
   shipmentLines,
   shipments,
   smokingInvoiceStatus,
@@ -560,7 +560,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         <td className={tdClass}>{latestDocument}</td>
                         <td className={tdClass}>{route}</td>
                         <td className={tdClass}>
-                          {latest ? roleName[latest.role] : "Owner"}
+                          {latest ? entryBy(latest) : "Owner"}
                         </td>
                         <td className={`${tdClass} text-right`}>
                           <Button
