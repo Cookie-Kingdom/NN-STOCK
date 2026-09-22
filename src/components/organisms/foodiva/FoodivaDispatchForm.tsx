@@ -64,7 +64,6 @@ export function FoodivaDispatchForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
@@ -73,7 +72,6 @@ export function FoodivaDispatchForm({
   lotId: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
@@ -135,12 +133,7 @@ export function FoodivaDispatchForm({
     >
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             เที่ยวนี้มาจาก Request ของ Owner / Manager — PO ซื้อ และน้ำหนักรายใบ
             ด้านล่างแก้ไม่ได้ ถ้าไม่ตรงให้แจ้ง Owner ให้แก้ Request
@@ -208,7 +201,6 @@ export function FoodivaDispatchForm({
               <Input
                 type="date"
                 value={values.pickupDate}
-                min={minDate}
                 onChange={(event) => set("pickupDate", event.target.value)}
               />
             </FormField>
@@ -351,7 +343,6 @@ export function FoodivaDispatchForm({
           lotId={lotId}
           date={date}
           onDate={onDate}
-          minDate={minDate}
           draft={draft}
           onClose={() => setPackingOpen(false)}
           onDraft={(input) => {

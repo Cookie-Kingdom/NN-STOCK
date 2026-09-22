@@ -227,7 +227,6 @@ export const seed: Database = {
     chefHouseAddress: "",
     logoData: "",
     logoName: "",
-    systemStartDate: "",
     branch: "ศาลาแดง",
     ...Object.fromEntries(
       materials.flatMap((_, i) => [
@@ -1716,13 +1715,6 @@ function record(
     timeZone: "Asia/Bangkok",
   });
   assert(date <= todayDate, "วันที่ทำรายการต้องไม่เกินวันนี้");
-  const startDate = db.config.systemStartDate || "";
-  // Only once the system has gone live; a future start date means setup is still in progress.
-  if (kind !== "config" && startDate && startDate <= todayDate)
-    assert(
-      date >= startDate,
-      `วันที่ทำรายการต้องไม่ก่อนวันเริ่มใช้ระบบ (${startDate})`,
-    );
   const next: Database = structuredClone(db),
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);

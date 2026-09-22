@@ -57,7 +57,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       onTab={setTab}
       date={date}
       onDate={ws.setDate}
-      minDate={ws.db.config.systemStartDate}
       badges={alerts.badges}
       notifications={alerts.notifications}
       showNotifications={showNotifications}

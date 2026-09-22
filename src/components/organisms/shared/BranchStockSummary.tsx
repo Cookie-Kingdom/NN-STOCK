@@ -50,7 +50,6 @@ export function BranchStockSummary({
   const [branch, setBranch] = useState(branches[0] ?? "");
   const [date, setDate] = useState(initialDate);
   const [picked, setPicked] = useState("");
-  const minDate = db.config.systemStartDate || undefined;
   const all = db.lots.map((lot) => ({
     id: lot.id,
     ...branchMeatDay(db, lot.id, branch, date),
@@ -59,16 +58,16 @@ export function BranchStockSummary({
   const total = sumDays(lots);
   // A lot picked on another date or branch may have nothing here: fall back to all.
   const lotId = lots.some((d) => d.id === picked) ? picked : "";
-  const history = Array.from({ length: DAYS }, (_, i) => addDays(date, -i))
-    .filter((day) => !minDate || day >= minDate)
-    .map((day) => ({
+  const history = Array.from({ length: DAYS }, (_, i) => addDays(date, -i)).map(
+    (day) => ({
       day,
       ...sumDays(
         (lotId ? [lotId] : lots.map((d) => d.id)).map((id) =>
           branchMeatDay(db, id, branch, day),
         ),
       ),
-    }));
+    }),
+  );
   const row = (d: Record<(typeof keys)[number], number>) =>
     keys.map((key) => kg(d[key]));
 
@@ -97,7 +96,6 @@ export function BranchStockSummary({
             variant="filter"
             type="date"
             value={date}
-            min={minDate}
             max={today()}
             onChange={(e) => e.target.value && setDate(e.target.value)}
           />

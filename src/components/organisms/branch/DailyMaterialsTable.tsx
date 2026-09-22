@@ -27,14 +27,12 @@ export function DailyMaterialsTable({
   branch,
   date,
   onDate,
-  minDate,
   disabled,
 }: {
   db: Database;
   branch: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   disabled: boolean;
 }) {
   const saved = entries(db, "materials", undefined, branch, date).at(-1);
@@ -120,7 +118,6 @@ export function DailyMaterialsTable({
               className="text-caption text-text-secondary"
               date={date}
               onDate={onDate}
-              minDate={minDate}
             />
             <Button
               variant="primary"

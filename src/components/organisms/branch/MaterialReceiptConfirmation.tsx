@@ -26,14 +26,12 @@ export function MaterialReceiptConfirmation({
   branch,
   date,
   onDate,
-  minDate,
   closed,
 }: {
   db: Database;
   branch: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   closed: boolean;
 }) {
   const pending = entries(db, "materialTransfer", undefined, branch).filter(
@@ -179,7 +177,6 @@ export function MaterialReceiptConfirmation({
               className="text-caption text-text-secondary"
               date={date}
               onDate={onDate}
-              minDate={minDate}
             />
             <div>
               <TableFilter label="ชื่อผู้รับจริง">

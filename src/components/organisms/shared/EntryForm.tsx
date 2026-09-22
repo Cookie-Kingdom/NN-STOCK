@@ -245,7 +245,6 @@ export function EntryForm({
   role,
   date,
   onDate,
-  minDate,
   modal,
   onClose,
   onSaved,
@@ -259,7 +258,6 @@ export function EntryForm({
   date: string;
   /** Sets the workspace date: the form has no date of its own. */
   onDate: (date: string) => void;
-  minDate?: string;
   modal: Modal;
   onClose: () => void;
   onSaved: (db: Database) => void;
@@ -481,12 +479,7 @@ export function EntryForm({
                 : "overflow-visible",
             )}
           >
-            <WorkingDateField
-              asField
-              date={date}
-              onDate={onDate}
-              minDate={minDate}
-            />
+            <WorkingDateField asField date={date} onDate={onDate} />
             {isPurchaseOrder && (
               <Notice className="mb-4.5">
                 เอกสาร PO ในส่วน Preview จะเปลี่ยนตามข้อมูลที่กรอกทันที

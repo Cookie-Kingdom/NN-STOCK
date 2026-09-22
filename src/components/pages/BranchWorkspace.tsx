@@ -47,7 +47,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
       onTab={ws.setTab}
       date={date}
       onDate={ws.setDate}
-      minDate={ws.db.config.systemStartDate}
       badges={badges}
       notifications={notifications}
       showNotifications={showNotifications}
@@ -101,7 +100,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             date={date}
             onDate={ws.setDate}
-            minDate={db.config.systemStartDate}
             closed={closed}
           />
         </>
@@ -119,7 +117,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             date={date}
             onDate={ws.setDate}
-            minDate={db.config.systemStartDate}
             disabled={closed}
           />
         </>

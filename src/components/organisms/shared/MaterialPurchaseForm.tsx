@@ -105,14 +105,12 @@ export function MaterialPurchaseForm({
   db,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
   db: Database;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
@@ -235,12 +233,7 @@ export function MaterialPurchaseForm({
           on Escape. */}
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย
             และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock

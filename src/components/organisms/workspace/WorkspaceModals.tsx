@@ -54,7 +54,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   const dateProps = {
     date,
     onDate: setDate,
-    minDate: db.config.systemStartDate,
   };
   const done = (message: string) => {
     setToast(message);

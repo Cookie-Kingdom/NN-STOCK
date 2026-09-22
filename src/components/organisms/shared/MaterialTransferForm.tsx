@@ -90,14 +90,12 @@ export function MaterialTransferForm({
   db,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
   db: Database;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
@@ -188,12 +186,7 @@ export function MaterialTransferForm({
     >
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             ติ๊กสาขาที่ต้องการส่ง แล้วกรอกจำนวน
             สามารถเลือกหลายรายการและบันทึกพร้อมกันได้

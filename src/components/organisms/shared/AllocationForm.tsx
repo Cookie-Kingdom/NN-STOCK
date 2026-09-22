@@ -95,7 +95,6 @@ export function AllocationForm({
   lotId,
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
@@ -103,7 +102,6 @@ export function AllocationForm({
   lotId: string;
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   /** Gets the summary, e.g. "ศาลาแดง 500.00 กก. · มีนบุรี 200.00 กก.". */
   onSaved: (summary: string) => void;
@@ -159,12 +157,7 @@ export function AllocationForm({
     <Dialog overline={lotId} title="จัดสรรเนื้อไปสาขา (กก.)" onClose={onClose}>
       <DialogForm onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <ReadRow label="สต๊อกกลางของ Lot นี้" value={`${fmt(stock)} กก.`} />
           <FormGrid>
             {branches.map((name) => (

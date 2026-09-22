@@ -109,22 +109,21 @@ function Heading() {
 export const PageHeadingWithToast: Story = { render: () => <Heading /> };
 
 function OutOfRangeHeading() {
-  const [date, setDate] = useState("2020-01-01");
+  const [date, setDate] = useState("2099-01-01");
   return (
     <div className="p-6">
       <PageHeading
         overline="เจ้าของร้าน"
         title="ภาพรวมวันนี้"
-        description="พิมพ์วันที่ก่อนวันเริ่มใช้ระบบ: มีคำเตือนใต้ช่องวันที่"
+        description="พิมพ์วันที่หลังวันนี้: มีคำเตือนใต้ช่องวันที่"
         date={date}
         onDate={setDate}
-        minDate="2026-09-01"
       />
     </div>
   );
 }
 
-/** A typed date outside min/max (the picker alone does not stop typing). */
+/** A typed date after today (the picker's `max` alone does not stop typing). */
 export const PageHeadingDateOutOfRange: Story = {
   render: () => <OutOfRangeHeading />,
 };

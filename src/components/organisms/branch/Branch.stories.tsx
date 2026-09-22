@@ -99,11 +99,12 @@ export const RiceTasks: Story = {
   ),
 };
 
-export const SalesTasks: Story = {
+/** ยอดขาย/ของเสีย อยู่ในขั้นที่ 3 ของ BranchDailyWorkflow — ตารางนี้เหลือเฉพาะกล่องโปรโมท */
+export const InfluencerBoxTasks: Story = {
   render: () => (
     <DailyTaskTable
-      title="ยอดขายและกล่องโปรโมท"
-      kinds={["sale", "influencerBox"]}
+      title="กล่องโปรโมทอินฟลูเอนเซอร์"
+      kinds={["influencerBox"]}
       db={db}
       branch={branch}
       date={day}

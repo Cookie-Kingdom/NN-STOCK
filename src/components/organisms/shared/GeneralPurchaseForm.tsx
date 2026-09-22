@@ -159,13 +159,11 @@ function build(
 export function GeneralPurchaseForm({
   date,
   onDate,
-  minDate,
   onClose,
   onSaved,
 }: {
   date: string;
   onDate: (date: string) => void;
-  minDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -289,12 +287,7 @@ export function GeneralPurchaseForm({
     >
       <DialogForm onSubmit={submit}>
         <DialogBody>
-          <WorkingDateField
-            asField
-            date={date}
-            onDate={onDate}
-            minDate={minDate}
-          />
+          <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด
             น้ำดอง) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก

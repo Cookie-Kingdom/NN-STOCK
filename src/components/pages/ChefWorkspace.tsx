@@ -31,7 +31,6 @@ export function ChefWorkspace({ account }: { account: Account }) {
       onTab={ws.setTab}
       date={ws.date}
       onDate={ws.setDate}
-      minDate={ws.db.config.systemStartDate}
       badges={alerts.badges}
       notifications={alerts.notifications}
       showNotifications={showNotifications}

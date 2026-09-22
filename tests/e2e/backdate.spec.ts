@@ -21,7 +21,7 @@ import {
  * field "วันที่ทำรายการ", bound to the page-heading date; a past date shows the
  * "บันทึกย้อนหลัง" badge, and history tags entries dated before the day they were
  * recorded. mutate() refuses a stage step dated before the lot's latest entry and
- * dates outside systemStartDate … today. */
+ * any date after today. */
 
 test.skip(
   process.env.NEXT_PUBLIC_LOCAL_DB !== "1",
@@ -232,34 +232,13 @@ test("Foodiva: ใบขนส่งขาไปลงวันที่ก่�
     .toEqual([`dispatch ${TODAY}`, `packingList ${TODAY}`]);
 });
 
-test("Owner: วันที่นอกช่วง (หลังวันนี้ / ก่อนวันเริ่มใช้งานจริง) ขึ้นคำเตือนและบันทึกไม่ได้", async ({
-  page,
-}) => {
-  const start = bangkokDate(-3);
-  const range = `วันที่อยู่นอกช่วงที่บันทึกได้ (${start} – ${TODAY})`;
+test("Owner: วันที่หลังวันนี้ ขึ้นคำเตือนและบันทึกไม่ได้", async ({ page }) => {
+  const range = `วันที่อยู่นอกช่วงที่บันทึกได้ (ไม่เกิน ${TODAY})`;
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
 
-  await tab(page, "ตั้งค่า");
-  const main = tableSection(page, "ข้อมูลหลักก่อนเริ่มระบบ (System setup)");
-  await pointAndClick(
-    page,
-    main.getByRole("button", { name: "ขอแก้ไข (Request edit)" }),
-  );
-  const startInput = main.getByLabel("systemStartDate");
-  await startInput.fill(start);
-  await expect(startInput).toHaveValue(start);
-  await pointAndClick(
-    page,
-    main.getByRole("button", { name: "บันทึกและล็อก (Save & lock)" }),
-  );
-  await expect(
-    main.getByRole("button", { name: "ขอแก้ไข (Request edit)" }),
-  ).toBeVisible();
-
   await tab(page, "สต๊อกของทั้งหมด");
   await button(page, "+ ซื้อวัสดุเข้าคลัง");
-  await expect(formDate(page)).toHaveAttribute("min", start);
   await expect(formDate(page)).toHaveAttribute("max", TODAY);
   await dialog(page).getByLabel(`ซื้อ ${BOX}`).check();
   await field(page, `จำนวนซื้อ ${BOX}`, "10");
@@ -271,16 +250,8 @@ test("Owner: วันที่นอกช่วง (หลังวันน�
   await expect(alertIn(dialog(page), range)).toBeVisible();
   await submitAndExpectError(page, "วันที่ทำรายการต้องไม่เกินวันนี้");
 
-  // Before the system start date.
-  await setFormDate(page, bangkokDate(-5));
-  await expect(alertIn(dialog(page), range)).toBeVisible();
-  await submitAndExpectError(
-    page,
-    `วันที่ทำรายการต้องไม่ก่อนวันเริ่มใช้ระบบ (${start})`,
-  );
-
-  // Back in range: the warning goes away.
-  await setFormDate(page, start);
+  // Back in range: the warning goes away, however far back the date goes.
+  await setFormDate(page, bangkokDate(-30));
   await expect(alertIn(dialog(page), range)).toHaveCount(0);
   expect(
     (await storedEntries(page)).filter((e) => e.kind === "materialReceive"),
