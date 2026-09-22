@@ -43,6 +43,7 @@ import {
   smokingInvoiceStatus,
   stages,
   type Database,
+  type Entry,
   type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -119,6 +120,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
             ? lotIssueDate(db, a).localeCompare(lotIssueDate(db, b))
             : lotIssueDate(db, b).localeCompare(lotIssueDate(db, a)),
     );
+  const logOrder = new Map(db.entries.map((entry, index) => [entry.id, index]));
   const toggle = (lotId: string) =>
     setExpandedLot((current) => (current === lotId ? null : lotId));
   return (
@@ -200,31 +202,51 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   const allocations = entries(db, "allocate", lot.id);
                   const sales = entries(db, "sale", lot.id);
                   const smokeEntries = entries(db, "smoke", lot.id);
+                  // The shipment's most recent step in log order, whichever kind it is.
                   const latest = [
-                    returnTrip,
-                    chefReceive,
-                    dispatch,
-                    chefInvoice,
                     smokeOrder,
-                  ].find(Boolean);
-                  const latestDocument = foodivaReturn
-                    ? `Foodiva รับเข้าตู้ · ${fmt(n(foodivaReturn.values, "receivedKg"))} กก.`
+                    chefInvoice,
+                    dispatch,
+                    chefReceive,
+                    ...smokeEntries,
+                    returnTrip,
+                    foodivaReturn,
+                    central,
+                    ...allocations,
+                    ...sales,
+                  ]
+                    .filter((entry): entry is Entry => !!entry)
+                    .sort(
+                      (a, b) =>
+                        (logOrder.get(a.id) ?? 0) - (logOrder.get(b.id) ?? 0),
+                    )
+                    .at(-1);
+                  const latestDocument = sales.length
+                    ? `ขายที่สาขา · ${sales.length} วัน`
+                    : allocations.length
+                      ? `จัดสรรไปสาขา · ${allocations.length} ใบ`
+                      : central
+                        ? `รับเข้าสต๊อกกลาง · ${fmt(n(central.values, "centralKg"))} กก.`
+                        : foodivaReturn
+                          ? `Foodiva รับเข้าตู้ · ${fmt(n(foodivaReturn.values, "receivedKg"))} กก.`
+                          : returnTrip
+                            ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
+                            : chefInvoice
+                              ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
+                              : smokeOrder
+                                ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
+                                : dispatch
+                                  ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
+                                  : "รอ Foodiva ทำใบขนส่ง";
+                  const route = allocations.length
+                    ? "สต๊อกกลาง → สาขา"
                     : returnTrip
-                      ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
-                      : chefInvoice
-                        ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
-                        : smokeOrder
-                          ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
-                          : dispatch
-                            ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
-                            : "รอ Foodiva ทำใบขนส่ง";
-                  const route = returnTrip
-                    ? "Chef House → Foodiva"
-                    : lot.stage >= 2 && lot.stage <= 5
-                      ? "Foodiva → Chef House"
-                      : lot.stage >= 6
-                        ? "Chef House → Foodiva"
-                        : "Foodiva · รอเริ่มขนส่ง";
+                      ? "Chef House → Foodiva"
+                      : lot.stage >= 2 && lot.stage <= 5
+                        ? "Foodiva → Chef House"
+                        : lot.stage >= 6
+                          ? "Chef House → Foodiva"
+                          : "Foodiva · รอเริ่มขนส่ง";
                   const chefFile = uploadedAttachment(
                     db,
                     "smokingInvoice",
