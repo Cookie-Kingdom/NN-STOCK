@@ -8,8 +8,10 @@ import {
   entryBy,
   revenue,
   saleMoneyKeys,
+  mutate,
   visibleDatabase,
 } from "@/lib/store";
+import { restoreSaleMoney, stripSaleMoney } from "@/lib/sale-money";
 import { chillDay, last, purchaseInfo, setup } from "./fixtures";
 
 const manager = accountById("manager")!;
@@ -47,6 +49,33 @@ describe("C4 Account Manager", () => {
     expect(
       entries(db, "sale").find((e) => e.id === sale.id)?.values.revenue,
     ).toBe("190000");
+  });
+
+  test("approves a sale's edit request from the copy without money; the server fills it in", () => {
+    const { s, sale, request } = saleWithRequest();
+    // What the manager's browser holds: load_app_state / GET /api/local-db strip the money.
+    const seen = stripSaleMoney(s.db);
+    const approved = mutate(
+      seen,
+      manager.role,
+      "editDecision",
+      { requestId: request.id, decision: editDecisions.approve },
+      "",
+      sale.date,
+    );
+    expect(JSON.stringify(approved)).not.toMatch(
+      /"(to\.|from\.)?(revenue|lineMan|menuTotal)"/,
+    );
+    // save_app_state (restoreSaleMoney locally) puts the stored and requested money back.
+    const saved = restoreSaleMoney(s.db, approved);
+    expect(saved.entries.slice(0, s.db.entries.length)).toEqual(s.db.entries);
+    const edited = entries(saved, "sale").find((e) => e.id === sale.id)!;
+    expect(edited.values).toMatchObject({
+      soldKg: "60",
+      lineMan: "190000",
+      revenue: "190000",
+      menuTotal: sale.values.menuTotal,
+    });
   });
 
   test("sees no sales money, but still sees purchase prices and costs", () => {

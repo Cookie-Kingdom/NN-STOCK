@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { seed, sevenDayRoleplay } from "@/lib/store";
+import { stripSaleMoney } from "@/lib/sale-money";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served
@@ -20,10 +21,19 @@ const open = () =>
     db: mod.openLocalDb(process.env.LOCAL_DB_FILE || ".local/app.db"),
   })));
 
+const signedIn = async () =>
+  accountById((await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value);
+
+/** Like load_app_state: the Account Manager's copy has no sale money in it (C4). */
 export async function GET() {
   if (!enabled) return new Response(null, { status: 404 });
   const { db, readState } = await open();
-  return Response.json(readState(db));
+  const row = readState(db);
+  return Response.json(
+    (await signedIn())?.hidesSales
+      ? { ...row, payload: stripSaleMoney(row.payload) }
+      : row,
+  );
 }
 
 /** e2e setup: `?state=seed` resets to the seed (startFresh), `?state=sample` loads
@@ -49,12 +59,12 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   if (!enabled) return new Response(null, { status: 404 });
   const { db, saveState } = await open();
-  const account = accountById(
-    (await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value,
-  );
+  const account = await signedIn();
   const { payload, expectedRevision } = await request.json();
   try {
-    return Response.json(saveState(db, account, payload, expectedRevision));
+    // Like save_app_state, only the new revision goes back: never the payload.
+    const { revision } = saveState(db, account, payload, expectedRevision);
+    return Response.json({ revision });
   } catch (error) {
     return Response.json(
       { message: (error as Error).message },
