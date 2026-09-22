@@ -570,7 +570,8 @@ export function entries(
 ) {
   const voided = new Set(
     db.entries
-      .filter((entry) => entry.kind === "void")
+      // Only the Owner voids; a void appended under another role changes nothing.
+      .filter((entry) => entry.kind === "void" && entry.role === "owner")
       .map((entry) => entry.values.targetId),
   );
   // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
@@ -677,7 +678,11 @@ export function shipmentLines(lot: Lot): ShipmentLine[] {
 }
 /** Shipment lots whose Request was not voided. Reads only the log's voids, so it also works on visibleDatabase. */
 export function shipments(db: Database) {
-  const voided = new Set(entries(db, "void").map((e) => e.values.targetId));
+  const voided = new Set(
+    entries(db, "void")
+      .filter((e) => e.role === "owner")
+      .map((e) => e.values.targetId),
+  );
   const cancelled = new Set(
     db.entries
       .filter((e) => e.kind === "shipmentRequest" && voided.has(e.id))

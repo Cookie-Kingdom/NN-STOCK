@@ -164,3 +164,15 @@ describe("B5 edit requests", () => {
     ).toThrow("เกินเนื้อที่ละลายแล้ว");
   });
 });
+
+test("a void appended under a non-owner role is ignored", () => {
+  const { s, sale } = closedDay();
+  const forged = {
+    ...sale,
+    id: `${sale.id}-forged-void`,
+    kind: "void",
+    values: { targetId: sale.id, reason: "x" },
+  };
+  const db = { ...s.db, entries: [...s.db.entries, forged] };
+  expect(entries(db, "sale").some((e) => e.id === sale.id)).toBe(true);
+});
