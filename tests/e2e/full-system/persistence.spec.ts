@@ -711,7 +711,7 @@ test("G5 A เปิดจัดสรรค้าง (ศาลาแดง 30 
         await expect(
           formAlert(
             page,
-            "น้ำหนักรวม 30.00 กก. เกินสต๊อกกลาง 10.00 กก.",
+            "น้ำหนักรวม 30.00 กก. เกินสต๊อกกลาง · กรอกได้สูงสุด 10.00 กก.",
           ).first(),
         ).toBeVisible();
         await expect(dialog(page)).toBeVisible();

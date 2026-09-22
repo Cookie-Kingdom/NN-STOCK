@@ -243,7 +243,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await field(page, "ศาลาแดง (กก.)", "500.5");
   await a_expectOverStock(
     page,
-    "น้ำหนักรวม 500.50 กก. เกินสต๊อกกลาง 500.00 กก.",
+    "น้ำหนักรวม 500.50 กก. เกินสต๊อกกลาง · กรอกได้สูงสุด 500.00 กก.",
   );
   await field(page, "ศาลาแดง (กก.)", "500");
   await button(page, "บันทึกการจัดสรร");

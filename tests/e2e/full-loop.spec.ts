@@ -203,7 +203,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await typeValue(page, allocationDialog.getByLabel("มีนบุรี (กก.)"), "40");
   // More than central stock is refused before saving.
   await expect(allocationDialog).toContainText(
-    "น้ำหนักรวม 90.00 กก. เกินสต๊อกกลาง 79.00 กก.",
+    "น้ำหนักรวม 90.00 กก. เกินสต๊อกกลาง · กรอกได้สูงสุด 79.00 กก.",
   );
   // "ที่เหลือทั้งหมด" drains the lot to exactly 0 (BUG-1: nothing is left stuck in central).
   await pointAndClick(
