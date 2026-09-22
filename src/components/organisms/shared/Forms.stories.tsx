@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import {
   allocatedDb,
   centralDb,
+  chillDb,
   day,
   demoDb,
   multiPoPackedDb,
+  nextDay,
   rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
@@ -272,6 +274,50 @@ export const SmokeOrderPreview: Story = {
       db={chefSmokeDb}
       lotId={chefSmokeDb.lots[0].id}
       onClose={onClose}
+    />
+  ),
+};
+
+/** 95 g per pack: the form warns, but the sale still saves (no FormError). */
+export const BranchSalePackWeightWarning: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <EntryForm
+      db={chillDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={nextDay}
+      onDate={onDate}
+      modal={{ kind: "sale", lotId: chillDb.lots.at(-1)!.id }}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const form = within(canvasElement.ownerDocument.body);
+    const addons = form.getByLabelText(/เนื้อซีล Add-on/);
+    await userEvent.clear(addons);
+    await userEvent.type(addons, "10");
+    await userEvent.type(
+      form.getByLabelText(/น้ำหนักที่ใช้ไปจริงวันนี้/),
+      "0.95",
+    );
+  },
+};
+
+/** Close dialog with 4.5 kg left: shown as คงเหลือชิล, no "use it all" error. */
+export const BranchCloseDayWithChill: Story = {
+  parameters: { db: chillDb },
+  render: () => (
+    <EntryForm
+      db={chillDb}
+      role="branch"
+      branch="ศาลาแดง"
+      date={day}
+      onDate={onDate}
+      modal={{ kind: "closeDay", lotId: "" }}
+      onClose={onClose}
+      onSaved={onSaved}
     />
   ),
 };

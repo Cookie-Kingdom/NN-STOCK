@@ -26,7 +26,7 @@ test("a material purchase with every material ticked lands each one in Owner sto
 });
 
 // QA round 2, BUG-3: the sale form's refusal must carry a reason for FormError.
-test("a sale over the ready stock is refused with a message", () => {
+test("a sale over the thawed stock is refused with a message", () => {
   const s = ready();
   s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
   s.run("branch", "receive", { kg: "5", allocation: last(s).id });
@@ -42,7 +42,7 @@ test("a sale over the ready stock is refused with a message", () => {
       expense: "0",
       lineMan: "0",
     }),
-  ).toThrow("น้ำหนักขายและ Waste เกินเนื้อพร้อมขาย");
+  ).toThrow("น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)");
 });
 
 test("defaults fill dates, the first select option and zero-allowed numbers", () => {

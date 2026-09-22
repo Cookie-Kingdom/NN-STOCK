@@ -4,6 +4,7 @@ import {
   averageYield,
   balance,
   branchMaterialStock,
+  branchMeatDay,
   branches,
   centralStock,
   chiliAllocated,
@@ -22,6 +23,7 @@ import {
   pendingReceiveKg,
   poRemainingKg,
   packWeights,
+  packWeightWarning,
   processLoss,
   produced,
   producedBags,
@@ -54,6 +56,7 @@ import {
   packingList,
   packs,
   purchase,
+  chillDay,
   ready,
   readyToDispatch,
   received,
@@ -1050,13 +1053,13 @@ describe("branch supplies", () => {
         boxes: "10",
         addons: "0",
         chiliAddons: "0",
-        soldKg: "2",
+        soldKg: "6",
         wasteKg: "0",
         riceWasteKg: "0",
         expense: "0",
         lineMan: "3500",
       }),
-    ).toThrow(/100–103 กรัม/);
+    ).toThrow(/เกินเนื้อที่ละลายแล้ว/);
   });
 });
 
@@ -1095,7 +1098,7 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   ).toThrow(/อินฟลูเอนเซอร์/);
   expect(() =>
     s.run("branch", "influencerBox", { ...box, soldKg: "9" }),
-  ).toThrow(/100–103 กรัม/);
+  ).toThrow(/เกินเนื้อที่ละลายแล้ว/);
   expect(() =>
     s.run("branch", "influencerBox", {
       ...box,
@@ -1291,5 +1294,93 @@ describe("backdated entries", () => {
         "2026-09-01",
       ),
     ).toThrow(`วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${day})`);
+  });
+});
+
+describe("chill carryover", () => {
+  const nextDay = "2026-09-10";
+  const branch = "ศาลาแดง";
+  const lotOf = (db: Database) => db.lots.at(-1)!.id;
+
+  test("a day closes with 4.5 kg left, which carries into tomorrow as chill", () => {
+    const s = chillDay();
+    const id = lotOf(s.db);
+    expect(branchMeatDay(s.db, id, branch, day)).toEqual({
+      chillIn: 0,
+      thawed: 70,
+      used: 65.5,
+      waste: 0,
+      chillOut: 4.5,
+    });
+    // The close only needs today's checklist; leftover meat is not an error.
+    const checklist = {
+      ...s.db,
+      entries: [
+        ...s.db.entries,
+        entry({ kind: "materials", date: day }),
+        entry({ kind: "rice", date: day }),
+      ],
+    };
+    const closedDb = mutate(
+      checklist,
+      "branch",
+      "closeDay",
+      { time: "22:00", confirm: "ผู้ดูแล" },
+      "",
+      day,
+      branch,
+    );
+    expect(isClosed(closedDb, branch, day)).toBe(true);
+    expect(branchMeatDay(closedDb, id, branch, nextDay)).toMatchObject({
+      chillIn: 4.5,
+      thawed: 0,
+      chillOut: 4.5,
+    });
+    const used = mutate(
+      closedDb,
+      "branch",
+      "sale",
+      {
+        boxes: "0",
+        addons: "45",
+        chiliAddons: "0",
+        soldKg: "4.5",
+        wasteKg: "0",
+        riceWasteKg: "0",
+        expense: "0",
+        lineMan: "14400",
+      },
+      id,
+      nextDay,
+      branch,
+    );
+    expect(branchMeatDay(used, id, branch, nextDay)).toMatchObject({
+      chillIn: 4.5,
+      used: 4.5,
+      chillOut: 0,
+    });
+    expect(balance(used, id, branch).ready).toBeCloseTo(0, 6);
+  });
+
+  test("95 g per pack saves and only warns", () => {
+    const s = ready();
+    s.run("owner", "allocate", { branch, kg: "5" });
+    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    s.run("branch", "thaw", { kg: "5", bags: "2" });
+    const sale = {
+      boxes: "0",
+      addons: "10",
+      chiliAddons: "0",
+      soldKg: "0.95",
+      wasteKg: "0",
+      riceWasteKg: "0",
+      expense: "0",
+      lineMan: "3200",
+    };
+    expect(packWeightWarning(sale)).toMatch(/95\.0 กรัม/);
+    expect(packWeightWarning({ ...sale, soldKg: "1.01" })).toBe("");
+    s.run("branch", "sale", sale);
+    expect(last(s).values.soldKg).toBe("0.95");
+    expect(balance(s.db, lotOf(s.db), branch).ready).toBeCloseTo(4.05, 6);
   });
 });

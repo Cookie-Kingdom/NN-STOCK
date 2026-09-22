@@ -14,6 +14,7 @@ import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
+import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -36,6 +37,7 @@ import {
   entries,
   mutate,
   n,
+  packWeightWarning,
   roleName,
   smokingInvoiceRejection,
   stages,
@@ -441,7 +443,7 @@ export function EntryForm({
                       {l.id} ·{" "}
                       {kind === "allocate"
                         ? `${fmt(centralStock(db, l.id))} กก. ในคลังกลาง`
-                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} พร้อมขาย`}
+                        : `${fmt(balance(db, l.id, branch).frozen)} แช่แข็ง / ${fmt(balance(db, l.id, branch).ready)} คงเหลือชิล`}
                     </option>
                   ))}
                 </Select>
@@ -491,7 +493,10 @@ export function EntryForm({
               </label>
             )}
             {kind === "closeDay" && (
-              <DailySummary db={db} branch={branch} date={date} />
+              <>
+                <MeatDaySummary db={db} branch={branch} date={date} />
+                <DailySummary db={db} branch={branch} date={date} />
+              </>
             )}
             {rejection && (
               <Notice tone="warning" className="mt-3">
@@ -563,6 +568,13 @@ export function EntryForm({
                 />
               )}
             </FormGrid>
+            {(kind === "sale" || kind === "influencerBox") &&
+              n(values, "soldKg") > 0 &&
+              packWeightWarning(values) && (
+                <Notice tone="warning" className="mt-3">
+                  {packWeightWarning(values)}
+                </Notice>
+              )}
             {reference && (
               <ReferenceCard
                 title={reference.title}

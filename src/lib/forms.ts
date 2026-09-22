@@ -453,12 +453,11 @@ export const forms: Record<string, Field[]> = {
       type: "textarea",
       optional: true,
     },
-    number(
-      "soldKg",
-      "น้ำหนักเนื้อซีลพร้อมขายจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
-      true,
-    ),
-    number("wasteKg", "Waste เนื้อจาก Lot นี้ (กก.)", true),
+    {
+      ...number("soldKg", "น้ำหนักที่ใช้ไปจริงวันนี้ (กก.)", true),
+      hint: "ปกติ 100–103 กรัมต่อซีล · เนื้อที่เหลือระบบคำนวณเป็นคงเหลือชิลยกไปวันถัดไป",
+    },
+    number("wasteKg", "น้ำหนักเวสต์ (กก.)", true),
     number("riceWasteKg", "Waste ข้าว (กก.)", true),
     number("lineMan", "ยอดขาย LINE MAN ที่บันทึก (บาท)", true),
     number("expense", "ค่าใช้จ่ายสาขา (บาท)", true),
@@ -476,11 +475,10 @@ export const forms: Record<string, Field[]> = {
     ),
     number("addons", "เนื้อซีลเพิ่ม (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
-    number(
-      "soldKg",
-      "น้ำหนักเนื้อที่ส่งจาก Lot นี้ (กก. · 100–103 กรัม/ซีล)",
-      true,
-    ),
+    {
+      ...number("soldKg", "น้ำหนักเนื้อที่ใช้ส่งจริง (กก.)", true),
+      hint: "ปกติ 100–103 กรัมต่อซีล",
+    },
     number("shippingFee", "ค่าส่ง (บาท)", true),
     note,
   ],

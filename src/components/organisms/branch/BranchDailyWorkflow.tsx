@@ -89,7 +89,7 @@ export function BranchDailyWorkflow({
       ) : saleDone ? (
         "บันทึกแล้ว"
       ) : (
-        "รอเนื้อพร้อมขาย"
+        "รอเนื้อละลาย"
       ),
       ready.length ? (
         <Button
