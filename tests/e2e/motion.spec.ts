@@ -158,7 +158,13 @@ test("Button: กดค้างแล้วย่อเหลือ 0.97 แต
 
   await submit.evaluate((element) => element.setAttribute("disabled", ""));
   await page.mouse.down();
-  await page.waitForTimeout(300);
+  // Let any press transition run out instead of sleeping; a disabled button starts none.
+  await submit.evaluate(async (element) => {
+    // two frames so a (wrongly) started :active transition shows up in getAnimations
+    for (let i = 0; i < 2; i += 1)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    await Promise.all(element.getAnimations().map((a) => a.finished));
+  });
   expect(await scale()).toBe(1);
   await page.mouse.up();
 });
