@@ -2,7 +2,7 @@
 
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
-  balance,
+  branchMeatDay,
   chiliAllocated,
   chiliStock,
   cookedRiceStock,
@@ -35,8 +35,13 @@ export function DailySummary({
           "บาท",
         ],
         [
-          "เนื้อพร้อมขายทั้งหมด",
-          fmt(db.lots.reduce((s, l) => s + balance(db, l.id, branch).ready, 0)),
+          "คงเหลือชิลทั้งหมด (ยกไปวันถัดไป)",
+          fmt(
+            db.lots.reduce(
+              (s, l) => s + branchMeatDay(db, l.id, branch, date).chillOut,
+              0,
+            ),
+          ),
           "กก.",
         ],
         ...(branch === "ศาลาแดง"

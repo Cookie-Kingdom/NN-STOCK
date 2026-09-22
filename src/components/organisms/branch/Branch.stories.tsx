@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
+  chillDb,
   day,
   demoDb,
   materialTransferDb,
+  nextDay,
   open,
 } from "../../../../.storybook/fixtures";
 import { isClosed } from "@/lib/store";
@@ -13,6 +15,7 @@ import { DailyMaterialsTable } from "./DailyMaterialsTable";
 import { DailySummary } from "./DailySummary";
 import { DailyTaskTable } from "./DailyTaskTable";
 import { MaterialReceiptConfirmation } from "./MaterialReceiptConfirmation";
+import { MeatDaySummary } from "./MeatDaySummary";
 
 const db = demoDb;
 const branch = "ศาลาแดง";
@@ -103,4 +106,16 @@ export const Summary: Story = {
       <ChiliDailySummary db={db} branch={branch} date={day} />
     </>
   ),
+};
+
+/** 70 kg thawed, 65.5 kg used: 4.5 kg คงเหลือชิล goes to tomorrow, and the day can close. */
+export const MeatDay: Story = {
+  parameters: { db: chillDb },
+  render: () => <MeatDaySummary db={chillDb} branch={branch} date={day} />,
+};
+
+/** The next day: yesterday's 4.5 kg shows as ชิลยกมา. */
+export const MeatDayChillCarriedIn: Story = {
+  parameters: { db: chillDb },
+  render: () => <MeatDaySummary db={chillDb} branch={branch} date={nextDay} />,
 };

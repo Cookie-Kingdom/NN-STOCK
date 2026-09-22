@@ -195,7 +195,7 @@ export function OwnerStockView({
             location: branchName,
             quantity: fmt(stock.frozen + stock.ready),
             unit: "กก.",
-            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
             meatType: "เนื้อรมควัน",
           };
         }),

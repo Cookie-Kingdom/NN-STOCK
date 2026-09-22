@@ -8,6 +8,7 @@ import {
   type Database,
 } from "@/lib/store";
 import {
+  chillDay,
   closed,
   confirm,
   day,
@@ -329,3 +330,9 @@ export const materialTransferDb: Database = (() => {
 
 // Named so the Actions panel logs each open("kind", lotId) call.
 export const open = fn().mockName("open");
+
+/** ศาลาแดง on `day`: 70 kg thawed, 65.5 kg used, no waste, so 4.5 kg goes into the
+ * chiller. The day is still open, so its close dialog can be shown. */
+export const chillDb: Database = chillDay().db;
+/** The day after `day`: chillDb's 4.5 kg shows as ชิลยกมา and can be used. */
+export const nextDay = "2026-09-10";

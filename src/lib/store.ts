@@ -765,14 +765,56 @@ export function offShelf(
     ...entries(db, "influencerBox", lotId, branch, date),
   ];
 }
+const usedKg = (items: Entry[]) => sum(items, "soldKg");
+const wastedKg = (items: Entry[]) => sum(items, "wasteKg");
+/** Branch meat of one lot, all dates. `ready` is thawed meat not yet used or wasted:
+ * the chill the branch can still use, whatever day it was thawed. */
 export function balance(db: Database, lotId: string, branch: string) {
   const received = sum(entries(db, "receive", lotId, branch), "kg"),
     thawed = sum(entries(db, "thaw", lotId, branch), "kg");
-  const used = offShelf(db, lotId, branch).reduce(
-    (s, e) => s + num(e.values, "soldKg") + num(e.values, "wasteKg"),
-    0,
-  );
-  return { received, frozen: received - thawed, ready: thawed - used };
+  const out = offShelf(db, lotId, branch);
+  return {
+    received,
+    frozen: received - thawed,
+    ready: thawed - usedKg(out) - wastedKg(out),
+  };
+}
+/** One branch day of one lot. Thawed meat left at the end of a day stays in the chiller
+ * and carries into the next day (`chillIn`); nothing forces it to zero at close.
+ * chillIn + thawed = used + waste + chillOut. */
+export function branchMeatDay(
+  db: Database,
+  lotId: string,
+  branch: string,
+  date: string,
+) {
+  const before = (items: Entry[]) => items.filter((e) => e.date < date);
+  const thaws = entries(db, "thaw", lotId, branch);
+  const out = offShelf(db, lotId, branch);
+  const today = offShelf(db, lotId, branch, date);
+  const chillIn =
+    sum(before(thaws), "kg") - usedKg(before(out)) - wastedKg(before(out));
+  const thawed = sum(entries(db, "thaw", lotId, branch, date), "kg");
+  const used = usedKg(today),
+    waste = wastedKg(today);
+  return {
+    chillIn,
+    thawed,
+    used,
+    waste,
+    chillOut: chillIn + thawed - used - waste,
+  };
+}
+/** Meat used per sealed pack outside 100–103 g: a warning for the form, never a
+ * block — the branch types what it really used. "" when it is fine. */
+export function packWeightWarning(v: Values) {
+  const packs = num(v, "boxes") + num(v, "addons"),
+    kg = num(v, "soldKg");
+  if (!packs) return kg > 0 ? "มีน้ำหนักเนื้อที่ใช้ แต่ยังไม่มีจำนวนซีล" : "";
+  const grams = (kg / packs) * 1000;
+  return grams < 99.99 || grams > 103.01
+    ? `เฉลี่ย ${grams.toFixed(1)} กรัมต่อซีล อยู่นอกช่วง 100–103 กรัม · บันทึกได้ แต่ควรตรวจน้ำหนักอีกครั้ง`
+    : "";
 }
 /** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
  * sees and types; the allocation is done once that reaches 0, or once a receive was
@@ -2062,18 +2104,11 @@ export function mutate(
     v.riceServings = v.boxes;
     v.chiliComplimentary = "0";
     v.chiliSold = String(n(v, "chiliAddons"));
-    const soldPacks = n(v, "boxes") + n(v, "addons");
-    assert(
-      soldPacks === 0
-        ? n(v, "soldKg") === 0
-        : n(v, "soldKg") >= soldPacks * 0.1 - 0.001 &&
-            n(v, "soldKg") <= soldPacks * 0.103 + 0.001,
-      "น้ำหนักเนื้อขายต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
-    );
+    // 100–103 g per pack is only a warning (packWeightWarning): the form shows it.
     assert(
       n(v, "soldKg") + n(v, "wasteKg") <=
         balance(db, lotId, branch).ready + 0.001,
-      "น้ำหนักขายและ Waste เกินเนื้อพร้อมขาย",
+      "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
     );
     assert(
       n(v, "riceServings") * 0.2 + n(v, "riceWasteKg") <=
@@ -2128,15 +2163,8 @@ export function mutate(
       "กรอกของที่ส่งให้อินฟลูเอนเซอร์อย่างน้อย 1 รายการ",
     );
     assert(
-      sentPacks === 0
-        ? n(v, "soldKg") === 0
-        : n(v, "soldKg") >= sentPacks * 0.1 - 0.001 &&
-            n(v, "soldKg") <= sentPacks * 0.103 + 0.001,
-      "น้ำหนักเนื้อที่ส่งต้องอยู่ระหว่าง 100–103 กรัมต่อซีล",
-    );
-    assert(
       n(v, "soldKg") <= balance(db, lotId, branch).ready + 0.001,
-      "น้ำหนักที่ส่งเกินเนื้อพร้อมขาย",
+      "น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
     );
     v.riceServings = v.boxes;
     v.chiliSold = String(n(v, "chiliAddons"));
@@ -2175,10 +2203,7 @@ export function mutate(
         ? "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ"
         : "ยังไม่บันทึกข้าวช่วงเช้า",
     );
-    assert(
-      db.lots.every((l) => Math.abs(balance(db, l.id, branch).ready) < 0.005),
-      "ยังมีเนื้อพร้อมขาย ต้องบันทึกขายหรือ Waste ให้เป็นศูนย์",
-    );
+    // Thawed meat left over is not an error: it carries into tomorrow as chill.
     required(v, "confirm", "ชื่อผู้ยืนยัน");
   } else if (kind === "expense") {
     positive(v, "amount", "ยอดเงิน");

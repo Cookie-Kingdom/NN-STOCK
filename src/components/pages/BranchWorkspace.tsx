@@ -8,6 +8,7 @@ import { DailyMaterialsTable } from "@/components/organisms/branch/DailyMaterial
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
 import { DailyTaskTable } from "@/components/organisms/branch/DailyTaskTable";
 import { MaterialReceiptConfirmation } from "@/components/organisms/branch/MaterialReceiptConfirmation";
+import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { MaterialStockTable } from "@/components/organisms/shared/MaterialStockTable";
 import { MeatStockTable } from "@/components/organisms/shared/MeatStockTable";
 import { SupplyStock } from "@/components/organisms/shared/SupplyStock";
@@ -43,8 +44,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
       {tab === "day" && (
         <>
           <Notice>
-            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้
-            ส่วนเนื้อละลายต้องขายหรือบันทึก Waste ให้หมดก่อนปิดวัน
+            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้ ·
+            เนื้อละลายแล้วที่ใช้ไม่หมดเก็บเป็นคงเหลือชิล ยกไปวันถัดไปได้
           </Notice>
           <BranchDailyWorkflow
             db={db}
@@ -92,6 +93,7 @@ export function BranchWorkspace({ account }: { account: Account }) {
             open={ws.open}
           />
           <ChiliDailySummary db={db} branch={branch} date={date} />
+          <MeatDaySummary db={db} branch={branch} date={date} />
           <DailyTaskTable
             title="ยอดขาย กล่องโปรโมท และปิดวัน"
             kinds={["sale", "influencerBox", "closeDay"]}

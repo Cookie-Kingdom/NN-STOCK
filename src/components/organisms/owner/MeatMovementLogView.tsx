@@ -200,7 +200,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
           lot.id,
           branchName,
           `${fmt(stock.frozen + stock.ready)} กก.`,
-          `แช่แข็ง ${fmt(stock.frozen)} · พร้อมขาย ${fmt(stock.ready)}`,
+          `แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
         ];
       }),
     ];
