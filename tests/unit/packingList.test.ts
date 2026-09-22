@@ -53,7 +53,11 @@ describe("packingList", () => {
     expect(() => save({ ...list, boxes: "10", slicedLostKg: "" })).toThrow(
       /Sliced Weight Lost/,
     );
-    expect(() => save({ ...list, boxes: "10", slicedLostKg: "0" })).toThrow(
+    // Zero is a normal list — nothing was lost — but a negative loss is not.
+    expect(() =>
+      save({ ...list, boxes: "10", slicedLostKg: "0" }),
+    ).not.toThrow();
+    expect(() => save({ ...list, boxes: "10", slicedLostKg: "-1" })).toThrow(
       /Sliced Weight Lost/,
     );
     expect(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })).toThrow(

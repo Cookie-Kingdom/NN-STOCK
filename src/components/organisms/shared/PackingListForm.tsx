@@ -153,7 +153,8 @@ export function PackingListForm({
   /** Sliced Weight Net: the box total, the figure the summary card shows. */
   const slicedNet = boxTotal(weights);
   /** Sliced Weight Lost is not typed — it is what cutting took away, the gap between
-   *  Inv. Weight and Sliced Weight Net, always as a plain positive number. */
+   *  Inv. Weight and Sliced Weight Net, as a plain number that is never negative.
+   *  Zero is a normal list: the boxes weigh exactly what the invoice says. */
   const slicedLost =
     Math.round(Math.abs((Number(values.invWeightKg) || 0) - slicedNet) * 100) /
     100;
@@ -161,12 +162,6 @@ export function PackingListForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!filled.length) return setError("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    /* Checked here too: as a draft nothing reaches mutate() until the transport document
-     * saves. The figure is computed, so the fix is in the numbers it comes from. */
-    if (!(slicedLost > 0))
-      return setError(
-        "Sliced Weight Lost ต้องมากกว่าศูนย์ — ตรวจ Inv. Weight และน้ำหนักกล่องรับเข้า",
-      );
     // First press on an unfinished list only asks; the second one saves what is there.
     if (blank && !confirmPartial) {
       setError("");
@@ -306,7 +301,8 @@ export function PackingListForm({
               product: values.product,
               code: values.code,
               invWeight: Number(values.invWeightKg) || undefined,
-              slicedLost: slicedLost || undefined,
+              // Always a figure, 0.00 included — never the "—" of a missing value.
+              slicedLost,
             }}
             boxes={boxes}
             onRows={(count) =>
