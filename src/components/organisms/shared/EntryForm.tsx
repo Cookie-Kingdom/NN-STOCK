@@ -39,6 +39,7 @@ import {
   entries,
   mutate,
   n,
+  OverStockError,
   packWeightWarning,
   riceSources,
   roleName,
@@ -343,15 +344,15 @@ export function EntryForm({
     ].every((key) => String(values[key] ?? "").trim());
   /* The save's own mutate, run on the values as they stand, so the form can say a
    * weight is over stock while it is being typed instead of after ยืนยัน. mutate
-   * clones the database, so a dry run changes nothing. Held back until every
-   * required control has something in it: an unfinished form must not be told off
-   * for being unfinished. */
+   * clones the database, so a dry run changes nothing. Until every required control
+   * has something in it only an over-stock amount is said: an unfinished form must
+   * not be told off for being unfinished, but a quantity over stock is wrong already. */
   const liveError = useMemo(() => {
-    if (!complete) return "";
     try {
       mutate(db, role, kind, resolveLocations(values), lotId, date, branch);
       return "";
     } catch (caught) {
+      if (!complete && !(caught instanceof OverStockError)) return "";
       return caught instanceof Error ? caught.message : "";
     }
   }, [complete, db, role, kind, values, lotId, date, branch]);

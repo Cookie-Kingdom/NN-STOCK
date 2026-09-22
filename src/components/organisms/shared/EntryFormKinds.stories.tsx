@@ -152,6 +152,25 @@ export const BranchReceive: Story = form(
 /** Moving frozen bags to ready-to-sell stock. */
 export const BranchThaw: Story = form(demoDb, "branch", "thaw", "ศาลาแดง");
 
+/** Only the kg typed, over the frozen stock: the error (with the most allowed) shows at
+ *  once and บันทึกรายการ is disabled, although the other fields are still empty. */
+export const BranchThawOverStock: Story = {
+  ...BranchThaw,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.type(body.getByLabelText(/น้ำหนักละลาย/), "99999");
+  },
+};
+
+/** Raw rice withdrawn over stock: red error at once, save disabled. */
+export const BranchRiceIssueOverStock: Story = {
+  ...form(demoDb, "branch", "riceIssue", "ศาลาแดง"),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.type(body.getByLabelText(/ข้าวเหนียวดิบที่เบิก/), "99999");
+  },
+};
+
 /** Rice purchase with the round's source picked: the fields follow the pick, not the branch. */
 const ricePurchase = (branch: string, source: string): Story => ({
   ...form(demoDb, "branch", "ricePurchase", branch),

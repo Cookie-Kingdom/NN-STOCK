@@ -1499,6 +1499,25 @@ export function receivedBoxWeights(value = "") {
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
+/** Refused because an amount is over what is on hand. Its own class so a form can show it
+ *  as soon as that amount is typed, before the rest of the form is filled in. */
+export class OverStockError extends Error {
+  name = "OverStockError";
+}
+/** Refuses `amount` over `max` and says what the most is, so the user knows what to type. */
+function withinStock(
+  amount: number,
+  max: number,
+  message: string,
+  unit = "กก.",
+  prefix = "กรอกได้สูงสุด",
+) {
+  if (amount <= max + 0.001) return;
+  const most = Math.max(0, max);
+  throw new OverStockError(
+    `${message} · ${prefix} ${unit === "กก." ? fmt(most) : String(Math.floor(most + 0.001))}${unit ? ` ${unit}` : ""}`,
+  );
+}
 /** Thai runs together without spaces, but a label starting or ending in Latin/digits needs a
  *  space on that side ("กรอก Sliced Weight Lost เป็นตัวเลข…"). */
 function spaced(label: string) {
@@ -1586,10 +1605,10 @@ function requestLines(db: Database, v: Values, own?: Lot) {
       current
         .filter((mine) => mine.lotId === po.id)
         .reduce((total, mine) => total + mine.kg, 0);
-    assert(
-      kg <= remaining + 0.001,
-      `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
-    );
+    if (kg > remaining + 0.001)
+      throw new OverStockError(
+        `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
+      );
   }
   v.lines = JSON.stringify(
     lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
@@ -1891,8 +1910,9 @@ function record(
       true,
     );
     positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
-    assert(
-      n(v, "confirmedKg") <= n(lot.values, "orderedKg") + 0.001,
+    withinStock(
+      n(v, "confirmedKg"),
+      n(lot.values, "orderedKg"),
       "น้ำหนักยืนยันเกินยอด PO",
     );
     assert(
@@ -1929,9 +1949,12 @@ function record(
     positive(v, "slicedLostKg", "Sliced Weight Lost");
     if (v.invWeightKg?.trim()) {
       positive(v, "invWeightKg", "Inv. Weight");
-      assert(
-        n(v, "slicedNetKg") <= n(v, "invWeightKg") + 0.001,
+      withinStock(
+        n(v, "slicedNetKg"),
+        n(v, "invWeightKg"),
         "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight",
+        "กก.",
+        "รวมได้สูงสุด",
       );
     }
   } else if (kind === "ownerWasteReceive" && lot) {
@@ -1942,8 +1965,9 @@ function record(
       reservedForOwnerContent(db, lotId) > 0,
       "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ",
     );
-    assert(
-      n(v, "receivedKg") <= ownerWasteOutstanding(db, lotId) + 0.001,
+    withinStock(
+      n(v, "receivedKg"),
+      ownerWasteOutstanding(db, lotId),
       "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
   } else if (kind === "foodivaReturnReceive" && lot) {
@@ -1996,12 +2020,18 @@ function record(
     v.receivedKg = String(received.total);
   } else if (kind === "prepare" && lot) {
     positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
-    assert(
-      n(v, "preSmokeKg") <= n(lot.values, "receivedKg"),
+    withinStock(
+      n(v, "preSmokeKg"),
+      n(lot.values, "receivedKg"),
       "น้ำหนักก่อนสโมคเกินน้ำหนักรับ",
     );
   } else if (kind === "smoke" && lot) {
     positive(v, "inputKg", "น้ำหนักเข้าเตา");
+    withinStock(
+      n(v, "inputKg"),
+      n(lot.values, "preSmokeKg") - processed(db, lotId),
+      "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
+    );
     positive(v, "wasteKg", "น้ำหนัก Waste", true);
     required(v, "smokeDate", "วันที่สโมค");
     const weights = packWeights(v.packs);
@@ -2010,11 +2040,6 @@ function record(
       "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
-    assert(
-      n(v, "inputKg") <=
-        n(lot.values, "preSmokeKg") - processed(db, lotId) + 0.001,
-      "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
-    );
     assert(
       Math.abs(output + n(v, "wasteKg") - n(v, "inputKg")) <= 0.001,
       "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
@@ -2055,10 +2080,7 @@ function record(
         preSmokeKg > 0,
       "กรอกน้ำหนักให้ถูกต้อง",
     );
-    assert(
-      preSmokeKg <= receivedKg + 0.001,
-      "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง",
-    );
+    withinStock(preSmokeKg, receivedKg, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
     const batches = drafts.map((draft) => {
       const inputKg = Number(draft.inputKg);
       const wasteKg = Number(draft.wasteKg);
@@ -2134,8 +2156,9 @@ function record(
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
     v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
-    assert(
-      n(v, "returnKg") <= produced(db, lotId) + 0.001,
+    withinStock(
+      n(v, "returnKg"),
+      produced(db, lotId),
       "น้ำหนักส่งกลับเกินผลผลิต",
     );
     v.returnCost =
@@ -2159,8 +2182,8 @@ function record(
     );
   } else if (kind === "allocate") {
     positive(v, "kg", "น้ำหนักจัดสรร");
+    withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
     assert(branches.includes(v.branch), "เลือกสาขา");
-    assert(n(v, "kg") <= centralStock(db, lotId) + 0.001, "สต๊อกกลางไม่พอ");
   } else if (kind === "receive") {
     positive(v, "kg", "น้ำหนักรับ");
     const allocation = entries(db, "allocate", lotId, branch).find(
@@ -2168,18 +2191,19 @@ function record(
     );
     assert(allocation, "เลือกใบจัดสรร");
     const outstanding = allocationOutstanding(db, allocation);
-    assert(n(v, "kg") <= outstanding + 0.001, "รับเกินยอดค้างรับ");
+    withinStock(n(v, "kg"), outstanding, "รับเกินยอดค้างรับ");
     // Closing the allocation makes any shortfall final, so it needs a reason; a
     // partial receive leaves the rest pending.
     if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
-    positive(v, "bags", "จำนวนถุงที่ละลาย");
-    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
-    assert(
-      n(v, "kg") <= balance(db, lotId, branch).frozen + 0.001,
+    withinStock(
+      n(v, "kg"),
+      balance(db, lotId, branch).frozen,
       "สต๊อกแช่แข็งไม่พอ",
     );
+    positive(v, "bags", "จำนวนถุงที่ละลาย");
+    assert(Number.isInteger(n(v, "bags")), "จำนวนถุงต้องเป็นจำนวนเต็ม");
     const oldest = db.lots
       .filter((l) => balance(db, l.id, branch).frozen > 0.001)
       .sort((a, b) =>
@@ -2213,9 +2237,11 @@ function record(
       Number.isInteger(n(v, "chiliTubes")),
       "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
     );
-    assert(
-      n(v, "chiliTubes") <= ownerChiliStock(db),
+    withinStock(
+      n(v, "chiliTubes"),
+      ownerChiliStock(db),
       "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าบัญชีก่อน",
+      "หลอด",
     );
   } else if (kind === "chiliPurchase") {
     positive(v, "chiliTubes", "น้ำพริกซื้อเข้า");
@@ -2228,8 +2254,9 @@ function record(
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
-    assert(
-      n(v, "rawRiceIssuedKg") <= rawRiceStock(db, branch) + 0.001,
+    withinStock(
+      n(v, "rawRiceIssuedKg"),
+      rawRiceStock(db, branch),
       "ข้าวเหนียวดิบในสต๊อกไม่พอ",
     );
     required(v, "receiver", "ผู้รับของ");
@@ -2239,9 +2266,11 @@ function record(
       Number.isInteger(n(v, "chiliIssuedTubes")),
       "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
     );
-    assert(
-      n(v, "chiliIssuedTubes") <= chiliStock(db, branch),
+    withinStock(
+      n(v, "chiliIssuedTubes"),
+      chiliStock(db, branch),
       "น้ำพริกในสต๊อกไม่พอ",
+      "หลอด",
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "supplyPurchase") {
@@ -2290,21 +2319,25 @@ function record(
       Number.isInteger(n(v, "chiliIssuedTubes")),
       "น้ำพริกที่เบิกต้องเป็นจำนวนหลอดเต็ม",
     );
-    assert(
-      n(v, "rawRiceIssuedKg") <= rawRiceStock(db, branch) + 0.001,
+    withinStock(
+      n(v, "rawRiceIssuedKg"),
+      rawRiceStock(db, branch),
       "ข้าวเหนียวดิบในสต๊อกไม่พอ",
     );
-    assert(
-      n(v, "chiliIssuedTubes") <= chiliStock(db, branch),
+    withinStock(
+      n(v, "chiliIssuedTubes"),
+      chiliStock(db, branch),
       "น้ำพริกในสต๊อกไม่พอ",
+      "หลอด",
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
     // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
     positive(v, "rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง");
     positive(v, "riceKg", "ข้าวเหนียวสุกที่ได้");
-    assert(
-      n(v, "rawUsedKg") <= issuedRawRiceStock(db, branch) + 0.001,
+    withinStock(
+      n(v, "rawUsedKg"),
+      issuedRawRiceStock(db, branch),
       "ข้าวเหนียวดิบที่เบิกไว้ไม่พอ กรุณาบันทึกเบิกก่อนหุง",
     );
   } else if (kind === "riceCarry") {
@@ -2328,9 +2361,11 @@ function record(
           n(v, "opening" + i) === expectedOpening,
           `ยอดตั้งต้น ${materials[i]} มีการเปลี่ยนแปลง กรุณาโหลดหน้าใหม่`,
         );
-        assert(
-          n(v, "used" + i) <= expectedOpening,
+        withinStock(
+          n(v, "used" + i),
+          expectedOpening,
           `จำนวนใช้ ${materials[i]} เกินยอดตั้งต้น`,
+          "",
         );
         const expectedRemaining = expectedOpening - n(v, "used" + i);
         assert(
@@ -2376,9 +2411,11 @@ function record(
     );
     positive(v, "quantity", "จำนวนที่ส่ง");
     assert(Number.isInteger(n(v, "quantity")), "จำนวนวัสดุต้องเป็นจำนวนเต็ม");
-    assert(
-      n(v, "quantity") <= ownerMaterialStock(db, v.material),
-      "วัสดุในคลัง Owner ไม่พอ",
+    withinStock(
+      n(v, "quantity"),
+      ownerMaterialStock(db, v.material),
+      `${v.material} ในคลัง Owner ไม่พอ`,
+      "",
     );
     required(v, "receiver", "ผู้รับของ");
     v.requiresConfirm = "1";
@@ -2398,9 +2435,11 @@ function record(
       Number.isInteger(n(v, "receivedQuantity")),
       "จำนวนรับจริงต้องเป็นจำนวนเต็ม",
     );
-    assert(
-      n(v, "receivedQuantity") <= n(transfer.values, "quantity"),
+    withinStock(
+      n(v, "receivedQuantity"),
+      n(transfer.values, "quantity"),
       "จำนวนรับจริงเกินจำนวนที่ส่ง",
+      "",
     );
     variance(n(v, "receivedQuantity"), n(transfer.values, "quantity"), v);
     required(v, "receiver", "ชื่อผู้รับจริง");
@@ -2422,19 +2461,25 @@ function record(
     v.chiliComplimentary = "0";
     v.chiliSold = String(n(v, "chiliAddons"));
     // 100–103 g per pack is only a warning (packWeightWarning): the form shows it.
-    assert(
-      n(v, "soldKg") + n(v, "wasteKg") <=
-        balance(db, lotId, branch).ready + 0.001,
+    withinStock(
+      n(v, "soldKg") + n(v, "wasteKg"),
+      balance(db, lotId, branch).ready,
       "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
+      "กก.",
+      "ใช้จริงรวมเวสต์ได้สูงสุด",
     );
-    assert(
-      n(v, "riceServings") * 0.2 + n(v, "riceWasteKg") <=
-        cookedRiceStock(db, branch) + 0.001,
+    withinStock(
+      n(v, "riceServings") * 0.2 + n(v, "riceWasteKg"),
+      cookedRiceStock(db, branch),
       "ข้าวเหนียวไม่พอ",
+      "กก.",
+      "มีข้าวเหนียวสุก",
     );
-    assert(
-      n(v, "chiliSold") <= chiliStock(db, branch),
+    withinStock(
+      n(v, "chiliSold"),
+      chiliStock(db, branch),
       "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
+      "หลอด",
     );
     const hasChiliCount = v.chiliCount !== undefined && v.chiliCount !== "";
     const expectedChili = chiliStock(db, branch) - n(v, "chiliSold");
@@ -2479,19 +2524,25 @@ function record(
       sentPacks + n(v, "chiliAddons") > 0,
       "กรอกของที่ส่งให้อินฟลูเอนเซอร์อย่างน้อย 1 รายการ",
     );
-    assert(
-      n(v, "soldKg") <= balance(db, lotId, branch).ready + 0.001,
+    withinStock(
+      n(v, "soldKg"),
+      balance(db, lotId, branch).ready,
       "น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว (รวมชิลยกมา)",
     );
     v.riceServings = v.boxes;
     v.chiliSold = String(n(v, "chiliAddons"));
-    assert(
-      n(v, "riceServings") * 0.2 <= cookedRiceStock(db, branch) + 0.001,
+    withinStock(
+      n(v, "riceServings") * 0.2,
+      cookedRiceStock(db, branch),
       "ข้าวเหนียวไม่พอ",
+      "กก.",
+      "มีข้าวเหนียวสุก",
     );
-    assert(
-      n(v, "chiliSold") <= chiliStock(db, branch),
+    withinStock(
+      n(v, "chiliSold"),
+      chiliStock(db, branch),
       "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
+      "หลอด",
     );
     v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
   } else if (kind === "closeDay") {
