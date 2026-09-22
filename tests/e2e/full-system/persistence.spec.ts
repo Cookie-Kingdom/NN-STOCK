@@ -3,6 +3,7 @@ import {
   expect,
   test,
   type Browser,
+  type BrowserContext,
   type Locator,
   type Page,
 } from "@playwright/test";
@@ -240,13 +241,25 @@ async function pushState(page: Page, db: Database) {
   await reloadWorkspace(page);
 }
 
-/** A second browser for `account` (own cookies, own module cache). */
+/** The app polls the server revision every 15 s and skips the poll while the tab
+ * is hidden (checkForUpdates in src/lib/persistence.ts). A browser that has to stay
+ * on an old revision until it saves reports itself hidden, so the race is decided by
+ * the test, not by where the poll timer happens to be. */
+const stayStale = (target: Page | BrowserContext) =>
+  target.addInitScript(() =>
+    Object.defineProperty(document, "hidden", { get: () => true }),
+  );
+
+/** A second browser for `account` (own cookies, own module cache). `stale`: it never
+ * picks up another browser's save by itself (see stayStale). */
 async function secondBrowser(
   browser: Browser,
   baseURL: string | undefined,
   account: AccountKey = ACCOUNTS.owner,
+  stale = false,
 ) {
   const context = await browser.newContext({ baseURL });
+  if (stale) await stayStale(context);
   const page = await context.newPage();
   await page.goto("/");
   await signInAs(page, account);
@@ -411,18 +424,22 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
 
   await step(
     page,
-    'สาขาศาลาแดง: G1 ซื้อข้าวเหนียวดิบ 20 กก. → reload และออก-เข้าใหม่ แถวยัง "บันทึกแล้ว · 1"',
+    'สาขาศาลาแดง: G1 ซื้อข้าวเหนียว (นึ่งเอง) ดิบ 20 กก. → reload และออก-เข้าใหม่ แถวยัง "บันทึกแล้ว · 1"',
     async () => {
       await signInAs(page, ACCOUNTS.saladaeng);
       await tab(page, "กรอกรายวัน");
-      await pointAndClick(page, rowButton(page, "ซื้อข้าวเหนียวดิบเข้าสต๊อก"));
+      await pointAndClick(page, rowButton(page, "ซื้อข้าวเหนียวเข้าสต๊อก"));
+      // B2: every rice purchase first says where this round comes from.
+      await dialog(page)
+        .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
+        .selectOption("นึ่งเอง (ซื้อข้าวดิบ)");
       await field(page, /ผู้จำหน่ายข้าว/, "ร้านข้าว G1");
       await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "20");
       await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "1100");
       await saveEntry(page);
       const row = page
         .getByRole("row")
-        .filter({ hasText: "ซื้อข้าวเหนียวดิบเข้าสต๊อก" });
+        .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" });
       await expect(row).toContainText("บันทึกแล้ว");
       await reloadWorkspace(page);
       await expect(row).toContainText("บันทึกแล้ว");
@@ -434,6 +451,7 @@ test("G1 บันทึก 1 รายการต่อ role → reload / อ�
       expect(rice).toHaveLength(1);
       expect(rice[0]).toMatchObject({ role: "branch", branch: "ศาลาแดง" });
       expect(rice[0].values.rawRiceKg).toBe("20");
+      expect(rice[0].values.riceSource).toBe("นึ่งเอง (ซื้อข้าวดิบ)");
     },
   );
 
@@ -514,7 +532,7 @@ test("G3 Owner 2 browser บันทึก PO ชนกัน → server ปฏ
 }) => {
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
-  const b = await secondBrowser(browser, baseURL);
+  const b = await secondBrowser(browser, baseURL, ACCOUNTS.owner, true);
 
   try {
     await step(
@@ -568,6 +586,7 @@ test("G4 Foodiva A เปิดฟอร์มใบขนส่งค้าง 
   browser,
   baseURL,
 }) => {
+  await stayStale(page);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   const state = lotState("requested");
@@ -631,62 +650,54 @@ test("G4 Foodiva A เปิดฟอร์มใบขนส่งค้าง 
 });
 
 /* ---- G5 --------------------------------------------------------------------- */
-test("G5 A เปิดจัดสรรถุงค้าง · B จัดสรรถุงเดียวกันก่อน → A ไม่จัดสรรถุงซ้ำ", async ({
+test("G5 A เปิดจัดสรรค้าง (ศาลาแดง 30 กก.) · B จัดสรรมีนบุรี 40 กก. ก่อน → A ถูกปฏิเสธเกินสต๊อกกลาง ไม่จัดสรรเกิน · A แก้เป็น 10 กก. ผ่าน", async ({
   page,
   browser,
   baseURL,
 }) => {
+  await stayStale(page);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   const state = lotState("central");
   const lotId = state.lots.at(-1)!.id;
-  // TODO(allocate-by-kg): this flow still allocates per box and needs a rewrite.
-  const bagIds: string[] = [];
   await pushState(page, state);
   const b = await secondBrowser(browser, baseURL);
-  const meatTable = (p: Page) =>
-    tableSection(p, "สต๊อกเนื้อทุกจุด (Meat inventory)");
   const openAllocate = async (p: Page) => {
     await tab(p, "จัดสรรเนื้อ และสต๊อกไปสาขา");
     await pointAndClick(
       p,
-      meatTable(p)
+      tableSection(p, "สต๊อกเนื้อทุกจุด (Meat inventory)")
         .getByRole("row")
         .filter({ hasText: lotId })
         .getByRole("button", { name: "จัดสรร" }),
     );
-    await expect(
-      dialog(p).getByLabel("เลือกสาขาให้กล่องรมควันที่ 5"),
-    ).toBeVisible();
+    await expect(dialog(p)).toContainText("จัดสรรเนื้อไปสาขา (กก.)");
   };
 
   try {
     await step(
       page,
-      "Owner: G5 browser A เปิดจัดสรร เลือกถุงที่ 1 และ 2 → ศาลาแดง (ยังไม่บันทึก)",
+      "Owner: G5 browser A เปิดจัดสรร สต๊อกกลาง 50 กก. ใส่ศาลาแดง 30 กก. (ยังไม่บันทึก)",
       async () => {
         await openAllocate(page);
-        await dialog(page)
-          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 1")
-          .selectOption({ label: "ศาลาแดง" });
-        await dialog(page)
-          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 2")
-          .selectOption({ label: "ศาลาแดง" });
+        await expect(dialog(page)).toContainText("50.00 กก.");
+        await field(page, "ศาลาแดง (กก.)", "30");
+        await expect(dialog(page)).toContainText(
+          /คงเหลือในคลังกลางหลังจัดสรร\s*20\.00 กก\./,
+        );
       },
     );
 
     await step(
       b.page,
-      "Owner: G5 browser B จัดสรรถุงที่ 1 → มีนบุรี → ผ่าน",
+      "Owner: G5 browser B จัดสรรมีนบุรี 40 กก. → ผ่าน",
       async () => {
         await openAllocate(b.page);
-        await dialog(b.page)
-          .getByLabel("เลือกสาขาให้กล่องรมควันที่ 1")
-          .selectOption({ label: "มีนบุรี" });
+        await field(b.page, "มีนบุรี (กก.)", "40");
         await button(b.page, "บันทึกการจัดสรร");
         await expect(b.page.getByRole("dialog")).toHaveCount(0);
         await expect(
-          successToast(b.page, "จัดสรรกล่องรมควันไปสาขาแล้ว"),
+          successToast(b.page, "จัดสรรไปสาขาแล้ว · มีนบุรี 40.00 กก."),
         ).toBeVisible();
       },
     );
@@ -694,11 +705,14 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
     const saves = saveStatuses(page);
     await step(
       page,
-      "Owner: G5 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → มีถุงที่ถูกจัดสรรไปแล้ว dialog ค้าง",
+      "Owner: G5 A กดบันทึก → server ปฏิเสธ revision เก่า (409) · สร้างใหม่บนข้อมูลล่าสุดไม่ผ่าน → น้ำหนักรวม 30 เกินสต๊อกกลาง 10 · dialog ค้าง",
       async () => {
         await submit(page);
         await expect(
-          formAlert(page, "มีกล่องรมควันที่ถูกจัดสรรไปแล้ว กรุณาเปิดฟอร์มใหม่"),
+          formAlert(
+            page,
+            "น้ำหนักรวม 30.00 กก. เกินสต๊อกกลาง 10.00 กก.",
+          ).first(),
         ).toBeVisible();
         await expect(dialog(page)).toBeVisible();
         expect(saves).toEqual([409]);
@@ -707,65 +721,55 @@ test("G5 A เปิดจัดสรรถุงค้าง · B จัดส
 
     await step(
       page,
-      "Owner: G5 หลังโหลดใหม่ ตารางในฟอร์มเหลือ 4 ถุง ถุงที่ B จัดสรรหายไป",
+      "Owner: G5 หลังโหลดใหม่ ฟอร์มแสดงสต๊อกกลาง 10 กก. · ยังจำ 30 กก. ของศาลาแดง · คงเหลือติดลบ 20",
       async () => {
-        await expect(
-          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 4"),
-        ).toBeVisible();
-        await expect(
-          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 5"),
-        ).toHaveCount(0);
+        await expect(dialog(page)).toContainText(
+          /สต๊อกกลางของ Lot นี้\s*10\.00 กก\./,
+        );
+        await expect(dialog(page).getByLabel("ศาลาแดง (กก.)")).toHaveValue(
+          "30",
+        );
+        await expect(dialog(page)).toContainText(
+          /คงเหลือในคลังกลางหลังจัดสรร\s*-20\.00 กก\./,
+        );
       },
     );
 
     await step(
       page,
-      "Owner: G5 ฟอร์มยังจำถุงเดิมที่ 2 (ตอนนี้แสดงเป็นถุงที่ 1 → ศาลาแดง) · ถุงที่ B เอาไปไม่อยู่ในรายการ",
+      "Owner: G5 A กด ที่เหลือทั้งหมด (10 กก.) → บันทึกผ่าน",
       async () => {
-        await expect(
-          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 1"),
-        ).toHaveValue("ศาลาแดง");
-        await expect(
-          dialog(page).getByLabel("เลือกสาขาให้กล่องรมควันที่ 2"),
-        ).toHaveValue("");
-      },
-    );
-
-    /* การสร้างใหม่หลัง 409 ยังใช้รายการถุงของฟอร์มเดิม mutate() จึงปฏิเสธถุงที่ B เอาไป
-     * หลังจากนั้นฟอร์มแสดงรายการถุงจาก db ที่โหลดใหม่ กดซ้ำบันทึกเฉพาะถุงที่ยังเหลือบนฟอร์ม */
-    await step(
-      page,
-      "Owner: G5 A กดบันทึกซ้ำ → บันทึกเฉพาะถุงที่ยังว่าง (1 ถุง → ศาลาแดง)",
-      async () => {
+        await pointAndClick(
+          page,
+          dialog(page).getByRole("button", { name: "ที่เหลือทั้งหมด" }).first(),
+        );
+        await expect(dialog(page).getByLabel("ศาลาแดง (กก.)")).toHaveValue(
+          "10",
+        );
         await submit(page);
         await expect(page.getByRole("dialog")).toHaveCount(0);
         expect(saves).toEqual([409, 200]);
         await expect(
-          successToast(page, "จัดสรรกล่องรมควันไปสาขาแล้ว"),
+          successToast(page, "จัดสรรไปสาขาแล้ว · ศาลาแดง 10.00 กก."),
         ).toBeVisible();
       },
     );
 
     await step(
       page,
-      "ระบบ: G5 server — ถุงที่ 1 → มีนบุรี, ถุงที่ 2 → ศาลาแดง ไม่มีถุงใดถูกจัดสรรซ้ำ · คงเหลือ 3 ถุง",
+      "ระบบ: G5 server — มีนบุรี 40 · ศาลาแดง 10 · ไม่มีการจัดสรรเกินสต๊อก · สต๊อกกลางเหลือ 0",
       async () => {
         const { payload } = await serverState(page);
-        const allocations = kinds(payload, "allocate");
-        const allocated = allocations.flatMap((entry) =>
-          entry.values.bagIds.split(","),
-        );
-        expect(new Set(allocated).size).toBe(allocated.length);
         expect(
-          allocations.map((entry) => [
+          kinds(payload, "allocate").map((entry) => [
             entry.values.branch,
-            entry.values.bagIds,
+            entry.values.kg,
           ]),
         ).toEqual([
-          ["มีนบุรี", bagIds[0]],
-          ["ศาลาแดง", bagIds[1]],
+          ["มีนบุรี", "40"],
+          ["ศาลาแดง", "10"],
         ]);
-        expect(centralStock(payload, lotId)).toBeCloseTo(30);
+        expect(centralStock(payload, lotId)).toBeCloseTo(0);
       },
     );
   } finally {

@@ -183,6 +183,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
     ACCOUNTS.chef,
     ACCOUNTS.saladaeng,
   );
+  test.setTimeout(20 * 60_000);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   const poId = await ownerCreatesMeatPo(page, "500");
@@ -233,7 +234,7 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
     packs: ["500"],
   });
 
-  // Return trip, Foodiva intake, central stock, the one กล่องรมควัน to Saladaeng.
+  // Return trip, Foodiva intake, central stock, then allocate by kg: all 500 kg to Saladaeng.
   await signInAs(page, ACCOUNTS.owner);
   await ownerCallsReturnTruck(page, shipment);
   await signInAs(page, ACCOUNTS.foodiva);
@@ -241,20 +242,25 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   await signInAs(page, ACCOUNTS.owner);
   await ownerReceivesCentral(page, "500");
   await button(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
-  await button(page, "จัดสรร");
-  await openDialog(page)
-    .locator("tbody select")
-    .nth(0)
-    .selectOption({ label: "ศาลาแดง" });
+  await pointAndClick(
+    page,
+    page.getByRole("main").getByRole("button", { name: "จัดสรร", exact: true }),
+  );
+  // BUG-3 pattern: a form with nothing typed is refused out loud, not silently.
+  await field(page, "ศาลาแดง (กก.)", "0");
+  await submitAndExpectError(page, /กรอกน้ำหนักจัดสรรอย่างน้อย 1 สาขา/);
+  await field(page, "ศาลาแดง (กก.)", "500.5");
+  await submitAndExpectError(page, /เกินสต๊อกกลาง 500\.00 กก\./);
+  await field(page, "ศาลาแดง (กก.)", "500");
   await button(page, "บันทึกการจัดสรร");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // Saladaeng receives the กล่องรมควัน and thaws 0.5 kg.
+  // Saladaeng receives the 500 kg (kg only, no bag count) and thaws 0.5 kg.
   await signInAs(page, ACCOUNTS.saladaeng);
   await button(page, "รับของ");
+  await expect(openDialog(page).getByLabel(/จำนวนถุงที่รับ/)).toHaveCount(0);
   await page.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
   await field(page, /น้ำหนักรับเข้าสาขา/, "500");
-  await field(page, /จำนวนถุงที่รับ/, "1");
   await saveEntry(page);
   await button(page, "แบ่งละลาย");
   await field(page, /น้ำหนักละลาย/, "0.5");
@@ -263,16 +269,19 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
 
   // BUG-3: the sales form now says why it refuses to save.
   await button(page, "บันทึกยอดขาย");
-  await field(page, /Waste เนื้อจาก Lot นี้/, "0.05");
+  await field(page, /น้ำหนักเวสต์/, "0.05");
   await submitAndExpectError(page, /เหตุผล Waste/);
-  await field(page, /Waste เนื้อจาก Lot นี้/, "0");
+  await field(page, /น้ำหนักเวสต์/, "0");
   await field(page, /กล่องมาตรฐาน/, "6");
-  await field(page, /น้ำหนักเนื้อซีลพร้อมขาย/, "0.6");
-  await submitAndExpectError(page, /เกินเนื้อพร้อมขาย/);
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.6");
+  await submitAndExpectError(
+    page,
+    /น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว \(รวมชิลยกมา\)/,
+  );
   // A valid sale: nothing sold, the thawed 0.5 kg written off with a reason.
   await field(page, /กล่องมาตรฐาน/, "0");
-  await field(page, /น้ำหนักเนื้อซีลพร้อมขาย/, "0");
-  await field(page, /Waste เนื้อจาก Lot นี้/, "0.5");
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0");
+  await field(page, /น้ำหนักเวสต์/, "0.5");
   await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
   await saveEntry(page);
 
@@ -286,19 +295,39 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
   );
   await field(page, /ชื่ออินฟลูเอนเซอร์/, "QA Influencer");
   await field(page, /กล่องมาตรฐานที่ส่ง/, "6");
-  await field(page, /น้ำหนักเนื้อที่ส่งจาก Lot นี้/, "0.6");
+  await field(page, /น้ำหนักเนื้อที่ใช้ส่งจริง/, "0.6");
   await submitAndExpectError(page, /เกิน|ไม่พอ/);
   await cancelDialog(page);
 
-  // BUG-10b: the close-day hint no longer quotes 21:00 while the setting says 22:00.
-  await button(page, "ปิดวัน");
+  // BUG-10b (the close-day hint quoting the wrong close time) is gone with the time rule
+  // itself (B3): the one "ตรวจและปิดวัน" dialog has no time picker and no time text, it
+  // lists what is still missing and keeps the confirm button disabled until it is done.
+  await button(page, "ตรวจและปิดวัน");
   const closeDay = openDialog(page);
+  await expect(closeDay.getByLabel(/เวลาจำลองสำหรับทดสอบปิดวัน/)).toHaveCount(
+    0,
+  );
+  await expect(closeDay).not.toContainText("ปิดวันได้ตั้งแต่");
+  const checklist = tableSection(page, "ตรวจก่อนปิดวัน");
   await expect(
-    closeDay.getByText(/ปิดวันได้ตั้งแต่เวลาเริ่มปิดวันในตั้งค่า/),
-  ).toBeVisible();
-  // The time picker lists every half hour, 21:00 included; only the text counts.
+    checklist.getByRole("row").filter({ hasText: "ยอดขายวันนี้" }),
+  ).toContainText("✓");
   await expect(
-    closeDay.getByText(/21:00/).and(page.locator(":not(option)")),
-  ).toHaveCount(0);
-  await cancelDialog(page);
+    checklist.getByRole("row").filter({ hasText: "เช็ควัสดุ" }),
+  ).toContainText("ยังไม่ทำ");
+  await expect(
+    checklist
+      .getByRole("row")
+      .filter({ hasText: "ยืนยันข้าวเหนียวสุกคงเหลือ" }),
+  ).toContainText("ยังไม่ทำ");
+  await expect(closeDay).toContainText(
+    "ยังปิดวันไม่ได้ · ขาด เช็ควัสดุ, ยืนยันข้าวเหนียวสุกคงเหลือ",
+  );
+  await expect(closeDay.locator('button[type="submit"]')).toBeDisabled();
+  // Materials are filled on the day screen itself, so "ไปกรอกในหน้ารายวัน" just closes.
+  await pointAndClick(
+    page,
+    checklist.getByRole("button", { name: "ไปกรอกในหน้ารายวัน" }),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

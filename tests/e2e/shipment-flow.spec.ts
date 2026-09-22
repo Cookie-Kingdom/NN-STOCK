@@ -57,6 +57,8 @@ const MEAT_PRICE = "263.75";
 test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบขนส่ง + Packing List → PO รมควัน → Chef House → ขากลับ → ชำระเงิน", async ({
   page,
 }) => {
+  // Three POs through every role; slow typing alone takes most of the default 10 min.
+  test.setTimeout(20 * 60_000);
   await startFresh(page);
   const pos: string[] = [];
   let shipment = "";

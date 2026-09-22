@@ -686,15 +686,17 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
   /* ---- C10 / C11: Owner compares 490 vs 488 and collects the 10 kg ---- */
   await step(
     page,
-    "Owner: C10 ใบขนส่งเทียบ ส่งจาก Foodiva 490 / Chef House 488 / ส่วนต่าง 2.00 ไม่มีเครื่องหมายลบ (BUG-6)",
+    "Owner: C10 ใบขนส่งเทียบ ส่งไป (Packing List) 490 / Chef House 488 / ส่วนต่าง −2.00 (ช่องเหลืองลบ Packing List, BUG-6)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       await tab(page, "ใบขนส่ง");
       const row = rowIn(page, "รายการส่ง", SH);
-      await expect(row).toContainText("ส่งจาก Foodiva: 490.00 กก.");
+      // Customer decision 2026-09-22: "ส่งไป" is the Packing List total and the gap is
+      // signed (yellow cells − Packing List); the Request kg is shown beside it.
+      await expect(row).toContainText("ส่งไป (Packing List): 490.00 กก.");
       await expect(row).toContainText("Chef House: 488.00 กก.");
-      await expect(row).toContainText("ส่วนต่าง 2.00 กก.");
-      await expect(row).not.toContainText(/ส่วนต่าง [-−]/);
+      await expect(row).toContainText("ขอใน Request: 490.00 กก.");
+      await expect(row).toContainText("ส่วนต่าง −2.00 กก.");
       await expect(row).toContainText("กำลังดำเนินงานที่ Chef House");
     },
   );

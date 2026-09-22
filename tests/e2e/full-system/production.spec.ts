@@ -22,7 +22,7 @@ import {
  * cell 500) → trimmed to 480 before smoking → round 1: 240 in, กล่องรมควัน 120 + 118,
  * waste 2 → round 2: 240 in, 80 + 80 + 78, waste 2 → Edit round 2 to 80 + 80 + 77,
  * waste 3 (475 kg, 5 กล่องรมควัน) → close lot → return 475 → Foodiva receives 474 →
- * central 474, boxes pro-rated by 474 / 475. Every negative case expects the exact
+ * central 474, allocated by kg (300 + 174). Every negative case expects the exact
  * message mutate() throws in src/lib/store.ts. */
 
 test.skip(
@@ -41,14 +41,6 @@ async function submitAndExpectError(page: Page, message: string | RegExp) {
   await pointAndClick(page, open.locator('button[type="submit"]').last());
   await expect(alertIn(open, message)).toBeVisible();
   await expect(open).toBeVisible();
-}
-
-async function cancelDialog(page: Page) {
-  await pointAndClick(
-    page,
-    dialog(page).getByRole("button", { name: "ยกเลิก" }),
-  );
-  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
 /** Sidebar tab by label, so a same-named button in <main> is never hit. */
@@ -512,15 +504,19 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
         hasText: "คลังกลาง",
       });
       await expect(stock.getByRole("cell").nth(3)).toHaveText("474.00");
+      // Allocate by kg: central stock is a weight, no กล่องรมควัน count.
       await expect(stock.getByRole("cell").nth(5)).toContainText(
-        "5 กล่องรมควัน พร้อมจัดสรร",
+        "474.00 กก. พร้อมจัดสรร",
+      );
+      await expect(stock.getByRole("cell").nth(5)).not.toContainText(
+        "กล่องรมควัน",
       );
     },
   );
 
   await step(
     page,
-    "Owner: D9 กล่องรมควันทุกกล่องถูก pro-rate ตามสต๊อกกลาง 474 / 475 และทุกใบ > 0",
+    "Owner: D9 จัดสรรเป็นกิโล — สต๊อกกลาง 474 กก. ไม่มีรายกล่องรมควัน · ศาลาแดง 300 + มีนบุรี ที่เหลือทั้งหมด 174 → คลังกลาง 0",
     async () => {
       await tab(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
       const lot = rowIn(
@@ -529,40 +525,42 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
         /S\d{6}-\d{3}/,
       );
       await expect(lot.getByRole("cell").nth(2)).toHaveText("474.00 กก.");
-      await expect(lot.getByRole("cell").nth(3)).toHaveText("5 กล่องรมควัน");
-      await expect(lot.getByRole("cell").nth(6)).toHaveText("จัดสรร / ขาย");
-      await pointAndClick(
-        page,
-        page
-          .getByRole("main")
-          .getByRole("button", { name: "จัดสรร", exact: true }),
-      );
+      await expect(lot.getByRole("cell").nth(5)).toHaveText("จัดสรร / ขาย");
+      const allocate = page
+        .getByRole("main")
+        .getByRole("button", { name: "จัดสรร", exact: true });
+      await pointAndClick(page, allocate);
       const allocation = dialog(page);
-      const expected = ["119.75", "117.75", "79.83", "79.83", "76.84"];
-      for (const [index, kg] of expected.entries()) {
-        await expect(
-          allocation.getByRole("row").filter({
-            has: page.getByRole("cell", {
-              name: `กล่องรมควันที่ ${index + 1}`,
-              exact: true,
-            }),
-          }),
-        ).toContainText(`${kg} กก.`);
-      }
+      await expect(allocation).toContainText(
+        /สต๊อกกลางของ Lot นี้\s*474\.00 กก\./,
+      );
       await expect(
         allocation.getByRole("combobox", {
           name: /^เลือกสาขาให้กล่องรมควันที่/,
         }),
-      ).toHaveCount(5);
-      await cancelDialog(page);
+      ).toHaveCount(0);
+      await field(page, "ศาลาแดง (กก.)", "300");
+      await pointAndClick(
+        page,
+        allocation.getByRole("button", { name: "ที่เหลือทั้งหมด" }).nth(1),
+      );
+      await expect(allocation.getByLabel("มีนบุรี (กก.)")).toHaveValue("174");
+      await saveEntry(page);
+      await expect(
+        page.getByText(
+          "จัดสรรไปสาขาแล้ว · ศาลาแดง 300.00 กก. · มีนบุรี 174.00 กก.",
+        ),
+      ).toBeVisible();
+      await expect(lot.getByRole("cell").nth(2)).toHaveText("0.00 กก.");
+      await expect(allocate).toBeDisabled();
 
       await tab(page, "Log เนื้อคงเหลือ");
       const central = page
         .getByRole("row")
         .filter({ hasText: "คลังกลาง Owner" })
-        .filter({ hasText: "กล่องรมควัน พร้อมจัดสรร" });
-      await expect(central).toContainText("474.00 กก.");
-      await expect(central).toContainText("5 กล่องรมควัน พร้อมจัดสรร");
+        .filter({ hasText: "พร้อมจัดสรร" });
+      await expect(central).toContainText("0.00 กก. พร้อมจัดสรร");
+      await expect(central).not.toContainText("กล่องรมควัน");
       await expect(
         page.getByRole("row").filter({ hasText: "Foodiva · เนื้อรมควัน" }),
       ).toContainText("0.00 กก.");

@@ -27,7 +27,9 @@ import {
   startFresh,
   tableRow,
   tableSection,
+  typeValue,
 } from "./helpers";
+import { mutate, seed, type Database, type Role } from "../../src/lib/store";
 
 /* The QA team's data walk (vault: QA-REPORT.md, PO-2026-0002 / Lot F260916-002),
  * on the Shipment Flow: 100 kg ordered, a 90 kg Request (two 45 kg กล่องรับเข้า) +
@@ -55,10 +57,10 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     ACCOUNTS.saladaeng,
     ACCOUNTS.minburi,
   );
+  test.setTimeout(25 * 60_000);
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   await expect(page.getByRole("heading", { name: "แดชบอร์ด" })).toBeVisible();
-  await page.waitForTimeout(900);
 
   // Owner purchases chili centrally, then allocates opening stock to both branches.
   await button(page, "สต๊อกของทั้งหมด");
@@ -182,7 +184,8 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   ).toHaveValue("2");
   await saveEntry(page);
 
-  // Owner receives 79 kg into central stock and allocates one กล่องรมควัน to each branch.
+  // Owner receives 79 kg into central stock and allocates it to the branches by kg
+  // (allocate by kg: no more per-กล่องรมควัน rows in the allocation form).
   await signInAs(page, ACCOUNTS.owner);
   await button(page, "รับเนื้อเข้าสต๊อกกลาง");
   await button(page, "รับเข้าสต๊อกกลาง");
@@ -190,22 +193,35 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await field(page, /หมายเหตุ/, "QA TEST central receive");
   await saveEntry(page);
   await button(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
-  await button(page, "จัดสรร");
-  // BUG-1: the two 40 kg กล่องรมควัน are pro-rated to the 79 kg that reached central stock,
-  // so the second box no longer sits in the warehouse forever.
+  const allocateButton = page
+    .getByRole("main")
+    .getByRole("button", { name: "จัดสรร", exact: true });
+  await pointAndClick(page, allocateButton);
   const allocationDialog = page.getByRole("dialog").last();
-  await expect(
-    allocationDialog.getByRole("row").filter({ hasText: "กล่องรมควันที่ 1" }),
-  ).toContainText("39.50 กก.");
-  await expect(
-    allocationDialog.getByRole("row").filter({ hasText: "กล่องรมควันที่ 2" }),
-  ).toContainText("39.50 กก.");
-  const destinations = allocationDialog.locator("tbody select");
-  await expect(destinations).toHaveCount(2);
-  await destinations.nth(0).selectOption({ label: "ศาลาแดง" });
-  await destinations.nth(1).selectOption({ label: "มีนบุรี" });
+  await expect(allocationDialog).toContainText("จัดสรรเนื้อไปสาขา (กก.)");
+  await expect(allocationDialog).toContainText("สต๊อกกลางของ Lot นี้");
+  await expect(allocationDialog).toContainText("79.00 กก.");
+  await typeValue(page, allocationDialog.getByLabel("ศาลาแดง (กก.)"), "50");
+  await typeValue(page, allocationDialog.getByLabel("มีนบุรี (กก.)"), "40");
+  // More than central stock is refused before saving.
+  await expect(allocationDialog).toContainText(
+    "น้ำหนักรวม 90.00 กก. เกินสต๊อกกลาง 79.00 กก.",
+  );
+  // "ที่เหลือทั้งหมด" drains the lot to exactly 0 (BUG-1: nothing is left stuck in central).
+  await pointAndClick(
+    page,
+    allocationDialog.getByRole("button", { name: "ที่เหลือทั้งหมด" }).nth(1),
+  );
+  await expect(allocationDialog.getByLabel("มีนบุรี (กก.)")).toHaveValue("29");
+  await expect(allocationDialog).toContainText(
+    /คงเหลือในคลังกลางหลังจัดสรร\s*0\.00 กก\./,
+  );
   await button(page, "บันทึกการจัดสรร");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByText("จัดสรรไปสาขาแล้ว · ศาลาแดง 50.00 กก. · มีนบุรี 29.00 กก."),
+  ).toBeVisible();
+  await expect(allocateButton).toBeDisabled();
 
   // Step 23: Owner collects the 10 kg waste share Foodiva kept back.
   await button(page, "สต๊อกของทั้งหมด");
@@ -240,62 +256,136 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   );
   await popup.close();
 
-  // Each branch receives its 39.5 kg กล่องรมควัน, thaws, records rice/materials/sales, and closes the day.
-  // Minburi completing this loop is the BUG-1 proof: QA could never allocate its box.
+  // Saladaeng receives its 50 kg in two deliveries: 30 kg with "รับครบใบจัดสรรนี้แล้ว"
+  // unticked keeps 20 kg pending, the next 20 kg closes the allocation.
+  await signInAs(page, BRANCH_ACCOUNTS["ศาลาแดง"]);
+  await button(page, "รับของ");
+  let receive = page.getByRole("dialog").last();
+  await expect(receive.getByLabel("จำนวนถุงที่รับ")).toHaveCount(0);
+  await expect(receive.getByLabel("รับครบใบจัดสรรนี้แล้ว")).toBeChecked();
+  await receive.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
+  await field(page, /น้ำหนักรับเข้าสาขา/, "30");
+  await receive.getByLabel("รับครบใบจัดสรรนี้แล้ว").uncheck();
+  await saveEntry(page);
+  await button(page, "รับของ");
+  receive = page.getByRole("dialog").last();
+  await expect(
+    receive.getByLabel("ใบจัดสรรที่รับ").locator("option").nth(1),
+  ).toContainText("ค้างรับ 20.00 กก.");
+  await receive.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
+  await field(page, /น้ำหนักรับเข้าสาขา/, "20.5");
+  await submitAndExpectError(page, /รับเกินยอดค้างรับ/);
+  await field(page, /น้ำหนักรับเข้าสาขา/, "20");
+  await saveEntry(page);
+  await expect(
+    page.getByRole("row").filter({ hasText: "1. รับเนื้อเข้าสาขา" }),
+  ).toContainText("ไม่มีรายการรอรับ");
+
+  // Minburi receives 28.5 of 29 kg and closes the allocation: the shortfall needs a reason.
+  await signInAs(page, BRANCH_ACCOUNTS["มีนบุรี"]);
+  await button(page, "รับของ");
+  receive = page.getByRole("dialog").last();
+  await receive.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
+  await field(page, /น้ำหนักรับเข้าสาขา/, "28.5");
+  await submitAndExpectError(page, /เหตุผลส่วนต่าง/);
+  await field(page, /เหตุผลส่วนต่าง/, "QA TEST drip loss");
+  await saveEntry(page);
+  await expect(
+    page.getByRole("row").filter({ hasText: "1. รับเนื้อเข้าสาขา" }),
+  ).toContainText("ไม่มีรายการรอรับ");
+
+  // Each branch thaws 10 kg, records materials and rice (self-cooked at Saladaeng,
+  // bought cooked at Minburi — either branch picks the source per purchase), sells,
+  // and closes the day through the single "ตรวจและปิดวัน" checklist.
   for (const branch of ["ศาลาแดง", "มีนบุรี"] as const) {
     await signInAs(page, BRANCH_ACCOUNTS[branch]);
-    await button(page, "รับของ");
-    await page.getByLabel("ใบจัดสรรที่รับ").selectOption({ index: 1 });
-    await field(page, /น้ำหนักรับเข้าสาขา/, "39.5");
-    await field(page, /จำนวนถุงที่รับ/, "1");
-    await saveEntry(page);
     await button(page, "แบ่งละลาย");
-    await field(page, /น้ำหนักละลาย/, "50");
+    await field(page, /น้ำหนักละลาย/, "60");
     await field(page, /จำนวนถุงที่ละลาย/, "1");
     await submitAndExpectError(page, /ไม่พอ/);
     await field(page, /น้ำหนักละลาย/, "10");
     await saveEntry(page);
     await button(page, "บันทึกการใช้วัสดุ");
+    await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
 
-    const riceTableTitle =
-      branch === "ศาลาแดง"
-        ? "ข้าวเหนียวดิบ · ซื้อที่สาขาศาลาแดง"
-        : "ข้าวเหนียวสุก · ซื้อที่สาขามีนบุรี";
-    const riceTable = tableSection(page, riceTableTitle);
-    await pointAndClick(
+    const riceTable = tableSection(
       page,
-      riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(0),
+      "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
     );
+    const riceRow = (index: number) =>
+      riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(index);
+    await pointAndClick(page, riceRow(0));
+    const ricePurchase = page.getByRole("dialog").last();
+    // Nothing to fill until the round's source is picked.
+    await submitAndExpectError(page, /เลือกที่มาของข้าวเหนียวรอบนี้/);
+    await ricePurchase
+      .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
+      .selectOption(
+        branch === "ศาลาแดง"
+          ? "นึ่งเอง (ซื้อข้าวดิบ)"
+          : "ซื้อข้าวสุกจากข้างนอก",
+      );
     await field(page, /ผู้จำหน่ายข้าว/, "ร้านข้าวทดสอบ");
     if (branch === "ศาลาแดง") {
+      await expect(
+        ricePurchase.getByLabel(/ข้าวเหนียวสุกซื้อเข้า/),
+      ).toHaveCount(0);
       await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "5");
       await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "275");
     } else {
-      await field(page, /ข้าวเหนียวสุกซื้อเข้า/, "32");
-      await field(page, /ยอดซื้อข้าวเหนียวสุก/, "1440");
+      await expect(
+        ricePurchase.getByLabel(/ข้าวเหนียวดิบซื้อเข้า/),
+      ).toHaveCount(0);
+      // Below the cooked-rice par (30 kg) only warns now; 12 kg saves.
+      await field(page, /ข้าวเหนียวสุกซื้อเข้า/, "12");
+      await field(page, /ยอดซื้อข้าวเหนียวสุก/, "540");
     }
     await saveEntry(page);
 
     if (branch === "ศาลาแดง") {
-      await pointAndClick(
-        page,
-        riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(1),
-      );
+      await pointAndClick(page, riceRow(1));
       await field(page, /ข้าวเหนียวดิบที่เบิกวันนี้/, "1");
       await field(page, /ผู้รับของ/, "ผู้ดูแลศาลาแดง");
       await saveEntry(page);
-      await pointAndClick(
-        page,
-        riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(2),
-      );
+      // Issuing raw rice makes the cook ("ข้าวเหนียวช่วงเช้า") due today.
+      await expect(
+        riceTable.getByRole("row").filter({ hasText: "ข้าวเหนียวช่วงเช้า" }),
+      ).toContainText("รอบันทึก");
+      await pointAndClick(page, riceRow(2));
       await field(page, /ข้าวเหนียวดิบที่นำมาหุง/, "1");
-      await field(page, /ข้าวเหนียวสุกที่ได้/, "1");
+      await field(page, /ข้าวเหนียวสุกที่ได้/, "1.4");
       await saveEntry(page);
     }
 
-    // Closing the day needs the thawed meat sold or wasted to zero, so the
-    // 9.9 kg left after the 0.1 kg sale is written off with a reason (BUG-3 positive path).
-    await button(page, "บันทึกยอดขาย");
+    // Close before the sale: the checklist names what is missing and the confirm
+    // button stays disabled; "ไปกรอก" opens the sale form instead.
+    await button(page, "ตรวจและปิดวัน");
+    const closeDay = page.getByRole("dialog").last();
+    await expect(closeDay.getByLabel(/เวลาจำลองสำหรับทดสอบปิดวัน/)).toHaveCount(
+      0,
+    );
+    const checklist = tableSection(page, "ตรวจก่อนปิดวัน");
+    await expect(
+      checklist.getByRole("row").filter({ hasText: "ยอดขายวันนี้" }),
+    ).toContainText("ยังไม่ทำ");
+    await expect(
+      checklist.getByRole("row").filter({ hasText: "เช็ควัสดุ" }),
+    ).toContainText("✓");
+    await expect(closeDay).toContainText("ยังปิดวันไม่ได้ · ขาด ยอดขายวันนี้");
+    await expect(closeDay.locator('button[type="submit"]')).toBeDisabled();
+    await pointAndClick(
+      page,
+      checklist
+        .getByRole("row")
+        .filter({ hasText: "ยอดขายวันนี้" })
+        .getByRole("button", { name: "ไปกรอก" }),
+    );
+
+    // The sale form (B1): meat "used today" and "waste"; what is left of the thawed
+    // 10 kg stays chilled for tomorrow instead of having to be written off.
+    await expect(page.getByRole("dialog").last()).toContainText(
+      "น้ำหนักที่ใช้ไปจริงวันนี้",
+    );
     await field(page, /กล่องมาตรฐาน/, "1");
     await field(page, /น้ำพริกหลอด/, "1");
     await field(page, /ตรวจนับน้ำพริกจริง/, "9");
@@ -304,36 +394,58 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
       /หมายเหตุเมื่อน้ำพริกไม่ตรง/,
       "ตรวจนับจริงต่างจากยอดระบบเพื่อทดสอบการบันทึกเหตุผล",
     );
-    await field(page, /น้ำหนักเนื้อซีลพร้อมขาย/, "0.1");
-    await field(page, /Waste เนื้อจาก Lot นี้/, "9.9");
+    await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0.1");
+    await field(page, /น้ำหนักเวสต์/, "0.5");
     await field(page, /ยอดขาย LINE MAN/, "380");
+    // BUG-3: waste needs a reason, and the form says so.
+    await submitAndExpectError(page, /เหตุผล/);
     await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
     await saveEntry(page);
 
-    if (branch === "มีนบุรี") {
-      await pointAndClick(
-        page,
-        riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(1),
-      );
-      await field(page, /ข้าวเหนียวสุกเหลือปลายวัน/, "31.8");
-      await field(
-        page,
-        /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/,
-        "ใช้ข้าวเหนียวสุก 0.2 กก. กับกล่องมาตรฐานวันนี้",
-      );
-      await saveEntry(page);
-    }
-    await button(page, "ปิดวัน");
-    // A half-hour time picker, not a text field.
-    const closeDayTime = page
+    // Every day ends with the cooked-rice confirmation.
+    await pointAndClick(page, riceRow(3));
+    await field(
+      page,
+      /ข้าวเหนียวสุกเหลือปลายวัน/,
+      branch === "ศาลาแดง" ? "1.2" : "11.8",
+    );
+    await page
       .getByRole("dialog")
       .last()
-      .getByLabel(/เวลาจำลองสำหรับทดสอบปิดวัน/);
-    await closeDayTime.selectOption("18:00");
-    await field(page, /ชื่อผู้ยืนยันปิดวัน/, `ผู้ดูแล${branch}`);
-    await submitAndExpectError(page, /ปิดวันได้ตั้งแต่ 22:00/);
-    await closeDayTime.selectOption("22:00");
+      .getByLabel(/การจัดการวันถัดไป/)
+      .selectOption("เก็บไว้อุ่นวันถัดไป");
+    await field(
+      page,
+      /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/,
+      "ใช้ข้าวเหนียวสุก 0.2 กก. กับกล่องมาตรฐานวันนี้",
+    );
     await saveEntry(page);
+
+    await expect(
+      tableSection(page, new RegExp(`^เนื้อละลายวันนี้ · .* · ${branch}$`))
+        .getByRole("row")
+        .filter({ hasText: /^S\d{6}-\d{3}|F\d{6}/ })
+        .first(),
+    ).toContainText("9.40 กก.");
+
+    // Everything is in: the checklist is all ✓, the 9.4 kg chill row is information
+    // only, and the day closes at any hour (no close-time rule).
+    await button(page, "ตรวจและปิดวัน");
+    const ready = page.getByRole("dialog").last();
+    await expect(ready).toContainText("ข้อมูลครบ ปิดวันได้ทุกเวลา");
+    await expect(
+      tableSection(page, "ตรวจก่อนปิดวัน")
+        .getByRole("row")
+        .filter({ hasText: "เนื้อชิลยกไปวันถัดไป 9.40 กก." }),
+    ).toContainText("ข้อมูล · ไม่บังคับ");
+    await field(page, /ชื่อผู้ยืนยันปิดวัน/, `ผู้ดูแล${branch}`);
+    await saveEntry(page);
+    await expect(
+      page.getByText(/ปิดวันแล้ว · ข้อมูลวันที่ .* ถูกล็อก/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "ตรวจและปิดวัน" }),
+    ).toBeDisabled();
   }
 
   // BUG-10e: traceability follows the lot past the return trip into central stock, branches and sales.
@@ -356,7 +468,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
     page
       .getByRole("row")
       .filter({ hasText: "จัดสรรไปสาขา" })
-      .filter({ hasText: "2 ใบ" })
+      .filter({ hasText: "ศาลาแดง 50.00 กก. · มีนบุรี 29.00 กก." })
       .last(),
   ).toBeVisible();
   await expect(
@@ -365,6 +477,246 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
       .filter({ hasText: "ขายที่สาขา" })
       .filter({ hasText: "2 วัน" })
       .last(),
-  ).toBeVisible();
-  await page.waitForTimeout(1_500);
+  ).toContainText("ขาย 0.20 กก. · Waste 1.00 กก.");
 });
+
+/* Chill carryover (Branch Day B1): thawed meat a branch does not use stays chilled
+ * and is sold the next day without thawing again. The pipeline up to the branch
+ * receive is built with the domain core, dated yesterday, so the branch can work
+ * "yesterday" and then "today" (the working date can never be in the future). */
+test("สาขาศาลาแดง: ละลาย 70 ใช้ 65.5 → ปิดวันได้ คงเหลือชิล 4.5 → วันถัดไปชิลยกมา 4.5 ขายได้โดยไม่ต้องละลายใหม่", async ({
+  page,
+}) => {
+  test.skip(
+    process.env.NEXT_PUBLIC_LOCAL_DB !== "1",
+    "writes the state straight into the local SQLite backend (pnpm test:e2e:local)",
+  );
+  await startFresh(page);
+  await signInAs(page, ACCOUNTS.owner);
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString(
+    "en-CA",
+    { timeZone: "Asia/Bangkok" },
+  );
+  const { revision } = await (await page.request.get("/api/local-db")).json();
+  const saved = await page.request.post("/api/local-db", {
+    data: {
+      payload: receivedAtSaladaeng(yesterday),
+      expectedRevision: revision,
+    },
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+
+  await signInAs(page, ACCOUNTS.saladaeng);
+  const workingDate = page.getByLabel("วันที่ทำรายการ").first();
+  await workingDate.fill(yesterday);
+  await expect(workingDate).toHaveValue(yesterday);
+
+  // Yesterday: thaw 70, use 65.5, no waste. The 4.5 kg left does not block closing.
+  await button(page, "แบ่งละลาย");
+  await field(page, /น้ำหนักละลาย/, "70");
+  await field(page, /จำนวนถุงที่ละลาย/, "1");
+  await saveEntry(page);
+  await button(page, "บันทึกการใช้วัสดุ");
+  await expect(page.getByText("บันทึกการใช้วัสดุวันนี้แล้ว")).toBeVisible();
+  await button(page, "บันทึกยอดขาย");
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "65.5");
+  await field(page, /น้ำหนักเวสต์/, "0");
+  await saveEntry(page);
+  const riceTable = tableSection(
+    page,
+    "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
+  );
+  await pointAndClick(
+    page,
+    riceTable.getByRole("button", { name: "กรอกข้อมูล" }).nth(3),
+  );
+  await field(page, /ข้าวเหนียวสุกเหลือปลายวัน/, "0");
+  await page
+    .getByRole("dialog")
+    .last()
+    .getByLabel(/การจัดการวันถัดไป/)
+    .selectOption("ไม่นำกลับมาใช้");
+  await field(
+    page,
+    /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/,
+    "ข้าวสุกหมดตั้งแต่เช้า",
+  );
+  await saveEntry(page);
+  const meatDay = (date: string) =>
+    tableSection(page, `เนื้อละลายวันนี้ · ${date} · ศาลาแดง`)
+      .locator("tbody tr")
+      .first()
+      .getByRole("cell");
+  await expect(meatDay(yesterday).nth(2)).toHaveText("70.00 กก.");
+  await expect(meatDay(yesterday).nth(3)).toHaveText("65.50 กก.");
+  await expect(meatDay(yesterday).nth(5)).toHaveText("4.50 กก.");
+
+  await button(page, "ตรวจและปิดวัน");
+  await expect(page.getByRole("dialog").last()).toContainText(
+    "ข้อมูลครบ ปิดวันได้ทุกเวลา",
+  );
+  await expect(
+    tableSection(page, "ตรวจก่อนปิดวัน").getByRole("row").filter({
+      hasText: "เนื้อชิลยกไปวันถัดไป 4.50 กก.",
+    }),
+  ).toContainText("ข้อมูล · ไม่บังคับ");
+  await field(page, /ชื่อผู้ยืนยันปิดวัน/, "ผู้ดูแลศาลาแดง");
+  await saveEntry(page);
+  await expect(
+    page.getByText(/ปิดวันแล้ว · ข้อมูลวันที่ .* ถูกล็อก/),
+  ).toBeVisible();
+
+  // Today: the 4.5 kg comes in as chill; the sale uses it with nothing thawed today.
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Bangkok",
+  });
+  await workingDate.fill(today);
+  await expect(workingDate).toHaveValue(today);
+  await expect(meatDay(today).nth(1)).toHaveText("4.50 กก.");
+  await expect(meatDay(today).nth(2)).toHaveText("0.00 กก.");
+  await button(page, "บันทึกยอดขาย");
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.6");
+  await field(page, /น้ำหนักเวสต์/, "0");
+  await submitAndExpectError(page, /เกิน|ไม่พอ/);
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "4.5");
+  await saveEntry(page);
+  await expect(meatDay(today).nth(3)).toHaveText("4.50 กก.");
+  await expect(meatDay(today).nth(5)).toHaveText("0.00 กก.");
+});
+
+/** Seed → one 100 kg purchase PO shipped, smoked, returned and received centrally
+ * (70 kg), all 70 kg allocated to and received at Saladaeng — every entry on `date`. */
+function receivedAtSaladaeng(date: string): Database {
+  let db = structuredClone(seed);
+  const run = (
+    role: Role,
+    kind: string,
+    values: Record<string, string>,
+    lotId = "",
+    branch = "",
+  ) => {
+    db = mutate(db, role, kind, values, lotId, date, branch);
+  };
+  run("owner", "purchase", {
+    supplier: "Foodiva",
+    customerName: "บริษัท เนิร์ดเนื้อ จำกัด",
+    customerAddress: "กรุงเทพฯ",
+    attention: "ฝ่ายจัดซื้อ",
+    phone: "0800000000",
+    taxId: "0100000000000",
+    packSize: "6 ชิ้นต่อถุง",
+    productName: "เนื้อวัว",
+    orderedKg: "70",
+    price: "250",
+  });
+  const poLotId = db.lots.at(-1)!.id;
+  run(
+    "foodiva",
+    "foodivaConfirm",
+    {
+      invoiceNo: "INV-CHILL",
+      invoiceDate: date,
+      confirmedKg: "70",
+      readyForChiangMaiKg: "70",
+      reservedForOwnerKg: "0",
+      invoiceAmount: "17500",
+      attachment: "inv.pdf",
+      confirmedBy: "Foodiva",
+    },
+    poLotId,
+  );
+  run("owner", "shipmentRequest", {
+    lines: JSON.stringify([{ lotId: poLotId, kg: "70" }]),
+  });
+  const lotId = db.lots.at(-1)!.id;
+  const trip = {
+    vehicleType: "รถห้องเย็น",
+    plate: "CH-01",
+    driverName: "คนขับ",
+    driverPhone: "0800000000",
+  };
+  run(
+    "foodiva",
+    "dispatch",
+    {
+      pickupDate: date,
+      origin: "Foodiva · กรุงเทพฯ",
+      destination: "Chef House · เชียงใหม่",
+      trip: "ไปกลับ",
+      pickupTime: "06:30",
+      ...trip,
+    },
+    lotId,
+  );
+  run(
+    "foodiva",
+    "packingList",
+    {
+      invoiceNo: "INV-CHILL",
+      product: "เนื้อวัว",
+      slicedLostKg: "70",
+      boxes: "35\n35",
+    },
+    lotId,
+  );
+  run(
+    "owner",
+    "smokeOrder",
+    {
+      smoker: "Chef House",
+      requestedSmokeDate: date,
+      expectedFinishedDate: date,
+    },
+    lotId,
+  );
+  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
+  run("cm", "cmReceive", { receivedBoxes: "35\n35", arrival: "08:00" }, lotId);
+  run("cm", "prepare", { preSmokeKg: "70" }, lotId);
+  run(
+    "cm",
+    "smoke",
+    { smokeDate: date, inputKg: "70", wasteKg: "0", packs: "35\n35" },
+    lotId,
+  );
+  run("cm", "closeLot", { confirm: "Chef House" }, lotId);
+  run(
+    "owner",
+    "return",
+    {
+      returnDate: date,
+      returnTime: "09:00",
+      origin: "Chef House · เชียงใหม่",
+      destination: "Foodiva · กรุงเทพฯ",
+      returnKg: "70",
+      ...trip,
+    },
+    lotId,
+  );
+  run(
+    "foodiva",
+    "foodivaReturnReceive",
+    {
+      receivedDate: date,
+      receivedTime: "10:00",
+      receivedKg: "70",
+      receivedBags: "2",
+    },
+    lotId,
+  );
+  run("owner", "central", { centralKg: "70" }, lotId);
+  run(
+    "owner",
+    "allocate",
+    { branch: "ศาลาแดง", kg: "70", deliveryDate: date },
+    lotId,
+  );
+  const allocation = db.entries.at(-1)!.id;
+  run(
+    "branch",
+    "receive",
+    { allocation, kg: "70", complete: "1" },
+    lotId,
+    "ศาลาแดง",
+  );
+  return db;
+}
