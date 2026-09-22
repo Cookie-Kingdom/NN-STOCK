@@ -686,7 +686,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
   );
 
   /* The standalone กล่องโปรโมทอินฟลูเอนเซอร์ table is gone: a giveaway is entered
-   * inside ตรวจและปิดวัน now (feedback-20-09-c ข้อ 17 walks that section, and
+   * inside บันทึกยอดขาย now (feedback-20-09-c ข้อ 17 walks that section, and
    * qa-regression checks an over-stock one), so this lane no longer records one. */
 
   await step(

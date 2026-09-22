@@ -743,16 +743,26 @@ export const dispatchWithPackingList = (
 /** How one giveaway block is named in a message: its number, plus the name once typed. */
 export const influencerLabel = (index: number, values: Values) =>
   `อินฟลูเอนเซอร์ที่ ${index + 1}${values.influencer?.trim() ? ` (${values.influencer.trim()})` : ""}`;
-/** The branch's close: each influencer giveaway is its own entry, then the day is closed
- *  (a closed day refuses further entries, so the giveaways must land first). Folding over
- *  the cloned database makes the save all-or-nothing: one invalid giveaway throws before
- *  anything reaches the caller, so the day stays open and nothing is written. */
-export const closeDayWithInfluencers = (
+/** The branch's day-end record: every influencer giveaway on the sale's lot is its own
+ *  entry, then the sale itself.
+ *
+ *  The giveaways go first because the sale is the closing tally. Its end-of-day chili
+ *  count (`chiliCount` against `chiliExpected`) is measured on the shelf as it stands,
+ *  which the giveaway tubes have already left; recording the sale first would compute
+ *  an expected count that still holds them and turn a truthful count into a variance
+ *  that demands a remark. It also means the sale's own over-stock messages say how much
+ *  thawed meat, rice and chili is left for selling once the giveaways are out.
+ *
+ *  Folding over the cloned database makes the save all-or-nothing: an invalid block
+ *  throws before anything reaches the caller, so nothing at all is written. */
+export const saleWithInfluencers = (
   db: Database,
   branch: string,
   date: string,
-  giveaways: { lotId: string; values: Values }[],
-  closeValues: Values,
+  /** The lot the sale form is open on; every giveaway hangs on the same one. */
+  lotId: string,
+  giveaways: Values[],
+  saleValues: Values,
 ) =>
   mutate(
     giveaways.reduce((current, giveaway, index) => {
@@ -761,8 +771,8 @@ export const closeDayWithInfluencers = (
           current,
           "branch",
           "influencerBox",
-          giveaway.values,
-          giveaway.lotId,
+          giveaway,
+          lotId,
           date,
           branch,
         );
@@ -771,14 +781,14 @@ export const closeDayWithInfluencers = (
         // shows one message. The error object itself is kept (OverStockError is
         // what tells the form to speak up before every field is filled).
         if (caught instanceof Error)
-          caught.message = `${influencerLabel(index, giveaway.values)} · ${caught.message}`;
+          caught.message = `${influencerLabel(index, giveaway)} · ${caught.message}`;
         throw caught;
       }
     }, db),
     "branch",
-    "closeDay",
-    closeValues,
-    "",
+    "sale",
+    saleValues,
+    lotId,
     date,
     branch,
   );
@@ -998,9 +1008,9 @@ export function requiredRiceKinds(db: Database, branch: string, date: string) {
  *  refuses on the first required item not done, with its `message`, so the dialog and
  *  the save never disagree. `kind` is the form that fills the item, when it has one
  *  (materials are counted in the day screen's own table). Influencer giveaways are no
- *  longer a line here: they are entered inside the close dialog itself (closeDayWith-
- *  Influencers), so an optional line pointing at another form would only mislead. The
- *  chill line is information only: thawed meat left over carries into tomorrow. */
+ *  longer a line here: they are entered inside the sale form (saleWithInfluencers), so
+ *  the `sale` line above already covers the moment they are recorded. The chill line is
+ *  information only: thawed meat left over carries into tomorrow. */
 export function closeDayChecklist(db: Database, branch: string, date: string) {
   const has = (kind: string) =>
     entries(db, kind, undefined, branch, date).length > 0;

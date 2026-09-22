@@ -5,9 +5,9 @@ import {
   centralDb,
   chillDb,
   closeReadyDb,
-  closeReadyWithSuppliesDb,
   day,
   demoDb,
+  giveawayReadyDb,
   multiPoPackedDb,
   nextDay,
   prefillHistoryDb,
@@ -404,28 +404,27 @@ export const BranchCloseDayReady: Story = {
   ),
 };
 
-/** The close dialog as it opens: the influencer section is collapsed to
- *  เพิ่มอินฟลูเอนเซอร์, and closing the day with no block added saves only closeDay. */
-export const BranchCloseDayInfluencersCollapsed: Story = {
-  parameters: { db: closeReadyWithSuppliesDb },
+/** The sale form as it opens: the influencer section is collapsed to
+ *  เพิ่มอินฟลูเอนเซอร์, and a sale with no block added saves only the sale. */
+export const BranchSaleInfluencersCollapsed: Story = {
+  parameters: { db: giveawayReadyDb },
   render: () => (
     <EntryForm
-      db={closeReadyWithSuppliesDb}
+      db={giveawayReadyDb}
       role="branch"
       branch="ศาลาแดง"
       date={day}
       onDate={onDate}
-      modal={{ kind: "closeDay", lotId: "" }}
+      modal={{ kind: "sale", lotId: giveawayReadyDb.lots.at(-1)!.id }}
       onClose={onClose}
       onSaved={onSaved}
-      onOpen={onOpen}
     />
   ),
 };
 
 /** One press of เพิ่มอินฟลูเอนเซอร์: one block, focus on ชื่ออินฟลูเอนเซอร์. */
-export const BranchCloseDayOneInfluencer: Story = {
-  ...BranchCloseDayInfluencersCollapsed,
+export const BranchSaleOneInfluencer: Story = {
+  ...BranchSaleInfluencersCollapsed,
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     await userEvent.click(
@@ -437,9 +436,9 @@ export const BranchCloseDayOneInfluencer: Story = {
   },
 };
 
-/** Pressing it again appends a second block: one close can record several influencers. */
-export const BranchCloseDayTwoInfluencers: Story = {
-  ...BranchCloseDayInfluencersCollapsed,
+/** Pressing it again appends a second block: one sale can record several influencers. */
+export const BranchSaleTwoInfluencers: Story = {
+  ...BranchSaleInfluencersCollapsed,
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     const add = form.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ });
@@ -451,9 +450,9 @@ export const BranchCloseDayTwoInfluencers: Story = {
   },
 };
 
-/** The same two blocks on a phone: the wider close dialog is still one column. */
-export const BranchCloseDayTwoInfluencersMobile: Story = {
-  ...BranchCloseDayTwoInfluencers,
+/** The same two blocks on a phone: the wider sale dialog is still one column. */
+export const BranchSaleTwoInfluencersMobile: Story = {
+  ...BranchSaleTwoInfluencers,
   globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 

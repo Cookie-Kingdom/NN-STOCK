@@ -44,14 +44,6 @@ const openDialog = (page: Page) => page.getByRole("dialog").last();
 /** The open dialog refuses what was typed (live, save disabled, or on save). */
 const submitAndExpectError = a_expectRefused;
 
-async function cancelDialog(page: Page) {
-  await pointAndClick(
-    page,
-    openDialog(page).getByRole("button", { name: "ยกเลิก" }),
-  );
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-}
-
 /** Settings cards are edit-locked until "ขอแก้ไข" is pressed (see owner.spec.ts). */
 async function editSection(
   page: Page,
@@ -272,16 +264,8 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
     page,
     "น้ำหนักที่ใช้และเวสต์เกินเนื้อที่ละลายแล้ว (รวมชิลยกมา) · ใช้จริงรวมเวสต์ได้สูงสุด 0.50 กก.",
   );
-  // A valid sale: nothing sold, the thawed 0.5 kg written off with a reason.
-  await field(page, /กล่องมาตรฐาน/, "0");
-  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0");
-  await field(page, /น้ำหนักเวสต์/, "0.5");
-  await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
-  await saveEntry(page);
-
-  // BUG-3: a giveaway refuses over-stock out loud too. It is entered inside
-  // ตรวจและปิดวัน now, and the message names the block that was refused.
-  await button(page, "ตรวจและปิดวัน");
+  // BUG-3: a giveaway added to this same sale form refuses over-stock out loud too,
+  // and the message names the block that was refused. Removing the block clears it.
   await pointAndClick(
     page,
     openDialog(page).getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ }),
@@ -292,7 +276,17 @@ test("BUG-10a / BUG-5 / BUG-3 / BUG-10b: dialogs reject bad input out loud along
     page,
     /อินฟลูเอนเซอร์ที่ 1 \(QA Influencer\) · น้ำหนักที่ส่งเกินเนื้อที่ละลายแล้ว/,
   );
-  await cancelDialog(page);
+  await pointAndClick(
+    page,
+    openDialog(page).getByRole("button", { name: "ลบอินฟลูเอนเซอร์ที่ 1" }),
+  );
+
+  // A valid sale: nothing sold, the thawed 0.5 kg written off with a reason.
+  await field(page, /กล่องมาตรฐาน/, "0");
+  await field(page, /น้ำหนักที่ใช้ไปจริงวันนี้/, "0");
+  await field(page, /น้ำหนักเวสต์/, "0.5");
+  await field(page, /เหตุผลส่วนต่าง \/ Waste \/ ข้าม FIFO/, "QA TEST waste");
+  await saveEntry(page);
 
   // BUG-10b (the close-day hint quoting the wrong close time) is gone with the time rule
   // itself (B3): the one "ตรวจและปิดวัน" dialog has no time picker and no time text, it

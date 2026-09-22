@@ -10,7 +10,6 @@ import {
   chiliAllocated,
   chiliStock,
   closeDayChecklist,
-  closeDayWithInfluencers,
   cookedRiceStock,
   entries,
   isClosed,
@@ -38,6 +37,7 @@ import {
   requiredRiceKinds,
   revenue,
   riceSources,
+  saleWithInfluencers,
   seed,
   sevenDayRoleplay,
   smokeServiceRate,
@@ -1245,75 +1245,73 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   ).toBeUndefined();
 });
 
-/** giveawayReady, plus the sale, materials and rice the close insists on. */
-function closeReady() {
-  const s = giveawayReady();
-  // 45 boxes sold: 1 kg of meat and 9 of the 10 kg of cooked rice are gone, so a
-  // giveaway added at the close is short of rice before it is short of meat.
-  s.run("branch", "sale", {
-    boxes: "45",
-    addons: "0",
-    chiliAddons: "0",
-    soldKg: "1",
-    wasteKg: "0",
-    riceWasteKg: "0",
-    expense: "0",
-    lineMan: "9450",
-  });
-  s.run(
-    "branch",
-    "materials",
-    Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
-  );
-  s.run("branch", "riceCarry", {
-    leftoverKg: String(cookedRiceStock(s.db, "ศาลาแดง")),
-    reheat: "เก็บไว้อุ่นวันถัดไป",
-  });
-  return s;
-}
+/** The day's sale as the form sends it: small enough to leave room for giveaways. */
+const saleValues = {
+  boxes: "10",
+  addons: "0",
+  chiliAddons: "1",
+  soldKg: "1",
+  wasteKg: "0",
+  riceWasteKg: "0",
+  expense: "0",
+  lineMan: "3500",
+};
 
-const giveaway = (lotId: string, values: Values) => ({ lotId, values });
-
-describe("closing the day with influencer giveaways", () => {
-  test("two giveaways are written first, then the close", () => {
-    const s = closeReady();
+describe("recording the day's sale with influencer giveaways", () => {
+  test("two giveaways are written first, then the sale", () => {
+    const s = giveawayReady();
     const id = s.db.lots.at(-1)!.id;
     const before = s.db.entries.length;
-    const db = closeDayWithInfluencers(
+    const db = saleWithInfluencers(
       s.db,
       "ศาลาแดง",
       day,
+      id,
       [
-        giveaway(id, { ...box, influencer: "@a" }),
-        giveaway(id, { ...box, influencer: "@b", boxes: "1" }),
+        { ...box, influencer: "@a" },
+        { ...box, influencer: "@b", boxes: "1" },
       ],
-      { confirm: "ผู้ดูแล" },
+      saleValues,
     );
     expect(db.entries.slice(before).map((e) => e.kind)).toEqual([
       "influencerBox",
       "influencerBox",
-      "closeDay",
+      "sale",
     ]);
     expect(
       entries(db, "influencerBox", undefined, "ศาลาแดง", day).map(
         (e) => e.values.influencer,
       ),
     ).toEqual(["@a", "@b"]);
-    // Each giveaway's kg follows its own box count.
+    // Each giveaway's kg follows its own box count, and both hang on the sale's lot.
     expect(
-      entries(db, "influencerBox", undefined, "ศาลาแดง", day).map(
-        (e) => e.values.soldKg,
-      ),
+      entries(db, "influencerBox", undefined, "ศาลาแดง", day).map((e) => [
+        e.lotId,
+        e.values.soldKg,
+      ]),
     ).toEqual([
-      String(2 * Number(seed.config.packKg)),
-      String(1 * Number(seed.config.packKg)),
+      [id, String(2 * Number(seed.config.packKg))],
+      [id, String(1 * Number(seed.config.packKg))],
     ]);
-    expect(isClosed(db, "ศาลาแดง", day)).toBe(true);
+    // The sale is last, so its end-of-day chili count is measured on the shelf the
+    // giveaways have already left: 5 allocated − 2 given away − 1 sold.
+    expect(
+      entries(db, "sale", undefined, "ศาลาแดง", day).at(-1)!.values,
+    ).toMatchObject({ chiliExpected: "2" });
+    expect(chiliStock(db, "ศาลาแดง")).toBe(2);
   });
 
-  test("an invalid giveaway leaves the day open and writes nothing", () => {
-    const s = closeReady();
+  test("an invalid giveaway writes nothing at all — not even the sale", () => {
+    const s = giveawayReady();
     const id = s.db.lots.at(-1)!.id;
+    // A first sale of the day eats 9 of the 10 kg of cooked rice, so a giveaway can
+    // now run out of rice before it runs out of meat.
+    s.run("branch", "sale", {
+      ...saleValues,
+      boxes: "45",
+      chiliAddons: "0",
+      lineMan: "9450",
+    });
     const before = s.db.entries.length;
     for (const [bad, reason] of [
       [{ ...box, boxes: "60" }, /เกินเนื้อที่ละลายแล้ว/], // more meat than is thawed
@@ -1321,13 +1319,11 @@ describe("closing the day with influencer giveaways", () => {
       [{ ...box, chiliAddons: "9" }, /น้ำพริก/], // more chili than was allocated
     ] as [Values, RegExp][]) {
       const save = () =>
-        closeDayWithInfluencers(
-          s.db,
-          "ศาลาแดง",
-          day,
-          [giveaway(id, box), giveaway(id, bad)],
-          { confirm: "ผู้ดูแล" },
-        );
+        saleWithInfluencers(s.db, "ศาลาแดง", day, id, [box, bad], {
+          ...saleValues,
+          boxes: "1",
+          soldKg: "0.1",
+        });
       // The message says which block was refused, and why.
       expect(save).toThrow(/อินฟลูเอนเซอร์ที่ 2 \(@nong\)/);
       expect(save).toThrow(reason);
@@ -1336,29 +1332,27 @@ describe("closing the day with influencer giveaways", () => {
     expect(entries(s.db, "influencerBox", undefined, "ศาลาแดง", day)).toEqual(
       [],
     );
-    expect(isClosed(s.db, "ศาลาแดง", day)).toBe(false);
+    expect(entries(s.db, "sale", undefined, "ศาลาแดง", day)).toHaveLength(1);
   });
 
-  test("no giveaway: the save is the plain closeDay it always was", () => {
-    const s = closeReady();
-    const plain = closeDayWithInfluencers(s.db, "ศาลาแดง", day, [], {
-      confirm: "ผู้ดูแล",
-    });
+  test("no giveaway: the save is the plain sale it always was", () => {
+    const s = giveawayReady();
+    const id = s.db.lots.at(-1)!.id;
+    const plain = saleWithInfluencers(s.db, "ศาลาแดง", day, id, [], saleValues);
     const direct = mutate(
       s.db,
       "branch",
-      "closeDay",
-      { confirm: "ผู้ดูแล" },
-      "",
+      "sale",
+      saleValues,
+      id,
       day,
       "ศาลาแดง",
     );
     const tail = (db: Database) => {
-      const { id, at, ...rest } = db.entries.at(-1)!;
-      return { count: db.entries.length, ...rest, id: !!id, at: !!at };
+      const { id: entryId, at, ...rest } = db.entries.at(-1)!;
+      return { count: db.entries.length, ...rest, id: !!entryId, at: !!at };
     };
     expect(tail(plain)).toEqual(tail(direct));
-    expect(isClosed(plain, "ศาลาแดง", day)).toBe(true);
   });
 });
 

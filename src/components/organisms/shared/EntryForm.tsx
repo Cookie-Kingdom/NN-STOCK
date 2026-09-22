@@ -43,7 +43,6 @@ import {
   balance,
   centralStock,
   closeDayChecklist,
-  closeDayWithInfluencers,
   cookedRiceStock,
   entries,
   mutate,
@@ -52,6 +51,7 @@ import {
   packWeightWarning,
   riceSources,
   roleName,
+  saleWithInfluencers,
   smokingInvoiceRejection,
   stages,
   titles,
@@ -243,7 +243,7 @@ export function EntryFieldControl({
   );
 }
 
-/** One influencer giveaway entered with the close; `id` keeps React's list stable
+/** One influencer giveaway entered with the day's sale; `id` keeps React's list stable
  *  while blocks are added and removed. */
 type Giveaway = { id: string; values: Values };
 
@@ -254,18 +254,18 @@ const influencerRequired = influencerFields
   .map((field) => field.key);
 
 /**
- * The giveaways recorded as part of ยืนยันปิดวัน. Collapsed to one button: pressing it
- * opens a block, pressing it again opens another, so one close can record several
- * influencers. Closing the day with no block added saves exactly what it always did.
+ * The giveaways recorded as part of บันทึกยอดขาย / Waste. Collapsed to one button:
+ * pressing it opens a block, pressing it again opens another, so one sale can record
+ * several influencers. A sale with no block added saves exactly what it always did.
  */
-function CloseDayInfluencers({
+function SaleInfluencers({
   blocks,
   onAdd,
   onRemove,
   onChange,
 }: {
   blocks: Giveaway[];
-  /** Adds an empty block and returns its id, or "" when the branch has no thawed lot. */
+  /** Adds an empty block and returns its id, or "" when no lot is picked yet. */
   onAdd: () => string;
   onRemove: (id: string) => void;
   onChange: (id: string, key: string, value: string) => void;
@@ -414,21 +414,15 @@ export function EntryForm({
       values: { ...values, ...changes },
     });
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  /* Influencer giveaways are part of closing the day (one entry each, before the
-   * closeDay entry). The section starts collapsed: no block, no giveaway. */
+  /* Influencer giveaways are part of the day's sale (one entry each, saved just before
+   * the sale). The section starts collapsed: no block, no giveaway. */
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const nextGiveawayId = useRef(0);
-  /** The lot a giveaway hangs on: the one the day's sale uses, a branch lot with thawed meat. */
-  const giveawayLot = choices.find(
-    (l) => balance(db, l.id, branch).ready > 0.001,
-  );
-  const giveawayInputs = (list: Giveaway[]) =>
-    list.map((g) => ({ lotId: giveawayLot?.id ?? "", values: g.values }));
   const addGiveaway = () => {
-    if (!giveawayLot) {
-      setError(
-        "ยังเพิ่มอินฟลูเอนเซอร์ไม่ได้ · สาขานี้ยังไม่มี Lot ที่มีเนื้อละลายพร้อมส่ง",
-      );
+    // A giveaway hangs on the lot the sale itself is open on, so it cannot be filled
+    // before that lot is picked (a branch with no thawed lot has none to pick).
+    if (!lotId) {
+      setError("เลือก Lot ต้นทางก่อน แล้วจึงเพิ่มอินฟลูเอนเซอร์");
       return "";
     }
     const id = `giveaway-${++nextGiveawayId.current}`;
@@ -438,8 +432,7 @@ export function EntryForm({
         id,
         values: {
           ...defaults("influencerBox", date),
-          ...prefillValues(db, "influencerBox", giveawayLot, { branch, date })
-            .values,
+          ...prefillValues(db, "influencerBox", lot, { branch, date }).values,
         },
       },
     ]);
@@ -545,18 +538,16 @@ export function EntryForm({
    * not be told off for being unfinished, but a quantity over stock is wrong already. */
   const liveError = useMemo(() => {
     try {
-      // The close runs the whole composition, so a giveaway over stock is said here
-      // and not after ยืนยันปิดวัน; the message names the block that was refused.
-      if (kind === "closeDay" && giveaways.length)
-        closeDayWithInfluencers(
+      // The sale runs the whole composition, so a giveaway over stock is said here
+      // and not after บันทึกรายการ; the message names the block that was refused.
+      if (kind === "sale" && giveaways.length)
+        saleWithInfluencers(
           db,
           branch,
           date,
-          giveaways.map((g) => ({
-            lotId: giveawayLot?.id ?? "",
-            values: g.values,
-          })),
-          values,
+          lotId,
+          giveaways.map((g) => g.values),
+          resolveLocations(values),
         );
       else
         mutate(db, role, kind, resolveLocations(values), lotId, date, branch);
@@ -565,18 +556,7 @@ export function EntryForm({
       if (!complete && !(caught instanceof OverStockError)) return "";
       return caught instanceof Error ? caught.message : "";
     }
-  }, [
-    complete,
-    db,
-    role,
-    kind,
-    values,
-    lotId,
-    date,
-    branch,
-    giveaways,
-    giveawayLot,
-  ]);
+  }, [complete, db, role, kind, values, lotId, date, branch, giveaways]);
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
   const missing = checklist.find((item) => item.required && !item.done);
@@ -619,15 +599,16 @@ export function EntryForm({
        * the loaded history back untouched (the server rejects edited entries), so
        * the rewrite was discarded, and its re-upload of every old file on each
        * submit could stall or fail a PO or sale that never touched a file. */
-      /* The giveaways and the close land in one save, the giveaways first: a closed
-       * day refuses further entries. One invalid block throws before anything is
-       * persisted, so the day stays open and nothing is written. */
-      if (kind === "closeDay" && giveaways.length)
-        return closeDayWithInfluencers(
+      /* The giveaways and the sale land in one save, the giveaways first (see
+       * saleWithInfluencers). One invalid block throws before anything is persisted,
+       * so nothing at all is written and the form stays open on the block to fix. */
+      if (kind === "sale" && giveaways.length)
+        return saleWithInfluencers(
           latestDatabase(),
           branch,
           date,
-          giveawayInputs(giveaways),
+          lotId,
+          giveaways.map((g) => g.values),
           resolvedValues,
         );
       return mutate(
@@ -646,14 +627,10 @@ export function EntryForm({
     <Dialog
       overline={`${date} · ${roleName[role]}`}
       title={title}
-      // The close holds the checklist, both day summaries and repeated influencer
-      // blocks; every other form keeps its width.
+      // The sale holds its own long form plus repeated influencer blocks; every
+      // other form keeps its width.
       size={
-        isPurchaseOrder
-          ? "preview"
-          : kind === "closeDay"
-            ? "formWide"
-            : "default"
+        isPurchaseOrder ? "preview" : kind === "sale" ? "formWide" : "default"
       }
       onClose={onClose}
     >
@@ -819,14 +796,6 @@ export function EntryForm({
                   : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
               </Notice>
             )}
-            {kind === "closeDay" && (
-              <CloseDayInfluencers
-                blocks={giveaways}
-                onAdd={addGiveaway}
-                onRemove={removeGiveaway}
-                onChange={changeGiveaway}
-              />
-            )}
             <FormGrid>
               {formFields.map((f, index) => (
                 <EntryFieldControl
@@ -854,6 +823,14 @@ export function EntryForm({
             </FormGrid>
             {/* Only the sale weighs its meat; a giveaway's kg is derived from the
                 box count, so it can never be off the 100–103 g band. */}
+            {kind === "sale" && (
+              <SaleInfluencers
+                blocks={giveaways}
+                onAdd={addGiveaway}
+                onRemove={removeGiveaway}
+                onChange={changeGiveaway}
+              />
+            )}
             {kind === "sale" &&
               n(values, "soldKg") > 0 &&
               packWeightWarning(values) && (
