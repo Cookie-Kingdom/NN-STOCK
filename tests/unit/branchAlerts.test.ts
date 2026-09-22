@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 // Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
 import { useBranchAlerts as branchAlerts } from "@/components/organisms/branch/useBranchAlerts";
+import { branchNav } from "@/lib/nav";
 import { materials, mutate, seed, type Database } from "@/lib/store";
 import { day, last, ready, setup } from "./fixtures";
 
@@ -14,9 +15,13 @@ function allocated(branch: string, kg: string) {
   return s;
 }
 
-test("an empty day only asks to be closed", () => {
+/** Every day starts uncounted, so this line rides along until `materials` is saved. */
+const notCounted = `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${day}`;
+
+test("an empty day asks to be closed and to count the materials", () => {
   expect(titles(structuredClone(seed), "ศาลาแดง")).toEqual([
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
 });
 
@@ -30,6 +35,7 @@ test("an allocation waits at its own branch and nowhere else", () => {
   // มีนบุรี was not allocated anything: its bell must not mention the other branch's Lot.
   expect(titles(s.db, "มีนบุรี")).toEqual([
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
   expect(branchAlerts(s.db, "มีนบุรี", day).badges.day).toBe(1);
 });
@@ -49,8 +55,42 @@ test("material sent to one branch is not the other branch's job", () => {
     quantity: "60",
     receiver: "ผู้ดูแลสาขา",
   });
-  expect(titles(s.db, "ศาลาแดง")).toContain("วัสดุรอยืนยันรับ 1 รายการ");
+  expect(
+    branchAlerts(s.db, "ศาลาแดง", day).notifications.find(
+      (item) => item.title === "วัสดุรอยืนยันรับ 1 รายการ",
+    ),
+  ).toEqual({
+    title: "วัสดุรอยืนยันรับ 1 รายการ",
+    detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
+    tab: "material-receive",
+  });
+  // The line belongs to its own tab now — it must not inflate the กรอกรายวัน pill.
+  const salaBadges = branchAlerts(s.db, "ศาลาแดง", day).badges;
+  expect(salaBadges["material-receive"]).toBe(1);
+  expect(salaBadges.day).toBe(branchAlerts(s.db, "มีนบุรี", day).badges.day);
+
   expect(titles(s.db, "มีนบุรี")).not.toContain("วัสดุรอยืนยันรับ 1 รายการ");
+  expect(branchAlerts(s.db, "มีนบุรี", day).badges["material-receive"]).toBe(0);
+});
+
+test("ตรวจนับสต๊อกวัสดุ waits until the day's one materials entry is saved", () => {
+  const s = setup();
+  expect(branchAlerts(s.db, "ศาลาแดง", day).badges["material-count"]).toBe(
+    materials.length,
+  );
+  expect(titles(s.db, "ศาลาแดง")).toContain(notCounted);
+
+  s.run(
+    "branch",
+    "materials",
+    Object.fromEntries(materials.map((_, index) => [`material${index}`, "10"])),
+  );
+  expect(branchAlerts(s.db, "ศาลาแดง", day).badges["material-count"]).toBe(0);
+  expect(titles(s.db, "ศาลาแดง")).not.toContain(notCounted);
+  // One branch's count is not the other's: มีนบุรี still owes its own.
+  expect(branchAlerts(s.db, "มีนบุรี", day).badges["material-count"]).toBe(
+    materials.length,
+  );
 });
 
 test("the day's own work follows the daily workflow, step by step", () => {
@@ -60,16 +100,19 @@ test("the day's own work follows the daily workflow, step by step", () => {
   expect(titles(s.db, "ศาลาแดง")).toEqual([
     `ยังไม่แบ่งละลายเนื้อวันที่ ${day}`,
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
   // Nothing of this reaches มีนบุรี: no receive, no thaw, no sale of its own.
   expect(titles(s.db, "มีนบุรี")).toEqual([
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
 
   s.run("branch", "thaw", { kg: "20", bags: "2" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([
     `ยังไม่บันทึกยอดขายวันที่ ${day}`,
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
 
   s.run("branch", "sale", {
@@ -84,6 +127,7 @@ test("the day's own work follows the daily workflow, step by step", () => {
   });
   expect(titles(s.db, "ศาลาแดง")).toEqual([
     `ยังขาด 2 รายการก่อนปิดวันที่ ${day}`,
+    notCounted,
   ]);
 
   s.run(
@@ -96,6 +140,7 @@ test("the day's own work follows the daily workflow, step by step", () => {
     reheat: "เก็บไว้อุ่นวันถัดไป",
   });
   expect(titles(s.db, "ศาลาแดง")).toEqual([`พร้อมปิดวันที่ ${day}`]);
+  expect(branchAlerts(s.db, "ศาลาแดง", day).badges["material-count"]).toBe(0);
 
   s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([]);
@@ -134,7 +179,21 @@ test("every branch alert points at a tab a branch actually has", () => {
   const tabs = branchAlerts(s.db, "ศาลาแดง", day).notifications.map(
     (item) => item.tab,
   );
+  const branchTabs = branchNav.flatMap((group) =>
+    group.items.map((item) => item.id),
+  );
+  expect(branchTabs).toEqual([
+    "day",
+    "material-receive",
+    "material-count",
+    "rice",
+    "stock",
+    "branch-summary",
+    "history",
+  ]);
   expect(tabs.length).toBeGreaterThan(0);
-  for (const tab of tabs)
-    expect(["day", "stock", "branch-summary", "history"]).toContain(tab);
+  for (const tab of tabs) expect(branchTabs).toContain(tab);
+  // A badge can only be hung on a tab the sidebar renders.
+  for (const tab of Object.keys(branchAlerts(s.db, "ศาลาแดง", day).badges))
+    expect(branchTabs).toContain(tab);
 });

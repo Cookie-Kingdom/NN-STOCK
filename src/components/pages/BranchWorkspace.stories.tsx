@@ -23,19 +23,45 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj;
 
+/** The workspace opens on today; move it to the fixture day so the story shows data. */
+const toFixtureDay: Story["play"] = async ({ canvasElement }) => {
+  fireEvent.change(
+    within(canvasElement).getAllByLabelText("วันที่ทำรายการ")[0],
+    { target: { value: day } },
+  );
+};
+
 export const Day: Story = { parameters: at("day") };
 /** ศาลาแดง's `day` after ปิดวัน: the locked notice, and every day form disabled. */
 export const DayClosed: Story = {
   parameters: { ...at("day"), db: dayClosedDb },
-  play: async ({ canvasElement }) => {
-    // The workspace opens on today; move it to the closed fixture day.
-    fireEvent.change(
-      within(canvasElement).getAllByLabelText("วันที่ทำรายการ")[0],
-      { target: { value: day } },
-    );
-  },
+  play: toFixtureDay,
 };
-export const Stock: Story = { parameters: at("stock") };
+
+/** ยืนยันรับวัสดุ: 60 units of the first material sent by the Owner, still unconfirmed. */
+export const MaterialReceive: Story = {
+  parameters: { ...at("material-receive"), db: branchTasksDb },
+};
+
+/** ตรวจนับสต๊อกวัสดุวันนี้ on a day the roleplay already counted. */
+export const MaterialCount: Story = {
+  parameters: at("material-count"),
+  play: toFixtureDay,
+};
+
+/** ตรวจนับสต๊อกวัสดุวันนี้ on a day still waiting to be counted — the CountPill's case. */
+export const MaterialCountPending: Story = {
+  parameters: { ...at("material-count"), db: branchTasksDb },
+};
+
+/** ข้าวเหนียววันนี้: ซื้อข้าวสุก / เบิกข้าวสาร / นึ่ง / ยกไปวันถัดไป on the roleplay day. */
+export const Rice: Story = {
+  parameters: at("rice"),
+  play: toFixtureDay,
+};
+
+/** สต๊อก grouped like the Owner's: สต๊อกเนื้อ, น้ำพริกและของใช้, วัสดุ. */
+export const Stock: Story = { parameters: at("stock"), play: toFixtureDay };
 export const Summary: Story = { parameters: at("branch-summary") };
 export const History: Story = { parameters: at("history") };
 export const MinburiDay: Story = {
