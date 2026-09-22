@@ -31,7 +31,9 @@ import {
   rawAtSmoker,
   rawRiceStock,
   readyForChefHouse,
+  requiredRiceKinds,
   revenue,
+  riceSources,
   seed,
   sevenDayRoleplay,
   smokeServiceRate,
@@ -328,7 +330,12 @@ describe("mutate guards", () => {
 
   test("a closed day blocks branch writes until the owner unlocks it", () => {
     const closed = withEntries(entry({ kind: "closeDay" }));
-    const rice = { supplier: "x", rawRiceKg: "1", rawRiceCost: "1" };
+    const rice = {
+      riceSource: riceSources[0],
+      supplier: "x",
+      rawRiceKg: "1",
+      rawRiceCost: "1",
+    };
     expect(() =>
       mutate(closed, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
     ).toThrow(/ปิดยอดแล้ว/);
@@ -360,11 +367,17 @@ describe("mutate guards", () => {
     const db = structuredClone(seed);
     expect(db.config.branch).toBe("ศาลาแดง");
     const cookedRice = {
+      riceSource: riceSources[1],
       supplier: "x",
       cookedRiceKg: "30",
       cookedRiceCost: "1350",
     };
-    const rawRice = { supplier: "x", rawRiceKg: "1", rawRiceCost: "1" };
+    const rawRice = {
+      riceSource: riceSources[0],
+      supplier: "x",
+      rawRiceKg: "1",
+      rawRiceCost: "1",
+    };
     expect(() =>
       mutate(db, "branch", "ricePurchase", cookedRice, "", day),
     ).toThrow(/ไม่พบสาขา/);
@@ -986,52 +999,105 @@ describe("branch supplies", () => {
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0, "2026-09-10")).toBe(60);
   });
 
-  test("Sala Daeng buys and issues raw rice; Min Buri cannot", () => {
-    const sala = setup();
-    expect(() =>
-      sala.run("branch", "riceIssue", { rawRiceIssuedKg: "1", receiver: "x" }),
-    ).toThrow(/ไม่พอ/);
-    sala.run("branch", "ricePurchase", {
-      supplier: "x",
-      rawRiceKg: "10",
-      rawRiceCost: "500",
-    });
-    expect(last(sala).values).toMatchObject({
-      totalCost: "500",
-      cookedRiceKg: "0",
-    });
-    const minburi = setup("มีนบุรี");
-    expect(() =>
-      minburi.run("branch", "riceIssue", {
-        rawRiceIssuedKg: "1",
-        receiver: "x",
-      }),
-    ).toThrow(/ไม่ต้องเบิก/);
-    expect(() =>
-      minburi.run("branch", "rice", { rawUsedKg: "1", riceKg: "1" }),
-    ).toThrow(/ศาลาแดง/);
-  });
-
-  test("Min Buri buys cooked rice to a 30 kg floor and records carry-over", () => {
-    const s = setup("มีนบุรี");
-    expect(() =>
+  // B2: every rice purchase picks self-cook or bought-cooked, at either branch.
+  test.each(["ศาลาแดง", "มีนบุรี"])(
+    "%s self-cooks: raw 10 kg in, cooked 14 kg out saves",
+    (branch) => {
+      const s = setup(branch);
+      expect(() =>
+        s.run("branch", "ricePurchase", {
+          supplier: "x",
+          rawRiceKg: "10",
+          rawRiceCost: "500",
+        }),
+      ).toThrow(/ที่มาของข้าว/);
       s.run("branch", "ricePurchase", {
+        riceSource: riceSources[0],
+        supplier: "x",
+        rawRiceKg: "10",
+        rawRiceCost: "500",
+        // Typed before the choice switched: the self-cook round ignores it.
+        cookedRiceKg: "5",
+      });
+      expect(last(s).values).toMatchObject({
+        totalCost: "500",
+        cookedRiceKg: "0",
+      });
+      s.run("branch", "riceIssue", { rawRiceIssuedKg: "10", receiver: "x" });
+      s.run("branch", "rice", { rawUsedKg: "10", riceKg: "14" });
+      expect(rawRiceStock(s.db, branch)).toBe(0);
+      expect(cookedRiceStock(s.db, branch)).toBe(14);
+      expect(requiredRiceKinds(s.db, branch, day)).toEqual([
+        "rice",
+        "riceCarry",
+      ]);
+    },
+  );
+
+  test.each(["ศาลาแดง", "มีนบุรี"])(
+    "%s buys cooked rice: no raw weight, no par floor",
+    (branch) => {
+      const s = setup(branch);
+      expect(() =>
+        s.run("branch", "ricePurchase", {
+          riceSource: riceSources[1],
+          supplier: "x",
+          rawRiceKg: "10",
+          rawRiceCost: "500",
+        }),
+      ).toThrow(/ข้าวเหนียวสุก/);
+      // Below cookedRicePar (30 kg): a hint in the form, not a block.
+      s.run("branch", "ricePurchase", {
+        riceSource: riceSources[1],
         supplier: "ครัวข้าวเหนียว",
-        cookedRiceKg: "29",
-        cookedRiceCost: "1305",
-      }),
-    ).toThrow(/30 กก/);
-    s.run("branch", "ricePurchase", {
-      supplier: "ครัวข้าวเหนียว",
-      cookedRiceKg: "32",
-      cookedRiceCost: "1440",
-    });
-    expect(cookedRiceStock(s.db, "มีนบุรี")).toBe(32);
-    s.run("branch", "riceCarry", {
-      leftoverKg: "32",
-      reheat: "เก็บไว้อุ่นวันถัดไป",
-    });
-    expect(last(s).values.reheat).toBe("เก็บไว้อุ่นวันถัดไป");
+        cookedRiceKg: "12",
+        cookedRiceCost: "540",
+      });
+      expect(last(s).values).toMatchObject({
+        rawRiceKg: "0",
+        totalCost: "540",
+      });
+      expect(cookedRiceStock(s.db, branch)).toBe(12);
+      expect(requiredRiceKinds(s.db, branch, day)).toEqual(["riceCarry"]);
+      s.run("branch", "riceCarry", {
+        leftoverKg: "12",
+        reheat: "เก็บไว้อุ่นวันถัดไป",
+      });
+      expect(last(s).values.reheat).toBe("เก็บไว้อุ่นวันถัดไป");
+    },
+  );
+
+  test("closeDay asks for the rice records that match what the branch did", () => {
+    const closeWith = (db: Database) =>
+      mutate(
+        db,
+        "branch",
+        "closeDay",
+        { time: "22:00", confirm: "x" },
+        "",
+        day,
+        "มีนบุรี",
+      );
+    const withDay = (...kinds: string[]) =>
+      withEntries(
+        ...["sale", "materials", ...kinds].map((kind) =>
+          entry({
+            kind,
+            branch: "มีนบุรี",
+            values: kind === "riceIssue" ? { rawRiceIssuedKg: "2" } : {},
+          }),
+        ),
+      );
+    expect(() => closeWith(withDay())).toThrow(
+      /ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/,
+    );
+    expect(() => closeWith(withDay("riceCarry"))).not.toThrow();
+    expect(() => closeWith(withDay("riceIssue", "riceCarry"))).toThrow(
+      /ยังไม่บันทึกข้าวช่วงเช้า/,
+    );
+    expect(() =>
+      closeWith(withDay("riceIssue", "rice", "riceCarry")),
+    ).not.toThrow();
   });
 
   test("day close time gate and sales deviation validation", () => {
@@ -1067,6 +1133,7 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   s.run("branch", "receive", { kg: "5", allocation: last(s).id });
   s.run("branch", "thaw", { kg: "5", bags: "2" });
   s.run("branch", "ricePurchase", {
+    riceSource: riceSources[0],
     supplier: "ตลาดศาลาแดง",
     rawRiceKg: "10",
     rawRiceCost: "500",
@@ -1140,6 +1207,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   s.run("branch", "receive", { kg: "6", allocation });
   s.run("branch", "thaw", { kg: "4.2", bags: "2" });
   s.run("branch", "ricePurchase", {
+    riceSource: riceSources[0],
     supplier: "ตลาดศาลาแดง",
     rawRiceKg: "10",
     rawRiceCost: "500",
@@ -1208,6 +1276,13 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     ),
   );
   expect(last(s).values.material0).toBe("450");
+  expect(() =>
+    s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" }),
+  ).toThrow(/ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/);
+  s.run("branch", "riceCarry", {
+    leftoverKg: String(cookedRiceStock(s.db, "ศาลาแดง")),
+    reheat: "เก็บไว้อุ่นวันถัดไป",
+  });
   s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" });
   expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
   expect(() => s.run("branch", "thaw", { kg: "1", bags: "1" })).toThrow(

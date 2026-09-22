@@ -145,7 +145,7 @@ export function OwnerDashboard({
   const margin = income - totalCost;
   const branchRows = branches.map((branchName) => {
     const rows = sales.filter((entry) => entry.branch === branchName);
-    const missing = requiredDailyKinds(branchName).filter(
+    const missing = requiredDailyKinds(db, branchName, date).filter(
       (kind) => !entries(db, kind, undefined, branchName, date).length,
     );
     const lowMaterials = materials.filter(
@@ -190,7 +190,7 @@ export function OwnerDashboard({
       };
     }),
     ...branches.flatMap((branchName) => {
-      const pending = requiredDailyKinds(branchName).filter(
+      const pending = requiredDailyKinds(db, branchName, date).filter(
         (kind) => !entries(db, kind, undefined, branchName, date).length,
       );
       const lowMaterialNames = materials.filter(

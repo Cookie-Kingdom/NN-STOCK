@@ -38,7 +38,7 @@ export function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
     dates.push(new Date(cursor).toISOString().slice(0, 10));
   const rows = visibleBranches.flatMap((name) =>
     dates.flatMap((workDate) => {
-      const missing = requiredDailyKinds(name).filter(
+      const missing = requiredDailyKinds(db, name, workDate).filter(
         (kind) => !entries(db, kind, undefined, name, workDate).length,
       );
       if (!missing.length)

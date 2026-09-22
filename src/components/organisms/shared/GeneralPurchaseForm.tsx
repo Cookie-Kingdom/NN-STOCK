@@ -20,6 +20,7 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
 import { mutate, type Database } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
+import { standardIngredients } from "@/lib/forms";
 
 export type GeneralPurchaseLine = {
   id: string;
@@ -47,15 +48,9 @@ export function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
   };
 }
 
-const standardIngredients = [
-  "น้ำพริกหลอด",
-  "น้ำดอง",
-  "ข้าวเหนียวดิบ (ข้าวสาร)",
-];
 const ingredientUnits: Record<string, string> = {
   น้ำพริกหลอด: "หลอด",
   น้ำดอง: "มล.",
-  "ข้าวเหนียวดิบ (ข้าวสาร)": "กก.",
 };
 
 function readSavedIngredients(): string[] {
@@ -246,9 +241,9 @@ export function GeneralPurchaseForm({
             minDate={minDate}
           />
           <Notice>
-            เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด น้ำดอง
-            ข้าวเหนียวดิบ) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO
-            และรับจาก Foodiva เพื่อผูก Lot กับสต๊อก
+            เลือกกลุ่มการซื้อของแต่ละรายการได้ เช่น วัตถุดิบ (น้ำพริกหลอด
+            น้ำดอง) หรือสินทรัพย์ (ตู้เย็น) · เนื้อให้สร้างผ่าน PO และรับจาก
+            Foodiva เพื่อผูก Lot กับสต๊อก
           </Notice>
           <div className="mt-5.5 grid gap-3.5">
             {lines.map((line, index) => {

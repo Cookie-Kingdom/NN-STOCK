@@ -36,6 +36,7 @@ import {
   entries,
   mutate,
   n,
+  riceSources,
   roleName,
   smokingInvoiceRejection,
   stages,
@@ -143,6 +144,7 @@ function EntryFieldControl({
           required={!f.optional}
           onChange={(e) => set(f.key, e.target.value)}
         >
+          {!values[f.key] && <option value="">เลือก</option>}
           {f.options!.map((o) => (
             <option key={o}>{o}</option>
           ))}
@@ -296,7 +298,14 @@ export function EntryForm({
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
-    if (kind === "supplyPurchase" || kind === "ricePurchase")
+    // ricePurchase follows the round's choice, not the branch (B2); nothing before a pick.
+    if (kind === "ricePurchase")
+      return values.riceSource === riceSources[0]
+        ? !["cookedRiceKg", "cookedRiceCost"].includes(field.key)
+        : values.riceSource === riceSources[1]
+          ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
+          : !/^(raw|cooked)Rice/.test(field.key);
+    if (kind === "supplyPurchase")
       return branch === "มีนบุรี"
         ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
         : !["cookedRiceKg", "cookedRiceCost"].includes(field.key);
@@ -341,10 +350,7 @@ export function EntryForm({
     }
   }, [complete, db, role, kind, values, lotId, date, branch]);
   const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
-  const title =
-    kind === "ricePurchase" && branch === "ศาลาแดง"
-      ? "ซื้อข้าวเหนียวดิบเข้าสต๊อก · กิโลกรัม"
-      : titles[kind];
+  const title = titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     // run() rebuilds the change after a revision conflict; upload each file once.
@@ -520,25 +526,25 @@ export function EntryForm({
                 สต๊อก และรายงานจะคำนวณเพิ่มจากรายการใหม่
               </Notice>
             )}
-            {(kind === "supplyPurchase" || kind === "ricePurchase") &&
-              branch === "มีนบุรี" && (
-                <Notice>
-                  ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
-                  ควรซื้อเพิ่มอย่างน้อย{" "}
-                  {fmt(
-                    Math.max(
-                      0,
-                      n(db.config, "cookedRicePar") -
-                        cookedRiceStock(db, branch),
-                    ),
-                  )}{" "}
-                  กก. เพื่อให้พร้อมขายไม่น้อยกว่า{" "}
-                  {fmt(n(db.config, "cookedRicePar"))} กก.
-                  {cookedRiceStock(db, branch) <= 0.001
-                    ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
-                    : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
-                </Notice>
-              )}
+            {((kind === "supplyPurchase" && branch === "มีนบุรี") ||
+              (kind === "ricePurchase" &&
+                values.riceSource === riceSources[1])) && (
+              <Notice>
+                ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
+                ควรซื้อเพิ่มอย่างน้อย{" "}
+                {fmt(
+                  Math.max(
+                    0,
+                    n(db.config, "cookedRicePar") - cookedRiceStock(db, branch),
+                  ),
+                )}{" "}
+                กก. เพื่อให้มีข้าวสุกไม่น้อยกว่า{" "}
+                {fmt(n(db.config, "cookedRicePar"))} กก.
+                {cookedRiceStock(db, branch) <= 0.001
+                  ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
+                  : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
+              </Notice>
+            )}
             <FormGrid>
               {formFields.map((f, index) => (
                 <EntryFieldControl

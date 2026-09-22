@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { defaults, forms, timeOptions, uploadedFiles } from "@/lib/forms";
+import {
+  defaults,
+  forms,
+  standardIngredients,
+  timeOptions,
+  uploadedFiles,
+} from "@/lib/forms";
 import { materials, mutate, ownerMaterialStock, titles } from "@/lib/store";
 import { last, ready, setup } from "./fixtures";
 
@@ -144,4 +150,17 @@ test("payment slips: optional multi-file field on both payments, stored as JSON 
   expect(uploadedFiles("[]")).toEqual([]);
   expect(uploadedFiles("not json")).toEqual([]);
   expect(uploadedFiles('[{"name":"a.jpg"},null]')).toEqual([]);
+});
+
+// B2: raw sticky rice moved to the branches; the Owner purchase form stops offering it.
+test("Owner general purchase no longer lists raw sticky rice", () => {
+  expect(standardIngredients.some((item) => item.includes("ข้าว"))).toBe(false);
+});
+
+test("the rice purchase asks for its source every time, with nothing preselected", () => {
+  expect(forms.ricePurchase[0]).toMatchObject({
+    key: "riceSource",
+    type: "select",
+  });
+  expect(defaults("ricePurchase", day).riceSource).toBe("");
 });

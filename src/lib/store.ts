@@ -434,12 +434,14 @@ function roleplay(endDate: string, dayCount: number): Database {
       }
       if (branch === "ศาลาแดง") {
         run("branch", "ricePurchase", {
+          riceSource: riceSources[0],
           supplier: "ร้านข้าวทดสอบ",
           rawRiceKg: "5",
           rawRiceCost: "275",
         });
       } else {
         run("branch", "ricePurchase", {
+          riceSource: riceSources[1],
           supplier: "ร้านข้าวทดสอบ",
           cookedRiceKg: "32",
           cookedRiceCost: "1440",
@@ -476,12 +478,10 @@ function roleplay(endDate: string, dayCount: number): Database {
         },
         lotId,
       );
-      if (branch === "มีนบุรี") {
-        run("branch", "riceCarry", {
-          leftoverKg: cookedRiceStock(db, branch).toFixed(3),
-          reheat: "เก็บไว้อุ่นวันถัดไป",
-        });
-      }
+      run("branch", "riceCarry", {
+        leftoverKg: cookedRiceStock(db, branch).toFixed(3),
+        reheat: "เก็บไว้อุ่นวันถัดไป",
+      });
       run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแลทดสอบ" });
     }
   }
@@ -794,6 +794,20 @@ export function pendingReceiveKg(db: Database, lotId: string, branch: string) {
     (total, allocation) => total + allocationOutstanding(db, allocation),
     0,
   );
+}
+/** The two ways a branch gets its sticky rice, picked on every `ricePurchase` (B2). */
+export const riceSources = ["นึ่งเอง (ซื้อข้าวดิบ)", "ซื้อข้าวสุกจากข้างนอก"];
+/** Rice records a branch owes for `date`, from what it did rather than which branch it is:
+ *  every day ends with a cooked-rice confirmation (`riceCarry`); a day that issued raw rice
+ *  for cooking also owes the cook itself (`rice`). closeDay and the Owner's daily status
+ *  both read this. */
+export function requiredRiceKinds(db: Database, branch: string, date: string) {
+  const issuedRaw = ["riceIssue", "supplyIssue"].some((kind) =>
+    entries(db, kind, undefined, branch, date).some(
+      (entry) => num(entry.values, "rawRiceIssuedKg") > 0,
+    ),
+  );
+  return issuedRaw ? ["rice", "riceCarry"] : ["riceCarry"];
 }
 export function rawRiceStock(db: Database, branch: string) {
   return (
@@ -1811,27 +1825,24 @@ export function mutate(
       )[0];
     if (oldest && oldest.id !== lotId) required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
-    for (const key of [
-      "rawRiceKg",
-      "rawRiceCost",
-      "cookedRiceKg",
-      "cookedRiceCost",
-    ])
-      v[key] ??= "0";
+    // Every purchase says which way this round goes, at either branch (B2):
+    // self-cook buys raw rice, bought-cooked buys cooked rice. The other side is zeroed.
+    assert(riceSources.includes(v.riceSource), "เลือกที่มาของข้าวเหนียวรอบนี้");
+    const selfCook = v.riceSource === riceSources[0];
+    for (const key of selfCook
+      ? ["cookedRiceKg", "cookedRiceCost"]
+      : ["rawRiceKg", "rawRiceCost"])
+      v[key] = "0";
     required(v, "supplier", "ผู้จำหน่ายข้าว");
-    if (branch === "มีนบุรี") {
-      positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า");
-      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
-      assert(
-        cookedRiceStock(db, branch) + n(v, "cookedRiceKg") >=
-          n(db.config, "cookedRicePar"),
-        `ยอดข้าวเหนียวสุกหลังซื้อควรมีอย่างน้อย ${db.config.cookedRicePar} กก.`,
-      );
-      v.totalCost = v.cookedRiceCost;
-    } else {
+    if (selfCook) {
       positive(v, "rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า");
       positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ");
       v.totalCost = v.rawRiceCost;
+    } else {
+      // cookedRicePar is only a hint in the form now, never a block (FB-12).
+      positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า");
+      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
+      v.totalCost = v.cookedRiceCost;
     }
   } else if (kind === "chiliAllocate") {
     assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
@@ -1854,10 +1865,6 @@ export function mutate(
     required(v, "supplier", "ผู้จำหน่ายน้ำพริก");
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
-    assert(
-      branch === "ศาลาแดง",
-      "สาขามีนบุรีซื้อข้าวเหนียวสุก ไม่ต้องเบิกข้าวดิบ",
-    );
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
     assert(
       n(v, "rawRiceIssuedKg") <= rawRiceStock(db, branch) + 0.001,
@@ -1907,16 +1914,6 @@ export function mutate(
       positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
     if (n(v, "chiliTubes") > 0) positive(v, "chiliCost", "ยอดซื้อน้ำพริก");
     required(v, "supplier", "ผู้จำหน่าย");
-    if (branch === "มีนบุรี") {
-      assert(n(v, "rawRiceKg") === 0, "สาขามีนบุรีซื้อข้าวเหนียวสุก");
-      assert(
-        cookedRiceStock(db, branch) + n(v, "cookedRiceKg") >=
-          n(db.config, "cookedRicePar"),
-        `ยอดข้าวเหนียวสุกหลังซื้อควรมีอย่างน้อย ${db.config.cookedRicePar} กก.`,
-      );
-    } else {
-      assert(n(v, "cookedRiceKg") === 0, "สาขาศาลาแดงซื้อข้าวเหนียวดิบ");
-    }
     v.totalCost = String(
       n(v, "rawRiceCost") + n(v, "cookedRiceCost") + n(v, "chiliCost"),
     );
@@ -1941,7 +1938,7 @@ export function mutate(
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
-    assert(branch === "ศาลาแดง", "ขั้นตอนหุงข้าวใช้สำหรับสาขาศาลาแดง");
+    // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
     positive(v, "rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง");
     positive(v, "riceKg", "ข้าวเหนียวสุกที่ได้");
     assert(
@@ -2163,18 +2160,13 @@ export function mutate(
       entries(db, "materials", undefined, branch, date).length,
       "ยังไม่เช็ควัสดุวันนี้",
     );
-    assert(
-      entries(
-        db,
-        branch === "มีนบุรี" ? "riceCarry" : "rice",
-        undefined,
-        branch,
-        date,
-      ).length,
-      branch === "มีนบุรี"
-        ? "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ"
-        : "ยังไม่บันทึกข้าวช่วงเช้า",
-    );
+    for (const riceKind of requiredRiceKinds(db, branch, date))
+      assert(
+        entries(db, riceKind, undefined, branch, date).length,
+        riceKind === "rice"
+          ? "เบิกข้าวเหนียวดิบวันนี้แล้ว ยังไม่บันทึกข้าวช่วงเช้า (หุงข้าว)"
+          : "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ",
+      );
     assert(
       db.lots.every((l) => Math.abs(balance(db, l.id, branch).ready) < 0.005),
       "ยังมีเนื้อพร้อมขาย ต้องบันทึกขายหรือ Waste ให้เป็นศูนย์",
@@ -2242,7 +2234,7 @@ export function mutate(
       rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
       chiliPar: "จำนวนฐานน้ำพริก",
       chiliUnitPrice: "ราคาต่อหน่วยน้ำพริก",
-      cookedRicePar: "จำนวนฐานข้าวเหนียวสุกมีนบุรี",
+      cookedRicePar: "จำนวนฐานข้าวเหนียวสุก",
       cookedRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวสุก",
       outboundFee: "ค่าขนส่งขาไป",
       returnFee: "ค่าขนส่งขากลับ",
