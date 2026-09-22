@@ -114,7 +114,8 @@ export function FoodivaDispatchForm({
   }));
   const total = n(lot?.values ?? {}, "requestedKg");
   const boxes = packingListBoxes(draft?.boxes);
-  const boxedKg = boxes.reduce((sum, kg) => sum + kg, 0);
+  // The list's own figure, not the box total: Foodiva types Sliced Weight Net.
+  const slicedNetKg = n(draft ?? {}, "slicedNetKg");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -311,8 +312,8 @@ export function FoodivaDispatchForm({
               </strong>
               <span className="text-caption text-text-secondary">
                 {draft
-                  ? `${boxes.length} กล่องรับเข้า · ${fmt(boxedKg)} กก. · บันทึกพร้อมใบขนส่งเมื่อกด “บันทึกใบขนส่ง”`
-                  : `ยังไม่ได้ทำ · ระบุว่าส่งไปกี่กล่องรับเข้า แต่ละกล่องหนักเท่าไร (รวม ${fmt(total)} กก.)`}
+                  ? `${boxes.length} กล่องรับเข้า · Sliced Weight Net ${fmt(slicedNetKg)} กก. · บันทึกพร้อมใบขนส่งเมื่อกด “บันทึกใบขนส่ง”`
+                  : `ยังไม่ได้ทำ · ระบุว่าส่งไปกี่กล่องรับเข้า แต่ละกล่องหนักเท่าไร (Inv. Weight ${fmt(total)} กก.)`}
               </span>
             </div>
             <div className="flex items-center gap-2.5">

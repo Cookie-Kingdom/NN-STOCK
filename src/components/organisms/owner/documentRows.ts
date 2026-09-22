@@ -101,7 +101,8 @@ export function packingListRows(lot: Lot, list: Entry): DocumentRows {
     ["เลขที่การส่ง", lot.poId],
     ["สินค้า", list.values.product || "—"],
     ["กล่องรับเข้า", `${list.values.boxCount || "0"} กล่องรับเข้า`],
-    ["ยอดรวม", `${fmt(n(list.values, "slicedNetKg"))} กก.`],
+    // Not the box total any more: Foodiva types it, so the row says which figure it is.
+    ["Sliced Weight Net", `${fmt(n(list.values, "slicedNetKg"))} กก.`],
     [
       "Inv. Weight",
       list.values.invWeightKg
