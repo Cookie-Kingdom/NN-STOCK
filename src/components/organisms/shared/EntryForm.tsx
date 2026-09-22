@@ -332,7 +332,7 @@ export function EntryForm({
       return `ส่งมา ${fmt(kg(sent))} กก. · รับแล้ว ${fmt(kg(entries(db, "receive", id, branch)))} กก. · ค้างรับ ${fmt(pending)} กก.`;
     }
     const stock = balance(db, id, branch);
-    return `แช่แข็ง ${fmt(stock.frozen)} กก. / ละลายแล้ว ${fmt(stock.ready)} กก.`;
+    return `แช่แข็ง ${fmt(stock.frozen)} กก. / คงเหลือชิล ${fmt(stock.ready)} กก.`;
   };
   const latestSmokingInvoice =
     kind === "smokingInvoice" && lot
