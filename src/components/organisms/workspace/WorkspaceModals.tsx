@@ -200,6 +200,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       {...dateProps}
       modal={modal}
       onClose={close}
+      onOpen={ws.open}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {

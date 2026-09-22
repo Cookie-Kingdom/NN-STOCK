@@ -9,6 +9,7 @@ import {
   centralStock,
   chiliAllocated,
   chiliStock,
+  closeDayChecklist,
   cookedRiceStock,
   entries,
   isClosed,
@@ -1104,17 +1105,68 @@ describe("branch supplies", () => {
     ).not.toThrow();
   });
 
-  test("day close time gate and sales deviation validation", () => {
+  test("closeDayChecklist is the rule mutate closes by", () => {
     const s = ready();
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
     s.run("branch", "thaw", { kg: "5", bags: "2" });
-    expect(() =>
-      s.run("branch", "closeDay", { time: "21:59", confirm: "x" }),
-    ).toThrow(/22:00/);
-    expect(() =>
-      s.run("branch", "closeDay", { time: "22:00", confirm: "x" }),
-    ).toThrow(/รายการขาย/);
+    const missing = () =>
+      closeDayChecklist(s.db, "ศาลาแดง", day).filter(
+        (item) => item.required && !item.done,
+      );
+    expect(missing().map((item) => item.key)).toEqual([
+      "sale",
+      "materials",
+      "riceCarry",
+    ]);
+    // Blocked with the checklist's own message for its first missing item.
+    expect(() => s.run("branch", "closeDay", { confirm: "x" })).toThrow(
+      missing()[0].message,
+    );
+    expect(missing()[0].message).toMatch(/รายการขาย/);
+    // The chill line is information only, never a blocker.
+    expect(
+      closeDayChecklist(s.db, "ศาลาแดง", day).find((i) => i.key === "chill"),
+    ).toMatchObject({ required: false, done: true });
+    s.run("branch", "sale", {
+      boxes: "0",
+      addons: "40",
+      chiliAddons: "0",
+      soldKg: "4",
+      wasteKg: "0",
+      riceWasteKg: "0",
+      expense: "0",
+      lineMan: "12800",
+    });
+    s.run(
+      "branch",
+      "materials",
+      Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
+    );
+    expect(() => s.run("branch", "closeDay", { confirm: "x" })).toThrow(
+      missing()[0].message,
+    );
+    s.run("branch", "riceCarry", { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" });
+    expect(missing()).toEqual([]);
+    // No close-time rule any more (FB-14): 09:00 closes like 22:00 did.
+    s.run("branch", "closeDay", { time: "09:00", confirm: "x" });
+    expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
+    // A closed day refuses every branch entry, and a second close.
+    for (const kind of ["riceCarry", "closeDay"])
+      expect(() =>
+        s.run("branch", kind, {
+          leftoverKg: "0",
+          reheat: "ไม่นำกลับมาใช้",
+          confirm: "x",
+        }),
+      ).toThrow(/ปิดยอดแล้ว/);
+  });
+
+  test("sales deviation validation", () => {
+    const s = ready();
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    s.run("branch", "thaw", { kg: "5", bags: "2" });
     expect(() =>
       s.run("branch", "sale", {
         boxes: "10",

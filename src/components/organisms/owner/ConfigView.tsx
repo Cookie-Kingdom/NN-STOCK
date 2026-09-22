@@ -808,17 +808,6 @@ export function ConfigView({ db }: { db: Database }) {
             "%",
             "กำหนดช่วงยอดขายที่ยอมรับได้",
           ),
-          settingRow(
-            "เวลาเริ่มปิดวัน (Day-closing time)",
-            <ConfigValue
-              {...edit}
-              section="branch"
-              name="closeTime"
-              type="time"
-            />,
-            "นาฬิกา",
-            "เวลา 22:00 ระบบล็อกข้อมูลเมื่อปิดวัน Owner ปลดล็อกกรณีพิเศษได้",
-          ),
         ]}
       />
       <DataTable
