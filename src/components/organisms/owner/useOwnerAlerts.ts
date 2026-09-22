@@ -5,7 +5,6 @@ import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   centralStock,
-  currentSmokingInvoices,
   type Database,
   entries,
   latestPackingList,
@@ -14,6 +13,7 @@ import {
   materials,
   produced,
   n,
+  ownerPendingInvoices,
   producedBags,
   purchaseLots,
   shipments,
@@ -55,17 +55,9 @@ export function useOwnerAlerts(db: Database) {
   ).length;
   // Invoices the owner has to act on, the same ones the bell lists: a Foodiva meat invoice
   // still unpaid, a Chef House smoking invoice to review or to pay.
-  const unpaidMeatLots = db.lots.filter(
-    (item) =>
-      !item.kind &&
-      entries(db, "foodivaConfirm", item.id).length &&
-      !entries(db, "meatPayment", item.id).length,
-  );
-  const billingCount =
-    unpaidMeatLots.length +
-    currentSmokingInvoices(db).filter((invoice) =>
-      ["รอตรวจยอด", "รอชำระ"].includes(smokingInvoiceStatus(db, invoice)),
-    ).length;
+  const pendingInvoices = ownerPendingInvoices(db);
+  const { unpaidMeatLots } = pendingInvoices;
+  const billingCount = pendingInvoices.total;
   const packedCount = shipmentLots.filter(
     (lot) =>
       latestPackingList(db, lot.id) &&
