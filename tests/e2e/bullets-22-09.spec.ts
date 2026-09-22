@@ -167,7 +167,7 @@ test("C1 + C2: จัดสรรเกินคลังกลาง · รั�
       const dialog = page.getByRole("dialog");
       await expect(
         dialog.getByLabel("Lot ต้นทาง").locator("option:checked"),
-      ).toHaveText(`${lotId} · แช่แข็ง 40.00 กก. / คงเหลือชิล 0.00 กก.`);
+      ).toHaveText(`${lotId} · แช่แข็ง 40.00 กก. / ละลายแล้ว 0.00 กก.`);
       const bags = dialog.getByLabel("จำนวนกล่องรมควันที่ละลาย");
       await expect(bags).toBeVisible();
       await expect(dialog).not.toContainText("ถุง");
@@ -197,7 +197,7 @@ test("C1 + C2: จัดสรรเกินคลังกลาง · รั�
           .getByRole("dialog")
           .getByLabel("Lot ต้นทาง")
           .locator("option:checked"),
-      ).toHaveText(`${lotId} · แช่แข็ง 15.00 กก. / คงเหลือชิล 25.00 กก.`);
+      ).toHaveText(`${lotId} · แช่แข็ง 15.00 กก. / ละลายแล้ว 25.00 กก.`);
     },
   );
 });
