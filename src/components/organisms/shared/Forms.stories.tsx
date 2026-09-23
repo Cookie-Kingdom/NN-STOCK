@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import {
   allocatedDb,
   centralDb,
@@ -422,7 +422,8 @@ export const BranchSaleInfluencersCollapsed: Story = {
   ),
 };
 
-/** One press of เพิ่มอินฟลูเอนเซอร์: one block, focus on ชื่ออินฟลูเอนเซอร์. */
+/** One press of เพิ่มอินฟลูเอนเซอร์: one block, focus on ชื่ออินฟลูเอนเซอร์.
+ *  ตรวจสอบก่อนบันทึก adds the giveaway (เนื้อ + ค่าส่ง) to cost, not to revenue. */
 export const BranchSaleOneInfluencer: Story = {
   ...BranchSaleInfluencersCollapsed,
   play: async ({ canvasElement }) => {
@@ -433,6 +434,10 @@ export const BranchSaleOneInfluencer: Story = {
     await userEvent.type(form.getByLabelText(/ชื่ออินฟลูเอนเซอร์/), "คุณเอ");
     await userEvent.clear(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/));
     await userEvent.type(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/), "2");
+    await userEvent.type(form.getByLabelText(/ค่าส่ง/), "80");
+    await expect(
+      await form.findByText(/ต้นทุนของแจกอินฟลูเอนเซอร์ 1 ราย/),
+    ).toBeInTheDocument();
   },
 };
 
