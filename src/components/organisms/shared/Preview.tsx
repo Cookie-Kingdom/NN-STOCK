@@ -5,6 +5,7 @@ import { ReferenceCard } from "@/components/molecules/ReferenceCard";
 import {
   balance,
   chiliStock,
+  cookedRiceStock,
   entries,
   lotCost,
   n,
@@ -232,6 +233,21 @@ export function Preview({
             ["รวมต้นทุนรายการนี้", `฿${fmt(saleCost + giftCost)}`],
           ] as [string, ReactNode][])
         : []),
+    ];
+  }
+  if (kind === "riceCarry") {
+    const discard = v.reheat === "ไม่นำกลับมาใช้";
+    const stock = cookedRiceStock(db, branch);
+    rows = [
+      ["ข้าวเหนียวสุกในระบบ", `${fmt(stock)} กก.`],
+      [
+        "Waste ข้าวเหนียวสุก (ไม่นำกลับมาใช้)",
+        `${fmt(discard ? n(v, "leftoverKg") : 0)} กก.`,
+      ],
+      [
+        "ข้าวเหนียวสุกยกไปวันถัดไป",
+        `${fmt(discard ? stock - n(v, "leftoverKg") : stock)} กก.`,
+      ],
     ];
   }
   if (kind === "riceIssue" || kind === "chiliIssue" || kind === "supplyIssue") {

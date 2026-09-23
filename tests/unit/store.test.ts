@@ -1068,6 +1068,14 @@ describe("branch supplies", () => {
         reheat: "เก็บไว้อุ่นวันถัดไป",
       });
       expect(last(s).values.reheat).toBe("เก็บไว้อุ่นวันถัดไป");
+      expect(cookedRiceStock(s.db, branch)).toBe(12);
+      // Discarded leftover is rice waste: it leaves the cooked stock.
+      s.run("branch", "riceCarry", {
+        leftoverKg: "5",
+        reheat: "ไม่นำกลับมาใช้",
+        reason: "x",
+      });
+      expect(cookedRiceStock(s.db, branch)).toBe(7);
     },
   );
 

@@ -1072,11 +1072,19 @@ export function issuedRawRiceStock(db: Database, branch: string) {
     sum(entries(db, "rice", undefined, branch), "rawUsedKg")
   );
 }
+/** Leftover cooked rice marked ไม่นำกลับมาใช้ is thrown out: rice waste. Read from
+ *  `reheat`, not a stamped key, so entries saved before this rule count too. */
+export const riceCarryWasteKg = (items: Entry[]) =>
+  sum(
+    items.filter((entry) => entry.values.reheat === "ไม่นำกลับมาใช้"),
+    "leftoverKg",
+  );
 export function cookedRiceStock(db: Database, branch: string) {
   return (
     sum(entries(db, "supplyPurchase", undefined, branch), "cookedRiceKg") +
     sum(entries(db, "ricePurchase", undefined, branch), "cookedRiceKg") +
     sum(entries(db, "rice", undefined, branch), "riceKg") -
+    riceCarryWasteKg(entries(db, "riceCarry", undefined, branch)) -
     offShelf(db, undefined, branch).reduce(
       (total, entry) =>
         total +
