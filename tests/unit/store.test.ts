@@ -1003,40 +1003,59 @@ describe("branch supplies", () => {
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0, "2026-09-10")).toBe(60);
   });
 
-  // B2: every rice purchase picks self-cook or bought-cooked, at either branch.
-  test.each(["ศาลาแดง", "มีนบุรี"])(
-    "%s self-cooks: raw 10 kg in, cooked 14 kg out saves",
-    (branch) => {
-      const s = setup(branch);
-      expect(() =>
-        s.run("branch", "ricePurchase", {
-          supplier: "x",
-          rawRiceKg: "10",
-          rawRiceCost: "500",
-        }),
-      ).toThrow(/ที่มาของข้าว/);
+  // B2: Saladaeng picks self-cook or bought-cooked on every purchase.
+  test("ศาลาแดง self-cooks: raw 10 kg in, cooked 14 kg out saves", () => {
+    const branch = "ศาลาแดง";
+    const s = setup(branch);
+    expect(() =>
       s.run("branch", "ricePurchase", {
-        riceSource: riceSources[0],
         supplier: "x",
         rawRiceKg: "10",
         rawRiceCost: "500",
-        // Typed before the choice switched: the self-cook round ignores it.
-        cookedRiceKg: "5",
-      });
-      expect(last(s).values).toMatchObject({
-        totalCost: "500",
-        cookedRiceKg: "0",
-      });
-      s.run("branch", "riceIssue", { rawRiceIssuedKg: "10", receiver: "x" });
-      s.run("branch", "rice", { rawUsedKg: "10", riceKg: "14" });
-      expect(rawRiceStock(s.db, branch)).toBe(0);
-      expect(cookedRiceStock(s.db, branch)).toBe(14);
-      expect(requiredRiceKinds(s.db, branch, day)).toEqual([
-        "rice",
-        "riceCarry",
-      ]);
-    },
-  );
+      }),
+    ).toThrow(/ที่มาของข้าว/);
+    s.run("branch", "ricePurchase", {
+      riceSource: riceSources[0],
+      supplier: "x",
+      rawRiceKg: "10",
+      rawRiceCost: "500",
+      // Typed before the choice switched: the self-cook round ignores it.
+      cookedRiceKg: "5",
+    });
+    expect(last(s).values).toMatchObject({
+      totalCost: "500",
+      cookedRiceKg: "0",
+    });
+    s.run("branch", "riceIssue", { rawRiceIssuedKg: "10", receiver: "x" });
+    s.run("branch", "rice", { rawUsedKg: "10", riceKg: "14" });
+    expect(rawRiceStock(s.db, branch)).toBe(0);
+    expect(cookedRiceStock(s.db, branch)).toBe(14);
+    expect(requiredRiceKinds(s.db, branch, day)).toEqual(["rice", "riceCarry"]);
+  });
+
+  test("มีนบุรี never cooks rice: purchases are always cooked, no issue or cook", () => {
+    const s = setup("มีนบุรี");
+    s.run("branch", "ricePurchase", {
+      riceSource: riceSources[0],
+      supplier: "x",
+      cookedRiceKg: "12",
+      cookedRiceCost: "540",
+      rawRiceKg: "10",
+      rawRiceCost: "500",
+    });
+    expect(last(s).values).toMatchObject({
+      riceSource: riceSources[1],
+      rawRiceKg: "0",
+      totalCost: "540",
+    });
+    for (const [kind, values] of [
+      ["riceIssue", { rawRiceIssuedKg: "1", receiver: "x" }],
+      ["rice", { rawUsedKg: "1", riceKg: "1" }],
+      ["supplyIssue", { rawRiceIssuedKg: "1", receiver: "x" }],
+      ["supplyPurchase", { rawRiceKg: "1", rawRiceCost: "50", supplier: "x" }],
+    ] as const)
+      expect(() => s.run("branch", kind, values)).toThrow(/ไม่หุงข้าวเหนียว/);
+  });
 
   test.each(["ศาลาแดง", "มีนบุรี"])(
     "%s buys cooked rice: no raw weight, no par floor",

@@ -992,6 +992,9 @@ export function pendingReceiveKg(
 }
 /** The two ways a branch gets its sticky rice, picked on every `ricePurchase` (B2). */
 export const riceSources = ["นึ่งเอง (ซื้อข้าวดิบ)", "ซื้อข้าวสุกจากข้างนอก"];
+/** Minburi never cooks rice: it only buys cooked rice. Only Saladaeng may self-cook. */
+export const cooksRice = (branch: string) => branch !== "มีนบุรี";
+const noCookMessage = "สาขามีนบุรีไม่หุงข้าวเหนียว ซื้อข้าวสุกอย่างเดียว";
 /** Rice records a branch owes for `date`, from what it did rather than which branch it is:
  *  every day ends with a cooked-rice confirmation (`riceCarry`); a day that issued raw rice
  *  for cooking also owes the cook itself (`rice`). closeDay and the Owner's daily status
@@ -2321,8 +2324,9 @@ function record(
       )[0];
     if (oldest && oldest.id !== lotId) required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
-    // Every purchase says which way this round goes, at either branch (B2):
-    // self-cook buys raw rice, bought-cooked buys cooked rice. The other side is zeroed.
+    // Every purchase says which way this round goes (B2): self-cook buys raw rice,
+    // bought-cooked buys cooked rice. The other side is zeroed. Minburi only buys cooked.
+    if (!cooksRice(branch)) v.riceSource = riceSources[1];
     assert(riceSources.includes(v.riceSource), "เลือกที่มาของข้าวเหนียวรอบนี้");
     const selfCook = v.riceSource === riceSources[0];
     for (const key of selfCook
@@ -2363,6 +2367,7 @@ function record(
     required(v, "supplier", "ผู้จำหน่ายน้ำพริก");
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
+    assert(cooksRice(branch), noCookMessage);
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
     withinStock(
       n(v, "rawRiceIssuedKg"),
@@ -2395,6 +2400,7 @@ function record(
       v[key] ??= "0";
     positive(v, "rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า", true);
     positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ", true);
+    assert(cooksRice(branch) || n(v, "rawRiceKg") === 0, noCookMessage);
     positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า", true);
     positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก", true);
     positive(v, "chiliTubes", "น้ำพริกซื้อเข้า", true);
@@ -2420,6 +2426,7 @@ function record(
     );
   } else if (kind === "supplyIssue") {
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก", true);
+    assert(cooksRice(branch) || n(v, "rawRiceIssuedKg") === 0, noCookMessage);
     positive(v, "chiliIssuedTubes", "น้ำพริกที่เบิก", true);
     assert(
       n(v, "rawRiceIssuedKg") > 0 || n(v, "chiliIssuedTubes") > 0,
@@ -2442,6 +2449,7 @@ function record(
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
+    assert(cooksRice(branch), noCookMessage);
     // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
     positive(v, "rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง");
     positive(v, "riceKg", "ข้าวเหนียวสุกที่ได้");

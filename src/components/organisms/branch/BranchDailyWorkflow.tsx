@@ -10,6 +10,7 @@ import {
   closeDayChecklist,
   entries,
   pendingReceiveKg,
+  cooksRice,
   requiredRiceKinds,
   type Database,
   type Lot,
@@ -95,7 +96,9 @@ export function BranchDailyWorkflow({
       ),
     ],
     [
-      <strong key="rice">3. หุงข้าวเหนียว</strong>,
+      <strong key="rice">
+        {cooksRice(branch) ? "3. หุงข้าวเหนียว" : "3. ซื้อข้าวเหนียวสุก"}
+      </strong>,
       riceMissing.length ? (
         <CountPill variant="task" key="rice-todo">
           ต้องบันทึกข้าวเหนียว {riceMissing.length} รายการก่อนปิดวัน

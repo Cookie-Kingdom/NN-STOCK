@@ -43,8 +43,8 @@ test("another branch's Lot never shows, and the fixed rows always do", () => {
   s.run("branch", "receive", { kg: "20", allocation: last(s).id });
   const rows = branchStockRows(s.db, "มีนบุรี", s.db.lots);
   expect(meatRows(rows)).toEqual([]);
-  // 3 วัตถุดิบ rows plus one row per material, and nothing else.
-  expect(rows).toHaveLength(3 + materials.length);
+  // Cooked rice and chili (Minburi has no raw rice) plus one row per material.
+  expect(rows).toHaveLength(2 + materials.length);
   expect(rows.filter((row) => row.genre === "วัสดุบรรจุภัณฑ์")).toHaveLength(
     materials.length,
   );
