@@ -867,6 +867,9 @@ export function EntryForm({
                 lot={lot}
                 kind={kind}
                 v={values}
+                giveaways={
+                  kind === "sale" ? giveaways.map((g) => g.values) : undefined
+                }
               />
             )}
             <FormError error={error} />

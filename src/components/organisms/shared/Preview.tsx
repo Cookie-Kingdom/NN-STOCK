@@ -6,6 +6,7 @@ import {
   balance,
   chiliStock,
   entries,
+  lotCost,
   n,
   processed,
   produced,
@@ -48,12 +49,15 @@ export function Preview({
   lot,
   kind,
   v,
+  giveaways = [],
 }: {
   db: Database;
   branch: string;
   lot?: Lot;
   kind: string;
   v: Values;
+  /** Influencer blocks entered on the sale form, saved with the sale. */
+  giveaways?: Values[];
 }) {
   let rows: [string, ReactNode][] = [];
   if (kind === "purchase")
@@ -168,6 +172,14 @@ export function Preview({
     ];
   if ((kind === "sale" || kind === "influencerBox") && lot) {
     const expected = (n(v, "boxes") + n(v, "addons")) * n(db.config, "packKg");
+    /* Giveaways saved with this sale leave the same shelf, so they count in every
+     * "after" row. Their meat is costed like mutate does: boxes × packKg × lot ฿/kg. */
+    const perKg = lotCost(db, lot).perKg || 0;
+    const sum = (key: string) => giveaways.reduce((s, g) => s + n(g, key), 0);
+    const giftKg = sum("boxes") * n(db.config, "packKg");
+    const giftCost = giftKg * perKg + sum("shippingFee");
+    const saleCost =
+      (n(v, "soldKg") + n(v, "wasteKg")) * perKg + n(v, "expense");
     rows = [
       [
         kind === "sale" ? "ยอดตามเมนู" : "มูลค่าของที่แจก (ตามเมนู)",
@@ -187,21 +199,39 @@ export function Preview({
         : []),
       [
         "คงเหลือชิลหลังรายการนี้",
-        `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg"))} กก.`,
+        `${fmt(balance(db, lot.id, branch).ready - n(v, "soldKg") - n(v, "wasteKg") - giftKg)} กก.`,
       ],
-      ["ข้าวที่จะหัก", `${fmt(n(v, "boxes") * 0.2 + n(v, "riceWasteKg"))} กก.`],
+      [
+        "ข้าวที่จะหัก",
+        `${fmt((n(v, "boxes") + sum("boxes")) * 0.2 + n(v, "riceWasteKg"))} กก.`,
+      ],
       [
         kind === "sale" ? "น้ำพริกก่อนขาย" : "น้ำพริกก่อนตัดสต๊อก",
         `${fmt(chiliStock(db, branch))} หลอดที่ Owner จัดสรร`,
       ],
       [
         "น้ำพริกที่จะหัก",
-        `${n(v, "chiliAddons")} หลอด${kind === "sale" ? "ที่ลูกค้าซื้อ" : "ที่ส่งไปด้วย"}`,
+        `${n(v, "chiliAddons")} หลอด${kind === "sale" ? "ที่ลูกค้าซื้อ" : "ที่ส่งไปด้วย"}${sum("chiliAddons") ? ` + ${sum("chiliAddons")} หลอดที่แจกอินฟลูเอนเซอร์` : ""}`,
       ],
       [
         "น้ำพริกควรเหลือ",
-        `${fmt(chiliStock(db, branch) - n(v, "chiliAddons"))} หลอด`,
+        `${fmt(chiliStock(db, branch) - n(v, "chiliAddons") - sum("chiliAddons"))} หลอด`,
       ],
+      // Same split as the owner report: a giveaway is marketing cost, never revenue.
+      ...(kind === "sale"
+        ? ([
+            ["ต้นทุนเนื้อที่ขาย + Waste + ค่าใช้จ่ายสาขา", `฿${fmt(saleCost)}`],
+            ...(giveaways.length
+              ? [
+                  [
+                    `ต้นทุนของแจกอินฟลูเอนเซอร์ ${giveaways.length} ราย (เนื้อ + ค่าส่ง · ไม่นับเป็นรายรับ)`,
+                    `฿${fmt(giftCost)}`,
+                  ],
+                ]
+              : []),
+            ["รวมต้นทุนรายการนี้", `฿${fmt(saleCost + giftCost)}`],
+          ] as [string, ReactNode][])
+        : []),
     ];
   }
   if (kind === "riceIssue" || kind === "chiliIssue" || kind === "supplyIssue") {
