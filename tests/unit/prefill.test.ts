@@ -636,10 +636,10 @@ test("branch rice forms carry the branch's last choice and fill up to par or fro
     rawRiceCost: "275",
   });
   expect(bought.sources.rawRiceKg.expected).toBeFalsy();
-  // The other branch has no history of its own: the first source, up to its par.
+  // Minburi only buys cooked rice: cooked up to its par.
   expect(
     prefillValues(s.db, "ricePurchase", undefined, { branch: "มีนบุรี" }),
-  ).toEqual({ rawRiceKg: "20", rawRiceCost: "1100" });
+  ).toEqual({ cookedRiceKg: "30", cookedRiceCost: "1350" });
   // Switching the source: no supplier for it yet, cooked rice up to its par.
   expect(
     prefillValues(s.db, "ricePurchase", undefined, {

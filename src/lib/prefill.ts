@@ -18,6 +18,7 @@ import {
   rawRiceStock,
   readyForChefHouse,
   riceSources,
+  cooksRice,
   smokeServiceRate,
   type Database,
   type Entry,
@@ -234,8 +235,9 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
   if (!branch) return none();
   if (kind === "ricePurchase") {
     const carried = carryLast(db, "ricePurchase", ["riceSource"], { branch });
-    const source =
-      current?.riceSource || carried.values.riceSource || riceSources[0];
+    const source = !cooksRice(branch)
+      ? riceSources[1]
+      : current?.riceSource || carried.values.riceSource || riceSources[0];
     const selfCook = source === riceSources[0];
     const side = selfCook ? "rawRice" : "cookedRice";
     const stock = selfCook

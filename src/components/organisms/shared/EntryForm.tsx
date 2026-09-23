@@ -50,6 +50,7 @@ import {
   OverStockError,
   packWeightWarning,
   riceSources,
+  cooksRice,
   roleName,
   saleWithInfluencers,
   smokingInvoiceRejection,
@@ -484,14 +485,18 @@ export function EntryForm({
     latestSmokingInvoice && smokingInvoiceRejection(db, latestSmokingInvoice);
   const reference =
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
+  // Minburi only buys cooked rice: no source picker, always the bought-cooked side.
+  const riceSource = cooksRice(branch) ? values.riceSource : riceSources[1];
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
     // ricePurchase follows the round's choice, not the branch (B2); it starts on the
     // branch's last choice.
+    if (kind === "ricePurchase" && field.key === "riceSource")
+      return cooksRice(branch);
     if (kind === "ricePurchase")
-      return values.riceSource === riceSources[0]
+      return riceSource === riceSources[0]
         ? !["cookedRiceKg", "cookedRiceCost"].includes(field.key)
-        : values.riceSource === riceSources[1]
+        : riceSource === riceSources[1]
           ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
           : !/^(raw|cooked)Rice/.test(field.key);
     if (kind === "supplyPurchase")
@@ -778,8 +783,7 @@ export function EntryForm({
               </Notice>
             )}
             {((kind === "supplyPurchase" && branch === "มีนบุรี") ||
-              (kind === "ricePurchase" &&
-                values.riceSource === riceSources[1])) && (
+              (kind === "ricePurchase" && riceSource === riceSources[1])) && (
               <Notice>
                 ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
                 ควรซื้อเพิ่มอย่างน้อย{" "}
