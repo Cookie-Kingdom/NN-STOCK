@@ -36,8 +36,10 @@ export function AppSidebar({
   }, [nav, account.path, router]);
 
   return (
-    <aside className="flex flex-col border-r border-border bg-surface px-4.5 py-5.5 max-md:block max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-3">
-      <nav className="grid content-start gap-1 max-md:flex max-md:flex-wrap max-md:gap-1.5">
+    /* From md up the shell gives the aside the screen's height: a menu longer than
+     * that scrolls on its own, and the account + sign-out block stays pinned below it. */
+    <aside className="flex flex-col border-r border-border bg-surface px-4.5 py-5.5 max-md:block max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-3 md:min-h-0">
+      <nav className="grid content-start gap-1 max-md:flex max-md:flex-wrap max-md:gap-1.5 md:-mx-1 md:min-h-0 md:overflow-y-auto md:px-1">
         {nav.map((group, index) => (
           <Fragment key={group.label ?? index}>
             {group.label && (

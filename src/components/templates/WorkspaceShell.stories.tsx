@@ -115,6 +115,25 @@ export const Mobile: Story = {
   render: () => <Shell account={accountById("minburi")!} nav={branchNav} />,
 };
 
+/** A page far taller than the screen: only the content column scrolls, so the
+ *  owner's sign-out stays in view under the menu without scrolling to the end. */
+export const OwnerLongPage: Story = {
+  render: () => (
+    <Shell account={accountById("owner")!} nav={ownerNav}>
+      <div className="grid gap-4">
+        {Array.from({ length: 12 }, (_, i) => (
+          <div
+            key={i}
+            className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary"
+          >
+            เนื้อหาของแท็บ {i + 1}
+          </div>
+        ))}
+      </div>
+    </Shell>
+  ),
+};
+
 /** The chef's page is often one short panel. The sidebar still has to reach the
  *  bottom of the screen, or its sign-out block floats in the middle of the page. */
 export const ChefShortPage: Story = {
