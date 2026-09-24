@@ -6,12 +6,11 @@ import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
 import { FormField } from "@/components/molecules/FormField";
 import { AuthShell } from "@/components/templates/AuthShell";
-import { signIn, signUp, useSession } from "@/lib/session";
+import { signIn, useSession } from "@/lib/session";
 
 export function SignIn() {
   const router = useRouter();
   const { ready, account, error: sessionError } = useSession();
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -25,30 +24,19 @@ export function SignIn() {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email"));
     const password = String(form.get("password"));
-    const displayName = String(form.get("displayName") ?? "");
     setBusy(true);
     setMessage("");
-    const result =
-      mode === "login"
-        ? await signIn(email, password)
-        : await signUp(email, password, displayName);
+    const result = await signIn(email, password);
     setBusy(false);
     if (result.error) setMessage(result.error.message);
-    else if (mode === "signup" && !result.data.session)
-      setMessage("สมัครสำเร็จ กรุณายืนยันอีเมลแล้วกลับมาเข้าสู่ระบบ");
   }
   return (
     <AuthShell
-      title={mode === "login" ? "เข้าสู่ระบบ" : "สร้างบัญชี"}
+      title="เข้าสู่ระบบ"
       description="ยืนยันตัวตนและสิทธิ์ผ่าน Supabase"
-      footnote="บัญชีแรกจะเป็น Owner อัตโนมัติ บัญชีถัดไปต้องให้ Owner เปิดใช้งานและกำหนดสิทธิ์"
+      footnote="ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์"
     >
       <form className="mt-5.5 mb-3.5 grid gap-3.5" onSubmit={submit}>
-        {mode === "signup" && (
-          <FormField label="ชื่อที่แสดง">
-            <Input required name="displayName" autoComplete="name" />
-          </FormField>
-        )}
         <FormField label="อีเมล">
           <Input required type="email" name="email" autoComplete="email" />
         </FormField>
@@ -58,9 +46,7 @@ export function SignIn() {
             minLength={6}
             type="password"
             name="password"
-            autoComplete={
-              mode === "login" ? "current-password" : "new-password"
-            }
+            autoComplete="current-password"
           />
         </FormField>
         {(message || sessionError) && (
@@ -79,23 +65,9 @@ export function SignIn() {
             ? "กำลังดำเนินการ…"
             : !ready
               ? "กำลังเตรียมระบบ…"
-              : mode === "login"
-                ? "เข้าสู่ระบบ"
-                : "สมัครสมาชิก"}
+              : "เข้าสู่ระบบ"}
         </Button>
       </form>
-      <Button
-        variant="text"
-        className="mb-4.5 w-full justify-center text-center"
-        onClick={() => {
-          setMode(mode === "login" ? "signup" : "login");
-          setMessage("");
-        }}
-      >
-        {mode === "login"
-          ? "ยังไม่มีบัญชี? สมัครสมาชิก"
-          : "มีบัญชีแล้ว? เข้าสู่ระบบ"}
-      </Button>
     </AuthShell>
   );
 }
