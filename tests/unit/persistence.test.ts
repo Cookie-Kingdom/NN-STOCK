@@ -5,6 +5,7 @@ import {
   latestDatabase,
   saveDatabase,
   setSaveActor,
+  setSaveAppendOnly,
 } from "@/lib/persistence";
 import { seed, type Database, type Entry, type Values } from "@/lib/store";
 
@@ -190,6 +191,43 @@ test("saving sends the stored history back untouched and appends only the new en
     }),
     p_expected_revision: 4,
   });
+});
+
+test("a non-owner save sends only its new entries and changed lots to append_entries", async () => {
+  const old = entry({ boxes: "2" });
+  const lot = { id: "S1", poId: "SH-1", stage: 2, values: {}, config: {} };
+  const other = { ...lot, id: "S2", poId: "SH-2" };
+  await signInWithRow({
+    revision: 7,
+    payload: { version: 8, lots: [lot, other], entries: [old], config: {} },
+  });
+  mocks.rpc.mockResolvedValueOnce({ data: 8, error: null });
+  const added = entry({ boxes: "1", attachmentData: "data:x" });
+  const moved = { ...lot, stage: 3, values: { receivedKg: "49" } };
+  setSaveAppendOnly(true);
+  try {
+    await expect(
+      saveDatabase({
+        ...latestDatabase(),
+        lots: [moved, other],
+        entries: [...latestDatabase().entries, added],
+      }),
+    ).resolves.toBe(true);
+  } finally {
+    setSaveAppendOnly(false);
+  }
+  expect(mocks.rpc).toHaveBeenLastCalledWith("append_entries", {
+    p_expected_revision: 7,
+    p_entries: [{ ...added, values: { boxes: "1" } }],
+    p_lots: [moved],
+  });
+  // The next save builds on the revision append_entries returned.
+  mocks.rpc.mockResolvedValueOnce({ data: [{ revision: 9 }], error: null });
+  await saveDatabase(latestDatabase());
+  expect(mocks.rpc).toHaveBeenLastCalledWith(
+    "save_app_state",
+    expect.objectContaining({ p_expected_revision: 8 }),
+  );
 });
 
 test("the Account Manager's new entries are stamped with its actor, older ones are not", async () => {
