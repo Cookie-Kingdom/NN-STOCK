@@ -1,4 +1,10 @@
-import { branches, materials, riceSources, type Values } from "./store";
+import {
+  branches,
+  materials,
+  riceSources,
+  type Values,
+  type EntryKind,
+} from "./store";
 export type Field = {
   key: string;
   label: string;
@@ -574,7 +580,7 @@ export const forms: Record<string, Field[]> = {
  *  buys (or cooks) its own rice (B2). Older entries that name it still display as saved. */
 export const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง"];
 
-export function defaults(kind: string, dateValue: string): Values {
+export function defaults(kind: EntryKind, dateValue: string): Values {
   const out: Values = {};
   for (const f of forms[kind] || [])
     out[f.key] =

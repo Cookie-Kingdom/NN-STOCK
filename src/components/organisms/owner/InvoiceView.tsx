@@ -26,6 +26,7 @@ import {
   smokingInvoiceStatus,
   type Database,
   type Lot,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -61,7 +62,7 @@ export function InvoiceView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const [referenceType, setReferenceType] =
     useState<DocumentReferenceType>("po");

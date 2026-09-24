@@ -13,7 +13,7 @@ import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispa
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { titles } from "@/lib/store";
+import { titles, type EntryKind } from "@/lib/store";
 
 const CUSTOM_DIALOGS = [
   "materialReceive",
@@ -208,7 +208,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
             "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
           );
         } else {
-          done(savedMessage(titles[modal.kind]));
+          done(savedMessage(titles[modal.kind as EntryKind]));
         }
       }}
     />

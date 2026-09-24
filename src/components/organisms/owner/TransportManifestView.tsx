@@ -20,6 +20,7 @@ import {
   produced,
   shipments,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -38,7 +39,7 @@ export function TransportManifestView({
   onOpenSmokePo,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
   onOpenSmokePo: () => void;
 }) {
   const rows = shipments(db);

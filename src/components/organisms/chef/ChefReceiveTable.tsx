@@ -8,6 +8,7 @@ import {
   n,
   packingListBoxes,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -16,7 +17,7 @@ export function ChefReceiveTable({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const waiting = db.lots.filter((lot) => lot.stage === 2);
   return (

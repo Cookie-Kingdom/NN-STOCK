@@ -15,6 +15,7 @@ import {
   type Database,
   type Lot,
   type Role,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -29,7 +30,7 @@ export function MeatStockTable({
   role: Role;
   branch: string;
   lots: Lot[];
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lotIds = lots.map((lot) => lot.id);
   if (role === "owner")

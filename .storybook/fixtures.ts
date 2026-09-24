@@ -7,6 +7,7 @@ import {
   riceSources,
   sevenDayRoleplay,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 import {
   chillDay,
@@ -433,7 +434,7 @@ export const nextDay = "2026-09-10";
 
 const chillBranchRun = (
   db: Database,
-  kind: string,
+  kind: EntryKind,
   values: Record<string, string>,
 ) => mutate(db, "branch", kind, values, "", day, "ศาลาแดง");
 /** chillDb with materials counted and cooked rice confirmed: every close item is done. */

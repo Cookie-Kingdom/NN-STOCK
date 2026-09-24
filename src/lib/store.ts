@@ -3,9 +3,64 @@ import { fmt } from "./format";
 import { newId } from "./id";
 export type Role = "owner" | "foodiva" | "cm" | "branch";
 export type Values = Record<string, string>;
+/** Every entry kind in the log (all but the legacy one are what `mutate` records). A kind
+ *  outside this list is a compile error. */
+export const entryKinds = [
+  "purchase",
+  "shipmentRequest",
+  "shipmentRequestEdit",
+  "meatPayment",
+  "smokeOrder",
+  "smokeOrderAccept",
+  "smokingInvoice",
+  "invoiceReview",
+  "invoicePayment",
+  "foodivaConfirm",
+  "packingList",
+  "foodivaReturnReceive",
+  "dispatch",
+  "cmReceive",
+  "prepare",
+  "smoke",
+  "closeLot",
+  "chefEdit",
+  "return",
+  "central",
+  "allocate",
+  "receive",
+  "thaw",
+  "supplyPurchase",
+  "supplyIssue",
+  "ricePurchase",
+  "chiliPurchase",
+  "chiliAllocate",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materials",
+  "materialReceive",
+  "ownerWasteReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "materialConfirm",
+  "closeDay",
+  "expense",
+  "config",
+  "unlock",
+  "void",
+  "entryEdit",
+  "editRequest",
+  "editDecision",
+  // Legacy, read only: raw beef moved to Steak by early builds (see rawAtFoodiva).
+  "steakTransfer",
+] as const;
+export type EntryKind = (typeof entryKinds)[number];
 export type Entry = {
   id: string;
-  kind: string;
+  kind: EntryKind;
   role: Role;
   lotId: string;
   branch: string;
@@ -74,7 +129,7 @@ export const stageRole: Role[] = [
   "owner",
   "owner",
 ];
-export const stageAction = [
+export const stageAction: EntryKind[] = [
   "purchase",
   "dispatch",
   "cmReceive",
@@ -87,7 +142,7 @@ export const stageAction = [
 ];
 /** Dialog heading per entry kind. Keep each one equal to the button that opens
  * it, or make the button its prefix: two names for one action reads as two actions. */
-export const titles: Record<string, string> = {
+export const titles: Record<EntryKind, string> = {
   purchase: "สร้าง PO เนื้อ",
   shipmentRequest: "สร้าง Request ส่งเนื้อไป Chef House",
   shipmentRequestEdit: "แก้ไข Request ส่งเนื้อไป Chef House",
@@ -136,6 +191,8 @@ export const titles: Record<string, string> = {
   entryEdit: "แก้ไขรายการ",
   editRequest: "ขอแก้ไขรายการ",
   editDecision: "พิจารณาคำขอแก้ไข",
+  // No title ever: the log showed the raw kind for it, and still does.
+  steakTransfer: "steakTransfer",
 };
 /** Roles that correct history directly and decide edit requests (spec 8.1). The Account Manager
  *  (C4) signs in as role "owner", so it is an approver through this entry; every check reads the
@@ -145,7 +202,7 @@ export const editApprovers: Role[] = ["owner"];
  *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
  *  stage steps, whose numbers also live on the lot (chefEdit fixes those before ปิด Lot);
  *  kinds fixed by saving again (materials, packingList); closeDay (Owner unlocks instead). */
-export const editableKinds = [
+export const editableKinds: EntryKind[] = [
   "receive",
   "thaw",
   "ricePurchase",
@@ -260,7 +317,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   }
   let currentDate = dates[0];
   let currentBranch = branches[0];
-  const run = (role: Role, kind: string, values: Values, lotId = "") => {
+  const run = (role: Role, kind: EntryKind, values: Values, lotId = "") => {
     db = mutate(db, role, kind, values, lotId, currentDate, currentBranch);
   };
   const packs = Array.from({ length: packCount }, () => "0.100").join("\n");
@@ -578,7 +635,7 @@ type EntryIndex = {
   length: number;
   voided: Set<string>;
   fixes: Map<string, Values>;
-  byKind: Map<string, Entry[]>;
+  byKind: Map<EntryKind, Entry[]>;
 };
 /* The void set, the edit overlays and a by-kind list are built once per log and reused by
  * every entries() call on it. The log only grows, so its length tells a stale index apart. */
@@ -615,7 +672,7 @@ function entryIndex(db: Database): EntryIndex {
     ) as Values[])
       fix(id, batch);
   }
-  const byKind = new Map<string, Entry[]>();
+  const byKind = new Map<EntryKind, Entry[]>();
   for (const e of db.entries) {
     if (voided.has(e.id)) continue;
     const list = byKind.get(e.kind);
@@ -628,7 +685,7 @@ function entryIndex(db: Database): EntryIndex {
 }
 export function entries(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   lotId?: string,
   branch?: string,
   date?: string,
@@ -844,7 +901,7 @@ export function shipmentShares(db: Database, shipment: Lot) {
 /** One shipment end to end for the Owner: purchase POs → truck → Chef House's yellow total →
  *  smoked boxes → return truck → Foodiva's freezer. A step not reached yet is `undefined`. */
 export function shipmentChain(db: Database, shipment: Lot) {
-  const kg = (kind: string, key: string) => {
+  const kg = (kind: EntryKind, key: string) => {
     const entry = entries(db, kind, shipment.id).at(-1);
     return entry ? n(entry.values, key) : undefined;
   };
@@ -1028,8 +1085,12 @@ const noCookMessage = "สาขามีนบุรีไม่หุงข้
  *  every day ends with a cooked-rice confirmation (`riceCarry`); a day that issued raw rice
  *  for cooking also owes the cook itself (`rice`). closeDay and the Owner's daily status
  *  both read this. */
-export function requiredRiceKinds(db: Database, branch: string, date: string) {
-  const issuedRaw = ["riceIssue", "supplyIssue"].some((kind) =>
+export function requiredRiceKinds(
+  db: Database,
+  branch: string,
+  date: string,
+): EntryKind[] {
+  const issuedRaw = (["riceIssue", "supplyIssue"] as const).some((kind) =>
     entries(db, kind, undefined, branch, date).some(
       (entry) => num(entry.values, "rawRiceIssuedKg") > 0,
     ),
@@ -1044,7 +1105,7 @@ export function requiredRiceKinds(db: Database, branch: string, date: string) {
  *  the `sale` line above already covers the moment they are recorded. The chill line is
  *  information only: thawed meat left over carries into tomorrow. */
 export function closeDayChecklist(db: Database, branch: string, date: string) {
-  const has = (kind: string) =>
+  const has = (kind: EntryKind) =>
     entries(db, kind, undefined, branch, date).length > 0;
   const chillOut = db.lots.reduce(
     (total, lot) => total + branchMeatDay(db, lot.id, branch, date).chillOut,
@@ -1057,7 +1118,7 @@ export function closeDayChecklist(db: Database, branch: string, date: string) {
       done: has("sale"),
       required: true,
       message: "ยังไม่มีรายการขายวันนี้",
-      kind: "sale" as string | undefined,
+      kind: "sale" as EntryKind | undefined,
     },
     {
       key: "materials",
@@ -1260,7 +1321,7 @@ export function materialUnitPrice(db: Database, branch: string, index: number) {
 }
 export function isClosed(db: Database, branch: string, date: string) {
   /* Log order, not `at`: the log is append-only, while `at` is each device's own clock. */
-  const position = (kind: string) => {
+  const position = (kind: EntryKind) => {
     const last = entries(db, kind, undefined, branch, date).at(-1);
     return last ? db.entries.findIndex((e) => e.id === last.id) : -1;
   };
@@ -1367,9 +1428,9 @@ const omit = (values: Values, keys: string[]) =>
 const hide = (values: Values, role: Role) => omit(values, hiddenKeys(role));
 /** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
 export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
-const editKinds = ["entryEdit", "editRequest", "editDecision"];
+const editKinds: EntryKind[] = ["entryEdit", "editRequest", "editDecision"];
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
-const chefHouseKinds = [
+const chefHouseKinds: EntryKind[] = [
   "smokeOrder",
   "packingList",
   "invoiceReview",
@@ -1377,7 +1438,7 @@ const chefHouseKinds = [
 ];
 /** Owner entries Foodiva sees: the payment of its meat invoice, whose slip is evidence for both
  *  sides (storage folder `meatPayment/`, migration 20260925000027). Foodiva supplies every lot. */
-const foodivaKinds = ["meatPayment"];
+const foodivaKinds: EntryKind[] = ["meatPayment"];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
@@ -1523,7 +1584,7 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
         proposed[key] === (target.values[key] ?? ""),
       "แก้สาขา วันที่ซื้อ หรือรายการอ้างอิงไม่ได้ · ให้ Owner ยกเลิกแล้วบันทึกใหม่",
     );
-  const as = (kind: string, values: Values): Database => ({
+  const as = (kind: EntryKind, values: Values): Database => ({
     ...db,
     entries: [
       ...db.entries,
@@ -1582,7 +1643,7 @@ function editTarget(
   assert(!block, block);
   return entries(db, target.kind).find((e) => e.id === targetId)!;
 }
-const ownership: Record<string, Role> = {
+const ownership: Partial<Record<EntryKind, Role>> = {
   purchase: "owner",
   shipmentRequest: "owner",
   shipmentRequestEdit: "owner",
@@ -1772,7 +1833,7 @@ function lotConfig(db: Database): Values {
 export function mutate(
   db: Database,
   role: Role,
-  kind: string,
+  kind: EntryKind,
   input: Values,
   lotId: string,
   date: string,
@@ -1785,7 +1846,7 @@ export function mutate(
 function record(
   db: Database,
   role: Role,
-  kind: string,
+  kind: EntryKind,
   input: Values,
   lotId: string,
   date: string,

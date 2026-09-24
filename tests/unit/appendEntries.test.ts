@@ -8,7 +8,13 @@ import {
   readState,
   replaceState,
 } from "@/lib/local-db.server";
-import { mutate, type Database, type Role, type Values } from "@/lib/store";
+import {
+  mutate,
+  type Database,
+  type Role,
+  type Values,
+  type EntryKind,
+} from "@/lib/store";
 import {
   day,
   dispatch,
@@ -26,7 +32,7 @@ function save(
   full: Database,
   accountId: string,
   role: Role,
-  kind: string,
+  kind: EntryKind,
   input: Values,
   lotId: string,
   branch = "",

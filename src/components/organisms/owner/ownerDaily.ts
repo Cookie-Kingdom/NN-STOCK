@@ -1,4 +1,4 @@
-import { requiredRiceKinds, type Database } from "@/lib/store";
+import { requiredRiceKinds, type Database, type EntryKind } from "@/lib/store";
 
 /** Default dashboard / daily-status range: the 7 days ending on `date` (inclusive). */
 export function sevenDayRangeStart(date: string) {
@@ -13,7 +13,7 @@ export function requiredDailyKinds(
   db: Database,
   branchName: string,
   date: string,
-) {
+): EntryKind[] {
   return [
     ...requiredRiceKinds(db, branchName, date),
     "materials",

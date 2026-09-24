@@ -32,6 +32,7 @@ import {
   reservedForOwnerContent,
   type Database,
   type Lot,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -92,7 +93,7 @@ export function OwnerStockView({
 }: {
   db: Database;
   lots: Lot[];
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const [genre, setGenre] = useState("ทั้งหมด");
   const [location, setLocation] = useState("ทั้งหมด");

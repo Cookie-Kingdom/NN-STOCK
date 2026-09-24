@@ -14,6 +14,7 @@ import {
   poRemainingKg,
   riceSources,
   seed,
+  type EntryKind,
 } from "@/lib/store";
 import {
   closed,
@@ -74,7 +75,8 @@ test("Foodiva's confirmation starts from the full PO weight and amount", () => {
 
 test("prefilled weights and amounts pass mutate as-is", () => {
   const s = setup();
-  const prefill = (kind: string) => prefillValues(s.db, kind, s.db.lots.at(-1));
+  const prefill = (kind: EntryKind) =>
+    prefillValues(s.db, kind, s.db.lots.at(-1));
   purchase(s, "40");
   s.run("foodiva", "foodivaConfirm", {
     ...prefill("foodivaConfirm"),
@@ -525,7 +527,7 @@ test("Chef House forms carry names and start weights from the lot", () => {
   const other = {
     ...c.db.entries.at(-1)!,
     id: "earlier-invoice",
-    kind: "smokingInvoice",
+    kind: "smokingInvoice" as const,
     lotId: "another-lot",
     values: { invoiceNumber: "CH-0009" },
   };

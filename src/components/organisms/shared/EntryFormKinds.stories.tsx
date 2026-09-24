@@ -22,7 +22,12 @@ import {
   submittedInvoiceDb,
 } from "../../../../.storybook/fixtures";
 import { EntryForm } from "./EntryForm";
-import { riceSources, type Database, type Role } from "@/lib/store";
+import {
+  riceSources,
+  type Database,
+  type Role,
+  type EntryKind,
+} from "@/lib/store";
 
 // One story per `titles` kind that EntryForm renders, on top of the kinds already
 // covered by Forms.stories.tsx. Every story opens a native modal <dialog>, so a
@@ -45,7 +50,7 @@ const onDate = fn();
 const form = (
   db: Database,
   role: Role,
-  kind: string,
+  kind: EntryKind,
   branch = "",
   lotId = db.lots.at(-1)?.id ?? "",
 ): Story => ({
@@ -327,7 +332,7 @@ export const BranchChiliIssue: Story = form(
 
 /** A filled withdrawal: ตรวจสอบก่อนบันทึก shows what is taken, stock now and stock after. */
 const issueFilled = (
-  kind: string,
+  kind: EntryKind,
   branch: string,
   typed: [RegExp, string][],
 ): Story => ({

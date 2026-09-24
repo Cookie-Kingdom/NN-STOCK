@@ -25,6 +25,7 @@ import {
   ownerWasteOutstanding,
   shipments,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -33,7 +34,7 @@ export function FoodivaView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const pos = purchaseLots(db);
   // Stage 1 waits for the transport document; after it, the Packing List stays

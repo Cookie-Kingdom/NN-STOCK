@@ -35,7 +35,13 @@ import {
   tableSection,
   typeValue,
 } from "./helpers";
-import { mutate, seed, type Database, type Role } from "../../src/lib/store";
+import {
+  mutate,
+  seed,
+  type Database,
+  type Role,
+  type EntryKind,
+} from "../../src/lib/store";
 
 /* The QA team's data walk (vault: QA-REPORT.md, PO-2026-0002 / Lot F260916-002),
  * on the Shipment Flow: 100 kg ordered, a 90 kg Request (two 45 kg กล่องรับเข้า) +
@@ -590,7 +596,7 @@ function receivedAtSaladaeng(date: string): Database {
   let db = structuredClone(seed);
   const run = (
     role: Role,
-    kind: string,
+    kind: EntryKind,
     values: Record<string, string>,
     lotId = "",
     branch = "",

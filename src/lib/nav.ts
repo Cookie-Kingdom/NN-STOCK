@@ -17,6 +17,7 @@ import {
   Warehouse,
   Wheat,
 } from "lucide-react";
+import type { EntryKind } from "./store";
 
 export type Tab =
   | "owner-dashboard"
@@ -43,7 +44,9 @@ export type Tab =
   | "history"
   | "config";
 
-export type Modal = { kind: string; lotId: string };
+/** An entry form, by the kind it records, or one of two read-only document views. */
+export type ModalKind = EntryKind | "smokeOrderPreview" | "packingListView";
+export type Modal = { kind: ModalKind; lotId: string };
 
 export type NavItem = { id: Tab; label: string; icon: typeof Package };
 export type NavGroup = { label?: string; items: NavItem[] };

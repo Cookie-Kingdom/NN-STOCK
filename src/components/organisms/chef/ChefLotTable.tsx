@@ -19,8 +19,9 @@ import {
   type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import type { ModalKind } from "@/lib/nav";
 
-type OpenForm = (kind: string, lotId?: string) => void;
+type OpenForm = (kind: ModalKind, lotId?: string) => void;
 
 function ChefLotAction({
   db,

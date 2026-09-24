@@ -7,7 +7,13 @@ import {
   setSaveActor,
   setSaveAppendOnly,
 } from "@/lib/persistence";
-import { seed, type Database, type Entry, type Values } from "@/lib/store";
+import {
+  seed,
+  type Database,
+  type Entry,
+  type Values,
+  type EntryKind,
+} from "@/lib/store";
 
 const mocks = vi.hoisted(() => ({
   maybeSingle: vi.fn(),
@@ -40,7 +46,7 @@ vi.mock("@/lib/supabase/browser", () => ({
 }));
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-const entry = (values: Values, kind = "sale"): Entry => ({
+const entry = (values: Values, kind: EntryKind = "sale"): Entry => ({
   id: crypto.randomUUID(),
   kind,
   role: "branch",

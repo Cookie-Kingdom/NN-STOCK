@@ -170,7 +170,7 @@ test("a void appended under a non-owner role is ignored", () => {
   const forged = {
     ...sale,
     id: `${sale.id}-forged-void`,
-    kind: "void",
+    kind: "void" as const,
     values: { targetId: sale.id, reason: "x" },
   };
   const db = { ...s.db, entries: [...s.db.entries, forged] };

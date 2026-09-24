@@ -50,6 +50,7 @@ import {
   type Lot,
   type Role,
   type Values,
+  type EntryKind,
 } from "@/lib/store";
 import {
   closed,
@@ -1131,9 +1132,9 @@ describe("branch supplies", () => {
         day,
         "มีนบุรี",
       );
-    const withDay = (...kinds: string[]) =>
+    const withDay = (...kinds: EntryKind[]) =>
       withEntries(
-        ...["sale", "materials", ...kinds].map((kind) =>
+        ...(["sale", "materials", ...kinds] as EntryKind[]).map((kind) =>
           entry({
             kind,
             branch: "มีนบุรี",
@@ -1204,7 +1205,7 @@ describe("branch supplies", () => {
     s.run("branch", "closeDay", { time: "09:00", confirm: "x" });
     expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
     // A closed day refuses every branch entry, and a second close.
-    for (const kind of ["riceCarry", "closeDay"])
+    for (const kind of ["riceCarry", "closeDay"] as const)
       expect(() =>
         s.run("branch", kind, {
           leftoverKg: "0",
@@ -1664,7 +1665,7 @@ describe("chill carryover", () => {
     const s = chillDay();
     const id = lotOf(s.db);
     // Day 2: the last 2 kg of central stock allocated, 1.5 kg received, 1 kg thawed.
-    const run = (db: Database, role: Role, kind: string, values: Values) =>
+    const run = (db: Database, role: Role, kind: EntryKind, values: Values) =>
       mutate(db, role, kind, values, id, nextDay, branch);
     let db = run(s.db, "owner", "allocate", {
       branch,

@@ -4,7 +4,13 @@ import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { entries, n, producedBags, type Database } from "@/lib/store";
+import {
+  entries,
+  n,
+  producedBags,
+  type Database,
+  type EntryKind,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -21,7 +27,7 @@ export function CentralReceiveView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const readyToReceive = db.lots.filter(
     (lot) =>

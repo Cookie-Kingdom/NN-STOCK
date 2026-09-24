@@ -25,6 +25,7 @@ import {
   type Database,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import type { ModalKind } from "@/lib/nav";
 
 const columns = [
   "เลขที่การส่ง",
@@ -43,7 +44,7 @@ export function SmokingPurchaseOrderView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: ModalKind, lotId?: string) => void;
 }) {
   const runs = shipments(db);
   const waitingForChefHouse = runs.filter(

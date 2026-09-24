@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { entries, titles, type Database } from "@/lib/store";
+import { entries, titles, type Database, type EntryKind } from "@/lib/store";
 
 const optionalHint: Record<string, string> = {
   ricePurchase: "บันทึกเฉพาะวันที่ซื้อ",
@@ -23,15 +23,15 @@ export function DailyTaskTable({
   required,
 }: {
   title: string;
-  kinds: string[];
+  kinds: EntryKind[];
   /** Kinds owed today; the others read as optional. Omitted: the fixed optional list. */
-  required?: string[];
+  required?: EntryKind[];
   db: Database;
   branch: string;
   date: string;
   disabled: boolean;
   hasLots: boolean;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   return (
     <DataTable

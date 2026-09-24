@@ -14,6 +14,7 @@ import {
   requiredRiceKinds,
   type Database,
   type Lot,
+  type EntryKind,
 } from "@/lib/store";
 
 const taskKeys = ["receive", "thaw", "rice", "sale", "close"];
@@ -32,7 +33,7 @@ export function BranchDailyWorkflow({
   date: string;
   lots: Lot[];
   closed: boolean;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
   /** ขั้นที่ 3 ไม่เปิด modal — มันพาไปแท็บข้าวเหนียววันนี้ ที่มีทุกฟอร์มของข้าว */
   onTab: (tab: Tab) => void;
 }) {

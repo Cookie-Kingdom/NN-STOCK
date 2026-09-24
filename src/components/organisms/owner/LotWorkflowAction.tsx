@@ -10,6 +10,7 @@ import {
   titles,
   type Database,
   type Lot,
+  type EntryKind,
 } from "@/lib/store";
 
 /** The Owner's next step on one shipment. The outbound transport document is Foodiva's,
@@ -17,7 +18,7 @@ import {
 export function LotWorkflowAction(props: {
   db: Database;
   lot: Lot;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
   /** Navigate to the smoking PO tab. */
   onOpenSmokePo: () => void;
 }) {

@@ -34,6 +34,7 @@ import {
   seed,
   type Database,
   type Role,
+  type EntryKind,
 } from "../../../src/lib/store";
 
 /* Lane G (vault: Testing/E2E Full System/17-09-2026/Plan.md §5): what a save
@@ -108,7 +109,7 @@ function lotState(stop: Stop): Database {
   let db = structuredClone(seed);
   const run = (
     role: Role,
-    kind: string,
+    kind: EntryKind,
     values: Record<string, string>,
     lotId = "",
   ) => {

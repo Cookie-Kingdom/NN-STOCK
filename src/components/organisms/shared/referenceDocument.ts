@@ -7,7 +7,13 @@ import {
   type DocumentRows,
 } from "@/components/organisms/owner/documentRows";
 import { purchaseOrderRows } from "@/components/organisms/shared/documentRows";
-import { entries, type Database, type Entry, type Lot } from "@/lib/store";
+import {
+  entries,
+  type Database,
+  type Entry,
+  type Lot,
+  type EntryKind,
+} from "@/lib/store";
 
 export type ReferenceDocument = {
   title: string;
@@ -41,18 +47,22 @@ function attachmentOf(history: Entry[]) {
 }
 
 /** The newest file the counterparty uploaded for this document of this lot. */
-export function uploadedAttachment(db: Database, kind: string, lotId: string) {
+export function uploadedAttachment(
+  db: Database,
+  kind: EntryKind,
+  lotId: string,
+) {
   return attachmentOf(entries(db, kind, lotId));
 }
 
 /** The earlier document a lot form builds on, or undefined when the form has none. */
 export function referenceDocument(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   lot: Lot,
 ): ReferenceDocument | undefined {
-  const history = (k: string) => entries(db, k, lot.id);
-  const latest = (k: string) => history(k).at(-1);
+  const history = (k: EntryKind) => entries(db, k, lot.id);
+  const latest = (k: EntryKind) => history(k).at(-1);
   const packing = latest("packingList");
   const order = latest("smokeOrder");
   const smokeInvoice = latest("smokingInvoice");

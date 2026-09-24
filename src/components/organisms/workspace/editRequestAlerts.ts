@@ -10,6 +10,7 @@ import {
   type Database,
   type Entry,
   type Role,
+  type EntryKind,
 } from "@/lib/store";
 
 /** Result wording the requester sees, in the list and at the bell (spec 8.1). */
@@ -52,7 +53,7 @@ export function editRequestAlerts(
   return rows
     .filter(({ decision }) => !decision || decision.date >= since)
     .map(({ request, decision }) => ({
-      title: `คำขอแก้ไข${editOutcome(decision)} · ${titles[request.values.targetKind] || request.values.targetKind} ${request.values.targetDate}`,
+      title: `คำขอแก้ไข${editOutcome(decision)} · ${titles[request.values.targetKind as EntryKind] || request.values.targetKind} ${request.values.targetDate}`,
       detail: decision
         ? `${entryBy(decision)} ${decision.values.decision}${decision.values.note ? ` · ${decision.values.note}` : ""}`
         : "รอพิจารณา · ค่าจะเปลี่ยนเมื่ออนุมัติแล้ว",

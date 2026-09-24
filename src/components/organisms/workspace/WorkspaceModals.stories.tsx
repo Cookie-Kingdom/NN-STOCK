@@ -10,6 +10,7 @@ import {
 import { accountById, type AccountId } from "@/lib/accounts";
 import { useWorkspace } from "./useWorkspace";
 import { WorkspaceModals } from "./WorkspaceModals";
+import type { ModalKind } from "@/lib/nav";
 
 // Every story opens a native modal <dialog>; a Docs page would stack them all.
 // Saves go through the mocked persistence and appear in the Actions panel.
@@ -31,7 +32,7 @@ function Modals({
 }: {
   account: AccountId;
   /** Left out for the no-modal case. */
-  kind?: string;
+  kind?: ModalKind;
   /** Defaults to the account's first visible lot, exactly like `ws.open()`. */
   lotId?: string;
 }) {
