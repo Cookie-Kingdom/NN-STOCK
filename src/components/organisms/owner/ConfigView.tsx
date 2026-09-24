@@ -33,7 +33,7 @@ import {
   type Database,
   type Values,
 } from "@/lib/store";
-import { fmt } from "@/lib/format";
+import { fmt, today } from "@/lib/format";
 
 type ConfigSection =
   | "main"
@@ -106,7 +106,8 @@ function buildConfig(from: Database, changed: Values) {
     "config",
     { ...draftFromConfig(from.config), ...changed },
     "",
-    new Date().toISOString().slice(0, 10),
+    // Bangkok's calendar day, not UTC's (COR-14): until 07:00 Bangkok, UTC is still on yesterday.
+    today(),
   );
 }
 

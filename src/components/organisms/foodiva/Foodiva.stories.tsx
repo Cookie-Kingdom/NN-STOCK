@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
+  confirmedDb,
   demoDb,
   dispatchDb,
   multiPoDb,
   open,
   ownerReservedDb,
+  paidDb,
   returnGapDb,
   returnTruckDb,
 } from "../../../../.storybook/fixtures";
@@ -30,6 +32,19 @@ export const PurchasePosRemaining: Story = {
 export const KeptForOwner: Story = {
   parameters: { db: ownerReservedDb },
   render: () => <FoodivaView db={ownerReservedDb} open={open} />,
+};
+
+/** Invoice in, the Owner has not paid it yet: "การชำระเงิน" says รอ Owner ชำระ. */
+export const MeatInvoiceUnpaid: Story = {
+  parameters: { db: confirmedDb },
+  render: () => <FoodivaView db={confirmedDb} open={open} />,
+};
+
+/** The Owner paid the meat invoice: "จ่ายแล้ว" with date and amount, and the slip opens
+ *  from the row (storage folder `meatPayment/`, readable by Foodiva since migration 0027). */
+export const MeatInvoicePaid: Story = {
+  parameters: { db: paidDb },
+  render: () => <FoodivaView db={paidDb} open={open} />,
 };
 
 /** Return truck on its way: "ยืนยันรับเข้าตู้" next to what Chef House sent (กล่องรมควัน / kg). */

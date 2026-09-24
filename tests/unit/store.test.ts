@@ -253,6 +253,19 @@ describe("derived values from the entry log", () => {
       { ...smoke, values: { packs: "1" } },
     ]);
     expect(visibleEntries(db, "foodiva")).toEqual([]);
+    // Foodiva sees the Owner's payment of its meat invoice (the slip is evidence for both sides).
+    const meatPayment = entry({
+      kind: "meatPayment",
+      role: "owner",
+      values: { paidAmount: "100", slips: "[]" },
+    });
+    expect(visibleEntries(withEntries(sala, meatPayment), "foodiva")).toEqual([
+      meatPayment,
+    ]);
+    expect(visibleEntries(withEntries(meatPayment), "cm")).toEqual([]);
+    expect(
+      visibleEntries(withEntries(meatPayment), "branch", "ศาลาแดง"),
+    ).toEqual([]);
     expect(visibleEntries(db, "branch")).toEqual([]);
   });
 
@@ -862,6 +875,19 @@ describe("lot workflow", () => {
     expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
     expect(() =>
       s.run("branch", "receive", { kg: "1", allocation: sala.id, reason: "x" }),
+    ).toThrow(/รับเกินยอดค้างรับ/);
+  });
+
+  test("receiving an allocation's exact kg past 0.01 is not over the outstanding (COR-15)", () => {
+    const s = ready();
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "10.004" });
+    const sala = last(s);
+    expect(allocationOutstanding(s.db, sala)).toBe(10);
+    s.run("branch", "receive", { kg: "10.004", allocation: sala.id });
+    expect(allocationOutstanding(s.db, sala)).toBe(0);
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+    expect(() =>
+      s.run("branch", "receive", { kg: "5.006", allocation: last(s).id }),
     ).toThrow(/รับเกินยอดค้างรับ/);
   });
 
