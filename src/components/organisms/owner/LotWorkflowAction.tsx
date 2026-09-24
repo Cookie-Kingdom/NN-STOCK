@@ -11,6 +11,7 @@ import {
   type Database,
   type Lot,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 
 /** The Owner's next step on one shipment. The outbound transport document is Foodiva's,
@@ -38,7 +39,7 @@ function Step({
   onOpenSmokePo,
 }: Parameters<typeof LotWorkflowAction>[0]) {
   // Until Foodiva makes the manifest the Owner may still change the Request (A10).
-  if (lot.stage === 1)
+  if (lot.stage === STAGE.dispatch)
     return (
       <>
         <Badge tone="danger">รอ Foodiva ทำใบขนส่ง</Badge>
@@ -50,7 +51,7 @@ function Step({
         </Button>
       </>
     );
-  if (lot.stage < 6) {
+  if (lot.stage < STAGE.return) {
     if (!latestPackingList(db, lot.id))
       return <Badge tone="danger">รอ Foodiva ทำ Packing List</Badge>;
     if (!entries(db, "smokeOrder", lot.id).length)
@@ -63,13 +64,16 @@ function Step({
       return <Badge tone="danger">รอ Chef House รับ PO</Badge>;
     return <>กำลังดำเนินงานที่ Chef House</>;
   }
-  if (lot.stage === 6)
+  if (lot.stage === STAGE.return)
     return (
       <Button variant="table" onClick={() => open("return", lot.id)}>
         {titles.return} · {fmt(produced(db, lot.id))} กก.
       </Button>
     );
-  if (lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length)
+  if (
+    lot.stage === STAGE.central &&
+    !entries(db, "foodivaReturnReceive", lot.id).length
+  )
     return <>รอ Foodiva รับเข้าตู้</>;
   return <>Foodiva รับเข้าตู้แล้ว</>;
 }

@@ -10,6 +10,7 @@ import {
   producedBags,
   type Database,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -31,7 +32,8 @@ export function CentralReceiveView({
 }) {
   const readyToReceive = db.lots.filter(
     (lot) =>
-      lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
+      lot.stage === STAGE.central &&
+      entries(db, "foodivaReturnReceive", lot.id).length,
   );
   return (
     <>

@@ -45,6 +45,7 @@ import {
   type Database,
   type Entry,
   type Lot,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -242,9 +243,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     ? "สต๊อกกลาง → สาขา"
                     : returnTrip
                       ? "Chef House → Foodiva"
-                      : lot.stage >= 2 && lot.stage <= 5
+                      : lot.stage >= STAGE.cmReceive &&
+                          lot.stage <= STAGE.closeLot
                         ? "Foodiva → Chef House"
-                        : lot.stage >= 6
+                        : lot.stage >= STAGE.return
                           ? "Chef House → Foodiva"
                           : "Foodiva · รอเริ่มขนส่ง";
                   const chefFile = uploadedAttachment(
@@ -568,7 +570,11 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           />
                         </td>
                         <td className={tdClass}>
-                          <Badge tone={lot.stage >= 8 ? "success" : "danger"}>
+                          <Badge
+                            tone={
+                              lot.stage >= STAGE.allocate ? "success" : "danger"
+                            }
+                          >
                             {stages[lot.stage]}
                           </Badge>
                         </td>

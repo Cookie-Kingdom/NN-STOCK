@@ -140,6 +140,20 @@ export const stageAction: EntryKind[] = [
   "central",
   "allocate",
 ];
+/** `lot.stage` by name: the index in `stageAction` of the step a shipment waits for. So
+ *  `lot.stage === STAGE.cmReceive` is on the truck, not yet received at Chef House, and
+ *  `lot.stage >= STAGE.allocate` is in central stock (`allocate` does not advance it). */
+export const STAGE = {
+  purchase: 0,
+  dispatch: 1,
+  cmReceive: 2,
+  prepare: 3,
+  smoke: 4,
+  closeLot: 5,
+  return: 6,
+  central: 7,
+  allocate: 8,
+} as const;
 /** Dialog heading per entry kind. Keep each one equal to the button that opens
  * it, or make the button its prefix: two names for one action reads as two actions. */
 export const titles: Record<EntryKind, string> = {
@@ -791,7 +805,7 @@ export function drawnKg(
   dispatchedOnly = false,
 ) {
   return shipments(db)
-    .filter((lot) => !dispatchedOnly || lot.stage >= 2)
+    .filter((lot) => !dispatchedOnly || lot.stage >= STAGE.cmReceive)
     .flatMap(shipmentLines)
     .filter((line) => line.lotId === purchaseLotId)
     .reduce((total, line) => total + line.kg, 0);
@@ -1954,7 +1968,7 @@ function record(
   }
   const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
   if (lotRequired.includes(kind))
-    assert(lot && lot.stage >= 8, "Lot ต้องรับเข้าสต๊อกกลางก่อน");
+    assert(lot && lot.stage >= STAGE.allocate, "Lot ต้องรับเข้าสต๊อกกลางก่อน");
   if (role === "branch" && lotRequired.includes(kind))
     assert(
       entries(db, "allocate", lotId, branch).length,
@@ -1977,7 +1991,7 @@ function record(
     lot = {
       id: lotId,
       poId: `PO-${year}-${String(count).padStart(4, "0")}`,
-      stage: 1,
+      stage: STAGE.dispatch,
       values: v,
       config: lotConfig(db),
     };
@@ -1990,7 +2004,7 @@ function record(
       id: lotId,
       poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
       kind: "shipment",
-      stage: 1,
+      stage: STAGE.dispatch,
       values: v,
       config: lotConfig(db),
     };
@@ -2003,7 +2017,7 @@ function record(
       "Request นี้ถูกยกเลิกแล้ว",
     );
     assert(
-      lot.stage === 1 && !entries(db, "dispatch", lotId).length,
+      lot.stage === STAGE.dispatch && !entries(db, "dispatch", lotId).length,
       "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้",
     );
     requestLines(db, v, lot);
@@ -2043,7 +2057,10 @@ function record(
     v.orderNumber = order.values.orderNumber;
     v.status = "Accepted";
   } else if (kind === "smokingInvoice" && lot) {
-    assert(lot.stage >= 6, "ต้องยืนยันปิดรอบก่อนออกใบวางบิลค่ารมควัน");
+    assert(
+      lot.stage >= STAGE.return,
+      "ต้องยืนยันปิดรอบก่อนออกใบวางบิลค่ารมควัน",
+    );
     assert(
       entries(db, "smokeOrderAccept", lotId).length,
       "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล",
@@ -2214,7 +2231,10 @@ function record(
       "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
     );
   } else if (kind === "foodivaReturnReceive" && lot) {
-    assert(lot.stage === 7, "รอ Owner สร้างใบขนส่งกลับจาก Chef House ก่อน");
+    assert(
+      lot.stage === STAGE.central,
+      "รอ Owner สร้างใบขนส่งกลับจาก Chef House ก่อน",
+    );
     assert(
       entries(db, "return", lotId).length,
       "ยังไม่มีใบขนส่ง Chef House → Foodiva",
@@ -2297,7 +2317,7 @@ function record(
     v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "chefEdit" && lot) {
     // Corrects the receive/prepare/smoke values without touching those entries (see entries()).
-    assert(lot.stage === 5, "แก้ไขได้เฉพาะก่อนยืนยันปิด Lot");
+    assert(lot.stage === STAGE.closeLot, "แก้ไขได้เฉพาะก่อนยืนยันปิด Lot");
     const receiveEntry = entries(next, "cmReceive", lotId).at(-1);
     const prepareEntry = entries(next, "prepare", lotId).at(-1);
     const smokeEntries = entries(next, "smoke", lotId);
@@ -2850,7 +2870,7 @@ function record(
     assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
     if (target.kind === "shipmentRequest")
       assert(
-        db.lots.find((l) => l.id === target.lotId)?.stage === 1,
+        db.lots.find((l) => l.id === target.lotId)?.stage === STAGE.dispatch,
         "Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้",
       );
     assert(
@@ -2992,7 +3012,7 @@ function record(
         n(lot.values, "preSmokeKg") - processed(db, lotId) - n(v, "inputKg"),
       ) < 0.005
     )
-      lot.stage = 5;
+      lot.stage = STAGE.closeLot;
   }
   const entryDate = ["materialReceive", "generalPurchase"].includes(kind)
     ? v.purchaseDate || date

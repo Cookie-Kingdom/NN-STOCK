@@ -26,6 +26,7 @@ import {
   shipments,
   type Database,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -41,7 +42,7 @@ export function FoodivaView({
   // editable here until the Owner issues the smoke PO from it.
   const requests = shipments(db).filter(
     (lot) =>
-      lot.stage === 1 ||
+      lot.stage === STAGE.dispatch ||
       (latestPackingList(db, lot.id) &&
         !entries(db, "smokeOrder", lot.id).length),
   );
@@ -52,7 +53,7 @@ export function FoodivaView({
   );
   // Stage 7 = on the return truck until the Owner counts it into central stock; a received
   // row stays so Foodiva sees its weigh-in against what Chef House sent.
-  const returnLeg = shipments(db).filter((lot) => lot.stage === 7);
+  const returnLeg = shipments(db).filter((lot) => lot.stage === STAGE.central);
   return (
     <div className="grid gap-6">
       <PanelHeading
@@ -93,7 +94,7 @@ export function FoodivaView({
             ))}
           </span>,
           `${fmt(n(lot.values, "requestedKg"))} กก.`,
-          lot.stage === 1 ? (
+          lot.stage === STAGE.dispatch ? (
             <Button
               key="dispatch"
               variant="table"

@@ -9,6 +9,7 @@ import {
   packingListBoxes,
   type Database,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -19,7 +20,7 @@ export function ChefReceiveTable({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const waiting = db.lots.filter((lot) => lot.stage === 2);
+  const waiting = db.lots.filter((lot) => lot.stage === STAGE.cmReceive);
   return (
     <>
       <SectionHeading

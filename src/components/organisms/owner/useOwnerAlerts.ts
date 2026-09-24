@@ -18,6 +18,7 @@ import {
   purchaseLots,
   shipments,
   smokingInvoiceStatus,
+  STAGE,
 } from "@/lib/store";
 
 export type OwnerNotification = { title: string; detail: string; tab: Tab };
@@ -36,7 +37,8 @@ export const noOwnerAlerts = {
  *  ready in one place and missing in the other. */
 export function returnReadyLots(db: Database) {
   return shipments(db).filter(
-    (lot) => lot.stage === 6 && !entries(db, "return", lot.id).length,
+    (lot) =>
+      lot.stage === STAGE.return && !entries(db, "return", lot.id).length,
   );
 }
 
@@ -50,14 +52,17 @@ export function useOwnerAlerts(db: Database) {
 
   const shipmentLots = shipments(db);
   // Outbound only: the return trip has its own tab and counts on its own badge.
-  const transportCount = shipmentLots.filter((lot) => lot.stage === 1).length;
+  const transportCount = shipmentLots.filter(
+    (lot) => lot.stage === STAGE.dispatch,
+  ).length;
   const returnReady = returnReadyLots(db);
   const centralReceiveCount = shipmentLots.filter(
     (lot) =>
-      lot.stage === 7 && entries(db, "foodivaReturnReceive", lot.id).length,
+      lot.stage === STAGE.central &&
+      entries(db, "foodivaReturnReceive", lot.id).length,
   ).length;
   const allocationCount = shipmentLots.filter(
-    (lot) => lot.stage >= 8 && centralStock(db, lot.id) > 0.001,
+    (lot) => lot.stage >= STAGE.allocate && centralStock(db, lot.id) > 0.001,
   ).length;
   // Invoices the owner has to act on, the same ones the bell lists: a Foodiva meat invoice
   // still unpaid, a Chef House smoking invoice to review or to pay.
@@ -89,7 +94,7 @@ export function useOwnerAlerts(db: Database) {
       const smokeOrder = entries(db, "smokeOrder", item.id).at(-1);
       const accepted = entries(db, "smokeOrderAccept", item.id).at(-1);
       const smokeInvoice = entries(db, "smokingInvoice", item.id).at(-1);
-      if (item.stage === 1)
+      if (item.stage === STAGE.dispatch)
         return [
           {
             title: `รอ Foodiva ทำใบขนส่ง · ${item.poId}`,
@@ -122,7 +127,7 @@ export function useOwnerAlerts(db: Database) {
           },
         ];
       // Stages 2–5: Chef House is working; the smoking invoice only comes once the run is closed.
-      if (item.stage < 6) return [];
+      if (item.stage < STAGE.return) return [];
       if (!smokeInvoice)
         return [
           {
@@ -157,7 +162,7 @@ export function useOwnerAlerts(db: Database) {
           },
         ];
       if (
-        item.stage === 7 &&
+        item.stage === STAGE.central &&
         !entries(db, "foodivaReturnReceive", item.id).length
       )
         return [

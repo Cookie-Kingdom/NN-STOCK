@@ -60,6 +60,7 @@ import {
   type Role,
   type Values,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
@@ -382,7 +383,7 @@ export function EntryForm({
   ].includes(kind);
   const choices = db.lots.filter(
     (l) =>
-      l.stage >= 8 &&
+      l.stage >= STAGE.allocate &&
       (role === "owner" || entries(db, "allocate", l.id, branch).length),
   );
   // A lot the form cannot use would leave the required select empty and the

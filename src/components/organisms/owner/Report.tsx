@@ -19,6 +19,7 @@ import {
   stages,
   type Database,
   type Entry,
+  STAGE,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
@@ -264,7 +265,7 @@ export function Report({
           "ต้นทุน / กก.",
         ]}
         rows={db.lots
-          .filter((l) => l.stage > 1)
+          .filter((l) => l.stage > STAGE.dispatch)
           .map((l) => {
             const c = lotCost(db, l);
             return [

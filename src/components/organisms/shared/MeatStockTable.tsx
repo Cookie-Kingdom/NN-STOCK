@@ -16,6 +16,7 @@ import {
   type Lot,
   type Role,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -62,7 +63,9 @@ export function MeatStockTable({
           <Button
             key={lot.id}
             variant="table"
-            disabled={lot.stage < 8 || centralStock(db, lot.id) <= 0.001}
+            disabled={
+              lot.stage < STAGE.allocate || centralStock(db, lot.id) <= 0.001
+            }
             onClick={() => open("allocate", lot.id)}
           >
             จัดสรร

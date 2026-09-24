@@ -21,6 +21,7 @@ import {
   shipments,
   type Database,
   type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -159,7 +160,7 @@ export function TransportManifestView({
                   rows={transportDocumentRows(db, lot, back, "return")}
                 />
               </ButtonRow>
-            ) : lot.stage < 6 ? (
+            ) : lot.stage < STAGE.return ? (
               "รอ Chef House ปิด Lot"
             ) : (
               `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`

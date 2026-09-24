@@ -51,6 +51,8 @@ import {
   type Role,
   type Values,
   type EntryKind,
+  STAGE,
+  stageAction,
 } from "@/lib/store";
 import {
   closed,
@@ -1716,4 +1718,9 @@ describe("chill carryover", () => {
     expect(last(s).values.soldKg).toBe("0.95");
     expect(balance(s.db, lotOf(s.db), branch).ready).toBeCloseTo(4.05, 6);
   });
+});
+
+test("STAGE names each stage by the step it waits for", () => {
+  expect(Object.keys(STAGE)).toEqual(stageAction);
+  expect(Object.values(STAGE)).toEqual(stageAction.map((_, i) => i));
 });

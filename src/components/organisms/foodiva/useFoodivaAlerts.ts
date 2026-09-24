@@ -12,6 +12,7 @@ import {
   producedBags,
   purchaseLots,
   shipments,
+  STAGE,
 } from "@/lib/store";
 
 /** What Foodiva is shown before the first payload lands. Until then the UI is still on
@@ -32,15 +33,16 @@ export function useFoodivaAlerts(db: Database) {
     (lot) => !entries(db, "foodivaConfirm", lot.id).length,
   );
   // Stage 1 = the Owner's Request is in, no outbound transport document yet.
-  const toDispatch = shipmentLots.filter((lot) => lot.stage === 1);
+  const toDispatch = shipmentLots.filter((lot) => lot.stage === STAGE.dispatch);
   // Trucked but no Packing List: the Owner cannot issue the smoke PO without it.
   const toPack = shipmentLots.filter(
-    (lot) => lot.stage >= 2 && !latestPackingList(db, lot.id),
+    (lot) => lot.stage >= STAGE.cmReceive && !latestPackingList(db, lot.id),
   );
   // Stage 7 = on the return truck; Foodiva weighs it into its own freezer.
   const toReceive = shipmentLots.filter(
     (lot) =>
-      lot.stage === 7 && !entries(db, "foodivaReturnReceive", lot.id).length,
+      lot.stage === STAGE.central &&
+      !entries(db, "foodivaReturnReceive", lot.id).length,
   );
 
   const editAlerts = editRequestAlerts(db, "foodiva", "");
