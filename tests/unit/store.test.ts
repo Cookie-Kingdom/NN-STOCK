@@ -253,6 +253,19 @@ describe("derived values from the entry log", () => {
       { ...smoke, values: { packs: "1" } },
     ]);
     expect(visibleEntries(db, "foodiva")).toEqual([]);
+    // Foodiva sees the Owner's payment of its meat invoice (the slip is evidence for both sides).
+    const meatPayment = entry({
+      kind: "meatPayment",
+      role: "owner",
+      values: { paidAmount: "100", slips: "[]" },
+    });
+    expect(visibleEntries(withEntries(sala, meatPayment), "foodiva")).toEqual([
+      meatPayment,
+    ]);
+    expect(visibleEntries(withEntries(meatPayment), "cm")).toEqual([]);
+    expect(
+      visibleEntries(withEntries(meatPayment), "branch", "ศาลาแดง"),
+    ).toEqual([]);
     expect(visibleEntries(db, "branch")).toEqual([]);
   });
 

@@ -1375,6 +1375,9 @@ const chefHouseKinds = [
   "invoiceReview",
   "invoicePayment",
 ];
+/** Owner entries Foodiva sees: the payment of its meat invoice, whose slip is evidence for both
+ *  sides (storage folder `meatPayment/`, migration 20260925000027). Foodiva supplies every lot. */
+const foodivaKinds = ["meatPayment"];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
@@ -1391,6 +1394,7 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
           ? shipmentIds.has(e.lotId) &&
             (e.role === "cm" || chefHouseKinds.includes(e.kind) || aboutMine(e))
           : (e.role === role && (role !== "branch" || e.branch === branch)) ||
+            (role === "foodiva" && foodivaKinds.includes(e.kind)) ||
             aboutMine(e)),
     )
     .map((e) =>

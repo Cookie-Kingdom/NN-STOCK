@@ -8,6 +8,7 @@ import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
 import {
   lotIssueDate,
   purchaseOrderRows,
@@ -125,11 +126,14 @@ export function FoodivaView({
           "เก็บไว้ให้ Owner คงเหลือ",
           "คงเหลือ Foodiva",
           "คงเหลือส่ง Chef House",
+          "การชำระเงิน",
           "การทำงาน",
         ]}
         rowKeys={pos.map((lot) => lot.id)}
         rows={pos.map((lot) => {
           const confirm = entries(db, "foodivaConfirm", lot.id).at(-1);
+          // The Owner's payment of this invoice, with its slip as evidence for both sides.
+          const payment = entries(db, "meatPayment", lot.id).at(-1);
           return [
             <strong key={lot.poId}>{lot.poId}</strong>,
             lot.id,
@@ -148,6 +152,20 @@ export function FoodivaView({
             confirm
               ? `${fmt(poRemainingKg(db, lot.id))} กก.`
               : "ต้องออก Invoice",
+            payment ? (
+              <span key="payment" className="grid justify-items-end gap-1.5">
+                <Badge tone="success">
+                  {`จ่ายแล้ว · ${payment.values.paymentDate || payment.date} · ฿${fmt(n(payment.values, "paidAmount"))}`}
+                </Badge>
+                <SlipList value={payment.values.slips} />
+              </span>
+            ) : confirm ? (
+              <Badge key="payment" tone="warning">
+                รอ Owner ชำระ
+              </Badge>
+            ) : (
+              "—"
+            ),
             !confirm ? (
               <ButtonRow key="confirm-actions">
                 <DocumentPrintButton
