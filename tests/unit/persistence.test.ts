@@ -3,7 +3,6 @@ import {
   checkForUpdates,
   databaseLoaded,
   latestDatabase,
-  migrateLegacyAttachments,
   saveDatabase,
   setSaveActor,
 } from "@/lib/persistence";
@@ -12,7 +11,6 @@ import { seed, type Database, type Entry, type Values } from "@/lib/store";
 const mocks = vi.hoisted(() => ({
   maybeSingle: vi.fn(),
   rpc: vi.fn(),
-  saveLegacyDataUrl: vi.fn(),
   authEvent: (() => {}) as (event: string) => void,
 }));
 
@@ -39,9 +37,6 @@ vi.mock("@/lib/supabase/browser", () => ({
     },
   }),
 }));
-vi.mock("@/lib/attachment-store", () => ({
-  saveLegacyDataUrl: mocks.saveLegacyDataUrl,
-}));
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const entry = (values: Values, kind = "sale"): Entry => ({
@@ -63,7 +58,6 @@ async function signInWithRow(row: unknown) {
 beforeEach(() => {
   mocks.maybeSingle.mockReset();
   mocks.rpc.mockReset();
-  mocks.saveLegacyDataUrl.mockReset();
   mocks.authEvent("SIGNED_OUT");
 });
 
@@ -305,34 +299,6 @@ test("a failed load reports the error instead of silently showing seed data", as
   await expect(detail).resolves.toMatch(
     /โหลดข้อมูลไม่สำเร็จ.*permission denied/,
   );
-});
-
-test("legacy inline attachments move to the attachment store", async () => {
-  mocks.saveLegacyDataUrl.mockResolvedValue("key-1");
-  const legacy = entry({
-    attachment: "inv.pdf",
-    attachmentData: "data:application/pdf;base64,AA==",
-  });
-  const stored = entry({
-    attachmentData: "data:x",
-    attachmentStorageKey: "key-0",
-  });
-  const next = await migrateLegacyAttachments({
-    ...seed,
-    entries: [legacy, stored],
-  });
-  expect(mocks.saveLegacyDataUrl).toHaveBeenCalledTimes(1);
-  expect(mocks.saveLegacyDataUrl).toHaveBeenCalledWith(
-    "data:application/pdf;base64,AA==",
-    "inv.pdf",
-  );
-  expect(next.entries[0].values).toEqual({
-    attachment: "inv.pdf",
-    attachmentStorageKey: "key-1",
-  });
-  expect(next.entries[1]).toBe(stored);
-  const clean: Database = { ...seed, entries: [entry({ boxes: "1" })] };
-  expect(await migrateLegacyAttachments(clean)).toBe(clean);
 });
 
 test("the revision poll reloads only when someone else saved", async () => {

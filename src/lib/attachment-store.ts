@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { newId } from "./id";
 import { LOCAL_DB } from "./local-db";
 import { createClient } from "./supabase/browser";
@@ -118,16 +119,50 @@ export async function saveAttachment(
   return id;
 }
 
-export async function saveLegacyDataUrl(
-  dataUrl: string,
-  name: string,
-): Promise<string> {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  return saveAttachment(
-    new File([blob], name, { type: blob.type || "application/octet-stream" }),
-    "legacy",
-  );
+/** The company logo goes to `branding/<uuid>/<file name>` (migration
+ * 20260925000026_branding_logo_storage.sql: owner and manager write, every active
+ * account reads) and config keeps only the key. As a data URL it was copied into
+ * the payload with every config save and every new PO. Raster images only. */
+export const logoAccept = "image/png,image/jpeg,image/webp";
+export async function saveLogo(file: File): Promise<string> {
+  if (!/\.(png|jpe?g|webp)$/i.test(file.name))
+    throw new Error("โลโก้ต้องเป็นไฟล์ PNG, JPG หรือ WebP");
+  return saveAttachment(file, "branding");
+}
+
+/* One object URL per key for the life of the page, so every PO preview and printout
+ * shares the one download. */
+const logoUrls = new Map<string, Promise<string>>();
+function logoUrl(key: string): Promise<string> {
+  let url = logoUrls.get(key);
+  if (!url) {
+    url = getAttachment(key)
+      .then((file) => (file ? URL.createObjectURL(file.blob) : ""))
+      .catch(() => "");
+    logoUrls.set(key, url);
+    // A failed or missing download is retried on the next mount.
+    void url.then((value) => value || logoUrls.delete(key));
+  }
+  return url;
+}
+
+/** An `<img src>` for the configured logo: a storage key (`branding/…`) is fetched and
+ * cached; a data URL saved before the move still shows as is. Anything else is "". */
+export function useLogoSrc(logo: string | undefined): string {
+  const inline = logo?.startsWith("data:image/") ? logo : "";
+  const key = logo?.startsWith("branding/") ? logo : "";
+  const [loaded, setLoaded] = useState({ key: "", url: "" });
+  useEffect(() => {
+    if (!key) return;
+    let live = true;
+    void logoUrl(key).then((url) => {
+      if (live) setLoaded({ key, url });
+    });
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return inline || (loaded.key === key ? loaded.url : "");
 }
 
 export async function getAttachment(

@@ -56,10 +56,6 @@ export async function saveDatabaseOrConflict(
   return "saved";
 }
 
-export async function migrateLegacyAttachments(db: Database) {
-  return db;
-}
-
 export function latestDatabase() {
   return cached;
 }

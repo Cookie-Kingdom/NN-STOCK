@@ -143,7 +143,7 @@ export function smokeOrderPrintRows(
     ["Attention", db.config.attention || "—"],
     ["โทร.", db.config.companyPhone || "—"],
     ["Tax ID", db.config.taxId || "—"],
-    ["โลโก้", db.config.logoData || ""],
+    ["โลโก้", db.config.logoStorageKey || db.config.logoData || ""],
     ["Supplier", order.values.smoker || "Chef House"],
     ["ผู้รับออเดอร์", db.config.chefHouseContact || "—"],
     ["ที่อยู่ผู้ให้บริการ", db.config.chefHouseAddress || "—"],

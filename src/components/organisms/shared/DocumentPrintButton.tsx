@@ -7,6 +7,7 @@ import {
   POPUP_DOWNLOAD_BUTTON_STYLE,
   SHEET_CSS,
 } from "@/components/organisms/shared/printDocumentCss";
+import { useLogoSrc } from "@/lib/attachment-store";
 
 const escape = (value: string) =>
   value.replace(
@@ -30,16 +31,17 @@ export function DocumentPrintButton({
   label?: string;
   preview?: boolean;
 }) {
+  // Loaded on mount, so it is ready by the click: the popup must open inside the click.
+  const logo = useLogoSrc(rows.find(([key]) => key === "โลโก้")?.[1]);
   const print = () => {
     const field = (label: string) =>
       rows.find(([key]) => key === label)?.[1] || "—";
     const f = (label: string) => escape(field(label));
     const isSmoke = title === "Smoke Service Purchase Order";
     const isPurchaseOrder = title === "Purchase Order" || isSmoke;
-    const logo = field("โลโก้");
     // Mirrors PurchaseOrderDocumentPreview markup; the logo placeholder is left out so the printed page has no empty box.
     const poHtml =
-      `<article class="po-paper"><div class="po-paper-heading"><div class="po-brand-block">${logo.startsWith("data:image/") ? `<img class="po-logo" src="${escape(logo)}" alt="โลโก้ NerdNuea">` : ""}<div><h3>${isSmoke ? "SMOKING SERVICE PO" : "PURCHASE ORDER"}</h3></div></div><div class="po-number"><span>เลขที่เอกสาร</span><strong>${escape(number)}</strong></div></div>` +
+      `<article class="po-paper"><div class="po-paper-heading"><div class="po-brand-block">${logo ? `<img class="po-logo" src="${escape(logo)}" alt="โลโก้ NerdNuea">` : ""}<div><h3>${isSmoke ? "SMOKING SERVICE PO" : "PURCHASE ORDER"}</h3></div></div><div class="po-number"><span>เลขที่เอกสาร</span><strong>${escape(number)}</strong></div></div>` +
       `<div class="po-party-grid"><section><span>ผู้ซื้อ / Buyer</span><strong>${f("ลูกค้า")}</strong><p>${f("ที่อยู่")}</p><p>Attention: ${f("Attention")}</p><p>โทร. ${f("โทร.")}</p><p>Tax ID: ${f("Tax ID")}</p></section><section><span>${isSmoke ? "ผู้ให้บริการ / Service provider" : "ผู้ขาย / Supplier"}</span><strong>${f("Supplier")}</strong><p>ผู้รับออเดอร์: ${f("ผู้รับออเดอร์")}</p><p>ที่อยู่: ${f("ที่อยู่ผู้ให้บริการ")}</p>${isSmoke ? `<p>บริการรมควันเนื้อตามคำสั่งซื้อ</p><p>อ้างอิง Packing List: ${f("Packing List")}</p>` : ""}</section></div>` +
       `<div class="po-meta-grid"><div><span>วันที่ออก PO</span><strong>${escape(dateLabel(field("วันที่ PO")))}</strong></div><div><span>${isSmoke ? "คาดว่าจะเสร็จ" : "กำหนดชำระ"}</span><strong>${isSmoke ? escape(dateLabel(field("กำหนดเสร็จ"))) : "ตามข้อตกลง"}</strong></div><div><span>${isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย"}</span><strong>${f(isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย")}</strong></div></div>` +
       `<table class="po-item-table"><thead><tr><th>รายการ</th><th>รายละเอียด</th><th>จำนวน</th><th>ราคา / กก.</th><th>รวม</th></tr></thead><tbody><tr><td>${f("สินค้า")}</td><td>${f("ขนาดบรรจุ")}</td><td>${f("จำนวน")}</td><td>${f("ราคา / กก.")}</td><td>${f("ยอดรวมก่อน VAT")}</td></tr></tbody></table>` +

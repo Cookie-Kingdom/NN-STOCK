@@ -4,6 +4,7 @@ import "@/styles/print-document.css";
 import { Badge } from "@/components/atoms/Badge";
 import { packingListSummary } from "@/components/organisms/owner/documentRows";
 import { dateLabel } from "@/components/organisms/shared/documentRows";
+import { useLogoSrc } from "@/lib/attachment-store";
 import {
   entries,
   latestPackingList,
@@ -29,6 +30,7 @@ export function PurchaseOrderDocumentPreview({
   date: string;
 }) {
   const isSmokeOrder = kind === "smokeOrder";
+  const logo = useLogoSrc(db.config.logoStorageKey || db.config.logoData);
   // A smoke PO's kg is the entered rawKg, pre-filled from the Packing List total (A6).
   const packingList = lot ? latestPackingList(db, lot.id) : undefined;
   const quantity = isSmokeOrder
@@ -93,14 +95,10 @@ export function PurchaseOrderDocumentPreview({
       <article className="po-paper">
         <div className="po-paper-heading">
           <div className="po-brand-block">
-            {db.config.logoData ? (
-              // Stored locally as a data URL, so Next image optimization cannot process it.
+            {logo ? (
+              // A blob or data URL, so Next image optimization cannot process it.
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                className="po-logo"
-                src={db.config.logoData}
-                alt="โลโก้ NerdNuea"
-              />
+              <img className="po-logo" src={logo} alt="โลโก้ NerdNuea" />
             ) : (
               <span className="po-logo-placeholder">พื้นที่โลโก้</span>
             )}
