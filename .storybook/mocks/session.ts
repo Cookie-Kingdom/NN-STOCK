@@ -13,15 +13,6 @@ export async function signIn(email: string, password: string) {
   return "";
 }
 
-export async function signUp(
-  email: string,
-  password: string,
-  displayName: string,
-) {
-  action("signUp")(email, displayName);
-  return "";
-}
-
 export async function signOut() {
   action("signOut")();
 }

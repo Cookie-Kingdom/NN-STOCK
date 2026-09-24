@@ -8,21 +8,34 @@
 #   bash supabase/tests/migrations_apply_test.sh
 #
 # The container is removed on exit, pass or fail.
+#
+# CI (or anyone with psql and an EMPTY throwaway postgres:17) can skip Docker instead:
+#
+#   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/meatshop \
+#     bash supabase/tests/migrations_apply_test.sh
+#
+# Never point TEST_DATABASE_URL at a real Supabase project: this applies every migration.
 
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
-CONTAINER=meatshop-migrations-test
-PSQL="docker exec -i $CONTAINER psql -U postgres -d meatshop -q -v ON_ERROR_STOP=1"
 failures=0
 
-cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
-trap cleanup EXIT
+if [ -n "${TEST_DATABASE_URL:-}" ]; then
+  PSQL="psql $TEST_DATABASE_URL -q -v ON_ERROR_STOP=1"
+  until pg_isready -d "$TEST_DATABASE_URL" -q 2>/dev/null; do sleep 1; done
+else
+  CONTAINER=meatshop-migrations-test
+  PSQL="docker exec -i $CONTAINER psql -U postgres -d meatshop -q -v ON_ERROR_STOP=1"
 
-docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=meatshop \
-  postgres:17 >/dev/null || { echo "FAIL  could not start postgres:17"; exit 1; }
-until docker exec "$CONTAINER" pg_isready -U postgres -q 2>/dev/null; do sleep 1; done
+  cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
+  trap cleanup EXIT
+
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=meatshop \
+    postgres:17 >/dev/null || { echo "FAIL  could not start postgres:17"; exit 1; }
+  until docker exec "$CONTAINER" pg_isready -U postgres -q 2>/dev/null; do sleep 1; done
+fi
 
 # The auth schema and the anon/authenticated roles that Supabase supplies for free.
 if ! $PSQL < supabase/tests/local_harness.sql >/dev/null 2>&1; then

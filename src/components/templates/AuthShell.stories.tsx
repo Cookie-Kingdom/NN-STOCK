@@ -14,14 +14,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function Fields({ signup = false }: { signup?: boolean }) {
+function Fields() {
   return (
     <form className="mt-5.5 mb-3.5 grid gap-3.5">
-      {signup && (
-        <FormField label="ชื่อที่แสดง">
-          <Input defaultValue="เจ้าของร้าน" />
-        </FormField>
-      )}
       <FormField label="อีเมล">
         <Input type="email" defaultValue="owner@nn.test" />
       </FormField>
@@ -29,7 +24,7 @@ function Fields({ signup = false }: { signup?: boolean }) {
         <Input type="password" defaultValue="123456" />
       </FormField>
       <Button variant="primary" className="w-full" type="button">
-        {signup ? "สมัครสมาชิก" : "เข้าสู่ระบบ"}
+        เข้าสู่ระบบ
       </Button>
     </form>
   );
@@ -39,15 +34,9 @@ export const SignIn: Story = {
   args: {
     title: "เข้าสู่ระบบ",
     description: "ยืนยันตัวตนและสิทธิ์ผ่าน Supabase",
-    footnote:
-      "บัญชีแรกจะเป็น Owner อัตโนมัติ บัญชีถัดไปต้องให้ Owner เปิดใช้งานและกำหนดสิทธิ์",
+    footnote: "ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์",
     children: <Fields />,
   },
-};
-
-/** The same layout with one more field: the card grows, nothing else moves. */
-export const SignUp: Story = {
-  args: { ...SignIn.args, title: "สร้างบัญชี", children: <Fields signup /> },
 };
 
 /** Without `description` and `footnote` the card is only the brand and the content. */
