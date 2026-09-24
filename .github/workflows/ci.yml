@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: lint, test, build, typecheck
+    runs-on: ubuntu-latest
+    env:
+      # env.ts throws at import without these; the build never calls Supabase with them.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      # After the build: LayoutProps and the other route types are generated into .next/types.
+      - run: pnpm exec tsc --noEmit
+
+  sql:
+    name: migrations + SQL tests (postgres:17)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meatshop
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # PostgREST 14 retries SQLSTATE 40001/40P01 forever (the 22-09 prod flood). Migrations up to
+      # 0022 still carry the old code; anything newer must not raise it. Comments are ignored.
+      # no_serialization_errcode_test.sql below checks the final functions as well.
+      - name: No 40001/40P01 in migrations after 0022
+        run: |
+          bad=0
+          for f in supabase/migrations/*.sql; do
+            n=$(basename "$f"); v=${n%%_*}
+            [ "$v" -gt 20260924000022 ] || continue
+            if sed 's/--.*//' "$f" | grep -nE '40001|40P01'; then
+              echo "::error file=$f::raises 40001/40P01; use raise exception (P0001) or raise sqlstate 'PTxxx'"
+              bad=1
+            fi
+          done
+          exit $bad
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      # Applies every migration, then runs every supabase/tests/*_test.sql, including
+      # no_serialization_errcode_test.sql.
+      - name: Apply migrations and run SQL tests
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/meatshop
+        run: bash supabase/tests/migrations_apply_test.sh
