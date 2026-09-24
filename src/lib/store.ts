@@ -2377,7 +2377,13 @@ function record(
     );
     assert(allocation, "เลือกใบจัดสรร");
     const outstanding = allocationOutstanding(db, allocation);
-    withinStock(n(v, "kg"), outstanding, "รับเกินยอดค้างรับ");
+    // Outstanding is rounded to 0.01, so compare the receive at that precision too:
+    // receiving an allocation's exact 10.004 kg against its 10.00 shown must pass (COR-15).
+    withinStock(
+      Math.round(n(v, "kg") * 100) / 100,
+      outstanding,
+      "รับเกินยอดค้างรับ",
+    );
     // Closing the allocation makes any shortfall final, so it needs a reason; a
     // partial receive leaves the rest pending.
     if (v.complete === "1") variance(n(v, "kg"), outstanding, v);

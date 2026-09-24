@@ -878,6 +878,19 @@ describe("lot workflow", () => {
     ).toThrow(/รับเกินยอดค้างรับ/);
   });
 
+  test("receiving an allocation's exact kg past 0.01 is not over the outstanding (COR-15)", () => {
+    const s = ready();
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "10.004" });
+    const sala = last(s);
+    expect(allocationOutstanding(s.db, sala)).toBe(10);
+    s.run("branch", "receive", { kg: "10.004", allocation: sala.id });
+    expect(allocationOutstanding(s.db, sala)).toBe(0);
+    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
+    expect(() =>
+      s.run("branch", "receive", { kg: "5.006", allocation: last(s).id }),
+    ).toThrow(/รับเกินยอดค้างรับ/);
+  });
+
   test("a receive marked complete closes the allocation on a shortfall, with a reason", () => {
     const s = returned();
     s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
