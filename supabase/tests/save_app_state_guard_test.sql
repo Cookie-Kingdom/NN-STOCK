@@ -30,75 +30,76 @@ begin
 
   perform set_config('test.uid', v_owner::text, true);
   select s.revision into v_rev from public.save_app_state(
-    jsonb_build_object('entries', '[]'::jsonb, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb), null) s;
+    jsonb_build_object('version', 8, 'entries', '[]'::jsonb, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb), null) s;
 
   -- A มีนบุรี account posting as ศาลาแดง is refused.
   perform set_config('test.uid', v_branch::text, true);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1), 'config', '{}'::jsonb,
-      'entries', '[{"id":"e1","role":"branch","branch":"ศาลาแดง"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb,
+      'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"ศาลาแดง"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry branch does not match signed-in account', format('cross-branch entry: got %s', v_err);
 
   -- Its own branch is accepted.
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1),
-    'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev) s;
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1),
+    'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev) s;
 
   -- The supplier role the client writes is "foodiva"; the function spelled it "fooddiva"
   -- for two migrations and refused every Foodiva save.
   perform set_config('test.uid', v_food::text, true);
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1),
-    'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev) s;
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1),
+    'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev) s;
 
   perform set_config('test.uid', v_cm::text, true);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', '[]'::jsonb, 'config', '{}'::jsonb,
-      'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', '[]'::jsonb, 'config', '{}'::jsonb,
+      'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Only an owner can add or remove lots', format('lot removal: got %s', v_err);
 
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":3}'),
-      'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":3}'),
+      'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Lot changes must follow the workflow', format('stage jump: got %s', v_err);
 
-  -- One step forward is the normal workflow.
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
-    'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"}]'::jsonb), v_rev) s;
+  -- One step forward is the normal workflow, by the role that owns the stage (stage 1: Foodiva).
+  perform set_config('test.uid', v_food::text, true);
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":2}'),
+    'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev) s;
 
   -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots, changes config and
   -- appends "owner" entries, but may not write as any other role.
   perform set_config('test.uid', v_mgr::text, true);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
-      'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":2}'),
+      'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('manager as branch: got %s', v_err);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}'),
-      'config', '{}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี","actor":"manager"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":2}'),
+      'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e3","role":"branch","branch":"มีนบุรี","actor":"manager"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry role does not match signed-in account', format('manager as branch with actor: got %s', v_err);
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
-    'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"}]'::jsonb), v_rev) s;
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
+    'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"}]'::jsonb), v_rev) s;
 
   -- The Owner may not claim to be the manager.
   perform set_config('test.uid', v_owner::text, true);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
-      'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","role":"branch","branch":"มีนบุรี"},{"id":"e2","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"},{"id":"e4","role":"owner","actor":"manager"}]'::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 8, 'lots', jsonb_build_array(lot1 || '{"stage":2}', '{"id":"L2","poId":"P2","stage":1,"config":{},"values":{}}'::jsonb),
+      'config', '{"boxPrice":"350"}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e3","role":"owner","actor":"manager"},{"id":"e4","role":"owner","actor":"manager"}]'::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('owner as manager: got %s', v_err);

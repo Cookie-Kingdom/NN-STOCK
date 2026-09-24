@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { Account } from "./accounts";
 import { restoreSaleMoney } from "./sale-money";
-import { seed, type Database } from "./store";
+import { branches, seed, stageRole, type Database, type Role } from "./store";
 
 export type AppStateRow = { payload: Database; revision: number };
 
@@ -34,7 +34,51 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** JS port of `save_app_state` (supabase/migrations/20260924000022_save_app_state_no_40001.sql).
+/** Kinds each non-owner role may append: `ownership` in store.ts plus editRequest. */
+const allowedKinds: Partial<Record<Role, string[]>> = {
+  branch: [
+    "receive",
+    "thaw",
+    "supplyPurchase",
+    "supplyIssue",
+    "ricePurchase",
+    "chiliPurchase",
+    "riceIssue",
+    "chiliIssue",
+    "rice",
+    "riceCarry",
+    "sale",
+    "influencerBox",
+    "materials",
+    "materialConfirm",
+    "closeDay",
+    "editRequest",
+  ],
+  cm: [
+    "smokingInvoice",
+    "smokeOrderAccept",
+    "cmReceive",
+    "prepare",
+    "smoke",
+    "closeLot",
+    "chefEdit",
+    "editRequest",
+  ],
+  foodiva: [
+    "foodivaConfirm",
+    "packingList",
+    "foodivaReturnReceive",
+    "dispatch",
+    "editRequest",
+  ],
+};
+const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
+const without = (value: object, ...keys: string[]) =>
+  Object.fromEntries(
+    Object.entries(value).filter(([key]) => !keys.includes(key)),
+  );
+
+/** JS port of `save_app_state` (supabase/migrations/20260925000023_save_app_state_hardening.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -43,6 +87,8 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
+  if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
+    fail("Payload too large");
   let payload = input as Database;
   if (
     !payload ||
@@ -62,6 +108,15 @@ export function saveState(
   const role = account!.role;
   if (role !== "owner" && !isDeepStrictEqual(payload.config, old.config))
     fail("Only an owner can change configuration");
+  if (
+    role !== "owner" &&
+    (payload.version !== 8 ||
+      !isDeepStrictEqual(
+        without(payload, "entries", "lots"),
+        without(old, "entries", "lots"),
+      ))
+  )
+    fail("Only an owner can change application state");
   if (payload.entries.length < old.entries.length)
     fail("Existing history cannot be removed");
   if (
@@ -79,23 +134,55 @@ export function saveState(
       fail("Entry actor does not match signed-in account");
   }
   if (role !== "owner") {
-    for (const entry of payload.entries.slice(old.entries.length)) {
+    const added = payload.entries.slice(old.entries.length);
+    // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
+    const configBranch = branches.includes(old.config.branch ?? "")
+      ? old.config.branch
+      : branches[0];
+    for (const entry of added) {
       if (entry?.role !== role)
         fail("Entry role does not match signed-in account");
       if (role === "branch" && entry.branch !== account!.branch)
+        fail("Entry branch does not match signed-in account");
+    }
+    for (const entry of added) {
+      if (!allowedKinds[role]?.includes(entry.kind))
+        fail("Entry kind is not allowed for this account");
+      if (
+        !entry.id ||
+        payload.entries.filter((other) => other?.id === entry.id).length > 1
+      )
+        fail("Entry id must be unique");
+      if (
+        entry.lotId &&
+        entry.lotId !== "-" &&
+        !payload.lots.some((lot) => lot?.id === entry.lotId)
+      )
+        fail("Entry lot does not exist");
+      if (
+        (role === "cm" || role === "foodiva") &&
+        entry.branch != null &&
+        entry.branch !== configBranch
+      )
         fail("Entry branch does not match signed-in account");
     }
     if (payload.lots.length !== old.lots.length)
       fail("Only an owner can add or remove lots");
     old.lots.forEach((lot, index) => {
       const next = payload.lots[index];
+      // Only stage and values move, and only on a lot whose current stage this role owns.
       if (
-        next?.id !== lot.id ||
-        next.poId !== lot.poId ||
-        !isDeepStrictEqual(next.config, lot.config) ||
+        !next ||
+        !isDeepStrictEqual(
+          without(next, "stage", "values"),
+          without(lot, "stage", "values"),
+        ) ||
         typeof next.stage !== "number" ||
         next.stage < lot.stage ||
-        next.stage > lot.stage + 1
+        next.stage > lot.stage + 1 ||
+        ((next.stage !== lot.stage ||
+          !isDeepStrictEqual(next.values, lot.values)) &&
+          stageRole[lot.stage] !== role)
       )
         fail("Lot changes must follow the workflow");
     });
