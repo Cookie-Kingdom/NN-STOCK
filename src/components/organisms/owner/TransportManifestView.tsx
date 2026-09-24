@@ -20,6 +20,8 @@ import {
   produced,
   shipments,
   type Database,
+  type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -38,7 +40,7 @@ export function TransportManifestView({
   onOpenSmokePo,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
   onOpenSmokePo: () => void;
 }) {
   const rows = shipments(db);
@@ -158,7 +160,7 @@ export function TransportManifestView({
                   rows={transportDocumentRows(db, lot, back, "return")}
                 />
               </ButtonRow>
-            ) : lot.stage < 6 ? (
+            ) : lot.stage < STAGE.return ? (
               "รอ Chef House ปิด Lot"
             ) : (
               `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`

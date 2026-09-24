@@ -19,6 +19,7 @@ import {
   visibleDatabase,
   type Entry,
   type Lot,
+  type EntryKind,
 } from "@/lib/store";
 import {
   closed,
@@ -93,7 +94,7 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
   });
   const po = s.db.lots[0];
   const lot = s.db.lots.at(-1)!;
-  const latest = (kind: string, from = lot) =>
+  const latest = (kind: EntryKind, from = lot) =>
     entries(s.db, kind, from.id).at(-1)!;
   expect(
     asObject(foodivaInvoiceRows(s.db, po, latest("foodivaConfirm", po))),

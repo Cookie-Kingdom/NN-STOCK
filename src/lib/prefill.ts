@@ -24,6 +24,7 @@ import {
   type Entry,
   type Lot,
   type Values,
+  type EntryKind,
 } from "./store.ts";
 
 const truckKeys = ["vehicleType", "plate", "driverName", "driverPhone"];
@@ -58,7 +59,7 @@ export type LastOptions = {
 /** The values and date of the most recent entry of `kind` that matches the filters. */
 export function lastValues(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   { lotId, branch, where }: LastOptions = {},
 ): { values: Values; date: string } | undefined {
   const entry = entries(db, kind, lotId, branch)
@@ -70,7 +71,7 @@ export function lastValues(
 /** The most recent non-blank `key` typed on a `kind` entry, and that entry's date. */
 export function lastValue(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   key: string,
   { where, ...opts }: LastOptions = {},
 ): { value: string; date: string } | undefined {
@@ -90,7 +91,7 @@ export function lastLabel(date: string) {
 /** Each of `keys` from the last `kind` entry that had it, captioned with that date. */
 export function carryLast(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   keys: string[],
   opts?: LastOptions,
 ): Prefill {
@@ -322,7 +323,7 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
  */
 export function prefillValues(
   db: Database,
-  kind: string,
+  kind: EntryKind,
   lot?: Lot,
   ctx: PrefillContext = {},
 ): Prefill {

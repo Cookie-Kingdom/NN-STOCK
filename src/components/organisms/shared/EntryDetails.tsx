@@ -30,6 +30,7 @@ import {
   type Entry,
   type Role,
   type Values,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
@@ -269,7 +270,7 @@ export function EntryDetails({
     !voided &&
     !(hideSales && e.kind === "sale") &&
     !editBlock(db, e, role, branch);
-  const run = (kind: string, values: Values, done: string, fail: string) => {
+  const run = (kind: EntryKind, values: Values, done: string, fail: string) => {
     setError("");
     try {
       saveDatabase(
@@ -289,7 +290,7 @@ export function EntryDetails({
           {titles[e.kind] || e.kind}
           {isEdit &&
             e.values.targetKind &&
-            ` · ${titles[e.values.targetKind]}`}{" "}
+            ` · ${titles[e.values.targetKind as EntryKind]}`}{" "}
           <small>
             {/* A void has no lot, and its branch is only the config default. */}
             {[

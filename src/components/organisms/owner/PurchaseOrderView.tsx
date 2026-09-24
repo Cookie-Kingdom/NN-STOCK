@@ -18,6 +18,7 @@ import {
   poRemainingKg,
   purchaseLots,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 
 const columns = [
@@ -38,7 +39,7 @@ export function PurchaseOrderView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lots = purchaseLots(db);
   return (

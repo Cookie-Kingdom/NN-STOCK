@@ -6,6 +6,7 @@ import {
   type Database,
   type Role,
   type Values,
+  type EntryKind,
 } from "@/lib/store";
 
 export const day = "2026-09-09";
@@ -30,7 +31,12 @@ export const send = {
 };
 
 export type Setup = {
-  run: (role: Role, kind: string, values?: Values, lotId?: string) => Database;
+  run: (
+    role: Role,
+    kind: EntryKind,
+    values?: Values,
+    lotId?: string,
+  ) => Database;
   readonly db: Database;
 };
 

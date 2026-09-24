@@ -59,6 +59,8 @@ import {
   type Database,
   type Role,
   type Values,
+  type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
@@ -368,9 +370,10 @@ export function EntryForm({
   onClose: () => void;
   onSaved: (db: Database) => void;
   /** Opens another workspace form in place of this one (the close-day checklist). */
-  onOpen?: (kind: string) => void;
+  onOpen?: (kind: EntryKind) => void;
 }) {
-  const kind = modal.kind;
+  // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
+  const kind = modal.kind as EntryKind;
   const useLot = [
     "receive",
     "thaw",
@@ -380,7 +383,7 @@ export function EntryForm({
   ].includes(kind);
   const choices = db.lots.filter(
     (l) =>
-      l.stage >= 8 &&
+      l.stage >= STAGE.allocate &&
       (role === "owner" || entries(db, "allocate", l.id, branch).length),
   );
   // A lot the form cannot use would leave the required select empty and the

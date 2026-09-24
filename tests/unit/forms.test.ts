@@ -6,7 +6,13 @@ import {
   timeOptions,
   uploadedFiles,
 } from "@/lib/forms";
-import { materials, mutate, ownerMaterialStock, titles } from "@/lib/store";
+import {
+  materials,
+  mutate,
+  ownerMaterialStock,
+  titles,
+  type EntryKind,
+} from "@/lib/store";
 import { last, ready, setup } from "./fixtures";
 
 const day = "2026-09-09";
@@ -71,7 +77,7 @@ test("defaults fill dates, the first select option and zero-allowed numbers", ()
     chiliRemark: "",
     reason: "",
   });
-  expect(defaults("unknown", day)).toEqual({});
+  expect(defaults("unknown" as EntryKind, day)).toEqual({});
 });
 
 test("every form is a titled entry kind with unique keys and selectable options", () => {
@@ -115,7 +121,10 @@ test("every time field picks from the half-hour grid that mutate accepts", () =>
   // No `time` field may keep a free-text default: the grid is the only source.
   for (const [kind, fields] of Object.entries(forms))
     for (const field of fields.filter((f) => f.type === "time"))
-      expect(defaults(kind, day)[field.key], `${kind}.${field.key}`).toBe("");
+      expect(
+        defaults(kind as EntryKind, day)[field.key],
+        `${kind}.${field.key}`,
+      ).toBe("");
 });
 
 // Every form now runs the save's own mutate() on each keystroke to show what is

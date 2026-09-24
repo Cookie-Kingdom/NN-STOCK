@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
-import type { Modal, Tab } from "@/lib/nav";
+import type { Modal, ModalKind, Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
 import { entries, isClosed, visibleDatabase } from "@/lib/store";
 
@@ -65,7 +65,7 @@ export function useWorkspace(account: Account) {
       role !== "branch" || entries(db, "allocate", l.id, branch).length > 0,
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];
-  const open = (kind: string, lotId = lot?.id || "") =>
+  const open = (kind: ModalKind, lotId = lot?.id || "") =>
     setModal({ kind, lotId });
   const closed = isClosed(db, branch, date);
 

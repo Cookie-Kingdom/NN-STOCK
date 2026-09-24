@@ -15,6 +15,7 @@ import {
   type Entry,
   type Lot,
   type Role,
+  type EntryKind,
 } from "./store";
 
 export type AppStateRow = { payload: Database; revision: number };
@@ -65,8 +66,8 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds each non-owner role may append: `ownership` in store.ts plus editRequest. */
-const allowedKinds: Partial<Record<Role, string[]>> = {
+/** Kinds each non-owner role may append: `ownership` in store/mutate.ts plus editRequest. */
+const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
   branch: [
     "receive",
     "thaw",

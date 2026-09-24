@@ -17,10 +17,12 @@ import {
   validPackWeights,
   type Database,
   type Lot,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import type { ModalKind } from "@/lib/nav";
 
-type OpenForm = (kind: string, lotId?: string) => void;
+type OpenForm = (kind: ModalKind, lotId?: string) => void;
 
 function ChefLotAction({
   db,
@@ -43,7 +45,9 @@ function ChefLotAction({
   if (!accepted)
     return (
       <ButtonRow compact>
-        {lot.stage === 2 && <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>}
+        {lot.stage === STAGE.cmReceive && (
+          <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>
+        )}
         <Button
           variant="table"
           onClick={() => open("smokeOrderAccept", lot.id)}
@@ -52,16 +56,16 @@ function ChefLotAction({
         </Button>
       </ButtonRow>
     );
-  if (lot.stage === 2) return "ไปเมนูยืนยันรับเนื้อ";
-  if (lot.stage === 3 || lot.stage === 4) {
-    const kind = lot.stage === 3 ? "prepare" : "smoke";
+  if (lot.stage === STAGE.cmReceive) return "ไปเมนูยืนยันรับเนื้อ";
+  if (lot.stage === STAGE.prepare || lot.stage === STAGE.smoke) {
+    const kind = lot.stage === STAGE.prepare ? "prepare" : "smoke";
     return (
       <Button variant="table" onClick={() => open(kind, lot.id)}>
         {titles[kind]}
       </Button>
     );
   }
-  if (lot.stage === 5)
+  if (lot.stage === STAGE.closeLot)
     return (
       <ButtonRow compact>
         <Button

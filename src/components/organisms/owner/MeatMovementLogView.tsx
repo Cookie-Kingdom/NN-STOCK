@@ -23,6 +23,8 @@ import {
   shipments,
   type Database,
   type Entry,
+  type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -126,7 +128,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       returnReceived - n(lot.values, "centralKg"),
     );
     const chefSmoked =
-      lot.stage === 6 && !entries(db, "return", lot.id).length
+      lot.stage === STAGE.return && !entries(db, "return", lot.id).length
         ? produced(db, lot.id)
         : 0;
     if (!lot.kind)
@@ -206,7 +208,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     ];
   });
   const movementRows = Object.keys(descriptions)
-    .flatMap((kind) => entries(db, kind))
+    .flatMap((kind) => entries(db, kind as EntryKind))
     .filter((entry) => lotFilter === "ทั้งหมด" || entry.lotId === lotFilter)
     // Oldest first, the order DataTable's sort expects; the table flips it.
     .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))

@@ -15,6 +15,8 @@ import {
   type Database,
   type Lot,
   type Role,
+  type EntryKind,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -29,7 +31,7 @@ export function MeatStockTable({
   role: Role;
   branch: string;
   lots: Lot[];
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lotIds = lots.map((lot) => lot.id);
   if (role === "owner")
@@ -61,7 +63,9 @@ export function MeatStockTable({
           <Button
             key={lot.id}
             variant="table"
-            disabled={lot.stage < 8 || centralStock(db, lot.id) <= 0.001}
+            disabled={
+              lot.stage < STAGE.allocate || centralStock(db, lot.id) <= 0.001
+            }
             onClick={() => open("allocate", lot.id)}
           >
             จัดสรร

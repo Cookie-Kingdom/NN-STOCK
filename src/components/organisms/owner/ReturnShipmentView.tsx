@@ -6,7 +6,13 @@ import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
 import { returnReadyLots } from "@/components/organisms/owner/useOwnerAlerts";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { entries, produced, producedBags, type Database } from "@/lib/store";
+import {
+  entries,
+  produced,
+  producedBags,
+  type Database,
+  type EntryKind,
+} from "@/lib/store";
 import { fmt } from "@/lib/format";
 
 const columns = [
@@ -25,7 +31,7 @@ export function ReturnShipmentView({
   open,
 }: {
   db: Database;
-  open: (kind: string, lotId?: string) => void;
+  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const readyToReturn = returnReadyLots(db);
   return (

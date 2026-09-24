@@ -23,6 +23,7 @@ import {
   seed,
   type Database,
   type Role,
+  type EntryKind,
 } from "../../../src/lib/store";
 
 /* Lane H — มือถือ 390 px, คีย์บอร์ด, a11y, motion, print, dark mode (Plan §5 H1–H8).
@@ -110,7 +111,7 @@ function pipelineState(date: string): Database {
   let db = structuredClone(seed);
   const run = (
     role: Role,
-    kind: string,
+    kind: EntryKind,
     values: Record<string, string>,
     lotId = "",
     branch = "",

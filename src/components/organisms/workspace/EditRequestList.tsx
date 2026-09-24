@@ -23,6 +23,7 @@ import {
   type Database,
   type Entry,
   type Role,
+  type EntryKind,
 } from "@/lib/store";
 import { today } from "@/lib/format";
 
@@ -71,8 +72,9 @@ function RequestRow({
     <div className="border-b border-border py-3.5 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <strong className="text-body-sm">
-          {titles[request.values.targetKind] || request.values.targetKind} ·{" "}
-          {request.values.targetDate}
+          {titles[request.values.targetKind as EntryKind] ||
+            request.values.targetKind}{" "}
+          · {request.values.targetDate}
           {request.lotId && ` · ${request.lotId}`}
         </strong>
         <Badge

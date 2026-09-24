@@ -1,4 +1,11 @@
-import type { Database, Entry, Lot, Role, Values } from "./store";
+import {
+  type Database,
+  type Entry,
+  type Lot,
+  type Role,
+  type Values,
+  type EntryKind,
+} from "./store";
 
 /* What a Branch, Foodiva or Chef House account receives from load_app_state (review APP-01 /
  * DB-03). Until migration 20260925000028 every role but the Account Manager got the whole
@@ -20,7 +27,7 @@ import type { Database, Entry, Lot, Role, Values } from "./store";
  *                trailing `*` keeps every key with that prefix. normalize() fills the rest
  *                from the seed, which no screen of that role reads. */
 export type ScopeRule = {
-  kinds: string[];
+  kinds: EntryKind[];
   ownBranch: boolean;
   lots: "all" | "allocated" | "smoked";
   hiddenKeys: string[];
@@ -171,7 +178,10 @@ export function scopeDatabase(
       .map((e) => e.values?.targetId),
   );
   const live = (e: Entry) => !voided.has(e.id);
-  const lotsWith = (kind: string, test: (e: Entry) => boolean = () => true) =>
+  const lotsWith = (
+    kind: EntryKind,
+    test: (e: Entry) => boolean = () => true,
+  ) =>
     new Set(all.filter((e) => e?.kind === kind && test(e)).map((e) => e.lotId));
   const cancelled = new Set(
     all

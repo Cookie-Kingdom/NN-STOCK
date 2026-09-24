@@ -40,7 +40,13 @@ test("the SQL rule table (migration 0028) is the same as scopeRules", () => {
 });
 
 test("the sample data exercises every role", () => {
-  for (const kind of ["sale", "allocate", "packingList", "smoke", "purchase"])
+  for (const kind of [
+    "sale",
+    "allocate",
+    "packingList",
+    "smoke",
+    "purchase",
+  ] as const)
     expect(entries(full, kind).length, kind).toBeGreaterThan(0);
   for (const branch of branches)
     expect(entries(full, "sale", undefined, branch).length).toBeGreaterThan(0);
@@ -153,7 +159,7 @@ test("voids and edits follow the entry they name", () => {
   const void_ = (id: string, targetId: string) => ({
     ...at,
     id,
-    kind: "void",
+    kind: "void" as const,
     role: "owner" as const,
     branch: other,
     values: { targetId, reason: "x" },

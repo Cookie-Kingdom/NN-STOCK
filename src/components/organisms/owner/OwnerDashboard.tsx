@@ -52,6 +52,7 @@ import {
   stages,
   type Database,
   type Entry,
+  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Tab } from "@/lib/nav";
@@ -167,7 +168,7 @@ export function OwnerDashboard({
   });
   // Production runs are shipments; purchase POs sit at stage 1 forever and are not pending work.
   const runs = shipments(db);
-  const activeLots = runs.filter((lot) => lot.stage < 8).length;
+  const activeLots = runs.filter((lot) => lot.stage < STAGE.allocate).length;
   const foodivaInvoicesForOwner = db.lots.filter(
     (lot) =>
       !lot.kind &&
@@ -218,7 +219,7 @@ export function OwnerDashboard({
       ];
     }),
     ...runs
-      .filter((lot) => lot.stage < 8)
+      .filter((lot) => lot.stage < STAGE.allocate)
       .map((lot) => ({
         title: `การส่ง ${lot.poId}`,
         detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,

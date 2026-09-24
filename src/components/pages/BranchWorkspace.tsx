@@ -21,10 +21,10 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Account } from "@/lib/accounts";
 import { branchNav } from "@/lib/nav";
-import { cooksRice, requiredRiceKinds } from "@/lib/store";
+import { cooksRice, requiredRiceKinds, type EntryKind } from "@/lib/store";
 
 /** Saladaeng self-cooks or buys cooked each round (B2); Minburi only buys cooked. */
-const riceTask = (branch: string) =>
+const riceTask = (branch: string): { title: string; kinds: EntryKind[] } =>
   cooksRice(branch)
     ? {
         title: "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",

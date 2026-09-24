@@ -18,6 +18,7 @@ import {
   type Database,
   type Lot,
   type Values,
+  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -55,7 +56,7 @@ export function Preview({
   db: Database;
   branch: string;
   lot?: Lot;
-  kind: string;
+  kind: EntryKind;
   v: Values;
   /** Influencer blocks entered on the sale form, saved with the sale. */
   giveaways?: Values[];

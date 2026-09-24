@@ -14,9 +14,10 @@ import {
   setup,
   type Setup,
 } from "./fixtures";
+import type { EntryKind } from "@/lib/store";
 
 /** Reference of `kind` on the newest lot (the shipment once there is one), or on `lot`. */
-const doc = (s: Setup, kind: string, lot = s.db.lots.at(-1)!) =>
+const doc = (s: Setup, kind: EntryKind, lot = s.db.lots.at(-1)!) =>
   referenceDocument(s.db, kind, lot);
 
 test("each lot form references the document it builds on, once that document exists", () => {
@@ -82,7 +83,7 @@ test("every summary label exists in the printed rows", () => {
   expect(po.rows.map(([label]) => label)).toEqual(
     expect.arrayContaining(po.summary),
   );
-  const kinds = [
+  const kinds: EntryKind[] = [
     "smokeOrder",
     "smokeOrderAccept",
     "smokingInvoice",

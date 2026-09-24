@@ -12,6 +12,7 @@ import {
   smokingInvoiceRejection,
   smokingInvoiceStatus,
   type Database,
+  STAGE,
 } from "@/lib/store";
 
 export type ChefNotification = { title: string; detail: string; tab: Tab };
@@ -28,16 +29,18 @@ export const noChefAlerts = {
  *  `db` is the Chef House view (see visibleDatabase), so `db.lots` is already its shipments. */
 export function useChefAlerts(db: Database) {
   const lots = db.lots;
-  const waitingReceipt = lots.filter((lot) => lot.stage === 2).length;
+  const waitingReceipt = lots.filter(
+    (lot) => lot.stage === STAGE.cmReceive,
+  ).length;
   const inProduction = lots.filter((lot) => {
     const ordered = entries(db, "smokeOrder", lot.id).length > 0;
     const accepted = entries(db, "smokeOrderAccept", lot.id).length > 0;
     const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
     return (
-      [3, 4, 5].includes(lot.stage) ||
+      (lot.stage >= STAGE.prepare && lot.stage <= STAGE.closeLot) ||
       (ordered && !accepted) ||
       // The smoking invoice is due once the run is closed.
-      (lot.stage >= 6 &&
+      (lot.stage >= STAGE.return &&
         (!invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
     );
   }).length;
@@ -51,7 +54,7 @@ export function useChefAlerts(db: Database) {
       const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
       const items: ChefNotification[] = [];
       // Receiving the meat no longer waits for the PO, so a lot can want both at once.
-      if (lot.stage === 2) {
+      if (lot.stage === STAGE.cmReceive) {
         const list = latestPackingList(db, lot.id);
         items.push({
           title: `มีเนื้อมาส่ง รอยืนยันรับ · ${lot.poId}`,
@@ -68,26 +71,26 @@ export function useChefAlerts(db: Database) {
             "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน (รับเนื้อเข้าก่อนได้)",
           tab: "work",
         });
-      if (lot.stage === 3)
+      if (lot.stage === STAGE.prepare)
         items.push({
           title: `รอบันทึกน้ำหนักก่อนสโมค · ${lot.poId}`,
           detail: `รับเข้าแล้ว ${fmt(n(lot.values, "receivedKg"))} กก. · กรอกน้ำหนักก่อนสโมคเพื่อเริ่มผลิต`,
           tab: "work",
         });
-      if (lot.stage === 4)
+      if (lot.stage === STAGE.smoke)
         items.push({
           title: `รอบันทึก Lot สโมครายวัน · ${lot.poId}`,
           detail: `เหลือรอผลิต ${fmt(Math.max(0, n(lot.values, "preSmokeKg") - processed(db, lot.id)))} กก.`,
           tab: "work",
         });
-      if (lot.stage === 5)
+      if (lot.stage === STAGE.closeLot)
         items.push({
           title: `รอยืนยันปิด Lot · ${lot.poId}`,
           detail: "ตรวจข้อมูลก่อนปิด Lot แล้วกดยืนยันปิด Lot",
           tab: "work",
         });
       // Closed: the smoking invoice goes out only now.
-      if (lot.stage >= 6 && !invoice)
+      if (lot.stage >= STAGE.return && !invoice)
         items.push({
           title: `ยังไม่ Submit Invoice ค่ารมควัน · ${lot.poId}`,
           detail:

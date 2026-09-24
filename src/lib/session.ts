@@ -96,7 +96,7 @@ async function refreshSession() {
     .from("profiles")
     .select("display_name, role, is_active")
     .eq("id", userData.user.id)
-    .single<Profile>();
+    .single();
   // PGRST116 is "no row"; any other failure here is the request, not the profile.
   if (state.account && error && error.code !== "PGRST116") return;
   if (error || !profile)
@@ -114,8 +114,7 @@ async function refreshSession() {
       .eq("profile_id", userData.user.id)
       .limit(1)
       .maybeSingle();
-    locationName = (data?.locations as unknown as { name_th?: string } | null)
-      ?.name_th;
+    locationName = data?.locations?.name_th;
   }
   const account = accountForProfile(profile, locationName);
   publish({
