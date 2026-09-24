@@ -10,6 +10,20 @@ createRequire(requireFromRoot.resolve("next/package.json"))(
   "@next/env",
 ).loadEnvConfig(process.cwd(), true, { info: () => {}, error: console.error });
 
+// e2e writes real entries and signs in real accounts: never against production.
+// The local-DB lane (playwright.local.config.ts) imports this file before it sets
+// NEXT_PUBLIC_LOCAL_DB, so the runner is recognised by its -c argument too.
+const localDb =
+  process.env.NEXT_PUBLIC_LOCAL_DB === "1" ||
+  process.argv.some((arg) => arg.includes("playwright.local.config"));
+if (
+  !localDb &&
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("liscfwtgkmxugzygjfaz")
+)
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL points at the production Supabase project; run e2e against a test project or `pnpm test:e2e:local`.",
+  );
+
 // Scratch specs (`_*.spec.ts`, e.g. the visual baseline) run only when asked:
 // VISUAL=1, or SHOT_DIR set as in the documented visual command.
 const includeScratch = Boolean(process.env.VISUAL || process.env.SHOT_DIR);
