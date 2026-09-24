@@ -34,7 +34,7 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** JS port of `save_app_state` (supabase/migrations/20260922000021_account_manager_hides_sales.sql).
+/** JS port of `save_app_state` (supabase/migrations/20260924000022_save_app_state_no_40001.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
