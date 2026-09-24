@@ -195,7 +195,7 @@ export function PackingListForm({
       };
       if (file) {
         input.attachment = file.name;
-        input.attachmentStorageKey = await saveAttachment(file);
+        input.attachmentStorageKey = await saveAttachment(file, "packingList");
       } else if (fileName) {
         input.attachment = fileName;
         if (saved?.values.attachmentStorageKey)
@@ -314,7 +314,7 @@ export function PackingListForm({
             <FileUploadField
               label="แนบไฟล์ Packing List"
               optional
-              accept=".pdf,.csv,.xlsx,.xls,image/*"
+              accept=".pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.heic,.heif"
               maxBytes={MAX_ATTACHMENT_BYTES}
               oversizeMessage="ไฟล์ Packing List ต้องมีขนาดไม่เกิน 2 MB"
               hint="เก็บเป็นหลักฐานเท่านั้น ข้อมูลที่ใช้จริงคือที่กรอกในตาราง"

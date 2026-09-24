@@ -588,15 +588,17 @@ export function EntryForm({
       }
       for (const [key, file] of Object.entries(attachmentFiles.current)) {
         resolvedValues[`${key}StorageKey`] = uploaded[key] ??=
-          await saveAttachment(file);
+          await saveAttachment(file, kind);
       }
       for (const [key, files] of Object.entries(multiFiles)) {
         const list = [];
         for (const [index, file] of files.entries())
           list.push({
             name: file.name,
-            storageKey: (uploaded[`${key}.${index}`] ??=
-              await saveAttachment(file)),
+            storageKey: (uploaded[`${key}.${index}`] ??= await saveAttachment(
+              file,
+              kind,
+            )),
           });
         resolvedValues[key] = JSON.stringify(list);
       }

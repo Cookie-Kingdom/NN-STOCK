@@ -74,14 +74,44 @@ async function getLocal(id: string): Promise<StoredAttachment | undefined> {
   });
 }
 
-export async function saveAttachment(file: File): Promise<string> {
-  const id = newId();
-  await putLocal({ id, name: file.name, type: file.type, blob: file });
+/* The only files an attachment may be, by extension, with the content type it is
+ * stored as (the bucket's allowed_mime_types, migration
+ * 20260925000024_attachment_storage_policies.sql). No HTML or SVG: opened, they run
+ * script. The browser's own `file.type` is not trusted. */
+const allowedTypes: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+  csv: "text/csv",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+/** `folder` is the entry kind the file belongs to (`foodivaConfirm`, `packingList`,
+ * `smokingInvoice`, `invoicePayment`, `meatPayment`). It becomes the first path
+ * segment, which the storage policies use to decide which roles may read the file.
+ * Keys saved before that are a bare `<uuid>` and still load. */
+export async function saveAttachment(
+  file: File,
+  folder: string,
+): Promise<string> {
+  const type = allowedTypes[file.name.split(".").pop()?.toLowerCase() ?? ""];
+  if (!type)
+    throw new Error(
+      `แนบไฟล์ ${file.name} ไม่ได้: รองรับเฉพาะ PDF, รูปภาพ (JPG, PNG, WEBP, HEIC), CSV และ Excel`,
+    );
+  const id = `${folder}/${newId()}`;
+  const blob = new Blob([file], { type });
+  await putLocal({ id, name: file.name, type, blob });
   const remote = storage();
   if (remote) {
     // The object name carries the original file name so a download keeps it.
-    const { error } = await remote.upload(`${id}/${file.name}`, file, {
-      contentType: file.type,
+    const { error } = await remote.upload(`${id}/${file.name}`, blob, {
+      contentType: type,
     });
     if (error) throw new Error(`อัปโหลดไฟล์ไม่สำเร็จ: ${error.message}`);
   }
@@ -96,6 +126,7 @@ export async function saveLegacyDataUrl(
   const blob = await response.blob();
   return saveAttachment(
     new File([blob], name, { type: blob.type || "application/octet-stream" }),
+    "legacy",
   );
 }
 
