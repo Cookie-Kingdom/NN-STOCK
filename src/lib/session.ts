@@ -146,26 +146,6 @@ export async function signIn(email: string, password: string) {
   if (!result.error) await refreshSession();
   return result;
 }
-export async function signUp(
-  email: string,
-  password: string,
-  displayName: string,
-) {
-  if (!supabase)
-    return localAuthError(
-      "โหมด local สมัครสมาชิกไม่ได้ ใช้บัญชี <account>@local.test",
-    );
-  const result = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { display_name: displayName },
-      emailRedirectTo: `${window.location.origin}/`,
-    },
-  });
-  if (result.data.session) await refreshSession();
-  return result;
-}
 export async function signOut() {
   if (!supabase) return setLocalAccount(null);
   await supabase.auth.signOut();
