@@ -567,13 +567,22 @@ const num = (v: Values, key: string) => Number(v[key] || 0);
 export const n = num;
 const sum = (items: Entry[], key: string) =>
   items.reduce((a, e) => a + num(e.values, key), 0);
-export function entries(
-  db: Database,
-  kind: string,
-  lotId?: string,
-  branch?: string,
-  date?: string,
-) {
+/** A typed plain decimal ("12", "12.5", ".5") as a number, else NaN. `Number()` alone
+ *  also takes "0x10", "1e3" and "Infinity", which no form means. */
+export const decimal = (value = "") =>
+  /^\s*(\d+\.?\d*|\.\d+)\s*$/.test(value) ? Number(value) : NaN;
+type EntryIndex = {
+  length: number;
+  voided: Set<string>;
+  fixes: Map<string, Values>;
+  byKind: Map<string, Entry[]>;
+};
+/* The void set, the edit overlays and a by-kind list are built once per log and reused by
+ * every entries() call on it. The log only grows, so its length tells a stale index apart. */
+const entryIndexes = new WeakMap<Entry[], EntryIndex>();
+function entryIndex(db: Database): EntryIndex {
+  const cached = entryIndexes.get(db.entries);
+  if (cached?.length === db.entries.length) return cached;
   const voided = new Set(
     db.entries
       // Only the Owner voids; a void appended under another role changes nothing.
@@ -603,11 +612,28 @@ export function entries(
     ) as Values[])
       fix(id, batch);
   }
-  return db.entries
+  const byKind = new Map<string, Entry[]>();
+  for (const e of db.entries) {
+    if (voided.has(e.id)) continue;
+    const list = byKind.get(e.kind);
+    if (list) list.push(e);
+    else byKind.set(e.kind, [e]);
+  }
+  const index = { length: db.entries.length, voided, fixes, byKind };
+  entryIndexes.set(db.entries, index);
+  return index;
+}
+export function entries(
+  db: Database,
+  kind: string,
+  lotId?: string,
+  branch?: string,
+  date?: string,
+) {
+  const { fixes, byKind } = entryIndex(db);
+  return (byKind.get(kind) ?? [])
     .filter(
       (e) =>
-        e.kind === kind &&
-        !voided.has(e.id) &&
         (!lotId || e.lotId === lotId) &&
         (!branch || e.branch === branch) &&
         (!date || e.date === date),
@@ -1174,6 +1200,10 @@ export function branchMaterialStock(
   throughDate?: string,
 ) {
   const material = materials[materialIndex];
+  const confirmations = new Map<string, Entry>();
+  for (const item of entries(db, "materialConfirm", undefined, branch))
+    if (!confirmations.has(item.values.transferId))
+      confirmations.set(item.values.transferId, item);
   const transferred = entries(db, "materialTransfer", undefined, branch)
     .filter(
       (entry) =>
@@ -1183,12 +1213,7 @@ export function branchMaterialStock(
     .reduce((total, entry) => {
       if (!entry.values.requiresConfirm)
         return total + n(entry.values, "quantity");
-      const confirmation = entries(
-        db,
-        "materialConfirm",
-        undefined,
-        branch,
-      ).find((item) => item.values.transferId === entry.id);
+      const confirmation = confirmations.get(entry.id);
       return (
         total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0)
       );
@@ -1231,14 +1256,13 @@ export function materialUnitPrice(db: Database, branch: string, index: number) {
   );
 }
 export function isClosed(db: Database, branch: string, date: string) {
-  return (
-    !!entries(db, "closeDay", undefined, branch, date).length &&
-    !entries(db, "unlock", undefined, branch, date).some(
-      (e) =>
-        e.at >
-        (entries(db, "closeDay", undefined, branch, date).at(-1)?.at || ""),
-    )
-  );
+  /* Log order, not `at`: the log is append-only, while `at` is each device's own clock. */
+  const position = (kind: string) => {
+    const last = entries(db, kind, undefined, branch, date).at(-1);
+    return last ? db.entries.findIndex((e) => e.id === last.id) : -1;
+  };
+  const closed = position("closeDay");
+  return closed >= 0 && position("unlock") < closed;
 }
 export function lotCost(db: Database, lot: Lot) {
   const v = lot.values;
@@ -1605,12 +1629,12 @@ export function packingListBoxes(value = "") {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map(Number);
+    .map(decimal);
 }
 /** Chef House's weighed-in kg per กล่องรับเข้า, one line per Packing List box and in its order.
  *  Unlike packingListBoxes a blank line stays (as NaN), so a skipped box is caught, not shifted. */
 export function receivedBoxWeights(value = "") {
-  return value.split("\n").map((line) => (line.trim() ? Number(line) : NaN));
+  return value.split("\n").map((line) => (line.trim() ? decimal(line) : NaN));
 }
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
@@ -1641,10 +1665,9 @@ function spaced(label: string) {
   return `${latin.test(label[0] ?? "") ? " " : ""}${label}${latin.test(label.at(-1) ?? "") ? " " : ""}`;
 }
 function positive(v: Values, k: string, label: string, allowZero = false) {
-  const value = Number(v[k]);
+  const value = decimal(v[k]);
   assert(
-    v[k]?.trim() &&
-      Number.isFinite(value) &&
+    Number.isFinite(value) &&
       (allowZero ? value >= 0 : value > 0),
     `กรอก${spaced(label)}เป็นตัวเลข${allowZero ? "ตั้งแต่ศูนย์" : "มากกว่าศูนย์"}`,
   );
@@ -1707,7 +1730,7 @@ function requestLines(db: Database, v: Values, own?: Lot) {
     assert(po, "ไม่พบ PO ซื้อที่เลือก");
     assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
     seen.add(po.id);
-    const kg = Number(String(line.kg ?? "").trim() || NaN);
+    const kg = decimal(String(line.kg ?? ""));
     assert(
       Number.isFinite(kg) && kg > 0,
       `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
@@ -1764,12 +1787,23 @@ function record(
         : ownership[kind] === role,
     "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
   );
-  assert(/^\d{4}-\d{2}-\d{2}$/.test(date), "เลือกวันที่ทำรายการ");
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
   });
-  assert(date <= todayDate, "วันที่ทำรายการต้องไม่เกินวันนี้");
+  /* A real calendar day (2026-02-31 fails the round trip), not before the system existed
+   * and not in the future: every range and closed-day check compares these as strings. */
+  const checkDate = (value: string | undefined, label: string) => {
+    assert(
+      value &&
+        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        value >= "2020-01-01" &&
+        new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value,
+      `เลือก${label}`,
+    );
+    assert(value <= todayDate, `${label}ต้องไม่เกินวันนี้`);
+  };
+  checkDate(date, "วันที่ทำรายการ");
   const next: Database = structuredClone(db),
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
@@ -1795,7 +1829,15 @@ function record(
         !isClosed(db, branch, date),
         "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
       );
-  }
+  } else if (
+    !correcting &&
+    ["allocate", "chiliAllocate", "materialTransfer"].includes(kind)
+  )
+    // Owner entries that land in a branch's day must not change a day that branch has closed.
+    assert(
+      !isClosed(db, branch, date),
+      `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว ต้องปลดล็อกก่อน`,
+    );
   const expected = stageAction.indexOf(kind);
   if (expected > 0 && kind !== "allocate") {
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
@@ -2032,6 +2074,21 @@ function record(
       ) < 0.001,
       "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice",
     );
+    // A later confirm replaces the earlier one, so it must still cover what already hangs on it.
+    assert(
+      !entries(db, "meatPayment", lotId).length,
+      "Owner ชำระ Invoice เนื้อของ PO นี้แล้ว ยืนยันใหม่ไม่ได้",
+    );
+    const drawn = drawnKg(db, lot.id);
+    assert(
+      n(v, "readyForChiangMaiKg") >= drawn - 0.001,
+      `น้ำหนักพร้อมส่งเชียงใหม่ต่ำกว่าที่ Request ดึงไปแล้ว · กรอกได้ต่ำสุด ${fmt(drawn)} กก.`,
+    );
+    const picked = ownerWasteReceived(db, lot.id);
+    assert(
+      n(v, "reservedForOwnerKg") >= picked - 0.001,
+      `เนื้อส่วนที่เหลือรอ Owner รับต่ำกว่าที่ Owner รับไปแล้ว · กรอกได้ต่ำสุด ${fmt(picked)} กก.`,
+    );
   } else if (kind === "packingList" && lot) {
     assert(
       lot.kind === "shipment" && entries(db, "dispatch", lotId).length,
@@ -2070,6 +2127,7 @@ function record(
     }
   } else if (kind === "ownerWasteReceive" && lot) {
     required(v, "receivedDate", "วันที่ Owner รับเนื้อ");
+    checkDate(v.receivedDate, "วันที่ Owner รับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับจริง");
     required(v, "receiver", "ผู้รับเนื้อ");
     assert(
@@ -2504,6 +2562,7 @@ function record(
     }
   } else if (kind === "materialReceive") {
     required(v, "purchaseDate", "วันที่ซื้อวัสดุ");
+    checkDate(v.purchaseDate, "วันที่ซื้อวัสดุ");
     assert(materials.includes(v.material), "เลือกวัสดุ");
     positive(v, "quantity", "จำนวนรับเข้าคลัง");
     assert(Number.isInteger(n(v, "quantity")), "จำนวนวัสดุต้องเป็นจำนวนเต็ม");
@@ -2512,6 +2571,7 @@ function record(
     v.totalCost = String(n(v, "quantity") * n(v, "unitPrice"));
   } else if (kind === "generalPurchase") {
     required(v, "purchaseDate", "วันที่ซื้อ");
+    checkDate(v.purchaseDate, "วันที่ซื้อ");
     required(v, "item", "รายการที่ซื้อ");
     required(v, "purchaseCategory", "หมวดบัญชี");
     positive(v, "quantity", "จำนวนที่ซื้อ");
@@ -2720,6 +2780,35 @@ function record(
       ),
       "รายการนี้ถูกยกเลิกแล้ว",
     );
+    /* A void takes the target out of every figure, like an edit does, so it gets the same
+     * stock check. An allocation or transfer the branch already took in would otherwise go
+     * back to central stock while the branch keeps it: void the branch's entry first. */
+    if (target.kind === "allocate")
+      assert(
+        !entries(db, "receive").some(
+          (r) => r.values.allocation === target.id,
+        ),
+        "สาขารับเนื้อจากใบจัดสรรนี้แล้ว · ยกเลิกรายการรับเนื้อก่อน",
+      );
+    if (target.kind === "materialTransfer")
+      assert(
+        !entries(db, "materialConfirm").some(
+          (c) => c.values.transferId === target.id,
+        ),
+        "สาขายืนยันรับวัสดุจากใบโอนนี้แล้ว · ยกเลิกรายการยืนยันรับก่อน",
+      );
+    const before = stockLevels(db);
+    for (const [key, level] of stockLevels({
+      ...db,
+      entries: [
+        ...db.entries,
+        { ...target, id: newId(), kind, role, values: { targetId: target.id } },
+      ],
+    }))
+      assert(
+        level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
+        `ยกเลิกแล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · ยกเลิกรายการที่ตามมาก่อน`,
+      );
     required(v, "reason", "เหตุผลยกเลิกรายการ");
     v.targetKind = target.kind;
     v.targetDate = target.date;

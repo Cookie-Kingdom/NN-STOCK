@@ -165,26 +165,19 @@ describe("derived values from the entry log", () => {
     expect(chiliAllocated(db, "ศาลาแดง", "2026-09-08")).toBe(0);
   });
 
-  test("a day stays closed until an unlock newer than the last close", () => {
+  test("a day stays closed until an unlock later in the log than the last close", () => {
     const close = entry({ kind: "closeDay", at: "2000-01-01T10:00:00.000Z" });
-    const unlock = (at: string) => entry({ kind: "unlock", role: "owner", at });
+    // Device clocks differ, so `at` does not decide: an unlock stamped earlier still counts.
+    const unlock = entry({
+      kind: "unlock",
+      role: "owner",
+      at: "2000-01-01T09:00:00.000Z",
+    });
     expect(isClosed(withEntries(close), "ศาลาแดง", day)).toBe(true);
     expect(isClosed(withEntries(close), "มีนบุรี", day)).toBe(false);
     expect(isClosed(withEntries(close), "ศาลาแดง", "2026-09-10")).toBe(false);
-    expect(
-      isClosed(
-        withEntries(close, unlock("2000-01-01T09:00:00.000Z")),
-        "ศาลาแดง",
-        day,
-      ),
-    ).toBe(true);
-    expect(
-      isClosed(
-        withEntries(close, unlock("2000-01-01T11:00:00.000Z")),
-        "ศาลาแดง",
-        day,
-      ),
-    ).toBe(false);
+    expect(isClosed(withEntries(unlock, close), "ศาลาแดง", day)).toBe(true);
+    expect(isClosed(withEntries(close, unlock), "ศาลาแดง", day)).toBe(false);
   });
 
   test("lot cost adds meat, smoking and freight; per kg needs central stock", () => {
