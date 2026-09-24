@@ -15,7 +15,7 @@ type RowResult = {
  * only to read one number off it was a large slice of every save (migration 0017). */
 type SaveResult = {
   data: { revision: number } | null;
-  error: { message: string } | null;
+  error: { message: string; code?: string } | null;
 };
 const supabase = LOCAL_DB ? null : createClient();
 const listeners = new Set<() => void>();
@@ -264,8 +264,11 @@ let actor: Entry["actor"];
 export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
-const isConflict = (message: string) =>
-  message.includes("State changed on another device");
+/* save_app_state raises the stale revision as PT409 (HTTP 409), never 40001: PostgREST retries
+ * 40001 forever (migration 0022). The local API sends only the message. */
+const isConflict = (error: { message: string; code?: string }) =>
+  error.code === "PT409" ||
+  error.message.includes("State changed on another device");
 function writeDatabase(
   db: Database,
   quietConflict: boolean,
@@ -313,8 +316,7 @@ function writeDatabase(
       const { data: row, error } = await saveRow(portable, revision);
       if (error) {
         if (await loadDatabase()) {
-          if (quietConflict && isConflict(error.message))
-            return "conflict" as const;
+          if (quietConflict && isConflict(error)) return "conflict" as const;
           reportError(
             `บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`,
           );
