@@ -324,7 +324,10 @@ describe("mutate guards", () => {
       ["F260909-001", "PO-2026-0001", 1],
       ["F260909-002", "PO-2026-0002", 1],
     ]);
-    expect(s.db.lots[0].config).toEqual(s.db.config);
+    // Everything but the legacy inline logo, which documents read from the current config.
+    const { logoData, ...snapshot } = s.db.config;
+    expect(logoData).toBe("");
+    expect(s.db.lots[0].config).toEqual(snapshot);
   });
 
   test("a closed day blocks branch writes until the owner unlocks it", () => {

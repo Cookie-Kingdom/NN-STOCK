@@ -18,7 +18,8 @@ export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
     ["Attention", lot.values.attention || config("attention") || "—"],
     ["โทร.", lot.values.phone || config("companyPhone") || "—"],
     ["Tax ID", lot.values.taxId || config("taxId") || "—"],
-    ["โลโก้", config("logoData")],
+    // A storage key (`branding/…`), or a data URL saved before the move; the print button loads it.
+    ["โลโก้", config("logoStorageKey") || config("logoData")],
     ["สินค้า", lot.values.productName || "เนื้อวัว"],
     ["ขนาดบรรจุ", lot.values.packSize],
     ["จำนวน", `${fmt(n(lot.values, "orderedKg"))} กก.`],

@@ -21,6 +21,7 @@ import {
   SectionAction,
 } from "@/components/organisms/shared/SectionAction";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
+import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
@@ -60,6 +61,19 @@ const materialSettingsColumns = [
 const logoMaxBytes = 1024 * 1024;
 const logoPreviewClass =
   "block size-15.5 rounded-md border border-border bg-surface object-contain";
+
+/** The logo to show: a storage key, or a data URL saved before logos moved to storage. */
+const logoOf = (values: Values) =>
+  values.logoStorageKey || values.logoData || "";
+
+function LogoImage({ source, alt }: { source: string; alt: string }) {
+  const src = useLogoSrc(source);
+  return src ? (
+    // A blob or data URL, so Next image optimization cannot process it.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className={logoPreviewClass} src={src} alt={alt} />
+  ) : null;
+}
 
 const asIs = (value: string) => value;
 const baht = (value: string) => `฿${fmt(Number(value))}`;
@@ -115,7 +129,7 @@ type EditProps = {
   draft: Values;
   config: Values;
   onChange: (key: string, value: string) => void;
-  onLogo: (key: string, file: File) => void;
+  onLogo: (file: File) => void;
   onMessage: (message: string) => void;
 };
 
@@ -142,16 +156,8 @@ function ConfigValue({
   // Key kept in parentheses so existing label lookups by config key still match.
   const ariaLabel = label ? `${label} (${name})` : name;
   if (editing !== section) {
-    if (type === "file" && config[name])
-      return (
-        // Stored locally as a data URL, so Next image optimization cannot process it.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className={logoPreviewClass}
-          src={config[name]}
-          alt="โลโก้ NerdNuea"
-        />
-      );
+    if (type === "file" && logoOf(config))
+      return <LogoImage source={logoOf(config)} alt="โลโก้ NerdNuea" />;
     return (
       <ReadOnlyValue>
         {type === "file"
@@ -205,25 +211,19 @@ function ConfigValue({
         label="อัปโหลดโลโก้ NerdNuea"
         hideLabel
         className="min-w-52.5"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        accept={logoAccept}
         maxBytes={logoMaxBytes}
         oversizeMessage="ไฟล์โลโก้ต้องมีขนาดไม่เกิน 1 MB"
         onError={onMessage}
         onFile={(file) => {
-          if (file) onLogo(name, file);
+          if (file) onLogo(file);
         }}
         preview={
-          draft[name] && (
-            // Stored locally as a data URL, so Next image optimization cannot process it.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              className={logoPreviewClass}
-              src={draft[name]}
-              alt="ตัวอย่างโลโก้ NerdNuea"
-            />
+          logoOf(draft) && (
+            <LogoImage source={logoOf(draft)} alt="ตัวอย่างโลโก้ NerdNuea" />
           )
         }
-        hint={draft.logoName || "รองรับ PNG, JPG, WebP หรือ SVG ไม่เกิน 1 MB"}
+        hint={draft.logoName || "รองรับ PNG, JPG หรือ WebP ไม่เกิน 1 MB"}
       />
     );
   return (
@@ -279,19 +279,25 @@ export function ConfigView({ db }: { db: Database }) {
     setDraft((current) => ({ ...current, [key]: value }));
     setMessage("");
   };
-  const readLogo = (key: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
+  // The file goes to storage now; the config saves only its key (and clears a legacy data URL).
+  const readLogo = async (file: File) => {
+    setMessage(`กำลังอัปโหลดโลโก้ ${file.name}…`);
+    try {
+      const key = await saveLogo(file);
       setDraft((current) => ({
         ...current,
-        [key]: String(reader.result),
+        logoStorageKey: key,
+        logoData: "",
         logoName: file.name,
       }));
       setMessage(
         `เลือกโลโก้ ${file.name} แล้ว · กดบันทึกและล็อกเพื่อใช้กับ PO`,
       );
-    };
-    reader.readAsDataURL(file);
+    } catch (caught) {
+      setMessage(
+        caught instanceof Error ? caught.message : "อัปโหลดโลโก้ไม่สำเร็จ",
+      );
+    }
   };
   // Only the fields touched in this section are sent, so a setting someone else saved
   // meanwhile is kept.

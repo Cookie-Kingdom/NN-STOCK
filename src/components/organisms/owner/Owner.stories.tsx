@@ -74,6 +74,22 @@ export const ReportView: Story = { render: () => <Report db={db} /> };
 
 export const Config: Story = { render: () => <ConfigView db={db} /> };
 
+/* A logo saved before logos moved to storage is a data URL in config; it still shows.
+ * New uploads go to storage (IndexedDB only in Storybook) and config keeps the key. */
+const legacyLogoDb = {
+  ...db,
+  config: {
+    ...db.config,
+    logoName: "logo.png",
+    logoData:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  },
+};
+export const ConfigLegacyLogo: Story = {
+  parameters: { db: legacyLogoDb },
+  render: () => <ConfigView db={legacyLogoDb} />,
+};
+
 /** Both Foodiva and Chef House invoices waiting to be paid: "ชำระเงิน" on each. */
 export const Invoices: Story = {
   parameters: { db: acceptedInvoiceDb },

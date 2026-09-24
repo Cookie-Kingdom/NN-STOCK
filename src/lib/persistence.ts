@@ -1,7 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { branches, seed, type Database, type Entry } from "./store";
-import { saveLegacyDataUrl } from "./attachment-store";
 import { LOCAL_DB, localAccountId } from "./local-db";
 import { createClient } from "./supabase/browser";
 
@@ -22,6 +21,21 @@ const listeners = new Set<() => void>();
 let revision: number | null = null;
 let writeQueue = Promise.resolve();
 let pendingWrites = 0;
+/* Bumped by every save. A background load that sees it change while its read was in flight
+ * drops the result: adopting it would swap the optimistic change out of the cache and the
+ * pending save's base (revision, stored history) out from under it (review COR-02). */
+let writeCount = 0;
+
+/* One malformed entry (`values: null`, a missing id) would throw in every helper that walks
+ * the log, for every role, and the log is append-only. Such entries stay out of the cache
+ * and are reported; the payload sent back still carries them untouched (see `stored`). */
+const wellFormed = (entry: Entry) =>
+  Boolean(entry) &&
+  typeof entry.id === "string" &&
+  typeof entry.kind === "string" &&
+  typeof entry.date === "string" &&
+  Boolean(entry.values) &&
+  typeof entry.values === "object";
 
 /* v8 (shipment flow) started from an empty log (migration 0019), so there is nothing older to
  * convert: any other version reads as the seed. */
@@ -37,10 +51,15 @@ function normalize(
   )
     return fallback;
   const config = parsed.config || seed.config;
+  const entries = parsed.entries.filter(wellFormed);
+  if (entries.length !== parsed.entries.length)
+    reportError(
+      `พบรายการที่ข้อมูลไม่สมบูรณ์ ${parsed.entries.length - entries.length} รายการ ระบบซ่อนไว้ก่อน กรุณาแจ้งผู้ดูแลระบบ`,
+    );
   return {
     version: 8,
     lots: parsed.lots,
-    entries: parsed.entries,
+    entries,
     config: {
       ...seed.config,
       ...config,
@@ -65,6 +84,12 @@ let stored: {
   config: Database["config"];
 } | null = null;
 function adopt(payload: StoredDatabase, rev: number) {
+  // Client and server out of step (a deploy ahead of its migration): say so instead of
+  // quietly showing an empty system that refuses every save.
+  if (payload?.version !== 8)
+    reportError(
+      "ข้อมูลบนเซิร์ฟเวอร์เป็นเวอร์ชันที่แอปนี้ไม่รองรับ ระบบจะแสดงข้อมูลว่างและบันทึกไม่ได้ กรุณาแจ้งผู้ดูแลระบบ",
+    );
   cached = normalize(payload, initialDatabase);
   /* A pre-v8 payload reads as empty but is not history to build on: with nothing stored, the
    * next save sends the whole database and the server refuses it until the reset migration runs. */
@@ -92,6 +117,7 @@ const subscribe = (listener: () => void) => {
 
 /** Shown by DatabaseErrorToast in every workspace. */
 function reportError(message: string) {
+  if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent("database-error", { detail: message }));
 }
 /** POST/GET /api/local-db, shaped like a Supabase result. */
@@ -160,9 +186,13 @@ function saveRow(
       })),
   );
 }
-/** Resolves to whether the server payload replaced the cache. */
-async function loadDatabase(): Promise<boolean> {
+/** Resolves to whether the server payload replaced the cache. `background` loads (sign-in,
+ * poll) give way to any save made while they were reading; a save's own reload does not. */
+async function loadDatabase(background = false): Promise<boolean> {
+  const writesBefore = writeCount;
   const { data, error } = await readRow();
+  if (background && (pendingWrites || writeCount !== writesBefore))
+    return false;
   if (error) {
     reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
     return false;
@@ -188,7 +218,7 @@ function onAuthEvent(event: string) {
   // of the cache and its base (revision, stored history) out from under it.
   if (event === "SIGNED_IN")
     setTimeout(() => {
-      if (!pendingWrites) void loadDatabase();
+      if (!pendingWrites) void loadDatabase(true);
     }, 0);
   if (event === "SIGNED_OUT") {
     cached = initialDatabase;
@@ -200,7 +230,7 @@ function onAuthEvent(event: string) {
 }
 if (supabase) {
   void supabase.auth.getSession().then(({ data }) => {
-    if (data.session) void loadDatabase();
+    if (data.session) void loadDatabase(true);
   });
   supabase.auth.onAuthStateChange(onAuthEvent);
 } else if (typeof window !== "undefined") {
@@ -208,7 +238,7 @@ if (supabase) {
   window.addEventListener("local-auth", (event) =>
     onAuthEvent((event as CustomEvent<string>).detail),
   );
-  if (localAccountId()) void loadDatabase();
+  if (localAccountId()) void loadDatabase(true);
 }
 
 /** Reloads when someone else saved since our load. Reads only `revision`, not the payload.
@@ -230,7 +260,7 @@ export async function checkForUpdates() {
     : await localRequest();
   // A failed poll stays quiet; the next one (or a save) reports a real outage.
   if (data && data.revision !== revision && !pendingWrites)
-    await loadDatabase();
+    await loadDatabase(true);
 }
 if (typeof window !== "undefined") {
   setInterval(() => void checkForUpdates(), 15_000);
@@ -265,20 +295,35 @@ export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
 /* save_app_state raises the stale revision as PT409 (HTTP 409), never 40001: PostgREST retries
- * 40001 forever (migration 0022). The local API sends only the message. */
+ * 40001 forever (migration 0022). The local API sends only the message. A save built on a
+ * history that a reload has since replaced comes back as "Existing history cannot be
+ * changed/removed" (42501): the same situation, so the same quiet reload and rebuild. */
 const isConflict = (error: { message: string; code?: string }) =>
   error.code === "PT409" ||
-  error.message.includes("State changed on another device");
+  error.message.includes("State changed on another device") ||
+  /Existing history cannot be (changed|removed)/.test(error.message);
 function writeDatabase(
   db: Database,
   quietConflict: boolean,
 ): Promise<"saved" | "conflict" | "failed"> {
   const before = { cached, stored };
+  writeCount++;
   // Only splice when `db` continues the loaded history; a wholesale reset goes out as is.
   const continues =
     stored &&
     db.entries.length >= stored.count &&
     db.entries[stored.count - 1]?.id === stored.lastId;
+  const added = continues ? db.entries.slice(stored!.count) : [];
+  // The bytes are dropped below; a caller that skipped saveAttachment would lose the file.
+  if (
+    added.some(
+      (entry) =>
+        entry.values.attachmentData && !entry.values.attachmentStorageKey,
+    )
+  )
+    reportError(
+      "ไฟล์แนบยังไม่ได้อัปโหลด ระบบบันทึกรายการโดยไม่มีไฟล์ กรุณาแนบไฟล์ใหม่",
+    );
   const strip = (entry: Entry, index: number): Entry => ({
     ...entry,
     // Entries appended since the load are this account's: stamp the Account Manager's.
@@ -316,7 +361,19 @@ function writeDatabase(
       const { data: row, error } = await saveRow(portable, revision);
       if (error) {
         if (await loadDatabase()) {
-          if (quietConflict && isConflict(error)) return "conflict" as const;
+          /* A timeout or dropped connection says nothing about the server: the save may
+           * have committed after we stopped waiting. If every entry it added is in the log
+           * just reloaded, it did, and reporting a failure would get it entered twice. */
+          const landed = new Set(cached.entries.map((entry) => entry.id));
+          if (added.length && added.every((entry) => landed.has(entry.id)))
+            return "saved" as const;
+          if (isConflict(error)) {
+            if (quietConflict) return "conflict" as const;
+            reportError(
+              "มีการบันทึกจากเครื่องอื่นก่อน โหลดข้อมูลล่าสุดแล้ว กรุณาตรวจสอบแล้วบันทึกอีกครั้ง",
+            );
+            return "failed" as const;
+          }
           reportError(
             `บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`,
           );
@@ -341,29 +398,6 @@ function writeDatabase(
     });
   writeQueue = saved.then(() => undefined);
   return saved;
-}
-export async function migrateLegacyAttachments(
-  db: Database,
-): Promise<Database> {
-  let changed = false;
-  const entries = await Promise.all(
-    db.entries.map(async (entry) => {
-      const data = entry.values.attachmentData;
-      if (!data || entry.values.attachmentStorageKey) return entry;
-      const storageKey = await saveLegacyDataUrl(
-        data,
-        entry.values.attachment || "attachment",
-      );
-      const values = { ...entry.values };
-      delete values.attachmentData;
-      changed = true;
-      return {
-        ...entry,
-        values: { ...values, attachmentStorageKey: storageKey },
-      };
-    }),
-  );
-  return changed ? { ...db, entries } : db;
 }
 export function latestDatabase() {
   return cached;

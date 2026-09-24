@@ -225,7 +225,10 @@ export const seed: Database = {
     foodivaAddress: "",
     chefHouseContact: "",
     chefHouseAddress: "",
+    /* Legacy: a data URL kept only so logos saved before the move to storage still show.
+     * New uploads set logoStorageKey (`branding/…`, see attachment-store.ts) instead. */
     logoData: "",
+    logoStorageKey: "",
     logoName: "",
     branch: "ศาลาแดง",
     ...Object.fromEntries(
@@ -1667,8 +1670,7 @@ function spaced(label: string) {
 function positive(v: Values, k: string, label: string, allowZero = false) {
   const value = decimal(v[k]);
   assert(
-    Number.isFinite(value) &&
-      (allowZero ? value >= 0 : value > 0),
+    Number.isFinite(value) && (allowZero ? value >= 0 : value > 0),
     `กรอก${spaced(label)}เป็นตัวเลข${allowZero ? "ตั้งแต่ศูนย์" : "มากกว่าศูนย์"}`,
   );
 }
@@ -1754,6 +1756,13 @@ function requestLines(db: Database, v: Values, own?: Lot) {
   );
   v.requestedKg = String(
     lines.reduce((total, line) => total + Number(line.kg), 0),
+  );
+}
+/** The config snapshot a new PO or shipment keeps. Without a legacy inline logo: documents
+ * fall back to the current config for it, and the data URL was a copy per lot. */
+function lotConfig(db: Database): Values {
+  return Object.fromEntries(
+    Object.entries(db.config).filter(([key]) => key !== "logoData"),
   );
 }
 export function mutate(
@@ -1905,7 +1914,7 @@ function record(
       poId: `PO-${year}-${String(count).padStart(4, "0")}`,
       stage: 1,
       values: v,
-      config: { ...db.config },
+      config: lotConfig(db),
     };
     next.lots.push(lot);
   } else if (kind === "shipmentRequest") {
@@ -1918,7 +1927,7 @@ function record(
       kind: "shipment",
       stage: 1,
       values: v,
-      config: { ...db.config },
+      config: lotConfig(db),
     };
     next.lots.push(lot);
   } else if (kind === "shipmentRequestEdit") {
@@ -2785,9 +2794,7 @@ function record(
      * back to central stock while the branch keeps it: void the branch's entry first. */
     if (target.kind === "allocate")
       assert(
-        !entries(db, "receive").some(
-          (r) => r.values.allocation === target.id,
-        ),
+        !entries(db, "receive").some((r) => r.values.allocation === target.id),
         "สาขารับเนื้อจากใบจัดสรรนี้แล้ว · ยกเลิกรายการรับเนื้อก่อน",
       );
     if (target.kind === "materialTransfer")
@@ -2858,6 +2865,9 @@ function record(
     }
     lotId = request.lotId;
   } else if (kind === "config") {
+    // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
+    // config entry of the append-only log. Left out, the merge below keeps it.
+    if (v.logoData === db.config.logoData) delete v.logoData;
     v.ricePrice = "0";
     // Labels match the Thai setting names in ConfigView.
     for (const [key, label] of Object.entries({
