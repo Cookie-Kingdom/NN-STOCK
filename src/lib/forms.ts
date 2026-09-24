@@ -101,7 +101,7 @@ const slips: Field = {
   label: "แนบสลิปการชำระ",
   type: "files",
   optional: true,
-  accept: ".pdf,image/*",
+  accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
   hint: "เลือกได้หลายไฟล์พร้อมกัน ไม่บังคับ",
 };
 export type UploadedFile = { name: string; storageKey: string };
@@ -201,7 +201,7 @@ export const forms: Record<string, Field[]> = {
       key: "attachment",
       label: "แนบไฟล์ Invoice ค่ารมควัน",
       type: "file",
-      accept: ".pdf,image/*",
+      accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
       hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef House",
     },
     {
@@ -253,7 +253,7 @@ export const forms: Record<string, Field[]> = {
       key: "attachment",
       label: "อัปโหลด Invoice เนื้อ",
       type: "file",
-      accept: ".pdf,image/*",
+      accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
       hint: "เลือกไฟล์ PDF หรือรูปภาพของ Invoice",
     },
     text("confirmedBy", "ชื่อผู้ยืนยันจาก Foodiva"),

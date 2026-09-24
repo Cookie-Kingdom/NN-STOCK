@@ -14,6 +14,8 @@ import { uploadedFiles } from "@/lib/forms";
  * fails silently when the URL is stale, so nothing here is left to the browser. */
 async function load(name: string, data?: string, storageKey?: string) {
   if (!data) return storageKey ? getAttachment(storageKey) : undefined;
+  // Only an inline file: any other URL here is not something this app wrote.
+  if (!data.startsWith("data:")) return undefined;
   const blob = await fetch(data)
     .then((response) => response.blob())
     .catch(() => undefined);
@@ -37,6 +39,33 @@ function withTimeout<T>(promise: Promise<T>) {
   ]);
 }
 
+/* A file is whatever its uploader says it is, and a tab opened from here shares
+ * the app's origin and session: an HTML or SVG file would run its script as the
+ * viewer. So a tab only ever renders these types, re-typed from the blob's claim
+ * (a mislabelled file then shows broken, it never runs), and anything else is
+ * downloaded instead. */
+const viewableTypes = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+];
+
+/** Saves the blob as a file; the `download` attribute never renders it. */
+function saveFile(blob: Blob, name: string) {
+  const url = URL.createObjectURL(
+    new Blob([blob], { type: "application/octet-stream" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  // Firefox only honours `download` on an anchor that is in the document.
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function InvoiceDownloadButton({
   name,
   data,
@@ -57,15 +86,7 @@ export function InvoiceDownloadButton({
         throw new Error(
           "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
         );
-      const url = URL.createObjectURL(file.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = name || file.name || "invoice";
-      // Firefox only honours `download` on an anchor that is in the document.
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      saveFile(file.blob, name || file.name || "invoice");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "ดาวน์โหลดไฟล์ไม่สำเร็จ",
@@ -144,7 +165,13 @@ export function AttachmentViewButton({
         throw new Error(
           "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
         );
-      const url = URL.createObjectURL(file.blob);
+      const type = file.blob.type.split(";")[0].trim().toLowerCase();
+      if (!viewableTypes.includes(type)) {
+        tab.close();
+        saveFile(file.blob, name || file.name || "attachment");
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([file.blob], { type }));
       tab.location.replace(url);
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
