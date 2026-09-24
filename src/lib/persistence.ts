@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { branches, seed, type Database, type Entry } from "./store";
 import { LOCAL_DB, localAccountId } from "./local-db";
 import { createClient } from "./supabase/browser";
+import { appendDelta, type AppendDelta } from "./app-state-delta";
 
 type StoredDatabase = Partial<Database>;
 type AppStateRow = { payload: StoredDatabase; revision: number };
@@ -186,6 +187,28 @@ function saveRow(
       })),
   );
 }
+function appendRow(
+  delta: AppendDelta,
+  expectedRevision: number | null,
+): Promise<SaveResult> {
+  if (!supabase)
+    return localRequest({
+      method: "POST",
+      body: JSON.stringify({ delta, expectedRevision }),
+    });
+  return withTimeout(
+    supabase
+      .rpc("append_entries", {
+        p_expected_revision: expectedRevision,
+        p_entries: delta.entries,
+        p_lots: delta.lots,
+      })
+      .then(({ data, error }) => ({
+        data: data == null ? null : { revision: Number(data) },
+        error,
+      })),
+  );
+}
 /** Resolves to whether the server payload replaced the cache. `background` loads (sign-in,
  * poll) give way to any save made while they were reading; a save's own reload does not. */
 async function loadDatabase(background = false): Promise<boolean> {
@@ -294,6 +317,14 @@ let actor: Entry["actor"];
 export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
+/* Branch, Foodiva and Chef House load only their role-scoped copy (load_app_state, migration
+ * 0028), so they cannot send the whole payload back: their saves go to append_entries with just
+ * the new entries and changed lots. The Owner and the Account Manager keep save_app_state. */
+let appendOnly = false;
+/** session.ts sets this from the signed-in account's role (true for every role but "owner"). */
+export function setSaveAppendOnly(next: boolean) {
+  appendOnly = next;
+}
 /* save_app_state raises the stale revision as PT409 (HTTP 409), never 40001: PostgREST retries
  * 40001 forever (migration 0022). The local API sends only the message. A save built on a
  * history that a reload has since replaced comes back as "Existing history cannot be
@@ -347,6 +378,9 @@ function writeDatabase(
               ? (stored.payload.config ?? db.config)
               : db.config,
         };
+  const delta = appendOnly
+    ? appendDelta(stored?.payload ?? {}, portable)
+    : null;
   stored = {
     payload: portable,
     count: db.entries.length,
@@ -358,7 +392,9 @@ function writeDatabase(
   pendingWrites++;
   const saved = writeQueue
     .then(async () => {
-      const { data: row, error } = await saveRow(portable, revision);
+      const { data: row, error } = delta
+        ? await appendRow(delta, revision)
+        : await saveRow(portable, revision);
       if (error) {
         if (await loadDatabase()) {
           /* A timeout or dropped connection says nothing about the server: the save may

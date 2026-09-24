@@ -3,8 +3,19 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { Account } from "./accounts";
-import { restoreSaleMoney } from "./sale-money";
-import { branches, seed, stageRole, type Database, type Role } from "./store";
+import { scopeDatabase } from "./role-scope";
+import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
+import {
+  branches,
+  lotCost,
+  n,
+  seed,
+  stageRole,
+  type Database,
+  type Entry,
+  type Lot,
+  type Role,
+} from "./store";
 
 export type AppStateRow = { payload: Database; revision: number };
 
@@ -28,6 +39,26 @@ export function readState(db: DatabaseSync): AppStateRow {
     revision: number;
   };
   return { payload: JSON.parse(row.payload), revision: row.revision };
+}
+
+/** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
+ * money (C4), every other role its role-scoped copy (migration 20260925000028). */
+export function loadState(
+  db: DatabaseSync,
+  account: Account | null,
+): AppStateRow {
+  const row = readState(db);
+  if (!account || (account.role === "owner" && !account.hidesSales)) return row;
+  if (account.role === "owner")
+    return { ...row, payload: stripSaleMoney(row.payload) };
+  return {
+    ...row,
+    payload: scopeDatabase(
+      row.payload,
+      account.role,
+      account.branch ? [account.branch] : [],
+    ),
+  };
 }
 
 const fail = (message: string): never => {
@@ -188,6 +219,135 @@ export function saveState(
     });
   }
   return replaceState(db, payload);
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** JS port of `append_entries` (supabase/migrations/20260925000028_role_scoped_app_state.sql):
+ * a Branch, Foodiva or Chef House save, which sends only its new entries and changed lots.
+ * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
+export function appendState(
+  db: DatabaseSync,
+  account: Account | null,
+  entryInput: unknown,
+  lotInput: unknown,
+  expectedRevision: number | null,
+): AppStateRow {
+  if (!account) fail("Authentication required");
+  if (
+    Buffer.byteLength(JSON.stringify(entryInput) ?? "") +
+      Buffer.byteLength(JSON.stringify(lotInput) ?? "") >
+    MAX_PAYLOAD_BYTES
+  )
+    fail("Payload too large");
+  const role = account!.role;
+  if (role === "owner")
+    fail("Only branch, Foodiva and Chef House accounts append entries");
+  const added = entryInput as Entry[];
+  const changes = (lotInput ?? []) as Lot[];
+  if (
+    !Array.isArray(added) ||
+    !Array.isArray(changes) ||
+    added.some((entry) => !isObject(entry) || !isObject(entry.values)) ||
+    changes.some((lot) => !isObject(lot))
+  )
+    fail("Invalid application state");
+  const { payload: old, revision } = readState(db);
+  if (expectedRevision == null || expectedRevision !== revision)
+    fail("State changed on another device. Reload and try again.");
+  if (added.some((entry) => entry.actor != null))
+    fail("Entry actor does not match signed-in account");
+  if (added.some((entry) => entry.role !== role))
+    fail("Entry role does not match signed-in account");
+  if (
+    role === "branch" &&
+    added.some((entry) => entry.branch !== account!.branch)
+  )
+    fail("Entry branch does not match signed-in account");
+  if (added.some((entry) => !allowedKinds[role]?.includes(entry.kind)))
+    fail("Entry kind is not allowed for this account");
+  const oldIds = new Set(old.entries.map((entry) => entry?.id));
+  if (
+    added.some(
+      (entry) =>
+        !entry.id ||
+        oldIds.has(entry.id) ||
+        added.filter((other) => other.id === entry.id).length > 1,
+    )
+  )
+    fail("Entry id must be unique");
+  if (
+    added.some(
+      (entry) =>
+        entry.lotId &&
+        entry.lotId !== "-" &&
+        !old.lots.some((lot) => lot?.id === entry.lotId),
+    )
+  )
+    fail("Entry lot does not exist");
+  // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
+  const configBranch = branches.includes(old.config.branch ?? "")
+    ? old.config.branch
+    : branches[0];
+  if (
+    (role === "cm" || role === "foodiva") &&
+    added.some((entry) => entry.branch != null && entry.branch !== configBranch)
+  )
+    fail("Entry branch does not match signed-in account");
+
+  const workflow = "Lot changes must follow the workflow";
+  if (new Set(changes.map((lot) => lot.id)).size !== changes.length)
+    fail(workflow);
+  const lots = [...old.lots];
+  for (const change of changes) {
+    const index = old.lots.findIndex((lot) => lot?.id === change.id);
+    if (index < 0) fail("Only an owner can add or remove lots");
+    const lot = old.lots[index];
+    if (
+      typeof change.stage !== "number" ||
+      !Number.isInteger(change.stage) ||
+      change.stage < lot.stage ||
+      change.stage > lot.stage + 1 ||
+      !isObject(change.values ?? {})
+    )
+      fail(workflow);
+    // Only stage and values are taken; values merge over the stored ones.
+    const values = { ...lot.values, ...change.values };
+    if (
+      (change.stage !== lot.stage || !isDeepStrictEqual(values, lot.values)) &&
+      stageRole[lot.stage] !== role
+    )
+      fail(workflow);
+    lots[index] = { ...lot, stage: change.stage, values };
+  }
+
+  // A scoped copy has no prices: a branch sale's meatCost is worked out here (lotCost).
+  const full: Database = { ...old, lots };
+  const costKeys = ["meatCost", "wasteCost"].flatMap((key) => [
+    key,
+    `to.${key}`,
+    `from.${key}`,
+  ]);
+  const entries = added.map((entry) => {
+    const values = without(entry.values, ...costKeys) as Entry["values"];
+    if (
+      role === "branch" &&
+      (entry.kind === "sale" || entry.kind === "influencerBox")
+    ) {
+      const lot = lots.find((item) => item?.id === entry.lotId);
+      const perKg = (lot && lotCost(full, lot).perKg) || 0;
+      values.meatCost = String(n(values, "soldKg") * perKg);
+      if (entry.kind === "sale")
+        values.wasteCost = String(n(values, "wasteKg") * perKg);
+    }
+    return { ...entry, values };
+  });
+  return replaceState(db, {
+    ...old,
+    lots,
+    entries: [...old.entries, ...entries],
+  });
 }
 
 /** Writes the state with no guards. saveState calls it after its checks; on its own

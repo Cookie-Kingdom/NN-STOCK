@@ -218,8 +218,10 @@ export function Preview({
         "น้ำพริกควรเหลือ",
         `${fmt(chiliStock(db, branch) - n(v, "chiliAddons") - sum("chiliAddons"))} หลอด`,
       ],
-      // Same split as the owner report: a giveaway is marketing cost, never revenue.
-      ...(kind === "sale"
+      /* Same split as the owner report: a giveaway is marketing cost, never revenue.
+       * A branch account's copy has no purchase prices (role-scope.ts), so it cannot cost
+       * the meat: the rows are left out rather than shown as ฿0 meat. */
+      ...(kind === "sale" && perKg > 0
         ? ([
             ["ต้นทุนเนื้อที่ขาย + Waste + ค่าใช้จ่ายสาขา", `฿${fmt(saleCost)}`],
             ...(giveaways.length

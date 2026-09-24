@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { seed, sevenDayRoleplay } from "@/lib/store";
-import { stripSaleMoney } from "@/lib/sale-money";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served
@@ -24,16 +23,12 @@ const open = () =>
 const signedIn = async () =>
   accountById((await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value);
 
-/** Like load_app_state: the Account Manager's copy has no sale money in it (C4). */
+/** Like load_app_state: the Account Manager's copy has no sale money in it (C4), a Branch,
+ * Foodiva or Chef House account gets its role-scoped copy (src/lib/role-scope.ts). */
 export async function GET() {
   if (!enabled) return new Response(null, { status: 404 });
-  const { db, readState } = await open();
-  const row = readState(db);
-  return Response.json(
-    (await signedIn())?.hidesSales
-      ? { ...row, payload: stripSaleMoney(row.payload) }
-      : row,
-  );
+  const { db, loadState } = await open();
+  return Response.json(loadState(db, (await signedIn()) ?? null));
 }
 
 /** e2e setup: `?state=seed` resets to the seed (startFresh), `?state=sample` loads
@@ -58,12 +53,14 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   if (!enabled) return new Response(null, { status: 404 });
-  const { db, saveState } = await open();
-  const account = await signedIn();
-  const { payload, expectedRevision } = await request.json();
+  const { db, saveState, appendState } = await open();
+  const account = (await signedIn()) ?? null;
+  const { payload, delta, expectedRevision } = await request.json();
   try {
-    // Like save_app_state, only the new revision goes back: never the payload.
-    const { revision } = saveState(db, account, payload, expectedRevision);
+    // Like save_app_state / append_entries, only the new revision goes back: never the payload.
+    const { revision } = delta
+      ? appendState(db, account, delta.entries, delta.lots, expectedRevision)
+      : saveState(db, account, payload, expectedRevision);
     return Response.json({ revision });
   } catch (error) {
     return Response.json(
