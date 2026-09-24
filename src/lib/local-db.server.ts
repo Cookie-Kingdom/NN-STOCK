@@ -66,7 +66,7 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds each non-owner role may append: `ownership` in store.ts plus editRequest. */
+/** Kinds each non-owner role may append: `ownership` in store/mutate.ts plus editRequest. */
 const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
   branch: [
     "receive",
