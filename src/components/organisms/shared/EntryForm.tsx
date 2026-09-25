@@ -652,8 +652,8 @@ export function EntryForm({
         <div
           className={
             isPurchaseOrder
-              ? "min-h-0 flex-1 overflow-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] lg:overflow-hidden"
-              : "min-h-0 flex-1 overflow-auto"
+              ? "min-h-0 flex-auto overflow-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] lg:overflow-hidden"
+              : "min-h-0 flex-auto overflow-auto"
           }
         >
           <DialogBody
