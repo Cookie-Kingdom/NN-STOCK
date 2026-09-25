@@ -66,7 +66,7 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "title" | "open"> &
  * and scroll lock come from the browser. Mount it to open, unmount it to close.
  *
  * Children fill a flex column. A form should be
- * `<form className="flex min-h-0 flex-1 flex-col">` holding `DialogBody` and `DialogFooter`.
+ * `<form className="flex min-h-0 flex-auto flex-col">` holding `DialogBody` and `DialogFooter`.
  */
 export function Dialog({
   title,
