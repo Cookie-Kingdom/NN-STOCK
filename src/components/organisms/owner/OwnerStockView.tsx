@@ -42,7 +42,7 @@ const genreOptions = [
   "วัตถุดิบ",
   "วัสดุบรรจุภัณฑ์",
   "สินทรัพย์",
-  "ค่าใช้จ่ายอื่น",
+  "ค่าใช้จ่ายอื่นๆ",
 ];
 const locationOptions = [
   "ทั้งหมด",
@@ -245,7 +245,7 @@ export function OwnerStockView({
           category === "สินทรัพย์"
             ? "สินทรัพย์"
             : category === "ค่าใช้จ่ายอื่น"
-              ? "ค่าใช้จ่ายอื่น"
+              ? "ค่าใช้จ่ายอื่นๆ"
               : "วัตถุดิบ",
         item,
         location: isChili ? "คลัง Owner" : "บัญชี Owner",
@@ -335,7 +335,7 @@ export function OwnerStockView({
           purchase.category === "วัสดุบรรจุภัณฑ์") ||
         (genre === "วัตถุดิบ" && purchase.category === "วัตถุดิบ") ||
         (genre === "สินทรัพย์" && purchase.category === "สินทรัพย์") ||
-        (genre === "ค่าใช้จ่ายอื่น" &&
+        (genre === "ค่าใช้จ่ายอื่นๆ" &&
           purchase.category === "ค่าใช้จ่ายอื่น")) &&
       (itemFilter === "ทั้งหมด" || purchase.item === itemFilter),
   );
