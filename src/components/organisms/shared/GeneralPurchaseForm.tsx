@@ -350,7 +350,7 @@ export function GeneralPurchaseForm({
                       >
                         <option>วัตถุดิบ</option>
                         <option>สินทรัพย์</option>
-                        <option>ค่าใช้จ่ายอื่น</option>
+                        <option value="ค่าใช้จ่ายอื่น">ค่าใช้จ่ายอื่นๆ</option>
                       </Select>
                     </FormField>
                     {isIngredient ? (
