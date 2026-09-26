@@ -1133,7 +1133,7 @@ function record(
     variance(n(v, "leftoverKg"), cookedRiceStock(db, branch), v);
     required(v, "reheat", "การจัดการวันถัดไป");
   } else if (kind === "materials") {
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < materials.length; i++) {
       positive(v, "material" + i, materials[i], true);
       assert(Number.isInteger(n(v, "material" + i)), "วัสดุต้องเป็นจำนวนเต็ม");
       if (v["opening" + i] !== undefined || v["used" + i] !== undefined) {

@@ -143,7 +143,7 @@ export function MaterialStockTable({
   }
   return (
     <DataTable
-      title="สต๊อกวัสดุ 7 รายการ (Material inventory)"
+      title={`สต๊อกวัสดุ ${materials.length} รายการ (Material inventory)`}
       columns={["สาขา", "วัสดุ", "คงเหลือ", "จำนวนฐาน", "นับล่าสุด", "สถานะ"]}
       rows={stockBranches.flatMap((name) => {
         const latest = entries(db, "materials", undefined, name).at(-1);

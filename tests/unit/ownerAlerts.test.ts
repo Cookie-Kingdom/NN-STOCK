@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 // Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
-import { seed } from "@/lib/store";
+import { materials, seed } from "@/lib/store";
 import {
   closed,
   confirm,
@@ -19,10 +19,10 @@ import {
 
 test("an empty database only asks for material settings", () => {
   const alerts = ownerAlerts(structuredClone(seed));
-  expect(alerts.missingMaterialSettings).toBe(7);
+  expect(alerts.missingMaterialSettings).toBe(materials.length);
   expect(alerts.notifications).toEqual([
     {
-      title: "ตั้งค่าวัสดุยังไม่ครบ 7 รายการ",
+      title: `ตั้งค่าวัสดุยังไม่ครบ ${materials.length} รายการ`,
       detail: expect.any(String),
       tab: "config",
     },

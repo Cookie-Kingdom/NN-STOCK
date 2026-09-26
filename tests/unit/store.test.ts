@@ -1470,7 +1470,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   expect(Math.abs(balance(s.db, id, "ศาลาแดง").ready)).toBeLessThan(0.001);
   expect(balance(s.db, id, "ศาลาแดง").frozen).toBe(5.8);
   expect(balance(s.db, id, "มีนบุรี").received).toBe(0);
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < materials.length; i++) {
     s.db.config["material" + i] = "500";
     s.run("owner", "materialReceive", {
       purchaseDate: day,
@@ -1495,7 +1495,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     "branch",
     "materials",
     Object.fromEntries(
-      Array.from({ length: 7 }, (_, i) => [
+      Array.from({ length: materials.length }, (_, i) => [
         ["opening" + i, "500"],
         ["used" + i, "50"],
         ["material" + i, "450"],

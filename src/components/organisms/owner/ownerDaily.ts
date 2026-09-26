@@ -1,4 +1,9 @@
-import { requiredRiceKinds, type Database, type EntryKind } from "@/lib/store";
+import {
+  materials,
+  requiredRiceKinds,
+  type Database,
+  type EntryKind,
+} from "@/lib/store";
 
 /** Default dashboard / daily-status range: the 7 days ending on `date` (inclusive). */
 export function sevenDayRangeStart(date: string) {
@@ -27,7 +32,7 @@ export const requiredDailyLabels: Record<string, string> = {
   riceCarry: "ยืนยันข้าวสุกคงเหลือ",
   riceIssue: "เบิกข้าวไปใช้",
   rice: "บันทึกหุงข้าว",
-  materials: "เช็กวัสดุ 7 รายการ",
+  materials: `เช็กวัสดุ ${materials.length} รายการ`,
   sale: "ยอดขายสิ้นวัน",
   closeDay: "ปิดวัน",
 };

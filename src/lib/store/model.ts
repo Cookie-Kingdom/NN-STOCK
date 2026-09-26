@@ -103,6 +103,9 @@ export const materials = [
   "ถุงหิ้วกระดาษ",
   "สติกเกอร์โลโก้",
   "การ์ด / สติกเกอร์วิธีอุ่น",
+  "ถ้วยพริก",
+  "สติกเกอร์พริก",
+  "สติกเกอร์ข้าวเหนียว",
 ];
 export const branches = ["ศาลาแดง", "มีนบุรี"];
 export const stages = [
@@ -189,7 +192,7 @@ export const titles: Record<EntryKind, string> = {
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
   sale: "บันทึกยอดขาย / Waste",
   influencerBox: "อินฟลูเอนเซอร์",
-  materials: "เช็ควัสดุ 7 รายการ",
+  materials: `เช็ควัสดุ ${materials.length} รายการ`,
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
   ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",
   generalPurchase: "บันทึกการซื้ออื่น ๆ",
