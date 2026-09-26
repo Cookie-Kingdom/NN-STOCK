@@ -99,7 +99,7 @@ export const StockViewSupplies: Story = {
   play: pickGenre("วัตถุดิบ"),
 };
 
-/** กลุ่มสต๊อก = วัสดุบรรจุภัณฑ์: วัสดุทั้ง 7 รายการ พร้อมฐานและราคาต่อชิ้น */
+/** กลุ่มสต๊อก = วัสดุบรรจุภัณฑ์: วัสดุทั้งหมด พร้อมฐานและราคาต่อชิ้น */
 export const StockViewMaterials: Story = {
   render: StockView.render,
   play: pickGenre("วัสดุบรรจุภัณฑ์"),
