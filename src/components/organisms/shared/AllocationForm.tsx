@@ -194,7 +194,7 @@ export function AllocationForm({
             ))}
           </FormGrid>
           <ReadRow
-            label="คงเหลือในคลังกลางหลังจัดสรร"
+            label="คงเหลือที่ Foodiva หลังจัดสรร"
             value={`${fmt(Math.abs(remaining) < 0.001 ? 0 : remaining)} กก.`}
             className={remaining < -0.001 ? "text-danger" : undefined}
           />

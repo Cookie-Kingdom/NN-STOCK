@@ -38,3 +38,25 @@ export const Empty: Story = { args: { rows: [] } };
 export const Sorted: Story = {
   args: { defaultSort: { column: "น้ำหนัก", desc: true } },
 };
+
+/** `columnWidths` fixes the layout: the columns hold their width as rows are filtered,
+ *  long text wraps inside its cell, and a phone pans sideways past the summed width. */
+export const FixedColumns: Story = {
+  args: {
+    columns: ["PO / ล็อต", "น้ำหนัก", "ราคา/กก.", "สถานะ", "รายละเอียด"],
+    columnWidths: ["12rem", "8rem", "8rem", "7rem", "18rem"],
+    rows: rows
+      .slice(0, 6)
+      .map((row, i) => [
+        ...row,
+        i % 2
+          ? "รับเข้าสต๊อกกลางแล้ว"
+          : "จากรับเข้าสต๊อกกลาง · เก็บที่ Foodiva รอ Owner จัดสรรไปสาขา ข้อความยาวจึงขึ้นบรรทัดใหม่",
+      ]),
+  },
+};
+
+/** One row still shows "เรียงตาม", so the toolbar does not shift as filters change. */
+export const SingleRow: Story = {
+  args: { rows: rows.slice(0, 1) },
+};

@@ -197,7 +197,7 @@ export function useOwnerAlerts(db: Database) {
       ? [
           {
             title: `มีเนื้อพร้อมจัดสรร ${allocationCount} Lot`,
-            detail: "เลือกสาขาและจัดสรรเนื้อจากคลังกลาง",
+            detail: "เลือกสาขาและจัดสรรเนื้อที่รออยู่ที่ Foodiva",
             tab: "branch-status" as Tab,
           },
         ]

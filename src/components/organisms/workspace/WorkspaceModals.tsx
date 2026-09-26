@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  SegmentedChoice,
+  type SegmentedOption,
+} from "@/components/molecules/SegmentedChoice";
 import { AllocationForm } from "@/components/organisms/shared/AllocationForm";
 import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
@@ -13,6 +17,7 @@ import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispa
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import type { ModalKind } from "@/lib/nav";
 import { titles, type EntryKind } from "@/lib/store";
 
 const CUSTOM_DIALOGS = [
@@ -29,6 +34,26 @@ const CUSTOM_DIALOGS = [
   "dispatch",
   "packingListView",
 ];
+
+// The stock tab's two buttons each open a pair of forms: the first kind is what the
+// button opens, the chooser swaps in the other. Each form still saves its own kind.
+const STOCK_PAIRS: { label: string; options: SegmentedOption<ModalKind>[] }[] =
+  [
+    {
+      label: "ซื้ออะไรเข้าคลัง",
+      options: [
+        { value: "materialReceive", label: "วัสดุบรรจุภัณฑ์" },
+        { value: "generalPurchase", label: "ซื้ออื่น ๆ (น้ำพริก, น้ำดอง ฯลฯ)" },
+      ],
+    },
+    {
+      label: "ส่งอะไรไปสาขา",
+      options: [
+        { value: "materialTransfer", label: "วัสดุบรรจุภัณฑ์" },
+        { value: "chiliAllocate", label: "น้ำพริกหลอด" },
+      ],
+    },
+  ];
 
 // "ยืนยันปิด Lot" + "แล้ว" needs a space after a Latin word; Thai-to-Thai stays joined.
 const savedMessage = (title: string) =>
@@ -59,10 +84,22 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     setToast(message);
     setModal(null);
   };
+  const pair = STOCK_PAIRS.find((item) =>
+    item.options.some((option) => option.value === modal.kind),
+  );
+  const switcher = pair && (
+    <SegmentedChoice
+      label={pair.label}
+      options={pair.options}
+      value={modal.kind}
+      onChange={(kind) => setModal({ kind, lotId: "" })}
+    />
+  );
 
   if (modal.kind === "materialTransfer") {
     return (
       <MaterialTransferForm
+        switcher={switcher}
         db={db}
         {...dateProps}
         onClose={close}
@@ -73,6 +110,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "materialReceive") {
     return (
       <MaterialPurchaseForm
+        switcher={switcher}
         db={db}
         {...dateProps}
         onClose={close}
@@ -83,6 +121,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "generalPurchase") {
     return (
       <GeneralPurchaseForm
+        switcher={switcher}
         {...dateProps}
         onClose={close}
         onSaved={() => done("บันทึกการซื้ออื่น ๆ แล้ว")}
@@ -200,6 +239,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       modal={modal}
       onClose={close}
       onOpen={ws.open}
+      switcher={switcher}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {

@@ -179,22 +179,31 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
     const all = "ตารางสต๊อกทั้งหมด (All inventory)";
     await step(
       page,
-      "Owner: สต๊อกเนื้อ คลังกลาง 0 · สาขาละ 25 − 7 × 1.521 = 14.35 กก.",
+      "Owner: สต๊อกเนื้อ Foodiva รอจัดสรร 0 · สาขาละ 25 − 7 × 1.521 = 14.35 กก.",
       async () => {
         await tab(page, "สต๊อกของทั้งหมด");
-        await expect(rowIn(page, all, /เนื้อรมควัน\s*คลังกลาง/)).toContainText(
-          "0.00",
-        );
-        for (const branch of ["ศาลาแดง", "มีนบุรี"])
+        // One row per lot, one column per place: 3 Foodiva, 4 คลัง Owner, 5–6 branches.
+        const smoked = rowIn(page, all, "เนื้อรมควัน").getByRole("cell");
+        await expect(smoked.nth(3)).toHaveText("0.00");
+        for (const [index, branch] of [
+          [5, "ศาลาแดง"],
+          [6, "มีนบุรี"],
+        ] as const) {
           await expect(
-            rowIn(page, all, new RegExp(`เนื้อรมควัน\\s*${branch}`)),
-          ).toContainText(
-            // B1: thawed meat reads "ชิล/ละลายแล้ว", not "พร้อมขาย"
-            /14\.35\s*กก\.\s*จากจัดสรร Owner · แช่แข็ง 14\.35 · ชิล\/ละลายแล้ว 0\.00/,
+            tableSection(page, all).getByRole("columnheader").nth(index),
+          ).toHaveText(branch);
+          await expect(smoked.nth(index)).toHaveText("14.35");
+          // B1: thawed meat reads "ชิล/ละลายแล้ว", not "พร้อมขาย"
+          await expect(smoked.nth(index).locator("[title]")).toHaveAttribute(
+            "title",
+            "แช่แข็ง 14.35 · ชิล/ละลายแล้ว 0.00",
           );
+        }
         await expect(
-          rowIn(page, all, /เนื้อดิบพร้อมส่ง Chef House\s*Foodiva/),
-        ).toContainText(/0\.00\s*กก\./);
+          rowIn(page, all, "เนื้อดิบพร้อมส่ง Chef House")
+            .getByRole("cell")
+            .nth(3),
+        ).toHaveText("0.00");
         await expectCleanNumbers(page);
       },
     );
@@ -208,20 +217,21 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           .selectOption("ศาลาแดง");
         await expect(tableSection(page, all)).toContainText("11 แถว");
         await expect(rowIn(page, all, "ข้าวเหนียวดิบ (ข้าวสาร)")).toContainText(
-          /14\.00\s*กก\./,
+          /กก\.\s*14\.00/,
         );
         await expect(rowIn(page, all, "ข้าวเหนียวสุก")).toContainText(
-          /1\.40\s*กก\./,
+          /กก\.\s*1\.40/,
         );
         await expect(rowIn(page, all, "น้ำพริกหลอด")).toContainText(
-          /140\.00\s*หลอด/,
+          /หลอด\s*140\.00/,
         );
         await expect(rowIn(page, all, "กล่องพิมพ์ลาย")).toContainText(
-          /30\.00\s*ชิ้น/,
+          /ชิ้น\s*30\.00/,
         );
+        // Locations are columns: only ศาลาแดง's is left.
         await expect(
           tableSection(page, all)
-            .getByRole("row")
+            .getByRole("columnheader")
             .filter({ hasText: "มีนบุรี" }),
         ).toHaveCount(0);
       },
@@ -324,9 +334,9 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
           ).toContainText(
             /14\.35 กก\.\s*แช่แข็ง 14\.35 · ชิล\/ละลายแล้ว 0\.00/,
           );
-        await expect(rowIn(page, points, "คลังกลาง Owner")).toContainText(
-          "0.00 กก.",
-        );
+        await expect(
+          rowIn(page, points, "Foodiva · เนื้อรมควันรอจัดสรร"),
+        ).toContainText("0.00 กก.");
         await expect(
           rowIn(page, points, "Chef House · เนื้อรมพร้อมเรียกรถ"),
         ).toContainText("0.00 กก.");

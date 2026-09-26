@@ -29,8 +29,9 @@ for (const name of ["iPad (gen 7)", "iPad Pro 11 landscape", "iPad Mini"]) {
       await expect(page).toHaveURL(/\/owner/, { timeout: 30_000 });
       await button(page, "สต๊อกของทั้งหมด");
 
-      for (const opener of ["+ ซื้อวัสดุเข้าคลัง", "+ บันทึกการซื้ออื่น ๆ"]) {
-        await page.getByRole("button", { name: opener }).tap();
+      for (const choice of ["วัสดุบรรจุภัณฑ์", "ซื้ออื่น ๆ"]) {
+        await page.getByRole("button", { name: "+ ซื้อเข้าคลัง" }).tap();
+        await page.getByRole("radio", { name: choice }).tap();
         const dialog = page.getByRole("dialog");
         await expect(dialog).toBeVisible();
         await page.waitForTimeout(600);
@@ -65,9 +66,9 @@ for (const name of ["iPad (gen 7)", "iPad Pro 11 landscape", "iPad Mini"]) {
             submitHit: hit(d.querySelector('button[type="submit"]')),
           };
         });
-        console.log(name, opener, JSON.stringify(info));
+        console.log(name, choice, JSON.stringify(info));
         await page.screenshot({
-          path: `artifacts/ipad-${name.replace(/\W+/g, "-")}-${opener.length}.png`,
+          path: `artifacts/ipad-${name.replace(/\W+/g, "-")}-${choice.length}.png`,
         });
         await dialog.getByRole("button", { name: "ปิดฟอร์ม" }).tap();
         await expect(dialog).toBeHidden();

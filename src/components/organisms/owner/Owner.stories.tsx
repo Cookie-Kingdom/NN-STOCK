@@ -2,10 +2,12 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
   acceptedInvoiceDb,
+  allocatedDb,
   centralDb,
   day,
   demoDb,
   open,
+  ownerReservedDb,
   paidDb,
 } from "../../../../.storybook/fixtures";
 import { CentralReceiveView } from "./CentralReceiveView";
@@ -49,8 +51,31 @@ export const DailyStatus: Story = {
   render: () => <OwnerDailyStatus db={db} date={day} />,
 };
 
+/** One row per item, one column per place (Foodiva, คลัง Owner, each branch); "—" where
+ *  that place never holds the item. Hover a branch number for its breakdown. */
 export const Stock: Story = {
   render: () => <OwnerStockView db={db} lots={db.lots} open={open} />,
+};
+
+/** The Waste row: 6 kg still waiting at Foodiva, 4 kg already in คลัง Owner, and the
+ *  บันทึกรับเนื้อ action on the same row. */
+export const StockWasteWaiting: Story = {
+  parameters: { db: ownerReservedDb },
+  render: () => (
+    <OwnerStockView
+      db={ownerReservedDb}
+      lots={ownerReservedDb.lots}
+      open={open}
+    />
+  ),
+};
+
+/** Smoked beef: what is left at Foodiva to allocate beside the 17.5 kg sent to ศาลาแดง. */
+export const StockAllocated: Story = {
+  parameters: { db: allocatedDb },
+  render: () => (
+    <OwnerStockView db={allocatedDb} lots={allocatedDb.lots} open={open} />
+  ),
 };
 
 export const CentralReceive: Story = {

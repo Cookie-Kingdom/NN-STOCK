@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chooseForm,
   field,
   loadSampleData,
   menuItem,
@@ -132,15 +133,16 @@ function cellOf(scope: Locator, texts: (string | RegExp)[], index: number) {
   return row.getByRole("cell").nth(index);
 }
 
-/** Quantity column (index 3) of the Owner "All inventory" table. The table pages
- * at 20 rows, so narrow it to the location first. */
+/** The Owner "All inventory" table has one column per location; picking the location
+ * leaves only that column, at index 3 (after กลุ่ม, รายการ, หน่วย). The table pages at
+ * 20 rows, so narrowing to the location also drops rows it does not hold. */
 async function ownerStock(page: Page, item: string | RegExp, location: string) {
   const table = tableSection(page, INVENTORY);
   // The sort select's name lists the column names too, so match the filter's start.
   await table
     .getByRole("combobox", { name: /^สถานที่/ })
     .selectOption(location);
-  return cellOf(table, [item, location], 3);
+  return cellOf(table, [item], 3);
 }
 
 /** A Log entry (<details>) by its title and a value it holds. */
@@ -508,9 +510,10 @@ test("Lane B: B1–B2 Owner ตั้งค่าครบทุก section · v
     async () => {
       await tab(page, "สต๊อกของทั้งหมด");
       for (const branch of ["ศาลาแดง", "มีนบุรี"]) {
+        // The branch's par and price sit in the quantity cell's tooltip.
         await expect(
-          cellOf(tableSection(page, INVENTORY), [PAPER, branch], 5),
-        ).toHaveText("ฐาน 210.00 · ฿4.00 / ชิ้น");
+          (await ownerStock(page, PAPER, branch)).locator("[title]"),
+        ).toHaveAttribute("title", "ฐาน 210.00 · ฿4.00 / ชิ้น");
       }
     },
   );
@@ -528,7 +531,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       await tab(page, "สต๊อกของทั้งหมด");
-      await button(page, "+ ซื้อวัสดุเข้าคลัง");
+      await button(page, "+ ซื้อเข้าคลัง");
       await submitAndExpectError(page, "ติ๊กเลือกอย่างน้อย 1 รายการ");
     },
   );
@@ -594,7 +597,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     page,
     "Owner: B4 ส่งวัสดุก่อนตั้งฐาน → ตั้งจำนวนฐานและราคาต่อหน่วย…ก่อนส่ง",
     async () => {
-      await button(page, "ส่งวัสดุไปสาขา");
+      await button(page, "ส่งของไปสาขา");
       await dialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "60");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
@@ -623,7 +626,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     page,
     "Owner: B4 ส่งเกินคลัง 101 → กล่องพิมพ์ลาย ในคลัง Owner ไม่พอ · กรอกได้สูงสุด 100 (บันทึกกดไม่ได้) · ส่งกล่อง 60 ศาลาแดง + กระดาษรอง 30 มีนบุรี",
     async () => {
-      await button(page, "ส่งวัสดุไปสาขา");
+      await button(page, "ส่งของไปสาขา");
       await dialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "101");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
@@ -663,7 +666,8 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     page,
     "Owner: B5 ซื้ออื่น ๆ น้ำพริกหลอด 100 หลอด @ ฿20 → คลัง Owner 100",
     async () => {
-      await button(page, "+ บันทึกการซื้ออื่น ๆ");
+      await button(page, "+ ซื้อเข้าคลัง");
+      await chooseForm(page, "ซื้ออื่น ๆ");
       await page
         .getByLabel("เลือกวัตถุดิบ 1")
         .selectOption({ label: "น้ำพริกหลอด" });
@@ -683,7 +687,8 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
     page,
     "Owner: B5 จัดสรรน้ำพริก — สาขาปลายทางเลือกได้เฉพาะ 2 สาขา · 150 เกินคลัง · 2.5 ไม่เต็มหลอด → บล็อก",
     async () => {
-      await button(page, "จัดสรรน้ำพริกไปสาขา");
+      await button(page, "ส่งของไปสาขา");
+      await chooseForm(page, "น้ำพริกหลอด");
       const branch = dialog(page).getByLabel(/สาขาปลายทาง/);
       // "เลือกสาขาปลายทาง" is unreachable from the UI: the select has no empty option.
       await expect(branch.locator("option")).toHaveText(["ศาลาแดง", "มีนบุรี"]);
@@ -692,7 +697,7 @@ test("Lane B: B3–B6, B8 ซื้อวัสดุ → ส่งสาขา 
       await field(page, /ผู้รับ \/ ผู้ดูแลสาขา/, "ผู้ดูแลศาลาแดง");
       await submitAndExpectError(
         page,
-        "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าบัญชีก่อน",
+        "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าคลังก่อน",
       );
       await field(page, /จำนวนน้ำพริกที่จัดสรร/, "2.5");
       await submitAndExpectError(page, "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
@@ -1314,7 +1319,7 @@ test("E2E-B2: ส่งวัสดุจำนวนทศนิยม ต้�
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       await tab(page, "สต๊อกของทั้งหมด");
-      await button(page, "ส่งวัสดุไปสาขา");
+      await button(page, "ส่งของไปสาขา");
       await dialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "2.5");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
@@ -1335,7 +1340,7 @@ test("E2E-B3: รายการที่ถูกยกเลิกใน Log �
   await step(page, "Owner: ซื้อกล่อง 10 ชิ้น แล้วยกเลิกจาก Log", async () => {
     await signInAs(page, ACCOUNTS.owner);
     await tab(page, "สต๊อกของทั้งหมด");
-    await button(page, "+ ซื้อวัสดุเข้าคลัง");
+    await button(page, "+ ซื้อเข้าคลัง");
     await dialog(page).getByLabel(`ซื้อ ${BOX}`).check();
     await field(page, `จำนวนซื้อ ${BOX}`, "10");
     await field(page, `ราคาซื้อ ${BOX}`, "1");

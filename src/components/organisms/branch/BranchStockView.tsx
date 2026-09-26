@@ -25,8 +25,8 @@ import {
 import { fmt } from "@/lib/format";
 
 /** The branch screen only ever lists what is physically at this one branch, so there is
- *  no สถานที่ filter and none of the Owner's rows (Foodiva, คลังกลาง, คลัง Owner,
- *  บัญชี Owner, waste, ประวัติการซื้อ) can appear here. */
+ *  no สถานที่ filter and none of the Owner's rows (Foodiva, คลัง Owner, waste,
+ *  ประวัติการซื้อ) can appear here. */
 export const branchGenreOptions = [
   "ทั้งหมด",
   "เนื้อ",

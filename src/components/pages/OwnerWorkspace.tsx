@@ -108,20 +108,16 @@ export function OwnerWorkspace({ account }: { account: Account }) {
             title="สต๊อกกลางและสาขา"
             actions={
               <ButtonRow>
+                {/* Each opens a pair of forms; a chooser at the top of the dialog
+                    swaps materials for the other purchase / the chili tubes. */}
                 <Button onClick={() => open("materialReceive", "")}>
-                  + ซื้อวัสดุเข้าคลัง
-                </Button>
-                <Button onClick={() => open("generalPurchase", "")}>
-                  + บันทึกการซื้ออื่น ๆ
-                </Button>
-                <Button onClick={() => open("chiliAllocate", "")}>
-                  จัดสรรน้ำพริกไปสาขา
+                  + ซื้อเข้าคลัง
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => open("materialTransfer", "")}
                 >
-                  ส่งวัสดุไปสาขา
+                  ส่งของไปสาขา
                 </Button>
               </ButtonRow>
             }

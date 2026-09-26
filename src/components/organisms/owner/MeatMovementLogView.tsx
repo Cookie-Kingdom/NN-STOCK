@@ -49,7 +49,7 @@ const descriptions: Record<
     `Invoice ${fmt(n(entry.values, "confirmedKg"))} · ส่งเชียงใหม่ ${fmt(n(entry.values, "readyForChiangMaiKg"))} · รอ Owner รับ (Waste) ${fmt(n(entry.values, "reservedForOwnerKg"))} กก.`,
   ],
   ownerWasteReceive: (entry) => [
-    "Owner",
+    "คลัง Owner",
     "รับเนื้อส่วนที่เหลือจาก Foodiva",
     `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`,
   ],
@@ -85,12 +85,12 @@ const descriptions: Record<
     `${fmt(n(entry.values, "receivedKg"))} กก.`,
   ],
   central: (entry) => [
-    "คลังกลาง Owner",
+    "Foodiva",
     "รับเข้าสต๊อกกลาง",
     `${fmt(n(entry.values, "centralKg"))} กก.`,
   ],
   allocate: (entry) => [
-    "Owner → สาขา",
+    "Foodiva → สาขา",
     `จัดสรรไป ${entry.values.branch}`,
     `${fmt(n(entry.values, "kg"))} กก.`,
   ],
@@ -150,7 +150,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         [
           lot.poId,
           lot.id,
-          "Owner · เนื้อส่วนที่รับแล้ว (Waste)",
+          "คลัง Owner · เนื้อส่วนที่รับแล้ว (Waste)",
           `${fmt(ownerWasteReceived(db, lot.id))} กก.`,
           "รับจาก Foodiva สำหรับใช้งาน Owner",
         ],
@@ -191,7 +191,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       [
         lot.poId,
         lot.id,
-        "คลังกลาง Owner",
+        "Foodiva · เนื้อรมควันรอจัดสรร",
         `${fmt(centralStock(db, lot.id))} กก.`,
         `${fmt(centralStock(db, lot.id))} กก. พร้อมจัดสรร`,
       ],

@@ -1024,7 +1024,7 @@ function record(
     withinStock(
       n(v, "chiliTubes"),
       ownerChiliStock(db),
-      "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าบัญชีก่อน",
+      "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าคลังก่อน",
       "หลอด",
     );
   } else if (kind === "chiliPurchase") {

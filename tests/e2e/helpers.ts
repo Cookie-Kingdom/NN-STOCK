@@ -137,6 +137,12 @@ export async function button(page: Page, name: string | RegExp) {
   await pointAndClick(page, page.getByRole("button", { name }).last());
 }
 
+/** The stock tab's "+ ซื้อเข้าคลัง" / "ส่งของไปสาขา" open the materials form; this picks
+ *  the other form of the pair from the chooser under the dialog header. */
+export async function chooseForm(page: Page, name: string | RegExp) {
+  await pointAndClick(page, page.getByRole("radio", { name }).last());
+}
+
 /** The button that opens DailyMaterialsTable for editing: the day has been counted
  *  already, or it has not. */
 export const MATERIAL_COUNT_EDIT = /ตรวจนับวัสดุวันนี้|ขอแก้ไขยอดนับ/;

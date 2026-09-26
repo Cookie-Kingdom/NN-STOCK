@@ -79,7 +79,7 @@ const lotColumns = [
   "เลขที่การส่ง",
   "ขั้นตอน",
   "ผลผลิต",
-  "คลังกลาง",
+  "รอจัดสรร (Foodiva)",
   "ศาลาแดง",
   "มีนบุรี",
 ];
@@ -547,7 +547,9 @@ export function OwnerDashboard({
             </div>
           ))}
           <div className="mt-1 grid gap-1 rounded-lg bg-bg p-4 text-body-sm text-text-secondary">
-            <strong className="text-body text-text-primary">คลังกลาง</strong>
+            <strong className="text-body text-text-primary">
+              รอจัดสรรที่ Foodiva
+            </strong>
             <span>
               เนื้อพร้อมจัดสรร{" "}
               {fmt(
