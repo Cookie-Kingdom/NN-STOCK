@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chooseForm,
   chefSmokesShipment,
   chefSubmitsInvoice,
   closeNotifications,
@@ -413,14 +414,14 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     `Owner: ซื้อ${BOX} 200 ชิ้นเข้าคลัง และส่ง 100 ชิ้นไปศาลาแดง`,
     async () => {
       await button(page, "สต๊อกของทั้งหมด");
-      await button(page, "+ ซื้อวัสดุเข้าคลัง");
+      await button(page, "+ ซื้อเข้าคลัง");
       await openDialog(page).getByLabel(`ซื้อ ${BOX}`).check();
       await field(page, `จำนวนซื้อ ${BOX}`, "200");
       await field(page, `ราคาซื้อ ${BOX}`, "1");
       await field(page, `ผู้จำหน่าย ${BOX}`, "ร้านวัสดุ E2E");
       await button(page, "บันทึกการซื้อ 1 รายการ");
       await expect(page.getByRole("dialog")).toHaveCount(0);
-      await button(page, "ส่งวัสดุไปสาขา");
+      await button(page, "ส่งของไปสาขา");
       await openDialog(page).getByLabel(`ส่ง ${BOX} ไปศาลาแดง`).check();
       await field(page, `จำนวน ${BOX} ไปศาลาแดง`, "100");
       await field(page, "ผู้รับของสาขาศาลาแดง", "ผู้ดูแลศาลาแดง");
@@ -433,7 +434,8 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     page,
     "Owner: ซื้อน้ำพริก 100 หลอด และจัดสรร ศาลาแดง 50 / มีนบุรี 20",
     async () => {
-      await button(page, "+ บันทึกการซื้ออื่น ๆ");
+      await button(page, "+ ซื้อเข้าคลัง");
+      await chooseForm(page, "ซื้ออื่น ๆ");
       await page
         .getByLabel("เลือกวัตถุดิบ 1")
         .selectOption({ label: "น้ำพริกหลอด" });
@@ -447,7 +449,8 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
         ["ศาลาแดง", "50"],
         ["มีนบุรี", "20"],
       ]) {
-        await button(page, "จัดสรรน้ำพริกไปสาขา");
+        await button(page, "ส่งของไปสาขา");
+        await chooseForm(page, "น้ำพริกหลอด");
         await page.getByLabel(/สาขาปลายทาง/).selectOption({ label: branch });
         await field(page, /จำนวนน้ำพริกที่จัดสรร/, tubes);
         await field(page, /ผู้รับ \/ ผู้ดูแลสาขา/, `ผู้ดูแล${branch}`);
@@ -503,7 +506,7 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
       );
       await expect(dialog.getByLabel("มีนบุรี (กก.)")).toHaveValue("200");
       await expect(dialog).toContainText(
-        /คงเหลือในคลังกลางหลังจัดสรร\s*0\.00 กก\./,
+        /คงเหลือที่ Foodiva หลังจัดสรร\s*0\.00 กก\./,
       );
       const date = dialog.getByLabel("วันที่ทำรายการ");
       await date.fill(DAY1);
@@ -1227,8 +1230,9 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
     async () => {
       await button(page, "สต๊อกของทั้งหมด");
       const all = tableSection(page, "ตารางสต๊อกทั้งหมด (All inventory)");
-      /** The table pages at 20 rows and the purchase PO adds its own, so narrow it
-       * to the location first. The sort select's name lists "สถานที่" too. */
+      /** One column per location: picking the location leaves only its column, at
+       * index 3. The table pages at 20 rows, so narrowing also drops rows it does not
+       * hold. The sort select's name lists "สถานที่" too. */
       const cellOf = async (
         item: string | RegExp,
         location: string,
@@ -1240,16 +1244,16 @@ test("Lane E: จัดสรรเป็นกิโล → สาขารั�
         return all
           .getByRole("row")
           .filter({ hasText: item })
-          .filter({ hasText: location })
           .getByRole("cell")
           .nth(index);
       };
       const smoked = /S\d{6}-\d{3} · เนื้อรมควัน/;
-      await expect(await cellOf(smoked, "คลังกลาง")).toHaveText("0.00");
+      await expect(await cellOf(smoked, "Foodiva")).toHaveText("0.00");
       await expect(await cellOf(smoked, "ศาลาแดง")).toHaveText("229.80");
-      await expect(await cellOf(smoked, "ศาลาแดง", 5)).toContainText(
-        "แช่แข็ง 229.80",
-      );
+      // The frozen/ready split sits in the quantity cell's tooltip.
+      await expect(
+        (await cellOf(smoked, "ศาลาแดง")).locator("[title]"),
+      ).toHaveAttribute("title", /แช่แข็ง 229\.80/);
       await expect(await cellOf(smoked, "มีนบุรี")).toHaveText("197.50");
       await expect(
         await cellOf("ข้าวเหนียวดิบ (ข้าวสาร)", "ศาลาแดง"),

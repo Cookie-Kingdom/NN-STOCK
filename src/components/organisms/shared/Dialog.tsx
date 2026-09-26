@@ -59,6 +59,9 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "title" | "open"> &
     dismissOnBackdrop?: boolean;
     /** Rendered after children, e.g. a DialogFooter for dialogs without a <form>. */
     footer?: ReactNode;
+    /** A strip under the header that stays put while the body scrolls, e.g. a
+     *  SegmentedChoice that swaps which form the dialog shows. */
+    toolbar?: ReactNode;
   };
 
 /**
@@ -75,6 +78,7 @@ export function Dialog({
   closeLabel = "ปิดฟอร์ม",
   dismissOnBackdrop = false,
   footer,
+  toolbar,
   size,
   className,
   children,
@@ -133,6 +137,11 @@ export function Dialog({
           onClick={onClose}
         />
       </header>
+      {toolbar && (
+        <div className="border-b border-border px-6.5 py-3 max-md:px-4.5">
+          {toolbar}
+        </div>
+      )}
       {children}
       {footer}
     </dialog>

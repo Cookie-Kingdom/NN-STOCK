@@ -57,10 +57,30 @@ export const BranchSale: Story = {
   render: () => <Modals account="saladaeng" kind="sale" />,
 };
 
-/** `materialTransfer` is in `CUSTOM_DIALOGS` — its own form, no lot involved. */
+/** "ส่งของไปสาขา" opens `materialTransfer` (in `CUSTOM_DIALOGS`, no lot involved);
+ *  the chooser under the header swaps it for the chili-tube allocation. */
 export const MaterialTransfer: Story = {
   parameters: { db: demoDb },
   render: () => <Modals account="owner" kind="materialTransfer" />,
+};
+
+/** "ส่งของไปสาขา" with "น้ำพริกหลอด" picked: `chiliAllocate` in `EntryForm`, as
+ *  wide as the materials form it swaps with. */
+export const ChiliAllocate: Story = {
+  parameters: { db: demoDb },
+  render: () => <Modals account="owner" kind="chiliAllocate" lotId="" />,
+};
+
+/** "+ ซื้อเข้าคลัง" opens `materialReceive`; the chooser swaps in the other purchase. */
+export const MaterialReceive: Story = {
+  parameters: { db: demoDb },
+  render: () => <Modals account="owner" kind="materialReceive" lotId="" />,
+};
+
+/** "+ ซื้อเข้าคลัง" with "ซื้ออื่น ๆ" picked: `generalPurchase` (chili tubes, pickles…). */
+export const GeneralPurchase: Story = {
+  parameters: { db: demoDb },
+  render: () => <Modals account="owner" kind="generalPurchase" lotId="" />,
 };
 
 /** `allocate` routes to `AllocationForm`; `centralDb` has central kg ready to split. */

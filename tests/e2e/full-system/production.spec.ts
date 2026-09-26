@@ -507,15 +507,14 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
         page,
         "ตารางสต๊อกทั้งหมด (All inventory)",
         "เนื้อรมควัน",
-      ).filter({
-        hasText: "คลังกลาง",
-      });
+      );
+      // Column 3 is Foodiva, where smoked beef waits for allocation; 7 is รายละเอียด.
       await expect(stock.getByRole("cell").nth(3)).toHaveText("474.00");
       // Allocate by kg: central stock is a weight, no กล่องรมควัน count.
-      await expect(stock.getByRole("cell").nth(5)).toContainText(
+      await expect(stock.getByRole("cell").nth(7)).toContainText(
         "474.00 กก. พร้อมจัดสรร",
       );
-      await expect(stock.getByRole("cell").nth(5)).not.toContainText(
+      await expect(stock.getByRole("cell").nth(7)).not.toContainText(
         "กล่องรมควัน",
       );
     },
@@ -523,7 +522,7 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
 
   await step(
     page,
-    "Owner: D9 จัดสรรเป็นกิโล — สต๊อกกลาง 474 กก. ไม่มีรายกล่องรมควัน · ศาลาแดง 300 + มีนบุรี ที่เหลือทั้งหมด 174 → คลังกลาง 0",
+    "Owner: D9 จัดสรรเป็นกิโล — สต๊อกกลาง 474 กก. ไม่มีรายกล่องรมควัน · ศาลาแดง 300 + มีนบุรี ที่เหลือทั้งหมด 174 → Foodiva รอจัดสรร 0",
     async () => {
       await tab(page, "จัดสรรเนื้อ และสต๊อกไปสาขา");
       const lot = rowIn(
@@ -564,7 +563,7 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       await tab(page, "Log เนื้อคงเหลือ");
       const central = page
         .getByRole("row")
-        .filter({ hasText: "คลังกลาง Owner" })
+        .filter({ hasText: "Foodiva · เนื้อรมควันรอจัดสรร" })
         .filter({ hasText: "พร้อมจัดสรร" });
       await expect(central).toContainText("0.00 กก. พร้อมจัดสรร");
       await expect(central).not.toContainText("กล่องรมควัน");

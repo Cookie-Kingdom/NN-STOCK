@@ -87,7 +87,7 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   );
 
   await button(page, "สต๊อกของทั้งหมด");
-  await button(page, "+ ซื้อวัสดุเข้าคลัง");
+  await button(page, "+ ซื้อเข้าคลัง");
   const purchase = openDialog(page);
 
   // Negative: a missing supplier is refused with an inline message (forms are noValidate), the dialog stays open.
@@ -118,7 +118,7 @@ test("BUG-2 / BUG-9: material purchase is saved, reaches the branch and unlocks 
   ).toContainText("500");
 
   // BUG-2 chain: with stock in the warehouse the transfer to a branch goes through.
-  await button(page, "ส่งวัสดุไปสาขา");
+  await button(page, "ส่งของไปสาขา");
   const transfer = openDialog(page);
   await transfer.getByLabel(`ส่ง ${MATERIALS[0]} ไปศาลาแดง`).check();
   await field(page, `จำนวน ${MATERIALS[0]} ไปศาลาแดง`, "100");

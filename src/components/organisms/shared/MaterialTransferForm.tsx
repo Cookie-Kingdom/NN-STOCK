@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
@@ -92,12 +92,15 @@ export function MaterialTransferForm({
   onDate,
   onClose,
   onSaved,
+  switcher,
 }: {
   db: Database;
   date: string;
   onDate: (date: string) => void;
   onClose: () => void;
   onSaved: (db: Database) => void;
+  /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
+  switcher?: ReactNode;
 }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Values>({});
@@ -183,6 +186,7 @@ export function MaterialTransferForm({
       title="ส่งวัสดุไปสาขา"
       size="wide"
       onClose={onClose}
+      toolbar={switcher}
     >
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>

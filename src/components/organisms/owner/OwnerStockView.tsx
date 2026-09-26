@@ -36,36 +36,27 @@ import {
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
-const genreOptions = [
-  "ทั้งหมด",
-  "เนื้อ",
-  "วัตถุดิบ",
-  "วัสดุบรรจุภัณฑ์",
-  "สินทรัพย์",
-  "ค่าใช้จ่ายอื่น",
-];
-const locationOptions = [
-  "ทั้งหมด",
-  "Foodiva",
-  "Owner",
-  "คลังกลาง",
-  "คลัง Owner",
-  "บัญชี Owner",
-  ...branches,
-];
+// Assets and other expenses are not stock: they live in the purchase history below.
+const genreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์"];
+// One column per place stock sits. Smoked beef waiting for allocation is kept at
+// Foodiva; everything the Owner holds (materials, chili tubes, received waste) is one
+// place, "คลัง Owner".
+const stockLocations = ["Foodiva", "คลัง Owner", ...branches];
 const meatTypeOptions = [
   "เนื้อดิบพร้อมส่ง Chef House",
   "เนื้อรมควัน",
-  "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+  "เนื้อส่วนที่เหลือ (Waste)",
 ];
-const inventoryColumns = [
-  "กลุ่ม",
-  "รายการ / Lot",
-  "สถานที่",
-  "คงเหลือ",
-  "หน่วย",
-  "รายละเอียด",
-  "การทำงาน",
+// Fixed widths: filtering must not make the columns jump around.
+const leadColumns = [
+  ["กลุ่ม", "9.5rem"],
+  ["รายการ / Lot", "16rem"],
+  ["หน่วย", "5rem"],
+];
+const locationWidth = "7rem";
+const tailColumns = [
+  ["รายละเอียด", "18rem"],
+  ["การทำงาน", "10rem"],
 ];
 const purchaseColumns = [
   "วันที่ซื้อ",
@@ -77,6 +68,19 @@ const purchaseColumns = [
   "ผู้จำหน่าย",
   "เลขอ้างอิง / ใบเสร็จ",
 ];
+
+/** One row per item; `at` holds its quantity per location, and a location with no key
+ *  has no stock of this kind at all ("—"). `tips` is the cell's tooltip. */
+type StockRow = {
+  genre: string;
+  item: string;
+  unit: string;
+  at: Partial<Record<string, number>>;
+  tips?: Partial<Record<string, string>>;
+  detail: string;
+  meatType?: string;
+  action?: ReactNode;
+};
 
 function purchaseGroup(value?: string) {
   return value === "วัตถุดิบ / สินค้า"
@@ -98,25 +102,12 @@ export function OwnerStockView({
   const [genre, setGenre] = useState("ทั้งหมด");
   const [location, setLocation] = useState("ทั้งหมด");
   const [itemFilter, setItemFilter] = useState("ทั้งหมด");
-  const generalPurchases = entries(db, "generalPurchase");
-  const accountingItems = Array.from(
-    new Set([
-      "น้ำพริกหลอด",
-      "น้ำดอง",
-      ...generalPurchases.map((entry) => entry.values.item).filter(Boolean),
-    ]),
+  const chiliPurchases = entries(db, "generalPurchase").filter(
+    (entry) => entry.values.item === "น้ำพริกหลอด",
   );
-  const rows: {
-    genre: string;
-    item: string;
-    location: string;
-    quantity: string;
-    unit: string;
-    detail: string;
-    meatType?: string;
-    action?: ReactNode;
-  }[] = [
-    ...lots.flatMap((lot) => {
+  const lastChiliPurchase = chiliPurchases.at(-1);
+  const rows: StockRow[] = [
+    ...lots.flatMap((lot): StockRow[] => {
       const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
       // Raw beef sits on the purchase PO until a shipment trucks it; smoked beef on the shipment.
@@ -132,9 +123,8 @@ export function OwnerStockView({
           {
             genre: "เนื้อ",
             item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
-            location: "Foodiva",
-            quantity: fmt(invoiceConfirmed ? readyAtFoodiva : 0),
             unit: "กก.",
+            at: { Foodiva: invoiceConfirmed ? readyAtFoodiva : 0 },
             detail: invoiceConfirmed
               ? "จาก Invoice Foodiva · รอส่งไป Chef House"
               : "รอ Foodiva ยืนยัน Invoice",
@@ -144,12 +134,15 @@ export function OwnerStockView({
             ? [
                 {
                   genre: "เนื้อ",
-                  item: `${lot.id} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
-                  location: "Foodiva",
-                  quantity: fmt(ownerWaiting),
+                  item: `${lot.id} · เนื้อส่วนที่เหลือ (Waste)`,
                   unit: "กก.",
+                  at: { Foodiva: ownerWaiting, "คลัง Owner": ownerReceived },
+                  tips: {
+                    Foodiva: "รอ Owner รับ",
+                    "คลัง Owner": "Owner รับแล้ว สำหรับใช้งาน Owner",
+                  },
                   detail: `จาก Invoice ${fmt(ownerReserved)} กก. · Owner รับแล้ว ${fmt(ownerReceived)} กก.`,
-                  meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
+                  meatType: "เนื้อส่วนที่เหลือ (Waste)",
                   action:
                     ownerWaiting > 0.001 ? (
                       <Button
@@ -162,145 +155,154 @@ export function OwnerStockView({
                       <Badge tone="success">Owner รับครบแล้ว</Badge>
                     ),
                 },
-                ...(ownerReceived > 0.001
-                  ? [
-                      {
-                        genre: "เนื้อ",
-                        item: `${lot.id} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`,
-                        location: "Owner",
-                        quantity: fmt(ownerReceived),
-                        unit: "กก.",
-                        detail: "รับจาก Foodiva แล้ว · สำหรับใช้งาน Owner",
-                        meatType: "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)",
-                      },
-                    ]
-                  : []),
               ]
             : []),
         ];
+      const branchStock = branches.map((branchName) => ({
+        branchName,
+        stock: balance(db, lot.id, branchName),
+      }));
       return [
         {
           genre: "เนื้อ",
           item: `${lot.id} · เนื้อรมควัน`,
-          location: "คลังกลาง",
-          quantity: fmt(central),
           unit: "กก.",
-          detail: `จากรับเข้าสต๊อกกลาง · ${fmt(central)} กก. พร้อมจัดสรร`,
+          at: {
+            Foodiva: central,
+            ...Object.fromEntries(
+              branchStock.map(({ branchName, stock }) => [
+                branchName,
+                stock.frozen + stock.ready,
+              ]),
+            ),
+          },
+          tips: {
+            Foodiva: "รับเข้าสต๊อกกลางแล้ว รอจัดสรร",
+            ...Object.fromEntries(
+              branchStock.map(({ branchName, stock }) => [
+                branchName,
+                `แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
+              ]),
+            ),
+          },
+          detail: `${fmt(central)} กก. พร้อมจัดสรร · สาขา = แช่แข็ง + ชิล/ละลายแล้ว`,
           meatType: "เนื้อรมควัน",
         },
-        ...branches.map((branchName) => {
-          const stock = balance(db, lot.id, branchName);
-          return {
-            genre: "เนื้อ",
-            item: `${lot.id} · เนื้อรมควัน`,
-            location: branchName,
-            quantity: fmt(stock.frozen + stock.ready),
-            unit: "กก.",
-            detail: `จากจัดสรร Owner · แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
-            meatType: "เนื้อรมควัน",
-          };
-        }),
       ];
     }),
-    ...branches.flatMap((branchName) => [
-      {
-        genre: "วัตถุดิบ",
-        item: "ข้าวเหนียวดิบ (ข้าวสาร)",
-        location: branchName,
-        quantity: fmt(rawRiceStock(db, branchName)),
-        unit: "กก.",
-        detail: `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branchName))} กก.`,
-      },
-      {
-        genre: "วัตถุดิบ",
-        item: "ข้าวเหนียวสุก",
-        location: branchName,
-        quantity: fmt(cookedRiceStock(db, branchName)),
-        unit: "กก.",
-        detail:
-          branchName === "มีนบุรี"
-            ? "เหลือสำหรับอุ่นขายวันถัดไป"
-            : "ข้าวสุกคงเหลือ",
-      },
-      {
-        genre: "วัตถุดิบ",
-        item: "น้ำพริกหลอด",
-        location: branchName,
-        quantity: fmt(chiliStock(db, branchName)),
-        unit: "หลอด",
-        detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
-      },
-    ]),
-    ...accountingItems.map((item) => {
-      const history = generalPurchases.filter(
-        (entry) => entry.values.item === item,
-      );
-      const latest = history.at(-1);
-      const category = purchaseGroup(latest?.values.purchaseCategory);
-      const defaultUnit =
-        item === "น้ำดอง" ? "มล." : item === "น้ำพริกหลอด" ? "หลอด" : "รายการ";
-      const isChili = item === "น้ำพริกหลอด";
-      return {
-        genre:
-          category === "สินทรัพย์"
-            ? "สินทรัพย์"
-            : category === "ค่าใช้จ่ายอื่น"
-              ? "ค่าใช้จ่ายอื่น"
-              : "วัตถุดิบ",
-        item,
-        location: isChili ? "คลัง Owner" : "บัญชี Owner",
-        quantity: fmt(
-          isChili
-            ? ownerChiliStock(db)
-            : history.reduce(
-                (sum, entry) => sum + n(entry.values, "quantity"),
-                0,
-              ),
+    {
+      genre: "วัตถุดิบ",
+      item: "ข้าวเหนียวดิบ (ข้าวสาร)",
+      unit: "กก.",
+      at: Object.fromEntries(
+        branches.map((branchName) => [
+          branchName,
+          rawRiceStock(db, branchName),
+        ]),
+      ),
+      tips: Object.fromEntries(
+        branches.map((branchName) => [
+          branchName,
+          `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branchName))} กก.`,
+        ]),
+      ),
+      detail: "ข้าวสารคงเหลือที่สาขา",
+    },
+    {
+      genre: "วัตถุดิบ",
+      item: "ข้าวเหนียวสุก",
+      unit: "กก.",
+      at: Object.fromEntries(
+        branches.map((branchName) => [
+          branchName,
+          cookedRiceStock(db, branchName),
+        ]),
+      ),
+      detail: "ข้าวสุกคงเหลือ · มีนบุรีเก็บไว้อุ่นขายวันถัดไป",
+    },
+    {
+      genre: "วัตถุดิบ",
+      item: "น้ำพริกหลอด",
+      unit: lastChiliPurchase?.values.unit || "หลอด",
+      at: {
+        "คลัง Owner": ownerChiliStock(db),
+        ...Object.fromEntries(
+          branches.map((branchName) => [
+            branchName,
+            chiliStock(db, branchName),
+          ]),
         ),
-        unit: latest?.values.unit || defaultUnit,
-        detail: latest
-          ? isChili
-            ? `ซื้อเข้า ${fmt(history.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0))} หลอด · จัดสรรไปสาขา ${fmt(entries(db, "chiliAllocate").reduce((sum, entry) => sum + n(entry.values, "chiliTubes"), 0))} หลอด`
-            : `ซื้อสะสม ${history.length} รายการ · ล่าสุด ${latest.values.purchaseDate || latest.date}`
-          : isChili && ownerChiliStock(db) > 0
-            ? "ยอดคงเหลือเดิมจากข้อมูลทดลอง · การซื้อครั้งถัดไปให้บันทึกผ่านการซื้ออื่น ๆ"
-            : "ยังไม่มีประวัติการซื้อ",
-      };
-    }),
-    ...materials.flatMap((material, index) => {
+      },
+      tips: Object.fromEntries(
+        branches.map((branchName) => [
+          branchName,
+          `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
+        ]),
+      ),
+      detail: lastChiliPurchase
+        ? `ซื้อเข้า ${fmt(chiliPurchases.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0))} หลอด · จัดสรรไปสาขา ${fmt(entries(db, "chiliAllocate").reduce((sum, entry) => sum + n(entry.values, "chiliTubes"), 0))} หลอด`
+        : ownerChiliStock(db) > 0
+          ? "ยอดคงเหลือเดิมจากข้อมูลทดลอง · การซื้อครั้งถัดไปให้บันทึกผ่านการซื้ออื่น ๆ"
+          : "ยังไม่มีประวัติการซื้อ",
+    },
+    ...materials.map((material, index) => {
       const lastPurchase = entries(db, "materialReceive")
         .filter((entry) => entry.values.material === material)
         .at(-1);
-      return [
-        {
-          genre: "วัสดุบรรจุภัณฑ์",
-          item: material,
-          location: "คลัง Owner",
-          quantity: fmt(ownerMaterialStock(db, material)),
-          unit: "ชิ้น",
-          detail: lastPurchase
-            ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
-            : "ยังไม่มีประวัติการซื้อ",
+      return {
+        genre: "วัสดุบรรจุภัณฑ์",
+        item: material,
+        unit: "ชิ้น",
+        at: {
+          "คลัง Owner": ownerMaterialStock(db, material),
+          ...Object.fromEntries(
+            branches.map((branchName) => [
+              branchName,
+              branchMaterialStock(db, branchName, index),
+            ]),
+          ),
         },
-        ...branches.map((branchName) => ({
-          genre: "วัสดุบรรจุภัณฑ์",
-          item: material,
-          location: branchName,
-          quantity: fmt(branchMaterialStock(db, branchName, index)),
-          unit: "ชิ้น",
-          detail: `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
-        })),
-      ];
+        tips: Object.fromEntries(
+          branches.map((branchName) => [
+            branchName,
+            `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
+          ]),
+        ),
+        detail: lastPurchase
+          ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
+          : "ยังไม่มีประวัติการซื้อ",
+      };
     }),
   ];
-  const visibleRows = rows.filter(
+  const filteredRows = rows.filter(
     (row) =>
       (genre === "ทั้งหมด" || row.genre === genre) &&
-      (location === "ทั้งหมด" || row.location === location) &&
       (itemFilter === "ทั้งหมด" ||
         row.meatType === itemFilter ||
         row.item === itemFilter),
   );
+  // Only places that hold something the other filters kept; a place that drops out
+  // of the list sends the filter back to ทั้งหมด.
+  const locationOptions = [
+    "ทั้งหมด",
+    ...stockLocations.filter((place) =>
+      filteredRows.some((row) => row.at[place] !== undefined),
+    ),
+  ];
+  const activeLocation = locationOptions.includes(location)
+    ? location
+    : "ทั้งหมด";
+  if (activeLocation !== location) setLocation(activeLocation);
+  const shownLocations =
+    activeLocation === "ทั้งหมด" ? stockLocations : [activeLocation];
+  const visibleRows = filteredRows.filter((row) =>
+    shownLocations.some((place) => row.at[place] !== undefined),
+  );
+  const inventoryColumns = [
+    ...leadColumns,
+    ...shownLocations.map((place) => [place, locationWidth]),
+    ...tailColumns,
+  ];
   // Oldest first, the order DataTable's sort expects; the table flips it.
   const purchases = [
     ...entries(db, "materialReceive").map((entry) => ({
@@ -333,10 +335,7 @@ export function OwnerStockView({
       (genre === "ทั้งหมด" ||
         (genre === "วัสดุบรรจุภัณฑ์" &&
           purchase.category === "วัสดุบรรจุภัณฑ์") ||
-        (genre === "วัตถุดิบ" && purchase.category === "วัตถุดิบ") ||
-        (genre === "สินทรัพย์" && purchase.category === "สินทรัพย์") ||
-        (genre === "ค่าใช้จ่ายอื่น" &&
-          purchase.category === "ค่าใช้จ่ายอื่น")) &&
+        (genre === "วัตถุดิบ" && purchase.category === "วัตถุดิบ")) &&
       (itemFilter === "ทั้งหมด" || purchase.item === itemFilter),
   );
   const itemOptions =
@@ -397,7 +396,7 @@ export function OwnerStockView({
             <TableFilter label="สถานที่">
               <Select
                 variant="filter"
-                value={location}
+                value={activeLocation}
                 onChange={(event) => setLocation(event.target.value)}
               >
                 {locationOptions.map((option) => (
@@ -407,13 +406,23 @@ export function OwnerStockView({
             </TableFilter>
           </FilterBar>
         }
-        columns={inventoryColumns}
+        columns={inventoryColumns.map(([column]) => column)}
+        columnWidths={inventoryColumns.map(([, width]) => width)}
+        defaultSort={{ column: "กลุ่ม" }}
         rows={visibleRows.map((row) => [
           row.genre,
           row.item,
-          row.location,
-          row.quantity,
           row.unit,
+          ...shownLocations.map((place) => {
+            const quantity = row.at[place];
+            if (quantity === undefined) return "—";
+            const tip = row.tips?.[place];
+            return tip ? (
+              <span title={tip}>{fmt(quantity)}</span>
+            ) : (
+              fmt(quantity)
+            );
+          }),
           row.detail,
           row.action || "—",
         ])}

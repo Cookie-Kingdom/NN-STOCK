@@ -705,7 +705,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       const row = rowIn(
         page,
         "ตารางสต๊อกทั้งหมด (All inventory)",
-        `${LOT} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
+        `${LOT} · เนื้อส่วนที่เหลือ (Waste)`,
       );
       await expect(row).toContainText(
         "จาก Invoice 10.00 กก. · Owner รับแล้ว 0.00 กก.",
@@ -734,21 +734,15 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       await field(page, /น้ำหนักรับจริง/, "10");
       await saveEntry(page);
       const table = "ตารางสต๊อกทั้งหมด (All inventory)";
-      const waiting = rowIn(
-        page,
-        table,
-        `${LOT} · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)`,
-      );
+      const waiting = rowIn(page, table, `${LOT} · เนื้อส่วนที่เหลือ (Waste)`);
       await expect(waiting).toContainText("Owner รับแล้ว 10.00 กก.");
       await expect(waiting).toContainText("Owner รับครบแล้ว");
       await expect(
         waiting.getByRole("button", { name: "บันทึกรับเนื้อ" }),
       ).toHaveCount(0);
-      await expect(
-        rowIn(page, table, `${LOT} · เนื้อส่วนที่ Owner รับแล้ว (Waste)`)
-          .getByRole("cell")
-          .nth(3),
-      ).toHaveText("10.00");
+      // One Waste row: Foodiva (index 3) waits for the Owner, คลัง Owner (4) holds it.
+      await expect(waiting.getByRole("cell").nth(3)).toHaveText("0.00");
+      await expect(waiting.getByRole("cell").nth(4)).toHaveText("10.00");
       await expect(
         rowIn(page, table, `${LOT} · เนื้อดิบพร้อมส่ง Chef House`)
           .getByRole("cell")
@@ -773,9 +767,9 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       await expect(
         balance("Foodiva · เนื้อส่วนที่เหลือรอ Owner รับ (Waste)"),
       ).toHaveText("0.00 กก.");
-      await expect(balance("Owner · เนื้อส่วนที่รับแล้ว (Waste)")).toHaveText(
-        "10.00 กก.",
-      );
+      await expect(
+        balance("คลัง Owner · เนื้อส่วนที่รับแล้ว (Waste)"),
+      ).toHaveText("10.00 กก.");
       const history = "ประวัติการเคลื่อนไหวเนื้อ";
       await expect(
         rowIn(page, history, "ยืนยัน Invoice และแบ่งเนื้อ"),

@@ -153,7 +153,7 @@ test("Owner: ซื้อวัสดุเข้าคลังย้อนห�
   await startFresh(page);
   await signInAs(page, ACCOUNTS.owner);
   await tab(page, "สต๊อกของทั้งหมด");
-  await button(page, "+ ซื้อวัสดุเข้าคลัง");
+  await button(page, "+ ซื้อเข้าคลัง");
   await expect(formDate(page)).toHaveValue(TODAY);
   await expect(dialog(page).getByText(BACKDATED)).toHaveCount(0);
 
@@ -238,7 +238,7 @@ test("Owner: วันที่หลังวันนี้ ขึ้นคำ
   await signInAs(page, ACCOUNTS.owner);
 
   await tab(page, "สต๊อกของทั้งหมด");
-  await button(page, "+ ซื้อวัสดุเข้าคลัง");
+  await button(page, "+ ซื้อเข้าคลัง");
   await expect(formDate(page)).toHaveAttribute("max", TODAY);
   await dialog(page).getByLabel(`ซื้อ ${BOX}`).check();
   await field(page, `จำนวนซื้อ ${BOX}`, "10");

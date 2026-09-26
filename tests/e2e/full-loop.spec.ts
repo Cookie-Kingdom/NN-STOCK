@@ -6,6 +6,7 @@ import {
   ACCOUNTS,
   BRANCH_ACCOUNTS,
   button,
+  chooseForm,
   chefAcceptsSmokePo,
   chefClosesLot,
   chefReceivesMeat,
@@ -69,7 +70,8 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
 
   // Owner purchases chili centrally, then allocates opening stock to both branches.
   await button(page, "สต๊อกของทั้งหมด");
-  await button(page, "+ บันทึกการซื้ออื่น ๆ");
+  await button(page, "+ ซื้อเข้าคลัง");
+  await chooseForm(page, "ซื้ออื่น ๆ");
   await page
     .getByLabel("เลือกวัตถุดิบ 1")
     .selectOption({ label: "น้ำพริกหลอด" });
@@ -80,7 +82,8 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await button(page, "บันทึก 1 รายการ");
 
   for (const branch of ["ศาลาแดง", "มีนบุรี"]) {
-    await button(page, "จัดสรรน้ำพริกไปสาขา");
+    await button(page, "ส่งของไปสาขา");
+    await chooseForm(page, "น้ำพริกหลอด");
     await page.getByLabel(/สาขาปลายทาง/).selectOption({ label: branch });
     await field(page, /จำนวนน้ำพริกที่จัดสรร/, "10");
     await field(page, /ผู้รับ \/ ผู้ดูแลสาขา/, `ผู้ดูแล${branch}`);
@@ -222,7 +225,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   );
   await expect(allocationDialog.getByLabel("มีนบุรี (กก.)")).toHaveValue("29");
   await expect(allocationDialog).toContainText(
-    /คงเหลือในคลังกลางหลังจัดสรร\s*0\.00 กก\./,
+    /คงเหลือที่ Foodiva หลังจัดสรร\s*0\.00 กก\./,
   );
   await button(page, "บันทึกการจัดสรร");
   await expect(page.getByRole("dialog")).toHaveCount(0);

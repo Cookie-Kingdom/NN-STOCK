@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Checkbox } from "@/components/atoms/Checkbox";
@@ -358,6 +358,7 @@ export function EntryForm({
   onSaved,
   onOpen,
   branch,
+  switcher,
 }: {
   db: Database;
   role: Role;
@@ -371,6 +372,8 @@ export function EntryForm({
   onSaved: (db: Database) => void;
   /** Opens another workspace form in place of this one (the close-day checklist). */
   onOpen?: (kind: EntryKind) => void;
+  /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
+  switcher?: ReactNode;
 }) {
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
@@ -466,7 +469,7 @@ export function EntryForm({
    *  is still to come; a lot not yet received would read "0.00 แช่แข็ง" as nothing came. */
   const lotSummary = (id: string) => {
     if (kind === "allocate")
-      return `${fmt(centralStock(db, id))} กก. ในคลังกลาง`;
+      return `${fmt(centralStock(db, id))} กก. รอจัดสรรที่ Foodiva`;
     if (kind === "receive") {
       const sent = entries(db, "allocate", id, branch);
       const kg = (list: typeof sent) =>
@@ -637,12 +640,20 @@ export function EntryForm({
     <Dialog
       overline={`${date} · ${roleName[role]}`}
       title={title}
-      // The sale holds its own long form plus repeated influencer blocks; every
-      // other form keeps its width.
+      // The sale holds its own long form plus repeated influencer blocks; a form
+      // with a switcher keeps the width of the MaterialTransferForm it swaps with;
+      // every other form keeps its width.
       size={
-        isPurchaseOrder ? "preview" : kind === "sale" ? "formWide" : "default"
+        isPurchaseOrder
+          ? "preview"
+          : kind === "sale"
+            ? "formWide"
+            : switcher
+              ? "wide"
+              : "default"
       }
       onClose={onClose}
+      toolbar={switcher}
     >
       {/* noValidate: a native `required` bubble is not in the DOM and Escape on it
           also closes the dialog. Let mutate() refuse and say why in FormError. */}

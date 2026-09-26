@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
@@ -107,12 +107,15 @@ export function MaterialPurchaseForm({
   onDate,
   onClose,
   onSaved,
+  switcher,
 }: {
   db: Database;
   date: string;
   onDate: (date: string) => void;
   onClose: () => void;
   onSaved: (db: Database) => void;
+  /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
+  switcher?: ReactNode;
 }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Values>({});
@@ -227,6 +230,7 @@ export function MaterialPurchaseForm({
       title="ซื้อวัสดุเข้าคลัง"
       size="xl"
       onClose={onClose}
+      toolbar={switcher}
     >
       {/* noValidate: the checks in submit() were unreachable behind the native
           `required` bubble, which is not in the DOM and closes with the dialog
@@ -236,7 +240,7 @@ export function MaterialPurchaseForm({
           <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             ติ๊กวัสดุที่ซื้อ แล้วกรอกวันที่ซื้อ ผู้จำหน่าย
-            และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้า Owner Stock
+            และเลขอ้างอิงของรายการนั้นเอง ระบบจะเพิ่มจำนวนเข้าคลัง Owner
           </Notice>
           <div className="mt-5.5 grid gap-3">
             {purchaseLines.map((line) => {

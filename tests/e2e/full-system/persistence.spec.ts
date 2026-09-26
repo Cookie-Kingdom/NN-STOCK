@@ -684,7 +684,7 @@ test("G5 A เปิดจัดสรรค้าง (ศาลาแดง 30 
         await expect(dialog(page)).toContainText("50.00 กก.");
         await field(page, "ศาลาแดง (กก.)", "30");
         await expect(dialog(page)).toContainText(
-          /คงเหลือในคลังกลางหลังจัดสรร\s*20\.00 กก\./,
+          /คงเหลือที่ Foodiva หลังจัดสรร\s*20\.00 กก\./,
         );
       },
     );
@@ -731,7 +731,7 @@ test("G5 A เปิดจัดสรรค้าง (ศาลาแดง 30 
           "30",
         );
         await expect(dialog(page)).toContainText(
-          /คงเหลือในคลังกลางหลังจัดสรร\s*-20\.00 กก\./,
+          /คงเหลือที่ Foodiva หลังจัดสรร\s*-20\.00 กก\./,
         );
       },
     );

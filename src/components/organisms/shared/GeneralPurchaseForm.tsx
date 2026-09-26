@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
@@ -161,11 +161,14 @@ export function GeneralPurchaseForm({
   onDate,
   onClose,
   onSaved,
+  switcher,
 }: {
   date: string;
   onDate: (date: string) => void;
   onClose: () => void;
   onSaved: () => void;
+  /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
+  switcher?: ReactNode;
 }) {
   // ponytail: read once on open; the saved list only changes when this form saves and closes.
   const [savedIngredients] = useState(readSavedIngredients);
@@ -284,6 +287,7 @@ export function GeneralPurchaseForm({
       title="บันทึกการซื้ออื่น ๆ"
       size="xl"
       onClose={onClose}
+      toolbar={switcher}
     >
       <DialogForm onSubmit={submit}>
         <DialogBody>

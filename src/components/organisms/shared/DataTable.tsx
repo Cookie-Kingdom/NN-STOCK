@@ -12,6 +12,7 @@ import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { Pagination } from "@/components/molecules/Pagination";
 import { TableSection } from "@/components/organisms/shared/TableSection";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -84,6 +85,7 @@ export function DataTable({
   rowKeys,
   emptyText = "ยังไม่มีข้อมูล",
   defaultSort,
+  columnWidths,
   className,
 }: {
   title: string;
@@ -96,6 +98,9 @@ export function DataTable({
   emptyText?: ReactNode;
   /** Column the table sorts by on first render, e.g. the date column newest first. */
   defaultSort?: { column: string; desc?: boolean };
+  /** CSS widths, one per column (e.g. "8rem"). Fixes the layout so filtering the rows
+   *  never reflows the columns; cells wrap inside their width instead. */
+  columnWidths?: readonly string[];
   /** Extra classes for the `<section>`, e.g. `m-0` inside a grid. */
   className?: string;
 }) {
@@ -116,9 +121,15 @@ export function DataTable({
   const sort = chosen ?? auto;
   const setSort = (next: (current: typeof sort) => typeof sort) =>
     setChosen(next(sort));
+  // A table filtered down to nothing (its filters sit in `action`) still offers every
+  // column, so the toolbar keeps its place while the filter is changed back.
   const sortable = columns
     .map((_, index) => index)
-    .filter((index) => rows.some((row) => cellText(row[index])));
+    .filter((index) =>
+      rows.length
+        ? rows.some((row) => cellText(row[index]))
+        : action !== undefined,
+    );
   const order = rows.map((_, index) => index);
   if (sortable.includes(sort.column))
     // Rows arrive oldest first, so equal keys (a date column with no time in it)
@@ -130,7 +141,9 @@ export function DataTable({
           cellText(rows[b][sort.column]),
         ) || a - b) * (sort.desc ? -1 : 1),
     );
-  const showSort = rows.length > 1 && sortable.length > 0;
+  // Shown even for a single row: hiding it as rows come and go shifts the toolbar.
+  const showSort = sortable.length > 0;
+  const fixed = !!columnWidths?.length;
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const start = currentPage * PAGE_SIZE;
@@ -190,13 +203,35 @@ export function DataTable({
         {/* No 650px floor on phones: headers are `whitespace-nowrap`, so the table
             still cannot crush, and a narrow one (3–4 columns) then fits the screen
             instead of panning sideways inside the vertical scroll. */}
-        <table className="w-full min-w-162.5 border-separate border-spacing-0 tabular-nums max-md:min-w-0">
+        <table
+          className={cn(
+            "w-full border-separate border-spacing-0 tabular-nums",
+            fixed ? "table-fixed" : "min-w-162.5 max-md:min-w-0",
+          )}
+          // Fixed columns keep their summed width as a floor, so a phone pans sideways.
+          style={
+            fixed
+              ? { minWidth: `calc(${columnWidths!.join(" + ")})` }
+              : undefined
+          }
+        >
+          {fixed && (
+            <colgroup>
+              {columnWidths!.map((width, index) => (
+                <col key={index} style={{ width }} />
+              ))}
+            </colgroup>
+          )}
           <thead>
             <tr>
               {columns.map((column, index) => (
                 <th
                   key={`${index}-${column}`}
-                  className={`sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary max-md:px-2.5 ${align[index]}`}
+                  className={cn(
+                    "sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 align-middle text-caption font-semibold tracking-[0.03em] text-text-secondary max-md:px-2.5",
+                    fixed ? "truncate" : "whitespace-nowrap",
+                    align[index],
+                  )}
                 >
                   {column}
                 </th>
@@ -213,7 +248,13 @@ export function DataTable({
                   {rows[rowIndex].map((cell, j) => (
                     <td
                       key={j}
-                      className={`border-b border-border px-4.5 py-4 align-middle text-body-sm whitespace-nowrap max-md:px-2.5 ${align[j]}`}
+                      className={cn(
+                        "border-b border-border px-4.5 py-4 align-middle text-body-sm max-md:px-2.5",
+                        fixed
+                          ? "wrap-break-word whitespace-normal"
+                          : "whitespace-nowrap",
+                        align[j],
+                      )}
                     >
                       {cell}
                     </td>

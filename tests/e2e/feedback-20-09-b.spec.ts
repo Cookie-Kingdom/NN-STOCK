@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   button,
+  chooseForm,
   c_expectBell,
   c_historyEntry,
   c_ownerDecidesEdit,
@@ -539,7 +540,8 @@ test("ข้อ 7 + 8 + 9 + 9.1: Owner ไม่มีข้าวดิบใ�
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       await openMenu(page, "สต๊อกของทั้งหมด");
-      await button(page, "+ บันทึกการซื้ออื่น ๆ");
+      await button(page, "+ ซื้อเข้าคลัง");
+      await chooseForm(page, "ซื้ออื่น ๆ");
       const options = await page
         .getByLabel("เลือกวัตถุดิบ 1")
         .locator("option")
