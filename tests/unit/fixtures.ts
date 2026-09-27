@@ -1,4 +1,6 @@
+import { expect } from "vitest";
 import {
+  check,
   materials,
   mutate,
   packingListBoxes,
@@ -37,6 +39,15 @@ export type Setup = {
     values?: Values,
     lotId?: string,
   ) => Database;
+  /** `run` as a dry run: what it would warn about and refuse with; the database is kept. */
+  check: (
+    role: Role,
+    kind: EntryKind,
+    values?: Values,
+    lotId?: string,
+  ) => { warnings: string[]; error: string };
+  /** `check(fn)` for steps that save through `run`: the database is put back afterwards. */
+  dry: (fn: () => unknown) => { warnings: string[]; error: string };
   readonly db: Database;
 };
 
@@ -53,6 +64,16 @@ export function setup(branch = seed.config.branch): Setup {
   return {
     run: (role, kind, values = {}, lotId = db.lots.at(-1)?.id || "") =>
       (db = mutate(db, role, kind, values, lotId, day, branch)),
+    check: (role, kind, values = {}, lotId = db.lots.at(-1)?.id || "") =>
+      check(() => mutate(db, role, kind, values, lotId, day, branch)),
+    dry: (fn) => {
+      const saved = db;
+      try {
+        return check(fn);
+      } finally {
+        db = saved;
+      }
+    },
     get db() {
       return db;
     },
@@ -60,6 +81,15 @@ export function setup(branch = seed.config.branch): Setup {
 }
 
 export const last = (s: Setup) => s.db.entries.at(-1)!;
+
+/** A save that goes through with a warning: no refusal, and a warning matching `match`. */
+export function expectWarning(
+  result: { warnings: string[]; error: string },
+  match: string | RegExp,
+) {
+  expect(result.error).toBe("");
+  expect(result.warnings.join("\n")).toMatch(match);
+}
 
 export function purchase(s: Setup, kg: string, price = "250") {
   s.run("owner", "purchase", { ...purchaseInfo, orderedKg: kg, price });

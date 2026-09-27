@@ -47,7 +47,7 @@ import {
   entries,
   mutate,
   n,
-  OverStockError,
+  check,
   packWeightWarning,
   riceSources,
   cooksRice,
@@ -544,29 +544,26 @@ export function EntryForm({
     );
   /* The save's own mutate, run on the values as they stand, so the form can say a
    * weight is over stock while it is being typed instead of after ยืนยัน. mutate
-   * clones the database, so a dry run changes nothing. Until every required control
-   * has something in it only an over-stock amount is said: an unfinished form must
-   * not be told off for being unfinished, but a quantity over stock is wrong already. */
-  const liveError = useMemo(() => {
-    try {
+   * clones the database, so a dry run changes nothing. A quantity off from what the
+   * system expects is only a warning (said at once, never blocks the save); a refusal
+   * is said only once every required control has something in it, so an unfinished
+   * form is not told off for being unfinished. */
+  const live = useMemo(() => {
+    const { warnings, error } = check(() =>
       // The sale runs the whole composition, so a giveaway over stock is said here
-      // and not after บันทึกรายการ; the message names the block that was refused.
-      if (kind === "sale" && giveaways.length)
-        saleWithInfluencers(
-          db,
-          branch,
-          date,
-          lotId,
-          giveaways.map((g) => g.values),
-          resolveLocations(values),
-        );
-      else
-        mutate(db, role, kind, resolveLocations(values), lotId, date, branch);
-      return "";
-    } catch (caught) {
-      if (!complete && !(caught instanceof OverStockError)) return "";
-      return caught instanceof Error ? caught.message : "";
-    }
+      // and not after บันทึกรายการ; the message names the block it is about.
+      kind === "sale" && giveaways.length
+        ? saleWithInfluencers(
+            db,
+            branch,
+            date,
+            lotId,
+            giveaways.map((g) => g.values),
+            resolveLocations(values),
+          )
+        : mutate(db, role, kind, resolveLocations(values), lotId, date, branch),
+    );
+    return { warnings, error: complete ? error : "" };
   }, [complete, db, role, kind, values, lotId, date, branch, giveaways]);
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
@@ -789,7 +786,7 @@ export function EntryForm({
               <Notice>
                 แบ่งน้ำหนักตาม Invoice ให้ครบทุกกิโล: พร้อมส่ง Chef House
                 ที่เชียงใหม่ + เนื้อส่วนที่เหลือรอ Owner รับ (Waste)
-                ต้องรวมเท่ากับน้ำหนักตาม Invoice
+                ควรรวมเท่ากับน้ำหนักตาม Invoice
               </Notice>
             )}
             {kind === "unlock" && (
@@ -906,7 +903,8 @@ export function EntryForm({
         </div>
         <DialogFooter
           submitting={saving}
-          error={missing ? `ยังปิดวันไม่ได้ · ${missing.message}` : liveError}
+          error={missing ? `ยังปิดวันไม่ได้ · ${missing.message}` : live.error}
+          warning={live.warnings}
           submitDisabled={!!missing}
           hint={
             isPurchaseOrder

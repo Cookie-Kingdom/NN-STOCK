@@ -10,6 +10,7 @@ import {
   confirm,
   day,
   dispatch,
+  expectWarning,
   last,
   packingList,
   purchase,
@@ -54,12 +55,13 @@ describe("shipment request", () => {
     expect(s.db.lots.at(-1)!.poId).toBe("PO-2026-0004");
   });
 
-  test("a 1,000 kg PO that shipped 400 shows 600 remaining and can ship again; more is refused naming the PO", () => {
+  test("a 1,000 kg PO that shipped 400 shows 600 remaining and can ship again; more warns naming the PO", () => {
     const s = setup();
     const [id] = purchases(s, ["1000"]);
     request(s, [[id, "400"]]);
     expect(poRemainingKg(s.db, id)).toBe(600);
-    expect(() => request(s, [[id, "600.5"]])).toThrow(
+    expectWarning(
+      s.dry(() => request(s, [[id, "600.5"]])),
       "น้ำหนักที่ขอส่งเกินยอดคงเหลือของ PO-2026-0001 (เหลือ 600.00 กก.)",
     );
     request(s, [[id, "600"]]);
@@ -141,8 +143,11 @@ describe("shipment request", () => {
         },
         shipment.id,
       );
-    // Its own 300 kg on PO b count as available again: 700 is the whole PO, 701 is not.
-    expect(() => edit([[b, "701"]])).toThrow(/เกินยอดคงเหลือ.*เหลือ 700\.00/);
+    // Its own 300 kg on PO b count as available again: 700 is the whole PO, 701 warns.
+    expectWarning(
+      s.dry(() => edit([[b, "701"]])),
+      /เกินยอดคงเหลือ.*เหลือ 700\.00/,
+    );
     expect(() => edit([])).toThrow("เลือก PO ซื้ออย่างน้อย 1 ใบ");
     edit([
       [b, "700"],
@@ -272,7 +277,10 @@ describe("meat invoice payment", () => {
       reservedForOwnerKg: "0",
       invoiceAmount: "10000",
     });
-    expect(() => pay("9999")).toThrow("ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ");
+    expectWarning(
+      s.dry(() => pay("9999")),
+      "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ",
+    );
     expect(() => pay("10000", po, "not json")).toThrow(
       "ไฟล์สลิปไม่ถูกต้อง กรุณาแนบใหม่",
     );

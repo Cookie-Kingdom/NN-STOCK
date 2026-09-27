@@ -39,9 +39,9 @@ export function materialCountDraft(saved?: Entry): Values {
 }
 
 /**
- * The row's half of the store's `จำนวนใช้ … เกินยอดตั้งต้น` refusal, so the reason a
- * save is blocked sits on the box being typed in and not only in the summary above
- * the table. Empty while the figure is fine.
+ * The row's warning for the store's `จำนวนใช้ … เกินยอดตั้งต้น`, shown on the box being
+ * typed in. Only a warning: real stock drifts, and the count still saves. Empty while
+ * the figure is fine.
  */
 export function materialOverStock(opening: number, used: number): string {
   if (used <= opening) return "";

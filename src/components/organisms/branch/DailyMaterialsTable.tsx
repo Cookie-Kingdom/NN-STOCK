@@ -24,7 +24,6 @@ import {
   materials,
   mutate,
   n,
-  OverStockError,
   type Database,
   type Values,
 } from "@/lib/store";
@@ -84,8 +83,11 @@ export function DailyMaterialsTable({
   const opening = (i: number) => branchMaterialStock(db, branch, i, date);
   const savedUsed = (i: number) => (saved ? n(saved.values, "used" + i) : 0);
   const used = (i: number) => n(draft, "used" + i);
+  /* What should be left. Using more than the opening is only a warning (stock drifts),
+   * and then nothing is expected to be left, not a negative count. */
+  const expected = (i: number) => Math.max(0, opening(i) - used(i));
   const remaining = (i: number) =>
-    draft["actual" + i] === "" ? opening(i) - used(i) : n(draft, "actual" + i);
+    draft["actual" + i] === "" ? expected(i) : n(draft, "actual" + i);
 
   const values = () => {
     const out: Values = { correctionReason: draft.correctionReason || "" };
@@ -97,18 +99,6 @@ export function DailyMaterialsTable({
     });
     return out;
   };
-  /* The save's own mutate as a dry run (mutate clones, so it changes nothing): a
-   * จำนวนใช้ over ยอดตั้งต้น shows as it is typed and blocks the save. Only that one:
-   * a reason still to be typed is not an error yet. Only while the table is open —
-   * a locked table has nothing to complain about. */
-  let overStock = "";
-  if (open)
-    try {
-      mutate(db, "branch", "materials", values(), "", date, branch);
-    } catch (caught) {
-      if (caught instanceof OverStockError) overStock = caught.message;
-    }
-
   const startEdit = () => {
     setDraft(
       materialCountDraft(savedMaterialCount(latestDatabase(), branch, date)),
@@ -192,7 +182,7 @@ export function DailyMaterialsTable({
               section="count"
               editing={open ? "count" : null}
               message={message}
-              error={overStock}
+              error=""
               saving={saving}
               onCancel={cancel}
               onSave={saveMaterials}
@@ -224,11 +214,9 @@ export function DailyMaterialsTable({
                   variant="table"
                   type="number"
                   min="0"
-                  max={opening(i)}
                   step="1"
                   value={draft["used" + i] ?? ""}
                   aria-label={`จำนวนใช้ ${item} วันนี้`}
-                  aria-invalid={rowOverStock ? true : undefined}
                   onChange={(event) => {
                     setDraft((current) => ({
                       ...current,
@@ -237,10 +225,9 @@ export function DailyMaterialsTable({
                     setMessage("");
                   }}
                 />
-                {/* The refusal on the box it belongs to, not only in the summary
-                    beside the save button. */}
+                {/* A warning on the box it belongs to; the save still goes through. */}
                 {rowOverStock ? (
-                  <small role="alert" className="text-caption text-danger">
+                  <small role="status" className="text-caption text-warning">
                     {rowOverStock}
                   </small>
                 ) : (
@@ -274,7 +261,7 @@ export function DailyMaterialsTable({
                   }
                   value={
                     draft["actual" + i] === ""
-                      ? String(opening(i) - used(i))
+                      ? String(expected(i))
                       : (draft["actual" + i] ?? "")
                   }
                   aria-label={`ยอดตรวจนับจริง ${item}`}
@@ -302,7 +289,7 @@ export function DailyMaterialsTable({
                 type="text"
                 placeholder="กรอกเมื่อยอดไม่ตรง"
                 value={draft["materialReason" + i] || ""}
-                disabled={remaining(i) === opening(i) - used(i)}
+                disabled={remaining(i) === expected(i)}
                 aria-label={`เหตุผลส่วนต่าง ${item}`}
                 onChange={(event) =>
                   setDraft((current) => ({

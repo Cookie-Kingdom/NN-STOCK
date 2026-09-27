@@ -21,6 +21,7 @@ import {
   editLockedKeys,
   entries,
   entryEdits,
+  check,
   mutate,
   openEditRequest,
   entryBy,
@@ -272,15 +273,15 @@ export function EntryDetails({
     !editBlock(db, e, role, branch);
   const run = (kind: EntryKind, values: Values, done: string, fail: string) => {
     setError("");
-    try {
-      saveDatabase(
-        mutate(latestDatabase(), role, kind, values, "", today(), branch),
-      );
-      setMode("");
-      onChanged(done);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : fail);
-    }
+    let next = undefined as Database | undefined;
+    // A stock left below zero is only a warning: it is said with the result, and saved.
+    const { warnings, error } = check(() => {
+      next = mutate(latestDatabase(), role, kind, values, "", today(), branch);
+    });
+    if (!next) return setError(error || fail);
+    saveDatabase(next);
+    setMode("");
+    onChanged([done, ...warnings].join(" · "));
   };
   const isEdit = ["entryEdit", "editRequest", "editDecision"].includes(e.kind);
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { entries, mutate, packingListBoxes } from "@/lib/store";
-import { dispatch, readyToDispatch, setup } from "./fixtures";
+import { check, entries, mutate, packingListBoxes } from "@/lib/store";
+import { dispatch, expectWarning, readyToDispatch, setup } from "./fixtures";
 
 const list = { invoiceNo: "INV-1", product: "เนื้อวัว", slicedLostKg: "30" };
 
@@ -48,7 +48,7 @@ describe("packingList", () => {
     ).toBe("29.5");
   });
 
-  test("refuses an empty list, a bad weight and an over-weight total", () => {
+  test("refuses an empty list and a bad weight; an over-weight total only warns", () => {
     const s = dispatched();
     const lotId = s.db.lots.at(-1)!.id;
     const save = (values: Record<string, string>) =>
@@ -72,13 +72,18 @@ describe("packingList", () => {
     expect(() => save({ ...list, boxes: "10", slicedLostKg: "-1" })).toThrow(
       /Sliced Weight Lost/,
     );
-    expect(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })).toThrow(
+    // Over Inv. Weight is only a warning: the list still saves.
+    expectWarning(
+      check(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })),
       /เกิน Inv. Weight/,
     );
-    // A Sliced Weight Net sent along is ignored, so it can never dodge the rule.
-    expect(() =>
-      save({ ...list, boxes: "10\n20", slicedNetKg: "25", invWeightKg: "25" }),
-    ).toThrow(/เกิน Inv. Weight/);
+    // A Sliced Weight Net sent along is ignored, so it can never dodge the warning.
+    expectWarning(
+      check(() =>
+        save({ ...list, boxes: "10\n20", slicedNetKg: "25", invWeightKg: "25" }),
+      ),
+      /เกิน Inv. Weight/,
+    );
   });
 
   test("needs the transport document first, never goes on a purchase PO, and only Foodiva may save it", () => {

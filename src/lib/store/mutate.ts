@@ -139,7 +139,7 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
   for (const [key, level] of stockLevels(
     as("entryEdit", { targetId: target.id, ...pack("to.", corrected) }),
   ))
-    assert(
+    warn(
       level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
       `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
     );
@@ -233,12 +233,30 @@ export function receivedBoxWeights(value = "") {
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
-/** Refused because an amount is over what is on hand. Its own class so a form can show it
- *  as soon as that amount is typed, before the rest of the form is filled in. */
-export class OverStockError extends Error {
-  name = "OverStockError";
+/** Where `warn` puts its messages while `check` runs; outside a check they are dropped. */
+let collected: string[] | null = null;
+/** A number that is off from what the system expects: real stock drifts, so this is said, not refused. */
+function warn(ok: unknown, message: string) {
+  if (!ok) collected?.push(message);
 }
-/** Refuses `amount` over `max` and says what the most is, so the user knows what to type. */
+/** Runs `fn` (a dry run of a save) and returns what it would warn about and the error it
+ *  would refuse with, if any. A form shows the warnings but still lets the user save. */
+export function check<T>(fn: () => T): { warnings: string[]; error: string } {
+  const previous = collected;
+  const mine: string[] = [];
+  collected = mine;
+  let error = "";
+  try {
+    fn();
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught);
+  } finally {
+    collected = previous;
+  }
+  return { warnings: [...new Set(mine)], error };
+}
+/** Warns when `amount` is over `max` and says what the system expected, so the user can
+ *  check the count before saving. The save still goes through. */
 function withinStock(
   amount: number,
   max: number,
@@ -248,7 +266,8 @@ function withinStock(
 ) {
   if (amount <= max + 0.001) return;
   const most = Math.max(0, max);
-  throw new OverStockError(
+  warn(
+    false,
     `${message} · ${prefix} ${unit === "กก." ? fmt(most) : String(Math.floor(most + 0.001))}${unit ? ` ${unit}` : ""}`,
   );
 }
@@ -337,10 +356,10 @@ function requestLines(db: Database, v: Values, own?: Lot) {
       current
         .filter((mine) => mine.lotId === po.id)
         .reduce((total, mine) => total + mine.kg, 0);
-    if (kg > remaining + 0.001)
-      throw new OverStockError(
-        `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
-      );
+    warn(
+      kg <= remaining + 0.001,
+      `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
+    );
   }
   v.lines = JSON.stringify(
     lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
@@ -627,7 +646,7 @@ function record(
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
-    assert(
+    warn(
       Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01,
       "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice",
     );
@@ -643,7 +662,7 @@ function record(
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
     if (n(invoice.values, "invoiceAmount") > 0)
-      assert(
+      warn(
         Math.abs(n(v, "paidAmount") - n(invoice.values, "invoiceAmount")) <
           0.01,
         "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ",
@@ -666,7 +685,7 @@ function record(
     positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
     // No cap at the PO's kg: Foodiva does deliver over the order, and the Invoice is
     // what stock and cost run on from here (rawAtFoodiva reads confirmedKg).
-    assert(
+    warn(
       Math.abs(
         n(v, "readyForChiangMaiKg") +
           n(v, "reservedForOwnerKg") -
@@ -680,12 +699,12 @@ function record(
       "Owner ชำระ Invoice เนื้อของ PO นี้แล้ว ยืนยันใหม่ไม่ได้",
     );
     const drawn = drawnKg(db, lot.id);
-    assert(
+    warn(
       n(v, "readyForChiangMaiKg") >= drawn - 0.001,
       `น้ำหนักพร้อมส่งเชียงใหม่ต่ำกว่าที่ Request ดึงไปแล้ว · กรอกได้ต่ำสุด ${fmt(drawn)} กก.`,
     );
     const picked = ownerWasteReceived(db, lot.id);
-    assert(
+    warn(
       n(v, "reservedForOwnerKg") >= picked - 0.001,
       `เนื้อส่วนที่เหลือรอ Owner รับต่ำกว่าที่ Owner รับไปแล้ว · กรอกได้ต่ำสุด ${fmt(picked)} กก.`,
     );
@@ -816,7 +835,7 @@ function record(
       "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
     );
     const output = weights.reduce((a, b) => a + b, 0);
-    assert(
+    warn(
       Math.abs(output + n(v, "wasteKg") - n(v, "inputKg")) <= 0.001,
       "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
     );
@@ -874,7 +893,7 @@ function record(
         "กรอกน้ำหนักกล่องรมควันให้ครบและมากกว่า 0 ทุกรอบ",
       );
       const postSmokeKg = weights.reduce((total, weight) => total + weight, 0);
-      assert(
+      warn(
         Math.abs(postSmokeKg + wasteKg - inputKg) <= 0.001,
         "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
       );
@@ -887,7 +906,7 @@ function record(
         packCount: String(weights.length),
       };
     });
-    assert(
+    warn(
       Math.abs(
         batches.reduce((total, batch) => total + Number(batch.inputKg), 0) -
           preSmokeKg,
@@ -914,9 +933,11 @@ function record(
       batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })),
     );
   } else if (kind === "closeLot" && lot) {
-    assert(
+    // Stage order already made every batch get recorded; a gap left here can only come from
+    // Chef's own correction (chefEdit), so it is said, not refused.
+    warn(
       Math.abs(n(lot.values, "preSmokeKg") - processed(db, lotId)) < 0.005,
-      "ยังมีน้ำหนักรอผลิต ต้องบันทึกให้ครบก่อน",
+      "น้ำหนักเข้าเตารวมไม่เท่ากับน้ำหนักก่อนสโมค",
     );
     assert(produced(db, lotId) > 0, "ยังไม่มีผลผลิต");
     required(v, "confirm", "ชื่อผู้ยืนยัน");
@@ -1152,7 +1173,8 @@ function record(
           `จำนวนใช้ ${materials[i]} เกินยอดตั้งต้น`,
           "",
         );
-        const expectedRemaining = expectedOpening - n(v, "used" + i);
+        // Using more than the opening is only a warning; then nothing is expected left.
+        const expectedRemaining = Math.max(0, expectedOpening - n(v, "used" + i));
         assert(
           n(v, "material" + i) >= 0,
           `ยอดตรวจนับ ${materials[i]} ติดลบไม่ได้`,
@@ -1412,7 +1434,7 @@ function record(
         { ...target, id: newId(), kind, role, values: { targetId: target.id } },
       ],
     }))
-      assert(
+      warn(
         level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
         `ยกเลิกแล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · ยกเลิกรายการที่ตามมาก่อน`,
       );
@@ -1517,9 +1539,9 @@ function record(
     lot.values = { ...lot.values, ...v };
     if (kind !== "smoke") lot.stage++;
     else if (
-      Math.abs(
-        n(lot.values, "preSmokeKg") - processed(db, lotId) - n(v, "inputKg"),
-      ) < 0.005
+      // Over the remaining weight (only a warning) also finishes production.
+      n(lot.values, "preSmokeKg") - processed(db, lotId) - n(v, "inputKg") <
+      0.005
     )
       lot.stage = STAGE.closeLot;
   }
@@ -1584,8 +1606,9 @@ export const saleWithInfluencers = (
 ) =>
   mutate(
     giveaways.reduce((current, giveaway, index) => {
-      try {
-        return mutate(
+      let next = undefined as Database | undefined;
+      const { warnings, error } = check(() => {
+        next = mutate(
           current,
           "branch",
           "influencerBox",
@@ -1594,14 +1617,13 @@ export const saleWithInfluencers = (
           date,
           branch,
         );
-      } catch (caught) {
-        // Say which block was refused — several are saved at once, and the form
-        // shows one message. The error object itself is kept (OverStockError is
-        // what tells the form to speak up before every field is filled).
-        if (caught instanceof Error)
-          caught.message = `${influencerLabel(index, giveaway)} · ${caught.message}`;
-        throw caught;
-      }
+      });
+      // Say which block it is about — several are saved at once, and the form
+      // shows one message.
+      const label = influencerLabel(index, giveaway);
+      for (const message of warnings) warn(false, `${label} · ${message}`);
+      if (!next) throw new Error(`${label} · ${error}`);
+      return next;
     }, db),
     "branch",
     "sale",

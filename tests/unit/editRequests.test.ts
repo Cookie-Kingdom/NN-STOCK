@@ -11,7 +11,7 @@ import {
   revenue,
   visibleEntries,
 } from "@/lib/store";
-import { chillDay, day, last } from "./fixtures";
+import { chillDay, day, expectWarning, last } from "./fixtures";
 
 /** ศาลาแดง's `day` (65.5 kg sold of 70 thawed) with the day closed. */
 function closedDay() {
@@ -142,26 +142,28 @@ describe("B5 edit requests", () => {
     expect(last(s).values["to.soldKg"]).toBe("60");
   });
 
-  test("a correction that would leave stock negative is refused", () => {
+  test("a correction that would leave stock negative only warns", () => {
     const { s, lotId } = closedDay();
     const thaw = entries(s.db, "thaw", lotId)[0];
     // 50 kg thawed cannot cover the 65.5 kg already sold.
-    expect(() =>
-      s.run("owner", "entryEdit", {
+    expectWarning(
+      s.check("owner", "entryEdit", {
         targetId: thaw.id,
         values: JSON.stringify({ kg: "50" }),
         reason: "x",
       }),
-    ).toThrow("ติดลบ");
+      "ติดลบ",
+    );
     // The sale's own rule: more than was thawed.
     const sale = entries(s.db, "sale", lotId)[0];
-    expect(() =>
-      s.run("owner", "entryEdit", {
+    expectWarning(
+      s.check("owner", "entryEdit", {
         targetId: sale.id,
         values: JSON.stringify({ soldKg: "80" }),
         reason: "x",
       }),
-    ).toThrow("เกินเนื้อที่ละลายแล้ว");
+      "เกินเนื้อที่ละลายแล้ว",
+    );
   });
 });
 

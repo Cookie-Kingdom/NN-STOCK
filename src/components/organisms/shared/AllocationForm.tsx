@@ -18,6 +18,7 @@ import type { PrefillSource } from "@/lib/prefill";
 import {
   branches,
   centralStock,
+  check,
   entries,
   mutate,
   n,
@@ -71,22 +72,20 @@ function buildAllocation(
 ) {
   const names = typed(kg);
   if (!names.length) throw new Error("กรอกน้ำหนักจัดสรรอย่างน้อย 1 สาขา");
-  const stock = centralStock(from, lotId);
-  const total = names.reduce((sum, name) => sum + Number(kg[name]), 0);
-  if (total > stock + 0.001)
-    throw new Error(
-      `น้ำหนักรวม ${fmt(total)} กก. เกินสต๊อกกลาง · กรอกได้สูงสุด ${fmt(stock)} กก.`,
-    );
   let next = from;
-  for (const branch of names)
-    next = mutate(
-      next,
-      "owner",
-      "allocate",
-      { branch, kg: kg[branch], deliveryDate: date },
-      lotId,
-      date,
-    );
+  // Each allocate's own over-stock warning is dropped: the form says it once, for the total.
+  const { error } = check(() => {
+    for (const branch of names)
+      next = mutate(
+        next,
+        "owner",
+        "allocate",
+        { branch, kg: kg[branch], deliveryDate: date },
+        lotId,
+        date,
+      );
+  });
+  if (error) throw new Error(error);
   return next;
 }
 
@@ -122,16 +121,20 @@ export function AllocationForm({
   const total = typed(kg).reduce((sum, name) => sum + Number(kg[name]), 0);
   const remaining = stock - total;
   /* mutate clones the database, so the dry run changes nothing. Held back until a kg
-   * is typed: an untouched form must not be told off for being untouched. */
-  const liveError = useMemo(() => {
-    if (!Object.values(kg).some((value) => value.trim())) return "";
-    try {
-      buildAllocation(db, kg, lotId, date);
-      return "";
-    } catch (caught) {
-      return caught instanceof Error ? caught.message : "";
-    }
-  }, [db, kg, lotId, date]);
+   * is typed: an untouched form must not be told off for being untouched. Over the
+   * central stock is only a warning: real stock drifts, and the allocation still saves. */
+  const live = useMemo(() => {
+    if (!Object.values(kg).some((value) => value.trim()))
+      return { error: "", warnings: [] };
+    const { error } = check(() => buildAllocation(db, kg, lotId, date));
+    const warnings =
+      total > stock + 0.001
+        ? [
+            `น้ำหนักรวม ${fmt(total)} กก. เกินสต๊อกกลาง · กรอกได้สูงสุด ${fmt(stock)} กก.`,
+          ]
+        : [];
+    return { error, warnings };
+  }, [db, kg, lotId, date, total, stock]);
   /** Everything the other branches leave, unrounded, so the lot can drain to exactly 0. */
   function fillRest(branch: string) {
     const others = typed(kg)
@@ -196,13 +199,14 @@ export function AllocationForm({
           <ReadRow
             label="คงเหลือที่ Foodiva หลังจัดสรร"
             value={`${fmt(Math.abs(remaining) < 0.001 ? 0 : remaining)} กก.`}
-            className={remaining < -0.001 ? "text-danger" : undefined}
+            className={remaining < -0.001 ? "text-warning" : undefined}
           />
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={live.error}
+          warning={live.warnings}
           hint="กรอกน้ำหนักให้ทั้งสองสาขาได้ในครั้งเดียว"
           onCancel={onClose}
           submitLabel="บันทึกการจัดสรร"

@@ -103,7 +103,7 @@ export {
 export {
   packingListBoxes,
   receivedBoxWeights,
-  OverStockError,
+  check,
   mutate,
   dispatchWithPackingList,
   influencerLabel,

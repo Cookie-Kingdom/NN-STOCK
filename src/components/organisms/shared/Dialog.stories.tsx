@@ -24,7 +24,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Dialog opens on mount and closes on unmount, so the story toggles mounting.
-function FormDialog(args: Story["args"]) {
+function FormDialog(args: Story["args"] & { warning?: string[] }) {
   const [open, setOpen] = useState(true);
   const close = () => setOpen(false);
   return (
@@ -53,6 +53,7 @@ function FormDialog(args: Story["args"]) {
             </DialogBody>
             <DialogFooter
               hint="ตรวจสอบน้ำหนักก่อนบันทึก"
+              warning={args?.warning}
               onCancel={close}
               submitLabel="บันทึก"
             />
@@ -64,3 +65,13 @@ function FormDialog(args: Story["args"]) {
 }
 
 export const Form: Story = { render: (args) => <FormDialog {...args} /> };
+
+/** A weight over stock is only a warning: said in the warning tone, and ยืนยัน stays enabled. */
+export const FormWithWarning: Story = {
+  render: (args) => (
+    <FormDialog
+      {...args}
+      warning={["สต๊อกแช่แข็งไม่พอ · กรอกได้สูงสุด 12.50 กก."]}
+    />
+  ),
+};

@@ -17,6 +17,7 @@ import { fmt } from "@/lib/format";
 import {
   drawnKg,
   entries,
+  check,
   mutate,
   poRemainingKg,
   purchaseLots,
@@ -84,14 +85,10 @@ export function ShipmentRequestForm({
   };
   const total = pos.reduce((sum, lot) => sum + (Number(kg[lot.id]) || 0), 0);
   // The save's own mutate as a dry run (mutate clones), held back until a kg is typed.
-  let liveError = "";
-  if (Object.values(kg).some((value) => value.trim())) {
-    try {
-      mutate(db, "owner", kind, input, lotId || "", date);
-    } catch (caught) {
-      liveError = caught instanceof Error ? caught.message : "";
-    }
-  }
+  // Over a PO's remaining kg is only a warning: the Request still saves.
+  const live = Object.values(kg).some((value) => value.trim())
+    ? check(() => mutate(db, "owner", kind, input, lotId || "", date))
+    : { error: "", warnings: [] };
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const saved = await run(() =>
@@ -169,7 +166,8 @@ export function ShipmentRequestForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={live.error}
+          warning={live.warnings}
           hint={`รวมเที่ยวนี้ ${fmt(total)} กก. · ส่วนที่ไม่ได้ส่งยังคงเหลือไว้ส่งรอบหน้า`}
           onCancel={onClose}
           submitLabel={editing ? "บันทึกการแก้ไข Request" : "สร้าง Request"}

@@ -170,15 +170,16 @@ export function PackingListForm({
    *  Inv. Weight and Sliced Weight Net, as a plain number that is never negative.
    *  Zero is a normal list: the meat weighs exactly what the Request asked for. */
   const slicedLost = round2(Math.abs(invWeight - slicedNet));
+  /** The same warning mutate() gives, said as the rows are typed. Only a warning: the
+   *  meat Foodiva cut is what it is, and the list still saves. */
+  const overInvWeight =
+    invWeight && slicedNet > invWeight + 0.001
+      ? `น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight · รวมได้สูงสุด ${fmt(invWeight)} กก.`
+      : "";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!filled.length) return setError("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    // The same rule mutate() enforces, said here so it shows before the save is tried.
-    if (invWeight && slicedNet > invWeight + 0.001)
-      return setError(
-        `น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight · รวมได้สูงสุด ${fmt(invWeight)} กก.`,
-      );
     // First press on an unfinished list only asks; the second one saves what is there.
     if (blank && !confirmPartial) {
       setError("");
@@ -243,7 +244,7 @@ export function PackingListForm({
             <span className="mt-2 block">
               Inv. Weight มาจาก PO ที่ขอในเที่ยวนี้ แก้ที่นี่ไม่ได้ ·{" "}
               <strong>Sliced Weight Net</strong> คือผลรวมของทุกแถวในตาราง
-              ระบบคิดให้ ต้องไม่เกิน Inv. Weight · Sliced Weight Lost
+              ระบบคิดให้ ปกติไม่เกิน Inv. Weight · Sliced Weight Lost
               ระบบคิดให้จากสองค่านี้
             </span>
           </Notice>
@@ -368,6 +369,7 @@ export function PackingListForm({
         <DialogFooter
           submitting={saving}
           hint={`กรอกแล้ว ${filled.length} จาก ${boxes.length} แถว`}
+          warning={overInvWeight}
           onCancel={onClose}
           submitLabel={
             confirmPartial

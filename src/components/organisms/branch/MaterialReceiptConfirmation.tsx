@@ -15,6 +15,7 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
 import {
   entries,
+  check,
   mutate,
   type Database,
   type Entry,
@@ -105,16 +106,14 @@ export function MaterialReceiptConfirmation({
           /* The confirm's own mutate, run on the row as it stands, so รับเกินจำนวนที่ส่ง
            * is said while the number is being typed instead of after ยืนยันรับ. mutate
            * clones the database, so a dry run changes nothing. Held back while the
-           * quantity box is empty: a half-typed row must not be told off. */
+           * quantity box is empty: a half-typed row must not be told off. Over the sent
+           * amount is only a warning (yellow): ยืนยันรับ still saves it. */
           const quantityTouched =
             draft[`quantity-${transfer.id}`] !== undefined;
-          let rowError = "";
-          if (String(quantity).trim())
-            try {
-              build(db, transfer);
-            } catch (caught) {
-              rowError = caught instanceof Error ? caught.message : "";
-            }
+          const live = String(quantity).trim()
+            ? check(() => build(db, transfer))
+            : { error: "", warnings: [] };
+          const rowError = live.error || live.warnings.join(" · ");
           return [
             transfer.date,
             transfer.values.material,
@@ -125,7 +124,6 @@ export function MaterialReceiptConfirmation({
                 type="number"
                 inputMode="numeric"
                 min="1"
-                max={transfer.values.quantity}
                 step="1"
                 prefilled={quantityTouched ? undefined : "expected"}
                 aria-label={`จำนวนที่รับจริง ${transfer.values.material}`}
@@ -155,7 +153,11 @@ export function MaterialReceiptConfirmation({
                 }))
               }
             />,
-            <ActionWithError key={`b-${transfer.id}`} error={rowError}>
+            <ActionWithError
+              key={`b-${transfer.id}`}
+              error={rowError}
+              errorClassName={live.error ? undefined : "text-warning"}
+            >
               <Button
                 variant="table"
                 disabled={closed || saving}

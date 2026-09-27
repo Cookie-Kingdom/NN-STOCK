@@ -21,7 +21,7 @@ import {
   materialPar,
   materials,
   mutate,
-  OverStockError,
+  check,
   ownerMaterialStock,
   type Database,
   type Values,
@@ -149,19 +149,16 @@ export function MaterialTransferForm({
    * mutate clones the database, so a dry run changes nothing. Until every ticked row
    * has its จำนวน and ผู้รับ only a short stock is said (a blank ผู้รับ stands in for
    * the run): an unfinished form must not be told off for being unfinished. */
-  const liveError = useMemo(() => {
+  const live = useMemo(() => {
     const standIn = complete
       ? receivers
       : Object.fromEntries(
           branches.map((branch) => [branch, receivers[branch]?.trim() || "-"]),
         );
-    try {
-      build(db, date, checked, quantities, standIn, reference, note);
-      return "";
-    } catch (caught) {
-      if (!complete && !(caught instanceof OverStockError)) return "";
-      return caught instanceof Error ? caught.message : "";
-    }
+    const { warnings, error } = check(() =>
+      build(db, date, checked, quantities, standIn, reference, note),
+    );
+    return { warnings, error: complete ? error : "" };
   }, [complete, db, date, checked, quantities, receivers, reference, note]);
 
   async function submit(event: React.FormEvent) {
@@ -326,7 +323,8 @@ export function MaterialTransferForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={live.error}
+          warning={live.warnings}
           hint="ทุกรายการจะบันทึกพร้อมกัน"
           onCancel={onClose}
           submitLabel="บันทึกส่งวัสดุ"

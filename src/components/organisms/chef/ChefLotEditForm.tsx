@@ -21,7 +21,7 @@ import {
   entries,
   mutate,
   n,
-  OverStockError,
+  check,
   packWeights,
   type Database,
   type Values,
@@ -77,8 +77,8 @@ export function ChefLotEditForm({
    * instead of after บันทึก. mutate clones the database, so a dry run changes
    * nothing. Until every control has something in it only an over-stock weight is
    * said: an unfinished form must not be told off for being unfinished. */
-  const liveError = useMemo(() => {
-    try {
+  const live = useMemo(() => {
+    const { warnings, error } = check(() =>
       mutate(
         db,
         "cm",
@@ -86,12 +86,9 @@ export function ChefLotEditForm({
         { ...values, batches: JSON.stringify(smokeDrafts) },
         lotId,
         date,
-      );
-      return "";
-    } catch (caught) {
-      if (!complete && !(caught instanceof OverStockError)) return "";
-      return caught instanceof Error ? caught.message : "";
-    }
+      ),
+    );
+    return { warnings, error: complete ? error : "" };
   }, [complete, db, values, smokeDrafts, lotId, date]);
   if (!lot || !received || !prepared || !smokeEntries.length) return null;
   const set = (key: string, value: string) => {
@@ -240,7 +237,8 @@ export function ChefLotEditForm({
         </DialogBody>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={live.error}
+          warning={live.warnings}
           onCancel={onClose}
           submitLabel="บันทึกการแก้ไข"
         />

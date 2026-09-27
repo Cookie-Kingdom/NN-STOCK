@@ -17,6 +17,7 @@ import {
   editApprovers,
   editDecisions,
   editRequestRows,
+  check,
   mutate,
   entryBy,
   titles,
@@ -46,25 +47,28 @@ function RequestRow({
   const [error, setError] = useState("");
   const decide = (choice: string) => {
     setError("");
-    try {
-      saveDatabase(
-        mutate(
-          latestDatabase(),
-          role,
-          "editDecision",
-          { requestId: request.id, decision: choice, note },
-          "",
-          today(),
-        ),
+    let next = undefined as Database | undefined;
+    // A stock left below zero is only a warning: it is said with the result, and saved.
+    const { warnings, error } = check(() => {
+      next = mutate(
+        latestDatabase(),
+        role,
+        "editDecision",
+        { requestId: request.id, decision: choice, note },
+        "",
+        today(),
       );
-      onChanged(
+    });
+    if (!next) return setError(error || "บันทึกไม่สำเร็จ");
+    saveDatabase(next);
+    onChanged(
+      [
         choice === editDecisions.approve
           ? "อนุมัติคำขอแล้ว ระบบใช้ค่าใหม่คำนวณยอดทันที"
           : "ไม่อนุมัติคำขอแล้ว ค่าเดิมยังใช้อยู่",
-      );
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
-    }
+        ...warnings,
+      ].join(" · "),
+    );
   };
   const outcome = editOutcome(decision);
   const approver = editApprovers.includes(role);

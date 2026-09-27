@@ -23,7 +23,7 @@ import { latestDatabase } from "@/lib/persistence";
 import {
   latestPackingList,
   mutate,
-  OverStockError,
+  check,
   titles,
   type Database,
 } from "@/lib/store";
@@ -66,14 +66,9 @@ export function ChefReceiveForm({
   const input = { arrival, receivedBoxes: receivedValue(received) };
   /* The save's own mutate as a dry run (mutate clones, so it changes nothing), so a
    * refusal shows while the boxes are typed. Held back until the time and every box
-   * are in, except an over-stock amount, which is wrong already. */
-  let liveError = "";
-  try {
-    mutate(db, "cm", "cmReceive", input, lotId, date);
-  } catch (caught) {
-    if ((arrival && !missing) || caught instanceof OverStockError)
-      liveError = caught instanceof Error ? caught.message : "";
-  }
+   * are in; a warning (a number off from what is expected) never blocks the save. */
+  const live = check(() => mutate(db, "cm", "cmReceive", input, lotId, date));
+  const liveError = arrival && !missing ? live.error : "";
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -146,6 +141,7 @@ export function ChefReceiveForm({
         <DialogFooter
           submitting={saving}
           error={liveError}
+          warning={live.warnings}
           hint={
             missing
               ? `ยังไม่ได้กรอก ${missing} กล่องรับเข้า`

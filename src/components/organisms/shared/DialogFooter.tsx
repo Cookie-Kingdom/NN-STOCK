@@ -5,11 +5,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * `.form-dialog form > footer` / `.form-dialog > footer`.
- * Order: hint or error (left) · children · cancel · submit.
+ * Order: hint, or error and warning (left) · children · cancel · submit.
  */
 export function DialogFooter({
   hint,
   error,
+  warning,
   cancelLabel = "ยกเลิก",
   onCancel,
   submitLabel,
@@ -26,6 +27,10 @@ export function DialogFooter({
    *  Unlike the hint it stays visible on a phone, and it never hides the buttons.
    *  While it is set the submit button is disabled: the save would be refused anyway. */
   error?: string;
+  /** A number off from what the system expects (over stock, sums that do not match).
+   *  Said in the warning tone, and unlike `error` it never disables the submit button:
+   *  real stock drifts, and the record is still saved. */
+  warning?: ReactNode | string[];
   cancelLabel?: ReactNode;
   /** Cancel button is rendered only when this is given. */
   onCancel?: () => void;
@@ -40,6 +45,7 @@ export function DialogFooter({
   className?: string;
   children?: ReactNode;
 }) {
+  const hasWarning = Array.isArray(warning) ? warning.length > 0 : !!warning;
   return (
     <footer
       className={cn(
@@ -47,13 +53,25 @@ export function DialogFooter({
         className,
       )}
     >
-      {error ? (
-        <p
-          role="alert"
-          className="mr-auto min-w-40 flex-1 text-caption text-danger"
-        >
-          {error}
-        </p>
+      {error || hasWarning ? (
+        <div className="mr-auto min-w-40 flex-1 text-caption">
+          {error && (
+            <p role="alert" className="text-danger">
+              {error}
+            </p>
+          )}
+          {hasWarning && (
+            <p role="status" className="text-warning">
+              {Array.isArray(warning)
+                ? warning.map((line) => (
+                    <span key={line} className="block">
+                      {line}
+                    </span>
+                  ))
+                : warning}
+            </p>
+          )}
+        </div>
       ) : (
         hint && (
           <p className="mr-auto text-caption text-text-secondary max-md:hidden">
