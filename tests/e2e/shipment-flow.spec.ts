@@ -260,7 +260,7 @@ test("Shipment Flow ครบวง: PO ซื้อ → Request → ใบข�
     const row = page.getByRole("row").filter({ hasText: shipment });
     await pointAndClick(
       page,
-      row.getByRole("button", { name: "ดู", exact: true }),
+      row.getByRole("button", { name: /^ขยายรายละเอียด / }),
     );
     const main = page.locator("main");
     await expect(main).toContainText(`สายการส่ง ${shipment}`);

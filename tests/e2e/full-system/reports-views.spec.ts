@@ -437,7 +437,9 @@ test.describe("Lane F · รายงาน เอกสาร มุมมอ�
       async () => {
         await pointAndClick(
           page,
-          rowIn(page, register, LOT).getByRole("button", { name: "ดู" }),
+          rowIn(page, register, LOT).getByRole("button", {
+            name: `ขยายรายละเอียด ${LOT}`,
+          }),
         );
         const section = tableSection(page, register);
         const expected: [string, RegExp][] = [

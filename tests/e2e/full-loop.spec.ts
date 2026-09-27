@@ -460,7 +460,7 @@ test("full business loop across Owner, Foodiva, Chef House and both branches", a
   await button(page, "เอกสารและ Traceability");
   await pointAndClick(
     page,
-    page.getByRole("button", { name: "ดู", exact: true }),
+    page.getByRole("button", { name: /^ขยายรายละเอียด / }),
   );
   // The detail table sits inside an expanded row, so `.last()` picks the inner row.
   await expect(
