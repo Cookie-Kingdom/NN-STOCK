@@ -36,7 +36,7 @@ import {
 
 const cell = "border-b border-border px-4.5 py-3 align-middle max-md:px-2.5";
 const headCell =
-  "border-b border-border bg-bg px-4.5 py-3 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
+  "border-b border-border-strong bg-surface-sunken px-4.5 py-3 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
 
 const truckKeys = ["trip", "vehicleType", "plate", "driverName", "driverPhone"];
 
@@ -180,7 +180,7 @@ export function FoodivaDispatchForm({
                 ))}
               </tbody>
               <tfoot>
-                <tr className="font-semibold">
+                <tr className="bg-surface-sunken font-semibold [&>td]:border-t [&>td]:border-border-strong">
                   <td
                     className="px-4.5 py-3 text-body-sm max-md:px-2.5"
                     colSpan={3}

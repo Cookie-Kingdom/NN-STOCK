@@ -228,7 +228,7 @@ export function DataTable({
                 <th
                   key={`${index}-${column}`}
                   className={cn(
-                    "sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 align-middle text-caption font-semibold tracking-[0.03em] text-text-secondary max-md:px-2.5",
+                    "sticky top-0 border-b border-border-strong bg-surface-sunken px-4.5 py-3.5 align-middle text-caption font-semibold tracking-[0.03em] text-text-secondary max-md:px-2.5",
                     fixed ? "truncate" : "whitespace-nowrap",
                     align[index],
                   )}

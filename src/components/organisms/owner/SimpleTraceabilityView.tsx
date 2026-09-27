@@ -66,7 +66,7 @@ const detailColumns = [
 ];
 
 const thClass =
-  "sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary";
+  "sticky top-0 border-b border-border-strong bg-surface-sunken px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary";
 const tdClass =
   "border-b border-border px-4.5 py-4 text-left align-middle leading-[1.45] whitespace-normal [tr:last-child>&]:border-b-0";
 const expandCellClass = "w-10.5 pl-1.5 text-center";
@@ -670,7 +670,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                       {detailColumns.map((column, index) => (
                                         <th
                                           key={column}
-                                          className={`${detailCellClass} bg-bg text-caption text-text-secondary ${index === detailColumns.length - 1 ? "text-right" : ""}`}
+                                          className={`${detailCellClass} bg-surface-sunken text-caption text-text-secondary ${index === detailColumns.length - 1 ? "text-right" : ""}`}
                                         >
                                           {column}
                                         </th>

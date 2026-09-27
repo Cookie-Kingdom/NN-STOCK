@@ -30,7 +30,7 @@ import {
 const key = (index: number, branch: string) => `${index}-${branch}`;
 const cell = "border-b border-border px-4.5 py-3.5 align-middle max-md:px-2.5";
 const headCell =
-  "border-b border-border bg-bg px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
+  "border-b border-border-strong bg-surface-sunken px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
 
 const toPar = { label: "เติมถึง par" };
 
