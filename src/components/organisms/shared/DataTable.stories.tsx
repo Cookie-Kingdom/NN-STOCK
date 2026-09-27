@@ -67,3 +67,17 @@ export const FixedColumns: Story = {
       ]),
   },
 };
+
+/** `footer` is the total row: it sits on the head's band below the body and stays put
+ *  while the rows sort and page. */
+export const WithTotal: Story = {
+  args: {
+    columns: ["Lot", "รับเข้า", "ใช้แล้ว", "คงเหลือ"],
+    rows: [
+      ["S260923-001", "30.00 กก.", "11.47 กก.", "18.53 กก."],
+      ["S260924-015", "45.00 กก.", "0.00 กก.", "45.00 กก."],
+    ],
+    footer: ["รวม", "75.00 กก.", "11.47 กก.", "63.53 กก."],
+    action: undefined,
+  },
+};

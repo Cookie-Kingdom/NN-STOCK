@@ -97,6 +97,7 @@ export function MaterialReceiptConfirmation({
           "เหตุผลส่วนต่าง",
           "การทำงาน",
         ]}
+        numericColumns={["จำนวนที่รับจริง"]}
         rowKeys={pending.map((transfer) => transfer.id)}
         rows={pending.map((transfer) => {
           const quantity =
