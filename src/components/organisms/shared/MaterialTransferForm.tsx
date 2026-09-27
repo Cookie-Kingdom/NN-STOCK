@@ -32,7 +32,7 @@ const cell = "border-b border-border px-4.5 py-3.5 align-middle max-md:px-2.5";
 const headCell =
   "border-b border-border-strong bg-surface-sunken px-4.5 py-3.5 text-left text-caption font-semibold text-text-secondary max-md:px-2.5";
 
-const toPar = { label: "เติมถึง par" };
+const toPar = { label: "เติมให้ครบจำนวนฐาน" };
 
 /** What brings the branch back up to its par on `date`, if it is short. */
 function shortfall(db: Database, branch: string, index: number, date: string) {

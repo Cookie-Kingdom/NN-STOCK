@@ -241,7 +241,7 @@ export const MaterialTransfer: Story = {
   ),
 };
 
-/** Ticking ศาลาแดง fills the จำนวน up to the branch's par (เติมถึง par) and ผู้รับ
+/** Ticking ศาลาแดง fills the จำนวน up to the branch's par (เติมให้ครบจำนวนฐาน) and ผู้รับ
  *  from the branch's last transfer. */
 export const MaterialTransferPrefilled: Story = {
   parameters: { db: prefillHistoryDb },
