@@ -1174,7 +1174,10 @@ function record(
           "",
         );
         // Using more than the opening is only a warning; then nothing is expected left.
-        const expectedRemaining = Math.max(0, expectedOpening - n(v, "used" + i));
+        const expectedRemaining = Math.max(
+          0,
+          expectedOpening - n(v, "used" + i),
+        );
         assert(
           n(v, "material" + i) >= 0,
           `ยอดตรวจนับ ${materials[i]} ติดลบไม่ได้`,

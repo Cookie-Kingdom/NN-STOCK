@@ -80,7 +80,12 @@ describe("packingList", () => {
     // A Sliced Weight Net sent along is ignored, so it can never dodge the warning.
     expectWarning(
       check(() =>
-        save({ ...list, boxes: "10\n20", slicedNetKg: "25", invWeightKg: "25" }),
+        save({
+          ...list,
+          boxes: "10\n20",
+          slicedNetKg: "25",
+          invWeightKg: "25",
+        }),
       ),
       /เกิน Inv. Weight/,
     );
