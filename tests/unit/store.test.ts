@@ -503,7 +503,7 @@ describe("mutate guards", () => {
 });
 
 describe("lot workflow", () => {
-  test("Foodiva cannot confirm more than the PO or split weights that do not add up", () => {
+  test("Foodiva may invoice over the PO but must split weights that add up", () => {
     const s = setup();
     purchase(s, "40");
     const values = (
@@ -522,7 +522,7 @@ describe("lot workflow", () => {
     });
     expect(() =>
       s.run("foodiva", "foodivaConfirm", values("41", "41", "0")),
-    ).toThrow(/เกินยอด PO/);
+    ).not.toThrow();
     expect(() =>
       s.run("foodiva", "foodivaConfirm", values("40", "30", "5")),
     ).toThrow(/รวมเท่ากับ/);
