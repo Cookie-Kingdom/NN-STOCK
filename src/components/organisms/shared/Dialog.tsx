@@ -4,6 +4,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ComponentProps,
   type ReactNode,
 } from "react";
@@ -64,6 +65,14 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "title" | "open"> &
     toolbar?: ReactNode;
   };
 
+let switchedAt = -Infinity;
+/** Call right before swapping one dialog for another (a SegmentedChoice picking a
+ *  sibling form): the dialog that mounts next skips its enter animation, so only the
+ *  form changes instead of the whole popup replaying its open. */
+export function skipNextDialogEnter() {
+  switchedAt = performance.now();
+}
+
 /**
  * Modal on native `<dialog>` + `showModal()`: focus trap, inert page, top layer
  * and scroll lock come from the browser. Mount it to open, unmount it to close.
@@ -88,6 +97,8 @@ export function Dialog({
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // ponytail: time window, not a handshake; 500 ms covers the swap's render+commit.
+  const [instant] = useState(() => performance.now() - switchedAt < 500);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -99,18 +110,27 @@ export function Dialog({
     if (!dialog.open) dialog.showModal();
     // React's autoFocus fires while the dialog is still closed, and showModal() then
     // focuses the first focusable (the close button). Hand focus back to the marked field.
-    dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    // After a swap, stay on the chooser's picked option rather than the close button.
+    dialog
+      .querySelector<HTMLElement>(
+        instant ? '[aria-checked="true"]' : "[data-autofocus]",
+      )
+      ?.focus();
     return () => {
       if (dialog.open) dialog.close();
       previous?.focus();
     };
-  }, []);
+  }, [instant]); // fixed per mount
 
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className={cn(dialogVariants({ size }), className)}
+      className={cn(
+        dialogVariants({ size }),
+        instant && "transition-none backdrop:transition-none",
+        className,
+      )}
       onCancel={(event) => {
         onCancel?.(event);
         // Escape: keep the element open and let the parent unmount it.
