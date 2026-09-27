@@ -69,7 +69,7 @@ const thClass =
   "sticky top-0 border-b border-border bg-bg px-4.5 py-3.5 text-left align-middle text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary";
 const tdClass =
   "border-b border-border px-4.5 py-4 text-left align-middle leading-[1.45] whitespace-normal [tr:last-child>&]:border-b-0";
-const expandCellClass = "w-10.5 pr-1.5 text-center";
+const expandCellClass = "w-10.5 pl-1.5 text-center";
 const detailCellClass =
   "border-b border-border px-5 py-3 text-left whitespace-nowrap [tr:last-child>&]:border-b-0";
 
@@ -169,15 +169,15 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
           <table className="w-full min-w-260 border-separate border-spacing-0 tabular-nums">
             <thead>
               <tr>
-                <th
-                  aria-label="ขยายรายละเอียด"
-                  className={`${thClass} ${expandCellClass}`}
-                />
                 {registerColumns.map((column) => (
                   <th key={column} className={thClass}>
                     {column}
                   </th>
                 ))}
+                <th
+                  aria-label="ขยายรายละเอียด"
+                  className={`${thClass} ${expandCellClass}`}
+                />
               </tr>
             </thead>
             <tbody>
@@ -561,24 +561,6 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         className={`cursor-pointer hover:bg-bg ${isOpen ? "bg-bg" : ""}`}
                         onClick={() => toggle(lot.id)}
                       >
-                        <td className={`${tdClass} ${expandCellClass}`}>
-                          <IconButton
-                            size="sm"
-                            className="rounded-sm border border-border bg-surface"
-                            label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
-                            aria-expanded={isOpen}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggle(lot.id);
-                            }}
-                            icon={
-                              <ChevronDown
-                                aria-hidden
-                                className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "" : "-rotate-90"}`}
-                              />
-                            }
-                          />
-                        </td>
                         <td className={tdClass}>
                           <Badge
                             tone={
@@ -599,6 +581,24 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         <td className={tdClass}>{route}</td>
                         <td className={tdClass}>
                           {latest ? entryBy(latest) : "Owner"}
+                        </td>
+                        <td className={`${tdClass} ${expandCellClass}`}>
+                          <IconButton
+                            size="sm"
+                            className="rounded-sm border border-border bg-surface"
+                            label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
+                            aria-expanded={isOpen}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggle(lot.id);
+                            }}
+                            icon={
+                              <ChevronDown
+                                aria-hidden
+                                className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`}
+                              />
+                            }
+                          />
                         </td>
                       </tr>
                       {isOpen && (
