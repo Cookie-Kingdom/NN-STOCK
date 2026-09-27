@@ -938,13 +938,16 @@ describe("lot workflow", () => {
     const id = s.db.lots.at(-1)!.id;
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "500" });
     const sala = last(s);
-    expect(() =>
-      s.run("branch", "receive", {
-        kg: "499.5",
-        allocation: sala.id,
-        complete: "1",
-      }),
-    ).toThrow(/เหตุผลส่วนต่าง/);
+    expectWarning(
+      s.dry(() =>
+        s.run("branch", "receive", {
+          kg: "499.5",
+          allocation: sala.id,
+          complete: "1",
+        }),
+      ),
+      /เหตุผลส่วนต่าง/,
+    );
     s.run("branch", "receive", {
       kg: "499.5",
       allocation: sala.id,
@@ -1023,7 +1026,10 @@ describe("branch supplies", () => {
         receiver: "x",
         ...values,
       });
-    expect(() => receive({})).toThrow(/เหตุผลส่วนต่าง/);
+    expectWarning(
+      s.dry(() => receive({})),
+      /เหตุผลส่วนต่าง/,
+    );
     receive({ reason: "ขาด 1" });
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
     expect(() => receive({ reason: "ซ้ำ" })).toThrow(/ยืนยันรับรายการนี้แล้ว/);

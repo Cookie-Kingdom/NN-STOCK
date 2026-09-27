@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { transportDocumentRows } from "@/components/organisms/owner/documentRows";
 import { entries, shipmentChain, type Values } from "@/lib/store";
 import {
+  expectWarning,
   closed,
   dispatch,
   packingList,
@@ -92,7 +93,8 @@ test("Foodiva weighs in against the return truck's kg, not the whole smoke outpu
   s.run("foodiva", "foodivaReturnReceive", receive("20"));
   const t = closed();
   t.run("owner", "return", back("20"));
-  expect(() => t.run("foodiva", "foodivaReturnReceive", receive("15"))).toThrow(
+  expectWarning(
+    t.dry(() => t.run("foodiva", "foodivaReturnReceive", receive("15"))),
     /เหตุผลส่วนต่าง/,
   );
   t.run("foodiva", "foodivaReturnReceive", receive("15", "น้ำแข็งละลาย"));

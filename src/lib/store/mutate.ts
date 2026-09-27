@@ -292,7 +292,8 @@ function variance(actual: number, expected: number, v: Values, always = true) {
     Math.abs(actual - expected) > 0.001 &&
     (always || expected === 0 || Math.abs(actual - expected) / expected > 0.2)
   )
-    required(v, "reason", "เหตุผลส่วนต่าง");
+    // Real counts drift, so a missing reason is flagged, never refused.
+    warn(v.reason?.trim(), "ยอดไม่ตรง · ควรระบุเหตุผลส่วนต่าง");
 }
 /** Sum of Chef House's yellow cells: one weight per box of the shipment's latest Packing List.
  *  A total off the Packing List is not an error; it is what stock and cost run on. */
@@ -1302,8 +1303,10 @@ function record(
         Number.isInteger(n(v, "chiliCount")),
         "ยอดตรวจนับน้ำพริกต้องเป็นจำนวนหลอดเต็ม",
       );
-      if (n(v, "chiliCount") !== expectedChili)
-        required(v, "chiliRemark", "หมายเหตุเมื่อน้ำพริกไม่ตรง");
+      warn(
+        n(v, "chiliCount") === expectedChili || v.chiliRemark?.trim(),
+        "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ",
+      );
     }
     if (n(v, "wasteKg") > 0 || n(v, "riceWasteKg") > 0)
       required(v, "reason", "เหตุผล Waste");
