@@ -46,6 +46,13 @@ export type PackingListBox = {
 
 const kg = (value: number) => value.toFixed(2);
 const cell = "border-b border-border px-4.5 py-2.5 max-md:px-2.5";
+/** Head and total rows sit on a darker band than the body. The yellow column keeps its
+ *  hue there, one step deeper, so it still lines up with the cells Chef House fills. */
+const band = "bg-surface-sunken";
+const yellowBand =
+  "bg-[color-mix(in_oklab,var(--color-warning)_22%,var(--color-surface))]";
+const foot =
+  "sticky bottom-0 border-t border-border-strong px-4.5 py-3.5 max-md:px-2.5";
 
 /** How long the list is. A desktop number field has its own spinner, so − and +
  *  are only rendered where there is none.
@@ -260,9 +267,9 @@ export function PackingListTable({
               ].map((column, index) => (
                 <th
                   key={column}
-                  className={`sticky top-0 z-10 border-b border-border px-4.5 py-3.5 text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary max-md:px-2.5 ${
+                  className={`sticky top-0 z-10 border-b border-border-strong px-4.5 py-3.5 text-caption font-semibold tracking-[0.03em] whitespace-nowrap text-text-secondary max-md:px-2.5 ${
                     index === 0 ? "text-left" : "text-right"
-                  } ${index === 2 ? "bg-warning-subtle" : "bg-bg"}`}
+                  } ${index === 2 ? yellowBand : band}`}
                 >
                   {column}
                   {index === 2 && (
@@ -271,7 +278,7 @@ export function PackingListTable({
                 </th>
               ))}
               {onRemoveRow && (
-                <th className="sticky top-0 z-10 w-14 border-b border-border bg-bg px-4.5 py-3.5 max-md:px-2.5">
+                <th className="sticky top-0 z-10 w-14 border-b border-border-strong bg-surface-sunken px-4.5 py-3.5 max-md:px-2.5">
                   <span className="sr-only">ลบแถว</span>
                 </th>
               )}
@@ -284,7 +291,10 @@ export function PackingListTable({
                   ? undefined
                   : box.received - box.weight;
               return (
-                <tr key={box.no} className="hover:bg-bg">
+                <tr
+                  key={box.no}
+                  className="hover:bg-bg [&:last-child>td]:border-b-0"
+                >
                   <td className={`${cell} text-body-sm`}>{box.no}</td>
                   <td className={`${cell} text-right text-body-sm`}>
                     <WeightCell
@@ -338,17 +348,17 @@ export function PackingListTable({
           </tbody>
           <tfoot>
             <tr className="font-semibold">
-              <td className="sticky bottom-0 bg-surface px-4.5 py-3.5 text-body-sm max-md:px-2.5">
+              <td className={`${foot} ${band} text-body-sm`}>
                 รวม {listed.length} กล่องรับเข้า
               </td>
-              <td className="sticky bottom-0 bg-surface px-4.5 py-3.5 text-right text-num-md max-md:px-2.5">
+              <td className={`${foot} ${band} text-right text-num-md`}>
                 {listed.length ? kg(listedTotal) : "—"}
               </td>
-              <td className="sticky bottom-0 bg-warning-subtle px-4.5 py-3.5 text-right text-num-md max-md:px-2.5">
+              <td className={`${foot} ${yellowBand} text-right text-num-md`}>
                 {filled.length ? kg(receivedTotal) : "—"}
               </td>
               <td
-                className="sticky bottom-0 bg-surface px-4.5 py-3.5 text-right text-body-sm max-md:px-2.5"
+                className={`${foot} ${band} text-right text-body-sm`}
                 colSpan={onRemoveRow ? 2 : 1}
               >
                 {filled.length && filled.length === listed.length
