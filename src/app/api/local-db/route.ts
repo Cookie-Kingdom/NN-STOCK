@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
-import { seed, sevenDayRoleplay } from "@/lib/store";
+import { ownerBranchScenario, seed, sevenDayRoleplay } from "@/lib/store";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served
@@ -32,7 +32,8 @@ export async function GET() {
 }
 
 /** e2e setup: `?state=seed` resets to the seed (startFresh), `?state=sample` loads
- * the seven-day sample set (loadSampleData). */
+ * the seven-day sample set (loadSampleData), `?state=uat` loads the Owner/Branch UAT
+ * scenario with every pending case (src/lib/store/scenario.ts). */
 export async function PUT(request: Request) {
   if (!enabled) return new Response(null, { status: 404 });
   const state = new URL(request.url).searchParams.get("state");
@@ -41,10 +42,12 @@ export async function PUT(request: Request) {
       ? structuredClone(seed)
       : state === "sample"
         ? sevenDayRoleplay(today())
-        : null;
+        : state === "uat"
+          ? ownerBranchScenario(today())
+          : null;
   if (!payload)
     return Response.json(
-      { message: "state must be seed or sample" },
+      { message: "state must be seed, sample or uat" },
       { status: 400 },
     );
   const { db, replaceState } = await open();
