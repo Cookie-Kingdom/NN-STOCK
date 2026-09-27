@@ -601,114 +601,122 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           />
                         </td>
                       </tr>
-                      {isOpen && (
-                        <tr>
-                          <td
-                            colSpan={registerColumns.length + 1}
-                            className="border-b border-border bg-bg p-0 text-left whitespace-normal [tr:last-child>&]:border-b-0"
+                      {/* Always mounted so the detail can slide open and shut: the
+                          0fr→1fr grid row animates to the content's real height.
+                          ponytail: renders every lot's detail up front, fine at
+                          register size; mount on first open if lists grow large. */}
+                      <tr aria-hidden={!isOpen} inert={!isOpen}>
+                        <td
+                          colSpan={registerColumns.length + 1}
+                          className={`border-border bg-bg p-0 text-left whitespace-normal ${isOpen ? "border-b [tr:last-child>&]:border-b-0" : ""}`}
+                        >
+                          <div
+                            className={`grid transition-[grid-template-rows,opacity] motion-reduce:transition-none ${isOpen ? "grid-rows-[1fr] opacity-100 duration-(--motion-slow) ease-(--ease-enter)" : "grid-rows-[0fr] opacity-0 duration-(--motion-base) ease-(--ease-exit)"}`}
                           >
-                            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
-                              <div className="grid gap-0.75">
-                                <strong>
-                                  {lot.poId} / {lot.id}
-                                </strong>
-                                <span className="text-caption text-text-secondary">
-                                  ลำดับเอกสารและจุดตรวจสอบย้อนกลับ
-                                </span>
+                            <div className="min-h-0 overflow-hidden">
+                              <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+                                <div className="grid gap-0.75">
+                                  <strong>
+                                    {lot.poId} / {lot.id}
+                                  </strong>
+                                  <span className="text-caption text-text-secondary">
+                                    ลำดับเอกสารและจุดตรวจสอบย้อนกลับ
+                                  </span>
+                                </div>
+                                <DocumentPreview
+                                  title="สรุปเอกสารตามการส่ง"
+                                  number={`TRACE-${lot.id}`}
+                                  rows={[
+                                    ["เลขที่การส่ง", lot.poId],
+                                    ["Lot", lot.id],
+                                    ["สถานะล่าสุด", stages[lot.stage]],
+                                    [
+                                      "PO ซื้อ",
+                                      poLots(lot)
+                                        .map((po) => po.poId)
+                                        .join(", ") || "—",
+                                    ],
+                                    [
+                                      "PO โรงรมควัน",
+                                      smokeOrder?.values.orderNumber || "—",
+                                    ],
+                                    [
+                                      "Invoice Chef House",
+                                      chefInvoice?.values.invoiceNumber || "—",
+                                    ],
+                                    [
+                                      "Lot สโมค",
+                                      smokeEntries
+                                        .map((entry) => entry.values.subLot)
+                                        .filter(Boolean)
+                                        .join(", ") || "—",
+                                    ],
+                                    [
+                                      "ใบขนส่งขาไป",
+                                      dispatch?.values.transferNumber || "—",
+                                    ],
+                                    [
+                                      "ใบขนส่งขากลับ",
+                                      returnTrip?.values.transferNumber || "—",
+                                    ],
+                                  ]}
+                                />
                               </div>
-                              <DocumentPreview
-                                title="สรุปเอกสารตามการส่ง"
-                                number={`TRACE-${lot.id}`}
-                                rows={[
-                                  ["เลขที่การส่ง", lot.poId],
-                                  ["Lot", lot.id],
-                                  ["สถานะล่าสุด", stages[lot.stage]],
-                                  [
-                                    "PO ซื้อ",
-                                    poLots(lot)
-                                      .map((po) => po.poId)
-                                      .join(", ") || "—",
-                                  ],
-                                  [
-                                    "PO โรงรมควัน",
-                                    smokeOrder?.values.orderNumber || "—",
-                                  ],
-                                  [
-                                    "Invoice Chef House",
-                                    chefInvoice?.values.invoiceNumber || "—",
-                                  ],
-                                  [
-                                    "Lot สโมค",
-                                    smokeEntries
-                                      .map((entry) => entry.values.subLot)
-                                      .filter(Boolean)
-                                      .join(", ") || "—",
-                                  ],
-                                  [
-                                    "ใบขนส่งขาไป",
-                                    dispatch?.values.transferNumber || "—",
-                                  ],
-                                  [
-                                    "ใบขนส่งขากลับ",
-                                    returnTrip?.values.transferNumber || "—",
-                                  ],
-                                ]}
-                              />
-                            </div>
-                            <ShipmentChainCard db={db} lot={lot} />
-                            <div className="overflow-x-auto">
-                              <table className="w-full min-w-190 border-collapse bg-surface">
-                                <thead>
-                                  <tr>
-                                    {detailColumns.map((column, index) => (
-                                      <th
-                                        key={column}
-                                        className={`${detailCellClass} bg-bg text-caption text-text-secondary ${index === detailColumns.length - 1 ? "text-right" : ""}`}
-                                      >
-                                        {column}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {detailRows.map(
-                                    (
-                                      [
-                                        type,
-                                        number,
-                                        documentDate,
-                                        status,
-                                        action,
-                                      ],
-                                      index,
-                                    ) => (
-                                      <tr key={`${type}-${index}`}>
-                                        <td className={detailCellClass}>
-                                          {type}
-                                        </td>
-                                        <td className={detailCellClass}>
-                                          {number}
-                                        </td>
-                                        <td className={detailCellClass}>
-                                          {documentDate}
-                                        </td>
-                                        <td className={detailCellClass}>
-                                          {status}
-                                        </td>
-                                        <td
-                                          className={`${detailCellClass} text-right`}
+                              <ShipmentChainCard db={db} lot={lot} />
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-190 border-collapse bg-surface">
+                                  <thead>
+                                    <tr>
+                                      {detailColumns.map((column, index) => (
+                                        <th
+                                          key={column}
+                                          className={`${detailCellClass} bg-bg text-caption text-text-secondary ${index === detailColumns.length - 1 ? "text-right" : ""}`}
                                         >
-                                          {action}
-                                        </td>
-                                      </tr>
-                                    ),
-                                  )}
-                                </tbody>
-                              </table>
+                                          {column}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {detailRows.map(
+                                      (
+                                        [
+                                          type,
+                                          number,
+                                          documentDate,
+                                          status,
+                                          action,
+                                        ],
+                                        index,
+                                      ) => (
+                                        <tr key={`${type}-${index}`}>
+                                          <td className={detailCellClass}>
+                                            {type}
+                                          </td>
+                                          <td className={detailCellClass}>
+                                            {number}
+                                          </td>
+                                          <td className={detailCellClass}>
+                                            {documentDate}
+                                          </td>
+                                          <td className={detailCellClass}>
+                                            {status}
+                                          </td>
+                                          <td
+                                            className={`${detailCellClass} text-right`}
+                                          >
+                                            {action}
+                                          </td>
+                                        </tr>
+                                      ),
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      )}
+                          </div>
+                        </td>
+                      </tr>
                     </Fragment>
                   );
                 })
