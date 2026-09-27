@@ -28,10 +28,12 @@ export function PageHeading({
           {description}
         </Muted>
       </div>
-      <div className="flex flex-col gap-1 text-caption text-text-secondary">
+      {/* shrink-0: the title wraps instead, so the date never squeezes under its own
+          calendar icon. w-40 holds "dd/mm/yyyy" at the 16px phone size plus the icon. */}
+      <div className="flex shrink-0 flex-col gap-1 text-caption text-text-secondary">
         <WorkingDateField
           variant="filter"
-          inputClassName="min-w-0 rounded-md p-2 max-md:max-w-34"
+          inputClassName="w-40 rounded-md p-2"
           date={date}
           onDate={onDate}
         />
