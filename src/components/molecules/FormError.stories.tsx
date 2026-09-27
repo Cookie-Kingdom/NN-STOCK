@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
@@ -22,19 +23,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A rejected save: a danger Notice that scrolls itself into view. */
-export const WithError: Story = {};
+const error = pick("error", {
+  สั้น: "น้ำหนักรับเข้าต้องมากกว่า 0 กก.",
+  ยาว: "บันทึกไม่สำเร็จ: ล็อต LOT-0915-01 ปิดแล้ว จึงแก้ไขน้ำหนักรับเข้าของสาขาศาลาแดงไม่ได้ กรุณาเปิดล็อตใหม่หรือบันทึกเป็นรายการปรับปรุงสต๊อก",
+  ไม่มี: null,
+});
 
-/** Longer text from the store's validation still reads as one block. */
-export const LongMessage: Story = {
-  args: {
-    error:
-      "บันทึกไม่สำเร็จ: ล็อต LOT-0915-01 ปิดแล้ว จึงแก้ไขน้ำหนักรับเข้าของสาขาศาลาแดงไม่ได้ กรุณาเปิดล็อตใหม่หรือบันทึกเป็นรายการปรับปรุงสต๊อก",
-  },
+/** Pick the state in Controls:
+ *  - สั้น: a rejected save, a danger Notice that scrolls itself into view
+ *  - ยาว: longer text from the store's validation still reads as one block
+ *  - ไม่มี: the component renders nothing, so the form keeps its spacing */
+export const Default: Story = {
+  argTypes: { error: error.argType },
+  args: { error: error.initial },
 };
-
-/** No error — the component renders nothing, so the form keeps its spacing. */
-export const NoError: Story = { args: { error: null } };
 
 /** Where it actually sits: last thing in a form body, above the buttons. */
 export const InForm: Story = {

@@ -5,23 +5,50 @@ import {
   demoDb,
   packedDb,
 } from "../../../.storybook/fixtures";
+import { pick } from "../../../.storybook/pick";
 import { accountById } from "@/lib/accounts";
 import type { Tab } from "@/lib/nav";
+import type { Database } from "@/lib/store";
 import { OwnerWorkspace } from "./OwnerWorkspace";
 
 // The tab comes from the URL segment (useSelectedLayoutSegment), so each story sets it.
 // Sidebar clicks only log router.push in Actions. !autodocs: pages mount modal dialogs.
 const at = (tab: Tab) => ({ nextjs: { navigation: { segments: [tab] } } });
 
-const meta: Meta = {
+type Args = { db: Database; account: "owner" | "manager" };
+
+const meta: Meta<Args> = {
   title: "Pages/Owner",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen", db: demoDb },
-  render: () => <OwnerWorkspace account={accountById("owner")!} />,
+  render: ({ account = "owner" }) => (
+    <OwnerWorkspace account={accountById(account)!} />
+  ),
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<Args>;
+
+/* Account Manager (C4): the same workspace with no dashboard in the sidebar and no sales
+ * money. Report drops LINE MAN and the margin; History shows sales without amounts and no
+ * edit button. The stories where it differs get a บัญชี control. */
+const byAccount = {
+  argTypes: {
+    account: {
+      name: "บัญชี",
+      options: ["owner", "manager"],
+      control: {
+        type: "radio" as const,
+        labels: { owner: "Owner", manager: "Account Manager" },
+      },
+    },
+  },
+  args: { account: "owner" as const },
+};
+const packingList = pick("สถานะ", {
+  ปกติ: demoDb,
+  "Packing List พร้อมแล้ว": packedDb,
+});
 
 /* One story per entry in `ownerNav`, in sidebar order, so a gap here is a gap the
  * Owner can see. The heading above each block is the sidebar group it belongs to. */
@@ -30,11 +57,14 @@ type Story = StoryObj;
 export const Dashboard: Story = { parameters: at("owner-dashboard") };
 
 // จัดซื้อและใบสั่ง
-export const PurchaseOrders: Story = { parameters: at("po") };
-export const SmokingPurchaseOrders: Story = { parameters: at("smoke-po") };
-/** Packing List saved, no smoke PO yet: the bell and the smoke PO badge point here. */
-export const SmokingPurchaseOrdersPackingListReady: Story = {
-  parameters: { ...at("smoke-po"), db: packedDb },
+/** บัญชี = Account Manager: the same list without sales money. */
+export const PurchaseOrders: Story = { ...byAccount, parameters: at("po") };
+/** Pick สถานะ in Controls. Packing List พร้อมแล้ว: Packing List saved, no smoke PO yet;
+ *  the bell and the smoke PO badge point here. */
+export const SmokingPurchaseOrders: Story = {
+  parameters: at("smoke-po"),
+  argTypes: { db: packingList.argType },
+  args: { db: packingList.initial },
 };
 export const Invoices: Story = { parameters: at("invoices") };
 
@@ -55,23 +85,10 @@ export const MeatMovementLog: Story = { parameters: at("meat-log") };
 
 // เอกสารและรายงาน
 export const Documents: Story = { parameters: at("documents") };
-export const Report: Story = { parameters: at("report") };
-export const History: Story = { parameters: at("history") };
+/** บัญชี = Account Manager: no LINE MAN and no margin. */
+export const Report: Story = { ...byAccount, parameters: at("report") };
+/** บัญชี = Account Manager: sales without amounts and no edit button. */
+export const History: Story = { ...byAccount, parameters: at("history") };
 
 // ระบบ
 export const Config: Story = { parameters: at("config") };
-
-/* Account Manager (C4): the same workspace with no dashboard in the sidebar and no sales money.
- * Report drops LINE MAN and the margin; History shows sales without amounts and no edit button. */
-const asManager = {
-  render: () => <OwnerWorkspace account={accountById("manager")!} />,
-};
-export const ManagerPurchaseOrders: Story = {
-  ...asManager,
-  parameters: at("po"),
-};
-export const ManagerReport: Story = { ...asManager, parameters: at("report") };
-export const ManagerHistory: Story = {
-  ...asManager,
-  parameters: at("history"),
-};

@@ -17,7 +17,7 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ account: "owner" | "saladaeng"; toast: string }>;
 
 function Placeholder() {
   return (
@@ -73,39 +73,47 @@ function Shell({
   );
 }
 
+const ownerProps = {
+  nav: ownerNav,
+  badges: { transport: 1, "return-shipment": 1, invoices: 2 },
+  notifications: [
+    {
+      title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
+      detail: "Chef House ส่งมอบแล้ว",
+      tab: "central-receive",
+    },
+    {
+      title: "PO-0412 รอออกใบแจ้งหนี้",
+      detail: "Foodiva",
+      tab: "invoices",
+    },
+  ],
+} satisfies Partial<Parameters<typeof Shell>[0]>;
+
+/** Controls:
+ *  - บัญชี: Owner (badges and a bell with two lines), or ศาลาแดง: branch accounts show
+ *    their branch in the overline and have no notification bell.
+ *  - ข้อความแจ้ง: type a message to show the toast (e.g. "บันทึกเรียบร้อยแล้ว"). */
 export const Owner: Story = {
-  render: () => (
+  argTypes: {
+    account: {
+      name: "บัญชี",
+      options: ["owner", "saladaeng"],
+      control: {
+        type: "radio",
+        labels: { owner: "Owner", saladaeng: "ศาลาแดง" },
+      },
+    },
+    toast: { name: "ข้อความแจ้ง", control: "text" },
+  },
+  args: { account: "owner", toast: "" },
+  render: ({ account, toast }) => (
+    // key: the shell keeps tab and toast in state, so start over when a control changes.
     <Shell
-      account={accountById("owner")!}
-      nav={ownerNav}
-      badges={{ transport: 1, "return-shipment": 1, invoices: 2 }}
-      notifications={[
-        {
-          title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
-          detail: "Chef House ส่งมอบแล้ว",
-          tab: "central-receive",
-        },
-        {
-          title: "PO-0412 รอออกใบแจ้งหนี้",
-          detail: "Foodiva",
-          tab: "invoices",
-        },
-      ]}
-    />
-  ),
-};
-
-/** Branch accounts show their branch in the overline and have no notification bell. */
-export const Branch: Story = {
-  render: () => <Shell account={accountById("saladaeng")!} nav={branchNav} />,
-};
-
-export const WithToast: Story = {
-  render: () => (
-    <Shell
-      account={accountById("owner")!}
-      nav={ownerNav}
-      toast="บันทึกเรียบร้อยแล้ว"
+      key={`${account}:${toast}`}
+      account={accountById(account)!}
+      toast={toast}
+      {...(account === "owner" ? ownerProps : { nav: branchNav })}
     />
   ),
 };

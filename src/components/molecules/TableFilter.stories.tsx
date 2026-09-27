@@ -1,4 +1,6 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { FilterBar } from "./FilterBar";
@@ -22,23 +24,28 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A `Select` with `variant="filter"` — the most common filter in the app. */
-export const WithSelect: Story = {};
+type Props = ComponentProps<typeof TableFilter>;
 
-/** Free-text search over lot and PO numbers. */
-export const WithInput: Story = {
-  args: {
+const state = pick<Partial<Props>>("ตัวกรอง", {
+  เลือกสาขา: {},
+  ค้นหา: {
     label: "ค้นหา",
     children: <Input variant="filter" placeholder="เลขล็อต / PO" />,
   },
-};
-
-/** A single date, for tables that filter on one day instead of a range. */
-export const WithDate: Story = {
-  args: {
+  วันที่: {
     label: "วันที่ผลิต",
     children: <Input variant="filter" type="date" defaultValue="2026-09-15" />,
   },
+});
+
+/** Pick the filter in Controls:
+ *  - เลือกสาขา: a `Select` with `variant="filter"` — the most common filter in the app
+ *  - ค้นหา: free-text search over lot and PO numbers
+ *  - วันที่: a single date, for tables that filter on one day instead of a range */
+export const Default: StoryObj<Props & { state: Partial<Props> }> = {
+  argTypes: { state: state.argType },
+  args: { state: state.initial },
+  render: ({ state, ...args }) => <TableFilter {...args} {...state} />,
 };
 
 /** Several of them wrap in a FilterBar above the table. */

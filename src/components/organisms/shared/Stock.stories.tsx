@@ -6,7 +6,8 @@ import {
   nextDay,
   open,
 } from "../../../../.storybook/fixtures";
-import { branches } from "@/lib/store";
+import { pick } from "../../../../.storybook/pick";
+import { branches, type Role } from "@/lib/store";
 import { BranchStockSummary } from "./BranchStockSummary";
 import { MaterialStockTable } from "./MaterialStockTable";
 import { MeatStockTable } from "./MeatStockTable";
@@ -20,20 +21,24 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ role: Role; date: string }>;
 
-export const MeatStockOwner: Story = {
-  render: () => (
-    <MeatStockTable db={db} role="owner" branch="" lots={db.lots} open={open} />
-  ),
-};
-
-export const MeatStockBranch: Story = {
-  render: () => (
+/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, สาขาเห็นเฉพาะศาลาแดง */
+export const MeatStock: Story = {
+  argTypes: {
+    role: {
+      name: "มุมมอง",
+      control: { type: "radio", labels: { owner: "Owner", branch: "สาขา" } },
+      options: ["owner", "branch"],
+    },
+  },
+  args: { role: "owner" },
+  render: ({ role }) => (
     <MeatStockTable
+      key={role}
       db={db}
-      role="branch"
-      branch="ศาลาแดง"
+      role={role}
+      branch={role === "branch" ? "ศาลาแดง" : ""}
       lots={db.lots}
       open={open}
     />
@@ -50,22 +55,21 @@ export const Supply: Story = {
   render: () => <SupplyStock db={db} branches={branches} />,
 };
 
-/** Branch view, end of day 1: 70 kg received and thawed, 65.5 kg used, 4.5 kg ชิล. */
+const summaryDay = pick("วัน", { วันแรก: day, วันถัดไป: nextDay });
+
+/** Branch view. เลือกวันใน Controls:
+ *  - วันแรก: สิ้นวันที่ 1 รับเข้าและละลาย 70 kg ใช้ไป 65.5 kg เหลือชิล 4.5 kg
+ *  - วันถัดไป: ชิลยกมา 4.5 kg ยังไม่มีการเคลื่อนไหว */
 export const StockSummaryBranch: Story = {
   parameters: { db: chillDb },
-  render: () => (
-    <BranchStockSummary db={chillDb} branches={["ศาลาแดง"]} initialDate={day} />
-  ),
-};
-
-/** The next day: 4.5 kg ชิลยกมา, nothing moved yet. */
-export const StockSummaryBranchNextDay: Story = {
-  parameters: { db: chillDb },
-  render: () => (
+  argTypes: { date: summaryDay.argType },
+  args: { date: summaryDay.initial },
+  render: ({ date }) => (
     <BranchStockSummary
+      key={date}
       db={chillDb}
       branches={["ศาลาแดง"]}
-      initialDate={nextDay}
+      initialDate={date}
     />
   ),
 };

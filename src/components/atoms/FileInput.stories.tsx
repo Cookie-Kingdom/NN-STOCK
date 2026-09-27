@@ -10,6 +10,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
-export const Images: Story = { args: { accept: "image/*" } };
-export const Disabled: Story = { args: { disabled: true } };
+/** Pick the state in Controls:
+ *  - `accept`: e.g. `image/*` to limit the picker to images
+ *  - `disabled`: not clickable */
+export const Default: Story = {
+  argTypes: {
+    accept: { control: "text" },
+    disabled: { control: "boolean" },
+  },
+  args: { accept: "", disabled: false },
+};

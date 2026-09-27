@@ -17,18 +17,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Nothing picked yet: the leading "ทั้งหมด" option is selected. */
-export const AllBranches: Story = {};
-
-/** A branch is picked, so the table below it shows only that branch's lots. */
-export const OneBranch: Story = { args: { value: "มีนบุรี" } };
-
-/** Both labels are overridable — the owner's PO list asks for a destination. */
-export const CustomLabels: Story = {
-  args: {
-    label: "สาขาปลายทาง",
-    allLabel: "ทุกสาขา",
-    value: "ศาลาแดง",
+/** Pick the state in Controls:
+ *  - `value` "ทั้งหมด": nothing picked yet, the leading all option is selected
+ *  - `value` a branch: the table below it shows only that branch's lots
+ *  - `label` / `allLabel`: both are overridable — the owner's PO list asks for a
+ *    destination ("สาขาปลายทาง" / "ทุกสาขา") */
+export const Default: Story = {
+  argTypes: {
+    value: {
+      control: "inline-radio",
+      options: ["ทั้งหมด", "ศาลาแดง", "มีนบุรี"],
+    },
+    label: { control: "text" },
+    allLabel: { control: "text" },
   },
 };
 

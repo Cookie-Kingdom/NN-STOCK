@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
+import { pick } from "../../../../.storybook/pick";
 import { DataTable } from "./DataTable";
 
 const rows = Array.from({ length: 45 }, (_, i) => {
@@ -30,13 +31,24 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Paginated: Story = {};
-export const SinglePage: Story = { args: { rows: rows.slice(0, 5) } };
-export const Empty: Story = { args: { rows: [] } };
+const rowCount = pick("จำนวนแถว", {
+  หลายหน้า: rows,
+  หน้าเดียว: rows.slice(0, 5),
+  แถวเดียว: rows.slice(0, 1),
+  ไม่มีรายการ: [] as typeof rows,
+});
+const sort = pick("เรียงตาม", {
+  ค่าเริ่มต้น: undefined,
+  "น้ำหนัก มากไปน้อย": { column: "น้ำหนัก", desc: true },
+});
 
-/** `defaultSort` picks the starting column; the dropdown lists every text column. */
-export const Sorted: Story = {
-  args: { defaultSort: { column: "น้ำหนัก", desc: true } },
+/** เลือกใน Controls:
+ *  - จำนวนแถว: หลายหน้า (มีปุ่มเปลี่ยนหน้า), หน้าเดียว, แถวเดียว (ยังแสดง "เรียงตาม"
+ *    แถบเครื่องมือจึงไม่ขยับเมื่อกรอง), หรือไม่มีรายการ
+ *  - เรียงตาม: `defaultSort` เลือกคอลัมน์เริ่มต้น; dropdown แสดงทุกคอลัมน์ที่เป็นข้อความ */
+export const Paginated: Story = {
+  argTypes: { rows: rowCount.argType, defaultSort: sort.argType },
+  args: { rows: rowCount.initial, defaultSort: sort.initial },
 };
 
 /** `columnWidths` fixes the layout: the columns hold their width as rows are filtered,
@@ -54,9 +66,4 @@ export const FixedColumns: Story = {
           : "จากรับเข้าสต๊อกกลาง · เก็บที่ Foodiva รอ Owner จัดสรรไปสาขา ข้อความยาวจึงขึ้นบรรทัดใหม่",
       ]),
   },
-};
-
-/** One row still shows "เรียงตาม", so the toolbar does not shift as filters change. */
-export const SingleRow: Story = {
-  args: { rows: rows.slice(0, 1) },
 };

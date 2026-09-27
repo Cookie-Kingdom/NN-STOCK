@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { SegmentedChoice } from "./SegmentedChoice";
 
@@ -14,28 +14,34 @@ const meta = {
       { value: "other", label: "ซื้ออื่น ๆ (น้ำพริก, น้ำดอง ฯลฯ)" },
     ],
   },
-  render: function Render(args) {
-    const [value, setValue] = useState(args.value);
-    return <SegmentedChoice {...args} value={value} onChange={setValue} />;
-  },
+  // The key remounts it when the `value` control changes.
+  render: (args) => <Stateful key={args.value} {...args} />,
 } satisfies Meta<typeof SegmentedChoice>;
 
+function Stateful(args: ComponentProps<typeof SegmentedChoice>) {
+  const [value, setValue] = useState(args.value);
+  return <SegmentedChoice {...args} value={value} onChange={setValue} />;
+}
+
 export default meta;
-type Story = StoryObj<typeof meta>;
 
-/** The first choice picked — how "+ ซื้อเข้าคลัง" opens. */
-export const FirstPicked: Story = {};
-
-/** The second choice picked. */
-export const SecondPicked: Story = { args: { value: "other" } };
-
-/** A narrow column wraps the choices instead of overflowing. */
-export const Narrow: Story = {
+/** Pick the state in Controls:
+ *  - `value` material: the first choice picked — how "+ ซื้อเข้าคลัง" opens
+ *  - `value` other: the second choice picked
+ *  - `narrow`: a narrow column wraps the choices instead of overflowing */
+export const Default: StoryObj<
+  ComponentProps<typeof SegmentedChoice> & { narrow: boolean }
+> = {
   decorators: [
-    (Story) => (
-      <div className="max-w-60">
+    (Story, { args }) => (
+      <div className={args.narrow ? "max-w-60" : undefined}>
         <Story />
       </div>
     ),
   ],
+  argTypes: {
+    value: { control: "inline-radio", options: ["material", "other"] },
+    narrow: { control: "boolean" },
+  },
+  args: { narrow: false },
 };

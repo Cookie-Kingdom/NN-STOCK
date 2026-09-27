@@ -10,10 +10,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Unchecked: Story = {};
-export const Checked: Story = { args: { defaultChecked: true } };
-export const Disabled: Story = {
-  args: { disabled: true, defaultChecked: true },
+/** Pick the state in Controls:
+ *  - `defaultChecked`: ticked or not
+ *  - `disabled`: locked (shown ticked in the old Disabled story) */
+export const Default: Story = {
+  argTypes: {
+    defaultChecked: { control: "boolean" },
+    disabled: { control: "boolean" },
+  },
+  args: { defaultChecked: false, disabled: false },
+  // defaultChecked only applies on mount, so remount when it changes.
+  render: (args) => <Checkbox key={String(args.defaultChecked)} {...args} />,
 };
 
 /** How the forms use it: the whole row is the label, so the box itself stays bare. */

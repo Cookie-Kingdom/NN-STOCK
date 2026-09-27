@@ -15,75 +15,86 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{
+  account: keyof typeof sidebars;
+  role: "owner" | "branch";
+  voided: boolean;
+}>;
 
-export const SidebarOwner: Story = {
+/** Each account's menu, open on its first tab; only the Owner has badges. */
+const sidebars = {
+  owner: {
+    nav: ownerNav,
+    tab: "owner-dashboard",
+    badges: { po: 2, invoices: 1 },
+  },
+  chef: { nav: chefNav, tab: "work", badges: undefined },
+  saladaeng: {
+    nav: branchNav,
+    tab: branchNav[0].items[0].id,
+    badges: undefined,
+  },
+} as const;
+
+/** Pick บัญชี in Controls: Owner (with PO and invoice badges), Chef House or ศาลาแดง. */
+export const Sidebar: Story = {
   parameters: { layout: "fullscreen" },
-  render: () => (
+  argTypes: {
+    account: {
+      name: "บัญชี",
+      options: Object.keys(sidebars),
+      control: {
+        type: "radio",
+        labels: { owner: "Owner", chef: "Chef House", saladaeng: "ศาลาแดง" },
+      },
+    },
+  },
+  args: { account: "owner" },
+  render: ({ account }) => (
     <div className="flex h-160">
       <AppSidebar
-        account={accountById("owner")!}
-        nav={ownerNav}
-        tab="owner-dashboard"
+        account={accountById(account)!}
+        nav={sidebars[account].nav}
+        tab={sidebars[account].tab}
         onTab={fn()}
-        badges={{ po: 2, invoices: 1 }}
+        badges={sidebars[account].badges}
       />
     </div>
   ),
 };
 
-export const SidebarChef: Story = {
-  parameters: { layout: "fullscreen" },
-  render: () => (
-    <div className="flex h-160">
-      <AppSidebar
-        account={accountById("chef")!}
-        nav={chefNav}
-        tab="work"
-        onTab={fn()}
-      />
-    </div>
+/** Pick ผู้ใช้ in Controls: the Owner's full log, or ศาลาแดง's own entries. */
+export const History: Story = {
+  argTypes: {
+    role: {
+      name: "ผู้ใช้",
+      options: ["owner", "branch"],
+      control: {
+        type: "radio",
+        labels: { owner: "Owner", branch: "ศาลาแดง" },
+      },
+    },
+  },
+  args: { role: "owner" },
+  render: ({ role }) => (
+    <HistoryPanel
+      db={db}
+      role={role}
+      branch={role === "branch" ? "ศาลาแดง" : ""}
+      onChanged={fn()}
+    />
   ),
 };
 
-export const SidebarBranch: Story = {
-  parameters: { layout: "fullscreen" },
-  render: () => (
-    <div className="flex h-160">
-      <AppSidebar
-        account={accountById("saladaeng")!}
-        nav={branchNav}
-        tab={branchNav[0].items[0].id}
-        onTab={fn()}
-      />
-    </div>
-  ),
-};
-
-export const HistoryOwner: Story = {
-  render: () => (
-    <HistoryPanel db={db} role="owner" branch="" onChanged={fn()} />
-  ),
-};
-
-export const HistoryBranch: Story = {
-  render: () => (
-    <HistoryPanel db={db} role="branch" branch="ศาลาแดง" onChanged={fn()} />
-  ),
-};
-
+/** Toggle ยกเลิกแล้ว in Controls to show the entry as voided. */
 export const EntryDetail: Story = {
-  render: () => (
-    <EntryDetails entry={db.entries.at(-1)!} role="owner" onChanged={fn()} />
-  ),
-};
-
-export const EntryDetailVoided: Story = {
-  render: () => (
+  argTypes: { voided: { name: "ยกเลิกแล้ว", control: "boolean" } },
+  args: { voided: false },
+  render: ({ voided }) => (
     <EntryDetails
       entry={db.entries.at(-1)!}
       role="owner"
-      voided
+      voided={voided}
       onChanged={fn()}
     />
   ),

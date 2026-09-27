@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Muted } from "@/components/atoms/Text";
 import { PoLotCell } from "./PoLotCell";
 
@@ -11,17 +12,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** PO number in bold with the lot id on the line below. */
-export const Default: Story = {};
+const po = pick("poId", { "PO-2026-0412": "PO-2026-0412", ยังไม่มี: null });
 
-/** `sub` adds a muted third line — branch, weight or status. */
-export const WithSub: Story = {
-  args: { sub: "ศาลาแดง · 24.5 กก." },
-};
-
-/** No PO yet (the lot has not been ordered): the first line falls back to "-". */
-export const NoPo: Story = {
-  args: { poId: null, lotId: <Muted as="span">LOT-0915-04</Muted> },
+/** PO number in bold with the lot id on the line below. Pick in Controls:
+ *  - `sub`: a muted third line — branch, weight or status (e.g. "ศาลาแดง · 24.5 กก.")
+ *  - `poId` ยังไม่มี: the lot has not been ordered, so the first line falls back
+ *    to "-" */
+export const Default: Story = {
+  argTypes: {
+    poId: po.argType,
+    lotId: { control: "text" },
+    sub: { control: "text" },
+  },
+  args: { poId: po.initial, sub: "" },
 };
 
 /** How the traceability table stacks them, one cell per row. */

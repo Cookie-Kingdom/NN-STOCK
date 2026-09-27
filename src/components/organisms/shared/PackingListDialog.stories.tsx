@@ -5,6 +5,8 @@ import {
   multiPoPackedDb,
   packedDb,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import { PackingListDialog } from "./PackingListDialog";
 
 // A native modal <dialog>; a Docs page would stack it behind the other stories.
@@ -15,28 +17,24 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database }>;
+
+const shipment = pick("PO ซื้อ", {
+  "PO เดียว": packedDb,
+  "3 PO": multiPoPackedDb,
+});
 
 /** What the Owner opens from the smoke PO tab: the purchase POs the shipment covers
- *  ("PO ซื้อในการส่งนี้"), then Foodiva's list and its totals. */
+ *  ("PO ซื้อในการส่งนี้"), then Foodiva's list and its totals. เลือก PO ซื้อ ใน Controls:
+ *  - PO เดียว: การส่งจาก PO ซื้อใบเดียว
+ *  - 3 PO: การส่งเดียวจาก PO ซื้อสามใบ แต่ละใบมีใบแจ้งหนี้ Foodiva และ kg ที่ขอ */
 export const Owner: Story = {
-  render: () => (
+  argTypes: { db: shipment.argType },
+  args: { db: shipment.initial },
+  render: ({ db }) => (
     <PackingListDialog
-      db={packedDb}
-      lotId={packedDb.lots.at(-1)!.id}
-      onClose={fn()}
-      showPurchaseOrders
-    />
-  ),
-};
-
-/** One shipment from three purchase POs: each with its Foodiva invoice and the kg asked. */
-export const OwnerMultiPo: Story = {
-  parameters: { db: multiPoPackedDb },
-  render: () => (
-    <PackingListDialog
-      db={multiPoPackedDb}
-      lotId={multiPoPackedDb.lots.at(-1)!.id}
+      db={db}
+      lotId={db.lots.at(-1)!.id}
       onClose={fn()}
       showPurchaseOrders
     />

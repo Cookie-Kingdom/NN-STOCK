@@ -10,6 +10,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Form: Story = {};
-export const Compact: Story = { args: { compact: true } };
-export const Disabled: Story = { args: { disabled: true } };
+/** Pick the state in Controls:
+ *  - `compact`: starts one line high, for a short reason or memo
+ *  - `disabled`: locked */
+export const Default: Story = {
+  argTypes: {
+    compact: { control: "boolean" },
+    disabled: { control: "boolean" },
+  },
+  args: { compact: false, disabled: false },
+};

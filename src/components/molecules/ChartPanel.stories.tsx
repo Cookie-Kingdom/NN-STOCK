@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Badge } from "@/components/atoms/Badge";
 import { cn } from "@/lib/utils";
 import { ChartPanel } from "./ChartPanel";
@@ -33,6 +34,17 @@ function Bars({ tone = "warning" }: { tone?: "warning" | "accent" }) {
   );
 }
 
+const total = pick("total", {
+  "฿48,250": "฿48,250",
+  "84.2 กก.": "84.2 กก.",
+  "฿312 / กก.": "฿312 / กก.",
+  ไม่มี: undefined,
+});
+const aside = pick("aside", {
+  ไม่มี: undefined,
+  "Badge ต่ำกว่าเป้า": <Badge tone="success">ต่ำกว่าเป้า</Badge>,
+});
+
 const meta = {
   title: "Molecules/ChartPanel",
   component: ChartPanel,
@@ -57,35 +69,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Default `totalTone="warning"`: the figure sits in the warning pill. */
-export const WithTotal: Story = {};
-
-/** `totalTone="accent"` for stock figures, which are not a money warning. */
-export const AccentTotal: Story = {
-  args: {
-    overline: "สต๊อกกลาง",
-    title: "คงเหลือเนื้อรมควัน",
-    total: "84.2 กก.",
-    totalTone: "accent",
-    children: <Bars tone="accent" />,
-  },
-};
-
-/** No `total` — the heading keeps the full width. */
-export const NoTotal: Story = {
-  args: {
-    overline: "เปรียบเทียบสาขา",
-    title: "น้ำหนักรับเข้า ศาลาแดง / มีนบุรี",
-    total: undefined,
-  },
-};
-
-/** `aside` puts a legend or a status next to the heading, before the total. */
-export const WithAside: Story = {
-  args: {
-    overline: "ต้นทุนต่อล็อต",
-    title: "ต้นทุนเนื้อดิบเฉลี่ย",
-    total: "฿312 / กก.",
-    aside: <Badge tone="success">ต่ำกว่าเป้า</Badge>,
-  },
+/** Pick the state in Controls:
+ *  - `totalTone="warning"` (default): the figure sits in the warning pill
+ *  - `totalTone="accent"`: for stock figures, which are not a money warning (the
+ *    stand-in bars follow the tone)
+ *  - `total` ไม่มี: the heading keeps the full width
+ *  - `aside`: a legend or a status next to the heading, before the total */
+export const Default: Story = {
+  argTypes: { total: total.argType, aside: aside.argType },
+  args: { totalTone: "warning", total: total.initial, aside: aside.initial },
+  render: (args) => (
+    <ChartPanel {...args}>
+      <Bars tone={args.totalTone} />
+    </ChartPanel>
+  ),
 };

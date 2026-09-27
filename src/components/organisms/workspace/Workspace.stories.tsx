@@ -49,33 +49,38 @@ export const Brand: Story = {
   ),
 };
 
-export const Header: Story = {
-  render: () => (
-    <div className="min-h-120">
-      <AppHeader actions={<Bell items={notifications} />} />
-    </div>
-  ),
-};
+type Alerts = "sample" | "packingList" | "none";
 
-/** Owner's bell once Foodiva saved the transport document with its Packing List (P4):
- * "Packing List พร้อมแล้ว" leads to the smoke PO tab. */
-export const HeaderPackingListReady: Story = {
-  render: function Render() {
-    const { notifications } = useOwnerAlerts(packedDb);
+/** Pick การแจ้งเตือน in Controls:
+ *  - ตัวอย่าง: two placeholder lines (a lot to receive, a PO to invoice).
+ *  - Packing List พร้อมแล้ว: the Owner's bell once Foodiva saved the transport document
+ *    with its Packing List (P4); "Packing List พร้อมแล้ว" leads to the smoke PO tab.
+ *  - ไม่มี: an empty bell. */
+export const Header: StoryObj<{ alerts: Alerts }> = {
+  argTypes: {
+    alerts: {
+      name: "การแจ้งเตือน",
+      options: ["sample", "packingList", "none"],
+      control: {
+        type: "radio",
+        labels: {
+          sample: "ตัวอย่าง",
+          packingList: "Packing List พร้อมแล้ว",
+          none: "ไม่มี",
+        },
+      },
+    },
+  },
+  args: { alerts: "sample" },
+  render: function Render({ alerts }) {
+    const packingList = useOwnerAlerts(packedDb).notifications;
+    const items = { sample: notifications, packingList, none: [] }[alerts];
     return (
-      <div className="min-h-80">
-        <AppHeader actions={<Bell items={notifications} />} />
+      <div className="min-h-120">
+        <AppHeader actions={<Bell items={items} />} />
       </div>
     );
   },
-};
-
-export const HeaderNoNotifications: Story = {
-  render: () => (
-    <div className="min-h-60">
-      <AppHeader actions={<Bell items={[]} />} />
-    </div>
-  ),
 };
 
 function Heading() {

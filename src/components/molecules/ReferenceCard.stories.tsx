@@ -1,4 +1,6 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "./ButtonRow";
 import { PoLotCell } from "./PoLotCell";
@@ -30,12 +32,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+type Props = ComponentProps<typeof ReferenceCard>;
 
-/** Without `number` the heading is the plain title — how the pre-save preview of a
- *  form's own values uses the card. */
-export const WithoutNumber: Story = {
-  args: {
+const state = pick<Partial<Props>>("สถานะ", {
+  มีเลขที่: {},
+  ไม่มีเลขที่: {
     title: "ตรวจสอบก่อนบันทึก",
     number: undefined,
     action: undefined,
@@ -45,6 +46,16 @@ export const WithoutNumber: Story = {
       ["มูลค่ารวม", "฿37,888.00"],
     ],
   },
+});
+
+/** Pick the state in Controls:
+ *  - มีเลขที่: a saved document, its number in the heading and an action
+ *  - ไม่มีเลขที่: without `number` the heading is the plain title — how the pre-save
+ *    preview of a form's own values uses the card */
+export const Default: StoryObj<Props & { state: Partial<Props> }> = {
+  argTypes: { state: state.argType },
+  args: { state: state.initial },
+  render: ({ state, ...args }) => <ReferenceCard {...args} {...state} />,
 };
 
 export const PoLot: Story = {

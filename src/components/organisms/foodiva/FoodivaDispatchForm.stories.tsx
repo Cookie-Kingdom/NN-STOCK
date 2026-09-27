@@ -6,6 +6,8 @@ import {
   packedDb,
   repeatDispatchDb,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import { FoodivaDispatchForm } from "./FoodivaDispatchForm";
 
 // Two native modal <dialog>s can stack here (the Packing List opens on top of the
@@ -17,47 +19,30 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database }>;
 
-/** The Owner's 50 kg Request, waiting for Foodiva's transport document. Save stays
- *  off until the Packing List is filled in the dialog on top. "เวลารถรับ" starts on the
- *  next half-hour slot but takes any minute (e.g. 08:15). */
+const tripState = pick("เที่ยวรถ", {
+  เที่ยวแรก: dispatchDb,
+  มีเวลารถรับล่าสุด: packedDb,
+  เที่ยวที่สอง: repeatDispatchDb,
+});
+
+/** Foodiva's transport document for the latest Request. เลือกเที่ยวรถใน Controls:
+ *  - เที่ยวแรก: the Owner's 50 kg Request, waiting for Foodiva's transport document. Save
+ *    stays off until the Packing List is filled in the dialog on top. "เวลารถรับ" starts
+ *    on the next half-hour slot but takes any minute (e.g. 08:15).
+ *  - มีเวลารถรับล่าสุด: a database that already has a trip; its pickup time shows as a
+ *    one-click shortcut.
+ *  - เที่ยวที่สอง: trip, vehicle, plate and driver start from the last transport
+ *    document, each captioned with its date ("ล่าสุด 09/09"). Editing one drops its
+ *    caption. */
 export const New: Story = {
-  render: () => (
+  argTypes: { db: tripState.argType },
+  args: { db: tripState.initial },
+  render: ({ db }) => (
     <FoodivaDispatchForm
-      db={dispatchDb}
-      lotId={dispatchDb.lots.at(-1)!.id}
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onSaved={fn()}
-    />
-  ),
-};
-
-/** A database that already has a trip: its pickup time shows as a one-click shortcut. */
-export const RecentPickupTimes: Story = {
-  parameters: { db: packedDb },
-  render: () => (
-    <FoodivaDispatchForm
-      db={packedDb}
-      lotId={packedDb.lots.at(-1)!.id}
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onSaved={fn()}
-    />
-  ),
-};
-
-/** The second trip: trip, vehicle, plate and driver start from the last transport
- *  document, each captioned with its date ("ล่าสุด 09/09"). Editing one drops its caption. */
-export const PrefilledFromLastTrip: Story = {
-  parameters: { db: repeatDispatchDb },
-  render: () => (
-    <FoodivaDispatchForm
-      db={repeatDispatchDb}
-      lotId={repeatDispatchDb.lots.at(-1)!.id}
+      db={db}
+      lotId={db.lots.at(-1)!.id}
       date={day}
       onDate={fn()}
       onClose={fn()}

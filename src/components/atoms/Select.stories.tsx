@@ -17,6 +17,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Form: Story = {};
-export const Filter: Story = { args: { variant: "filter" } };
-export const Disabled: Story = { args: { disabled: true } };
+/** Pick the state in Controls:
+ *  - `variant`: form (default), table, or filter (compact, for a filter bar)
+ *  - `disabled`: locked */
+export const Default: Story = {
+  argTypes: { disabled: { control: "boolean" } },
+  args: { variant: "form", disabled: false },
+};

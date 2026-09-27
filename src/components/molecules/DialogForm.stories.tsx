@@ -1,5 +1,7 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ButtonRow } from "./ButtonRow";
@@ -25,7 +27,6 @@ const meta = {
 } satisfies Meta<typeof DialogForm>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
 
 function Body({ rows }: { rows: number }) {
   return (
@@ -57,22 +58,21 @@ function Footer() {
   );
 }
 
-/** A short form: the body takes the height it needs and the footer sits under it. */
-export const Default: Story = {
-  render: (args) => (
-    <DialogForm {...args}>
-      <Body rows={4} />
-      <Footer />
-    </DialogForm>
-  ),
-};
+const length = pick("แบบฟอร์ม", { สั้น: 4, ยาวจนต้องเลื่อน: 16 });
 
-/** `min-h-0` earning its place: with more fields than fit, the body scrolls and the
- * footer stays on screen instead of being pushed out of the dialog. */
-export const Scrolling: Story = {
-  render: (args) => (
+/** Pick the form length in Controls:
+ *  - สั้น: the body takes the height it needs and the footer sits under it
+ *  - ยาวจนต้องเลื่อน: `min-h-0` earning its place — with more fields than fit, the
+ *    body scrolls and the footer stays on screen instead of being pushed out of the
+ *    dialog */
+export const Default: StoryObj<
+  ComponentProps<typeof DialogForm> & { rows: number }
+> = {
+  argTypes: { rows: length.argType },
+  args: { rows: length.initial },
+  render: ({ rows, ...args }) => (
     <DialogForm {...args}>
-      <Body rows={16} />
+      <Body rows={rows} />
       <Footer />
     </DialogForm>
   ),

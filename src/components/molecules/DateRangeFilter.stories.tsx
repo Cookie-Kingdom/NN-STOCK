@@ -1,6 +1,8 @@
 import { useState } from "react";
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { pick } from "../../../.storybook/pick";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { FilterBar } from "./FilterBar";
 
@@ -26,17 +28,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A valid range: each field bounds the other through `min` / `max`. */
-export const Default: Story = {};
+type Range = { from: string; to: string };
+const range = pick<Range>("ช่วงวันที่", {
+  ถูกต้อง: { from: "2026-09-01", to: "2026-09-15" },
+  เริ่มหลังสิ้นสุด: { from: "2026-09-20", to: "2026-09-05" },
+});
 
-/** Start after end — the fragment adds a full-width `role="alert"` line. */
-export const InvalidRange: Story = {
-  args: { from: "2026-09-20", to: "2026-09-05" },
-};
-
-/** Both labels are overridable when the range means something more specific. */
-export const CustomLabels: Story = {
-  args: { fromLabel: "วันผลิตตั้งแต่", toLabel: "ถึงวันผลิต" },
+/** Pick the state in Controls:
+ *  - ช่วงวันที่ ถูกต้อง: each field bounds the other through `min` / `max`
+ *  - ช่วงวันที่ เริ่มหลังสิ้นสุด: the fragment adds a full-width `role="alert"` line
+ *  - `fromLabel` / `toLabel`: both are overridable when the range means something
+ *    more specific (e.g. "วันผลิตตั้งแต่" / "ถึงวันผลิต") */
+export const Default: StoryObj<
+  ComponentProps<typeof DateRangeFilter> & { range: Range }
+> = {
+  argTypes: {
+    range: range.argType,
+    fromLabel: { control: "text" },
+    toLabel: { control: "text" },
+  },
+  args: { range: range.initial },
+  render: ({ range, ...args }) => <DateRangeFilter {...args} {...range} />,
 };
 
 function LotDateRange() {
