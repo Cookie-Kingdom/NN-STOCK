@@ -6,6 +6,8 @@ import {
   packedDb,
   repeatDispatchDb,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import { PackingListForm } from "./PackingListForm";
 
 // A native modal <dialog>; a Docs page would stack it behind the other stories.
@@ -16,17 +18,29 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database }>;
+
+const request = pick("Request", {
+  ครั้งแรก: dispatchDb,
+  ครั้งถัดไป: repeatDispatchDb,
+});
 
 /** Inside Foodiva's transport form: seeded from the Request's POs, handed back as a draft.
- *  Invoice and product carry their source. None of the three weights is a field: Inv.
- *  Weight is the 50 kg this Request asks of its purchase PO, Sliced Weight Net is the box
- *  rows added up, and Sliced Weight Lost is the gap between the two. */
+ *  Invoice and product carry their source. None of the three weights is a field: Sliced
+ *  Weight Net is the box rows added up, and Sliced Weight Lost is the gap between Inv.
+ *  Weight and it. เลือก Request ใน Controls:
+ *  - ครั้งแรก: Inv. Weight is the 50 kg this Request asks of its purchase PO
+ *  - ครั้งถัดไป: a later Request of the same product; the CODE comes from the last Packing
+ *    List ("ล่าสุด 09/09"), and Inv. Weight follows this Request — 40 kg, not the first
+ *    trip's 50 */
 export const Draft: Story = {
-  render: () => (
+  argTypes: { db: request.argType },
+  args: { db: request.initial },
+  render: ({ db }) => (
     <PackingListForm
-      db={dispatchDb}
-      lotId={dispatchDb.lots.at(-1)!.id}
+      key={db.entries.length}
+      db={db}
+      lotId={db.lots.at(-1)!.id}
       date={day}
       onDate={fn()}
       onClose={fn()}
@@ -47,22 +61,6 @@ export const Edit: Story = {
       onDate={fn()}
       onClose={fn()}
       onSaved={fn()}
-    />
-  ),
-};
-
-/** A later Request of the same product: the CODE comes from the last Packing List
- *  ("ล่าสุด 09/09"), and Inv. Weight follows this Request — 40 kg, not the first trip's 50. */
-export const PrefilledCode: Story = {
-  parameters: { db: repeatDispatchDb },
-  render: () => (
-    <PackingListForm
-      db={repeatDispatchDb}
-      lotId={repeatDispatchDb.lots.at(-1)!.id}
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onDraft={fn()}
     />
   ),
 };

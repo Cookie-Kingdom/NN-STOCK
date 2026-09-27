@@ -11,6 +11,8 @@ import {
   nextDay,
   open,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import {
   closeDayChecklist,
   entries,
@@ -50,32 +52,32 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database; date: string }>;
 
+const dayState = pick("วัน", { เปิดวัน: db, ปิดวันแล้ว: dayClosedDb });
+const checklistState = pick("สถานะ", {
+  ยังไม่ครบ: chillDb,
+  ครบแล้ว: closeReadyDb,
+});
+const materialsState = pick("สถานะ", {
+  นับแล้ว: db,
+  ยังไม่นับ: branchTasksDb,
+  ปิดวันแล้ว: dayClosedDb,
+});
+const meatDay = pick("วัน", { วันนี้: day, วันถัดไป: nextDay });
+
+/** Pick the day's state in Controls: เปิดวัน, or after ปิดวัน (status reads locked and
+ *  every action is disabled). */
 export const DailyWorkflow: Story = {
-  render: () => (
+  argTypes: { db: dayState.argType },
+  args: { db: dayState.initial },
+  render: ({ db }) => (
     <BranchDailyWorkflow
       db={db}
       branch={branch}
       date={day}
       lots={db.lots}
-      closed={closed}
-      open={open}
-      onTab={fn()}
-    />
-  ),
-};
-
-/** The one close button, after ปิดวัน: status reads locked and every action is disabled. */
-export const DailyWorkflowClosed: Story = {
-  parameters: { db: dayClosedDb },
-  render: () => (
-    <BranchDailyWorkflow
-      db={dayClosedDb}
-      branch={branch}
-      date={day}
-      lots={dayClosedDb.lots}
-      closed={isClosed(dayClosedDb, branch, day)}
+      closed={isClosed(db, branch, day)}
       open={open}
       onTab={fn()}
     />
@@ -105,26 +107,14 @@ export const StockViewMaterials: Story = {
   play: pickGenre("วัสดุบรรจุภัณฑ์"),
 };
 
-/** The checklist on its own: materials and cooked rice still missing. */
-export const CloseChecklistMissing: Story = {
-  parameters: { db: chillDb },
-  render: () => (
-    <CloseDayChecklist
-      items={closeDayChecklist(chillDb, branch, day)}
-      onGo={open}
-    />
-  ),
-};
-
-/** Every required item done: the day can close. Influencer giveaways are no longer a
- *  row here — they are entered inside the close dialog itself. */
-export const CloseChecklistReady: Story = {
-  parameters: { db: closeReadyDb },
-  render: () => (
-    <CloseDayChecklist
-      items={closeDayChecklist(closeReadyDb, branch, day)}
-      onGo={open}
-    />
+/** The checklist on its own. ยังไม่ครบ: materials and cooked rice still missing.
+ *  ครบแล้ว: every required item done, the day can close (influencer giveaways are
+ *  entered inside the close dialog itself, not as a row here). */
+export const CloseChecklist: Story = {
+  argTypes: { db: checklistState.argType },
+  args: { db: checklistState.initial },
+  render: ({ db }) => (
+    <CloseDayChecklist items={closeDayChecklist(db, branch, day)} onGo={open} />
   ),
 };
 
@@ -144,31 +134,20 @@ export const RiceTasks: Story = {
   ),
 };
 
-/** ล็อกไว้เป็นค่าเริ่มต้นเหมือนตาราง "ตั้งค่า" ของ Owner: ยอดที่บันทึกไว้ของวันนี้
- *  อ่านเป็นตัวอักษรล้วน ไม่มีช่องกรอกและไม่มีปุ่มบันทึกค้างอยู่บนหน้าจอ */
+/** ล็อกไว้เป็นค่าเริ่มต้นเหมือนตาราง "ตั้งค่า" ของ Owner. เลือกสถานะใน Controls:
+ *  - นับแล้ว: ยอดที่บันทึกไว้ของวันนี้อ่านเป็นตัวอักษรล้วน ไม่มีช่องกรอก
+ *  - ยังไม่นับ: ทุกช่องเป็น "—" และปุ่มเดียวคือ "ตรวจนับวัสดุวันนี้"
+ *  - ปิดวันแล้ว: ตารางล็อกถาวร ปุ่มบอกเหตุผลและกดไม่ได้ */
 export const Materials: Story = {
-  render: () => (
+  argTypes: { db: materialsState.argType },
+  args: { db: materialsState.initial },
+  render: ({ db }) => (
     <DailyMaterialsTable
       db={db}
       branch={branch}
       date={day}
       onDate={fn()}
-      disabled={false}
-    />
-  ),
-};
-
-/** ล็อกไว้เหมือนกัน แต่ยังไม่เคยตรวจนับวันนี้: ทุกช่องเป็น "—" และปุ่มเดียวคือ
- *  "ตรวจนับวัสดุวันนี้" */
-export const MaterialsNotCounted: Story = {
-  parameters: { db: branchTasksDb },
-  render: () => (
-    <DailyMaterialsTable
-      db={branchTasksDb}
-      branch={branch}
-      date={day}
-      onDate={fn()}
-      disabled={false}
+      disabled={isClosed(db, branch, day)}
     />
   ),
 };
@@ -176,26 +155,12 @@ export const MaterialsNotCounted: Story = {
 /** โหมดแก้ไข: กด "ขอแก้ไขยอดนับ" แล้วช่องกรอกจึงปรากฏ พร้อมกล่องเหตุผลที่แก้ไข
  *  (บังคับกรอกเมื่อวันนี้เคยบันทึกไว้แล้ว) และปุ่ม ยกเลิก / บันทึกและล็อก */
 export const MaterialsEditing: Story = {
-  render: Materials.render,
+  ...Materials,
   play: async ({ canvasElement }) => {
     fireEvent.click(
       within(canvasElement).getByRole("button", { name: /ขอแก้ไขยอดนับ/ }),
     );
   },
-};
-
-/** ปิดวันแล้ว: ตารางล็อกถาวร ปุ่มบอกเหตุผลและกดไม่ได้ */
-export const MaterialsClosedDay: Story = {
-  parameters: { db: dayClosedDb },
-  render: () => (
-    <DailyMaterialsTable
-      db={dayClosedDb}
-      branch={branch}
-      date={day}
-      onDate={fn()}
-      disabled={isClosed(dayClosedDb, branch, day)}
-    />
-  ),
 };
 
 // demoDb confirms every shipment it makes, so the pending-row state (and its live
@@ -224,14 +189,13 @@ export const Summary: Story = {
   ),
 };
 
-/** 70 kg thawed, 65.5 kg used: 4.5 kg คงเหลือชิล goes to tomorrow, and the day can close. */
+/** 70 kg thawed, 65.5 kg used: 4.5 kg คงเหลือชิล goes to tomorrow, and the day can
+ *  close. Switch วัน to วันถัดไป: yesterday's 4.5 kg shows as ชิลยกมา. */
 export const MeatDay: Story = {
   parameters: { db: chillDb },
-  render: () => <MeatDaySummary db={chillDb} branch={branch} date={day} />,
-};
-
-/** The next day: yesterday's 4.5 kg shows as ชิลยกมา. */
-export const MeatDayChillCarriedIn: Story = {
-  parameters: { db: chillDb },
-  render: () => <MeatDaySummary db={chillDb} branch={branch} date={nextDay} />,
+  argTypes: { date: meatDay.argType },
+  args: { date: meatDay.initial },
+  render: ({ date }) => (
+    <MeatDaySummary db={chillDb} branch={branch} date={date} />
+  ),
 };

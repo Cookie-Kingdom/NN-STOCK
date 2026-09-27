@@ -1,5 +1,7 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Download } from "lucide-react";
+import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
 import { ActionWithError } from "./ActionWithError";
 
@@ -19,19 +21,12 @@ const meta = {
 } satisfies Meta<typeof ActionWithError>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Props = ComponentProps<typeof ActionWithError>;
 
-/** Without an error only the action shows, right-aligned in its table cell. */
-export const Default: Story = {};
-
-/** The message sits under the action, so it cannot widen the last table column. */
-export const WithError: Story = {
-  args: { error: "กรอกจำนวนที่รับจริงก่อน" },
-};
-
-/** `errorClassName` lets a long message wrap instead of running off the row. */
-export const WrappingError: Story = {
-  args: {
+const state = pick<Partial<Props>>("สถานะ", {
+  ไม่มีข้อผิดพลาด: {},
+  มีข้อผิดพลาด: { error: "กรอกจำนวนที่รับจริงก่อน" },
+  ข้อความยาว: {
     children: (
       <Button variant="table" icon={<Download className="size-3.5" />}>
         ดาวน์โหลด
@@ -41,4 +36,16 @@ export const WrappingError: Story = {
       "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
     errorClassName: "max-w-64 text-right whitespace-normal",
   },
+});
+
+/** Pick the state in Controls:
+ *  - ไม่มีข้อผิดพลาด: only the action shows, right-aligned in its table cell
+ *  - มีข้อผิดพลาด: the message sits under the action, so it cannot widen the last
+ *    table column
+ *  - ข้อความยาว: `errorClassName` lets a long message wrap instead of running off
+ *    the row */
+export const Default: StoryObj<Props & { state: Partial<Props> }> = {
+  argTypes: { state: state.argType },
+  args: { state: state.initial },
+  render: ({ state, ...args }) => <ActionWithError {...args} {...state} />,
 };

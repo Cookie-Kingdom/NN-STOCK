@@ -43,16 +43,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Several controls under one label; each one carries its own `aria-label`. */
-export const Default: Story = {};
-
-/** `optional` adds the optional mark, `hint` the line under the label. */
-export const OptionalWithHint: Story = {
-  args: {
-    label: "ช่วงอุณหภูมิห้องรมควัน (°C)",
-    optional: true,
-    hint: "เว้นว่างได้ถ้าใช้ค่ามาตรฐานของเตา",
+/** Several controls under one label; each one carries its own `aria-label`.
+ *  Pick in Controls:
+ *  - `optional`: adds the optional mark
+ *  - `hint`: the line under the label (e.g. "เว้นว่างได้ถ้าใช้ค่ามาตรฐานของเตา") */
+export const Default: Story = {
+  argTypes: {
+    label: { control: "text" },
+    optional: { control: "boolean" },
+    hint: { control: "text" },
   },
+  args: { optional: false, hint: "" },
 };
 
 /** `wide` makes the group span both columns of a two-column lot form. */

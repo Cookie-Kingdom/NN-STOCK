@@ -17,35 +17,37 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Form: Story = {};
-export const Table: Story = {
-  args: { variant: "table", defaultValue: "12.50" },
-};
-export const TableReason: Story = {
-  args: { variant: "table", reason: true, placeholder: "เหตุผล" },
-};
-/** A table cell the system filled in (`prefilled="auto"`). */
-export const TablePrefilled: Story = {
-  args: { variant: "table", prefilled: "auto", defaultValue: "12.50" },
-};
-/** A predicted scale or count reading to weigh and correct (`prefilled="expected"`). */
-export const TablePrefilledExpected: Story = {
-  args: { variant: "table", prefilled: "expected", defaultValue: "12.50" },
-};
-export const FormPrefilled: Story = {
-  args: { prefilled: "auto", defaultValue: "สมชาย" },
-};
-export const FormPrefilledExpected: Story = {
-  args: { prefilled: "expected", type: "number", defaultValue: "360" },
-};
-export const Filter: Story = { args: { variant: "filter", type: "date" } };
-export const Disabled: Story = { args: { disabled: true, value: "ล็อก" } };
-
-/** ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน */
-export const Number: Story = {
-  args: { type: "number", step: "0.01", defaultValue: "12.50" },
-};
-/** เฉพาะ PackingListTable ที่ยังใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ */
-export const NumberWithSpinner: Story = {
-  args: { type: "number", step: "0.01", defaultValue: "12.50", spinner: true },
+/** Pick the state in Controls:
+ *  - `variant`: form (default), table (a table cell, e.g. "12.50"), or filter (e.g.
+ *    `type="date"` in a filter bar)
+ *  - `reason`: the free-text reason field inside a table row (placeholder "เหตุผล")
+ *  - `prefilled="auto"`: a value the system filled in (table cell or form, e.g. "สมชาย")
+ *  - `prefilled="expected"`: a predicted scale or count reading to weigh and correct
+ *    (e.g. "360")
+ *  - `type="number"`: ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน
+ *  - `spinner`: เฉพาะ PackingListTable ที่ยังใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
+ *  - `disabled`: locked */
+export const Default: Story = {
+  argTypes: {
+    type: { control: "inline-radio", options: ["text", "number", "date"] },
+    reason: { control: "boolean" },
+    spinner: { control: "boolean" },
+    disabled: { control: "boolean" },
+    defaultValue: { control: "text" },
+    step: { control: "text" },
+  },
+  args: {
+    variant: "form",
+    prefilled: undefined,
+    type: "text",
+    step: "0.01",
+    reason: false,
+    spinner: false,
+    disabled: false,
+    defaultValue: "",
+  },
+  // defaultValue only applies on mount, so remount when it or the type changes.
+  render: (args) => (
+    <Input key={`${args.type}|${String(args.defaultValue)}`} {...args} />
+  ),
 };

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../../.storybook/pick";
 import { PackingListTable, type PackingListBox } from "./PackingListTable";
 
 /** Transcribed from the sheet Foodiva sent on 16/9/2026 (vault: Feedback/20-09-2026). */
@@ -99,16 +100,21 @@ export const FoodivaFill: Story = {
   render: () => <Editable start={emptyRows} column="weight" />,
 };
 
-/** Chef House opens the saved list and fills the yellow cells. */
-export const ChefHouseFill: Story = {
-  render: () => <Editable start={boxes} column="received" />,
-};
+const progress = pick("ชั่งแล้ว", {
+  ยังไม่ชั่ง: boxes,
+  ชั่งไปครึ่งหนึ่ง: boxes.map((box, i) => (i < 8 ? weighed[i] : box)),
+});
 
-/** Half done — the badge counts what is still missing and the totals hold off. */
-export const PartlyWeighed: Story = {
-  render: () => (
+/** Chef House opens the saved list and fills the yellow cells. เลือกใน Controls:
+ *  - ยังไม่ชั่ง: every yellow cell empty
+ *  - ชั่งไปครึ่งหนึ่ง: the badge counts what is still missing and the totals hold off */
+export const ChefHouseFill: StoryObj<{ start: PackingListBox[] }> = {
+  argTypes: { start: progress.argType },
+  args: { start: progress.initial },
+  render: ({ start }) => (
     <Editable
-      start={boxes.map((box, i) => (i < 8 ? weighed[i] : box))}
+      key={start.filter((box) => box.received !== undefined).length}
+      start={start}
       column="received"
     />
   ),

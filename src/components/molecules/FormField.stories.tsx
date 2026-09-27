@@ -1,5 +1,7 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { pick } from "../../../.storybook/pick";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -19,43 +21,47 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const narrow: Story["decorators"] = [
-  (Story) => (
-    <div className="max-w-md">
-      <Story />
-    </div>
-  ),
-];
+type Props = ComponentProps<typeof FormField>;
 
-export const Default: Story = { decorators: narrow };
-export const OptionalWithHint: Story = {
-  decorators: narrow,
-  args: {
+const state = pick<Partial<Props>>("สถานะ", {
+  ปกติ: {},
+  ไม่บังคับพร้อมคำแนะนำ: {
     label: "หมายเหตุ",
     optional: true,
     hint: "แสดงในเอกสารส่งมอบ",
     children: <Textarea compact />,
   },
-};
-
-/** A value the system filled in: a faint tint and where it came from. */
-export const Prefilled: Story = {
-  decorators: narrow,
-  args: {
+  ระบบกรอกให้: {
     label: "ชื่อผู้รับ",
     prefilled: { label: "ล่าสุด 18/09" },
     children: <Input defaultValue="สมชาย" />,
   },
-};
-/** A predicted scale or count reading: a warning look so it is weighed, not trusted. */
-export const PrefilledExpected: Story = {
-  decorators: narrow,
-  args: {
+  ค่าคาดการณ์: {
     label: "จำนวนกล่องรมควันที่รับ",
     prefilled: { label: "ตามยอดส่ง", expected: true },
     children: <Input type="number" defaultValue="360" />,
   },
+});
+
+/** Pick the state in Controls:
+ *  - ปกติ: a label over one control
+ *  - ไม่บังคับพร้อมคำแนะนำ: `optional` mark and a `hint` line
+ *  - ระบบกรอกให้: a value the system filled in — a faint tint and where it came from
+ *  - ค่าคาดการณ์: a predicted scale or count reading — a warning look so it is
+ *    weighed, not trusted */
+export const Default: StoryObj<Props & { state: Partial<Props> }> = {
+  decorators: [
+    (Story) => (
+      <div className="max-w-md">
+        <Story />
+      </div>
+    ),
+  ],
+  argTypes: { state: state.argType },
+  args: { state: state.initial },
+  render: ({ state, ...args }) => <FormField {...args} {...state} />,
 };
+
 /** Both kinds side by side with an untouched field, as they appear in a form. */
 export const PrefilledStates: Story = {
   decorators: [

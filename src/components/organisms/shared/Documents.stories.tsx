@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { day, demoDb } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
 import { DocumentFilterBar } from "./DocumentFilterBar";
 import { DocumentPrintButton } from "./DocumentPrintButton";
 import type { DocumentReferenceType } from "./documentRows";
@@ -92,27 +93,25 @@ export const AttachmentButtons: Story = {
   ),
 };
 
-export const PurchaseOrderPreview: Story = {
-  render: () => (
-    <PurchaseOrderDocumentPreview
-      db={db}
-      lot={lot}
-      kind="purchase"
-      values={lot.values}
-      date={day}
-    />
-  ),
-};
+const order = pick("ใบสั่ง", {
+  "PO ซื้อเนื้อ": {
+    kind: "purchase" as const,
+    values: lot.values,
+    date: day,
+  },
+  "PO รมควัน": {
+    kind: "smokeOrder" as const,
+    values: smokeOrder.values,
+    date: smokeOrder.date,
+  },
+});
 
-export const SmokeOrderPreview: Story = {
-  render: () => (
-    <PurchaseOrderDocumentPreview
-      db={db}
-      lot={lot}
-      kind="smokeOrder"
-      values={smokeOrder.values}
-      date={smokeOrder.date}
-    />
+/** เลือกใบสั่งใน Controls: PO ซื้อเนื้อ หรือ PO รมควัน ของ Lot เดียวกัน */
+export const PurchaseOrderPreview: StoryObj<{ order: typeof order.initial }> = {
+  argTypes: { order: order.argType },
+  args: { order: order.initial },
+  render: ({ order }) => (
+    <PurchaseOrderDocumentPreview db={db} lot={lot} {...order} />
   ),
 };
 

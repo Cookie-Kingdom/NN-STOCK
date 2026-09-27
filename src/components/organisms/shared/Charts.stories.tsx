@@ -29,8 +29,10 @@ const narrow: Story["decorators"] = [
   ),
 ];
 
+/** แก้ `total` ใน Controls:
+ *  - ยอดจริง: วงแบ่งตามสัดส่วนของแต่ละส่วน
+ *  - 0: สถานะว่าง วงไม่มีสี และทุกส่วนอ่าน 0.00% */
 export const Donut: Story = { decorators: narrow };
-export const DonutEmpty: Story = { args: { total: 0 }, decorators: narrow };
 
 const sales = Array.from({ length: 7 }, (_, i) => ({
   date: `2026-09-${String(9 + i).padStart(2, "0")}`,

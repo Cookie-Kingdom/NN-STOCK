@@ -14,8 +14,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const OverlineDefault: Story = {};
-export const OverlineAccent: Story = { args: { tone: "accent" } };
+/** `Overline`: pick `tone` (default or accent) in Controls. */
+export const Default: Story = { name: "Overline", args: { tone: "default" } };
 
 /** Bare h1–h3 get their sizes from globals.css. */
 export const Scale: Story = {

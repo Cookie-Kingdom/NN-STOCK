@@ -14,7 +14,8 @@ import {
   rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
-import { materials, mutate, visibleDatabase } from "@/lib/store";
+import { pick } from "../../../../.storybook/pick";
+import { materials, mutate, visibleDatabase, type Database } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { AllocationForm } from "./AllocationForm";
@@ -33,7 +34,7 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database; date: string }>;
 
 const onClose = fn();
 const onSaved = fn();
@@ -120,31 +121,22 @@ export const ChefInvoiceSentBack: Story = {
   ),
 };
 
+const saleDate = pick("วันที่", { ย้อนหลัง: day, วันนี้: today() });
+
+/** เลือกวันที่ใน Controls:
+ *  - ย้อนหลัง: `day` อยู่ในอดีต ฟอร์มจึงแสดงป้าย "บันทึกย้อนหลัง"
+ *  - วันนี้: ไม่มีป้าย */
 export const BranchSale: Story = {
   parameters: { db: demoDb },
-  render: () => (
+  argTypes: { date: saleDate.argType },
+  args: { date: saleDate.initial },
+  render: ({ date }) => (
     <EntryForm
+      key={date}
       db={demoDb}
       role="branch"
       branch="ศาลาแดง"
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "sale", lotId: demoDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-// `day` is in the past, so the stories above show the "บันทึกย้อนหลัง" badge; today does not.
-export const BranchSaleToday: Story = {
-  parameters: { db: demoDb },
-  render: () => (
-    <EntryForm
-      db={demoDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={today()}
+      date={date}
       onDate={onDate}
       modal={{ kind: "sale", lotId: demoDb.lots[0].id }}
       onClose={onClose}
@@ -174,44 +166,28 @@ export const BranchInfluencerBoxMobile: Story = {
   globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 
-/** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock. */
+const allocationState = pick("สถานะ", {
+  ยังไม่จัดสรร: centralDb,
+  จัดสรรไปบางส่วน: allocatedDb,
+  ตามสัดส่วนครั้งก่อน: prefillHistoryDb,
+});
+
+/** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock.
+ *  เลือกสถานะใน Controls:
+ *  - ยังไม่จัดสรร: the whole central stock is offered
+ *  - จัดสรรไปบางส่วน: a lot already partly sent to ศาลาแดง; only the rest of central
+ *    stock is offered
+ *  - ตามสัดส่วนครั้งก่อน: the last allocation went ศาลาแดง 6 / มีนบุรี 4, so the 25 kg
+ *    left open split 15 / 10, captioned ตามสัดส่วนครั้งก่อน. Typing or ที่เหลือทั้งหมด
+ *    drops the caption */
 export const Allocation: Story = {
-  parameters: { db: centralDb },
-  render: () => (
+  argTypes: { db: allocationState.argType },
+  args: { db: allocationState.initial },
+  render: ({ db }) => (
     <AllocationForm
-      db={centralDb}
-      lotId={centralDb.lots.at(-1)!.id}
-      date={day}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-/** A lot already partly sent to ศาลาแดง: only the rest of central stock is offered. */
-export const AllocationPartlyAllocated: Story = {
-  parameters: { db: allocatedDb },
-  render: () => (
-    <AllocationForm
-      db={allocatedDb}
-      lotId={allocatedDb.lots.at(-1)!.id}
-      date={day}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-/** The last allocation went ศาลาแดง 6 / มีนบุรี 4, so the 25 kg left open split
- *  15 / 10, captioned ตามสัดส่วนครั้งก่อน. Typing or ที่เหลือทั้งหมด drops the caption. */
-export const AllocationLastRatio: Story = {
-  parameters: { db: prefillHistoryDb },
-  render: () => (
-    <AllocationForm
-      db={prefillHistoryDb}
-      lotId={prefillHistoryDb.lots.at(-1)!.id}
+      key={db.entries.length}
+      db={db}
+      lotId={db.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
       onClose={onClose}
@@ -385,25 +361,6 @@ export const BranchSalePackWeightWarning: Story = {
   },
 };
 
-/** Close dialog with everything done: the checklist is all ✓ and ยืนยันปิดวัน is enabled
- *  at any time of day (no close-time rule, FB-14). */
-export const BranchCloseDayReady: Story = {
-  parameters: { db: closeReadyDb },
-  render: () => (
-    <EntryForm
-      db={closeReadyDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "closeDay", lotId: "" }}
-      onClose={onClose}
-      onSaved={onSaved}
-      onOpen={onOpen}
-    />
-  ),
-};
-
 /** The sale form as it opens: the influencer section is collapsed to
  *  เพิ่มอินฟลูเอนเซอร์, and a sale with no block added saves only the sale. */
 export const BranchSaleInfluencersCollapsed: Story = {
@@ -461,14 +418,24 @@ export const BranchSaleTwoInfluencersMobile: Story = {
   globals: { viewport: { value: "mobile2", isRotated: false } },
 };
 
-/** Close dialog with 4.5 kg left and materials + cooked rice not yet recorded: the
- *  checklist lists both with ไปกรอก, and ยืนยันปิดวัน stays disabled with the reason.
- *  The 4.5 kg shows as คงเหลือชิล, no "use it all" error. */
-export const BranchCloseDayWithChill: Story = {
-  parameters: { db: chillDb },
-  render: () => (
+const closeDayState = pick("สถานะ", {
+  ยังไม่ครบ: chillDb,
+  ครบแล้ว: closeReadyDb,
+});
+
+/** Close dialog. เลือกสถานะใน Controls:
+ *  - ยังไม่ครบ: 4.5 kg left and materials + cooked rice not yet recorded; the checklist
+ *    lists both with ไปกรอก, and ยืนยันปิดวัน stays disabled with the reason. The 4.5 kg
+ *    shows as คงเหลือชิล, no "use it all" error
+ *  - ครบแล้ว: the checklist is all ✓ and ยืนยันปิดวัน is enabled at any time of day (no
+ *    close-time rule, FB-14) */
+export const BranchCloseDay: Story = {
+  argTypes: { db: closeDayState.argType },
+  args: { db: closeDayState.initial },
+  render: ({ db }) => (
     <EntryForm
-      db={chillDb}
+      key={db.entries.length}
+      db={db}
       role="branch"
       branch="ศาลาแดง"
       date={day}

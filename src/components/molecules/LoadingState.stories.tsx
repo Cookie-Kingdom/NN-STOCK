@@ -11,11 +11,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The workspace content area while the database payload is loading. */
-export const Panel: Story = {};
-
-export const PanelLongTable: Story = {
-  args: { message: "กำลังโหลดรายการล็อต…", rows: 9 },
+/** The workspace content area while the database payload is loading. Pick in
+ *  Controls:
+ *  - `message`: e.g. "กำลังโหลดรายการล็อต…"
+ *  - `rows`: skeleton rows, e.g. 9 for a long table */
+export const Panel: Story = {
+  argTypes: {
+    message: { control: "text" },
+    rows: { control: { type: "number", min: 1, max: 20 } },
+  },
 };
 
 export const Screen: StoryObj = {

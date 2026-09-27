@@ -17,6 +17,8 @@ import { editRequestAlerts } from "./editRequestAlerts";
 import { HistoryPanel } from "./HistoryPanel";
 import { NotificationPopover } from "./NotificationPopover";
 
+type Role = "owner" | "branch";
+
 /** B5 แก้ไขย้อนหลัง: the edit/request form, the request list, the bells and an edited entry.
  *  Forms inside, so no Docs page. */
 const meta: Meta = {
@@ -26,7 +28,22 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ role: Role }>;
+
+/** Controls: who is looking, ศาลาแดง or the Owner. */
+const byRole = {
+  argTypes: {
+    role: {
+      name: "ผู้ใช้",
+      options: ["branch", "owner"],
+      control: {
+        type: "radio" as const,
+        labels: { branch: "ศาลาแดง", owner: "Owner" },
+      },
+    },
+  },
+  args: { role: "branch" as Role },
+};
 
 const asBranch = (db: Database): Database => ({
   ...db,
@@ -34,54 +51,48 @@ const asBranch = (db: Database): Database => ({
 });
 const sale = (db: Database) => entries(db, "sale")[0];
 
-/** ศาลาแดง's "ขอแก้ไข" on its closed-day sale: the sale form prefilled, plus the reason. */
+/** Pick ผู้ใช้ in Controls:
+ *  - ศาลาแดง: "ขอแก้ไข" on its closed-day sale: the sale form prefilled, plus the reason.
+ *  - Owner: "แก้ไข": the same form, saved at once (shown with a validation error). */
 export const RequestForm: Story = {
-  render: () => (
+  ...byRole,
+  render: ({ role }) => (
     <Panel>
-      <EditEntryForm
-        entry={sale(asBranch(editPendingDb))}
-        request
-        onCancel={fn()}
-        onSubmit={fn()}
-      />
+      {role === "branch" ? (
+        <EditEntryForm
+          entry={sale(asBranch(editPendingDb))}
+          request
+          onCancel={fn()}
+          onSubmit={fn()}
+        />
+      ) : (
+        <EditEntryForm
+          entry={sale(editPendingDb)}
+          request={false}
+          error="แก้แล้วเนื้อละลายแล้ว F260909-001 สาขาศาลาแดงจะติดลบ (-15.50) · แก้รายการที่ตามมาก่อน"
+          onCancel={fn()}
+          onSubmit={fn()}
+        />
+      )}
     </Panel>
   ),
 };
 
-/** The Owner's "แก้ไข": the same form, saved at once. */
-export const OwnerEditForm: Story = {
-  render: () => (
-    <Panel>
-      <EditEntryForm
-        entry={sale(editPendingDb)}
-        request={false}
-        error="แก้แล้วเนื้อละลายแล้ว F260909-001 สาขาศาลาแดงจะติดลบ (-15.50) · แก้รายการที่ตามมาก่อน"
-        onCancel={fn()}
-        onSubmit={fn()}
-      />
-    </Panel>
-  ),
-};
-
-/** Owner: the waiting request with อนุมัติ / ไม่อนุมัติ first, then the decided ones. */
-export const OwnerRequestList: Story = {
-  render: () => (
-    <EditRequestList db={editDecidedDb} role="owner" onChanged={fn()} />
-  ),
-};
-
-/** ศาลาแดง sees only its own requests, with สำเร็จ / ไม่สำเร็จ, and no buttons. */
-export const BranchRequestList: Story = {
-  render: () => (
+/** Pick ผู้ใช้ in Controls:
+ *  - ศาลาแดง: only its own requests, with สำเร็จ / ไม่สำเร็จ, and no buttons.
+ *  - Owner: the waiting request with อนุมัติ / ไม่อนุมัติ first, then the decided ones. */
+export const RequestList: Story = {
+  ...byRole,
+  render: ({ role }) => (
     <EditRequestList
-      db={asBranch(editDecidedDb)}
-      role="branch"
+      db={role === "branch" ? asBranch(editDecidedDb) : editDecidedDb}
+      role={role}
       onChanged={fn()}
     />
   ),
 };
 
-function Bell({ db, role }: { db: Database; role: "owner" | "branch" }) {
+function Bell({ db, role }: { db: Database; role: Role }) {
   const [open, setOpen] = useState(true);
   return (
     <div className="flex min-h-100 justify-end p-6">
@@ -100,14 +111,12 @@ function Bell({ db, role }: { db: Database; role: "owner" | "branch" }) {
   );
 }
 
-/** The requester's bell: one waiting, one สำเร็จ, one ไม่สำเร็จ. */
+/** Pick ผู้ใช้ in Controls:
+ *  - ศาลาแดง (the requester): one waiting, one สำเร็จ, one ไม่สำเร็จ.
+ *  - Owner: "คำขอแก้ไขรอพิจารณา 1 รายการ", opening the history tab. */
 export const RequesterBell: Story = {
-  render: () => <Bell db={editDecidedDb} role="branch" />,
-};
-
-/** The Owner's bell: "คำขอแก้ไขรอพิจารณา 1 รายการ", opening the history tab. */
-export const OwnerBell: Story = {
-  render: () => <Bell db={editDecidedDb} role="owner" />,
+  ...byRole,
+  render: ({ role }) => <Bell db={editDecidedDb} role={role} />,
 };
 
 /** The approved sale: badge "แก้ไขแล้ว", current values, and who asked, who approved, when. */

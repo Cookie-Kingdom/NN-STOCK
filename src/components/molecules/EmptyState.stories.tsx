@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { CircleCheck } from "lucide-react";
+import { pick } from "../../../.storybook/pick";
 import { EmptyState } from "./EmptyState";
+
+const icon = pick("icon", {
+  ไม่มี: undefined,
+  CircleCheck: <CircleCheck size={16} />,
+});
 
 const meta = {
   title: "Molecules/EmptyState",
@@ -11,11 +17,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
-export const Compact: Story = {
-  args: {
-    compact: true,
-    text: "ไม่มีงานค้าง",
-    icon: <CircleCheck size={16} />,
+/** Pick the state in Controls:
+ *  - `compact`: the small inline version, e.g. "ไม่มีงานค้าง" with the CircleCheck
+ *    icon */
+export const Default: Story = {
+  argTypes: {
+    compact: { control: "boolean" },
+    text: { control: "text" },
+    icon: icon.argType,
   },
+  args: { compact: false, icon: icon.initial },
 };

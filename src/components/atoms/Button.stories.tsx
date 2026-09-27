@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Plus } from "lucide-react";
 import { fn } from "storybook/test";
+import { pick } from "../../../.storybook/pick";
 import { Button } from "./Button";
+
+const icon = pick("icon", { ไม่มี: undefined, Plus: <Plus /> });
 
 const meta = {
   title: "Atoms/Button",
@@ -21,21 +24,26 @@ const meta = {
       ],
     },
     size: { control: "select", options: ["md", "sm", "lg", "inline"] },
+    disabled: { control: "boolean" },
+    children: { control: "text" },
+    icon: icon.argType,
   },
 } satisfies Meta<typeof Button>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Primary: Story = { args: { variant: "primary" } };
-export const Secondary: Story = { args: { variant: "secondary" } };
-export const Danger: Story = { args: { variant: "danger", children: "ลบ" } };
-export const WithIcon: Story = {
-  args: { variant: "primary", icon: <Plus />, children: "เพิ่มล็อต" },
+/** Pick the state in Controls:
+ *  - `variant`: primary, secondary, danger (e.g. "ลบ"), and the table/text/link kinds
+ *  - `icon`: Plus in front of the label (e.g. "เพิ่มล็อต")
+ *  - `disabled`: greyed out and not clickable */
+export const Default: Story = {
+  args: { variant: "primary", disabled: false, icon: icon.initial },
 };
-export const Disabled: Story = { args: { variant: "primary", disabled: true } };
 
 export const AllVariants: Story = {
+  // Every variant is drawn below; the variant control would do nothing here.
+  argTypes: { variant: { table: { disable: true } } },
   render: (args) => (
     <div className="grid gap-4">
       {(["primary", "secondary", "danger"] as const).map((variant) => (

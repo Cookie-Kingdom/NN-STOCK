@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { pick } from "../../../.storybook/pick";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -50,14 +51,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Two columns of FormFields; the last one is `wide`, so it spans both. Below `md`
- * the grid collapses to a single column and every field goes full width. */
-export const Default: Story = {};
+const look = pick("รูปแบบ", {
+  ปกติ: undefined,
+  การ์ด: "my-0 gap-x-6 gap-y-5 rounded-lg border border-border bg-bg p-5",
+});
 
-/** The same grid drawn as a card — the transfer form groups its receivers this way.
- * The caller's classes win over the grid's own, so the margin and gaps are its call. */
-export const OnACard: Story = {
-  args: {
-    className: "my-0 gap-x-6 gap-y-5 rounded-lg border border-border bg-bg p-5",
-  },
+/** Two columns of FormFields; the last one is `wide`, so it spans both. Below `md`
+ * the grid collapses to a single column and every field goes full width.
+ * Pick รูปแบบ in Controls:
+ *  - ปกติ: the plain grid
+ *  - การ์ด: the same grid drawn as a card — the transfer form groups its receivers
+ *    this way. The caller's classes win over the grid's own, so the margin and gaps
+ *    are its call. */
+export const Default: Story = {
+  argTypes: { className: look.argType },
+  args: { className: look.initial },
 };

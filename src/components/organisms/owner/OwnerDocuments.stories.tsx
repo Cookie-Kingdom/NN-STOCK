@@ -13,6 +13,8 @@ import {
   returnGapDb,
   returnTruckDb,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import { InvoiceView } from "./InvoiceView";
 import { LotWorkflowAction } from "./LotWorkflowAction";
 import { PurchaseOrderView } from "./PurchaseOrderView";
@@ -28,95 +30,83 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database }>;
 
+const purchaseState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  "หลาย PO": multiPoDb,
+  "เก็บไว้ให้ Owner": ownerReservedDb,
+});
+const smokeState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  "มี Packing List": packedDb,
+  "รอ Packing List": dispatchDb,
+  "หลาย PO": multiPoPackedDb,
+});
+const manifestState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  "รอ Foodiva": dispatchDb,
+  "Packing List ต่ำกว่า Request": packingShortDb,
+  ขากลับ: returnGapDb,
+});
+const returnState = pick("สถานะ", {
+  รอจองรถ: closedDb,
+  รถออกแล้ว: returnTruckDb,
+});
+
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - หลาย PO: "คงเหลือส่ง Chef House", PO 1,000 kg with 400 sent shows 600; the others
+ *    show all of theirs.
+ *  - เก็บไว้ให้ Owner: "เก็บไว้ให้ Owner คงเหลือ", Foodiva kept 10 kg for the Owner, who
+ *    took 4 → 6 kg left; "คงเหลือส่ง Chef House" still counts from the 90 kg ready for
+ *    Chiang Mai. */
 export const PurchaseOrders: Story = {
-  render: () => <PurchaseOrderView db={db} open={open} />,
+  argTypes: { db: purchaseState.argType },
+  args: { db: purchaseState.initial },
+  render: ({ db }) => <PurchaseOrderView db={db} open={open} />,
 };
 
-/** "คงเหลือส่ง Chef House": PO 1,000 kg with 400 sent shows 600; the others show all of theirs. */
-export const PurchaseOrdersRemaining: Story = {
-  parameters: { db: multiPoDb },
-  render: () => <PurchaseOrderView db={multiPoDb} open={open} />,
-};
-
-/** "เก็บไว้ให้ Owner คงเหลือ": Foodiva kept 10 kg for the Owner, who took 4 → 6 kg left;
- *  "คงเหลือส่ง Chef House" still counts from the 90 kg ready for Chiang Mai. */
-export const PurchaseOrdersKeptForOwner: Story = {
-  parameters: { db: ownerReservedDb },
-  render: () => <PurchaseOrderView db={ownerReservedDb} open={open} />,
-};
-
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - มี Packing List: the create button is live and the quantity is the Packing List total.
+ *  - รอ Packing List: Request still waiting for Foodiva, the create button is disabled
+ *    with its reason.
+ *  - หลาย PO: one shipment drawing on three purchase POs (kg each and what each has
+ *    left), next to a trucked shipment with no Packing List yet. */
 export const SmokingPurchaseOrders: Story = {
-  render: () => <SmokingPurchaseOrderView db={db} open={open} />,
+  argTypes: { db: smokeState.argType },
+  args: { db: smokeState.initial },
+  render: ({ db }) => <SmokingPurchaseOrderView db={db} open={open} />,
 };
 
-/** Packing List in: the create button is live and the quantity is the Packing List total. */
-export const SmokingPurchaseOrdersPacked: Story = {
-  parameters: { db: packedDb },
-  render: () => <SmokingPurchaseOrderView db={packedDb} open={open} />,
-};
-
-/** Request still waiting for Foodiva: the create button is disabled with its reason. */
-export const SmokingPurchaseOrdersAwaitingPackingList: Story = {
-  parameters: { db: dispatchDb },
-  render: () => <SmokingPurchaseOrderView db={dispatchDb} open={open} />,
-};
-
-/** One shipment drawing on three purchase POs (kg each and what each has left), next to
- * a trucked shipment with no Packing List yet. */
-export const SmokingPurchaseOrdersMultiPo: Story = {
-  parameters: { db: multiPoPackedDb },
-  render: () => <SmokingPurchaseOrderView db={multiPoPackedDb} open={open} />,
-};
-
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - รอ Foodiva: a Request waiting for Foodiva's transport document, no outbound button
+ *    for the Owner, only "แก้ไข Request" (A10), which disappears once Foodiva makes the
+ *    manifest.
+ *  - Packing List ต่ำกว่า Request: Request 1,500 kg, Packing List 70 kg, Chef House
+ *    69 kg; the comparison runs on the Packing List (gap −1 kg) and the Request kg shows
+ *    on its own line.
+ *  - ขากลับ: return leg, Chef House sent 36 kg, Foodiva received 35.5 kg, with the gap
+ *    badge. */
 export const TransportManifest: Story = {
-  render: () => (
+  argTypes: { db: manifestState.argType },
+  args: { db: manifestState.initial },
+  render: ({ db }) => (
     <TransportManifestView db={db} open={open} onOpenSmokePo={fn()} />
   ),
 };
 
-/** A Request waiting for Foodiva's transport document: no outbound button for the Owner,
- *  only "แก้ไข Request" (A10), which disappears once Foodiva makes the manifest. */
-export const TransportManifestAwaitingFoodiva: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <TransportManifestView db={dispatchDb} open={open} onOpenSmokePo={fn()} />
-  ),
-};
-
-/** Request 1,500 kg, Packing List 70 kg, Chef House 69 kg: the comparison runs on the
- *  Packing List (gap −1 kg) and the Request kg shows on its own line. */
-export const TransportManifestPackingListBelowRequest: Story = {
-  parameters: { db: packingShortDb },
-  render: () => (
-    <TransportManifestView
-      db={packingShortDb}
-      open={open}
-      onOpenSmokePo={fn()}
-    />
-  ),
-};
-
-/** Return leg: Chef House sent 36 kg, Foodiva received 35.5 kg, with the gap badge. */
-export const TransportManifestReturnLeg: Story = {
-  parameters: { db: returnGapDb },
-  render: () => (
-    <TransportManifestView db={returnGapDb} open={open} onOpenSmokePo={fn()} />
-  ),
-};
-
-/** The return-trip tab: Chef House closed the lot, so the Owner books the truck home.
- *  The button opens the same `return` dialog the manifest's workflow action opens. */
+/** The return-trip tab. เลือกสถานะใน Controls:
+ *  - รอจองรถ: Chef House closed the lot, so the Owner books the truck home. The button
+ *    opens the same `return` dialog the manifest's workflow action opens.
+ *  - รถออกแล้ว: nothing to book, the truck home is already on the road, waiting for
+ *    Foodiva. */
 export const ReturnShipment: Story = {
-  parameters: { db: closedDb },
-  render: () => <ReturnShipmentView db={closedDb} open={open} />,
-};
-
-/** Nothing to book: the truck home is already on the road, waiting for Foodiva. */
-export const ReturnShipmentEmpty: Story = {
-  parameters: { db: returnTruckDb },
-  render: () => <ReturnShipmentView db={returnTruckDb} open={open} />,
+  argTypes: { db: returnState.argType },
+  args: { db: returnState.initial },
+  render: ({ db }) => <ReturnShipmentView db={db} open={open} />,
 };
 
 export const Invoices: Story = {

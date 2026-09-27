@@ -22,7 +22,9 @@ import {
   submittedInvoiceDb,
 } from "../../../../.storybook/fixtures";
 import { EntryForm } from "./EntryForm";
+import { pick } from "../../../../.storybook/pick";
 import {
+  branches,
   riceSources,
   type Database,
   type Role,
@@ -39,56 +41,74 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database; branch: string }>;
 
 const onClose = fn();
 const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
 
-/** A story that opens `kind` for `role` on the newest lot of `db` (the shipment, when there is one). */
-const form = (
+/** The dialog for `kind` opened by `role` on `lotId` (default: the newest lot of `db`,
+ *  the shipment when there is one). Keyed so a Controls change reopens it fresh. */
+const entryForm = (
   db: Database,
   role: Role,
   kind: EntryKind,
   branch = "",
   lotId = db.lots.at(-1)?.id ?? "",
+) => (
+  <EntryForm
+    key={`${branch}:${db.entries.length}`}
+    db={db}
+    role={role}
+    branch={branch}
+    date={day}
+    onDate={onDate}
+    modal={{ kind, lotId }}
+    onClose={onClose}
+    onSaved={onSaved}
+  />
+);
+
+/** A story that opens `kind` for `role` on the newest lot of `db`. */
+const form = (
+  db: Database,
+  role: Role,
+  kind: EntryKind,
+  branch = "",
+  lotId?: string,
 ): Story => ({
   parameters: { db },
-  render: () => (
-    <EntryForm
-      db={db}
-      role={role}
-      branch={branch}
-      date={day}
-      onDate={onDate}
-      modal={{ kind, lotId }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
+  render: () => entryForm(db, role, kind, branch, lotId),
+});
+
+/** A branch form with the สาขา picked in Controls. */
+const branchForm = (kind: EntryKind): Story => ({
+  parameters: { db: demoDb },
+  argTypes: {
+    branch: { name: "สาขา", control: "radio", options: [...branches] },
+  },
+  args: { branch: branches[0] },
+  render: ({ branch }) => entryForm(demoDb, "branch", kind, branch),
 });
 
 // --- Owner ---------------------------------------------------------------
 
-/** PO for the smoking service: the kg is pre-filled from the Packing List total and editable
- *  (A6); the rate follows the kg entered. */
-export const OwnerSmokeOrder: Story = form(
-  packedDb,
-  "owner",
-  "smokeOrder",
-  "",
-  packedDb.lots.at(-1)!.id,
-);
+const shipment = pick("PO ซื้อ", {
+  "PO เดียว": packedDb,
+  "3 PO": multiPoPackedDb,
+});
 
-/** One smoke PO for a shipment drawn from three purchase POs (1,390 kg Packing List). */
-export const OwnerSmokeOrderMultiPo: Story = form(
-  multiPoPackedDb,
-  "owner",
-  "smokeOrder",
-  "",
-  multiPoPackedDb.lots.at(-1)!.id,
-);
+/** PO for the smoking service: the kg is pre-filled from the Packing List total and editable
+ *  (A6); the rate follows the kg entered. เลือก PO ซื้อ ใน Controls:
+ *  - PO เดียว: a shipment from one purchase PO
+ *  - 3 PO: one smoke PO for a shipment drawn from three purchase POs (1,390 kg Packing
+ *    List) */
+export const OwnerSmokeOrder: Story = {
+  argTypes: { db: shipment.argType },
+  args: { db: shipment.initial },
+  render: ({ db }) => entryForm(db, "owner", "smokeOrder"),
+};
 
 /** The Owner checks Chef House's submitted bill and accepts or sends it back. */
 export const OwnerInvoiceReview: Story = form(
@@ -245,9 +265,13 @@ export const BranchRiceIssueOverStock: Story = {
   },
 };
 
+/** Opens on the branch's last source (captioned), its supplier, the kg that tops the stock
+ *  up to par and that kg × the unit price. เลือกสาขาใน Controls. */
+export const BranchRicePurchase: Story = branchForm("ricePurchase");
+
 /** Rice purchase with the round's source picked: the fields follow the pick, not the branch. */
-const ricePurchase = (branch: string, source: string): Story => ({
-  ...form(demoDb, "branch", "ricePurchase", branch),
+const ricePurchase = (source: string): Story => ({
+  ...BranchRicePurchase,
   play: async ({ canvasElement }) => {
     await userEvent.selectOptions(
       within(canvasElement).getByLabelText(/ข้าวเหนียวมาจาก/),
@@ -256,35 +280,10 @@ const ricePurchase = (branch: string, source: string): Story => ({
   },
 });
 
-/** Opens on the branch's last source (captioned), its supplier, the kg that tops the stock
- *  up to par and that kg × the unit price. */
-export const BranchRicePurchase: Story = form(
-  demoDb,
-  "branch",
-  "ricePurchase",
-  "ศาลาแดง",
-);
-
-export const BranchRicePurchaseSelfCook = ricePurchase(
-  "ศาลาแดง",
-  riceSources[0],
-);
-
-export const BranchRicePurchaseBoughtCooked = ricePurchase(
-  "ศาลาแดง",
-  riceSources[1],
-);
-
-export const BranchRicePurchaseMinburiSelfCook = ricePurchase(
-  "มีนบุรี",
-  riceSources[0],
-);
+export const BranchRicePurchaseSelfCook = ricePurchase(riceSources[0]);
 
 /** Bought cooked: the cooked-rice par shows as a hint, it never blocks the save. */
-export const BranchRicePurchaseMinburiBoughtCooked = ricePurchase(
-  "มีนบุรี",
-  riceSources[1],
-);
+export const BranchRicePurchaseBoughtCooked = ricePurchase(riceSources[1]);
 
 export const BranchChiliPurchase: Story = form(
   demoDb,
@@ -309,19 +308,8 @@ export const BranchSupplyIssue: Story = form(
   "ศาลาแดง",
 );
 
-export const BranchRiceIssue: Story = form(
-  demoDb,
-  "branch",
-  "riceIssue",
-  "ศาลาแดง",
-);
-
-export const BranchRiceIssueMinburi: Story = form(
-  demoDb,
-  "branch",
-  "riceIssue",
-  "มีนบุรี",
-);
+/** เลือกสาขาใน Controls. */
+export const BranchRiceIssue: Story = branchForm("riceIssue");
 
 export const BranchChiliIssue: Story = form(
   demoDb,
@@ -363,30 +351,13 @@ export const BranchSupplyIssueFilled = issueFilled("supplyIssue", "ศาลา�
   [/ผู้รับของ/, "ครัวศาลาแดง"],
 ]);
 
-/** Morning cook: raw rice in, cooked rice out. Cooked may weigh more than raw. */
-export const BranchRice: Story = form(demoDb, "branch", "rice", "ศาลาแดง");
+/** Morning cook: raw rice in, cooked rice out. Cooked may weigh more than raw.
+ *  เลือกสาขาใน Controls. */
+export const BranchRice: Story = branchForm("rice");
 
-export const BranchRiceMinburi: Story = form(
-  demoDb,
-  "branch",
-  "rice",
-  "มีนบุรี",
-);
-
-/** End of day at either branch: what is left of the cooked rice and whether it is reheated. */
-export const BranchRiceCarrySaladaeng: Story = form(
-  demoDb,
-  "branch",
-  "riceCarry",
-  "ศาลาแดง",
-);
-
-export const BranchRiceCarry: Story = form(
-  demoDb,
-  "branch",
-  "riceCarry",
-  "มีนบุรี",
-);
+/** End of day at either branch (เลือกสาขาใน Controls): what is left of the cooked rice
+ *  and whether it is reheated. */
+export const BranchRiceCarry: Story = branchForm("riceCarry");
 
 /** A sale on an open day: the kg used follows the packs typed (× average pack weight)
  *  until the branch types the weighed kg itself; LINE MAN and the chili count stay blank. */

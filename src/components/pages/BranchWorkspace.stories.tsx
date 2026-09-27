@@ -6,22 +6,40 @@ import {
   dayClosedDb,
   demoDb,
 } from "../../../.storybook/fixtures";
+import { pick } from "../../../.storybook/pick";
 import { accountById } from "@/lib/accounts";
 import type { Tab } from "@/lib/nav";
+import type { Database } from "@/lib/store";
 import { BranchWorkspace } from "./BranchWorkspace";
 
 // See OwnerWorkspace.stories.tsx for why each story sets the URL segment.
 const at = (tab: Tab) => ({ nextjs: { navigation: { segments: [tab] } } });
 
-const meta: Meta = {
+type Args = { db: Database; account: "saladaeng" | "minburi" };
+
+const meta: Meta<Args> = {
   title: "Pages/Branch",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen", db: demoDb },
-  render: () => <BranchWorkspace account={accountById("saladaeng")!} />,
+  render: ({ account = "saladaeng" }) => (
+    <BranchWorkspace account={accountById(account)!} />
+  ),
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<Args>;
+
+/** Controls: which branch is signed in. */
+const branchArg = {
+  name: "สาขา",
+  options: ["saladaeng", "minburi"],
+  control: {
+    type: "radio" as const,
+    labels: { saladaeng: "ศาลาแดง", minburi: "มีนบุรี" },
+  },
+};
+const dayState = pick("วัน", { เปิดวัน: demoDb, ปิดวันแล้ว: dayClosedDb });
+const countState = pick("สถานะ", { นับแล้ว: demoDb, ยังไม่นับ: branchTasksDb });
 
 /** The workspace opens on today; move it to the fixture day so the story shows data. */
 const toFixtureDay: Story["play"] = async ({ canvasElement }) => {
@@ -32,11 +50,14 @@ const toFixtureDay: Story["play"] = async ({ canvasElement }) => {
 };
 
 /** กรอกรายวัน: งานหลัก 5 ขั้น (ขั้นที่ 3 หุงข้าวเหนียว พาไปแท็บข้าวเหนียววันนี้),
- *  ตารางกล่องโปรโมท และการนับน้ำพริกประจำวันที่ย้ายมาจากแท็บสต๊อก */
-export const Day: Story = { parameters: at("day"), play: toFixtureDay };
-/** ศาลาแดง's `day` after ปิดวัน: the locked notice, and every day form disabled. */
-export const DayClosed: Story = {
-  parameters: { ...at("day"), db: dayClosedDb },
+ *  ตารางกล่องโปรโมท และการนับน้ำพริกประจำวันที่ย้ายมาจากแท็บสต๊อก. Controls:
+ *  - วัน = ปิดวันแล้ว: ศาลาแดง's `day` after ปิดวัน: the locked notice, and every day
+ *    form disabled.
+ *  - สาขา = มีนบุรี: the same tab for the other branch. */
+export const Day: Story = {
+  parameters: at("day"),
+  argTypes: { db: dayState.argType, account: branchArg },
+  args: { db: dayState.initial, account: "saladaeng" },
   play: toFixtureDay,
 };
 
@@ -45,15 +66,14 @@ export const MaterialReceive: Story = {
   parameters: { ...at("material-receive"), db: branchTasksDb },
 };
 
-/** ตรวจนับสต๊อกวัสดุวันนี้ on a day the roleplay already counted. */
+/** ตรวจนับสต๊อกวัสดุวันนี้. Pick สถานะ in Controls:
+ *  - นับแล้ว: a day the roleplay already counted.
+ *  - ยังไม่นับ: a day still waiting to be counted — the CountPill's case. */
 export const MaterialCount: Story = {
   parameters: at("material-count"),
+  argTypes: { db: countState.argType },
+  args: { db: countState.initial },
   play: toFixtureDay,
-};
-
-/** ตรวจนับสต๊อกวัสดุวันนี้ on a day still waiting to be counted — the CountPill's case. */
-export const MaterialCountPending: Story = {
-  parameters: { ...at("material-count"), db: branchTasksDb },
 };
 
 /** ข้าวเหนียววันนี้: ซื้อข้าวสุก / เบิกข้าวสาร / นึ่ง / ยกไปวันถัดไป on the roleplay day. */
@@ -73,15 +93,15 @@ export const MeatSummary: Story = {
 };
 export const Summary: Story = { parameters: at("branch-summary") };
 export const History: Story = { parameters: at("history") };
-export const MinburiDay: Story = {
-  parameters: at("day"),
-  render: () => <BranchWorkspace account={accountById("minburi")!} />,
-};
 
-/** ศาลาแดง's bell: meat allocated but not received, material waiting to be confirmed and
- *  the day still short of what closing needs. Every line opens กรอกรายวัน. */
+/** Pick สาขา in Controls:
+ *  - ศาลาแดง's bell: meat allocated but not received, material waiting to be confirmed
+ *    and the day still short of what closing needs. Every line opens กรอกรายวัน.
+ *  - มีนบุรี: the same database, but none of ศาลาแดง's work reaches this branch's bell. */
 export const Notifications: Story = {
   parameters: { ...at("day"), db: branchTasksDb },
+  argTypes: { account: branchArg },
+  args: { account: "saladaeng" },
   play: async ({ canvasElement }) => {
     fireEvent.click(
       within(canvasElement).getByLabelText(/^การแจ้งเตือน/, {
@@ -89,11 +109,4 @@ export const Notifications: Story = {
       }),
     );
   },
-};
-
-/** The same database seen by มีนบุรี: none of ศาลาแดง's work reaches this branch's bell. */
-export const MinburiNotifications: Story = {
-  parameters: { ...at("day"), db: branchTasksDb },
-  render: () => <BranchWorkspace account={accountById("minburi")!} />,
-  play: Notifications.play,
 };

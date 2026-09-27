@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
+import { pick } from "../../../../.storybook/pick";
 import { DataTable } from "./DataTable";
 import { TableSection } from "./TableSection";
 
@@ -20,24 +21,24 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const TitleOnly: Story = {};
+const actions = pick("ปุ่มบนแถบหัว", {
+  มีปุ่ม: (
+    <div className="flex flex-wrap items-center gap-3 max-md:justify-between">
+      <Button variant="secondary" size="sm">
+        ส่งออก
+      </Button>
+      <Button size="sm">เพิ่มรายการ</Button>
+    </div>
+  ),
+  ไม่มี: undefined,
+});
 
-/** `count` is the muted text beside the title — every table states its row count. */
-export const WithCount: Story = { args: { count: "12 รายการ" } };
-
-/** `actions` fill the right of the title bar and stack under the title below md. */
+/** เลือกใน Controls:
+ *  - `count`: ข้อความจาง ๆ ข้างชื่อ ทุกตารางบอกจำนวนแถว (ลบให้ว่างเพื่อดูแบบมีแต่ชื่อ)
+ *  - ปุ่มบนแถบหัว: `actions` อยู่ทางขวาของแถบหัว และลงไปอยู่ใต้ชื่อเมื่อจอเล็กกว่า md */
 export const WithActions: Story = {
-  args: {
-    count: "12 รายการ",
-    actions: (
-      <div className="flex flex-wrap items-center gap-3 max-md:justify-between">
-        <Button variant="secondary" size="sm">
-          ส่งออก
-        </Button>
-        <Button size="sm">เพิ่มรายการ</Button>
-      </div>
-    ),
-  },
+  argTypes: { actions: actions.argType },
+  args: { count: "12 รายการ", actions: actions.initial },
 };
 
 const rows = Array.from({ length: 6 }, (_, i) => {

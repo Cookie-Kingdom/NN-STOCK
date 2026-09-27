@@ -6,6 +6,8 @@ import {
   multiPoDb,
   requestedDb,
 } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
+import type { Database } from "@/lib/store";
 import { ShipmentRequestForm } from "./ShipmentRequestForm";
 
 // A native modal <dialog>; a Docs page would stack the stories.
@@ -16,14 +18,24 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
+type Story = StoryObj<{ db: Database }>;
 
-/** PO 1,000 kg with 400 already requested (600 left) plus PO 300 / 700 / 500 with nothing
- *  sent. A new Request starts with each PO's whole remaining kg, captioned ยอดคงเหลือ PO. */
+const poState = pick("PO", {
+  "หลาย PO": multiPoDb,
+  ไม่เหลือให้ขอ: dispatchDb,
+});
+
+/** A new Request. เลือก PO ใน Controls:
+ *  - หลาย PO: PO 1,000 kg with 400 already requested (600 left) plus PO 300 / 700 / 500
+ *    with nothing sent. A new Request starts with each PO's whole remaining kg,
+ *    captioned ยอดคงเหลือ PO.
+ *  - ไม่เหลือให้ขอ: the only PO is fully requested already, nothing left to choose. */
 export const SeveralPurchasePos: Story = {
-  render: () => (
+  argTypes: { db: poState.argType },
+  args: { db: poState.initial },
+  render: ({ db }) => (
     <ShipmentRequestForm
-      db={multiPoDb}
+      db={db}
       date={day}
       onDate={fn()}
       onClose={fn()}
@@ -40,20 +52,6 @@ export const EditRequest: Story = {
     <ShipmentRequestForm
       db={requestedDb}
       lotId={requestedDb.lots.at(-1)!.id}
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onSaved={fn()}
-    />
-  ),
-};
-
-/** The only PO is fully requested already: nothing left to choose. */
-export const NothingRemaining: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <ShipmentRequestForm
-      db={dispatchDb}
       date={day}
       onDate={fn()}
       onClose={fn()}
