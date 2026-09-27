@@ -53,8 +53,10 @@ import {
   type EntryKind,
   STAGE,
   stageAction,
+  check,
 } from "@/lib/store";
 import {
+  expectWarning,
   closed,
   confirm,
   day,
@@ -440,9 +442,10 @@ describe("mutate guards", () => {
 
   test("void reverses an allowed entry once and needs a reason", () => {
     const s = setup();
-    expect(() =>
-      s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "1" }),
-    ).toThrow(/ไม่พอ/);
+    expectWarning(
+      s.check("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "1" }),
+      /ไม่พอ/,
+    );
     s.run("owner", "generalPurchase", {
       purchaseDate: day,
       item: "น้ำพริกหลอด",
@@ -503,7 +506,7 @@ describe("mutate guards", () => {
 });
 
 describe("lot workflow", () => {
-  test("Foodiva may invoice over the PO but must split weights that add up", () => {
+  test("Foodiva may invoice over the PO; a split that does not add up only warns", () => {
     const s = setup();
     purchase(s, "40");
     const values = (
@@ -523,9 +526,10 @@ describe("lot workflow", () => {
     expect(() =>
       s.run("foodiva", "foodivaConfirm", values("41", "41", "0")),
     ).not.toThrow();
-    expect(() =>
-      s.run("foodiva", "foodivaConfirm", values("40", "30", "5")),
-    ).toThrow(/รวมเท่ากับ/);
+    expectWarning(
+      s.check("foodiva", "foodivaConfirm", values("40", "30", "5")),
+      /รวมเท่ากับ/,
+    );
   });
 
   test("smoke PO waits for the Packing List, takes the kg entered (no cap) and prices the service", () => {
@@ -592,7 +596,10 @@ describe("lot workflow", () => {
         paidBy: "Owner",
         paidAmount,
       });
-    expect(() => pay("11000")).toThrow(/เท่ากับยอดสุทธิ/);
+    expectWarning(
+      s.dry(() => pay("11000")),
+      /เท่ากับยอดสุทธิ/,
+    );
     pay("10500");
     expect(smokingInvoiceStatus(s.db, sent)).toBe("ชำระแล้ว");
   });
@@ -627,7 +634,10 @@ describe("lot workflow", () => {
     expect(() => pay("11000")).toThrow(/ต้องรับยอด/);
     review("รับยอด");
     expect(status()).toBe("รอชำระ");
-    expect(() => pay("10000")).toThrow(/เท่ากับยอดสุทธิ/);
+    expectWarning(
+      s.dry(() => pay("10000")),
+      /เท่ากับยอดสุทธิ/,
+    );
     pay("11000");
     expect(status()).toBe("ชำระแล้ว");
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
@@ -676,7 +686,10 @@ describe("lot workflow", () => {
         receivedKg,
         receiver: "Owner",
       });
-    expect(() => pickup("11")).toThrow(/เกินยอด/);
+    expectWarning(
+      s.dry(() => pickup("11")),
+      /เกินยอด/,
+    );
     pickup("4");
     expect(last(s).date).toBe("2026-09-10");
     expect(ownerWasteOutstanding(s.db, id)).toBe(6);
@@ -728,7 +741,10 @@ describe("lot workflow", () => {
     const smoke = (inputKg: string, wasteKg: string, bags: string) =>
       s.run("cm", "smoke", { smokeDate: day, inputKg, wasteKg, packs: bags });
     expect(() => smoke("0.1", "0", "0.1\nabc")).toThrow(/มากกว่า 0/);
-    expect(() => smoke("10", "0", packs(50))).toThrow(/เท่ากับน้ำหนักเข้าเตา/);
+    expectWarning(
+      s.dry(() => smoke("10", "0", packs(50))),
+      /เท่ากับน้ำหนักเข้าเตา/,
+    );
     smoke("20", "5", packs(150));
     expect(lot().stage).toBe(4);
     expect(last(s).values).toMatchObject({
@@ -770,20 +786,29 @@ describe("lot workflow", () => {
     expect(pendingSmokeKg(s.db, lot)).toBe(0);
   });
 
-  test("excess pre-smoke, over-smoke and incomplete close blocked", () => {
+  test("excess pre-smoke and over-smoke warn; closing before smoking is blocked", () => {
     const s = setup();
     received(s, "10");
-    expect(() => s.run("cm", "prepare", { preSmokeKg: "11" })).toThrow(/เกิน/);
+    expectWarning(s.check("cm", "prepare", { preSmokeKg: "11" }), /เกิน/);
     s.run("cm", "prepare", { preSmokeKg: "10" });
     expect(() => s.run("cm", "closeLot", { confirm: "x" })).toThrow(/ขั้นตอน/);
-    expect(() =>
-      s.run("cm", "smoke", {
+    expectWarning(
+      s.check("cm", "smoke", {
         inputKg: "11",
         wasteKg: "6",
         smokeDate: day,
         packs: packs(50),
       }),
-    ).toThrow(/เกิน/);
+      /เกิน/,
+    );
+    // Smoking more than was waiting still finishes production.
+    s.run("cm", "smoke", {
+      inputKg: "11",
+      wasteKg: "6",
+      smokeDate: day,
+      packs: packs(50),
+    });
+    expect(s.db.lots.at(-1)!.stage).toBe(STAGE.closeLot);
   });
 
   test("chef edit before close validates in mutate, never touches the old database and is logged", () => {
@@ -811,15 +836,21 @@ describe("lot workflow", () => {
         id,
       );
     expect(() => s.run("owner", "chefEdit", {}, id)).toThrow(/ไม่มีสิทธิ์/);
-    expect(() =>
-      edit({}, [draft(smokes[0], { wasteKg: "4" }), draft(smokes[1])]),
-    ).toThrow(/เท่ากับน้ำหนักเข้าเตา/);
-    expect(() =>
-      edit(
-        { preSmokeKg: "47" },
-        smokes.map((item) => draft(item)),
+    expectWarning(
+      s.dry(() =>
+        edit({}, [draft(smokes[0], { wasteKg: "4" }), draft(smokes[1])]),
       ),
-    ).toThrow(/น้ำหนักก่อนสโมค/);
+      /เท่ากับน้ำหนักเข้าเตา/,
+    );
+    expectWarning(
+      s.dry(() =>
+        edit(
+          { preSmokeKg: "47" },
+          smokes.map((item) => draft(item)),
+        ),
+      ),
+      /น้ำหนักก่อนสโมค/,
+    );
     expect(() => edit({}, [draft(smokes[0])])).toThrow(/ไม่พบข้อมูล Lot/);
     const before = s.db;
     edit({}, [
@@ -846,7 +877,7 @@ describe("lot workflow", () => {
     ).toThrow(/ก่อนยืนยันปิด Lot/);
   });
 
-  test("allocating by kg: 500 + 200 of 700 kg, received in parts, over-allocation refused", () => {
+  test("allocating by kg: 500 + 200 of 700 kg, received in parts, over-allocation warns", () => {
     const s = returned();
     s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
     const id = s.db.lots.at(-1)!.id;
@@ -862,9 +893,10 @@ describe("lot workflow", () => {
       deliveryDate: day,
     });
     expect(centralStock(s.db, id)).toBe(50);
-    expect(() =>
-      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "50.01" }),
-    ).toThrow(/สต๊อกกลางไม่พอ/);
+    expectWarning(
+      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "50.01" }),
+      /สต๊อกกลางไม่พอ/,
+    );
     s.run("owner", "allocate", { branch: "มีนบุรี", kg: "50" });
     expect(centralStock(s.db, id)).toBe(0);
     s.run("branch", "receive", {
@@ -876,9 +908,14 @@ describe("lot workflow", () => {
     s.run("branch", "receive", { kg: "200", allocation: sala.id });
     expect(allocationOutstanding(s.db, sala)).toBe(0);
     expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
-    expect(() =>
-      s.run("branch", "receive", { kg: "1", allocation: sala.id, reason: "x" }),
-    ).toThrow(/รับเกินยอดค้างรับ/);
+    expectWarning(
+      s.check("branch", "receive", {
+        kg: "1",
+        allocation: sala.id,
+        reason: "x",
+      }),
+      /รับเกินยอดค้างรับ/,
+    );
   });
 
   test("receiving an allocation's exact kg past 0.01 is not over the outstanding (COR-15)", () => {
@@ -889,9 +926,10 @@ describe("lot workflow", () => {
     s.run("branch", "receive", { kg: "10.004", allocation: sala.id });
     expect(allocationOutstanding(s.db, sala)).toBe(0);
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-    expect(() =>
-      s.run("branch", "receive", { kg: "5.006", allocation: last(s).id }),
-    ).toThrow(/รับเกินยอดค้างรับ/);
+    expectWarning(
+      s.check("branch", "receive", { kg: "5.006", allocation: last(s).id }),
+      /รับเกินยอดค้างรับ/,
+    );
   });
 
   test("a receive marked complete closes the allocation on a shortfall, with a reason", () => {
@@ -918,11 +956,12 @@ describe("lot workflow", () => {
     expect(balance(s.db, id, "ศาลาแดง").received).toBe(499.5);
   });
 
-  test("over-allocation, over-thaw and cross-branch receive rejected", () => {
+  test("over-allocation and over-thaw warn; cross-branch receive rejected", () => {
     const s = ready();
-    expect(() =>
-      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "36" }),
-    ).toThrow(/ไม่พอ/);
+    expectWarning(
+      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "36" }),
+      /ไม่พอ/,
+    );
     s.run("owner", "allocate", { branch: "มีนบุรี", kg: "5" });
     expect(() =>
       s.run("branch", "receive", {
@@ -932,7 +971,7 @@ describe("lot workflow", () => {
     ).toThrow(/ไม่ได้จัดสรร/);
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
-    expect(() => s.run("branch", "thaw", { kg: "6" })).toThrow(/ไม่พอ/);
+    expectWarning(s.check("branch", "thaw", { kg: "6" }), /ไม่พอ/);
   });
 });
 
@@ -969,7 +1008,10 @@ describe("branch supplies", () => {
         quantity,
         receiver: "x",
       });
-    expect(() => transfer("11")).toThrow(/ไม่พอ/);
+    expectWarning(
+      s.dry(() => transfer("11")),
+      /ไม่พอ/,
+    );
     transfer("6");
     const transferId = last(s).id;
     expect(ownerMaterialStock(s.db, material)).toBe(4);
@@ -1222,8 +1264,8 @@ describe("branch supplies", () => {
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
     s.run("branch", "thaw", { kg: "5" });
-    expect(() =>
-      s.run("branch", "sale", {
+    expectWarning(
+      s.check("branch", "sale", {
         boxes: "10",
         addons: "0",
         chiliAddons: "0",
@@ -1233,7 +1275,8 @@ describe("branch supplies", () => {
         expense: "0",
         lineMan: "3500",
       }),
-    ).toThrow(/เกินเนื้อที่ละลายแล้ว/);
+      /เกินเนื้อที่ละลายแล้ว/,
+    );
   });
 });
 
@@ -1277,12 +1320,14 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   expect(() =>
     s.run("branch", "influencerBox", { ...box, influencer: "" }),
   ).toThrow(/อินฟลูเอนเซอร์/);
-  expect(() =>
-    s.run("branch", "influencerBox", { ...box, boxes: "50" }),
-  ).toThrow(/เกินเนื้อที่ละลายแล้ว/);
-  expect(() =>
-    s.run("branch", "influencerBox", { ...box, chiliAddons: "6" }),
-  ).toThrow(/น้ำพริก/);
+  expectWarning(
+    s.check("branch", "influencerBox", { ...box, boxes: "50" }),
+    /เกินเนื้อที่ละลายแล้ว/,
+  );
+  expectWarning(
+    s.check("branch", "influencerBox", { ...box, chiliAddons: "6" }),
+    /น้ำพริก/,
+  );
   // The kg is derived from the box count, so whatever the form sends is overwritten.
   s.run("branch", "influencerBox", { ...box, soldKg: "9", addons: "7" });
   expect(last(s).values.soldKg).toBe(String(2 * Number(seed.config.packKg)));
@@ -1353,7 +1398,7 @@ describe("recording the day's sale with influencer giveaways", () => {
     expect(chiliStock(db, "ศาลาแดง")).toBe(2);
   });
 
-  test("an invalid giveaway writes nothing at all — not even the sale", () => {
+  test("an invalid giveaway writes nothing at all — not even the sale; one over stock only warns", () => {
     const s = giveawayReady();
     const id = s.db.lots.at(-1)!.id;
     // A first sale of the day eats 9 of the 10 kg of cooked rice, so a giveaway can
@@ -1376,10 +1421,21 @@ describe("recording the day's sale with influencer giveaways", () => {
           boxes: "1",
           soldKg: "0.1",
         });
-      // The message says which block was refused, and why.
-      expect(save).toThrow(/อินฟลูเอนเซอร์ที่ 2 \(@nong\)/);
-      expect(save).toThrow(reason);
+      // The warning says which block it is about, and why.
+      expectWarning(check(save), /อินฟลูเอนเซอร์ที่ 2 \(@nong\)/);
+      expectWarning(check(save), reason);
     }
+    // A refusal still stops the whole save and names the block.
+    const refused = () =>
+      saleWithInfluencers(
+        s.db,
+        "ศาลาแดง",
+        day,
+        id,
+        [box, { ...box, influencer: "" }],
+        { ...saleValues, boxes: "1", soldKg: "0.1" },
+      );
+    expect(refused).toThrow(/อินฟลูเอนเซอร์ที่ 2 · กรอกชื่ออินฟลูเอนเซอร์/);
     expect(s.db.entries.length).toBe(before);
     expect(entries(s.db, "influencerBox", undefined, "ศาลาแดง", day)).toEqual(
       [],
