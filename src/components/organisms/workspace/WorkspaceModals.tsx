@@ -10,6 +10,7 @@ import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurcha
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
 import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTransferForm";
 import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
+import { skipNextDialogEnter } from "@/components/organisms/shared/Dialog";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
@@ -92,7 +93,10 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       label={pair.label}
       options={pair.options}
       value={modal.kind}
-      onChange={(kind) => setModal({ kind, lotId: "" })}
+      onChange={(kind) => {
+        skipNextDialogEnter();
+        setModal({ kind, lotId: "" });
+      }}
     />
   );
 
