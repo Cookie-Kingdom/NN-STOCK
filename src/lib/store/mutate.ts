@@ -664,11 +664,8 @@ function record(
       true,
     );
     positive(v, "invoiceAmount", "ยอดรวม Invoice", true);
-    withinStock(
-      n(v, "confirmedKg"),
-      n(lot.values, "orderedKg"),
-      "น้ำหนักยืนยันเกินยอด PO",
-    );
+    // No cap at the PO's kg: Foodiva does deliver over the order, and the Invoice is
+    // what stock and cost run on from here (rawAtFoodiva reads confirmedKg).
     assert(
       Math.abs(
         n(v, "readyForChiangMaiKg") +
