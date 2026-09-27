@@ -402,7 +402,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       ).toHaveCount(0);
       await pointAndClick(
         page,
-        row.getByRole("button", { name: "ดู", exact: true }),
+        row.getByRole("button", { name: /^ขยายรายละเอียด / }),
       );
       await expect(
         traceDetail(page, "PO เนื้อ").getByRole("cell").nth(1),
@@ -418,7 +418,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       );
       await pointAndClick(
         page,
-        row.getByRole("button", { name: "ซ่อน", exact: true }),
+        row.getByRole("button", { name: /^ย่อรายละเอียด / }),
       );
     },
   );
@@ -798,7 +798,7 @@ test("C1–C13 จัดซื้อ → Request → ขนส่งขาไป
       await expect(row).toContainText("Foodiva → Chef House");
       await pointAndClick(
         page,
-        row.getByRole("button", { name: "ดู", exact: true }),
+        row.getByRole("button", { name: /^ขยายรายละเอียด / }),
       );
       const cells = (label: string) =>
         traceDetail(page, label).getByRole("cell");

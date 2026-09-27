@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, type ReactNode, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
 import { Footnote, Muted } from "@/components/atoms/Text";
@@ -56,7 +56,6 @@ const registerColumns = [
   "เอกสารล่าสุด",
   "เส้นทางล่าสุด",
   "ผู้ดำเนินการล่าสุด",
-  "การทำงาน",
 ];
 const detailColumns = [
   "เอกสาร / ขั้นตอน",
@@ -149,7 +148,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
         actions={
           <TableActions>
             <Muted as="span" className="text-caption">
-              กด ดู เพื่อเปิดเส้นทางเอกสาร
+              กดที่แถวเพื่อเปิดเส้นทางเอกสาร
             </Muted>
             <TableFilter label="เรียงตาม">
               <Select
@@ -174,11 +173,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   aria-label="ขยายรายละเอียด"
                   className={`${thClass} ${expandCellClass}`}
                 />
-                {registerColumns.map((column, index) => (
-                  <th
-                    key={column}
-                    className={`${thClass} ${index === registerColumns.length - 1 ? "text-right" : ""}`}
-                  >
+                {registerColumns.map((column) => (
+                  <th key={column} className={thClass}>
                     {column}
                   </th>
                 ))}
@@ -559,14 +555,28 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   const isOpen = expandedLot === lot.id;
                   return (
                     <Fragment key={lot.id}>
-                      <tr className="hover:bg-bg">
+                      {/* The whole row toggles; the chevron is its keyboard and
+                          screen-reader handle, so it stops the click bubbling. */}
+                      <tr
+                        className={`cursor-pointer hover:bg-bg ${isOpen ? "bg-bg" : ""}`}
+                        onClick={() => toggle(lot.id)}
+                      >
                         <td className={`${tdClass} ${expandCellClass}`}>
                           <IconButton
                             size="sm"
-                            className="rounded-sm border border-border bg-surface text-h2 leading-none"
+                            className="rounded-sm border border-border bg-surface"
                             label={`${isOpen ? "ย่อ" : "ขยาย"}รายละเอียด ${lot.id}`}
-                            onClick={() => toggle(lot.id)}
-                            icon={isOpen ? "−" : "+"}
+                            aria-expanded={isOpen}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggle(lot.id);
+                            }}
+                            icon={
+                              <ChevronDown
+                                aria-hidden
+                                className={`size-4 transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "" : "-rotate-90"}`}
+                              />
+                            }
                           />
                         </td>
                         <td className={tdClass}>
@@ -590,19 +600,11 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         <td className={tdClass}>
                           {latest ? entryBy(latest) : "Owner"}
                         </td>
-                        <td className={`${tdClass} text-right`}>
-                          <Button
-                            variant="table"
-                            onClick={() => toggle(lot.id)}
-                          >
-                            {isOpen ? "ซ่อน" : "ดู"}
-                          </Button>
-                        </td>
                       </tr>
                       {isOpen && (
                         <tr>
                           <td
-                            colSpan={8}
+                            colSpan={registerColumns.length + 1}
                             className="border-b border-border bg-bg p-0 text-left whitespace-normal [tr:last-child>&]:border-b-0"
                           >
                             <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
@@ -714,7 +716,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                 <tr>
                   <td
                     className={`${tdClass} p-7 text-center text-text-secondary`}
-                    colSpan={8}
+                    colSpan={registerColumns.length + 1}
                   >
                     ไม่พบข้อมูล · ยังไม่มีเอกสารตามเงื่อนไขที่เลือก
                   </td>

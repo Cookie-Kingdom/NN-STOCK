@@ -580,7 +580,7 @@ test("D1–D11 Chef House ผลิต → กลับสต๊อกกลา�
       await tab(page, "เอกสารและ Traceability");
       await pointAndClick(
         page,
-        page.getByRole("button", { name: "ดู", exact: true }),
+        page.getByRole("button", { name: /^ขยายรายละเอียด / }),
       );
       const row = (label: string) =>
         page.getByRole("row").filter({ hasText: label }).last();

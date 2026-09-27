@@ -12,7 +12,7 @@ const meta = {
     children: (
       <>
         <Muted as="span" className="text-caption">
-          กด ดู เพื่อเปิดเส้นทางเอกสาร
+          กดที่แถวเพื่อเปิดเส้นทางเอกสาร
         </Muted>
         <TableFilter label="เรียงตาม">
           <Select variant="filter" defaultValue="date-desc">
