@@ -95,3 +95,27 @@ describe("columnAlign", () => {
     ]);
   });
 });
+
+describe("columnAlign branch tables", () => {
+  it("keeps a numbered step on the left", () => {
+    expect(
+      columnAlign(["ลำดับงาน"], [["1. รับเนื้อเข้าสาขา"], ["5. ปิดวัน"]]),
+    ).toEqual(["text-left"]);
+  });
+
+  it("keeps a mostly-number column right past a word or two", () => {
+    expect(
+      columnAlign(["จำนวน"], [["32.00"], ["0.00"], ["ยังไม่ได้ตรวจนับ"]]),
+    ).toEqual(["text-right"]);
+  });
+
+  it("puts a named column of inputs right", () => {
+    expect(
+      columnAlign(
+        ["วัสดุ", "ใช้วันนี้", "สถานะ"],
+        [["กล่อง", "", "รอ"]],
+        ["ใช้วันนี้"],
+      ),
+    ).toEqual(["text-left", "text-right", "text-left"]);
+  });
+});

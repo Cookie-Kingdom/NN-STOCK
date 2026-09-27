@@ -179,6 +179,7 @@ export function DailyMaterialsTable({
           "เหตุผลส่วนต่าง",
           "สถานะ",
         ]}
+        numericColumns={["ใช้วันนี้", "ตรวจนับจริง"]}
         action={
           <FilterBar>
             <WorkingDateField

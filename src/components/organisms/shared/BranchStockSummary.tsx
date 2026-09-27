@@ -115,17 +115,9 @@ export function BranchStockSummary({
           "ใช้จริงวันนี้",
           "เวสต์วันนี้",
         ]}
-        rowKeys={[...lots.map((d) => d.id), "total"]}
-        rows={
-          lots.length
-            ? [
-                ...lots.map((d) => [d.id, ...row(d)]),
-                [<strong key="total">รวม</strong>, ...row(total)],
-              ]
-            : []
-        }
-        // ponytail: no sort ("" is no column), so the รวม row stays last.
-        defaultSort={{ column: "" }}
+        rowKeys={lots.map((d) => d.id)}
+        rows={lots.map((d) => [d.id, ...row(d)])}
+        footer={["รวม", ...row(total)]}
         emptyText="ยังไม่มีเนื้อของสาขานี้ ณ วันที่เลือก"
       />
       <DataTable

@@ -27,9 +27,11 @@ function cellText(cell: ReactNode): string {
 }
 
 const isoDate = /^\d{4}-\d{2}-\d{2}/;
-/** A cell that is one number, optionally wrapped in symbols and a unit: "9.00 กก.", "฿1,200.00".
- *  Ids such as "PO-2026-01" start with a letter or hold a second number, so they stay text. */
-const numeric = /^[^\p{L}\d]*(-?\d+(?:\.\d+)?)[^\d]*$/u;
+/** A cell that is one number, optionally wrapped in symbols and one short unit word:
+ *  "9.00 กก.", "฿1,200.00", "3 รายการ". Ids such as "PO-2026-01" start with a letter or
+ *  hold a second number, and a numbered step ("1. รับเนื้อเข้าสาขา") runs on past a
+ *  unit, so both stay text. */
+const numeric = /^[^\p{L}\d]*(-?\d+(?:\.\d+)?)\s*[^\d\s]{0,6}$/u;
 
 /** A cell that carries a date: an ISO date ("2026-01-05") or a lot id ("F260105-001").
  *  Both already sort chronologically as text. */
@@ -48,19 +50,26 @@ export function datedColumn(rows: ReactNode[][]) {
 const blank = /^[\s—–-]*$/;
 
 /** Alignment per column: numbers sit right so their digits line up, text sits left.
+ *  A column that is mostly numbers stays right when a row or two says "ยังไม่ได้นับ".
  *  A column with no text at all is the action column at the end of the row and sits
- *  right too. Headers reuse the same class, so a header never floats away from the
- *  column it names. */
-export function columnAlign(columns: string[], rows: ReactNode[][]) {
-  return columns.map((_, index) => {
+ *  right too, unless `right` names it (a column of inputs reads as no text). Headers
+ *  reuse the same class, so a header never floats away from the column it names. */
+export function columnAlign(
+  columns: string[],
+  rows: ReactNode[][],
+  right: readonly string[] = [],
+) {
+  return columns.map((column, index) => {
+    if (right.includes(column)) return "text-right";
     const texts = rows
       .map((row) => cellText(row[index]))
       .filter((text) => !blank.test(text));
     if (!texts.length)
       return index === columns.length - 1 ? "text-right" : "text-left";
-    return texts.every((text) => numeric.test(text.replace(/,/g, "")))
-      ? "text-right"
-      : "text-left";
+    const numbers = texts.filter((text) =>
+      numeric.test(text.replace(/,/g, "")),
+    ).length;
+    return numbers * 2 > texts.length ? "text-right" : "text-left";
   });
 }
 
@@ -86,6 +95,8 @@ export function DataTable({
   emptyText = "ยังไม่มีข้อมูล",
   defaultSort,
   columnWidths,
+  numericColumns,
+  footer,
   className,
 }: {
   title: string;
@@ -101,11 +112,17 @@ export function DataTable({
   /** CSS widths, one per column (e.g. "8rem"). Fixes the layout so filtering the rows
    *  never reflows the columns; cells wrap inside their width instead. */
   columnWidths?: readonly string[];
+  /** Columns that hold numbers the table cannot read, such as inputs or read-only
+   *  value components: they sit right like any other number column. */
+  numericColumns?: readonly string[];
+  /** A total row, one cell per column. Sits below the body on the head's band and
+   *  never sorts or pages with the rows. */
+  footer?: ReactNode[];
   /** Extra classes for the `<section>`, e.g. `m-0` inside a grid. */
   className?: string;
 }) {
   const [page, setPage] = useState(0);
-  const align = columnAlign(columns, rows);
+  const align = columnAlign(columns, rows, numericColumns);
   // ponytail: kept out of state so the fallback still finds its column once rows load.
   const [chosen, setChosen] = useState<{
     column: number;
@@ -272,6 +289,26 @@ export function DataTable({
               </tr>
             )}
           </tbody>
+          {footer && rows.length > 0 && (
+            <tfoot>
+              <tr>
+                {footer.map((cell, j) => (
+                  <td
+                    key={j}
+                    className={cn(
+                      "border-t border-border-strong bg-surface-sunken px-4.5 py-3.5 align-middle text-body-sm font-semibold max-md:px-2.5",
+                      fixed
+                        ? "wrap-break-word whitespace-normal"
+                        : "whitespace-nowrap",
+                      align[j],
+                    )}
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       <Pagination
