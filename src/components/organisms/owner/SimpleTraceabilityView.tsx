@@ -53,7 +53,7 @@ import { fmt } from "@/lib/format";
 const registerColumns = [
   "สถานะ",
   "เลขที่การส่ง / Lot",
-  "วันที่ Request",
+  "วันที่ PO รมควัน",
   "เอกสารล่าสุด",
   "เส้นทางล่าสุด",
   "ผู้ดำเนินการล่าสุด",
@@ -157,8 +157,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
               >
-                <option value="date-desc">วันที่ Request (ล่าสุดก่อน)</option>
-                <option value="date-asc">วันที่ Request (เก่าสุดก่อน)</option>
+                <option value="date-desc">วันที่ PO รมควัน (ล่าสุดก่อน)</option>
+                <option value="date-asc">วันที่ PO รมควัน (เก่าสุดก่อน)</option>
                 <option value="po">เลขที่การส่ง</option>
                 <option value="lot">Lot</option>
               </Select>

@@ -38,7 +38,8 @@ declare
     {"id":"e-v1","kind":"void","role":"owner","lotId":"S1","branch":"ศาลาแดง","date":"2026-09-06","values":{"targetId":"e-mb","targetBranch":"มีนบุรี"}},
     {"id":"e-v2","kind":"void","role":"owner","lotId":"S1","branch":"ศาลาแดง","date":"2026-09-06","values":{"targetId":"e-sd","targetBranch":"ศาลาแดง"}},
     {"id":"e-rcv","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-06","values":{"kg":"3"}},
-    {"id":"e-lk","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-06","values":{"targetId":"e-rcv","lotId":"S1"}}
+    {"id":"e-lk","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-06","values":{"targetId":"e-rcv","lotId":"S1"}},
+    {"id":"e-dsp","kind":"dispatch","role":"foodiva","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-06","values":{"trip":"1"}}
   ]';
 begin
   create or replace function auth.uid() returns uuid language sql stable
@@ -56,7 +57,7 @@ begin
   select s.revision into v_rev from public.save_app_state(
     jsonb_build_object('version', 9, 'lots', v_lots, 'entries', v_entries, 'config', v_cfg), null) s;
   select l.payload into v_seen from public.load_app_state() l;
-  assert jsonb_array_length(v_seen -> 'entries') = 13 and v_seen -> 'config' = v_cfg, 'owner load changed';
+  assert jsonb_array_length(v_seen -> 'entries') = 14 and v_seen -> 'config' = v_cfg, 'owner load changed';
 
   -- Branch (มีนบุรี): its own sale and allocation, the void of its sale, its receive with no lot
   -- and the link naming it; no other branch, no purchase, no Foodiva invoice, no cost or price,
@@ -78,19 +79,19 @@ begin
   perform set_config('test.uid', v_food::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   select string_agg(e ->> 'id', ',' order by ord) into v_text from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord);
-  assert v_text = 'e-po,e-inv,e-pl,e-so,e-ret', format('foodiva entries: %s', v_text);
+  assert v_text = 'e-po,e-inv,e-pl,e-so,e-ret,e-dsp', format('foodiva entries: %s', v_text);
   assert v_seen::text !~ '"(revenue|lineMan|menuTotal|meatCost|returnCost|estimatedCost)"', format('foodiva load leaks: %s', v_seen);
   assert v_seen -> 'entries' -> 0 -> 'values' ->> 'price' = '250', 'foodiva lost the PO price';
   assert jsonb_array_length(v_seen -> 'lots') = 3, 'foodiva lots';
   assert not (v_seen -> 'config' ? 'boxPrice') and v_seen -> 'config' ->> 'outboundFee' = '1200', format('foodiva config: %s', v_seen -> 'config');
 
-  -- Chef House: only the shipment with a smoke PO or a cm entry (VIS-02), without purchase lines,
-  -- prices or freight.
+  -- Chef House: only shipments with a smoke PO, a Foodiva dispatch / Packing List or a cm entry
+  -- (VIS-02, migration 0031: S2 has only a dispatch), without purchase lines, prices or freight.
   perform set_config('test.uid', v_cm::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   select string_agg(e ->> 'id', ',' order by ord) into v_text from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord);
   assert v_text = 'e-pl,e-so', format('cm entries: %s', v_text);
-  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1', 'cm lots';
+  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1,S2', 'cm lots';
   assert v_seen::text !~ '"(price|lines|outboundCost|returnCost|meatCost|revenue)"', format('cm load leaks: %s', v_seen);
   assert v_seen -> 'entries' -> 1 -> 'values' ->> 'estimatedCost' = '9000', 'cm lost its smoke PO';
   assert v_seen -> 'config' ->> 'chefHouseAddress' = 'CM' and not (v_seen -> 'config' ? 'boxPrice'), 'cm config';
@@ -147,6 +148,11 @@ begin
   begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S9","kind":"shipment","poId":"SH-9","values":{}}]'::jsonb);
   exception when others then v_err := sqlerrm; end;
   assert v_err = 'Only an owner can add or remove lots', format('new lot, bad id: %s', v_err);
+  -- 0031: a new batch id needs its random suffix, so a count that repeats a hidden batch cannot merge.
+  v_err := null;
+  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S260907-001","kind":"shipment","poId":"SH-2026-0003","values":{}}]'::jsonb);
+  exception when others then v_err := sqlerrm; end;
+  assert v_err = 'Only an owner can add or remove lots', format('new lot, no suffix: %s', v_err);
   v_err := null;
   begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"P9","poId":"PO-9","values":{}}]'::jsonb);
   exception when others then v_err := sqlerrm; end;
@@ -164,18 +170,18 @@ begin
   select payload into v_stored from public.app_state;
   assert v_stored -> 'lots' -> 2 = '{"id":"S2","poId":"SH-2","kind":"shipment","config":{},"values":{"lines":"[{\"lotId\":\"P1\",\"kg\":10}]","requestedKg":"10","receivedKg":"9.8","outboundCost":"1200"}}'::jsonb,
     format('merged lot: %s', v_stored -> 'lots' -> 2);
-  assert v_stored -> 'entries' -> 13 ->> 'id' = 'n2' and jsonb_array_length(v_stored -> 'entries') = 14, 'cm entry not appended';
+  assert v_stored -> 'entries' -> 14 ->> 'id' = 'n2' and jsonb_array_length(v_stored -> 'entries') = 15, 'cm entry not appended';
 
   -- GEN-09: Chef House opens a new batch and records on it in one save.
   select public.append_entries(v_rev,
-    '[{"id":"n3","kind":"cmReceive","role":"cm","lotId":"S260907-001","branch":"ศาลาแดง","date":"2026-09-07","values":{"receivedKg":"5"}}]'::jsonb,
-    '[{"id":"S260907-001","poId":"SH-2026-0003","kind":"shipment","config":{},"values":{"receivedKg":"5"}}]'::jsonb) into v_rev;
+    '[{"id":"n3","kind":"cmReceive","role":"cm","lotId":"S260907-001-a1b2","branch":"ศาลาแดง","date":"2026-09-07","values":{"receivedKg":"5"}}]'::jsonb,
+    '[{"id":"S260907-001-a1b2","poId":"SH-2026-0003","kind":"shipment","config":{},"values":{"receivedKg":"5"}}]'::jsonb) into v_rev;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'lots' -> 3 ->> 'id' = 'S260907-001' and v_stored -> 'entries' -> 14 ->> 'lotId' = 'S260907-001',
+  assert v_stored -> 'lots' -> 3 ->> 'id' = 'S260907-001-a1b2' and v_stored -> 'entries' -> 15 ->> 'lotId' = 'S260907-001-a1b2',
     format('new batch: %s', v_stored -> 'lots');
   -- Chef House now sees the batches holding its entries.
   select l.payload into v_seen from public.load_app_state() l;
-  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1,S2,S260907-001',
+  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1,S2,S260907-001-a1b2',
     format('cm lots after its receives: %s', v_seen -> 'lots');
 
   -- A branch sale: the browser's meatCost / wasteCost are dropped, not stamped (BR-05).
@@ -189,15 +195,15 @@ begin
     '[{"id":"n4","kind":"sale","role":"branch","lotId":"S1","branch":"มีนบุรี","date":"2026-09-08","values":{"soldKg":"1","wasteKg":"0.5","meatCost":"1","to.meatCost":"2"}}]'::jsonb,
     '[]'::jsonb) into v_rev;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'entries' -> 15 -> 'values' = '{"soldKg":"1","wasteKg":"0.5"}'::jsonb,
-    format('sale cost kept: %s', v_stored -> 'entries' -> 15);
+  assert v_stored -> 'entries' -> 16 -> 'values' = '{"soldKg":"1","wasteKg":"0.5"}'::jsonb,
+    format('sale cost kept: %s', v_stored -> 'entries' -> 16);
 
   -- A1 acceptance: the Owner saves central on S2, which has no return.
   perform set_config('test.uid', v_owner::text, true);
   select s.revision into v_rev from public.save_app_state(jsonb_set(v_stored, '{entries}', (v_stored -> 'entries') ||
     '[{"id":"n5","kind":"central","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-09","values":{"centralKg":"7"}}]'::jsonb), v_rev) s;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'entries' -> 16 ->> 'kind' = 'central', 'owner central not saved';
+  assert v_stored -> 'entries' -> 17 ->> 'kind' = 'central', 'owner central not saved';
 
   raise exception 'ROLE_SCOPED_APP_STATE_TEST_PASSED';
 end $$;

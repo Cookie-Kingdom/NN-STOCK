@@ -46,7 +46,7 @@ describe("smoke PO lines", () => {
     );
     const batch = s.db.lots.at(-1)!;
     expect(batch).toMatchObject({
-      id: "S260909-001",
+      id: expect.stringMatching(/^S260909-001-[0-9a-f]{4}$/),
       poId: "SH-2026-0001",
       kind: "shipment",
     });
@@ -173,8 +173,8 @@ describe("batch at Chef House", () => {
 
   test("PRIN-06 Chef House's database holds no purchase PO number, price or smoke PO lines", () => {
     const s = smoked();
-    // A second batch with a smoke PO but nothing of Chef House's is still its business;
-    // one Foodiva opened without a PO is not (VIS-02).
+    // A second batch with a smoke PO but nothing of Chef House's is still its business, and so
+    // is one Foodiva opened and trucked without a PO (VIS-02), so Chef never opens it twice.
     const [id] = purchases(s, ["20"]);
     smokeOrder(s, [[id, "20"]], "20", "");
     dispatch(s, "");
@@ -186,6 +186,7 @@ describe("batch at Chef House", () => {
     expect(chef.lots.map((lot) => lot.poId)).toEqual([
       "SH-2026-0001",
       "SH-2026-0002",
+      "SH-2026-0003",
     ]);
     expect(chef.entries.map((e) => e.kind)).toEqual(
       expect.arrayContaining(["packingList", "smokeOrder", "cmReceive"]),

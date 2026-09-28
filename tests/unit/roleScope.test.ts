@@ -73,6 +73,8 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
       e("e-v2", "void", "owner", "S1", "ศาลาแดง", { targetId: "e-sd" }),
       e("e-rcv", "receive", "branch", "", "มีนบุรี"),
       e("e-lk", "link", "branch", "", "มีนบุรี", { targetId: "e-rcv" }),
+      // VIS-02: Foodiva trucked S2 before any smoke PO; Chef House sees the batch, not the entry.
+      e("e-dsp", "dispatch", "foodiva", "S2", "ศาลาแดง"),
     ],
   } as unknown as Database;
   const ids = (scoped: Database) => ({
@@ -84,10 +86,10 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
     entries: "e-al1,e-mb,e-v1,e-rcv,e-lk",
   });
   expect(ids(scopeDatabase(db, "foodiva")).entries).toBe(
-    "e-po,e-inv,e-pl,e-so,e-ret",
+    "e-po,e-inv,e-pl,e-so,e-ret,e-dsp",
   );
   expect(ids(scopeDatabase(db, "cm"))).toEqual({
-    lots: "S1",
+    lots: "S1,S2",
     entries: "e-pl,e-so",
   });
 });

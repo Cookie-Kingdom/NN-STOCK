@@ -1,4 +1,5 @@
 import {
+  chefBatchKinds,
   type Database,
   type Entry,
   type Lot,
@@ -11,9 +12,10 @@ import {
  * DB-03). Until migration 20260925000028 every role but the Account Manager got the whole
  * payload, and `visibleEntries`/`visibleDatabase` only narrowed the screens.
  *
- * `scopeRules` is the rule table. The same JSON sits in app_state_scope_rules() in that
- * migration, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
- * `scopeDatabase` is the JS port of scope_app_state() there (GET /api/local-db uses it).
+ * `scopeRules` is the rule table. The same JSON sits in app_state_scope_rules() in migration
+ * 20260928000030, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
+ * `scopeDatabase` is the JS port of scope_app_state() (latest in 20260928000031; GET
+ * /api/local-db uses it).
  *
  * Per role:
  *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest` and `editDecision` are
@@ -21,7 +23,8 @@ import {
  *  - ownBranch   only entries whose `branch` is the account's own branch.
  *  - lots        "all", "allocated" (lots with an entry whose `branch` is the account's and
  *                whose kind is `allocate` or whose role is `branch`, BR-07) or "smoked"
- *                (shipment lots with an entry of kind `smokeOrder` or role `cm`, VIS-02;
+ *                (shipment lots with an entry of kind `smokeOrder`, `dispatch` or
+ *                `packingList`, or of role `cm`, VIS-02;
  *                entries on other lots are not sent either). Voids are not consulted.
  *  - hiddenKeys  value keys stripped from every entry and lot (also as an edit's to./from.).
  *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
@@ -180,7 +183,9 @@ export function scopeDatabase(
   const lotsWith = (test: (e: Entry) => boolean) =>
     new Set(all.filter((e) => e && test(e)).map((e) => e.lotId));
   // VIS-02: Chef House's batches. BR-07: a branch's lots. Same rule as visibleLots().
-  const smoked = lotsWith((e) => e.kind === "smokeOrder" || e.role === "cm");
+  const smoked = lotsWith(
+    (e) => chefBatchKinds.includes(e.kind) || e.role === "cm",
+  );
   const allocated = lotsWith(
     (e) =>
       branches.includes(e.branch) &&

@@ -93,6 +93,7 @@ export {
 } from "./store/derived";
 export {
   saleMoneyKeys,
+  chefBatchKinds,
   visibleLots,
   visibleEntries,
   visibleDatabase,

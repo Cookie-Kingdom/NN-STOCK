@@ -45,15 +45,24 @@ const chefHouseKinds: EntryKind[] = [
  *  sides (storage folder `meatPayment/`, migration 20260925000027), and the smoke PO that says
  *  what to send (VIS-04). Foodiva supplies every lot. */
 const foodivaKinds: EntryKind[] = ["meatPayment", "smokeOrder"];
-/** VIS-02 / BR-07 — the lots a role's screens list. Chef House: batches with a smoke PO or any
- *  entry of its own, never a purchase PO. A branch: lots allocated to it or holding its own
- *  entries. `role-scope.ts` sends the same set; a SQL filter must state the same rule. */
+/** Kinds that put a batch on Chef House's list (VIS-02), besides any cm entry: the smoke PO,
+ *  and Foodiva's dispatch / Packing List so a batch Foodiva opened is not opened twice. */
+export const chefBatchKinds: EntryKind[] = [
+  "smokeOrder",
+  "dispatch",
+  "packingList",
+];
+/** VIS-02 / BR-07 — the lots a role's screens list. Chef House: batches with a smoke PO, a
+ *  Foodiva dispatch or Packing List, or any entry of its own, never a purchase PO. A branch:
+ *  lots allocated to it or holding its own entries. `role-scope.ts` sends the same set;
+ *  scope_app_state() (migration 20260928000031) states the same rule. */
 export function visibleLots(db: Database, role: Role, branch?: string) {
   if (role === "cm")
     return shipments(db).filter((lot) =>
       db.entries.some(
         (e) =>
-          e.lotId === lot.id && (e.kind === "smokeOrder" || e.role === "cm"),
+          e.lotId === lot.id &&
+          (chefBatchKinds.includes(e.kind) || e.role === "cm"),
       ),
     );
   if (role === "branch")

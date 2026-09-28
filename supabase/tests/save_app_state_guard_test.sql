@@ -13,8 +13,8 @@ declare
   v_err    text;
   lot1     constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{}}';
   lot1b    constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{"receivedKg":"1"}}';
-  v_s      constant jsonb := '{"id":"S260907-001","poId":"SH-2026-0001","kind":"shipment","config":{},"values":{"receivedKg":"5"}}';
-  v_log    constant text := '{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e2b","kind":"cmReceive","role":"cm","lotId":"S260907-001","values":{"receivedKg":"5"}}';
+  v_s      constant jsonb := '{"id":"S260907-001-a1b2","poId":"SH-2026-0001","kind":"shipment","config":{},"values":{"receivedKg":"5"}}';
+  v_log    constant text := '{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e2b","kind":"cmReceive","role":"cm","lotId":"S260907-001-a1b2","values":{"receivedKg":"5"}}';
 begin
   -- The harness auth.uid() always returns null; let each step pick the signed-in user.
   create or replace function auth.uid() returns uuid language sql stable
