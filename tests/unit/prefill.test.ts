@@ -29,7 +29,6 @@ import {
   purchase,
   readyToDispatch,
   received,
-  request,
   returned,
   send,
   setup,
@@ -85,15 +84,20 @@ test("prefilled weights and amounts pass mutate as-is", () => {
     attachment: "inv.pdf",
     confirmedBy: "Foodiva",
   });
-  request(s, [[s.db.lots[0].id, "40"]]);
-  s.run("foodiva", "dispatch", {
-    ...prefill("dispatch"),
-    pickupDate: day,
-    pickupTime: "06:30",
-    trip: "ไปกลับ",
-    plate: "กข123",
-    driverName: "คนขับ",
-  });
+  // Foodiva opens the batch (GEN-09); the truck starts at the PO's ready kg.
+  s.run(
+    "foodiva",
+    "dispatch",
+    {
+      ...prefill("dispatch"),
+      pickupDate: day,
+      pickupTime: "06:30",
+      trip: "ไปกลับ",
+      plate: "กข123",
+      driverName: "คนขับ",
+    },
+    "",
+  );
   expect(last(s).values.dispatchKg).toBe("40");
   packingList(s, "20\n20");
   s.run("owner", "smokeOrder", {
@@ -141,17 +145,20 @@ test("the smoke PO takes its quantity from the Packing List, not the form; Foodi
     confirm(s, kg);
   }
   const [a, b, c] = s.db.lots.map((lot) => lot.id);
-  request(s, [
-    [a, "300"],
-    [b, "600"],
-    [c, "500"],
-  ]);
-  dispatch(s);
+  dispatch(s, "");
   packingList(s, "700\n690");
   const prefill = prefillValues(s.db, "smokeOrder", s.db.lots.at(-1));
-  // 3 purchase POs, 1 smoke PO pre-filled with the Packing List total (not the 1,400 kg requested).
+  // 3 purchase POs, 1 smoke PO pre-filled with the Packing List total (not the 1,400 kg its lines draw).
   expect(prefill).toEqual({ smoker: "Chef House", rawKg: "1390" });
-  s.run("owner", "smokeOrder", { ...prefill, requestedSmokeDate: day });
+  s.run("owner", "smokeOrder", {
+    ...prefill,
+    requestedSmokeDate: day,
+    lines: JSON.stringify([
+      { lotId: a, kg: "300" },
+      { lotId: b, kg: "600" },
+      { lotId: c, kg: "500" },
+    ]),
+  });
   expect(last(s).values.rawKg).toBe("1390");
   expect(entries(s.db, "smokeOrder")).toHaveLength(1);
   expect(poRemainingKg(s.db, b)).toBe(100);
@@ -199,8 +206,7 @@ test("BUG-I: the smoking invoice form carries the smoke PO quantity for its prev
   const s = setup();
   purchase(s, "30");
   confirm(s, "30", "28");
-  request(s, [[s.db.lots[0].id, "28"]]);
-  dispatch(s);
+  dispatch(s, "");
   packingList(s, "28");
   s.run("owner", "smokeOrder", {
     ...prefillValues(s.db, "smokeOrder", s.db.lots.at(-1)),
@@ -336,8 +342,9 @@ test("owner forms carry the last PO, names and truck, and predict weights", () =
 
   // Smoke PO: finish date keeps the last PO's lead time; the instruction carries.
   const t = setup();
-  readyToDispatch(t, "40");
-  dispatch(t);
+  purchase(t, "40");
+  confirm(t, "40");
+  dispatch(t, "");
   packingList(t, "20\n20");
   t.run("owner", "smokeOrder", {
     smoker: "Chef House",

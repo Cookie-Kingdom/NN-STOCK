@@ -76,18 +76,17 @@ test("nothing counts as loaded until a payload has landed", async () => {
   expect(databaseLoaded()).toBe(false);
 });
 
-test("loading a v8 payload keeps its history and fills missing settings from the seed", async () => {
+test("loading a v9 payload keeps its history and fills missing settings from the seed", async () => {
   const sale = entry({ boxes: "2" });
   await signInWithRow({
     revision: 3,
     payload: {
-      version: 8,
+      version: 9,
       lots: [
         {
           id: "S1",
           poId: "SH-1",
           kind: "shipment",
-          stage: 6,
           values: {},
           config: {},
         },
@@ -97,16 +96,16 @@ test("loading a v8 payload keeps its history and fills missing settings from the
     },
   });
   const db = latestDatabase();
-  expect(db.version).toBe(8);
+  expect(db.version).toBe(9);
   expect(db.entries).toEqual([sale]);
   expect(db.lots[0].kind).toBe("shipment");
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
 });
 
-test("a payload from before v8 falls back to the seed", async () => {
+test("a payload from before v9 falls back to the seed", async () => {
   await signInWithRow({
     revision: 1,
-    payload: { version: 8, lots: [], entries: [entry({ boxes: "1" })] },
+    payload: { version: 9, lots: [], entries: [entry({ boxes: "1" })] },
   });
   expect(latestDatabase().entries).toHaveLength(1);
   await signInWithRow({
@@ -116,7 +115,7 @@ test("a payload from before v8 falls back to the seed", async () => {
   expect(latestDatabase()).toBe(seed);
 });
 
-test("a save on top of a pre-v8 payload sends the whole database, so the server refuses it", async () => {
+test("a save on top of a pre-v9 payload sends the whole database, so the server refuses it", async () => {
   const old = entry({ boxes: "1" });
   await signInWithRow({
     revision: 4,
@@ -127,7 +126,7 @@ test("a save on top of a pre-v8 payload sends the whole database, so the server 
   await saveDatabase({ ...latestDatabase(), entries: [added] });
   // Not spliced onto the v7 history: without `old` the append-only guard rejects it.
   expect(mocks.rpc.mock.lastCall![1].p_payload).toMatchObject({
-    version: 8,
+    version: 9,
     entries: [added],
   });
 });
@@ -176,7 +175,7 @@ test("saving strips attachment bytes, updates the cache first and sends the know
 test("saving sends the stored history back untouched and appends only the new entries", async () => {
   const smoke = entry({ inputKg: "5", postSmokeKg: "4" }, "smoke");
   const config = { branch: "ศาลาแดง", boxPrice: "999" };
-  const payload = { version: 8, lots: [], entries: [smoke], config };
+  const payload = { version: 9, lots: [], entries: [smoke], config };
   await signInWithRow({ revision: 4, payload });
   const db = latestDatabase();
   expect(db.config).toEqual({ ...seed.config, boxPrice: "999" });
@@ -201,15 +200,15 @@ test("saving sends the stored history back untouched and appends only the new en
 
 test("a non-owner save sends only its new entries and changed lots to append_entries", async () => {
   const old = entry({ boxes: "2" });
-  const lot = { id: "S1", poId: "SH-1", stage: 2, values: {}, config: {} };
+  const lot = { id: "S1", poId: "SH-1", values: {}, config: {} };
   const other = { ...lot, id: "S2", poId: "SH-2" };
   await signInWithRow({
     revision: 7,
-    payload: { version: 8, lots: [lot, other], entries: [old], config: {} },
+    payload: { version: 9, lots: [lot, other], entries: [old], config: {} },
   });
   mocks.rpc.mockResolvedValueOnce({ data: 8, error: null });
   const added = entry({ boxes: "1", attachmentData: "data:x" });
-  const moved = { ...lot, stage: 3, values: { receivedKg: "49" } };
+  const moved = { ...lot, values: { receivedKg: "49" } };
   setSaveAppendOnly(true);
   try {
     await expect(
@@ -240,7 +239,7 @@ test("the Account Manager's new entries are stamped with its actor, older ones a
   const old = { ...entry({ boxes: "2" }), role: "owner" as const };
   await signInWithRow({
     revision: 4,
-    payload: { version: 8, lots: [], entries: [old], config: seed.config },
+    payload: { version: 9, lots: [], entries: [old], config: seed.config },
   });
   mocks.rpc.mockResolvedValue({ data: [{ revision: 5 }], error: null });
   const added = { ...entry({ boxes: "1" }), role: "owner" as const };

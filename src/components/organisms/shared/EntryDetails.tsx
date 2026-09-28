@@ -56,7 +56,6 @@ const reversibleKinds = [
   "closeDay",
   "expense",
   "unlock",
-  "shipmentRequest",
 ];
 
 /** Labels for computed values that are not fields of the entry's form. */
@@ -361,10 +360,7 @@ export function EntryDetails({
               value={
                 k === "slips" ? (
                   <SlipList value={v} />
-                ) : k === "lines" &&
-                  ["shipmentRequest", "shipmentRequestEdit"].includes(
-                    e.kind,
-                  ) ? (
+                ) : k === "lines" && e.kind === "smokeOrder" ? (
                   <span className="whitespace-pre-line">
                     {requestLines(v, db)}
                   </span>

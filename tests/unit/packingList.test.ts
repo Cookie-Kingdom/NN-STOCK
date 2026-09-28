@@ -91,18 +91,20 @@ describe("packingList", () => {
     );
   });
 
-  test("needs the transport document first, never goes on a purchase PO, and only Foodiva may save it", () => {
+  test("SHP-02 saves without a transport document, never goes on a purchase PO, and only Foodiva may save it", () => {
     const s = setup();
     readyToDispatch(s, "40");
     const date = s.db.entries[0].date;
     const save = (role: "foodiva" | "owner", lotId: string) =>
       mutate(s.db, role, "packingList", { ...list, boxes: "10" }, lotId, date);
     const shipment = s.db.lots.at(-1)!.id;
-    expect(() => save("foodiva", shipment)).toThrow(
-      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
+    // After the smoke PO the list still saves; it is only said (SHP-02).
+    expectWarning(
+      check(() => save("foodiva", shipment)),
+      "Owner ออก PO รมควันของชุดนี้แล้ว",
     );
     expect(() => save("foodiva", s.db.lots[0].id)).toThrow(
-      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
+      "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ",
     );
     expect(() => save("owner", shipment)).toThrow(
       "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",

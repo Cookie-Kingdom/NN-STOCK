@@ -19,9 +19,10 @@ import {
  *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest` and `editDecision` are
  *                never listed: they are sent when the entry they name (`targetId`) is sent.
  *  - ownBranch   only entries whose `branch` is the account's own branch.
- *  - lots        "all", "allocated" (lots with an allocate entry to its branch, voided or not)
- *                or "smoked" (shipments not cancelled with a live smoke PO, as visibleDatabase;
- *                entries on other lots are not sent either).
+ *  - lots        "all", "allocated" (lots with an entry whose `branch` is the account's and
+ *                whose kind is `allocate` or whose role is `branch`, BR-07) or "smoked"
+ *                (shipment lots with an entry of kind `smokeOrder` or role `cm`, VIS-02;
+ *                entries on other lots are not sent either). Voids are not consulted.
  *  - hiddenKeys  value keys stripped from every entry and lot (also as an edit's to./from.).
  *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
  *                trailing `*` keeps every key with that prefix. normalize() fills the rest
@@ -95,8 +96,6 @@ export const scopeRules: Record<ScopedRole, ScopeRule> = {
       "foodivaReturnReceive",
       "dispatch",
       "purchase",
-      "shipmentRequest",
-      "shipmentRequestEdit",
       "smokeOrder",
       "return",
       "ownerWasteReceive",
@@ -145,7 +144,13 @@ export const scopeRules: Record<ScopedRole, ScopeRule> = {
 };
 
 /** Kinds that follow the entry they name in `targetId`. */
-export const followKinds = ["void", "entryEdit", "editRequest", "editDecision"];
+export const followKinds = [
+  "void",
+  "entryEdit",
+  "editRequest",
+  "editDecision",
+  "link",
+];
 
 const hide = (values: Values, hidden: string[]): Values =>
   values && typeof values === "object"
@@ -172,38 +177,28 @@ export function scopeDatabase(
 ): Database {
   const rule = scopeRules[role];
   const all = db.entries ?? [];
-  const voided = new Set(
-    all
-      .filter((e) => e?.kind === "void" && e.role === "owner")
-      .map((e) => e.values?.targetId),
+  const lotsWith = (test: (e: Entry) => boolean) =>
+    new Set(all.filter((e) => e && test(e)).map((e) => e.lotId));
+  // VIS-02: Chef House's batches. BR-07: a branch's lots. Same rule as visibleLots().
+  const smoked = lotsWith((e) => e.kind === "smokeOrder" || e.role === "cm");
+  const allocated = lotsWith(
+    (e) =>
+      branches.includes(e.branch) &&
+      (e.kind === "allocate" || e.role === "branch"),
   );
-  const live = (e: Entry) => !voided.has(e.id);
-  const lotsWith = (
-    kind: EntryKind,
-    test: (e: Entry) => boolean = () => true,
-  ) =>
-    new Set(all.filter((e) => e?.kind === kind && test(e)).map((e) => e.lotId));
-  const cancelled = new Set(
-    all
-      .filter((e) => e?.kind === "shipmentRequest" && !live(e))
-      .map((e) => e.lotId),
-  );
-  const smoked = lotsWith("smokeOrder", live);
-  const allocated = lotsWith("allocate", (e) => branches.includes(e.branch));
   const lots = (db.lots ?? []).filter(
     (lot: Lot) =>
       rule.lots === "all" ||
       (rule.lots === "allocated"
         ? allocated.has(lot?.id)
-        : lot?.kind === "shipment" &&
-          !cancelled.has(lot.id) &&
-          smoked.has(lot.id)),
+        : lot?.kind === "shipment" && smoked.has(lot.id)),
   );
   const lotIds = new Set(lots.map((lot) => lot.id));
+  // A branch's own entries in its "ไม่ระบุ Lot" bucket (`lotId === ""`) are sent too.
   const direct = (e: Entry) =>
     rule.kinds.includes(e?.kind) &&
     (!rule.ownBranch || branches.includes(e.branch)) &&
-    (rule.lots !== "smoked" || lotIds.has(e.lotId));
+    (rule.lots === "all" || !e.lotId || lotIds.has(e.lotId));
   const sent = new Set(all.filter(direct).map((e) => e.id));
   const entries = all.filter(
     (e) =>

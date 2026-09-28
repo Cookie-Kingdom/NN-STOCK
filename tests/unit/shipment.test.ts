@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  entries,
   lotCost,
   poRemainingKg,
   shipmentShares,
@@ -14,7 +15,6 @@ import {
   last,
   packingList,
   purchase,
-  request,
   setup,
   smoked,
   smokeOrder,
@@ -30,41 +30,45 @@ function purchases(s: Setup, ...pos: [string, string?][]) {
   });
 }
 
-describe("shipment request", () => {
-  test("three purchase POs of 300, 700 and 500 kg go out in one 1,500 kg shipment", () => {
+describe("smoke PO lines", () => {
+  test("SMK-02 three purchase POs of 300, 700 and 500 kg go out in one 1,500 kg batch", () => {
     const s = setup();
     const ids = purchases(s, ["300"], ["700"], ["500"]);
-    request(s, [
-      [ids[0], "300"],
-      [ids[1], "700"],
-      [ids[2], "500"],
-    ]);
-    const shipment = s.db.lots.at(-1)!;
-    expect(shipment).toMatchObject({
+    smokeOrder(
+      s,
+      [
+        [ids[0], "300"],
+        [ids[1], "700"],
+        [ids[2], "500"],
+      ],
+      "1500",
+      "",
+    );
+    const batch = s.db.lots.at(-1)!;
+    expect(batch).toMatchObject({
       id: "S260909-001",
       poId: "SH-2026-0001",
       kind: "shipment",
-      stage: 1,
     });
-    expect(shipment.values.requestedKg).toBe("1500");
+    expect(batch.values.requestedKg).toBe("1500");
     for (const id of ids) expect(poRemainingKg(s.db, id)).toBe(0);
     dispatch(s);
     expect(s.db.lots.at(-1)!.values.dispatchKg).toBe("1500");
-    // Purchase numbering skips shipments.
+    // Purchase numbering skips batches.
     purchase(s, "10");
     expect(s.db.lots.at(-1)!.poId).toBe("PO-2026-0004");
   });
 
-  test("a 1,000 kg PO that shipped 400 shows 600 remaining and can ship again; more warns naming the PO", () => {
+  test("SMK-02 a 1,000 kg PO that sent 400 shows 600 remaining and can send again; more warns naming the PO", () => {
     const s = setup();
     const [id] = purchases(s, ["1000"]);
-    request(s, [[id, "400"]]);
+    smokeOrder(s, [[id, "400"]], "400", "");
     expect(poRemainingKg(s.db, id)).toBe(600);
     expectWarning(
-      s.dry(() => request(s, [[id, "600.5"]])),
+      s.dry(() => smokeOrder(s, [[id, "600.5"]], "600.5", "")),
       "น้ำหนักที่ขอส่งเกินยอดคงเหลือของ PO-2026-0001 (เหลือ 600.00 กก.)",
     );
-    request(s, [[id, "600"]]);
+    smokeOrder(s, [[id, "600"]], "600", "");
     expect(poRemainingKg(s.db, id)).toBe(0);
     expect(shipments(s.db).map((lot) => lot.poId)).toEqual([
       "SH-2026-0001",
@@ -72,144 +76,81 @@ describe("shipment request", () => {
     ]);
   });
 
-  test("a Request needs a known, invoiced PO once each with a positive weight", () => {
-    const s = setup();
-    const [id] = purchases(s, ["100"]);
-    purchase(s, "50");
-    const uninvoiced = s.db.lots.at(-1)!.id;
-    expect(() => s.run("owner", "shipmentRequest", { lines: "[]" })).toThrow(
-      "เลือก PO ซื้ออย่างน้อย 1 ใบ",
-    );
-    expect(() => s.run("owner", "shipmentRequest", { lines: "oops" })).toThrow(
-      "เลือก PO ซื้ออย่างน้อย 1 ใบ",
-    );
-    expect(() => request(s, [["F000000-999", "1"]])).toThrow(
-      "ไม่พบ PO ซื้อที่เลือก",
-    );
-    expect(() =>
-      request(s, [
-        [id, "1"],
-        [id, "2"],
-      ]),
-    ).toThrow("เลือก PO ซื้อซ้ำในใบเดียวกัน");
-    expect(() => request(s, [[id, "0"]])).toThrow(
-      "กรอกน้ำหนักที่จะส่งของ PO-2026-0001 เป็นตัวเลขมากกว่าศูนย์",
-    );
-    expect(() => request(s, [[id, ""]])).toThrow("เป็นตัวเลขมากกว่าศูนย์");
-    expect(() => request(s, [[uninvoiced, "1"]])).toThrow(
-      "PO-2026-0002 ยังไม่มี Invoice เนื้อจาก Foodiva",
-    );
-    expect(() => s.run("foodiva", "shipmentRequest", { lines: "[]" })).toThrow(
-      "ไม่มีสิทธิ์",
-    );
-  });
-
-  test("voiding a Request gives the kg back until Foodiva trucks it", () => {
-    const s = setup();
-    const [id] = purchases(s, ["100"]);
-    request(s, [[id, "100"]]);
-    const first = last(s);
-    s.run("owner", "void", { targetId: first.id, reason: "ขอผิด" });
-    expect(poRemainingKg(s.db, id)).toBe(100);
-    expect(shipments(s.db)).toEqual([]);
-    expect(() => s.run("foodiva", "dispatch", {}, first.lotId)).toThrow(
-      "Request นี้ถูกยกเลิกแล้ว",
-    );
-    request(s, [[id, "100"]]);
-    dispatch(s);
-    expect(() =>
-      s.run("owner", "void", { targetId: last(s).id, reason: "x" }),
-    ).toThrow("ยกเลิกไม่ได้");
-    const second = s.db.entries.findLast((e) => e.kind === "shipmentRequest")!;
-    expect(() =>
-      s.run("owner", "void", { targetId: second.id, reason: "x" }),
-    ).toThrow("Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้");
-  });
-
-  test("the Owner edits a Request's lines in place until Foodiva trucks it (A10)", () => {
+  test("SMK-05 the Owner edits a smoke PO's lines later through entryEdit", () => {
     const s = setup();
     const [a, b, c] = purchases(s, ["300"], ["700"], ["500"]);
-    request(s, [
-      [a, "200"],
-      [b, "300"],
-    ]);
-    const shipment = s.db.lots.at(-1)!;
+    smokeOrder(
+      s,
+      [
+        [a, "200"],
+        [b, "300"],
+      ],
+      "500",
+      "",
+    );
+    const batch = s.db.lots.at(-1)!;
+    const order = last(s);
     const edit = (lines: [string, string][]) =>
-      s.run(
-        "owner",
-        "shipmentRequestEdit",
-        {
+      s.run("owner", "entryEdit", {
+        targetId: order.id,
+        reason: "แก้ PO ซื้อ",
+        values: JSON.stringify({
           lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
-        },
-        shipment.id,
-      );
+        }),
+      });
     // Its own 300 kg on PO b count as available again: 700 is the whole PO, 701 warns.
     expectWarning(
       s.dry(() => edit([[b, "701"]])),
       /เกินยอดคงเหลือ.*เหลือ 700\.00/,
     );
-    expect(() => edit([])).toThrow("เลือก PO ซื้ออย่างน้อย 1 ใบ");
     edit([
       [b, "700"],
       [c, "100"],
     ]);
-    const edited = shipments(s.db).find((lot) => lot.id === shipment.id)!;
-    expect(edited.poId).toBe(shipment.poId);
+    const edited = entries(s.db, "smokeOrder", batch.id)[0];
+    expect(edited.values.orderNumber).toBe(order.values.orderNumber);
     expect(edited.values.requestedKg).toBe("800");
+    expect(s.db.lots.at(-1)!.values.requestedKg).toBe("800");
     expect(shipments(s.db)).toHaveLength(1);
     expect(poRemainingKg(s.db, a)).toBe(300);
     expect(poRemainingKg(s.db, b)).toBe(0);
     expect(poRemainingKg(s.db, c)).toBe(400);
-    expect(last(s).kind).toBe("shipmentRequestEdit");
-    // Chef House never sees it.
-    expect(
-      visibleDatabase(s.db, "cm").entries.some(
-        (e) => e.kind === "shipmentRequestEdit",
-      ),
-    ).toBe(false);
-    dispatch(s);
-    expect(s.db.entries.at(-1)!.values.dispatchKg).toBe("800");
-    expect(() => edit([[b, "10"]])).toThrow(
-      "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้",
+    // Chef House never sees the lines, edited or not.
+    expect(JSON.stringify(visibleDatabase(s.db, "cm"))).not.toContain(
+      '"lines"',
     );
-    // A cancelled Request cannot be edited either.
-    request(s, [[a, "50"]]);
-    const cancelled = last(s);
-    s.run("owner", "void", { targetId: cancelled.id, reason: "ขอผิด" });
-    expect(() =>
-      s.run(
-        "owner",
-        "shipmentRequestEdit",
-        { lines: JSON.stringify([{ lotId: a, kg: "10" }]) },
-        cancelled.lotId,
-      ),
-    ).toThrow("Request นี้ถูกยกเลิกแล้ว");
   });
 });
 
-describe("shipment at Chef House", () => {
-  test("yellow cells off the Packing List save, and meat cost splits back to each PO pro rata", () => {
+describe("batch at Chef House", () => {
+  test("CHF-02 yellow cells off the Packing List save, and meat cost splits back to each PO pro rata", () => {
     const s = setup();
     const [a, b] = purchases(s, ["300", "250"], ["700", "200"]);
-    request(s, [
-      [a, "300"],
-      [b, "700"],
-    ]);
+    smokeOrder(
+      s,
+      [
+        [a, "300"],
+        [b, "700"],
+      ],
+      "1000",
+      "",
+    );
     dispatch(s);
     packingList(s, "500\n500");
-    smokeOrder(s);
     s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
     const receive = (receivedBoxes: string) =>
       s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
-    expect(() => receive("450")).toThrow(
+    // A box count off the Packing List is said, not refused.
+    expectWarning(
+      s.dry(() => receive("450")),
       "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List",
     );
     expect(() => receive("450\n")).toThrow("กรอกน้ำหนักจริงทุกกล่องรับเข้า");
     expect(() => receive("0\n0")).toThrow("น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
     receive("450\n500");
-    const shipment = s.db.lots.at(-1)!;
-    expect(shipment.values.receivedKg).toBe("950");
-    expect(shipmentShares(s.db, shipment)).toEqual([
+    const batch = s.db.lots.at(-1)!;
+    expect(batch.values.receivedKg).toBe("950");
+    expect(shipmentShares(s.db, batch)).toEqual([
       {
         lotId: a,
         poId: "PO-2026-0001",
@@ -227,20 +168,25 @@ describe("shipment at Chef House", () => {
         meat: 133000,
       },
     ]);
-    expect(lotCost(s.db, shipment).meat).toBe(204250);
+    expect(lotCost(s.db, batch).meat).toBe(204250);
   });
 
-  test("Chef House's database holds no purchase PO number, price or Request lines", () => {
+  test("PRIN-06 Chef House's database holds no purchase PO number, price or smoke PO lines", () => {
     const s = smoked();
-    // A second shipment still waiting for its smoke PO stays out of Chef House's view.
+    // A second batch with a smoke PO but nothing of Chef House's is still its business;
+    // one Foodiva opened without a PO is not (VIS-02).
     const [id] = purchases(s, ["20"]);
-    request(s, [[id, "20"]]);
+    smokeOrder(s, [[id, "20"]], "20", "");
+    dispatch(s, "");
     const chef = visibleDatabase(s.db, "cm");
     const json = JSON.stringify(chef);
     expect(json).not.toContain("PO-");
     expect(json).not.toContain('"price"');
     expect(json).not.toContain('"lines"');
-    expect(chef.lots.map((lot) => lot.poId)).toEqual(["SH-2026-0001"]);
+    expect(chef.lots.map((lot) => lot.poId)).toEqual([
+      "SH-2026-0001",
+      "SH-2026-0002",
+    ]);
     expect(chef.entries.map((e) => e.kind)).toEqual(
       expect.arrayContaining(["packingList", "smokeOrder", "cmReceive"]),
     );
@@ -250,7 +196,7 @@ describe("shipment at Chef House", () => {
 });
 
 describe("meat invoice payment", () => {
-  test("pays Foodiva's meat invoice once, for its exact amount, on the purchase PO only", () => {
+  test("PO-03 pays Foodiva's meat invoice once, on the purchase PO only; without an invoice it only warns", () => {
     const s = setup();
     purchase(s, "40");
     const po = s.db.lots.at(-1)!.id;
@@ -266,7 +212,10 @@ describe("meat invoice payment", () => {
         },
         lotId,
       );
-    expect(() => pay("10000")).toThrow("ยังไม่มี Invoice เนื้อจาก Foodiva");
+    expectWarning(
+      s.dry(() => pay("10000")),
+      "ยังไม่มี Invoice เนื้อจาก Foodiva",
+    );
     s.run("foodiva", "foodivaConfirm", {
       invoiceNo: "INV-9",
       invoiceDate: day,
@@ -294,7 +243,21 @@ describe("meat invoice payment", () => {
     );
     expect(last(s).values.invoiceNo).toBe("INV-9");
     expect(() => pay("10000")).toThrow("ชำระ Invoice เนื้อใบนี้แล้ว");
-    request(s, [[po, "40"]]);
+    // PO-02: Foodiva may still re-issue its invoice; it is only told the PO is paid.
+    expectWarning(
+      s.check("foodiva", "foodivaConfirm", {
+        invoiceNo: "INV-9b",
+        invoiceDate: day,
+        attachment: "inv.pdf",
+        confirmedBy: "Foodiva",
+        confirmedKg: "40",
+        readyForChiangMaiKg: "40",
+        reservedForOwnerKg: "0",
+        invoiceAmount: "10000",
+      }),
+      "Owner ชำระ Invoice เนื้อของ PO นี้แล้ว",
+    );
+    smokeOrder(s, [[po, "40"]], "40", "");
     expect(() => pay("10000", s.db.lots.at(-1)!.id)).toThrow(
       "รายการนี้ต้องทำกับ PO ซื้อ",
     );

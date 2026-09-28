@@ -1,16 +1,17 @@
-/** `mutate`: the only way to change the database. Every entry is validated here and stages
- *  advance here; the UI never sets them. */
+/** `mutate`: the only way to change the database. Every entry is validated here; a batch's
+ *  `values` cache is filled here. It refuses only the wrong role, a bad date, a closed branch
+ *  day and duplicates (PRIN-03); everything else is a warning (`warn`) the form shows. */
 import { fmt } from "../format";
 import { newId } from "../id";
 import {
-  STAGE,
+  batchKinds,
+  branchMeatKinds,
   branches,
   editApprovers,
   editDecisions,
   editLockedKeys,
   materials,
   pack,
-  stageAction,
   type Database,
   type Entry,
   type EntryKind,
@@ -35,7 +36,6 @@ import {
   isPackWeight,
   issuedRawRiceStock,
   latestPackingList,
-  lotCost,
   materialPar,
   materialUnitPrice,
   n,
@@ -52,8 +52,6 @@ import {
   rawRiceStock,
   reservedForOwnerContent,
   riceSources,
-  shipmentLines,
-  shipments,
   smokeServiceRate,
   smokingInvoiceStatus,
   sum,
@@ -69,10 +67,11 @@ import {
 function stockLevels(db: Database) {
   const levels = new Map<string, number>();
   for (const b of branches) {
-    for (const lot of db.lots) {
-      const x = balance(db, lot.id, b);
-      levels.set(`เนื้อแช่แข็ง ${lot.id} สาขา${b}#`, x.frozen);
-      levels.set(`เนื้อละลายแล้ว ${lot.id} สาขา${b}#`, x.ready);
+    for (const lotId of [...db.lots.map((lot) => lot.id), ""]) {
+      const x = balance(db, lotId, b);
+      const name = lotId || "ไม่ระบุ Lot";
+      levels.set(`เนื้อแช่แข็ง ${name} สาขา${b}#`, x.frozen);
+      levels.set(`เนื้อละลายแล้ว ${name} สาขา${b}#`, x.ready);
     }
     levels.set(`ข้าวเหนียวดิบ สาขา${b}#`, rawRiceStock(db, b));
     levels.set(`ข้าวเหนียวดิบที่เบิก สาขา${b}#`, issuedRawRiceStock(db, b));
@@ -171,8 +170,6 @@ function editTarget(
 }
 const ownership: Partial<Record<EntryKind, Role>> = {
   purchase: "owner",
-  shipmentRequest: "owner",
-  shipmentRequestEdit: "owner",
   meatPayment: "owner",
   smokeOrder: "owner",
   smokingInvoice: "cm",
@@ -295,15 +292,18 @@ function variance(actual: number, expected: number, v: Values, always = true) {
     // Real counts drift, so a missing reason is flagged, never refused.
     warn(v.reason?.trim(), "ยอดไม่ตรง · ควรระบุเหตุผลส่วนต่าง");
 }
-/** Sum of Chef House's yellow cells: one weight per box of the shipment's latest Packing List.
+/** Sum of Chef House's yellow cells, one weight per box. With a Packing List the box count is
+ *  expected to match it (CHF-02, a warning); without one Chef House types the boxes it got.
  *  A total off the Packing List is not an error; it is what stock and cost run on. */
 function receivedTotal(db: Database, lotId: string, value = "") {
-  const listed = packingListBoxes(latestPackingList(db, lotId)?.values.boxes);
+  const list = latestPackingList(db, lotId);
   const got = receivedBoxWeights(value);
-  assert(
-    got.length === listed.length,
-    "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List กรุณาเปิดฟอร์มใหม่",
-  );
+  assert(got.length, "กรอกน้ำหนักจริงอย่างน้อย 1 กล่องรับเข้า");
+  if (list)
+    warn(
+      got.length === packingListBoxes(list.values.boxes).length,
+      "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List",
+    );
   assert(
     got.every((kg) => Number.isFinite(kg) && kg >= 0),
     "กรอกน้ำหนักจริงทุกกล่องรับเข้า (ใส่ 0 ถ้าไม่ได้รับกล่องนั้น)",
@@ -328,15 +328,15 @@ function checkSlips(v: Values) {
     "ไฟล์สลิปไม่ถูกต้อง กรุณาแนบใหม่",
   );
 }
-/** Checks a Request's `lines` and writes them back normalised with `requestedKg`. When
- *  editing (`own`), that Request's current lines count as still available to their POs. */
-function requestLines(db: Database, v: Values, own?: Lot) {
+/** SMK-02/03: a smoke PO's optional purchase-PO `lines`, written back normalised with their
+ *  total as `requestedKg`. A PO that does not exist or is listed twice is refused; one without
+ *  Foodiva's invoice, or drawn past what it has left, is a warning. */
+function smokeOrderLines(db: Database, v: Values) {
   let lines: Values[] = [];
   try {
-    lines = JSON.parse(v.lines || "");
+    lines = JSON.parse(v.lines || "[]");
   } catch {}
-  assert(Array.isArray(lines) && lines.length, "เลือก PO ซื้ออย่างน้อย 1 ใบ");
-  const current = own ? shipmentLines(own) : [];
+  assert(Array.isArray(lines), "รายการ PO ซื้อไม่ถูกต้อง");
   const seen = new Set<string>();
   for (const line of lines) {
     const po = purchaseLots(db).find((l) => l.id === line?.lotId);
@@ -348,15 +348,11 @@ function requestLines(db: Database, v: Values, own?: Lot) {
       Number.isFinite(kg) && kg > 0,
       `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
     );
-    assert(
+    warn(
       entries(db, "foodivaConfirm", po.id).length,
       `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`,
     );
-    const remaining =
-      poRemainingKg(db, po.id) +
-      current
-        .filter((mine) => mine.lotId === po.id)
-        .reduce((total, mine) => total + mine.kg, 0);
+    const remaining = poRemainingKg(db, po.id);
     warn(
       kg <= remaining + 0.001,
       `น้ำหนักที่ขอส่งเกินยอดคงเหลือของ ${po.poId} (เหลือ ${remaining.toFixed(2)} กก.)`,
@@ -376,6 +372,38 @@ function lotConfig(db: Database): Values {
     Object.entries(db.config).filter(([key]) => key !== "logoData"),
   );
 }
+/** GEN-09: a new shipment batch, `S<yymmdd>-NNN` with the next `SH-YYYY-NNNN` number. */
+function newBatch(db: Database, next: Database, date: string): Lot {
+  const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
+  const lot: Lot = {
+    id: `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`,
+    poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
+    kind: "shipment",
+    values: {},
+    config: lotConfig(db),
+  };
+  next.lots.push(lot);
+  return lot;
+}
+/** LNK-03: entries that can be tied to a batch or a transfer after the fact. */
+const linkable: EntryKind[] = [...branchMeatKinds, "materialConfirm"];
+/** DM-09: the batch kinds whose values are cached on the lot (`lot.values`), the ones the
+ *  derived figures read (lines, trip, receivedKg, preSmokeKg, packs, centralKg…). The rest
+ *  reuse those keys for other things (foodivaReturnReceive.receivedKg, every `status`), and
+ *  allocate is about a branch, chefEdit writes its own corrections. */
+const cachedKinds: EntryKind[] = [
+  "smokeOrder",
+  "dispatch",
+  "packingList",
+  "cmReceive",
+  "prepare",
+  "smoke",
+  "closeLot",
+  "return",
+  "central",
+];
+/** Batch values never cached on the lot: bulky, or an entry's own bookkeeping. */
+const uncached = ["attachmentData", "slips", "batches"];
 export function mutate(
   db: Database,
   role: Role,
@@ -399,13 +427,14 @@ function record(
   actorBranch = "",
   correcting = false,
 ): Database {
+  const forbidden = "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้";
   assert(
     kind === "editRequest"
       ? !editApprovers.includes(role)
       : kind === "entryEdit" || kind === "editDecision"
         ? editApprovers.includes(role)
-        : ownership[kind] === role,
-    "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+        : kind === "link" || ownership[kind] === role, // link: checked against its target below
+    forbidden,
   );
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
@@ -458,54 +487,29 @@ function record(
       !isClosed(db, branch, date),
       `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว ต้องปลดล็อกก่อน`,
     );
-  const expected = stageAction.indexOf(kind);
-  if (expected > 0 && kind !== "allocate") {
-    assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
-    assert(lot.stage === expected, "ขั้นตอนเปลี่ยนไปแล้ว กรุณาเปิดฟอร์มใหม่");
-    // A backdated step must not land before the step it depends on.
-    const latest = db.entries
-      .filter((e) => e.lotId === lotId)
-      .reduce((max, e) => (e.date > max ? e.date : max), "");
-    assert(
-      date >= latest,
-      `วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${latest})`,
-    );
-  }
+  // GEN-10: purchase-PO kinds on Lot F only; batch kinds on Lot S only, and with no lot they
+  // open a new batch (GEN-09, D2: Owner, Foodiva and Chef House alike).
   if (["foodivaConfirm", "ownerWasteReceive", "meatPayment"].includes(kind))
     assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
-  // Non-stage lot-pipeline entries still can't predate the lot's PO. Branch kinds are
-  // excluded: they carry the selected lot as context, not as the lot they belong to.
-  const lotPipeline = [
-    "foodivaConfirm",
-    "packingList",
-    "foodivaReturnReceive",
-    "smokeOrder",
-    "smokeOrderAccept",
-    "smokingInvoice",
-    "invoiceReview",
-    "invoicePayment",
-    "chefEdit",
-    "meatPayment",
-    "shipmentRequestEdit",
-  ];
-  if (lot && lotPipeline.includes(kind)) {
+  if (batchKinds.includes(kind)) {
+    if (!lotId) lot = newBatch(db, next, date);
+    assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
+    lotId = lot.id;
+  }
+  if (branchMeatKinds.includes(kind) && lotId)
+    assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
+  // GEN-04 / GEN-05: a date before what the lot already holds is said, not refused.
+  if (lot && !branchMeatKinds.includes(kind) && kind !== "allocate") {
     const lotRef = lot.id;
-    const first = db.entries
-      .filter((e) => e.lotId === lotRef)
-      .reduce((min, e) => (!min || e.date < min ? e.date : min), "");
-    assert(
-      !first || date >= first,
-      `วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${first})`,
+    const others = db.entries.filter((e) => e.lotId === lotRef);
+    const latest = others.reduce((max, e) => (e.date > max ? e.date : max), "");
+    warn(
+      !latest || date >= latest,
+      lot.kind
+        ? `วันที่ก่อนรายการอื่นของชุดนี้ (${latest})`
+        : `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${others.map((e) => e.date).sort()[0]})`,
     );
   }
-  const lotRequired = ["allocate", "receive", "thaw", "sale", "influencerBox"];
-  if (lotRequired.includes(kind))
-    assert(lot && lot.stage >= STAGE.allocate, "Lot ต้องรับเข้าสต๊อกกลางก่อน");
-  if (role === "branch" && lotRequired.includes(kind))
-    assert(
-      entries(db, "allocate", lotId, branch).length,
-      "Lot นี้ไม่ได้จัดสรรมายังสาขาของคุณ",
-    );
   if (kind === "purchase") {
     required(v, "supplier", "ผู้ขาย");
     required(v, "customerName", "ชื่อบริษัท / ลูกค้า");
@@ -523,58 +527,27 @@ function record(
     lot = {
       id: lotId,
       poId: `PO-${year}-${String(count).padStart(4, "0")}`,
-      stage: STAGE.dispatch,
       values: v,
       config: lotConfig(db),
     };
     next.lots.push(lot);
-  } else if (kind === "shipmentRequest") {
-    requestLines(db, v);
-    const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
-    lotId = `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
-    lot = {
-      id: lotId,
-      poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
-      kind: "shipment",
-      stage: STAGE.dispatch,
-      values: v,
-      config: lotConfig(db),
-    };
-    next.lots.push(lot);
-  } else if (kind === "shipmentRequestEdit") {
-    // Replaces the Request's lines in place (same SH number) until Foodiva makes the manifest.
-    // The entry records the new lines; the lot carries the latest, which everything reads.
-    assert(
-      lot?.kind === "shipment" && shipments(db).some((s) => s.id === lotId),
-      "Request นี้ถูกยกเลิกแล้ว",
-    );
-    assert(
-      lot.stage === STAGE.dispatch && !entries(db, "dispatch", lotId).length,
-      "Foodiva ทำใบขนส่งแล้ว แก้ไข Request ไม่ได้",
-    );
-    requestLines(db, v, lot);
-    lot.values = {
-      ...lot.values,
-      lines: v.lines,
-      requestedKg: v.requestedKg,
-      note: v.note ?? lot.values.note ?? "",
-    };
   } else if (kind === "smokeOrder" && lot) {
-    const list = latestPackingList(db, lotId);
-    assert(list, "รอ Foodiva ทำ Packing List ก่อนออก PO รมควัน");
+    // One smoke PO per batch (GEN-06). It may cite purchase POs (`lines`, SMK-02) and needs no
+    // Packing List: the kg starts at the Packing List total when there is one (SMK-04).
     assert(
       !entries(db, "smokeOrder", lotId).length,
       "ออก PO รมควันของการส่งนี้แล้ว",
     );
+    smokeOrderLines(db, v);
     required(v, "requestedSmokeDate", "วันที่ขอรม");
     required(v, "smoker", "โรงรม / ผู้ให้บริการ");
-    // One shipment, one Packing List, one smoke PO. The kg starts at the Packing List total
-    // and the Owner may change it (A6); no upper cap.
-    if (!v.rawKg?.trim()) v.rawKg = list.values.slicedNetKg;
+    const list = latestPackingList(db, lotId);
+    if (!v.rawKg?.trim() && list) v.rawKg = list.values.slicedNetKg;
     positive(v, "rawKg", "น้ำหนัก PO รมควัน");
     v.rawKg = String(Number(v.rawKg));
     v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
-    v.orderNumber = `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
+    // Kept on an edit (correctedValues re-runs this with the old values): the number does not move.
+    v.orderNumber ||= `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
     v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
     v.status = "Sent";
   } else if (kind === "smokeOrderAccept" && lot) {
@@ -589,21 +562,20 @@ function record(
     v.orderNumber = order.values.orderNumber;
     v.status = "Accepted";
   } else if (kind === "smokingInvoice" && lot) {
-    assert(
-      lot.stage >= STAGE.return,
-      "ต้องยืนยันปิดรอบก่อนออกใบวางบิลค่ารมควัน",
-    );
-    assert(
-      entries(db, "smokeOrderAccept", lotId).length,
-      "ต้องยืนยันรับ PO รมควันก่อนออกใบวางบิล",
-    );
+    // SVC-01: billed whenever Chef House is ready. Without a smoke PO it types the kg itself.
     const smokeOrder = entries(db, "smokeOrder", lotId).at(-1);
-    assert(smokeOrder, "ไม่พบ PO รมควันที่อ้างอิง");
+    warn(smokeOrder, "ยังไม่มี PO รมควันของชุดนี้");
     required(v, "invoiceNumber", "เลข Invoice ค่ารม");
     required(v, "invoiceDate", "วันที่ Invoice");
-    v.serviceProvider = smokeOrder.values.smoker || "Chef House";
-    v.serviceQuantity = String(n(smokeOrder.values, "rawKg"));
-    v.serviceRate = String(smokeServiceRate(n(v, "serviceQuantity")));
+    v.serviceProvider = smokeOrder?.values.smoker || "Chef House";
+    if (smokeOrder) v.serviceQuantity = String(n(smokeOrder.values, "rawKg"));
+    else positive(v, "serviceQuantity", "น้ำหนักที่คิดค่ารม");
+    v.serviceQuantity = String(n(v, "serviceQuantity"));
+    v.serviceRate = String(
+      smokeOrder || !v.serviceRate?.trim()
+        ? smokeServiceRate(n(v, "serviceQuantity"))
+        : n(v, "serviceRate"),
+    );
     v.amountBeforeVat = String(n(v, "serviceQuantity") * n(v, "serviceRate"));
     v.vat = String(n(v, "vat"));
     v.withholdingTax = String(n(v, "withholdingTax"));
@@ -634,27 +606,31 @@ function record(
     required(v, "reviewedBy", "ชื่อผู้ตรวจ");
     v.reviewedAt = new Date().toISOString();
   } else if (kind === "invoicePayment" && lot) {
+    // SVC-03: paid with or without an invoice; the same invoice is never paid twice (GEN-06).
     const invoice =
       entries(db, "smokingInvoice", lotId).find(
         (entry) => entry.id === v.invoiceId,
       ) || entries(db, "smokingInvoice", lotId).at(-1);
-    assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องชำระ");
-    v.invoiceId = invoice.id;
-    assert(
-      smokingInvoiceStatus(db, invoice) === "รอชำระ",
-      "ต้องรับยอด Invoice ก่อนชำระเงิน",
-    );
+    warn(invoice, "ยังไม่มี Invoice ค่ารมควันของชุดนี้");
+    if (invoice) {
+      v.invoiceId = invoice.id;
+      const status = smokingInvoiceStatus(db, invoice);
+      assert(status !== "ชำระแล้ว", "ชำระ Invoice ใบนี้แล้ว");
+      warn(status === "รอชำระ", "ยังไม่ได้รับยอด Invoice นี้");
+    } else delete v.invoiceId;
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
-    warn(
-      Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01,
-      "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice",
-    );
+    if (invoice)
+      warn(
+        Math.abs(n(v, "paidAmount") - n(invoice.values, "netPayable")) < 0.01,
+        "ยอดชำระต้องเท่ากับยอดสุทธิใน Invoice",
+      );
     checkSlips(v);
   } else if (kind === "meatPayment" && lot) {
+    // PO-03: paid before Foodiva invoices if need be; once per PO (GEN-06).
     const invoice = entries(db, "foodivaConfirm", lotId).at(-1);
-    assert(invoice, "ยังไม่มี Invoice เนื้อจาก Foodiva");
+    warn(invoice, "ยังไม่มี Invoice เนื้อจาก Foodiva");
     assert(
       !entries(db, "meatPayment", lotId).length,
       "ชำระ Invoice เนื้อใบนี้แล้ว",
@@ -662,13 +638,13 @@ function record(
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
-    if (n(invoice.values, "invoiceAmount") > 0)
+    if (invoice && n(invoice.values, "invoiceAmount") > 0)
       warn(
         Math.abs(n(v, "paidAmount") - n(invoice.values, "invoiceAmount")) <
           0.01,
         "ยอดชำระต้องเท่ากับยอดรวม Invoice เนื้อ",
       );
-    v.invoiceNo = invoice.values.invoiceNo;
+    v.invoiceNo = invoice?.values.invoiceNo ?? v.invoiceNo ?? "";
     checkSlips(v);
   } else if (kind === "foodivaConfirm" && lot) {
     required(v, "invoiceNo", "เลข Invoice");
@@ -694,15 +670,15 @@ function record(
       ) < 0.001,
       "น้ำหนักพร้อมส่งเชียงใหม่และเนื้อส่วนที่เหลือรอ Owner รับต้องรวมเท่ากับน้ำหนักตาม Invoice",
     );
-    // A later confirm replaces the earlier one, so it must still cover what already hangs on it.
-    assert(
+    // A later confirm replaces the earlier one (PO-02), so it should still cover what hangs on it.
+    warn(
       !entries(db, "meatPayment", lotId).length,
-      "Owner ชำระ Invoice เนื้อของ PO นี้แล้ว ยืนยันใหม่ไม่ได้",
+      "Owner ชำระ Invoice เนื้อของ PO นี้แล้ว",
     );
     const drawn = drawnKg(db, lot.id);
     warn(
       n(v, "readyForChiangMaiKg") >= drawn - 0.001,
-      `น้ำหนักพร้อมส่งเชียงใหม่ต่ำกว่าที่ Request ดึงไปแล้ว · กรอกได้ต่ำสุด ${fmt(drawn)} กก.`,
+      `น้ำหนักพร้อมส่งเชียงใหม่ต่ำกว่าที่ PO รมควันดึงไปแล้ว · กรอกได้ต่ำสุด ${fmt(drawn)} กก.`,
     );
     const picked = ownerWasteReceived(db, lot.id);
     warn(
@@ -710,13 +686,10 @@ function record(
       `เนื้อส่วนที่เหลือรอ Owner รับต่ำกว่าที่ Owner รับไปแล้ว · กรอกได้ต่ำสุด ${fmt(picked)} กก.`,
     );
   } else if (kind === "packingList" && lot) {
-    assert(
-      lot.kind === "shipment" && entries(db, "dispatch", lotId).length,
-      "ต้องทำใบขนส่งขาไปก่อนทำ Packing List",
-    );
-    assert(
+    // SHP-02: any time, the latest list counts; after the smoke PO it is only said.
+    warn(
       !entries(db, "smokeOrder", lotId).length,
-      "Owner ออก PO รมควันจาก Packing List นี้แล้ว แก้ไขไม่ได้",
+      "Owner ออก PO รมควันของชุดนี้แล้ว",
     );
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "product", "รายการสินค้า");
@@ -750,23 +723,19 @@ function record(
     checkDate(v.receivedDate, "วันที่ Owner รับเนื้อ");
     positive(v, "receivedKg", "น้ำหนักรับจริง");
     required(v, "receiver", "ผู้รับเนื้อ");
-    assert(
-      reservedForOwnerContent(db, lotId) > 0,
-      "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ",
-    );
-    withinStock(
-      n(v, "receivedKg"),
-      ownerWasteOutstanding(db, lotId),
-      "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
-    );
+    // PO-04: picked up before Foodiva names the kg it keeps is said, not refused.
+    if (reservedForOwnerContent(db, lotId) > 0)
+      withinStock(
+        n(v, "receivedKg"),
+        ownerWasteOutstanding(db, lotId),
+        "น้ำหนักรับเกินยอดเนื้อส่วนที่เหลือที่ Foodiva รอให้ Owner รับ",
+      );
+    else warn(false, "Foodiva ยังไม่ได้ระบุเนื้อส่วนที่เหลือรอ Owner รับ");
   } else if (kind === "foodivaReturnReceive" && lot) {
+    // RET-02: once per batch; with no return truck yet it is simply recorded.
     assert(
-      lot.stage === STAGE.central,
-      "รอ Owner สร้างใบขนส่งกลับจาก Chef House ก่อน",
-    );
-    assert(
-      entries(db, "return", lotId).length,
-      "ยังไม่มีใบขนส่ง Chef House → Foodiva",
+      !entries(db, "foodivaReturnReceive", lotId).length,
+      "ยืนยันรับเข้าตู้ของชุดนี้แล้ว",
     );
     required(v, "receivedDate", "วันที่รับ");
     required(v, "receivedTime", "เวลารับ");
@@ -777,19 +746,15 @@ function record(
       "จำนวนกล่องรมควันต้องเป็นจำนวนเต็ม",
     );
     // Foodiva weighs against what the return truck carried, not the full smoke output.
-    variance(
-      n(v, "receivedKg"),
-      n(entries(db, "return", lotId).at(-1)!.values, "returnKg"),
-      v,
-      false,
-    );
+    const returned = entries(db, "return", lotId).at(-1);
+    if (returned)
+      variance(n(v, "receivedKg"), n(returned.values, "returnKg"), v, false);
   } else if (kind === "dispatch" && lot) {
-    assert(
-      shipments(db).some((s) => s.id === lotId),
-      "Request นี้ถูกยกเลิกแล้ว",
-    );
-    // The truck carries what the Owner requested; Foodiva does not type a weight.
-    v.dispatchKg = lot.values.requestedKg;
+    // SHP-01: the kg is what Foodiva types; it starts at the smoke PO's total when there is one.
+    if (v.dispatchKg?.trim()) {
+      positive(v, "dispatchKg", "น้ำหนักที่ส่ง");
+      v.dispatchKg = String(Number(v.dispatchKg));
+    } else v.dispatchKg = lot.values.requestedKg ?? "";
     required(v, "pickupDate", "วันรับ");
     required(v, "pickupTime", "เวลารถรับ");
     required(v, "origin", "ต้นทาง");
@@ -802,32 +767,30 @@ function record(
     assert(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
-    // The truck is at the door: Chef House weighs the meat in whether or not the smoke PO
-    // has been accepted yet. The PO gates the smoking run instead (see `prepare`).
+    // CHF-01: the truck is at the door; Chef House weighs in with or without a Packing List or PO.
     required(v, "arrival", "เวลาถึง");
     const received = receivedTotal(db, lotId, v.receivedBoxes);
     v.receivedBoxes = received.boxes;
     v.receivedKg = String(received.total);
   } else if (kind === "prepare" && lot) {
-    // The PO authorises the smoking work, so it is checked at the first production step only:
-    // `smoke` cannot run without a `prepare` (it needs preSmokeKg), so one guard covers both.
-    assert(
-      entries(db, "smokeOrderAccept", lotId).length,
-      "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน",
-    );
+    // CHF-03: no PO or receive needed; a received kg on file caps it, as a warning.
     positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
-    withinStock(
-      n(v, "preSmokeKg"),
-      n(lot.values, "receivedKg"),
-      "น้ำหนักก่อนสโมคเกินน้ำหนักรับ",
-    );
+    if (entries(db, "cmReceive", lotId).length)
+      withinStock(
+        n(v, "preSmokeKg"),
+        n(lot.values, "receivedKg"),
+        "น้ำหนักก่อนสโมคเกินน้ำหนักรับ",
+      );
   } else if (kind === "smoke" && lot) {
     positive(v, "inputKg", "น้ำหนักเข้าเตา");
-    withinStock(
-      n(v, "inputKg"),
-      n(lot.values, "preSmokeKg") - processed(db, lotId),
-      "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
-    );
+    if (entries(db, "prepare", lotId).length)
+      withinStock(
+        n(v, "inputKg"),
+        n(lot.values, "preSmokeKg") - processed(db, lotId),
+        "น้ำหนักเข้าเตาเกินน้ำหนักรอผลิต",
+      );
+    // CHF-05: smoking after ปิด Lot is recorded and said.
+    warn(!entries(db, "closeLot", lotId).length, "ปิด Lot แล้ว");
     positive(v, "wasteKg", "น้ำหนัก Waste", true);
     required(v, "smokeDate", "วันที่สโมค");
     const weights = packWeights(v.packs);
@@ -846,7 +809,7 @@ function record(
     v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "chefEdit" && lot) {
     // Corrects the receive/prepare/smoke values without touching those entries (see entries()).
-    assert(lot.stage === STAGE.closeLot, "แก้ไขได้เฉพาะก่อนยืนยันปิด Lot");
+    assert(!entries(db, "closeLot", lotId).length, "ปิด Lot แล้ว แก้ไขไม่ได้");
     const receiveEntry = entries(next, "cmReceive", lotId).at(-1);
     const prepareEntry = entries(next, "prepare", lotId).at(-1);
     const smokeEntries = entries(next, "smoke", lotId);
@@ -934,13 +897,12 @@ function record(
       batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })),
     );
   } else if (kind === "closeLot" && lot) {
-    // Stage order already made every batch get recorded; a gap left here can only come from
-    // Chef's own correction (chefEdit), so it is said, not refused.
+    // CHF-03: closing with a gap, or with nothing smoked yet, is said, not refused.
     warn(
       Math.abs(n(lot.values, "preSmokeKg") - processed(db, lotId)) < 0.005,
       "น้ำหนักเข้าเตารวมไม่เท่ากับน้ำหนักก่อนสโมค",
     );
-    assert(produced(db, lotId) > 0, "ยังไม่มีผลผลิต");
+    warn(produced(db, lotId) > 0, "ยังไม่มีผลผลิต");
     required(v, "confirm", "ชื่อผู้ยืนยัน");
   } else if (kind === "return" && lot) {
     required(v, "returnDate", "วันที่รถรับ");
@@ -964,41 +926,48 @@ function record(
         ? "0"
         : (db.config.returnFee ?? lot.config.returnFee);
   } else if (kind === "central" && lot) {
-    assert(
-      entries(db, "foodivaReturnReceive", lotId).length,
-      "รอ Foodiva ยืนยันรับเนื้อรมควันก่อน",
-    );
+    // RET-03: counted into central stock whenever it arrives; Foodiva's figure, if any, is compared.
     positive(v, "centralKg", "น้ำหนักรับกลาง");
-    variance(
-      n(v, "centralKg"),
-      n(
-        entries(db, "foodivaReturnReceive", lotId).at(-1)?.values || {},
-        "receivedKg",
-      ),
-      v,
-      false,
-    );
+    const received = entries(db, "foodivaReturnReceive", lotId).at(-1);
+    if (received)
+      variance(n(v, "centralKg"), n(received.values, "receivedKg"), v, false);
   } else if (kind === "allocate") {
     positive(v, "kg", "น้ำหนักจัดสรร");
     withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
     assert(branches.includes(v.branch), "เลือกสาขา");
   } else if (kind === "receive") {
+    // BR-02: on any batch or none (`""`), with an allocation or straight from the batch.
     positive(v, "kg", "น้ำหนักรับ");
-    const allocation = entries(db, "allocate", lotId, branch).find(
-      (e) => e.id === v.allocation,
-    );
-    assert(allocation, "เลือกใบจัดสรร");
-    const outstanding = allocationOutstanding(db, allocation);
-    // Outstanding is rounded to 0.01, so compare the receive at that precision too:
-    // receiving an allocation's exact 10.004 kg against its 10.00 shown must pass (COR-15).
-    withinStock(
-      Math.round(n(v, "kg") * 100) / 100,
-      outstanding,
-      "รับเกินยอดค้างรับ",
-    );
-    // Closing the allocation makes any shortfall final, so it needs a reason; a
-    // partial receive leaves the rest pending.
-    if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
+    if (v.allocation?.trim()) {
+      const allocation = entries(db, "allocate", lotId).find(
+        (e) => e.id === v.allocation,
+      );
+      assert(allocation, "ไม่พบใบจัดสรร");
+      assert(allocation.branch === branch, "ใบจัดสรรไม่ใช่ของสาขาคุณ");
+      const outstanding = allocationOutstanding(db, allocation);
+      // Outstanding is rounded to 0.01, so compare the receive at that precision too:
+      // receiving an allocation's exact 10.004 kg against its 10.00 shown must pass (COR-15).
+      withinStock(
+        Math.round(n(v, "kg") * 100) / 100,
+        outstanding,
+        "รับเกินยอดค้างรับ",
+      );
+      // Closing the allocation makes any shortfall final, so it needs a reason; a
+      // partial receive leaves the rest pending.
+      if (v.complete === "1") variance(n(v, "kg"), outstanding, v);
+    } else {
+      delete v.allocation;
+      delete v.complete;
+      if (lotId) {
+        warn(
+          entries(db, "allocate", lotId, branch).some(
+            (a) => allocationOutstanding(db, a) > 0,
+          ),
+          "ไม่มีใบจัดสรรค้างสำหรับชุดนี้",
+        );
+        withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
+      }
+    }
   } else if (kind === "thaw") {
     positive(v, "kg", "น้ำหนักละลาย");
     withinStock(
@@ -1011,7 +980,9 @@ function record(
       .sort((a, b) =>
         (a.values.smokeDate || a.id).localeCompare(b.values.smokeDate || b.id),
       )[0];
-    if (oldest && oldest.id !== lotId) required(v, "reason", "เหตุผลข้าม FIFO");
+    // The "ไม่ระบุ Lot" bucket has no smoke date to order by.
+    if (lotId && oldest && oldest.id !== lotId)
+      required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
     // Every purchase says which way this round goes (B2): self-cook buys raw rice,
     // bought-cooked buys cooked rice. The other side is zeroed. Minburi only buys cooked.
@@ -1233,28 +1204,36 @@ function record(
     required(v, "receiver", "ผู้รับของ");
     v.requiresConfirm = "1";
   } else if (kind === "materialConfirm") {
-    const transfer = entries(db, "materialTransfer", undefined, branch).find(
-      (entry) => entry.id === v.transferId,
-    );
-    assert(transfer, "ไม่พบรายการส่งวัสดุ");
-    assert(
-      !entries(db, "materialConfirm", undefined, branch).some(
-        (entry) => entry.values.transferId === v.transferId,
-      ),
-      "ยืนยันรับรายการนี้แล้ว",
-    );
     positive(v, "receivedQuantity", "จำนวนที่รับจริง");
     assert(
       Number.isInteger(n(v, "receivedQuantity")),
       "จำนวนรับจริงต้องเป็นจำนวนเต็ม",
     );
-    withinStock(
-      n(v, "receivedQuantity"),
-      n(transfer.values, "quantity"),
-      "จำนวนรับจริงเกินจำนวนที่ส่ง",
-      "",
-    );
-    variance(n(v, "receivedQuantity"), n(transfer.values, "quantity"), v);
+    if (v.transferId?.trim()) {
+      // MAT-02: against a transfer document, confirmed once.
+      const transfer = entries(db, "materialTransfer", undefined, branch).find(
+        (entry) => entry.id === v.transferId,
+      );
+      assert(transfer, "ไม่พบรายการส่งวัสดุ");
+      assert(
+        !entries(db, "materialConfirm", undefined, branch).some(
+          (entry) => entry.values.transferId === v.transferId,
+        ),
+        "ยืนยันรับรายการนี้แล้ว",
+      );
+      v.material = transfer.values.material;
+      withinStock(
+        n(v, "receivedQuantity"),
+        n(transfer.values, "quantity"),
+        "จำนวนรับจริงเกินจำนวนที่ส่ง",
+        "",
+      );
+      variance(n(v, "receivedQuantity"), n(transfer.values, "quantity"), v);
+    } else {
+      // MAT-01: straight in, no transfer document; `link` can tie one later.
+      delete v.transferId;
+      assert(materials.includes(v.material), "เลือกวัสดุ");
+    }
     required(v, "receiver", "ชื่อผู้รับจริง");
   } else if (kind === "sale") {
     for (const k of [
@@ -1317,8 +1296,9 @@ function record(
         n(v, "addons") * n(db.config, "addonPrice") +
         n(v, "chiliAddons") * n(db.config, "chiliPrice"),
     );
-    v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
-    v.wasteCost = String(n(v, "wasteKg") * (lotCost(db, lot!).perKg || 0));
+    // BR-05: meat and waste cost are read from `saleCost`, so a later `link` reprices them.
+    delete v.meatCost;
+    delete v.wasteCost;
   } else if (kind === "influencerBox") {
     /* A giveaway is a sale with no money in: the same goods leave the shelf, so it
      * carries the same value keys and every stock helper counts it for free.
@@ -1363,7 +1343,7 @@ function record(
       "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
       "หลอด",
     );
-    v.meatCost = String(n(v, "soldKg") * (lotCost(db, lot!).perKg || 0));
+    delete v.meatCost;
   } else if (kind === "closeDay") {
     // Any time of day (FB-14): what blocks a close is missing data, not the clock.
     const missing = closeDayChecklist(db, branch, date).find(
@@ -1402,14 +1382,9 @@ function record(
       "closeDay",
       "expense",
       "unlock",
-      "shipmentRequest",
+      "link",
     ];
     assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
-    if (target.kind === "shipmentRequest")
-      assert(
-        db.lots.find((l) => l.id === target.lotId)?.stage === STAGE.dispatch,
-        "Foodiva ทำใบขนส่งแล้ว ยกเลิก Request ไม่ได้",
-      );
     assert(
       !db.entries.some(
         (entry) =>
@@ -1448,6 +1423,49 @@ function record(
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetBranch = target.branch;
+  } else if (kind === "link") {
+    // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
+    const target = db.entries.find((entry) => entry.id === v.targetId);
+    assert(
+      target && entries(db, target.kind).some((e) => e.id === target.id),
+      "ไม่พบรายการ",
+    );
+    assert(linkable.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
+    assert(
+      role === "owner" ||
+        (role === target.role &&
+          (role !== "branch" || target.branch === branch)),
+      forbidden,
+    );
+    assert(
+      v.lotId?.trim() || v.transferId?.trim(),
+      "เลือกชุดหรือใบโอนที่จะผูก",
+    );
+    if (v.lotId?.trim()) {
+      assert(
+        branchMeatKinds.includes(target.kind) &&
+          db.lots.some((l) => l.id === v.lotId && l.kind === "shipment"),
+        "ไม่พบชุดรมควันที่เลือก",
+      );
+    } else delete v.lotId;
+    if (v.transferId?.trim()) {
+      assert(target.kind === "materialConfirm", "รายการนี้ผูกกับใบโอนไม่ได้");
+      const transfer = entries(db, "materialTransfer").find(
+        (t) => t.id === v.transferId && t.branch === target.branch,
+      );
+      assert(transfer, "ไม่พบรายการส่งวัสดุ");
+      assert(
+        !entries(db, "materialConfirm").some(
+          (c) => c.id !== target.id && c.values.transferId === v.transferId,
+        ),
+        "ยืนยันรับรายการนี้แล้ว",
+      );
+    } else delete v.transferId;
+    v.targetKind = target.kind;
+    v.targetDate = target.date;
+    v.targetRole = target.role;
+    v.targetBranch = target.branch;
+    lotId = v.lotId || target.lotId;
   } else if (kind === "entryEdit" || kind === "editRequest") {
     // Recorded, not applied: entries() overlays the `to.` values on the target (like chefEdit).
     const target = editTarget(db, v.targetId, role, branch);
@@ -1464,6 +1482,17 @@ function record(
     delete v.values;
     Object.assign(v, editValues(db, target, proposed));
     lotId = target.lotId;
+    // The batch cache follows a direct edit of a batch entry (SMK-05: the smoke PO's lines).
+    const edited = next.lots.find((l) => l.id === target.lotId);
+    if (
+      kind === "entryEdit" &&
+      edited?.kind &&
+      cachedKinds.includes(target.kind)
+    )
+      edited.values = {
+        ...edited.values,
+        ...omit(unpack("to.", v), uncached),
+      };
   } else if (kind === "editDecision") {
     const request = entries(db, "editRequest").find(
       (e) => e.id === v.requestId,
@@ -1541,16 +1570,10 @@ function record(
     }
     next.config = { ...db.config, ...v };
   }
-  if (lot && expected > 0 && kind !== "allocate") {
-    lot.values = { ...lot.values, ...v };
-    if (kind !== "smoke") lot.stage++;
-    else if (
-      // Over the remaining weight (only a warning) also finishes production.
-      n(lot.values, "preSmokeKg") - processed(db, lotId) - n(v, "inputKg") <
-      0.005
-    )
-      lot.stage = STAGE.closeLot;
-  }
+  // DM-09: a batch caches the latest values recorded on it (allocate is about a branch, chefEdit
+  // writes its own corrections above).
+  if (lot?.kind && cachedKinds.includes(kind))
+    lot.values = { ...lot.values, ...omit(v, uncached) };
   const entryDate = ["materialReceive", "generalPurchase"].includes(kind)
     ? v.purchaseDate || date
     : kind === "ownerWasteReceive"
@@ -1570,22 +1593,24 @@ function record(
 }
 
 /** Foodiva's one outbound form: the transport document and its Packing List land in one save,
- *  the document first (packingList refuses a shipment with no dispatch). */
+ *  all or nothing (SHP-03). With `lotId === ""` the document opens the batch the list joins. */
 export const dispatchWithPackingList = (
   db: Database,
   lotId: string,
   trip: Values,
   packing: Values,
   date: string,
-) =>
-  mutate(
-    mutate(db, "foodiva", "dispatch", trip, lotId, date),
+) => {
+  const sent = mutate(db, "foodiva", "dispatch", trip, lotId, date);
+  return mutate(
+    sent,
     "foodiva",
     "packingList",
     packing,
-    lotId,
+    lotId || sent.lots.at(-1)!.id,
     date,
   );
+};
 /** How one giveaway block is named in a message: its number, plus the name once typed. */
 export const influencerLabel = (index: number, values: Values) =>
   `อินฟลูเอนเซอร์ที่ ${index + 1}${values.influencer?.trim() ? ` (${values.influencer.trim()})` : ""}`;

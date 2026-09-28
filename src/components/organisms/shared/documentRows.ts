@@ -39,7 +39,7 @@ export type DocumentReferenceType = "po" | "lot";
 export function lotIssueDate(db: Database, lot: Lot) {
   const purchase =
     entries(db, "purchase", lot.id).at(-1) ??
-    entries(db, "shipmentRequest", lot.id).at(-1);
+    entries(db, "smokeOrder", lot.id).at(-1);
   if (purchase?.date) return purchase.date;
   const match = lot.id.match(/(\d{4})(\d{2})(\d{2})/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : "—";

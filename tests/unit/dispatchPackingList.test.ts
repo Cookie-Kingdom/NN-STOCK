@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { nextTimeSlot } from "@/lib/forms";
-import { dispatchWithPackingList } from "@/lib/store";
+import { dispatchWithPackingList, lotProgress } from "@/lib/store";
 import { day, readyToDispatch, send, setup } from "./fixtures";
 
 describe("dispatchWithPackingList", () => {
@@ -26,7 +26,7 @@ describe("dispatchWithPackingList", () => {
       ["dispatch", "foodiva", lotId],
       ["packingList", "foodiva", lotId],
     ]);
-    expect(next.lots.at(-1)!.stage).toBe(2);
+    expect(lotProgress(next, lotId).has("packingList")).toBe(true);
     expect(next.entries.at(-1)!.values.slicedNetKg).toBe("50");
   });
 
@@ -42,7 +42,7 @@ describe("dispatchWithPackingList", () => {
         day,
       ),
     ).toThrow("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    expect(s.db.lots.at(-1)!.stage).toBe(1);
+    expect(lotProgress(s.db, s.db.lots.at(-1)!.id).has("dispatch")).toBe(false);
   });
 });
 

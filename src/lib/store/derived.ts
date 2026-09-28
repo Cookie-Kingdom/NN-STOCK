@@ -1,7 +1,6 @@
 /** Figures recomputed from the entry log (stock, cost, yield, invoices); nothing here is stored. */
 import { fmt } from "../format";
 import {
-  STAGE,
   isEditOverlay,
   materials,
   titles,
@@ -62,9 +61,29 @@ function entryIndex(db: Database): EntryIndex {
     ) as Values[])
       fix(id, batch);
   }
+  /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`) after the
+   * fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
+   * falls back to the one before (LNK-05). */
+  const links = new Map<string, Values>();
+  for (const e of db.entries)
+    if (e.kind === "link" && !voided.has(e.id))
+      links.set(e.values.targetId, {
+        ...links.get(e.values.targetId),
+        ...e.values,
+      });
   const byKind = new Map<EntryKind, Entry[]>();
-  for (const e of db.entries) {
-    if (voided.has(e.id)) continue;
+  for (const raw of db.entries) {
+    if (voided.has(raw.id)) continue;
+    const link = links.get(raw.id);
+    const e = link
+      ? {
+          ...raw,
+          lotId: link.lotId || raw.lotId,
+          values: link.transferId
+            ? { ...raw.values, transferId: link.transferId }
+            : raw.values,
+        }
+      : raw;
     const list = byKind.get(e.kind);
     if (list) list.push(e);
     else byKind.set(e.kind, [e]);
@@ -73,6 +92,8 @@ function entryIndex(db: Database): EntryIndex {
   entryIndexes.set(db.entries, index);
   return index;
 }
+/** Live entries of one kind, with edits, chefEdit and `link` overlaid. `lotId === ""` is the
+ *  branch's "ไม่ระบุ Lot" bucket (BR-04); leave it `undefined` for every lot. */
 export function entries(
   db: Database,
   kind: EntryKind,
@@ -84,7 +105,7 @@ export function entries(
   return (byKind.get(kind) ?? [])
     .filter(
       (e) =>
-        (!lotId || e.lotId === lotId) &&
+        (lotId === undefined || e.lotId === lotId) &&
         (!branch || e.branch === branch) &&
         (!date || e.date === date),
     )
@@ -121,11 +142,33 @@ export const validPackWeights = (packs = "") =>
 export function processed(db: Database, lotId: string) {
   return sum(entries(db, "smoke", lotId), "inputKg");
 }
+/** Kinds already recorded (not voided) on a lot: what "ยังขาด" chips and alerts read (SMK-07).
+ *  Never a gate. Edits, links and voids are bookkeeping, not steps. */
+const bookkeeping: EntryKind[] = [
+  "link",
+  "entryEdit",
+  "editRequest",
+  "editDecision",
+  "void",
+];
+export function lotProgress(db: Database, lotId: string): Set<EntryKind> {
+  const done = new Set<EntryKind>();
+  for (const [kind, list] of entryIndex(db).byKind)
+    if (!bookkeeping.includes(kind) && list.some((e) => e.lotId === lotId))
+      done.add(kind);
+  return done;
+}
+/** RET-04: central kg less allocations and less what branches took straight from the batch
+ *  (a `receive` on it with no allocation). */
 export function centralStock(db: Database, lotId: string) {
   const lot = db.lots.find((l) => l.id === lotId);
   return (
     num(lot?.values || {}, "centralKg") -
-    sum(entries(db, "allocate", lotId), "kg")
+    sum(entries(db, "allocate", lotId), "kg") -
+    sum(
+      entries(db, "receive", lotId).filter((r) => !r.values.allocation),
+      "kg",
+    )
   );
 }
 /** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
@@ -158,37 +201,36 @@ export function shipmentLines(lot: Lot): ShipmentLine[] {
     kg: Number(line.kg),
   }));
 }
-/** Shipment lots whose Request was not voided. Reads only the log's voids, so it also works on visibleDatabase. */
+/** The lines of a batch's live smoke PO (edits and voids applied); the lot cache is only a
+ *  copy of them. Nothing without a smoke PO. */
+const batchLines = (db: Database, lot: Lot): ShipmentLine[] => {
+  const order = entries(db, "smokeOrder", lot.id).at(-1);
+  return order ? shipmentLines({ ...lot, values: order.values }) : [];
+};
+/** Every shipment batch (Lot S). */
 export function shipments(db: Database) {
-  const voided = new Set(
-    entries(db, "void")
-      .filter((e) => e.role === "owner")
-      .map((e) => e.values.targetId),
-  );
-  const cancelled = new Set(
-    db.entries
-      .filter((e) => e.kind === "shipmentRequest" && voided.has(e.id))
-      .map((e) => e.lotId),
-  );
-  return db.lots.filter(
-    (lot) => lot.kind === "shipment" && !cancelled.has(lot.id),
-  );
+  return db.lots.filter((lot) => lot.kind === "shipment");
 }
-/** Kg of one purchase PO that shipments have requested (only those already trucked with `dispatchedOnly`). */
+/** Kg of one purchase PO that smoke POs draw (only batches already trucked with `dispatchedOnly`, PO-05). */
 export function drawnKg(
   db: Database,
   purchaseLotId: string,
   dispatchedOnly = false,
 ) {
   return shipments(db)
-    .filter((lot) => !dispatchedOnly || lot.stage >= STAGE.cmReceive)
-    .flatMap(shipmentLines)
+    .filter((lot) => !dispatchedOnly || entries(db, "dispatch", lot.id).length)
+    .flatMap((lot) => batchLines(db, lot))
     .filter((line) => line.lotId === purchaseLotId)
     .reduce((total, line) => total + line.kg, 0);
 }
-/** What a purchase PO can still send to Chef House: Foodiva's ready-for-Chiang-Mai kg less every Request. */
+/** PO-06: what a purchase PO can still send to Chef House — Foodiva's ready-for-Chiang-Mai kg
+ *  (the ordered kg until it invoices) less every smoke PO line that draws on it. */
 export function poRemainingKg(db: Database, purchaseLotId: string) {
-  return readyForChefHouse(db, purchaseLotId) - drawnKg(db, purchaseLotId);
+  const lot = db.lots.find((l) => l.id === purchaseLotId);
+  const ready = entries(db, "foodivaConfirm", purchaseLotId).length
+    ? readyForChefHouse(db, purchaseLotId)
+    : n(lot?.values || {}, "orderedKg");
+  return ready - drawnKg(db, purchaseLotId);
 }
 export function latestPackingList(db: Database, lotId: string) {
   return entries(db, "packingList", lotId).at(-1);
@@ -199,10 +241,10 @@ export function packingListKg(db: Database, lotId: string) {
   const list = latestPackingList(db, lotId);
   return list ? n(list.values, "slicedNetKg") : undefined;
 }
-/** A shipment's kg and meat cost split back to its purchase POs, pro rata to what each was asked
- * for: on Chef House's received kg once weighed in, on the requested kg before that. */
+/** A batch's kg and meat cost split back to the purchase POs its smoke PO draws on, pro rata
+ * to each line: on Chef House's received kg once weighed in, on the line kg before that. */
 export function shipmentShares(db: Database, shipment: Lot) {
-  const lines = shipmentLines(shipment);
+  const lines = batchLines(db, shipment);
   const requested = lines.reduce((total, line) => total + line.kg, 0);
   const base = n(shipment.values, "receivedKg") || requested;
   return lines.map((line) => {
@@ -219,8 +261,9 @@ export function shipmentShares(db: Database, shipment: Lot) {
     };
   });
 }
-/** One shipment end to end for the Owner: purchase POs → truck → Chef House's yellow total →
- *  smoked boxes → return truck → Foodiva's freezer. A step not reached yet is `undefined`. */
+/** One batch end to end for the Owner: purchase POs → truck → Chef House's yellow total →
+ *  smoked boxes → return truck → Foodiva's freezer. Each step is `undefined` on its own when
+ *  not recorded, whatever the others are (RET-05). */
 export function shipmentChain(db: Database, shipment: Lot) {
   const kg = (kind: EntryKind, key: string) => {
     const entry = entries(db, kind, shipment.id).at(-1);
@@ -604,6 +647,15 @@ export function branchMaterialStock(
         total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0)
       );
     }, 0);
+  // MAT-01: a receipt with no transfer document counts as it is.
+  const direct = entries(db, "materialConfirm", undefined, branch)
+    .filter(
+      (entry) =>
+        !entry.values.transferId &&
+        entry.values.material === material &&
+        (!throughDate || entry.date <= throughDate),
+    )
+    .reduce((total, entry) => total + n(entry.values, "receivedQuantity"), 0);
   /* A branch may save a day's count again to fix a typo, so only the newest record
    * of each day counts; the earlier ones stay in the log as the audit trail. */
   const counted = [
@@ -625,7 +677,7 @@ export function branchMaterialStock(
         n(entry.values, "used" + materialIndex)),
     0,
   );
-  return transferred - used + adjustments;
+  return transferred + direct - used + adjustments;
 }
 export function materialPar(db: Database, branch: string, index: number) {
   return (
@@ -650,26 +702,67 @@ export function isClosed(db: Database, branch: string, date: string) {
   const closed = position("closeDay");
   return closed >= 0 && position("unlock") < closed;
 }
+/** DASH-03: meat (smoke PO lines × PO price, pro rata to Chef House's received kg), the
+ *  smoking fee (D8: the batch's latest smoking invoice, else the smoke PO's estimate, else 0)
+ *  and freight. `perKg` is 0 until the batch is in central stock. */
 export function lotCost(db: Database, lot: Lot) {
   const v = lot.values;
   const meat = shipmentShares(db, lot).reduce(
     (total, share) => total + share.meat,
     0,
   );
-  const smoke = n(
-    entries(db, "smokeOrder", lot.id).at(-1)?.values || {},
-    "estimatedCost",
-  );
+  const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
+  const order = entries(db, "smokeOrder", lot.id).at(-1);
+  const smokingCostSource: "invoice" | "estimate" | "none" = invoice
+    ? "invoice"
+    : order
+      ? "estimate"
+      : "none";
+  const smoke = invoice
+    ? n(invoice.values, "netPayable")
+    : n(order?.values || {}, "estimatedCost");
   const freight = num(v, "outboundCost") + num(v, "returnCost");
+  const total = meat + smoke + freight;
   return {
     meat,
     smoke,
+    smokingCostSource,
     freight,
-    total: meat + smoke + freight,
-    perKg:
-      num(v, "centralKg") > 0
-        ? (meat + smoke + freight) / num(v, "centralKg")
-        : null,
+    total,
+    perKg: num(v, "centralKg") > 0 ? total / num(v, "centralKg") : 0,
+  };
+}
+/** BR-05: what a sale's (or giveaway's) meat cost at read time — `soldKg × lotCost.perKg` of its
+ *  batch, 0 in the "ไม่ระบุ Lot" bucket. Nothing is stored on the sale. */
+export function saleCost(db: Database, sale: Entry) {
+  const lot = db.lots.find((l) => l.id === sale.lotId);
+  const perKg = lot ? lotCost(db, lot).perKg : 0;
+  return {
+    meatCost: num(sale.values, "soldKg") * perKg,
+    wasteCost: num(sale.values, "wasteKg") * perKg,
+    unlinked: !sale.lotId,
+  };
+}
+/** DASH-01: what is recorded but not tied to its source yet, for the Owner's dashboard. */
+export function unlinkedSummary(db: Database) {
+  const meatKg: Record<string, number> = {};
+  for (const branch of [
+    ...new Set(entries(db, "receive", "").map((e) => e.branch)),
+  ])
+    meatKg[branch] = balance(db, "", branch).received;
+  return {
+    /** Branch meat received into the "ไม่ระบุ Lot" bucket, kg per branch. */
+    meatKg,
+    /** Material receipts with no transfer document. */
+    materialConfirms: entries(db, "materialConfirm").filter(
+      (e) => !e.values.transferId,
+    ).length,
+    batchesWithoutSmokeOrder: shipments(db)
+      .filter((lot) => !entries(db, "smokeOrder", lot.id).length)
+      .map((lot) => lot.id),
+    posWithoutInvoice: purchaseLots(db)
+      .filter((lot) => !entries(db, "foodivaConfirm", lot.id).length)
+      .map((lot) => lot.id),
   };
 }
 export function smokeServiceRate(quantityKg: number) {

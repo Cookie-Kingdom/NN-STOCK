@@ -10,6 +10,7 @@ import {
 } from "@/lib/local-db.server";
 import {
   mutate,
+  saleCost,
   type Database,
   type Role,
   type Values,
@@ -23,7 +24,6 @@ import {
   readyToDispatch,
   ready,
   setup,
-  smokeOrder,
 } from "./fixtures";
 
 /* append_entries (migration 0028) through its JS port: a non-owner loads its role-scoped copy,
@@ -58,7 +58,7 @@ test("appendDelta keeps only new entries (by id) and changed lots", () => {
   expect(appendDelta(s.db, s.db)).toEqual({ entries: [], lots: [] });
 });
 
-test("a branch sale saved from the scoped copy stores the meat cost of the full data", () => {
+test("BR-05 a branch sale stores no meat cost; saleCost prices it from the full data", () => {
   const s = ready();
   const lotId = s.db.lots.at(-1)!.id;
   s.run("owner", "allocate", {
@@ -88,7 +88,7 @@ test("a branch sale saved from the scoped copy stores the meat cost of the full 
     day,
     "ศาลาแดง",
   ).entries.at(-1)!;
-  expect(Number(expected.values.meatCost)).toBeGreaterThan(0);
+  expect(expected.values.meatCost).toBeUndefined();
   const { delta, stored } = save(
     s.db,
     "saladaeng",
@@ -98,9 +98,10 @@ test("a branch sale saved from the scoped copy stores the meat cost of the full 
     lotId,
     "ศาลาแดง",
   );
-  // The scoped copy has no prices, so the browser's own figure is wrong; the server's is not.
-  expect(delta.entries[0].values.meatCost).toBe("0");
+  expect(delta.entries[0].values.meatCost).toBeUndefined();
   expect(stored.entries.at(-1)!.values).toEqual(expected.values);
+  // The scoped copy has no prices; the full data prices the sale at read time.
+  expect(saleCost(stored, stored.entries.at(-1)!).meatCost).toBeGreaterThan(0);
 });
 
 test("Chef House moves a lot from its scoped copy without losing what it never received", () => {
@@ -108,7 +109,6 @@ test("Chef House moves a lot from its scoped copy without losing what it never r
   readyToDispatch(s, "50");
   dispatch(s);
   packingList(s, "25\n25");
-  smokeOrder(s);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   const lotId = s.db.lots.at(-1)!.id;
   const input = { receivedBoxes: "24.5\n24.5", arrival: "08:00" };
@@ -121,7 +121,7 @@ test("Chef House moves a lot from its scoped copy without losing what it never r
   );
 });
 
-test("Foodiva's truck moves its stage from the scoped copy", () => {
+test("Foodiva's truck updates the batch values from the scoped copy", () => {
   const s = setup();
   readyToDispatch(s, "50");
   const lotId = s.db.lots.at(-1)!.id;
@@ -185,9 +185,11 @@ test("append_entries refuses what save_app_state refuses", () => {
   expect(append(chef, [entry({ branch: "มีนบุรี" })])).toThrow(
     "branch does not match",
   );
-  // Stage 1 is Foodiva's: Chef House may not move it, and nobody may jump two stages.
-  expect(append(chef, [], [{ ...lot, stage: 2 }])).toThrow("workflow");
-  expect(append(foodiva, [], [{ ...lot, stage: 3 }])).toThrow("workflow");
+  // SRV-02: no stage. Values move; a lot's identity and a purchase PO stay the Owner's.
+  expect(append(chef, [], [{ ...lot, values: "x" }])).toThrow("workflow");
+  expect(
+    append(foodiva, [], [{ ...lot, id: "F000000-001", poId: "PO-2026-0009" }]),
+  ).toThrow("Only an owner");
   expect(append(foodiva, [], [{ ...lot, id: "new" }])).toThrow(
     "Only an owner can add or remove lots",
   );

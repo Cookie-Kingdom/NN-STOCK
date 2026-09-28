@@ -29,7 +29,6 @@ import {
   invoice,
   packingList,
   purchase,
-  request,
   setup,
   smokeOrder,
 } from "./fixtures";
@@ -40,7 +39,7 @@ test("transport rows read the direction's own date and weight keys", () => {
   const lot: Lot = {
     id: "F260909-001",
     poId: "PO-2026-0001",
-    stage: 2,
+
     values: {},
     config: {},
   };
@@ -154,13 +153,12 @@ test("the smoke PO of a 3-PO shipment, as Chef House opens it, names no purchase
     purchase(s, kg, price);
     confirm(s, kg);
   }
-  request(
-    s,
-    s.db.lots.map((lot) => [lot.id, lot.values.orderedKg]),
+  const lines = s.db.lots.map(
+    (lot) => [lot.id, lot.values.orderedKg] as [string, string],
   );
-  dispatch(s);
+  dispatch(s, "");
   packingList(s, "750\n740");
-  smokeOrder(s);
+  smokeOrder(s, lines);
   const chef = visibleDatabase(s.db, "cm");
   const lot = chef.lots[0];
   const rows = smokeOrderPrintRows(

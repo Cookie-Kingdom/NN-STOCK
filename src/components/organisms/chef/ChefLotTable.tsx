@@ -6,18 +6,18 @@ import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
+  batchKinds,
   entries,
+  lotProgress,
   n,
   produced,
   producedBags,
   smokingInvoiceRejection,
   smokingInvoiceStatus,
-  stages,
   titles,
   validPackWeights,
   type Database,
   type Lot,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import type { ModalKind } from "@/lib/nav";
@@ -39,15 +39,15 @@ function ChefLotAction({
   const invoiceStatus = latestInvoice
     ? smokingInvoiceStatus(db, latestInvoice)
     : "";
+  const p = lotProgress(db, lot.id);
+  const onTruck = p.has("packingList") && !p.has("cmReceive");
   if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
   // Receiving the meat does not wait for the PO, so a lot still on the truck's doorstep
   // has two jobs at once: accept the PO here, weigh the meat in on the receive tab.
   if (!accepted)
     return (
       <ButtonRow compact>
-        {lot.stage === STAGE.cmReceive && (
-          <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>
-        )}
+        {onTruck && <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>}
         <Button
           variant="table"
           onClick={() => open("smokeOrderAccept", lot.id)}
@@ -56,16 +56,16 @@ function ChefLotAction({
         </Button>
       </ButtonRow>
     );
-  if (lot.stage === STAGE.cmReceive) return "ไปเมนูยืนยันรับเนื้อ";
-  if (lot.stage === STAGE.prepare || lot.stage === STAGE.smoke) {
-    const kind = lot.stage === STAGE.prepare ? "prepare" : "smoke";
+  if (onTruck) return "ไปเมนูยืนยันรับเนื้อ";
+  if (p.has("cmReceive") && !p.has("smoke")) {
+    const kind = p.has("prepare") ? "smoke" : "prepare";
     return (
       <Button variant="table" onClick={() => open(kind, lot.id)}>
         {titles[kind]}
       </Button>
     );
   }
-  if (lot.stage === STAGE.closeLot)
+  if (p.has("smoke") && !p.has("closeLot"))
     return (
       <ButtonRow compact>
         <Button
@@ -187,7 +187,10 @@ export function ChefLotTable({
           n(lot.values, "receivedKg")
             ? `${fmt(n(lot.values, "receivedKg"))} กก.`
             : "รอยืนยันรับ",
-          stages[lot.stage],
+          batchKinds
+            .filter((k) => lotProgress(db, lot.id).has(k))
+            .map((k) => titles[k])
+            .at(-1) ?? "—",
           produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
           producedBags(db, lot.id)
             ? `${producedBags(db, lot.id)} กล่องรมควัน`

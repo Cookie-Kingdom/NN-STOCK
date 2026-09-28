@@ -7,6 +7,7 @@ import {
   entries,
   entryBy,
   revenue,
+  saleCost,
   saleMoneyKeys,
   mutate,
   visibleDatabase,
@@ -88,7 +89,7 @@ describe("C4 Account Manager", () => {
         expect(saleMoneyKeys, `${e.kind}.${key}`).not.toContain(
           key.replace(/^(to|from)\./, ""),
         );
-    expect(entries(db, "sale")[0].values.meatCost).toBeTruthy();
+    expect(saleCost(db, entries(db, "sale")[0]).meatCost).toBeGreaterThan(0);
     expect(entries(db, "purchase")[0].values.price).toBe("250");
     // The Owner's own view is the database itself.
     expect(visibleDatabase(s.db, "owner")).toBe(s.db);

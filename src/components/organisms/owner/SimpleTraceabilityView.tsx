@@ -41,11 +41,12 @@ import {
   shipmentLines,
   shipments,
   smokingInvoiceStatus,
-  stages,
+  batchKinds,
+  lotProgress,
+  titles,
   type Database,
   type Entry,
   type Lot,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -183,6 +184,12 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
             <tbody>
               {visibleLots.length ? (
                 visibleLots.map((lot) => {
+                  const progress = lotProgress(db, lot.id);
+                  const progressLabel =
+                    batchKinds
+                      .filter((k) => progress.has(k))
+                      .map((k) => titles[k])
+                      .at(-1) ?? "—";
                   const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
                   const chefInvoice = entries(db, "smokingInvoice", lot.id).at(
                     -1,
@@ -239,10 +246,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     ? "สต๊อกกลาง → สาขา"
                     : returnTrip
                       ? "Chef House → Foodiva"
-                      : lot.stage >= STAGE.cmReceive &&
-                          lot.stage <= STAGE.closeLot
+                      : progress.has("dispatch") && !progress.has("closeLot")
                         ? "Foodiva → Chef House"
-                        : lot.stage >= STAGE.return
+                        : progress.has("closeLot")
                           ? "Chef House → Foodiva"
                           : "Foodiva · รอเริ่มขนส่ง";
                   const chefFile = uploadedAttachment(
@@ -564,10 +570,10 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         <td className={tdClass}>
                           <Badge
                             tone={
-                              lot.stage >= STAGE.allocate ? "success" : "danger"
+                              progress.has("central") ? "success" : "danger"
                             }
                           >
-                            {stages[lot.stage]}
+                            {progressLabel}
                           </Badge>
                         </td>
                         <td className={tdClass}>
@@ -629,7 +635,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                   rows={[
                                     ["เลขที่การส่ง", lot.poId],
                                     ["Lot", lot.id],
-                                    ["สถานะล่าสุด", stages[lot.stage]],
+                                    ["สถานะล่าสุด", progressLabel],
                                     [
                                       "PO ซื้อ",
                                       poLots(lot)

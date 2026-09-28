@@ -11,14 +11,21 @@ import {
   pendingSmokeKg,
   produced,
   rawAtFoodiva,
-  stages,
+  batchKinds,
+  lotProgress,
+  titles,
   type Database,
   type Lot,
   type Role,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+
+const progressLabel = (db: Database, lotId: string) =>
+  batchKinds
+    .filter((k) => lotProgress(db, lotId).has(k))
+    .map((k) => titles[k])
+    .at(-1) ?? "—";
 
 export function MeatStockTable({
   db,
@@ -59,13 +66,11 @@ export function MeatStockTable({
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} ชิล/ละลายแล้ว`,
           `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} ชิล/ละลายแล้ว`,
-          stages[lot.stage],
+          progressLabel(db, lot.id),
           <Button
             key={lot.id}
             variant="table"
-            disabled={
-              lot.stage < STAGE.allocate || centralStock(db, lot.id) <= 0.001
-            }
+            disabled={centralStock(db, lot.id) <= 0.001}
             onClick={() => open("allocate", lot.id)}
           >
             จัดสรร
@@ -90,7 +95,7 @@ export function MeatStockTable({
           `${fmt(n(lot.values, "preSmokeKg"))} กก.`,
           `${fmt(pendingSmokeKg(db, lot))} กก.`,
           `${fmt(produced(db, lot.id))} กก.`,
-          stages[lot.stage],
+          progressLabel(db, lot.id),
         ])}
       />
     );
@@ -117,7 +122,7 @@ export function MeatStockTable({
           `${fmt(stock.ready)} กก.`,
           pending > 0
             ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน"
-            : stages[lot.stage],
+            : progressLabel(db, lot.id),
         ];
       })}
     />

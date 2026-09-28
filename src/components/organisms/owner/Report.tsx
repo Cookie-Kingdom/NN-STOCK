@@ -16,10 +16,13 @@ import {
   materialUnitPrice,
   materials,
   n,
-  stages,
+  batchKinds,
+  lotProgress,
+  saleCost,
+  shipments,
+  titles,
   type Database,
   type Entry,
-  STAGE,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
@@ -76,7 +79,7 @@ export function Report({
     influencerBoxes = entries(db, "influencerBox").filter(inRange),
     influencerCost = influencerBoxes.reduce(
       (sum, entry) =>
-        sum + n(entry.values, "meatCost") + n(entry.values, "shippingFee"),
+        sum + saleCost(db, entry).meatCost + n(entry.values, "shippingFee"),
       0,
     ),
     cost =
@@ -88,8 +91,8 @@ export function Report({
       sales.reduce(
         (s, e) =>
           s +
-          n(e.values, "meatCost") +
-          n(e.values, "wasteCost") +
+          saleCost(db, e).meatCost +
+          saleCost(db, e).wasteCost +
           n(e.values, "expense"),
         0,
       );
@@ -249,7 +252,7 @@ export function Report({
           String(n(e.values, "boxes")),
           fmt(n(e.values, "soldKg")),
           fmt(n(e.values, "shippingFee")),
-          fmt(n(e.values, "meatCost") + n(e.values, "shippingFee")),
+          fmt(saleCost(db, e).meatCost + n(e.values, "shippingFee")),
         ])}
       />
       <DataTable
@@ -264,20 +267,22 @@ export function Report({
           "รวม",
           "ต้นทุน / กก.",
         ]}
-        rows={db.lots
-          .filter((l) => l.stage > STAGE.dispatch)
-          .map((l) => {
-            const c = lotCost(db, l);
-            return [
-              l.id,
-              stages[l.stage],
-              fmt(c.meat),
-              fmt(c.smoke),
-              fmt(c.freight),
-              fmt(c.total),
-              c.perKg === null ? "รอรับกลาง" : fmt(c.perKg),
-            ];
-          })}
+        rows={shipments(db).map((l) => {
+          const c = lotCost(db, l);
+          const p = lotProgress(db, l.id);
+          return [
+            l.id,
+            batchKinds
+              .filter((k) => p.has(k))
+              .map((k) => titles[k])
+              .at(-1) ?? "—",
+            fmt(c.meat),
+            fmt(c.smoke),
+            fmt(c.freight),
+            fmt(c.total),
+            p.has("central") ? fmt(c.perKg) : "รอรับกลาง",
+          ];
+        })}
       />
       <DataTable
         className="m-0"

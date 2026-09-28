@@ -6,11 +6,11 @@ import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   entries,
+  lotProgress,
   n,
   producedBags,
   type Database,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -30,11 +30,14 @@ export function CentralReceiveView({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const readyToReceive = db.lots.filter(
-    (lot) =>
-      lot.stage === STAGE.central &&
-      entries(db, "foodivaReturnReceive", lot.id).length,
-  );
+  const readyToReceive = db.lots.filter((lot) => {
+    const p = lotProgress(db, lot.id);
+    return (
+      p.has("return") &&
+      !p.has("central") &&
+      entries(db, "foodivaReturnReceive", lot.id).length
+    );
+  });
   return (
     <>
       <SectionHeading

@@ -1,12 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import {
-  centralDb,
-  demoDb,
-  multiPoDb,
-  requestedDb,
-  smokedDb,
-} from "../../../../.storybook/fixtures";
+import { centralDb, demoDb, smokedDb } from "../../../../.storybook/fixtures";
 import { accountById, type AccountId } from "@/lib/accounts";
 import { useWorkspace } from "./useWorkspace";
 import { WorkspaceModals } from "./WorkspaceModals";
@@ -96,24 +90,6 @@ export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (
     <Modals account="chef" kind="chefEdit" lotId={smokedDb.lots.at(-1)!.id} />
-  ),
-};
-
-/** `shipmentRequest` routes to the Owner's Request form, no lot involved. */
-export const ShipmentRequest: Story = {
-  parameters: { db: multiPoDb },
-  render: () => <Modals account="owner" kind="shipmentRequest" lotId="" />,
-};
-
-/** `shipmentRequestEdit` opens the same form pre-filled with that Request's lines. */
-export const ShipmentRequestEdit: Story = {
-  parameters: { db: requestedDb },
-  render: () => (
-    <Modals
-      account="owner"
-      kind="shipmentRequestEdit"
-      lotId={requestedDb.lots.at(-1)!.id}
-    />
   ),
 };
 

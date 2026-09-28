@@ -51,9 +51,10 @@ import {
   type Role,
   type Values,
   type EntryKind,
-  STAGE,
-  stageAction,
   check,
+  lotProgress,
+  saleCost,
+  batchKinds,
 } from "@/lib/store";
 import {
   expectWarning,
@@ -71,10 +72,10 @@ import {
   readyToDispatch,
   received,
   returned,
-  request,
   send,
   setup,
   smoked,
+  smokeOrder,
 } from "./fixtures";
 
 const entry = (fields: Partial<Entry> & Pick<Entry, "kind">): Entry => ({
@@ -185,47 +186,87 @@ describe("derived values from the entry log", () => {
     expect(isClosed(withEntries(close, unlock), "ศาลาแดง", day)).toBe(false);
   });
 
-  test("lot cost adds meat, smoking and freight; per kg needs central stock", () => {
+  test("DASH-03 lot cost adds meat, smoking and freight; per kg needs central stock", () => {
     const lot: Lot = {
       id: "L1",
       poId: "SH-1",
       kind: "shipment",
-      stage: 8,
       config: {},
-      values: {
-        lines: JSON.stringify([{ lotId: "P1", kg: "10" }]),
-        outboundCost: "2000",
-        returnCost: "0",
-      },
+      values: { outboundCost: "2000", returnCost: "0" },
     };
     const po: Lot = {
       id: "P1",
       poId: "PO-1",
-      stage: 1,
       config: {},
       values: { price: "250" },
     };
-    const db = {
-      ...withEntries(
-        entry({
-          kind: "smokeOrder",
-          role: "owner",
-          lotId: "L1",
-          values: { estimatedCost: "2200" },
-        }),
-      ),
-      lots: [po, lot],
-    };
+    // The meat comes from the smoke PO's lines (the lot cache is only a copy of them).
+    const order = entry({
+      kind: "smokeOrder",
+      role: "owner",
+      lotId: "L1",
+      values: {
+        estimatedCost: "2200",
+        lines: JSON.stringify([{ lotId: "P1", kg: "10" }]),
+      },
+    });
+    const db = { ...withEntries(order), lots: [po, lot] };
     expect(lotCost(db, lot)).toEqual({
       meat: 2500,
       smoke: 2200,
+      smokingCostSource: "estimate",
       freight: 2000,
       total: 6700,
-      perKg: null,
+      perKg: 0,
     });
     expect(
       lotCost(db, { ...lot, values: { ...lot.values, centralKg: "10" } }).perKg,
     ).toBe(670);
+  });
+
+  test("D8 the smoking fee is the latest live invoice, else the PO estimate, else nothing", () => {
+    const lot: Lot = {
+      id: "L1",
+      poId: "SH-1",
+      kind: "shipment",
+      config: {},
+      values: {},
+    };
+    const order = entry({
+      kind: "smokeOrder",
+      role: "owner",
+      lotId: "L1",
+      values: { estimatedCost: "2200" },
+    });
+    const bill = (netPayable: string) =>
+      entry({
+        kind: "smokingInvoice",
+        role: "cm",
+        lotId: "L1",
+        values: { netPayable },
+      });
+    const none = { ...withEntries(), lots: [lot] };
+    expect(lotCost(none, lot)).toMatchObject({
+      smoke: 0,
+      smokingCostSource: "none",
+    });
+    const estimate = { ...withEntries(order), lots: [lot] };
+    expect(lotCost(estimate, lot)).toMatchObject({
+      smoke: 2200,
+      smokingCostSource: "estimate",
+    });
+    const invoiced = {
+      ...withEntries(order, bill("2400"), bill("2500")),
+      lots: [lot],
+    };
+    expect(lotCost(invoiced, lot)).toMatchObject({
+      smoke: 2500,
+      smokingCostSource: "invoice",
+    });
+    // Without a smoke PO the invoice still counts.
+    expect(
+      lotCost({ ...withEntries(bill("2400")), lots: [lot] }, lot).smoke,
+    ).toBe(2400);
   });
 
   test("visibleEntries hides other roles, other branches and cost fields", () => {
@@ -299,15 +340,16 @@ describe("derived values from the entry log", () => {
 });
 
 describe("mutate guards", () => {
-  test("invalid role and out-of-order writes rejected without mutation", () => {
+  test("PRIN-03 a wrong role is refused without mutation; an allocation over stock only warns", () => {
     const s = setup();
     expect(() =>
       s.run("cm", "purchase", { supplier: "x", orderedKg: "10", price: "1" }),
     ).toThrow(/ไม่มีสิทธิ์/);
     expect(s.db.lots).toHaveLength(0);
-    expect(() =>
-      s.run("owner", "allocate", { branch: "มีนบุรี", kg: "1" }),
-    ).toThrow(/สต๊อกกลาง/);
+    expectWarning(
+      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "1" }),
+      /สต๊อกกลางไม่พอ/,
+    );
   });
 
   test("rejects a malformed date or time", () => {
@@ -338,9 +380,9 @@ describe("mutate guards", () => {
     const s = setup();
     purchase(s, "40");
     purchase(s, "10");
-    expect(s.db.lots.map((lot) => [lot.id, lot.poId, lot.stage])).toEqual([
-      ["F260909-001", "PO-2026-0001", 1],
-      ["F260909-002", "PO-2026-0002", 1],
+    expect(s.db.lots.map((lot) => [lot.id, lot.poId])).toEqual([
+      ["F260909-001", "PO-2026-0001"],
+      ["F260909-002", "PO-2026-0002"],
     ]);
     // Everything but the legacy inline logo, which documents read from the current config.
     const { logoData, ...snapshot } = s.db.config;
@@ -532,21 +574,23 @@ describe("lot workflow", () => {
     );
   });
 
-  test("smoke PO waits for the Packing List, takes the kg entered (no cap) and prices the service", () => {
+  test("SMK-04 smoke PO needs no Packing List, takes the kg entered (no cap) and prices the service", () => {
     const s = setup();
-    readyToDispatch(s, "30");
-    const order = (rawKg = "32") =>
+    purchase(s, "30");
+    confirm(s, "30");
+    dispatch(s, "");
+    const order = (rawKg?: string) =>
       s.run("owner", "smokeOrder", {
         requestedSmokeDate: day,
         smoker: "Chef House",
-        rawKg,
+        ...(rawKg === undefined ? {} : { rawKg }),
       });
-    expect(() => order()).toThrow(/รอ Foodiva ทำ Packing List/);
-    dispatch(s);
+    // No Packing List yet: the Owner types the kg.
+    expect(() => order()).toThrow(/น้ำหนัก PO รมควัน/);
     packingList(s, "15\n15");
     expect(() => order("0")).toThrow(/น้ำหนัก PO รมควัน/);
-    // A6: pre-filled from the 30 kg Packing List but the Owner may order more.
-    order();
+    // Pre-filled from the 30 kg Packing List but the Owner may order more.
+    order("32");
     expect(last(s).values).toMatchObject({
       rawKg: "32",
       serviceRate: "220",
@@ -554,15 +598,19 @@ describe("lot workflow", () => {
       orderNumber: "SO-2026-0001",
       status: "Sent",
     });
-    expect(() => order()).toThrow(/ออก PO รมควันของการส่งนี้แล้ว/);
-    expect(() => packingList(s, "30")).toThrow(/แก้ไขไม่ได้/);
-    expect(() =>
-      s.run("cm", "smokingInvoice", {
-        invoiceNumber: "CH-1",
-        invoiceDate: day,
-        attachment: "x",
-      }),
-    ).toThrow(/ปิดรอบ/);
+    expect(() => order("32")).toThrow(/ออก PO รมควันของการส่งนี้แล้ว/);
+    // SHP-02: a later Packing List still saves and is said.
+    expectWarning(
+      s.dry(() => packingList(s, "30")),
+      /ออก PO รมควันของชุดนี้แล้ว/,
+    );
+    // SVC-01: Chef House bills before the run is closed.
+    s.run("cm", "smokingInvoice", {
+      invoiceNumber: "CH-1",
+      invoiceDate: day,
+      attachment: "x",
+    });
+    expect(last(s).values.serviceQuantity).toBe("32");
   });
 
   test("Chef House bills its own amount and the Owner pays exactly that (A7)", () => {
@@ -604,7 +652,7 @@ describe("lot workflow", () => {
     expect(smokingInvoiceStatus(s.db, sent)).toBe("ชำระแล้ว");
   });
 
-  test("smoking invoice goes from review to payment and cannot be paid twice", () => {
+  test("GEN-06 smoking invoice goes from review to payment and cannot be paid twice", () => {
     const s = closed();
     const smokingInvoice = invoice(s);
     expect(smokingInvoice.values).toMatchObject({
@@ -631,7 +679,11 @@ describe("lot workflow", () => {
     expect(status()).toBe("รอตรวจยอด");
     review("ส่งกลับแก้ไข");
     expect(status()).toBe("ส่งกลับแก้ไข");
-    expect(() => pay("11000")).toThrow(/ต้องรับยอด/);
+    // SVC-03: paying before the amount is accepted is said, not refused.
+    expectWarning(
+      s.dry(() => pay("11000")),
+      /ยังไม่ได้รับยอด/,
+    );
     review("รับยอด");
     expect(status()).toBe("รอชำระ");
     expectWarning(
@@ -640,6 +692,7 @@ describe("lot workflow", () => {
     );
     pay("11000");
     expect(status()).toBe("ชำระแล้ว");
+    expect(() => pay("11000")).toThrow(/ชำระ Invoice ใบนี้แล้ว/);
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
   });
 
@@ -656,12 +709,12 @@ describe("lot workflow", () => {
     expect(smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment).toBe(
       "ยอดคลาดเคลื่อน",
     );
-    // The review shows in Chef House history next to the Packing List and smoke PO it works
-    // from; the purchase PO, the Request and the transport documents stay hidden.
+    // The review shows in Chef House history next to the smoke PO and Packing List it works
+    // from; the purchase PO and the transport documents stay hidden.
     const chef = visibleEntries(s.db, "cm");
     expect(chef.filter((e) => e.role !== "cm").map((e) => e.kind)).toEqual([
-      "packingList",
       "smokeOrder",
+      "packingList",
       "invoiceReview",
     ]);
     s.run("owner", "invoiceReview", {
@@ -704,35 +757,35 @@ describe("lot workflow", () => {
       values: { quantityKg: "5" },
     });
     expect(rawAtFoodiva(s.db, lot())).toBe(31);
-    // A Request leaves the beef at Foodiva until its truck goes; the shipment holds none itself.
-    request(s, [[id, "10"]]);
+    // PO-05: a smoke PO leaves the beef at Foodiva until its truck goes; the batch holds none itself.
+    smokeOrder(s, [[id, "10"]], "10", "");
     expect(rawAtFoodiva(s.db, lot())).toBe(31);
     dispatch(s);
     expect(rawAtFoodiva(s.db, lot())).toBe(21);
     expect(rawAtFoodiva(s.db, s.db.lots.at(-1)!)).toBe(0);
   });
 
-  test("only Foodiva trucks a Request, and it carries the requested kg", () => {
+  test("SHP-01 only Foodiva trucks a batch, and it carries the kg typed (the PO's when blank)", () => {
     const t = setup();
     readyToDispatch(t, "40");
     expect(() => t.run("owner", "dispatch", send)).toThrow(/ไม่มีสิทธิ์/);
     expect(() => t.run("foodiva", "dispatch", send, t.db.lots[0].id)).toThrow(
       /ไม่ใช่ PO ซื้อ/,
     );
+    expect(t.check("foodiva", "dispatch", send).error).toBe("");
     t.run("foodiva", "dispatch", {
       ...send,
       trip: "เที่ยวเดียว",
-      dispatchKg: "999",
+      dispatchKg: "39",
     });
     const shipment = t.db.lots.at(-1)!;
-    expect(shipment.stage).toBe(2);
-    expect(shipment.values.dispatchKg).toBe("40");
+    expect(lotProgress(t.db, shipment.id).has("dispatch")).toBe(true);
+    expect(shipment.values.dispatchKg).toBe("39");
     expect(shipment.values.outboundCost).toBe("1200");
     expect(last(t).values.transferNumber).toBe("TR-2026-0001");
-    expect(t.db.lots[0].stage).toBe(1);
   });
 
-  test("smoke batches validate bag weights and close the stage when the input is used up", () => {
+  test("smoke batches validate bag weights and finish when the input is used up", () => {
     const s = setup();
     received(s, "50", "50", "49");
     s.run("cm", "prepare", { preSmokeKg: "48" });
@@ -746,7 +799,6 @@ describe("lot workflow", () => {
       /เท่ากับน้ำหนักเข้าเตา/,
     );
     smoke("20", "5", packs(150));
-    expect(lot().stage).toBe(4);
     expect(last(s).values).toMatchObject({
       postSmokeKg: "15.00",
       packCount: "150",
@@ -757,7 +809,6 @@ describe("lot workflow", () => {
     expect(rawAtSmoker(s.db, lot())).toBe(28);
     expect(pendingSmokeKg(s.db, lot())).toBe(28);
     smoke("28", "7", packs(210));
-    expect(lot().stage).toBe(5);
     expect(produced(s.db, id)).toBe(36);
     expect(producedBags(s.db, id)).toBe(360);
     expect(processLoss(s.db, id)).toBe(12);
@@ -786,12 +837,15 @@ describe("lot workflow", () => {
     expect(pendingSmokeKg(s.db, lot)).toBe(0);
   });
 
-  test("excess pre-smoke and over-smoke warn; closing before smoking is blocked", () => {
+  test("CHF-03 excess pre-smoke and over-smoke warn; closing before smoking only warns", () => {
     const s = setup();
     received(s, "10");
     expectWarning(s.check("cm", "prepare", { preSmokeKg: "11" }), /เกิน/);
     s.run("cm", "prepare", { preSmokeKg: "10" });
-    expect(() => s.run("cm", "closeLot", { confirm: "x" })).toThrow(/ขั้นตอน/);
+    expectWarning(
+      s.check("cm", "closeLot", { confirm: "x" }),
+      /ยังไม่มีผลผลิต/,
+    );
     expectWarning(
       s.check("cm", "smoke", {
         inputKg: "11",
@@ -808,7 +862,18 @@ describe("lot workflow", () => {
       smokeDate: day,
       packs: packs(50),
     });
-    expect(s.db.lots.at(-1)!.stage).toBe(STAGE.closeLot);
+    expect(pendingSmokeKg(s.db, s.db.lots.at(-1)!)).toBe(0);
+    // CHF-05: another round after ปิด Lot is recorded and said.
+    s.run("cm", "closeLot", { confirm: "x" });
+    expectWarning(
+      s.check("cm", "smoke", {
+        inputKg: "1",
+        wasteKg: "0",
+        smokeDate: day,
+        packs: packs(10),
+      }),
+      /ปิด Lot แล้ว/,
+    );
   });
 
   test("chef edit before close validates in mutate, never touches the old database and is logged", () => {
@@ -867,14 +932,14 @@ describe("lot workflow", () => {
     expect(entries(s.db, "smoke", id)[0].values.wasteKg).toBe("4");
     expect(produced(s.db, id)).toBe(37);
     expect(last(s).kind).toBe("chefEdit");
-    expect(s.db.lots.at(-1)!.stage).toBe(5);
     s.run("cm", "closeLot", { confirm: "x" }, id);
+    // CHF-04: no more corrections once the run is closed.
     expect(() =>
       edit(
         {},
         smokes.map((item) => draft(item)),
       ),
-    ).toThrow(/ก่อนยืนยันปิด Lot/);
+    ).toThrow(/ปิด Lot แล้ว/);
   });
 
   test("allocating by kg: 500 + 200 of 700 kg, received in parts, over-allocation warns", () => {
@@ -959,7 +1024,7 @@ describe("lot workflow", () => {
     expect(balance(s.db, id, "ศาลาแดง").received).toBe(499.5);
   });
 
-  test("over-allocation and over-thaw warn; cross-branch receive rejected", () => {
+  test("BR-01/BR-02 over-allocation and over-thaw warn; another branch's allocation is refused", () => {
     const s = ready();
     expectWarning(
       s.check("owner", "allocate", { branch: "มีนบุรี", kg: "36" }),
@@ -971,7 +1036,7 @@ describe("lot workflow", () => {
         kg: "5",
         allocation: last(s).id,
       }),
-    ).toThrow(/ไม่ได้จัดสรร/);
+    ).toThrow(/ไม่ใช่ของสาขาคุณ/);
     s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
     s.run("branch", "receive", { kg: "5", allocation: last(s).id });
     expectWarning(s.check("branch", "thaw", { kg: "6" }), /ไม่พอ/);
@@ -1341,7 +1406,9 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
   expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.797, 3);
   expect(cookedRiceStock(s.db, "ศาลาแดง")).toBeCloseTo(9.6, 3);
   expect(chiliStock(s.db, "ศาลาแดง")).toBe(4);
-  expect(Number(last(s).values.meatCost)).toBeGreaterThan(0);
+  // BR-05: the meat cost is read, not stored.
+  expect(last(s).values.meatCost).toBeUndefined();
+  expect(saleCost(s.db, last(s)).meatCost).toBeGreaterThan(0);
   // Owner-only: the branch log never shows what the giveaway cost.
   expect(
     visibleEntries(s.db, "branch", "ศาลาแดง").at(-1)!.values.meatCost,
@@ -1474,7 +1541,7 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   const s = ready();
   const id = s.db.lots.at(-1)!.id;
   expect(produced(s.db, id)).toBe(36);
-  expect(s.db.lots.at(-1)!.stage).toBe(8);
+  expect(lotProgress(s.db, id).has("central")).toBe(true);
   expect(lotCost(s.db, s.db.lots.at(-1)!).freight).toBe(2000);
   s.run("owner", "allocate", {
     branch: "ศาลาแดง",
@@ -1588,10 +1655,12 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
 
 test("seven-day roleplay replays every role through mutate", () => {
   const db = sevenDayRoleplay(day);
-  // One purchase PO (stays at stage 1) and the one shipment built from it.
-  expect(db.lots.map((lot) => [lot.kind, lot.stage])).toEqual([
-    [undefined, 1],
-    ["shipment", 8],
+  // One purchase PO and the one batch built from it, in central stock.
+  expect(
+    db.lots.map((lot) => [lot.kind, lotProgress(db, lot.id).has("central")]),
+  ).toEqual([
+    [undefined, false],
+    ["shipment", true],
   ]);
   expect(entries(db, "meatPayment")).toHaveLength(1);
   expect(entries(db, "closeDay")).toHaveLength(14);
@@ -1600,22 +1669,17 @@ test("seven-day roleplay replays every role through mutate", () => {
 });
 
 describe("backdated entries", () => {
-  test("a stage step cannot be dated before the lot's latest entry", () => {
+  test("GEN-04 a batch entry dated before the batch's other entries saves with a warning", () => {
     const s = setup();
     readyToDispatch(s, "50");
-    expect(() =>
-      mutate(
-        s.db,
-        "foodiva",
-        "dispatch",
-        send,
-        s.db.lots.at(-1)!.id,
-        "2026-09-01",
-      ),
-    ).toThrow(`วันที่ต้องไม่ก่อนขั้นตอนก่อนหน้าของ Lot นี้ (${day})`);
+    const lotId = s.db.lots.at(-1)!.id;
+    const early = check(() =>
+      mutate(s.db, "foodiva", "dispatch", send, lotId, "2026-09-01"),
+    );
+    expectWarning(early, `วันที่ก่อนรายการอื่นของชุดนี้ (${day})`);
   });
 
-  test("a backdated stage step on or after the previous step still saves", () => {
+  test("a backdated batch entry on or after the others still saves", () => {
     const s = setup();
     readyToDispatch(s, "50");
     const backdated = "2026-09-10"; // after `day`, before the real today
@@ -1627,14 +1691,14 @@ describe("backdated entries", () => {
       s.db.lots.at(-1)!.id,
       backdated,
     );
-    expect(db.lots.at(-1)!.stage).toBe(2);
+    expect(lotProgress(db, db.lots.at(-1)!.id).has("dispatch")).toBe(true);
     expect(db.entries.at(-1)!.date).toBe(backdated);
   });
 
-  test("a non-stage entry cannot predate the lot's PO", () => {
+  test("GEN-05 a purchase-PO entry dated before the PO saves with a warning", () => {
     const s = setup();
     purchase(s, "40");
-    expect(() =>
+    const early = check(() =>
       mutate(
         s.db,
         "foodiva",
@@ -1652,7 +1716,8 @@ describe("backdated entries", () => {
         s.db.lots[0].id,
         "2026-09-01",
       ),
-    ).toThrow(`วันที่ต้องไม่ก่อนวันเปิด PO ของ Lot นี้ (${day})`);
+    );
+    expectWarning(early, `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${day})`);
   });
 });
 
@@ -1782,7 +1847,345 @@ describe("chill carryover", () => {
   });
 });
 
-test("STAGE names each stage by the step it waits for", () => {
-  expect(Object.keys(STAGE)).toEqual(stageAction);
-  expect(Object.values(STAGE)).toEqual(stageAction.map((_, i) => i));
+describe("free ledger (PRD v9)", () => {
+  const truck = { ...send, dispatchKg: "50" };
+  const list = {
+    invoiceNo: "INV-1",
+    product: "เนื้อวัว",
+    slicedLostKg: "50",
+    boxes: "25\n25",
+  };
+  const bill = {
+    invoiceNumber: "CH-1",
+    invoiceDate: day,
+    attachment: "ch.pdf",
+    serviceQuantity: "50",
+  };
+  const truckBack = {
+    returnDate: day,
+    returnTime: "09:00",
+    origin: "Chef House",
+    destination: "Foodiva",
+    vehicleType: "รถห้องเย็น",
+    plate: "กข123",
+    driverName: "คนขับ",
+    driverPhone: "0800000000",
+    returnKg: "36",
+  };
+  /** Every batch kind with values that pass on their own, whatever came before. */
+  const steps: [Role, EntryKind, Values][] = [
+    ["foodiva", "dispatch", truck],
+    ["foodiva", "packingList", list],
+    [
+      "owner",
+      "smokeOrder",
+      { requestedSmokeDate: day, smoker: "Chef House", rawKg: "50" },
+    ],
+    ["cm", "cmReceive", { arrival: "08:00", receivedBoxes: "24.5\n24.5" }],
+    ["cm", "prepare", { preSmokeKg: "48" }],
+    [
+      "cm",
+      "smoke",
+      { smokeDate: day, inputKg: "48", wasteKg: "12", packs: packs(360) },
+    ],
+    ["cm", "closeLot", { confirm: "สมชาย" }],
+    ["cm", "smokingInvoice", bill],
+    ["owner", "return", truckBack],
+    [
+      "foodiva",
+      "foodivaReturnReceive",
+      {
+        receivedDate: day,
+        receivedTime: "10:00",
+        receivedKg: "36",
+        receivedBags: "360",
+      },
+    ],
+    ["owner", "central", { centralKg: "35" }],
+    ["owner", "allocate", { branch: "ศาลาแดง", kg: "10", deliveryDate: day }],
+  ];
+
+  test("PRIN-01 every batch kind saves in any order on one batch", () => {
+    // A fixed shuffle, so a failure is the same failure every run.
+    const order = [11, 4, 8, 1, 10, 6, 0, 9, 3, 7, 2, 5];
+    const s = setup();
+    purchase(s, "50");
+    confirm(s, "50");
+    let lotId = "";
+    for (const index of order) {
+      const [role, kind, values] = steps[index];
+      if (kind === "cmReceive") {
+        // smokeOrderAccept needs a PO to accept (SMK-06): the one refusal that stays.
+        expect(() =>
+          s.run("cm", "smokeOrderAccept", { acceptedBy: "x" }, lotId),
+        ).toThrow(/ยังไม่มี PO รมควัน/);
+      }
+      s.run(role, kind, values, lotId);
+      lotId = s.db.lots.at(-1)!.id;
+    }
+    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
+    expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
+    expect(entries(s.db, "allocate", lotId)).toHaveLength(1);
+    expect(centralStock(s.db, lotId)).toBe(25);
+  });
+
+  test("SMK-07 lotProgress lists the kinds a batch holds, never the bookkeeping", () => {
+    const s = smoked();
+    const lotId = s.db.lots.at(-1)!.id;
+    expect([...lotProgress(s.db, lotId)].sort()).toEqual(
+      [
+        "smokeOrder",
+        "dispatch",
+        "packingList",
+        "smokeOrderAccept",
+        "cmReceive",
+        "prepare",
+        "smoke",
+      ].sort(),
+    );
+    expect(lotProgress(s.db, lotId).has("closeLot")).toBe(false);
+    expect(
+      batchKinds.filter((kind) => !lotProgress(s.db, lotId).has(kind)),
+    ).toContain("closeLot");
+    // A void takes its target out; the void itself is not progress.
+    const t = ready();
+    t.run("owner", "allocate", {
+      branch: "ศาลาแดง",
+      kg: "5",
+      deliveryDate: day,
+    });
+    t.run("owner", "void", { targetId: last(t).id, reason: "x" });
+    expect(lotProgress(t.db, t.db.lots.at(-1)!.id).has("allocate")).toBe(false);
+    expect(lotProgress(t.db, t.db.lots.at(-1)!.id).has("void")).toBe(false);
+  });
+
+  test("SMK-01 a Chef cmReceive before the smoke PO, and the Owner's PO lands on that batch", () => {
+    const s = setup();
+    purchase(s, "50");
+    confirm(s, "50");
+    s.run(
+      "cm",
+      "cmReceive",
+      { arrival: "08:00", receivedBoxes: "24.5\n24.5" },
+      "",
+    );
+    const batch = s.db.lots.at(-1)!;
+    expect(batch.kind).toBe("shipment");
+    expect(batch.poId).toBe("SH-2026-0001");
+    smokeOrder(s, [[s.db.lots[0].id, "50"]], "50", batch.id);
+    expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
+    expect(last(s).lotId).toBe(batch.id);
+    expect(batch.id).toBe(s.db.lots.at(-1)!.id);
+    expect(s.db.lots.at(-1)!.values.requestedKg).toBe("50");
+    // Now the accept goes through.
+    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, batch.id);
+    expect(lotProgress(s.db, batch.id).has("smokeOrderAccept")).toBe(true);
+  });
+
+  test("DASH-03 a smoke PO drawing on two purchase POs splits the meat cost pro rata", () => {
+    const s = setup();
+    purchase(s, "100", "200");
+    purchase(s, "100", "300");
+    const [a, b] = s.db.lots.map((lot) => lot.id);
+    confirm(s, "100");
+    smokeOrder(
+      s,
+      [
+        [a, "30"],
+        [b, "10"],
+      ],
+      "40",
+      "",
+    );
+    const batch = s.db.lots.at(-1)!;
+    // Before Chef House weighs in: the line kg × each PO's price.
+    expect(lotCost(s.db, batch).meat).toBe(30 * 200 + 10 * 300);
+    dispatch(s);
+    packingList(s, "20\n20");
+    s.run("cm", "cmReceive", { arrival: "08:00", receivedBoxes: "19\n19" });
+    // Once weighed in: 38 kg split 3:1.
+    expect(lotCost(s.db, s.db.lots.at(-1)!).meat).toBeCloseTo(
+      28.5 * 200 + 9.5 * 300,
+    );
+    expect(poRemainingKg(s.db, a)).toBe(70);
+    expect(poRemainingKg(s.db, b)).toBe(90);
+  });
+
+  test("SMK-03 smoke PO lines refuse an unknown or repeated PO and warn on a missing invoice or too much", () => {
+    const s = setup();
+    purchase(s, "100");
+    const po = s.db.lots[0].id;
+    const order = (lines: [string, string][]) =>
+      s.check(
+        "owner",
+        "smokeOrder",
+        {
+          requestedSmokeDate: day,
+          smoker: "Chef House",
+          rawKg: "10",
+          lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
+        },
+        "",
+      );
+    expect(order([["F000000-999", "1"]]).error).toMatch(/ไม่พบ PO ซื้อ/);
+    expect(
+      order([
+        [po, "1"],
+        [po, "2"],
+      ]).error,
+    ).toMatch(/ซ้ำ/);
+    expect(order([[po, "0"]]).error).toMatch(/มากกว่าศูนย์/);
+    expectWarning(order([[po, "10"]]), /ยังไม่มี Invoice เนื้อ/);
+    expectWarning(
+      order([[po, "101"]]),
+      new RegExp(`เกินยอดคงเหลือของ ${s.db.lots[0].poId}`),
+    );
+  });
+
+  test("LNK-04 a branch receive with no lot, then a link, moves its balance to that batch", () => {
+    const s = ready();
+    const batch = s.db.lots.at(-1)!.id;
+    s.run("branch", "receive", { kg: "10" }, "");
+    const receive = last(s);
+    expect(balance(s.db, "", "ศาลาแดง").received).toBe(10);
+    expect(balance(s.db, batch, "ศาลาแดง").received).toBe(0);
+    expect(centralStock(s.db, batch)).toBe(35);
+    // Another branch may not link it; the branch itself and the Owner may (LNK-01).
+    expect(() =>
+      mutate(
+        s.db,
+        "branch",
+        "link",
+        { targetId: receive.id, lotId: batch },
+        "",
+        day,
+        "มีนบุรี",
+      ),
+    ).toThrow(/ไม่มีสิทธิ์/);
+    expect(() =>
+      s.run(
+        "branch",
+        "link",
+        { targetId: receive.id, lotId: "S000000-999" },
+        "",
+      ),
+    ).toThrow(/ไม่พบชุดรมควัน/);
+    expect(() => s.run("branch", "link", { targetId: receive.id }, "")).toThrow(
+      /เลือกชุด/,
+    );
+    s.run("branch", "link", { targetId: receive.id, lotId: batch }, "");
+    expect(balance(s.db, "", "ศาลาแดง").received).toBe(0);
+    expect(balance(s.db, batch, "ศาลาแดง").received).toBe(10);
+    // RET-04: a receive straight from the batch comes off central stock.
+    expect(centralStock(s.db, batch)).toBe(25);
+    // BR-05: a sale in the bucket costs nothing until it is linked.
+    s.run("branch", "thaw", { kg: "1" }, "");
+    s.run("branch", "receive", { kg: "1" }, "");
+    expect(saleCost(s.db, last(s))).toMatchObject({
+      meatCost: 0,
+      unlinked: true,
+    });
+    // LNK-05: the latest link wins, and voiding it goes back to the one before.
+    const move = () =>
+      s.run("owner", "link", { targetId: receive.id, lotId: batch }, "");
+    move();
+    expect(balance(s.db, batch, "ศาลาแดง").received).toBe(10);
+    s.run("owner", "void", { targetId: last(s).id, reason: "x" }, "");
+    expect(balance(s.db, batch, "ศาลาแดง").received).toBe(10);
+    // LNK-03: only branch meat and material receipts link.
+    const central = entries(s.db, "central")[0];
+    expect(() =>
+      s.run("owner", "link", { targetId: central.id, lotId: batch }, ""),
+    ).toThrow(/ผูกย้อนหลังไม่ได้/);
+  });
+
+  test("MAT-01 a material receipt with no transfer counts at the branch and links to one later", () => {
+    const s = setup();
+    s.run(
+      "branch",
+      "materialConfirm",
+      { material: materials[0], receivedQuantity: "5", receiver: "นิด" },
+      "",
+    );
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
+    expect(ownerMaterialStock(s.db, materials[0])).toBe(0);
+    s.run(
+      "owner",
+      "materialReceive",
+      {
+        purchaseDate: day,
+        material: materials[0],
+        quantity: "20",
+        unitPrice: "1",
+        supplier: "x",
+      },
+      "",
+    );
+    s.run(
+      "owner",
+      "materialTransfer",
+      {
+        material: materials[0],
+        branch: "ศาลาแดง",
+        quantity: "5",
+        receiver: "นิด",
+      },
+      "",
+    );
+    const transfer = last(s);
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
+    const confirm = entries(s.db, "materialConfirm")[0];
+    s.run(
+      "branch",
+      "link",
+      { targetId: confirm.id, transferId: transfer.id },
+      "",
+    );
+    expect(entries(s.db, "materialConfirm")[0].values.transferId).toBe(
+      transfer.id,
+    );
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
+    // The transfer is taken: a second receipt on it is refused (GEN-06).
+    expect(() =>
+      s.run(
+        "branch",
+        "materialConfirm",
+        { transferId: transfer.id, receivedQuantity: "5", receiver: "นิด" },
+        "",
+      ),
+    ).toThrow(/ยืนยันรับรายการนี้แล้ว/);
+  });
+
+  test("DASH-07 sales, cost and profit of a fully linked day are what they were before A0", () => {
+    const s = chillDay();
+    const sales = entries(s.db, "sale");
+    const costs = sales.map((sale) => saleCost(s.db, sale));
+    expect(sales.reduce((sum, e) => sum + Number(e.values.revenue), 0)).toBe(
+      209600,
+    );
+    expect(costs.reduce((sum, c) => sum + c.meatCost, 0)).toBeCloseTo(
+      44121.5278,
+      3,
+    );
+    expect(costs.reduce((sum, c) => sum + c.wasteCost, 0)).toBe(0);
+    expect(lotCost(s.db, s.db.lots.at(-1)!)).toMatchObject({
+      meat: 24500,
+      smoke: 22000,
+      smokingCostSource: "estimate",
+      freight: 2000,
+      total: 48500,
+    });
+    expect(lotCost(s.db, s.db.lots.at(-1)!).perKg).toBeCloseTo(673.6111, 3);
+    // The seven-day roleplay: same meat and freight; its smoking fee is now the invoiced 11,440 (D8).
+    const db = sevenDayRoleplay(day);
+    expect(
+      entries(db, "sale").reduce((sum, e) => sum + Number(e.values.revenue), 0),
+    ).toBe(68600);
+    expect(lotCost(db, db.lots.at(-1)!)).toMatchObject({
+      meat: 12500,
+      smoke: 11440,
+      smokingCostSource: "invoice",
+      freight: 2000,
+    });
+  });
 });

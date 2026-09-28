@@ -1,4 +1,4 @@
-/** Local demo domain. Every mutation is validated here; the UI never advances stages itself.
+/** The domain: a free-form ledger validated by `mutate`, summed up by the derived functions.
  *  The code lives in src/lib/store/; this file is its public API, unchanged by the split. */
 export {
   type Role,
@@ -13,10 +13,8 @@ export {
   entryBy,
   materials,
   branches,
-  stages,
-  stageRole,
-  stageAction,
-  STAGE,
+  batchKinds,
+  branchMeatKinds,
   titles,
   editApprovers,
   editableKinds,
@@ -35,6 +33,7 @@ export {
   isPackWeight,
   validPackWeights,
   processed,
+  lotProgress,
   centralStock,
   rawAtFoodiva,
   readyForChefHouse,
@@ -82,6 +81,8 @@ export {
   materialUnitPrice,
   isClosed,
   lotCost,
+  saleCost,
+  unlinkedSummary,
   smokeServiceRate,
   smokingInvoiceStatus,
   smokingInvoiceReview,
@@ -92,6 +93,7 @@ export {
 } from "./store/derived";
 export {
   saleMoneyKeys,
+  visibleLots,
   visibleEntries,
   visibleDatabase,
   editBlock,

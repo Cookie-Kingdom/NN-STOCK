@@ -13,7 +13,6 @@ import {
   received,
   setup,
   smoked,
-  smokeOrder,
 } from "./fixtures";
 
 /** The bell reads the Chef House view of the database, same as the workspace does. */
@@ -27,7 +26,6 @@ function atTheDoor() {
   readyToDispatch(s, "50");
   dispatch(s);
   packingList(s, "25\n25");
-  smokeOrder(s);
   return s;
 }
 
