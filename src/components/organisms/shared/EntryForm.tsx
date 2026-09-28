@@ -495,6 +495,9 @@ export function EntryForm({
   const riceSource = cooksRice(branch) ? values.riceSource : riceSources[1];
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
+    // SVC-01: Chef House types the billed kg only while the batch has no smoke PO.
+    if (kind === "smokingInvoice" && field.key === "serviceQuantity")
+      return !!lot && !entries(db, "smokeOrder", lot.id).length;
     // ricePurchase follows the round's choice, not the branch (B2); it starts on the
     // branch's last choice.
     if (kind === "ricePurchase" && field.key === "riceSource")

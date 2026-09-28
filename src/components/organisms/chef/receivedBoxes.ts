@@ -27,6 +27,22 @@ export const listedDraft = (list: Entry | undefined): ReceivedDraft =>
 export const receivedValue = (draft: ReceivedDraft) =>
   draft.map((kg) => (kg === undefined ? "" : String(kg))).join("\n");
 
+/** CHF-07: a weigh-in with no Packing List on file. The same table with no listed column
+ *  to compare against; Chef House sets how many boxes came and weighs each one. */
+export function blankView(
+  date: string,
+  draft: ReceivedDraft,
+): { header: PackingListHeader; boxes: PackingListBox[] } {
+  return {
+    header: {
+      date,
+      invoiceNo: "",
+      product: "ยังไม่มี Packing List จาก Foodiva",
+    },
+    boxes: draft.map((received, index) => ({ no: index + 1, received })),
+  };
+}
+
 /** What PackingListTable needs to show Foodiva's saved list beside the yellow cells.
  *  `expected[i]` marks box i+1's yellow cell as still holding the prefilled weight. */
 export function packingListView(

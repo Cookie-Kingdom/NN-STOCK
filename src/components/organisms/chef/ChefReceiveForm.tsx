@@ -14,9 +14,11 @@ import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import {
+  blankView,
   listedDraft,
   packingListView,
   receivedValue,
+  type ReceivedDraft,
 } from "@/components/organisms/chef/receivedBoxes";
 import { currentTimeSlot, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
@@ -32,6 +34,10 @@ import {
  * Chef House weighs in a shipment: the latest Packing List with only the yellow
  * cells editable, plus the arrival time. A total off the Packing List saves without
  * complaint — it is the weight stock and cost run on.
+ *
+ * CHF-01/07: no Packing List on file (or `lotId === ""`, which opens a new batch) is
+ * no reason to wait. The table then starts with one blank box and Chef House sets how
+ * many came.
  */
 export function ChefReceiveForm({
   db,
@@ -54,13 +60,29 @@ export function ChefReceiveForm({
   const [arrival, setArrival] = useState(() => currentTimeSlot());
   const [arrivalTouched, setArrivalTouched] = useState(false);
   // Each yellow cell starts at its Packing List weight, marked until it is edited.
-  const [received, setReceived] = useState(() => listedDraft(list));
+  const [received, setReceived] = useState<ReceivedDraft>(() =>
+    list ? listedDraft(list) : [undefined],
+  );
   const [expected, setExpected] = useState(() =>
     listedDraft(list).map((kg) => kg !== undefined),
   );
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  if (!lot || !list) return null;
-  const view = packingListView(list, received, expected);
+  // A lot gone from view; "" is a new batch, not a missing one.
+  if (lotId && !lot) return null;
+  const view = list
+    ? packingListView(list, received, expected)
+    : blankView(date, received);
+  // Without a Packing List Chef House says how many boxes came.
+  const resize = (count: number) => {
+    setReceived((current) =>
+      Array.from({ length: count }, (_, i) => current[i]),
+    );
+    setError("");
+  };
+  const removeBox = (no: number) => {
+    setReceived((current) => current.filter((_, i) => i !== no - 1));
+    setError("");
+  };
   const unweighed = expected.filter(Boolean).length;
   const missing = received.filter((kg) => kg === undefined).length;
   const input = { arrival, receivedBoxes: receivedValue(received) };
@@ -80,7 +102,7 @@ export function ChefReceiveForm({
 
   return (
     <Dialog
-      overline={`${date} · Chef House · ${lot.poId}`}
+      overline={`${date} · Chef House · ${lot ? lot.poId : "ชุดใหม่"}`}
       title={titles.cmReceive}
       size="wide"
       onClose={onClose}
@@ -88,12 +110,22 @@ export function ChefReceiveForm({
       <DialogForm noValidate onSubmit={save}>
         <DialogBody>
           <WorkingDateField asField date={date} onDate={onDate} />
-          <Notice>
-            ช่องสีเหลืองใส่น้ำหนักตาม Packing List ไว้ให้แล้ว
-            ชั่งทีละกล่องรับเข้าแล้วแก้เป็นน้ำหนักจริง ช่องของ Foodiva แก้ไม่ได้
-            ใส่ 0 ถ้าไม่ได้รับกล่องนั้น ยอดไม่ตรงกับ Packing List ก็บันทึกได้
-            และแก้ได้จนกว่าจะยืนยันปิด Lot
-          </Notice>
+          {list ? (
+            <Notice>
+              ช่องสีเหลืองใส่น้ำหนักตาม Packing List ไว้ให้แล้ว
+              ชั่งทีละกล่องรับเข้าแล้วแก้เป็นน้ำหนักจริง ช่องของ Foodiva
+              แก้ไม่ได้ ใส่ 0 ถ้าไม่ได้รับกล่องนั้น ยอดไม่ตรงกับ Packing List
+              ก็บันทึกได้ และแก้ได้จนกว่าจะยืนยันปิด Lot
+            </Notice>
+          ) : (
+            <Notice tone="warning">
+              {lot
+                ? "ชุดนี้ยังไม่มี Packing List จาก Foodiva"
+                : "เปิดชุดใหม่ ระบบออกเลขที่การส่งให้เมื่อบันทึก"}{" "}
+              · ใส่จำนวนกล่องที่มาถึง แล้วชั่งน้ำหนักจริงทีละกล่องในช่องสีเหลือง
+              บันทึกได้เลยโดยไม่ต้องรอ Packing List หรือ PO รมควัน
+            </Notice>
+          )}
           <FormGrid>
             <FormField
               label="เวลาที่รถมาถึง"
@@ -120,6 +152,13 @@ export function ChefReceiveForm({
           </FormGrid>
           <PackingListTable
             {...view}
+            {...(list
+              ? {}
+              : {
+                  title: "กล่องที่รับเข้า",
+                  onRows: resize,
+                  onRemoveRow: removeBox,
+                })}
             onReceived={(no, kg) => {
               setReceived((current) =>
                 current.map((value, i) => (i === no - 1 ? kg : value)),

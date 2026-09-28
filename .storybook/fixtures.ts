@@ -17,6 +17,7 @@ import {
   dispatch,
   invoice,
   packingList,
+  packs,
   purchase,
   ready,
   readyToDispatch,
@@ -358,6 +359,48 @@ export const chefBusyDb: Database = (() => {
   readyToDispatch(s, "40");
   dispatch(s);
   packingList(s, "20\n20");
+  return s.db;
+})();
+
+/** Chef House opened a batch itself (CHF-01, D2): 30 kg weighed in with no Packing List and
+ *  no smoke PO, then weighed before smoking. The row carries "ยังไม่มี PO รมควัน". */
+function chefFirst(steps: 0 | 1) {
+  const s = setup();
+  s.run("cm", "cmReceive", { receivedBoxes: "15\n15", arrival: "08:00" }, "");
+  s.run("cm", "prepare", { preSmokeKg: "29" });
+  if (steps > 0) {
+    s.run("cm", "smoke", {
+      smokeDate: day,
+      inputKg: "29",
+      wasteKg: "5",
+      packs: packs(240),
+    });
+    s.run("cm", "closeLot", { confirm: "สมชาย" });
+    // SVC-01: with no smoke PO Chef House types the billed kg itself.
+    s.run("cm", "smokingInvoice", {
+      invoiceNumber: "CH-1",
+      invoiceDate: day,
+      serviceQuantity: "30",
+      attachment: "ch.pdf",
+    });
+  }
+  return s;
+}
+
+/** A batch Chef House opened and weighed in, no Packing List and no smoke PO yet. */
+export const chefOpenedDb: Database = chefFirst(0).db;
+
+/** Chef House's own batch smoked, closed and billed before any smoke PO exists. */
+export const chefBilledDb: Database = chefFirst(1).db;
+
+/** `chefBilledDb`, then the Owner issues the smoke PO on that same batch: Chef House now
+ *  sees it and can accept it. The PO cites a purchase PO Chef House never sees. */
+export const chefPoLaterDb: Database = (() => {
+  const s = chefFirst(1);
+  const batch = s.db.lots.at(-1)!.id;
+  purchase(s, "30");
+  confirm(s, "30");
+  smokeOrder(s, [[s.db.lots.at(-1)!.id, "30"]], "30", batch);
   return s.db;
 })();
 
