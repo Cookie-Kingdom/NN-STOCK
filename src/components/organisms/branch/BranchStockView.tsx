@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Select } from "@/components/atoms/Select";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { TableFilter } from "@/components/molecules/TableFilter";
@@ -23,6 +24,7 @@ import {
   type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { noLotLabel } from "@/lib/nav";
 
 /** The branch screen only ever lists what is physically at this one branch, so there is
  *  no สถานที่ filter and none of the Owner's rows (Foodiva, คลัง Owner, waste,
@@ -42,26 +44,30 @@ export type BranchStockRow = {
   quantity: string;
   unit: string;
   detail: string;
+  /** Set on the "ไม่ระบุ Lot" meat row: meat received without a batch (BR-04). */
+  unlinked?: true;
 };
 
-/** Every stock line of one branch, in table order: เนื้อ per Lot, then วัตถุดิบ, then the
- *  7 วัสดุบรรจุภัณฑ์. A meat Lot only earns a row while it still holds something or has
- *  meat waiting to be received. Pure: the filters read it, and so does the unit test. */
+/** Every stock line of one branch, in table order: เนื้อ per Lot (then the "ไม่ระบุ Lot"
+ *  bucket), then วัตถุดิบ, then the 7 วัสดุบรรจุภัณฑ์. A meat Lot only earns a row while
+ *  it still holds something or has meat waiting to be received. Pure: the filters read
+ *  it, and so does the unit test. */
 export function branchStockRows(
   db: Database,
   branch: string,
   lots: Lot[],
 ): BranchStockRow[] {
   return [
-    ...lots.flatMap((lot) => {
-      const stock = balance(db, lot.id, branch);
-      const pending = pendingReceiveKg(db, lot.id, branch);
+    ...[...lots.map((lot) => lot.id), ""].flatMap((lotId) => {
+      const stock = balance(db, lotId, branch);
+      const pending = lotId ? pendingReceiveKg(db, lotId, branch) : 0;
       const held = stock.frozen + stock.ready;
       if (held <= 0.001 && pending <= 0.001) return [];
       return [
         {
           genre: "เนื้อ",
-          item: `${lot.id} · เนื้อรมควัน`,
+          item: `${lotId || noLotLabel} · เนื้อรมควัน`,
+          ...(lotId ? {} : { unlinked: true as const }),
           quantity: fmt(held),
           unit: "กก.",
           detail:
@@ -167,7 +173,14 @@ export function BranchStockView({
       columns={inventoryColumns}
       rows={visibleRows.map((row) => [
         row.genre,
-        row.item,
+        row.unlinked ? (
+          <span key="item" className="inline-flex flex-wrap items-center gap-2">
+            {row.item}
+            <Badge tone="warning">ยังไม่ผูก Lot</Badge>
+          </span>
+        ) : (
+          row.item
+        ),
         row.quantity,
         row.unit,
         row.detail,

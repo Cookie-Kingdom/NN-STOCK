@@ -10,14 +10,15 @@ import {
   materialTransferDb,
   nextDay,
   open,
+  unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import {
   closeDayChecklist,
-  entries,
   isClosed,
   requiredRiceKinds,
+  visibleLots,
 } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
 import { BranchStockView } from "./BranchStockView";
@@ -32,10 +33,9 @@ import { MeatDaySummary } from "./MeatDaySummary";
 const db = demoDb;
 const branch = "ศาลาแดง";
 const closed = isClosed(db, branch, day);
-/** The same list the workspace hands the branch: Lots allocated to this branch only. */
-const branchLots = db.lots.filter(
-  (lot) => entries(db, "allocate", lot.id, branch).length > 0,
-);
+/** The same list the workspace hands the branch (BR-07): Lots allocated to this branch
+ *  or holding its own entries. */
+const branchLots = visibleLots(db, "branch", branch);
 
 /** Storybook's stand-in for the user picking a กลุ่มสต๊อก in the filter bar. */
 const pickGenre =
@@ -54,7 +54,11 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<{ db: Database; date: string }>;
 
-const dayState = pick("วัน", { เปิดวัน: db, ปิดวันแล้ว: dayClosedDb });
+const dayState = pick("วัน", {
+  เปิดวัน: db,
+  ปิดวันแล้ว: dayClosedDb,
+  "ไม่ระบุ Lot": unlinkedBranchDb,
+});
 const checklistState = pick("สถานะ", {
   ยังไม่ครบ: chillDb,
   ครบแล้ว: closeReadyDb,
@@ -66,8 +70,9 @@ const materialsState = pick("สถานะ", {
 });
 const meatDay = pick("วัน", { วันนี้: day, วันถัดไป: nextDay });
 
-/** Pick the day's state in Controls: เปิดวัน, or after ปิดวัน (status reads locked and
- *  every action is disabled). */
+/** Pick the day's state in Controls: เปิดวัน, after ปิดวัน (status reads locked and
+ *  every action is disabled), or "ไม่ระบุ Lot" (meat received with no batch: thawing
+ *  and selling open on that bucket). "รับของ" is always open, allocation or not. */
 export const DailyWorkflow: Story = {
   argTypes: { db: dayState.argType },
   args: { db: dayState.initial },
@@ -76,7 +81,7 @@ export const DailyWorkflow: Story = {
       db={db}
       branch={branch}
       date={day}
-      lots={db.lots}
+      lots={visibleLots(db, "branch", branch)}
       closed={isClosed(db, branch, day)}
       open={open}
       onTab={fn()}
@@ -87,6 +92,19 @@ export const DailyWorkflow: Story = {
 /** สต๊อก: ทุกอย่างที่อยู่ที่สาขานี้จริง ๆ ในตารางเดียว กรองด้วยกลุ่มสต๊อกและรายการ */
 export const StockView: Story = {
   render: () => <BranchStockView db={db} branch={branch} lots={branchLots} />,
+};
+
+/** เนื้อที่รับเข้าโดยไม่ระบุ Lot: แถว "ไม่ระบุ Lot · เนื้อรมควัน" พร้อมป้าย "ยังไม่ผูก Lot"
+ *  และวัสดุที่รับโดยไม่มีใบโอนนับเข้าสต๊อกวัสดุ (materials[0] +50) */
+export const StockViewUnlinked: Story = {
+  parameters: { db: unlinkedBranchDb },
+  render: () => (
+    <BranchStockView
+      db={unlinkedBranchDb}
+      branch={branch}
+      lots={visibleLots(unlinkedBranchDb, "branch", branch)}
+    />
+  ),
 };
 
 /** กลุ่มสต๊อก = เนื้อ: เหลือเฉพาะ Lot ที่สาขานี้ถือหรือรออยู่ */
@@ -180,6 +198,19 @@ export const MaterialReceipt: Story = {
   ),
 };
 
+/** "รับวัสดุโดยไม่มีใบโอน" opened: material, quantity and receiver are typed by the
+ *  branch; บันทึกรับวัสดุ saves a materialConfirm with no transferId (MAT-01). */
+export const MaterialReceiptNoTransfer: Story = {
+  ...MaterialReceipt,
+  play: async ({ canvasElement }) => {
+    fireEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "รับวัสดุโดยไม่มีใบโอน",
+      }),
+    );
+  },
+};
+
 export const Summary: Story = {
   render: () => (
     <>
@@ -197,5 +228,14 @@ export const MeatDay: Story = {
   args: { date: meatDay.initial },
   render: ({ date }) => (
     <MeatDaySummary db={chillDb} branch={branch} date={date} />
+  ),
+};
+
+/** Meat with no batch: the "ไม่ระบุ Lot" row with its "ยังไม่ผูก Lot" badge — 6 kg
+ *  thawed, 3 kg used, 3 kg chill to tomorrow. */
+export const MeatDayUnlinked: Story = {
+  parameters: { db: unlinkedBranchDb },
+  render: () => (
+    <MeatDaySummary db={unlinkedBranchDb} branch={branch} date={day} />
   ),
 };

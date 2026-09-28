@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Panel } from "@/components/atoms/Panel";
+import { Select } from "@/components/atoms/Select";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Input } from "@/components/atoms/Input";
 import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { FilterBar } from "@/components/molecules/FilterBar";
-import { PrefillCaption } from "@/components/molecules/FormField";
+import { FormField, PrefillCaption } from "@/components/molecules/FormField";
+import { FormGrid } from "@/components/molecules/FormGrid";
+import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { TableFilter } from "@/components/molecules/TableFilter";
@@ -16,6 +20,7 @@ import { latestDatabase } from "@/lib/persistence";
 import {
   entries,
   check,
+  materials,
   mutate,
   type Database,
   type Entry,
@@ -84,6 +89,47 @@ export function MaterialReceiptConfirmation({
     setConfirming(transfer.id);
     const next = await run(() => build(latestDatabase(), transfer));
     if (next) setMessage(`ยืนยันรับ ${transfer.values.material} แล้ว`);
+  };
+  /* MAT-01/MAT-04: material that came in with no transfer document — a materialConfirm
+   * with an empty transferId. Material, quantity and receiver are all the branch types;
+   * a transfer can be linked to it later. `null` while the form is shut. */
+  const [direct, setDirect] = useState<Values | null>(null);
+  const buildDirect = (from: Database, v: Values) =>
+    mutate(
+      from,
+      "branch",
+      "materialConfirm",
+      {
+        transferId: "",
+        material: v.material || "",
+        receivedQuantity: v.receivedQuantity || "",
+        receiver: v.receiver || "",
+      },
+      "",
+      date,
+      branch,
+    );
+  const setDirectValue = (key: string, value: string) =>
+    setDirect((current) => ({ ...current, [key]: value }));
+  const directComplete =
+    !!direct &&
+    ["material", "receivedQuantity", "receiver"].every((key) =>
+      String(direct[key] ?? "").trim(),
+    );
+  const directLive =
+    direct && directComplete
+      ? check(() => buildDirect(db, direct))
+      : { error: "", warnings: [] };
+  const saveDirect = async () => {
+    if (!direct) return;
+    setConfirming("direct");
+    const next = await run(() => buildDirect(latestDatabase(), direct));
+    if (next) {
+      setMessage(
+        `รับ ${direct.material} ${direct.receivedQuantity} ชิ้นแล้ว (ไม่มีใบโอน)`,
+      );
+      setDirect(null);
+    }
   };
   return (
     <>
@@ -175,6 +221,17 @@ export function MaterialReceiptConfirmation({
         })}
         action={
           <FilterBar>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={closed || !!direct}
+              onClick={() => {
+                setMessage("");
+                setDirect({ receiver: typedReceiver ? draft.receiver : "" });
+              }}
+            >
+              รับวัสดุโดยไม่มีใบโอน
+            </Button>
             <WorkingDateField
               variant="filter"
               className="text-caption text-text-secondary"
@@ -205,6 +262,74 @@ export function MaterialReceiptConfirmation({
           </FilterBar>
         }
       />
+      {direct && (
+        <Panel>
+          <strong>รับวัสดุโดยไม่มีใบโอน · {date}</strong>
+          <FormGrid>
+            <FormField label="วัสดุ">
+              <Select
+                autoFocus
+                value={direct.material || ""}
+                onChange={(event) =>
+                  setDirectValue("material", event.target.value)
+                }
+              >
+                <option value="">เลือกวัสดุ</option>
+                {materials.map((material) => (
+                  <option key={material}>{material}</option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="จำนวนที่รับจริง (ชิ้น)">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={direct.receivedQuantity || ""}
+                onChange={(event) =>
+                  setDirectValue("receivedQuantity", event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="ชื่อผู้รับจริง">
+              <Input
+                value={direct.receiver || ""}
+                placeholder={`ผู้ดูแลสาขา ${branch}`}
+                onChange={(event) =>
+                  setDirectValue("receiver", event.target.value)
+                }
+              />
+            </FormField>
+          </FormGrid>
+          {directLive.error ? (
+            <FormError error={directLive.error} />
+          ) : (
+            directLive.warnings.length > 0 && (
+              <Notice tone="warning">{directLive.warnings.join(" · ")}</Notice>
+            )
+          )}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="primary"
+              disabled={closed || saving || !directComplete}
+              icon={saving && confirming === "direct" ? <Spinner /> : undefined}
+              onClick={saveDirect}
+            >
+              {saving && confirming === "direct"
+                ? "กำลังบันทึก…"
+                : "บันทึกรับวัสดุ"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={saving}
+              onClick={() => setDirect(null)}
+            >
+              ยกเลิก
+            </Button>
+          </div>
+        </Panel>
+      )}
       {message && <Notice>{message}</Notice>}
     </>
   );
