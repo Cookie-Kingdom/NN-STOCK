@@ -13,6 +13,7 @@ import {
   smokingInvoiceRejection,
   smokingInvoiceStatus,
   type Database,
+  type EntryKind,
 } from "@/lib/store";
 
 export type ChefNotification = { title: string; detail: string; tab: Tab };
@@ -24,24 +25,42 @@ export const noChefAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
+/** 30 days before the latest entry on file (in use, today's work), as YYYY-MM-DD.
+ *  Anchored on the log, not the clock, so a fixed demo or story log reads the same later. */
+function monthBefore(db: Database) {
+  const latest = db.entries.reduce(
+    (max, e) => (e.date > max ? e.date : max),
+    "",
+  );
+  if (!latest) return "";
+  const at = new Date(`${latest}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() - 30);
+  return at.toISOString().slice(0, 10);
+}
+
 /** Every "this is waiting for Chef House" signal, derived from lot state. Only jobs that
  *  need a hand here: "Owner paid" or "Owner is checking" are news, not work.
  *  `db` is the Chef House view (see visibleDatabase), so `db.lots` is already its shipments. */
 export function useChefAlerts(db: Database) {
-  const lots = db.lots;
-  const waitingReceipt = lots.filter((lot) => {
-    const p = lotProgress(db, lot.id);
-    return p.has("packingList") && !p.has("cmReceive");
-  }).length;
+  /* DASH-02: what a batch still lacks, from `lotProgress`, only for batches that moved in
+   * the last 30 days. Advice only: no button waits on any of these. */
+  const since = monthBefore(db);
+  const lots = db.lots.filter((lot) =>
+    db.entries.some((e) => e.lotId === lot.id && e.date >= since),
+  );
+  // The meat is on the truck (Foodiva's transport document or Packing List) but not weighed in.
+  const onTruck = (p: Set<EntryKind>) =>
+    (p.has("dispatch") || p.has("packingList")) && !p.has("cmReceive");
+  const waitingReceipt = lots.filter((lot) =>
+    onTruck(lotProgress(db, lot.id)),
+  ).length;
   const inProduction = lots.filter((lot) => {
     const p = lotProgress(db, lot.id);
-    const ordered = entries(db, "smokeOrder", lot.id).length > 0;
-    const accepted = entries(db, "smokeOrderAccept", lot.id).length > 0;
     const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
     return (
       (p.has("cmReceive") && !p.has("closeLot")) ||
-      (ordered && !accepted) ||
-      // The smoking invoice is due once the run is closed.
+      (p.has("smokeOrder") && !p.has("smokeOrderAccept")) ||
+      // The smoking invoice is usually billed once the run is closed.
       (p.has("closeLot") &&
         (!invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
     );
@@ -52,12 +71,11 @@ export function useChefAlerts(db: Database) {
     ...editAlerts,
     ...lots.flatMap((lot): ChefNotification[] => {
       const order = entries(db, "smokeOrder", lot.id).at(-1);
-      const accepted = entries(db, "smokeOrderAccept", lot.id).length > 0;
       const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
       const p = lotProgress(db, lot.id);
       const items: ChefNotification[] = [];
-      // Receiving the meat no longer waits for the PO, so a lot can want both at once.
-      if (p.has("packingList") && !p.has("cmReceive")) {
+      // Receiving the meat never waits for the PO, so a lot can want both at once.
+      if (onTruck(p)) {
         const list = latestPackingList(db, lot.id);
         items.push({
           title: `มีเนื้อมาส่ง รอยืนยันรับ · ${lot.poId}`,
@@ -67,11 +85,11 @@ export function useChefAlerts(db: Database) {
           tab: "cm-receive",
         });
       }
-      if (order && !accepted)
+      if (order && !p.has("smokeOrderAccept"))
         items.push({
           title: `PO รมควันใหม่รอยืนยัน · ${order.values.orderNumber || lot.poId}`,
           detail:
-            "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน (รับเนื้อเข้าก่อนได้)",
+            "ตรวจ PO รมควันจาก Owner แล้วกดยืนยันรับ · งานรับเนื้อและรมควันทำต่อได้โดยไม่ต้องรอ",
           tab: "work",
         });
       if (p.has("cmReceive") && !p.has("prepare"))
@@ -96,7 +114,7 @@ export function useChefAlerts(db: Database) {
           detail: "ตรวจข้อมูลก่อนปิด Lot แล้วกดยืนยันปิด Lot",
           tab: "work",
         });
-      // Closed: the smoking invoice goes out only now.
+      // Closed with no bill yet (it may go out earlier too, SVC-01).
       if (p.has("closeLot") && !invoice)
         items.push({
           title: `ยังไม่ Submit Invoice ค่ารมควัน · ${lot.poId}`,

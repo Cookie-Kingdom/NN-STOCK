@@ -34,73 +34,77 @@ function ChefLotAction({
   open: OpenForm;
 }) {
   const smokeOrder = entries(db, "smokeOrder", lot.id).at(-1);
-  const accepted = entries(db, "smokeOrderAccept", lot.id).at(-1);
   const latestInvoice = entries(db, "smokingInvoice", lot.id).at(-1);
   const invoiceStatus = latestInvoice
     ? smokingInvoiceStatus(db, latestInvoice)
     : "";
   const p = lotProgress(db, lot.id);
-  const onTruck = p.has("packingList") && !p.has("cmReceive");
-  if (!smokeOrder) return "รอ Owner ออก PO รมควัน";
-  // Receiving the meat does not wait for the PO, so a lot still on the truck's doorstep
-  // has two jobs at once: accept the PO here, weigh the meat in on the receive tab.
-  if (!accepted)
-    return (
-      <ButtonRow compact>
-        {onTruck && <Badge tone="neutral">ไปเมนูยืนยันรับเนื้อ</Badge>}
-        <Button
-          variant="table"
-          onClick={() => open("smokeOrderAccept", lot.id)}
-        >
-          ยืนยันรับ PO รมควัน
-        </Button>
-      </ButtonRow>
-    );
-  if (onTruck) return "ไปเมนูยืนยันรับเนื้อ";
-  if (p.has("cmReceive") && !p.has("smoke")) {
-    const kind = p.has("prepare") ? "smoke" : "prepare";
-    return (
-      <Button variant="table" onClick={() => open(kind, lot.id)}>
-        {titles[kind]}
-      </Button>
-    );
-  }
-  if (p.has("smoke") && !p.has("closeLot"))
-    return (
-      <ButtonRow compact>
-        <Button
-          variant="table-secondary"
-          onClick={() => open("chefEdit", lot.id)}
-        >
-          Edit ข้อมูลก่อนปิด Lot
-        </Button>
-        <Button variant="table" onClick={() => open("closeLot", lot.id)}>
-          ยืนยันปิด Lot
-        </Button>
-      </ButtonRow>
-    );
-  // Closed: the smoking invoice goes out only now.
-  if (!latestInvoice || invoiceStatus === "ส่งกลับแก้ไข") {
-    const note = latestInvoice
+  const closed = p.has("closeLot");
+  const billable = !latestInvoice || invoiceStatus === "ส่งกลับแก้ไข";
+  /* CHF-07 / D7: nothing waits on an earlier step, so every job is a button. Which one
+   * is the usual next step only picks the filled style; the rest stay one click away.
+   * A step done once (PO accepted, weighed in, pre-smoke weight, closed) drops out:
+   * its numbers are corrected through "Edit ข้อมูลก่อนปิด Lot", which needs the
+   * weigh-in, the pre-smoke weight and a smoke round to correct (ChefLotEditForm). */
+  const jobs: { kind: ModalKind; label: string; show: boolean }[] = [
+    {
+      kind: "smokeOrderAccept",
+      label: "ยืนยันรับ PO รมควัน",
+      show: !!smokeOrder && !p.has("smokeOrderAccept"),
+    },
+    {
+      kind: "cmReceive",
+      label: titles.cmReceive,
+      show: !p.has("cmReceive"),
+    },
+    { kind: "prepare", label: titles.prepare, show: !p.has("prepare") },
+    { kind: "smoke", label: titles.smoke, show: true },
+    {
+      kind: "chefEdit",
+      label: "Edit ข้อมูลก่อนปิด Lot",
+      show: !closed && p.has("cmReceive") && p.has("prepare") && p.has("smoke"),
+    },
+    { kind: "closeLot", label: "ยืนยันปิด Lot", show: !closed },
+    {
+      kind: "smokingInvoice",
+      label: latestInvoice
+        ? "แก้ไขและ Submit ใบวางบิล"
+        : "สร้าง / Submit ใบวางบิล",
+      show: billable,
+    },
+  ];
+  /* Once a round is logged, another round is optional, so it no longer counts as "next".
+   * Smoking after ปิด Lot still saves, with a warning (CHF-05). */
+  const next = jobs.find(
+    (job) => job.show && !(job.kind === "smoke" && p.has("smoke")),
+  );
+  const note =
+    latestInvoice && invoiceStatus === "ส่งกลับแก้ไข"
       ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()
       : "";
-    return (
-      <ButtonRow compact>
-        {latestInvoice && (
-          <Badge tone="danger">ส่งกลับแก้ไข{note ? ` · ${note}` : ""}</Badge>
-        )}
-        <Button variant="table" onClick={() => open("smokingInvoice", lot.id)}>
-          {latestInvoice
-            ? "แก้ไขและ Submit ใบวางบิล"
-            : "สร้าง / Submit ใบวางบิล"}
-        </Button>
-      </ButtonRow>
-    );
-  }
   return (
-    <Badge tone={invoiceStatus === "ชำระแล้ว" ? "success" : "neutral"}>
-      {invoiceStatus}
-    </Badge>
+    <ButtonRow compact>
+      {!smokeOrder && <Badge tone="warning">ยังไม่มี PO รมควัน</Badge>}
+      {latestInvoice && invoiceStatus === "ส่งกลับแก้ไข" && (
+        <Badge tone="danger">ส่งกลับแก้ไข{note ? ` · ${note}` : ""}</Badge>
+      )}
+      {latestInvoice && !billable && (
+        <Badge tone={invoiceStatus === "ชำระแล้ว" ? "success" : "neutral"}>
+          {invoiceStatus}
+        </Badge>
+      )}
+      {jobs
+        .filter((job) => job.show)
+        .map((job) => (
+          <Button
+            key={job.kind}
+            variant={job === next ? "table" : "table-secondary"}
+            onClick={() => open(job.kind, lot.id)}
+          >
+            {job.label}
+          </Button>
+        ))}
+    </ButtonRow>
   );
 }
 
@@ -172,7 +176,7 @@ export function ChefLotTable({
         rows={lots.map((lot) => [
           lot.id,
           entries(db, "smokeOrder", lot.id).at(-1)?.values.orderNumber ||
-            "รอ Owner ออก PO",
+            "ยังไม่มี",
           entries(db, "smokeOrder", lot.id).length ? (
             <Button
               key={`${lot.id}-po`}

@@ -46,7 +46,8 @@ test("meat at the door and an unaccepted PO are two separate jobs", () => {
     },
     {
       title: "PO รมควันใหม่รอยืนยัน · SO-2026-0001",
-      detail: "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน (รับเนื้อเข้าก่อนได้)",
+      detail:
+        "ตรวจ PO รมควันจาก Owner แล้วกดยืนยันรับ · งานรับเนื้อและรมควันทำต่อได้โดยไม่ต้องรอ",
       tab: "work",
     },
   ]);

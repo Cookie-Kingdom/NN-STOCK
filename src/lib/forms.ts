@@ -200,6 +200,11 @@ export const forms: Record<string, Field[]> = {
     text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
     date("invoiceDate", "วันที่ Invoice", true),
     {
+      // SVC-01: shown only while the batch has no smoke PO (EntryForm); with one, the PO's kg is billed.
+      ...number("serviceQuantity", "น้ำหนักที่คิดค่ารมควัน (กก.)"),
+      hint: "ชุดนี้ยังไม่มี PO รมควัน กรอกน้ำหนักที่คิดค่ารมเอง",
+    },
+    {
       ...number("netPayable", "ยอดเรียกเก็บค่ารมควัน (บาท)"),
       hint: "ตั้งต้นจากน้ำหนัก PO รมควัน × อัตราค่ารม แก้ให้ตรงกับใบวางบิลจริงได้",
     },

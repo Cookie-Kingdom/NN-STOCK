@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
+  chefBilledDb,
+  chefOpenedDb,
+  chefPoLaterDb,
   demoDb,
+  dispatchDb,
   dispatchedDb,
   open,
   rejectedInvoiceDb,
@@ -23,20 +27,27 @@ const chef = (db: Database) => visibleDatabase(db, "cm");
 
 const lotState = pick("สถานะ", {
   "รอรับ PO รมควัน": smokeOrderDb,
+  "เปิดชุดเอง ยังไม่มี PO": chefOpenedDb,
+  "ออก Invoice ก่อนมี PO": chefBilledDb,
+  "Owner ออก PO ทีหลัง": chefPoLaterDb,
   รมควันแล้ว: smokedDb,
   "รอออก Invoice": returnTruckDb,
   ปิดแล้ว: demoDb,
   "Invoice ถูกส่งกลับ": rejectedInvoiceDb,
 });
 
-/** เลือกสถานะใน Controls:
- *  - รอรับ PO รมควัน: stage 2 with the smoke PO not accepted yet; the row offers the PO
- *    button and still points at the receive tab, because the meat can be weighed in
- *    before the PO is accepted.
- *  - รมควันแล้ว: stage 5, edit the yellow cells or close the run.
- *  - รอออก Invoice: closed run with no smoking invoice yet; the invoice button appears
- *    only now.
- *  - ปิดแล้ว: the seven-day demo run, closed.
+/** เลือกสถานะใน Controls. No button waits on an earlier step (CHF-07): the usual next
+ *  step is the filled button, the others sit beside it as secondary ones.
+ *  - รอรับ PO รมควัน: the Owner's smoke PO is not accepted yet and the meat is not weighed
+ *    in; both buttons are there, along with pre-smoke, smoke, close and the invoice.
+ *  - เปิดชุดเอง ยังไม่มี PO: Chef House opened the batch itself and weighed it in; the row
+ *    carries "ยังไม่มี PO รมควัน" and still offers every job.
+ *  - ออก Invoice ก่อนมี PO: that batch smoked, closed and billed before any smoke PO.
+ *  - Owner ออก PO ทีหลัง: the Owner then issued the PO on it; the badge goes and
+ *    "ยืนยันรับ PO รมควัน" appears. No purchase PO number or price shows anywhere.
+ *  - รมควันแล้ว: smoked, "Edit ข้อมูลก่อนปิด Lot" or close the run.
+ *  - รอออก Invoice: closed run with no smoking invoice yet.
+ *  - ปิดแล้ว: the seven-day demo run, closed and billed.
  *  - Invoice ถูกส่งกลับ: the Owner sent the smoking invoice back; the row shows the reason
  *    next to the fix button. */
 export const LotTable: Story = {
@@ -47,8 +58,19 @@ export const LotTable: Story = {
   ),
 };
 
-/** A shipment on the truck: shipment number, Packing List boxes and kg, vehicle. */
+const receiveState = pick("สถานะ", {
+  "รถมาพร้อม Packing List": dispatchedDb,
+  "มีแต่ PO รมควัน": dispatchDb,
+  ไม่มีชุดรอรับ: chefBilledDb,
+});
+
+/** Every batch not weighed in yet, with or without a Packing List or smoke PO, and
+ *  "เปิดชุดใหม่" for meat that arrives with no batch at all.
+ *  - รถมาพร้อม Packing List: shipment number, boxes and kg, vehicle.
+ *  - มีแต่ PO รมควัน: the Owner's PO is in, Foodiva's Packing List is not.
+ *  - ไม่มีชุดรอรับ: the empty table; "เปิดชุดใหม่" is still there. */
 export const ReceiveTable: Story = {
-  parameters: { db: dispatchedDb },
-  render: () => <ChefReceiveTable db={chef(dispatchedDb)} open={open} />,
+  argTypes: { db: receiveState.argType },
+  args: { db: receiveState.initial },
+  render: ({ db }) => <ChefReceiveTable db={chef(db)} open={open} />,
 };

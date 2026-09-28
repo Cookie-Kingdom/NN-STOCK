@@ -402,18 +402,32 @@ export function prefillValues(
     });
   if (kind === "closeLot") return carryLast(db, "closeLot", ["confirm"]);
   if (kind === "smokingInvoice") {
-    // serviceQuantity is display only: mutate takes the billed kg from the smoke PO.
+    // With a smoke PO, serviceQuantity is display only: mutate takes the billed kg from it.
+    // Without one (SVC-01) Chef House types it, starting from the kg it weighed in.
     // The amount starts at kg × rate (or the sent-back invoice's) and Chef House may change it (A7).
-    const quantity = n(
-      entries(db, "smokeOrder", lot.id).at(-1)?.values || {},
-      "rawKg",
-    );
+    const order = entries(db, "smokeOrder", lot.id).at(-1);
+    const typed = current?.serviceQuantity?.trim();
+    const quantity = order
+      ? n(order.values, "rawKg")
+      : typed
+        ? n(current!, "serviceQuantity")
+        : n(lot.values, "receivedKg");
     const sentBack = entries(db, "smokingInvoice", lot.id).at(-1)?.values;
     const lastNumber = lastValue(db, "smokingInvoice", "invoiceNumber");
     const invoiceNumber = nextDocNumber(lastNumber?.value);
     const back = { label: "จากใบที่ส่งกลับ" };
     return merge(
-      from({ serviceQuantity: String(quantity) }, { label: "ตาม PO รมควัน" }),
+      order
+        ? from(
+            { serviceQuantity: String(quantity) },
+            { label: "ตาม PO รมควัน" },
+          )
+        : typed
+          ? none()
+          : from(
+              { serviceQuantity: quantity ? String(quantity) : "" },
+              { label: "ตามน้ำหนักรับจริง" },
+            ),
       from(
         {
           netPayable:
@@ -584,4 +598,5 @@ export const prefillDrivers: Record<string, string[]> = {
   rice: ["rawUsedKg"],
   sale: ["boxes", "addons"],
   smokeOrder: ["requestedSmokeDate"],
+  smokingInvoice: ["serviceQuantity"],
 };
