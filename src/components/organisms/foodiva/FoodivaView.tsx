@@ -24,9 +24,9 @@ import {
   latestPackingList,
   ownerWasteOutstanding,
   shipments,
+  lotProgress,
   type Database,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -42,7 +42,7 @@ export function FoodivaView({
   // editable here until the Owner issues the smoke PO from it.
   const requests = shipments(db).filter(
     (lot) =>
-      lot.stage === STAGE.dispatch ||
+      !lotProgress(db, lot.id).has("dispatch") ||
       (latestPackingList(db, lot.id) &&
         !entries(db, "smokeOrder", lot.id).length),
   );
@@ -53,7 +53,10 @@ export function FoodivaView({
   );
   // Stage 7 = on the return truck until the Owner counts it into central stock; a received
   // row stays so Foodiva sees its weigh-in against what Chef House sent.
-  const returnLeg = shipments(db).filter((lot) => lot.stage === STAGE.central);
+  const returnLeg = shipments(db).filter((lot) => {
+    const p = lotProgress(db, lot.id);
+    return p.has("return") && !p.has("central");
+  });
   return (
     <div className="grid gap-6">
       <PanelHeading
@@ -85,7 +88,7 @@ export function FoodivaView({
         rowKeys={requests.map((lot) => lot.id)}
         rows={requests.map((lot) => [
           <strong key="shipment">{lot.poId}</strong>,
-          entries(db, "shipmentRequest", lot.id).at(-1)?.date || "—",
+          entries(db, "smokeOrder", lot.id).at(-1)?.date || "—",
           <span key="lines">
             {shipmentPoLabels(db, lot).map((label) => (
               <span key={label} className="block">
@@ -94,7 +97,7 @@ export function FoodivaView({
             ))}
           </span>,
           `${fmt(n(lot.values, "requestedKg"))} กก.`,
-          lot.stage === STAGE.dispatch ? (
+          !lotProgress(db, lot.id).has("dispatch") ? (
             <Button
               key="dispatch"
               variant="table"

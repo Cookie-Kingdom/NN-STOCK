@@ -16,7 +16,6 @@ import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
 import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispatchForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
-import { ShipmentRequestForm } from "@/components/organisms/owner/ShipmentRequestForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";
 import { titles, type EntryKind } from "@/lib/store";
@@ -29,8 +28,6 @@ const CUSTOM_DIALOGS = [
   "allocate",
   "chefEdit",
   "smokeOrderPreview",
-  "shipmentRequest",
-  "shipmentRequestEdit",
   "cmReceive",
   "dispatch",
   "packingListView",
@@ -204,31 +201,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
   if (modal.kind === "smokeOrderPreview") {
     return (
       <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />
-    );
-  }
-  if (modal.kind === "shipmentRequest") {
-    return (
-      <ShipmentRequestForm
-        db={db}
-        {...dateProps}
-        onClose={close}
-        onSaved={(next) => {
-          setChosen(next.lots.at(-1)?.id || chosen);
-          done("สร้าง Request แล้ว · รอ Foodiva ทำใบขนส่ง");
-        }}
-      />
-    );
-  }
-  if (modal.kind === "shipmentRequestEdit") {
-    return (
-      <ShipmentRequestForm
-        key={modal.lotId}
-        db={db}
-        lotId={modal.lotId}
-        {...dateProps}
-        onClose={close}
-        onSaved={() => done("แก้ไข Request แล้ว · รอ Foodiva ทำใบขนส่ง")}
-      />
     );
   }
   if (CUSTOM_DIALOGS.includes(modal.kind)) return null;

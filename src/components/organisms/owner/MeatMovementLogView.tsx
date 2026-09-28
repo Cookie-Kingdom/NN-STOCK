@@ -21,10 +21,10 @@ import {
   preSmokeTrimKg,
   rawAtSmoker,
   shipments,
+  lotProgress,
   type Database,
   type Entry,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -128,7 +128,8 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       returnReceived - n(lot.values, "centralKg"),
     );
     const chefSmoked =
-      lot.stage === STAGE.return && !entries(db, "return", lot.id).length
+      lotProgress(db, lot.id).has("closeLot") &&
+      !entries(db, "return", lot.id).length
         ? produced(db, lot.id)
         : 0;
     if (!lot.kind)

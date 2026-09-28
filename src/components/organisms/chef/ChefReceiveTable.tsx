@@ -5,11 +5,11 @@ import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   latestPackingList,
+  lotProgress,
   n,
   packingListBoxes,
   type Database,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -20,7 +20,10 @@ export function ChefReceiveTable({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const waiting = db.lots.filter((lot) => lot.stage === STAGE.cmReceive);
+  const waiting = db.lots.filter((lot) => {
+    const p = lotProgress(db, lot.id);
+    return p.has("packingList") && !p.has("cmReceive");
+  });
   return (
     <>
       <SectionHeading

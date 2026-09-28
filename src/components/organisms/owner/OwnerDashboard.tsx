@@ -49,10 +49,11 @@ import {
   reservedForOwnerContent,
   shipments,
   smokingInvoiceStatus,
-  stages,
+  batchKinds,
+  lotProgress,
+  titles,
   type Database,
   type Entry,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import { type Tab } from "@/lib/nav";
@@ -168,7 +169,14 @@ export function OwnerDashboard({
   });
   // Production runs are shipments; purchase POs sit at stage 1 forever and are not pending work.
   const runs = shipments(db);
-  const activeLots = runs.filter((lot) => lot.stage < STAGE.allocate).length;
+  const progressLabel = (lotId: string) =>
+    batchKinds
+      .filter((k) => lotProgress(db, lotId).has(k))
+      .map((k) => titles[k])
+      .at(-1) ?? "—";
+  const activeLots = runs.filter(
+    (lot) => !lotProgress(db, lot.id).has("central"),
+  ).length;
   const foodivaInvoicesForOwner = db.lots.filter(
     (lot) =>
       !lot.kind &&
@@ -219,10 +227,10 @@ export function OwnerDashboard({
       ];
     }),
     ...runs
-      .filter((lot) => lot.stage < STAGE.allocate)
+      .filter((lot) => !lotProgress(db, lot.id).has("central"))
       .map((lot) => ({
         title: `การส่ง ${lot.poId}`,
-        detail: `อยู่ขั้นตอน “${stages[lot.stage]}” · รอการทำงานต่อ`,
+        detail: `ล่าสุด “${progressLabel(lot.id)}” · รอการทำงานต่อ`,
         kind: "lot" as const,
       })),
   ];
@@ -570,7 +578,7 @@ export function OwnerDashboard({
         rowKeys={runs.map((lot) => lot.id)}
         rows={runs.map((lot) => [
           lot.poId,
-          stages[lot.stage],
+          progressLabel(lot.id),
           `${fmt(produced(db, lot.id))} กก.`,
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} กก.`,

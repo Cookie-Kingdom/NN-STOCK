@@ -54,13 +54,13 @@ import {
   roleName,
   saleWithInfluencers,
   smokingInvoiceRejection,
-  stages,
+  batchKinds,
+  lotProgress,
   titles,
   type Database,
   type Role,
   type Values,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 import { type Modal } from "@/lib/nav";
@@ -386,7 +386,7 @@ export function EntryForm({
   ].includes(kind);
   const choices = db.lots.filter(
     (l) =>
-      l.stage >= STAGE.allocate &&
+      lotProgress(db, l.id).has("central") &&
       (role === "owner" || entries(db, "allocate", l.id, branch).length),
   );
   // A lot the form cannot use would leave the required select empty and the
@@ -679,7 +679,11 @@ export function EntryForm({
             )}
             {lot && !useLot && (
               <Notice>
-                {lot.id} · {stages[lot.stage]}
+                {lot.id} ·{" "}
+                {batchKinds
+                  .filter((k) => lotProgress(db, lot.id).has(k))
+                  .map((k) => titles[k])
+                  .at(-1) ?? "—"}
               </Notice>
             )}
             {useLot && (

@@ -1,8 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import {
@@ -19,9 +17,9 @@ import {
   packingListKg,
   produced,
   shipments,
+  lotProgress,
   type Database,
   type EntryKind,
-  STAGE,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -48,18 +46,7 @@ export function TransportManifestView({
     <>
       <SectionHeading
         title="ใบขนส่งเนื้อ"
-        description="Owner สร้าง Request ส่งเนื้อ · Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva"
-        actions={
-          <ButtonRow>
-            <Button
-              variant="primary"
-              icon={<Plus />}
-              onClick={() => open("shipmentRequest", "")}
-            >
-              สร้าง Request ส่งเนื้อไป Chef House
-            </Button>
-          </ButtonRow>
-        }
+        description="Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva"
       />
       <DataTable
         title="รายการส่ง"
@@ -160,7 +147,7 @@ export function TransportManifestView({
                   rows={transportDocumentRows(db, lot, back, "return")}
                 />
               </ButtonRow>
-            ) : lot.stage < STAGE.return ? (
+            ) : !lotProgress(db, lot.id).has("closeLot") ? (
               "รอ Chef House ปิด Lot"
             ) : (
               `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`
