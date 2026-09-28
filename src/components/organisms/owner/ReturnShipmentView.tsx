@@ -4,12 +4,13 @@ import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
-import { returnReadyLots } from "@/components/organisms/owner/useOwnerAlerts";
+import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   entries,
   produced,
   producedBags,
+  shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -20,12 +21,13 @@ const columns = [
   "PO ซื้อ (กก.)",
   "ผลผลิตพร้อมส่งกลับ",
   "รถเที่ยวขาไป",
+  "ขั้นที่ยังขาด",
   "การทำงาน",
 ];
 
-/** The Owner books the truck home once Chef House closes the lot. The dialog behind the
- *  button is the same `return` form the shipment manifest opens, so the entry is still
- *  written one way only. */
+/** Every batch with no truck home yet (RET-06). The Owner can book it whenever the truck
+ *  is arranged, closed lot or not; the chips say what the batch still lacks. The dialog
+ *  behind the button is the same `return` form the manifest opens. */
 export function ReturnShipmentView({
   db,
   open,
@@ -33,15 +35,17 @@ export function ReturnShipmentView({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const readyToReturn = returnReadyLots(db);
+  const readyToReturn = shipments(db).filter(
+    (lot) => !entries(db, "return", lot.id).length,
+  );
   return (
     <>
       <SectionHeading
         title="สร้างใบขนส่งขากลับ"
-        description="Chef House ปิด Lot แล้ว · Owner เรียกรถขากลับ Chef House → Foodiva แล้วรอ Foodiva รับเข้าตู้"
+        description="ทุกชุดที่ยังไม่มีใบขนส่งขากลับ · Owner เรียกรถขากลับ Chef House → Foodiva ได้ทุกเมื่อ ไม่ต้องรอปิด Lot"
       />
       <DataTable
-        title="Lot ที่รอเรียกรถขากลับ"
+        title="ชุดที่ยังไม่มีใบขนส่งขากลับ"
         columns={columns}
         rowKeys={readyToReturn.map((lot) => lot.id)}
         rows={readyToReturn.map((lot) => {
@@ -59,6 +63,12 @@ export function ReturnShipmentView({
             outbound
               ? `${outbound.values.plate || "ยังไม่ระบุรถ"} · ${lot.values.trip === "ไปกลับ" ? "ไปกลับ (ข้อมูลรถเติมให้)" : "เที่ยวเดียว"}`
               : "ไม่มีข้อมูลรถขาไป",
+            <LotProgressChips
+              key="progress"
+              db={db}
+              lotId={lot.id}
+              steps={["smoke", "closeLot"]}
+            />,
             <Button
               variant="table"
               key={lot.id}
@@ -70,7 +80,7 @@ export function ReturnShipmentView({
         })}
       />
       {!readyToReturn.length && (
-        <Notice tone="success">ไม่มี Lot รอเรียกรถขากลับในขณะนี้</Notice>
+        <Notice tone="success">ทุกชุดมีใบขนส่งขากลับแล้ว</Notice>
       )}
     </>
   );

@@ -16,6 +16,7 @@ import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
 import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispatchForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";
 import { titles, type EntryKind } from "@/lib/store";
@@ -195,6 +196,20 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         {...dateProps}
         onClose={close}
         onSaved={() => done(savedMessage(titles.cmReceive))}
+      />
+    );
+  }
+  if (modal.kind === "smokeOrder") {
+    return (
+      <SmokeOrderForm
+        db={db}
+        lotId={modal.lotId}
+        {...dateProps}
+        onClose={close}
+        onSaved={(next) => {
+          setChosen(next.lots.at(-1)?.id || chosen);
+          done(savedMessage(titles.smokeOrder));
+        }}
       />
     );
   }

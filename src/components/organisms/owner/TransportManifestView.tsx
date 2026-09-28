@@ -17,7 +17,6 @@ import {
   packingListKg,
   produced,
   shipments,
-  lotProgress,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -35,18 +34,16 @@ const columns = [
 export function TransportManifestView({
   db,
   open,
-  onOpenSmokePo,
 }: {
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
-  onOpenSmokePo: () => void;
 }) {
   const rows = shipments(db);
   return (
     <>
       <SectionHeading
         title="ใบขนส่งเนื้อ"
-        description="Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva"
+        description="Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva · ทุกขั้นบันทึกได้ไม่ต้องรอกัน ป้ายบอกเฉพาะขั้นที่ยังไม่มีรายการ"
       />
       <DataTable
         title="รายการส่ง"
@@ -56,10 +53,12 @@ export function TransportManifestView({
           const back = entries(db, "return", lot.id).at(-1);
           const outbound = entries(db, "dispatch", lot.id).at(-1);
           const chefReceive = entries(db, "cmReceive", lot.id).at(-1);
-          // What went is the Packing List box total; the Request kg is only what was asked for.
+          // What went is the Packing List box total; the smoke PO lines are only what was asked for.
           const requestedKg = n(lot.values, "requestedKg");
           const sentKg = packingListKg(db, lot.id);
-          const requestedLine = `ขอใน Request: ${fmt(requestedKg)} กก.`;
+          const requestedLine = entries(db, "smokeOrder", lot.id).length
+            ? `ตาม PO รมควัน: ${fmt(requestedKg)} กก.`
+            : "ยังไม่มี PO รมควัน";
           const chefKg = n(chefReceive?.values || {}, "receivedKg");
           const difference = chefKg - (sentKg ?? 0);
           const foodivaBack = entries(db, "foodivaReturnReceive", lot.id).at(
@@ -98,7 +97,7 @@ export function TransportManifestView({
                 />
               </ButtonRow>
             ) : (
-              `Request ${fmt(requestedKg)} กก. · รอ Foodiva ทำใบขนส่ง`
+              `ยังไม่มีใบขนส่งขาไป · ${requestedLine}`
             ),
             chefReceive && sentKg !== undefined ? (
               <span key={`${lot.id}-owner-check`}>
@@ -114,8 +113,10 @@ export function TransportManifestView({
                   {`ส่วนต่าง ${difference < -0.001 ? "−" : difference > 0.001 ? "+" : ""}${fmt(Math.abs(difference))} กก.`}
                 </Badge>
               </span>
+            ) : chefReceive ? (
+              `Chef House ${fmt(chefKg)} กก. · ยังไม่มี Packing List`
             ) : (
-              "รอ Chef House ชั่งรับ"
+              "ยังไม่มีการชั่งรับที่ Chef House"
             ),
             back ? (
               <ButtonRow key={`${lot.id}-return`} className="my-0">
@@ -147,17 +148,14 @@ export function TransportManifestView({
                   rows={transportDocumentRows(db, lot, back, "return")}
                 />
               </ButtonRow>
-            ) : !lotProgress(db, lot.id).has("closeLot") ? (
-              "รอ Chef House ปิด Lot"
             ) : (
-              `รอเรียกรถกลับ ${fmt(produced(db, lot.id))} กก.`
+              `ยังไม่มีใบขนส่งขากลับ · ผลผลิต ${fmt(produced(db, lot.id))} กก.`
             ),
             <LotWorkflowAction
               key={`${lot.id}-action`}
               db={db}
               lot={lot}
               open={open}
-              onOpenSmokePo={onOpenSmokePo}
             />,
           ];
         })}

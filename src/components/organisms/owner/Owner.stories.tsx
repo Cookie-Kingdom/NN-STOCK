@@ -6,6 +6,7 @@ import {
   centralDb,
   day,
   demoDb,
+  freeOrderDb,
   open,
   ownerReservedDb,
   paidDb,
@@ -50,11 +51,16 @@ const stockState = pick("สถานะ", {
   "Waste รอรับ": ownerReservedDb,
   จัดสรรแล้ว: allocatedDb,
 });
-const centralState = pick("สถานะ", { ตัวอย่าง: db, พร้อมจัดสรร: centralDb });
+const centralState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  พร้อมจัดสรร: centralDb,
+  ไม่มีรถกลับ: freeOrderDb,
+});
 const logoState = pick("โลโก้", { ปกติ: db, โลโก้แบบเก่า: legacyLogoDb });
 const invoiceState = pick("สถานะ", {
   รอชำระ: acceptedInvoiceDb,
   ชำระแล้ว: paidDb,
+  "ยังไม่มี Invoice": freeOrderDb,
 });
 
 /** Both banners at once; in the app each hides on the tab its button leads to. */
@@ -90,9 +96,11 @@ export const Stock: Story = {
   render: ({ db }) => <OwnerStockView db={db} lots={db.lots} open={open} />,
 };
 
-/** เลือกสถานะใน Controls:
+/** Every batch not yet in central stock, each with its button (RET-06). เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run.
- *  - พร้อมจัดสรร: a shipment at stage 8, 35 kg in central stock ready to allocate. */
+ *  - พร้อมจัดสรร: the batch is in central stock (35 kg), nothing left to receive.
+ *  - ไม่มีรถกลับ: a batch with only its smoke PO; it can be received with no truck home
+ *    and no Foodiva receipt, the chips say what is missing. */
 export const CentralReceive: Story = {
   argTypes: { db: centralState.argType },
   args: { db: centralState.initial },
@@ -122,7 +130,8 @@ export const Config: Story = {
 
 /** Foodiva and Chef House invoices. เลือกสถานะใน Controls:
  *  - รอชำระ: both waiting to be paid, "ชำระเงิน" on each.
- *  - ชำระแล้ว: both paid, the สลิป column lists each slip with view and download. */
+ *  - ชำระแล้ว: both paid, the สลิป column lists each slip with view and download.
+ *  - ยังไม่มี Invoice: POs and a batch with no invoice yet still get "ชำระเงิน". */
 export const Invoices: Story = {
   argTypes: { db: invoiceState.argType },
   args: { db: invoiceState.initial },

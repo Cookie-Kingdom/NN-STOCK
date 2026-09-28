@@ -1,11 +1,9 @@
 "use client";
 
-import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import { fmt } from "@/lib/format";
 import {
-  entries,
-  latestPackingList,
   lotProgress,
   produced,
   titles,
@@ -14,53 +12,36 @@ import {
   type EntryKind,
 } from "@/lib/store";
 
-/** The Owner's next step on one shipment. The outbound transport document is Foodiva's,
- * so the Owner only waits on it; the Owner acts again at the smoke PO and the return trip. */
-export function LotWorkflowAction(props: {
-  db: Database;
-  lot: Lot;
-  open: (kind: EntryKind, lotId?: string) => void;
-  /** Navigate to the smoking PO tab. */
-  onOpenSmokePo: () => void;
-}) {
-  // One right-aligned box for every state: a bare `flex` ignores the cell's
-  // `text-right`, so a badge-plus-button state used to sit left of the others.
-  return (
-    <span className="inline-flex flex-wrap items-center justify-end gap-2">
-      <Step {...props} />
-    </span>
-  );
-}
-
-function Step({
+/** One batch on the manifest: the steps it still has no entry for, and the Owner's own
+ *  buttons for it. Nothing waits on anything (PRIN-02): the smoke PO can be issued before
+ *  Foodiva's Packing List, the truck home booked before Chef House closes the lot. */
+export function LotWorkflowAction({
   db,
   lot,
   open,
-  onOpenSmokePo,
-}: Parameters<typeof LotWorkflowAction>[0]) {
-  const p = lotProgress(db, lot.id);
-  if (!p.has("dispatch"))
-    return <Badge tone="danger">รอ Foodiva ทำใบขนส่ง</Badge>;
-  if (!p.has("closeLot")) {
-    if (!latestPackingList(db, lot.id))
-      return <Badge tone="danger">รอ Foodiva ทำ Packing List</Badge>;
-    if (!entries(db, "smokeOrder", lot.id).length)
-      return (
-        <Button variant="table" onClick={onOpenSmokePo}>
-          ไปออก PO รมควัน
-        </Button>
-      );
-    if (!entries(db, "smokeOrderAccept", lot.id).length)
-      return <Badge tone="danger">รอ Chef House รับ PO</Badge>;
-    return <>กำลังดำเนินงานที่ Chef House</>;
-  }
-  if (!p.has("return"))
-    return (
-      <Button variant="table" onClick={() => open("return", lot.id)}>
-        {titles.return} · {fmt(produced(db, lot.id))} กก.
-      </Button>
-    );
-  if (!p.has("central") && !entries(db, "foodivaReturnReceive", lot.id).length)
-    return <>รอ Foodiva รับเข้าตู้</>;
-  return <>Foodiva รับเข้าตู้แล้ว</>;
+}: {
+  db: Database;
+  lot: Lot;
+  open: (kind: EntryKind, lotId?: string) => void;
+}) {
+  const done = lotProgress(db, lot.id);
+  // One right-aligned box: a bare `flex` ignores the cell's `text-right`.
+  return (
+    <span className="inline-grid justify-items-end gap-2">
+      <LotProgressChips db={db} lotId={lot.id} />
+      <span className="inline-flex flex-wrap justify-end gap-2">
+        {!done.has("smokeOrder") && (
+          <Button variant="table" onClick={() => open("smokeOrder", lot.id)}>
+            {titles.smokeOrder}
+          </Button>
+        )}
+        {!done.has("return") && (
+          <Button variant="table" onClick={() => open("return", lot.id)}>
+            {titles.return}
+            {done.has("smoke") && ` · ${fmt(produced(db, lot.id))} กก.`}
+          </Button>
+        )}
+      </span>
+    </span>
+  );
 }

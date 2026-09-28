@@ -8,6 +8,7 @@ import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { Notice } from "@/components/molecules/Notice";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
+import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import {
   packingListSummary,
   smokeOrderPrintRows,
@@ -22,6 +23,7 @@ import {
   shipments,
   shipmentShares,
   smokingInvoiceStatus,
+  titles,
   type Database,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -29,13 +31,14 @@ import type { ModalKind } from "@/lib/nav";
 
 const columns = [
   "เลขที่การส่ง",
-  "วันที่ Request",
+  "วันที่เปิดชุด",
   "PO ซื้อที่ใช้",
   "Packing List",
   "น้ำหนักสั่งรม",
   "อัตราค่ารม",
   "Chef House รับ PO",
   "ใบวางบิล",
+  "ความคืบหน้า",
   "การทำงาน",
 ];
 
@@ -57,7 +60,7 @@ export function SmokingPurchaseOrderView({
       <PanelHeading
         overline="CHEF_HOUSE SERVICE PO"
         title="ใบสั่ง PO โรงรมควัน"
-        description="1 การส่ง = 1 PO รมควัน · ยอดสั่งรมมาจาก Packing List ของ Foodiva จึงออก PO ได้เมื่อ Packing List มาถึงแล้ว จากนั้น Chef House กดยืนยันรับ PO"
+        description="1 ชุดรมควัน = 1 PO รมควัน · ออก PO ได้ทุกเมื่อ ไม่ต้องรอ Packing List · เลือกชุดใหม่หรือชุดที่ Foodiva / Chef House เปิดไว้แล้ว แล้วระบุ PO ซื้อและน้ำหนักที่ใช้"
         aside={
           <Stat
             label="PO รอยืนยันจาก Chef House"
@@ -65,9 +68,14 @@ export function SmokingPurchaseOrderView({
           />
         }
       />
+      <ButtonRow>
+        <Button variant="primary" onClick={() => open("smokeOrder", "")}>
+          + {titles.smokeOrder}
+        </Button>
+      </ButtonRow>
       <DataTable
         title="รายการ PO โรงรมควัน"
-        defaultSort={{ column: "วันที่ Request", desc: true }}
+        defaultSort={{ column: "วันที่เปิดชุด", desc: true }}
         columns={columns}
         rowKeys={runs.map((lot) => lot.id)}
         rows={runs.map((lot) => {
@@ -77,12 +85,14 @@ export function SmokingPurchaseOrderView({
           const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
           const invoiceStatus = invoice
             ? smokingInvoiceStatus(db, invoice)
-            : "รอ Chef House Submit";
+            : "";
+          const shares = shipmentShares(db, lot);
           return [
             <PoLotCell key="lot" poId={lot.poId} lotId={lot.id} />,
             lotIssueDate(db, lot),
             <span key="po" className="grid gap-1">
-              {shipmentShares(db, lot).map((share) => (
+              {!shares.length && "—"}
+              {shares.map((share) => (
                 <span key={share.lotId}>
                   <strong>{share.poId}</strong> × {fmt(share.requestedKg)} กก.
                   <Caption className="block">
@@ -102,8 +112,8 @@ export function SmokingPurchaseOrderView({
                 </Button>
               </span>
             ) : (
-              <Badge tone="warning" key="packing">
-                รอ Packing List
+              <Badge tone="neutral" key="packing">
+                ยังไม่มี Packing List
               </Badge>
             ),
             order ? `${fmt(n(order.values, "rawKg"))} กก.` : "ยังไม่ออก PO",
@@ -111,7 +121,7 @@ export function SmokingPurchaseOrderView({
             accepted ? (
               `${accepted.values.acceptedBy} · รับแล้ว`
             ) : order ? (
-              <Badge tone="danger" key="accept">
+              <Badge tone="warning" key="accept">
                 รอยืนยัน
               </Badge>
             ) : (
@@ -119,7 +129,8 @@ export function SmokingPurchaseOrderView({
             ),
             invoice
               ? `${invoice.values.invoiceNumber} · ${invoiceStatus}`
-              : "รอ Chef House",
+              : "ยังไม่มี",
+            <LotProgressChips key="progress" db={db} lotId={lot.id} />,
             <ButtonRow key="actions">
               {order ? (
                 <DocumentPrintButton
@@ -128,23 +139,21 @@ export function SmokingPurchaseOrderView({
                   rows={smokeOrderPrintRows(db, lot, order)}
                 />
               ) : (
-                <span className="grid justify-items-start gap-1">
-                  <Button
-                    variant="table"
-                    disabled={!boxes}
-                    onClick={() => open("smokeOrder", lot.id)}
-                  >
-                    ออก PO รมควันเนื้อ
-                  </Button>
-                  {!boxes && <Caption>รอ Foodiva ทำ Packing List</Caption>}
-                </span>
+                <Button
+                  variant="table"
+                  onClick={() => open("smokeOrder", lot.id)}
+                >
+                  {titles.smokeOrder}
+                </Button>
               )}
             </ButtonRow>,
           ];
         })}
       />
       {!runs.length && (
-        <Notice>ยังไม่มีการส่งเนื้อไป Chef House · สร้าง Request ก่อน</Notice>
+        <Notice>
+          ยังไม่มีชุดรมควัน · กด “{titles.smokeOrder}” เพื่อเปิดชุดใหม่
+        </Notice>
       )}
     </div>
   );

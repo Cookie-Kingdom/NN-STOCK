@@ -608,3 +608,44 @@ export const nextInvoiceDb: Database = (() => {
   purchase(s, "50");
   return s.db;
 })();
+
+/** A2 free ledger: two purchase POs of 300 and 200 kg, neither invoiced by Foodiva yet. */
+export const noInvoicePosDb: Database = (() => {
+  const s = setup();
+  purchase(s, "300", "250");
+  purchase(s, "200", "230");
+  return s.db;
+})();
+
+/** `noInvoicePosDb` after the Owner's smoke PO opened a new batch drawing 300 + 200 kg from
+ *  both uninvoiced POs: no transport document, Packing List, return or central yet. */
+export const freeOrderDb: Database = (() => {
+  const [a, b] = noInvoicePosDb.lots;
+  return mutate(
+    noInvoicePosDb,
+    "owner",
+    "smokeOrder",
+    {
+      requestedSmokeDate: day,
+      expectedFinishedDate: day,
+      smoker: "Chef House",
+      rawKg: "500",
+      lines: JSON.stringify([
+        { lotId: a.id, kg: "300" },
+        { lotId: b.id, kg: "200" },
+      ]),
+    },
+    "",
+    day,
+  );
+})();
+
+/** `freeOrderDb` with the first PO's meat paid before Foodiva's invoice exists (PO-03). */
+export const paidWithoutInvoiceDb: Database = mutate(
+  freeOrderDb,
+  "owner",
+  "meatPayment",
+  { paymentDate: day, paidBy: "Owner", paidAmount: "75000", slips: "[]" },
+  freeOrderDb.lots[0].id,
+  day,
+);

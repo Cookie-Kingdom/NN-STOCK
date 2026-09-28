@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
@@ -21,6 +22,8 @@ import {
   entries,
   n,
   ownerPendingInvoices,
+  purchaseLots,
+  shipments,
   type Entry,
   smokingInvoiceReview,
   smokingInvoiceStatus,
@@ -78,6 +81,21 @@ export function InvoiceView({
   const smokingInvoices = entries(db, "smokingInvoice").filter((entry) =>
     matches(lotOf(entry)),
   );
+  // PO-07 / SVC-05: paying never waits for the invoice. A purchase PO with no Foodiva
+  // invoice and a batch with no smoking invoice still get a row and a pay button.
+  const posWithoutInvoice = purchaseLots(db).filter(
+    (lot) => !entries(db, "foodivaConfirm", lot.id).length && matches(lot),
+  );
+  const batchesWithoutInvoice = shipments(db).filter(
+    (lot) => !entries(db, "smokingInvoice", lot.id).length && matches(lot),
+  );
+  const noInvoice = (key: string) => (
+    <Badge key={key} tone="warning">
+      ยังไม่มี Invoice
+    </Badge>
+  );
+  const slips = (key: string, payment: Entry | undefined) =>
+    payment ? <SlipList key={key} value={payment.values.slips} /> : "—";
   // Same set as the sidebar Invoice badge, over every invoice (not just the filtered rows).
   const pending = ownerPendingInvoices(db);
   const toPay = pending.unpaidMeatLots.length + pending.toPay.length;
@@ -109,107 +127,175 @@ export function InvoiceView({
         title="Invoice Foodiva"
         defaultSort={{ column: "วันที่ Invoice", desc: true }}
         columns={foodivaColumns}
-        rowKeys={foodivaInvoices.map((entry) => entry.id)}
-        rows={foodivaInvoices.map((entry) => {
-          const lot = lotOf(entry);
-          const payment = entries(db, "meatPayment", entry.lotId).at(-1);
-          // Re-saved invoices leave older rows behind: only the newest one is payable.
-          const latest =
-            entries(db, "foodivaConfirm", entry.lotId).at(-1)?.id === entry.id;
-          return [
-            entry.values.invoiceNo,
-            entry.values.invoiceDate,
-            `${lot?.poId || "-"} / ${entry.lotId}`,
-            lot ? lotIssueDate(db, lot) : "—",
-            `${fmt(n(entry.values, "confirmedKg"))} กก.`,
-            `฿${fmt(n(entry.values, "invoiceAmount"))}`,
-            entry.values.confirmedBy || "—",
-            payment ? "ชำระแล้ว" : "รอชำระ",
-            /* The file, not the row: re-saving an invoice writes a new entry that
+        rowKeys={[
+          ...foodivaInvoices.map((entry) => entry.id),
+          ...posWithoutInvoice.map((lot) => lot.id),
+        ]}
+        rows={[
+          ...foodivaInvoices.map((entry) => {
+            const lot = lotOf(entry);
+            const payment = entries(db, "meatPayment", entry.lotId).at(-1);
+            // Re-saved invoices leave older rows behind: only the newest one is payable.
+            const latest =
+              entries(db, "foodivaConfirm", entry.lotId).at(-1)?.id ===
+              entry.id;
+            return [
+              entry.values.invoiceNo,
+              entry.values.invoiceDate,
+              `${lot?.poId || "-"} / ${entry.lotId}`,
+              lot ? lotIssueDate(db, lot) : "—",
+              `${fmt(n(entry.values, "confirmedKg"))} กก.`,
+              `฿${fmt(n(entry.values, "invoiceAmount"))}`,
+              entry.values.confirmedBy || "—",
+              payment ? "ชำระแล้ว" : "รอชำระ",
+              /* The file, not the row: re-saving an invoice writes a new entry that
                keeps the file name but not the bytes, so the download falls back to
                the newest version of this document that still carries the upload. */
-            <InvoiceDownloadButton
-              key={entry.id}
-              name={entry.values.attachment}
-              {...uploadedAttachment(db, "foodivaConfirm", entry.lotId)}
-            />,
-            payment ? (
-              <SlipList
-                key={`slips-${entry.id}`}
-                value={payment.values.slips}
-              />
-            ) : (
-              "—"
-            ),
-            <ButtonRow key={`action-${entry.id}`}>
-              {!payment && latest && (
-                <Button
-                  variant="table"
-                  onClick={() => open("meatPayment", entry.lotId)}
-                >
-                  ชำระเงิน
-                </Button>
-              )}
-            </ButtonRow>,
-          ];
-        })}
+              <InvoiceDownloadButton
+                key={entry.id}
+                name={entry.values.attachment}
+                {...uploadedAttachment(db, "foodivaConfirm", entry.lotId)}
+              />,
+              payment ? (
+                <SlipList
+                  key={`slips-${entry.id}`}
+                  value={payment.values.slips}
+                />
+              ) : (
+                "—"
+              ),
+              <ButtonRow key={`action-${entry.id}`}>
+                {!payment && latest && (
+                  <Button
+                    variant="table"
+                    onClick={() => open("meatPayment", entry.lotId)}
+                  >
+                    ชำระเงิน
+                  </Button>
+                )}
+              </ButtonRow>,
+            ];
+          }),
+          ...posWithoutInvoice.map((lot) => {
+            const payment = entries(db, "meatPayment", lot.id).at(-1);
+            return [
+              noInvoice(`invoice-${lot.id}`),
+              "—",
+              `${lot.poId} / ${lot.id}`,
+              lotIssueDate(db, lot),
+              `สั่ง ${fmt(n(lot.values, "orderedKg"))} กก.`,
+              "—",
+              "—",
+              payment ? "ชำระแล้ว" : "รอชำระ",
+              "—",
+              slips(`slips-${lot.id}`, payment),
+              <ButtonRow key={`action-${lot.id}`}>
+                {!payment && (
+                  <Button
+                    variant="table"
+                    onClick={() => open("meatPayment", lot.id)}
+                  >
+                    ชำระเงิน
+                  </Button>
+                )}
+              </ButtonRow>,
+            ];
+          }),
+        ]}
       />
       <DataTable
         title="Invoice Chef House"
         defaultSort={{ column: "วันที่ Invoice", desc: true }}
         columns={chefHouseColumns}
-        rowKeys={smokingInvoices.map((entry) => entry.id)}
-        rows={smokingInvoices.map((entry) => {
-          const lot = lotOf(entry);
-          const status = smokingInvoiceStatus(db, entry);
-          const payment = entries(db, "invoicePayment", entry.lotId).find(
-            (item) => item.values.invoiceId === entry.id,
-          );
-          const reviewNote = smokingInvoiceReview(
-            db,
-            entry,
-          )?.values.comment?.trim();
-          return [
-            entry.values.invoiceNumber,
-            entry.values.invoiceDate,
-            `${lot?.poId || "-"} / ${entry.lotId}`,
-            lot ? lotIssueDate(db, lot) : "—",
-            `฿${fmt(n(entry.values, "netPayable"))}`,
-            entry.values.invoiceDetail || "—",
-            reviewNote ? `${status} · หมายเหตุ: ${reviewNote}` : status,
-            <InvoiceDownloadButton
-              key={`file-${entry.id}`}
-              name={entry.values.attachment}
-              {...uploadedAttachment(db, "smokingInvoice", entry.lotId)}
-            />,
-            payment ? (
-              <SlipList
-                key={`slips-${entry.id}`}
-                value={payment.values.slips}
-              />
-            ) : (
-              "—"
-            ),
-            <ButtonRow key={`action-${entry.id}`}>
-              {status === "รอตรวจยอด" && (
-                <Button
-                  variant="table"
-                  onClick={() => open("invoiceReview", entry.lotId)}
-                >
-                  ตรวจยอด
-                </Button>
-              )}
-              {status === "รอชำระ" && (
-                <Button
-                  variant="table"
-                  onClick={() => open("invoicePayment", entry.lotId)}
-                >
-                  ชำระเงิน
-                </Button>
-              )}
-            </ButtonRow>,
-          ];
-        })}
+        rowKeys={[
+          ...smokingInvoices.map((entry) => entry.id),
+          ...batchesWithoutInvoice.map((lot) => lot.id),
+        ]}
+        rows={[
+          ...smokingInvoices.map((entry) => {
+            const lot = lotOf(entry);
+            const status = smokingInvoiceStatus(db, entry);
+            const payment = entries(db, "invoicePayment", entry.lotId).find(
+              (item) => item.values.invoiceId === entry.id,
+            );
+            // Re-submitted invoices leave older rows behind: only the newest one is payable.
+            // A payment made before any invoice came already settles the batch.
+            const latest =
+              entries(db, "smokingInvoice", entry.lotId).at(-1)?.id ===
+                entry.id &&
+              !entries(db, "invoicePayment", entry.lotId).some(
+                (item) => !item.values.invoiceId,
+              );
+            const reviewNote = smokingInvoiceReview(
+              db,
+              entry,
+            )?.values.comment?.trim();
+            return [
+              entry.values.invoiceNumber,
+              entry.values.invoiceDate,
+              `${lot?.poId || "-"} / ${entry.lotId}`,
+              lot ? lotIssueDate(db, lot) : "—",
+              `฿${fmt(n(entry.values, "netPayable"))}`,
+              entry.values.invoiceDetail || "—",
+              reviewNote ? `${status} · หมายเหตุ: ${reviewNote}` : status,
+              <InvoiceDownloadButton
+                key={`file-${entry.id}`}
+                name={entry.values.attachment}
+                {...uploadedAttachment(db, "smokingInvoice", entry.lotId)}
+              />,
+              payment ? (
+                <SlipList
+                  key={`slips-${entry.id}`}
+                  value={payment.values.slips}
+                />
+              ) : (
+                "—"
+              ),
+              <ButtonRow key={`action-${entry.id}`}>
+                {status === "รอตรวจยอด" && (
+                  <Button
+                    variant="table"
+                    onClick={() => open("invoiceReview", entry.lotId)}
+                  >
+                    ตรวจยอด
+                  </Button>
+                )}
+                {latest && status !== "ชำระแล้ว" && (
+                  <Button
+                    variant="table"
+                    onClick={() => open("invoicePayment", entry.lotId)}
+                  >
+                    ชำระเงิน
+                  </Button>
+                )}
+              </ButtonRow>,
+            ];
+          }),
+          ...batchesWithoutInvoice.map((lot) => {
+            const payment = entries(db, "invoicePayment", lot.id).at(-1);
+            return [
+              noInvoice(`invoice-${lot.id}`),
+              "—",
+              `${lot.poId} / ${lot.id}`,
+              lotIssueDate(db, lot),
+              "—",
+              "—",
+              payment ? "ชำระแล้ว" : "รอชำระ",
+              "—",
+              slips(`slips-${lot.id}`, payment),
+              <ButtonRow key={`action-${lot.id}`}>
+                {!payment && (
+                  <Button
+                    variant="table"
+                    onClick={() => open("invoicePayment", lot.id)}
+                  >
+                    ชำระเงิน
+                  </Button>
+                )}
+              </ButtonRow>,
+            ];
+          }),
+        ]}
       />
     </div>
   );

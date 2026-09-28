@@ -3,12 +3,13 @@
 import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
+import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   entries,
-  lotProgress,
   n,
   producedBags,
+  shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -19,7 +20,7 @@ const columns = [
   "Foodiva รับจริง",
   "จำนวนกล่องรมควัน",
   "ใบขนส่งกลับ",
-  "สถานะ",
+  "ขั้นที่ยังขาด",
   "การทำงาน",
 ];
 
@@ -30,22 +31,18 @@ export function CentralReceiveView({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const readyToReceive = db.lots.filter((lot) => {
-    const p = lotProgress(db, lot.id);
-    return (
-      p.has("return") &&
-      !p.has("central") &&
-      entries(db, "foodivaReturnReceive", lot.id).length
-    );
-  });
+  // RET-06: every batch not yet in central stock; no truck home or Foodiva receipt needed.
+  const readyToReceive = shipments(db).filter(
+    (lot) => !entries(db, "central", lot.id).length,
+  );
   return (
     <>
       <SectionHeading
         title="Owner รับของจาก Foodiva เข้าสต๊อกกลาง"
-        description="Foodiva ต้องยืนยันรับเนื้อรมควันเข้าตู้ก่อน Owner จึงรับเข้าสต๊อกกลางและจัดสรรสาขาได้"
+        description="ทุกชุดที่ยังไม่เข้าสต๊อกกลาง · รับเข้าได้ทุกเมื่อ ถ้า Foodiva ยืนยันรับเข้าตู้แล้วระบบจะเทียบน้ำหนักให้"
       />
       <DataTable
-        title="Lot ที่รอรับเข้าสต๊อกกลาง"
+        title="ชุดที่ยังไม่เข้าสต๊อกกลาง"
         columns={columns}
         rowKeys={readyToReceive.map((lot) => lot.id)}
         rows={readyToReceive.map((lot) => {
@@ -53,12 +50,19 @@ export function CentralReceiveView({
           const received = entries(db, "foodivaReturnReceive", lot.id).at(-1);
           return [
             lot.id,
-            `${fmt(n(received?.values || {}, "receivedKg"))} กก.`,
+            received
+              ? `${fmt(n(received.values, "receivedKg"))} กก.`
+              : "ยังไม่ยืนยันรับ",
             `${received?.values.receivedBags || producedBags(db, lot.id)} กล่องรมควัน`,
             back
               ? `${back.values.returnDate || "ยังไม่ระบุวัน"} · ${back.values.plate || "ยังไม่ระบุรถ"}`
               : "ยังไม่มีใบขนส่งขากลับ",
-            "รอรับเข้าสต๊อกกลาง",
+            <LotProgressChips
+              key="progress"
+              db={db}
+              lotId={lot.id}
+              steps={["smoke", "return", "foodivaReturnReceive"]}
+            />,
             <Button
               variant="table"
               key={lot.id}
@@ -70,7 +74,7 @@ export function CentralReceiveView({
         })}
       />
       {!readyToReceive.length && (
-        <Notice tone="success">ไม่มี Lot รอรับเข้าสต๊อกกลางในขณะนี้</Notice>
+        <Notice tone="success">ทุกชุดรับเข้าสต๊อกกลางแล้ว</Notice>
       )}
     </>
   );

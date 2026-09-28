@@ -74,13 +74,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "po" && <PurchaseOrderView db={db} open={open} />}
       {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
       {tab === "invoices" && <InvoiceView db={db} open={open} />}
-      {tab === "transport" && (
-        <TransportManifestView
-          db={db}
-          open={open}
-          onOpenSmokePo={() => setTab("smoke-po")}
-        />
-      )}
+      {tab === "transport" && <TransportManifestView db={db} open={open} />}
       {tab === "return-shipment" && <ReturnShipmentView db={db} open={open} />}
       {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}
       {tab === "documents" && <SimpleTraceabilityView db={db} />}
@@ -90,7 +84,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
         <>
           <SectionHeading
             title="จัดสรรเนื้อและสต๊อกไปสาขา"
-            description="เลือก Lot ที่มีเนื้อในสต๊อกกลาง แล้วระบุสาขาและน้ำหนักที่ต้องการส่ง"
+            description="จัดสรรได้ทุกชุด ระบุสาขาและน้ำหนักที่ต้องการส่ง · เกินสต๊อกกลางระบบจะเตือนแต่ยังบันทึกได้"
           />
           <MeatStockTable
             db={db}
