@@ -6,9 +6,12 @@ import {
   centralDb,
   day,
   demoDb,
+  linkedDb,
   open,
   ownerReservedDb,
   paidDb,
+  partialBatchDb,
+  unlinkedDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
@@ -49,6 +52,17 @@ const stockState = pick("สถานะ", {
   ตัวอย่าง: db,
   "Waste รอรับ": ownerReservedDb,
   จัดสรรแล้ว: allocatedDb,
+  "ไม่ระบุ Lot": unlinkedDb,
+});
+const linkState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  ยังไม่ผูก: unlinkedDb,
+  ผูกแล้ว: linkedDb,
+});
+const traceState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  ยังไม่ผูก: unlinkedDb,
+  ชุดที่มีแค่รับและรมควัน: partialBatchDb,
 });
 const centralState = pick("สถานะ", { ตัวอย่าง: db, พร้อมจัดสรร: centralDb });
 const logoState = pick("โลโก้", { ปกติ: db, โลโก้แบบเก่า: legacyLogoDb });
@@ -69,8 +83,16 @@ export const AlertBanners: Story = {
   ),
 };
 
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run; "ยังไม่ผูก" reads all clear.
+ *  - ยังไม่ผูก: ศาลาแดง 10 kg in "ไม่ระบุ Lot", 1 material receipt with no transfer, 1 batch
+ *    with no smoke PO (Chef House smoked it first), 1 purchase PO with no Foodiva invoice.
+ *  - ผูกแล้ว: the same after ศาลาแดง linked its meat to the 35 kg batch: meat reads 0 and
+ *    the sale is costed on the batch. */
 export const Dashboard: Story = {
-  render: () => <OwnerDashboard db={db} date={day} onNavigate={fn()} />,
+  argTypes: { db: linkState.argType },
+  args: { db: linkState.initial },
+  render: ({ db }) => <OwnerDashboard db={db} date={day} onNavigate={fn()} />,
 };
 
 export const DailyStatus: Story = {
@@ -83,7 +105,8 @@ export const DailyStatus: Story = {
  *  - Waste รอรับ: the Waste row has 6 kg still waiting at Foodiva, 4 kg already in คลัง
  *    Owner, and the บันทึกรับเนื้อ action on the same row.
  *  - จัดสรรแล้ว: smoked beef, what is left at Foodiva to allocate beside the 17.5 kg sent
- *    to ศาลาแดง. */
+ *    to ศาลาแดง.
+ *  - ไม่ระบุ Lot: a "ไม่ระบุ Lot" row holds ศาลาแดง's 10 kg received with no lot (DASH-06). */
 export const Stock: Story = {
   argTypes: { db: stockState.argType },
   args: { db: stockState.initial },
@@ -99,15 +122,40 @@ export const CentralReceive: Story = {
   render: ({ db }) => <CentralReceiveView db={db} open={open} />,
 };
 
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - ยังไม่ผูก: a "ไม่ระบุ Lot" row for ศาลาแดง's unlinked meat (also in the Lot filter),
+ *    and a batch holding only Chef House's weigh-in and smoke, its empty steps "—".
+ *  - ผูกแล้ว: the bucket is gone; the receive, thaw and sale sit on the batch, with the
+ *    "ผูก Lot" moves in the log and central stock 25 kg (RET-04). */
 export const MeatMovementLog: Story = {
-  render: () => <MeatMovementLogView db={db} />,
+  argTypes: { db: linkState.argType },
+  args: { db: linkState.initial },
+  render: ({ db }) => <MeatMovementLogView db={db} />,
 };
 
+/** เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - ยังไม่ผูก: includes a batch with only cmReceive and smoke; expand it: every document
+ *    it lacks reads "—", no row is hidden (DASH-05).
+ *  - ชุดที่มีแค่รับและรมควัน: that batch alone. */
 export const Traceability: Story = {
-  render: () => <SimpleTraceabilityView db={db} />,
+  argTypes: { db: traceState.argType },
+  args: { db: traceState.initial },
+  render: ({ db }) => <SimpleTraceabilityView db={db} />,
 };
 
-export const ReportView: Story = { render: () => <Report db={db} /> };
+/** "ต้นทุนแยก Lot" lists every batch whatever it holds (DASH-04). เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - ยังไม่ผูก: the 35 kg batch has no Chef House invoice, so its smoking cost is the
+ *    smoke PO's "(ประมาณการ)" (D8); the batch Chef House smoked first has no central count
+ *    and shows "—" per kg; the 3 kg sold from "ไม่ระบุ Lot" is its own row at cost 0 (BR-05).
+ *  - ผูกแล้ว: that 3 kg is costed on the batch at its per-kg cost. */
+export const ReportView: Story = {
+  argTypes: { db: linkState.argType },
+  args: { db: linkState.initial },
+  render: ({ db }) => <Report db={db} />,
+};
 
 /** เลือกโลโก้ใน Controls:
  *  - ปกติ: the demo config.

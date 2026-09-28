@@ -190,6 +190,33 @@ export function OwnerStockView({
         },
       ];
     }),
+    // DASH-06: branch meat recorded with no lot is stock too, until a `link` moves it.
+    ...(branches.some((branchName) => balance(db, "", branchName).received)
+      ? [
+          {
+            genre: "เนื้อ",
+            item: "ไม่ระบุ Lot · เนื้อรมควัน",
+            unit: "กก.",
+            at: Object.fromEntries(
+              branches.map((branchName) => {
+                const stock = balance(db, "", branchName);
+                return [branchName, stock.frozen + stock.ready];
+              }),
+            ),
+            tips: Object.fromEntries(
+              branches.map((branchName) => {
+                const stock = balance(db, "", branchName);
+                return [
+                  branchName,
+                  `แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)}`,
+                ];
+              }),
+            ),
+            detail: "สาขารับเนื้อโดยยังไม่ผูก Lot · ผูกได้จากประวัติรายการ",
+            meatType: "เนื้อรมควัน",
+          } satisfies StockRow,
+        ]
+      : []),
     {
       genre: "วัตถุดิบ",
       item: "ข้าวเหนียวดิบ (ข้าวสาร)",

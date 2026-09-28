@@ -212,6 +212,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     chefInvoice,
                     dispatch,
                     chefReceive,
+                    entries(db, "packingList", lot.id).at(-1),
                     ...smokeEntries,
                     returnTrip,
                     foodivaReturn,
@@ -241,7 +242,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                 ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
                                 : dispatch
                                   ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
-                                  : "รอ Foodiva ทำใบขนส่ง";
+                                  : latest
+                                    ? titles[latest.kind]
+                                    : "—";
                   const route = allocations.length
                     ? "สต๊อกกลาง → สาขา"
                     : returnTrip
@@ -250,7 +253,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         ? "Foodiva → Chef House"
                         : progress.has("closeLot")
                           ? "Chef House → Foodiva"
-                          : "Foodiva · รอเริ่มขนส่ง";
+                          : progress.has("cmReceive") || progress.has("smoke")
+                            ? "Chef House"
+                            : "—";
                   const chefFile = uploadedAttachment(
                     db,
                     "smokingInvoice",
@@ -293,7 +298,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           foodInvoice?.values.invoiceDate || "—",
                           foodInvoice
                             ? `ยืนยัน ${fmt(n(foodInvoice.values, "confirmedKg"))} กก.`
-                            : "รอ Foodiva",
+                            : "—",
                           /* An invoice is the counterparty's own file. Only a PO that
                              never got one falls back to the generated sheet. */
                           foodivaFile ? (
@@ -315,13 +320,25 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         ],
                       ] as [string, ReactNode, string, string, ReactNode][];
                     }),
+                    // No smoke PO lines yet: the row stays, empty (DASH-05).
+                    ...(poLots(lot).length
+                      ? []
+                      : [
+                          ["PO เนื้อ", "—", "—", "—", "—"] as [
+                            string,
+                            ReactNode,
+                            string,
+                            string,
+                            ReactNode,
+                          ],
+                        ]),
                     [
                       "PO โรงรมควัน",
                       smokeOrder?.values.orderNumber || "—",
                       smokeOrder?.date || "—",
                       smokeOrder
                         ? `${fmt(n(smokeOrder.values, "rawKg"))} กก.`
-                        : "รอ Owner ออก PO",
+                        : "—",
                       smokeOrder ? (
                         <DocumentPreview
                           key="smoke-order"
@@ -337,9 +354,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       "Invoice Chef House",
                       chefInvoice?.values.invoiceNumber || "—",
                       chefInvoice?.values.invoiceDate || "—",
-                      chefInvoice
-                        ? smokingInvoiceStatus(db, chefInvoice)
-                        : "รอ Chef House Submit",
+                      chefInvoice ? smokingInvoiceStatus(db, chefInvoice) : "—",
                       chefFile ? (
                         <AttachmentViewButton
                           key="chef-file"
@@ -368,7 +383,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       dispatch?.values.pickupDate || "—",
                       dispatch
                         ? `${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
-                        : "รอเรียกรถ",
+                        : "—",
                       dispatch ? (
                         <DocumentPreview
                           key="dispatch"
@@ -391,7 +406,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                         ? `${fmt(n(chefReceive.values, "receivedKg"))} กก.`
                         : "—",
                       chefReceive?.date || "—",
-                      chefReceive ? "รับแล้ว" : "รอยืนยันรับ",
+                      chefReceive ? "รับแล้ว" : "—",
                       chefReceive ? (
                         <DocumentPreview
                           key="chef-receive"
@@ -457,8 +472,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       produced(db, lot.id)
                         ? `${fmt(produced(db, lot.id))} กก. · ${producedBags(db, lot.id)} กล่องรมควัน`
                         : "—",
-                      produced(db, lot.id) ? "บันทึกแล้ว" : "รอผลิต",
-                      produced(db, lot.id) ? "ผลิตแล้ว" : "รอ Chef House",
+                      produced(db, lot.id) ? "บันทึกแล้ว" : "—",
+                      produced(db, lot.id) ? "ผลิตแล้ว" : "—",
                       smokeEntries.length ? (
                         <DocumentPreview
                           key="yield"
@@ -496,7 +511,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       returnTrip?.values.returnDate || "—",
                       returnTrip
                         ? `${fmt(n(returnTrip.values, "returnKg"))} กก.`
-                        : "รอเรียกรถกลับ",
+                        : "—",
                       returnTrip ? (
                         <DocumentPreview
                           key="return"
@@ -521,7 +536,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       foodivaReturn?.date || "—",
                       foodivaReturn
                         ? `${fmt(n(foodivaReturn.values, "receivedKg"))} กก. · ${foodivaReturn.values.receivedBags || "—"} กล่องรมควัน`
-                        : "รอ Foodiva รับ",
+                        : "—",
                       "—",
                     ],
                     [
@@ -531,7 +546,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       central?.date || "—",
                       central
                         ? `${fmt(n(central.values, "centralKg"))} กก.`
-                        : "รอรับเข้าสต๊อกกลาง",
+                        : "—",
                       "—",
                     ],
                     [
@@ -545,7 +560,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                 `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`,
                             )
                             .join(" · ")
-                        : "รอจัดสรร",
+                        : "—",
                       "—",
                     ],
                     [
@@ -554,7 +569,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       sales.at(-1)?.date || "—",
                       sales.length
                         ? `ขาย ${fmt(sales.reduce((t, e) => t + n(e.values, "soldKg"), 0))} กก. · Waste ${fmt(sales.reduce((t, e) => t + n(e.values, "wasteKg"), 0))} กก.`
-                        : "ยังไม่มียอดขาย",
+                        : "—",
                       "—",
                     ],
                   ];

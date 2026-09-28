@@ -17,6 +17,7 @@ import {
   dispatch,
   invoice,
   packingList,
+  packs,
   purchase,
   ready,
   readyToDispatch,
@@ -608,3 +609,101 @@ export const nextInvoiceDb: Database = (() => {
   purchase(s, "50");
   return s.db;
 })();
+
+/** Chef House weighed in a new batch and smoked it before anyone issued a smoke PO or trucked
+ *  it: the batch holds only `cmReceive` and `smoke` (DASH-05). */
+export const partialBatchDb: Database = (() => {
+  const s = setup();
+  s.run("cm", "cmReceive", { receivedBoxes: "20\n20", arrival: "08:00" }, "");
+  s.run("cm", "smoke", {
+    smokeDate: day,
+    inputKg: "30",
+    wasteKg: "8",
+    packs: packs(220),
+  });
+  return s.db;
+})();
+
+/** A6: `centralDb`'s 35 kg batch plus what was recorded without its source. ศาลาแดง took in
+ *  10 kg with no lot, thawed 4 and sold 3 from the "ไม่ระบุ Lot" bucket; it received 5 units
+ *  of materials[0] with no transfer while the Owner's 5-unit transfer waits; Chef House
+ *  weighed in and smoked a second batch with no smoke PO; a 60 kg purchase PO has no Foodiva
+ *  invoice. The dashboard's "ยังไม่ผูก" counts 10 kg, 1 material, 1 batch, 1 PO. */
+export const unlinkedDb: Database = (() => {
+  const s = ready();
+  s.run("branch", "receive", { kg: "10" }, "");
+  s.run("branch", "thaw", { kg: "4" }, "");
+  s.run(
+    "branch",
+    "sale",
+    {
+      boxes: "0",
+      addons: "30",
+      chiliAddons: "0",
+      soldKg: "3",
+      wasteKg: "0",
+      riceWasteKg: "0",
+      expense: "0",
+      lineMan: "9600",
+    },
+    "",
+  );
+  s.run(
+    "branch",
+    "materialConfirm",
+    { material: materials[0], receivedQuantity: "5", receiver: "นิด" },
+    "",
+  );
+  s.run(
+    "owner",
+    "materialReceive",
+    {
+      purchaseDate: day,
+      material: materials[0],
+      quantity: "20",
+      unitPrice: "1",
+      supplier: "ร้านวัสดุ",
+    },
+    "",
+  );
+  s.run(
+    "owner",
+    "materialTransfer",
+    {
+      material: materials[0],
+      branch: "ศาลาแดง",
+      quantity: "5",
+      receiver: "นิด",
+    },
+    "",
+  );
+  s.run("cm", "cmReceive", { receivedBoxes: "20\n20", arrival: "08:00" }, "");
+  s.run("cm", "smoke", {
+    smokeDate: day,
+    inputKg: "30",
+    wasteKg: "8",
+    packs: packs(220),
+  });
+  purchase(s, "60");
+  return s.db;
+})();
+
+/** `unlinkedDb` after ศาลาแดง linked its receive, thaw and sale to the 35 kg batch: the
+ *  bucket is empty, the batch's central stock is 25 kg and the 3 kg sale is costed on it
+ *  (LNK-04, BR-05). */
+export const linkedDb: Database = (["receive", "thaw", "sale"] as const).reduce(
+  (db, kind) =>
+    mutate(
+      db,
+      "branch",
+      "link",
+      {
+        targetId: db.entries.find((e) => e.kind === kind && !e.lotId)!.id,
+        lotId: db.lots.find((l) => l.kind === "shipment")!.id,
+      },
+      "",
+      day,
+      "ศาลาแดง",
+    ),
+  unlinkedDb,
+);
