@@ -372,11 +372,15 @@ function lotConfig(db: Database): Values {
     Object.entries(db.config).filter(([key]) => key !== "logoData"),
   );
 }
-/** GEN-09: a new shipment batch, `S<yymmdd>-NNN` with the next `SH-YYYY-NNNN` number. */
+/** GEN-09: a new shipment batch, `S<yymmdd>-NNN-xxxx` with the next `SH-YYYY-NNNN` number.
+ *  NNN and the SH number count the batches this client can see; Chef House and a branch see a
+ *  subset, so they may repeat a batch they cannot see. The 4 random hex chars keep the id itself
+ *  unique, so the server never mistakes a new batch for a values change of a stored one
+ *  (is_new_batch, migration 20260928000031). The SH number is display only. */
 function newBatch(db: Database, next: Database, date: string): Lot {
   const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
   const lot: Lot = {
-    id: `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}`,
+    id: `S${date.slice(2).replaceAll("-", "")}-${String(count).padStart(3, "0")}-${newId().slice(0, 4)}`,
     poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
     kind: "shipment",
     values: {},

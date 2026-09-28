@@ -56,7 +56,8 @@ describe("Chef House yellow cells", () => {
   });
 
   it("drafts one blank cell per กล่องรับเข้า and keeps a blank as a blank line", () => {
-    const list = latestPackingList(trucked().db, trucked().db.lots.at(-1)!.id);
+    const { db } = trucked();
+    const list = latestPackingList(db, db.lots.at(-1)!.id);
     expect(receivedDraft(list)).toEqual([undefined, undefined]);
     expect(receivedDraft(list, "24.5\n")).toEqual([24.5, undefined]);
     expect(receivedValue([24.5, undefined])).toBe("24.5\n");

@@ -99,17 +99,17 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
-      /* Role-scoped copy of the payload (migration 20260925000028). */
+      /* Role-scoped copy of the payload (migration 20260925000028; scope rules 20260928000030/31). */
       load_app_state: {
         Args: never;
         Returns: { payload: Json; revision: number }[];
       };
-      /* Migration 20260925000023; returns the new revision (0017). */
+      /* Latest in migration 20260928000030; returns the new revision (0017). */
       save_app_state: {
         Args: { p_payload: Json; p_expected_revision?: number | null };
         Returns: { revision: number; updated_at: string }[];
       };
-      /* Non-owner delta save (migration 20260925000028); returns the new revision. */
+      /* Non-owner delta save (latest in migration 20260928000030); returns the new revision. */
       append_entries: {
         Args: {
           p_expected_revision: number | null;

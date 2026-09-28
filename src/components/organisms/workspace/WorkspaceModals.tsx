@@ -19,7 +19,7 @@ import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderP
 import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";
-import { titles, type EntryKind } from "@/lib/store";
+import { entries, titles, type EntryKind } from "@/lib/store";
 
 const CUSTOM_DIALOGS = [
   "materialReceive",
@@ -158,9 +158,17 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() =>
-          done("บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน")
-        }
+        onSaved={(next) => {
+          // Nag for a smoke PO only when the batch has none yet (free ledger: it may come later).
+          const lotId = next.entries.findLast(
+            (e) => e.kind === "dispatch",
+          )?.lotId;
+          done(
+            lotId && entries(next, "smokeOrder", lotId).length
+              ? "บันทึกใบขนส่งและ Packing List แล้ว"
+              : "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน",
+          );
+        }}
       />
     );
   }

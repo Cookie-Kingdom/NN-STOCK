@@ -40,7 +40,8 @@ export function readState(db: DatabaseSync): AppStateRow {
 }
 
 /** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
- * money (C4), every other role its role-scoped copy (migration 20260925000028). */
+ * money (C4), every other role its role-scoped copy (load_app_state in 20260925000028;
+ * scope_app_state latest in 20260928000031). */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
@@ -110,7 +111,7 @@ const without = (value: object, ...keys: string[]) =>
     Object.entries(value).filter(([key]) => !keys.includes(key)),
   );
 
-/** JS port of `save_app_state` (supabase/migrations/20260925000023_save_app_state_hardening.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20260928000030_free_ledger_app_state.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -214,7 +215,12 @@ export function saveState(
     if (
       payload.lots
         .slice(old.lots.length)
-        .some((lot) => !isShipmentLot(lot) || !isObject(lot.values))
+        .some(
+          (lot) =>
+            !isShipmentLot(lot) ||
+            !isObject(lot.values) ||
+            payload.lots.filter((other) => other?.id === lot.id).length > 1,
+        )
     )
       fail("Only an owner can add or remove lots");
   }
@@ -223,16 +229,17 @@ export function saveState(
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-/** A new shipment batch as `mutate` opens one: `S…`/`SH-…` ids, kind "shipment". */
+/** A new shipment batch as `mutate` opens one: `S<yymmdd>-NNN-xxxx` / `SH-…` ids, kind
+ *  "shipment" (is_new_batch, migration 20260928000031). */
 const isShipmentLot = (lot: unknown): lot is Lot =>
   isObject(lot) &&
   lot.kind === "shipment" &&
   typeof lot.id === "string" &&
-  /^S\d{6}-\d{3}$/.test(lot.id) &&
+  /^S\d{6}-\d{3}-[0-9a-f]{4}$/.test(lot.id) &&
   typeof lot.poId === "string" &&
   /^SH-\d{4}-\d{4}$/.test(lot.poId);
 
-/** JS port of `append_entries` (supabase/migrations/20260925000028_role_scoped_app_state.sql):
+/** JS port of `append_entries` (supabase/migrations/20260928000030_free_ledger_app_state.sql):
  * a Branch, Foodiva or Chef House save, which sends only its new entries and changed lots.
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -285,15 +292,6 @@ export function appendState(
     )
   )
     fail("Entry id must be unique");
-  if (
-    added.some(
-      (entry) =>
-        entry.lotId &&
-        entry.lotId !== "-" &&
-        !old.lots.some((lot) => lot?.id === entry.lotId),
-    )
-  )
-    fail("Entry lot does not exist");
   // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
   const configBranch = branches.includes(old.config.branch ?? "")
     ? old.config.branch
@@ -322,6 +320,16 @@ export function appendState(
     // Only values are taken (DM-09); they merge over the stored ones.
     lots[index] = { ...lot, values: { ...lot.values, ...change.values } };
   }
+  // After the lots: a batch opened in this save counts (as in append_entries).
+  if (
+    added.some(
+      (entry) =>
+        entry.lotId &&
+        entry.lotId !== "-" &&
+        !lots.some((lot) => lot?.id === entry.lotId),
+    )
+  )
+    fail("Entry lot does not exist");
 
   // BR-05: a sale's meat cost is never stored; `saleCost` reads it, so a scoped copy sends none.
   const costKeys = ["meatCost", "wasteCost"].flatMap((key) => [

@@ -26,7 +26,7 @@ import {
   setup,
 } from "./fixtures";
 
-/* append_entries (migration 0028) through its JS port: a non-owner loads its role-scoped copy,
+/* append_entries (migration 0030) through its JS port: a non-owner loads its role-scoped copy,
  * runs mutate on it as the app does, and saves only the delta. */
 function save(
   full: Database,
@@ -135,6 +135,19 @@ test("Foodiva's truck updates the batch values from the scoped copy", () => {
   const expected = mutate(s.db, "foodiva", "dispatch", send, lotId, day);
   const { stored } = save(s.db, "foodiva", "foodiva", "dispatch", send, lotId);
   expect(stored.lots).toEqual(expected.lots);
+});
+
+test("GEN-09 Chef House opens a batch and records its first entry in one save", () => {
+  const s = setup();
+  readyToDispatch(s, "50");
+  const input = { receivedBoxes: "20\n20", arrival: "08:00" };
+  const { delta, stored } = save(s.db, "chef", "cm", "cmReceive", input, "");
+  const [batch] = delta.lots;
+  // The random suffix keeps the id apart from batches Chef House cannot see.
+  expect(batch.id).toMatch(/^S\d{6}-\d{3}-[0-9a-f]{4}$/);
+  expect(stored.lots.filter((lot) => lot.id === batch.id)).toHaveLength(1);
+  expect(stored.lots).toHaveLength(s.db.lots.length + 1);
+  expect(stored.entries.at(-1)!.lotId).toBe(batch.id);
 });
 
 test("append_entries refuses what save_app_state refuses", () => {
