@@ -108,16 +108,9 @@ export function confirm(s: Setup, kg: string, readyKg = kg) {
   });
 }
 
-/** Owner's Request: one shipment lot drawing `[purchaseLotId, kg]` from each purchase PO. */
-export function request(s: Setup, lines: [string, string][]) {
-  s.run("owner", "shipmentRequest", {
-    lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
-  });
-}
-
-/** Foodiva's outbound transport document for the newest shipment (stage 1 → 2). */
-export function dispatch(s: Setup) {
-  s.run("foodiva", "dispatch", send);
+/** Foodiva's outbound transport document for the newest batch (`""` opens a new one). */
+export function dispatch(s: Setup, lotId?: string) {
+  s.run("foodiva", "dispatch", send, lotId);
 }
 
 /** Foodiva's Packing List, one กล่องรับเข้า weight per line. */
@@ -131,12 +124,26 @@ export function packingList(s: Setup, boxes: string) {
   });
 }
 
-/** Owner's smoke PO; its quantity comes from the Packing List. */
-export function smokeOrder(s: Setup) {
-  s.run("owner", "smokeOrder", {
-    requestedSmokeDate: day,
-    smoker: "Chef House",
-  });
+/** Owner's smoke PO on the newest batch (`lotId === ""` opens a new one), drawing
+ * `[purchaseLotId, kg]` from each purchase PO in `lines`. `rawKg` comes from the Packing List
+ * when left out (so the batch must have one then). */
+export function smokeOrder(
+  s: Setup,
+  lines: [string, string][] = [],
+  rawKg?: string,
+  lotId?: string,
+) {
+  s.run(
+    "owner",
+    "smokeOrder",
+    {
+      requestedSmokeDate: day,
+      smoker: "Chef House",
+      lines: JSON.stringify(lines.map(([lotId, kg]) => ({ lotId, kg }))),
+      ...(rawKg ? { rawKg } : {}),
+    },
+    lotId,
+  );
 }
 
 /** Chef House's smoking invoice for a closed run. */
@@ -149,15 +156,16 @@ export function invoice(s: Setup) {
   return last(s);
 }
 
-/** Purchase PO with Foodiva's invoice and a Request for all of it: a shipment waiting for Foodiva's truck. */
+/** Purchase PO with Foodiva's invoice, and the Owner's smoke PO for all of it opening a new
+ * batch (SMK-01): a batch waiting for Foodiva's truck. */
 export function readyToDispatch(s: Setup, kg: string) {
   purchase(s, kg);
   confirm(s, kg);
-  request(s, [[s.db.lots.at(-1)!.id, kg]]);
+  smokeOrder(s, [[s.db.lots.at(-1)!.id, kg]], kg, "");
 }
 
-/** Shipment at stage 3: `kg` requested and trucked as the Packing List `boxes`, smoke PO
- * accepted, weighed in at Chef House as `receivedBoxes` (the yellow cells). */
+/** Batch weighed in at Chef House: `kg` on the smoke PO and trucked as the Packing List
+ * `boxes`, smoke PO accepted, received as `receivedBoxes` (the yellow cells). */
 export function received(
   s: Setup,
   kg: string,
@@ -167,13 +175,12 @@ export function received(
   readyToDispatch(s, kg);
   dispatch(s);
   packingList(s, boxes);
-  smokeOrder(s);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
 }
 
-/** Shipment at stage 5: 50 kg sent in two 25 kg boxes, 49 kg weighed in, fully smoked
- * (36 kg in 360 bags), waiting for Chef House to close it. */
+/** Batch fully smoked, not closed: 50 kg sent in two 25 kg boxes, 49 kg weighed in, 36 kg
+ * in 360 bags, waiting for Chef House to close it. */
 export function smoked() {
   const s = setup();
   received(s, "50", "25\n25", "24.5\n24.5");
@@ -193,14 +200,14 @@ export function smoked() {
   return s;
 }
 
-/** Shipment at stage 6: run closed at Chef House, waiting for the return truck. */
+/** Batch closed at Chef House, waiting for the return truck. */
 export function closed() {
   const s = smoked();
   s.run("cm", "closeLot", { confirm: "สมชาย" });
   return s;
 }
 
-/** Lot at stage 7: closed, trucked back and received by Foodiva. */
+/** Batch closed, trucked back and received by Foodiva. */
 export function returned() {
   const s = closed();
   s.run("owner", "return", {
@@ -223,7 +230,7 @@ export function returned() {
   return s;
 }
 
-/** Lot at stage 8 with 35 kg in central stock. */
+/** Batch with 35 kg in central stock. */
 export function ready() {
   const s = returned();
   s.run("owner", "central", { centralKg: "35" });

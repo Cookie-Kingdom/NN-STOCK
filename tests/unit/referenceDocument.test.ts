@@ -10,7 +10,6 @@ import {
   purchase,
   ready,
   readyToDispatch,
-  request,
   setup,
   type Setup,
 } from "./fixtures";
@@ -29,8 +28,7 @@ test("each lot form references the document it builds on, once that document exi
   });
   expect(doc(s, "smokeOrder")).toBeUndefined();
   confirm(s, "40");
-  request(s, [[s.db.lots[0].id, "40"]]);
-  dispatch(s);
+  dispatch(s, "");
   expect(doc(s, "smokeOrder")).toBeUndefined();
   packingList(s, "20\n20");
   expect(doc(s, "smokeOrder")).toMatchObject({

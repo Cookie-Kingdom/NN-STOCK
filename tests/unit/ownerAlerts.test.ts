@@ -10,7 +10,6 @@ import {
   packingList,
   purchase,
   ready,
-  request,
   returned,
   setup,
   smoked,
@@ -40,13 +39,8 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   });
   expect(alerts().badges.transport).toBe(0); // a purchase PO is never a truck job
   confirm(s, "50");
-  request(s, [["F260909-001", "50"]]);
-  expect(first()).toMatchObject({
-    title: "รอ Foodiva ทำใบขนส่ง · SH-2026-0001",
-    tab: "transport",
-  });
-  expect(alerts().badges.transport).toBe(1);
-  dispatch(s);
+  // Foodiva opens the batch and packs it before the Owner's smoke PO (D2).
+  dispatch(s, "");
   expect(first()).toMatchObject({
     title: "รอ Foodiva ทำ Packing List · SH-2026-0001",
     tab: "smoke-po",
@@ -59,7 +53,7 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
     tab: "smoke-po",
   });
   expect(alerts().badges["smoke-po"]).toBe(1);
-  smokeOrder(s);
+  smokeOrder(s, [["F260909-001", "50"]]);
   expect(first().title).toBe(
     "รอ Chef House ยืนยัน PO โรงรมควัน · SH-2026-0001",
   );

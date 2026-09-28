@@ -7,6 +7,7 @@ import {
   entries,
   latestPackingList,
   lotCost,
+  lotProgress,
   produced,
   producedBags,
   visibleDatabase,
@@ -21,7 +22,6 @@ import {
   received,
   setup,
   smoked,
-  smokeOrder,
 } from "./fixtures";
 
 /** Stage 2: 50 kg as 25 + 25 kg กล่องรับเข้า, smoke PO accepted, waiting for the yellow cells. */
@@ -30,30 +30,29 @@ function trucked() {
   readyToDispatch(s, "50");
   dispatch(s);
   packingList(s, "25\n25");
-  smokeOrder(s);
+
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   return s;
 }
 
 describe("Chef House yellow cells", () => {
-  it("weighs the meat in before the smoke PO, but smokes only after it", () => {
+  it("CHF-03 weighs the meat in and prepares before the smoke PO is accepted", () => {
     const s = setup();
     readyToDispatch(s, "50");
     dispatch(s);
     packingList(s, "25\n25");
-    smokeOrder(s);
-    // The truck is at the door: no PO acceptance needed to weigh the meat in.
+    // The truck is at the door: no PO acceptance needed to weigh the meat in or start.
     s.run("cm", "cmReceive", {
       arrival: "08:00",
       receivedBoxes: "24.5\n24.5",
     });
-    expect(s.db.lots.at(-1)!.stage).toBe(3);
-    expect(() => s.run("cm", "prepare", { preSmokeKg: "48" })).toThrow(
-      "ต้องยืนยันรับ PO รมควันก่อนเริ่มงานรมควัน",
-    );
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    const lotId = s.db.lots.at(-1)!.id;
+    expect(lotProgress(s.db, lotId).has("cmReceive")).toBe(true);
     s.run("cm", "prepare", { preSmokeKg: "48" });
-    expect(s.db.lots.at(-1)!.stage).toBe(4);
+    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    expect([...lotProgress(s.db, lotId)]).toEqual(
+      expect.arrayContaining(["prepare", "smokeOrderAccept"]),
+    );
   });
 
   it("drafts one blank cell per กล่องรับเข้า and keeps a blank as a blank line", () => {
@@ -76,7 +75,7 @@ describe("Chef House yellow cells", () => {
       receivedBoxes: receivedValue([24.5, 27]),
     });
     const lot = s.db.lots.at(-1)!;
-    expect(lot.stage).toBe(3);
+    expect(lotProgress(s.db, lot.id).has("cmReceive")).toBe(true);
     expect(lot.values.receivedKg).toBe("51.5");
     expect(lotCost(s.db, lot).meat).toBeCloseTo(51.5 * 250);
   });

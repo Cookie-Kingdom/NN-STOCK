@@ -8,9 +8,9 @@ import {
   dispatch,
   packingList,
   purchase,
-  request,
   returned,
   setup,
+  smokeOrder,
 } from "./fixtures";
 
 const titles = (db: Parameters<typeof foodivaAlerts>[0]) =>
@@ -33,14 +33,14 @@ test("each document Foodiva owes shows up, and drops off once it is filed", () =
   expect(foodivaAlerts(s.db).badges.foodiva).toBe(1);
 
   confirm(s, "50");
-  request(s, [["F260909-001", "50"]]);
+  smokeOrder(s, [["F260909-001", "50"]], "50", "");
   expect(titles(s.db)).toEqual(["ทำใบขนส่งขาไป · SH-2026-0001"]);
 
   dispatch(s);
   expect(titles(s.db)).toEqual(["ทำ Packing List · SH-2026-0001"]);
 
   packingList(s, "25\n24.5");
-  // Owner's move next (the smoke PO): nothing is waiting on Foodiva.
+  // Chef House's move next: nothing is waiting on Foodiva.
   expect(titles(s.db)).toEqual([]);
   expect(foodivaAlerts(s.db).badges.foodiva).toBe(0);
 });

@@ -4,8 +4,9 @@ import { useBranchAlerts as branchAlerts } from "@/components/organisms/branch/u
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { today } from "@/lib/format";
 import {
-  STAGE,
+  batchKinds,
   isClosed,
+  lotProgress,
   ownerBranchScenario,
   ownerWasteOutstanding,
   purchaseLots,
@@ -20,22 +21,27 @@ const day = (offset: number) => {
 };
 const titles = (items: { title: string }[]) => items.map((item) => item.title);
 
-test("every shipment is parked at its own step", () => {
-  const stage = (sh: number) =>
+test("every batch is parked at its own step", () => {
+  const batch = (sh: number) =>
     db.lots.find(
       (lot) => lot.poId.endsWith(`-${String(sh).padStart(4, "0")}`) && lot.kind,
-    )?.stage;
-  expect([1, 3, 4, 5, 6, 7, 11, 12, 13].map(stage)).toEqual([
-    STAGE.allocate,
-    STAGE.dispatch,
-    STAGE.cmReceive,
-    STAGE.cmReceive,
-    STAGE.smoke,
-    STAGE.return,
-    STAGE.central,
-    STAGE.central,
-    STAGE.allocate,
+    )!;
+  const last = (sh: number) =>
+    batchKinds.filter((kind) => lotProgress(db, batch(sh).id).has(kind)).at(-1);
+  expect([1, 2, 3, 4, 5, 6, 10, 11, 12].map(last)).toEqual([
+    "allocate",
+    "smokeOrder",
+    "packingList",
+    "packingList",
+    "smoke",
+    "closeLot",
+    "return",
+    "foodivaReturnReceive",
+    "central",
   ]);
+  // SH-0003 was opened by Foodiva: no smoke PO yet.
+  expect(lotProgress(db, batch(3).id).has("smokeOrder")).toBe(false);
+  expect(lotProgress(db, batch(4).id).has("smokeOrder")).toBe(true);
   expect(
     purchaseLots(db).map((lot) => ownerWasteOutstanding(db, lot.id)),
   ).toEqual([20, 0, 20, 0]);

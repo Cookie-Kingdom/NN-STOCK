@@ -21,7 +21,6 @@ import {
   ready,
   readyToDispatch,
   received,
-  request,
   returned,
   setup,
   smoked,
@@ -30,27 +29,28 @@ import {
 
 export { day };
 
-/** One shipment through every stage, split to both branches, 7 days of sales. */
+/** One batch end to end, split to both branches, 7 days of sales. */
 export const demoDb: Database = sevenDayRoleplay(day);
 
-/** Shipment at stage 1: the Owner's 50 kg Request, waiting for Foodiva's transport document. */
+/** The Owner's 50 kg smoke PO opened a batch that waits for Foodiva's transport document. */
 export const dispatchDb: Database = (() => {
   const s = setup();
   readyToDispatch(s, "50");
   return s.db;
 })();
 
-/** Shipment trucked with its Packing List (25 + 25 kg), waiting for the Owner's smoke PO. */
+/** A batch Foodiva opened and trucked with its Packing List (25 + 25 kg), no smoke PO yet. */
 export const packedDb: Database = (() => {
   const s = setup();
-  readyToDispatch(s, "50");
-  dispatch(s);
+  purchase(s, "50");
+  confirm(s, "50");
+  dispatch(s, "");
   packingList(s, "25\n25");
   return s.db;
 })();
 
 /** A first 50 kg trip already trucked (driver, plate, product CODE on file), and a new
- *  40 kg Request at stage 1: the next transport document and Packing List start from it. */
+ *  40 kg smoke PO waiting for its truck: the next transport document and Packing List start from it. */
 export const repeatDispatchDb: Database = (() => {
   const s = setup();
   readyToDispatch(s, "50");
@@ -77,12 +77,12 @@ export const repeatDispatchDb: Database = (() => {
 })();
 
 /** Purchase POs of 300, 700 and 500 kg with nothing sent yet, plus a 1,000 kg PO that
- * already sent 400 kg (600 kg remaining): the Owner's choice for the next Request. */
+ * already sent 400 kg (600 kg remaining): the Owner's choice for the next smoke PO. */
 export const multiPoDb: Database = (() => {
   const s = setup();
   purchase(s, "1000", "240");
   confirm(s, "1000");
-  request(s, [[s.db.lots.at(-1)!.id, "400"]]);
+  smokeOrder(s, [[s.db.lots.at(-1)!.id, "400"]], "400", "");
   dispatch(s);
   for (const [kg, price] of [
     ["300", "250"],
@@ -109,15 +109,18 @@ export const ownerReservedDb: Database = (() => {
   return s.db;
 })();
 
-/** `multiPoDb` plus a Request of 200 + 300 kg from the 300 and 700 kg POs that Foodiva has
- *  not trucked yet: still editable by the Owner (A10). */
+/** `multiPoDb` plus a smoke PO of 200 + 300 kg from the 300 and 700 kg POs that Foodiva has
+ *  not trucked yet. */
 export const requestedDb: Database = (() => {
   const [a, b] = multiPoDb.lots.filter((lot) => !lot.kind).slice(-3);
   return mutate(
     multiPoDb,
     "owner",
-    "shipmentRequest",
+    "smokeOrder",
     {
+      requestedSmokeDate: day,
+      smoker: "Chef House",
+      rawKg: "500",
       lines: JSON.stringify([
         { lotId: a.id, kg: "200" },
         { lotId: b.id, kg: "300" },
@@ -128,14 +131,13 @@ export const requestedDb: Database = (() => {
   );
 })();
 
-/** `multiPoDb` after a 1,400 kg Request drawing 300 / 600 / 500 kg from the three new POs,
- * trucked with a 1,390 kg Packing List: one smoke PO to issue from three purchase POs,
- * next to the 400 kg shipment still without a Packing List (button disabled). */
+/** `multiPoDb` after a 1,400 kg smoke PO drawing 300 / 600 / 500 kg from the three new POs,
+ * trucked with a 1,390 kg Packing List, next to the 400 kg batch still without a Packing List. */
 export const multiPoPackedDb: Database = (() => {
   const s = setup();
   purchase(s, "1000", "240");
   confirm(s, "1000");
-  request(s, [[s.db.lots.at(-1)!.id, "400"]]);
+  smokeOrder(s, [[s.db.lots.at(-1)!.id, "400"]], "400", "");
   dispatch(s);
   for (const [kg, price] of [
     ["300", "250"],
@@ -146,23 +148,28 @@ export const multiPoPackedDb: Database = (() => {
     confirm(s, kg);
   }
   const [a, b, c] = s.db.lots.slice(-3).map((lot) => lot.id);
-  request(s, [
-    [a, "300"],
-    [b, "600"],
-    [c, "500"],
-  ]);
+  smokeOrder(
+    s,
+    [
+      [a, "300"],
+      [b, "600"],
+      [c, "500"],
+    ],
+    "1400",
+    "",
+  );
   dispatch(s);
   packingList(s, "700\n690");
   return s.db;
 })();
 
-/** Shipment at stage 5: smoked, waiting for Chef House to close it. */
+/** Batch smoked, waiting for Chef House to close it. */
 export const smokedDb: Database = smoked().db;
 
-/** Shipment at stage 8: 35 kg in central stock, ready to allocate. */
+/** Batch with 35 kg in central stock, ready to allocate. */
 export const centralDb: Database = ready().db;
 
-/** Purchase PO with Foodiva's 30 kg Invoice in, nothing requested yet. */
+/** Purchase PO with Foodiva's 30 kg Invoice in, no smoke PO drawing on it yet. */
 export const confirmedDb: Database = (() => {
   const s = setup();
   purchase(s, "30");
@@ -170,13 +177,12 @@ export const confirmedDb: Database = (() => {
   return s.db;
 })();
 
-/** Smoke PO (50 kg, from the Packing List) sent to Chef House, waiting for Chef House to accept it. */
+/** Smoke PO (50 kg) trucked with its Packing List, waiting for Chef House to accept it. */
 export const smokeOrderDb: Database = (() => {
   const s = setup();
   readyToDispatch(s, "50");
   dispatch(s);
   packingList(s, "25\n25");
-  smokeOrder(s);
   return s.db;
 })();
 
@@ -241,7 +247,7 @@ export const paidDb: Database = (() => {
   return s.db;
 })();
 
-/** A 50 kg shipment trucked to Chef House with its smoke PO accepted, then advanced `steps` Chef House stages further. */
+/** A 50 kg batch trucked to Chef House with its smoke PO accepted, then `steps` Chef House steps further. */
 function chefHouseLot(steps: 0 | 1 | 2): Database {
   const s = setup();
   readyToDispatch(s, "50");
@@ -254,7 +260,6 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
     slicedLostKg: "50",
     boxes: "25\n25",
   });
-  smokeOrder(s);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
   if (steps > 0)
     s.run("cm", "cmReceive", { receivedBoxes: "24.5\n24.5", arrival: "08:00" });
@@ -262,7 +267,7 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   return s.db;
 }
 
-/** Request 1,500 kg but Foodiva packed only 70 kg (40 + 30); Chef House weighed in 69 kg.
+/** Smoke PO of 1,500 kg but Foodiva packed only 70 kg (40 + 30); Chef House weighed in 69 kg.
  *  "ส่งไป" is the Packing List's 70 kg, so the gap is −1 kg, not −1,431. */
 export const packingShortDb: Database = (() => {
   const s = setup();
@@ -270,16 +275,16 @@ export const packingShortDb: Database = (() => {
   return s.db;
 })();
 
-/** Shipment at stage 2: on the truck to Chiang Mai, waiting for Chef House to weigh it in. */
+/** Batch on the truck to Chiang Mai, waiting for Chef House to weigh it in. */
 export const dispatchedDb: Database = chefHouseLot(0);
 
-/** Shipment at stage 3: received at Chef House, waiting for the pre-smoke weight. */
+/** Batch received at Chef House, waiting for the pre-smoke weight. */
 export const cmReceivedDb: Database = chefHouseLot(1);
 
-/** Shipment at stage 4: weighed before smoking, waiting for the daily smoke rounds. */
+/** Batch weighed before smoking, waiting for the daily smoke rounds. */
 export const preparedDb: Database = chefHouseLot(2);
 
-/** Shipment at stage 7: closed and trucked back, waiting for Foodiva to receive it. */
+/** Batch closed and trucked back, waiting for Foodiva to receive it. */
 export const returnTruckDb: Database = (() => {
   const s = closed();
   s.run("owner", "return", {
@@ -296,7 +301,7 @@ export const returnTruckDb: Database = (() => {
   return s.db;
 })();
 
-/** Shipment at stage 8: back in Foodiva's freezer, waiting for the Owner's central count. */
+/** Batch back in Foodiva's freezer, waiting for the Owner's central count. */
 export const returnedDb: Database = returned().db;
 
 /** Return leg weighed short: Chef House sent 36 kg (360 กล่องรมควัน), Foodiva counted 35.5 kg in. */
@@ -314,7 +319,7 @@ export const returnGapDb: Database = mutate(
   day,
 );
 
-/** Shipment at stage 8: 17.5 kg allocated to ศาลาแดง, waiting for the branch to receive. */
+/** Batch with 17.5 kg allocated to ศาลาแดง, waiting for the branch to receive. */
 export const allocatedDb: Database = (() => {
   const s = ready();
   s.run("owner", "allocate", {
@@ -353,13 +358,12 @@ export const chefBusyDb: Database = (() => {
   readyToDispatch(s, "40");
   dispatch(s);
   packingList(s, "20\n20");
-  smokeOrder(s);
   return s.db;
 })();
 
 /** A material shipment to ศาลาแดง still waiting for the branch to confirm what arrived. */
 /** Foodiva with one of each open task, so its bell lists them all: a 60 kg PO with no
- *  Invoice, a 40 kg Request with no transport document, and a closed run on the return
+ *  Invoice, a 40 kg smoke PO with no transport document, and a closed run on the return
  *  truck waiting to be weighed into Foodiva's freezer. */
 export const foodivaTasksDb: Database = (() => {
   const s = closed();
