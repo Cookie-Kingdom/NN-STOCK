@@ -1,134 +1,173 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   ACCOUNTS,
-  button,
+  NO_LOT,
+  SCREENS,
+  allocate,
+  allocationRow,
+  branchReceive,
+  branchStockRow,
+  expectWarning,
   field,
-  loadSampleData,
-  menuItem,
+  historyEntry,
+  issueSmokePoOnNewBatch,
+  lotSelect,
+  openBranchTask,
+  openMenu,
   pointAndClick,
+  receiveCentral,
   saveEntry,
-  sidebar,
   signInAs,
-  skipUnlessCredentials,
   startFresh,
-  tableSection,
+  step,
+  topDialog,
 } from "./helpers";
 
-function bangkokDate(offset = 0) {
-  const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
-  );
-  now.setDate(now.getDate() + offset);
-  return now.toLocaleDateString("en-CA");
-}
+const BRANCH = "ศาลาแดง";
 
-/** The sample set closes its last seven days (through today) and future dates are blocked,
- * so the day before the sample range is the open working date. */
-const openDayBeforeSample = () => bangkokDate(-7);
-
-/** Same rice rows at every branch since B2: each round is self-cooked or bought cooked. */
-const RICE_TABLE = "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก";
-
-async function setWorkingDate(page: Page, date: string) {
-  // The page-heading picker: the day tab's materials/receipt cards carry their own copy below it.
-  const input = page.getByLabel("วันที่ทำรายการ").first();
-  await input.scrollIntoViewIfNeeded();
-  await input.fill(date);
-  await expect(input).toHaveValue(date);
-}
-
-test("สาขาศาลาแดง: วันที่ปิดแล้วถูกล็อก และเปิดวันใหม่บันทึกซื้อข้าวได้", async ({
-  page,
-}) => {
+test.beforeEach(async ({ page }) => {
   await startFresh(page);
-  await signInAs(page, ACCOUNTS.owner);
-  await loadSampleData(page);
-
-  await signInAs(page, ACCOUNTS.saladaeng);
-  await expect(page.getByRole("heading", { name: "กรอกรายวัน" })).toBeVisible();
-  await expect(page.locator("main")).toContainText("ศาลาแดง");
-
-  // ข้อมูลตัวอย่างปิดวันไว้แล้ว: แถบเตือนล็อก และปุ่มปิดวันจุดเดียวกดไม่ได้ (B3)
-  await expect(page.locator("main")).toContainText(
-    `ปิดวันแล้ว · ข้อมูลวันที่ ${bangkokDate()} ถูกล็อก`,
-  );
-  await expect(
-    page.getByRole("main").getByRole("button", { name: "ตรวจและปิดวัน" }),
-  ).toBeDisabled();
-
-  // เปิดวันก่อนช่วง sample (ยังไม่ปิด) ฟอร์มต้องปลดล็อก
-  await setWorkingDate(page, openDayBeforeSample());
-  await expect(page.locator("main")).not.toContainText("ถูกล็อก แก้ไขไม่ได้");
-
-  // ซื้อข้าวรอบนี้แบบนึ่งเอง: เลือกที่มาก่อน ช่องข้าวดิบจึงขึ้น (B2)
-  await pointAndClick(
-    page,
-    tableSection(page, RICE_TABLE)
-      .getByRole("row")
-      .filter({ hasText: "ซื้อข้าวเหนียวเข้าสต๊อก" })
-      .getByRole("button", { name: "กรอกข้อมูล" }),
-  );
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel(/ข้าวเหนียวดิบซื้อเข้า/)).toHaveCount(0);
-  await dialog
-    .getByLabel(/รอบนี้ข้าวเหนียวมาจาก/)
-    .selectOption("นึ่งเอง (ซื้อข้าวดิบ)");
-  await field(page, /ผู้จำหน่ายข้าว/, "ร้านข้าวทดสอบสาขา");
-  await field(page, /ข้าวเหนียวดิบซื้อเข้า/, "6");
-  await field(page, /ยอดซื้อข้าวเหนียวดิบ/, "330");
-  await saveEntry(page);
-  await expect(page.getByRole("status")).toContainText(
-    "ซื้อข้าวเหนียวเข้าสต๊อกแล้ว",
-  );
-
-  // ประวัติต้องเก็บรายการที่เพิ่งบันทึก
-  await button(page, "ประวัติ");
-  await expect(page.locator("main")).toContainText("ร้านข้าวทดสอบสาขา");
 });
 
-test("สาขามีนบุรี เห็นข้อมูลสาขาตัวเองและเมนูเฉพาะของสาขา", async ({
+test("BR-02 BR-03 BR-04 BR-08 branch receives 10 kg ไม่ระบุ Lot with no allocation, thaws and sells from that bucket", async ({
   page,
 }) => {
-  skipUnlessCredentials(ACCOUNTS.owner, ACCOUNTS.minburi);
-  await startFresh(page);
-  await signInAs(page, ACCOUNTS.owner);
-  await loadSampleData(page);
+  await signInAs(page, ACCOUNTS.saladaeng);
 
-  await signInAs(page, ACCOUNTS.minburi);
-  await expect(page.locator("main")).toContainText("มีนบุรี");
-  await expect(page.locator("main")).not.toContainText("สาขา ศาลาแดง");
-
-  // B2: ตารางข้าวเดียวกันทุกสาขา (นึ่งเอง หรือซื้อข้าวสุก) ไม่แยกตามชื่อสาขาแล้ว
-  await expect(page.getByRole("heading", { name: RICE_TABLE })).toBeVisible();
-  for (const row of [
-    "ซื้อข้าวเหนียวเข้าสต๊อก",
-    "เบิกข้าวเหนียวดิบวันนี้",
-    "ข้าวเหนียวช่วงเช้า",
-    "ยืนยันข้าวเหนียวสุกคงเหลือ",
-  ])
-    await expect(tableSection(page, RICE_TABLE)).toContainText(row);
-
-  for (const menu of ["กรอกรายวัน", "สต๊อก", "สรุปสาขา", "ประวัติ"]) {
-    await expect(menuItem(page, menu)).toBeVisible();
-  }
-  for (const forbidden of ["ตั้งค่า", "รายงาน", "ใบสั่งซื้อ PO", "งานผลิต"]) {
+  await step(page, "สาขาศาลาแดง: รับของ 10 กก. ไม่ระบุ Lot", async () => {
+    await openMenu(page, SCREENS.branchDay.menu);
+    await expect(page.locator("main")).toContainText(
+      "ไม่มีใบจัดสรรค้างรับ · รับเนื้อได้โดยไม่ต้องมีใบจัดสรร",
+    );
+    await openBranchTask(page, "รับของ");
+    await expect(lotSelect(page)).toHaveValue("");
     await expect(
-      sidebar(page).getByRole("button", { name: forbidden }),
-    ).toHaveCount(0);
-  }
+      lotSelect(page).locator(`option[value="${NO_LOT}"]`),
+    ).toHaveText(/ไม่ระบุ Lot · รับเข้าก่อน ผูกชุดทีหลังได้/);
+    await lotSelect(page).selectOption(NO_LOT);
+    await field(page, /น้ำหนักรับเข้าสาขา/, "10");
+    await saveEntry(page);
+    const row = await branchStockRow(page, BRANCH, "");
+    await expect(row).toContainText("ยังไม่ผูก Lot");
+    await expect(row).toContainText("10.00");
+    await expect(row).toContainText("แช่แข็ง 10.00");
+  });
 
-  // หน้าจออื่นของสาขาต้องเปิดได้
-  await button(page, "สต๊อก");
-  await expect(
-    page.getByRole("heading", { name: "สต๊อกแยก Lot" }),
-  ).toBeVisible();
-  // B4: สรุปคงเหลือรายวัน / รายล็อต ในแท็บสต๊อก ของสาขาตัวเอง ไม่มีตัวเลือกสาขา
-  await expect(
-    page.getByRole("heading", { name: "สรุปคงเหลือเนื้อ รายวัน / รายล็อต" }),
-  ).toBeVisible();
-  await expect(page.locator("main")).toContainText(
-    `คงเหลือแยก Lot · ${bangkokDate()} · มีนบุรี`,
+  await step(
+    page,
+    "สาขาศาลาแดง: แบ่งละลายจากถังไม่ระบุ Lot (เกินยอดแค่เตือน)",
+    async () => {
+      await openBranchTask(page, "แบ่งละลาย");
+      await expect(lotSelect(page)).toHaveValue(NO_LOT);
+      await field(page, /น้ำหนักละลาย/, "12");
+      await expectWarning(page, /กรอกได้สูงสุด 10\.00 กก\./);
+      await field(page, /น้ำหนักละลาย/, "5");
+      await saveEntry(page);
+      const row = await branchStockRow(page, BRANCH, "");
+      await expect(row).toContainText("แช่แข็ง 5.00 · ชิล/ละลายแล้ว 5.00");
+    },
   );
-  await button(page, "สรุปสาขา");
-  await expect(page.locator("main")).toContainText("ภาพรวมประจำวันที่");
+
+  await step(page, "สาขาศาลาแดง: บันทึกยอดขายจากถังไม่ระบุ Lot", async () => {
+    await openBranchTask(page, "บันทึกยอดขาย");
+    await expect(lotSelect(page)).toHaveValue(NO_LOT);
+    await field(page, /กล่องมาตรฐาน/, "20");
+    await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "2");
+    await saveEntry(page);
+    const row = await branchStockRow(page, BRANCH, "");
+    await expect(row).toContainText("แช่แข็ง 5.00 · ชิล/ละลายแล้ว 3.00");
+  });
+});
+
+test("MAT-01 MAT-04 branch receives packaging with no transfer from the Owner", async ({
+  page,
+}) => {
+  await signInAs(page, ACCOUNTS.saladaeng);
+  await openMenu(page, SCREENS.materialReceive.menu);
+  await pointAndClick(
+    page,
+    page.getByRole("button", { name: "รับวัสดุโดยไม่มีใบโอน" }),
+  );
+  const main = page.locator("main");
+  const material = main.getByRole("combobox", { name: "วัสดุ", exact: true });
+  await material.selectOption({ index: 1 });
+  const name = (await material.locator("option:checked").innerText()).trim();
+  await main.getByLabel("จำนวนที่รับจริง (ชิ้น)", { exact: true }).fill("50");
+  await main
+    .getByLabel("ชื่อผู้รับจริง", { exact: true })
+    .last()
+    .fill("ผู้ดูแลสาขาศาลาแดง");
+  await pointAndClick(
+    page,
+    main.getByRole("button", { name: "บันทึกรับวัสดุ" }),
+  );
+
+  const entry = await historyEntry(page, "ประวัติ", "ยืนยันรับวัสดุที่สาขา");
+  await expect(entry).toContainText("ไม่มีใบส่งวัสดุ");
+
+  await openMenu(page, "สต๊อก");
+  const row = page
+    .locator("main")
+    .getByRole("row")
+    .filter({ hasText: name })
+    .filter({ hasText: "วัสดุบรรจุภัณฑ์" });
+  await expect(row).toContainText("50");
+});
+
+test("LNK-04 LNK-06 branch links a ไม่ระบุ Lot receive to a batch and the kg moves", async ({
+  page,
+}) => {
+  let batch = "";
+  await step(
+    page,
+    "Owner: ชุดใหม่ เข้าสต๊อกกลาง 80 กก. จัดสรรศาลาแดง 10 กก.",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      batch = await issueSmokePoOnNewBatch(page, "100");
+      await receiveCentral(page, batch, "80");
+      await allocate(page, batch, BRANCH, "10");
+      await expect(await allocationRow(page, batch)).toContainText("70.00 กก.");
+    },
+  );
+
+  await step(page, "สาขาศาลาแดง: รับ 10 กก. ไม่ระบุ Lot", async () => {
+    await signInAs(page, ACCOUNTS.saladaeng);
+    await branchReceive(page, NO_LOT, "10");
+    await expect(await branchStockRow(page, BRANCH, "")).toContainText("10.00");
+  });
+
+  await step(page, "สาขาศาลาแดง: ประวัติ → ผูกกับ… ชุดรมควัน", async () => {
+    const entry = await historyEntry(page, "ประวัติ", "ยังไม่ผูก Lot");
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ผูกกับ…", exact: true }),
+    );
+    const dialog = topDialog(page);
+    await expect(dialog).toContainText("ผูกกับชุดรมควัน");
+    await dialog
+      .getByRole("combobox", { name: /^ชุดรมควัน \(Lot S\)/ })
+      .selectOption(batch);
+    await saveEntry(page);
+    const linked = page
+      .locator("main details")
+      .filter({ hasText: "รับของเข้าสาขา" })
+      .filter({ hasText: "ผูกแล้ว" });
+    await expect(linked.first()).toBeVisible();
+  });
+
+  await step(page, "สาขาศาลาแดง: ยอดย้ายจากถังไม่ระบุ Lot ไปชุด", async () => {
+    await expect(await branchStockRow(page, BRANCH, "")).toHaveCount(0);
+    const row = await branchStockRow(page, BRANCH, batch);
+    await expect(row).toContainText("แช่แข็ง 10.00");
+  });
+
+  await step(
+    page,
+    "Owner: สต๊อกกลางของชุดหักรับตรงที่ผูกแล้ว (RET-04)",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await expect(await allocationRow(page, batch)).toContainText("60.00 กก.");
+    },
+  );
 });

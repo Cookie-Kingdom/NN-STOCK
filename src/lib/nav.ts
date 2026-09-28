@@ -76,7 +76,7 @@ export const ownerNav: NavGroup[] = [
   {
     label: "ขนส่งและรับเข้า",
     items: [
-      { id: "transport", label: "Request ใบขนส่งขาไป", icon: ArrowRight },
+      { id: "transport", label: "ใบขนส่งขาไป", icon: ArrowRight },
       {
         id: "return-shipment",
         label: "สร้างใบขนส่งขากลับ",
