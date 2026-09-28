@@ -1,10 +1,12 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { BatchProgressChips } from "@/components/organisms/foodiva/BatchProgressChips";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
@@ -16,17 +18,18 @@ import {
 import {
   entries,
   n,
+  packingListKg,
   poRemainingKg,
   producedBags,
   purchaseLots,
   rawAtFoodiva,
   readyForChefHouse,
-  latestPackingList,
   ownerWasteOutstanding,
   shipments,
   lotProgress,
   type Database,
   type EntryKind,
+  type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -38,25 +41,33 @@ export function FoodivaView({
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const pos = purchaseLots(db);
-  // Stage 1 waits for the transport document; after it, the Packing List stays
-  // editable here until the Owner issues the smoke PO from it.
-  const requests = shipments(db).filter(
-    (lot) =>
-      !lotProgress(db, lot.id).has("dispatch") ||
-      (latestPackingList(db, lot.id) &&
-        !entries(db, "smokeOrder", lot.id).length),
-  );
+  // Newest batch first: every shipment batch, whoever opened it (SHP-04).
+  const batches = [...shipments(db)].reverse();
+  // SMK-09: a smoke PO with no transport document yet is Foodiva's incoming work.
+  const incoming = batches.filter((lot) => {
+    const p = lotProgress(db, lot.id);
+    return p.has("smokeOrder") && !p.has("dispatch");
+  });
   const holding = db.lots.reduce((sum, lot) => sum + rawAtFoodiva(db, lot), 0);
   const reservedForContent = db.lots.reduce(
     (sum, lot) => sum + ownerWasteOutstanding(db, lot.id),
     0,
   );
-  // Stage 7 = on the return truck until the Owner counts it into central stock; a received
-  // row stays so Foodiva sees its weigh-in against what Chef House sent.
-  const returnLeg = shipments(db).filter((lot) => {
-    const p = lotProgress(db, lot.id);
-    return p.has("return") && !p.has("central");
-  });
+  /** The purchase POs a batch's smoke PO cites; none until the Owner issues it. */
+  const poLabels = (lot: Lot) => {
+    const labels = shipmentPoLabels(db, lot);
+    return labels.length ? (
+      <span key="lines">
+        {labels.map((label) => (
+          <span key={label} className="block">
+            {label}
+          </span>
+        ))}
+      </span>
+    ) : (
+      "—"
+    );
+  };
   return (
     <div className="grid gap-6">
       <PanelHeading
@@ -76,47 +87,102 @@ export function FoodivaView({
         }
       />
       <DataTable
-        title="Request เข้า"
+        title="PO รมควันที่ยังไม่มีใบขนส่ง"
         columns={[
           "เลขที่การส่ง",
-          "วันที่ Request",
+          "เลข PO รมควัน",
+          "วันที่ออก PO",
           "PO ซื้อ (กก.)",
           "รวม",
           "การทำงาน",
         ]}
-        emptyText="ไม่มี Request ที่รอทำใบขนส่ง"
-        rowKeys={requests.map((lot) => lot.id)}
-        rows={requests.map((lot) => [
-          <strong key="shipment">{lot.poId}</strong>,
-          entries(db, "smokeOrder", lot.id).at(-1)?.date || "—",
-          <span key="lines">
-            {shipmentPoLabels(db, lot).map((label) => (
-              <span key={label} className="block">
-                {label}
-              </span>
-            ))}
-          </span>,
-          `${fmt(n(lot.values, "requestedKg"))} กก.`,
-          !lotProgress(db, lot.id).has("dispatch") ? (
+        emptyText="ไม่มี PO รมควันที่รอทำใบขนส่ง"
+        rowKeys={incoming.map((lot) => lot.id)}
+        rows={incoming.map((lot) => {
+          const order = entries(db, "smokeOrder", lot.id).at(-1);
+          return [
+            <strong key="shipment">{lot.poId}</strong>,
+            order?.values.orderNumber || "—",
+            order?.date || "—",
+            poLabels(lot),
+            `${fmt(n(lot.values, "requestedKg"))} กก.`,
             <Button
               key="dispatch"
               variant="table"
               onClick={() => open("dispatch", lot.id)}
             >
               ทำใบขนส่ง
-            </Button>
-          ) : (
-            <ButtonRow key="packing">
-              <Badge tone="success">ทำใบขนส่งแล้ว · รอ PO รมควัน</Badge>
+            </Button>,
+          ];
+        })}
+      />
+      <DataTable
+        title="ชุดรมควัน"
+        action={
+          <Button
+            variant="secondary"
+            icon={<Plus className="size-4" />}
+            onClick={() => open("dispatch", "")}
+          >
+            เปิดชุดใหม่
+          </Button>
+        }
+        columns={[
+          "เลขที่การส่ง",
+          "PO รมควัน",
+          "PO ซื้อ (กก.)",
+          "ส่งไป",
+          "ความคืบหน้า",
+          "การทำงาน",
+        ]}
+        emptyText="ยังไม่มีชุดรมควัน · กด “เปิดชุดใหม่” เพื่อทำใบขนส่งและ Packing List"
+        rowKeys={batches.map((lot) => lot.id)}
+        rows={batches.map((lot) => {
+          const p = lotProgress(db, lot.id);
+          const order = entries(db, "smokeOrder", lot.id).at(-1);
+          const sentKg = packingListKg(db, lot.id);
+          return [
+            <span key="shipment" className="grid">
+              <strong>{lot.poId}</strong>
+              <span className="text-caption text-text-secondary">{lot.id}</span>
+            </span>,
+            order ? (
+              `${order.values.orderNumber || "PO รมควัน"} · ${order.date}`
+            ) : (
+              <Badge key="order" tone="warning">
+                ยังไม่มี PO รมควัน
+              </Badge>
+            ),
+            poLabels(lot),
+            sentKg !== undefined
+              ? `${fmt(sentKg)} กก.`
+              : p.has("dispatch")
+                ? `${fmt(n(lot.values, "dispatchKg"))} กก.`
+                : "—",
+            <BatchProgressChips key="progress" progress={p} />,
+            // SHP-04: the transport document on any batch without one; the Packing List
+            // stays editable after the smoke PO too (the form says so, SHP-02).
+            !p.has("dispatch") ? (
               <Button
+                key="dispatch"
+                variant="table"
+                onClick={() => open("dispatch", lot.id)}
+              >
+                ทำใบขนส่ง + Packing List
+              </Button>
+            ) : (
+              <Button
+                key="packing"
                 variant="table"
                 onClick={() => open("packingList", lot.id)}
               >
-                แก้ไข Packing List
+                {p.has("packingList")
+                  ? "แก้ไข Packing List"
+                  : "ทำ Packing List"}
               </Button>
-            </ButtonRow>
-          ),
-        ])}
+            ),
+          ];
+        })}
       />
       <DataTable
         title="PO เนื้อที่ต้องออก Invoice"
@@ -218,34 +284,51 @@ export function FoodivaView({
           "สถานะ",
           "การทำงาน",
         ]}
-        emptyText="ไม่มีเนื้อรมควันบนรถขากลับ"
-        rowKeys={returnLeg.map((lot) => lot.id)}
-        rows={returnLeg.map((lot) => {
+        emptyText="ยังไม่มีชุดรมควัน"
+        rowKeys={batches.map((lot) => lot.id)}
+        rows={batches.map((lot) => {
           const trip = entries(db, "return", lot.id).at(-1);
           const got = entries(db, "foodivaReturnReceive", lot.id).at(-1);
           const sentKg = n(trip?.values || {}, "returnKg");
-          const gap = got ? n(got.values, "receivedKg") - sentKg : 0;
+          // RET-02: Foodiva may weigh in before the return truck is on file; then there is
+          // nothing to compare against yet.
+          const gap = got && trip ? n(got.values, "receivedKg") - sentKg : 0;
           return [
             <strong key="shipment">{lot.poId}</strong>,
-            `${trip?.values.transferNumber || "-"} · ${trip?.values.returnDate || "-"} · ${trip?.values.plate || "-"}`,
-            `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(sentKg)} กก.`,
+            trip
+              ? `${trip.values.transferNumber || "-"} · ${trip.values.returnDate || "-"} · ${trip.values.plate || "-"}`
+              : "ยังไม่มีใบขนส่งขากลับ",
+            trip
+              ? `${producedBags(db, lot.id)} กล่องรมควัน · ${fmt(sentKg)} กก.`
+              : "—",
             got
               ? `${got.values.receivedBags} กล่องรมควัน · ${fmt(n(got.values, "receivedKg"))} กก.`
-              : "รอชั่งรับ",
+              : "ยังไม่ชั่งรับ",
             got ? (
               <Badge
                 key="status"
                 tone={Math.abs(gap) > 0.001 ? "danger" : "success"}
               >
-                {`รับแล้ว · ส่วนต่าง ${fmt(Math.abs(gap))} กก.`}
+                {trip
+                  ? `รับแล้ว · ส่วนต่าง ${fmt(Math.abs(gap))} กก.`
+                  : "รับแล้ว · ยังไม่มีใบขนส่งขากลับ"}
               </Badge>
-            ) : (
+            ) : trip ? (
               <Badge tone="danger" key="status">
                 ต้องรับเข้า
               </Badge>
+            ) : (
+              <Badge tone="neutral" key="status">
+                ยังไม่มีรถขากลับ
+              </Badge>
             ),
+            // Once per batch: after the weigh-in the row only says who moves next.
             got ? (
-              "รอ Owner รับเข้าสต๊อกกลาง"
+              lotProgress(db, lot.id).has("central") ? (
+                "Owner รับเข้าสต๊อกกลางแล้ว"
+              ) : (
+                "รอ Owner รับเข้าสต๊อกกลาง"
+              )
             ) : (
               <Button
                 key="receive"

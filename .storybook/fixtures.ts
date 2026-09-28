@@ -49,6 +49,48 @@ export const packedDb: Database = (() => {
   return s.db;
 })();
 
+/** `packedDb` after the Owner issues the smoke PO on that same Foodiva-opened batch
+ *  (50 kg from its purchase PO): the Packing List is still editable, with a warning. */
+export const packedThenOrderedDb: Database = mutate(
+  packedDb,
+  "owner",
+  "smokeOrder",
+  {
+    requestedSmokeDate: day,
+    smoker: "Chef House",
+    lines: JSON.stringify([
+      { lotId: packedDb.lots.find((lot) => !lot.kind)!.id, kg: "50" },
+    ]),
+  },
+  packedDb.lots.at(-1)!.id,
+  day,
+);
+
+/** Foodiva's batches in every shape of the free ledger: one it opened and packed with no
+ *  smoke PO yet, one the Owner's 40 kg smoke PO opened (waiting for the truck), and one
+ *  it weighed smoked meat into its freezer before any return truck was on file. */
+export const foodivaBatchesDb: Database = (() => {
+  const s = setup();
+  purchase(s, "100");
+  confirm(s, "100");
+  const po = s.db.lots.at(-1)!.id;
+  dispatch(s, "");
+  packingList(s, "30\n30");
+  smokeOrder(s, [[po, "40"]], "40", "");
+  s.run(
+    "foodiva",
+    "foodivaReturnReceive",
+    {
+      receivedDate: day,
+      receivedTime: "10:00",
+      receivedKg: "12",
+      receivedBags: "120",
+    },
+    "",
+  );
+  return s.db;
+})();
+
 /** A first 50 kg trip already trucked (driver, plate, product CODE on file), and a new
  *  40 kg smoke PO waiting for its truck: the next transport document and Packing List start from it. */
 export const repeatDispatchDb: Database = (() => {

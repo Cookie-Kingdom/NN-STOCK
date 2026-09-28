@@ -4,6 +4,7 @@ import {
   day,
   dispatchDb,
   packedDb,
+  packedThenOrderedDb,
   repeatDispatchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
@@ -49,14 +50,31 @@ export const Draft: Story = {
   ),
 };
 
-/** Editing a saved list from the "Request เข้า" row, before the Owner's smoke PO: the
- *  saved rows add back up to 50 kg, so Sliced Weight Lost is 0.00. */
+/** Editing a saved list from the "ชุดรมควัน" row of a batch Foodiva opened, before any
+ *  smoke PO: no Inv. Weight, so Sliced Weight Lost stays 0.00. */
 export const Edit: Story = {
   parameters: { db: packedDb },
   render: () => (
     <PackingListForm
       db={packedDb}
       lotId={packedDb.lots.at(-1)!.id}
+      date={day}
+      onDate={fn()}
+      onClose={fn()}
+      onSaved={fn()}
+    />
+  ),
+};
+
+/** The same list after the Owner issued the smoke PO on this batch (SHP-02): still
+ *  editable, with a warning to have the Owner re-check the PO's kg. Inv. Weight is now the
+ *  PO's 50 kg. */
+export const AfterSmokeOrder: Story = {
+  parameters: { db: packedThenOrderedDb },
+  render: () => (
+    <PackingListForm
+      db={packedThenOrderedDb}
+      lotId={packedThenOrderedDb.lots.at(-1)!.id}
       date={day}
       onDate={fn()}
       onClose={fn()}

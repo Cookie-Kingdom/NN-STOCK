@@ -169,7 +169,10 @@ export function PackingListForm({
   /** Sliced Weight Lost is not typed either — it is what cutting took away, the gap between
    *  Inv. Weight and Sliced Weight Net, as a plain number that is never negative.
    *  Zero is a normal list: the meat weighs exactly what the Request asked for. */
-  const slicedLost = round2(Math.abs(invWeight - slicedNet));
+  const slicedLost = invWeight ? round2(Math.abs(invWeight - slicedNet)) : 0;
+  /** SHP-02: still editable after the Owner's smoke PO, but the PO was sized on the old list. */
+  const afterSmokeOrder =
+    !onDraft && lotId && entries(db, "smokeOrder", lotId).length > 0;
   /** The same warning mutate() gives, said as the rows are typed. Only a warning: the
    *  meat Foodiva cut is what it is, and the list still saves. */
   const overInvWeight =
@@ -236,16 +239,22 @@ export function PackingListForm({
       <DialogForm noValidate onSubmit={submit}>
         <DialogBody>
           <WorkingDateField asField date={date} onDate={onDate} />
+          {afterSmokeOrder && (
+            <Notice tone="warning">
+              Owner ออก PO รมควันของชุดนี้แล้ว · แก้ Packing List ได้ แต่ควรแจ้ง
+              Owner ให้ตรวจน้ำหนัก PO รมควันอีกครั้ง
+            </Notice>
+          )}
           <Notice>
             กรอกน้ำหนักรายกล่องรับเข้าในคอลัมน์ “น้ำหนักตาม Packing List”
             ช่องสีเหลืองเป็นของ Chef House กรอกตอนรับของ เพิ่มแถวได้ที่ท้ายตาราง
             ลบได้ทีละแถว และดูจำนวนแถวทั้งหมดได้ที่หัวตาราง (สูงสุด {MAX_ROWS}{" "}
             แถว) แนบไฟล์ได้เพื่อเก็บเป็นหลักฐาน ระบบยังไม่ดึงข้อมูลจากไฟล์
             <span className="mt-2 block">
-              Inv. Weight มาจาก PO ที่ขอในเที่ยวนี้ แก้ที่นี่ไม่ได้ ·{" "}
-              <strong>Sliced Weight Net</strong> คือผลรวมของทุกแถวในตาราง
-              ระบบคิดให้ ปกติไม่เกิน Inv. Weight · Sliced Weight Lost
-              ระบบคิดให้จากสองค่านี้
+              Inv. Weight มาจาก PO รมควันของชุดนี้ (ไม่มี PO = ไม่มี Inv.
+              Weight) แก้ที่นี่ไม่ได้ · <strong>Sliced Weight Net</strong>{" "}
+              คือผลรวมของทุกแถวในตาราง ระบบคิดให้ ปกติไม่เกิน Inv. Weight ·
+              Sliced Weight Lost ระบบคิดให้จากสองค่านี้
             </span>
           </Notice>
           <FormGrid>

@@ -55,9 +55,11 @@ function lastTruck(db: Database): Prefill {
 }
 
 /**
- * Foodiva's outbound transport document for one Owner Request (a shipment at stage 1).
- * The Packing List is filled in a dialog on top but not saved there: "บันทึกใบขนส่ง"
- * saves both in one go, the transport document first (`dispatchWithPackingList`).
+ * Foodiva's outbound transport document for a shipment batch (SHP-01): one the Owner's
+ * smoke PO opened, one without a smoke PO yet, or a new one (`lotId === ""`, the save
+ * opens the batch). The Packing List is filled in a dialog on top but not saved there:
+ * "บันทึกใบขนส่ง" saves both in one go, the transport document first
+ * (`dispatchWithPackingList`).
  */
 export function FoodivaDispatchForm({
   db,
@@ -68,17 +70,20 @@ export function FoodivaDispatchForm({
   onSaved,
 }: {
   db: Database;
-  /** The shipment lot the Owner's Request created. */
+  /** The shipment batch, or `""` to open a new one with this transport document. */
   lotId: string;
   date: string;
   onDate: (date: string) => void;
   onClose: () => void;
   onSaved: (db: Database) => void;
 }) {
-  const lot = db.lots.find((l) => l.id === lotId);
+  const lot = lotId ? db.lots.find((l) => l.id === lotId) : undefined;
+  const requestedKg = n(lot?.values ?? {}, "requestedKg");
   // The truck usually repeats: trip, vehicle and driver start from the last transport document.
   const { values, sources, set } = usePrefill(() => ({
     base: {
+      // SHP-01: what Foodiva types; it starts at the smoke PO's total when there is one.
+      dispatchKg: requestedKg ? String(requestedKg) : "",
       pickupDate: date,
       pickupTime: nextTimeSlot(),
       origin: "กรุงเทพฯ",
@@ -110,7 +115,7 @@ export function FoodivaDispatchForm({
     ...line,
     lot: db.lots.find((po) => po.id === line.lotId),
   }));
-  const total = n(lot?.values ?? {}, "requestedKg");
+  const total = requestedKg;
   const boxes = packingListBoxes(draft?.boxes);
   // The list's own figure, not the box total: Foodiva types Sliced Weight Net.
   const slicedNetKg = n(draft ?? {}, "slicedNetKg");
@@ -118,15 +123,20 @@ export function FoodivaDispatchForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!draft) return;
+    // Left blank, the kg sent is the Packing List's Sliced Weight Net.
+    const trip = {
+      ...values,
+      dispatchKg: values.dispatchKg.trim() || draft.slicedNetKg || "",
+    };
     const next = await run(() =>
-      dispatchWithPackingList(latestDatabase(), lotId, values, draft, date),
+      dispatchWithPackingList(latestDatabase(), lotId, trip, draft, date),
     );
     if (next) onSaved(next);
   }
 
   return (
     <Dialog
-      overline={`${date} · Foodiva · ${lot?.poId ?? ""}`}
+      overline={`${date} · Foodiva · ${lot?.poId ?? "ชุดใหม่"}`}
       title="ทำใบขนส่งไปเชียงใหม่ (Chef House)"
       size="wide"
       onClose={onClose}
@@ -135,68 +145,89 @@ export function FoodivaDispatchForm({
         <DialogBody>
           <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
-            เที่ยวนี้มาจาก Request ของ Owner / Manager — PO ซื้อ และน้ำหนักรายใบ
-            ด้านล่างแก้ไม่ได้ ถ้าไม่ตรงให้แจ้ง Owner ให้แก้ Request
+            {lines.length
+              ? "เที่ยวนี้มาจาก PO รมควันของ Owner — PO ซื้อ และน้ำหนักรายใบด้านล่างแก้ที่นี่ไม่ได้ ถ้าไม่ตรงให้แจ้ง Owner"
+              : lot
+                ? "ชุดนี้ยังไม่มี PO รมควัน — ทำใบขนส่งและ Packing List ได้เลย Owner ออก PO รมควันให้ชุดนี้ภายหลังได้"
+                : "เปิดชุดรมควันใหม่ — ระบบออกเลขที่การส่งให้เมื่อบันทึก Owner ออก PO รมควันให้ชุดนี้ภายหลังได้"}
           </Notice>
 
-          <Panel
-            as="div"
-            flush
-            className="my-5.5 max-w-full overflow-auto overscroll-x-contain"
-          >
-            <table className="w-full border-separate border-spacing-0 tabular-nums [&_tbody_tr:last-child_td]:border-b-0">
-              <thead>
-                <tr>
-                  <th className={headCell}>PO ซื้อ</th>
-                  <th className={headCell}>Lot</th>
-                  <th className={`${headCell} text-right`}>ยอดตาม PO</th>
-                  <th className={`${headCell} text-right`}>ส่งเที่ยวนี้</th>
-                  <th className={`${headCell} text-right`}>
-                    คงเหลือส่ง Chef House
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line) => (
-                  <tr key={line.lotId} className="hover:bg-bg">
-                    <td className={cell}>
-                      <strong>{line.lot?.poId ?? "—"}</strong>
-                    </td>
-                    <td className={`${cell} text-body-sm`}>{line.lotId}</td>
-                    <td className={`${cell} text-right text-body-sm`}>
-                      {fmt(n(line.lot?.values ?? {}, "orderedKg"))} กก.
-                    </td>
-                    <td
-                      className={`${cell} text-right font-semibold text-accent`}
-                    >
-                      {fmt(line.kg)} กก.
-                    </td>
-                    <td
-                      className={`${cell} text-right text-body-sm text-text-secondary`}
-                    >
-                      {fmt(poRemainingKg(db, line.lotId))} กก.
-                    </td>
+          {lines.length > 0 && (
+            <Panel
+              as="div"
+              flush
+              className="my-5.5 max-w-full overflow-auto overscroll-x-contain"
+            >
+              <table className="w-full border-separate border-spacing-0 tabular-nums [&_tbody_tr:last-child_td]:border-b-0">
+                <thead>
+                  <tr>
+                    <th className={headCell}>PO ซื้อ</th>
+                    <th className={headCell}>Lot</th>
+                    <th className={`${headCell} text-right`}>ยอดตาม PO</th>
+                    <th className={`${headCell} text-right`}>ส่งเที่ยวนี้</th>
+                    <th className={`${headCell} text-right`}>
+                      คงเหลือส่ง Chef House
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-surface-sunken font-semibold [&>td]:border-t [&>td]:border-border-strong">
-                  <td
-                    className="px-4.5 py-3 text-body-sm max-md:px-2.5"
-                    colSpan={3}
-                  >
-                    รวมที่ส่งเที่ยวนี้
-                  </td>
-                  <td className="px-4.5 py-3 text-right text-num-md max-md:px-2.5">
-                    {fmt(total)} กก.
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </Panel>
+                </thead>
+                <tbody>
+                  {lines.map((line) => (
+                    <tr key={line.lotId} className="hover:bg-bg">
+                      <td className={cell}>
+                        <strong>{line.lot?.poId ?? "—"}</strong>
+                      </td>
+                      <td className={`${cell} text-body-sm`}>{line.lotId}</td>
+                      <td className={`${cell} text-right text-body-sm`}>
+                        {fmt(n(line.lot?.values ?? {}, "orderedKg"))} กก.
+                      </td>
+                      <td
+                        className={`${cell} text-right font-semibold text-accent`}
+                      >
+                        {fmt(line.kg)} กก.
+                      </td>
+                      <td
+                        className={`${cell} text-right text-body-sm text-text-secondary`}
+                      >
+                        {fmt(poRemainingKg(db, line.lotId))} กก.
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-surface-sunken font-semibold [&>td]:border-t [&>td]:border-border-strong">
+                    <td
+                      className="px-4.5 py-3 text-body-sm max-md:px-2.5"
+                      colSpan={3}
+                    >
+                      รวมที่ส่งเที่ยวนี้
+                    </td>
+                    <td className="px-4.5 py-3 text-right text-num-md max-md:px-2.5">
+                      {fmt(total)} กก.
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </Panel>
+          )}
 
           <FormGrid>
+            <FormField
+              label="น้ำหนักที่ส่ง (กก.)"
+              optional
+              hint={
+                lines.length
+                  ? "เริ่มจากยอดรวม PO รมควัน แก้ได้ตามที่ส่งจริง"
+                  : "เว้นว่างได้ ระบบใช้ Sliced Weight Net ของ Packing List"
+              }
+            >
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={values.dispatchKg}
+                onChange={(event) => set("dispatchKg", event.target.value)}
+              />
+            </FormField>
             <FormField label="วันที่รถรับ">
               <Input
                 type="date"
@@ -305,7 +336,7 @@ export function FoodivaDispatchForm({
               <span className="text-caption text-text-secondary">
                 {draft
                   ? `${boxes.length} กล่องรับเข้า · Sliced Weight Net ${fmt(slicedNetKg)} กก. · บันทึกพร้อมใบขนส่งเมื่อกด “บันทึกใบขนส่ง”`
-                  : `ยังไม่ได้ทำ · ระบุว่าส่งไปกี่กล่องรับเข้า แต่ละกล่องหนักเท่าไร (Inv. Weight ${fmt(total)} กก.)`}
+                  : `ยังไม่ได้ทำ · ระบุว่าส่งไปกี่กล่องรับเข้า แต่ละกล่องหนักเท่าไร${total ? ` (Inv. Weight ${fmt(total)} กก.)` : ""}`}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
@@ -334,7 +365,11 @@ export function FoodivaDispatchForm({
           error={
             draft ? "" : "ต้องทำ Packing List ของเที่ยวนี้ก่อนจึงจะบันทึกได้"
           }
-          hint={`${lines.length} ใบ PO ซื้อ · รวม ${fmt(total)} กก.`}
+          hint={
+            lines.length
+              ? `${lines.length} ใบ PO ซื้อ · รวม ${fmt(total)} กก.`
+              : "ยังไม่มี PO รมควัน"
+          }
         />
       </DialogForm>
       {packingOpen && (
