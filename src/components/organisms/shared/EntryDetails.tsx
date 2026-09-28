@@ -13,6 +13,15 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryForm";
 import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { LinkDialog } from "@/components/organisms/shared/LinkDialog";
+import {
+  canLink,
+  isLinked,
+  linkOf,
+  linkableKinds,
+  lotName,
+  referenceText,
+} from "@/components/organisms/shared/entryReferences";
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
@@ -33,7 +42,7 @@ import {
   type Values,
   type EntryKind,
 } from "@/lib/store";
-import { fmt, today } from "@/lib/format";
+import { today } from "@/lib/format";
 
 const reversibleKinds = [
   "allocate",
@@ -56,6 +65,7 @@ const reversibleKinds = [
   "closeDay",
   "expense",
   "unlock",
+  "link",
 ];
 
 /** Labels for computed values that are not fields of the entry's form. */
@@ -81,27 +91,25 @@ const derivedLabels: Record<string, string> = {
   reason: "เหตุผล",
   decision: "ผลการพิจารณา",
   note: "หมายเหตุ",
+  orderId: "PO รมควัน",
+  invoiceId: "Invoice ค่ารมควัน",
+  transferId: "ใบส่งวัสดุ",
+  targetId: "รายการที่ผูก",
+  requestId: "คำขอแก้ไข",
+  lotId: "ชุดรมควัน",
+  material: "วัสดุ",
+  receivedQuantity: "จำนวนที่รับ",
+  receiver: "ผู้รับ",
 };
+
+/** A `link` repeats its target's kind, date, role and branch for the SQL check; the target's
+ *  name already says them. */
+const linkEchoKeys = ["targetKind", "targetDate", "targetRole", "targetBranch"];
 
 export const fieldLabel = (kind: string, key: string) =>
   forms[kind]?.find((f) => f.key === key)?.label || derivedLabels[key] || key;
 
 const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
-
-/** A Request's `lines` JSON as one "PO-2026-0001 × 300.00 กก." per line. */
-function requestLines(value: string, db?: Database) {
-  try {
-    const lines: { lotId?: string; kg?: string }[] = JSON.parse(value);
-    return lines
-      .map((line) => {
-        const po = db?.lots.find((l) => l.id === line.lotId)?.poId;
-        return `${po || line.lotId} × ${fmt(Number(line.kg))} กก.`;
-      })
-      .join("\n");
-  } catch {
-    return value;
-  }
-}
 
 /** Before → after of an edit, request or decision: only the values it changes. */
 export function EditDiff({ values }: { values: Values }) {
@@ -238,6 +246,7 @@ export function EntryDetails({
   branch = "",
   voided = false,
   hideSales = false,
+  lookup: lookupProp,
   open,
   onChanged,
 }: {
@@ -250,20 +259,38 @@ export function EntryDetails({
   voided?: boolean;
   /** Its sales money was stripped (Account Manager): editing a sale would save it blank. */
   hideSales?: boolean;
+  /** The whole log this account holds (not only its own entries): names the documents an
+   *  entry refers to (a branch's allocation is the Owner's), finds its live `link` and lists
+   *  what it can be linked to. Defaults to `db`. */
+  lookup?: Database;
   /** Start expanded (stories). */
   open?: boolean;
   onChanged: (message: string) => void;
 }) {
-  const [mode, setMode] = useState<"" | "cancel" | "edit">("");
+  const [mode, setMode] = useState<"" | "cancel" | "edit" | "link">("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const owner = role === "owner";
   const approver = editApprovers.includes(role);
   const reversible = reversibleKinds.includes(e.kind) && !voided;
+  const lookup = lookupProp ?? db;
   const edits = db ? entryEdits(db, e.id) : [];
   // Current values: the entry with its edits applied (entries() does the overlay).
-  const current =
+  const edited =
     (edits.length && db && entries(db, e.kind).find((x) => x.id === e.id)) || e;
+  /* Its live link, read from the whole log: an Owner's void of a branch's link is not among
+   * the branch's own entries. The link only ever sets `lotId` / `transferId`. */
+  const link = linkOf(lookup, e.id);
+  const current = link
+    ? {
+        ...edited,
+        lotId: link.values.lotId || edited.lotId,
+        values: link.values.transferId
+          ? { ...edited.values, transferId: link.values.transferId }
+          : edited.values,
+      }
+    : edited;
+  const linkable = !!lookup && !voided && canLink(e, role, branch);
   const pending = db ? openEditRequest(db, e.id) : undefined;
   const editable =
     !!db &&
@@ -288,14 +315,14 @@ export function EntryDetails({
       <summary>
         <span>
           {titles[e.kind] || e.kind}
-          {isEdit &&
+          {(isEdit || e.kind === "link") &&
             e.values.targetKind &&
             ` · ${titles[e.values.targetKind as EntryKind]}`}{" "}
           <small>
             {/* A void has no lot, and its branch is only the config default. */}
             {[
               isEdit ? e.values.targetDate : e.date,
-              e.kind === "void" ? "" : e.lotId || e.branch,
+              e.kind === "void" ? "" : current.lotId || e.branch,
               entryBy(e),
             ]
               .filter(Boolean)
@@ -318,6 +345,19 @@ export function EntryDetails({
             </Badge>
           )}
           {pending && <Badge className="ml-2">มีคำขอแก้ไขรอพิจารณา</Badge>}
+          {/* LNK-04: a linked target and the link itself; branch meat still in the bucket. */}
+          {(e.kind === "link" || (link && isLinked(current))) && (
+            <Badge tone="success" className="ml-2">
+              ผูกแล้ว
+            </Badge>
+          )}
+          {linkableKinds.includes(e.kind) && !voided && !isLinked(current) && (
+            <Badge tone="warning" className="ml-2">
+              {e.kind === "materialConfirm"
+                ? "ไม่มีใบส่งวัสดุ"
+                : "ยังไม่ผูก Lot"}
+            </Badge>
+          )}
           {e.kind === "editDecision" && (
             <Badge
               tone={e.values.decision === "อนุมัติ" ? "success" : "danger"}
@@ -351,25 +391,37 @@ export function EntryDetails({
           <EditDiff values={e.values} />
         </>
       ) : (
-        Object.entries(current.values)
-          .filter(([, v]) => v !== "")
-          .map(([k, v]) => (
+        <>
+          {linkableKinds.includes(e.kind) && e.kind !== "materialConfirm" && (
             <ReadRow
-              key={k}
-              label={fieldLabel(e.kind, k)}
-              value={
-                k === "slips" ? (
-                  <SlipList value={v} />
-                ) : k === "lines" && e.kind === "smokeOrder" ? (
-                  <span className="whitespace-pre-line">
-                    {requestLines(v, db)}
-                  </span>
-                ) : (
-                  v
-                )
-              }
+              label={derivedLabels.lotId}
+              value={lotName(lookup, current.lotId)}
             />
-          ))
+          )}
+          {Object.entries(current.values)
+            .filter(
+              ([k, v]) =>
+                v !== "" && !(e.kind === "link" && linkEchoKeys.includes(k)),
+            )
+            .map(([k, v]) => {
+              const reference = referenceText(lookup, k, v);
+              return (
+                <ReadRow
+                  key={k}
+                  label={fieldLabel(e.kind, k)}
+                  value={
+                    k === "slips" ? (
+                      <SlipList value={v} />
+                    ) : reference !== undefined ? (
+                      <span className="whitespace-pre-line">{reference}</span>
+                    ) : (
+                      v
+                    )
+                  }
+                />
+              );
+            })}
+        </>
       )}
       <small className="text-text-secondary">บันทึก {at(e.at)}</small>
       {db && edits.length > 0 && <EditTrail db={db} edits={edits} />}
@@ -393,7 +445,9 @@ export function EntryDetails({
       ) : (
         <>
           <FormError error={error} className="mt-3.5" />
-          {((editable && !(pending && !approver)) || (owner && reversible)) && (
+          {((editable && !(pending && !approver)) ||
+            (owner && reversible) ||
+            linkable) && (
             <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
               {mode === "cancel" ? (
                 <>
@@ -428,6 +482,11 @@ export function EntryDetails({
                       {approver ? "แก้ไข" : "ขอแก้ไข"}
                     </Button>
                   )}
+                  {linkable && (
+                    <Button onClick={() => setMode("link")}>
+                      {isLinked(current) ? "เปลี่ยนการผูก…" : "ผูกกับ…"}
+                    </Button>
+                  )}
                   {owner && reversible && (
                     <Button onClick={() => setMode("cancel")}>
                       แก้รายการผิดด้วยการยกเลิก
@@ -436,6 +495,19 @@ export function EntryDetails({
                 </ButtonRow>
               )}
             </div>
+          )}
+          {mode === "link" && lookup && (
+            <LinkDialog
+              entry={current}
+              db={lookup}
+              role={role}
+              branch={branch}
+              onClose={() => setMode("")}
+              onLinked={(message) => {
+                setMode("");
+                onChanged(message);
+              }}
+            />
           )}
         </>
       )}

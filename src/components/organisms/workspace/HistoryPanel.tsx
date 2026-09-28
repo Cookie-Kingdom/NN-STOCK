@@ -43,6 +43,7 @@ export function HistoryPanel({
                 key={entry.id}
                 entry={entry}
                 db={visible}
+                lookup={db}
                 role={role}
                 branch={branch}
                 voided={voided.has(entry.id)}

@@ -28,6 +28,7 @@ import {
   missingSteps,
   missingText,
 } from "@/components/organisms/owner/lotSteps";
+import { UnlinkedTile } from "@/components/organisms/owner/UnlinkedTile";
 import { CostDonut } from "@/components/organisms/shared/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { SalesBars } from "@/components/organisms/shared/SalesBars";
@@ -53,6 +54,7 @@ import {
   rawRiceStock,
   readyForChefHouse,
   reservedForOwnerContent,
+  saleCost,
   shipments,
   smokingInvoiceStatus,
   batchKinds,
@@ -111,23 +113,24 @@ export function OwnerDashboard({
     (total, entry) => total + n(entry.values, "revenue"),
     0,
   );
-  /** Meat that left the shelf plus the postage paid to send it. */
+  /** Meat that left the shelf plus the postage paid to send it. Meat is costed at read time
+   *  on its batch (BR-05); the "ไม่ระบุ Lot" bucket costs 0 until it is linked. */
   const giveawayCost = (rows: Entry[]) =>
     rows.reduce(
       (total, entry) =>
-        total + n(entry.values, "meatCost") + n(entry.values, "shippingFee"),
+        total + saleCost(db, entry).meatCost + n(entry.values, "shippingFee"),
       0,
     );
+  /** A sale's meat and waste at read time (BR-05) plus the branch expense typed on it. */
+  const salesCost = (rows: Entry[]) =>
+    rows.reduce((total, entry) => {
+      const cost = saleCost(db, entry);
+      return (
+        total + cost.meatCost + cost.wasteCost + n(entry.values, "expense")
+      );
+    }, 0);
   const influencerBoxes = entries(db, "influencerBox").filter(withinRange);
-  const meatAndBranchCost =
-    sales.reduce(
-      (total, entry) =>
-        total +
-        n(entry.values, "meatCost") +
-        n(entry.values, "wasteCost") +
-        n(entry.values, "expense"),
-      0,
-    ) + giveawayCost(influencerBoxes);
+  const meatAndBranchCost = salesCost(sales) + giveawayCost(influencerBoxes);
   const supplyCost = [
     ...entries(db, "supplyPurchase"),
     ...entries(db, "ricePurchase"),
@@ -298,14 +301,8 @@ export function OwnerDashboard({
   const branchCostCharts = branches.map((branchName) => {
     const branchSales = sales.filter((entry) => entry.branch === branchName);
     const meat =
-      branchSales.reduce(
-        (total, entry) =>
-          total +
-          n(entry.values, "meatCost") +
-          n(entry.values, "wasteCost") +
-          n(entry.values, "expense"),
-        0,
-      ) + giveawayCost(influencerBoxes.filter((e) => e.branch === branchName));
+      salesCost(branchSales) +
+      giveawayCost(influencerBoxes.filter((e) => e.branch === branchName));
     const supplies = [
       ...entries(db, "supplyPurchase", undefined, branchName),
       ...entries(db, "ricePurchase", undefined, branchName),
@@ -465,6 +462,7 @@ export function OwnerDashboard({
           caption="รวมรายการขายที่บันทึกแล้ว"
         />
       </section>
+      <UnlinkedTile db={db} />
       <DataTable
         title="Document & raw beef summary"
         columns={summaryColumns}
@@ -553,11 +551,17 @@ export function OwnerDashboard({
                   db.lots.reduce(
                     (total, lot) =>
                       total + balance(db, lot.id, branchName).frozen,
-                    0,
+                    // DASH-06: the "ไม่ระบุ Lot" bucket is branch stock too.
+                    balance(db, "", branchName).frozen,
                   ),
                 )}{" "}
                 กก.
               </span>
+              {balance(db, "", branchName).frozen > 0 && (
+                <span className="text-warning">
+                  ไม่ระบุ Lot {fmt(balance(db, "", branchName).frozen)} กก.
+                </span>
+              )}
               <span>
                 {branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"}{" "}
                 {fmt(

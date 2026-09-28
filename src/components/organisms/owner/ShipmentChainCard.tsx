@@ -28,41 +28,44 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
   const chain = shipmentChain(db, lot);
   const steps: [string, ReactNode, ReactNode?][] = [
     [
-      "PO ซื้อ (Request)",
-      <span key="lines" className="grid">
-        {chain.lines.map((line) => {
-          // A1: each purchase PO with its Foodiva invoice, so a lot traces back to both.
-          const invoiceNo = entries(db, "foodivaConfirm", line.lotId).at(-1)
-            ?.values.invoiceNo;
-          return (
-            <span key={line.lotId}>
-              {`${line.poId} × ${fmt(line.requestedKg)} กก.`}
-              {invoiceNo && (
-                <small className="block text-caption font-normal text-text-secondary">
-                  {`Invoice Foodiva ${invoiceNo}`}
-                </small>
-              )}
-            </span>
-          );
-        })}
-      </span>,
+      "PO ซื้อ (ตาม PO รมควัน)",
+      // No smoke PO yet: the batch was opened by Foodiva or Chef House (DASH-05).
+      chain.lines.length ? (
+        <span key="lines" className="grid">
+          {chain.lines.map((line) => {
+            // A1: each purchase PO with its Foodiva invoice, so a lot traces back to both.
+            const invoiceNo = entries(db, "foodivaConfirm", line.lotId).at(-1)
+              ?.values.invoiceNo;
+            return (
+              <span key={line.lotId}>
+                {`${line.poId} × ${fmt(line.requestedKg)} กก.`}
+                {invoiceNo && (
+                  <small className="block text-caption font-normal text-text-secondary">
+                    {`Invoice Foodiva ${invoiceNo}`}
+                  </small>
+                )}
+              </span>
+            );
+          })}
+        </span>
+      ) : undefined,
       `รวม ${fmt(chain.requestedKg)} กก.`,
     ],
-    // Sent is the Packing List box total; before Foodiva makes one only the Request kg is known.
+    // Sent is the Packing List box total; without one only the smoke PO's kg is known.
     [
       "ส่งไป Chef House",
-      chain.sentKg === undefined
-        ? `ขอใน Request: ${fmt(chain.requestedKg)} กก.`
-        : kg(chain.sentKg),
-      chain.sentKg === undefined ? (
-        <small key="requested" className="text-caption text-text-secondary">
-          รอ Foodiva ทำ Packing List
-        </small>
-      ) : (
-        <small key="requested" className="text-caption text-text-secondary">
-          {`ตาม Packing List · ขอใน Request: ${fmt(chain.requestedKg)} กก.`}
-        </small>
-      ),
+      chain.sentKg !== undefined
+        ? kg(chain.sentKg)
+        : chain.requestedKg
+          ? `ตาม PO รมควัน: ${fmt(chain.requestedKg)} กก.`
+          : undefined,
+      <small key="requested" className="text-caption text-text-secondary">
+        {chain.sentKg === undefined
+          ? "ยังไม่มี Packing List"
+          : chain.requestedKg
+            ? `ตาม Packing List · PO รมควัน ${fmt(chain.requestedKg)} กก.`
+            : "ตาม Packing List"}
+      </small>,
     ],
     [
       "Chef House รับจริง",
@@ -99,7 +102,8 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
             className="grid content-start justify-items-start gap-1 rounded-lg border border-border bg-bg p-3 text-body-sm"
           >
             <small className="text-caption text-text-secondary">{`${index + 1}. ${label}`}</small>
-            <strong className="tabular-nums">{value ?? "รอดำเนินการ"}</strong>
+            {/* A step not recorded yet is "—", whatever the others hold (DASH-05). */}
+            <strong className="tabular-nums">{value ?? "—"}</strong>
             {value !== undefined && extra}
           </li>
         ))}

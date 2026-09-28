@@ -98,6 +98,19 @@ export function Report({
       );
   const margin =
     sales.reduce((sum, e) => sum + n(e.values, "revenue"), 0) - cost;
+  /** Meat off the shelf in range (sales and giveaways), costed per batch at read time (BR-05). */
+  const offShelfRows = [...sales, ...influencerBoxes];
+  const unlinkedOut = offShelfRows.filter((e) => !e.lotId);
+  const soldKg = (rows: Entry[]) =>
+    rows.reduce(
+      (s, e) => s + n(e.values, "soldKg") + n(e.values, "wasteKg"),
+      0,
+    );
+  const meatCostOf = (rows: Entry[]) =>
+    rows.reduce((s, e) => {
+      const c = saleCost(db, e);
+      return s + c.meatCost + c.wasteCost;
+    }, 0);
   const dayRows = Array.from(new Set(sales.map((e) => `${e.date}|${e.branch}`)))
     // Oldest first, the order DataTable's sort expects; the table flips it.
     .sort()
@@ -260,29 +273,58 @@ export function Report({
         title="ต้นทุนแยก Lot"
         columns={[
           "Lot",
-          "สถานะ",
+          "ขั้นล่าสุด",
           "เนื้อ",
           "รมควัน (Smoking)",
           "รถ",
           "รวม",
           "ต้นทุน / กก.",
+          "ขาย + Waste (กก.)",
+          "ต้นทุนเนื้อที่ขาย + Waste",
         ]}
-        rows={shipments(db).map((l) => {
-          const c = lotCost(db, l);
-          const p = lotProgress(db, l.id);
-          return [
-            l.id,
-            batchKinds
-              .filter((k) => p.has(k))
-              .map((k) => titles[k])
-              .at(-1) ?? "—",
-            fmt(c.meat),
-            fmt(c.smoke),
-            fmt(c.freight),
-            fmt(c.total),
-            p.has("central") ? fmt(c.perKg) : "รอรับกลาง",
-          ];
-        })}
+        rows={[
+          // DASH-04: every batch, whatever it holds so far; nothing is filtered by step.
+          ...shipments(db).map((l) => {
+            const c = lotCost(db, l);
+            const p = lotProgress(db, l.id);
+            const out = offShelfRows.filter((e) => e.lotId === l.id);
+            return [
+              `${l.poId} · ${l.id}`,
+              batchKinds
+                .filter((k) => p.has(k))
+                .map((k) => titles[k])
+                .at(-1) ?? "—",
+              fmt(c.meat),
+              // D8: the smoke PO's estimate until Chef House's invoice is in.
+              c.smokingCostSource === "estimate"
+                ? `${fmt(c.smoke)} (ประมาณการ)`
+                : c.smokingCostSource === "none"
+                  ? "—"
+                  : fmt(c.smoke),
+              fmt(c.freight),
+              fmt(c.total),
+              n(l.values, "centralKg") > 0 ? fmt(c.perKg) : "—",
+              out.length ? fmt(soldKg(out)) : "—",
+              out.length ? fmt(meatCostOf(out)) : "—",
+            ];
+          }),
+          // BR-05 / D3: branch meat in the "ไม่ระบุ Lot" bucket is sold at no cost until linked.
+          ...(unlinkedOut.length
+            ? [
+                [
+                  "ยังไม่ผูก Lot",
+                  "—",
+                  "—",
+                  "—",
+                  "—",
+                  "—",
+                  "—",
+                  fmt(soldKg(unlinkedOut)),
+                  "0 · ยังไม่ผูก Lot",
+                ],
+              ]
+            : []),
+        ]}
       />
       <DataTable
         className="m-0"

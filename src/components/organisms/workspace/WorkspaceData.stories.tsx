@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { demoDb } from "../../../../.storybook/fixtures";
+import { demoDb, linkedDb, unlinkedDb } from "../../../../.storybook/fixtures";
+import { pick } from "../../../../.storybook/pick";
 import { EntryDetails } from "@/components/organisms/shared/EntryDetails";
+import type { Database } from "@/lib/store";
 import { accountById } from "@/lib/accounts";
 import { branchNav, chefNav, ownerNav } from "@/lib/nav";
 import { AppSidebar } from "./AppSidebar";
@@ -81,6 +83,59 @@ export const History: Story = {
       db={db}
       role={role}
       branch={role === "branch" ? "ศาลาแดง" : ""}
+      onChanged={fn()}
+    />
+  ),
+};
+
+const linkState = pick("สถานะ", {
+  ยังไม่ผูก: unlinkedDb,
+  ผูกแล้ว: linkedDb,
+});
+
+/** LNK-04/06/07: the log with entries recorded without their source. เลือกสถานะและผู้ใช้ใน Controls:
+ *  - ยังไม่ผูก: ศาลาแดง's receive, thaw and sale carry "ยังไม่ผูก Lot" and its material
+ *    receipt "ไม่มีใบส่งวัสดุ"; expand one and press "ผูกกับ…" to pick a batch or transfer.
+ *  - ผูกแล้ว: the three meat entries read "ผูกแล้ว", show the batch by its PO number, and
+ *    each `link` is in the log with its target named ("รับของเข้าสาขา 9 ก.ย. · ศาลาแดง
+ *    10.00 กก."), never a raw id. Owner sees every link; ศาลาแดง its own. */
+export const LinkHistory: StoryObj<{
+  db: Database;
+  role: "owner" | "branch";
+}> = {
+  argTypes: {
+    db: linkState.argType,
+    role: {
+      name: "ผู้ใช้",
+      options: ["branch", "owner"],
+      control: {
+        type: "radio",
+        labels: { owner: "Owner", branch: "ศาลาแดง" },
+      },
+    },
+  },
+  args: { db: linkState.initial, role: "branch" },
+  render: ({ db, role }) => (
+    <HistoryPanel
+      db={db}
+      role={role}
+      branch={role === "branch" ? "ศาลาแดง" : ""}
+      onChanged={fn()}
+    />
+  ),
+};
+
+/** A branch receive that came in with an allocation: "ใบจัดสรร" reads as the allocation's
+ *  date, branch and kg, not its id (LNK-07). */
+export const EntryReferences: Story = {
+  render: () => (
+    <EntryDetails
+      entry={db.entries.find(
+        (e) => e.kind === "receive" && e.values.allocation,
+      )!}
+      db={db}
+      role="owner"
+      open
       onChanged={fn()}
     />
   ),

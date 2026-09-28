@@ -22,6 +22,7 @@ import {
   rawAtSmoker,
   shipments,
   lotProgress,
+  titles,
   type Database,
   type Entry,
   type EntryKind,
@@ -53,15 +54,17 @@ const descriptions: Record<
     "รับเนื้อส่วนที่เหลือจาก Foodiva",
     `${fmt(n(entry.values, "receivedKg"))} กก. · ${entry.values.receiver}`,
   ],
-  // What went is the Packing List box total; the Request kg until Foodiva makes one.
+  // What went is the Packing List box total; the transport document's kg until there is one.
   dispatch: (entry, db) => {
     const sent = packingListKg(db, entry.lotId);
     return [
       "Foodiva → Chef House",
       "ส่งเนื้อดิบ",
-      sent === undefined
-        ? `ขอใน Request ${fmt(n(entry.values, "dispatchKg"))} กก.`
-        : `${fmt(sent)} กก. (Packing List)`,
+      sent !== undefined
+        ? `${fmt(sent)} กก. (Packing List)`
+        : n(entry.values, "dispatchKg")
+          ? `${fmt(n(entry.values, "dispatchKg"))} กก. (ใบขนส่ง)`
+          : "—",
     ];
   },
   cmReceive: (entry) => [
@@ -109,7 +112,21 @@ const descriptions: Record<
     "ตัดสต๊อกจากยอดขาย",
     `ขาย ${fmt(n(entry.values, "soldKg"))} · Waste ${fmt(n(entry.values, "wasteKg"))} กก.`,
   ],
+  influencerBox: (entry) => [
+    entry.branch || "สาขา",
+    "ส่งกล่องอินฟลูเอนเซอร์",
+    `${fmt(n(entry.values, "soldKg"))} กก.`,
+  ],
+  // LNK-04: branch meat recorded with no lot, tied to this batch afterwards.
+  link: (entry) => [
+    entry.values.targetBranch || entry.branch || "สาขา",
+    `ผูก Lot · ${titles[entry.values.targetKind as EntryKind] || "รายการ"} ${entry.values.targetDate || ""}`.trim(),
+    "ย้ายจาก “ไม่ระบุ Lot”",
+  ],
 };
+/** The branch's "ไม่ระบุ Lot" bucket in the Lot filter (a lot id is never empty). */
+const unlinkedFilter = "ไม่ระบุ Lot";
+const lotLabel = (lotId: string) => lotId || unlinkedFilter;
 
 export function MeatMovementLogView({ db }: { db: Database }) {
   const [lotFilter, setLotFilter] = useState("ทั้งหมด");
@@ -208,9 +225,35 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       }),
     ];
   });
+  // DASH-06: branch meat recorded with no lot is stock too, shown as its own "ไม่ระบุ Lot" row.
+  const unlinkedRows =
+    lotFilter === "ทั้งหมด" || lotFilter === unlinkedFilter
+      ? branches.flatMap((branchName) => {
+          const stock = balance(db, "", branchName);
+          return stock.received
+            ? [
+                [
+                  "—",
+                  unlinkedFilter,
+                  branchName,
+                  `${fmt(stock.frozen + stock.ready)} กก.`,
+                  `แช่แข็ง ${fmt(stock.frozen)} · ชิล/ละลายแล้ว ${fmt(stock.ready)} · ยังไม่ผูก Lot`,
+                ],
+              ]
+            : [];
+        })
+      : [];
   const movementRows = Object.keys(descriptions)
     .flatMap((kind) => entries(db, kind as EntryKind))
-    .filter((entry) => lotFilter === "ทั้งหมด" || entry.lotId === lotFilter)
+    .filter(
+      (entry) =>
+        !(
+          entry.kind === "link" && entry.values.targetKind === "materialConfirm"
+        ),
+    )
+    .filter(
+      (entry) => lotFilter === "ทั้งหมด" || lotLabel(entry.lotId) === lotFilter,
+    )
     // Oldest first, the order DataTable's sort expects; the table flips it.
     .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
     .map((entry) => {
@@ -218,7 +261,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       return [
         entry.date,
         entry.at.slice(11, 16),
-        entry.lotId,
+        lotLabel(entry.lotId),
         location,
         action,
         amount,
@@ -244,11 +287,12 @@ export function MeatMovementLogView({ db }: { db: Database }) {
               {allLots.map((lot) => (
                 <option key={lot.id}>{lot.id}</option>
               ))}
+              <option>{unlinkedFilter}</option>
             </Select>
           </TableFilter>
         }
         columns={locationColumns}
-        rows={locationRows}
+        rows={[...locationRows, ...unlinkedRows]}
       />
       <DataTable
         title="ประวัติการเคลื่อนไหวเนื้อ"

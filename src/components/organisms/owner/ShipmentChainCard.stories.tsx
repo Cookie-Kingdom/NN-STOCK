@@ -5,6 +5,7 @@ import {
   dispatchDb,
   dispatchedDb,
   packingShortDb,
+  partialBatchDb,
   returnGapDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
@@ -22,17 +23,20 @@ const chainState = pick("สถานะ", {
   กำลังส่ง: dispatchedDb,
   "รอ Packing List": dispatchDb,
   "Packing List ต่ำกว่า Request": packingShortDb,
+  มีแค่รับและรมควัน: partialBatchDb,
   ตัวอย่าง: demoDb,
 });
 
 /** The latest shipment's chain. เลือกสถานะใน Controls:
  *  - กลับถึงตู้แล้ว: back in Foodiva's freezer, every step filled; Chef House weighed in
  *    1 kg under, Foodiva 0.5 kg under.
- *  - กำลังส่ง: on the truck to Chef House, later steps read "รอดำเนินการ".
- *  - รอ Packing List: Request waiting for Foodiva, "ส่งไป" shows the Request kg as asked
- *    for, no gap badge.
- *  - Packing List ต่ำกว่า Request: Request 1,500 kg, Packing List 70 kg, Chef House
+ *  - กำลังส่ง: on the truck to Chef House, later steps read "—".
+ *  - รอ Packing List: smoke PO waiting for Foodiva, "ส่งไป" shows the smoke PO's kg,
+ *    no gap badge.
+ *  - Packing List ต่ำกว่า Request: smoke PO 1,500 kg, Packing List 70 kg, Chef House
  *    69 kg; "ส่งไป" is 70 and the gap −1 kg.
+ *  - มีแค่รับและรมควัน: Chef House weighed in and smoked a batch nobody issued a PO for or
+ *    trucked; PO ซื้อ, ส่งไป and the return legs read "—" (DASH-05).
  *  - ตัวอย่าง: the seven-day demo run, allocated and sold. */
 export const ShipmentChain: Story = {
   argTypes: { db: chainState.argType },
