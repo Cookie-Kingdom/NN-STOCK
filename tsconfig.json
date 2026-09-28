@@ -31,10 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    // The e2e suite still drives the pre-A0 flow (stage, shipmentRequest) and is rewritten
-    // after cards A1–A7; Playwright transpiles it without this check.
-    "tests/e2e"
-  ]
+  "exclude": ["node_modules"]
 }
