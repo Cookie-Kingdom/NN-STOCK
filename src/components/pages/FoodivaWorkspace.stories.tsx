@@ -3,6 +3,7 @@ import { fireEvent, within } from "storybook/test";
 import {
   demoDb,
   dispatchDb,
+  foodivaBatchesDb,
   foodivaTasksDb,
 } from "../../../.storybook/fixtures";
 import { pick } from "../../../.storybook/pick";
@@ -24,11 +25,17 @@ const meta: Meta = {
 export default meta;
 type Story = StoryObj<{ db: Database }>;
 
-const workState = pick("สถานะ", { รอส่ง: dispatchDb, เสร็จแล้ว: demoDb });
+const workState = pick("สถานะ", {
+  รอส่ง: dispatchDb,
+  ชุดหลายแบบ: foodivaBatchesDb,
+  เสร็จแล้ว: demoDb,
+});
 
 /** Foodiva's work tab. Pick สถานะ in Controls:
- *  - รอส่ง: a shipment waiting for Foodiva's transport document.
- *  - เสร็จแล้ว: every stage done (the 7-day roleplay). */
+ *  - รอส่ง: a smoke PO waiting for Foodiva's transport document.
+ *  - ชุดหลายแบบ: a batch Foodiva opened with no smoke PO, a smoke PO waiting for its
+ *    truck, and smoked meat weighed in before the return truck was on file.
+ *  - เสร็จแล้ว: every step done (the 7-day roleplay). */
 export const WaitingForDispatch: Story = {
   parameters: at("foodiva"),
   argTypes: { db: workState.argType },
@@ -36,7 +43,7 @@ export const WaitingForDispatch: Story = {
 };
 export const History: Story = { parameters: { ...at("history"), db: demoDb } };
 
-/** The bell with everything Foodiva still owes: a PO to invoice, a Request to truck and
+/** The bell with everything Foodiva still owes: a PO to invoice, a smoke PO to truck and
  *  smoked meat on the return truck to weigh in. Every line opens the work tab. */
 export const Notifications: Story = {
   parameters: { ...at("foodiva"), db: foodivaTasksDb },

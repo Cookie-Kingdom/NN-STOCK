@@ -27,8 +27,8 @@ const tripState = pick("เที่ยวรถ", {
   เที่ยวที่สอง: repeatDispatchDb,
 });
 
-/** Foodiva's transport document for the latest Request. เลือกเที่ยวรถใน Controls:
- *  - เที่ยวแรก: the Owner's 50 kg Request, waiting for Foodiva's transport document. Save
+/** Foodiva's transport document for the latest smoke PO. เลือกเที่ยวรถใน Controls:
+ *  - เที่ยวแรก: the Owner's 50 kg smoke PO, waiting for Foodiva's transport document. Save
  *    stays off until the Packing List is filled in the dialog on top. "เวลารถรับ" starts
  *    on the next half-hour slot but takes any minute (e.g. 08:15).
  *  - มีเวลารถรับล่าสุด: a database that already has a trip; its pickup time shows as a
@@ -43,6 +43,23 @@ export const New: Story = {
     <FoodivaDispatchForm
       db={db}
       lotId={db.lots.at(-1)!.id}
+      date={day}
+      onDate={fn()}
+      onClose={fn()}
+      onSaved={fn()}
+    />
+  ),
+};
+
+/** "เปิดชุดใหม่" from the ชุดรมควัน table (`lotId === ""`): no smoke PO, so no PO table and
+ *  no Inv. Weight. "น้ำหนักที่ส่ง" may stay blank (the Packing List's Sliced Weight Net is
+ *  used); saving opens the batch, and the Owner can issue its smoke PO later. */
+export const NewBatch: Story = {
+  parameters: { db: packedDb },
+  render: () => (
+    <FoodivaDispatchForm
+      db={packedDb}
+      lotId=""
       date={day}
       onDate={fn()}
       onClose={fn()}

@@ -17,7 +17,7 @@ export function FoodivaWorkspace({ account }: { account: Account }) {
   const { db, tab } = ws;
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Invoices to issue, Requests to truck, Packing Lists to write, smoked meat to
+  // Invoices to issue, smoke POs to truck, Packing Lists to write, smoked meat to
   // take into the freezer. Held back until the server payload replaces the seed.
   const alerts = useFoodivaAlerts(db);
   const { badges, notifications } = ws.loaded ? alerts : noFoodivaAlerts;
