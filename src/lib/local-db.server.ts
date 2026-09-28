@@ -7,10 +7,7 @@ import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
   branches,
-  lotCost,
-  n,
   seed,
-  stageRole,
   type Database,
   type Entry,
   type Lot,
@@ -85,6 +82,7 @@ const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
     "materialConfirm",
     "closeDay",
     "editRequest",
+    "link",
   ],
   cm: [
     "smokingInvoice",
@@ -95,6 +93,7 @@ const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
     "closeLot",
     "chefEdit",
     "editRequest",
+    "link",
   ],
   foodiva: [
     "foodivaConfirm",
@@ -102,6 +101,7 @@ const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
     "foodivaReturnReceive",
     "dispatch",
     "editRequest",
+    "link",
   ],
 };
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
@@ -142,7 +142,7 @@ export function saveState(
     fail("Only an owner can change configuration");
   if (
     role !== "owner" &&
-    (payload.version !== 8 ||
+    (payload.version !== 9 ||
       !isDeepStrictEqual(
         without(payload, "entries", "lots"),
         without(old, "entries", "lots"),
@@ -198,32 +198,39 @@ export function saveState(
       )
         fail("Entry branch does not match signed-in account");
     }
-    if (payload.lots.length !== old.lots.length)
-      fail("Only an owner can add or remove lots");
+    // SRV-02: no workflow step to check. A lot keeps its identity; only its values cache
+    // moves (DM-09), and Foodiva or Chef House may open a new shipment batch (GEN-09).
+    if (payload.lots.length < old.lots.length)
+      fail("Only an owner can remove lots");
     old.lots.forEach((lot, index) => {
       const next = payload.lots[index];
-      // Only stage and values move, and only on a lot whose current stage this role owns.
       if (
         !next ||
-        !isDeepStrictEqual(
-          without(next, "stage", "values"),
-          without(lot, "stage", "values"),
-        ) ||
-        typeof next.stage !== "number" ||
-        next.stage < lot.stage ||
-        next.stage > lot.stage + 1 ||
-        ((next.stage !== lot.stage ||
-          !isDeepStrictEqual(next.values, lot.values)) &&
-          stageRole[lot.stage] !== role)
+        !isDeepStrictEqual(without(next, "values"), without(lot, "values")) ||
+        !isObject(next.values)
       )
         fail("Lot changes must follow the workflow");
     });
+    if (
+      payload.lots
+        .slice(old.lots.length)
+        .some((lot) => !isShipmentLot(lot) || !isObject(lot.values))
+    )
+      fail("Only an owner can add or remove lots");
   }
   return replaceState(db, payload);
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+/** A new shipment batch as `mutate` opens one: `S…`/`SH-…` ids, kind "shipment". */
+const isShipmentLot = (lot: unknown): lot is Lot =>
+  isObject(lot) &&
+  lot.kind === "shipment" &&
+  typeof lot.id === "string" &&
+  /^S\d{6}-\d{3}$/.test(lot.id) &&
+  typeof lot.poId === "string" &&
+  /^SH-\d{4}-\d{4}$/.test(lot.poId);
 
 /** JS port of `append_entries` (supabase/migrations/20260925000028_role_scoped_app_state.sql):
  * a Branch, Foodiva or Chef House save, which sends only its new entries and changed lots.
@@ -303,47 +310,29 @@ export function appendState(
   const lots = [...old.lots];
   for (const change of changes) {
     const index = old.lots.findIndex((lot) => lot?.id === change.id);
-    if (index < 0) fail("Only an owner can add or remove lots");
+    if (index < 0) {
+      // GEN-09: a new shipment batch opened by Foodiva or Chef House.
+      if (!isShipmentLot(change) || lots.some((lot) => lot?.id === change.id))
+        fail("Only an owner can add or remove lots");
+      lots.push({ ...change, values: change.values ?? {} });
+      continue;
+    }
     const lot = old.lots[index];
-    if (
-      typeof change.stage !== "number" ||
-      !Number.isInteger(change.stage) ||
-      change.stage < lot.stage ||
-      change.stage > lot.stage + 1 ||
-      !isObject(change.values ?? {})
-    )
-      fail(workflow);
-    // Only stage and values are taken; values merge over the stored ones.
-    const values = { ...lot.values, ...change.values };
-    if (
-      (change.stage !== lot.stage || !isDeepStrictEqual(values, lot.values)) &&
-      stageRole[lot.stage] !== role
-    )
-      fail(workflow);
-    lots[index] = { ...lot, stage: change.stage, values };
+    if (!isObject(change.values ?? {})) fail(workflow);
+    // Only values are taken (DM-09); they merge over the stored ones.
+    lots[index] = { ...lot, values: { ...lot.values, ...change.values } };
   }
 
-  // A scoped copy has no prices: a branch sale's meatCost is worked out here (lotCost).
-  const full: Database = { ...old, lots };
+  // BR-05: a sale's meat cost is never stored; `saleCost` reads it, so a scoped copy sends none.
   const costKeys = ["meatCost", "wasteCost"].flatMap((key) => [
     key,
     `to.${key}`,
     `from.${key}`,
   ]);
-  const entries = added.map((entry) => {
-    const values = without(entry.values, ...costKeys) as Entry["values"];
-    if (
-      role === "branch" &&
-      (entry.kind === "sale" || entry.kind === "influencerBox")
-    ) {
-      const lot = lots.find((item) => item?.id === entry.lotId);
-      const perKg = (lot && lotCost(full, lot).perKg) || 0;
-      values.meatCost = String(n(values, "soldKg") * perKg);
-      if (entry.kind === "sale")
-        values.wasteCost = String(n(values, "wasteKg") * perKg);
-    }
-    return { ...entry, values };
-  });
+  const entries = added.map((entry) => ({
+    ...entry,
+    values: without(entry.values, ...costKeys) as Entry["values"],
+  }));
   return replaceState(db, {
     ...old,
     lots,

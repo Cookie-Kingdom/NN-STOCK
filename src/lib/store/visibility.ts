@@ -11,11 +11,14 @@ import {
 } from "./model";
 import { entries, shipments, smokingInvoiceStatus } from "./derived";
 /** Value keys a role must not see. Chef House also never sees purchase POs, meat prices or freight.
- *  It does see the Foodiva invoice number on the Packing List (`invoiceNo`). */
+ *  It does see the Foodiva invoice number on the Packing List (`invoiceNo`). Foodiva sees the
+ *  smoke PO (VIS-04) but not what the smoking costs. */
 const hiddenKeys = (role: Role) =>
   role === "cm"
     ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
-    : ["meatCost", "wasteCost"];
+    : role === "foodiva"
+      ? ["meatCost", "wasteCost", "estimatedCost", "serviceRate"]
+      : ["meatCost", "wasteCost"];
 export const omit = (values: Values, keys: string[]) =>
   Object.fromEntries(
     Object.entries(values).filter(
@@ -25,7 +28,12 @@ export const omit = (values: Values, keys: string[]) =>
 const hide = (values: Values, role: Role) => omit(values, hiddenKeys(role));
 /** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
 export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
-const editKinds: EntryKind[] = ["entryEdit", "editRequest", "editDecision"];
+const editKinds: EntryKind[] = [
+  "entryEdit",
+  "editRequest",
+  "editDecision",
+  "link",
+];
 /** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
 const chefHouseKinds: EntryKind[] = [
   "smokeOrder",
@@ -34,8 +42,31 @@ const chefHouseKinds: EntryKind[] = [
   "invoicePayment",
 ];
 /** Owner entries Foodiva sees: the payment of its meat invoice, whose slip is evidence for both
- *  sides (storage folder `meatPayment/`, migration 20260925000027). Foodiva supplies every lot. */
-const foodivaKinds: EntryKind[] = ["meatPayment"];
+ *  sides (storage folder `meatPayment/`, migration 20260925000027), and the smoke PO that says
+ *  what to send (VIS-04). Foodiva supplies every lot. */
+const foodivaKinds: EntryKind[] = ["meatPayment", "smokeOrder"];
+/** VIS-02 / BR-07 — the lots a role's screens list. Chef House: batches with a smoke PO or any
+ *  entry of its own, never a purchase PO. A branch: lots allocated to it or holding its own
+ *  entries. `role-scope.ts` sends the same set; a SQL filter must state the same rule. */
+export function visibleLots(db: Database, role: Role, branch?: string) {
+  if (role === "cm")
+    return shipments(db).filter((lot) =>
+      db.entries.some(
+        (e) =>
+          e.lotId === lot.id && (e.kind === "smokeOrder" || e.role === "cm"),
+      ),
+    );
+  if (role === "branch")
+    return db.lots.filter((lot) =>
+      db.entries.some(
+        (e) =>
+          e.lotId === lot.id &&
+          e.branch === branch &&
+          (e.kind === "allocate" || e.role === "branch"),
+      ),
+    );
+  return db.lots;
+}
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(db: Database, role: Role, branch?: string) {
   const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
@@ -59,8 +90,8 @@ export function visibleEntries(db: Database, role: Role, branch?: string) {
       role === "owner" ? e : { ...e, values: hide(e.values, role) },
     );
 }
-/** The database a role's screens read. Chef House gets only shipments with a smoke PO, stripped of
- * purchase POs and prices; other roles get `db` untouched. `hideSales` (Account Manager) also drops
+/** The database a role's screens read. Chef House gets only its batches (`visibleLots`), stripped
+ * of purchase POs and prices; other roles get `db` untouched. `hideSales` (Account Manager) also drops
  * every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in the
  * app: the server already strips it (load_app_state, GET /api/local-db) and puts it back on save
  * (save_app_state, src/lib/sale-money.ts), so sale money never reaches its browser. */
@@ -79,9 +110,10 @@ export function visibleDatabase(
       })),
     };
   if (role !== "cm") return db;
-  const lots = shipments(db)
-    .filter((lot) => entries(db, "smokeOrder", lot.id).length)
-    .map((lot) => ({ ...lot, values: hide(lot.values, role) }));
+  const lots = visibleLots(db, role).map((lot) => ({
+    ...lot,
+    values: hide(lot.values, role),
+  }));
   const ids = new Set(lots.map((lot) => lot.id));
   return {
     ...db,

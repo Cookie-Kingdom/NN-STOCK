@@ -2,22 +2,22 @@
  *  pending so a tester can click through each action (`PUT /api/local-db?state=uat`).
  *
  *  Built only through `mutate`, like demo.ts. Five days end at `endDate` (d0…d4, d4 =
- *  "today"). Each shipment is parked at one step and says which in its Request note
- *  (and its smoke PO instruction); each purchase PO says it in `reference`/`note`.
+ *  "today"). Each batch is parked at one step and says which in its smoke PO note and
+ *  instruction; each purchase PO says it in `reference`/`note`.
  *  SH/PO numbers follow creation order, so they are the same whatever the date:
  *
- *  SH-0001 done end to end, feeds both branches' days · SH-0002 Request voided ·
- *  SH-0003 waits Foodiva's manifest · SH-0004 Packing List ready, no smoke PO ·
- *  SH-0005 smoke PO sent, Chef has not accepted · SH-0006 smoking half done at Chef ·
- *  SH-0007 closed, no Chef invoice (and waits the return truck) · SH-0008 Chef invoice
- *  to review · SH-0009 invoice to pay · SH-0010 invoice sent back to Chef ·
- *  SH-0011 returned, Foodiva has not weighed it in · SH-0012 Foodiva received, waits
- *  รับเข้าสต๊อกกลาง · SH-0013 in stock, nothing allocated · SH-0014 partly allocated
- *  (มีนบุรี, part received) · SH-0015 all allocated to ศาลาแดง, not received.
+ *  SH-0001 done end to end, feeds both branches' days · SH-0002 smoke PO, waits
+ *  Foodiva's manifest · SH-0003 opened by Foodiva, Packing List ready, no smoke PO ·
+ *  SH-0004 smoke PO and truck sent, Chef has not accepted · SH-0005 smoking half done at
+ *  Chef · SH-0006 closed, no Chef invoice (and waits the return truck) · SH-0007 Chef
+ *  invoice to review · SH-0008 invoice to pay · SH-0009 invoice sent back to Chef ·
+ *  SH-0010 returned, Foodiva has not weighed it in · SH-0011 Foodiva received, waits
+ *  รับเข้าสต๊อกกลาง · SH-0012 in stock, nothing allocated · SH-0013 partly allocated
+ *  (มีนบุรี, part received) · SH-0014 all allocated to ศาลาแดง, not received.
  *
- *  PO-0001 feeds every shipment (Owner waste pick-up partly done) · PO-0002 waits
+ *  PO-0001 feeds every batch (Owner waste pick-up partly done) · PO-0002 waits
  *  Foodiva's invoice · PO-0003 invoiced, unpaid, waste not picked up · PO-0004 paid, no
- *  Request yet, waste picked up in full. */
+ *  smoke PO yet, waste picked up in full. */
 import {
   branches,
   materials,
@@ -45,7 +45,6 @@ const LOW_AT_MINBURI = materials.length - 2;
 const steps = [
   "request",
   "dispatch",
-  "smokeOrder",
   "accept",
   "cmReceive",
   "prepare",
@@ -267,16 +266,28 @@ export function ownerBranchScenario(endDate: string): Database {
     note: string,
     upTo: Step,
     [from, mid, to]: [string, string, string],
-    options: { kg?: number; reject?: boolean } = {},
+    options: { kg?: number; reject?: boolean; noOrder?: boolean } = {},
   ) => {
     const kg = options.kg ?? 50;
     const done = (step: Step) => steps.indexOf(step) <= steps.indexOf(upTo);
-    const lotId = owner(
-      "shipmentRequest",
-      { lines: JSON.stringify([{ lotId: feed, kg: String(kg) }]), note },
-      "",
-      from,
-    ).lotId;
+    // The Owner's smoke PO opens the batch and names the purchase PO it draws on (SMK-01);
+    // with `noOrder` Foodiva opens it with the transport document instead (D2).
+    let lotId = options.noOrder
+      ? ""
+      : owner(
+          "smokeOrder",
+          {
+            lines: JSON.stringify([{ lotId: feed, kg: String(kg) }]),
+            rawKg: String(kg),
+            smoker: "Chef House",
+            requestedSmokeDate: from,
+            expectedFinishedDate: to,
+            instruction: note,
+            note,
+          },
+          "",
+          from,
+        ).lotId;
     const boxes = Array.from({ length: Math.ceil(kg / 20) }, (_, i) =>
       String(Math.min(20, kg - i * 20)),
     ).join("\n");
@@ -299,10 +310,12 @@ export function ownerBranchScenario(endDate: string): Database {
           plate: "UAT-01",
           driverName: "คนขับ UAT",
           driverPhone: "0800000000",
+          dispatchKg: String(kg),
         },
         lotId,
         from,
       );
+      lotId = db.lots.at(-1)!.id;
       run(
         "foodiva",
         "packingList",
@@ -317,18 +330,6 @@ export function ownerBranchScenario(endDate: string): Database {
         from,
       );
     }
-    if (done("smokeOrder"))
-      owner(
-        "smokeOrder",
-        {
-          smoker: "Chef House",
-          requestedSmokeDate: from,
-          expectedFinishedDate: to,
-          instruction: note,
-        },
-        lotId,
-        from,
-      );
     if (done("accept"))
       cm("smokeOrderAccept", { acceptedBy: "Chef House UAT" }, from);
     if (done("cmReceive"))
@@ -443,80 +444,66 @@ export function ownerBranchScenario(endDate: string): Database {
     history,
     d[0],
   ).id;
-  const voided = owner(
-    "shipmentRequest",
-    {
-      lines: JSON.stringify([{ lotId: feed, kg: "20" }]),
-      note: "UAT SH-0002 · Request ที่ยกเลิกแล้ว",
-    },
-    "",
-    d[1],
-  );
-  owner(
-    "void",
-    { targetId: voided.id, reason: "UAT สั่งซ้ำ ยกเลิก Request" },
-    "",
-    d[1],
-  );
-  shipment("UAT SH-0003 · รอ Foodiva ทำใบขนส่ง", "request", [d[4], d[4], d[4]]);
+  shipment("UAT SH-0002 · รอ Foodiva ทำใบขนส่ง", "request", [d[4], d[4], d[4]]);
   shipment(
-    "UAT SH-0004 · Packing List พร้อม รอ Owner ออก PO รมควัน",
+    "UAT SH-0003 · Foodiva เปิดชุด Packing List พร้อม รอ Owner ออก PO รมควัน",
+    "dispatch",
+    [d[3], d[3], d[3]],
+    { noOrder: true },
+  );
+  shipment(
+    "UAT SH-0004 · ออก PO รมควันแล้ว ส่งแล้ว รอ Chef House ยืนยัน",
     "dispatch",
     [d[3], d[3], d[3]],
   );
   shipment(
-    "UAT SH-0005 · ออก PO รมควันแล้ว รอ Chef House ยืนยัน",
-    "smokeOrder",
-    [d[3], d[3], d[3]],
-  );
-  shipment(
-    "UAT SH-0006 · Chef House กำลังรมควัน (รมไปครึ่งหนึ่ง)",
+    "UAT SH-0005 · Chef House กำลังรมควัน (รมไปครึ่งหนึ่ง)",
     "smokeHalf",
     [d[2], d[3], d[4]],
   );
   shipment(
-    "UAT SH-0007 · ปิด Lot แล้ว รอ Chef ส่ง Invoice และรอเรียกรถขากลับ",
+    "UAT SH-0006 · ปิด Lot แล้ว รอ Chef ส่ง Invoice และรอเรียกรถขากลับ",
     "closeLot",
     [d[1], d[2], d[3]],
   );
-  shipment("UAT SH-0008 · Invoice ค่ารมควันรอ Owner ตรวจยอด", "invoice", [
+  shipment("UAT SH-0007 · Invoice ค่ารมควันรอ Owner ตรวจยอด", "invoice", [
     d[1],
     d[2],
     d[3],
   ]);
-  shipment("UAT SH-0009 · Invoice ค่ารมควันรับยอดแล้ว รอชำระ", "review", [
+  shipment("UAT SH-0008 · Invoice ค่ารมควันรับยอดแล้ว รอชำระ", "review", [
     d[1],
     d[2],
     d[3],
   ]);
   shipment(
-    "UAT SH-0010 · Invoice ค่ารมควันส่งกลับให้ Chef แก้",
+    "UAT SH-0009 · Invoice ค่ารมควันส่งกลับให้ Chef แก้",
     "review",
     [d[1], d[2], d[3]],
     { reject: true },
   );
-  shipment("UAT SH-0011 · รถขากลับออกแล้ว รอ Foodiva รับเข้าตู้", "return", [
+  shipment("UAT SH-0010 · รถขากลับออกแล้ว รอ Foodiva รับเข้าตู้", "return", [
     d[1],
     d[2],
     d[4],
   ]);
   shipment(
-    "UAT SH-0012 · Foodiva รับแล้ว รอ Owner รับเข้าสต๊อกกลาง",
+    "UAT SH-0011 · Foodiva รับแล้ว รอ Owner รับเข้าสต๊อกกลาง",
     "foodivaReceive",
     [d[1], d[2], d[4]],
   );
-  shipment("UAT SH-0013 · อยู่ในสต๊อก ยังไม่จัดสรร", "central", [
+  shipment("UAT SH-0012 · อยู่ในสต๊อก ยังไม่จัดสรร", "central", [
     d[1],
     d[2],
     d[3],
   ]);
   const partial = shipment(
-    "UAT SH-0014 · จัดสรรไปมีนบุรีบางส่วน สาขารับไปบางส่วน",
+    "UAT SH-0013 · จัดสรรไปมีนบุรีบางส่วน สาขารับไปบางส่วน",
     "central",
     [d[1], d[2], d[3]],
   );
   const unreceived = shipment(
-    "UAT SH-0015 · จัดสรรไปศาลาแดงหมดแล้ว สาขายังไม่รับ",
+    "UAT SH-0014 · จัดสรรไปศาลาแดงหมดแล้ว สาขายังไม่รับ",
     "central",
     [d[1], d[2], d[3]],
   );

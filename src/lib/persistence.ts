@@ -38,15 +38,15 @@ const wellFormed = (entry: Entry) =>
   Boolean(entry.values) &&
   typeof entry.values === "object";
 
-/* v8 (shipment flow) started from an empty log (migration 0019), so there is nothing older to
- * convert: any other version reads as the seed. */
+/* v9 (free ledger, DM-01) starts from an empty log (reset migration, D6), so there is nothing
+ * older to convert: any other version reads as the seed. */
 function normalize(
   parsed: StoredDatabase | null,
   fallback: Database,
 ): Database {
   if (
     !parsed ||
-    parsed.version !== 8 ||
+    parsed.version !== 9 ||
     !Array.isArray(parsed.entries) ||
     !Array.isArray(parsed.lots)
   )
@@ -58,7 +58,7 @@ function normalize(
       `พบรายการที่ข้อมูลไม่สมบูรณ์ ${parsed.entries.length - entries.length} รายการ ระบบซ่อนไว้ก่อน กรุณาแจ้งผู้ดูแลระบบ`,
     );
   return {
-    version: 8,
+    version: 9,
     lots: parsed.lots,
     entries,
     config: {
@@ -87,15 +87,15 @@ let stored: {
 function adopt(payload: StoredDatabase, rev: number) {
   // Client and server out of step (a deploy ahead of its migration): say so instead of
   // quietly showing an empty system that refuses every save.
-  if (payload?.version !== 8)
+  if (payload?.version !== 9)
     reportError(
       "ข้อมูลบนเซิร์ฟเวอร์เป็นเวอร์ชันที่แอปนี้ไม่รองรับ ระบบจะแสดงข้อมูลว่างและบันทึกไม่ได้ กรุณาแจ้งผู้ดูแลระบบ",
     );
   cached = normalize(payload, initialDatabase);
-  /* A pre-v8 payload reads as empty but is not history to build on: with nothing stored, the
+  /* A pre-v9 payload reads as empty but is not history to build on: with nothing stored, the
    * next save sends the whole database and the server refuses it until the reset migration runs. */
   stored =
-    payload?.version === 8
+    payload?.version === 9
       ? {
           payload,
           count: cached.entries.length,

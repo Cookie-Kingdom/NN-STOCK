@@ -83,30 +83,24 @@ function roleplay(endDate: string, dayCount: number): Database {
     },
     poLotId,
   );
-  run("owner", "shipmentRequest", {
-    lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]),
-  });
-  const lotId = db.lots.at(-1)!.id;
   // Packing List: 20 kg กล่องรับเข้า, the last one takes the remainder; Chef House weighs in the same.
   const boxes = Array.from({ length: Math.ceil(rawKg / 20) }, (_, i) =>
     String(Math.min(20, rawKg - i * 20)),
   ).join("\n");
-  run(
-    "foodiva",
-    "dispatch",
-    {
-      pickupDate: dates[0],
-      origin: "Foodiva · กรุงเทพฯ",
-      destination: "Chef House · เชียงใหม่",
-      trip: "ไปกลับ",
-      pickupTime: "06:30",
-      vehicleType: "รถห้องเย็น",
-      plate: "DEMO-01",
-      driverName: "คนขับทดสอบ",
-      driverPhone: "0800000000",
-    },
-    lotId,
-  );
+  // Foodiva opens the batch with its transport document (GEN-09); the Owner's smoke PO joins it.
+  run("foodiva", "dispatch", {
+    pickupDate: dates[0],
+    origin: "Foodiva · กรุงเทพฯ",
+    destination: "Chef House · เชียงใหม่",
+    trip: "ไปกลับ",
+    pickupTime: "06:30",
+    vehicleType: "รถห้องเย็น",
+    plate: "DEMO-01",
+    driverName: "คนขับทดสอบ",
+    driverPhone: "0800000000",
+    dispatchKg: String(rawKg),
+  });
+  const lotId = db.lots.at(-1)!.id;
   run(
     "foodiva",
     "packingList",
@@ -126,6 +120,7 @@ function roleplay(endDate: string, dayCount: number): Database {
       smoker: "Chef House",
       requestedSmokeDate: dates[0],
       expectedFinishedDate: dates[2],
+      lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]),
     },
     lotId,
   );
