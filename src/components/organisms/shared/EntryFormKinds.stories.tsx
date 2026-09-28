@@ -3,6 +3,7 @@ import { fn, userEvent, within } from "storybook/test";
 import {
   acceptedInvoiceDb,
   allocatedDb,
+  centralDb,
   chillDb,
   closedDb,
   cmReceivedDb,
@@ -20,7 +21,9 @@ import {
   smokeOrderDb,
   smokedDb,
   submittedInvoiceDb,
+  unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
+import { NO_LOT } from "@/lib/nav";
 import { EntryForm } from "./EntryForm";
 import { pick } from "../../../../.storybook/pick";
 import {
@@ -234,12 +237,53 @@ export const FoodivaReturnReceive: Story = form(
 // --- Branch --------------------------------------------------------------
 
 /** The only outstanding allocation is picked and its kg prefilled (expected); "รับครบใบจัดสรรนี้แล้ว" (on by default) closes it.
- *  The Lot option reads ส่งมา / รับแล้ว / ค้างรับ, not the 0.00 frozen/chill stock. */
+ *  The Lot option reads ค้างรับ x กก.; the allocation is optional ("ไม่อ้างใบจัดสรร
+ *  (รับตรง)"), and the list ends with "ไม่ระบุ Lot". */
 export const BranchReceive: Story = form(
   allocatedDb,
   "branch",
   "receive",
   "ศาลาแดง",
+);
+
+/** "รับเนื้อ" with no allocation anywhere (BR-08): the select lists every batch S plus
+ *  "ไม่ระบุ Lot" and waits for a pick; no allocation field shows. Type 10 kg and pick
+ *  "ไม่ระบุ Lot" to save meat that is linked to a batch later. */
+export const BranchReceiveNoAllocation: Story = form(
+  centralDb,
+  "branch",
+  "receive",
+  "ศาลาแดง",
+  "",
+);
+
+/** Opened on the "ไม่ระบุ Lot" bucket (NO_LOT): the hint says the meat is not linked
+ *  yet and costs 0 until it is. */
+export const BranchReceiveNoLot: Story = form(
+  unlinkedBranchDb,
+  "branch",
+  "receive",
+  "ศาลาแดง",
+  NO_LOT,
+);
+
+/** Selling from the "ไม่ระบุ Lot" bucket (BR-03): it has 3 kg chill, so it is offered
+ *  and picked; no batch holds meat here. */
+export const BranchSaleNoLot: Story = form(
+  unlinkedBranchDb,
+  "branch",
+  "sale",
+  "ศาลาแดง",
+  NO_LOT,
+);
+
+/** Thawing from the "ไม่ระบุ Lot" bucket: 4 kg frozen left there. */
+export const BranchThawNoLot: Story = form(
+  unlinkedBranchDb,
+  "branch",
+  "thaw",
+  "ศาลาแดง",
+  NO_LOT,
 );
 
 /** Moving frozen stock to ready-to-sell stock: the oldest frozen lot (FIFO), and the

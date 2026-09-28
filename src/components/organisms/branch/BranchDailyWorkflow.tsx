@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
 import { CountPill } from "@/components/atoms/CountPill";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import type { Tab } from "@/lib/nav";
+import { NO_LOT, type Tab } from "@/lib/nav";
 import {
   balance,
   closeDayChecklist,
@@ -40,10 +40,23 @@ export function BranchDailyWorkflow({
   const pending = lots.filter(
     (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
   );
-  const frozen = lots.filter(
-    (lot) => balance(db, lot.id, branch).frozen > 0.001,
+  /* Thawing and selling also draw on the "ไม่ระบุ Lot" bucket (BR-03), opened as
+   * NO_LOT; a batch goes first when both hold meat. */
+  const bucket = balance(db, "", branch);
+  const withBucket = (ids: string[], kg: number) =>
+    kg > 0.001 ? [...ids, NO_LOT] : ids;
+  const frozen = withBucket(
+    lots
+      .filter((lot) => balance(db, lot.id, branch).frozen > 0.001)
+      .map((lot) => lot.id),
+    bucket.frozen,
   );
-  const ready = lots.filter((lot) => balance(db, lot.id, branch).ready > 0.001);
+  const ready = withBucket(
+    lots
+      .filter((lot) => balance(db, lot.id, branch).ready > 0.001)
+      .map((lot) => lot.id),
+    bucket.ready,
+  );
   const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
   // Which rice forms today owes: riceCarry always, plus rice once raw rice was issued.
   const riceRequired = requiredRiceKinds(db, branch, date);
@@ -61,19 +74,17 @@ export function BranchDailyWorkflow({
           งานเข้าใหม่ {pending.length} Lot
         </CountPill>
       ) : (
-        "ไม่มีรายการรอรับ"
+        "ไม่มีใบจัดสรรค้างรับ · รับเนื้อได้โดยไม่ต้องมีใบจัดสรร"
       ),
-      pending.length ? (
-        <Button
-          variant="table"
-          disabled={closed}
-          onClick={() => open("receive", pending[0].id)}
-        >
-          รับของ
-        </Button>
-      ) : (
-        "-"
-      ),
+      // Always open (BR-08): meat can come in with no allocation, on any batch or none.
+      <Button
+        key="receive-action"
+        variant="table"
+        disabled={closed}
+        onClick={() => open("receive", pending[0]?.id ?? "")}
+      >
+        รับของ
+      </Button>,
     ],
     [
       <strong key="thaw">2. แบ่งละลายเนื้อ</strong>,
@@ -88,7 +99,7 @@ export function BranchDailyWorkflow({
         <Button
           variant="table"
           disabled={closed}
-          onClick={() => open("thaw", frozen[0].id)}
+          onClick={() => open("thaw", frozen[0])}
         >
           แบ่งละลาย
         </Button>
@@ -133,7 +144,7 @@ export function BranchDailyWorkflow({
         <Button
           variant="table"
           disabled={closed}
-          onClick={() => open("sale", ready[0].id)}
+          onClick={() => open("sale", ready[0])}
         >
           บันทึกยอดขาย
         </Button>

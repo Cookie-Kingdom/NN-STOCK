@@ -49,7 +49,9 @@ import {
   n,
   check,
   packWeightWarning,
+  pendingReceiveKg,
   riceSources,
+  shipments,
   cooksRice,
   roleName,
   saleWithInfluencers,
@@ -63,7 +65,7 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
-import { type Modal } from "@/lib/nav";
+import { NO_LOT, noLotLabel, type Modal } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
@@ -384,22 +386,51 @@ export function EntryForm({
     "influencerBox",
     "allocate",
   ].includes(kind);
-  const choices = db.lots.filter(
-    (l) =>
-      lotProgress(db, l.id).has("central") &&
-      (role === "owner" || entries(db, "allocate", l.id, branch).length),
-  );
-  // A lot the form cannot use would leave the required select empty and the
-  // browser would block submit before onSubmit, with no message from us.
-  // Thawing starts on the oldest frozen lot (FIFO), the one mutate expects.
-  const [lotId, setLotId] = useState(() => {
+  /* A branch's meat forms (BR-08): receiving lists every batch S, with or without an
+   * allocation; thawing and selling list the batches this branch holds meat of. All of
+   * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
+   * when it holds meat to thaw or sell otherwise. */
+  const branchMeat = role === "branch" && useLot && kind !== "allocate";
+  const branchStock = (id: string) => {
+    const stock = balance(db, id, branch);
+    return kind === "thaw" ? stock.frozen : stock.ready;
+  };
+  const choices = branchMeat
+    ? shipments(db).filter(
+        (l) =>
+          kind === "receive" ||
+          l.id === modal.lotId ||
+          balance(db, l.id, branch).received > 0.001,
+      )
+    : db.lots.filter(
+        (l) =>
+          lotProgress(db, l.id).has("central") &&
+          (role === "owner" || entries(db, "allocate", l.id, branch).length),
+      );
+  const noLotChoice =
+    branchMeat &&
+    (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
+  /* The select's value: a lot id, NO_LOT for the bucket, "" while nothing is picked.
+   * A lot the form cannot use would leave the required select empty and the browser
+   * would block submit before onSubmit, with no message from us. Thawing starts on the
+   * oldest frozen lot (FIFO), the one mutate expects; a branch receive with no lot
+   * handed in waits for the branch to pick one (or "ไม่ระบุ Lot"). */
+  const [lotPick, setLotPick] = useState(() => {
     if (!useLot || choices.some((l) => l.id === modal.lotId))
       return modal.lotId;
+    if (modal.lotId === NO_LOT && noLotChoice) return NO_LOT;
+    if (branchMeat && kind === "receive") return "";
     const fifo = kind === "thaw" ? oldestFrozenLot(db, branch) : undefined;
-    return fifo && choices.some((l) => l.id === fifo.id)
-      ? fifo.id
-      : (choices[0]?.id ?? "");
+    if (fifo && choices.some((l) => l.id === fifo.id)) return fifo.id;
+    if (branchMeat) {
+      const stocked = choices.find((l) => branchStock(l.id) > 0.001);
+      if (stocked) return stocked.id;
+      if (noLotChoice) return NO_LOT;
+    }
+    return choices[0]?.id ?? "";
   });
+  const lotId = lotPick === NO_LOT ? "" : lotPick;
+  const lotChosen = lotPick !== "";
   const lot = db.lots.find((l) => l.id === lotId);
   const {
     values,
@@ -428,7 +459,7 @@ export function EntryForm({
   const addGiveaway = () => {
     // A giveaway hangs on the lot the sale itself is open on, so it cannot be filled
     // before that lot is picked (a branch with no thawed lot has none to pick).
-    if (!lotId) {
+    if (!lotChosen) {
       setError("เลือก Lot ต้นทางก่อน แล้วจึงเพิ่มอินฟลูเอนเซอร์");
       return "";
     }
@@ -462,23 +493,31 @@ export function EntryForm({
   /* `files` fields (payment slips) stay out of `values` until the save: the live
    * mutate check would read a list of names as a broken slips JSON. */
   const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
-  const allocations = entries(db, "allocate", lotId, branch)
+  // The bucket has no allocations: an allocation is always on a batch.
+  const allocations = (lotId ? entries(db, "allocate", lotId, branch) : [])
     .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
     .filter((a) => a.outstanding > 0);
-  /** What a lot option says. Receiving: what Owner sent this branch, what is in and what
-   *  is still to come; a lot not yet received would read "0.00 แช่แข็ง" as nothing came. */
+  /** What a lot option says. Receiving: what is still to come on this branch's
+   *  allocations ("ค้างรับ"), else what came in already; a batch with neither is still
+   *  receivable straight, with no allocation (BR-02). */
   const lotSummary = (id: string) => {
     if (kind === "allocate")
       return `${fmt(centralStock(db, id))} กก. รอจัดสรรที่ Foodiva`;
     if (kind === "receive") {
-      const sent = entries(db, "allocate", id, branch);
-      const kg = (list: typeof sent) =>
-        list.reduce((total, e) => total + n(e.values, "kg"), 0);
-      const pending = sent.reduce(
-        (total, e) => total + allocationOutstanding(db, e),
+      if (!id) return "รับเข้าก่อน ผูกชุดทีหลังได้";
+      const received = entries(db, "receive", id, branch).reduce(
+        (total, e) => total + n(e.values, "kg"),
         0,
       );
-      return `ส่งมา ${fmt(kg(sent))} กก. · รับแล้ว ${fmt(kg(entries(db, "receive", id, branch)))} กก. · ค้างรับ ${fmt(pending)} กก.`;
+      const pending = pendingReceiveKg(db, id, branch);
+      return (
+        [
+          pending > 0.001 && `ค้างรับ ${fmt(pending)} กก.`,
+          received > 0.001 && `รับแล้ว ${fmt(received)} กก.`,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "ไม่มีใบจัดสรร"
+      );
     }
     const stock = balance(db, id, branch);
     return `แช่แข็ง ${fmt(stock.frozen)} กก. / คงเหลือชิล ${fmt(stock.ready)} กก.`;
@@ -530,10 +569,10 @@ export function EntryForm({
     set(key, file.name);
   };
   // Controls mutate() insists on that are rendered outside `formFields`.
-  const extraRequired =
-    kind === "smoke" ? ["packs"] : kind === "receive" ? ["allocation"] : [];
+  // A receive's allocation is optional (BR-02): with none it is a straight receive.
+  const extraRequired = kind === "smoke" ? ["packs"] : [];
   const complete =
-    (!useLot || Boolean(lotId)) &&
+    (!useLot || lotChosen) &&
     [
       ...formFields.filter((f) => !f.optional).map((f) => f.key),
       ...extraRequired,
@@ -563,8 +602,24 @@ export function EntryForm({
           )
         : mutate(db, role, kind, resolveLocations(values), lotId, date, branch),
     );
-    return { warnings, error: complete ? error : "" };
-  }, [complete, db, role, kind, values, lotId, date, branch, giveaways]);
+    // Nothing is said about a lot the branch has not picked yet.
+    return {
+      warnings: !useLot || lotChosen ? warnings : [],
+      error: complete ? error : "",
+    };
+  }, [
+    complete,
+    db,
+    role,
+    kind,
+    values,
+    lotId,
+    lotChosen,
+    useLot,
+    date,
+    branch,
+    giveaways,
+  ]);
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
   const missing = checklist.find((item) => item.required && !item.done);
@@ -687,14 +742,21 @@ export function EntryForm({
               </Notice>
             )}
             {useLot && (
-              <FormField label="Lot ต้นทาง">
+              <FormField
+                label="Lot ต้นทาง"
+                hint={
+                  lotPick === NO_LOT
+                    ? "ยังไม่ผูก Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
+                    : undefined
+                }
+              >
                 <Select
                   autoFocus
                   data-autofocus
-                  value={lotId}
+                  value={lotPick}
                   required
                   onChange={(e) => {
-                    setLotId(e.target.value);
+                    setLotPick(e.target.value);
                     setError("");
                     // Refill what the user has not changed from the new lot; the
                     // allocation picked for the old lot goes back to the prefill.
@@ -713,27 +775,26 @@ export function EntryForm({
                       {l.id} · {lotSummary(l.id)}
                     </option>
                   ))}
+                  {noLotChoice && (
+                    <option value={NO_LOT}>
+                      {noLotLabel} · {lotSummary("")}
+                    </option>
+                  )}
                 </Select>
               </FormField>
             )}
-            {kind === "receive" && (
-              <FormField
-                label="ใบจัดสรรที่รับ"
-                hint={
-                  !allocations.length
-                    ? "ยังไม่มีใบจัดสรรค้างรับของ Lot นี้"
-                    : undefined
-                }
-              >
+            {/* Only a batch with an allocation still to receive asks which one; the
+                blank choice is a straight receive that leaves the allocations open. */}
+            {kind === "receive" && allocations.length > 0 && (
+              <FormField label="ใบจัดสรรที่รับ" optional>
                 <Select
-                  required
                   value={values.allocation || ""}
                   onChange={(e) => {
                     set("allocation", e.target.value);
                     refill(prefillFor(lot, { allocation: e.target.value }));
                   }}
                 >
-                  <option value="">เลือกใบจัดสรร</option>
+                  <option value="">ไม่อ้างใบจัดสรร (รับตรง)</option>
                   {allocations.map((a) => (
                     <option key={a.entry.id} value={a.entry.id}>
                       {a.entry.date} · ค้างรับ {fmt(a.outstanding)} กก. ·{" "}
@@ -743,7 +804,7 @@ export function EntryForm({
                 </Select>
               </FormField>
             )}
-            {kind === "receive" && (
+            {kind === "receive" && values.allocation && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 text-body-sm font-medium">
                 <Checkbox
                   className="mt-0.5"

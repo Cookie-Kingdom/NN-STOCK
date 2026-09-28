@@ -427,6 +427,42 @@ export const materialTransferDb: Database = (() => {
   return s.db;
 })();
 
+/** ศาลาแดง with no allocation and no transfer document (BR-02, MAT-01): 10 kg of meat
+ *  received into the "ไม่ระบุ Lot" bucket (`lotId ""`), 6 kg thawed and 3 kg sold from
+ *  it, so the bucket holds 4 kg frozen and 3 kg chill. 50 units of materials[0] came in
+ *  with no transfer (a materialConfirm with an empty transferId). */
+export const unlinkedBranchDb: Database = (() => {
+  const s = setup();
+  s.run("branch", "receive", { kg: "10" }, "");
+  s.run("branch", "thaw", { kg: "6" }, "");
+  s.run(
+    "branch",
+    "sale",
+    {
+      boxes: "0",
+      addons: "30",
+      chiliAddons: "0",
+      soldKg: "3",
+      wasteKg: "0",
+      riceWasteKg: "0",
+      expense: "0",
+      lineMan: "9600",
+    },
+    "",
+  );
+  s.run(
+    "branch",
+    "materialConfirm",
+    {
+      material: materials[0],
+      receivedQuantity: "50",
+      receiver: "ผู้ดูแลสาขา",
+    },
+    "",
+  );
+  return s.db;
+})();
+
 // Named so the Actions panel logs each open("kind", lotId) call.
 export const open = fn().mockName("open");
 

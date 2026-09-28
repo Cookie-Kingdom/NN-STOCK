@@ -5,6 +5,7 @@ import {
   demoDb,
   nextDay,
   open,
+  unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import { branches, type Role } from "@/lib/store";
@@ -70,6 +71,19 @@ export const StockSummaryBranch: Story = {
       db={chillDb}
       branches={["ศาลาแดง"]}
       initialDate={date}
+    />
+  ),
+};
+
+/** Meat received with no batch: the "ไม่ระบุ Lot" row with its "ยังไม่ผูก Lot" badge
+ *  (10 kg in, 4 kg frozen, 3 kg chill), also pickable in the 14-day Lot filter. */
+export const StockSummaryUnlinked: Story = {
+  parameters: { db: unlinkedBranchDb },
+  render: () => (
+    <BranchStockSummary
+      db={unlinkedBranchDb}
+      branches={["ศาลาแดง"]}
+      initialDate={day}
     />
   ),
 };

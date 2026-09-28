@@ -1,12 +1,15 @@
 "use client";
 
+import { LotLabel } from "@/components/molecules/LotLabel";
 import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { branchMeatDay, type Database } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { NO_LOT } from "@/lib/nav";
 
 /** Thawed meat of one branch day, per lot: what came in from yesterday's chiller, what
- * was thawed, used and wasted today, and what goes back into the chiller for tomorrow. */
+ * was thawed, used and wasted today, and what goes back into the chiller for tomorrow.
+ * Meat with no batch is the "ไม่ระบุ Lot" row (BR-04). */
 export function MeatDaySummary({
   db,
   branch,
@@ -16,8 +19,8 @@ export function MeatDaySummary({
   branch: string;
   date: string;
 }) {
-  const days = db.lots
-    .map((lot) => ({ id: lot.id, ...branchMeatDay(db, lot.id, branch, date) }))
+  const days = [...db.lots.map((lot) => lot.id), ""]
+    .map((id) => ({ id, ...branchMeatDay(db, id, branch, date) }))
     .filter((d) =>
       [d.chillIn, d.thawed, d.used, d.waste].some((kg) => Math.abs(kg) > 0.001),
     );
@@ -36,9 +39,9 @@ export function MeatDaySummary({
           "เวสต์",
           "คงเหลือชิล (ยกไปวันถัดไป)",
         ]}
-        rowKeys={days.map((d) => d.id)}
+        rowKeys={days.map((d) => d.id || NO_LOT)}
         rows={days.map((d) => [
-          d.id,
+          <LotLabel key="lot" lotId={d.id} />,
           kg(d.chillIn),
           kg(d.thawed),
           kg(d.used),

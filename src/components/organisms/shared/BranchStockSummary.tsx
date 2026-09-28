@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { FilterBar } from "@/components/molecules/FilterBar";
+import { LotLabel } from "@/components/molecules/LotLabel";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { branchMeatDay, type Database } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
+import { NO_LOT, noLotLabel } from "@/lib/nav";
 
 const DAYS = 14;
 type Day = ReturnType<typeof branchMeatDay>;
@@ -36,8 +38,9 @@ const sumDays = (days: Day[]) =>
 
 /** One branch's meat as of the end of a chosen day, per lot (รอรับ / แช่แข็ง / ชิล /
  * ใช้แล้ว plus that day's movement), and the last 14 days for one lot or all lots.
- * Every number is `branchMeatDay` over the entry log. More than one branch shows a
- * branch picker (the Owner view). */
+ * Every number is `branchMeatDay` over the entry log. Meat received without a batch is
+ * the "ไม่ระบุ Lot" row (`lotId ""`, BR-04). More than one branch shows a branch picker
+ * (the Owner view). */
 export function BranchStockSummary({
   db,
   branches,
@@ -50,19 +53,21 @@ export function BranchStockSummary({
   const [branch, setBranch] = useState(branches[0] ?? "");
   const [date, setDate] = useState(initialDate);
   const [picked, setPicked] = useState("");
-  const all = db.lots.map((lot) => ({
-    id: lot.id,
-    ...branchMeatDay(db, lot.id, branch, date),
+  const all = [...db.lots.map((lot) => lot.id), ""].map((id) => ({
+    id,
+    ...branchMeatDay(db, id, branch, date),
   }));
   const lots = all.filter((d) => keys.some((key) => Math.abs(d[key]) > 0.001));
   const total = sumDays(lots);
   // A lot picked on another date or branch may have nothing here: fall back to all.
-  const lotId = lots.some((d) => d.id === picked) ? picked : "";
+  // The select says NO_LOT for the bucket, since its "" is "ทุก Lot".
+  const pickedId = picked === NO_LOT ? "" : picked;
+  const one = picked !== "" && lots.some((d) => d.id === pickedId);
   const history = Array.from({ length: DAYS }, (_, i) => addDays(date, -i)).map(
     (day) => ({
       day,
       ...sumDays(
-        (lotId ? [lotId] : lots.map((d) => d.id)).map((id) =>
+        (one ? [pickedId] : lots.map((d) => d.id)).map((id) =>
           branchMeatDay(db, id, branch, day),
         ),
       ),
@@ -115,8 +120,8 @@ export function BranchStockSummary({
           "ใช้จริงวันนี้",
           "เวสต์วันนี้",
         ]}
-        rowKeys={lots.map((d) => d.id)}
-        rows={lots.map((d) => [d.id, ...row(d)])}
+        rowKeys={lots.map((d) => d.id || NO_LOT)}
+        rows={lots.map((d) => [<LotLabel key="lot" lotId={d.id} />, ...row(d)])}
         footer={["รวม", ...row(total)]}
         emptyText="ยังไม่มีเนื้อของสาขานี้ ณ วันที่เลือก"
       />
@@ -126,13 +131,13 @@ export function BranchStockSummary({
           <TableFilter label="Lot">
             <Select
               variant="filter"
-              value={lotId}
+              value={one ? picked : ""}
               onChange={(e) => setPicked(e.target.value)}
             >
               <option value="">ทุก Lot</option>
               {lots.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.id}
+                <option key={d.id || NO_LOT} value={d.id || NO_LOT}>
+                  {d.id || noLotLabel}
                 </option>
               ))}
             </Select>

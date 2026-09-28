@@ -12,6 +12,7 @@ import {
   isClosed,
   materials,
   pendingReceiveKg,
+  visibleLots,
 } from "@/lib/store";
 
 /** What a branch is shown before the first payload lands. Until then the UI is still on
@@ -38,7 +39,10 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  A branch account reads the whole database (`visibleDatabase` only narrows Chef House),
  *  so every read here is scoped by `branch`: the allocations, the balances, the daily
  *  entries and the close checklist all take it, and a lot only counts once it was
- *  allocated to this branch. `editRequestAlerts` filters through `visibleEntries`, which
+ *  allocated to this branch or holds this branch's own entries (BR-07, `ws.lots`). The
+ *  "ไม่ระบุ Lot" bucket (`lotId ""`) counts as one more lot for thawing and selling.
+ *  There is no stage to wait on (DASH-02): each line is what this branch's own balances
+ *  still owe, never a gate — "รับเนื้อ" stays open with or without an allocation. `editRequestAlerts` filters through `visibleEntries`, which
  *  keeps a branch's requests to its own branch. Nothing about another branch can reach
  *  this bell.
  *
@@ -47,9 +51,8 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
  *  `material-count` and are counted on those badges, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
-  const lots = db.lots.filter(
-    (lot) => entries(db, "allocate", lot.id, branch).length > 0,
-  );
+  const lots = visibleLots(db, "branch", branch);
+  const lotIds = [...lots.map((lot) => lot.id), ""];
   const pendingLots = lots.filter(
     (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
   );
@@ -63,10 +66,8 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
   const materialsCounted =
     entries(db, "materials", undefined, branch, date).length > 0;
   const uncountedMaterials = materialsCounted ? 0 : materials.length;
-  const frozen = lots.filter(
-    (lot) => balance(db, lot.id, branch).frozen > 0.001,
-  );
-  const ready = lots.filter((lot) => balance(db, lot.id, branch).ready > 0.001);
+  const frozen = lotIds.filter((id) => balance(db, id, branch).frozen > 0.001);
+  const ready = lotIds.filter((id) => balance(db, id, branch).ready > 0.001);
   const thawDone = entries(db, "thaw", undefined, branch, date).length > 0;
   const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
   const closed = isClosed(db, branch, date);
