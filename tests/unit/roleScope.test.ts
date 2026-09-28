@@ -30,15 +30,66 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// A0 changed scopeRules (no Request kinds, `link` follows its target, BR-07/VIS-02 lots); card
-// A1 writes the matching migration and turns this back on.
-test.skip("the SQL rule table (migration 0028) is the same as scopeRules", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0030, free ledger) matches scopeRules.
+test("the SQL rule table (migration 0030) is the same as scopeRules", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260925000028_role_scoped_app_state.sql",
+    "supabase/migrations/20260928000030_free_ledger_app_state.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
   expect(JSON.parse(json ?? "null")).toEqual(scopeRules);
+});
+
+// VIS-05 / SRV-03: the fixture of supabase/tests/role_scoped_app_state_test.sql gives the same ids
+// here as scope_app_state() gives there (keep the two in step).
+test("scopeDatabase picks what the SQL test expects from scope_app_state", () => {
+  const e = (
+    id: string,
+    kind: string,
+    role: string,
+    lotId: string,
+    branch: string,
+    values: Record<string, string> = {},
+  ) => ({ id, kind, role, lotId, branch, date: "2026-09-01", values });
+  const db = {
+    version: 9,
+    config: { branch: "ศาลาแดง" },
+    lots: [
+      { id: "P1", poId: "PO-1", config: {}, values: {} },
+      { id: "S1", poId: "SH-1", kind: "shipment", config: {}, values: {} },
+      { id: "S2", poId: "SH-2", kind: "shipment", config: {}, values: {} },
+    ],
+    entries: [
+      e("e-po", "purchase", "owner", "P1", "ศาลาแดง"),
+      e("e-inv", "foodivaConfirm", "foodiva", "P1", "ศาลาแดง"),
+      e("e-pl", "packingList", "foodiva", "S1", "ศาลาแดง"),
+      e("e-so", "smokeOrder", "owner", "S1", "ศาลาแดง"),
+      e("e-ret", "return", "owner", "S1", "ศาลาแดง"),
+      e("e-al1", "allocate", "owner", "S1", "มีนบุรี"),
+      e("e-al2", "allocate", "owner", "S1", "ศาลาแดง"),
+      e("e-mb", "sale", "branch", "S1", "มีนบุรี"),
+      e("e-sd", "sale", "branch", "S1", "ศาลาแดง"),
+      e("e-v1", "void", "owner", "S1", "ศาลาแดง", { targetId: "e-mb" }),
+      e("e-v2", "void", "owner", "S1", "ศาลาแดง", { targetId: "e-sd" }),
+      e("e-rcv", "receive", "branch", "", "มีนบุรี"),
+      e("e-lk", "link", "branch", "", "มีนบุรี", { targetId: "e-rcv" }),
+    ],
+  } as unknown as Database;
+  const ids = (scoped: Database) => ({
+    lots: scoped.lots.map((l) => l.id).join(","),
+    entries: scoped.entries.map((x) => x.id).join(","),
+  });
+  expect(ids(scopeDatabase(db, "branch", ["มีนบุรี"]))).toEqual({
+    lots: "S1",
+    entries: "e-al1,e-mb,e-v1,e-rcv,e-lk",
+  });
+  expect(ids(scopeDatabase(db, "foodiva")).entries).toBe(
+    "e-po,e-inv,e-pl,e-so,e-ret",
+  );
+  expect(ids(scopeDatabase(db, "cm"))).toEqual({
+    lots: "S1",
+    entries: "e-pl,e-so",
+  });
 });
 
 test("the sample data exercises every role", () => {
