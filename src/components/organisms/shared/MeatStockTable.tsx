@@ -67,10 +67,10 @@ export function MeatStockTable({
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} ชิล/ละลายแล้ว`,
           `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} ชิล/ละลายแล้ว`,
           progressLabel(db, lot.id),
+          // BR-01: always open; over central stock is a warning in the form.
           <Button
             key={lot.id}
             variant="table"
-            disabled={centralStock(db, lot.id) <= 0.001}
             onClick={() => open("allocate", lot.id)}
           >
             จัดสรร

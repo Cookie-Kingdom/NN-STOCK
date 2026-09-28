@@ -53,14 +53,11 @@ test("the Owner has one of every pending signal", () => {
   for (const title of [
     "คำขอแก้ไขรอพิจารณา 1 รายการ",
     "รอ Foodiva ออก Invoice",
-    "รอ Foodiva ทำใบขนส่ง · SH-",
-    "Packing List พร้อมแล้ว",
-    "รอ Chef House ยืนยัน PO โรงรมควัน",
-    "รอ Chef House Submit Invoice ค่ารมควัน",
+    // DASH-02: one advisory line per active batch, naming the steps it lacks.
+    "ชุด SH-2026-0002 ยังขาด",
     "รอตรวจ Invoice ค่ารมควัน",
     "รอชำระ Invoice ค่ารมควัน",
     "รอ Chef House แก้ Invoice",
-    "รอ Foodiva รับเนื้อรมควัน",
     "รอชำระ Invoice เนื้อ",
     "Chef House ปิด Lot แล้ว",
     "Foodiva รับเนื้อรมควันแล้ว 1 Lot",

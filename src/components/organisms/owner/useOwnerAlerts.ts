@@ -4,21 +4,27 @@ import { editRequestAlerts } from "@/components/organisms/workspace/editRequestA
 import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
+  activeBatches,
+  missingStepTab,
+  missingSteps,
+  missingText,
+} from "@/components/organisms/owner/lotSteps";
+import {
   centralStock,
+  currentSmokingInvoices,
   type Database,
   entries,
-  latestPackingList,
   materialPar,
   materialUnitPrice,
   materials,
   produced,
-  n,
   ownerPendingInvoices,
   producedBags,
   purchaseLots,
   shipments,
   smokingInvoiceStatus,
   lotProgress,
+  unlinkedSummary,
 } from "@/lib/store";
 
 export type OwnerNotification = { title: string; detail: string; tab: Tab };
@@ -57,13 +63,10 @@ export function useOwnerAlerts(db: Database) {
     (lot) => !lotProgress(db, lot.id).has("dispatch"),
   ).length;
   const returnReady = returnReadyLots(db);
+  // Foodiva has the smoked beef in its freezer; the Owner has not counted it into central.
   const centralReceiveCount = shipmentLots.filter((lot) => {
     const p = lotProgress(db, lot.id);
-    return (
-      p.has("return") &&
-      !p.has("central") &&
-      entries(db, "foodivaReturnReceive", lot.id).length
-    );
+    return p.has("foodivaReturnReceive") && !p.has("central");
   }).length;
   const allocationCount = shipmentLots.filter(
     (lot) =>
@@ -75,11 +78,10 @@ export function useOwnerAlerts(db: Database) {
   const pendingInvoices = ownerPendingInvoices(db);
   const { unpaidMeatLots } = pendingInvoices;
   const billingCount = pendingInvoices.total;
-  const packedCount = shipmentLots.filter(
-    (lot) =>
-      latestPackingList(db, lot.id) &&
-      !entries(db, "smokeOrder", lot.id).length,
-  ).length;
+  // Batches Foodiva or Chef House opened that still have no smoke PO.
+  const smokePoCount = unlinkedSummary(db).batchesWithoutSmokeOrder.length;
+  // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch.
+  const unlinkedCount = entries(db, "receive", "").length;
 
   const editAlerts = editRequestAlerts(db, "owner", "");
   const notifications: OwnerNotification[] = [
@@ -95,89 +97,48 @@ export function useOwnerAlerts(db: Database) {
             },
           ],
     ),
-    ...shipmentLots.flatMap((item): OwnerNotification[] => {
-      const packingList = latestPackingList(db, item.id);
-      const smokeOrder = entries(db, "smokeOrder", item.id).at(-1);
-      const accepted = entries(db, "smokeOrderAccept", item.id).at(-1);
-      const smokeInvoice = entries(db, "smokingInvoice", item.id).at(-1);
-      const p = lotProgress(db, item.id);
-      if (!p.has("dispatch"))
+    // DASH-02: per batch active in the last 30 days, the steps it has no entry for. Advice
+    // only; the smoking invoice's own review state is said on its own below.
+    ...activeBatches(db).flatMap((item): OwnerNotification[] => {
+      const missing = missingSteps(db, item.id);
+      return missing.length
+        ? [
+            {
+              title: `ชุด ${item.poId} ยังขาด ${missing.length} ขั้น`,
+              detail: missingText(missing),
+              tab: missingStepTab(missing),
+            },
+          ]
+        : [];
+    }),
+    ...currentSmokingInvoices(db).flatMap((invoice): OwnerNotification[] => {
+      const poId =
+        shipmentLots.find((lot) => lot.id === invoice.lotId)?.poId ||
+        invoice.lotId;
+      const number = invoice.values.invoiceNumber;
+      const status = smokingInvoiceStatus(db, invoice);
+      if (status === "รอตรวจยอด")
         return [
           {
-            title: `รอ Foodiva ทำใบขนส่ง · ${item.poId}`,
-            detail: `Request ส่งเนื้อ ${fmt(n(item.values, "requestedKg"))} กก. ไป Chef House`,
-            tab: "transport",
-          },
-        ];
-      if (!packingList)
-        return [
-          {
-            title: `รอ Foodiva ทำ Packing List · ${item.poId}`,
-            detail: "ต้องมี Packing List ก่อน Owner ออก PO รมควัน",
-            tab: "smoke-po",
-          },
-        ];
-      if (!smokeOrder)
-        return [
-          {
-            title: `Packing List พร้อมแล้ว · ${item.poId}`,
-            detail: `ออก PO รมควัน · ${packingList.values.boxCount} กล่องรับเข้า · ${fmt(n(packingList.values, "slicedNetKg"))} กก.`,
-            tab: "smoke-po",
-          },
-        ];
-      if (!accepted)
-        return [
-          {
-            title: `รอ Chef House ยืนยัน PO โรงรมควัน · ${item.poId}`,
-            detail: "Chef House ต้องกดยืนยันรับ PO ก่อนเริ่มงานรมควัน",
-            tab: "smoke-po",
-          },
-        ];
-      // Stages 2–5: Chef House is working; the smoking invoice only comes once the run is closed.
-      if (!p.has("closeLot")) return [];
-      if (!smokeInvoice)
-        return [
-          {
-            title: `รอ Chef House Submit Invoice ค่ารมควัน · ${item.poId}`,
-            detail: "รอเลข Invoice และไฟล์แนบเพื่อให้ Owner ตรวจยอด",
+            title: `รอตรวจ Invoice ค่ารมควัน · ${number}`,
+            detail: `ตรวจยอดการส่ง ${poId} ก่อนชำระ`,
             tab: "invoices",
           },
         ];
-      const invoiceStatus = smokingInvoiceStatus(db, smokeInvoice);
-      if (invoiceStatus === "รอตรวจยอด")
+      if (status === "รอชำระ")
         return [
           {
-            title: `รอตรวจ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
-            detail: `ตรวจยอดการส่ง ${item.poId} ก่อนชำระ`,
+            title: `รอชำระ Invoice ค่ารมควัน · ${number}`,
+            detail: `ชำระเงินค่ารมควันการส่ง ${poId}`,
             tab: "invoices",
           },
         ];
-      if (invoiceStatus === "รอชำระ")
+      if (status === "ส่งกลับแก้ไข")
         return [
           {
-            title: `รอชำระ Invoice ค่ารมควัน · ${smokeInvoice.values.invoiceNumber}`,
-            detail: `ชำระเงินค่ารมควันการส่ง ${item.poId}`,
-            tab: "invoices",
-          },
-        ];
-      if (invoiceStatus === "ส่งกลับแก้ไข")
-        return [
-          {
-            title: `รอ Chef House แก้ Invoice · ${smokeInvoice.values.invoiceNumber}`,
+            title: `รอ Chef House แก้ Invoice · ${number}`,
             detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef House Submit ใหม่",
             tab: "invoices",
-          },
-        ];
-      if (
-        p.has("return") &&
-        !p.has("central") &&
-        !entries(db, "foodivaReturnReceive", item.id).length
-      )
-        return [
-          {
-            title: `รอ Foodiva รับเนื้อรมควัน · ${item.poId}`,
-            detail: "ติดตาม Foodiva ให้ชั่งรับเนื้อจาก Chef House เข้าตู้",
-            tab: "transport",
           },
         ];
       return [];
@@ -192,6 +153,15 @@ export function useOwnerAlerts(db: Database) {
       detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
       tab: "return-shipment",
     })),
+    ...(unlinkedCount
+      ? [
+          {
+            title: `รายการที่ยังไม่ผูก Lot: ${unlinkedCount}`,
+            detail: "สาขารับเนื้อโดยไม่ระบุ Lot · ผูกกับชุดรมควันภายหลังได้",
+            tab: "history" as Tab,
+          },
+        ]
+      : []),
     ...(centralReceiveCount
       ? [
           {
@@ -229,7 +199,7 @@ export function useOwnerAlerts(db: Database) {
       transport: transportCount,
       "return-shipment": returnReady.length,
       invoices: billingCount,
-      "smoke-po": packedCount,
+      "smoke-po": smokePoCount,
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,

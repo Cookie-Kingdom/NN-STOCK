@@ -39,38 +39,40 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   });
   expect(alerts().badges.transport).toBe(0); // a purchase PO is never a truck job
   confirm(s, "50");
-  // Foodiva opens the batch and packs it before the Owner's smoke PO (D2).
+  // Foodiva opens the batch before the Owner's smoke PO (D2): the batch lists what it
+  // lacks (DASH-02) and points at the Owner's first missing step.
   dispatch(s, "");
-  expect(first()).toMatchObject({
-    title: "รอ Foodiva ทำ Packing List · SH-2026-0001",
-    tab: "smoke-po",
-  });
-  expect(alerts().badges["smoke-po"]).toBe(0);
-  packingList(s, "25\n24.5");
   expect(first()).toEqual({
-    title: "Packing List พร้อมแล้ว · SH-2026-0001",
-    detail: "ออก PO รมควัน · 2 กล่องรับเข้า · 49.50 กก.",
+    title: "ชุด SH-2026-0001 ยังขาด 12 ขั้น",
+    detail:
+      "ยังขาด: PO รมควัน, Packing List, Chef รับ PO, ชั่งรับ และอีก 8 ขั้น",
     tab: "smoke-po",
   });
   expect(alerts().badges["smoke-po"]).toBe(1);
+  packingList(s, "25\n24.5");
+  expect(first().title).toBe("ชุด SH-2026-0001 ยังขาด 11 ขั้น");
   smokeOrder(s, [["F260909-001", "50"]]);
-  expect(first().title).toBe(
-    "รอ Chef House ยืนยัน PO โรงรมควัน · SH-2026-0001",
-  );
+  expect(first()).toMatchObject({
+    title: "ชุด SH-2026-0001 ยังขาด 10 ขั้น",
+    tab: "invoices",
+  });
   expect(alerts().badges["smoke-po"]).toBe(0);
   s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  // Chef House is working: only the unpaid meat invoice still waits on the owner
   expect(alerts().notifications.map((n) => n.title)).toEqual([
+    "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
     "รอชำระ Invoice เนื้อ · PO-2026-0001",
   ]);
 });
 
-test("a closed run waits on the smoking invoice, then its review", () => {
+test("a closed run lacks the smoking invoice, then waits on its review", () => {
   const s = closed();
   const titles = () =>
     ownerAlerts(s.db).notifications.map((item) => item.title);
-  expect(titles()).toContain(
-    "รอ Chef House Submit Invoice ค่ารมควัน · SH-2026-0001",
+  expect(ownerAlerts(s.db).notifications).toContainEqual(
+    expect.objectContaining({
+      title: expect.stringMatching(/^ชุด SH-2026-0001 ยังขาด/),
+      detail: expect.stringContaining("Invoice ค่ารม"),
+    }),
   );
   invoice(s);
   expect(titles()).toContain("รอตรวจ Invoice ค่ารมควัน · CH-1");

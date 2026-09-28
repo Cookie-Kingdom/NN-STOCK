@@ -22,6 +22,12 @@ import {
   requiredDailyLabels,
   sevenDayRangeStart,
 } from "@/components/organisms/owner/ownerDaily";
+import {
+  activeBatches,
+  missingStepTab,
+  missingSteps,
+  missingText,
+} from "@/components/organisms/owner/lotSteps";
 import { CostDonut } from "@/components/organisms/shared/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { SalesBars } from "@/components/organisms/shared/SalesBars";
@@ -226,13 +232,21 @@ export function OwnerDashboard({
         },
       ];
     }),
-    ...runs
-      .filter((lot) => !lotProgress(db, lot.id).has("central"))
-      .map((lot) => ({
-        title: `การส่ง ${lot.poId}`,
-        detail: `ล่าสุด “${progressLabel(lot.id)}” · รอการทำงานต่อ`,
-        kind: "lot" as const,
-      })),
+    // DASH-02: batches active in the last 30 days and the steps each has no entry for.
+    // Advice only: every one of those steps can still be recorded at any time.
+    ...activeBatches(db).flatMap((lot) => {
+      const missing = missingSteps(db, lot.id);
+      return missing.length
+        ? [
+            {
+              title: `การส่ง ${lot.poId}`,
+              detail: missingText(missing),
+              kind: "lot" as const,
+              tab: missingStepTab(missing),
+            },
+          ]
+        : [];
+    }),
   ];
   const alertCount = alertDetails.length;
   const marginPercent = income > 0 ? (margin / income) * 100 : 0;
@@ -374,7 +388,9 @@ export function OwnerDashboard({
                         variant="text"
                         onClick={() => onNavigate(item.tab!)}
                       >
-                        เปิดใบ Invoice
+                        {item.kind === "invoice"
+                          ? "เปิดใบ Invoice"
+                          : "ไปที่หน้า"}
                       </Button>
                     )
                   }

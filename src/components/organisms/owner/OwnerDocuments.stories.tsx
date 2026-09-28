@@ -1,15 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
 import {
+  acceptedInvoiceDb,
   closedDb,
   demoDb,
   dispatchDb,
+  freeOrderDb,
   multiPoDb,
   multiPoPackedDb,
   open,
   ownerReservedDb,
   packedDb,
   packingShortDb,
+  paidWithoutInvoiceDb,
   returnGapDb,
   returnTruckDb,
 } from "../../../../.storybook/fixtures";
@@ -39,19 +41,27 @@ const purchaseState = pick("สถานะ", {
 });
 const smokeState = pick("สถานะ", {
   ตัวอย่าง: db,
-  "มี Packing List": packedDb,
-  "รอ Packing List": dispatchDb,
+  "ชุดที่ Foodiva เปิด": packedDb,
+  "PO ไม่มี Packing List": freeOrderDb,
   "หลาย PO": multiPoPackedDb,
 });
 const manifestState = pick("สถานะ", {
   ตัวอย่าง: db,
+  "PO ยังไม่มีใบขนส่ง": freeOrderDb,
   "รอ Foodiva": dispatchDb,
-  "Packing List ต่ำกว่า Request": packingShortDb,
+  "Packing List ต่ำกว่า PO": packingShortDb,
   ขากลับ: returnGapDb,
 });
 const returnState = pick("สถานะ", {
-  รอจองรถ: closedDb,
+  "ปิด Lot แล้ว": closedDb,
+  "ยังไม่ปิด Lot": freeOrderDb,
   รถออกแล้ว: returnTruckDb,
+});
+const invoiceState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  "ยังไม่มี Invoice": freeOrderDb,
+  "ชำระก่อนมี Invoice": paidWithoutInvoiceDb,
+  ค่ารมรอชำระ: acceptedInvoiceDb,
 });
 
 /** เลือกสถานะใน Controls:
@@ -67,68 +77,82 @@ export const PurchaseOrders: Story = {
   render: ({ db }) => <PurchaseOrderView db={db} open={open} />,
 };
 
-/** เลือกสถานะใน Controls:
+/** "+ ออก PO รมควันเนื้อ" above the table is always live and opens the form on a new
+ *  batch; a row with no smoke PO opens it on that batch. เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run.
- *  - มี Packing List: the create button is live and the quantity is the Packing List total.
- *  - รอ Packing List: Request still waiting for Foodiva, the create button is disabled
- *    with its reason.
- *  - หลาย PO: one shipment drawing on three purchase POs (kg each and what each has
- *    left), next to a trucked shipment with no Packing List yet. */
+ *  - ชุดที่ Foodiva เปิด: Foodiva trucked a batch with its Packing List before any smoke
+ *    PO; the row's button issues the PO on that batch.
+ *  - PO ไม่มี Packing List: a smoke PO citing two uninvoiced purchase POs (300 + 200 kg),
+ *    "ยังไม่มี Packing List" and its "ยังขาด" chips.
+ *  - หลาย PO: one batch drawing on three purchase POs (kg each and what each has left),
+ *    next to a trucked batch with no Packing List yet. */
 export const SmokingPurchaseOrders: Story = {
   argTypes: { db: smokeState.argType },
   args: { db: smokeState.initial },
   render: ({ db }) => <SmokingPurchaseOrderView db={db} open={open} />,
 };
 
-/** เลือกสถานะใน Controls:
+/** The last column is the batch's "ยังขาด" chips plus the Owner's own buttons, never
+ *  disabled: "ออก PO รมควันเนื้อ" while there is none, "เรียกรถขากลับ" until booked.
+ *  เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run.
- *  - รอ Foodiva: a Request waiting for Foodiva's transport document, no outbound button
- *    for the Owner, only "แก้ไข Request" (A10), which disappears once Foodiva makes the
- *    manifest.
- *  - Packing List ต่ำกว่า Request: Request 1,500 kg, Packing List 70 kg, Chef House
- *    69 kg; the comparison runs on the Packing List (gap −1 kg) and the Request kg shows
- *    on its own line.
+ *  - PO ยังไม่มีใบขนส่ง: a smoke PO with no transport document, Packing List or Chef House
+ *    weigh-in; the truck home can still be booked.
+ *  - รอ Foodiva: a 50 kg smoke PO waiting for Foodiva's transport document.
+ *  - Packing List ต่ำกว่า PO: PO 1,500 kg, Packing List 70 kg, Chef House 69 kg; the
+ *    comparison runs on the Packing List (gap −1 kg) and the PO kg shows on its own line.
  *  - ขากลับ: return leg, Chef House sent 36 kg, Foodiva received 35.5 kg, with the gap
  *    badge. */
 export const TransportManifest: Story = {
   argTypes: { db: manifestState.argType },
   args: { db: manifestState.initial },
-  render: ({ db }) => (
-    <TransportManifestView db={db} open={open} onOpenSmokePo={fn()} />
-  ),
+  render: ({ db }) => <TransportManifestView db={db} open={open} />,
 };
 
-/** The return-trip tab. เลือกสถานะใน Controls:
- *  - รอจองรถ: Chef House closed the lot, so the Owner books the truck home. The button
- *    opens the same `return` dialog the manifest's workflow action opens.
- *  - รถออกแล้ว: nothing to book, the truck home is already on the road, waiting for
- *    Foodiva. */
+/** The return-trip tab: every batch with no truck home yet (RET-06). เลือกสถานะใน Controls:
+ *  - ปิด Lot แล้ว: Chef House closed the lot; the button opens the same `return` dialog
+ *    the manifest opens.
+ *  - ยังไม่ปิด Lot: a batch not smoked yet still has its button, the chips say สโมค and
+ *    ปิด Lot are missing.
+ *  - รถออกแล้ว: nothing to book, the truck home is already on the road. */
 export const ReturnShipment: Story = {
   argTypes: { db: returnState.argType },
   args: { db: returnState.initial },
   render: ({ db }) => <ReturnShipmentView db={db} open={open} />,
 };
 
+/** Paying never waits for the invoice (PO-07, SVC-05). เลือกสถานะใน Controls:
+ *  - ตัวอย่าง: the seven-day demo run.
+ *  - ยังไม่มี Invoice: two purchase POs and one batch with no invoice, each a row with a
+ *    "ยังไม่มี Invoice" badge and a live "ชำระเงิน".
+ *  - ชำระก่อนมี Invoice: the 300 kg PO paid before Foodiva invoiced it (ชำระแล้ว).
+ *  - ค่ารมรอชำระ: an accepted smoking invoice waiting to be paid. */
 export const Invoices: Story = {
-  render: () => <InvoiceView db={db} open={open} />,
+  argTypes: { db: invoiceState.argType },
+  args: { db: invoiceState.initial },
+  render: ({ db }) => <InvoiceView db={db} open={open} />,
 };
 
-/** Stage 1 (waiting for Foodiva, Request still editable) and a trucked shipment with its Packing List (go to the smoke PO). */
+/** Three batches: a smoke PO still waiting for Foodiva, a batch Foodiva opened with no
+ *  smoke PO, and a closed lot. Chips list what each lacks; both buttons stay live. */
 export const WorkflowAction: Story = {
   parameters: { db: dispatchDb },
   render: () => (
-    <div className="flex gap-6">
+    <div className="flex flex-wrap gap-6">
       <LotWorkflowAction
         db={dispatchDb}
         lot={dispatchDb.lots.at(-1)!}
         open={open}
-        onOpenSmokePo={fn()}
       />
       <LotWorkflowAction
         db={packedDb}
         lot={packedDb.lots.at(-1)!}
         open={open}
-        onOpenSmokePo={fn()}
+      />
+      <LotWorkflowAction
+        db={closedDb}
+        lot={closedDb.lots.at(-1)!}
+        open={open}
       />
     </div>
   ),
