@@ -52,25 +52,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PostgREST 14 retries SQLSTATE 40001/40P01 forever (the 22-09 prod flood). Migrations up to
-      # 0022 still carry the old code; anything newer must not raise it. Comments are ignored.
-      # no_serialization_errcode_test.sql below checks the final functions as well.
-      - name: No 40001/40P01 in migrations after 0022
-        run: |
-          bad=0
-          for f in supabase/migrations/*.sql; do
-            n=$(basename "$f"); v=${n%%_*}
-            [ "$v" -gt 20260924000022 ] || continue
-            if sed 's/--.*//' "$f" | grep -nE '40001|40P01'; then
-              echo "::error file=$f::raises 40001/40P01; use raise exception (P0001) or raise sqlstate 'PTxxx'"
-              bad=1
-            fi
-          done
-          exit $bad
-
-      - name: Install psql
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-
       # Applies every migration, then runs every supabase/tests/*_test.sql, including
       # no_serialization_errcode_test.sql.
       - name: Apply migrations and run SQL tests

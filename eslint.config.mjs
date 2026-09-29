@@ -15,7 +15,6 @@ const eslintConfig = defineConfig([
     // Generated: Playwright traces, videos and the bundled HTML report.
     "artifacts/**",
     "storybook-static/**",
-    "uat-work/**",
     // Agent worktrees: full checkouts with their own .next builds.
     ".claude/**",
   ]),
