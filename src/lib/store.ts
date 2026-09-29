@@ -2,12 +2,11 @@
  *  The code lives in src/lib/store/; this file is its public API, unchanged by the split. */
 export {
   type Role,
+  type ActingRole,
   type Values,
-  entryKinds,
   type EntryKind,
   type Entry,
   type Lot,
-  type ShipmentLine,
   type Database,
   roleName,
   entryBy,
@@ -17,7 +16,6 @@ export {
   branchMeatKinds,
   titles,
   editApprovers,
-  editableKinds,
   editDecisions,
   editLockedKeys,
   unpack,
@@ -25,12 +23,10 @@ export {
 } from "./store/model";
 export {
   n,
-  decimal,
   entries,
   produced,
   producedBags,
   packWeights,
-  isPackWeight,
   validPackWeights,
   processed,
   lotProgress,
@@ -67,14 +63,11 @@ export {
   type CloseDayItem,
   rawRiceStock,
   issuedRawRiceStock,
-  riceCarryWasteKg,
   cookedRiceStock,
   chiliAllocated,
   ownerChiliStock,
   chiliSold,
   chiliStock,
-  issuedChiliStock,
-  materialSent,
   ownerMaterialStock,
   branchMaterialStock,
   materialPar,
@@ -97,7 +90,6 @@ export {
   visibleEntries,
   visibleDatabase,
   editBlock,
-  editDecisionOf,
   openEditRequest,
   entryEdits,
   editRequestRows,
@@ -109,8 +101,5 @@ export {
   mutate,
   recordRole,
   dispatchWithPackingList,
-  influencerLabel,
   saleWithInfluencers,
 } from "./store/mutate";
-export { sevenDayRoleplay, thirtyDayRoleplay } from "./store/demo";
-export { ownerBranchScenario } from "./store/scenario";

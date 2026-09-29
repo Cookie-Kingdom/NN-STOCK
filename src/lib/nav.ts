@@ -52,7 +52,7 @@ export type Modal = { kind: ModalKind; lotId: string };
 export const NO_LOT = "~no-lot";
 export const noLotLabel = "ไม่ระบุ Lot";
 
-export type NavItem = { id: Tab; label: string; icon: typeof Package };
+type NavItem = { id: Tab; label: string; icon: typeof Package };
 export type NavGroup = { label?: string; items: NavItem[] };
 
 /* One nav per account. An account only lists what its own workspace renders —

@@ -1,5 +1,7 @@
 /** The domain's shapes and fixed tables: types, entry kinds, titles, edit rules, the seed. */
 export type Role = "owner" | "foodiva" | "cm" | "branch";
+/** Who can sign in and act: Foodiva and Chef House are entry stamps only (partners, not users). */
+export type ActingRole = "owner" | "branch";
 export type Values = Record<string, string>;
 /** Every entry kind in the log (all but the legacy one are what `mutate` records). A kind
  *  outside this list is a compile error. */

@@ -71,9 +71,7 @@ function normalize(
   };
 }
 
-const initialDatabase = seed;
-export const demoInitialDatabase = initialDatabase;
-let cached = initialDatabase;
+let cached = seed;
 /* ponytail: server history is append-only; send it back untouched. normalize() rewrites
  * the loaded config (seed defaults filled in), so a save rebuilds the payload
  * from the stored entries/config plus only what was appended locally since the load.
@@ -91,7 +89,7 @@ function adopt(payload: StoredDatabase, rev: number) {
     reportError(
       "ข้อมูลบนเซิร์ฟเวอร์เป็นเวอร์ชันที่แอปนี้ไม่รองรับ ระบบจะแสดงข้อมูลว่างและบันทึกไม่ได้ กรุณาแจ้งผู้ดูแลระบบ",
     );
-  cached = normalize(payload, initialDatabase);
+  cached = normalize(payload, seed);
   /* A pre-v9 payload reads as empty but is not history to build on: with nothing stored, the
    * next save sends the whole database and the server refuses it until the reset migration runs. */
   stored =
@@ -221,14 +219,14 @@ async function loadDatabase(background = false): Promise<boolean> {
     return false;
   }
   if (!data) {
-    const created = await saveRow(initialDatabase, null);
+    const created = await saveRow(seed, null);
     const row = created.data;
     if (created.error) {
       reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
       return false;
     }
     // The save no longer echoes the payload; what the server holds is what we just sent.
-    if (row) adopt(initialDatabase, row.revision);
+    if (row) adopt(seed, row.revision);
     return Boolean(row);
   }
   adopt(data.payload, data.revision);
@@ -244,7 +242,7 @@ function onAuthEvent(event: string) {
       if (!pendingWrites) void loadDatabase(true);
     }, 0);
   if (event === "SIGNED_OUT") {
-    cached = initialDatabase;
+    cached = seed;
     stored = null;
     revision = null;
     loaded = false;
@@ -299,7 +297,7 @@ export function useDatabase() {
   return useSyncExternalStore(
     subscribe,
     () => cached,
-    () => initialDatabase,
+    () => seed,
   );
 }
 /** Optimistic: the cache updates at once. Resolves to whether the server took the write. */

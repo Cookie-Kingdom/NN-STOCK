@@ -1,12 +1,12 @@
 import { Beef, Briefcase, Building2, Store } from "lucide-react";
-import type { Role } from "@/lib/store";
+import type { ActingRole } from "@/lib/store";
 import type { Tab } from "@/lib/nav";
 
 export type AccountId = "owner" | "manager" | "saladaeng" | "minburi";
 
 export type Account = {
   id: AccountId;
-  role: Role;
+  role: ActingRole;
   /** Set only for branch accounts — the branch whose data this account may touch. */
   branch?: string;
   /** No Owner Dashboard and no sales money (Account Manager). */

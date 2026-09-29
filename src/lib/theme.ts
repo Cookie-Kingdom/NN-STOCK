@@ -7,7 +7,7 @@
 
 export type ThemePref = "light" | "dark";
 
-export const THEME_STORAGE_KEY = "nn-theme";
+const THEME_STORAGE_KEY = "nn-theme";
 const CHANGE_EVENT = "nn-themechange";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 

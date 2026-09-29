@@ -7,8 +7,6 @@ import { seed, type Database } from "@/lib/store";
 let cached: Database = seed;
 const listeners = new Set<() => void>();
 
-export const demoInitialDatabase = seed;
-
 /** Called by the preview decorator before each story renders; does not notify. */
 export function setMockDatabase(db: Database) {
   cached = db;

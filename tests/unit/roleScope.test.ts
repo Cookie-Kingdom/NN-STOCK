@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { scopeDatabase, scopeRules } from "@/lib/role-scope";
+import { thirtyDayRoleplay } from "@/lib/store/demo";
 import {
   balance,
   branchMaterialStock,
@@ -13,7 +14,6 @@ import {
   materials,
   pendingReceiveKg,
   rawRiceStock,
-  thirtyDayRoleplay,
   visibleEntries,
   type Database,
 } from "@/lib/store";

@@ -130,9 +130,6 @@ test("append_entries refuses what save_app_state refuses", () => {
   expect(append(accountById("owner"), [])).toThrow(
     "Only branch accounts append entries",
   );
-  // M1: Foodiva and Chef House accounts are retired.
-  for (const role of ["cm", "foodiva"] as const)
-    expect(append({ ...branch!, role }, [])).toThrow("Account is not active");
   expect(append(branch, [entry({ kind: "cmReceive" })])).toThrow(
     "kind is not allowed",
   );

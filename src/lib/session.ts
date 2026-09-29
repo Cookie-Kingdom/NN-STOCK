@@ -5,18 +5,13 @@ import { accountById, type Account, type AccountId } from "@/lib/accounts";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
+import type { Database } from "@/lib/supabase/types";
 import { setSaveActor, setSaveAppendOnly } from "@/lib/persistence";
 
-type Profile = {
-  display_name: string;
-  role:
-    | "L1_OWNER"
-    | "L1_MANAGER"
-    | "L2_BRANCH_ADMIN"
-    | "L3_CM_OPERATOR"
-    | "L4_SUPPLIER";
-  is_active: boolean;
-};
+type Profile = Pick<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "display_name" | "role" | "is_active"
+>;
 export type SessionState = {
   ready: boolean;
   account: Account | null;

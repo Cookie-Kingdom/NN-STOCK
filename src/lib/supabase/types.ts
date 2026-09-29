@@ -3,7 +3,7 @@
  * tables session.ts reads. Keep it in step with supabase/migrations when one of those
  * changes; regenerate the whole file instead once the CLI can reach a project. */
 
-export type Json =
+type Json =
   | string
   | number
   | boolean

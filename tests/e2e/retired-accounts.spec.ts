@@ -8,6 +8,8 @@ for (const account of ["chef", "foodiva"]) {
   test(`${account}@local.test is refused with "บัญชีนี้ไม่ใช้งานแล้ว"`, async ({
     page,
   }) => {
+    // @local.test accounts exist only in local DB mode (playwright.local.config.ts).
+    test.skip(process.env.NEXT_PUBLIC_LOCAL_DB !== "1", "local DB mode only");
     await startFresh(page);
     await page.getByLabel("อีเมล").fill(`${account}@local.test`);
     await page.getByLabel("รหัสผ่าน").fill("local-test");

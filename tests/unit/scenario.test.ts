@@ -7,10 +7,10 @@ import {
   batchKinds,
   isClosed,
   lotProgress,
-  ownerBranchScenario,
   ownerWasteOutstanding,
   purchaseLots,
 } from "@/lib/store";
+import { ownerBranchScenario } from "@/lib/store/scenario";
 
 const end = today();
 const db = ownerBranchScenario(end);

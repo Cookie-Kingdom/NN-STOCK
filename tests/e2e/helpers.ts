@@ -17,7 +17,7 @@ export const ACCOUNTS = {
   saladaeng: "saladaeng",
   minburi: "minburi",
 } as const;
-export type AccountKey = keyof typeof ACCOUNTS;
+type AccountKey = keyof typeof ACCOUNTS;
 
 const ACCOUNT_ENV: Record<AccountKey, string> = {
   owner: "OWNER",
@@ -44,7 +44,7 @@ function credentialsFor(account: AccountKey) {
 }
 
 /** Skips the current test when any of the accounts has no credentials in env. */
-export function skipUnlessCredentials(...accounts: AccountKey[]) {
+function skipUnlessCredentials(...accounts: AccountKey[]) {
   const missing = accounts.filter((account) => !credentialsFor(account));
   test.skip(
     missing.length > 0,
@@ -72,17 +72,17 @@ export function menuItem(page: Page, label: string) {
   });
 }
 
-export function escapeRegExp(text: string) {
+function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export const INVOICE_FIXTURE = path.join(
+const INVOICE_FIXTURE = path.join(
   process.cwd(),
   "tests/fixtures/invoice-demo.pdf",
 );
 
 /** A red dot that follows the mouse, so the recorded videos show every click. */
-export async function installVisibleCursor(page: Page) {
+async function installVisibleCursor(page: Page) {
   await page.addInitScript(() => {
     document.addEventListener(
       "mousemove",
@@ -135,7 +135,7 @@ export async function typeValue(page: Page, locator: Locator, value: string) {
   await expect(locator).toHaveValue(value);
 }
 
-export async function button(page: Page, name: string | RegExp) {
+async function button(page: Page, name: string | RegExp) {
   await pointAndClick(page, page.getByRole("button", { name }).last());
 }
 
@@ -255,7 +255,7 @@ export async function step(
 
 /* ---- ids on screen ----------------------------------------------------------- */
 
-export const PO_ID = /PO-\d{4}-\d{4}/;
+const PO_ID = /PO-\d{4}-\d{4}/;
 export const SHIPMENT_NO = /SH-\d{4}-\d{4}/;
 /** A smoke batch id: `S<yymmdd>-NNN-xxxx` (GEN-09). */
 export const BATCH_ID = /S\d{6}-\d{3}-[0-9a-z]{4}/i;
@@ -389,7 +389,7 @@ export async function weighIn(page: Page, batch: string, boxesKg: string[]) {
 }
 
 /** The action button of one batch row on the production table (`match` = batch id). */
-export function productionButton(page: Page, name: string, match: string) {
+function productionButton(page: Page, name: string, match: string) {
   return tableRow(page, SCREENS.production.table, match)
     .getByRole("button", { name, exact: true })
     .first();
@@ -480,7 +480,7 @@ export async function acceptSmokePo(page: Page, batch: string) {
 }
 
 /** Fills the Packing List dialog opened over the transport document: one row per box. */
-export async function fillPackingList(page: Page, boxesKg: string[]) {
+async function fillPackingList(page: Page, boxesKg: string[]) {
   await pointAndClick(
     page,
     topDialog(page).getByRole("button", {
@@ -697,24 +697,4 @@ export async function historyEntry(
 ) {
   await openMenu(page, menu);
   return page.locator("main details").filter({ hasText: text }).first();
-}
-
-/* ---- bell & secrecy ------------------------------------------------------------ */
-
-/** Opens the header bell and returns the list of things to do next. */
-export async function openNotifications(page: Page) {
-  await pointAndClick(
-    page,
-    page.getByRole("button", { name: /^การแจ้งเตือน/ }),
-  );
-  return page.getByLabel("รายการที่ต้องทำต่อ");
-}
-
-/** PRIN-06: no purchase PO number, no meat price label and none of `secrets`
- *  (distinctive prices) anywhere on the page or its open dialogs. */
-export async function expectNoPurchaseData(page: Page, secrets: string[] = []) {
-  const text = await page.locator("body").innerText();
-  expect(text, "purchase PO number").not.toMatch(PO_ID);
-  expect(text, "meat price label").not.toContain("ราคาเนื้อ");
-  for (const secret of secrets) expect(text).not.toContain(secret);
 }
