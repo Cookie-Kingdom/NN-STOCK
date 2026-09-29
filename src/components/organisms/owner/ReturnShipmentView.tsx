@@ -7,10 +7,10 @@ import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
 import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
+  awaitingReturn,
   entries,
   produced,
   producedBags,
-  shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -35,9 +35,7 @@ export function ReturnShipmentView({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const readyToReturn = shipments(db).filter(
-    (lot) => !entries(db, "return", lot.id).length,
-  );
+  const readyToReturn = awaitingReturn(db);
   return (
     <>
       <SectionHeading

@@ -1,6 +1,5 @@
-import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import {
   day,
   editDecidedDb,
@@ -93,7 +92,6 @@ export const RequestList: Story = {
 };
 
 function Bell({ db, role }: { db: Database; role: Role }) {
-  const [open, setOpen] = useState(true);
   return (
     <div className="flex min-h-100 justify-end p-6">
       <NotificationPopover
@@ -103,8 +101,6 @@ function Bell({ db, role }: { db: Database; role: Role }) {
           role === "branch" ? "ศาลาแดง" : "",
           day,
         )}
-        open={open}
-        onToggle={() => setOpen((value) => !value)}
         onSelect={fn()}
       />
     </div>
@@ -116,6 +112,11 @@ function Bell({ db, role }: { db: Database; role: Role }) {
  *  - Owner: "คำขอแก้ไขรอพิจารณา 1 รายการ", opening the history tab. */
 export const RequesterBell: Story = {
   ...byRole,
+  play: async ({ canvasElement }) => {
+    fireEvent.click(
+      within(canvasElement).getByRole("button", { name: /^การแจ้งเตือน/ }),
+    );
+  },
   render: ({ role }) => <Bell db={editDecidedDb} role={role} />,
 };
 

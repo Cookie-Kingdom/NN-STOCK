@@ -1,6 +1,13 @@
 import { expect, test } from "vitest";
 import { transportDocumentRows } from "@/components/organisms/owner/documentRows";
-import { entries, shipmentChain, type Values } from "@/lib/store";
+// Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
+import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
+import {
+  awaitingReturn,
+  entries,
+  shipmentChain,
+  type Values,
+} from "@/lib/store";
 import {
   expectWarning,
   closed,
@@ -119,4 +126,20 @@ test("transport documents name the shipment and its purchase POs", () => {
     น้ำหนักส่ง: "36.00 กก.",
   });
   expect(rows).not.toHaveProperty("Lot เนื้อ");
+});
+
+test("the return screen lists every shipment without a truck home; the alert only closed ones (RET-06)", () => {
+  const s = setup();
+  readyToDispatch(s, "50");
+  const ids = () => awaitingReturn(s.db).map((lot) => lot.id);
+  const lot = () => s.db.lots.at(-1)!;
+  expect(ids()).toEqual([lot().id]); // not closed, still bookable
+  expect(ownerAlerts(s.db).returnReady).toEqual([]);
+  const c = closed();
+  expect(ownerAlerts(c.db).returnReady.map((l) => l.id)).toEqual(
+    awaitingReturn(c.db).map((l) => l.id),
+  );
+  c.run("owner", "return", back("36"));
+  expect(awaitingReturn(c.db)).toEqual([]);
+  expect(ownerAlerts(c.db).returnReady).toEqual([]);
 });

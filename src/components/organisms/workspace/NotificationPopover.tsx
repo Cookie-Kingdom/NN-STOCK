@@ -4,33 +4,29 @@ import { CountPill } from "@/components/atoms/CountPill";
 import { IconButton } from "@/components/atoms/IconButton";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { useId, useRef } from "react";
 import type { Tab } from "@/lib/nav";
-import { cn } from "@/lib/utils";
 
 export type Notification = { title: string; detail: string; tab: Tab };
 
-/** Bell button with a count, opening a list of follow-up tasks that each jump to their tab. */
+/** Bell button with a count, opening a list of follow-up tasks that each jump to their tab.
+ *  A native `popover`: the browser owns open/close, Escape, click-outside and the button's
+ *  expanded state; CSS anchor positioning hangs the panel under the bell. */
 export function NotificationPopover({
   notifications,
-  open,
-  onToggle,
   onSelect,
 }: {
   notifications: Notification[];
-  open: boolean;
-  onToggle?: () => void;
   onSelect: (tab: Tab) => void;
 }) {
+  const id = useId();
+  const panel = useRef<HTMLElement>(null);
   return (
-    <div className="relative">
+    <div className="group">
       <IconButton
-        className={cn(
-          "relative border border-border bg-surface text-accent",
-          open && "bg-bg",
-        )}
+        className="relative border border-border bg-surface text-accent [anchor-name:--notifications] group-has-[:popover-open]:bg-bg"
         label={`การแจ้งเตือน ${notifications.length} รายการ`}
-        aria-expanded={open}
-        onClick={onToggle}
+        popoverTarget={id}
         icon={
           <>
             <Bell size={19} />
@@ -40,48 +36,49 @@ export function NotificationPopover({
           </>
         }
       />
-      {open && (
-        <section
-          className="absolute top-[calc(100%+10px)] right-0 z-20 w-[min(390px,calc(100vw-32px))] origin-top-right animate-scale-in rounded-lg border border-border bg-surface p-3.5 shadow-lg"
-          aria-label="รายการที่ต้องทำต่อ"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">
-            <div className="grid gap-0.5">
-              <strong className="text-body font-semibold">การแจ้งเตือน</strong>
-              <span className="text-caption text-text-secondary">
-                {notifications.length
-                  ? `ต้องทำต่อ ${notifications.length} รายการ`
-                  : "ไม่มีงานค้าง"}
-              </span>
-            </div>
-            <Button variant="text" onClick={onToggle}>
-              ปิด
-            </Button>
+      <section
+        ref={panel}
+        id={id}
+        popover="auto"
+        className="inset-auto [top:anchor(bottom)] [right:anchor(right)] m-0 mt-2.5 w-[min(390px,calc(100vw-32px))] origin-top-right rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in"
+        aria-label="รายการที่ต้องทำต่อ"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">
+          <div className="grid gap-0.5">
+            <strong className="text-body font-semibold">การแจ้งเตือน</strong>
+            <span className="text-caption text-text-secondary">
+              {notifications.length
+                ? `ต้องทำต่อ ${notifications.length} รายการ`
+                : "ไม่มีงานค้าง"}
+            </span>
           </div>
-          {notifications.length ? (
-            <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
-              {notifications.map((notification, index) => (
-                <AlertListItem
-                  as="button"
-                  key={`${notification.tab}-${notification.title}-${index}`}
-                  title={notification.title}
-                  detail={notification.detail}
-                  onClick={() => {
-                    onSelect(notification.tab);
-                    onToggle?.();
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              compact
-              text="ยังไม่มีงานที่ต้องทำต่อ"
-              className="mx-0.75 mb-0.5"
-            />
-          )}
-        </section>
-      )}
+          <Button variant="text" popoverTarget={id} popoverTargetAction="hide">
+            ปิด
+          </Button>
+        </div>
+        {notifications.length ? (
+          <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
+            {notifications.map((notification, index) => (
+              <AlertListItem
+                as="button"
+                key={`${notification.tab}-${notification.title}-${index}`}
+                title={notification.title}
+                detail={notification.detail}
+                onClick={() => {
+                  onSelect(notification.tab);
+                  panel.current?.hidePopover();
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            compact
+            text="ยังไม่มีงานที่ต้องทำต่อ"
+            className="mx-0.75 mb-0.5"
+          />
+        )}
+      </section>
     </div>
   );
 }

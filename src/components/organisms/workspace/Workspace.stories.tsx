@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import { packedDb } from "../../../../.storybook/fixtures";
 import { useOwnerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { AppBrand, AppHeader } from "./AppHeader";
@@ -27,16 +27,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function Bell({ items }: { items: Notification[] }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <NotificationPopover
-      notifications={items}
-      open={open}
-      onToggle={() => setOpen((value) => !value)}
-      onSelect={fn()}
-    />
-  );
+  return <NotificationPopover notifications={items} onSelect={fn()} />;
 }
+
+/** The bell's panel is a native popover: click the bell so the story opens on the list. */
+const openBell = async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+  fireEvent.click(
+    within(canvasElement).getByRole("button", { name: /^การแจ้งเตือน/ }),
+  );
+};
 
 /** The brand block on its own: the header and the sign-in card both render it. */
 export const Brand: Story = {
@@ -72,6 +71,7 @@ export const Header: StoryObj<{ alerts: Alerts }> = {
     },
   },
   args: { alerts: "sample" },
+  play: openBell,
   render: function Render({ alerts }) {
     const packingList = useOwnerAlerts(packedDb).notifications;
     const items = { sample: notifications, packingList, none: [] }[alerts];

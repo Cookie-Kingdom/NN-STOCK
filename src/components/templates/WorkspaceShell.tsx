@@ -26,8 +26,6 @@ type Props = {
   /** Per-tab counters rendered as a red pill in the sidebar. */
   badges?: Partial<Record<Tab, number>>;
   notifications?: Notification[];
-  showNotifications?: boolean;
-  onToggleNotifications?: () => void;
   /** The workspace the page runs on: tab, date, toast, loading and the dialog layer. */
   ws: Workspace;
   children: ReactNode;
@@ -38,8 +36,6 @@ export function WorkspaceShell({
   nav,
   badges,
   notifications,
-  showNotifications = false,
-  onToggleNotifications,
   ws,
   children,
 }: Props) {
@@ -55,8 +51,6 @@ export function WorkspaceShell({
           notifications && (
             <NotificationPopover
               notifications={notifications}
-              open={showNotifications}
-              onToggle={onToggleNotifications}
               onSelect={onTab}
             />
           )

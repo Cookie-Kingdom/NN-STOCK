@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
@@ -41,7 +41,6 @@ import { branches, shipments } from "@/lib/store";
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, date, open, setTab, tab } = ws;
-  const [showNotifications, setShowNotifications] = useState(false);
   const everyAlert = useOwnerAlerts(db);
   const alerts = ws.loaded ? everyAlert : noOwnerAlerts;
   const hideSales = !!account.hidesSales;
@@ -58,8 +57,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       nav={hideSales ? managerNav : ownerNav}
       badges={alerts.badges}
       notifications={alerts.notifications}
-      showNotifications={showNotifications}
-      onToggleNotifications={() => setShowNotifications((value) => !value)}
       ws={ws}
     >
       <OwnerAlertBanners db={db} alerts={alerts} tab={tab} onTab={setTab} />

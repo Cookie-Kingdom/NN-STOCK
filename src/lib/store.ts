@@ -36,6 +36,7 @@ export {
   purchaseLots,
   shipmentLines,
   shipments,
+  awaitingReturn,
   drawnKg,
   poRemainingKg,
   latestPackingList,
