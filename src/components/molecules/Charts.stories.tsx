@@ -4,7 +4,7 @@ import { CostDonut } from "./CostDonut";
 import { SalesBars } from "./SalesBars";
 
 const meta = {
-  title: "Organisms/Charts",
+  title: "Molecules/Charts",
   component: CostDonut,
   args: {
     label: "ต้นทุนล็อต LOT-0915-01",

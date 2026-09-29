@@ -11,7 +11,7 @@ import { ChefReceiveForm } from "./ChefReceiveForm";
 
 // A native modal <dialog>: a Docs page would stack it, hence `!autodocs`.
 const meta: Meta = {
-  title: "Organisms/Chef/ChefReceiveForm",
+  title: "Organisms/Owner/ChefReceiveForm",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen" },
 };

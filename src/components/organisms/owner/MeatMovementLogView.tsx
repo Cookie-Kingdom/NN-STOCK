@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Select } from "@/components/atoms/Select";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
@@ -270,7 +270,8 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     });
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         overline="OWNER · BEEF TRACE"
         title="Log เนื้อคงเหลือ"
         description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"

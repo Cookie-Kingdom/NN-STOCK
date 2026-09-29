@@ -10,7 +10,7 @@ import {
 } from "@/components/organisms/owner/documentRows";
 import { LotWorkflowAction } from "@/components/organisms/owner/LotWorkflowAction";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import {
   entries,
   n,

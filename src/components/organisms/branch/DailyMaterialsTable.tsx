@@ -7,10 +7,8 @@ import { FormField, PrefillCaption } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import {
-  ReadOnlyValue,
-  SectionAction,
-} from "@/components/organisms/shared/SectionAction";
+import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
+import { SectionAction } from "@/components/molecules/SectionAction";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { latestDatabase } from "@/lib/persistence";
 import {

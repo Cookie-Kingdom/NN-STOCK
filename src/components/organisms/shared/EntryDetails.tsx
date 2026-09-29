@@ -12,7 +12,7 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryForm";
-import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { SlipList } from "@/components/molecules/AttachmentButton";
 import { LinkDialog } from "@/components/organisms/shared/LinkDialog";
 import {
   canLink,

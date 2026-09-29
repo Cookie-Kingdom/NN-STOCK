@@ -5,7 +5,7 @@ import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import type { DocumentReferenceType } from "@/components/organisms/shared/documentRows";
 
@@ -30,11 +30,12 @@ export function DocumentFilterBar({
 }) {
   const label = referenceType === "po" ? "เลข PO" : "เลข Lot";
   return (
-    <PanelHeading
+    <SectionHeading
+      framed
       align="end"
       overline="FILTER DOCUMENTS"
       description="กรองจากวันที่ออก PO / วันที่เปิด Lot เป็นหลัก"
-      aside={
+      actions={
         <FilterBar>
           <TableFilter label="กรองตาม">
             <Select

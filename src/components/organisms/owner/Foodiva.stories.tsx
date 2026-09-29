@@ -17,7 +17,7 @@ import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import { FoodivaView } from "./FoodivaView";
 
-const meta: Meta = { title: "Organisms/Foodiva" };
+const meta: Meta = { title: "Organisms/Owner/Foodiva" };
 
 export default meta;
 type Story = StoryObj<{ db: Database }>;

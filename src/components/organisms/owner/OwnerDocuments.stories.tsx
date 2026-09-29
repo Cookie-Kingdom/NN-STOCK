@@ -11,6 +11,7 @@ import {
   ownerReservedDb,
   packedDb,
   packingShortDb,
+  paidDb,
   paidWithoutInvoiceDb,
   returnGapDb,
   returnTruckDb,
@@ -62,6 +63,7 @@ const invoiceState = pick("สถานะ", {
   "ยังไม่มี Invoice": freeOrderDb,
   "ชำระก่อนมี Invoice": paidWithoutInvoiceDb,
   ค่ารมรอชำระ: acceptedInvoiceDb,
+  ชำระแล้ว: paidDb,
 });
 
 /** เลือกสถานะใน Controls:
@@ -126,7 +128,8 @@ export const ReturnShipment: Story = {
  *  - ยังไม่มี Invoice: two purchase POs and one batch with no invoice, each a row with a
  *    "ยังไม่มี Invoice" badge and a live "ชำระเงิน".
  *  - ชำระก่อนมี Invoice: the 300 kg PO paid before Foodiva invoiced it (ชำระแล้ว).
- *  - ค่ารมรอชำระ: an accepted smoking invoice waiting to be paid. */
+ *  - ค่ารมรอชำระ: an accepted smoking invoice waiting to be paid.
+ *  - ชำระแล้ว: both paid, the สลิป column lists each slip with view and download. */
 export const Invoices: Story = {
   argTypes: { db: invoiceState.argType },
   args: { db: invoiceState.initial },

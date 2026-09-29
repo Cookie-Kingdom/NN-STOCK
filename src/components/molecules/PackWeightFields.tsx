@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
-import { FieldGroup } from "@/components/molecules/FieldGroup";
+import { FormField } from "@/components/molecules/FormField";
 import { Notice } from "@/components/molecules/Notice";
 import { fmt } from "@/lib/format";
 import { validPackWeights } from "@/lib/store";
@@ -24,7 +24,8 @@ export function PackWeightFields({
   const validWeights = validPackWeights(value);
   const total = validWeights.reduce((sum, weight) => sum + weight, 0);
   return (
-    <FieldGroup
+    <FormField
+      as="div"
       wide
       className="grid gap-2.5"
       label="น้ำหนักกล่องรมควัน (กก./กล่องรมควัน)"
@@ -78,6 +79,6 @@ export function PackWeightFields({
         ส่งกลับกรุงเทพฯ {validWeights.length} กล่องรมควัน · น้ำหนักรวม{" "}
         {fmt(total)} กก.
       </Notice>
-    </FieldGroup>
+    </FormField>
   );
 }

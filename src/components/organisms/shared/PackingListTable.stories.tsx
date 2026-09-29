@@ -85,7 +85,7 @@ function Editable({
 }
 
 const meta = {
-  title: "Develop/PackingListTable",
+  title: "Organisms/Shared/PackingListTable",
   component: PackingListTable,
   args: { header, boxes },
 } satisfies Meta<typeof PackingListTable>;

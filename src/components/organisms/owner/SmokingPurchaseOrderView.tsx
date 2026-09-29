@@ -6,15 +6,15 @@ import { Stat } from "@/components/atoms/Stat";
 import { Caption } from "@/components/atoms/Text";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { Notice } from "@/components/molecules/Notice";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import {
   packingListSummary,
   smokeOrderPrintRows,
 } from "@/components/organisms/owner/documentRows";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { lotIssueDate } from "@/components/organisms/shared/documentRows";
 import {
   entries,
@@ -57,11 +57,12 @@ export function SmokingPurchaseOrderView({
   ).length;
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         overline="CHEF_HOUSE SERVICE PO"
         title="ใบสั่ง PO โรงรมควัน"
         description="1 ชุดรมควัน = 1 PO รมควัน · ออก PO ได้ทุกเมื่อ ไม่ต้องรอ Packing List · เลือกชุดใหม่หรือชุดที่ Foodiva / Chef House เปิดไว้แล้ว แล้วระบุ PO ซื้อและน้ำหนักที่ใช้"
-        aside={
+        actions={
           <Stat
             label="PO รอยืนยันจาก Chef House"
             value={`${waitingForChefHouse} ใบ`}

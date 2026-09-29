@@ -8,11 +8,8 @@ import {
   NotificationPopover,
   type Notification,
 } from "@/components/organisms/workspace/NotificationPopover";
-import { PageHeading } from "@/components/organisms/workspace/PageHeading";
-import {
-  DatabaseErrorToast,
-  Toast,
-} from "@/components/organisms/workspace/Toast";
+import { PageHeading } from "@/components/molecules/PageHeading";
+import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
 import type { Account } from "@/lib/accounts";

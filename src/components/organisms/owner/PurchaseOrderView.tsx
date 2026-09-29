@@ -5,7 +5,7 @@ import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import {
   lotIssueDate,
   purchaseOrderRows,

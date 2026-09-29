@@ -14,12 +14,10 @@ import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import {
-  ReadOnlyValue,
-  SectionAction,
-} from "@/components/organisms/shared/SectionAction";
+import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
+import { SectionAction } from "@/components/molecules/SectionAction";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { timeOptions } from "@/lib/forms";
@@ -388,10 +386,11 @@ export function ConfigView({ db }: { db: Database }) {
 
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         title="ตั้งค่าระบบ (Settings)"
         description="รายการด้านล่างคือค่าที่ Owner ปรับได้ทั้งหมดในเดโม ค่าต้นทุนการผลิตจะถูกบันทึกติดกับ PO ตอนสร้างรายการ ส่วนค่ารถใช้ค่าปัจจุบัน ณ ตอนสร้างใบขนส่ง"
-        aside={
+        actions={
           message && !editing ? (
             <Badge tone="inverse" className="flex-none">
               {message}

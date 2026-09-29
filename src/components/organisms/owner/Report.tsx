@@ -5,7 +5,7 @@ import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
 import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   branches,
@@ -136,11 +136,12 @@ export function Report({
     });
   return (
     <div className="grid gap-7.5">
-      <PanelHeading
+      <SectionHeading
+        framed
         align="end"
         title="ตัวกรองรายงาน (Report filters)"
         description="เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน"
-        aside={
+        actions={
           <FilterBar>
             <DateRangeFilter
               from={fromDate}

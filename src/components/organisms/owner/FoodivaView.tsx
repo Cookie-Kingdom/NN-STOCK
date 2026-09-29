@@ -5,12 +5,12 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
+import { SlipList } from "@/components/molecules/AttachmentButton";
 import {
   lotIssueDate,
   purchaseOrderRows,
@@ -70,10 +70,11 @@ export function FoodivaView({
   };
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         title="งาน Foodiva"
         description="รับ PO ออก Invoice แล้วระบุน้ำหนักพร้อมส่งเชียงใหม่ และเนื้อส่วนที่เหลือรอ Owner รับ (Waste)"
-        aside={
+        actions={
           <>
             <Stat
               label="เนื้อดิบคงเหลือ Foodiva"

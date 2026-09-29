@@ -13,7 +13,7 @@ import { PackingListForm } from "./PackingListForm";
 
 // A native modal <dialog>; a Docs page would stack it behind the other stories.
 const meta: Meta = {
-  title: "Develop/PackingListForm",
+  title: "Organisms/Shared/PackingListForm",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen", db: dispatchDb },
 };

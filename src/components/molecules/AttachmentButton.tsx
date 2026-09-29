@@ -66,14 +66,22 @@ function saveFile(blob: Blob, name: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export function InvoiceDownloadButton({
+/**
+ * One stored file behind a table button. `download` saves it; `view` opens it in a
+ * new tab (only for `viewableTypes`, anything else is saved instead).
+ */
+export function AttachmentButton({
+  action,
   name,
   data,
   storageKey,
+  label = action === "view" ? "ดูเอกสาร" : "ดาวน์โหลด",
 }: {
-  name: string;
+  action: "download" | "view";
+  name?: string;
   data?: string;
   storageKey?: string;
+  label?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -81,7 +89,7 @@ export function InvoiceDownloadButton({
     setLoading(true);
     setMessage("");
     try {
-      const file = await withTimeout(load(name, data, storageKey));
+      const file = await withTimeout(load(name || "", data, storageKey));
       if (!file)
         throw new Error(
           "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
@@ -95,58 +103,6 @@ export function InvoiceDownloadButton({
       setLoading(false);
     }
   };
-  if (!name && !data && !storageKey)
-    return <Muted as="span">ยังไม่มีไฟล์แนบ</Muted>;
-  /* A name with no stored copy still gets a live button whose click says the file
-   * is missing. The message sits under the button, not beside it: beside it, it
-   * widened the last table column past the scroll edge and read as "nothing". */
-  return (
-    <ActionWithError
-      error={message}
-      errorClassName="max-w-64 text-right whitespace-normal"
-    >
-      <Button
-        variant="table"
-        onClick={download}
-        disabled={loading}
-        icon={loading ? <Spinner /> : <Download className="size-3.5" />}
-      >
-        {loading ? "กำลังโหลด" : "ดาวน์โหลด"}
-      </Button>
-    </ActionWithError>
-  );
-}
-
-/** Payment slips (a `files` value): each one can be opened or downloaded. */
-export function SlipList({ value }: { value?: string }) {
-  const slips = uploadedFiles(value);
-  if (!slips.length) return <Muted as="span">ไม่มีสลิป</Muted>;
-  return (
-    <span className="grid justify-items-end gap-1.5">
-      {slips.map((slip) => (
-        <span key={slip.storageKey} className="flex items-center gap-1.5">
-          <AttachmentViewButton {...slip} label={slip.name} />
-          <InvoiceDownloadButton {...slip} />
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** Opens the file the counterparty actually uploaded, instead of a generated sheet. */
-export function AttachmentViewButton({
-  name,
-  data,
-  storageKey,
-  label = "ดูเอกสาร",
-}: {
-  name?: string;
-  data?: string;
-  storageKey?: string;
-  label?: string;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const view = async () => {
     setMessage("");
     /* The tab opens inside the click handler: opened after the await, a pop-up
@@ -181,6 +137,12 @@ export function AttachmentViewButton({
       setLoading(false);
     }
   };
+  if (action === "download" && !name && !data && !storageKey)
+    return <Muted as="span">ยังไม่มีไฟล์แนบ</Muted>;
+  const Icon = action === "view" ? FileText : Download;
+  /* A name with no stored copy still gets a live button whose click says the file
+   * is missing. The message sits under the button, not beside it: beside it, it
+   * widened the last table column past the scroll edge and read as "nothing". */
   return (
     <ActionWithError
       error={message}
@@ -188,12 +150,28 @@ export function AttachmentViewButton({
     >
       <Button
         variant="table"
-        onClick={view}
+        onClick={action === "view" ? view : download}
         disabled={loading}
-        icon={loading ? <Spinner /> : <FileText className="size-3.5" />}
+        icon={loading ? <Spinner /> : <Icon className="size-3.5" />}
       >
-        {loading ? "กำลังเปิด" : label}
+        {loading ? (action === "view" ? "กำลังเปิด" : "กำลังโหลด") : label}
       </Button>
     </ActionWithError>
+  );
+}
+
+/** Payment slips (a `files` value): each one can be opened or downloaded. */
+export function SlipList({ value }: { value?: string }) {
+  const slips = uploadedFiles(value);
+  if (!slips.length) return <Muted as="span">ไม่มีสลิป</Muted>;
+  return (
+    <span className="grid justify-items-end gap-1.5">
+      {slips.map((slip) => (
+        <span key={slip.storageKey} className="flex items-center gap-1.5">
+          <AttachmentButton action="view" {...slip} label={slip.name} />
+          <AttachmentButton action="download" {...slip} />
+        </span>
+      ))}
+    </span>
   );
 }

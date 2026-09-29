@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
-  acceptedInvoiceDb,
   allocatedDb,
   centralDb,
   day,
@@ -10,14 +9,12 @@ import {
   linkedDb,
   open,
   ownerReservedDb,
-  paidDb,
   partialBatchDb,
   unlinkedDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import { CentralReceiveView } from "./CentralReceiveView";
-import { InvoiceView } from "./InvoiceView";
 import { ConfigView } from "./ConfigView";
 import { MeatMovementLogView } from "./MeatMovementLogView";
 import { OwnerAlertBanners } from "./OwnerAlertBanners";
@@ -71,11 +68,6 @@ const centralState = pick("สถานะ", {
   ไม่มีรถกลับ: freeOrderDb,
 });
 const logoState = pick("โลโก้", { ปกติ: db, โลโก้แบบเก่า: legacyLogoDb });
-const invoiceState = pick("สถานะ", {
-  รอชำระ: acceptedInvoiceDb,
-  ชำระแล้ว: paidDb,
-  "ยังไม่มี Invoice": freeOrderDb,
-});
 
 /** Both banners at once; in the app each hides on the tab its button leads to. */
 export const AlertBanners: Story = {
@@ -174,14 +166,4 @@ export const Config: Story = {
   argTypes: { db: logoState.argType },
   args: { db: logoState.initial },
   render: ({ db }) => <ConfigView db={db} />,
-};
-
-/** Foodiva and Chef House invoices. เลือกสถานะใน Controls:
- *  - รอชำระ: both waiting to be paid, "ชำระเงิน" on each.
- *  - ชำระแล้ว: both paid, the สลิป column lists each slip with view and download.
- *  - ยังไม่มี Invoice: POs and a batch with no invoice yet still get "ชำระเงิน". */
-export const Invoices: Story = {
-  argTypes: { db: invoiceState.argType },
-  args: { db: invoiceState.initial },
-  render: ({ db }) => <InvoiceView db={db} open={open} />,
 };

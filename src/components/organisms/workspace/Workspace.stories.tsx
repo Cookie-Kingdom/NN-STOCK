@@ -5,8 +5,8 @@ import { packedDb } from "../../../../.storybook/fixtures";
 import { useOwnerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { AppBrand, AppHeader } from "./AppHeader";
 import { NotificationPopover, type Notification } from "./NotificationPopover";
-import { PageHeading } from "./PageHeading";
-import { DatabaseErrorToast, Toast } from "./Toast";
+import { PageHeading } from "@/components/molecules/PageHeading";
+import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
 
 const notifications: Notification[] = [
   {

@@ -13,7 +13,7 @@ import { FoodivaDispatchForm } from "./FoodivaDispatchForm";
 // Two native modal <dialog>s can stack here (the Packing List opens on top of the
 // transport form); a Docs page would try to show them all at once.
 const meta: Meta = {
-  title: "Organisms/Foodiva/FoodivaDispatchForm",
+  title: "Organisms/Owner/FoodivaDispatchForm",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen", db: dispatchDb },
 };

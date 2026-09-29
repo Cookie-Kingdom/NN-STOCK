@@ -16,8 +16,8 @@ import {
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import { materials, mutate, type Database } from "@/lib/store";
-import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
-import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
+import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { AllocationForm } from "./AllocationForm";
 import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";

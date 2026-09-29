@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
-import { pick } from "../../../../.storybook/pick";
-import { DataTable } from "./DataTable";
+import { pick } from "../../../.storybook/pick";
+import { DataTable } from "@/components/organisms/shared/DataTable";
 import { TableSection } from "./TableSection";
 
 const body = (
@@ -13,7 +13,7 @@ const body = (
 );
 
 const meta = {
-  title: "Organisms/TableSection",
+  title: "Molecules/TableSection",
   component: TableSection,
   args: { title: "ทะเบียนเอกสารตาม Lot", children: body },
 } satisfies Meta<typeof TableSection>;

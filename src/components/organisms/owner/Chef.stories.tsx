@@ -17,7 +17,7 @@ import { shipments, type Database } from "@/lib/store";
 import { ChefLotTable } from "./ChefLotTable";
 import { ChefReceiveTable } from "./ChefReceiveTable";
 
-const meta: Meta = { title: "Organisms/Chef" };
+const meta: Meta = { title: "Organisms/Owner/Chef" };
 
 export default meta;
 type Story = StoryObj<{ db: Database }>;
