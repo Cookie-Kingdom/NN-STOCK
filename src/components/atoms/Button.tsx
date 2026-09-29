@@ -1,9 +1,8 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
 import { cn } from "@/lib/utils";
 
-export const buttonVariants = cva(
+const buttonVariants = cva(
   "inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform] duration-(--motion-fast) ease-(--ease-standard) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring not-disabled:not-aria-disabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
@@ -49,8 +48,6 @@ const boxedVariants: ButtonVariant[] = ["primary", "secondary", "danger"];
 
 export type ButtonProps = ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
-    /** Render the single child (e.g. an `<a>`) with button styling. */
-    asChild?: boolean;
     /** Rendered before children at 16px unless the icon sets its own `size-*` class. */
     icon?: ReactNode;
   };
@@ -58,31 +55,28 @@ export type ButtonProps = ComponentProps<"button"> &
 /**
  * The only button in the app. `variant` picks the look: `primary`, `secondary` and
  * `danger` are boxed and default to a 44px touch target, while `table`, `text` and
- * `link` sit inline in a table row or a sentence. `size` overrides the height,
- * `icon` renders a 16px glyph before the label, and `asChild` gives an `<a>` the
- * button styling without nesting an anchor inside a button.
+ * `link` sit inline in a table row or a sentence. `size` overrides the height
+ * and `icon` renders a 16px glyph before the label.
  */
 export function Button({
   className,
   variant = "secondary",
   size,
-  asChild = false,
   icon,
   type,
   children,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot.Root : "button";
   const resolvedSize =
     size ?? (boxedVariants.includes(variant ?? "secondary") ? "md" : "inline");
   return (
-    <Comp
-      type={asChild ? undefined : (type ?? "button")}
+    <button
+      type={type ?? "button"}
       className={cn(buttonVariants({ variant, size: resolvedSize }), className)}
       {...props}
     >
       {icon}
-      <Slot.Slottable>{children}</Slot.Slottable>
-    </Comp>
+      {children}
+    </button>
   );
 }

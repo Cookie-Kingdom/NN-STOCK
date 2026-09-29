@@ -25,7 +25,6 @@ import {
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
-  editApprovers,
   editBlock,
   editLockedKeys,
   entries,
@@ -106,7 +105,7 @@ const derivedLabels: Record<string, string> = {
  *  name already says them. */
 const linkEchoKeys = ["targetKind", "targetDate", "targetRole", "targetBranch"];
 
-export const fieldLabel = (kind: string, key: string) =>
+const fieldLabel = (kind: string, key: string) =>
   forms[kind]?.find((f) => f.key === key)?.label || derivedLabels[key] || key;
 
 const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
@@ -129,8 +128,8 @@ export function EditDiff({ values }: { values: Values }) {
   );
 }
 
-/** The entry's own form, prefilled with its current values, plus the reason. An approver's
- *  save applies at once; anyone else's is a request the approver decides. */
+/** The entry's own form, prefilled with its current values, plus the reason. An owner's
+ *  save applies at once; anyone else's is a request the owner decides. */
 export function EditEntryForm({
   entry,
   request,
@@ -271,7 +270,6 @@ export function EntryDetails({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const owner = role === "owner";
-  const approver = editApprovers.includes(role);
   const reversible = reversibleKinds.includes(e.kind) && !voided;
   const lookup = lookupProp ?? db;
   const edits = db ? entryEdits(db, e.id) : [];
@@ -428,14 +426,14 @@ export function EntryDetails({
       {mode === "edit" ? (
         <EditEntryForm
           entry={current}
-          request={!approver}
+          request={!owner}
           error={error}
           onCancel={() => setMode("")}
           onSubmit={(values, why) =>
             run(
-              approver ? "entryEdit" : "editRequest",
+              owner ? "entryEdit" : "editRequest",
               { targetId: e.id, values: JSON.stringify(values), reason: why },
-              approver
+              owner
                 ? "แก้ไขรายการแล้ว ระบบคำนวณยอดใหม่และเก็บค่าเดิมไว้ในประวัติ"
                 : "ส่งคำขอแก้ไขแล้ว รอ Owner พิจารณา · ผลจะแจ้งที่กระดิ่ง",
               "บันทึกการแก้ไขไม่สำเร็จ",
@@ -445,7 +443,7 @@ export function EntryDetails({
       ) : (
         <>
           <FormError error={error} className="mt-3.5" />
-          {((editable && !(pending && !approver)) ||
+          {((editable && !(pending && !owner)) ||
             (owner && reversible) ||
             linkable) && (
             <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
@@ -477,9 +475,9 @@ export function EntryDetails({
                 </>
               ) : (
                 <ButtonRow className="my-0">
-                  {editable && !(pending && !approver) && (
+                  {editable && !(pending && !owner) && (
                     <Button onClick={() => setMode("edit")}>
-                      {approver ? "แก้ไข" : "ขอแก้ไข"}
+                      {owner ? "แก้ไข" : "ขอแก้ไข"}
                     </Button>
                   )}
                   {linkable && (

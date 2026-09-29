@@ -27,7 +27,7 @@ import {
   unlinkedSummary,
 } from "@/lib/store";
 
-export type OwnerNotification = { title: string; detail: string; tab: Tab };
+type OwnerNotification = { title: string; detail: string; tab: Tab };
 
 /** What the owner is shown before the first payload lands. Until then the UI is
  * still on the seed, and a signal read off it is an alarm nobody can act on. */
@@ -41,7 +41,7 @@ export const noOwnerAlerts = {
 /** Shipments Chef House has closed that still need the Owner to book the truck home.
  *  The return-trip screen and the alerts read the same list, so a lot can never be
  *  ready in one place and missing in the other. */
-export function returnReadyLots(db: Database) {
+function returnReadyLots(db: Database) {
   return shipments(db).filter(
     (lot) =>
       lotProgress(db, lot.id).has("closeLot") &&

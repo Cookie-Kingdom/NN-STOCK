@@ -56,8 +56,6 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "title" | "open"> &
     onClose: () => void;
     /** Accessible name of the header close button. */
     closeLabel?: string;
-    /** Close when the backdrop is clicked. Off by default so forms do not lose input. */
-    dismissOnBackdrop?: boolean;
     /** Rendered after children, e.g. a DialogFooter for dialogs without a <form>. */
     footer?: ReactNode;
     /** A strip under the header that stays put while the body scrolls, e.g. a
@@ -85,14 +83,12 @@ export function Dialog({
   overline,
   onClose,
   closeLabel = "ปิดฟอร์ม",
-  dismissOnBackdrop = false,
   footer,
   toolbar,
   size,
   className,
   children,
   onCancel,
-  onClick,
   ...props
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -136,11 +132,6 @@ export function Dialog({
         // Escape: keep the element open and let the parent unmount it.
         event.preventDefault();
         onClose();
-      }}
-      onClick={(event) => {
-        onClick?.(event);
-        if (dismissOnBackdrop && event.target === event.currentTarget)
-          onClose();
       }}
       {...props}
     >

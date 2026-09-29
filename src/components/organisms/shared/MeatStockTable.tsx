@@ -7,7 +7,6 @@ import {
   centralStock,
   entries,
   n,
-  pendingReceiveKg,
   pendingSmokeKg,
   produced,
   rawAtFoodiva,
@@ -27,17 +26,15 @@ const progressLabel = (db: Database, lotId: string) =>
     .at(-1) ?? "—";
 
 /** `owner`: every stock point with allocate; `chef`: Chef House's production stock (the Owner's
- *  `work` tab); `branch`: one branch's stock. */
+ *  `work` tab). */
 export function MeatStockTable({
   db,
   variant,
-  branch,
   lots,
   open,
 }: {
   db: Database;
-  variant: "owner" | "chef" | "branch";
-  branch: string;
+  variant: "owner" | "chef";
   lots: Lot[];
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
@@ -79,53 +76,18 @@ export function MeatStockTable({
         ])}
       />
     );
-  if (variant === "chef")
-    return (
-      <DataTable
-        title="สต๊อกและงานผลิต Chef House"
-        columns={[
-          "Lot",
-          "ก่อนสโมค",
-          "รอผลิต",
-          "น้ำหนักเนื้อหลังรมควัน",
-          "สถานะ",
-        ]}
-        rowKeys={lotIds}
-        rows={lots.map((lot) => [
-          lot.id,
-          `${fmt(n(lot.values, "preSmokeKg"))} กก.`,
-          `${fmt(pendingSmokeKg(db, lot))} กก.`,
-          `${fmt(produced(db, lot.id))} กก.`,
-          progressLabel(db, lot.id),
-        ])}
-      />
-    );
   return (
     <DataTable
-      title={`สต๊อกเนื้อ · ${branch}`}
-      columns={[
-        "Lot",
-        "รอรับจาก Owner",
-        "รับแล้ว",
-        "แช่แข็ง",
-        "คงเหลือชิล (ละลายแล้ว)",
-        "สถานะ",
-      ]}
+      title="สต๊อกและงานผลิต Chef House"
+      columns={["Lot", "ก่อนสโมค", "รอผลิต", "น้ำหนักเนื้อหลังรมควัน", "สถานะ"]}
       rowKeys={lotIds}
-      rows={lots.map((lot) => {
-        const stock = balance(db, lot.id, branch);
-        const pending = pendingReceiveKg(db, lot.id, branch);
-        return [
-          lot.id,
-          pending > 0 ? `${fmt(pending)} กก.` : "-",
-          `${fmt(stock.received)} กก.`,
-          `${fmt(stock.frozen)} กก.`,
-          `${fmt(stock.ready)} กก.`,
-          pending > 0
-            ? "รอยืนยันรับของ · ทำต่อที่กรอกรายวัน"
-            : progressLabel(db, lot.id),
-        ];
-      })}
+      rows={lots.map((lot) => [
+        lot.id,
+        `${fmt(n(lot.values, "preSmokeKg"))} กก.`,
+        `${fmt(pendingSmokeKg(db, lot))} กก.`,
+        `${fmt(produced(db, lot.id))} กก.`,
+        progressLabel(db, lot.id),
+      ])}
     />
   );
 }

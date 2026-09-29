@@ -23,9 +23,7 @@ const noticeVariants = cva(
   },
 );
 
-export type NoticeTone = NonNullable<
-  VariantProps<typeof noticeVariants>["tone"]
->;
+type NoticeTone = NonNullable<VariantProps<typeof noticeVariants>["tone"]>;
 
 const roleByTone: Partial<Record<NoticeTone, string>> = {
   danger: "alert",

@@ -13,7 +13,7 @@ import {
 
 export type DocumentRows = [string, string][];
 
-export type TransportDirection = "outbound" | "return";
+type TransportDirection = "outbound" | "return";
 
 const transportKeys: Record<TransportDirection, { date: string; kg: string }> =
   {

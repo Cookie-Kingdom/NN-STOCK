@@ -828,3 +828,9 @@ export function ownerPendingInvoices(db: Database) {
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
+
+/** Oldest first: by business date, then by when it was typed. */
+export const byDateAt = (
+  a: { date: string; at: string },
+  b: { date: string; at: string },
+) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at);

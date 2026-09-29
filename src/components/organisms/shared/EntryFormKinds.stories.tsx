@@ -11,10 +11,8 @@ import {
   confirmedDb,
   demoDb,
   expenseDb,
-  multiPoPackedDb,
   nextInvoiceDb,
   ownerReservedDb,
-  packedDb,
   preparedDb,
   returnTruckDb,
   returnedDb,
@@ -25,7 +23,6 @@ import {
 } from "../../../../.storybook/fixtures";
 import { NO_LOT } from "@/lib/nav";
 import { EntryForm } from "./EntryForm";
-import { pick } from "../../../../.storybook/pick";
 import {
   branches,
   riceSources,
@@ -96,22 +93,6 @@ const branchForm = (kind: EntryKind): Story => ({
 });
 
 // --- Owner ---------------------------------------------------------------
-
-const shipment = pick("PO ซื้อ", {
-  "PO เดียว": packedDb,
-  "3 PO": multiPoPackedDb,
-});
-
-/** PO for the smoking service: the kg is pre-filled from the Packing List total and editable
- *  (A6); the rate follows the kg entered. เลือก PO ซื้อ ใน Controls:
- *  - PO เดียว: a shipment from one purchase PO
- *  - 3 PO: one smoke PO for a shipment drawn from three purchase POs (1,390 kg Packing
- *    List) */
-export const OwnerSmokeOrder: Story = {
-  argTypes: { db: shipment.argType },
-  args: { db: shipment.initial },
-  render: ({ db }) => entryForm(db, "owner", "smokeOrder"),
-};
 
 /** The Owner checks Chef House's submitted bill and accepts or sends it back. */
 export const OwnerInvoiceReview: Story = form(
@@ -197,22 +178,26 @@ export const OwnerUnlock: Story = form(demoDb, "owner", "unlock");
 /** Chef House accepts the smoke PO before the meat is trucked up. */
 export const ChefSmokeOrderAccept: Story = form(
   smokeOrderDb,
-  "cm",
+  "owner",
   "smokeOrderAccept",
 );
 
 /** Weight after trimming and blotting, just before the smoker. */
-export const ChefPrepare: Story = form(cmReceivedDb, "cm", "prepare");
+export const ChefPrepare: Story = form(cmReceivedDb, "owner", "prepare");
 
 /** One smoke round per save, with the per-pack weights entered below the fields. */
-export const ChefSmoke: Story = form(preparedDb, "cm", "smoke");
+export const ChefSmoke: Story = form(preparedDb, "owner", "smoke");
 
 /** Closing the lot freezes the yield and hands it back to the Owner. */
-export const ChefCloseLot: Story = form(smokedDb, "cm", "closeLot");
+export const ChefCloseLot: Story = form(smokedDb, "owner", "closeLot");
 
 /** After close Chef House bills the smoking itself: invoice number, file (required) and an
  *  amount pre-filled from smoke PO kg × rate that Chef House may change (A7). */
-export const ChefSmokingInvoice: Story = form(closedDb, "cm", "smokingInvoice");
+export const ChefSmokingInvoice: Story = form(
+  closedDb,
+  "owner",
+  "smokingInvoice",
+);
 
 // --- Foodiva -------------------------------------------------------------
 
@@ -220,7 +205,7 @@ export const ChefSmokingInvoice: Story = form(closedDb, "cm", "smokingInvoice");
  *  carries; the weights start from the PO as expected values. */
 export const FoodivaConfirmNew: Story = form(
   nextInvoiceDb,
-  "foodiva",
+  "owner",
   "foodivaConfirm",
   "",
   nextInvoiceDb.lots.at(-1)!.id,
@@ -230,7 +215,7 @@ export const FoodivaConfirmNew: Story = form(
  *  the return truck (expected), the time from now. */
 export const FoodivaReturnReceive: Story = form(
   returnTruckDb,
-  "foodiva",
+  "owner",
   "foodivaReturnReceive",
 );
 

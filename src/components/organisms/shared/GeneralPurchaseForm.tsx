@@ -35,7 +35,7 @@ export type GeneralPurchaseLine = {
   reference: string;
 };
 
-export function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
+function newGeneralPurchaseLine(date: string): GeneralPurchaseLine {
   return {
     id: newId(),
     purchaseDate: date,

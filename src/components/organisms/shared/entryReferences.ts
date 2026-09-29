@@ -12,7 +12,7 @@ import {
 import { fmt } from "@/lib/format";
 
 /** "12 ก.ย." for a YYYY-MM-DD business date. */
-export const shortDate = (date = "") =>
+const shortDate = (date = "") =>
   date
     ? new Date(`${date}T00:00:00`).toLocaleDateString("th-TH", {
         day: "numeric",
@@ -57,7 +57,7 @@ export function entryName(db: Database | undefined, id: string) {
 }
 
 /** A smoke PO's `lines` JSON as one "PO-2026-0001 × 300.00 กก." per line. */
-export function lineNames(db: Database | undefined, value: string) {
+function lineNames(db: Database | undefined, value: string) {
   try {
     const lines: { lotId?: string; kg?: string }[] = JSON.parse(value);
     return lines

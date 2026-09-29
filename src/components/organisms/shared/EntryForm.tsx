@@ -41,7 +41,6 @@ import {
 import {
   allocationOutstanding,
   balance,
-  centralStock,
   closeDayChecklist,
   cookedRiceStock,
   entries,
@@ -74,9 +73,7 @@ type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
 const submitLabels: Record<string, string> = {
   closeDay: "ยืนยันปิดวัน",
   purchase: "บันทึก PO เนื้อ",
-  smokeOrder: "บันทึก PO รมควันเนื้อ",
   smokingInvoice: "Submit ใบวางบิล",
-  dispatch: "สร้างใบขนส่งขาไป",
   return: "สร้างใบขนส่งขากลับ",
 };
 
@@ -380,18 +377,12 @@ export function EntryForm({
 }) {
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
-  const useLot = [
-    "receive",
-    "thaw",
-    "sale",
-    "influencerBox",
-    "allocate",
-  ].includes(kind);
+  const useLot = ["receive", "thaw", "sale", "influencerBox"].includes(kind);
   /* A branch's meat forms (BR-08): receiving lists every batch S, with or without an
    * allocation; thawing and selling list the batches this branch holds meat of. All of
    * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
    * when it holds meat to thaw or sell otherwise. */
-  const branchMeat = role === "branch" && useLot && kind !== "allocate";
+  const branchMeat = role === "branch" && useLot;
   const branchStock = (id: string) => {
     const stock = balance(db, id, branch);
     return kind === "thaw" ? stock.frozen : stock.ready;
@@ -403,11 +394,7 @@ export function EntryForm({
           l.id === modal.lotId ||
           balance(db, l.id, branch).received > 0.001,
       )
-    : db.lots.filter(
-        (l) =>
-          lotProgress(db, l.id).has("central") &&
-          (role === "owner" || entries(db, "allocate", l.id, branch).length),
-      );
+    : [];
   const noLotChoice =
     branchMeat &&
     (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
@@ -439,8 +426,6 @@ export function EntryForm({
     set: setValue,
     refill,
   } = usePrefill(() => {
-    if (kind === "config")
-      return { base: { ...db.config }, prefill: { values: {}, sources: {} } };
     const base = { ...defaults(kind, date) };
     if (kind === "receive") base.complete = "1";
     return { base, prefill: prefillValues(db, kind, lot, { branch, date }) };
@@ -502,8 +487,6 @@ export function EntryForm({
    *  allocations ("ค้างรับ"), else what came in already; a batch with neither is still
    *  receivable straight, with no allocation (BR-02). */
   const lotSummary = (id: string) => {
-    if (kind === "allocate")
-      return `${fmt(centralStock(db, id))} กก. รอจัดสรรที่ Foodiva`;
     if (kind === "receive") {
       if (!id) return "รับเข้าก่อน ผูกชุดทีหลังได้";
       const received = entries(db, "receive", id, branch).reduce(
@@ -627,7 +610,7 @@ export function EntryForm({
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
   const missing = checklist.find((item) => item.required && !item.done);
-  const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
+  const isPurchaseOrder = kind === "purchase";
   const title = titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();

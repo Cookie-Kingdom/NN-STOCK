@@ -56,17 +56,10 @@ export function OwnerWorkspace({ account }: { account: Account }) {
     <WorkspaceShell
       account={account}
       nav={hideSales ? managerNav : ownerNav}
-      tab={tab}
-      onTab={setTab}
-      date={date}
-      onDate={ws.setDate}
       badges={alerts.badges}
       notifications={alerts.notifications}
       showNotifications={showNotifications}
       onToggleNotifications={() => setShowNotifications((value) => !value)}
-      loading={!ws.loaded}
-      toast={ws.toast}
-      onCloseToast={() => ws.setToast("")}
       ws={ws}
     >
       <OwnerAlertBanners db={db} alerts={alerts} tab={tab} onTab={setTab} />
@@ -87,7 +80,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           <MeatStockTable
             db={db}
             variant="chef"
-            branch={ws.branch}
             lots={shipments(db)}
             open={open}
           />
@@ -108,7 +100,6 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           <MeatStockTable
             db={db}
             variant="owner"
-            branch={ws.branch}
             lots={shipments(db)}
             open={open}
           />

@@ -29,7 +29,7 @@ import { fmt, today } from "@/lib/format";
 
 /** The choices a `link` on `target` can point at: shipment batches for branch meat, the
  *  branch's material transfers no other receipt has taken for a material receipt (LNK-02). */
-export function linkChoices(db: Database, target: Entry) {
+function linkChoices(db: Database, target: Entry) {
   if (target.kind === "materialConfirm") {
     const taken = new Set(
       entries(db, "materialConfirm")
