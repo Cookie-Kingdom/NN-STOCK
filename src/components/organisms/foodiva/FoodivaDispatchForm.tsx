@@ -31,7 +31,6 @@ import {
   poRemainingKg,
   shipmentLines,
   type Database,
-  type Role,
   type Values,
 } from "@/lib/store";
 
@@ -64,7 +63,6 @@ function lastTruck(db: Database): Prefill {
  */
 export function FoodivaDispatchForm({
   db,
-  role,
   lotId,
   date,
   onDate,
@@ -72,8 +70,6 @@ export function FoodivaDispatchForm({
   onSaved,
 }: {
   db: Database;
-  /** The signed-in account's role; the Owner's save is stamped Foodiva's (M0). */
-  role: Role;
   /** The shipment batch, or `""` to open a new one with this transport document. */
   lotId: string;
   date: string;
@@ -133,7 +129,15 @@ export function FoodivaDispatchForm({
       dispatchKg: values.dispatchKg.trim() || draft.slicedNetKg || "",
     };
     const next = await run(() =>
-      dispatchWithPackingList(latestDatabase(), lotId, trip, draft, date, role),
+      // Only the Owner / Manager types it; the save is stamped Foodiva's (M0).
+      dispatchWithPackingList(
+        latestDatabase(),
+        lotId,
+        trip,
+        draft,
+        date,
+        "owner",
+      ),
     );
     if (next) onSaved(next);
   }

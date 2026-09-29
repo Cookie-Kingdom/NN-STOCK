@@ -23,45 +23,27 @@ export type { Notification };
 type Props = {
   account: Account;
   nav: NavGroup[];
-  tab: Tab;
-  onTab: (tab: Tab) => void;
-  date: string;
-  onDate: (date: string) => void;
   /** Per-tab counters rendered as a red pill in the sidebar. */
   badges?: Partial<Record<Tab, number>>;
   notifications?: Notification[];
   showNotifications?: boolean;
   onToggleNotifications?: () => void;
-  toast: string;
-  onCloseToast: () => void;
-  /** Server payload still loading: the views would show seed data, so show its shape instead. */
-  loading?: boolean;
-  /**
-   * The workspace the page runs on. Only the dialog layer needs it — every other prop is
-   * passed apart so a story can drive the shell without a database. Leave it out and the
-   * page keeps no dialogs.
-   */
-  ws?: Workspace;
+  /** The workspace the page runs on: tab, date, toast, loading and the dialog layer. */
+  ws: Workspace;
   children: ReactNode;
 };
 
 export function WorkspaceShell({
   account,
   nav,
-  tab,
-  onTab,
-  date,
-  onDate,
   badges,
   notifications,
   showNotifications = false,
   onToggleNotifications,
-  toast,
-  onCloseToast,
-  loading = false,
   ws,
   children,
 }: Props) {
+  const { tab, setTab: onTab, date, setDate: onDate } = ws;
   return (
     /* From md up the shell is exactly one screen tall and only the content column
      * scrolls, so the sidebar (menu + sign-out) is sized by the screen, not by the
@@ -99,10 +81,11 @@ export function WorkspaceShell({
               date={date}
               onDate={onDate}
             />
-            <Toast message={toast} onClose={onCloseToast} />
+            <Toast message={ws.toast} onClose={() => ws.setToast("")} />
             <DatabaseErrorToast />
             {/* Views are conditionally rendered per tab, so remounting on tab change loses no state. */}
-            {loading ? (
+            {/* Server payload still loading: the views would show seed data, so show its shape instead. */}
+            {!ws.loaded ? (
               <LoadingPanel />
             ) : (
               <div key={tab} className="animate-fade-in">
@@ -114,7 +97,7 @@ export function WorkspaceShell({
       </div>
       {/* Last, not inside <main>: a showModal() dialog renders in the top layer, so it is
        * placed here only to keep the layout's own markup above it. */}
-      {ws && <WorkspaceModals ws={ws} />}
+      <WorkspaceModals ws={ws} />
     </div>
   );
 }

@@ -20,8 +20,7 @@ type Story = StoryObj<typeof meta>;
 /** Pick the state in Controls:
  *  - `value` "ทั้งหมด": nothing picked yet, the leading all option is selected
  *  - `value` a branch: the table below it shows only that branch's lots
- *  - `label` / `allLabel`: both are overridable — the owner's PO list asks for a
- *    destination ("สาขาปลายทาง" / "ทุกสาขา") */
+ *  - `label`: overridable — the owner's PO list asks for a destination ("สาขาปลายทาง") */
 export const Default: Story = {
   argTypes: {
     value: {
@@ -29,7 +28,6 @@ export const Default: Story = {
       options: ["ทั้งหมด", "ศาลาแดง", "มีนบุรี"],
     },
     label: { control: "text" },
-    allLabel: { control: "text" },
   },
 };
 

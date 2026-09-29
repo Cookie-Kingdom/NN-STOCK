@@ -35,6 +35,7 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 // Assets and other expenses are not stock: they live in the purchase history below.
 const genreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์"];
@@ -356,7 +357,7 @@ export function OwnerStockView({
       supplier: entry.values.supplier,
       reference: entry.values.reference || "—",
     })),
-  ].sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+  ].sort(byDateAt);
   const visiblePurchases = purchases.filter(
     (purchase) =>
       (genre === "ทั้งหมด" ||

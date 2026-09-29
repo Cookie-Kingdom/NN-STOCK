@@ -12,14 +12,12 @@ export function Pagination({
   pageCount,
   pageSize,
   onPage,
-  unit = "แถว",
   className,
 }: {
   page: number;
   pageCount: number;
   pageSize: number;
   onPage: (page: number) => void;
-  unit?: string;
   className?: string;
 }) {
   if (pageCount <= 1) return null;
@@ -31,7 +29,7 @@ export function Pagination({
       )}
     >
       <span>
-        หน้า {page + 1} / {pageCount} · แสดงครั้งละ {pageSize} {unit}
+        หน้า {page + 1} / {pageCount} · แสดงครั้งละ {pageSize} แถว
       </span>
       <ButtonRow className="my-0">
         <Button

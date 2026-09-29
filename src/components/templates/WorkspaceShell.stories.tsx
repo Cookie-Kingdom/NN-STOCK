@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { accountById, type Account } from "@/lib/accounts";
 import { branchNav, ownerNav, type NavGroup, type Tab } from "@/lib/nav";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { demoDb } from "../../../.storybook/fixtures";
 import { WorkspaceShell, type Notification } from "./WorkspaceShell";
 
 // A template is the page layout with placeholder content; real data lives in Pages/*.
@@ -47,20 +49,36 @@ function Shell({
   const [date, setDate] = useState("2026-09-15");
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(initialToast);
+  // The shell reads tab, date, toast and loading from the workspace; no dialog is open.
+  const ws: Workspace = {
+    db: demoDb,
+    loaded: true,
+    role: account.role,
+    branch: account.branch ?? "",
+    tab,
+    setTab,
+    date,
+    setDate,
+    chosen: "",
+    setChosen: () => {},
+    modal: null,
+    setModal: () => {},
+    toast,
+    setToast,
+    lots: demoDb.lots,
+    lot: demoDb.lots[0],
+    open: () => {},
+    closed: false,
+  };
   return (
     <WorkspaceShell
       account={account}
       nav={nav}
-      tab={tab}
-      onTab={setTab}
-      date={date}
-      onDate={setDate}
       badges={badges}
       notifications={notifications}
       showNotifications={open}
       onToggleNotifications={() => setOpen((value) => !value)}
-      toast={toast}
-      onCloseToast={() => setToast("")}
+      ws={ws}
     >
       {children}
     </WorkspaceShell>

@@ -19,8 +19,6 @@ const badgeVariants = cva(
   },
 );
 
-export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>;
-
 /**
  * Status chip. `neutral`, `success`, `warning` and `danger` map to the semantic
  * colours; `inverse` is the loud one, for a confirmation that must be noticed. The

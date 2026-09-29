@@ -21,19 +21,6 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";
 import { entries, titles, type EntryKind } from "@/lib/store";
 
-const CUSTOM_DIALOGS = [
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "packingList",
-  "allocate",
-  "chefEdit",
-  "smokeOrderPreview",
-  "cmReceive",
-  "dispatch",
-  "packingListView",
-];
-
 // The stock tab's two buttons each open a pair of forms: the first kind is what the
 // button opens, the chooser swaps in the other. Each form still saves its own kind.
 const STOCK_PAIRS: { label: string; options: SegmentedOption<ModalKind>[] }[] =
@@ -155,7 +142,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     return (
       <FoodivaDispatchForm
         db={db}
-        role={role}
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
@@ -227,7 +213,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />
     );
   }
-  if (CUSTOM_DIALOGS.includes(modal.kind)) return null;
 
   return (
     <EntryForm

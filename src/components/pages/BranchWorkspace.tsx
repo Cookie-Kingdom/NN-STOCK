@@ -49,17 +49,10 @@ export function BranchWorkspace({ account }: { account: Account }) {
     <WorkspaceShell
       account={account}
       nav={branchNav}
-      tab={tab}
-      onTab={ws.setTab}
-      date={date}
-      onDate={ws.setDate}
       badges={badges}
       notifications={notifications}
       showNotifications={showNotifications}
       onToggleNotifications={() => setShowNotifications((value) => !value)}
-      loading={!ws.loaded}
-      toast={ws.toast}
-      onCloseToast={() => ws.setToast("")}
       ws={ws}
     >
       {closed && (

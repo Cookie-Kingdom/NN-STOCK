@@ -25,6 +25,7 @@ import {
   type Entry,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 const OWNER_WIDE_KINDS = ["expense", "materialReceive", "generalPurchase"];
 
@@ -62,7 +63,7 @@ export function Report({
       ...entries(db, "chiliPurchase"),
     ]
       .filter(inRange)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at)),
+      .sort(byDateAt),
     supplyCost = supplyPurchases.reduce(
       (sum, entry) => sum + n(entry.values, "totalCost"),
       0,
@@ -411,9 +412,7 @@ export function Report({
         ]}
         rows={entries(db, "chiliAllocate")
           .filter(inRange)
-          .sort(
-            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
-          )
+          .sort(byDateAt)
           .map((entry) => [
             entry.date,
             entry.branch,
@@ -441,9 +440,7 @@ export function Report({
           ...entries(db, "materialConfirm"),
         ]
           .filter(inRange)
-          .sort(
-            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
-          )
+          .sort(byDateAt)
           .map((entry) => {
             const transfer =
               entry.kind === "materialConfirm"

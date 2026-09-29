@@ -37,7 +37,6 @@ export type FileUploadFieldProps = {
   /** Replaces "ถ้ามี" in the optional marker, e.g. "ไม่บังคับ". */
   optionalText?: string;
   wide?: boolean;
-  disabled?: boolean;
   className?: string;
 };
 
@@ -69,7 +68,6 @@ export function FileUploadField({
   optional = false,
   optionalText,
   wide = false,
-  disabled,
   className,
 }: FileUploadFieldProps) {
   const [error, setError] = useState("");
@@ -89,7 +87,6 @@ export function FileUploadField({
           accept={accept}
           multiple={multiple}
           required={required}
-          disabled={disabled}
           aria-invalid={error ? true : undefined}
           onChange={(event) => {
             const files = Array.from(event.currentTarget.files ?? []);

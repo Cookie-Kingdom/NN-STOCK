@@ -19,8 +19,6 @@ const kpiIconVariants = cva(
   },
 );
 
-export type KpiTone = NonNullable<VariantProps<typeof kpiIconVariants>["tone"]>;
-
 /**
  * The headline figure of a dashboard: icon, label, a large tabular number and an
  * optional caption, on a `Panel` that lifts a little on hover. `tone` colours the icon

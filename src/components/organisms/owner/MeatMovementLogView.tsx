@@ -28,6 +28,7 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 const locationColumns = ["PO", "Lot", "จุดเก็บ", "คงเหลือ", "รายละเอียด"];
 const movementColumns = [
@@ -255,7 +256,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       (entry) => lotFilter === "ทั้งหมด" || lotLabel(entry.lotId) === lotFilter,
     )
     // Oldest first, the order DataTable's sort expects; the table flips it.
-    .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
+    .sort(byDateAt)
     .map((entry) => {
       const [location, action, amount] = descriptions[entry.kind](entry, db);
       return [

@@ -10,7 +10,6 @@ import {
 import { pick } from "../../../../.storybook/pick";
 import { branches } from "@/lib/store";
 import { BranchStockSummary } from "./BranchStockSummary";
-import { MaterialStockTable } from "./MaterialStockTable";
 import { MeatStockTable } from "./MeatStockTable";
 import { SupplyStock } from "./SupplyStock";
 
@@ -23,20 +22,20 @@ const meta: Meta = {
 
 export default meta;
 type Story = StoryObj<{
-  variant: "owner" | "chef" | "branch";
+  variant: "owner" | "chef";
   date: string;
 }>;
 
-/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต, สาขาเห็นเฉพาะศาลาแดง */
+/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต */
 export const MeatStock: Story = {
   argTypes: {
     variant: {
       name: "มุมมอง",
       control: {
         type: "radio",
-        labels: { owner: "Owner", chef: "Chef House", branch: "สาขา" },
+        labels: { owner: "Owner", chef: "Chef House" },
       },
-      options: ["owner", "chef", "branch"],
+      options: ["owner", "chef"],
     },
   },
   args: { variant: "owner" },
@@ -45,16 +44,9 @@ export const MeatStock: Story = {
       key={variant}
       db={db}
       variant={variant}
-      branch={variant === "branch" ? "ศาลาแดง" : ""}
       lots={db.lots}
       open={open}
     />
-  ),
-};
-
-export const MaterialStockOwner: Story = {
-  render: () => (
-    <MaterialStockTable db={db} stockBranches={branches} ownerView />
   ),
 };
 
