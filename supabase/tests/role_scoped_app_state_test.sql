@@ -1,7 +1,7 @@
 -- APP-01 / DB-03 (migration 20260925000028), free ledger (20260928000030, card A1), retired
 -- partner accounts (20260929000032, card M1): load_app_state hands a branch only its role-scoped
 -- copy (role-scope.ts) and refuses Foodiva / Chef House; branch saves go through append_entries,
--- which checks no workflow stage.
+-- which checks no workflow stage and (0034) takes no lot change.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/role_scoped_app_state_test.sql
 
 do $$
@@ -141,41 +141,24 @@ begin
     '[{"id":"n1","kind":"receive","role":"branch","lotId":"S9","branch":"มีนบุรี","values":{}}]'::jsonb, '[]'::jsonb);
   exception when others then v_err := sqlerrm; end;
   assert v_err = 'Entry lot does not exist', format('unknown lot: %s', v_err);
+  -- 0034: a branch changes no lot, stored or new: lotCost reads outboundCost / returnCost /
+  -- centralKg from lot values, and no branch kind writes them.
   v_err := null;
-  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S9","kind":"shipment","poId":"SH-9","values":{}}]'::jsonb);
+  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S1","values":{"outboundCost":"0","centralKg":"999"}}]'::jsonb);
   exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Only an owner can add or remove lots', format('new lot, bad id: %s', v_err);
-  -- 0031: a new batch id needs its random suffix, so a count that repeats a hidden batch cannot merge.
+  assert v_err = 'Only an owner can change lots', format('stored lot values: %s', v_err);
   v_err := null;
-  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S260907-001","kind":"shipment","poId":"SH-2026-0003","values":{}}]'::jsonb);
+  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S260907-001-a1b2","kind":"shipment","poId":"SH-2026-0003","config":{},"values":{}}]'::jsonb);
   exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Only an owner can add or remove lots', format('new lot, no suffix: %s', v_err);
-  v_err := null;
-  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"P9","poId":"PO-9","values":{}}]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Only an owner can add or remove lots', format('new purchase lot: %s', v_err);
-  v_err := null;
-  begin perform public.append_entries(v_rev, '[]'::jsonb, '[{"id":"S2","values":"x"}]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Lot changes must follow the workflow', format('lot values not an object: %s', v_err);
+  assert v_err = 'Only an owner can change lots', format('new batch: %s', v_err);
 
-  -- A1: a lot change from a scoped copy (no lines). Only values are taken and merged: lines and
-  -- freight kept, poId / stale keys ignored.
+  -- A1: a branch entry on a lot, nothing but the entry stored.
   select public.append_entries(v_rev,
     '[{"id":"n2","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-07","values":{"kg":"9.8"}}]'::jsonb,
-    '[{"id":"S2","poId":"x","stage":3,"config":{},"values":{"requestedKg":"10","receivedKg":"9.8"}}]'::jsonb) into v_rev;
+    '[]'::jsonb) into v_rev;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'lots' -> 2 = '{"id":"S2","poId":"SH-2","kind":"shipment","config":{},"values":{"lines":"[{\"lotId\":\"P1\",\"kg\":10}]","requestedKg":"10","receivedKg":"9.8","outboundCost":"1200"}}'::jsonb,
-    format('merged lot: %s', v_stored -> 'lots' -> 2);
+  assert v_stored -> 'lots' = v_lots, format('lots changed: %s', v_stored -> 'lots');
   assert v_stored -> 'entries' -> 14 ->> 'id' = 'n2' and jsonb_array_length(v_stored -> 'entries') = 15, 'branch entry not appended';
-
-  -- GEN-09: a new batch and an entry on it in one save.
-  select public.append_entries(v_rev,
-    '[{"id":"n3","kind":"receive","role":"branch","lotId":"S260907-001-a1b2","branch":"มีนบุรี","date":"2026-09-07","values":{"kg":"5"}}]'::jsonb,
-    '[{"id":"S260907-001-a1b2","poId":"SH-2026-0003","kind":"shipment","config":{},"values":{"receivedKg":"5"}}]'::jsonb) into v_rev;
-  select payload into v_stored from public.app_state;
-  assert v_stored -> 'lots' -> 3 ->> 'id' = 'S260907-001-a1b2' and v_stored -> 'entries' -> 15 ->> 'lotId' = 'S260907-001-a1b2',
-    format('new batch: %s', v_stored -> 'lots');
   -- A branch sale: the browser's meatCost / wasteCost are dropped, not stamped (BR-05).
   v_err := null;
   begin perform public.append_entries(v_rev,
@@ -186,15 +169,15 @@ begin
     '[{"id":"n4","kind":"sale","role":"branch","lotId":"S1","branch":"มีนบุรี","date":"2026-09-08","values":{"soldKg":"1","wasteKg":"0.5","meatCost":"1","to.meatCost":"2"}}]'::jsonb,
     '[]'::jsonb) into v_rev;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'entries' -> 16 -> 'values' = '{"soldKg":"1","wasteKg":"0.5"}'::jsonb,
-    format('sale cost kept: %s', v_stored -> 'entries' -> 16);
+  assert v_stored -> 'entries' -> 15 -> 'values' = '{"soldKg":"1","wasteKg":"0.5"}'::jsonb,
+    format('sale cost kept: %s', v_stored -> 'entries' -> 15);
 
   -- A1 acceptance: the Owner saves central on S2, which has no return.
   perform set_config('test.uid', v_owner::text, true);
   select s.revision into v_rev from public.save_app_state(jsonb_set(v_stored, '{entries}', (v_stored -> 'entries') ||
     '[{"id":"n5","kind":"central","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-09","values":{"centralKg":"7"}}]'::jsonb), v_rev) s;
   select payload into v_stored from public.app_state;
-  assert v_stored -> 'entries' -> 17 ->> 'kind' = 'central', 'owner central not saved';
+  assert v_stored -> 'entries' -> 16 ->> 'kind' = 'central', 'owner central not saved';
 
   raise exception 'ROLE_SCOPED_APP_STATE_TEST_PASSED';
 end $$;

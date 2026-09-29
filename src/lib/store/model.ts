@@ -246,6 +246,14 @@ export const isEditOverlay = (e: Entry) =>
   e.role === "owner" &&
   (e.kind === "entryEdit" ||
     (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
+/** LNK: the Owner links any entry, a branch only an entry of its own branch. `mutate` refuses
+ *  the rest, `entries()` ignores them, and append_entries (migration 20260929000034) too. */
+export const canLink = (
+  link: Pick<Entry, "role" | "branch">,
+  target: Pick<Entry, "role" | "branch">,
+) =>
+  link.role === "owner" ||
+  (target.role === "branch" && target.branch === link.branch);
 export const seed: Database = {
   version: 9,
   lots: [],

@@ -1,6 +1,7 @@
 /** Figures recomputed from the entry log (stock, cost, yield, invoices); nothing here is stored. */
 import { fmt } from "../format";
 import {
+  canLink,
   isEditOverlay,
   materials,
   titles,
@@ -63,14 +64,17 @@ function entryIndex(db: Database): EntryIndex {
   }
   /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`) after the
    * fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
-   * falls back to the one before (LNK-05). */
+   * falls back to the one before (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
   const links = new Map<string, Values>();
-  for (const e of db.entries)
-    if (e.kind === "link" && !voided.has(e.id))
+  const byId = new Map(db.entries.map((e) => [e.id, e]));
+  for (const e of db.entries) {
+    const target = e.kind === "link" && byId.get(e.values.targetId);
+    if (target && !voided.has(e.id) && canLink(e, target))
       links.set(e.values.targetId, {
         ...links.get(e.values.targetId),
         ...e.values,
       });
+  }
   const byKind = new Map<EntryKind, Entry[]>();
   for (const raw of db.entries) {
     if (voided.has(raw.id)) continue;

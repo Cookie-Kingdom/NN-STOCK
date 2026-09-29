@@ -7,6 +7,7 @@ import {
   batchKinds,
   branchMeatKinds,
   branches,
+  canLink,
   editDecisions,
   editLockedKeys,
   materials,
@@ -1451,11 +1452,7 @@ function record(
       "ไม่พบรายการ",
     );
     assert(linkable.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
-    assert(
-      role === "owner" ||
-        (target.role === "branch" && target.branch === branch),
-      forbidden,
-    );
+    assert(canLink({ role, branch }, target), forbidden);
     assert(
       v.lotId?.trim() || v.transferId?.trim(),
       "เลือกชุดหรือใบโอนที่จะผูก",

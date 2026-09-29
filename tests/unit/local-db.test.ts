@@ -55,34 +55,8 @@ test("mirrors the save_app_state guards", () => {
   expect(() => saveState(db, owner, { ...withEntry, entries: [] }, 2)).toThrow(
     "cannot be removed",
   );
+  // 0034: a branch saves through append_entries only, even its own entry.
   expect(() =>
-    saveState(
-      db,
-      saladaeng,
-      { ...withEntry, entries: [...withEntry.entries, entry("cm", "ศาลาแดง")] },
-      2,
-    ),
-  ).toThrow("role does not match");
-  expect(() =>
-    saveState(
-      db,
-      saladaeng,
-      {
-        ...withEntry,
-        entries: [...withEntry.entries, entry("branch", "มีนบุรี")],
-      },
-      2,
-    ),
-  ).toThrow("branch does not match");
-  expect(() =>
-    saveState(
-      db,
-      saladaeng,
-      { ...withEntry, config: { ...withEntry.config, boxPrice: "1" } },
-      2,
-    ),
-  ).toThrow("Only an owner");
-  expect(
     saveState(
       db,
       saladaeng,
@@ -91,8 +65,8 @@ test("mirrors the save_app_state guards", () => {
         entries: [...withEntry.entries, entry("branch", "ศาลาแดง")],
       },
       2,
-    ).revision,
-  ).toBe(3);
+    ),
+  ).toThrow("Branch accounts save through append_entries");
 });
 
 test("the Account Manager's entries carry its actor, and nobody else's may", () => {
@@ -193,23 +167,7 @@ test("the Owner and the Account Manager save Foodiva / Chef House work", () => {
   ).toThrow("actor does not match");
   revision = saveState(db, owner, ownerNext, revision).revision;
   expect(readState(db).payload.entries.at(-1)!.actor).toBe("owner");
-
-  // A branch may not claim to be the Owner.
-  const branchNext = readState(db).payload;
-  expect(() =>
-    saveState(
-      db,
-      saladaeng,
-      {
-        ...branchNext,
-        entries: [
-          ...branchNext.entries,
-          { ...entry("branch", "ศาลาแดง"), actor: "owner" },
-        ],
-      },
-      revision,
-    ),
-  ).toThrow("actor does not match");
+  // A branch claiming to be the Owner: appendEntries.test.ts (save_app_state refuses a branch).
 });
 
 test("load without a signed-in account is refused", () => {
