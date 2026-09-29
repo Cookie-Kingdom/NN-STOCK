@@ -31,23 +31,22 @@ function publish(next: SessionState) {
   listeners.forEach((listener) => listener());
 }
 
-/** Foodiva and Chef House are partners, not users: the Owner records their work. */
-const retiredRoles: Profile["role"][] = ["L3_CM_OPERATOR", "L4_SUPPLIER"];
-const RETIRED_MESSAGE = "บัญชีนี้ไม่ใช้งานแล้ว";
-
 function accountForProfile(
   profile: Profile,
   locationName?: string,
 ): Account | null {
-  if (!profile.is_active || retiredRoles.includes(profile.role)) return null;
-  const id: AccountId =
+  if (!profile.is_active) return null;
+  // Any other role (the old L3/L4 partner profiles) has no account: generic inactive message.
+  const id: AccountId | null =
     profile.role === "L1_OWNER"
       ? "owner"
       : profile.role === "L1_MANAGER"
         ? "manager"
-        : locationName?.includes("มีนบุรี")
-          ? "minburi"
-          : "saladaeng";
+        : profile.role !== "L2_BRANCH_ADMIN"
+          ? null
+          : locationName?.includes("มีนบุรี")
+            ? "minburi"
+            : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;
 }
@@ -115,11 +114,7 @@ async function refreshSession() {
   publish({
     ready: true,
     account,
-    error: account
-      ? ""
-      : retiredRoles.includes(profile.role)
-        ? RETIRED_MESSAGE
-        : "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อ Owner",
+    error: account ? "" : "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อ Owner",
   });
 }
 
@@ -137,9 +132,7 @@ export async function signIn(email: string, password: string) {
     const account = accountById(id);
     if (!account)
       return localAuthError(
-        id === "chef" || id === "foodiva"
-          ? RETIRED_MESSAGE
-          : "โหมด local: ใช้อีเมล owner@local.test, manager@, saladaeng@ หรือ minburi@local.test",
+        "โหมด local: ใช้อีเมล owner@local.test, manager@, saladaeng@ หรือ minburi@local.test",
       );
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };

@@ -4,8 +4,6 @@ import { branchNav, navLabel, ownerNav } from "@/lib/nav";
 
 test("accountById returns known accounts only", () => {
   expect(accountById("minburi")?.branch).toBe("มีนบุรี");
-  expect(accountById("chef")).toBeNull();
-  expect(accountById("foodiva")).toBeNull();
   expect(accountById("nobody")).toBeNull();
   expect(accountById(null)).toBeNull();
   expect(accountById(undefined)).toBeNull();
