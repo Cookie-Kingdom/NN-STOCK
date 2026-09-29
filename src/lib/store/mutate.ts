@@ -386,8 +386,9 @@ function lotConfig(db: Database): Values {
   );
 }
 /** GEN-09: a new shipment batch, `S<yymmdd>-NNN-xxxx` with the next `SH-YYYY-NNNN` number.
- *  NNN and the SH number count the batches this client can see; Chef House and a branch see a
- *  subset, so they may repeat a batch they cannot see. The 4 random hex chars keep the id itself
+ *  NNN and the SH number count the batches this client has; only the Owner and the Account
+ *  Manager open batches (a branch cannot add lots, migration 0034) and both load every batch,
+ *  but two devices saving at once may still repeat a number. The 4 random hex chars keep the id itself
  *  unique, so the server never mistakes a new batch for a values change of a stored one
  *  (is_new_batch, migration 20260928000031). The SH number is display only. */
 function newBatch(db: Database, next: Database, date: string): Lot {
@@ -517,7 +518,7 @@ function record(
       `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว ต้องปลดล็อกก่อน`,
     );
   // GEN-10: purchase-PO kinds on Lot F only; batch kinds on Lot S only, and with no lot they
-  // open a new batch (GEN-09, D2: Owner, Foodiva and Chef House alike).
+  // open a new batch (GEN-09, D2: whether stamped owner, foodiva or cm).
   if (["foodivaConfirm", "ownerWasteReceive", "meatPayment"].includes(kind))
     assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
   if (batchKinds.includes(kind)) {

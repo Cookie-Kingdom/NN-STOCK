@@ -320,9 +320,10 @@ let actor: Entry["actor"];
 export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
-/* Branch, Foodiva and Chef House load only their role-scoped copy (load_app_state, migration
- * 0028), so they cannot send the whole payload back: their saves go to append_entries with just
- * the new entries and changed lots. The Owner and the Account Manager keep save_app_state. */
+/* A branch loads only its role-scoped copy (load_app_state, migration 0028), so it cannot send
+ * the whole payload back: its saves go to append_entries with just the new entries (lots must be
+ * empty, and save_app_state refuses a branch, migration 0034). The Owner and the Account Manager
+ * keep save_app_state. */
 let appendOnly = false;
 /** session.ts sets this from the signed-in account's role (true for every role but "owner"). */
 export function setSaveAppendOnly(next: boolean) {
