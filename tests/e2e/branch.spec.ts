@@ -164,10 +164,10 @@ test("LNK-04 LNK-06 branch links a ไม่ระบุ Lot receive to a batch 
 
   await step(
     page,
-    "Owner: สต๊อกกลางของชุดหักรับตรงที่ผูกแล้ว (RET-04)",
+    "Owner: รับที่ผูกแล้วเติมใบจัดสรร 10 กก. สต๊อกกลางไม่หักซ้ำ (DM-08)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await expect(await allocationRow(page, batch)).toContainText("60.00 กก.");
+      await expect(await allocationRow(page, batch)).toContainText("70.00 กก.");
     },
   );
 });

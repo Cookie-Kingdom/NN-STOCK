@@ -159,15 +159,18 @@ export function lotProgress(db: Database, lotId: string): Set<EntryKind> {
   return done;
 }
 /** RET-04: central kg less allocations and less what branches took straight from the batch
- *  (a `receive` on it with no allocation). */
+ *  (a `receive` on it with no allocation, beyond what fills an allocation: DM-08). */
 export function centralStock(db: Database, lotId: string) {
   const lot = db.lots.find((l) => l.id === lotId);
+  const unallocated = entries(db, "receive", lotId).filter(
+    (r) => !r.values.allocation,
+  );
   return (
     num(lot?.values || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg") -
-    sum(
-      entries(db, "receive", lotId).filter((r) => !r.values.allocation),
-      "kg",
+    [...new Set(unallocated.map((r) => r.branch))].reduce(
+      (total, branch) => total + unallocatedFill(db, lotId, branch).straight,
+      0,
     )
   );
 }
@@ -409,8 +412,28 @@ export function packWeightWarning(v: Values) {
 }
 /** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
  * sees and types; the allocation is done once that reaches 0, or once a receive was
- * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
+ * marked `complete` (a shortfall the branch accepted, its reason on that receive).
+ * Receives on the batch with no `allocation` fill it too (DM-08, `unallocatedFill`). */
 export function allocationOutstanding(
+  db: Database,
+  allocation: Entry,
+  throughDate?: string,
+) {
+  const filled =
+    unallocatedFill(
+      db,
+      allocation.lotId,
+      allocation.branch,
+      throughDate,
+    ).filled.get(allocation.id) ?? 0;
+  const kg =
+    Math.round(
+      (recordedOutstanding(db, allocation, throughDate) - filled) * 100,
+    ) / 100;
+  return Math.max(0, kg);
+}
+/** `allocationOutstanding` counting only receives recorded against the allocation. */
+function recordedOutstanding(
   db: Database,
   allocation: Entry,
   throughDate?: string,
@@ -426,9 +449,37 @@ export function allocationOutstanding(
       (!throughDate || r.date <= throughDate),
   );
   if (received.some((r) => r.values.complete === "1")) return 0;
-  const kg =
-    Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
-  return Math.max(0, kg);
+  return Math.max(0, n(allocation.values, "kg") - sum(received, "kg"));
+}
+/** DM-08: a branch's receives on a batch with no `allocation` (typed as รับตรง, or a ไม่ระบุ Lot
+ *  receive linked to the batch later) fill that branch's outstanding allocations on the batch,
+ *  in log order, exactly as if recorded against them. Only the kg beyond every outstanding
+ *  allocation is a straight receive (RET-04) and comes off central stock on its own.
+ *  ponytail: no date order between receive and allocation, since a receive linked later may
+ *  predate the allocation it fills. A branch that really took extra meat straight before an
+ *  allocation should record the receive against that allocation or mark it complete. */
+function unallocatedFill(
+  db: Database,
+  lotId: string,
+  branch: string,
+  throughDate?: string,
+) {
+  const upTo = (e: Entry) => !throughDate || e.date <= throughDate;
+  let left = sum(
+    entries(db, "receive", lotId, branch).filter(
+      (r) => !r.values.allocation && upTo(r),
+    ),
+    "kg",
+  );
+  const filled = new Map<string, number>();
+  for (const allocation of entries(db, "allocate", lotId, branch).filter(
+    upTo,
+  )) {
+    const kg = Math.min(left, recordedOutstanding(db, allocation, throughDate));
+    filled.set(allocation.id, kg);
+    left -= kg;
+  }
+  return { filled, straight: left };
 }
 /** Kg allocated to a branch and not yet received; with `throughDate`, as of the end
  * of that day (allocations and receives dated after it do not count). */
