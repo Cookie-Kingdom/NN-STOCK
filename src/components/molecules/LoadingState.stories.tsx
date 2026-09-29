@@ -22,8 +22,11 @@ export const Panel: Story = {
   },
 };
 
-export const Screen: StoryObj = {
-  render: () => <LoadingScreen message="กำลังตรวจสอบสิทธิ์การใช้งาน…" />,
+/** Whole-page wait (session check, first paint). Edit `message` in Controls. */
+export const Screen: StoryObj<typeof LoadingScreen> = {
+  argTypes: { message: { control: "text" } },
+  args: { message: "กำลังตรวจสอบสิทธิ์การใช้งาน…" },
+  render: (args) => <LoadingScreen {...args} />,
 };
 
 /** Busy buttons: the spinner sits in front of the label, which never changes width. */
@@ -43,10 +46,14 @@ export const BusyButtons: StoryObj = {
   ),
 };
 
-export const Blocks: StoryObj = {
-  render: () => (
+/** Bare `Skeleton` blocks; it has no size of its own, so `className` sets it (edit
+ *  the first block's in Controls). */
+export const Blocks: StoryObj<typeof Skeleton> = {
+  argTypes: { className: { control: "text" } },
+  args: { className: "h-5 w-40" },
+  render: ({ className }) => (
     <div className="grid max-w-125 gap-2.5">
-      <Skeleton className="h-5 w-40" />
+      <Skeleton className={className} />
       <Skeleton className="h-11" />
       <Skeleton className="h-11" />
     </div>

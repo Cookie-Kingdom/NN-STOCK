@@ -38,7 +38,11 @@ function Picker({
   );
 }
 
-const date = pick("วันที่", { วันนี้: today(), ย้อนหลัง: day });
+const date = pick("วันที่", {
+  วันนี้: today(),
+  ย้อนหลัง: day,
+  "เกินวันนี้ (พิมพ์เอง)": "2099-12-31",
+});
 
 /** Pick the state in Controls:
  *  - `variant` form: full-size field, as every lot form shows it
@@ -48,7 +52,9 @@ const date = pick("วันที่", { วันนี้: today(), ย้อ
  *    the gap under it — how every dialog form opens (shown above a Notice)
  *  - วันที่ วันนี้: no badge
  *  - วันที่ ย้อนหลัง: a date before today, the "บันทึกย้อนหลัง" badge warns that this
- *    is a back-dated entry; in the filter variant the badge wraps above the input */
+ *    is a back-dated entry; in the filter variant the badge wraps above the input
+ *  - วันที่ เกินวันนี้: `max` only limits the picker, so a typed future date shows the
+ *    red "นอกช่วงที่บันทึกได้" alert under the input */
 export const Default: Story = {
   argTypes: {
     date: date.argType,

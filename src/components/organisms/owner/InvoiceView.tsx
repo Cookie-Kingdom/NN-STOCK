@@ -7,12 +7,12 @@ import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
+import { DocumentFilterBar } from "@/components/organisms/shared/DocumentFilterBar";
 import {
-  DocumentFilterBar,
   lotIssueDate,
   matchesDocumentFilter,
   type DocumentReferenceType,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import {
   AttachmentButton,
   SlipList,

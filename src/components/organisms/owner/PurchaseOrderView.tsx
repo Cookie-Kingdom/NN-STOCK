@@ -9,7 +9,7 @@ import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton"
 import {
   lotIssueDate,
   purchaseOrderRows,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import { fmt } from "@/lib/format";
 import {
   entries,

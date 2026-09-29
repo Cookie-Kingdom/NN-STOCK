@@ -14,7 +14,7 @@ import { SlipList } from "@/components/molecules/AttachmentButton";
 import {
   lotIssueDate,
   purchaseOrderRows,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import {
   entries,
   n,

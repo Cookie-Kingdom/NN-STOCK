@@ -55,6 +55,8 @@ const meta = {
     children: <Bars />,
   },
   argTypes: {
+    overline: { control: "text" },
+    title: { control: "text" },
     totalTone: { control: "inline-radio", options: ["warning", "accent"] },
   },
   decorators: [

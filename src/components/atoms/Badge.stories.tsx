@@ -10,13 +10,16 @@ const meta = {
       control: "inline-radio",
       options: ["neutral", "success", "warning", "danger", "inverse"],
     },
+    children: { control: "text" },
   },
 } satisfies Meta<typeof Badge>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Neutral: Story = {};
+/** Pick `tone` in Controls: neutral (waiting), success (closed), warning (running
+ *  low), danger (negative), inverse (a "saved" confirmation). */
+export const Default: Story = { args: { tone: "neutral" } };
 
 export const AllTones: Story = {
   render: () => (

@@ -30,24 +30,20 @@ function Fields() {
   );
 }
 
+/** Controls: edit หัวเรื่อง, คำอธิบาย and หมายเหตุท้าย; clear คำอธิบาย and หมายเหตุท้าย for
+ *  the bare card (only the brand, the title and the content). */
 export const SignIn: Story = {
+  argTypes: {
+    title: { name: "หัวเรื่อง", control: "text" },
+    description: { name: "คำอธิบาย", control: "text" },
+    footnote: { name: "หมายเหตุท้าย", control: "text" },
+    children: { control: false },
+  },
   args: {
     title: "เข้าสู่ระบบ",
     description: "ยืนยันตัวตนและสิทธิ์ผ่าน Supabase",
     footnote: "ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์",
     children: <Fields />,
-  },
-};
-
-/** Without `description` and `footnote` the card is only the brand and the content. */
-export const Bare: Story = {
-  args: {
-    title: "ลิงก์หมดอายุ",
-    children: (
-      <p className="mt-4 text-body-sm">
-        ขอลิงก์ยืนยันอีเมลใหม่ แล้วกลับมาเข้าสู่ระบบอีกครั้ง
-      </p>
-    ),
   },
 };
 

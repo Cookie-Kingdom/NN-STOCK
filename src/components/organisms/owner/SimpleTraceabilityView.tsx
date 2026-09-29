@@ -22,13 +22,13 @@ import { TableSection } from "@/components/molecules/TableSection";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
+import { DocumentFilterBar } from "@/components/organisms/shared/DocumentFilterBar";
 import {
-  DocumentFilterBar,
   lotIssueDate,
   matchesDocumentFilter,
   purchaseOrderRows,
   type DocumentReferenceType,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import {
   entries,
   n,

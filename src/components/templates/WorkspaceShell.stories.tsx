@@ -1,7 +1,13 @@
 import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { accountById, type Account } from "@/lib/accounts";
-import { branchNav, ownerNav, type NavGroup, type Tab } from "@/lib/nav";
+import {
+  branchNav,
+  managerNav,
+  ownerNav,
+  type NavGroup,
+  type Tab,
+} from "@/lib/nav";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { demoDb } from "../../../.storybook/fixtures";
 import { WorkspaceShell, type Notification } from "./WorkspaceShell";
@@ -13,12 +19,20 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<{ account: "owner" | "saladaeng"; toast: string }>;
+type Page = "short" | "normal" | "long";
+type Story = StoryObj<{
+  account: "owner" | "manager" | "saladaeng";
+  toast: string;
+  page: Page;
+}>;
 
-function Placeholder() {
+/** A page is often one short panel, sometimes far taller than the screen. */
+const blocks: Record<Page, number> = { short: 1, normal: 3, long: 12 };
+
+function Placeholder({ count = 3 }: { count?: number }) {
   return (
     <div className="grid gap-4">
-      {[1, 2, 3].map((n) => (
+      {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
         <div
           key={n}
           className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary"
@@ -100,65 +114,57 @@ const ownerProps = {
 } satisfies Partial<Parameters<typeof Shell>[0]>;
 
 /** Controls:
- *  - บัญชี: Owner (badges and a bell with two lines), or ศาลาแดง: branch accounts show
- *    their branch in the overline and have no notification bell.
- *  - ข้อความแจ้ง: type a message to show the toast (e.g. "บันทึกเรียบร้อยแล้ว"). */
-export const Owner: Story = {
+ *  - บัญชี: Owner (badges and a bell with two lines), Account Manager (no dashboard in
+ *    the menu), or ศาลาแดง: branch accounts show their branch in the overline and have
+ *    no notification bell.
+ *  - ข้อความแจ้ง: type a message to show the toast (e.g. "บันทึกเรียบร้อยแล้ว").
+ *  - ความยาวหน้า: สั้น — the sidebar still reaches the bottom of the screen, so its
+ *    sign-out block never floats mid-page; ยาว — only the content column scrolls, so
+ *    sign-out stays in view under the menu. */
+export const Default: Story = {
   argTypes: {
     account: {
       name: "บัญชี",
-      options: ["owner", "saladaeng"],
+      options: ["owner", "manager", "saladaeng"],
       control: {
         type: "radio",
-        labels: { owner: "Owner", saladaeng: "ศาลาแดง" },
+        labels: {
+          owner: "Owner",
+          manager: "Account Manager",
+          saladaeng: "ศาลาแดง",
+        },
       },
     },
     toast: { name: "ข้อความแจ้ง", control: "text" },
+    page: {
+      name: "ความยาวหน้า",
+      options: ["short", "normal", "long"],
+      control: {
+        type: "radio",
+        labels: { short: "สั้น", normal: "ปกติ", long: "ยาว" },
+      },
+    },
   },
-  args: { account: "owner", toast: "" },
-  render: ({ account, toast }) => (
+  args: { account: "owner", toast: "", page: "normal" },
+  render: ({ account, toast, page }) => (
     // key: the shell keeps tab and toast in state, so start over when a control changes.
     <Shell
       key={`${account}:${toast}`}
       account={accountById(account)!}
       toast={toast}
-      {...(account === "owner" ? ownerProps : { nav: branchNav })}
-    />
+      {...(account === "saladaeng"
+        ? { nav: branchNav }
+        : {
+            ...ownerProps,
+            nav: account === "manager" ? managerNav : ownerNav,
+          })}
+    >
+      <Placeholder count={blocks[page]} />
+    </Shell>
   ),
 };
 
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile1" } },
   render: () => <Shell account={accountById("minburi")!} nav={branchNav} />,
-};
-
-/** A page far taller than the screen: only the content column scrolls, so the
- *  owner's sign-out stays in view under the menu without scrolling to the end. */
-export const OwnerLongPage: Story = {
-  render: () => (
-    <Shell account={accountById("owner")!} nav={ownerNav}>
-      <div className="grid gap-4">
-        {Array.from({ length: 12 }, (_, i) => (
-          <div
-            key={i}
-            className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary"
-          >
-            เนื้อหาของแท็บ {i + 1}
-          </div>
-        ))}
-      </div>
-    </Shell>
-  ),
-};
-
-/** A page is often one short panel. The sidebar still has to reach the
- *  bottom of the screen, or its sign-out block floats in the middle of the page. */
-export const ShortPage: Story = {
-  render: () => (
-    <Shell account={accountById("minburi")!} nav={branchNav}>
-      <div className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary">
-        ไม่มีล็อตรอรับวันนี้
-      </div>
-    </Shell>
-  ),
 };

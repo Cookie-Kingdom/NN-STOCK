@@ -47,7 +47,9 @@ const state = pick<Partial<Props>>("สถานะ", {
  *  - ไม่บังคับพร้อมคำแนะนำ: `optional` mark and a `hint` line
  *  - ระบบกรอกให้: a value the system filled in — a faint tint and where it came from
  *  - ค่าคาดการณ์: a predicted scale or count reading — a warning look so it is
- *    weighed, not trusted */
+ *    weighed, not trusted
+ *  - `as` div: a `<span>` label for a field holding several controls (`prefilled` is
+ *    ignored); `wide` only shows inside a grid, see the FormGrid and Group stories */
 export const Default: StoryObj<Props & { state: Partial<Props> }> = {
   decorators: [
     (Story) => (
@@ -56,8 +58,11 @@ export const Default: StoryObj<Props & { state: Partial<Props> }> = {
       </div>
     ),
   ],
-  argTypes: { state: state.argType },
-  args: { state: state.initial },
+  argTypes: {
+    state: state.argType,
+    as: { control: "inline-radio", options: ["label", "div"] },
+  },
+  args: { state: state.initial, as: "label" },
   render: ({ state, ...args }) => <FormField {...args} {...state} />,
 };
 

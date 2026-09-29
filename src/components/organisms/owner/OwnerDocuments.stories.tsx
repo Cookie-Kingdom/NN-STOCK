@@ -136,27 +136,21 @@ export const Invoices: Story = {
   render: ({ db }) => <InvoiceView db={db} open={open} />,
 };
 
-/** Three batches: a smoke PO still waiting for Foodiva, a batch Foodiva opened with no
- *  smoke PO, and a closed lot. Chips list what each lacks; both buttons stay live. */
+const workflowState = pick("ชุด", {
+  "PO รมควันรอ Foodiva": dispatchDb,
+  "Foodiva เปิดชุด ยังไม่มี PO": packedDb,
+  "ปิด Lot แล้ว": closedDb,
+});
+
+/** The latest batch's "ยังขาด" chips and the Owner's buttons, which stay live whatever is
+ *  missing. เลือกชุดใน Controls:
+ *  - PO รมควันรอ Foodiva: a smoke PO still waiting for Foodiva's transport document.
+ *  - Foodiva เปิดชุด ยังไม่มี PO: Foodiva trucked a batch before any smoke PO.
+ *  - ปิด Lot แล้ว: Chef House closed the lot. */
 export const WorkflowAction: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <div className="flex flex-wrap gap-6">
-      <LotWorkflowAction
-        db={dispatchDb}
-        lot={dispatchDb.lots.at(-1)!}
-        open={open}
-      />
-      <LotWorkflowAction
-        db={packedDb}
-        lot={packedDb.lots.at(-1)!}
-        open={open}
-      />
-      <LotWorkflowAction
-        db={closedDb}
-        lot={closedDb.lots.at(-1)!}
-        open={open}
-      />
-    </div>
+  argTypes: { db: workflowState.argType },
+  args: { db: workflowState.initial },
+  render: ({ db }) => (
+    <LotWorkflowAction db={db} lot={db.lots.at(-1)!} open={open} />
   ),
 };

@@ -37,6 +37,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
+ *  - `as`: section (default), div or article — tag only, looks the same
  *  - `compact`: tighter padding
  *  - `dashed`: drops the fill too — the outline of a box with nothing in it yet
  *    (pair with children "ว่าง")
@@ -44,15 +45,19 @@ type Story = StoryObj<typeof meta>;
  *    (pair with children "ยอดขาย") */
 export const Default: Story = {
   argTypes: {
+    as: { control: "inline-radio", options: ["section", "div", "article"] },
     compact: { control: "boolean" },
     dashed: { control: "boolean" },
     flush: { control: "boolean" },
   },
-  args: { compact: false, dashed: false, flush: false },
+  args: { as: "section", compact: false, dashed: false, flush: false },
 };
 
 export const Stats: Story = {
-  argTypes: { children: { table: { disable: true } } },
+  argTypes: {
+    children: { table: { disable: true } },
+    as: { table: { disable: true } },
+  },
   render: () => (
     <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
       <Stat label="คงเหลือ" value="84.20 กก." />

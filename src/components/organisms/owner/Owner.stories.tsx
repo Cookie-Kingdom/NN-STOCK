@@ -2,17 +2,21 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
   allocatedDb,
+  branchTasksDb,
   centralDb,
+  closeReadyDb,
   day,
   demoDb,
   freeOrderDb,
   linkedDb,
+  nextDay,
   open,
   ownerReservedDb,
   partialBatchDb,
   unlinkedDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
+import type { Tab } from "@/lib/nav";
 import type { Database } from "@/lib/store";
 import { CentralReceiveView } from "./CentralReceiveView";
 import { ConfigView } from "./ConfigView";
@@ -67,15 +71,42 @@ const centralState = pick("สถานะ", {
   พร้อมจัดสรร: centralDb,
   ไม่มีรถกลับ: freeOrderDb,
 });
+const dailyState = pick("สถานะ", {
+  ตัวอย่าง: db,
+  ปิดวันได้: closeReadyDb,
+  งานรอ: branchTasksDb,
+});
 const logoState = pick("โลโก้", { ปกติ: db, โลโก้แบบเก่า: legacyLogoDb });
 
-/** Both banners at once; in the app each hides on the tab its button leads to. */
-export const AlertBanners: Story = {
-  render: () => (
+/** The warnings above every Owner tab. Controls:
+ *  - missingMaterialSettings: materials with no base count / unit price (0 hides it).
+ *  - returnReady: closed lots waiting for a truck home (0 hides it); the kg is their total.
+ *  - tab: the open tab; each banner hides on the tab its button leads to (config /
+ *    return-shipment). Both at 0 renders nothing. */
+export const AlertBanners: StoryObj<{
+  missingMaterialSettings: number;
+  returnReady: number;
+  tab: Tab;
+}> = {
+  argTypes: {
+    missingMaterialSettings: { control: { type: "number", min: 0 } },
+    returnReady: {
+      control: { type: "range", min: 0, max: db.lots.length, step: 1 },
+    },
+    tab: {
+      control: "inline-radio",
+      options: ["owner-dashboard", "config", "return-shipment"],
+    },
+  },
+  args: { missingMaterialSettings: 2, returnReady: 1, tab: "owner-dashboard" },
+  render: ({ missingMaterialSettings, returnReady, tab }) => (
     <OwnerAlertBanners
       db={db}
-      alerts={{ missingMaterialSettings: 2, returnReady: db.lots.slice(0, 2) }}
-      tab="owner-dashboard"
+      alerts={{
+        missingMaterialSettings,
+        returnReady: db.lots.slice(0, returnReady),
+      }}
+      tab={tab}
       onTab={fn()}
     />
   ),
@@ -93,8 +124,21 @@ export const Dashboard: Story = {
   render: ({ db }) => <OwnerDashboard db={db} date={day} onNavigate={fn()} />,
 };
 
-export const DailyStatus: Story = {
-  render: () => <OwnerDailyStatus db={db} date={day} />,
+/** Every branch × day from 7 days back to `date`: "ครบแล้ว" or one "ค้างกรอก" row per
+ *  missing kind. เลือกใน Controls:
+ *  - สถานะ ตัวอย่าง: the seven-day demo run.
+ *  - สถานะ ปิดวันได้: ศาลาแดง filled everything on `day`.
+ *  - สถานะ งานรอ: ศาลาแดง's `day` is still empty, so it lists what is missing.
+ *  - date: `day` or the day after (every row one day older). The branch filter and
+ *    "ตั้งแต่" are the table's own state. */
+export const DailyStatus: StoryObj<{ db: Database; date: string }> = {
+  argTypes: {
+    db: dailyState.argType,
+    date: { control: "inline-radio", options: [day, nextDay] },
+  },
+  args: { db: dailyState.initial, date: day },
+  // key: the "ตั้งแต่" filter starts from `date`, so a new date remounts it.
+  render: ({ db, date }) => <OwnerDailyStatus key={date} db={db} date={date} />,
 };
 
 /** One row per item, one column per place (Foodiva, คลัง Owner, each branch); "—" where
@@ -145,16 +189,17 @@ export const Traceability: Story = {
   render: ({ db }) => <SimpleTraceabilityView db={db} />,
 };
 
-/** "ต้นทุนแยก Lot" lists every batch whatever it holds (DASH-04). เลือกสถานะใน Controls:
+/** "ต้นทุนแยก Lot" lists every batch whatever it holds (DASH-04). `hideSales` is the
+ *  Account Manager's view: no sales money or margin. เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run.
  *  - ยังไม่ผูก: the 35 kg batch has no Chef House invoice, so its smoking cost is the
  *    smoke PO's "(ประมาณการ)" (D8); the batch Chef House smoked first has no central count
  *    and shows "—" per kg; the 3 kg sold from "ไม่ระบุ Lot" is its own row at cost 0 (BR-05).
  *  - ผูกแล้ว: that 3 kg is costed on the batch at its per-kg cost. */
-export const ReportView: Story = {
-  argTypes: { db: linkState.argType },
-  args: { db: linkState.initial },
-  render: ({ db }) => <Report db={db} />,
+export const ReportView: StoryObj<{ db: Database; hideSales: boolean }> = {
+  argTypes: { db: linkState.argType, hideSales: { control: "boolean" } },
+  args: { db: linkState.initial, hideSales: false },
+  render: ({ db, hideSales }) => <Report db={db} hideSales={hideSales} />,
 };
 
 /** เลือกโลโก้ใน Controls:
