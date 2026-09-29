@@ -77,7 +77,7 @@ test("prefilled weights and amounts pass mutate as-is", () => {
   const prefill = (kind: EntryKind) =>
     prefillValues(s.db, kind, s.db.lots.at(-1));
   purchase(s, "40");
-  s.run("foodiva", "foodivaConfirm", {
+  s.run("owner", "foodivaConfirm", {
     ...prefill("foodivaConfirm"),
     invoiceNo: "INV-1",
     invoiceDate: day,
@@ -86,7 +86,7 @@ test("prefilled weights and amounts pass mutate as-is", () => {
   });
   // Foodiva opens the batch (GEN-09); the truck starts at the PO's ready kg.
   s.run(
-    "foodiva",
+    "owner",
     "dispatch",
     {
       ...prefill("dispatch"),
@@ -123,7 +123,7 @@ test("prefilled weights and amounts pass mutate as-is", () => {
 test("a one-way trip does not copy the outbound truck into the return form", () => {
   const s = setup();
   readyToDispatch(s, "40");
-  s.run("foodiva", "dispatch", {
+  s.run("owner", "dispatch", {
     ...send,
     trip: "เที่ยวเดียว",
     plate: "กข123",
@@ -173,7 +173,7 @@ test("the smoke PO takes its quantity from the Packing List, not the form; Foodi
 test("BUG-J: editing Foodiva's invoice starts from the saved one, and saving it unchanged keeps the split", () => {
   const s = setup();
   purchase(s, "30");
-  s.run("foodiva", "foodivaConfirm", {
+  s.run("owner", "foodivaConfirm", {
     invoiceNo: "QA7-INV-005",
     invoiceDate: "2026-09-01",
     confirmedKg: "30",
@@ -194,7 +194,7 @@ test("BUG-J: editing Foodiva's invoice starts from the saved one, and saving it 
     attachmentStorageKey: "key-1",
     confirmedBy: "QA7 Foodiva",
   });
-  s.run("foodiva", "foodivaConfirm", edit);
+  s.run("owner", "foodivaConfirm", edit);
   expect(last(s).values).toMatchObject({
     readyForChiangMaiKg: "28",
     reservedForOwnerKg: "2",
@@ -258,7 +258,7 @@ test("lastValues / lastValue read the most recent matching entry", () => {
   purchase(s, "50");
   const [a, b] = s.db.lots.map((lot) => lot.id);
   s.run(
-    "foodiva",
+    "owner",
     "foodivaConfirm",
     {
       ...prefillValues(s.db, "foodivaConfirm", s.db.lots[0]),
@@ -271,7 +271,7 @@ test("lastValues / lastValue read the most recent matching entry", () => {
     a,
   );
   s.run(
-    "foodiva",
+    "owner",
     "foodivaConfirm",
     {
       ...prefillValues(s.db, "foodivaConfirm", s.db.lots[1]),
@@ -397,7 +397,7 @@ test("owner forms carry the last PO, names and truck, and predict weights", () =
 test("a one-way return carries the last return truck and picks the next time slot", () => {
   const s = returned();
   readyToDispatch(s, "40");
-  s.run("foodiva", "dispatch", {
+  s.run("owner", "dispatch", {
     ...send,
     trip: "เที่ยวเดียว",
     plate: "ขค999",
@@ -515,8 +515,8 @@ test("Chef House forms carry names and start weights from the lot", () => {
     label: "ตามยอดรับจริง",
     expected: true,
   });
-  s.run("cm", "prepare", { preSmokeKg: "48" });
-  s.run("cm", "smoke", {
+  s.run("owner", "prepare", { preSmokeKg: "48" });
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "20",
     wasteKg: "5",
@@ -544,7 +544,7 @@ test("Chef House forms carry names and start weights from the lot", () => {
       .invoiceNumber,
   ).toBe("CH-0010");
   // A bill the Owner sent back comes back with its own number and detail.
-  c.run("cm", "smokingInvoice", {
+  c.run("owner", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
     attachment: "ch.pdf",

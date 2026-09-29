@@ -24,7 +24,7 @@ import {
   seed,
   type Database,
   type EntryKind,
-  type Role,
+  type ActingRole,
   type Values,
 } from "./model";
 import {
@@ -69,7 +69,7 @@ export function ownerBranchScenario(endDate: string): Database {
   });
   let db = structuredClone(seed);
   const run = (
-    role: Role,
+    role: ActingRole,
     kind: EntryKind,
     values: Values,
     lotId = "",
@@ -199,7 +199,7 @@ export function ownerBranchScenario(endDate: string): Database {
     reservedKg: number,
   ) =>
     run(
-      "foodiva",
+      "owner",
       "foodivaConfirm",
       {
         invoiceNo: no,
@@ -295,10 +295,10 @@ export function ownerBranchScenario(endDate: string): Database {
     const packs = (outKg: number) =>
       Array.from({ length: Math.round(outKg * 10) }, () => "0.100").join("\n");
     const cm = (kind: EntryKind, values: Values, date: string) =>
-      run("cm", kind, values, lotId, date);
+      run("owner", kind, values, lotId, date);
     if (done("dispatch")) {
       run(
-        "foodiva",
+        "owner",
         "dispatch",
         {
           pickupDate: from,
@@ -317,7 +317,7 @@ export function ownerBranchScenario(endDate: string): Database {
       );
       lotId = db.lots.at(-1)!.id;
       run(
-        "foodiva",
+        "owner",
         "packingList",
         {
           invoiceNo: "INV-UAT-0001",
@@ -410,7 +410,7 @@ export function ownerBranchScenario(endDate: string): Database {
       );
     if (done("foodivaReceive"))
       run(
-        "foodiva",
+        "owner",
         "foodivaReturnReceive",
         {
           receivedDate: to,

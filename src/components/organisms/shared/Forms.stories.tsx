@@ -92,7 +92,7 @@ export const FoodivaInvoiceEdit: Story = {
   render: () => (
     <EntryForm
       db={rejectedInvoiceDb}
-      role="foodiva"
+      role="owner"
       branch=""
       date={day}
       onDate={onDate}
@@ -104,13 +104,13 @@ export const FoodivaInvoiceEdit: Story = {
 };
 
 // Sent back by the Owner: the note is shown and the amount starts at the sent-back invoice's,
-// editable by Chef House (A7).
+// editable by the Owner for Chef House (A7).
 export const ChefInvoiceSentBack: Story = {
   parameters: { db: rejectedInvoiceDb },
   render: () => (
     <EntryForm
       db={rejectedInvoiceDb}
-      role="cm"
+      role="owner"
       branch=""
       date={day}
       onDate={onDate}

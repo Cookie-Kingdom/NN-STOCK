@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import { managerNav, navLabel } from "@/lib/nav";
 import {
-  editApprovers,
   editDecisions,
   entries,
   entryBy,
@@ -41,7 +40,7 @@ describe("C4 Account Manager", () => {
   });
 
   test("approves edit requests", () => {
-    expect(editApprovers).toContain(manager.role);
+    expect(manager.role).toBe("owner");
     const { s, sale, request } = saleWithRequest();
     const db = s.run(manager.role, "editDecision", {
       requestId: request.id,

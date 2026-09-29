@@ -6,7 +6,7 @@ import {
   packingListBoxes,
   seed,
   type Database,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
@@ -34,14 +34,14 @@ export const send = {
 
 export type Setup = {
   run: (
-    role: Role,
+    role: ActingRole,
     kind: EntryKind,
     values?: Values,
     lotId?: string,
   ) => Database;
   /** `run` as a dry run: what it would warn about and refuse with; the database is kept. */
   check: (
-    role: Role,
+    role: ActingRole,
     kind: EntryKind,
     values?: Values,
     lotId?: string,
@@ -96,7 +96,7 @@ export function purchase(s: Setup, kg: string, price = "250") {
 }
 
 export function confirm(s: Setup, kg: string, readyKg = kg) {
-  s.run("foodiva", "foodivaConfirm", {
+  s.run("owner", "foodivaConfirm", {
     invoiceNo: "INV-1",
     invoiceDate: day,
     attachment: "inv.pdf",
@@ -110,12 +110,12 @@ export function confirm(s: Setup, kg: string, readyKg = kg) {
 
 /** Foodiva's outbound transport document for the newest batch (`""` opens a new one). */
 export function dispatch(s: Setup, lotId?: string) {
-  s.run("foodiva", "dispatch", send, lotId);
+  s.run("owner", "dispatch", send, lotId);
 }
 
 /** Foodiva's Packing List, one กล่องรับเข้า weight per line. */
 export function packingList(s: Setup, boxes: string) {
-  s.run("foodiva", "packingList", {
+  s.run("owner", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     // Foodiva types Lost; in practice it matches the box total.
@@ -148,7 +148,7 @@ export function smokeOrder(
 
 /** Chef House's smoking invoice for a closed run. */
 export function invoice(s: Setup) {
-  s.run("cm", "smokingInvoice", {
+  s.run("owner", "smokingInvoice", {
     invoiceNumber: "CH-1",
     invoiceDate: day,
     attachment: "ch.pdf",
@@ -175,8 +175,8 @@ export function received(
   readyToDispatch(s, kg);
   dispatch(s);
   packingList(s, boxes);
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
+  s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  s.run("owner", "cmReceive", { receivedBoxes, arrival: "08:00" });
 }
 
 /** Batch fully smoked, not closed: 50 kg sent in two 25 kg boxes, 49 kg weighed in, 36 kg
@@ -184,14 +184,14 @@ export function received(
 export function smoked() {
   const s = setup();
   received(s, "50", "25\n25", "24.5\n24.5");
-  s.run("cm", "prepare", { preSmokeKg: "48" });
-  s.run("cm", "smoke", {
+  s.run("owner", "prepare", { preSmokeKg: "48" });
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "20",
     wasteKg: "5",
     packs: packs(150),
   });
-  s.run("cm", "smoke", {
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "28",
     wasteKg: "7",
@@ -203,7 +203,7 @@ export function smoked() {
 /** Batch closed at Chef House, waiting for the return truck. */
 export function closed() {
   const s = smoked();
-  s.run("cm", "closeLot", { confirm: "สมชาย" });
+  s.run("owner", "closeLot", { confirm: "สมชาย" });
   return s;
 }
 
@@ -221,7 +221,7 @@ export function returned() {
     driverPhone: "0800000000",
     returnKg: "36",
   });
-  s.run("foodiva", "foodivaReturnReceive", {
+  s.run("owner", "foodivaReturnReceive", {
     receivedDate: day,
     receivedTime: "10:00",
     receivedKg: "36",
@@ -242,14 +242,14 @@ export function ready() {
 export function chillDay() {
   const s = setup();
   received(s, "100", "50\n50", "49\n49");
-  s.run("cm", "prepare", { preSmokeKg: "96" });
-  s.run("cm", "smoke", {
+  s.run("owner", "prepare", { preSmokeKg: "96" });
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "96",
     wasteKg: "24",
     packs: packs(720),
   });
-  s.run("cm", "closeLot", { confirm: "สมชาย" });
+  s.run("owner", "closeLot", { confirm: "สมชาย" });
   s.run("owner", "return", {
     returnDate: day,
     returnTime: "09:00",
@@ -261,7 +261,7 @@ export function chillDay() {
     driverPhone: "0800000000",
     returnKg: "72",
   });
-  s.run("foodiva", "foodivaReturnReceive", {
+  s.run("owner", "foodivaReturnReceive", {
     receivedDate: day,
     receivedTime: "10:00",
     receivedKg: "72",

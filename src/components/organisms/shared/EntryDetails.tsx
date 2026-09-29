@@ -37,7 +37,7 @@ import {
   unpack,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
@@ -252,7 +252,7 @@ export function EntryDetails({
   entry: Entry;
   /** The log as `role` sees it: resolves PO numbers, edits and open requests. */
   db?: Database;
-  role: Role;
+  role: ActingRole;
   branch?: string;
   /** A later "void" entry targets this one: no second cancel. */
   voided?: boolean;

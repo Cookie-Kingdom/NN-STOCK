@@ -60,7 +60,7 @@ import {
   lotProgress,
   titles,
   type Database,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
@@ -361,7 +361,7 @@ export function EntryForm({
   switcher,
 }: {
   db: Database;
-  role: Role;
+  role: ActingRole;
   /** The workspace branch: the branch account's own, or config.branch for other roles. */
   branch: string;
   date: string;
@@ -531,12 +531,6 @@ export function EntryForm({
         : riceSource === riceSources[1]
           ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
           : !/^(raw|cooked)Rice/.test(field.key);
-    if (kind === "supplyPurchase")
-      return branch === "มีนบุรี"
-        ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
-        : !["cookedRiceKg", "cookedRiceCost"].includes(field.key);
-    if (kind === "supplyIssue" && branch === "มีนบุรี")
-      return field.key !== "rawRiceIssuedKg";
     return true;
   });
   const set = (key: string, value: string) => {
@@ -847,8 +841,7 @@ export function EntryForm({
                 สต๊อก และรายงานจะคำนวณเพิ่มจากรายการใหม่
               </Notice>
             )}
-            {((kind === "supplyPurchase" && branch === "มีนบุรี") ||
-              (kind === "ricePurchase" && riceSource === riceSources[1])) && (
+            {kind === "ricePurchase" && riceSource === riceSources[1] && (
               <Notice>
                 ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
                 ควรซื้อเพิ่มอย่างน้อย{" "}

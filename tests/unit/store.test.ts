@@ -48,7 +48,7 @@ import {
   type Database,
   type Entry,
   type Lot,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
   check,
@@ -323,7 +323,11 @@ describe("mutate guards", () => {
   test("PRIN-03 a wrong role is refused without mutation; an allocation over stock only warns", () => {
     const s = setup();
     expect(() =>
-      s.run("cm", "purchase", { supplier: "x", orderedKg: "10", price: "1" }),
+      s.run("branch", "purchase", {
+        supplier: "x",
+        orderedKg: "10",
+        price: "1",
+      }),
     ).toThrow(/ไม่มีสิทธิ์/);
     expect(s.db.lots).toHaveLength(0);
     expectWarning(
@@ -546,10 +550,10 @@ describe("lot workflow", () => {
       invoiceAmount: "1",
     });
     expect(() =>
-      s.run("foodiva", "foodivaConfirm", values("41", "41", "0")),
+      s.run("owner", "foodivaConfirm", values("41", "41", "0")),
     ).not.toThrow();
     expectWarning(
-      s.check("foodiva", "foodivaConfirm", values("40", "30", "5")),
+      s.check("owner", "foodivaConfirm", values("40", "30", "5")),
       /รวมเท่ากับ/,
     );
   });
@@ -585,7 +589,7 @@ describe("lot workflow", () => {
       /ออก PO รมควันของชุดนี้แล้ว/,
     );
     // SVC-01: Chef House bills before the run is closed.
-    s.run("cm", "smokingInvoice", {
+    s.run("owner", "smokingInvoice", {
       invoiceNumber: "CH-1",
       invoiceDate: day,
       attachment: "x",
@@ -596,7 +600,7 @@ describe("lot workflow", () => {
   test("Chef House bills its own amount and the Owner pays exactly that (A7)", () => {
     const s = closed();
     const bill = (netPayable: string, attachment = "ch.pdf") =>
-      s.run("cm", "smokingInvoice", {
+      s.run("owner", "smokingInvoice", {
         invoiceNumber: "CH-9",
         invoiceDate: day,
         attachment,
@@ -748,11 +752,11 @@ describe("lot workflow", () => {
       actor: "owner",
     });
     expect(entryBy(byOwner.entries.at(-1)!)).toBe("Owner · แทน Foodiva");
-    expect(() => t.run("foodiva", "dispatch", send, t.db.lots[0].id)).toThrow(
+    expect(() => t.run("owner", "dispatch", send, t.db.lots[0].id)).toThrow(
       /ไม่ใช่ PO ซื้อ/,
     );
-    expect(t.check("foodiva", "dispatch", send).error).toBe("");
-    t.run("foodiva", "dispatch", {
+    expect(t.check("owner", "dispatch", send).error).toBe("");
+    t.run("owner", "dispatch", {
       ...send,
       trip: "เที่ยวเดียว",
       dispatchKg: "39",
@@ -767,11 +771,16 @@ describe("lot workflow", () => {
   test("smoke batches validate bag weights and finish when the input is used up", () => {
     const s = setup();
     received(s, "50", "50", "49");
-    s.run("cm", "prepare", { preSmokeKg: "48" });
+    s.run("owner", "prepare", { preSmokeKg: "48" });
     const lot = () => s.db.lots.at(-1)!;
     const id = lot().id;
     const smoke = (inputKg: string, wasteKg: string, bags: string) =>
-      s.run("cm", "smoke", { smokeDate: day, inputKg, wasteKg, packs: bags });
+      s.run("owner", "smoke", {
+        smokeDate: day,
+        inputKg,
+        wasteKg,
+        packs: bags,
+      });
     expect(() => smoke("0.1", "0", "0.1\nabc")).toThrow(/มากกว่า 0/);
     expectWarning(
       s.dry(() => smoke("10", "0", packs(50))),
@@ -799,8 +808,8 @@ describe("lot workflow", () => {
   test("a smoke batch saved before the postSmokeKg rename still counts its bags", () => {
     const s = setup();
     received(s, "50");
-    s.run("cm", "prepare", { preSmokeKg: "50" });
-    s.run("cm", "smoke", {
+    s.run("owner", "prepare", { preSmokeKg: "50" });
+    s.run("owner", "smoke", {
       smokeDate: day,
       inputKg: "50",
       wasteKg: "5",
@@ -819,14 +828,14 @@ describe("lot workflow", () => {
   test("CHF-03 excess pre-smoke and over-smoke warn; closing before smoking only warns", () => {
     const s = setup();
     received(s, "10");
-    expectWarning(s.check("cm", "prepare", { preSmokeKg: "11" }), /เกิน/);
-    s.run("cm", "prepare", { preSmokeKg: "10" });
+    expectWarning(s.check("owner", "prepare", { preSmokeKg: "11" }), /เกิน/);
+    s.run("owner", "prepare", { preSmokeKg: "10" });
     expectWarning(
-      s.check("cm", "closeLot", { confirm: "x" }),
+      s.check("owner", "closeLot", { confirm: "x" }),
       /ยังไม่มีผลผลิต/,
     );
     expectWarning(
-      s.check("cm", "smoke", {
+      s.check("owner", "smoke", {
         inputKg: "11",
         wasteKg: "6",
         smokeDate: day,
@@ -835,7 +844,7 @@ describe("lot workflow", () => {
       /เกิน/,
     );
     // Smoking more than was waiting still finishes production.
-    s.run("cm", "smoke", {
+    s.run("owner", "smoke", {
       inputKg: "11",
       wasteKg: "6",
       smokeDate: day,
@@ -843,9 +852,9 @@ describe("lot workflow", () => {
     });
     expect(pendingSmokeKg(s.db, s.db.lots.at(-1)!)).toBe(0);
     // CHF-05: another round after ปิด Lot is recorded and said.
-    s.run("cm", "closeLot", { confirm: "x" });
+    s.run("owner", "closeLot", { confirm: "x" });
     expectWarning(
-      s.check("cm", "smoke", {
+      s.check("owner", "smoke", {
         inputKg: "1",
         wasteKg: "0",
         smokeDate: day,
@@ -869,7 +878,7 @@ describe("lot workflow", () => {
     });
     const edit = (values: Values, drafts: ReturnType<typeof draft>[]) =>
       s.run(
-        "cm",
+        "owner",
         "chefEdit",
         {
           arrival: "08:00",
@@ -911,7 +920,7 @@ describe("lot workflow", () => {
     expect(entries(s.db, "smoke", id)[0].values.wasteKg).toBe("4");
     expect(produced(s.db, id)).toBe(37);
     expect(last(s).kind).toBe("chefEdit");
-    s.run("cm", "closeLot", { confirm: "x" }, id);
+    s.run("owner", "closeLot", { confirm: "x" }, id);
     // CHF-04: no more corrections once the run is closed.
     expect(() =>
       edit(
@@ -1650,7 +1659,7 @@ describe("backdated entries", () => {
     readyToDispatch(s, "50");
     const lotId = s.db.lots.at(-1)!.id;
     const early = check(() =>
-      mutate(s.db, "foodiva", "dispatch", send, lotId, "2026-09-01"),
+      mutate(s.db, "owner", "dispatch", send, lotId, "2026-09-01"),
     );
     expectWarning(early, `วันที่ก่อนรายการอื่นของชุดนี้ (${day})`);
   });
@@ -1661,7 +1670,7 @@ describe("backdated entries", () => {
     const backdated = "2026-09-10"; // after `day`, before the real today
     const db = mutate(
       s.db,
-      "foodiva",
+      "owner",
       "dispatch",
       send,
       s.db.lots.at(-1)!.id,
@@ -1677,7 +1686,7 @@ describe("backdated entries", () => {
     const early = check(() =>
       mutate(
         s.db,
-        "foodiva",
+        "owner",
         "foodivaConfirm",
         {
           invoiceNo: "INV-1",
@@ -1770,8 +1779,12 @@ describe("chill carryover", () => {
     const s = chillDay();
     const id = lotOf(s.db);
     // Day 2: the last 2 kg of central stock allocated, 1.5 kg received, 1 kg thawed.
-    const run = (db: Database, role: Role, kind: EntryKind, values: Values) =>
-      mutate(db, role, kind, values, id, nextDay, branch);
+    const run = (
+      db: Database,
+      role: ActingRole,
+      kind: EntryKind,
+      values: Values,
+    ) => mutate(db, role, kind, values, id, nextDay, branch);
     let db = run(s.db, "owner", "allocate", {
       branch,
       kg: "2",
@@ -1849,26 +1862,26 @@ describe("free ledger (PRD v9)", () => {
     returnKg: "36",
   };
   /** Every batch kind with values that pass on their own, whatever came before. */
-  const steps: [Role, EntryKind, Values][] = [
-    ["foodiva", "dispatch", truck],
-    ["foodiva", "packingList", list],
+  const steps: [ActingRole, EntryKind, Values][] = [
+    ["owner", "dispatch", truck],
+    ["owner", "packingList", list],
     [
       "owner",
       "smokeOrder",
       { requestedSmokeDate: day, smoker: "Chef House", rawKg: "50" },
     ],
-    ["cm", "cmReceive", { arrival: "08:00", receivedBoxes: "24.5\n24.5" }],
-    ["cm", "prepare", { preSmokeKg: "48" }],
+    ["owner", "cmReceive", { arrival: "08:00", receivedBoxes: "24.5\n24.5" }],
+    ["owner", "prepare", { preSmokeKg: "48" }],
     [
-      "cm",
+      "owner",
       "smoke",
       { smokeDate: day, inputKg: "48", wasteKg: "12", packs: packs(360) },
     ],
-    ["cm", "closeLot", { confirm: "สมชาย" }],
-    ["cm", "smokingInvoice", bill],
+    ["owner", "closeLot", { confirm: "สมชาย" }],
+    ["owner", "smokingInvoice", bill],
     ["owner", "return", truckBack],
     [
-      "foodiva",
+      "owner",
       "foodivaReturnReceive",
       {
         receivedDate: day,
@@ -1893,13 +1906,13 @@ describe("free ledger (PRD v9)", () => {
       if (kind === "cmReceive") {
         // smokeOrderAccept needs a PO to accept (SMK-06): the one refusal that stays.
         expect(() =>
-          s.run("cm", "smokeOrderAccept", { acceptedBy: "x" }, lotId),
+          s.run("owner", "smokeOrderAccept", { acceptedBy: "x" }, lotId),
         ).toThrow(/ยังไม่มี PO รมควัน/);
       }
       s.run(role, kind, values, lotId);
       lotId = s.db.lots.at(-1)!.id;
     }
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
+    s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
     expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
     expect(entries(s.db, "allocate", lotId)).toHaveLength(1);
     expect(centralStock(s.db, lotId)).toBe(25);
@@ -2028,7 +2041,7 @@ describe("free ledger (PRD v9)", () => {
     purchase(s, "50");
     confirm(s, "50");
     s.run(
-      "cm",
+      "owner",
       "cmReceive",
       { arrival: "08:00", receivedBoxes: "24.5\n24.5" },
       "",
@@ -2042,7 +2055,7 @@ describe("free ledger (PRD v9)", () => {
     expect(batch.id).toBe(s.db.lots.at(-1)!.id);
     expect(s.db.lots.at(-1)!.values.requestedKg).toBe("50");
     // Now the accept goes through.
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, batch.id);
+    s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" }, batch.id);
     expect(lotProgress(s.db, batch.id).has("smokeOrderAccept")).toBe(true);
   });
 
@@ -2066,7 +2079,7 @@ describe("free ledger (PRD v9)", () => {
     expect(lotCost(s.db, batch).meat).toBe(30 * 200 + 10 * 300);
     dispatch(s);
     packingList(s, "20\n20");
-    s.run("cm", "cmReceive", { arrival: "08:00", receivedBoxes: "19\n19" });
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedBoxes: "19\n19" });
     // Once weighed in: 38 kg split 3:1.
     expect(lotCost(s.db, s.db.lots.at(-1)!).meat).toBeCloseTo(
       28.5 * 200 + 9.5 * 300,

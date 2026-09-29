@@ -1,12 +1,11 @@
 /** What each role may see of the log, and the edit-request queries built on it. */
 import {
-  editApprovers,
   editableKinds,
   isEditOverlay,
   type Database,
   type Entry,
   type EntryKind,
-  type Role,
+  type ActingRole,
   type Values,
 } from "./model";
 import { entries, smokingInvoiceStatus } from "./derived";
@@ -29,35 +28,31 @@ const editKinds: EntryKind[] = [
 /** BR-07 — the lots a branch's screens list: lots allocated to it or holding its own entries.
  *  `role-scope.ts` sends the same set; scope_app_state() (migration 20260928000031) states the
  *  same rule. The Owner (and Account Manager) see every lot. */
-export function visibleLots(db: Database, role: Role, branch?: string) {
-  if (role === "branch")
-    return db.lots.filter((lot) =>
-      db.entries.some(
-        (e) =>
-          e.lotId === lot.id &&
-          e.branch === branch &&
-          (e.kind === "allocate" || e.role === "branch"),
-      ),
-    );
-  return db.lots;
+export function visibleLots(db: Database, branch?: string) {
+  return db.lots.filter((lot) =>
+    db.entries.some(
+      (e) =>
+        e.lotId === lot.id &&
+        e.branch === branch &&
+        (e.kind === "allocate" || e.role === "branch"),
+    ),
+  );
 }
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
-export function visibleEntries(db: Database, role: Role, branch?: string) {
-  // Edits, requests and decisions about this role's own entries (its branch's, for a branch).
+export function visibleEntries(
+  db: Database,
+  role: ActingRole,
+  branch?: string,
+) {
+  if (role === "owner") return db.entries;
+  // A branch: its own branch's entries, plus edits, requests and decisions about them.
   const aboutMine = (e: Entry) =>
     editKinds.includes(e.kind) &&
-    e.values.targetRole === role &&
-    (role !== "branch" || e.values.targetBranch === branch);
+    e.values.targetRole === "branch" &&
+    e.values.targetBranch === branch;
   return db.entries
-    .filter(
-      (e) =>
-        role === "owner" ||
-        (e.role === role && (role !== "branch" || e.branch === branch)) ||
-        aboutMine(e),
-    )
-    .map((e) =>
-      role === "owner" ? e : { ...e, values: omit(e.values, hiddenKeys) },
-    );
+    .filter((e) => (e.role === "branch" && e.branch === branch) || aboutMine(e))
+    .map((e) => ({ ...e, values: omit(e.values, hiddenKeys) }));
 }
 /** The database a role's screens read: `db` untouched, except that `hideSales` (Account Manager)
  * drops every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in
@@ -79,7 +74,7 @@ export function visibleDatabase(db: Database, hideSales = false): Database {
 export function editBlock(
   db: Database,
   target: Entry,
-  role: Role,
+  role: ActingRole,
   branch = "",
 ) {
   if (!editableKinds.includes(target.kind))
@@ -92,8 +87,8 @@ export function editBlock(
   )
     return "Invoice นี้ชำระแล้ว แก้ไขไม่ได้";
   if (
-    !editApprovers.includes(role) &&
-    (target.role !== role || (role === "branch" && target.branch !== branch))
+    role === "branch" &&
+    (target.role !== "branch" || target.branch !== branch)
   )
     return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
   return "";

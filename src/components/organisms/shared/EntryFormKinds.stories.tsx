@@ -27,7 +27,7 @@ import {
   branches,
   riceSources,
   type Database,
-  type Role,
+  type ActingRole,
   type EntryKind,
 } from "@/lib/store";
 
@@ -52,7 +52,7 @@ const onDate = fn();
  *  the shipment when there is one). Keyed so a Controls change reopens it fresh. */
 const entryForm = (
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   branch = "",
   lotId = db.lots.at(-1)?.id ?? "",
@@ -73,7 +73,7 @@ const entryForm = (
 /** A story that opens `kind` for `role` on the newest lot of `db`. */
 const form = (
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   branch = "",
   lotId?: string,
@@ -321,22 +321,6 @@ export const BranchChiliPurchase: Story = form(
   "ศาลาแดง",
 );
 
-/** The older combined form: rice and chili bought on one receipt. */
-export const BranchSupplyPurchase: Story = form(
-  demoDb,
-  "branch",
-  "supplyPurchase",
-  "ศาลาแดง",
-);
-
-/** The older combined form: rice and chili issued together. */
-export const BranchSupplyIssue: Story = form(
-  demoDb,
-  "branch",
-  "supplyIssue",
-  "ศาลาแดง",
-);
-
 /** เลือกสาขาใน Controls. */
 export const BranchRiceIssue: Story = branchForm("riceIssue");
 
@@ -370,12 +354,6 @@ export const BranchRiceIssueFilled = issueFilled("riceIssue", "ศาลาแ�
 ]);
 
 export const BranchChiliIssueFilled = issueFilled("chiliIssue", "ศาลาแดง", [
-  [/น้ำพริกที่เบิก/, "3"],
-  [/ผู้รับของ/, "ครัวศาลาแดง"],
-]);
-
-export const BranchSupplyIssueFilled = issueFilled("supplyIssue", "ศาลาแดง", [
-  [/ข้าวเหนียวดิบที่เบิก/, "2"],
   [/น้ำพริกที่เบิก/, "3"],
   [/ผู้รับของ/, "ครัวศาลาแดง"],
 ]);

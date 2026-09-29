@@ -19,7 +19,7 @@ import {
   packingListView,
   receivedValue,
   type ReceivedDraft,
-} from "@/components/organisms/chef/receivedBoxes";
+} from "@/components/organisms/shared/receivedBoxes";
 import { currentTimeSlot, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {

@@ -1,7 +1,6 @@
 import type { Notification } from "@/components/organisms/workspace/NotificationPopover";
 import { today } from "@/lib/format";
 import {
-  editApprovers,
   editDecisions,
   editRequestRows,
   entryBy,
@@ -9,7 +8,7 @@ import {
   visibleEntries,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
   type EntryKind,
 } from "@/lib/store";
 
@@ -27,7 +26,7 @@ export const editOutcome = (decision?: Entry) =>
  *  ponytail: no "seen" marker, a decision drops off after 7 days; add one if that is noisy. */
 export function editRequestAlerts(
   db: Database,
-  role: Role,
+  role: ActingRole,
   branch: string,
   now = today(),
 ): Notification[] {
@@ -35,7 +34,7 @@ export function editRequestAlerts(
     ...db,
     entries: visibleEntries(db, role, branch),
   });
-  if (editApprovers.includes(role)) {
+  if (role === "owner") {
     const waiting = rows.filter((row) => !row.decision).length;
     return waiting
       ? [

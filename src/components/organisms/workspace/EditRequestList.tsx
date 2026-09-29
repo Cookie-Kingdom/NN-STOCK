@@ -14,7 +14,6 @@ import { EditDiff } from "@/components/organisms/shared/EntryDetails";
 import { editOutcome } from "@/components/organisms/workspace/editRequestAlerts";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
-  editApprovers,
   editDecisions,
   editRequestRows,
   check,
@@ -23,7 +22,7 @@ import {
   titles,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
   type EntryKind,
 } from "@/lib/store";
 import { today } from "@/lib/format";
@@ -40,7 +39,7 @@ function RequestRow({
 }: {
   request: Entry;
   decision?: Entry;
-  role: Role;
+  role: ActingRole;
   onChanged: (message: string) => void;
 }) {
   const [note, setNote] = useState("");
@@ -71,7 +70,7 @@ function RequestRow({
     );
   };
   const outcome = editOutcome(decision);
-  const approver = editApprovers.includes(role);
+  const approver = role === "owner";
   return (
     <div className="border-b border-border py-3.5 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -146,11 +145,11 @@ export function EditRequestList({
   onChanged,
 }: {
   db: Database;
-  role: Role;
+  role: ActingRole;
   onChanged: (message: string) => void;
 }) {
   const rows = editRequestRows(db);
-  const approver = editApprovers.includes(role);
+  const approver = role === "owner";
   const waiting = rows.filter((row) => !row.decision).length;
   return (
     <Panel>

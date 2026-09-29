@@ -12,7 +12,7 @@ import {
   mutate,
   saleCost,
   type Database,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
@@ -23,7 +23,7 @@ import { day, dispatch, last, readyToDispatch, ready, setup } from "./fixtures";
 function save(
   full: Database,
   accountId: string,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,

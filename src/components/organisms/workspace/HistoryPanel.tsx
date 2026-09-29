@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { EntryDetails } from "@/components/organisms/shared/EntryDetails";
 import { EditRequestList } from "@/components/organisms/workspace/EditRequestList";
-import { type Database, type Role, visibleEntries } from "@/lib/store";
+import { type Database, type ActingRole, visibleEntries } from "@/lib/store";
 
 export function HistoryPanel({
   db,
@@ -15,7 +15,7 @@ export function HistoryPanel({
   onChanged,
 }: {
   db: Database;
-  role: Role;
+  role: ActingRole;
   branch: string;
   /** Account Manager: sales arrive without their money, so they are not edited here. */
   hideSales?: boolean;
