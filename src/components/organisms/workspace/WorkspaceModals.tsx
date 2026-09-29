@@ -224,6 +224,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       modal={modal}
       onClose={close}
       onOpen={ws.open}
+      onTab={setTab}
       switcher={switcher}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);

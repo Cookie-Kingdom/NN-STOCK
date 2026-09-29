@@ -6,8 +6,8 @@ import { DataTable } from "@/components/organisms/shared/DataTable";
 import type { CloseDayItem } from "@/lib/store";
 
 /** What closing the day needs (closeDayChecklist, the same list mutate checks), with a
- *  way to go fill each missing item. `onGo` opens that item's form, or, for an item
- *  filled on the day screen itself (materials), just closes this dialog. An item with
+ *  way to go fill each missing item. `onGo` opens that item's form, or, for materials
+ *  (counted on the ตรวจนับสต๊อกวัสดุวันนี้ tab), goes to that tab. An item with
  *  no form (the chill carried into tomorrow) is information and never blocks. */
 export function CloseDayChecklist({
   items,
@@ -36,7 +36,7 @@ export function CloseDayChecklist({
                 : "ไม่บังคับ · ยังไม่บันทึก",
           (item.required || item.kind) && !item.done && onGo ? (
             <Button key={item.key} variant="table" onClick={() => onGo(item)}>
-              {item.kind ? "ไปกรอก" : "ไปกรอกในหน้ารายวัน"}
+              {item.kind ? "ไปกรอก" : "ไปหน้าตรวจนับวัสดุ"}
             </Button>
           ) : (
             "-"

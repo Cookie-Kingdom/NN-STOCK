@@ -37,8 +37,9 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
     title: "ออก Invoice เนื้อ · F260909-001",
     tab: "foodiva",
   });
-  expect(alerts().badges.transport).toBe(0); // a purchase PO is never a truck job
   expect(alerts().badges.foodiva).toBe(1);
+  // The transport tab only lists; its dispatch action lives on foodiva, so no badge.
+  expect(alerts().badges).not.toHaveProperty("transport");
   confirm(s, "50");
   // Foodiva opens the batch before the Owner's smoke PO (D2): the batch lists what it
   // lacks (DASH-02) and points at the Owner's first missing step.

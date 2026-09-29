@@ -65,7 +65,7 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
-import { NO_LOT, noLotLabel, type Modal } from "@/lib/nav";
+import { NO_LOT, noLotLabel, type Modal, type Tab } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
@@ -357,6 +357,7 @@ export function EntryForm({
   onClose,
   onSaved,
   onOpen,
+  onTab,
   branch,
   switcher,
 }: {
@@ -372,6 +373,8 @@ export function EntryForm({
   onSaved: (db: Database) => void;
   /** Opens another workspace form in place of this one (the close-day checklist). */
   onOpen?: (kind: EntryKind) => void;
+  /** Leaves the form for a workspace tab (the checklist's material count). */
+  onTab?: (tab: Tab) => void;
   /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
   switcher?: ReactNode;
 }) {
@@ -727,7 +730,7 @@ export function EntryForm({
                 label="Lot ต้นทาง"
                 hint={
                   lotPick === NO_LOT
-                    ? "ยังไม่ผูก Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
+                    ? "ไม่ระบุ Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
                     : undefined
                 }
               >
@@ -806,9 +809,11 @@ export function EntryForm({
               <>
                 <CloseDayChecklist
                   items={checklist}
-                  onGo={(item) =>
-                    item.kind && onOpen ? onOpen(item.kind) : onClose()
-                  }
+                  onGo={(item) => {
+                    if (item.kind && onOpen) return onOpen(item.kind);
+                    onClose();
+                    onTab?.("material-count");
+                  }}
                 />
                 <MeatDaySummary db={db} branch={branch} date={date} />
                 <DailySummary db={db} branch={branch} date={date} />

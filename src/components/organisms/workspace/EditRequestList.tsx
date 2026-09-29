@@ -44,7 +44,11 @@ function RequestRow({
 }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const decide = (choice: string) => {
+  const run = (
+    kind: EntryKind,
+    values: Record<string, string>,
+    done: string,
+  ) => {
     setError("");
     let next = undefined as Database | undefined;
     // A stock left below zero is only a warning: it is said with the result, and saved.
@@ -52,23 +56,32 @@ function RequestRow({
       next = mutate(
         latestDatabase(),
         role,
-        "editDecision",
-        { requestId: request.id, decision: choice, note },
+        kind,
+        values,
         "",
         today(),
+        request.branch,
       );
     });
     if (!next) return setError(error || "บันทึกไม่สำเร็จ");
     saveDatabase(next);
-    onChanged(
-      [
-        choice === editDecisions.approve
-          ? "อนุมัติคำขอแล้ว ระบบใช้ค่าใหม่คำนวณยอดทันที"
-          : "ไม่อนุมัติคำขอแล้ว ค่าเดิมยังใช้อยู่",
-        ...warnings,
-      ].join(" · "),
-    );
+    onChanged([done, ...warnings].join(" · "));
   };
+  const decide = (choice: string) =>
+    run(
+      "editDecision",
+      { requestId: request.id, decision: choice, note },
+      choice === editDecisions.approve
+        ? "อนุมัติคำขอแล้ว ระบบใช้ค่าใหม่คำนวณยอดทันที"
+        : "ไม่อนุมัติคำขอแล้ว ค่าเดิมยังใช้อยู่",
+    );
+  // The requester takes back a request nobody has decided yet (a void of the request).
+  const withdraw = () =>
+    run(
+      "void",
+      { targetId: request.id, reason: "ผู้ขอถอนคำขอแก้ไข" },
+      "ถอนคำขอแก้ไขแล้ว ค่าเดิมยังใช้อยู่",
+    );
   const outcome = editOutcome(decision);
   const approver = role === "owner";
   return (
@@ -129,6 +142,14 @@ function RequestRow({
             >
               อนุมัติ
             </Button>
+          </ButtonRow>
+          <FormError error={error} />
+        </>
+      )}
+      {!decision && !approver && request.role === "branch" && (
+        <>
+          <ButtonRow compact>
+            <Button onClick={withdraw}>ถอนคำขอ</Button>
           </ButtonRow>
           <FormError error={error} />
         </>

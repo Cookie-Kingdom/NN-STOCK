@@ -65,6 +65,7 @@ const reversibleKinds = [
   "expense",
   "unlock",
   "link",
+  "entryEdit",
 ];
 
 /** Labels for computed values that are not fields of the entry's form. */

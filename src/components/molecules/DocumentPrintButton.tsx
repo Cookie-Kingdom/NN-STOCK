@@ -53,7 +53,7 @@ export function DocumentPrintButton({
     const popup = window.open("", "_blank", "width=880,height=720");
     if (!popup) {
       window.alert(
-        "เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up สำหรับ localhost:3000 แล้วลองอีกครั้ง",
+        `เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up สำหรับ ${window.location.host} แล้วลองอีกครั้ง`,
       );
       return;
     }

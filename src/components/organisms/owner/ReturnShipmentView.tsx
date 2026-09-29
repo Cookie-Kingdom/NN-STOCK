@@ -72,7 +72,7 @@ export function ReturnShipmentView({
               key={lot.id}
               onClick={() => open("return", lot.id)}
             >
-              สร้างใบขนส่งขากลับ · {fmt(produced(db, lot.id))} กก.
+              เรียกรถขากลับ · {fmt(produced(db, lot.id))} กก.
             </Button>,
           ];
         })}

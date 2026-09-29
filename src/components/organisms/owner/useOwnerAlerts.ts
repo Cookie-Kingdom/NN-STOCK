@@ -56,10 +56,6 @@ export function useOwnerAlerts(db: Database) {
   ).length;
 
   const shipmentLots = shipments(db);
-  // Outbound only: the return trip has its own tab and counts on its own badge.
-  const transportCount = shipmentLots.filter(
-    (lot) => !lotProgress(db, lot.id).has("dispatch"),
-  ).length;
   const returnReady = returnReadyLots(db);
   // Foodiva has the smoked beef in its freezer; the Owner has not counted it into central.
   const centralReceiveCount = shipmentLots.filter((lot) => {
@@ -86,6 +82,8 @@ export function useOwnerAlerts(db: Database) {
     lot,
     p: lotProgress(db, lot.id),
   }));
+  // The outbound transport doc is made on the foodiva tab (the transport tab only lists),
+  // so a batch still waiting on it counts here, not on a `transport` badge.
   const foodivaCount =
     purchaseLots(db).filter(
       (lot) => !lotProgress(db, lot.id).has("foodivaConfirm"),
@@ -226,7 +224,6 @@ export function useOwnerAlerts(db: Database) {
     missingMaterialSettings,
     returnReady,
     badges: {
-      transport: transportCount,
       "return-shipment": returnReady.length,
       invoices: billingCount,
       "smoke-po": smokePoCount,

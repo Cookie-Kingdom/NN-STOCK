@@ -63,7 +63,8 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest and link. */
+/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest, link and
+ *  void (a branch only voids its own pending edit request; derived.ts ignores any other). */
 const branchKinds: EntryKind[] = [
   "receive",
   "thaw",
@@ -82,6 +83,7 @@ const branchKinds: EntryKind[] = [
   "closeDay",
   "editRequest",
   "link",
+  "void",
 ];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const without = (value: object, ...keys: string[]) =>
