@@ -5,6 +5,7 @@ import {
   type Values,
   type EntryKind,
 } from "./store";
+import { omit } from "./store/visibility";
 
 /* What a branch account receives from load_app_state (review APP-01 / DB-03). Until migration
  * 20260925000028 every role but the Account Manager got the whole payload, and
@@ -81,7 +82,7 @@ export const scopeRules: Record<ScopedRole, ScopeRule> = {
 };
 
 /** Kinds that follow the entry they name in `targetId`. */
-export const followKinds = [
+const followKinds = [
   "void",
   "entryEdit",
   "editRequest",
@@ -90,13 +91,7 @@ export const followKinds = [
 ];
 
 const hide = (values: Values, hidden: string[]): Values =>
-  values && typeof values === "object"
-    ? Object.fromEntries(
-        Object.entries(values).filter(
-          ([key]) => !hidden.includes(key.replace(/^(to|from)\./, "")),
-        ),
-      )
-    : values;
+  values && typeof values === "object" ? omit(values, hidden) : values;
 const pick = (config: Values, keys: string[]): Values =>
   Object.fromEntries(
     Object.entries(config ?? {}).filter(([key]) =>

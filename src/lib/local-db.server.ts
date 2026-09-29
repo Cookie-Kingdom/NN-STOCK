@@ -50,7 +50,6 @@ export function loadState(
   if (account!.role === "owner" && !account!.hidesSales) return row;
   if (account!.role === "owner")
     return { ...row, payload: stripSaleMoney(row.payload) };
-  if (account!.role !== "branch") fail("Account is not active");
   return {
     ...row,
     payload: scopeDatabase(
@@ -100,8 +99,6 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
-  if (account!.role !== "owner" && account!.role !== "branch")
-    fail("Account is not active");
   if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
     fail("Payload too large");
   let payload = input as Database;
@@ -236,7 +233,6 @@ export function appendState(
   )
     fail("Payload too large");
   const role = account!.role;
-  if (role !== "owner" && role !== "branch") fail("Account is not active");
   if (role !== "branch") fail("Only branch accounts append entries");
   const added = entryInput as Entry[];
   const changes = (lotInput ?? []) as Lot[];

@@ -24,13 +24,8 @@ if (
     "NEXT_PUBLIC_SUPABASE_URL points at the production Supabase project; run e2e against a test project or `pnpm test:e2e:local`.",
   );
 
-// Scratch specs (`_*.spec.ts`, e.g. the visual baseline) run only when asked:
-// VISUAL=1, or SHOT_DIR set as in the documented visual command.
-const includeScratch = Boolean(process.env.VISUAL || process.env.SHOT_DIR);
-
 export default defineConfig({
   testDir: "./tests/e2e",
-  ...(includeScratch ? {} : { testIgnore: "**/_*.spec.ts" }),
   timeout: 600_000,
   expect: { timeout: 10_000 },
   outputDir: "artifacts/playwright",

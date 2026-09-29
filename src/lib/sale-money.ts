@@ -7,6 +7,7 @@ import {
   type Entry,
   type Values,
 } from "./store";
+import { omit } from "./store/visibility";
 
 /* Server side only (local SQLite backend): the Account Manager never receives a sale's money in
  * (C4), and a save from its stripped copy must not erase that money for everyone else.
@@ -14,13 +15,8 @@ import {
  * supabase/migrations/20260922000021_account_manager_hides_sales.sql.
  * ponytail: duplicated rules, keep in step with that migration when it changes. */
 
-const isMoneyKey = (key: string) =>
-  saleMoneyKeys.includes(key.replace(/^(to|from)\./, ""));
-
 export const stripSaleMoneyValues = (values: Values): Values =>
-  Object.fromEntries(
-    Object.entries(values).filter(([key]) => !isMoneyKey(key)),
-  );
+  omit(values, saleMoneyKeys);
 
 const stripEntry = (entry: Entry): Entry =>
   entry?.values && typeof entry.values === "object"

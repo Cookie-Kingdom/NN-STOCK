@@ -602,10 +602,6 @@ export function chiliStock(db: Database, branch: string, throughDate?: string) {
     chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate)
   );
 }
-/** Kept for old components; it now means the current branch balance, not a branch issue. */
-export function issuedChiliStock(db: Database, branch: string) {
-  return chiliStock(db, branch);
-}
 export function materialSent(
   db: Database,
   material: string,

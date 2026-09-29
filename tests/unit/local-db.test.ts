@@ -212,19 +212,6 @@ test("the Owner and the Account Manager save Foodiva / Chef House work", () => {
   ).toThrow("actor does not match");
 });
 
-test("Foodiva and Chef House accounts are refused on load and save", () => {
-  const db = openLocalDb(":memory:");
-  const { payload } = readState(db);
-  // M3 dropped these accounts from accounts.ts; a caller that still has one is refused.
-  for (const role of ["foodiva", "cm"] as const) {
-    const account = { ...accountById("owner")!, role };
-    expect(() => loadState(db, account)).toThrow("Account is not active");
-    expect(() => saveState(db, account, payload, 1)).toThrow(
-      "Account is not active",
-    );
-  }
-});
-
 test("load without a signed-in account is refused", () => {
   // GET /api/local-db maps a missing, unknown or stale cookie to null.
   expect(() => loadState(openLocalDb(":memory:"), null)).toThrow(

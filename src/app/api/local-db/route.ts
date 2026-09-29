@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
-import { ownerBranchScenario, seed, sevenDayRoleplay } from "@/lib/store";
+import { seed } from "@/lib/store";
+import { sevenDayRoleplay } from "@/lib/store/demo";
+import { ownerBranchScenario } from "@/lib/store/scenario";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served

@@ -5,10 +5,10 @@ import {
   materials,
   mutate,
   riceSources,
-  sevenDayRoleplay,
   type Database,
   type EntryKind,
 } from "@/lib/store";
+import { sevenDayRoleplay } from "@/lib/store/demo";
 import {
   chillDay,
   closed,

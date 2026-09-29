@@ -40,7 +40,6 @@ import {
   riceSources,
   saleWithInfluencers,
   seed,
-  sevenDayRoleplay,
   smokeServiceRate,
   smokingInvoiceRejection,
   smokingInvoiceStatus,
@@ -57,6 +56,7 @@ import {
   saleCost,
   batchKinds,
 } from "@/lib/store";
+import { sevenDayRoleplay } from "@/lib/store/demo";
 import {
   expectWarning,
   closed,
