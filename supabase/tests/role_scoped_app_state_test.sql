@@ -61,20 +61,37 @@ begin
   select l.payload into v_seen from public.load_app_state() l;
   assert jsonb_array_length(v_seen -> 'entries') = 14 and v_seen -> 'config' = v_cfg, 'owner load changed';
 
-  -- Branch (มีนบุรี): its own sale and allocation, the void of its sale, its receive with no lot
-  -- and the link naming it; no other branch, no purchase, no Foodiva invoice, no cost or price,
-  -- only the lot allocated to it (BR-07).
+  -- Branch (มีนบุรี): its own sale and allocation, ศาลาแดง's allocation cut to kg (0035, for
+  -- centralStock), the void of its sale, its receive with no lot and the link naming it; no other
+  -- branch's sale, no purchase, no Foodiva invoice, no cost or price, every batch S (BR-08).
   perform set_config('test.uid', v_branch::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   select string_agg(e ->> 'id', ',' order by ord) into v_text from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord);
-  assert v_text = 'e-al1,e-mb,e-v1,e-rcv,e-lk', format('branch entries: %s', v_text);
-  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1', 'branch lots';
+  assert v_text = 'e-al1,e-al2,e-mb,e-v1,e-rcv,e-lk', format('branch entries: %s', v_text);
+  assert v_seen -> 'entries' -> 1 = '{"id":"e-al2","kind":"allocate","role":"owner","lotId":"S1","branch":"ศาลาแดง","date":"2026-09-04","values":{"kg":"15"}}'::jsonb,
+    format('other allocation: %s', v_seen -> 'entries' -> 1);
+  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1,S2', 'branch lots';
+  assert v_seen -> 'lots' -> 1 -> 'values' = '{"requestedKg":"10"}'::jsonb, format('S2 values: %s', v_seen -> 'lots' -> 1);
   assert v_seen::text !~ '"(price|lines|meatCost|wasteCost|outboundCost|returnCost|estimatedCost|invoiceAmount)"',
     format('branch load leaks cost: %s', v_seen);
-  assert v_seen -> 'entries' -> 1 -> 'values' ->> 'revenue' = '700', 'branch lost its own sale money';
+  assert v_seen -> 'entries' -> 2 -> 'values' ->> 'revenue' = '700', 'branch lost its own sale money';
   assert v_seen -> 'config' ->> 'boxPrice' = '350' and not (v_seen -> 'config' ? 'outboundFee'), format('branch config: %s', v_seen -> 'config');
   assert v_seen -> 'lots' -> 0 -> 'config' = '{"boxPrice":"350"}', 'branch lot config';
   assert v_seen ->> 'version' = '9', 'branch version';
+
+  -- 0035: another branch's receive, its Owner void and edit follow it cut to centralKeys; its
+  -- edit request does not (tests/unit/roleScope.test.ts checks scopeDatabase on the same log).
+  v_seen := public.scope_app_state(jsonb_build_object('version', 9, 'lots', v_lots, 'config', v_cfg, 'entries', '[
+    {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5","reason":"x","meatCost":"9"}},
+    {"id":"rq","kind":"editRequest","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
+    {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4","from.kg":"5","targetRole":"branch","targetBranch":"ศาลาแดง"}},
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","reason":"x"}}
+  ]'::jsonb), array['มีนบุรี']);
+  assert v_seen -> 'entries' = '[
+    {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5"}},
+    {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2"}}
+  ]'::jsonb, format('central follow: %s', v_seen -> 'entries');
 
   -- M1: Foodiva and Chef House accounts are retired, even when active.
   foreach v_uid in array array[v_food, v_cm] loop
