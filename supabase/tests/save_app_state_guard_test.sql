@@ -1,4 +1,6 @@
 -- Failure-case test: save_app_state refuses non-owner lot tampering and cross-branch entries.
+-- M1 (migration 0032): Foodiva / Chef House work is typed by the Owner (actor "owner") or the
+-- Account Manager (actor "manager"); L3 / L4 accounts are refused even when re-activated.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/save_app_state_guard_test.sql
 
 do $$
@@ -10,11 +12,13 @@ declare
   v_mgr    uuid := gen_random_uuid();
   v_loc   uuid;
   v_rev    bigint;
+  v_uid    uuid;
   v_err    text;
   lot1     constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{}}';
   lot1b    constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{"receivedKg":"1"}}';
   v_s      constant jsonb := '{"id":"S260907-001-a1b2","poId":"SH-2026-0001","kind":"shipment","config":{},"values":{"receivedKg":"5"}}';
-  v_log    constant text := '{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"},{"id":"e2b","kind":"cmReceive","role":"cm","lotId":"S260907-001-a1b2","values":{"receivedKg":"5"}}';
+  v_e12    constant text := '{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva","actor":"owner"}';
+  v_log    constant text := v_e12 || ',{"id":"e2b","kind":"cmReceive","role":"cm","actor":"manager","lotId":"S260907-001-a1b2","values":{"receivedKg":"5"}},{"id":"e2c","kind":"dispatch","role":"foodiva","actor":"manager","lotId":"S260907-001-a1b2","values":{"trip":"1"}}';
 begin
   -- The harness auth.uid() always returns null; let each step pick the signed-in user.
   create or replace function auth.uid() returns uuid language sql stable
@@ -49,17 +53,52 @@ begin
   select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
     'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"}]'::jsonb), v_rev) s;
 
-  -- The supplier role the client writes is "foodiva"; the function spelled it "fooddiva"
-  -- for two migrations and refused every Foodiva save.
-  perform set_config('test.uid', v_food::text, true);
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
-    'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev) s;
+  -- A branch may not claim to be the Owner.
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb,
+      'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e1b","kind":"sale","role":"branch","branch":"มีนบุรี","actor":"owner"}]'::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry actor does not match signed-in account', format('branch as owner: got %s', v_err);
 
-  perform set_config('test.uid', v_cm::text, true);
+  -- M1: the Owner types Foodiva's Packing List (role foodiva, actor owner), but may not stamp
+  -- "owner" on its own entry.
+  perform set_config('test.uid', v_owner::text, true);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb,
+      'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"central","role":"owner","actor":"owner"}]'::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry actor does not match signed-in account', format('owner actor on owner entry: got %s', v_err);
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
+    'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev) s;
+
+  -- L3 / L4 are retired: refused up front even when active (this test re-activated them).
+  foreach v_uid in array array[v_cm, v_food] loop
+    perform set_config('test.uid', v_uid::text, true);
+    v_err := null;
+    begin perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
+      'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev);
+    exception when others then v_err := sqlerrm; end;
+    assert v_err = 'Account is not active', format('retired save: got %s', v_err);
+    v_err := null;
+    begin perform public.load_app_state();
+    exception when others then v_err := sqlerrm; end;
+    assert v_err = 'Account is not active', format('retired load: got %s', v_err);
+    v_err := null;
+    begin perform public.append_entries(v_rev, '[]'::jsonb, '[]'::jsonb);
+    exception when others then v_err := sqlerrm; end;
+    assert v_err = 'Account is not active', format('retired append: got %s', v_err);
+  end loop;
+
+  -- A non-owner (the branch) may not touch a lot's identity.
+  perform set_config('test.uid', v_branch::text, true);
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', '[]'::jsonb, 'config', '{}'::jsonb,
-      'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev);
+      'entries', ('[' || v_e12 || ']')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Only an owner can add or remove lots', format('lot removal: got %s', v_err);
@@ -67,7 +106,7 @@ begin
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1 || '{"poId":"P9"}'),
-      'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev);
+      'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Lot changes must follow the workflow', format('lot identity change: got %s', v_err);
@@ -76,23 +115,31 @@ begin
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1, '{"id":"L9","poId":"P9","config":{},"values":{}}'::jsonb),
-      'config', '{}'::jsonb, 'entries', '[{"id":"e1","kind":"sale","role":"branch","branch":"มีนบุรี"},{"id":"e2","kind":"packingList","role":"foodiva"}]'::jsonb), v_rev);
+      'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Only an owner can add or remove lots', format('non-owner purchase lot: got %s', v_err);
 
-  -- No stage (SRV-01): Chef House opens a batch and records on it with no smoke PO.
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1, v_s),
-    'config', '{}'::jsonb, 'entries', ('[' || v_log || ']')::jsonb), v_rev) s;
+  -- A saved lot's values move by a non-owner (DM-09).
+  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b),
+    'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev) s;
 
-  -- A saved lot's values move by any role (DM-09).
-  perform set_config('test.uid', v_food::text, true);
+  -- M1 / no stage (SRV-01): the Account Manager opens a batch and records Chef House's weigh-in
+  -- and Foodiva's truck on it, stamped "manager"; stamped "owner" it is refused.
+  perform set_config('test.uid', v_mgr::text, true);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
+      'config', '{}'::jsonb, 'entries', ('[' || replace(v_log, '"manager"', '"owner"') || ']')::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Entry actor does not match signed-in account', format('manager as owner: got %s', v_err);
   select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
     'config', '{}'::jsonb, 'entries', ('[' || v_log || ']')::jsonb), v_rev) s;
+  assert (select payload -> 'entries' -> 3 ->> 'kind' from public.app_state) = 'dispatch', 'manager dispatch not saved';
 
   -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots, changes config and
-  -- appends "owner" entries, but may not write as any other role.
-  perform set_config('test.uid', v_mgr::text, true);
+  -- appends owner / foodiva / cm entries, but may not write as a branch.
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),

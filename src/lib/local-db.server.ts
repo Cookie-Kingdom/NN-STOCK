@@ -6,12 +6,10 @@ import type { Account } from "./accounts";
 import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
-  branches,
   seed,
   type Database,
   type Entry,
   type Lot,
-  type Role,
   type EntryKind,
 } from "./store";
 
@@ -40,8 +38,8 @@ export function readState(db: DatabaseSync): AppStateRow {
 }
 
 /** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
- * money (C4), every other role its role-scoped copy (load_app_state in 20260925000028;
- * scope_app_state latest in 20260928000031). */
+ * money (C4), a branch its role-scoped copy; Foodiva and Chef House accounts are retired
+ * (load_app_state in 20260929000032; scope_app_state latest in 20260928000031). */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
@@ -50,11 +48,12 @@ export function loadState(
   if (!account || (account.role === "owner" && !account.hidesSales)) return row;
   if (account.role === "owner")
     return { ...row, payload: stripSaleMoney(row.payload) };
+  if (account.role !== "branch") fail("Account is not active");
   return {
     ...row,
     payload: scopeDatabase(
       row.payload,
-      account.role,
+      "branch",
       account.branch ? [account.branch] : [],
     ),
   };
@@ -64,54 +63,33 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds each non-owner role may append: `ownership` in store/mutate.ts plus editRequest. */
-const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
-  branch: [
-    "receive",
-    "thaw",
-    "supplyPurchase",
-    "supplyIssue",
-    "ricePurchase",
-    "chiliPurchase",
-    "riceIssue",
-    "chiliIssue",
-    "rice",
-    "riceCarry",
-    "sale",
-    "influencerBox",
-    "materials",
-    "materialConfirm",
-    "closeDay",
-    "editRequest",
-    "link",
-  ],
-  cm: [
-    "smokingInvoice",
-    "smokeOrderAccept",
-    "cmReceive",
-    "prepare",
-    "smoke",
-    "closeLot",
-    "chefEdit",
-    "editRequest",
-    "link",
-  ],
-  foodiva: [
-    "foodivaConfirm",
-    "packingList",
-    "foodivaReturnReceive",
-    "dispatch",
-    "editRequest",
-    "link",
-  ],
-};
+/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest and link. */
+const branchKinds: EntryKind[] = [
+  "receive",
+  "thaw",
+  "supplyPurchase",
+  "supplyIssue",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materials",
+  "materialConfirm",
+  "closeDay",
+  "editRequest",
+  "link",
+];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const without = (value: object, ...keys: string[]) =>
   Object.fromEntries(
     Object.entries(value).filter(([key]) => !keys.includes(key)),
   );
 
-/** JS port of `save_app_state` (latest in supabase/migrations/20260928000030_free_ledger_app_state.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -120,6 +98,8 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
+  if (account!.role !== "owner" && account!.role !== "branch")
+    fail("Account is not active");
   if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
     fail("Payload too large");
   let payload = input as Database;
@@ -158,28 +138,31 @@ export function saveState(
     )
   )
     fail("Existing history cannot be changed");
-  // The Account Manager writes as role "owner" and stamps every new entry; nobody else may.
+  // The Account Manager stamps every new entry (owner / foodiva / cm); the Owner may stamp
+  // "owner" on a partner's entry it typed (M0); a branch stamps nothing.
   const manager = account!.id === "manager";
   for (const entry of payload.entries.slice(old.entries.length)) {
-    if (manager && entry?.role !== "owner")
+    const actorOk = manager
+      ? entry?.actor === "manager"
+      : role === "owner"
+        ? entry?.actor === undefined ||
+          (entry.actor === "owner" &&
+            (entry.role === "foodiva" || entry.role === "cm"))
+        : entry?.actor === undefined;
+    if (!actorOk) fail("Entry actor does not match signed-in account");
+    if (manager && !["owner", "foodiva", "cm"].includes(entry.role))
       fail("Entry role does not match signed-in account");
-    if (entry?.actor !== (manager ? "manager" : undefined))
-      fail("Entry actor does not match signed-in account");
   }
   if (role !== "owner") {
     const added = payload.entries.slice(old.entries.length);
-    // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
-    const configBranch = branches.includes(old.config.branch ?? "")
-      ? old.config.branch
-      : branches[0];
     for (const entry of added) {
-      if (entry?.role !== role)
+      if (entry?.role !== "branch")
         fail("Entry role does not match signed-in account");
-      if (role === "branch" && entry.branch !== account!.branch)
+      if (entry.branch !== account!.branch)
         fail("Entry branch does not match signed-in account");
     }
     for (const entry of added) {
-      if (!allowedKinds[role]?.includes(entry.kind))
+      if (!branchKinds.includes(entry.kind))
         fail("Entry kind is not allowed for this account");
       if (
         !entry.id ||
@@ -192,15 +175,9 @@ export function saveState(
         !payload.lots.some((lot) => lot?.id === entry.lotId)
       )
         fail("Entry lot does not exist");
-      if (
-        (role === "cm" || role === "foodiva") &&
-        entry.branch != null &&
-        entry.branch !== configBranch
-      )
-        fail("Entry branch does not match signed-in account");
     }
     // SRV-02: no workflow step to check. A lot keeps its identity; only its values cache
-    // moves (DM-09), and Foodiva or Chef House may open a new shipment batch (GEN-09).
+    // moves (DM-09), and a new shipment batch may be opened (GEN-09).
     if (payload.lots.length < old.lots.length)
       fail("Only an owner can remove lots");
     old.lots.forEach((lot, index) => {
@@ -239,8 +216,8 @@ const isShipmentLot = (lot: unknown): lot is Lot =>
   typeof lot.poId === "string" &&
   /^SH-\d{4}-\d{4}$/.test(lot.poId);
 
-/** JS port of `append_entries` (supabase/migrations/20260928000030_free_ledger_app_state.sql):
- * a Branch, Foodiva or Chef House save, which sends only its new entries and changed lots.
+/** JS port of `append_entries` (supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql):
+ * a branch save, which sends only its new entries and changed lots.
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
   db: DatabaseSync,
@@ -257,8 +234,8 @@ export function appendState(
   )
     fail("Payload too large");
   const role = account!.role;
-  if (role === "owner")
-    fail("Only branch, Foodiva and Chef House accounts append entries");
+  if (role !== "owner" && role !== "branch") fail("Account is not active");
+  if (role !== "branch") fail("Only branch accounts append entries");
   const added = entryInput as Entry[];
   const changes = (lotInput ?? []) as Lot[];
   if (
@@ -273,14 +250,11 @@ export function appendState(
     fail("State changed on another device. Reload and try again.");
   if (added.some((entry) => entry.actor != null))
     fail("Entry actor does not match signed-in account");
-  if (added.some((entry) => entry.role !== role))
+  if (added.some((entry) => entry.role !== "branch"))
     fail("Entry role does not match signed-in account");
-  if (
-    role === "branch" &&
-    added.some((entry) => entry.branch !== account!.branch)
-  )
+  if (added.some((entry) => entry.branch !== account!.branch))
     fail("Entry branch does not match signed-in account");
-  if (added.some((entry) => !allowedKinds[role]?.includes(entry.kind)))
+  if (added.some((entry) => !branchKinds.includes(entry.kind)))
     fail("Entry kind is not allowed for this account");
   const oldIds = new Set(old.entries.map((entry) => entry?.id));
   if (
@@ -292,15 +266,6 @@ export function appendState(
     )
   )
     fail("Entry id must be unique");
-  // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
-  const configBranch = branches.includes(old.config.branch ?? "")
-    ? old.config.branch
-    : branches[0];
-  if (
-    (role === "cm" || role === "foodiva") &&
-    added.some((entry) => entry.branch != null && entry.branch !== configBranch)
-  )
-    fail("Entry branch does not match signed-in account");
 
   const workflow = "Lot changes must follow the workflow";
   if (new Set(changes.map((lot) => lot.id)).size !== changes.length)
@@ -309,7 +274,7 @@ export function appendState(
   for (const change of changes) {
     const index = old.lots.findIndex((lot) => lot?.id === change.id);
     if (index < 0) {
-      // GEN-09: a new shipment batch opened by Foodiva or Chef House.
+      // GEN-09: a new shipment batch.
       if (!isShipmentLot(change) || lots.some((lot) => lot?.id === change.id))
         fail("Only an owner can add or remove lots");
       lots.push({ ...change, values: change.values ?? {} });
