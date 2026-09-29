@@ -6,6 +6,7 @@ import {
   balance,
   branchMaterialStock,
   branches,
+  centralStock,
   chiliStock,
   closeDayChecklist,
   cookedRiceStock,
@@ -14,6 +15,7 @@ import {
   materials,
   pendingReceiveKg,
   rawRiceStock,
+  shipments,
   visibleEntries,
   type Database,
 } from "@/lib/store";
@@ -21,10 +23,10 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// VIS-05: the latest app_state_scope_rules() (migration 0033) matches branchScope.
-test("the SQL rule (migration 0033) is the same as branchScope", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0035) matches branchScope.
+test("the SQL rule (migration 0035) is the same as branchScope", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260929000033_simplify_branch_scope.sql",
+    "supabase/migrations/20260929000035_branch_scope_all_batches.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
@@ -72,12 +74,104 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
     entries: scoped.entries.map((x) => x.id).join(","),
   });
   expect(ids(scopeDatabase(db, ["มีนบุรี"]))).toEqual({
-    lots: "S1",
-    entries: "e-al1,e-mb,e-v1,e-rcv,e-lk",
+    lots: "S1,S2",
+    entries: "e-al1,e-al2,e-mb,e-v1,e-rcv,e-lk",
   });
+  // The "central follow" block of the same SQL test.
+  const r = (id: string, kind: string, role: string, values: object) => ({
+    id,
+    kind,
+    role,
+    lotId: "S2",
+    branch: "ศาลาแดง",
+    date: "2026-09-07",
+    values,
+  });
+  const central = {
+    ...db,
+    entries: [
+      r("r2", "receive", "branch", { kg: "5", reason: "x", meatCost: "9" }),
+      r("rq", "editRequest", "branch", { targetId: "r2", "to.kg": "4" }),
+      r("ed", "entryEdit", "owner", {
+        targetId: "r2",
+        "to.kg": "4",
+        "from.kg": "5",
+        targetRole: "branch",
+        targetBranch: "ศาลาแดง",
+      }),
+      r("vd", "void", "owner", { targetId: "r2", reason: "x" }),
+    ],
+  } as unknown as Database;
+  expect(scopeDatabase(central, ["มีนบุรี"]).entries).toEqual([
+    r("r2", "receive", "branch", { kg: "5" }),
+    r("ed", "entryEdit", "owner", { targetId: "r2", "to.kg": "4" }),
+    r("vd", "void", "owner", { targetId: "r2" }),
+  ]);
 });
 
-// Not in the SQL fixture yet: scope_app_state() must learn this too (a branch's withdrawn request).
+// BR-08: every batch S reaches the branch, and centralStock (the "สต๊อกกลางไม่พอ" warning, the
+// link dialog) reads as the Owner's, other branches' allocations and receives included.
+test("a branch gets every batch S and the Owner's central stock", () => {
+  const [branch, other] = branches;
+  const lot = shipments(full)[0];
+  const extra = {
+    ...full.entries[0],
+    lotId: "S-new",
+    role: "owner" as const,
+    branch: other,
+    date: dates[0],
+  };
+  const db = {
+    ...full,
+    // A batch no branch has touched; another branch's allocation and receives on it, one voided.
+    lots: [...full.lots, { ...lot, id: "S-new", poId: "SH-new" }],
+    entries: [
+      ...full.entries,
+      {
+        ...extra,
+        id: "x-al",
+        kind: "allocate" as const,
+        values: { kg: "4", note: "n" },
+      },
+      {
+        ...extra,
+        id: "x-rcv",
+        kind: "receive" as const,
+        role: "branch" as const,
+        values: { kg: "6", reason: "r" },
+      },
+      {
+        ...extra,
+        id: "x-rcv2",
+        kind: "receive" as const,
+        role: "branch" as const,
+        values: { kg: "2" },
+      },
+      {
+        ...extra,
+        id: "x-v",
+        kind: "void" as const,
+        values: { targetId: "x-rcv2", reason: "r" },
+      },
+    ],
+  };
+  const scoped = scopeDatabase(db, [branch]);
+  expect(scoped.lots.map((l) => l.id)).toEqual(
+    expect.arrayContaining(shipments(db).map((l) => l.id)),
+  );
+  for (const s of shipments(db))
+    expect(centralStock(scoped, s.id), s.id).toBe(centralStock(db, s.id));
+  expect(scoped.entries.find((e) => e.id === "x-rcv")?.values).toEqual({
+    kg: "6",
+  });
+  expect(scoped.entries.find((e) => e.id === "x-al")?.values).toEqual({
+    kg: "4",
+  });
+  expect(
+    visibleEntries(scoped, "branch", branch).map((e) => e.id),
+  ).not.toContain("x-rcv");
+});
+
 test("a void of a followed entry (a withdrawn edit request) is sent", () => {
   const e = (id: string, kind: string, values: Record<string, string> = {}) =>
     ({

@@ -61,20 +61,37 @@ begin
   select l.payload into v_seen from public.load_app_state() l;
   assert jsonb_array_length(v_seen -> 'entries') = 14 and v_seen -> 'config' = v_cfg, 'owner load changed';
 
-  -- Branch (มีนบุรี): its own sale and allocation, the void of its sale, its receive with no lot
-  -- and the link naming it; no other branch, no purchase, no Foodiva invoice, no cost or price,
-  -- only the lot allocated to it (BR-07).
+  -- Branch (มีนบุรี): its own sale and allocation, ศาลาแดง's allocation cut to kg (0035, for
+  -- centralStock), the void of its sale, its receive with no lot and the link naming it; no other
+  -- branch's sale, no purchase, no Foodiva invoice, no cost or price, every batch S (BR-08).
   perform set_config('test.uid', v_branch::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   select string_agg(e ->> 'id', ',' order by ord) into v_text from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord);
-  assert v_text = 'e-al1,e-mb,e-v1,e-rcv,e-lk', format('branch entries: %s', v_text);
-  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1', 'branch lots';
+  assert v_text = 'e-al1,e-al2,e-mb,e-v1,e-rcv,e-lk', format('branch entries: %s', v_text);
+  assert v_seen -> 'entries' -> 1 = '{"id":"e-al2","kind":"allocate","role":"owner","lotId":"S1","branch":"ศาลาแดง","date":"2026-09-04","values":{"kg":"15"}}'::jsonb,
+    format('other allocation: %s', v_seen -> 'entries' -> 1);
+  assert (select string_agg(l ->> 'id', ',') from jsonb_array_elements(v_seen -> 'lots') l) = 'S1,S2', 'branch lots';
+  assert v_seen -> 'lots' -> 1 -> 'values' = '{"requestedKg":"10"}'::jsonb, format('S2 values: %s', v_seen -> 'lots' -> 1);
   assert v_seen::text !~ '"(price|lines|meatCost|wasteCost|outboundCost|returnCost|estimatedCost|invoiceAmount)"',
     format('branch load leaks cost: %s', v_seen);
-  assert v_seen -> 'entries' -> 1 -> 'values' ->> 'revenue' = '700', 'branch lost its own sale money';
+  assert v_seen -> 'entries' -> 2 -> 'values' ->> 'revenue' = '700', 'branch lost its own sale money';
   assert v_seen -> 'config' ->> 'boxPrice' = '350' and not (v_seen -> 'config' ? 'outboundFee'), format('branch config: %s', v_seen -> 'config');
   assert v_seen -> 'lots' -> 0 -> 'config' = '{"boxPrice":"350"}', 'branch lot config';
   assert v_seen ->> 'version' = '9', 'branch version';
+
+  -- 0035: another branch's receive, its Owner void and edit follow it cut to centralKeys; its
+  -- edit request does not (tests/unit/roleScope.test.ts checks scopeDatabase on the same log).
+  v_seen := public.scope_app_state(jsonb_build_object('version', 9, 'lots', v_lots, 'config', v_cfg, 'entries', '[
+    {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5","reason":"x","meatCost":"9"}},
+    {"id":"rq","kind":"editRequest","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
+    {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4","from.kg":"5","targetRole":"branch","targetBranch":"ศาลาแดง"}},
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","reason":"x"}}
+  ]'::jsonb), array['มีนบุรี']);
+  assert v_seen -> 'entries' = '[
+    {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5"}},
+    {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2"}}
+  ]'::jsonb, format('central follow: %s', v_seen -> 'entries');
 
   -- M1: Foodiva and Chef House accounts are retired, even when active.
   foreach v_uid in array array[v_food, v_cm] loop
@@ -178,6 +195,39 @@ begin
     '[{"id":"n5","kind":"central","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-09","values":{"centralKg":"7"}}]'::jsonb), v_rev) s;
   select payload into v_stored from public.app_state;
   assert v_stored -> 'entries' -> 16 ->> 'kind' = 'central', 'owner central not saved';
+
+  -- 0035: on a closed day a branch still files an edit request, withdraws it (a void of its own
+  -- pending request, nothing else) and links; anything else is refused.
+  perform set_config('test.uid', v_branch::text, true);
+  select public.append_entries(v_rev, '[
+    {"id":"rq1","kind":"editRequest","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","to.kg":"9"}},
+    {"id":"cd1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"confirm":"x"}}
+  ]'::jsonb, '[]'::jsonb) into v_rev;
+  v_err := null;
+  begin perform public.append_entries(v_rev,
+    '[{"id":"n6","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}}]'::jsonb, '[]'::jsonb);
+  exception when others then v_err := sqlerrm; end;
+  assert v_err = 'Branch day is closed', format('closed receive: %s', v_err);
+  foreach v_text in array array['n2', 'e-rcv', 'e-mb'] loop
+    v_err := null;
+    begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'wd0', 'kind', 'void',
+      'role', 'branch', 'lotId', '', 'branch', 'มีนบุรี', 'date', '2026-09-10', 'values', jsonb_build_object('targetId', v_text))), '[]'::jsonb);
+    exception when others then v_err := sqlerrm; end;
+    assert v_err = 'Void target is not a pending edit request of this branch', format('void %s: %s', v_text, v_err);
+  end loop;
+  select public.append_entries(v_rev, '[
+    {"id":"lk2","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","lotId":"S1"}},
+    {"id":"wd1","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"rq1"}}
+  ]'::jsonb, '[]'::jsonb) into v_rev;
+  v_err := null;
+  begin perform public.append_entries(v_rev,
+    '[{"id":"wd2","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"rq1"}}]'::jsonb, '[]'::jsonb);
+  exception when others then v_err := sqlerrm; end;
+  assert v_err = 'Void target is not a pending edit request of this branch', format('second withdrawal: %s', v_err);
+  -- The branch reads its withdrawn request and the withdrawal back.
+  select l.payload into v_seen from public.load_app_state() l;
+  assert (select count(*) from jsonb_array_elements(v_seen -> 'entries') x where x ->> 'id' in ('rq1', 'wd1', 'lk2')) = 3,
+    format('withdrawal not sent: %s', v_seen -> 'entries');
 
   raise exception 'ROLE_SCOPED_APP_STATE_TEST_PASSED';
 end $$;
