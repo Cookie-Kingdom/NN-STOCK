@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
 
-/** `.field` / `.field.wide` — shared with FieldGroup. */
+/** `.field` / `.field.wide`. */
 export function fieldClassName(wide?: boolean, className?: string) {
   return cn(
     "block min-w-0 text-body-sm font-medium",
@@ -35,6 +35,10 @@ export function FieldHint({ children }: { children: ReactNode }) {
 }
 
 export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
+  /** `div` (with a `<span>` label) for a field that holds several controls, e.g.
+   *  PackWeightFields: a `<label>` around several inputs is invalid, so each control
+   *  must carry its own `aria-label`. `prefilled` is ignored. */
+  as?: "label" | "div";
   label: ReactNode;
   /** Appends the " (ถ้ามี)" marker. */
   optional?: boolean;
@@ -82,6 +86,7 @@ export function PrefillCaption({
  * make the field span every column of the surrounding form grid.
  */
 export function FormField({
+  as = "label",
   label,
   optional = false,
   hint,
@@ -91,6 +96,20 @@ export function FormField({
   children,
   ...props
 }: FormFieldProps) {
+  if (as === "div")
+    return (
+      <div
+        className={fieldClassName(wide, className)}
+        {...(props as ComponentProps<"div">)}
+      >
+        <span>
+          {label}
+          {optional && <OptionalMark />}
+        </span>
+        {hint && <FieldHint>{hint}</FieldHint>}
+        {children}
+      </div>
+    );
   return (
     <label
       className={fieldClassName(wide, cn(prefilledControl, className))}

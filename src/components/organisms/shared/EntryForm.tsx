@@ -21,9 +21,9 @@ import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
-import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
+import { AttachmentButton } from "@/components/molecules/AttachmentButton";
+import { PackWeightFields } from "@/components/molecules/PackWeightFields";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
@@ -909,7 +909,7 @@ export function EntryForm({
                 )}
                 action={
                   reference.attachment ? (
-                    <AttachmentViewButton {...reference.attachment} />
+                    <AttachmentButton action="view" {...reference.attachment} />
                   ) : (
                     <DocumentPrintButton
                       title={reference.title}

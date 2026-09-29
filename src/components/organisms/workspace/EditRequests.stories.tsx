@@ -6,10 +6,7 @@ import {
   editPendingDb,
 } from "../../../../.storybook/fixtures";
 import { Panel } from "@/components/atoms/Panel";
-import {
-  EditEntryForm,
-  EntryDetails,
-} from "@/components/organisms/shared/EntryDetails";
+import { EditEntryForm } from "@/components/organisms/shared/EntryDetails";
 import {
   entries,
   visibleEntries,
@@ -18,13 +15,13 @@ import {
 } from "@/lib/store";
 import { EditRequestList } from "./EditRequestList";
 import { editRequestAlerts } from "./editRequestAlerts";
-import { HistoryPanel } from "./HistoryPanel";
 import { NotificationPopover } from "./NotificationPopover";
 
-/** B5 แก้ไขย้อนหลัง: the edit/request form, the request list, the bells and an edited entry.
+/** B5 แก้ไขย้อนหลัง: the edit/request form, the request list and the bells. An edited
+ *  entry and the branch history with requests are WorkspaceData (EntryDetail, History).
  *  Forms inside, so no Docs page. */
 const meta: Meta = {
-  title: "Organisms/Edit Requests",
+  title: "Organisms/Workspace/EditRequests",
   tags: ["!autodocs"],
   parameters: { db: editDecidedDb },
 };
@@ -121,31 +118,4 @@ export const RequesterBell: Story = {
     );
   },
   render: ({ role }) => <Bell db={editDecidedDb} role={role} />,
-};
-
-/** The approved sale: badge "แก้ไขแล้ว", current values, and who asked, who approved, when. */
-export const EditedEntryDetails: Story = {
-  render: () => (
-    <Panel>
-      <EntryDetails
-        entry={sale(editDecidedDb)}
-        db={editDecidedDb}
-        role="owner"
-        open
-        onChanged={fn()}
-      />
-    </Panel>
-  ),
-};
-
-/** ศาลาแดง's history tab: its requests above the log, "ขอแก้ไข" on its own entries. */
-export const BranchHistory: Story = {
-  render: () => (
-    <HistoryPanel
-      db={editDecidedDb}
-      role="branch"
-      branch="ศาลาแดง"
-      onChanged={fn()}
-    />
-  ),
 };

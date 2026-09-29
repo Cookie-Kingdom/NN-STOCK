@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/atoms/Button";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { fmt } from "@/lib/format";
 import {
   lotProgress,

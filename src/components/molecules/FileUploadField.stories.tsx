@@ -48,6 +48,15 @@ const state = pick<Partial<Props>>("สถานะ", {
   },
 });
 
+const preview = pick("preview", {
+  ไม่มี: undefined,
+  รูปตัวอย่าง: (
+    <div className="mt-2 grid size-16 place-items-center rounded-md bg-accent/15 text-caption text-accent">
+      LOGO
+    </div>
+  ),
+});
+
 /** Pick the state in Controls:
  *  - ยังไม่เลือก: the dashed box holds just the picker
  *  - เลือกไฟล์แล้ว: `fileName` prints "เลือกแล้ว: …" under the picker; `hint` sits
@@ -55,10 +64,20 @@ const state = pick<Partial<Props>>("สถานะ", {
  *  - จำกัดขนาด: `maxBytes` rejects an oversize file — the input is cleared, `onFile`
  *    is not called and the message shows inside the box. Pick a file over 2 MB to
  *    see it.
- *  - หลายไฟล์: `multiple` + `onFiles`, several slips at once, one name per line */
+ *  - หลายไฟล์: `multiple` + `onFiles`, several slips at once, one name per line
+ *  - `hideLabel`: the label is kept for screen readers only (the logo cell in settings)
+ *  - `preview`: rendered inside the box under the picker, e.g. the current logo */
 export const Default: StoryObj<Props & { state: Partial<Props> }> = {
-  argTypes: { state: state.argType },
-  args: { state: state.initial },
+  argTypes: {
+    state: state.argType,
+    hideLabel: { control: "boolean" },
+    preview: preview.argType,
+  },
+  args: {
+    state: state.initial,
+    hideLabel: false,
+    preview: preview.initial,
+  },
   render: ({ state, ...args }) => <FileUploadField {...args} {...state} />,
 };
 

@@ -10,7 +10,7 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";

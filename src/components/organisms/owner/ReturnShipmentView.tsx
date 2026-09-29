@@ -4,7 +4,7 @@ import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   awaitingReturn,

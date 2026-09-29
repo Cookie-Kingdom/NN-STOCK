@@ -13,14 +13,12 @@ import { FoodivaDispatchForm } from "./FoodivaDispatchForm";
 // Two native modal <dialog>s can stack here (the Packing List opens on top of the
 // transport form); a Docs page would try to show them all at once.
 const meta: Meta = {
-  title: "Organisms/Foodiva/FoodivaDispatchForm",
+  title: "Organisms/Owner/FoodivaDispatchForm",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen", db: dispatchDb },
 };
 
 export default meta;
-type Story = StoryObj<{ db: Database }>;
-
 const tripState = pick("เที่ยวรถ", {
   เที่ยวแรก: dispatchDb,
   มีเวลารถรับล่าสุด: packedDb,
@@ -35,35 +33,26 @@ const tripState = pick("เที่ยวรถ", {
  *    one-click shortcut.
  *  - เที่ยวที่สอง: trip, vehicle, plate and driver start from the last transport
  *    document, each captioned with its date ("ล่าสุด 09/09"). Editing one drops its
- *    caption. */
-export const New: Story = {
-  argTypes: { db: tripState.argType },
-  args: { db: tripState.initial },
-  render: ({ db }) => (
-    <FoodivaDispatchForm
-      db={db}
-      lotId={db.lots.at(-1)!.id}
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onSaved={fn()}
-    />
-  ),
-};
-
-/** "เปิดชุดใหม่" from the ชุดรมควัน table (`lotId === ""`): no smoke PO, so no PO table and
- *  no Inv. Weight. "น้ำหนักที่ส่ง" may stay blank (the Packing List's Sliced Weight Net is
- *  used); saving opens the batch, and the Owner can issue its smoke PO later. */
-export const NewBatch: Story = {
-  parameters: { db: packedDb },
-  render: () => (
-    <FoodivaDispatchForm
-      db={packedDb}
-      lotId=""
-      date={day}
-      onDate={fn()}
-      onClose={fn()}
-      onSaved={fn()}
-    />
-  ),
+ *    caption.
+ *  `newBatch` is "เปิดชุดใหม่" from the ชุดรมควัน table (`lotId === ""`): no smoke PO, so no
+ *  PO table and no Inv. Weight. "น้ำหนักที่ส่ง" may stay blank (the Packing List's Sliced
+ *  Weight Net is used); saving opens the batch, and the Owner can issue its smoke PO later. */
+export const New: StoryObj<{ db: Database; newBatch: boolean }> = {
+  argTypes: { db: tripState.argType, newBatch: { control: "boolean" } },
+  args: { db: tripState.initial, newBatch: false },
+  render: ({ db, newBatch }) => {
+    const lotId = newBatch ? "" : db.lots.at(-1)!.id;
+    return (
+      <FoodivaDispatchForm
+        // key: the form reads its start values once; a new state remounts it.
+        key={`${db.entries.length}:${lotId}`}
+        db={db}
+        lotId={lotId}
+        date={day}
+        onDate={fn()}
+        onClose={fn()}
+        onSaved={fn()}
+      />
+    );
+  },
 };

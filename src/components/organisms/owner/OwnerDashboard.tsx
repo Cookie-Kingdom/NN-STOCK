@@ -29,9 +29,9 @@ import {
   missingText,
 } from "@/components/organisms/owner/lotSteps";
 import { UnlinkedTile } from "@/components/organisms/owner/UnlinkedTile";
-import { CostDonut } from "@/components/organisms/shared/CostDonut";
+import { CostDonut } from "@/components/molecules/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { SalesBars } from "@/components/organisms/shared/SalesBars";
+import { SalesBars } from "@/components/molecules/SalesBars";
 import {
   averageYield,
   balance,

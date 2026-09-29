@@ -5,7 +5,6 @@ import { pick } from "../../../.storybook/pick";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
-import { FieldGroup } from "./FieldGroup";
 import { FileUploadField } from "./FileUploadField";
 import { FormField } from "./FormField";
 
@@ -48,7 +47,9 @@ const state = pick<Partial<Props>>("สถานะ", {
  *  - ไม่บังคับพร้อมคำแนะนำ: `optional` mark and a `hint` line
  *  - ระบบกรอกให้: a value the system filled in — a faint tint and where it came from
  *  - ค่าคาดการณ์: a predicted scale or count reading — a warning look so it is
- *    weighed, not trusted */
+ *    weighed, not trusted
+ *  - `as` div: a `<span>` label for a field holding several controls (`prefilled` is
+ *    ignored); `wide` only shows inside a grid, see the FormGrid and Group stories */
 export const Default: StoryObj<Props & { state: Partial<Props> }> = {
   decorators: [
     (Story) => (
@@ -57,8 +58,11 @@ export const Default: StoryObj<Props & { state: Partial<Props> }> = {
       </div>
     ),
   ],
-  argTypes: { state: state.argType },
-  args: { state: state.initial },
+  argTypes: {
+    state: state.argType,
+    as: { control: "inline-radio", options: ["label", "div"] },
+  },
+  args: { state: state.initial, as: "label" },
   render: ({ state, ...args }) => <FormField {...args} {...state} />,
 };
 
@@ -115,12 +119,12 @@ export const FormGrid: Story = {
           <option>มีนบุรี</option>
         </Select>
       </FormField>
-      <FieldGroup label="น้ำหนักต่อแพ็ก" hint="กรอกทีละแพ็ก">
+      <FormField as="div" label="น้ำหนักต่อแพ็ก" hint="กรอกทีละแพ็ก">
         <div className="flex gap-2">
           <Input aria-label="แพ็ก 1" placeholder="แพ็ก 1" />
           <Input aria-label="แพ็ก 2" placeholder="แพ็ก 2" />
         </div>
-      </FieldGroup>
+      </FormField>
       <FileUploadField
         label="ใบส่งของ"
         optional
@@ -130,6 +134,58 @@ export const FormGrid: Story = {
       />
       <FormField label="หมายเหตุ" optional wide>
         <Textarea />
+      </FormField>
+    </div>
+  ),
+};
+
+/** `as="div"`: one label over several controls (a `<label>` around several inputs is
+ *  invalid), so each control carries its own `aria-label`. `wide` spans both columns. */
+export const Group: Story = {
+  decorators: [
+    (Story) => (
+      <div className="max-w-2xl">
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => (
+    <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+      <FormField as="div" label="สาขาและรอบส่ง">
+        <div className="flex gap-2">
+          <Select aria-label="สาขา">
+            <option>ศาลาแดง</option>
+            <option>มีนบุรี</option>
+          </Select>
+          <Select aria-label="รอบส่ง">
+            <option>รอบเช้า</option>
+            <option>รอบบ่าย</option>
+          </Select>
+        </div>
+      </FormField>
+      <FormField
+        as="div"
+        label="จำนวนกล่อง"
+        optional
+        hint="กล่องเต็ม / กล่องเศษ"
+      >
+        <div className="flex gap-2">
+          <Input aria-label="กล่องเต็ม" placeholder="เต็ม" />
+          <Input aria-label="กล่องเศษ" placeholder="เศษ" />
+        </div>
+      </FormField>
+      <FormField
+        as="div"
+        label="น้ำหนักเนื้อรมควันต่อล็อต (กก.)"
+        hint="กรอกทีละแพ็กตามที่ชั่งจริง"
+        wide
+      >
+        <div className="grid grid-cols-4 gap-2 max-md:grid-cols-2">
+          <Input aria-label="แพ็ก 1" placeholder="แพ็ก 1" />
+          <Input aria-label="แพ็ก 2" placeholder="แพ็ก 2" />
+          <Input aria-label="แพ็ก 3" placeholder="แพ็ก 3" />
+          <Input aria-label="แพ็ก 4" placeholder="แพ็ก 4" />
+        </div>
       </FormField>
     </div>
   ),

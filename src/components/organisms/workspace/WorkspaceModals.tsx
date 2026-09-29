@@ -12,10 +12,10 @@ import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTran
 import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
 import { skipNextDialogEnter } from "@/components/organisms/shared/Dialog";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
-import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
-import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
-import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispatchForm";
-import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
+import { ChefReceiveForm } from "@/components/organisms/owner/ChefReceiveForm";
+import { FoodivaDispatchForm } from "@/components/organisms/owner/FoodivaDispatchForm";
+import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";

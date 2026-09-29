@@ -6,7 +6,7 @@ import { Badge } from "@/components/atoms/Badge";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Select } from "@/components/atoms/Select";
 import { Footnote, Muted } from "@/components/atoms/Text";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { PoLotCell } from "@/components/molecules/PoLotCell";
@@ -18,17 +18,17 @@ import {
   transportDocumentRows,
   transportDocumentTitle,
 } from "@/components/organisms/owner/documentRows";
-import { TableSection } from "@/components/organisms/shared/TableSection";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { TableSection } from "@/components/molecules/TableSection";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
+import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
+import { DocumentFilterBar } from "@/components/organisms/shared/DocumentFilterBar";
 import {
-  DocumentFilterBar,
   lotIssueDate,
   matchesDocumentFilter,
   purchaseOrderRows,
   type DocumentReferenceType,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import {
   entries,
   n,
@@ -126,7 +126,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
     setExpandedLot((current) => (current === lotId ? null : lotId));
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         overline="READ-ONLY TRACEABILITY"
         title="เอกสารและการตรวจสอบย้อนกลับ"
         description="ตารางสำหรับอ่านเส้นทางของแต่ละ Lot เท่านั้น การตรวจยอด ชำระเงิน และดาวน์โหลด Invoice ให้ทำจากเมนูใบ Invoice"
@@ -302,7 +303,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           /* An invoice is the counterparty's own file. Only a PO that
                              never got one falls back to the generated sheet. */
                           foodivaFile ? (
-                            <AttachmentViewButton
+                            <AttachmentButton
+                              action="view"
                               key={`food-file-${po.id}`}
                               {...foodivaFile}
                               label="พรีวิว / PDF"
@@ -356,7 +358,8 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       chefInvoice?.values.invoiceDate || "—",
                       chefInvoice ? smokingInvoiceStatus(db, chefInvoice) : "—",
                       chefFile ? (
-                        <AttachmentViewButton
+                        <AttachmentButton
+                          action="view"
                           key="chef-file"
                           {...chefFile}
                           label="พรีวิว / PDF"

@@ -11,7 +11,7 @@ import { Select } from "@/components/atoms/Select";
 import { TableActions } from "@/components/molecules/TableActions";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { Pagination } from "@/components/molecules/Pagination";
-import { TableSection } from "@/components/organisms/shared/TableSection";
+import { TableSection } from "@/components/molecules/TableSection";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;

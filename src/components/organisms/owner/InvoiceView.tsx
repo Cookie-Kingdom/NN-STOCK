@@ -5,18 +5,18 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
+import { DocumentFilterBar } from "@/components/organisms/shared/DocumentFilterBar";
 import {
-  DocumentFilterBar,
   lotIssueDate,
   matchesDocumentFilter,
   type DocumentReferenceType,
-} from "@/components/organisms/shared/documents";
+} from "@/components/organisms/shared/documentRows";
 import {
-  InvoiceDownloadButton,
+  AttachmentButton,
   SlipList,
-} from "@/components/organisms/shared/InvoiceDownloadButton";
+} from "@/components/molecules/AttachmentButton";
 import { uploadedAttachment } from "@/components/organisms/shared/referenceDocument";
 import {
   entries,
@@ -101,11 +101,12 @@ export function InvoiceView({
   const toPay = pending.unpaidMeatLots.length + pending.toPay.length;
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         overline="INVOICE CENTER"
         title="ใบ Invoice"
         description="Owner เปิดและดาวน์โหลดไฟล์ Invoice ที่ Foodiva และ Chef House แนบไว้ได้จากหน้านี้ โดยแยกจากเมนู PO"
-        aside={
+        actions={
           <Stat
             label="Invoice รอดำเนินการ"
             value={`${pending.total} ใบ`}
@@ -151,7 +152,8 @@ export function InvoiceView({
               /* The file, not the row: re-saving an invoice writes a new entry that
                keeps the file name but not the bytes, so the download falls back to
                the newest version of this document that still carries the upload. */
-              <InvoiceDownloadButton
+              <AttachmentButton
+                action="download"
                 key={entry.id}
                 name={entry.values.attachment}
                 {...uploadedAttachment(db, "foodivaConfirm", entry.lotId)}
@@ -238,7 +240,8 @@ export function InvoiceView({
               `฿${fmt(n(entry.values, "netPayable"))}`,
               entry.values.invoiceDetail || "—",
               reviewNote ? `${status} · หมายเหตุ: ${reviewNote}` : status,
-              <InvoiceDownloadButton
+              <AttachmentButton
+                action="download"
                 key={`file-${entry.id}`}
                 name={entry.values.attachment}
                 {...uploadedAttachment(db, "smokingInvoice", entry.lotId)}

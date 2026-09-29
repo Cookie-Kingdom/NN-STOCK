@@ -1,176 +1,90 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import {
   allocatedDb,
   centralDb,
-  chillDb,
-  closeReadyDb,
   day,
   demoDb,
-  giveawayReadyDb,
+  materialTransferDb,
   multiPoPackedDb,
   nextDay,
+  packedDb,
   prefillHistoryDb,
-  rejectedInvoiceDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { materials, mutate, type Database } from "@/lib/store";
-import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
-import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { materials, type Database } from "@/lib/store";
+import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
+import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
+import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { AllocationForm } from "./AllocationForm";
-import { EntryForm } from "./EntryForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
 import { MaterialTransferForm } from "./MaterialTransferForm";
 import { today } from "@/lib/format";
 
-// Every story opens a native modal <dialog>; a Docs page would stack them all.
-// Saves go through the mocked persistence and appear in the Actions panel.
+// The Owner's dialogs other than EntryForm (see EntryForm.stories). Every story opens a
+// native modal <dialog>; a Docs page would stack them all. Saves go through the mocked
+// persistence and appear in the Actions panel.
 const meta: Meta = {
-  title: "Organisms/Forms",
+  title: "Organisms/Shared/Forms",
   tags: ["!autodocs"],
   parameters: { layout: "fullscreen" },
 };
 
 export default meta;
-type Story = StoryObj<{ db: Database; date: string }>;
+type Args = { db: Database; date: string; switcher: boolean };
+type Story = StoryObj<Args>;
 
 const onClose = fn();
 const onSaved = fn();
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
-// A close-day checklist's ไปกรอก opens that item's form.
-const onOpen = fn().mockName("onOpen");
 
-export const OwnerPurchase: Story = {
-  parameters: { db: demoDb },
-  render: () => (
-    <EntryForm
-      db={demoDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "purchase", lotId: "" }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-// Below lg the form and the PO preview stack in one scroll area.
-export const OwnerPurchaseMobile: Story = {
-  ...OwnerPurchase,
-  globals: { viewport: { value: "mobile2", isRotated: false } },
-};
-
-export const OwnerPurchaseTablet: Story = {
-  ...OwnerPurchase,
-  globals: { viewport: { value: "tablet", isRotated: false } },
-};
-
-export const OwnerReturn: Story = {
-  parameters: { db: smokedDb },
-  render: () => (
-    <EntryForm
-      db={smokedDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "return", lotId: smokedDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-// Edit starts from the saved invoice (28 / 2, number, date, file), not the PO.
-export const FoodivaInvoiceEdit: Story = {
-  parameters: { db: rejectedInvoiceDb },
-  render: () => (
-    <EntryForm
-      db={rejectedInvoiceDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "foodivaConfirm", lotId: rejectedInvoiceDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-// Sent back by the Owner: the note is shown and the amount starts at the sent-back invoice's,
-// editable by the Owner for Chef House (A7).
-export const ChefInvoiceSentBack: Story = {
-  parameters: { db: rejectedInvoiceDb },
-  render: () => (
-    <EntryForm
-      db={rejectedInvoiceDb}
-      role="owner"
-      branch=""
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "smokingInvoice", lotId: rejectedInvoiceDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-const saleDate = pick("วันที่", { ย้อนหลัง: day, วันนี้: today() });
-
-/** เลือกวันที่ใน Controls:
- *  - ย้อนหลัง: `day` อยู่ในอดีต ฟอร์มจึงแสดงป้าย "บันทึกย้อนหลัง"
- *  - วันนี้: ไม่มีป้าย */
-export const BranchSale: Story = {
-  parameters: { db: demoDb },
-  argTypes: { date: saleDate.argType },
-  args: { date: saleDate.initial },
-  render: ({ date }) => (
-    <EntryForm
-      key={date}
-      db={demoDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={date}
-      onDate={onDate}
-      modal={{ kind: "sale", lotId: demoDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-export const BranchInfluencerBox: Story = {
-  parameters: { db: demoDb },
-  render: () => (
-    <EntryForm
-      db={demoDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "influencerBox", lotId: demoDb.lots[0].id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-export const BranchInfluencerBoxMobile: Story = {
-  ...BranchInfluencerBox,
-  globals: { viewport: { value: "mobile2", isRotated: false } },
-};
-
-const allocationState = pick("สถานะ", {
-  ยังไม่จัดสรร: centralDb,
-  จัดสรรไปบางส่วน: allocatedDb,
-  ตามสัดส่วนครั้งก่อน: prefillHistoryDb,
+const dates = pick("วันที่", {
+  "วันตัวอย่าง (ย้อนหลัง)": day,
+  วันถัดไป: nextDay,
+  วันนี้: today(),
 });
+
+/** Controls: `db` from `states`, the working date, and (when `switcher`) the stock tab's
+ *  chooser that swaps the form for its sibling. */
+const controls = (
+  states: Record<string, Database>,
+  switcher = false,
+): Pick<Story, "argTypes" | "args"> => {
+  const state = pick("สถานะ", states);
+  return {
+    argTypes: {
+      db: state.argType,
+      date: dates.argType,
+      switcher: switcher
+        ? { name: "ตัวเลือกสลับฟอร์ม", control: "boolean" }
+        : { table: { disable: true } },
+    },
+    args: { db: state.initial, date: dates.initial, switcher: false },
+  };
+};
+
+/** The stock tab's chooser (WorkspaceModals' STOCK_PAIRS) on `value`. */
+const chooser = (
+  label: string,
+  value: string,
+  options: { value: string; label: string }[],
+) => (
+  <SegmentedChoice
+    label={label}
+    options={options}
+    value={value}
+    onChange={fn()}
+  />
+);
+
+const buy = (value: string) =>
+  chooser("ซื้ออะไรเข้าคลัง", value, [
+    { value: "materialReceive", label: "วัสดุบรรจุภัณฑ์" },
+    { value: "generalPurchase", label: "ซื้ออื่น ๆ (น้ำพริก, น้ำดอง ฯลฯ)" },
+  ]);
 
 /** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock.
  *  เลือกสถานะใน Controls:
@@ -181,14 +95,17 @@ const allocationState = pick("สถานะ", {
  *    left open split 15 / 10, captioned ตามสัดส่วนครั้งก่อน. Typing or ที่เหลือทั้งหมด
  *    drops the caption */
 export const Allocation: Story = {
-  argTypes: { db: allocationState.argType },
-  args: { db: allocationState.initial },
-  render: ({ db }) => (
+  ...controls({
+    ยังไม่จัดสรร: centralDb,
+    จัดสรรไปบางส่วน: allocatedDb,
+    ตามสัดส่วนครั้งก่อน: prefillHistoryDb,
+  }),
+  render: ({ db, date }) => (
     <AllocationForm
-      key={db.entries.length}
+      key={`${db.entries.length}:${date}`}
       db={db}
       lotId={db.lots.at(-1)!.id}
-      date={day}
+      date={date}
       onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
@@ -196,15 +113,23 @@ export const Allocation: Story = {
   ),
 };
 
+const history = { ไม่มีประวัติ: demoDb, มีประวัติ: prefillHistoryDb };
+// The `db` arg holds the option label until Storybook maps it.
+const withHistory = "มีประวัติ" as unknown as Database;
+
+/** เลือกสถานะใน Controls: มีประวัติ lets a ticked material fill จำนวน ราคา and
+ *  ผู้จำหน่าย from its last purchase (see MaterialPurchasePrefilled). */
 export const MaterialPurchase: Story = {
-  parameters: { db: demoDb },
-  render: () => (
+  ...controls(history, true),
+  render: ({ db, date, switcher }) => (
     <MaterialPurchaseForm
-      db={demoDb}
-      date={day}
+      key={`${db.entries.length}:${date}`}
+      db={db}
+      date={date}
       onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
+      switcher={switcher ? buy("materialReceive") : undefined}
     />
   ),
 };
@@ -212,31 +137,37 @@ export const MaterialPurchase: Story = {
 /** Ticking a material bought before fills จำนวน ราคา and ผู้จำหน่าย from that
  *  purchase (200 × ฿3 from ร้านวัสดุ), each captioned with its date. */
 export const MaterialPurchasePrefilled: Story = {
-  parameters: { db: prefillHistoryDb },
-  render: () => (
-    <MaterialPurchaseForm
-      db={prefillHistoryDb}
-      date={day}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
+  ...MaterialPurchase,
+  args: { ...MaterialPurchase.args, db: withHistory },
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     await userEvent.click(form.getByLabelText(`ซื้อ ${materials[0]}`));
   },
 };
 
+/** เลือกสถานะใน Controls:
+ *  - ไม่มีประวัติ: the seven-day demo run
+ *  - มีประวัติ: ticking ศาลาแดง fills up to par and the last receiver (see
+ *    MaterialTransferPrefilled)
+ *  - ส่งไปแล้วรอรับ: 60 of 200 units already sent to ศาลาแดง, not yet confirmed */
 export const MaterialTransfer: Story = {
-  parameters: { db: demoDb },
-  render: () => (
+  ...controls({ ...history, ส่งไปแล้วรอรับ: materialTransferDb }, true),
+  render: ({ db, date, switcher }) => (
     <MaterialTransferForm
-      db={demoDb}
-      date={day}
+      key={`${db.entries.length}:${date}`}
+      db={db}
+      date={date}
       onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
+      switcher={
+        switcher
+          ? chooser("ส่งอะไรไปสาขา", "materialTransfer", [
+              { value: "materialTransfer", label: "วัสดุบรรจุภัณฑ์" },
+              { value: "chiliAllocate", label: "น้ำพริกหลอด" },
+            ])
+          : undefined
+      }
     />
   ),
 };
@@ -244,30 +175,27 @@ export const MaterialTransfer: Story = {
 /** Ticking ศาลาแดง fills the จำนวน up to the branch's par (เติมให้ครบจำนวนฐาน) and ผู้รับ
  *  from the branch's last transfer. */
 export const MaterialTransferPrefilled: Story = {
-  parameters: { db: prefillHistoryDb },
-  render: () => (
-    <MaterialTransferForm
-      db={prefillHistoryDb}
-      date={day}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
+  ...MaterialTransfer,
+  args: { ...MaterialTransfer.args, db: withHistory },
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     await userEvent.click(form.getByLabelText(`ส่ง ${materials[0]} ไปศาลาแดง`));
   },
 };
 
+/** Reads the database through latestDatabase(), which the สถานะ control feeds.
+ *  มีประวัติ: picking an item bought before fills หน่วย ราคา ผู้จำหน่าย and กลุ่ม (see
+ *  GeneralPurchasePrefilled). */
 export const GeneralPurchase: Story = {
-  parameters: { db: demoDb },
-  render: () => (
+  ...controls(history, true),
+  render: ({ db, date, switcher }) => (
     <GeneralPurchaseForm
-      date={day}
+      key={`${db.entries.length}:${date}`}
+      date={date}
       onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
+      switcher={switcher ? buy("generalPurchase") : undefined}
     />
   ),
 };
@@ -275,15 +203,8 @@ export const GeneralPurchase: Story = {
 /** Picking an item bought before fills หน่วย ราคา and ผู้จำหน่าย (and กลุ่ม) from its
  *  last purchase, each captioned with the date. */
 export const GeneralPurchasePrefilled: Story = {
-  parameters: { db: prefillHistoryDb },
-  render: () => (
-    <GeneralPurchaseForm
-      date={day}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
+  ...GeneralPurchase,
+  args: { ...GeneralPurchase.args, db: withHistory },
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     await userEvent.selectOptions(
@@ -294,14 +215,16 @@ export const GeneralPurchasePrefilled: Story = {
 };
 
 /** Before closing, Chef House can still correct arrival, pre-smoke kg and the smoke log.
- *  The yellow cells are not here: they are weighed once at cmReceive (A5). */
+ *  The yellow cells are not here: they are weighed once at cmReceive (A5). The form
+ *  renders nothing until the lot is smoked, so the date is the only real control. */
 export const ChefLotEdit: Story = {
-  parameters: { db: smokedDb },
-  render: () => (
+  ...controls({ รมควันแล้ว: smokedDb }),
+  render: ({ db, date }) => (
     <ChefLotEditForm
-      db={smokedDb}
-      lotId={smokedDb.lots.at(-1)!.id}
-      date={day}
+      key={date}
+      db={db}
+      lotId={db.lots.at(-1)!.id}
+      date={date}
       onDate={onDate}
       onClose={onClose}
       onSaved={onSaved}
@@ -311,136 +234,23 @@ export const ChefLotEdit: Story = {
 
 /* The smoke PO of a shipment drawn from three purchase POs, as sent to Chef House (Q6): it
  * names the shipment and its Packing List, never a purchase PO or meat price. */
-const chefSmokeDb = mutate(
-  multiPoPackedDb,
-  "owner",
-  "smokeOrder",
-  { smoker: "Chef House", requestedSmokeDate: day },
-  multiPoPackedDb.lots.at(-1)!.id,
-  day,
-);
-
-export const SmokeOrderPreview: Story = {
-  parameters: { db: chefSmokeDb },
-  render: () => (
-    <SmokeOrderPreviewDialog
-      db={chefSmokeDb}
-      lotId={chefSmokeDb.lots.at(-1)!.id}
-      onClose={onClose}
-    />
-  ),
-};
-
-/** 95 g per pack: the form warns, but the sale still saves (no FormError). */
-export const BranchSalePackWeightWarning: Story = {
-  parameters: { db: chillDb },
-  render: () => (
-    <EntryForm
-      db={chillDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={nextDay}
-      onDate={onDate}
-      modal={{ kind: "sale", lotId: chillDb.lots.at(-1)!.id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-  play: async ({ canvasElement }) => {
-    const form = within(canvasElement.ownerDocument.body);
-    const addons = form.getByLabelText(/เนื้อซีล Add-on/);
-    await userEvent.clear(addons);
-    await userEvent.type(addons, "10");
-    await userEvent.type(
-      form.getByLabelText(/น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/),
-      "0.95",
-    );
-  },
-};
-
-/** The sale form as it opens: the influencer section is collapsed to
- *  เพิ่มอินฟลูเอนเซอร์, and a sale with no block added saves only the sale. */
-export const BranchSaleInfluencersCollapsed: Story = {
-  parameters: { db: giveawayReadyDb },
-  render: () => (
-    <EntryForm
-      db={giveawayReadyDb}
-      role="branch"
-      branch="ศาลาแดง"
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "sale", lotId: giveawayReadyDb.lots.at(-1)!.id }}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
-
-/** One press of เพิ่มอินฟลูเอนเซอร์: one block, focus on ชื่ออินฟลูเอนเซอร์.
- *  ตรวจสอบก่อนบันทึก adds the giveaway (เนื้อ + ค่าส่ง) to cost, not to revenue. */
-export const BranchSaleOneInfluencer: Story = {
-  ...BranchSaleInfluencersCollapsed,
-  play: async ({ canvasElement }) => {
-    const form = within(canvasElement.ownerDocument.body);
-    await userEvent.click(
-      form.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ }),
-    );
-    await userEvent.type(form.getByLabelText(/ชื่ออินฟลูเอนเซอร์/), "คุณเอ");
-    await userEvent.clear(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/));
-    await userEvent.type(form.getByLabelText(/กล่องมาตรฐานที่ส่ง/), "2");
-    await userEvent.type(form.getByLabelText(/ค่าส่ง/), "80");
-    await expect(
-      await form.findByText(/ต้นทุนของแจกอินฟลูเอนเซอร์ 1 ราย/),
-    ).toBeInTheDocument();
-  },
-};
-
-/** Pressing it again appends a second block: one sale can record several influencers. */
-export const BranchSaleTwoInfluencers: Story = {
-  ...BranchSaleInfluencersCollapsed,
-  play: async ({ canvasElement }) => {
-    const form = within(canvasElement.ownerDocument.body);
-    const add = form.getByRole("button", { name: /เพิ่มอินฟลูเอนเซอร์/ });
-    await userEvent.click(add);
-    await userEvent.type(form.getByLabelText(/ชื่ออินฟลูเอนเซอร์/), "คุณเอ");
-    await userEvent.click(add);
-    const names = form.getAllByLabelText(/ชื่ออินฟลูเอนเซอร์/);
-    await userEvent.type(names[1], "ช่องบี");
-  },
-};
-
-/** The same two blocks on a phone: the wider sale dialog is still one column. */
-export const BranchSaleTwoInfluencersMobile: Story = {
-  ...BranchSaleTwoInfluencers,
-  globals: { viewport: { value: "mobile2", isRotated: false } },
-};
-
-const closeDayState = pick("สถานะ", {
-  ยังไม่ครบ: chillDb,
-  ครบแล้ว: closeReadyDb,
+const smokeOrder = pick("สถานะ", {
+  // multiPoPackedDb already carries the 1,400 kg smoke PO; packedDb has none yet.
+  "มี PO รมควัน": multiPoPackedDb,
+  "ยังไม่มี PO": packedDb,
 });
 
-/** Close dialog. เลือกสถานะใน Controls:
- *  - ยังไม่ครบ: 4.5 kg left and materials + cooked rice not yet recorded; the checklist
- *    lists both with ไปกรอก, and ยืนยันปิดวัน stays disabled with the reason. The 4.5 kg
- *    shows as คงเหลือชิล, no "use it all" error
- *  - ครบแล้ว: the checklist is all ✓ and ยืนยันปิดวัน is enabled at any time of day (no
- *    close-time rule, FB-14) */
-export const BranchCloseDay: Story = {
-  argTypes: { db: closeDayState.argType },
-  args: { db: closeDayState.initial },
+/** เลือกสถานะใน Controls: มี PO รมควัน shows the document; ยังไม่มี PO shows the
+ *  "ไม่พบเอกสาร PO" warning. */
+export const SmokeOrderPreview: StoryObj<{ db: Database }> = {
+  argTypes: { db: smokeOrder.argType },
+  args: { db: smokeOrder.initial },
   render: ({ db }) => (
-    <EntryForm
+    <SmokeOrderPreviewDialog
       key={db.entries.length}
       db={db}
-      role="branch"
-      branch="ศาลาแดง"
-      date={day}
-      onDate={onDate}
-      modal={{ kind: "closeDay", lotId: "" }}
+      lotId={db.lots.at(-1)!.id}
       onClose={onClose}
-      onSaved={onSaved}
-      onOpen={onOpen}
     />
   ),
 };

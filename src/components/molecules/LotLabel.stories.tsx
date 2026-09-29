@@ -4,15 +4,20 @@ import { LotLabel } from "./LotLabel";
 const meta = {
   title: "Molecules/LotLabel",
   component: LotLabel,
+  argTypes: {
+    lotId: {
+      control: "text",
+      description: 'Clear it (`""`) for the "ไม่ระบุ Lot" bucket.',
+    },
+  },
   args: { lotId: "LOT-0915-01" },
 } satisfies Meta<typeof LotLabel>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A batch: just its id. */
-export const Batch: Story = {};
-
-/** The branch's "ไม่ระบุ Lot" bucket (`lotId ""`): meat received without a batch,
- *  flagged until someone links it. */
-export const Unlinked: Story = { args: { lotId: "" } };
+/** แก้ lotId ใน Controls:
+ *  - a batch id: just the id.
+ *  - empty: the branch's "ไม่ระบุ Lot" bucket (BR-04), meat received without a batch,
+ *    flagged with a "ยังไม่ผูก Lot" badge until someone links it. */
+export const Label: Story = {};

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
+  centralDb,
   chillDb,
   day,
   demoDb,
@@ -8,26 +9,36 @@ import {
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { branches } from "@/lib/store";
+import { branches, type Database } from "@/lib/store";
 import { BranchStockSummary } from "./BranchStockSummary";
 import { MeatStockTable } from "./MeatStockTable";
 import { SupplyStock } from "./SupplyStock";
 
-const db = demoDb;
-
 const meta: Meta = {
-  title: "Organisms/Stock",
-  parameters: { db },
+  title: "Organisms/Shared/Stock",
+  parameters: { db: demoDb },
 };
 
 export default meta;
-type Story = StoryObj<{
-  variant: "owner" | "chef";
-  date: string;
-}>;
 
-/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต */
-export const MeatStock: Story = {
+const branchCheck = {
+  name: "สาขา",
+  control: "check" as const,
+  options: [...branches],
+};
+
+const meatDb = pick("ข้อมูล", {
+  "ตัวอย่าง 7 วัน": demoDb,
+  เพิ่งเข้าสต๊อกกลาง: centralDb,
+});
+
+/** เลือกใน Controls:
+ *  - มุมมอง: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต
+ *  - ข้อมูล: รอบตัวอย่างที่ขายแล้ว หรือ Lot ที่เพิ่งเข้าสต๊อกกลาง */
+export const MeatStock: StoryObj<{
+  variant: "owner" | "chef";
+  db: Database;
+}> = {
   argTypes: {
     variant: {
       name: "มุมมอง",
@@ -37,11 +48,12 @@ export const MeatStock: Story = {
       },
       options: ["owner", "chef"],
     },
+    db: meatDb.argType,
   },
-  args: { variant: "owner" },
-  render: ({ variant }) => (
+  args: { variant: "owner", db: meatDb.initial },
+  render: ({ variant, db }) => (
     <MeatStockTable
-      key={variant}
+      key={`${variant}-${db.entries.length}`}
       db={db}
       variant={variant}
       lots={db.lots}
@@ -50,43 +62,54 @@ export const MeatStock: Story = {
   ),
 };
 
-export const Supply: Story = {
-  render: () => <SupplyStock db={db} branches={branches} />,
+/** เลือกสาขาใน Controls: หนึ่งคอลัมน์ต่อสาขาที่เลือก */
+export const Supply: StoryObj<{ branches: string[] }> = {
+  argTypes: { branches: branchCheck },
+  args: { branches: [...branches] },
+  render: ({ branches }) => <SupplyStock db={demoDb} branches={branches} />,
 };
 
-const summaryDay = pick("วัน", { วันแรก: day, วันถัดไป: nextDay });
+const summaryDb = pick("ข้อมูล", {
+  "ชิลยกมา (ศาลาแดง)": chillDb,
+  "เนื้อยังไม่ผูก Lot": unlinkedBranchDb,
+  "ตัวอย่าง 7 วัน": demoDb,
+});
+const summaryDay = pick("วัน", {
+  วันแรก: day,
+  วันถัดไป: nextDay,
+  "ไม่ระบุ (วันนี้)": undefined,
+});
 
-/** Branch view. เลือกวันใน Controls:
- *  - วันแรก: สิ้นวันที่ 1 รับเข้าและละลาย 70 kg ใช้ไป 65.5 kg เหลือชิล 4.5 kg
- *  - วันถัดไป: ชิลยกมา 4.5 kg ยังไม่มีการเคลื่อนไหว */
-export const StockSummaryBranch: Story = {
-  parameters: { db: chillDb },
-  argTypes: { date: summaryDay.argType },
-  args: { date: summaryDay.initial },
-  render: ({ date }) => (
+/** เลือกใน Controls:
+ *  - ข้อมูล:
+ *    - ชิลยกมา: วันแรกรับเข้าและละลาย 70 kg ใช้ไป 65.5 kg เหลือชิล 4.5 kg; วันถัดไป
+ *      ชิลยกมา 4.5 kg ยังไม่มีการเคลื่อนไหว
+ *    - เนื้อยังไม่ผูก Lot: แถว "ไม่ระบุ Lot" กับ badge "ยังไม่ผูก Lot" (รับ 10 kg แช่แข็ง
+ *      4 kg ชิล 3 kg) และเลือกได้ในตัวกรอง Lot 14 วัน
+ *    - ตัวอย่าง 7 วัน: รอบขายเต็ม
+ *  - สาขา: สาขาเดียว = มุมมองสาขา; หลายสาขา = มุมมอง Owner มีตัวเลือกสาขา
+ *  - วัน: `initialDate` */
+export const BranchSummary: StoryObj<{
+  db: Database;
+  branches: string[];
+  date?: string;
+}> = {
+  argTypes: {
+    db: summaryDb.argType,
+    branches: branchCheck,
+    date: summaryDay.argType,
+  },
+  args: {
+    db: summaryDb.initial,
+    branches: ["ศาลาแดง"],
+    date: summaryDay.initial,
+  },
+  render: ({ db, branches, date }) => (
     <BranchStockSummary
-      key={date}
-      db={chillDb}
-      branches={["ศาลาแดง"]}
+      key={`${db.entries.length}-${branches.join()}-${date}`}
+      db={db}
+      branches={branches}
       initialDate={date}
     />
   ),
-};
-
-/** Meat received with no batch: the "ไม่ระบุ Lot" row with its "ยังไม่ผูก Lot" badge
- *  (10 kg in, 4 kg frozen, 3 kg chill), also pickable in the 14-day Lot filter. */
-export const StockSummaryUnlinked: Story = {
-  parameters: { db: unlinkedBranchDb },
-  render: () => (
-    <BranchStockSummary
-      db={unlinkedBranchDb}
-      branches={["ศาลาแดง"]}
-      initialDate={day}
-    />
-  ),
-};
-
-/** Owner view: the same summary with a branch picker. */
-export const StockSummaryOwner: Story = {
-  render: () => <BranchStockSummary db={db} branches={branches} />,
 };

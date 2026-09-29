@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
+import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { AuthShell } from "@/components/templates/AuthShell";
 import { signIn, useSession } from "@/lib/session";
@@ -49,9 +50,7 @@ export function SignIn() {
             autoComplete="current-password"
           />
         </FormField>
-        {(message || sessionError) && (
-          <p className="text-caption text-danger">{message || sessionError}</p>
-        )}
+        <FormError error={message || sessionError} />
         <Button
           variant="primary"
           className="w-full"

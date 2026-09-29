@@ -6,20 +6,33 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { pick } from "../../../.storybook/pick";
 import { KpiCard } from "./KpiCard";
+
+const icon = pick("icon", {
+  Banknote: <Banknote size={17} />,
+  Wallet: <Wallet size={17} />,
+  TrendingUp: <TrendingUp size={17} />,
+  TrendingDown: <TrendingDown size={17} />,
+  Boxes: <Boxes size={17} />,
+});
 
 const meta = {
   title: "Molecules/KpiCard",
   component: KpiCard,
   args: {
     tone: "sales",
-    icon: <Banknote size={17} />,
+    icon: icon.initial,
     label: "ยอดขายวันนี้",
     value: "฿48,250",
     caption: "+12% จากเมื่อวาน",
     captionTone: "gain",
   },
   argTypes: {
+    icon: icon.argType,
+    label: { control: "text" },
+    value: { control: "text" },
+    caption: { control: "text" },
     tone: {
       control: "select",
       options: ["sales", "cost", "positive", "negative", "boxes"],
@@ -34,6 +47,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Pick in Controls: `tone` colours the icon tile (sales / cost / positive / negative /
+ *  boxes); clear `caption` to drop the small line; `captionTone` gain / loss colours it
+ *  green / red, unset leaves it muted. */
 export const Sales: Story = {
   decorators: [
     (Story) => (
