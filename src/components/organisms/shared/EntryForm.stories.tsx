@@ -312,8 +312,6 @@ const branch = {
   เบิกข้าวเหนียว: { db: demoDb, kind: "riceIssue" },
   หุงข้าว: { db: demoDb, kind: "rice" },
   ข้าวเหลือสิ้นวัน: { db: demoDb, kind: "riceCarry" },
-  ซื้อน้ำพริก: { db: demoDb, kind: "chiliPurchase" },
-  เบิกน้ำพริก: { db: demoDb, kind: "chiliIssue" },
   "ปิดวัน (ยังไม่ครบ)": { db: chillDb, kind: "closeDay", lotId: "" },
   "ปิดวัน (ครบแล้ว)": { db: closeReadyDb, kind: "closeDay", lotId: "" },
 } satisfies Record<string, Setup>;
@@ -327,7 +325,7 @@ const branch = {
  *    ไม่มีใบจัดสรร: every batch plus "ไม่ระบุ Lot", waiting for a pick
  *  - ละลายเนื้อ: the oldest frozen lot (FIFO), last thaw's kg (expected)
  *  - กล่องอินฟลูเอนเซอร์: name, boxes, tubes, shipping fee; kg derived on save
- *  - ข้าว / น้ำพริก: purchase tops up to par (captioned), withdrawals check stock
+ *  - ข้าว: purchase tops up to par (captioned), withdrawals check stock
  *  - ปิดวัน: ยังไม่ครบ lists what is missing with ไปกรอก and keeps ยืนยันปิดวัน disabled
  *    (disabled state); ครบแล้ว is all ✓ and enabled at any time (FB-14) */
 export const Branch: Story = actor("branch", forms(branch), branches[0]);
@@ -376,14 +374,6 @@ export const BranchRiceIssueFilled = branchPlay(
   "เบิกข้าวเหนียว",
   typeInto([
     [/ข้าวเหนียวดิบที่เบิก/, "2"],
-    [/ผู้รับของ/, "ครัวศาลาแดง"],
-  ]),
-);
-
-export const BranchChiliIssueFilled = branchPlay(
-  "เบิกน้ำพริก",
-  typeInto([
-    [/น้ำพริกที่เบิก/, "3"],
     [/ผู้รับของ/, "ครัวศาลาแดง"],
   ]),
 );

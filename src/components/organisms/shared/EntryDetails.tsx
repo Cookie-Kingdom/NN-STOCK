@@ -35,6 +35,7 @@ import {
   entryBy,
   titles,
   unpack,
+  voidableKinds,
   type Database,
   type Entry,
   type ActingRole,
@@ -42,30 +43,6 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { today } from "@/lib/format";
-
-const reversibleKinds = [
-  "allocate",
-  "chiliAllocate",
-  "receive",
-  "thaw",
-  "ricePurchase",
-  "chiliPurchase",
-  "riceIssue",
-  "chiliIssue",
-  "rice",
-  "riceCarry",
-  "sale",
-  "influencerBox",
-  "materials",
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "materialConfirm",
-  "closeDay",
-  "expense",
-  "unlock",
-  "link",
-];
 
 /** Labels for computed values that are not fields of the entry's form. */
 const derivedLabels: Record<string, string> = {
@@ -270,7 +247,7 @@ export function EntryDetails({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const owner = role === "owner";
-  const reversible = reversibleKinds.includes(e.kind) && !voided;
+  const reversible = voidableKinds.includes(e.kind) && !voided;
   const lookup = lookupProp ?? db;
   const edits = db ? entryEdits(db, e.id) : [];
   // Current values: the entry with its edits applied (entries() does the overlay).

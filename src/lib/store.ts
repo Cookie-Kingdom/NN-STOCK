@@ -17,6 +17,7 @@ export {
   titles,
   editDecisions,
   editLockedKeys,
+  voidableKinds,
   unpack,
   canLink,
   seed,

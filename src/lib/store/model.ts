@@ -220,6 +220,42 @@ export const editableKinds: EntryKind[] = [
   "expense",
   "foodivaConfirm",
   "smokingInvoice",
+  // STK-03: a mistyped central kg is corrected here (it is recorded once per batch).
+  "central",
+];
+/** Kinds the Owner may void ("แก้รายการผิดด้วยการยกเลิก"): mutate refuses the rest, and the
+ *  Log only offers the button on these. */
+export const voidableKinds: EntryKind[] = [
+  "central",
+  "allocate",
+  "chiliAllocate",
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materials",
+  "materialReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "materialConfirm",
+  "closeDay",
+  "expense",
+  "unlock",
+  "link",
+];
+/** Branch kinds with no screen any more: old entries still count in stock (and the ones in
+ *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones. */
+export const retiredKinds: EntryKind[] = [
+  "supplyPurchase",
+  "supplyIssue",
+  "chiliPurchase",
+  "chiliIssue",
 ];
 export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
 /** Values an edit may not change: they tie the entry to a branch or a day. Changing one is a
@@ -262,7 +298,6 @@ export const seed: Database = {
     boxPrice: "350",
     addonPrice: "320",
     packKg: "0.1015",
-    ricePrice: "0",
     chiliPrice: "30",
     rawRicePar: "20",
     rawRiceUnitPrice: "55",
@@ -273,8 +308,6 @@ export const seed: Database = {
     outboundFee: "1200",
     returnFee: "1200",
     roundFee: "2000",
-    tolerance: "20",
-    closeTime: "22:00",
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",

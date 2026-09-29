@@ -232,7 +232,7 @@ function ConfigValue({
       type={type === "text" ? "text" : "number"}
       inputMode={type === "number" ? "decimal" : undefined}
       min={type === "number" ? "0" : undefined}
-      step={name === "packKg" ? "0.001" : name === "tolerance" ? "1" : "0.01"}
+      step={name === "packKg" ? "0.001" : "0.01"}
       value={draft[name] ?? ""}
       onChange={(event) => onChange(name, event.target.value)}
     />
@@ -724,17 +724,6 @@ export function ConfigView({ db }: { db: Database }) {
             />,
             "สาขา",
             "ใช้เมื่อ Owner, Foodiva หรือ Chef House ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
-          ),
-          settingRow(
-            "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)",
-            <ConfigValue
-              {...edit}
-              section="branch"
-              name="tolerance"
-              display={plain}
-            />,
-            "%",
-            "กำหนดช่วงยอดขายที่ยอมรับได้",
           ),
         ]}
       />

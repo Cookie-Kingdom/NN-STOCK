@@ -145,8 +145,8 @@ test("the Owner and the Account Manager save Foodiva / Chef House work", () => {
   const ownerNext = mutate(
     readState(db).payload,
     "owner",
-    "dispatch",
-    send,
+    "prepare",
+    { preSmokeKg: "40" },
     lotId,
     day,
   );
