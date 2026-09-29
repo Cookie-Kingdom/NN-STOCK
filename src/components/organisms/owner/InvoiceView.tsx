@@ -25,6 +25,7 @@ import {
   purchaseLots,
   shipments,
   type Entry,
+  smokingInvoicePayment,
   smokingInvoiceReview,
   smokingInvoiceStatus,
   type Database,
@@ -217,17 +218,11 @@ export function InvoiceView({
           ...smokingInvoices.map((entry) => {
             const lot = lotOf(entry);
             const status = smokingInvoiceStatus(db, entry);
-            const payment = entries(db, "invoicePayment", entry.lotId).find(
-              (item) => item.values.invoiceId === entry.id,
-            );
+            const payment = smokingInvoicePayment(db, entry);
             // Re-submitted invoices leave older rows behind: only the newest one is payable.
-            // A payment made before any invoice came already settles the batch.
             const latest =
               entries(db, "smokingInvoice", entry.lotId).at(-1)?.id ===
-                entry.id &&
-              !entries(db, "invoicePayment", entry.lotId).some(
-                (item) => !item.values.invoiceId,
-              );
+              entry.id;
             const reviewNote = smokingInvoiceReview(
               db,
               entry,
