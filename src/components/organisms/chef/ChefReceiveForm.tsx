@@ -89,13 +89,15 @@ export function ChefReceiveForm({
   /* The save's own mutate as a dry run (mutate clones, so it changes nothing), so a
    * refusal shows while the boxes are typed. Held back until the time and every box
    * are in; a warning (a number off from what is expected) never blocks the save. */
-  const live = check(() => mutate(db, "cm", "cmReceive", input, lotId, date));
+  const live = check(() =>
+    mutate(db, "owner", "cmReceive", input, lotId, date),
+  );
   const liveError = arrival && !missing ? live.error : "";
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
     const saved = await run(() =>
-      mutate(latestDatabase(), "cm", "cmReceive", input, lotId, date),
+      mutate(latestDatabase(), "owner", "cmReceive", input, lotId, date),
     );
     if (saved) onSaved();
   }

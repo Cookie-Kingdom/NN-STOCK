@@ -29,6 +29,16 @@ const nextConfig: NextConfig = {
   // An e2e lane (playwright.local.config.ts) keeps its dev output apart from
   // `pnpm dev` / `pnpm build` so several servers can run in this checkout at once.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+  // Foodiva / Chef House workspaces are retired (M3): old bookmarks land on sign-in.
+  async redirects() {
+    return [
+      {
+        source: "/:role(chef|foodiva)/:path*",
+        destination: "/",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

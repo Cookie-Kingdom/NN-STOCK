@@ -19,6 +19,7 @@ describe("dispatchWithPackingList", () => {
         boxes: "25\n25",
       },
       day,
+      "foodiva",
     );
     expect(
       next.entries.slice(-2).map((e) => [e.kind, e.role, e.lotId]),
@@ -64,6 +65,7 @@ describe("dispatchWithPackingList", () => {
         send,
         { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "" },
         day,
+        "owner",
       ),
     ).toThrow("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
     expect(lotProgress(s.db, s.db.lots.at(-1)!.id).has("dispatch")).toBe(false);

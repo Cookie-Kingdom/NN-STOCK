@@ -5,7 +5,7 @@ import { pick } from "../../../../.storybook/pick";
 import { EntryDetails } from "@/components/organisms/shared/EntryDetails";
 import type { Database } from "@/lib/store";
 import { accountById } from "@/lib/accounts";
-import { branchNav, chefNav, ownerNav } from "@/lib/nav";
+import { branchNav, ownerNav } from "@/lib/nav";
 import { AppSidebar } from "./AppSidebar";
 import { HistoryPanel } from "./HistoryPanel";
 
@@ -30,7 +30,6 @@ const sidebars = {
     tab: "owner-dashboard",
     badges: { po: 2, invoices: 1 },
   },
-  chef: { nav: chefNav, tab: "work", badges: undefined },
   saladaeng: {
     nav: branchNav,
     tab: branchNav[0].items[0].id,
@@ -38,7 +37,7 @@ const sidebars = {
   },
 } as const;
 
-/** Pick บัญชี in Controls: Owner (with PO and invoice badges), Chef House or ศาลาแดง. */
+/** Pick บัญชี in Controls: Owner (with PO and invoice badges) or ศาลาแดง. */
 export const Sidebar: Story = {
   parameters: { layout: "fullscreen" },
   argTypes: {
@@ -47,7 +46,7 @@ export const Sidebar: Story = {
       options: Object.keys(sidebars),
       control: {
         type: "radio",
-        labels: { owner: "Owner", chef: "Chef House", saladaeng: "ศาลาแดง" },
+        labels: { owner: "Owner", saladaeng: "ศาลาแดง" },
       },
     },
   },

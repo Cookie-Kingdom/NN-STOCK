@@ -85,11 +85,11 @@ export const Allocation: Story = {
   ),
 };
 
-/** `chefEdit` routes to the Chef's lot-edit dialog for the lot it was opened on. */
+/** `chefEdit` routes to Chef House's lot-edit dialog (the Owner types it) for the lot it was opened on. */
 export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (
-    <Modals account="chef" kind="chefEdit" lotId={smokedDb.lots.at(-1)!.id} />
+    <Modals account="owner" kind="chefEdit" lotId={smokedDb.lots.at(-1)!.id} />
   ),
 };
 

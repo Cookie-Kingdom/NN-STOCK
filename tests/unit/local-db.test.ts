@@ -215,8 +215,9 @@ test("the Owner and the Account Manager save Foodiva / Chef House work", () => {
 test("Foodiva and Chef House accounts are refused on load and save", () => {
   const db = openLocalDb(":memory:");
   const { payload } = readState(db);
-  for (const id of ["foodiva", "chef"]) {
-    const account = accountById(id);
+  // M3 dropped these accounts from accounts.ts; a caller that still has one is refused.
+  for (const role of ["foodiva", "cm"] as const) {
+    const account = { ...accountById("owner")!, role };
     expect(() => loadState(db, account)).toThrow("Account is not active");
     expect(() => saveState(db, account, payload, 1)).toThrow(
       "Account is not active",

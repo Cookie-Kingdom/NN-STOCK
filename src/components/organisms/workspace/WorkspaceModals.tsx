@@ -167,9 +167,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           done(
             lotId && entries(next, "smokeOrder", lotId).length
               ? "บันทึกใบขนส่งและ Packing List แล้ว"
-              : role === "foodiva"
-                ? "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน"
-                : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
+              : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
           );
         }}
       />
