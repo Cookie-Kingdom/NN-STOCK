@@ -13,7 +13,7 @@ import {
   smokeOrderDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { visibleDatabase, type Database } from "@/lib/store";
+import { shipments, type Database } from "@/lib/store";
 import { ChefLotTable } from "./ChefLotTable";
 import { ChefReceiveTable } from "./ChefReceiveTable";
 
@@ -21,9 +21,6 @@ const meta: Meta = { title: "Organisms/Chef" };
 
 export default meta;
 type Story = StoryObj<{ db: Database }>;
-
-/** What Chef House's screens get: shipments only, no purchase PO number or price. */
-const chef = (db: Database) => visibleDatabase(db, "cm");
 
 const lotState = pick("สถานะ", {
   "รอรับ PO รมควัน": smokeOrderDb,
@@ -53,9 +50,7 @@ const lotState = pick("สถานะ", {
 export const LotTable: Story = {
   argTypes: { db: lotState.argType },
   args: { db: lotState.initial },
-  render: ({ db }) => (
-    <ChefLotTable db={chef(db)} lots={chef(db).lots} open={open} />
-  ),
+  render: ({ db }) => <ChefLotTable db={db} lots={shipments(db)} open={open} />,
 };
 
 const receiveState = pick("สถานะ", {
@@ -72,5 +67,5 @@ const receiveState = pick("สถานะ", {
 export const ReceiveTable: Story = {
   argTypes: { db: receiveState.argType },
   args: { db: receiveState.initial },
-  render: ({ db }) => <ChefReceiveTable db={chef(db)} open={open} />,
+  render: ({ db }) => <ChefReceiveTable db={db} open={open} />,
 };

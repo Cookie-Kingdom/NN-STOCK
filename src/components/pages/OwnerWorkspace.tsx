@@ -86,7 +86,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           <ChefLotTable db={db} lots={shipments(db)} open={open} />
           <MeatStockTable
             db={db}
-            role="cm"
+            variant="chef"
             branch={ws.branch}
             lots={shipments(db)}
             open={open}
@@ -107,7 +107,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           />
           <MeatStockTable
             db={db}
-            role={ws.role}
+            variant="owner"
             branch={ws.branch}
             lots={shipments(db)}
             open={open}

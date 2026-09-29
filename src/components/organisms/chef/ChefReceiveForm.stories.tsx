@@ -6,7 +6,7 @@ import {
   dispatchedDb,
   smokedDb,
 } from "../../../../.storybook/fixtures";
-import { visibleDatabase, type Database } from "@/lib/store";
+import { type Database } from "@/lib/store";
 import { ChefReceiveForm } from "./ChefReceiveForm";
 
 // A native modal <dialog>: a Docs page would stack it, hence `!autodocs`.
@@ -21,7 +21,7 @@ type Story = StoryObj;
 
 const form = (db: Database, lotId: string) => (
   <ChefReceiveForm
-    db={visibleDatabase(db, "cm")}
+    db={db}
     lotId={lotId}
     date={day}
     onDate={fn()}

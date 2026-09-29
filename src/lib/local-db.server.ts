@@ -44,17 +44,19 @@ export function loadState(
   db: DatabaseSync,
   account: Account | null,
 ): AppStateRow {
+  // A missing, unknown or retired (e.g. old `chef`) cookie maps to null: never the full state.
+  if (!account) fail("Authentication required");
   const row = readState(db);
-  if (!account || (account.role === "owner" && !account.hidesSales)) return row;
-  if (account.role === "owner")
+  if (account!.role === "owner" && !account!.hidesSales) return row;
+  if (account!.role === "owner")
     return { ...row, payload: stripSaleMoney(row.payload) };
-  if (account.role !== "branch") fail("Account is not active");
+  if (account!.role !== "branch") fail("Account is not active");
   return {
     ...row,
     payload: scopeDatabase(
       row.payload,
       "branch",
-      account.branch ? [account.branch] : [],
+      account!.branch ? [account!.branch] : [],
     ),
   };
 }
