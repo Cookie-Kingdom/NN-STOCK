@@ -8,21 +8,12 @@ import {
   chiliStock,
   closeDayChecklist,
   cookedRiceStock,
-  drawnKg,
   entries,
   isClosed,
-  latestPackingList,
   materials,
   pendingReceiveKg,
-  poRemainingKg,
-  producedBags,
-  purchaseLots,
-  rawAtFoodiva,
   rawRiceStock,
-  readyForChefHouse,
-  shipments,
   thirtyDayRoleplay,
-  visibleDatabase,
   visibleEntries,
   type Database,
 } from "@/lib/store";
@@ -30,10 +21,10 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// VIS-05: the latest app_state_scope_rules() (migration 0030, free ledger) matches scopeRules.
-test("the SQL rule table (migration 0030) is the same as scopeRules", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0032, branch only) matches scopeRules.
+test("the SQL rule table (migration 0032) is the same as scopeRules", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260928000030_free_ledger_app_state.sql",
+    "supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
@@ -73,7 +64,6 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
       e("e-v2", "void", "owner", "S1", "ศาลาแดง", { targetId: "e-sd" }),
       e("e-rcv", "receive", "branch", "", "มีนบุรี"),
       e("e-lk", "link", "branch", "", "มีนบุรี", { targetId: "e-rcv" }),
-      // VIS-02: Foodiva trucked S2 before any smoke PO; Chef House sees the batch, not the entry.
       e("e-dsp", "dispatch", "foodiva", "S2", "ศาลาแดง"),
     ],
   } as unknown as Database;
@@ -84,13 +74,6 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
   expect(ids(scopeDatabase(db, "branch", ["มีนบุรี"]))).toEqual({
     lots: "S1",
     entries: "e-al1,e-mb,e-v1,e-rcv,e-lk",
-  });
-  expect(ids(scopeDatabase(db, "foodiva")).entries).toBe(
-    "e-po,e-inv,e-pl,e-so,e-ret,e-dsp",
-  );
-  expect(ids(scopeDatabase(db, "cm"))).toEqual({
-    lots: "S1,S2",
-    entries: "e-pl,e-so",
   });
 });
 
@@ -107,30 +90,13 @@ test("the sample data exercises every role", () => {
     expect(entries(full, "sale", undefined, branch).length).toBeGreaterThan(0);
 });
 
-test("every role's history and edit requests read the same from its scoped copy", () => {
+test("a branch's history and edit requests read the same from its scoped copy", () => {
   for (const branch of branches) {
     const scoped = scopeDatabase(full, "branch", [branch]);
     expect(visibleEntries(scoped, "branch", branch)).toEqual(
       visibleEntries(full, "branch", branch),
     );
   }
-  for (const role of ["foodiva", "cm"] as const)
-    expect(visibleEntries(scopeDatabase(full, role), role)).toEqual(
-      visibleEntries(full, role),
-    );
-});
-
-test("Chef House's scoped copy is visibleDatabase, less config it never reads", () => {
-  const withoutConfig = (db: Database) => ({
-    lots: db.lots.map((lot) => ({ ...lot, config: {} })),
-    entries: db.entries,
-  });
-  const scoped = scopeDatabase(full, "cm");
-  expect(scoped.lots.length).toBeGreaterThan(0);
-  expect(withoutConfig(visibleDatabase(scoped, "cm"))).toEqual(
-    withoutConfig(visibleDatabase(full, "cm")),
-  );
-  expect(scoped).toEqual(visibleDatabase(scoped, "cm"));
 });
 
 test("a branch's numbers are the same on its scoped copy", () => {
@@ -160,27 +126,7 @@ test("a branch's numbers are the same on its scoped copy", () => {
   }
 });
 
-test("Foodiva's numbers are the same on its scoped copy", () => {
-  const scoped = scopeDatabase(full, "foodiva");
-  expect(shipments(scoped)).toHaveLength(shipments(full).length);
-  for (const lot of purchaseLots(full)) {
-    const mine = scoped.lots.find((item) => item.id === lot.id)!;
-    expect(rawAtFoodiva(scoped, mine)).toBe(rawAtFoodiva(full, lot));
-    expect(poRemainingKg(scoped, lot.id)).toBe(poRemainingKg(full, lot.id));
-    expect(readyForChefHouse(scoped, lot.id)).toBe(
-      readyForChefHouse(full, lot.id),
-    );
-    expect(drawnKg(scoped, lot.id, true)).toBe(drawnKg(full, lot.id, true));
-  }
-  for (const lot of shipments(full)) {
-    expect(producedBags(scoped, lot.id)).toBe(producedBags(full, lot.id));
-    expect(latestPackingList(scoped, lot.id)).toEqual(
-      latestPackingList(full, lot.id),
-    );
-  }
-});
-
-test("no role receives what it must not see", () => {
+test("a branch receives nothing it must not see", () => {
   const text = (db: Database) => JSON.stringify(db);
   for (const branch of branches) {
     const scoped = scopeDatabase(full, "branch", [branch]);
@@ -195,15 +141,6 @@ test("no role receives what it must not see", () => {
     );
     expect(scoped.config.outboundFee).toBeUndefined();
   }
-  const foodiva = scopeDatabase(full, "foodiva");
-  expect(foodiva.entries.some((e) => e.role === "branch")).toBe(false);
-  expect(foodiva.entries.some((e) => e.kind === "smokingInvoice")).toBe(false);
-  expect(text(foodiva)).not.toMatch(/"(revenue|lineMan|meatCost|returnCost)"/);
-  expect(foodiva.config.boxPrice).toBeUndefined();
-  const cm = scopeDatabase(full, "cm");
-  expect(cm.entries.some((e) => e.role === "branch")).toBe(false);
-  expect(cm.entries.some((e) => e.kind === "purchase")).toBe(false);
-  expect(text(cm)).not.toMatch(/"(price|lines|outboundCost|returnCost)"/);
 });
 
 test("voids and edits follow the entry they name", () => {

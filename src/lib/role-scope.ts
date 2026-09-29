@@ -1,19 +1,18 @@
 import {
-  chefBatchKinds,
   type Database,
   type Entry,
   type Lot,
-  type Role,
   type Values,
   type EntryKind,
 } from "./store";
 
-/* What a Branch, Foodiva or Chef House account receives from load_app_state (review APP-01 /
- * DB-03). Until migration 20260925000028 every role but the Account Manager got the whole
- * payload, and `visibleEntries`/`visibleDatabase` only narrowed the screens.
+/* What a branch account receives from load_app_state (review APP-01 / DB-03). Until migration
+ * 20260925000028 every role but the Account Manager got the whole payload, and
+ * `visibleEntries`/`visibleDatabase` only narrowed the screens. Foodiva and Chef House accounts
+ * are retired (20260929000032): the Owner and the Account Manager read everything.
  *
  * `scopeRules` is the rule table. The same JSON sits in app_state_scope_rules() in migration
- * 20260928000030, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
+ * 20260929000032, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
  * `scopeDatabase` is the JS port of scope_app_state() (latest in 20260928000031; GET
  * /api/local-db uses it).
  *
@@ -21,11 +20,9 @@ import {
  *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest` and `editDecision` are
  *                never listed: they are sent when the entry they name (`targetId`) is sent.
  *  - ownBranch   only entries whose `branch` is the account's own branch.
- *  - lots        "all", "allocated" (lots with an entry whose `branch` is the account's and
- *                whose kind is `allocate` or whose role is `branch`, BR-07) or "smoked"
- *                (shipment lots with an entry of kind `smokeOrder`, `dispatch` or
- *                `packingList`, or of role `cm`, VIS-02;
- *                entries on other lots are not sent either). Voids are not consulted.
+ *  - lots        "allocated": lots with an entry whose `branch` is the account's and whose
+ *                kind is `allocate` or whose role is `branch` (BR-07); entries on other lots
+ *                are not sent either. Voids are not consulted.
  *  - hiddenKeys  value keys stripped from every entry and lot (also as an edit's to./from.).
  *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
  *                trailing `*` keeps every key with that prefix. normalize() fills the rest
@@ -33,25 +30,14 @@ import {
 export type ScopeRule = {
   kinds: EntryKind[];
   ownBranch: boolean;
-  lots: "all" | "allocated" | "smoked";
+  lots: "allocated";
   hiddenKeys: string[];
   configKeys: string[];
 };
-export type ScopedRole = Exclude<Role, "owner">;
+export type ScopedRole = "branch";
 
 /** Meat cost of a sale (lotCost) and what the smoke PO costs. */
 const costKeys = ["meatCost", "wasteCost", "estimatedCost", "serviceRate"];
-const documentConfig = [
-  "branch",
-  "companyName",
-  "companyAddress",
-  "attention",
-  "companyPhone",
-  "taxId",
-  "logoData",
-  "logoStorageKey",
-  "logoName",
-];
 
 export const scopeRules: Record<ScopedRole, ScopeRule> = {
   branch: {
@@ -92,58 +78,6 @@ export const scopeRules: Record<ScopedRole, ScopeRule> = {
       "material*",
     ],
   },
-  foodiva: {
-    kinds: [
-      "foodivaConfirm",
-      "packingList",
-      "foodivaReturnReceive",
-      "dispatch",
-      "purchase",
-      "smokeOrder",
-      "return",
-      "ownerWasteReceive",
-      "meatPayment",
-      "smoke",
-      "chefEdit",
-      "steakTransfer",
-    ],
-    ownBranch: false,
-    lots: "all",
-    hiddenKeys: [...costKeys, "returnCost"],
-    configKeys: [
-      ...documentConfig,
-      "foodivaContact",
-      "foodivaAddress",
-      "outboundFee",
-      "roundFee",
-    ],
-  },
-  cm: {
-    kinds: [
-      "smokingInvoice",
-      "smokeOrderAccept",
-      "cmReceive",
-      "prepare",
-      "smoke",
-      "closeLot",
-      "chefEdit",
-      "smokeOrder",
-      "packingList",
-      "invoiceReview",
-      "invoicePayment",
-    ],
-    ownBranch: false,
-    lots: "smoked",
-    hiddenKeys: [
-      "meatCost",
-      "wasteCost",
-      "lines",
-      "price",
-      "outboundCost",
-      "returnCost",
-    ],
-    configKeys: [...documentConfig, "chefHouseContact", "chefHouseAddress"],
-  },
 };
 
 /** Kinds that follow the entry they name in `targetId`. */
@@ -182,28 +116,19 @@ export function scopeDatabase(
   const all = db.entries ?? [];
   const lotsWith = (test: (e: Entry) => boolean) =>
     new Set(all.filter((e) => e && test(e)).map((e) => e.lotId));
-  // VIS-02: Chef House's batches. BR-07: a branch's lots. Same rule as visibleLots().
-  const smoked = lotsWith(
-    (e) => chefBatchKinds.includes(e.kind) || e.role === "cm",
-  );
+  // BR-07: a branch's lots. Same rule as visibleLots().
   const allocated = lotsWith(
     (e) =>
       branches.includes(e.branch) &&
       (e.kind === "allocate" || e.role === "branch"),
   );
-  const lots = (db.lots ?? []).filter(
-    (lot: Lot) =>
-      rule.lots === "all" ||
-      (rule.lots === "allocated"
-        ? allocated.has(lot?.id)
-        : lot?.kind === "shipment" && smoked.has(lot.id)),
-  );
+  const lots = (db.lots ?? []).filter((lot: Lot) => allocated.has(lot?.id));
   const lotIds = new Set(lots.map((lot) => lot.id));
   // A branch's own entries in its "ไม่ระบุ Lot" bucket (`lotId === ""`) are sent too.
   const direct = (e: Entry) =>
     rule.kinds.includes(e?.kind) &&
     (!rule.ownBranch || branches.includes(e.branch)) &&
-    (rule.lots === "all" || !e.lotId || lotIds.has(e.lotId));
+    (!e.lotId || lotIds.has(e.lotId));
   const sent = new Set(all.filter(direct).map((e) => e.id));
   const entries = all.filter(
     (e) =>
