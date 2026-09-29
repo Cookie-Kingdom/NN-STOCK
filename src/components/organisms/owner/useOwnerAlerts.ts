@@ -10,6 +10,7 @@ import {
   missingText,
 } from "@/components/organisms/owner/lotSteps";
 import {
+  awaitingReturn,
   centralStock,
   currentSmokingInvoices,
   type Database,
@@ -38,14 +39,11 @@ export const noOwnerAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
-/** Shipments Chef House has closed that still need the Owner to book the truck home.
- *  The return-trip screen and the alerts read the same list, so a lot can never be
- *  ready in one place and missing in the other. */
+/** Shipments Chef House has closed that still need the Owner to book the truck home: the
+ *  closed subset of the return screen's rows (`awaitingReturn`, RET-06). */
 function returnReadyLots(db: Database) {
-  return shipments(db).filter(
-    (lot) =>
-      lotProgress(db, lot.id).has("closeLot") &&
-      !entries(db, "return", lot.id).length,
+  return awaitingReturn(db).filter((lot) =>
+    lotProgress(db, lot.id).has("closeLot"),
   );
 }
 

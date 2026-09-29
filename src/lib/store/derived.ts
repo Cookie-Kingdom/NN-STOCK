@@ -211,6 +211,12 @@ const batchLines = (db: Database, lot: Lot): ShipmentLine[] => {
 export function shipments(db: Database) {
   return db.lots.filter((lot) => lot.kind === "shipment");
 }
+/** Shipments with no truck home yet (RET-06): the Owner may book the return whenever the
+ *  truck is arranged, closed lot or not. The return screen lists these and the Owner's
+ *  "Chef House closed the lot" alert is the closed subset, so an alerted lot is always a row. */
+export function awaitingReturn(db: Database) {
+  return shipments(db).filter((lot) => !entries(db, "return", lot.id).length);
+}
 /** Kg of one purchase PO that smoke POs draw (only batches already trucked with `dispatchedOnly`, PO-05). */
 export function drawnKg(
   db: Database,

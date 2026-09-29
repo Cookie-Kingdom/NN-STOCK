@@ -47,7 +47,6 @@ function Shell({
 }) {
   const [tab, setTab] = useState<Tab>(account.homeTab);
   const [date, setDate] = useState("2026-09-15");
-  const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(initialToast);
   // The shell reads tab, date, toast and loading from the workspace; no dialog is open.
   const ws: Workspace = {
@@ -76,8 +75,6 @@ function Shell({
       nav={nav}
       badges={badges}
       notifications={notifications}
-      showNotifications={open}
-      onToggleNotifications={() => setOpen((value) => !value)}
       ws={ws}
     >
       {children}

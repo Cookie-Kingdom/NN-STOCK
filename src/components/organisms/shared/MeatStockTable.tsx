@@ -4,6 +4,7 @@ import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
+  branches,
   centralStock,
   entries,
   n,
@@ -47,8 +48,7 @@ export function MeatStockTable({
           "Lot",
           "ค้างที่ Foodiva",
           "ส่วนกลาง",
-          "ศาลาแดง",
-          "มีนบุรี",
+          ...branches,
           "สถานะ",
           "การทำงาน",
         ]}
@@ -62,8 +62,10 @@ export function MeatStockTable({
               ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
               : "รอ Foodiva ยืนยัน Invoice",
           `${fmt(centralStock(db, lot.id))} กก.`,
-          `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "ศาลาแดง").ready)} ชิล/ละลายแล้ว`,
-          `${fmt(balance(db, lot.id, "มีนบุรี").frozen)} แช่แข็ง / ${fmt(balance(db, lot.id, "มีนบุรี").ready)} ชิล/ละลายแล้ว`,
+          ...branches.map((branch) => {
+            const { frozen, ready } = balance(db, lot.id, branch);
+            return `${fmt(frozen)} แช่แข็ง / ${fmt(ready)} ชิล/ละลายแล้ว`;
+          }),
           progressLabel(db, lot.id),
           // BR-01: always open; over central stock is a warning in the form.
           <Button
