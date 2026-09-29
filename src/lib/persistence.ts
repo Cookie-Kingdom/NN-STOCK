@@ -219,6 +219,11 @@ async function loadDatabase(background = false): Promise<boolean> {
     return false;
   }
   if (!data) {
+    // Only the Owner / Account Manager create the row: save_app_state refuses a branch (0034).
+    if (appendOnly) {
+      reportError("ยังไม่มีข้อมูลในระบบ กรุณาให้ Owner เข้าสู่ระบบก่อน");
+      return false;
+    }
     const created = await saveRow(seed, null);
     const row = created.data;
     if (created.error) {

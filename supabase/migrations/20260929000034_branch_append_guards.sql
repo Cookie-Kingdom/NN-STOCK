@@ -3,8 +3,9 @@
 --
 -- * Lots: a branch never changes a lot (no branch kind opens a batch or writes the lot cache), yet
 --   append_entries merged p_lots values into any stored lot, e.g. outboundCost / returnCost /
---   centralKg that lotCost() reads for the Owner. Now any p_lots from a branch is refused, and
---   save_app_state's non-owner path must leave every lot exactly as stored.
+--   centralKg that lotCost() reads for the Owner. Now any p_lots from a branch is refused.
+-- * save_app_state refuses a branch account outright: since 0028 the app sends every branch save
+--   to append_entries (setSaveAppendOnly in persistence.ts), so its branch arms are gone.
 -- * link: its target must be an entry of the link's own branch with role "branch" (canLink in
 --   store/model.ts; entries() in store/derived.ts ignores any other link).
 -- * Dates: an entry dated after today (Asia/Bangkok) is refused, and so is one landing on a
@@ -31,14 +32,14 @@ returns boolean language sql immutable set search_path = pg_catalog as $$
 $$;
 revoke all on function public.branch_day_closed(jsonb, text, text) from public, anon, authenticated;
 
--- 0032's save_app_state; a non-owner leaves every lot as stored.
+-- 0032's save_app_state for the Owner and the Account Manager only.
 create or replace function public.save_app_state(p_payload jsonb, p_expected_revision bigint default null)
 returns table(revision bigint, updated_at timestamptz) language plpgsql security definer
 set search_path = pg_catalog, public as $$
 declare current_profile public.profiles%rowtype; state_row public.app_state%rowtype;
-  old_entries jsonb; new_entries jsonb; old_lots jsonb; new_lots jsonb;
+  old_entries jsonb; new_entries jsonb;
   old_entry_count integer; new_entry_count integer;
-  runs_business boolean; current_revision bigint;
+  current_revision bigint;
 begin
   if auth.uid() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   if pg_column_size(p_payload) > 2097152 then
@@ -46,7 +47,8 @@ begin
   select * into current_profile from public.profiles where id = auth.uid() and is_active
     and role::text in ('L1_OWNER', 'L1_MANAGER', 'L2_BRANCH_ADMIN');
   if not found then raise exception 'Account is not active' using errcode = '42501'; end if;
-  runs_business := current_profile.role::text in ('L1_OWNER', 'L1_MANAGER');
+  if current_profile.role::text = 'L2_BRANCH_ADMIN' then
+    raise exception 'Branch accounts save through append_entries' using errcode = '42501'; end if;
   if jsonb_typeof(p_payload) <> 'object' or jsonb_typeof(p_payload -> 'entries') <> 'array'
     or jsonb_typeof(p_payload -> 'lots') <> 'array' or jsonb_typeof(p_payload -> 'config') <> 'object'
   then raise exception 'Invalid application state'; end if;
@@ -55,7 +57,6 @@ begin
     raise sqlstate 'PT409' using message = 'State changed on another device. Reload and try again.'; end if;
   select * into state_row from public.app_state where singleton for update;
   if not found then
-    if not runs_business then raise exception 'Only an owner can initialize application state' using errcode = '42501'; end if;
     if current_profile.role::text = 'L1_MANAGER' then
       p_payload := jsonb_set(p_payload, '{entries}', public.strip_sale_money_entries(p_payload -> 'entries')); end if;
     return query insert into public.app_state(singleton, payload, revision, updated_by) values (true, p_payload, 1, auth.uid())
@@ -63,17 +64,11 @@ begin
   end if;
   if p_expected_revision is null or p_expected_revision <> state_row.revision then
     raise sqlstate 'PT409' using message = 'State changed on another device. Reload and try again.'; end if;
-  if not runs_business and p_payload -> 'config' is distinct from state_row.payload -> 'config' then
-    raise exception 'Only an owner can change configuration' using errcode = '42501'; end if;
-  if not runs_business and (p_payload -> 'version' is distinct from '9'::jsonb
-    or (p_payload - 'entries' - 'lots') is distinct from (state_row.payload - 'entries' - 'lots'))
-  then raise exception 'Only an owner can change application state' using errcode = '42501'; end if;
   if current_profile.role::text = 'L1_MANAGER' then
     p_payload := jsonb_set(p_payload, '{entries}', public.restore_sale_money(
       state_row.payload -> 'entries', p_payload -> 'entries', p_payload -> 'config'));
   end if;
   old_entries := state_row.payload -> 'entries'; new_entries := p_payload -> 'entries';
-  old_lots := state_row.payload -> 'lots'; new_lots := p_payload -> 'lots';
   old_entry_count := jsonb_array_length(old_entries); new_entry_count := jsonb_array_length(new_entries);
   if new_entry_count < old_entry_count then raise exception 'Existing history cannot be removed' using errcode = '42501'; end if;
   if old_entry_count > 0 and exists (
@@ -86,48 +81,13 @@ begin
     select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
     where n.ord > old_entry_count and not coalesce(case current_profile.role::text
       when 'L1_MANAGER' then n.entry ->> 'actor' = 'manager'
-      when 'L1_OWNER' then n.entry ->> 'actor' is null
-        or (n.entry ->> 'actor' = 'owner' and n.entry ->> 'role' in ('foodiva', 'cm'))
-      else n.entry ->> 'actor' is null end, false)
+      else n.entry ->> 'actor' is null
+        or (n.entry ->> 'actor' = 'owner' and n.entry ->> 'role' in ('foodiva', 'cm')) end, false)
   ) then raise exception 'Entry actor does not match signed-in account' using errcode = '42501'; end if;
   if current_profile.role::text = 'L1_MANAGER' and exists (
     select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
     where n.ord > old_entry_count and not coalesce(n.entry ->> 'role' in ('owner', 'foodiva', 'cm'), false)
   ) then raise exception 'Entry role does not match signed-in account' using errcode = '42501'; end if;
-  if not runs_business and new_entry_count > old_entry_count then
-    if exists (
-      select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
-      where n.ord > old_entry_count and n.entry ->> 'role' is distinct from 'branch'
-    ) then raise exception 'Entry role does not match signed-in account' using errcode = '42501'; end if;
-    if exists (
-      select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
-      where n.ord > old_entry_count and not coalesce(n.entry ->> 'branch' = any (public.account_branches(auth.uid())), false)
-    ) then raise exception 'Entry branch does not match signed-in account' using errcode = '42501'; end if;
-    -- `ownership` in store/mutate.ts, plus editRequest and link. Keep in step with append_entries.
-    if exists (
-      select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
-      where n.ord > old_entry_count and not coalesce(n.entry ->> 'kind' = any(array['receive', 'thaw', 'supplyPurchase',
-        'supplyIssue', 'ricePurchase', 'chiliPurchase', 'riceIssue', 'chiliIssue', 'rice', 'riceCarry', 'sale',
-        'influencerBox', 'materials', 'materialConfirm', 'closeDay', 'editRequest', 'link']), false)
-    ) then raise exception 'Entry kind is not allowed for this account' using errcode = '42501'; end if;
-    if exists (
-      select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
-      where n.ord > old_entry_count and (coalesce(n.entry ->> 'id', '') = ''
-        or (select count(*) from jsonb_array_elements(new_entries) e where e ->> 'id' = n.entry ->> 'id') > 1)
-    ) then raise exception 'Entry id must be unique' using errcode = '42501'; end if;
-    if exists (
-      select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
-      where n.ord > old_entry_count and coalesce(n.entry ->> 'lotId', '') not in ('', '-')
-        and not exists (select 1 from jsonb_array_elements(new_lots) l where l ->> 'id' = n.entry ->> 'lotId')
-    ) then raise exception 'Entry lot does not exist' using errcode = '42501'; end if;
-  end if;
-  -- A non-owner never changes a lot: no branch kind opens a batch or writes the lot cache.
-  if not runs_business then
-    if jsonb_array_length(new_lots) <> jsonb_array_length(old_lots) then
-      raise exception 'Only an owner can add or remove lots' using errcode = '42501'; end if;
-    if new_lots is distinct from old_lots then
-      raise exception 'Lot changes must follow the workflow' using errcode = '42501'; end if;
-  end if;
   return query update public.app_state set payload = p_payload, revision = app_state.revision + 1, updated_at = now(), updated_by = auth.uid()
     where singleton returning app_state.revision, app_state.updated_at;
 end; $$;

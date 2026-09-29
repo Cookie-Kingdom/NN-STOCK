@@ -100,6 +100,8 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
+  if (account!.role !== "owner")
+    fail("Branch accounts save through append_entries");
   if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
     fail("Payload too large");
   let payload = input as Database;
@@ -118,18 +120,6 @@ export function saveState(
   if (account!.hidesSales) payload = restoreSaleMoney(old, payload);
   if (expectedRevision == null || expectedRevision !== revision)
     fail("State changed on another device. Reload and try again.");
-  const role = account!.role;
-  if (role !== "owner" && !isDeepStrictEqual(payload.config, old.config))
-    fail("Only an owner can change configuration");
-  if (
-    role !== "owner" &&
-    (payload.version !== 9 ||
-      !isDeepStrictEqual(
-        without(payload, "entries", "lots"),
-        without(old, "entries", "lots"),
-      ))
-  )
-    fail("Only an owner can change application state");
   if (payload.entries.length < old.entries.length)
     fail("Existing history cannot be removed");
   if (
@@ -139,50 +129,17 @@ export function saveState(
   )
     fail("Existing history cannot be changed");
   // The Account Manager stamps every new entry (owner / foodiva / cm); the Owner may stamp
-  // "owner" on a partner's entry it typed (M0); a branch stamps nothing.
+  // "owner" on a partner's entry it typed (M0).
   const manager = account!.id === "manager";
   for (const entry of payload.entries.slice(old.entries.length)) {
     const actorOk = manager
       ? entry?.actor === "manager"
-      : role === "owner"
-        ? entry?.actor === undefined ||
-          (entry.actor === "owner" &&
-            (entry.role === "foodiva" || entry.role === "cm"))
-        : entry?.actor === undefined;
+      : entry?.actor === undefined ||
+        (entry.actor === "owner" &&
+          (entry.role === "foodiva" || entry.role === "cm"));
     if (!actorOk) fail("Entry actor does not match signed-in account");
     if (manager && !["owner", "foodiva", "cm"].includes(entry.role))
       fail("Entry role does not match signed-in account");
-  }
-  if (role !== "owner") {
-    const added = payload.entries.slice(old.entries.length);
-    for (const entry of added) {
-      if (entry?.role !== "branch")
-        fail("Entry role does not match signed-in account");
-      if (entry.branch !== account!.branch)
-        fail("Entry branch does not match signed-in account");
-    }
-    for (const entry of added) {
-      if (!branchKinds.includes(entry.kind))
-        fail("Entry kind is not allowed for this account");
-      if (
-        !entry.id ||
-        payload.entries.filter((other) => other?.id === entry.id).length > 1
-      )
-        fail("Entry id must be unique");
-      if (
-        entry.lotId &&
-        entry.lotId !== "-" &&
-        !payload.lots.some((lot) => lot?.id === entry.lotId)
-      )
-        fail("Entry lot does not exist");
-    }
-  }
-  // A non-owner never changes a lot: no branch kind opens a batch or writes the lot cache.
-  if (role !== "owner") {
-    if (payload.lots.length !== old.lots.length)
-      fail("Only an owner can add or remove lots");
-    if (!isDeepStrictEqual(payload.lots, old.lots))
-      fail("Lot changes must follow the workflow");
   }
   return replaceState(db, payload);
 }
