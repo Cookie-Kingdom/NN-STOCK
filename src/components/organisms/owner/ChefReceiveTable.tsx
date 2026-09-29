@@ -17,7 +17,7 @@ import {
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
-/** CHF-07: every batch Chef House can see that is not weighed in yet, whether or not
+/** CHF-07: every batch that Chef House has not weighed in yet, whether or not
  *  Foodiva's Packing List or the Owner's smoke PO is in. Meat that arrives with no batch
  *  at all opens a new one ("เปิดชุดใหม่", `lotId === ""`). */
 export function ChefReceiveTable({

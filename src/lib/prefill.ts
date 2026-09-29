@@ -403,8 +403,8 @@ export function prefillValues(
   if (kind === "closeLot") return carryLast(db, "closeLot", ["confirm"]);
   if (kind === "smokingInvoice") {
     // With a smoke PO, serviceQuantity is display only: mutate takes the billed kg from it.
-    // Without one (SVC-01) Chef House types it, starting from the kg it weighed in.
-    // The amount starts at kg × rate (or the sent-back invoice's) and Chef House may change it (A7).
+    // Without one (SVC-01) the Owner types it for Chef House, starting from the kg it weighed in.
+    // The amount starts at kg × rate (or the sent-back invoice's) and may be changed to Chef House's bill (A7).
     const order = entries(db, "smokeOrder", lot.id).at(-1);
     const typed = current?.serviceQuantity?.trim();
     const quantity = order

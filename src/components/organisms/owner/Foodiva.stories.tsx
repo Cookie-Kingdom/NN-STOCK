@@ -36,7 +36,7 @@ const foodivaState = pick("สถานะ", {
   เสร็จสิ้น: demoDb,
 });
 
-/** Foodiva's screen. "ชุดรมควัน" lists every shipment batch with its progress chips
+/** The Owner's Foodiva tab (Foodiva is a partner, not a user). "ชุดรมควัน" lists every shipment batch with its progress chips
  *  (from `lotProgress`, hints only) and "เปิดชุดใหม่" opens a transport document on a new
  *  batch. "PO รมควันที่ยังไม่มีใบขนส่ง" is the incoming work. เลือกสถานะใน Controls:
  *  - รอส่งของ: the Owner's smoke PO opened a batch waiting for Foodiva's transport document;

@@ -7,8 +7,8 @@ import type { Account, AccountId } from "@/lib/accounts";
 import { useSession } from "@/lib/session";
 
 /** Renders a workspace only for the accounts it belongs to; anyone else is
- * sent back to sign-in. Client-side only — the real guard belongs in Supabase
- * RLS once auth lands. */
+ * sent back to sign-in. Client-side only: the real guard is in Supabase (RLS,
+ * load_app_state scoping and the save_app_state / append_entries checks). */
 export function AccountGate({
   allow,
   children,
