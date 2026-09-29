@@ -96,7 +96,10 @@ begin
 
   assert not has_function_privilege('anon', 'public.append_entries(bigint, jsonb, jsonb)', 'execute'), 'anon can append';
   assert has_function_privilege('authenticated', 'public.append_entries(bigint, jsonb, jsonb)', 'execute'), 'authenticated cannot append';
-  assert not has_function_privilege('authenticated', 'public.scope_app_state(jsonb, text, text[])', 'execute'), 'scope_app_state is callable';
+  assert not has_function_privilege('authenticated', 'public.scope_app_state(jsonb, text[])', 'execute'), 'scope_app_state is callable';
+  assert to_regprocedure('public.scope_app_state(jsonb, text, text[])') is null, 'old scope_app_state still there';
+  assert public.app_state_scope_rules() ?& array['kinds', 'hiddenKeys', 'configKeys']
+    and not public.app_state_scope_rules() ?| array['branch', 'ownBranch', 'lots'], 'scope rule has the old shape';
   assert not exists (select 1 from pg_proc where proname = 'lot_cost_per_kg'), 'lot_cost_per_kg still there';
 
   -- append_entries: the Owner keeps save_app_state.

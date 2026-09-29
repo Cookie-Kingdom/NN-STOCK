@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
-import { scopeDatabase, scopeRules } from "@/lib/role-scope";
+import { branchScope, scopeDatabase } from "@/lib/role-scope";
 import { thirtyDayRoleplay } from "@/lib/store/demo";
 import {
   balance,
@@ -21,14 +21,14 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// VIS-05: the latest app_state_scope_rules() (migration 0032, branch only) matches scopeRules.
-test("the SQL rule table (migration 0032) is the same as scopeRules", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0033) matches branchScope.
+test("the SQL rule (migration 0033) is the same as branchScope", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql",
+    "supabase/migrations/20260929000033_simplify_branch_scope.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
-  expect(JSON.parse(json ?? "null")).toEqual(scopeRules);
+  expect(JSON.parse(json ?? "null")).toEqual(branchScope);
 });
 
 // VIS-05 / SRV-03: the fixture of supabase/tests/role_scoped_app_state_test.sql gives the same ids
@@ -71,7 +71,7 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
     lots: scoped.lots.map((l) => l.id).join(","),
     entries: scoped.entries.map((x) => x.id).join(","),
   });
-  expect(ids(scopeDatabase(db, "branch", ["มีนบุรี"]))).toEqual({
+  expect(ids(scopeDatabase(db, ["มีนบุรี"]))).toEqual({
     lots: "S1",
     entries: "e-al1,e-mb,e-v1,e-rcv,e-lk",
   });
@@ -92,7 +92,7 @@ test("the sample data exercises every role", () => {
 
 test("a branch's history and edit requests read the same from its scoped copy", () => {
   for (const branch of branches) {
-    const scoped = scopeDatabase(full, "branch", [branch]);
+    const scoped = scopeDatabase(full, [branch]);
     expect(visibleEntries(scoped, "branch", branch)).toEqual(
       visibleEntries(full, "branch", branch),
     );
@@ -101,7 +101,7 @@ test("a branch's history and edit requests read the same from its scoped copy", 
 
 test("a branch's numbers are the same on its scoped copy", () => {
   for (const branch of branches) {
-    const scoped = scopeDatabase(full, "branch", [branch]);
+    const scoped = scopeDatabase(full, [branch]);
     for (const lot of full.lots) {
       expect(balance(scoped, lot.id, branch)).toEqual(
         balance(full, lot.id, branch),
@@ -129,7 +129,7 @@ test("a branch's numbers are the same on its scoped copy", () => {
 test("a branch receives nothing it must not see", () => {
   const text = (db: Database) => JSON.stringify(db);
   for (const branch of branches) {
-    const scoped = scopeDatabase(full, "branch", [branch]);
+    const scoped = scopeDatabase(full, [branch]);
     const other = branches.find((b) => b !== branch)!;
     expect(
       scoped.entries.some((e) => e.branch === other && e.kind === "sale"),
@@ -160,7 +160,7 @@ test("voids and edits follow the entry they name", () => {
     ...full,
     entries: [...full.entries, void_("v1", own.id), void_("v2", theirs.id)],
   };
-  const ids = scopeDatabase(db, "branch", [branch]).entries.map((e) => e.id);
+  const ids = scopeDatabase(db, [branch]).entries.map((e) => e.id);
   expect(ids).toContain("v1");
   expect(ids).not.toContain("v2");
 });
