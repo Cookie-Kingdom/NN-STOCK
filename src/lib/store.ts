@@ -77,6 +77,7 @@ export {
   saleCost,
   unlinkedSummary,
   smokeServiceRate,
+  smokingInvoicePayment,
   smokingInvoiceStatus,
   smokingInvoiceReview,
   smokingInvoiceRejection,

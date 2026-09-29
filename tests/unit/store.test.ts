@@ -20,6 +20,7 @@ import {
   materials,
   mutate,
   ownerChiliStock,
+  ownerPendingInvoices,
   ownerMaterialStock,
   ownerWasteOutstanding,
   pendingReceiveKg,
@@ -678,6 +679,58 @@ describe("lot workflow", () => {
     expect(status()).toBe("ชำระแล้ว");
     expect(() => pay("11000")).toThrow(/ชำระ Invoice ใบนี้แล้ว/);
     expect(() => review("รับยอด")).toThrow(/ชำระแล้ว/);
+  });
+
+  test("SVC-01 a batch paid before its invoice counts as paid once the invoice arrives", () => {
+    const s = closed();
+    const pay = () =>
+      s.run("owner", "invoicePayment", {
+        paymentDate: day,
+        paidBy: "Owner",
+        paidAmount: "11000",
+      });
+    expectWarning(
+      s.dry(() => pay()),
+      /ยังไม่มี Invoice/,
+    );
+    pay();
+    // Only one payment per batch, invoice or not (GEN-06).
+    expect(() => pay()).toThrow(/ชำระค่ารมควันของชุดนี้แล้ว/);
+    const smokingInvoice = invoice(s);
+    expect(smokingInvoiceStatus(s.db, smokingInvoice)).toBe("ชำระแล้ว");
+    const pending = ownerPendingInvoices(s.db);
+    expect(pending.toReview).toEqual([]);
+    expect(pending.toPay).toEqual([]);
+    expect(() =>
+      s.run("owner", "invoicePayment", {
+        invoiceId: smokingInvoice.id,
+        paymentDate: day,
+        paidBy: "Owner",
+        paidAmount: "11000",
+      }),
+    ).toThrow(/ชำระ Invoice ใบนี้แล้ว/);
+  });
+
+  test("SVC-01 invoice then payment still goes through review and clears pending", () => {
+    const s = closed();
+    const smokingInvoice = invoice(s);
+    expect(ownerPendingInvoices(s.db).toReview).toEqual([smokingInvoice]);
+    s.run("owner", "invoiceReview", {
+      invoiceId: smokingInvoice.id,
+      decision: "รับยอด",
+      reviewedBy: "Owner",
+    });
+    expect(ownerPendingInvoices(s.db).toPay).toEqual([smokingInvoice]);
+    s.run("owner", "invoicePayment", {
+      invoiceId: smokingInvoice.id,
+      paymentDate: day,
+      paidBy: "Owner",
+      paidAmount: "11000",
+    });
+    expect(smokingInvoiceStatus(s.db, smokingInvoice)).toBe("ชำระแล้ว");
+    expect(ownerPendingInvoices(s.db).total).toBe(
+      ownerPendingInvoices(s.db).unpaidMeatLots.length,
+    );
   });
 
   test("BUG-H: Chef House sees the Owner's reason for sending an invoice back, only while it is sent back", () => {

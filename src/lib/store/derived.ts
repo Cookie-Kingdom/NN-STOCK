@@ -772,13 +772,16 @@ export function smokeServiceRate(quantityKg: number) {
   if (quantityKg >= 1000) return 200;
   return 220;
 }
+/** The payment that settles this invoice: one naming it, or one made on its batch before any
+ *  invoice existed (SVC-01, no `invoiceId`). A pre-paid batch has nothing left to pay, so
+ *  every invoice on it reads "ชำระแล้ว" and skips review, the same as a paid invoice. */
+export function smokingInvoicePayment(db: Database, invoice: Entry) {
+  return entries(db, "invoicePayment", invoice.lotId).find(
+    (entry) => !entry.values.invoiceId || entry.values.invoiceId === invoice.id,
+  );
+}
 export function smokingInvoiceStatus(db: Database, invoice: Entry) {
-  if (
-    entries(db, "invoicePayment", invoice.lotId).some(
-      (entry) => entry.values.invoiceId === invoice.id,
-    )
-  )
-    return "ชำระแล้ว";
+  if (smokingInvoicePayment(db, invoice)) return "ชำระแล้ว";
   const review = entries(db, "invoiceReview", invoice.lotId)
     .filter((entry) => entry.values.invoiceId === invoice.id)
     .at(-1);

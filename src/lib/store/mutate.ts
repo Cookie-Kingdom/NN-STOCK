@@ -631,7 +631,13 @@ function record(
       const status = smokingInvoiceStatus(db, invoice);
       assert(status !== "ชำระแล้ว", "ชำระ Invoice ใบนี้แล้ว");
       warn(status === "รอชำระ", "ยังไม่ได้รับยอด Invoice นี้");
-    } else delete v.invoiceId;
+    } else {
+      delete v.invoiceId;
+      assert(
+        !entries(db, "invoicePayment", lotId).length,
+        "ชำระค่ารมควันของชุดนี้แล้ว",
+      );
+    }
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
