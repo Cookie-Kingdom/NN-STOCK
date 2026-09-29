@@ -15,7 +15,7 @@ import {
   smokedDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { materials, mutate, visibleDatabase, type Database } from "@/lib/store";
+import { materials, mutate, type Database } from "@/lib/store";
 import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
 import { AllocationForm } from "./AllocationForm";
@@ -299,7 +299,7 @@ export const ChefLotEdit: Story = {
   parameters: { db: smokedDb },
   render: () => (
     <ChefLotEditForm
-      db={visibleDatabase(smokedDb, "cm")}
+      db={smokedDb}
       lotId={smokedDb.lots.at(-1)!.id}
       date={day}
       onDate={onDate}
@@ -309,18 +309,15 @@ export const ChefLotEdit: Story = {
   ),
 };
 
-/* The smoke PO of a shipment drawn from three purchase POs, as Chef House's workspace
- * reads it (visibleDatabase): shipment number and Packing List, no purchase PO or meat price. */
-const chefSmokeDb = visibleDatabase(
-  mutate(
-    multiPoPackedDb,
-    "owner",
-    "smokeOrder",
-    { smoker: "Chef House", requestedSmokeDate: day },
-    multiPoPackedDb.lots.at(-1)!.id,
-    day,
-  ),
-  "cm",
+/* The smoke PO of a shipment drawn from three purchase POs, as sent to Chef House (Q6): it
+ * names the shipment and its Packing List, never a purchase PO or meat price. */
+const chefSmokeDb = mutate(
+  multiPoPackedDb,
+  "owner",
+  "smokeOrder",
+  { smoker: "Chef House", requestedSmokeDate: day },
+  multiPoPackedDb.lots.at(-1)!.id,
+  day,
 );
 
 export const SmokeOrderPreview: Story = {
@@ -328,7 +325,7 @@ export const SmokeOrderPreview: Story = {
   render: () => (
     <SmokeOrderPreviewDialog
       db={chefSmokeDb}
-      lotId={chefSmokeDb.lots[0].id}
+      lotId={chefSmokeDb.lots.at(-1)!.id}
       onClose={onClose}
     />
   ),

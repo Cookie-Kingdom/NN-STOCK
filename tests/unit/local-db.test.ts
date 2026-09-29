@@ -224,3 +224,10 @@ test("Foodiva and Chef House accounts are refused on load and save", () => {
     );
   }
 });
+
+test("load without a signed-in account is refused", () => {
+  // GET /api/local-db maps a missing, unknown or stale cookie to null.
+  expect(() => loadState(openLocalDb(":memory:"), null)).toThrow(
+    "Authentication required",
+  );
+});

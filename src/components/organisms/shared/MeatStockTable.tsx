@@ -16,7 +16,6 @@ import {
   titles,
   type Database,
   type Lot,
-  type Role,
   type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
@@ -27,21 +26,23 @@ const progressLabel = (db: Database, lotId: string) =>
     .map((k) => titles[k])
     .at(-1) ?? "—";
 
+/** `owner`: every stock point with allocate; `chef`: Chef House's production stock (the Owner's
+ *  `work` tab); `branch`: one branch's stock. */
 export function MeatStockTable({
   db,
-  role,
+  variant,
   branch,
   lots,
   open,
 }: {
   db: Database;
-  role: Role;
+  variant: "owner" | "chef" | "branch";
   branch: string;
   lots: Lot[];
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lotIds = lots.map((lot) => lot.id);
-  if (role === "owner")
+  if (variant === "owner")
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
@@ -78,7 +79,7 @@ export function MeatStockTable({
         ])}
       />
     );
-  if (role === "cm")
+  if (variant === "chef")
     return (
       <DataTable
         title="สต๊อกและงานผลิต Chef House"

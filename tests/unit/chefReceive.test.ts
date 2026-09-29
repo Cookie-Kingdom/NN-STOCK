@@ -11,7 +11,6 @@ import {
   mutate,
   produced,
   producedBags,
-  visibleDatabase,
   type Values,
 } from "@/lib/store";
 import {
@@ -150,11 +149,5 @@ describe("Chef House yellow cells", () => {
         packs: "",
       }),
     ).toThrow("กล่องรมควัน");
-  });
-
-  it("Chef House's database has no purchase PO number or meat price", () => {
-    const text = JSON.stringify(visibleDatabase(smoked().db, "cm"));
-    expect(text).not.toContain("PO-");
-    expect(text).not.toContain('"price"');
   });
 });

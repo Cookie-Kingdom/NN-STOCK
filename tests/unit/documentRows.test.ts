@@ -15,8 +15,8 @@ import {
 } from "@/components/organisms/shared/documentRows";
 import {
   entries,
+  shipments,
   seed,
-  visibleDatabase,
   type Entry,
   type Lot,
   type EntryKind,
@@ -159,12 +159,12 @@ test("the smoke PO of a 3-PO shipment, as Chef House opens it, names no purchase
   dispatch(s, "");
   packingList(s, "750\n740");
   smokeOrder(s, lines);
-  const chef = visibleDatabase(s.db, "cm");
-  const lot = chef.lots[0];
+  // Q6: built from the Owner's full database, the smoke PO still names only the shipment.
+  const lot = shipments(s.db)[0];
   const rows = smokeOrderPrintRows(
-    chef,
+    s.db,
     lot,
-    entries(chef, "smokeOrder", lot.id)[0],
+    entries(s.db, "smokeOrder", lot.id)[0],
   );
   expect(asObject(rows)).toMatchObject({
     เลขที่การส่ง: "SH-2026-0001",

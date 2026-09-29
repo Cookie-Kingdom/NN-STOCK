@@ -8,7 +8,7 @@ import {
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { branches, type Role } from "@/lib/store";
+import { branches } from "@/lib/store";
 import { BranchStockSummary } from "./BranchStockSummary";
 import { MaterialStockTable } from "./MaterialStockTable";
 import { MeatStockTable } from "./MeatStockTable";
@@ -22,24 +22,30 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<{ role: Role; date: string }>;
+type Story = StoryObj<{
+  variant: "owner" | "chef" | "branch";
+  date: string;
+}>;
 
-/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, สาขาเห็นเฉพาะศาลาแดง */
+/** เลือกมุมมองใน Controls: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต, สาขาเห็นเฉพาะศาลาแดง */
 export const MeatStock: Story = {
   argTypes: {
-    role: {
+    variant: {
       name: "มุมมอง",
-      control: { type: "radio", labels: { owner: "Owner", branch: "สาขา" } },
-      options: ["owner", "branch"],
+      control: {
+        type: "radio",
+        labels: { owner: "Owner", chef: "Chef House", branch: "สาขา" },
+      },
+      options: ["owner", "chef", "branch"],
     },
   },
-  args: { role: "owner" },
-  render: ({ role }) => (
+  args: { variant: "owner" },
+  render: ({ variant }) => (
     <MeatStockTable
-      key={role}
+      key={variant}
       db={db}
-      role={role}
-      branch={role === "branch" ? "ศาลาแดง" : ""}
+      variant={variant}
+      branch={variant === "branch" ? "ศาลาแดง" : ""}
       lots={db.lots}
       open={open}
     />

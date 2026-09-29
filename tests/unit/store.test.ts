@@ -279,37 +279,16 @@ describe("derived values from the entry log", () => {
       lotId: "S1",
       values: { wasteCost: "1", packs: "1" },
     });
-    const db = {
-      ...withEntries(sala, minburi, smoke),
-      lots: [
-        {
-          id: "S1",
-          poId: "SH-1",
-          kind: "shipment" as const,
-          stage: 5,
-          config: {},
-          values: {},
-        },
-      ],
-    };
+    const db = withEntries(sala, minburi, smoke);
     expect(visibleEntries(db, "owner")).toEqual(db.entries);
     expect(visibleEntries(db, "branch", "ศาลาแดง")).toEqual([
       { ...sala, values: { boxes: "1" } },
     ]);
-    expect(visibleEntries(db, "cm")).toEqual([
-      { ...smoke, values: { packs: "1" } },
-    ]);
-    expect(visibleEntries(db, "foodiva")).toEqual([]);
-    // Foodiva sees the Owner's payment of its meat invoice (the slip is evidence for both sides).
     const meatPayment = entry({
       kind: "meatPayment",
       role: "owner",
       values: { paidAmount: "100", slips: "[]" },
     });
-    expect(visibleEntries(withEntries(sala, meatPayment), "foodiva")).toEqual([
-      meatPayment,
-    ]);
-    expect(visibleEntries(withEntries(meatPayment), "cm")).toEqual([]);
     expect(
       visibleEntries(withEntries(meatPayment), "branch", "ศาลาแดง"),
     ).toEqual([]);
@@ -710,14 +689,6 @@ describe("lot workflow", () => {
     expect(smokingInvoiceRejection(s.db, smokingInvoice)?.values.comment).toBe(
       "ยอดคลาดเคลื่อน",
     );
-    // The review shows in Chef House history next to the smoke PO and Packing List it works
-    // from; the purchase PO and the transport documents stay hidden.
-    const chef = visibleEntries(s.db, "cm");
-    expect(chef.filter((e) => e.role !== "cm").map((e) => e.kind)).toEqual([
-      "smokeOrder",
-      "packingList",
-      "invoiceReview",
-    ]);
     s.run("owner", "invoiceReview", {
       invoiceId: smokingInvoice.id,
       decision: "รับยอด",
@@ -1655,9 +1626,6 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
       (item) => !("meatCost" in item.values),
     ),
   ).toBe(true);
-  expect(visibleEntries(s.db, "cm").some((item) => item.kind === "sale")).toBe(
-    false,
-  );
   expect(JSON.parse(JSON.stringify(s.db))).toEqual(s.db);
 });
 
