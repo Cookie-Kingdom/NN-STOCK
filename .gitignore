@@ -58,3 +58,6 @@ storybook-static/
 
 # Supabase CLI scratch
 supabase/.temp/
+
+# agent worktrees (Claude Code)
+/.claude/worktrees/
