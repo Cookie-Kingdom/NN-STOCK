@@ -159,14 +159,22 @@ export function lotProgress(db: Database, lotId: string): Set<EntryKind> {
   return done;
 }
 /** RET-04: central kg less allocations and less what branches took straight from the batch
- *  (a `receive` on it with no allocation, beyond what fills an allocation: DM-08). */
+ *  (a `receive` on it with no allocation, beyond what fills an allocation: DM-08). The kg is
+ *  the live `central` entry's (edits and voids applied); a branch's payload has no Owner
+ *  entries, so there it is the lot cache. */
 export function centralStock(db: Database, lotId: string) {
   const lot = db.lots.find((l) => l.id === lotId);
+  const recorded = db.entries.some(
+    (e) => e.kind === "central" && e.lotId === lotId,
+  );
+  const central = recorded
+    ? entries(db, "central", lotId).at(-1)?.values
+    : lot?.values;
   const unallocated = entries(db, "receive", lotId).filter(
     (r) => !r.values.allocation,
   );
   return (
-    num(lot?.values || {}, "centralKg") -
+    num(central || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg") -
     [...new Set(unallocated.map((r) => r.branch))].reduce(
       (total, branch) => total + unallocatedFill(db, lotId, branch).straight,
@@ -637,14 +645,9 @@ export function ownerChiliStock(db: Database) {
   const purchased = entries(db, "generalPurchase")
     .filter((entry) => entry.values.item === "น้ำพริกหลอด")
     .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
-  const legacyBranchPurchases =
-    sum(entries(db, "supplyPurchase"), "chiliTubes") +
-    sum(entries(db, "chiliPurchase"), "chiliTubes");
-  return (
-    purchased +
-    legacyBranchPurchases -
-    sum(entries(db, "chiliAllocate"), "chiliTubes")
-  );
+  // Old branch chili purchases (chiliPurchase, supplyPurchase) went straight to the branch and
+  // count in its chiliAllocated only: they were never in the Owner's store.
+  return purchased - sum(entries(db, "chiliAllocate"), "chiliTubes");
 }
 export function chiliSold(db: Database, branch: string, throughDate?: string) {
   return sum(

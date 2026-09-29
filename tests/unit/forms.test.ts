@@ -99,7 +99,7 @@ test("every time field picks from the half-hour grid that mutate accepts", () =>
     "00:30",
     "23:30",
   ]);
-  // The same shape mutate() insists on for arrival / time / closeTime / pickupTime.
+  // The same shape mutate() insists on for arrival / time / pickupTime / dispatchTime.
   for (const slot of slots) expect(slot).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
   // A time an older entry already holds must survive reopening its form.
   expect(timeOptions("08:15")).toHaveLength(49);

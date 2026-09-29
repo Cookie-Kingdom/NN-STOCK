@@ -505,27 +505,22 @@ describe("mutate guards", () => {
     ).toThrow(/ยกเลิกไม่ได้/);
   });
 
-  test("config merges validated settings and forces included rice price to zero", () => {
+  test("config merges validated settings; old stored keys pass through unchecked", () => {
+    expect(seed.config).not.toHaveProperty("tolerance");
+    expect(seed.config).not.toHaveProperty("closeTime");
+    expect(seed.config).not.toHaveProperty("ricePrice");
+    // A v9 payload saved before the dead keys went still saves.
+    const old = { ...seed, config: { ...seed.config, tolerance: "20" } };
     const next = mutate(
-      seed,
+      old,
       "owner",
       "config",
-      { ...seed.config, boxPrice: "400", ricePrice: "99" },
+      { ...old.config, boxPrice: "400", closeTime: "22:00" },
       "",
       day,
     );
-    expect(next.config).toMatchObject({ boxPrice: "400", ricePrice: "0" });
+    expect(next.config).toMatchObject({ boxPrice: "400", tolerance: "20" });
     expect(seed.config.boxPrice).toBe("350");
-    expect(() =>
-      mutate(
-        seed,
-        "owner",
-        "config",
-        { ...seed.config, tolerance: "101" },
-        "",
-        day,
-      ),
-    ).toThrow(/ไม่เกิน 100/);
     expect(() =>
       mutate(seed, "owner", "config", { ...seed.config, packKg: "0" }, "", day),
     ).toThrow(/มากกว่าศูนย์/);
@@ -1230,8 +1225,6 @@ describe("branch supplies", () => {
     for (const [kind, values] of [
       ["riceIssue", { rawRiceIssuedKg: "1", receiver: "x" }],
       ["rice", { rawUsedKg: "1", riceKg: "1" }],
-      ["supplyIssue", { rawRiceIssuedKg: "1", receiver: "x" }],
-      ["supplyPurchase", { rawRiceKg: "1", rawRiceCost: "50", supplier: "x" }],
     ] as const)
       expect(() => s.run("branch", kind, values)).toThrow(/ไม่หุงข้าวเหนียว/);
   });

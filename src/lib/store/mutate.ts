@@ -11,6 +11,8 @@ import {
   editLockedKeys,
   materials,
   pack,
+  retiredKinds,
+  voidableKinds,
   type Database,
   type Entry,
   type EntryKind,
@@ -416,6 +418,15 @@ const cachedKinds: EntryKind[] = [
   "return",
   "central",
 ];
+/** GEN-06: batch kinds recorded once per batch, with what a second save is refused with. */
+const oncePerBatch: Partial<Record<EntryKind, string>> = {
+  dispatch: "ทำใบขนส่งขาไปของชุดนี้แล้ว",
+  cmReceive: "ยืนยันรับเนื้อของชุดนี้แล้ว",
+  prepare: "บันทึกน้ำหนักก่อนสโมคของชุดนี้แล้ว",
+  closeLot: "ปิด Lot นี้แล้ว",
+  return: "เรียกรถขากลับของชุดนี้แล้ว",
+  central: "รับเข้าสต๊อกกลางของชุดนี้แล้ว · แก้น้ำหนักที่ประวัติ",
+};
 /** Batch values never cached on the lot: bulky, or an entry's own bookkeeping. */
 const uncached = ["attachmentData", "slips", "batches"];
 export function mutate(
@@ -450,6 +461,11 @@ function record(
         : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
     forbidden,
   );
+  // An edit of an old entry re-checks it; a new one of a kind with no screen is refused.
+  assert(
+    correcting || !retiredKinds.includes(kind),
+    "รายการชนิดนี้เลิกใช้แล้ว",
+  );
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
@@ -471,13 +487,7 @@ function record(
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
   const branch = role === "branch" ? actorBranch : v.branch || db.config.branch;
-  for (const key of [
-    "arrival",
-    "time",
-    "closeTime",
-    "pickupTime",
-    "dispatchTime",
-  ]) {
+  for (const key of ["arrival", "time", "pickupTime", "dispatchTime"]) {
     if (key in v)
       assert(
         /^([01]\d|2[0-3]):[0-5]\d$/.test(v[key]),
@@ -512,18 +522,25 @@ function record(
   }
   if (branchMeatKinds.includes(kind) && lotId)
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
-  // GEN-04 / GEN-05: a date before what the lot already holds is said, not refused.
+  // GEN-04: a batch entry dated before the batch's latest one, GEN-05: a purchase-PO entry
+  // dated before the PO was opened (its earliest). Said, not refused.
   if (lot && !branchMeatKinds.includes(kind) && kind !== "allocate") {
     const lotRef = lot.id;
-    const others = db.entries.filter((e) => e.lotId === lotRef);
-    const latest = others.reduce((max, e) => (e.date > max ? e.date : max), "");
+    const dates = db.entries
+      .filter((e) => e.lotId === lotRef)
+      .map((e) => e.date)
+      .sort();
+    const bound = lot.kind ? dates.at(-1) : dates[0];
     warn(
-      !latest || date >= latest,
+      !bound || date >= bound,
       lot.kind
-        ? `วันที่ก่อนรายการอื่นของชุดนี้ (${latest})`
-        : `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${others.map((e) => e.date).sort()[0]})`,
+        ? `วันที่ก่อนรายการอื่นของชุดนี้ (${bound})`
+        : `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${bound})`,
     );
   }
+  // GEN-06: once per batch; a wrong value is corrected with an edit (or chefEdit), not a second save.
+  const once = oncePerBatch[kind];
+  if (once && lot) assert(!entries(db, kind, lot.id).length, once);
   if (kind === "purchase") {
     required(v, "supplier", "ผู้ขาย");
     required(v, "customerName", "ชื่อบริษัท / ลูกค้า");
@@ -1068,66 +1085,6 @@ function record(
       "หลอด",
     );
     required(v, "receiver", "ผู้รับของ");
-  } else if (kind === "supplyPurchase") {
-    for (const key of [
-      "rawRiceKg",
-      "rawRiceCost",
-      "cookedRiceKg",
-      "cookedRiceCost",
-      "chiliTubes",
-      "chiliCost",
-    ])
-      v[key] ??= "0";
-    positive(v, "rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า", true);
-    positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ", true);
-    assert(cooksRice(branch) || n(v, "rawRiceKg") === 0, noCookMessage);
-    positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า", true);
-    positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก", true);
-    positive(v, "chiliTubes", "น้ำพริกซื้อเข้า", true);
-    positive(v, "chiliCost", "ยอดซื้อน้ำพริก", true);
-    assert(
-      n(v, "rawRiceKg") > 0 ||
-        n(v, "cookedRiceKg") > 0 ||
-        n(v, "chiliTubes") > 0,
-      "กรอกจำนวนข้าวเหนียวหรือน้ำพริกที่ซื้อเข้า",
-    );
-    assert(
-      Number.isInteger(n(v, "chiliTubes")),
-      "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
-    );
-    if (n(v, "rawRiceKg") > 0)
-      positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ");
-    if (n(v, "cookedRiceKg") > 0)
-      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
-    if (n(v, "chiliTubes") > 0) positive(v, "chiliCost", "ยอดซื้อน้ำพริก");
-    required(v, "supplier", "ผู้จำหน่าย");
-    v.totalCost = String(
-      n(v, "rawRiceCost") + n(v, "cookedRiceCost") + n(v, "chiliCost"),
-    );
-  } else if (kind === "supplyIssue") {
-    positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก", true);
-    assert(cooksRice(branch) || n(v, "rawRiceIssuedKg") === 0, noCookMessage);
-    positive(v, "chiliIssuedTubes", "น้ำพริกที่เบิก", true);
-    assert(
-      n(v, "rawRiceIssuedKg") > 0 || n(v, "chiliIssuedTubes") > 0,
-      "กรอกจำนวนข้าวเหนียวดิบหรือน้ำพริกที่เบิก",
-    );
-    assert(
-      Number.isInteger(n(v, "chiliIssuedTubes")),
-      "น้ำพริกที่เบิกต้องเป็นจำนวนหลอดเต็ม",
-    );
-    withinStock(
-      n(v, "rawRiceIssuedKg"),
-      rawRiceStock(db, branch),
-      "ข้าวเหนียวดิบในสต๊อกไม่พอ",
-    );
-    withinStock(
-      n(v, "chiliIssuedTubes"),
-      chiliStock(db, branch),
-      "น้ำพริกในสต๊อกไม่พอ",
-      "หลอด",
-    );
-    required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
     assert(cooksRice(branch), noCookMessage);
     // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
@@ -1381,30 +1338,10 @@ function record(
     required(v, "reason", "เหตุผลปลดล็อก");
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
-    const reversible = [
-      "allocate",
-      "chiliAllocate",
-      "receive",
-      "thaw",
-      "ricePurchase",
-      "chiliPurchase",
-      "riceIssue",
-      "chiliIssue",
-      "rice",
-      "riceCarry",
-      "sale",
-      "influencerBox",
-      "materials",
-      "materialReceive",
-      "generalPurchase",
-      "materialTransfer",
-      "materialConfirm",
-      "closeDay",
-      "expense",
-      "unlock",
-      "link",
-    ];
-    assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
+    assert(
+      target && voidableKinds.includes(target.kind),
+      "รายการนี้ยกเลิกไม่ได้",
+    );
     assert(
       !db.entries.some(
         (entry) =>
@@ -1443,6 +1380,15 @@ function record(
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetBranch = target.branch;
+    // The batch cache follows: back to the live central before it, if any (DM-09).
+    const cached = next.lots.find((l) => l.id === target.lotId);
+    if (target.kind === "central" && cached) {
+      const previous = entries(db, "central", target.lotId)
+        .filter((e) => e.id !== target.id)
+        .at(-1);
+      if (previous) cached.values.centralKg = previous.values.centralKg;
+      else delete cached.values.centralKg;
+    }
   } else if (kind === "link") {
     // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
     const target = db.entries.find((entry) => entry.id === v.targetId);
@@ -1544,13 +1490,11 @@ function record(
     // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
     // config entry of the append-only log. Left out, the merge below keeps it.
     if (v.logoData === db.config.logoData) delete v.logoData;
-    v.ricePrice = "0";
     // Labels match the Thai setting names in ConfigView.
     for (const [key, label] of Object.entries({
       boxPrice: "ราคากล่องมาตรฐาน",
       addonPrice: "ราคาเนื้อซีลเพิ่ม",
       packKg: "น้ำหนักเฉลี่ยต่อซีล",
-      ricePrice: "ราคาข้าว",
       chiliPrice: "ราคาขายน้ำพริกหลอด",
       rawRicePar: "จำนวนฐานข้าวเหนียวดิบ",
       rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
@@ -1561,10 +1505,8 @@ function record(
       outboundFee: "ค่าขนส่งขาไป",
       returnFee: "ค่าขนส่งขากลับ",
       roundFee: "ค่าขนส่งไป-กลับ",
-      tolerance: "ค่าคลาดเคลื่อนยอดขาย",
     }))
       positive(v, key, label, key !== "packKg");
-    assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
     required(v, "companyName", "ชื่อบริษัท");
     for (let i = 0; i < materials.length; i++) {

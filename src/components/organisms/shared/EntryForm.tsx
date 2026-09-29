@@ -236,7 +236,7 @@ export function EntryFieldControl({
                   : 0.01
               : undefined
           }
-          max={f.key === "tolerance" ? 100 : f.past ? today() : undefined}
+          max={f.past ? today() : undefined}
           required={!f.optional}
           value={values[f.key] ?? ""}
           onChange={(e) => set(f.key, e.target.value)}

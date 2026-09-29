@@ -539,7 +539,6 @@ export const forms: Record<string, Field[]> = {
     number("boxPrice", "ราคากล่องมาตรฐาน (Standard box price) · บาท", true),
     number("addonPrice", "ราคาเนื้อซีลเพิ่ม (Add-on pack price) · บาท", true),
     number("packKg", "น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight) · กก."),
-    number("ricePrice", "ราคาข้าวในกล่อง (Included rice price) · บาท", true),
     number("chiliPrice", "ราคาน้ำพริก (Chili paste price) · บาท/หลอด", true),
     number(
       "rawRicePar",
@@ -570,7 +569,6 @@ export const forms: Record<string, Field[]> = {
     number("outboundFee", "ค่าขนส่งขาไป (Outbound delivery fee) · บาท", true),
     number("returnFee", "ค่าขนส่งขากลับ (Return delivery fee) · บาท", true),
     number("roundFee", "ค่าขนส่งไป-กลับ (Round-trip fee) · บาท", true),
-    number("tolerance", "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance) · %", true),
     ...materials.flatMap((m, i) => [
       number("material" + i, `จำนวนฐาน ${m} (Par level) · ชิ้น`, true, true),
       number(

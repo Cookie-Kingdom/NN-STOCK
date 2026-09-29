@@ -41,7 +41,7 @@ import {
   chiliStock,
   cookedRiceStock,
   currentSmokingInvoices,
-  drawnKg,
+  ownerPendingInvoices,
   entries,
   isClosed,
   materialPar,
@@ -186,12 +186,8 @@ export function OwnerDashboard({
   const activeLots = runs.filter(
     (lot) => !lotProgress(db, lot.id).has("central"),
   ).length;
-  const foodivaInvoicesForOwner = db.lots.filter(
-    (lot) =>
-      !lot.kind &&
-      entries(db, "foodivaConfirm", lot.id).length > 0 &&
-      !drawnKg(db, lot.id),
-  );
+  // RPT-11: a Foodiva meat invoice the Owner has not paid yet; it clears once paid.
+  const foodivaInvoicesForOwner = ownerPendingInvoices(db).unpaidMeatLots;
   const alertDetails: {
     title: string;
     detail: string;

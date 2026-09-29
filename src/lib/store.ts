@@ -17,6 +17,7 @@ export {
   titles,
   editDecisions,
   editLockedKeys,
+  voidableKinds,
   unpack,
   seed,
 } from "./store/model";
