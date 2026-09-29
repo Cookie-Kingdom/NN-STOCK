@@ -48,6 +48,7 @@ import {
   mutate,
   n,
   check,
+  recordRole,
   packWeightWarning,
   pendingReceiveKg,
   riceSources,
@@ -693,7 +694,7 @@ export function EntryForm({
   }
   return (
     <Dialog
-      overline={`${date} · ${roleName[role]}`}
+      overline={`${date} · ${roleName[recordRole(kind, role)]}`}
       title={title}
       // The sale holds its own long form plus repeated influencer blocks; a form
       // with a switcher keeps the width of the MaterialTransferForm it swaps with;

@@ -213,6 +213,15 @@ const ownership: Partial<Record<EntryKind, Role>> = {
   unlock: "owner",
   void: "owner",
 };
+/** The role an entry of `kind` is stamped with when `role` records it: whose document it is.
+ *  An approver may record Foodiva's and Chef House's kinds for them ("แทน"); those keep the
+ *  partner's role, and record() puts the typist in `actor`. Anything else stays `role`. */
+export function recordRole(kind: EntryKind, role: Role): Role {
+  const owner = ownership[kind];
+  return editApprovers.includes(role) && (owner === "foodiva" || owner === "cm")
+    ? owner
+    : role;
+}
 /** Per-กล่องรับเข้า weights of a Packing List. They live in one entry value, one
  *  line each, the way `smoke` stores its pack weights. */
 export function packingListBoxes(value = "") {
@@ -437,7 +446,7 @@ function record(
       ? !editApprovers.includes(role)
       : kind === "entryEdit" || kind === "editDecision"
         ? editApprovers.includes(role)
-        : kind === "link" || ownership[kind] === role, // link: checked against its target below
+        : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
     forbidden,
   );
   // Same clock as format.ts `today` (kept inline: this module has no imports).
@@ -1583,10 +1592,13 @@ function record(
     : kind === "ownerWasteReceive"
       ? v.receivedDate || date
       : date;
+  const stamped = recordRole(kind, role);
   next.entries.push({
     id: newId(),
     kind,
-    role,
+    role: stamped,
+    // Recorded for a partner: the typist (persistence re-stamps the Account Manager's).
+    ...(stamped !== role ? { actor: "owner" as const } : {}),
     lotId: lot?.id || lotId,
     branch,
     date: entryDate,

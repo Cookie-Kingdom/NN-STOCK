@@ -108,6 +108,7 @@ export {
   receivedBoxWeights,
   check,
   mutate,
+  recordRole,
   dispatchWithPackingList,
   influencerLabel,
   saleWithInfluencers,
