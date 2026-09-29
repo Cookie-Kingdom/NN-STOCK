@@ -47,7 +47,7 @@ test("the chain follows one shipment from purchase PO to Foodiva's freezer", () 
     { poId: po.poId, requestedKg: 50 },
   ]);
   s.run("owner", "return", back("36"));
-  s.run("foodiva", "foodivaReturnReceive", receive("35.5"));
+  s.run("owner", "foodivaReturnReceive", receive("35.5"));
   expect(shipmentChain(s.db, lot())).toMatchObject({
     returnKg: 36,
     foodivaKg: 35.5,
@@ -90,14 +90,14 @@ test("Foodiva weighs in against the return truck's kg, not the whole smoke outpu
   const s = closed();
   s.run("owner", "return", back("20"));
   // 20 of 36 kg came back: receiving all 20 needs no reason.
-  s.run("foodiva", "foodivaReturnReceive", receive("20"));
+  s.run("owner", "foodivaReturnReceive", receive("20"));
   const t = closed();
   t.run("owner", "return", back("20"));
   expectWarning(
-    t.dry(() => t.run("foodiva", "foodivaReturnReceive", receive("15"))),
+    t.dry(() => t.run("owner", "foodivaReturnReceive", receive("15"))),
     /เหตุผลส่วนต่าง/,
   );
-  t.run("foodiva", "foodivaReturnReceive", receive("15", "น้ำแข็งละลาย"));
+  t.run("owner", "foodivaReturnReceive", receive("15", "น้ำแข็งละลาย"));
 });
 
 test("transport documents name the shipment and its purchase POs", () => {

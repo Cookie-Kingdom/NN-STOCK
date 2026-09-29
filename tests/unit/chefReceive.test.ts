@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   receivedDraft,
   receivedValue,
-} from "@/components/organisms/chef/receivedBoxes";
+} from "@/components/organisms/shared/receivedBoxes";
 import {
   entries,
   latestPackingList,
@@ -31,7 +31,7 @@ function trucked() {
   dispatch(s);
   packingList(s, "25\n25");
 
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   return s;
 }
 
@@ -54,14 +54,14 @@ describe("Chef House yellow cells", () => {
     dispatch(s);
     packingList(s, "25\n25");
     // The truck is at the door: no PO acceptance needed to weigh the meat in or start.
-    s.run("cm", "cmReceive", {
+    s.run("owner", "cmReceive", {
       arrival: "08:00",
       receivedBoxes: "24.5\n24.5",
     });
     const lotId = s.db.lots.at(-1)!.id;
     expect(lotProgress(s.db, lotId).has("cmReceive")).toBe(true);
-    s.run("cm", "prepare", { preSmokeKg: "48" });
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    s.run("owner", "prepare", { preSmokeKg: "48" });
+    s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
     expect([...lotProgress(s.db, lotId)]).toEqual(
       expect.arrayContaining(["prepare", "smokeOrderAccept"]),
     );
@@ -78,12 +78,12 @@ describe("Chef House yellow cells", () => {
   it("refuses a skipped box but saves a total off the Packing List", () => {
     const s = trucked();
     expect(() =>
-      s.run("cm", "cmReceive", {
+      s.run("owner", "cmReceive", {
         arrival: "08:00",
         receivedBoxes: receivedValue([24.5, undefined]),
       }),
     ).toThrow("กรอกน้ำหนักจริงทุกกล่องรับเข้า");
-    s.run("cm", "cmReceive", {
+    s.run("owner", "cmReceive", {
       arrival: "08:00",
       receivedBoxes: receivedValue([24.5, 27]),
     });
@@ -109,7 +109,7 @@ describe("Chef House yellow cells", () => {
       packs: e.values.packs,
     }));
     const edit = (values: Values) =>
-      s.run("cm", "chefEdit", {
+      s.run("owner", "chefEdit", {
         arrival: "09:00",
         preSmokeKg: "48",
         batches: JSON.stringify(batches),
@@ -140,9 +140,9 @@ describe("Chef House yellow cells", () => {
   it("names the post-smoke unit กล่องรมควัน in errors", () => {
     const s = setup();
     received(s, "50", "25\n25");
-    s.run("cm", "prepare", { preSmokeKg: "48" });
+    s.run("owner", "prepare", { preSmokeKg: "48" });
     expect(() =>
-      s.run("cm", "smoke", {
+      s.run("owner", "smoke", {
         smokeDate: day,
         inputKg: "1",
         wasteKg: "0",

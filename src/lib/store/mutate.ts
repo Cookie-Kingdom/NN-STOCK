@@ -7,7 +7,6 @@ import {
   batchKinds,
   branchMeatKinds,
   branches,
-  editApprovers,
   editDecisions,
   editLockedKeys,
   materials,
@@ -15,6 +14,7 @@ import {
   type Database,
   type Entry,
   type EntryKind,
+  type ActingRole,
   type Lot,
   type Role,
   type Values,
@@ -113,7 +113,7 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
     ...db,
     entries: [
       ...db.entries,
-      { ...target, id: newId(), kind, role: editApprovers[0], values },
+      { ...target, id: newId(), kind, role: "owner", values },
     ],
   });
   /* The Account Manager's copy has no sale money (C4): a sale without its LINE MAN amount is
@@ -125,7 +125,8 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
   if (moneyHidden && input.lineMan === undefined) input.lineMan = "0";
   const checked = record(
     as("void", { targetId: target.id }),
-    target.role,
+    // Partners' entries are recorded by the Owner for them; recordRole() re-stamps the kind.
+    target.role === "branch" ? "branch" : "owner",
     target.kind,
     input,
     target.lotId,
@@ -159,7 +160,7 @@ function editValues(db: Database, target: Entry, proposed: Values) {
 function editTarget(
   db: Database,
   targetId: string,
-  role: Role,
+  role: ActingRole,
   branch: string,
 ) {
   const target = db.entries.find((e) => e.id === targetId);
@@ -214,11 +215,11 @@ const ownership: Partial<Record<EntryKind, Role>> = {
   void: "owner",
 };
 /** The role an entry of `kind` is stamped with when `role` records it: whose document it is.
- *  An approver may record Foodiva's and Chef House's kinds for them ("แทน"); those keep the
+ *  The Owner may record Foodiva's and Chef House's kinds for them ("แทน"); those keep the
  *  partner's role, and record() puts the typist in `actor`. Anything else stays `role`. */
-export function recordRole(kind: EntryKind, role: Role): Role {
+export function recordRole(kind: EntryKind, role: ActingRole): Role {
   const owner = ownership[kind];
-  return editApprovers.includes(role) && (owner === "foodiva" || owner === "cm")
+  return role === "owner" && (owner === "foodiva" || owner === "cm")
     ? owner
     : role;
 }
@@ -419,7 +420,7 @@ const cachedKinds: EntryKind[] = [
 const uncached = ["attachmentData", "slips", "batches"];
 export function mutate(
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,
@@ -432,7 +433,7 @@ export function mutate(
 /** `mutate`, plus `correcting`: re-checks an entry being edited, whose day may be closed. */
 function record(
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,
@@ -443,9 +444,9 @@ function record(
   const forbidden = "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้";
   assert(
     kind === "editRequest"
-      ? !editApprovers.includes(role)
+      ? role !== "owner"
       : kind === "entryEdit" || kind === "editDecision"
-        ? editApprovers.includes(role)
+        ? role === "owner"
         : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
     forbidden,
   );
@@ -1446,8 +1447,7 @@ function record(
     assert(linkable.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
     assert(
       role === "owner" ||
-        (role === target.role &&
-          (role !== "branch" || target.branch === branch)),
+        (target.role === "branch" && target.branch === branch),
       forbidden,
     );
     assert(
@@ -1617,7 +1617,7 @@ export const dispatchWithPackingList = (
   packing: Values,
   date: string,
   /** Who types it: the Owner / Manager recording it for Foodiva (stamped Foodiva's). */
-  role: Role,
+  role: ActingRole,
 ) => {
   const sent = mutate(db, role, "dispatch", trip, lotId, date);
   return mutate(

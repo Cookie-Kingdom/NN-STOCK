@@ -11,13 +11,16 @@ import {
   EditEntryForm,
   EntryDetails,
 } from "@/components/organisms/shared/EntryDetails";
-import { entries, visibleEntries, type Database } from "@/lib/store";
+import {
+  entries,
+  visibleEntries,
+  type ActingRole,
+  type Database,
+} from "@/lib/store";
 import { EditRequestList } from "./EditRequestList";
 import { editRequestAlerts } from "./editRequestAlerts";
 import { HistoryPanel } from "./HistoryPanel";
 import { NotificationPopover } from "./NotificationPopover";
-
-type Role = "owner" | "branch";
 
 /** B5 แก้ไขย้อนหลัง: the edit/request form, the request list, the bells and an edited entry.
  *  Forms inside, so no Docs page. */
@@ -28,7 +31,7 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<{ role: Role }>;
+type Story = StoryObj<{ role: ActingRole }>;
 
 /** Controls: who is looking, ศาลาแดง or the Owner. */
 const byRole = {
@@ -42,7 +45,7 @@ const byRole = {
       },
     },
   },
-  args: { role: "branch" as Role },
+  args: { role: "branch" as ActingRole },
 };
 
 const asBranch = (db: Database): Database => ({
@@ -92,7 +95,7 @@ export const RequestList: Story = {
   ),
 };
 
-function Bell({ db, role }: { db: Database; role: Role }) {
+function Bell({ db, role }: { db: Database; role: ActingRole }) {
   const [open, setOpen] = useState(true);
   return (
     <div className="flex min-h-100 justify-end p-6">

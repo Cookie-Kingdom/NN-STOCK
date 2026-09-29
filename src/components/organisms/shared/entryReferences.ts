@@ -5,6 +5,7 @@ import {
   entries,
   n,
   titles,
+  type ActingRole,
   type Database,
   type Entry,
   type EntryKind,
@@ -102,11 +103,10 @@ export const linkableKinds: EntryKind[] = [
   "materialConfirm",
 ];
 
-/** LNK-01: the Owner links anything linkable; a role only its own entries (a branch, its own branch's). */
-export const canLink = (e: Entry, role: Entry["role"], branch: string) =>
+/** LNK-01: the Owner links anything linkable; a branch only its own branch's entries. */
+export const canLink = (e: Entry, role: ActingRole, branch: string) =>
   linkableKinds.includes(e.kind) &&
-  (role === "owner" ||
-    (role === e.role && (role !== "branch" || e.branch === branch)));
+  (role === "owner" || (e.role === "branch" && e.branch === branch));
 
 /** The live `link` on an entry (latest wins, voided ones skipped), if any. */
 export const linkOf = (db: Database | undefined, id: string) =>

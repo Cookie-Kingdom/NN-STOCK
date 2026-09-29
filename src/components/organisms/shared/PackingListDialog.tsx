@@ -4,7 +4,7 @@ import { Notice } from "@/components/molecules/Notice";
 import {
   packingListView,
   receivedDraft,
-} from "@/components/organisms/chef/receivedBoxes";
+} from "@/components/organisms/shared/receivedBoxes";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";

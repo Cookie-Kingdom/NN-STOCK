@@ -23,7 +23,7 @@ import {
   titles,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
@@ -76,7 +76,7 @@ export function LinkDialog({
   entry: Entry;
   /** What the choices are read from: every batch / transfer this account can see. */
   db: Database;
-  role: Role;
+  role: ActingRole;
   branch?: string;
   onClose: () => void;
   onLinked: (message: string) => void;

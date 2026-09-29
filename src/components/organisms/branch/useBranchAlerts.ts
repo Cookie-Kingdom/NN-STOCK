@@ -51,7 +51,7 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
  *  `material-count` and are counted on those badges, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
-  const lots = visibleLots(db, "branch", branch);
+  const lots = visibleLots(db, branch);
   const lotIds = [...lots.map((lot) => lot.id), ""];
   const pendingLots = lots.filter(
     (lot) => pendingReceiveKg(db, lot.id, branch) > 0,

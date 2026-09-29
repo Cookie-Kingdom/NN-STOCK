@@ -194,10 +194,6 @@ export const titles: Record<EntryKind, string> = {
   // No title ever: the log showed the raw kind for it, and still does.
   steakTransfer: "steakTransfer",
 };
-/** Roles that correct history directly and decide edit requests (spec 8.1). The Account Manager
- *  (C4) signs in as role "owner", so it is an approver through this entry; every check reads the
- *  list, none names "owner". */
-export const editApprovers: Role[] = ["owner"];
 /** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
  *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
  *  Chef House's production steps (chefEdit fixes those before ปิด Lot); kinds fixed by saving
@@ -247,7 +243,7 @@ export const unpack = (prefix: string, values: Values): Values =>
 /** Entries whose `to.` values overlay their target: a direct edit, or an approved request.
  *  Only an approver's entry counts, so a forged branch-role edit changes nothing. */
 export const isEditOverlay = (e: Entry) =>
-  editApprovers.includes(e.role) &&
+  e.role === "owner" &&
   (e.kind === "entryEdit" ||
     (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
 export const seed: Database = {

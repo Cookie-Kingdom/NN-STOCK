@@ -58,7 +58,7 @@ export function useWorkspace(account: Account) {
   const db = useMemo(() => visibleDatabase(raw, hidesSales), [raw, hidesSales]);
   // BR-07: a branch lists the batches allocated to it or holding its own entries.
   const lots = useMemo(
-    () => (role === "branch" ? visibleLots(db, role, branch) : db.lots),
+    () => (role === "branch" ? visibleLots(db, branch) : db.lots),
     [db, role, branch],
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];

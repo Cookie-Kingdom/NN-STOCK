@@ -110,7 +110,7 @@ test("the Packing List reference carries Foodiva's uploaded file, not the genera
     slicedLostKg: "40",
     attachment: "pl.xlsx",
   };
-  s.run("foodiva", "packingList", { ...list, attachmentStorageKey: "key-1" });
+  s.run("owner", "packingList", { ...list, attachmentStorageKey: "key-1" });
   expect(doc(s, "smokeOrder")!.attachment).toEqual({
     name: "pl.xlsx",
     data: undefined,
@@ -118,7 +118,7 @@ test("the Packing List reference carries Foodiva's uploaded file, not the genera
   });
   // Re-saving the list without picking the file again: the newest entry has
   // the name only, so the earlier version that still holds the file is used.
-  s.run("foodiva", "packingList", list);
+  s.run("owner", "packingList", list);
   expect(doc(s, "smokeOrder")!.attachment).toEqual({
     name: "pl.xlsx",
     data: undefined,

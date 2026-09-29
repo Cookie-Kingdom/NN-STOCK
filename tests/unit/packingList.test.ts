@@ -15,7 +15,7 @@ function dispatched() {
 describe("packingList", () => {
   test("drops blank rows and totals the ones that were filled", () => {
     const s = dispatched();
-    s.run("foodiva", "packingList", { ...list, boxes: "14.5\n\n  \n15.5\n" });
+    s.run("owner", "packingList", { ...list, boxes: "14.5\n\n  \n15.5\n" });
     const saved = entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!;
     expect(packingListBoxes(saved.values.boxes)).toEqual([14.5, 15.5]);
     expect(saved.values.boxCount).toBe("2");
@@ -24,7 +24,7 @@ describe("packingList", () => {
 
   test("Sliced Weight Net is the rows added up, whatever the form sent", () => {
     const s = dispatched();
-    s.run("foodiva", "packingList", {
+    s.run("owner", "packingList", {
       ...list,
       boxes: "14.5\n15.5",
       slicedNetKg: "28",
@@ -36,7 +36,7 @@ describe("packingList", () => {
 
   test("Sliced Weight Lost is stored as Foodiva typed it, not derived from Inv. Weight", () => {
     const s = dispatched();
-    s.run("foodiva", "packingList", {
+    s.run("owner", "packingList", {
       ...list,
       boxes: "10\n20",
       invWeightKg: "33",
@@ -52,14 +52,7 @@ describe("packingList", () => {
     const s = dispatched();
     const lotId = s.db.lots.at(-1)!.id;
     const save = (values: Record<string, string>) =>
-      mutate(
-        s.db,
-        "foodiva",
-        "packingList",
-        values,
-        lotId,
-        s.db.entries[0].date,
-      );
+      mutate(s.db, "owner", "packingList", values, lotId, s.db.entries[0].date);
     expect(() => save({ ...list, boxes: "" })).toThrow(/อย่างน้อย 1 กล่อง/);
     expect(() => save({ ...list, boxes: "-2" })).toThrow(/มากกว่าศูนย์/);
     expect(() => save({ ...list, boxes: "10", slicedLostKg: "" })).toThrow(
@@ -95,15 +88,15 @@ describe("packingList", () => {
     const s = setup();
     readyToDispatch(s, "40");
     const date = s.db.entries[0].date;
-    const save = (role: "foodiva" | "owner" | "branch", lotId: string) =>
+    const save = (role: "owner" | "branch", lotId: string) =>
       mutate(s.db, role, "packingList", { ...list, boxes: "10" }, lotId, date);
     const shipment = s.db.lots.at(-1)!.id;
     // After the smoke PO the list still saves; it is only said (SHP-02).
     expectWarning(
-      check(() => save("foodiva", shipment)),
+      check(() => save("owner", shipment)),
       "Owner ออก PO รมควันของชุดนี้แล้ว",
     );
-    expect(() => save("foodiva", s.db.lots[0].id)).toThrow(
+    expect(() => save("owner", s.db.lots[0].id)).toThrow(
       "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ",
     );
     expect(save("owner", shipment).entries.at(-1)!.role).toBe("foodiva");

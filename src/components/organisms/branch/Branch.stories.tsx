@@ -35,7 +35,7 @@ const branch = "ศาลาแดง";
 const closed = isClosed(db, branch, day);
 /** The same list the workspace hands the branch (BR-07): Lots allocated to this branch
  *  or holding its own entries. */
-const branchLots = visibleLots(db, "branch", branch);
+const branchLots = visibleLots(db, branch);
 
 /** Storybook's stand-in for the user picking a กลุ่มสต๊อก in the filter bar. */
 const pickGenre =
@@ -81,7 +81,7 @@ export const DailyWorkflow: Story = {
       db={db}
       branch={branch}
       date={day}
-      lots={visibleLots(db, "branch", branch)}
+      lots={visibleLots(db, branch)}
       closed={isClosed(db, branch, day)}
       open={open}
       onTab={fn()}
@@ -102,7 +102,7 @@ export const StockViewUnlinked: Story = {
     <BranchStockView
       db={unlinkedBranchDb}
       branch={branch}
-      lots={visibleLots(unlinkedBranchDb, "branch", branch)}
+      lots={visibleLots(unlinkedBranchDb, branch)}
     />
   ),
 };

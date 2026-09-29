@@ -15,7 +15,6 @@ export {
   batchKinds,
   branchMeatKinds,
   titles,
-  editApprovers,
   editDecisions,
   editLockedKeys,
   unpack,

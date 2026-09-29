@@ -60,7 +60,7 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   });
   expect(alerts().badges["smoke-po"]).toBe(0);
   // Q1: Chef accepting the PO is still recordable but no longer a missing step.
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   expect(alerts().notifications.map((n) => n.title)).toEqual([
     "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
     "รอชำระ Invoice เนื้อ · PO-2026-0001",
@@ -87,7 +87,7 @@ test("a closed run lacks the smoking invoice, then waits on its review", () => {
 
 test("after smoking the owner is sent to transport, central receive and allocation", () => {
   const closed = smoked();
-  closed.run("cm", "closeLot", { confirm: "สมชาย" });
+  closed.run("owner", "closeLot", { confirm: "สมชาย" });
   const afterClose = ownerAlerts(closed.db);
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({

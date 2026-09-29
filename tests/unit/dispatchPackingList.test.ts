@@ -4,7 +4,7 @@ import { dispatchWithPackingList, lotProgress } from "@/lib/store";
 import { day, readyToDispatch, send, setup } from "./fixtures";
 
 describe("dispatchWithPackingList", () => {
-  it("saves the transport document and its Packing List together, document first", () => {
+  it("saves the transport document and its Packing List together, document first, stamped Foodiva's with the Owner as typist", () => {
     const s = setup();
     readyToDispatch(s, "50");
     const lotId = s.db.lots.at(-1)!.id;
@@ -19,40 +19,16 @@ describe("dispatchWithPackingList", () => {
         boxes: "25\n25",
       },
       day,
-      "foodiva",
-    );
-    expect(
-      next.entries.slice(-2).map((e) => [e.kind, e.role, e.lotId]),
-    ).toEqual([
-      ["dispatch", "foodiva", lotId],
-      ["packingList", "foodiva", lotId],
-    ]);
-    expect(lotProgress(next, lotId).has("packingList")).toBe(true);
-    expect(next.entries.at(-1)!.values.slicedNetKg).toBe("50");
-  });
-
-  it("stamps the Owner as the typist when it records them for Foodiva", () => {
-    const s = setup();
-    readyToDispatch(s, "50");
-    const next = dispatchWithPackingList(
-      s.db,
-      s.db.lots.at(-1)!.id,
-      send,
-      {
-        invoiceNo: "INV-1",
-        product: "เนื้อวัว",
-        slicedLostKg: "50",
-        boxes: "25\n25",
-      },
-      day,
       "owner",
     );
     expect(
-      next.entries.slice(-2).map((e) => [e.kind, e.role, e.actor]),
+      next.entries.slice(-2).map((e) => [e.kind, e.role, e.actor, e.lotId]),
     ).toEqual([
-      ["dispatch", "foodiva", "owner"],
-      ["packingList", "foodiva", "owner"],
+      ["dispatch", "foodiva", "owner", lotId],
+      ["packingList", "foodiva", "owner", lotId],
     ]);
+    expect(lotProgress(next, lotId).has("packingList")).toBe(true);
+    expect(next.entries.at(-1)!.values.slicedNetKg).toBe("50");
   });
 
   it("saves neither when the Packing List is refused", () => {

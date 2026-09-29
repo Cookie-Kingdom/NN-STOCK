@@ -131,9 +131,9 @@ describe("batch at Chef House", () => {
     );
     dispatch(s);
     packingList(s, "500\n500");
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
     const receive = (receivedBoxes: string) =>
-      s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
+      s.run("owner", "cmReceive", { receivedBoxes, arrival: "08:00" });
     // A box count off the Packing List is said, not refused.
     expectWarning(
       s.dry(() => receive("450")),
@@ -187,7 +187,7 @@ describe("meat invoice payment", () => {
       s.dry(() => pay("10000")),
       "ยังไม่มี Invoice เนื้อจาก Foodiva",
     );
-    s.run("foodiva", "foodivaConfirm", {
+    s.run("owner", "foodivaConfirm", {
       invoiceNo: "INV-9",
       invoiceDate: day,
       attachment: "inv.pdf",
@@ -216,7 +216,7 @@ describe("meat invoice payment", () => {
     expect(() => pay("10000")).toThrow("ชำระ Invoice เนื้อใบนี้แล้ว");
     // PO-02: Foodiva may still re-issue its invoice; it is only told the PO is paid.
     expectWarning(
-      s.check("foodiva", "foodivaConfirm", {
+      s.check("owner", "foodivaConfirm", {
         invoiceNo: "INV-9b",
         invoiceDate: day,
         attachment: "inv.pdf",
