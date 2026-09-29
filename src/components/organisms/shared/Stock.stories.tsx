@@ -9,7 +9,7 @@ import {
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
-import { branches, type Database } from "@/lib/store";
+import { branches, shipments, type Database } from "@/lib/store";
 import { BranchStockSummary } from "./BranchStockSummary";
 import { MeatStockTable } from "./MeatStockTable";
 import { SupplyStock } from "./SupplyStock";
@@ -30,11 +30,13 @@ const branchCheck = {
 const meatDb = pick("ข้อมูล", {
   "ตัวอย่าง 7 วัน": demoDb,
   เพิ่งเข้าสต๊อกกลาง: centralDb,
+  "เนื้อยังไม่ผูก Lot": unlinkedBranchDb,
 });
 
 /** เลือกใน Controls:
  *  - มุมมอง: Owner เห็นทุกสาขา, Chef House เห็นสต๊อกผลิต
- *  - ข้อมูล: รอบตัวอย่างที่ขายแล้ว หรือ Lot ที่เพิ่งเข้าสต๊อกกลาง */
+ *  - ข้อมูล: รอบตัวอย่างที่ขายแล้ว, Lot ที่เพิ่งเข้าสต๊อกกลาง หรือสาขารับเนื้อไม่ระบุ Lot
+ *    (Owner มีแถว 「ไม่ระบุ Lot」 ท้ายตาราง) */
 export const MeatStock: StoryObj<{
   variant: "owner" | "chef";
   db: Database;
@@ -56,7 +58,7 @@ export const MeatStock: StoryObj<{
       key={`${variant}-${db.entries.length}`}
       db={db}
       variant={variant}
-      lots={db.lots}
+      lots={shipments(db)}
       open={open}
     />
   ),

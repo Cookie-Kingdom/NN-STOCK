@@ -77,9 +77,15 @@ export function useOwnerAlerts(db: Database) {
   const { unpaidMeatLots } = pendingInvoices;
   const billingCount = pendingInvoices.total;
   // Batches Foodiva or Chef House opened that still have no smoke PO.
-  const smokePoCount = unlinkedSummary(db).batchesWithoutSmokeOrder.length;
-  // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch.
-  const unlinkedCount = entries(db, "receive", "").length;
+  const unlinked = unlinkedSummary(db);
+  const smokePoCount = unlinked.batchesWithoutSmokeOrder.length;
+  // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch: the same kg
+  // the dashboard's "ยังไม่ผูก" tile shows (DASH-01).
+  const unlinkedCount = unlinked.meatReceives;
+  const unlinkedKg = Object.values(unlinked.meatKg).reduce(
+    (total, kg) => total + kg,
+    0,
+  );
   // The partners' steps the Owner types for them, on batches that moved in the last 30
   // days (DASH-02). Hints, never gates; same counts the old Foodiva / Chef House badges had.
   const active = activeBatches(db).map((lot) => ({
@@ -186,8 +192,8 @@ export function useOwnerAlerts(db: Database) {
     ...(unlinkedCount
       ? [
           {
-            title: `รายการที่ยังไม่ผูก Lot: ${unlinkedCount}`,
-            detail: "สาขารับเนื้อโดยไม่ระบุ Lot · ผูกกับชุดรมควันภายหลังได้",
+            title: `เนื้อสาขายังไม่ผูก Lot: ${fmt(unlinkedKg)} กก.`,
+            detail: `คงเหลือในถังไม่ระบุ Lot · รอผูก ${unlinkedCount} รายการรับ · ผูกกับชุดรมควันภายหลังได้`,
             tab: "history" as Tab,
           },
         ]

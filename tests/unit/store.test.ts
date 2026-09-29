@@ -749,13 +749,16 @@ describe("lot workflow", () => {
     expect(smokingInvoiceRejection(s.db, smokingInvoice)).toBeUndefined();
   });
 
-  test("raw meat at Foodiva shrinks with owner waste pickups and legacy Steak transfers", () => {
+  test("raw meat at Foodiva is the ready-for-Chef-House kg less trucks and legacy Steak transfers", () => {
     const s = setup();
     purchase(s, "40");
-    confirm(s, "40", "30");
     const lot = () => s.db.lots[0];
-    const id = lot().id;
+    // Before the invoice, the ordered kg.
     expect(rawAtFoodiva(s.db, lot())).toBe(40);
+    confirm(s, "40", "30");
+    const id = lot().id;
+    // One figure everywhere: the 10 kg kept for the Owner is apart (ownerWasteOutstanding).
+    expect(rawAtFoodiva(s.db, lot())).toBe(30);
     expect(readyForChefHouse(s.db, id)).toBe(30);
     const pickup = (receivedKg: string) =>
       s.run("owner", "ownerWasteReceive", {
@@ -772,7 +775,7 @@ describe("lot workflow", () => {
     expect(ownerWasteOutstanding(s.db, id)).toBe(6);
     // A8: the Owner's pickup leaves the PO's kg left to send (ready for Chiang Mai) alone.
     expect(poRemainingKg(s.db, id)).toBe(30);
-    expect(rawAtFoodiva(s.db, lot())).toBe(36);
+    expect(rawAtFoodiva(s.db, lot())).toBe(30);
     // Legacy "steakTransfer" entries (no UI creates them now) still leave Foodiva.
     s.db.entries.push({
       ...last(s),
@@ -780,12 +783,12 @@ describe("lot workflow", () => {
       kind: "steakTransfer",
       values: { quantityKg: "5" },
     });
-    expect(rawAtFoodiva(s.db, lot())).toBe(31);
+    expect(rawAtFoodiva(s.db, lot())).toBe(25);
     // PO-05: a smoke PO leaves the beef at Foodiva until its truck goes; the batch holds none itself.
     smokeOrder(s, [[id, "10"]], "10", "");
-    expect(rawAtFoodiva(s.db, lot())).toBe(31);
+    expect(rawAtFoodiva(s.db, lot())).toBe(25);
     dispatch(s);
-    expect(rawAtFoodiva(s.db, lot())).toBe(21);
+    expect(rawAtFoodiva(s.db, lot())).toBe(15);
     expect(rawAtFoodiva(s.db, s.db.lots.at(-1)!)).toBe(0);
   });
 

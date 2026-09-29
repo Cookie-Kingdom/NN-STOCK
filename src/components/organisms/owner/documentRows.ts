@@ -159,34 +159,3 @@ export function smokeOrderPrintRows(
     ["หมายเหตุ", order.values.instruction || "—"],
   ];
 }
-
-/**
- * Smoke-service PO as previewed from the traceability register: customer block comes
- * from the lot and the contact / address from the order itself.
- */
-export function smokeOrderTraceRows(
-  db: Database,
-  lot: Lot,
-  order: Entry,
-): DocumentRows {
-  return [
-    ["วันที่ PO", order.date],
-    ["Supplier", order.values.smoker || "Chef House"],
-    ["ลูกค้า", lot.values.customerName],
-    ["ที่อยู่", lot.values.customerAddress],
-    ["Attention", lot.values.attention],
-    ["โทร.", lot.values.phone],
-    ["Tax ID", lot.values.taxId],
-    ["สินค้า", "บริการรมควันเนื้อ"],
-    ["ขนาดบรรจุ", "—"],
-    ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
-    ["ราคา / กก.", `฿${fmt(n(order.values, "serviceRate"))}`],
-    ["ยอดรวมก่อน VAT", `฿${fmt(n(order.values, "estimatedCost"))}`],
-    ["เลขที่การส่ง", lot.poId],
-    ["ผู้รับออเดอร์", order.values.contactName || "—"],
-    ["ที่อยู่ผู้ให้บริการ", order.values.address || "—"],
-    ["Packing List", packingListSummary(db, lot.id) || "รอระบุ"],
-    ["กำหนดเสร็จ", order.values.expectedFinishedDate || "—"],
-    ["หมายเหตุ", order.values.instruction || "—"],
-  ];
-}

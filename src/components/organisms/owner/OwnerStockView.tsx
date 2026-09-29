@@ -16,7 +16,6 @@ import {
   chiliSold,
   chiliStock,
   cookedRiceStock,
-  drawnKg,
   entries,
   issuedRawRiceStock,
   materialPar,
@@ -27,8 +26,8 @@ import {
   ownerMaterialStock,
   ownerWasteOutstanding,
   ownerWasteReceived,
+  rawAtFoodiva,
   rawRiceStock,
-  readyForChefHouse,
   reservedForOwnerContent,
   type Database,
   type Lot,
@@ -112,10 +111,7 @@ export function OwnerStockView({
       const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
       // Raw beef sits on the purchase PO until a shipment trucks it; smoked beef on the shipment.
-      const readyAtFoodiva = Math.max(
-        0,
-        readyForChefHouse(db, lot.id) - drawnKg(db, lot.id, true),
-      );
+      const readyAtFoodiva = rawAtFoodiva(db, lot);
       const ownerReserved = reservedForOwnerContent(db, lot.id);
       const ownerWaiting = ownerWasteOutstanding(db, lot.id);
       const ownerReceived = ownerWasteReceived(db, lot.id);
@@ -125,10 +121,10 @@ export function OwnerStockView({
             genre: "เนื้อ",
             item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
             unit: "กก.",
-            at: { Foodiva: invoiceConfirmed ? readyAtFoodiva : 0 },
+            at: { Foodiva: readyAtFoodiva },
             detail: invoiceConfirmed
               ? "จาก Invoice Foodiva · รอส่งไป Chef House"
-              : "รอ Foodiva ยืนยัน Invoice",
+              : "ตามยอดสั่ง · รอ Foodiva ยืนยัน Invoice",
             meatType: "เนื้อดิบพร้อมส่ง Chef House",
           },
           ...(invoiceConfirmed

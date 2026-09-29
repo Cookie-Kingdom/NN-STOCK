@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/atoms/Badge";
-import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
@@ -11,7 +9,7 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { LotProgressChips } from "@/components/molecules/LotProgressChips";
-import { DataTable } from "@/components/organisms/shared/DataTable";
+import { SmokeOrderLines } from "@/components/organisms/owner/SmokeOrderLines";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
@@ -184,44 +182,7 @@ export function SmokeOrderForm({
                 <LotProgressChips db={db} lotId={lot.id} />
               </Notice>
             )}
-            <DataTable
-              title="PO ซื้อที่ใช้ในชุดนี้ (กก.)"
-              columns={[
-                "เลข PO",
-                "Invoice เนื้อ",
-                "คงเหลือ",
-                "ส่งชุดนี้ (กก.)",
-              ]}
-              numericColumns={["ส่งชุดนี้ (กก.)"]}
-              emptyText="ไม่มี PO ซื้อที่มีเนื้อคงเหลือ · ออก PO รมควันได้โดยไม่ระบุ PO ซื้อ แล้วผูกภายหลัง"
-              rowKeys={pos.map((po) => po.id)}
-              rows={pos.map((po) => {
-                const invoice = entries(db, "foodivaConfirm", po.id).at(-1);
-                return [
-                  <strong key="po">{po.poId}</strong>,
-                  invoice ? (
-                    invoice.values.invoiceNo || "มีแล้ว"
-                  ) : (
-                    <Badge key="invoice" tone="warning">
-                      ยังไม่มี Invoice
-                    </Badge>
-                  ),
-                  `${fmt(poRemainingKg(db, po.id))} กก.`,
-                  <Input
-                    key="kg"
-                    variant="table"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    aria-label={`น้ำหนักที่ส่งจาก ${po.poId}`}
-                    placeholder="0"
-                    value={kg[po.id] || ""}
-                    onChange={(event) => setLine(po.id, event.target.value)}
-                  />,
-                ];
-              })}
-            />
+            <SmokeOrderLines db={db} pos={pos} kg={kg} onLine={setLine} />
             <FormGrid>
               {formFields.map((field) => (
                 <EntryFieldControl

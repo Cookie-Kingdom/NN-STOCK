@@ -47,6 +47,7 @@ import {
   materialPar,
   materials,
   n,
+  openPurchasePos,
   processLoss,
   produced,
   rawAtFoodiva,
@@ -68,9 +69,9 @@ import { type Tab } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 const summaryColumns = [
-  "Open PO",
+  "PO ซื้อที่ยังเปิด",
   "Smoking Invoice ค้าง",
-  "Raw Meat ที่ Foodiva",
+  "Raw Meat ที่ Foodiva (รอส่ง Chef House)",
   "Raw Meat ที่โรงรม",
   "Finished smoked meat",
   "Loss รวม",
@@ -464,7 +465,8 @@ export function OwnerDashboard({
         columns={summaryColumns}
         rows={[
           [
-            String(activeLots),
+            // Purchase POs with beef left to send or the meat invoice unpaid.
+            String(openPurchasePos(db).length),
             String(
               currentSmokingInvoices(db).filter(
                 (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",

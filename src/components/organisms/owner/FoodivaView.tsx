@@ -77,7 +77,7 @@ export function FoodivaView({
         actions={
           <>
             <Stat
-              label="เนื้อดิบคงเหลือ Foodiva"
+              label="เนื้อดิบรอส่ง Chef House"
               value={`${fmt(holding)} กก.`}
             />
             <Stat
@@ -196,7 +196,7 @@ export function FoodivaView({
           "Invoice เนื้อ",
           "พร้อมส่งเชียงใหม่",
           "เก็บไว้ให้ Owner คงเหลือ",
-          "คงเหลือ Foodiva",
+          "เนื้อดิบรอส่ง Chef House",
           "คงเหลือส่ง Chef House",
           "การชำระเงิน",
           "การทำงาน",
