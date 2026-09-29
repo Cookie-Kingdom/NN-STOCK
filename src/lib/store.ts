@@ -18,6 +18,7 @@ export {
   editDecisions,
   editLockedKeys,
   unpack,
+  canLink,
   seed,
 } from "./store/model";
 export {

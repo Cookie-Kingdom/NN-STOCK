@@ -9,6 +9,7 @@ import {
   replaceState,
 } from "@/lib/local-db.server";
 import {
+  balance,
   mutate,
   saleCost,
   type Database,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/store";
 import { day, dispatch, last, readyToDispatch, ready, setup } from "./fixtures";
 
-/* append_entries (migration 0032) through its JS port: a branch loads its role-scoped copy,
+/* append_entries (migration 0034) through its JS port: a branch loads its role-scoped copy,
  * runs mutate on it as the app does, and saves only the delta. */
 function save(
   full: Database,
@@ -148,13 +149,91 @@ test("append_entries refuses what save_app_state refuses", () => {
   expect(append(branch, [entry({ branch: "มีนบุรี" })])).toThrow(
     "branch does not match",
   );
-  // SRV-02: no stage. Values move; a lot's identity and a purchase PO stay the Owner's.
-  expect(append(branch, [], [{ ...lot, values: "x" }])).toThrow("workflow");
+  // A branch never changes a lot: lotCost reads outboundCost / returnCost / centralKg from it.
   expect(
-    append(branch, [], [{ ...lot, id: "F000000-001", poId: "PO-2026-0009" }]),
-  ).toThrow("Only an owner");
+    append(
+      branch,
+      [],
+      [{ ...lot, values: { ...lot.values, outboundCost: "0" } }],
+    ),
+  ).toThrow("Only an owner can change lots");
   expect(append(branch, [], [{ ...lot, id: "new" }])).toThrow(
-    "Only an owner can add or remove lots",
+    "Only an owner can change lots",
+  );
+  expect(append(branch, [entry({ date: "2999-01-01" })])).toThrow(
+    "after today",
   );
   expect(readState(db).revision).toBe(revision);
+});
+
+test("append_entries refuses entries on a closed branch day, except an edit request", () => {
+  const s = setup();
+  const db = openLocalDb(":memory:");
+  const { revision } = replaceState(db, s.db);
+  const branch = accountById("saladaeng");
+  const entry = (kind: string, id = crypto.randomUUID()) => ({
+    id,
+    kind,
+    role: "branch" as const,
+    lotId: "",
+    branch: "ศาลาแดง",
+    date: day,
+    at: "",
+    values: {},
+  });
+  expect(() =>
+    appendState(
+      db,
+      branch,
+      [entry("closeDay"), entry("receive")],
+      [],
+      revision,
+    ),
+  ).toThrow("Branch day is closed");
+  const closed = appendState(db, branch, [entry("closeDay")], [], revision);
+  expect(() =>
+    appendState(db, branch, [entry("receive")], [], closed.revision),
+  ).toThrow("Branch day is closed");
+  appendState(db, branch, [entry("editRequest")], [], closed.revision);
+});
+
+test("append_entries and entries() refuse a link to another branch's or the Owner's entry", () => {
+  const s = ready();
+  const batch = s.db.lots.at(-1)!.id;
+  s.run("branch", "receive", { kg: "10" }, "");
+  const receive = last(s);
+  const owners = s.db.entries.find((e) => e.role === "owner")!;
+  const db = openLocalDb(":memory:");
+  const { revision } = replaceState(db, s.db);
+  const link = (targetId: string, branch: string) => ({
+    id: crypto.randomUUID(),
+    kind: "link" as const,
+    role: "branch" as const,
+    lotId: "",
+    branch,
+    date: day,
+    at: "",
+    values: { targetId, lotId: batch },
+  });
+  const minburi = accountById("minburi");
+  expect(() =>
+    appendState(db, minburi, [link(receive.id, "มีนบุรี")], [], revision),
+  ).toThrow("Link target is not an entry of this branch");
+  expect(() =>
+    appendState(db, minburi, [link(owners.id, "มีนบุรี")], [], revision),
+  ).toThrow("Link target is not an entry of this branch");
+  appendState(
+    db,
+    accountById("saladaeng"),
+    [link(receive.id, "ศาลาแดง")],
+    [],
+    revision,
+  );
+  // A crafted link already in the log moves nothing.
+  const crafted = {
+    ...s.db,
+    entries: [...s.db.entries, link(receive.id, "มีนบุรี")],
+  };
+  expect(balance(crafted, batch, "ศาลาแดง").received).toBe(0);
+  expect(balance(crafted, "", "ศาลาแดง").received).toBe(10);
 });

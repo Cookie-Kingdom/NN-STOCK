@@ -120,9 +120,14 @@ begin
   end;
   assert v_err = 'Only an owner can add or remove lots', format('non-owner purchase lot: got %s', v_err);
 
-  -- A saved lot's values move by a non-owner (DM-09).
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b),
-    'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev) s;
+  -- 0034: a non-owner may not move a saved lot's values either (lotCost reads them).
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b),
+      'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ']')::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Lot changes must follow the workflow', format('non-owner lot values: got %s', v_err);
 
   -- M1 / no stage (SRV-01): the Account Manager opens a batch and records Chef House's weigh-in
   -- and Foodiva's truck on it, stamped "manager"; stamped "owner" it is refused.

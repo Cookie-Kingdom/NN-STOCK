@@ -6,6 +6,8 @@ import type { Account } from "./accounts";
 import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
+  canLink,
+  isClosed,
   seed,
   type Database,
   type Entry,
@@ -89,7 +91,7 @@ const without = (value: object, ...keys: string[]) =>
     Object.entries(value).filter(([key]) => !keys.includes(key)),
   );
 
-/** JS port of `save_app_state` (latest in supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20260929000034_branch_append_guards.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -174,48 +176,22 @@ export function saveState(
       )
         fail("Entry lot does not exist");
     }
-    // SRV-02: no workflow step to check. A lot keeps its identity; only its values cache
-    // moves (DM-09), and a new shipment batch may be opened (GEN-09).
-    if (payload.lots.length < old.lots.length)
-      fail("Only an owner can remove lots");
-    old.lots.forEach((lot, index) => {
-      const next = payload.lots[index];
-      if (
-        !next ||
-        !isDeepStrictEqual(without(next, "values"), without(lot, "values")) ||
-        !isObject(next.values)
-      )
-        fail("Lot changes must follow the workflow");
-    });
-    if (
-      payload.lots
-        .slice(old.lots.length)
-        .some(
-          (lot) =>
-            !isShipmentLot(lot) ||
-            !isObject(lot.values) ||
-            payload.lots.filter((other) => other?.id === lot.id).length > 1,
-        )
-    )
+  }
+  // A non-owner never changes a lot: no branch kind opens a batch or writes the lot cache.
+  if (role !== "owner") {
+    if (payload.lots.length !== old.lots.length)
       fail("Only an owner can add or remove lots");
+    if (!isDeepStrictEqual(payload.lots, old.lots))
+      fail("Lot changes must follow the workflow");
   }
   return replaceState(db, payload);
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-/** A new shipment batch as `mutate` opens one: `S<yymmdd>-NNN-xxxx` / `SH-…` ids, kind
- *  "shipment" (is_new_batch, migration 20260928000031). */
-const isShipmentLot = (lot: unknown): lot is Lot =>
-  isObject(lot) &&
-  lot.kind === "shipment" &&
-  typeof lot.id === "string" &&
-  /^S\d{6}-\d{3}-[0-9a-f]{4}$/.test(lot.id) &&
-  typeof lot.poId === "string" &&
-  /^SH-\d{4}-\d{4}$/.test(lot.poId);
 
-/** JS port of `append_entries` (supabase/migrations/20260929000032_retire_supplier_cm_accounts.sql):
- * a branch save, which sends only its new entries and changed lots.
+/** JS port of `append_entries` (supabase/migrations/20260929000034_branch_append_guards.sql):
+ * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
   db: DatabaseSync,
@@ -264,31 +240,14 @@ export function appendState(
   )
     fail("Entry id must be unique");
 
-  const workflow = "Lot changes must follow the workflow";
-  if (new Set(changes.map((lot) => lot.id)).size !== changes.length)
-    fail(workflow);
-  const lots = [...old.lots];
-  for (const change of changes) {
-    const index = old.lots.findIndex((lot) => lot?.id === change.id);
-    if (index < 0) {
-      // GEN-09: a new shipment batch.
-      if (!isShipmentLot(change) || lots.some((lot) => lot?.id === change.id))
-        fail("Only an owner can add or remove lots");
-      lots.push({ ...change, values: change.values ?? {} });
-      continue;
-    }
-    const lot = old.lots[index];
-    if (!isObject(change.values ?? {})) fail(workflow);
-    // Only values are taken (DM-09); they merge over the stored ones.
-    lots[index] = { ...lot, values: { ...lot.values, ...change.values } };
-  }
-  // After the lots: a batch opened in this save counts (as in append_entries).
+  // No branch kind opens a batch or writes the lot cache (lotCost reads it).
+  if (changes.length) fail("Only an owner can change lots");
   if (
     added.some(
       (entry) =>
         entry.lotId &&
         entry.lotId !== "-" &&
-        !lots.some((lot) => lot?.id === entry.lotId),
+        !old.lots.some((lot) => lot?.id === entry.lotId),
     )
   )
     fail("Entry lot does not exist");
@@ -299,15 +258,27 @@ export function appendState(
     `to.${key}`,
     `from.${key}`,
   ]);
-  const entries = added.map((entry) => ({
-    ...entry,
-    values: without(entry.values, ...costKeys) as Entry["values"],
-  }));
-  return replaceState(db, {
-    ...old,
-    lots,
-    entries: [...old.entries, ...entries],
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Bangkok",
   });
+  // In log order, so an entry sees the ones before it in this save (a closeDay, a link target).
+  const log = { ...old, entries: [...old.entries] };
+  for (const entry of added) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") || entry.date > today)
+      fail("Entry date is invalid or after today");
+    if (entry.kind !== "editRequest" && isClosed(log, entry.branch, entry.date))
+      fail("Branch day is closed");
+    const target =
+      entry.kind === "link" &&
+      log.entries.find((other) => other?.id === entry.values.targetId);
+    if (entry.kind === "link" && !(target && canLink(entry, target)))
+      fail("Link target is not an entry of this branch");
+    log.entries.push({
+      ...entry,
+      values: without(entry.values, ...costKeys) as Entry["values"],
+    });
+  }
+  return replaceState(db, log);
 }
 
 /** Writes the state with no guards. saveState calls it after its checks; on its own
