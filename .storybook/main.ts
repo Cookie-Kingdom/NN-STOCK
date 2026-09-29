@@ -8,7 +8,6 @@ const mock = (name: string) =>
 const config: StorybookConfig = {
   framework: "@storybook/nextjs-vite",
   stories: ["../src/**/*.stories.tsx"],
-  staticDirs: ["../public"],
   viteFinal: (config) =>
     mergeConfig(config, {
       resolve: {
