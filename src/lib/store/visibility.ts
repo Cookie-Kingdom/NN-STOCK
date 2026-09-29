@@ -26,7 +26,7 @@ const editKinds: EntryKind[] = [
   "link",
 ];
 /** BR-07 — the lots a branch's screens list: lots allocated to it or holding its own entries.
- *  `role-scope.ts` sends the same set; scope_app_state() (migration 20260928000031) states the
+ *  `role-scope.ts` sends the same set; scope_app_state() (migration 20260929000033) states the
  *  same rule. The Owner (and Account Manager) see every lot. */
 export function visibleLots(db: Database, branch?: string) {
   return db.lots.filter((lot) =>
