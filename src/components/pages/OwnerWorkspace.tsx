@@ -6,6 +6,9 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
+import { ChefLotTable } from "@/components/organisms/chef/ChefLotTable";
+import { ChefReceiveTable } from "@/components/organisms/chef/ChefReceiveTable";
+import { FoodivaView } from "@/components/organisms/foodiva/FoodivaView";
 import { CentralReceiveView } from "@/components/organisms/owner/CentralReceiveView";
 import { ConfigView } from "@/components/organisms/owner/ConfigView";
 import { InvoiceView } from "@/components/organisms/owner/InvoiceView";
@@ -74,6 +77,22 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "po" && <PurchaseOrderView db={db} open={open} />}
       {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
       {tab === "invoices" && <InvoiceView db={db} open={open} />}
+
+      {/* Partners' work, typed by the Owner / Manager for them (M0 stamps whose it is). */}
+      {tab === "foodiva" && <FoodivaView db={db} open={open} />}
+      {tab === "cm-receive" && <ChefReceiveTable db={db} open={open} />}
+      {tab === "work" && (
+        <>
+          <ChefLotTable db={db} lots={shipments(db)} open={open} />
+          <MeatStockTable
+            db={db}
+            role="cm"
+            branch={ws.branch}
+            lots={shipments(db)}
+            open={open}
+          />
+        </>
+      )}
       {tab === "transport" && <TransportManifestView db={db} open={open} />}
       {tab === "return-shipment" && <ReturnShipmentView db={db} open={open} />}
       {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}

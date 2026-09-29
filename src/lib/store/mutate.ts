@@ -1608,7 +1608,7 @@ function record(
   return next;
 }
 
-/** Foodiva's one outbound form: the transport document and its Packing List land in one save,
+/** Foodiva's one outbound form (the Owner may type it for Foodiva): the transport document and its Packing List land in one save,
  *  all or nothing (SHP-03). With `lotId === ""` the document opens the batch the list joins. */
 export const dispatchWithPackingList = (
   db: Database,
@@ -1616,11 +1616,13 @@ export const dispatchWithPackingList = (
   trip: Values,
   packing: Values,
   date: string,
+  /** Who types it: Foodiva, or the Owner / Manager recording it for Foodiva. */
+  role: Role = "foodiva",
 ) => {
-  const sent = mutate(db, "foodiva", "dispatch", trip, lotId, date);
+  const sent = mutate(db, role, "dispatch", trip, lotId, date);
   return mutate(
     sent,
-    "foodiva",
+    role,
     "packingList",
     packing,
     lotId || sent.lots.at(-1)!.id,

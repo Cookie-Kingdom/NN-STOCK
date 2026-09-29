@@ -1,9 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
   centralDb,
+  chefBusyDb,
+  chefOpenedDb,
   closedDb,
   demoDb,
+  dispatchDb,
+  foodivaBatchesDb,
+  foodivaTasksDb,
   packedDb,
+  rejectedInvoiceDb,
+  smokedDb,
 } from "../../../.storybook/fixtures";
 import { pick } from "../../../.storybook/pick";
 import { accountById } from "@/lib/accounts";
@@ -50,6 +57,23 @@ const packingList = pick("สถานะ", {
   "Packing List พร้อมแล้ว": packedDb,
 });
 
+/* The partners' tabs: the Owner (or Manager) types Foodiva's and Chef House's steps. */
+const foodivaState = pick("สถานะ", {
+  "มีงานรอ (badge)": foodivaTasksDb,
+  รอทำใบขนส่ง: dispatchDb,
+  ชุดหลายแบบ: foodivaBatchesDb,
+});
+const chefState = pick("สถานะ", {
+  "มีงานรอ (badge)": chefBusyDb,
+  "เปิดชุดเอง ยังไม่มี PO": chefOpenedDb,
+  "Invoice ค่ารมถูกส่งกลับ": rejectedInvoiceDb,
+  ปกติ: smokedDb,
+});
+const withAccount = (state: typeof foodivaState) => ({
+  argTypes: { ...byAccount.argTypes, db: state.argType },
+  args: { ...byAccount.args, db: state.initial },
+});
+
 /* One story per entry in `ownerNav`, in sidebar order, so a gap here is a gap the
  * Owner can see. The heading above each block is the sidebar group it belongs to. */
 
@@ -67,6 +91,26 @@ export const SmokingPurchaseOrders: Story = {
   args: { db: packingList.initial },
 };
 export const Invoices: Story = { parameters: at("invoices") };
+
+// งาน Foodiva
+/** Invoice เนื้อ, the outbound transport document + Packing List and the freezer receipt,
+ *  recorded for Foodiva. บัญชี = Account Manager gets the same tab. */
+export const FoodivaWork: Story = {
+  ...withAccount(foodivaState),
+  parameters: at("foodiva"),
+};
+
+// งาน Chef House
+/** Weigh-in at Chef House: shipment batches only, never a purchase PO. */
+export const ChefReceive: Story = {
+  ...withAccount(chefState),
+  parameters: at("cm-receive"),
+};
+/** Pre-smoke, smoke, close Lot and the smoking invoice, then Chef House's stock table. */
+export const ChefWork: Story = {
+  ...withAccount(chefState),
+  parameters: at("work"),
+};
 
 // ขนส่งและรับเข้า
 export const TransportManifests: Story = { parameters: at("transport") };

@@ -82,6 +82,37 @@ export function useOwnerAlerts(db: Database) {
   const smokePoCount = unlinkedSummary(db).batchesWithoutSmokeOrder.length;
   // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch.
   const unlinkedCount = entries(db, "receive", "").length;
+  // The partners' steps the Owner types for them, on batches that moved in the last 30
+  // days (DASH-02). Hints, never gates; same counts the old Foodiva / Chef House badges had.
+  const active = activeBatches(db).map((lot) => ({
+    lot,
+    p: lotProgress(db, lot.id),
+  }));
+  const foodivaCount =
+    purchaseLots(db).filter(
+      (lot) => !lotProgress(db, lot.id).has("foodivaConfirm"),
+    ).length +
+    active.filter(
+      ({ p }) =>
+        (p.has("smokeOrder") && !p.has("dispatch")) ||
+        (p.has("dispatch") && !p.has("packingList")) ||
+        (p.has("return") &&
+          !p.has("central") &&
+          !p.has("foodivaReturnReceive")),
+    ).length;
+  const cmReceiveCount = active.filter(
+    ({ p }) =>
+      (p.has("dispatch") || p.has("packingList")) && !p.has("cmReceive"),
+  ).length;
+  const workCount = active.filter(({ lot, p }) => {
+    const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
+    return (
+      (p.has("cmReceive") && !p.has("closeLot")) ||
+      // The smoking invoice is usually billed once the run is closed.
+      (p.has("closeLot") &&
+        (!invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
+    );
+  }).length;
 
   const editAlerts = editRequestAlerts(db, "owner", "");
   const notifications: OwnerNotification[] = [
@@ -91,9 +122,9 @@ export function useOwnerAlerts(db: Database) {
         ? []
         : [
             {
-              title: `รอ Foodiva ออก Invoice · ${item.id}`,
-              detail: "ติดตาม Foodiva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
-              tab: "po",
+              title: `ออก Invoice เนื้อ · ${item.id}`,
+              detail: "ยืนยันน้ำหนักและแนบ Invoice เนื้อของ Foodiva",
+              tab: "foodiva",
             },
           ],
     ),
@@ -136,9 +167,10 @@ export function useOwnerAlerts(db: Database) {
       if (status === "ส่งกลับแก้ไข")
         return [
           {
-            title: `รอ Chef House แก้ Invoice · ${number}`,
-            detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef House Submit ใหม่",
-            tab: "invoices",
+            title: `แก้ Invoice ค่ารมควัน · ${number}`,
+            detail:
+              "ส่งกลับแก้ไขแล้ว · แก้ใบวางบิลของ Chef House แล้ว Submit ใหม่",
+            tab: "work",
           },
         ];
       return [];
@@ -200,6 +232,9 @@ export function useOwnerAlerts(db: Database) {
       "return-shipment": returnReady.length,
       invoices: billingCount,
       "smoke-po": smokePoCount,
+      foodiva: foodivaCount,
+      "cm-receive": cmReceiveCount,
+      work: workCount,
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,

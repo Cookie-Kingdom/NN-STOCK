@@ -11,6 +11,7 @@ import {
   lotProgress,
   n,
   packingListBoxes,
+  shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -26,7 +27,8 @@ export function ChefReceiveTable({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const waiting = db.lots.filter(
+  // Shipment batches only: the Owner's database also holds the purchase POs.
+  const waiting = shipments(db).filter(
     (lot) => !lotProgress(db, lot.id).has("cmReceive"),
   );
   return (

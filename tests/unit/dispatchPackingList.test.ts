@@ -30,6 +30,30 @@ describe("dispatchWithPackingList", () => {
     expect(next.entries.at(-1)!.values.slicedNetKg).toBe("50");
   });
 
+  it("stamps the Owner as the typist when it records them for Foodiva", () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    const next = dispatchWithPackingList(
+      s.db,
+      s.db.lots.at(-1)!.id,
+      send,
+      {
+        invoiceNo: "INV-1",
+        product: "เนื้อวัว",
+        slicedLostKg: "50",
+        boxes: "25\n25",
+      },
+      day,
+      "owner",
+    );
+    expect(
+      next.entries.slice(-2).map((e) => [e.kind, e.role, e.actor]),
+    ).toEqual([
+      ["dispatch", "foodiva", "owner"],
+      ["packingList", "foodiva", "owner"],
+    ]);
+  });
+
   it("saves neither when the Packing List is refused", () => {
     const s = setup();
     readyToDispatch(s, "50");

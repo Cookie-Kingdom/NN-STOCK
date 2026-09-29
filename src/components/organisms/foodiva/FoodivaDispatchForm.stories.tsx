@@ -41,6 +41,7 @@ export const New: Story = {
   args: { db: tripState.initial },
   render: ({ db }) => (
     <FoodivaDispatchForm
+      role="owner"
       db={db}
       lotId={db.lots.at(-1)!.id}
       date={day}
@@ -58,6 +59,7 @@ export const NewBatch: Story = {
   parameters: { db: packedDb },
   render: () => (
     <FoodivaDispatchForm
+      role="owner"
       db={packedDb}
       lotId=""
       date={day}
