@@ -320,12 +320,12 @@ let actor: Entry["actor"];
 export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
-/* A branch loads only its role-scoped copy (load_app_state, migration 0028), so it cannot send
+/* A branch loads only its role-scoped copy (load_app_state, migrations 0028 and 0033), so it cannot send
  * the whole payload back: its saves go to append_entries with just the new entries (lots must be
  * empty, and save_app_state refuses a branch, migration 0034). The Owner and the Account Manager
  * keep save_app_state. */
 let appendOnly = false;
-/** session.ts sets this from the signed-in account's role (true for every role but "owner"). */
+/** session.ts sets this from the signed-in account's role: true for a branch account. */
 export function setSaveAppendOnly(next: boolean) {
   appendOnly = next;
 }

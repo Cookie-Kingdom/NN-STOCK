@@ -74,7 +74,7 @@ const submitLabels: Record<string, string> = {
   closeDay: "ยืนยันปิดวัน",
   purchase: "บันทึก PO เนื้อ",
   smokingInvoice: "Submit ใบวางบิล",
-  return: "สร้างใบขนส่งขากลับ",
+  return: "เรียกรถขากลับ",
 };
 
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;

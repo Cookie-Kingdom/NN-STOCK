@@ -107,6 +107,9 @@ function entryIndex(db: Database): EntryIndex {
   entryIndexes.set(db.entries, index);
   return index;
 }
+/** Whether a void that counts (see entryIndex) names this entry. */
+export const isVoided = (db: Database, id: string) =>
+  entryIndex(db).voided.has(id);
 /** Live entries of one kind, with edits, chefEdit and `link` overlaid. `lotId === ""` is the
  *  branch's "ไม่ระบุ Lot" bucket (BR-04); leave it `undefined` for every lot. */
 export function entries(

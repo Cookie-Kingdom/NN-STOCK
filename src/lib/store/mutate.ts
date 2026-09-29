@@ -1,6 +1,8 @@
 /** `mutate`: the only way to change the database. Every entry is validated here; a batch's
- *  `values` cache is filled here. It refuses only the wrong role, a bad date, a closed branch
- *  day and duplicates (PRIN-03); everything else is a warning (`warn`) the form shows. */
+ *  `values` cache is filled here. It refuses (`assert`) what would make the log wrong: the wrong
+ *  role, a retired kind, a bad date or time, a closed branch day, a missing required value or
+ *  reference (a PO, an allocation, an edit target) and duplicates (PRIN-03). A quantity over
+ *  stock or plan is only a warning (`warn`) the form shows. */
 import { fmt } from "../format";
 import { newId } from "../id";
 import {
@@ -48,6 +50,7 @@ import {
   ownerWasteOutstanding,
   ownerWasteReceived,
   packWeights,
+  pendingReceiveKg,
   poRemainingKg,
   processed,
   produced,
@@ -389,8 +392,8 @@ function lotConfig(db: Database): Values {
  *  NNN and the SH number count the batches this client has; only the Owner and the Account
  *  Manager open batches (a branch cannot add lots, migration 0034) and both load every batch,
  *  but two devices saving at once may still repeat a number. The 4 random hex chars keep the id itself
- *  unique, so the server never mistakes a new batch for a values change of a stored one
- *  (is_new_batch, migration 20260928000031). The SH number is display only. */
+ *  unique, so one device's new batch never lands on another's under the same id. The SH number
+ *  is display only. */
 function newBatch(db: Database, next: Database, date: string): Lot {
   const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
   const lot: Lot = {
@@ -1002,13 +1005,15 @@ function record(
       delete v.allocation;
       delete v.complete;
       if (lotId) {
-        warn(
-          entries(db, "allocate", lotId, branch).some(
-            (a) => allocationOutstanding(db, a) > 0,
-          ),
-          "ไม่มีใบจัดสรรค้างสำหรับชุดนี้",
+        const pending = pendingReceiveKg(db, lotId, branch);
+        warn(pending > 0, "ไม่มีใบจัดสรรค้างสำหรับชุดนี้");
+        // DM-08: the kg that fills this branch's allocations is already off centralStock;
+        // only the straight remainder beyond them comes out of it.
+        withinStock(
+          n(v, "kg"),
+          pending + Math.max(0, centralStock(db, lotId)),
+          "สต๊อกกลางไม่พอ",
         );
-        withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
       }
     }
   } else if (kind === "thaw") {

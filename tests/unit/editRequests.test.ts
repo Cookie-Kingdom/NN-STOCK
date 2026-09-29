@@ -140,6 +140,14 @@ describe("B5 edit requests", () => {
     expect(balance(db, lotId, "ศาลาแดง").ready).toBeCloseTo(10);
     expect(last(s).values["from.soldKg"]).toBe("65.5");
     expect(last(s).values["to.soldKg"]).toBe("60");
+    expect(entryEdits(db, sale.id)).toHaveLength(1);
+    // A voided edit no longer applies, so the edit history leaves it out.
+    const voided = s.run("owner", "void", {
+      targetId: last(s).id,
+      reason: "แก้ผิด",
+    });
+    expect(entryEdits(voided, sale.id)).toEqual([]);
+    expect(balance(voided, lotId, "ศาลาแดง").ready).toBeCloseTo(4.5);
   });
 
   test("a correction that would leave stock negative only warns", () => {

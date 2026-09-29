@@ -65,7 +65,7 @@ const data = pick("ข้อมูล", {
  *  - งาน Foodiva: Foodiva มีงานรอ, รอทำใบขนส่ง, ชุดหลายแบบ.
  *  - ชั่งรับเนื้อ / ผลิต · สโมค: Chef House มีงานรอ, เปิดชุดเอง ยังไม่มี PO, Invoice ค่ารม
  *    ถูกส่งกลับ, รมควันแล้ว (weigh-in lists shipment batches only, never a purchase PO).
- *  - สร้างใบขนส่งขากลับ: ปิด Lot แล้ว (the lot is listed and the badge counts it).
+ *  - เรียกรถขากลับ: ปิด Lot แล้ว (the lot is listed and the badge counts it).
  *  - รับเนื้อเข้าสต๊อกกลาง: พร้อมรับเข้าสต๊อกกลาง. */
 export const Default: StoryObj<Args> = {
   argTypes: {

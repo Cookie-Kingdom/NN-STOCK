@@ -39,7 +39,7 @@ export function ReturnShipmentView({
   return (
     <>
       <SectionHeading
-        title="สร้างใบขนส่งขากลับ"
+        title="เรียกรถขากลับ"
         description="ทุกชุดที่ยังไม่มีใบขนส่งขากลับ · Owner เรียกรถขากลับ Chef House → Foodiva ได้ทุกเมื่อ ไม่ต้องรอปิด Lot"
       />
       <DataTable
