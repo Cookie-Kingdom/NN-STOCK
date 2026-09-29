@@ -65,7 +65,8 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest and link. */
+/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest, link and
+ *  void (a branch only voids its own pending edit request; derived.ts ignores any other). */
 const branchKinds: EntryKind[] = [
   "receive",
   "thaw",
@@ -84,6 +85,7 @@ const branchKinds: EntryKind[] = [
   "closeDay",
   "editRequest",
   "link",
+  "void",
 ];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const without = (value: object, ...keys: string[]) =>
@@ -147,7 +149,7 @@ export function saveState(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (supabase/migrations/20260929000034_branch_append_guards.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20260929000035_branch_scope_all_batches.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -223,13 +225,34 @@ export function appendState(
   for (const entry of added) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") || entry.date > today)
       fail("Entry date is invalid or after today");
-    if (entry.kind !== "editRequest" && isClosed(log, entry.branch, entry.date))
+    // 0035: a request, its withdrawal and a link (dated today whatever day its target is on,
+    // STK-37) go through on a closed day.
+    if (
+      !["editRequest", "void", "link"].includes(entry.kind) &&
+      isClosed(log, entry.branch, entry.date)
+    )
       fail("Branch day is closed");
-    const target =
-      entry.kind === "link" &&
-      log.entries.find((other) => other?.id === entry.values.targetId);
+    const target = log.entries.find(
+      (other) => other?.id === entry.values.targetId,
+    );
     if (entry.kind === "link" && !(target && canLink(entry, target)))
       fail("Link target is not an entry of this branch");
+    // A branch voids only its own edit request still waiting for a decision (mutate.ts).
+    if (
+      entry.kind === "void" &&
+      !(
+        target?.kind === "editRequest" &&
+        target.role === "branch" &&
+        target.branch === entry.branch &&
+        !log.entries.some(
+          (other) =>
+            (other?.kind === "editDecision" &&
+              other.values?.requestId === target.id) ||
+            (other?.kind === "void" && other.values?.targetId === target.id),
+        )
+      )
+    )
+      fail("Void target is not a pending edit request of this branch");
     log.entries.push({
       ...entry,
       values: without(entry.values, ...costKeys) as Entry["values"],

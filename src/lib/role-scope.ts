@@ -138,8 +138,16 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
   const own = new Set(all.filter(direct).map((e) => e.id));
   const others = new Set(all.filter(central).map((e) => e.id));
   const target = (e: Entry) => e?.values?.targetId;
+  const follows = (e: Entry) =>
+    followKinds.includes(e?.kind) && own.has(target(e));
+  const followed = new Set(all.filter(follows).map((e) => e.id));
   const entries = all.flatMap((e) => {
-    if (direct(e) || (followKinds.includes(e?.kind) && own.has(target(e))))
+    // A void of a followed entry too: the branch withdrawing its own edit request.
+    if (
+      direct(e) ||
+      follows(e) ||
+      (e?.kind === "void" && followed.has(target(e)))
+    )
       return [{ ...e, values: hide(e.values, rule.hiddenKeys) }];
     if (
       central(e) ||
