@@ -1,13 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { accountById, type Account } from "@/lib/accounts";
-import {
-  branchNav,
-  chefNav,
-  ownerNav,
-  type NavGroup,
-  type Tab,
-} from "@/lib/nav";
+import { branchNav, ownerNav, type NavGroup, type Tab } from "@/lib/nav";
 import { WorkspaceShell, type Notification } from "./WorkspaceShell";
 
 // A template is the page layout with placeholder content; real data lives in Pages/*.
@@ -142,11 +136,11 @@ export const OwnerLongPage: Story = {
   ),
 };
 
-/** The chef's page is often one short panel. The sidebar still has to reach the
+/** A page is often one short panel. The sidebar still has to reach the
  *  bottom of the screen, or its sign-out block floats in the middle of the page. */
-export const ChefShortPage: Story = {
+export const ShortPage: Story = {
   render: () => (
-    <Shell account={accountById("chef")!} nav={chefNav}>
+    <Shell account={accountById("minburi")!} nav={branchNav}>
       <div className="grid h-40 place-items-center rounded-lg border border-dashed border-border text-caption text-text-secondary">
         ไม่มีล็อตรอรับวันนี้
       </div>

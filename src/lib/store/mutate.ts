@@ -1616,8 +1616,8 @@ export const dispatchWithPackingList = (
   trip: Values,
   packing: Values,
   date: string,
-  /** Who types it: Foodiva, or the Owner / Manager recording it for Foodiva. */
-  role: Role = "foodiva",
+  /** Who types it: the Owner / Manager recording it for Foodiva (stamped Foodiva's). */
+  role: Role,
 ) => {
   const sent = mutate(db, role, "dispatch", trip, lotId, date);
   return mutate(

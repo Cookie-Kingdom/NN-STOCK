@@ -81,7 +81,7 @@ export function ChefLotEditForm({
     const { warnings, error } = check(() =>
       mutate(
         db,
-        "cm",
+        "owner",
         "chefEdit",
         { ...values, batches: JSON.stringify(smokeDrafts) },
         lotId,
@@ -112,7 +112,7 @@ export function ChefLotEditForm({
     const saved = await run(() =>
       mutate(
         latestDatabase(),
-        "cm",
+        "owner",
         "chefEdit",
         { ...values, batches: JSON.stringify(smokeDrafts) },
         lotId,

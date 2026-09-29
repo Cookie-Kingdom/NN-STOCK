@@ -138,26 +138,6 @@ export const managerNav: NavGroup[] = ownerNav.filter(
   (group) => !group.items.some((item) => item.id === "owner-dashboard"),
 );
 
-export const foodivaNav: NavGroup[] = [
-  {
-    items: [
-      { id: "foodiva", label: "PO และสต๊อก Foodiva", icon: Beef },
-      { id: "history", label: "ประวัติ", icon: History },
-    ],
-  },
-];
-
-export const chefNav: NavGroup[] = [
-  {
-    items: [
-      { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
-      { id: "work", label: "งานผลิต", icon: ClipboardList },
-      { id: "stock", label: "สต๊อก", icon: Package },
-      { id: "history", label: "ประวัติ", icon: History },
-    ],
-  },
-];
-
 export const branchNav: NavGroup[] = [
   {
     items: [

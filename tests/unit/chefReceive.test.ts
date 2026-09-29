@@ -8,6 +8,7 @@ import {
   latestPackingList,
   lotCost,
   lotProgress,
+  mutate,
   produced,
   producedBags,
   visibleDatabase,
@@ -36,6 +37,18 @@ function trucked() {
 }
 
 describe("Chef House yellow cells", () => {
+  it("the Owner's weigh-in (ChefReceiveForm's mutate) is Chef House's, typed by the Owner", () => {
+    const s = trucked();
+    const lotId = s.db.lots.at(-1)!.id;
+    const input = { arrival: "08:00", receivedBoxes: "24.5\n24.5" };
+    const next = mutate(s.db, "owner", "cmReceive", input, lotId, day);
+    expect(next.entries.at(-1)).toMatchObject({
+      kind: "cmReceive",
+      role: "cm",
+      actor: "owner",
+    });
+  });
+
   it("CHF-03 weighs the meat in and prepares before the smoke PO is accepted", () => {
     const s = setup();
     readyToDispatch(s, "50");

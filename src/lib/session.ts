@@ -36,23 +36,23 @@ function publish(next: SessionState) {
   listeners.forEach((listener) => listener());
 }
 
+/** Foodiva and Chef House are partners, not users: the Owner records their work. */
+const retiredRoles: Profile["role"][] = ["L3_CM_OPERATOR", "L4_SUPPLIER"];
+const RETIRED_MESSAGE = "บัญชีนี้ไม่ใช้งานแล้ว";
+
 function accountForProfile(
   profile: Profile,
   locationName?: string,
 ): Account | null {
-  if (!profile.is_active) return null;
+  if (!profile.is_active || retiredRoles.includes(profile.role)) return null;
   const id: AccountId =
     profile.role === "L1_OWNER"
       ? "owner"
       : profile.role === "L1_MANAGER"
         ? "manager"
-        : profile.role === "L3_CM_OPERATOR"
-          ? "chef"
-          : profile.role === "L4_SUPPLIER"
-            ? "foodiva"
-            : locationName?.includes("มีนบุรี")
-              ? "minburi"
-              : "saladaeng";
+        : locationName?.includes("มีนบุรี")
+          ? "minburi"
+          : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;
 }
@@ -120,7 +120,11 @@ async function refreshSession() {
   publish({
     ready: true,
     account,
-    error: account ? "" : "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อ Owner",
+    error: account
+      ? ""
+      : retiredRoles.includes(profile.role)
+        ? RETIRED_MESSAGE
+        : "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อ Owner",
   });
 }
 
@@ -134,10 +138,13 @@ supabase?.auth.onAuthStateChange((event) => {
 
 export async function signIn(email: string, password: string) {
   if (!supabase) {
-    const account = accountById(email.split("@")[0]);
+    const id = email.split("@")[0];
+    const account = accountById(id);
     if (!account)
       return localAuthError(
-        "โหมด local: ใช้อีเมล owner@local.test, manager@, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
+        id === "chef" || id === "foodiva"
+          ? RETIRED_MESSAGE
+          : "โหมด local: ใช้อีเมล owner@local.test, manager@, saladaeng@ หรือ minburi@local.test",
       );
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };
