@@ -91,11 +91,11 @@ describe("packingList", () => {
     );
   });
 
-  test("SHP-02 saves without a transport document, never goes on a purchase PO, and only Foodiva may save it", () => {
+  test("SHP-02 saves without a transport document, never goes on a purchase PO, and only Foodiva (or the Owner for them) may save it", () => {
     const s = setup();
     readyToDispatch(s, "40");
     const date = s.db.entries[0].date;
-    const save = (role: "foodiva" | "owner", lotId: string) =>
+    const save = (role: "foodiva" | "owner" | "branch", lotId: string) =>
       mutate(s.db, role, "packingList", { ...list, boxes: "10" }, lotId, date);
     const shipment = s.db.lots.at(-1)!.id;
     // After the smoke PO the list still saves; it is only said (SHP-02).
@@ -106,7 +106,8 @@ describe("packingList", () => {
     expect(() => save("foodiva", s.db.lots[0].id)).toThrow(
       "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ",
     );
-    expect(() => save("owner", shipment)).toThrow(
+    expect(save("owner", shipment).entries.at(-1)!.role).toBe("foodiva");
+    expect(() => save("branch", shipment)).toThrow(
       "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
     );
   });

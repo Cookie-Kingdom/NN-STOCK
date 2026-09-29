@@ -65,9 +65,10 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
-  /** "manager": the Account Manager wrote it as role "owner" (C4). Absent: the role's own
-   *  account (for "owner", the Owner). Stamped at save by persistence, checked by save_app_state. */
-  actor?: "manager";
+  /** "manager": the Account Manager wrote it (C4), stamped at save by persistence and checked by
+   *  save_app_state. "owner": the Owner recorded a Foodiva/Chef House kind for them, stamped by
+   *  mutate (recordRole). Absent: the role's own account (for "owner", the Owner). */
+  actor?: "manager" | "owner";
 };
 export type Lot = {
   id: string;
@@ -92,9 +93,12 @@ export const roleName = {
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
-/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner. */
+/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner, and an
+ *  entry typed for a partner says so ("Owner · แทน Chef House"). Both actors act as "owner". */
 export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
-  e.actor === "manager" ? "Account Manager" : roleName[e.role];
+  `${e.actor === "manager" ? "Account Manager" : roleName[e.actor ?? e.role]}${
+    e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
+  }`;
 export const materials = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",

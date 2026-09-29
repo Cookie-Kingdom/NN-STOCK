@@ -12,6 +12,7 @@ import {
   closeDayChecklist,
   cookedRiceStock,
   entries,
+  entryBy,
   isClosed,
   issuedRawRiceStock,
   lotCost,
@@ -765,10 +766,17 @@ describe("lot workflow", () => {
     expect(rawAtFoodiva(s.db, s.db.lots.at(-1)!)).toBe(0);
   });
 
-  test("SHP-01 only Foodiva trucks a batch, and it carries the kg typed (the PO's when blank)", () => {
+  test("SHP-01 Foodiva, or the Owner for them, trucks a batch, and it carries the kg typed (the PO's when blank)", () => {
     const t = setup();
     readyToDispatch(t, "40");
-    expect(() => t.run("owner", "dispatch", send)).toThrow(/ไม่มีสิทธิ์/);
+    expect(() => t.run("branch", "dispatch", send)).toThrow(/ไม่มีสิทธิ์/);
+    const byOwner = mutate(t.db, "owner", "dispatch", send, "", day);
+    expect(byOwner.entries.at(-1)).toMatchObject({
+      kind: "dispatch",
+      role: "foodiva",
+      actor: "owner",
+    });
+    expect(entryBy(byOwner.entries.at(-1)!)).toBe("Owner · แทน Foodiva");
     expect(() => t.run("foodiva", "dispatch", send, t.db.lots[0].id)).toThrow(
       /ไม่ใช่ PO ซื้อ/,
     );
@@ -900,7 +908,7 @@ describe("lot workflow", () => {
         },
         id,
       );
-    expect(() => s.run("owner", "chefEdit", {}, id)).toThrow(/ไม่มีสิทธิ์/);
+    expect(() => s.run("branch", "chefEdit", {}, id)).toThrow(/ไม่มีสิทธิ์/);
     expectWarning(
       s.dry(() =>
         edit({}, [draft(smokes[0], { wasteKg: "4" }), draft(smokes[1])]),
@@ -1926,6 +1934,94 @@ describe("free ledger (PRD v9)", () => {
     s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
     expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
     expect(entries(s.db, "allocate", lotId)).toHaveLength(1);
+    expect(centralStock(s.db, lotId)).toBe(25);
+  });
+
+  test("M0 the Owner records every Foodiva and Chef House kind on one batch, in any order", () => {
+    const order = [9, 7, 3, 11, 5, 1, 2, 4, 10, 0, 6, 8];
+    const s = setup();
+    purchase(s, "50");
+    s.run(
+      "owner",
+      "foodivaConfirm",
+      {
+        invoiceNo: "INV-1",
+        invoiceDate: day,
+        attachment: "inv.pdf",
+        confirmedBy: "Foodiva",
+        confirmedKg: "50",
+        readyForChiangMaiKg: "50",
+        reservedForOwnerKg: "0",
+        invoiceAmount: "1",
+      },
+      s.db.lots[0].id,
+    );
+    let lotId = "";
+    const has = (kind: EntryKind) => entries(s.db, kind, lotId).length > 0;
+    for (const index of order) {
+      const [, kind, values] = steps[index];
+      s.run("owner", kind, values, lotId);
+      lotId = s.db.lots.at(-1)!.id;
+      // The two kinds that need something on the batch first, typed as soon as they can be.
+      if (has("smokeOrder") && !has("smokeOrderAccept"))
+        s.run("owner", "smokeOrderAccept", { acceptedBy: "Owner" }, lotId);
+      if (
+        has("cmReceive") &&
+        has("prepare") &&
+        has("smoke") &&
+        !has("closeLot") &&
+        !has("chefEdit")
+      )
+        s.run(
+          "owner",
+          "chefEdit",
+          {
+            arrival: "09:00",
+            preSmokeKg: "48",
+            batches: JSON.stringify(
+              entries(s.db, "smoke", lotId).map((e) => ({
+                id: e.id,
+                smokeDate: e.values.smokeDate,
+                inputKg: e.values.inputKg,
+                wasteKg: e.values.wasteKg,
+                packs: e.values.packs,
+              })),
+            ),
+          },
+          lotId,
+        );
+    }
+    expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
+    const partner = s.db.entries.filter((e) => e.role !== "owner");
+    expect(partner.map((e) => e.kind).sort()).toEqual(
+      [
+        "foodivaConfirm",
+        "dispatch",
+        "packingList",
+        "smokeOrderAccept",
+        "cmReceive",
+        "prepare",
+        "smoke",
+        "chefEdit",
+        "closeLot",
+        "smokingInvoice",
+        "foodivaReturnReceive",
+      ].sort(),
+    );
+    expect(partner.every((e) => e.actor === "owner")).toBe(true);
+    const closeLot = partner.find((e) => e.kind === "closeLot")!;
+    expect(closeLot.role).toBe("cm");
+    expect(entryBy(closeLot)).toBe("Owner · แทน Chef House");
+    // Own kinds carry no actor; the Account Manager's stamp still reads as a hat.
+    expect(
+      s.db.entries.find((e) => e.kind === "purchase")!.actor,
+    ).toBeUndefined();
+    expect(entryBy({ ...closeLot, actor: "manager" })).toBe(
+      "Account Manager · แทน Chef House",
+    );
+    expect(entryBy({ role: "owner", actor: "manager" })).toBe(
+      "Account Manager",
+    );
     expect(centralStock(s.db, lotId)).toBe(25);
   });
 
