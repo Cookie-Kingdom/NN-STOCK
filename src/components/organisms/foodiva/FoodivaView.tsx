@@ -6,8 +6,8 @@ import { Button } from "@/components/atoms/Button";
 import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { PanelHeading } from "@/components/molecules/PanelHeading";
-import { BatchProgressChips } from "@/components/organisms/foodiva/BatchProgressChips";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
+import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
 import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
@@ -159,7 +159,7 @@ export function FoodivaView({
               : p.has("dispatch")
                 ? `${fmt(n(lot.values, "dispatchKg"))} กก.`
                 : "—",
-            <BatchProgressChips key="progress" progress={p} />,
+            <LotProgressChips key="progress" db={db} lotId={lot.id} />,
             // SHP-04: the transport document on any batch without one; the Packing List
             // stays editable after the smoke PO too (the form says so, SHP-02).
             !p.has("dispatch") ? (

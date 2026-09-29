@@ -73,6 +73,24 @@ export const ownerNav: NavGroup[] = [
       { id: "invoices", label: "ใบ Invoice", icon: ClipboardList },
     ],
   },
+  // Foodiva and Chef House are partners, not users: the Owner records their steps here.
+  {
+    label: "งาน Foodiva",
+    items: [
+      {
+        id: "foodiva",
+        label: "Invoice เนื้อ · ใบขนส่ง · รับเข้าตู้",
+        icon: Beef,
+      },
+    ],
+  },
+  {
+    label: "งาน Chef House",
+    items: [
+      { id: "cm-receive", label: "ชั่งรับเนื้อ", icon: Warehouse },
+      { id: "work", label: "ผลิต · สโมค · Invoice ค่ารม", icon: Factory },
+    ],
+  },
   {
     label: "ขนส่งและรับเข้า",
     items: [

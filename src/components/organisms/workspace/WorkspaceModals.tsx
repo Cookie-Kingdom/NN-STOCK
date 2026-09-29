@@ -155,6 +155,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     return (
       <FoodivaDispatchForm
         db={db}
+        role={role}
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
@@ -166,7 +167,9 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           done(
             lotId && entries(next, "smokeOrder", lotId).length
               ? "บันทึกใบขนส่งและ Packing List แล้ว"
-              : "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน",
+              : role === "foodiva"
+                ? "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน"
+                : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
           );
         }}
       />
@@ -244,7 +247,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         if (modal.kind === "purchase") {
           setTab("po");
           done(
-            "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
+            "สร้างใบ PO แล้ว · ออก Invoice เนื้อแทน Foodiva ได้ที่งาน Foodiva",
           );
         } else {
           done(savedMessage(titles[modal.kind as EntryKind]));
