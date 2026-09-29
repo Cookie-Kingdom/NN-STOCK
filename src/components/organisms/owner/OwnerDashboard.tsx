@@ -586,7 +586,7 @@ export function OwnerDashboard({
               )}{" "}
               กก.
             </span>
-            <span>Lot ที่กำลังดำเนินการ {activeLots}</span>
+            <span>ชุดรมควันที่ยังไม่เข้าสต๊อกกลาง {activeLots}</span>
           </div>
         </Panel>
       </div>

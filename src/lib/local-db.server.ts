@@ -7,7 +7,9 @@ import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
   canLink,
+  entries,
   isClosed,
+  openEditRequest,
   seed,
   type Database,
   type Entry,
@@ -65,17 +67,14 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append: `ownership` in store/mutate.ts plus editRequest, link and
- *  void (a branch only voids its own pending edit request; derived.ts ignores any other). */
+/** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036), plus
+ *  editRequest, link and void (a branch only voids its own pending edit request; derived.ts
+ *  ignores any other). */
 const branchKinds: EntryKind[] = [
   "receive",
   "thaw",
-  "supplyPurchase",
-  "supplyIssue",
   "ricePurchase",
-  "chiliPurchase",
   "riceIssue",
-  "chiliIssue",
   "rice",
   "riceCarry",
   "sale",
@@ -149,7 +148,7 @@ export function saveState(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (latest in supabase/migrations/20260929000035_branch_scope_all_batches.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20260929000036_append_retired_kinds.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -253,6 +252,23 @@ export function appendState(
       )
     )
       fail("Void target is not a pending edit request of this branch");
+    // 0036: the duplicates mutate refuses, one open request per entry and one confirm per transfer.
+    if (
+      entry.kind === "editRequest" &&
+      openEditRequest(log, entry.values.targetId)
+    )
+      fail("Entry already has a pending edit request");
+    const transferId = entry.values.transferId;
+    if (
+      (entry.kind === "materialConfirm" || entry.kind === "link") &&
+      transferId &&
+      entries(log, "materialConfirm").some(
+        (confirm) =>
+          confirm.id !== entry.values.targetId &&
+          confirm.values.transferId === transferId,
+      )
+    )
+      fail("Material transfer is already confirmed");
     log.entries.push({
       ...entry,
       values: without(entry.values, ...costKeys) as Entry["values"],

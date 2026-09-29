@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { check } from "@/lib/store";
+import { fmt } from "@/lib/format";
+import { centralStock, check } from "@/lib/store";
 import { expectWarning, last, ready } from "./fixtures";
 
 // Soft quantity limits: an amount over stock is only a warning (real stock drifts, the
@@ -22,6 +23,23 @@ test("an allocation over central stock names the most left", () => {
   expectWarning(
     s.check("owner", "allocate", { branch: "ศาลาแดง", kg: "99999" }),
     /สต๊อกกลางไม่พอ · กรอกได้สูงสุด [\d,.]+ กก\./,
+  );
+});
+
+test("a straight receive filling a fully allocated batch does not warn about central stock (DM-08)", () => {
+  const s = ready();
+  const lotId = s.db.lots.at(-1)!.id;
+  const all = centralStock(s.db, lotId);
+  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: String(all) }, lotId);
+  expect(centralStock(s.db, lotId)).toBe(0);
+  const warnings = (kg: number) =>
+    s.check("branch", "receive", { kg: String(kg) }, lotId).warnings;
+  expect(warnings(all).filter((w) => w.includes("สต๊อกกลางไม่พอ"))).toEqual([]);
+  expectWarning(
+    s.check("branch", "receive", { kg: String(all + 1) }, lotId),
+    new RegExp(
+      `สต๊อกกลางไม่พอ · กรอกได้สูงสุด ${fmt(all).replace(".", "\\.")} กก\\.`,
+    ),
   );
 });
 

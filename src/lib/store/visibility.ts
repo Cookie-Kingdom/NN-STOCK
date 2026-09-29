@@ -8,7 +8,7 @@ import {
   type ActingRole,
   type Values,
 } from "./model";
-import { entries, smokingInvoiceStatus } from "./derived";
+import { entries, isVoided, smokingInvoiceStatus } from "./derived";
 /** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
  *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
 export const branchHiddenKeys = [
@@ -123,9 +123,13 @@ export const openEditRequest = (db: Database, targetId: string) =>
   entries(db, "editRequest").find(
     (e) => e.values.targetId === targetId && !editDecisionOf(db, e.id),
   );
-/** Direct edits and approved requests applied to one entry, oldest first. */
+/** Direct edits and approved requests applied to one entry, oldest first; a voided one no
+ *  longer applies, so it is left out. */
 export const entryEdits = (db: Database, targetId: string) =>
-  db.entries.filter((e) => isEditOverlay(e) && e.values.targetId === targetId);
+  db.entries.filter(
+    (e) =>
+      isEditOverlay(e) && e.values.targetId === targetId && !isVoided(db, e.id),
+  );
 /** Every edit request in `db` with its decision: waiting ones first, then newest first.
  *  Pass a role's visible database to get only that role's own requests. */
 export function editRequestRows(db: Database) {

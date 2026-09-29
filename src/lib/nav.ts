@@ -97,7 +97,7 @@ export const ownerNav: NavGroup[] = [
       { id: "transport", label: "ใบขนส่งขาไป", icon: ArrowRight },
       {
         id: "return-shipment",
-        label: "สร้างใบขนส่งขากลับ",
+        label: "เรียกรถขากลับ",
         icon: ArrowLeft,
       },
       {

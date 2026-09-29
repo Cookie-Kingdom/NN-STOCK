@@ -572,12 +572,6 @@ export function ConfigView({ db }: { db: Database }) {
             "ค่ากลาง 101.5 กรัม ระบบยอมรับช่วง 100–103 กรัม",
           ),
           settingRow(
-            "ข้าวเหนียวในกล่อง (Included sticky rice)",
-            "฿0.00",
-            "200 กรัม / กล่อง",
-            "รวมอยู่ในราคากล่อง",
-          ),
-          settingRow(
             "ราคาขายน้ำพริกหลอด (Chili selling price)",
             <ConfigValue
               {...edit}
@@ -723,7 +717,7 @@ export function ConfigView({ db }: { db: Database }) {
               type="branch"
             />,
             "สาขา",
-            "ใช้เมื่อ Owner, Foodiva หรือ Chef House ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
+            "ใช้เมื่อ Owner หรือ Account Manager ทำรายการโดยไม่เลือกสาขา รวมถึงรายการที่บันทึกแทน Foodiva และ Chef House · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
           ),
         ]}
       />
