@@ -7,13 +7,13 @@ import path from "node:path";
  *
  * Run against the local SQLite backend: `pnpm test:e2e:local`. */
 
-/* Accounts. Local SQLite mode signs in `<account>@local.test` with any password;
+/* Accounts. Foodiva and Chef House are partners, not users: the Owner / Account Manager
+ * record their steps from the /owner tabs (SCREENS below). Local SQLite mode signs in `<account>@local.test` with any password;
  * against Supabase the credentials come from E2E_<ENV>_EMAIL / E2E_<ENV>_PASSWORD,
  * loaded from .env.local by playwright.config.ts. */
 export const ACCOUNTS = {
   owner: "owner",
-  foodiva: "foodiva",
-  chef: "chef",
+  manager: "manager",
   saladaeng: "saladaeng",
   minburi: "minburi",
 } as const;
@@ -21,8 +21,7 @@ export type AccountKey = keyof typeof ACCOUNTS;
 
 const ACCOUNT_ENV: Record<AccountKey, string> = {
   owner: "OWNER",
-  foodiva: "FOODIVA",
-  chef: "CHEF",
+  manager: "MANAGER",
   saladaeng: "SALADAENG",
   minburi: "MINBURI",
 };
@@ -30,8 +29,7 @@ const ACCOUNT_ENV: Record<AccountKey, string> = {
 /** Mirrors `path` in src/lib/accounts.ts. */
 const ACCOUNT_PATH: Record<AccountKey, string> = {
   owner: "/owner",
-  foodiva: "/foodiva",
-  chef: "/chef",
+  manager: "/owner",
   saladaeng: "/branch",
   minburi: "/branch",
 };
@@ -269,20 +267,29 @@ export async function idsOnScreen(page: Page, pattern: RegExp) {
 }
 
 /* ---- documents, by action (not by account) -------------------------------------
- * Each helper records one document from the workspace the page is signed in to, and
- * names the action rather than the account: Chef House and Foodiva work is expected to
- * move into the Owner workspace, and only the menu/table names here would change. */
+ * Each helper records one document from the /owner workspace (Owner or Account Manager)
+ * and names the action rather than whose document it is: Foodiva and Chef House work
+ * lives in the "งาน Foodiva" / "งาน Chef House" tabs. */
+
+const FOODIVA_TAB = "Invoice เนื้อ · ใบขนส่ง · รับเข้าตู้";
 
 /** The menus and tables each action is reached through. */
 export const SCREENS = {
   purchasePo: { menu: "ใบสั่งซื้อ PO" },
   meatInvoice: {
-    menu: "PO และสต๊อก Foodiva",
+    menu: FOODIVA_TAB,
     table: "PO เนื้อที่ต้องออก Invoice",
   },
-  batches: { menu: "PO และสต๊อก Foodiva", table: "ชุดรมควัน" },
-  weighIn: { menu: "ยืนยันรับเนื้อ", table: "การส่งที่รอยืนยันรับ" },
-  production: { menu: "งานผลิต", table: "รายการ Lot ทั้งหมด" },
+  batches: { menu: FOODIVA_TAB, table: "ชุดรมควัน" },
+  freezer: {
+    menu: FOODIVA_TAB,
+    table: "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva",
+  },
+  weighIn: { menu: "ชั่งรับเนื้อ", table: "การส่งที่รอยืนยันรับ" },
+  production: {
+    menu: "ผลิต · สโมค · Invoice ค่ารม",
+    table: "รายการ Lot ทั้งหมด",
+  },
   smokePo: { menu: "ใบสั่ง PO โรงรมควัน", table: "รายการ PO โรงรมควัน" },
   invoices: { menu: "ใบ Invoice" },
   centralReceive: { menu: "รับเนื้อเข้าสต๊อกกลาง" },
@@ -588,6 +595,26 @@ export async function issueSmokePoOnNewBatch(page: Page, rawKg: string) {
     expect(batch, "the new batch is listed").not.toBe("");
   }).toPass();
   return batch;
+}
+
+/** Foodiva's freezer receipt of the smoked meat back from Chef House (RET-02: needs no
+ *  return truck). */
+export async function receiveIntoFreezer(
+  page: Page,
+  batch: string,
+  kg: string,
+  boxes: string,
+) {
+  await openMenu(page, SCREENS.freezer.menu);
+  await pointAndClick(
+    page,
+    tableRow(page, SCREENS.freezer.table, batch).getByRole("button", {
+      name: "ยืนยันรับเข้าตู้",
+    }),
+  );
+  await field(page, /น้ำหนักรับจริง/, kg);
+  await field(page, /จำนวนกล่องรมควันที่รับ/, boxes);
+  await saveEntry(page);
 }
 
 /** The central-stock receive of a batch (RET-03: needs no return truck). */
