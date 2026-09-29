@@ -39,7 +39,7 @@ export function readState(db: DatabaseSync): AppStateRow {
 
 /** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
  * money (C4), a branch its role-scoped copy; Foodiva and Chef House accounts are retired
- * (load_app_state in 20260929000032; scope_app_state latest in 20260928000031). */
+ * (load_app_state and scope_app_state in 20260929000033). */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
@@ -54,7 +54,6 @@ export function loadState(
     ...row,
     payload: scopeDatabase(
       row.payload,
-      "branch",
       account!.branch ? [account!.branch] : [],
     ),
   };
