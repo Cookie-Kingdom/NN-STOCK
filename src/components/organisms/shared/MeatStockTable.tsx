@@ -10,7 +10,7 @@ import {
   n,
   pendingSmokeKg,
   produced,
-  rawAtFoodiva,
+  smokedAtFoodiva,
   batchKinds,
   lotProgress,
   titles,
@@ -40,6 +40,11 @@ export function MeatStockTable({
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lotIds = lots.map((lot) => lot.id);
+  const branchCell = (lotId: string, branch: string) => {
+    const { frozen, ready } = balance(db, lotId, branch);
+    return `${fmt(frozen)} แช่แข็ง / ${fmt(ready)} ชิล/ละลายแล้ว`;
+  };
+  const unlinked = entries(db, "receive", "").length > 0;
   if (variant === "owner")
     return (
       <DataTable
@@ -52,30 +57,40 @@ export function MeatStockTable({
           "สถานะ",
           "การทำงาน",
         ]}
-        rowKeys={lotIds}
-        rows={lots.map((lot) => [
-          lot.id,
-          // Shipments hold no raw beef at Foodiva; it is counted on their purchase POs.
-          lot.kind
-            ? "—"
-            : entries(db, "foodivaConfirm", lot.id).length
-              ? `${fmt(rawAtFoodiva(db, lot))} กก. (เนื้อดิบ)`
-              : "รอ Foodiva ยืนยัน Invoice",
-          `${fmt(centralStock(db, lot.id))} กก.`,
-          ...branches.map((branch) => {
-            const { frozen, ready } = balance(db, lot.id, branch);
-            return `${fmt(frozen)} แช่แข็ง / ${fmt(ready)} ชิล/ละลายแล้ว`;
-          }),
-          progressLabel(db, lot.id),
-          // BR-01: always open; over central stock is a warning in the form.
-          <Button
-            key={lot.id}
-            variant="table"
-            onClick={() => open("allocate", lot.id)}
-          >
-            จัดสรร
-          </Button>,
-        ])}
+        rowKeys={[...lotIds, ...(unlinked ? [""] : [])]}
+        rows={[
+          ...lots.map((lot) => [
+            lot.id,
+            // A batch's smoked beef in Foodiva's freezer, not yet counted into central.
+            smokedAtFoodiva(db, lot) > 0.001
+              ? `${fmt(smokedAtFoodiva(db, lot))} กก. (รอรับเข้าส่วนกลาง)`
+              : "—",
+            `${fmt(centralStock(db, lot.id))} กก.`,
+            ...branches.map((branch) => branchCell(lot.id, branch)),
+            progressLabel(db, lot.id),
+            // BR-01: always open; over central stock is a warning in the form.
+            <Button
+              key={lot.id}
+              variant="table"
+              onClick={() => open("allocate", lot.id)}
+            >
+              จัดสรร
+            </Button>,
+          ]),
+          // DASH-06: branch meat in the "ไม่ระบุ Lot" bucket is stock too.
+          ...(unlinked
+            ? [
+                [
+                  "ไม่ระบุ Lot",
+                  "—",
+                  "—",
+                  ...branches.map((branch) => branchCell("", branch)),
+                  "ยังไม่ผูก Lot",
+                  "—",
+                ],
+              ]
+            : []),
+        ]}
       />
     );
   return (

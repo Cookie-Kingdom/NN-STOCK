@@ -473,15 +473,17 @@ export function Report({
       />
       <DataTable
         className="m-0"
-        title="วัสดุคงเหลือล่าสุด"
+        // The last count in the range, not the running stock (`branchMaterialStock`, which the
+        // dashboard and stock tab show): a transfer after the count is not in it.
+        title="วัสดุนับล่าสุดในช่วงที่เลือก"
         columns={[
           "สาขา",
           "วัสดุ",
           "ใช้ล่าสุด",
-          "คงเหลือ",
+          "นับล่าสุด",
           "ฐานเต็ม",
           "ราคา / หน่วย",
-          "มูลค่าคงเหลือ",
+          "มูลค่าตามที่นับ",
           "สถานะ",
         ]}
         rows={branches.flatMap((br) => {

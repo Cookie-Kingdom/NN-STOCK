@@ -1,0 +1,101 @@
+import { expect, test } from "vitest";
+import { activeBatches } from "@/components/organisms/owner/lotSteps";
+import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
+import { openPurchasePos, smokedAtFoodiva, unlinkedSummary } from "@/lib/store";
+import {
+  confirm,
+  day,
+  dispatch,
+  last,
+  purchase,
+  ready,
+  returned,
+  setup,
+  smokeOrder,
+} from "./fixtures";
+
+const branch = "ศาลาแดง";
+
+test("DASH-01 the ไม่ระบุ Lot figure is what is left in the bucket, and the bell says the same kg", () => {
+  const s = setup();
+  s.run("branch", "receive", { kg: "10" }, "");
+  s.run("branch", "thaw", { kg: "5" }, "");
+  s.run(
+    "branch",
+    "sale",
+    {
+      boxes: "0",
+      addons: "20",
+      chiliAddons: "0",
+      soldKg: "2",
+      wasteKg: "0",
+      riceWasteKg: "0",
+      expense: "0",
+      lineMan: "100",
+    },
+    "",
+  );
+  // 5 kg still frozen + 3 kg chill left: selling from the bucket lowers it.
+  expect(unlinkedSummary(s.db)).toMatchObject({
+    meatKg: { [branch]: 8 },
+    meatReceives: 1,
+  });
+  const bell = () =>
+    ownerAlerts(s.db).notifications.find((item) =>
+      item.title.startsWith("เนื้อสาขายังไม่ผูก Lot"),
+    );
+  expect(bell()?.title).toBe("เนื้อสาขายังไม่ผูก Lot: 8.00 กก.");
+  // Linked to a batch, the receive leaves the bucket and the bell goes quiet.
+  const batch = ready();
+  batch.run("branch", "receive", { kg: "10" }, "");
+  batch.run(
+    "branch",
+    "link",
+    { targetId: last(batch).id, lotId: batch.db.lots.at(-1)!.id },
+    "",
+  );
+  expect(unlinkedSummary(batch.db)).toMatchObject({
+    meatKg: {},
+    meatReceives: 0,
+  });
+});
+
+test("Open PO counts purchase POs with beef left to send or the meat invoice unpaid", () => {
+  const s = setup();
+  purchase(s, "40");
+  const po = s.db.lots[0];
+  expect(openPurchasePos(s.db).map((lot) => lot.id)).toEqual([po.id]);
+  confirm(s, "40");
+  smokeOrder(s, [[po.id, "40"]], "40", "");
+  // Fully drawn, still unpaid: open.
+  expect(openPurchasePos(s.db)).toHaveLength(1);
+  s.run(
+    "owner",
+    "meatPayment",
+    { paymentDate: day, paidBy: "Owner", paidAmount: "1", slips: "[]" },
+    po.id,
+  );
+  expect(openPurchasePos(s.db)).toHaveLength(0);
+});
+
+test("smoked beef at Foodiva is what it took in less what the Owner counted into central", () => {
+  const back = returned();
+  expect(smokedAtFoodiva(back.db, back.db.lots.at(-1)!)).toBe(36);
+  const stocked = ready();
+  expect(smokedAtFoodiva(stocked.db, stocked.db.lots.at(-1)!)).toBe(1);
+  expect(smokedAtFoodiva(stocked.db, stocked.db.lots[0])).toBe(0);
+});
+
+test("DASH-02 counts its 30 days back from today, not from the newest entry", () => {
+  const s = setup();
+  purchase(s, "40");
+  confirm(s, "40");
+  dispatch(s, "");
+  const batch = s.db.lots.at(-1)!.id;
+  expect(activeBatches(s.db, day).map((lot) => lot.id)).toEqual([batch]);
+  expect(activeBatches(s.db, "2026-10-09").map((lot) => lot.id)).toEqual([
+    batch,
+  ]);
+  // More than 30 days after the batch's last entry: nothing is active any more.
+  expect(activeBatches(s.db, "2026-10-10")).toEqual([]);
+});

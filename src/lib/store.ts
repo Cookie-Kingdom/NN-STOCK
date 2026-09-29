@@ -31,6 +31,8 @@ export {
   lotProgress,
   centralStock,
   rawAtFoodiva,
+  smokedAtFoodiva,
+  openPurchasePos,
   readyForChefHouse,
   purchaseLots,
   shipmentLines,

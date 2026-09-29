@@ -14,6 +14,7 @@ import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryForm";
 import { SlipList } from "@/components/molecules/AttachmentButton";
 import { LinkDialog } from "@/components/organisms/shared/LinkDialog";
+import { SmokeOrderLines } from "@/components/organisms/owner/SmokeOrderLines";
 import {
   canLink,
   isLinked,
@@ -33,6 +34,8 @@ import {
   mutate,
   openEditRequest,
   entryBy,
+  poRemainingKg,
+  purchaseLots,
   titles,
   unpack,
   type Database,
@@ -132,12 +135,15 @@ export function EditDiff({ values }: { values: Values }) {
  *  save applies at once; anyone else's is a request the owner decides. */
 export function EditEntryForm({
   entry,
+  db,
   request,
   error,
   onCancel,
   onSubmit,
 }: {
   entry: Entry;
+  /** The log, for a smoke PO's purchase-PO lines (SMK-05). */
+  db?: Database;
   request: boolean;
   error?: string;
   onCancel: () => void;
@@ -151,6 +157,22 @@ export function EditEntryForm({
   );
   const [values, setValues] = useState<Values>(() => ({ ...entry.values }));
   const [reason, setReason] = useState("");
+  // SMK-05: a smoke PO's lines are edited with the same table the new PO form uses.
+  const own: Record<string, number> = Object.fromEntries(
+    (JSON.parse(entry.values.lines || "[]") as Values[]).map((line) => [
+      line.lotId,
+      Number(line.kg),
+    ]),
+  );
+  const [kg, setKg] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(own).map(([id, v]) => [id, String(v)])),
+  );
+  const linePos =
+    db && entry.kind === "smokeOrder"
+      ? purchaseLots(db).filter(
+          (po) => po.id in own || poRemainingKg(db, po.id) > 0.001,
+        )
+      : undefined;
   const noop = () => {};
   return (
     <form
@@ -158,7 +180,18 @@ export function EditEntryForm({
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(
-          Object.fromEntries(fields.map((f) => [f.key, values[f.key] ?? ""])),
+          {
+            ...Object.fromEntries(
+              fields.map((f) => [f.key, values[f.key] ?? ""]),
+            ),
+            ...(linePos && {
+              lines: JSON.stringify(
+                linePos
+                  .filter((po) => kg[po.id]?.trim())
+                  .map((po) => ({ lotId: po.id, kg: kg[po.id].trim() })),
+              ),
+            }),
+          },
           reason,
         );
       }}
@@ -168,6 +201,15 @@ export function EditEntryForm({
           ? "ส่งคำขอให้ Owner พิจารณา · ค่าจะเปลี่ยนเมื่ออนุมัติแล้วเท่านั้น"
           : "บันทึกแล้วค่าใหม่ใช้ทันที · ประวัติเก็บค่าเดิม เหตุผล และเวลาไว้"}
       </Notice>
+      {db && linePos && (
+        <SmokeOrderLines
+          db={db}
+          pos={linePos}
+          kg={kg}
+          own={own}
+          onLine={(poId, value) => setKg((old) => ({ ...old, [poId]: value }))}
+        />
+      )}
       <FormGrid>
         {fields.map((f, index) => (
           <EntryFieldControl
@@ -426,6 +468,7 @@ export function EntryDetails({
       {mode === "edit" ? (
         <EditEntryForm
           entry={current}
+          db={db}
           request={!owner}
           error={error}
           onCancel={() => setMode("")}

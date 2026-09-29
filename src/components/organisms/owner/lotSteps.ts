@@ -1,3 +1,4 @@
+import { today } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   lotProgress,
@@ -83,15 +84,9 @@ export function missingText(missing: readonly BatchStep[], shown = 4) {
 }
 
 const DAY = 86400000;
-/** Batches with an entry in the 30 days before the newest entry in the database
- *  (DASH-02). Measured from the data, not the clock, so an old test round stays readable. */
-export function activeBatches(db: Database, days = 30): Lot[] {
-  const newest = db.entries.reduce(
-    (max, e) => (e.date > max ? e.date : max),
-    "",
-  );
-  if (!newest) return [];
-  const cutoff = new Date(Date.parse(`${newest}T00:00:00Z`) - days * DAY)
+/** Batches with an entry in the 30 days up to `asOf` (DASH-02): today in Bangkok. */
+export function activeBatches(db: Database, asOf = today(), days = 30): Lot[] {
+  const cutoff = new Date(Date.parse(`${asOf}T00:00:00Z`) - days * DAY)
     .toISOString()
     .slice(0, 10);
   const recent = new Set(

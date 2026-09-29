@@ -1,10 +1,11 @@
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 // Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { materials, seed } from "@/lib/store";
 import {
   closed,
   confirm,
+  day,
   dispatch,
   invoice,
   packingList,
@@ -15,6 +16,15 @@ import {
   smoked,
   smokeOrder,
 } from "./fixtures";
+
+// DASH-02 counts its 30 days back from today (Bangkok): pin the clock near the fixture day.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${day}T12:00:00+07:00`));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 test("an empty database only asks for material settings", () => {
   const alerts = ownerAlerts(structuredClone(seed));

@@ -4,6 +4,7 @@ import {
   day,
   editDecidedDb,
   editPendingDb,
+  multiPoDb,
 } from "../../../../.storybook/fixtures";
 import { Panel } from "@/components/atoms/Panel";
 import { EditEntryForm } from "@/components/organisms/shared/EntryDetails";
@@ -88,6 +89,22 @@ export const RequestList: Story = {
       role={role}
       onChanged={fn()}
     />
+  ),
+};
+
+/** SMK-05: the Owner edits a smoke PO. Above its fields, the purchase-PO table of the new
+ *  PO form, prefilled with the 400 kg it draws; "คงเหลือ" adds that 400 kg back. */
+export const SmokeOrderEdit: StoryObj = {
+  render: () => (
+    <Panel>
+      <EditEntryForm
+        entry={entries(multiPoDb, "smokeOrder")[0]}
+        db={multiPoDb}
+        request={false}
+        onCancel={fn()}
+        onSubmit={fn()}
+      />
+    </Panel>
   ),
 };
 

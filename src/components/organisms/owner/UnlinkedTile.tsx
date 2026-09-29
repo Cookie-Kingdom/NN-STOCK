@@ -14,14 +14,14 @@ export function UnlinkedTile({ db }: { db: Database }) {
     ids
       .map((id) => db.lots.find((lot) => lot.id === id)?.poId || id)
       .join(", ");
-  const meat = Object.entries(summary.meatKg).filter(([, kg]) => kg > 0);
+  const meat = Object.entries(summary.meatKg);
   const meatKg = meat.reduce((total, [, kg]) => total + kg, 0);
   const items = [
     {
-      label: "เนื้อสาขา · ไม่ระบุ Lot",
+      label: "เนื้อสาขา · ไม่ระบุ Lot (คงเหลือ)",
       value: `${fmt(meatKg)} กก.`,
-      detail: meat.length
-        ? meat.map(([branch, kg]) => `${branch} ${fmt(kg)} กก.`).join(" · ")
+      detail: summary.meatReceives
+        ? `${meat.map(([branch, kg]) => `${branch} ${fmt(kg)} กก.`).join(" · ")} · รอผูก ${summary.meatReceives} รายการรับ`
         : "ทุกสาขาผูก Lot ครบ",
     },
     {
@@ -43,7 +43,7 @@ export function UnlinkedTile({ db }: { db: Database }) {
     },
   ];
   const open =
-    meatKg > 0 ||
+    summary.meatReceives > 0 ||
     summary.materialConfirms > 0 ||
     summary.batchesWithoutSmokeOrder.length > 0 ||
     summary.posWithoutInvoice.length > 0;

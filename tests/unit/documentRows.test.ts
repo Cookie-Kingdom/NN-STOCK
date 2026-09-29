@@ -2,7 +2,6 @@ import { expect, test } from "vitest";
 import {
   foodivaInvoiceRows,
   smokeOrderPrintRows,
-  smokeOrderTraceRows,
   smokingInvoiceRows,
   transportDocumentRows,
 } from "@/components/organisms/owner/documentRows";
@@ -133,13 +132,6 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
     จำนวน: "50.00 กก.",
     "ราคา / กก.": "฿220.00",
     "ยอดรวมก่อน VAT": "฿11,000.00",
-  });
-  expect(
-    asObject(smokeOrderTraceRows(s.db, lot, latest("smokeOrder"))),
-  ).toMatchObject({
-    เลขที่การส่ง: "SH-2026-0001",
-    "Packing List": "2 กล่องรับเข้า · 50.00 กก.",
-    ผู้รับออเดอร์: "—",
   });
 });
 

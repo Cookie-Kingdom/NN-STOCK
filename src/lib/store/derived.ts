@@ -174,20 +174,28 @@ export function centralStock(db: Database, lotId: string) {
     )
   );
 }
-/** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
+/** Raw beef at Foodiva waiting to go to Chef House, the one figure every screen shows for it:
+ *  the PO's ready-for-Chiang-Mai kg (the ordered kg until Foodiva invoices) less what trucks
+ *  have taken. The part kept for the Owner (Waste) is apart: `ownerWasteOutstanding`. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
   // A shipment's beef is counted on the purchase POs it draws from.
   if (lot.kind) return 0;
-  const confirmation = entries(db, "foodivaConfirm", lot.id).at(-1);
-  const invoicedKg = confirmation
-    ? n(confirmation.values, "confirmedKg")
+  const ready = entries(db, "foodivaConfirm", lot.id).length
+    ? readyForChefHouse(db, lot.id)
     : n(lot.values, "orderedKg");
   const smoker = drawnKg(db, lot.id, true);
   // Legacy: early builds could record "steakTransfer" (raw beef moved to Steak). No UI creates
   // it any more, but app_state history is append-only, so old transfers still leave Foodiva.
   const steak = sum(entries(db, "steakTransfer", lot.id), "quantityKg");
-  const ownerReceived = ownerWasteReceived(db, lot.id);
-  return Math.max(0, invoicedKg - smoker - steak - ownerReceived);
+  return Math.max(0, ready - smoker - steak);
+}
+/** Smoked beef Foodiva took into its freezer that the Owner has not counted into central yet. */
+export function smokedAtFoodiva(db: Database, lot: Lot) {
+  const received = entries(db, "foodivaReturnReceive", lot.id).at(-1);
+  return Math.max(
+    0,
+    n(received?.values || {}, "receivedKg") - n(lot.values, "centralKg"),
+  );
 }
 export function readyForChefHouse(db: Database, lotId: string) {
   const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
@@ -798,14 +806,18 @@ export function saleCost(db: Database, sale: Entry) {
 }
 /** DASH-01: what is recorded but not tied to its source yet, for the Owner's dashboard. */
 export function unlinkedSummary(db: Database) {
+  const receives = entries(db, "receive", "");
   const meatKg: Record<string, number> = {};
-  for (const branch of [
-    ...new Set(entries(db, "receive", "").map((e) => e.branch)),
-  ])
-    meatKg[branch] = balance(db, "", branch).received;
+  for (const branch of [...new Set(receives.map((e) => e.branch))]) {
+    const { frozen, ready } = balance(db, "", branch);
+    meatKg[branch] = frozen + ready;
+  }
   return {
-    /** Branch meat received into the "ไม่ระบุ Lot" bucket, kg per branch. */
+    /** Branch meat still on hand in the "ไม่ระบุ Lot" bucket (frozen + chill), kg per branch
+     *  with an unlinked receive: selling from the bucket lowers it, linking moves it. */
     meatKg,
+    /** Receives in that bucket still waiting to be linked to a batch. */
+    meatReceives: receives.length,
     /** Material receipts with no transfer document. */
     materialConfirms: entries(db, "materialConfirm").filter(
       (e) => !e.values.transferId,
@@ -817,6 +829,14 @@ export function unlinkedSummary(db: Database) {
       .filter((lot) => !entries(db, "foodivaConfirm", lot.id).length)
       .map((lot) => lot.id),
   };
+}
+/** Purchase POs still open: beef left to send to Chef House, or the meat invoice unpaid. */
+export function openPurchasePos(db: Database) {
+  return purchaseLots(db).filter(
+    (lot) =>
+      poRemainingKg(db, lot.id) > 0.001 ||
+      !entries(db, "meatPayment", lot.id).length,
+  );
 }
 export function smokeServiceRate(quantityKg: number) {
   if (quantityKg >= 1500) return 180;

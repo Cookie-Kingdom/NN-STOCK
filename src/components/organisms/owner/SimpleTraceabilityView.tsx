@@ -13,7 +13,7 @@ import { PoLotCell } from "@/components/molecules/PoLotCell";
 import { ShipmentChainCard } from "@/components/organisms/owner/ShipmentChainCard";
 import {
   foodivaInvoiceRows,
-  smokeOrderTraceRows,
+  smokeOrderPrintRows,
   smokingInvoiceRows,
   transportDocumentRows,
   transportDocumentTitle,
@@ -32,6 +32,7 @@ import {
 import {
   entries,
   n,
+  offShelf,
   packingListKg,
   processLoss,
   processed,
@@ -49,6 +50,7 @@ import {
   type Lot,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 const registerColumns = [
   "สถานะ",
@@ -205,7 +207,9 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                   ).at(-1);
                   const central = entries(db, "central", lot.id).at(-1);
                   const allocations = entries(db, "allocate", lot.id);
-                  const sales = entries(db, "sale", lot.id);
+                  // Sales and influencer boxes, oldest first; counted in days, not entries.
+                  const sales = offShelf(db, lot.id).sort(byDateAt);
+                  const saleDays = new Set(sales.map((e) => e.date)).size;
                   const smokeEntries = entries(db, "smoke", lot.id);
                   // The shipment's most recent step in log order, whichever kind it is.
                   const latest = [
@@ -228,7 +232,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     )
                     .at(-1);
                   const latestDocument = sales.length
-                    ? `ขายที่สาขา · ${sales.length} วัน`
+                    ? `ขายที่สาขา · ${saleDays} วัน`
                     : allocations.length
                       ? `จัดสรรไปสาขา · ${allocations.length} ใบ`
                       : central
@@ -346,7 +350,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                           key="smoke-order"
                           title="Smoke Service Purchase Order"
                           number={smokeOrder.values.orderNumber || lot.poId}
-                          rows={smokeOrderTraceRows(db, lot, smokeOrder)}
+                          rows={smokeOrderPrintRows(db, lot, smokeOrder)}
                         />
                       ) : (
                         "—"
@@ -568,7 +572,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     ],
                     [
                       "ขายที่สาขา",
-                      sales.length ? `${sales.length} วัน` : "—",
+                      sales.length ? `${saleDays} วัน` : "—",
                       sales.at(-1)?.date || "—",
                       sales.length
                         ? `ขาย ${fmt(sales.reduce((t, e) => t + n(e.values, "soldKg"), 0))} กก. · Waste ${fmt(sales.reduce((t, e) => t + n(e.values, "wasteKg"), 0))} กก.`

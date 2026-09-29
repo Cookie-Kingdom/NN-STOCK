@@ -21,6 +21,7 @@ import {
   preSmokeTrimKg,
   rawAtSmoker,
   shipments,
+  smokedAtFoodiva,
   lotProgress,
   titles,
   type Database,
@@ -137,14 +138,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     (lot) => lotFilter === "ทั้งหมด" || lot.id === lotFilter,
   );
   const locationRows = lots.flatMap((lot) => {
-    const returnReceived = n(
-      entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {},
-      "receivedKg",
-    );
-    const foodivaSmoked = Math.max(
-      0,
-      returnReceived - n(lot.values, "centralKg"),
-    );
+    const foodivaSmoked = smokedAtFoodiva(db, lot);
     const chefSmoked =
       lotProgress(db, lot.id).has("closeLot") &&
       !entries(db, "return", lot.id).length
@@ -155,9 +149,9 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         [
           lot.poId,
           lot.id,
-          "Foodiva · เนื้อดิบ",
+          "Foodiva · เนื้อดิบรอส่ง Chef House",
           `${fmt(rawAtFoodiva(db, lot))} กก.`,
-          "คงเหลือจาก PO ก่อนส่ง Chef House",
+          "พร้อมส่งเชียงใหม่ตาม Invoice (ยอดสั่งถ้ายังไม่มี Invoice) หักที่ขึ้นรถแล้ว",
         ],
         [
           lot.poId,
