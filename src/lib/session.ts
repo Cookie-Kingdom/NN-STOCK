@@ -36,13 +36,15 @@ function accountForProfile(
   locationName?: string,
 ): Account | null {
   if (!profile.is_active) return null;
-  // Any other role (the old L3/L4 partner profiles) has no account: generic inactive message.
+  /* Any other role (the old L3/L4 partner profiles) has no account: generic inactive message.
+   * So has a branch admin with no user_locations row: the server gives it no branch and would
+   * refuse every save, so it must not open as ศาลาแดง. */
   const id: AccountId | null =
     profile.role === "L1_OWNER"
       ? "owner"
       : profile.role === "L1_MANAGER"
         ? "manager"
-        : profile.role !== "L2_BRANCH_ADMIN"
+        : profile.role !== "L2_BRANCH_ADMIN" || !locationName
           ? null
           : locationName?.includes("มีนบุรี")
             ? "minburi"
@@ -102,12 +104,18 @@ async function refreshSession() {
 
   let locationName: string | undefined;
   if (profile.role === "L2_BRANCH_ADMIN") {
-    const { data } = await supabase
+    /* ponytail: one branch per account. With two rows the server (account_branches) scopes
+     * to both, but the app opens one: the lowest location_id, so it is at least the same
+     * one every time. */
+    const { data, error: locationError } = await supabase
       .from("user_locations")
       .select("locations(name_th)")
       .eq("profile_id", userData.user.id)
+      .order("location_id")
       .limit(1)
       .maybeSingle();
+    // A failed request is not "no branch": keep the open workspace, as for the profile.
+    if (state.account && locationError) return;
     locationName = data?.locations?.name_th;
   }
   const account = accountForProfile(profile, locationName);

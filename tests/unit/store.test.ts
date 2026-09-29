@@ -294,6 +294,19 @@ describe("derived values from the entry log", () => {
       visibleEntries(withEntries(meatPayment), "branch", "ศาลาแดง"),
     ).toEqual([]);
     expect(visibleEntries(db, "branch")).toEqual([]);
+    // What the Owner sent the branch is shown (read-only in its history), not other branches'.
+    const allocate = entry({ kind: "allocate", role: "owner", lotId: "S1" });
+    const transfer = entry({
+      kind: "materialTransfer",
+      role: "owner",
+      branch: "มีนบุรี",
+      values: { price: "5", quantity: "1" },
+    });
+    const sent = withEntries(allocate, transfer);
+    expect(visibleEntries(sent, "branch", "ศาลาแดง")).toEqual([allocate]);
+    expect(visibleEntries(sent, "branch", "มีนบุรี")).toEqual([
+      { ...transfer, values: { quantity: "1" } },
+    ]);
   });
 
   test("revenue sums sales and material par falls back to branch-suffixed settings", () => {
@@ -1384,6 +1397,10 @@ describe("branch supplies", () => {
         lineMan: "3500",
       }),
       /เกินเนื้อที่ละลายแล้ว/,
+    );
+    // A bad number is named by its Thai field label, never its value key.
+    expect(s.check("branch", "sale", { boxes: "-1" }).error).toBe(
+      "กรอกจำนวนกล่องมาตรฐานเป็นตัวเลขตั้งแต่ศูนย์",
     );
   });
 });

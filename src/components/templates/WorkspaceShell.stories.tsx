@@ -98,7 +98,7 @@ function Shell({
 
 const ownerProps = {
   nav: ownerNav,
-  badges: { transport: 1, "return-shipment": 1, invoices: 2 },
+  badges: { foodiva: 1, "return-shipment": 1, invoices: 2 },
   notifications: [
     {
       title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",

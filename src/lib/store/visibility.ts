@@ -9,8 +9,18 @@ import {
   type Values,
 } from "./model";
 import { entries, smokingInvoiceStatus } from "./derived";
-/** Value keys a non-owner role must not see: the meat cost of what it records. */
-const hiddenKeys = ["meatCost", "wasteCost"];
+/** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
+ *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
+export const branchHiddenKeys = [
+  "meatCost",
+  "wasteCost",
+  "estimatedCost",
+  "serviceRate",
+  "lines",
+  "price",
+  "outboundCost",
+  "returnCost",
+];
 export const omit = (values: Values, keys: string[]) =>
   Object.fromEntries(
     Object.entries(values).filter(
@@ -38,6 +48,13 @@ export function visibleLots(db: Database, branch?: string) {
     ),
   );
 }
+/** Owner entries addressed to a branch, which the branch has already received (role-scope.ts
+ *  sends them): shown read-only in its history. */
+const sentToBranch: EntryKind[] = [
+  "allocate",
+  "chiliAllocate",
+  "materialTransfer",
+];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(
   db: Database,
@@ -45,14 +62,20 @@ export function visibleEntries(
   branch?: string,
 ) {
   if (role === "owner") return db.entries;
-  // A branch: its own branch's entries, plus edits, requests and decisions about them.
+  // A branch: its own branch's entries and what the Owner sent it, plus edits, requests
+  // and decisions about them.
   const aboutMine = (e: Entry) =>
     editKinds.includes(e.kind) &&
     e.values.targetRole === "branch" &&
     e.values.targetBranch === branch;
   return db.entries
-    .filter((e) => (e.role === "branch" && e.branch === branch) || aboutMine(e))
-    .map((e) => ({ ...e, values: omit(e.values, hiddenKeys) }));
+    .filter(
+      (e) =>
+        (e.branch === branch &&
+          (e.role === "branch" || sentToBranch.includes(e.kind))) ||
+        aboutMine(e),
+    )
+    .map((e) => ({ ...e, values: omit(e.values, branchHiddenKeys) }));
 }
 /** The database a role's screens read: `db` untouched, except that `hideSales` (Account Manager)
  * drops every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in

@@ -248,6 +248,7 @@ export const voidableKinds: EntryKind[] = [
   "expense",
   "unlock",
   "link",
+  "entryEdit",
 ];
 /** Branch kinds with no screen any more: old entries still count in stock (and the ones in
  *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones. */

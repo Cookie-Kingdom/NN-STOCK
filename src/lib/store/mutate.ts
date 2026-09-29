@@ -457,9 +457,11 @@ function record(
   assert(
     kind === "editRequest"
       ? role !== "owner"
-      : kind === "entryEdit" || kind === "editDecision"
-        ? role === "owner"
-        : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
+      : kind === "void"
+        ? role === "owner" || role === "branch" // a branch only withdraws its own request, below
+        : kind === "entryEdit" || kind === "editDecision"
+          ? role === "owner"
+          : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
     forbidden,
   );
   // An edit of an old entry re-checks it; a new one of a kind with no screen is refused.
@@ -497,8 +499,10 @@ function record(
   }
   if (role === "branch") {
     assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
-    // A request changes nothing until an approver decides, so a closed day still takes one.
-    if (!correcting && kind !== "editRequest")
+    /* A request changes nothing until an approver decides, so a closed day still takes one,
+     * and its withdrawal. A link is dated today whatever day its target is on (STK-37), so
+     * a closed today must not stop tying an older entry to its batch. */
+    if (!correcting && !["editRequest", "void", "link"].includes(kind))
       assert(
         !isClosed(db, branch, date),
         "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
@@ -1214,17 +1218,17 @@ function record(
     }
     required(v, "receiver", "ชื่อผู้รับจริง");
   } else if (kind === "sale") {
-    for (const k of [
-      "boxes",
-      "addons",
-      "chiliAddons",
-      "soldKg",
-      "wasteKg",
-      "expense",
-      "lineMan",
-      "riceWasteKg",
+    for (const [k, label] of [
+      ["boxes", "จำนวนกล่องมาตรฐาน"],
+      ["addons", "จำนวนเนื้อซีล Add-on"],
+      ["chiliAddons", "จำนวนน้ำพริกหลอด"],
+      ["soldKg", "น้ำหนักเนื้อที่ใช้ไป"],
+      ["wasteKg", "น้ำหนักเนื้อที่เสียไป"],
+      ["expense", "ค่าใช้จ่ายสาขา"],
+      ["lineMan", "ยอดขาย LINE MAN"],
+      ["riceWasteKg", "น้ำหนักข้าวที่เสียไป"],
     ])
-      positive(v, k, k, true);
+      positive(v, k, label, true);
     for (const k of ["boxes", "addons", "chiliAddons"])
       assert(Number.isInteger(n(v, k)), "จำนวนขายต้องเป็นจำนวนเต็ม");
     v.riceServings = v.boxes;
@@ -1339,10 +1343,20 @@ function record(
     required(v, "reason", "เหตุผลปลดล็อก");
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
-    assert(
-      target && voidableKinds.includes(target.kind),
-      "รายการนี้ยกเลิกไม่ได้",
-    );
+    if (role === "branch") {
+      // A branch withdraws its own edit request while it still waits for a decision.
+      assert(
+        target?.kind === "editRequest" &&
+          target.role === "branch" &&
+          target.branch === branch,
+        "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+      );
+      assert(!editDecisionOf(db, target.id), "คำขอนี้พิจารณาแล้ว");
+    } else
+      assert(
+        target && voidableKinds.includes(target.kind),
+        "รายการนี้ยกเลิกไม่ได้",
+      );
     assert(
       !db.entries.some(
         (entry) =>

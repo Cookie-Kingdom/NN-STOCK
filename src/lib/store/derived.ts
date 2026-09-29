@@ -33,10 +33,22 @@ const entryIndexes = new WeakMap<Entry[], EntryIndex>();
 function entryIndex(db: Database): EntryIndex {
   const cached = entryIndexes.get(db.entries);
   if (cached?.length === db.entries.length) return cached;
+  // Only the Owner voids, except a branch withdrawing its own edit request; a void
+  // appended under another role changes nothing.
+  const byId = new Map(db.entries.map((entry) => [entry.id, entry]));
   const voided = new Set(
     db.entries
-      // Only the Owner voids; a void appended under another role changes nothing.
-      .filter((entry) => entry.kind === "void" && entry.role === "owner")
+      .filter((entry) => {
+        if (entry.kind !== "void") return false;
+        if (entry.role === "owner") return true;
+        const target = byId.get(entry.values.targetId);
+        return (
+          entry.role === "branch" &&
+          target?.kind === "editRequest" &&
+          target.role === "branch" &&
+          target.branch === entry.branch
+        );
+      })
       .map((entry) => entry.values.targetId),
   );
   // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
@@ -66,7 +78,6 @@ function entryIndex(db: Database): EntryIndex {
    * fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
    * falls back to the one before (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
   const links = new Map<string, Values>();
-  const byId = new Map(db.entries.map((e) => [e.id, e]));
   for (const e of db.entries) {
     const target = e.kind === "link" && byId.get(e.values.targetId);
     if (target && !voided.has(e.id) && canLink(e, target))

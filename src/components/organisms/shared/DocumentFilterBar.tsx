@@ -53,7 +53,7 @@ export function DocumentFilterBar({
             <Input
               variant="filter"
               value={query}
-              placeholder={`เช่น ${referenceType === "po" ? "PO-2026..." : "NN-2026..."}`}
+              placeholder={`เช่น ${referenceType === "po" ? "PO-2026..." : "F260909-001 / S260909-001"}`}
               onChange={(event) => onQuery(event.target.value)}
             />
           </TableFilter>

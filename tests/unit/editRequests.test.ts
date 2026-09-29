@@ -178,3 +178,92 @@ test("a void appended under a non-owner role is ignored", () => {
   const db = { ...s.db, entries: [...s.db.entries, forged] };
   expect(entries(db, "sale").some((e) => e.id === sale.id)).toBe(true);
 });
+
+describe("withdraw, owner edit undo and a link on a closed day", () => {
+  test("a branch withdraws its own pending request, closed day or not", () => {
+    const { s, sale } = closedDay();
+    s.run("branch", "editRequest", {
+      targetId: sale.id,
+      values: JSON.stringify(fix),
+      reason: "พิมพ์ยอดผิด",
+    });
+    const request = last(s);
+    // Another branch may not, nor may a branch void anything but its request.
+    expect(() =>
+      mutate(
+        s.db,
+        "branch",
+        "void",
+        { targetId: request.id, reason: "x" },
+        "",
+        day,
+        "มีนบุรี",
+      ),
+    ).toThrow(/ไม่มีสิทธิ์/);
+    expect(() =>
+      s.run("branch", "void", { targetId: sale.id, reason: "x" }, ""),
+    ).toThrow(/ไม่มีสิทธิ์/);
+    s.run("branch", "void", { targetId: request.id, reason: "ถอน" }, "");
+    expect(openEditRequest(s.db, sale.id)).toBeUndefined();
+    expect(editRequestRows(s.db)).toHaveLength(0);
+    expect(() =>
+      s.run("owner", "editDecision", {
+        requestId: request.id,
+        decision: editDecisions.approve,
+      }),
+    ).toThrow("ไม่พบคำขอแก้ไข");
+  });
+
+  test("a decided request cannot be withdrawn", () => {
+    const { s, sale } = closedDay();
+    s.run("branch", "editRequest", {
+      targetId: sale.id,
+      values: JSON.stringify(fix),
+      reason: "พิมพ์ยอดผิด",
+    });
+    const request = last(s);
+    s.run("owner", "editDecision", {
+      requestId: request.id,
+      decision: editDecisions.reject,
+      note: "ยอดถูกแล้ว",
+    });
+    expect(() =>
+      s.run("branch", "void", { targetId: request.id, reason: "x" }, ""),
+    ).toThrow("คำขอนี้พิจารณาแล้ว");
+  });
+
+  test("the Owner voids its own edit and the old values come back", () => {
+    const { s, sale, lotId } = closedDay();
+    s.run("owner", "entryEdit", {
+      targetId: sale.id,
+      values: JSON.stringify(fix),
+      reason: "แก้ตามใบเสร็จ",
+    });
+    expect(balance(s.db, lotId, "ศาลาแดง").ready).toBeCloseTo(10);
+    s.run("owner", "void", { targetId: last(s).id, reason: "แก้ผิด" }, "");
+    expect(balance(s.db, lotId, "ศาลาแดง").ready).toBeCloseTo(4.5);
+    expect(entries(s.db, "sale")[0].values.soldKg).toBe("65.5");
+  });
+
+  test("a branch links an unlinked receive on a closed day", () => {
+    const s = chillDay();
+    const batch = s.db.lots.at(-1)!.id;
+    s.run("branch", "receive", { kg: "1" }, "");
+    const receive = last(s);
+    s.run(
+      "branch",
+      "materials",
+      Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
+    );
+    s.run("branch", "riceCarry", {
+      leftoverKg: "0",
+      reheat: "เก็บไว้อุ่นวันถัดไป",
+    });
+    s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
+    expect(() => s.run("branch", "receive", { kg: "1" }, "")).toThrow(
+      "ปิดยอดแล้ว",
+    );
+    s.run("branch", "link", { targetId: receive.id, lotId: batch }, "");
+    expect(balance(s.db, "", "ศาลาแดง").received).toBe(0);
+  });
+});

@@ -77,6 +77,34 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
   });
 });
 
+// Not in the SQL fixture yet: scope_app_state() must learn this too (a branch's withdrawn request).
+test("a void of a followed entry (a withdrawn edit request) is sent", () => {
+  const e = (id: string, kind: string, values: Record<string, string> = {}) =>
+    ({
+      id,
+      kind,
+      role: "branch",
+      lotId: "",
+      branch: "มีนบุรี",
+      values,
+    }) as const;
+  const db = {
+    version: 9,
+    config: {},
+    lots: [],
+    entries: [
+      e("e-rcv", "receive"),
+      e("e-req", "editRequest", { targetId: "e-rcv" }),
+      e("e-wd", "void", { targetId: "e-req" }),
+    ],
+  } as unknown as Database;
+  expect(scopeDatabase(db, ["มีนบุรี"]).entries.map((x) => x.id)).toEqual([
+    "e-rcv",
+    "e-req",
+    "e-wd",
+  ]);
+});
+
 test("the sample data exercises every role", () => {
   for (const kind of [
     "sale",

@@ -5,7 +5,7 @@ import {
   type Values,
   type EntryKind,
 } from "./store";
-import { omit } from "./store/visibility";
+import { branchHiddenKeys, omit } from "./store/visibility";
 
 /* What a branch account receives from load_app_state (review APP-01 / DB-03). Until migration
  * 20260925000028 every role but the Account Manager got the whole payload, and
@@ -25,9 +25,6 @@ import { omit } from "./store/visibility";
  *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
  *                trailing `*` keeps every key with that prefix. normalize() fills the rest
  *                from the seed, which no branch screen reads. */
-
-/** Meat cost of a sale (lotCost) and what the smoke PO costs. */
-const costKeys = ["meatCost", "wasteCost", "estimatedCost", "serviceRate"];
 
 export const branchScope: {
   kinds: EntryKind[];
@@ -55,7 +52,7 @@ export const branchScope: {
     "materialTransfer",
     "unlock",
   ],
-  hiddenKeys: [...costKeys, "lines", "price", "outboundCost", "returnCost"],
+  hiddenKeys: branchHiddenKeys,
   configKeys: [
     "branch",
     "boxPrice",
@@ -110,10 +107,15 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
     branches.includes(e.branch) &&
     (!e.lotId || lotIds.has(e.lotId));
   const sent = new Set(all.filter(direct).map((e) => e.id));
+  const follows = (e: Entry) =>
+    followKinds.includes(e?.kind) && sent.has(e.values?.targetId);
+  const followed = new Set(all.filter(follows).map((e) => e.id));
+  // A void of a followed entry too: the branch withdrawing its own edit request.
   const entries = all.filter(
     (e) =>
       direct(e) ||
-      (followKinds.includes(e?.kind) && sent.has(e.values?.targetId)),
+      follows(e) ||
+      (e?.kind === "void" && followed.has(e.values?.targetId)),
   );
   return {
     version: db.version,

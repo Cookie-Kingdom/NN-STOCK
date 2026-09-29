@@ -79,7 +79,8 @@ export const RequestForm: Story = {
 };
 
 /** Pick ผู้ใช้ in Controls:
- *  - ศาลาแดง: only its own requests, with สำเร็จ / ไม่สำเร็จ, and no buttons.
+ *  - ศาลาแดง: only its own requests, with สำเร็จ / ไม่สำเร็จ, and 「ถอนคำขอ」 on the
+ *    one still waiting (a void of the request).
  *  - Owner: the waiting request with อนุมัติ / ไม่อนุมัติ first, then the decided ones. */
 export const RequestList: Story = {
   ...byRole,

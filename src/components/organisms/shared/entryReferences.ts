@@ -23,7 +23,7 @@ const shortDate = (date = "") =>
 
 /** A batch or purchase PO by its PO number; `""` is the branch's "ไม่ระบุ Lot" bucket. */
 export function lotName(db: Database | undefined, lotId: string) {
-  if (!lotId) return "ยังไม่ผูก Lot";
+  if (!lotId) return "ไม่ระบุ Lot";
   const lot = db?.lots.find((l) => l.id === lotId);
   if (!lot) return lotId;
   return lot.poId && lot.poId !== lot.id ? `${lot.poId} · ${lot.id}` : lot.id;

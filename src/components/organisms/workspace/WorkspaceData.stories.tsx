@@ -93,7 +93,8 @@ const historyData = pick("ข้อมูล", {
 });
 
 /** Pick ข้อมูล, ผู้ใช้ and ซ่อนยอดขาย in Controls:
- *  - ปกติ: the Owner's full log, or ศาลาแดง's own entries.
+ *  - ปกติ: the Owner's full log, or ศาลาแดง's own entries plus, read-only, the Owner's
+ *    allocations and transfers sent to it.
  *  - ยังไม่ผูก Lot (LNK-04/06/07): ศาลาแดง's receive, thaw and sale carry "ยังไม่ผูก Lot"
  *    and its material receipt "ไม่มีใบส่งวัสดุ"; expand one and press "ผูกกับ…".
  *  - ผูกแล้ว: the three meat entries read "ผูกแล้ว", show the batch by its PO number, and
