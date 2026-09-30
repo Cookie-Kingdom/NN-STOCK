@@ -11,7 +11,6 @@ import { Input } from "@/components/atoms/Input";
 import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { FormField, PrefillCaption } from "@/components/molecules/FormField";
-import { FormGrid } from "@/components/molecules/FormGrid";
 import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
@@ -295,121 +294,150 @@ export function MaterialReceiptConfirmation({
       {direct && (
         <Panel>
           <strong>รับวัสดุโดยไม่มีใบโอน · {date}</strong>
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr className="text-left text-caption text-text-secondary">
-                <th className="border-b border-border py-2 pr-3 font-semibold">
-                  วัสดุ
-                </th>
-                <th className="w-44 border-b border-border py-2 pr-3 font-semibold max-md:w-28">
-                  จำนวนที่รับจริง (ชิ้น)
-                </th>
-                <th className="w-12 border-b border-border py-2">
-                  <span className="sr-only">ลบแถว</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {direct.rows.map((row, index) => (
-                <tr key={row.id}>
-                  <td className="py-2 pr-3">
-                    <Select
-                      variant="table"
-                      className="w-full text-left"
-                      autoFocus={index === direct.rows.length - 1}
-                      aria-label={`วัสดุ แถวที่ ${index + 1}`}
-                      value={row.material}
-                      onChange={(event) =>
-                        setRow(row.id, "material", event.target.value)
-                      }
-                    >
-                      <option value="">เลือกวัสดุ</option>
-                      {materials.map((material) => (
-                        <option key={material}>{material}</option>
-                      ))}
-                    </Select>
-                  </td>
-                  <td className="py-2 pr-3">
-                    <Input
-                      variant="table"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      className="w-full max-w-40"
-                      aria-label={`จำนวนที่รับจริง แถวที่ ${index + 1}`}
-                      value={row.quantity}
-                      onChange={(event) =>
-                        setRow(row.id, "quantity", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td className="py-2 text-right">
-                    <IconButton
-                      size="sm"
-                      label={`ลบแถวที่ ${index + 1}`}
-                      disabled={direct.rows.length <= 1}
-                      icon={<Trash2 className="size-4" />}
-                      onClick={() =>
-                        setDirect({
-                          ...direct,
-                          rows: direct.rows.filter(({ id }) => id !== row.id),
-                        })
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Plus className="size-4" />}
-              onClick={() =>
-                setDirect({ ...direct, rows: [...direct.rows, newRow()] })
-              }
-            >
-              เพิ่มแถว
-            </Button>
-          </div>
-          <FormGrid>
-            <FormField label="ชื่อผู้รับจริง">
-              <Input
-                value={direct.receiver}
-                placeholder={`ผู้ดูแลสาขา ${branch}`}
-                onChange={(event) =>
-                  setDirect({ ...direct, receiver: event.target.value })
-                }
-              />
-            </FormField>
-          </FormGrid>
-          {directLive.error ? (
-            <FormError error={directLive.error} />
-          ) : (
-            directLive.warnings.length > 0 && (
-              <Notice tone="warning">{directLive.warnings.join(" · ")}</Notice>
-            )
-          )}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="primary"
-              disabled={closed || saving || !directComplete}
-              icon={saving && confirming === "direct" ? <Spinner /> : undefined}
-              onClick={saveDirect}
-            >
-              {saving && confirming === "direct"
-                ? "กำลังบันทึก…"
-                : `บันทึกรับวัสดุ ${direct.rows.length} รายการ`}
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={saving}
-              onClick={() => setDirect(null)}
-            >
-              ยกเลิก
-            </Button>
+          {/* Items on the left at a readable width, the receiver and save on a card to
+              the right; stacked on narrow screens. */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,42rem)_20rem] lg:justify-between">
+            <div className="flex flex-col gap-3">
+              <table className="w-full border-separate border-spacing-0">
+                <thead>
+                  <tr className="text-left text-caption text-text-secondary">
+                    <th className="w-8 border-b border-border py-2 font-semibold">
+                      #
+                    </th>
+                    <th className="border-b border-border py-2 pr-3 font-semibold">
+                      วัสดุ
+                    </th>
+                    <th className="w-36 border-b border-border py-2 pr-3 font-semibold max-md:w-24">
+                      จำนวน (ชิ้น)
+                    </th>
+                    <th className="w-10 border-b border-border py-2">
+                      <span className="sr-only">ลบแถว</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {direct.rows.map((row, index) => (
+                    <tr key={row.id}>
+                      <td className="py-2 text-caption text-text-secondary tabular-nums">
+                        {index + 1}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Select
+                          variant="table"
+                          className="w-full text-left"
+                          autoFocus={index === direct.rows.length - 1}
+                          aria-label={`วัสดุ แถวที่ ${index + 1}`}
+                          value={row.material}
+                          onChange={(event) =>
+                            setRow(row.id, "material", event.target.value)
+                          }
+                        >
+                          <option value="">เลือกวัสดุ</option>
+                          {materials.map((material) => (
+                            <option key={material}>{material}</option>
+                          ))}
+                        </Select>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Input
+                          variant="table"
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          step="1"
+                          className="w-full"
+                          aria-label={`จำนวนที่รับจริง แถวที่ ${index + 1}`}
+                          value={row.quantity}
+                          onChange={(event) =>
+                            setRow(row.id, "quantity", event.target.value)
+                          }
+                        />
+                      </td>
+                      <td className="py-2 text-right">
+                        <IconButton
+                          size="sm"
+                          label={`ลบแถวที่ ${index + 1}`}
+                          disabled={direct.rows.length <= 1}
+                          icon={<Trash2 className="size-4" />}
+                          onClick={() =>
+                            setDirect({
+                              ...direct,
+                              rows: direct.rows.filter(
+                                ({ id }) => id !== row.id,
+                              ),
+                            })
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Plus className="size-4" />}
+                  onClick={() =>
+                    setDirect({ ...direct, rows: [...direct.rows, newRow()] })
+                  }
+                >
+                  เพิ่มแถว
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-4 self-start rounded-lg border border-border bg-surface-sunken p-4">
+              <FormField label="ชื่อผู้รับจริง">
+                <Input
+                  value={direct.receiver}
+                  placeholder={`ผู้ดูแลสาขา ${branch}`}
+                  onChange={(event) =>
+                    setDirect({ ...direct, receiver: event.target.value })
+                  }
+                />
+              </FormField>
+              <p className="flex justify-between text-body-sm text-text-secondary">
+                <span>รวม {direct.rows.length} รายการ</span>
+                <span className="tabular-nums">
+                  {direct.rows.reduce(
+                    (sum, row) => sum + (Number(row.quantity) || 0),
+                    0,
+                  )}{" "}
+                  ชิ้น
+                </span>
+              </p>
+              {directLive.error ? (
+                <FormError error={directLive.error} />
+              ) : (
+                directLive.warnings.length > 0 && (
+                  <Notice tone="warning">
+                    {directLive.warnings.join(" · ")}
+                  </Notice>
+                )
+              )}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  disabled={closed || saving || !directComplete}
+                  icon={
+                    saving && confirming === "direct" ? <Spinner /> : undefined
+                  }
+                  onClick={saveDirect}
+                >
+                  {saving && confirming === "direct"
+                    ? "กำลังบันทึก…"
+                    : `บันทึกรับวัสดุ ${direct.rows.length} รายการ`}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={saving}
+                  onClick={() => setDirect(null)}
+                >
+                  ยกเลิก
+                </Button>
+              </div>
+            </div>
           </div>
         </Panel>
       )}
