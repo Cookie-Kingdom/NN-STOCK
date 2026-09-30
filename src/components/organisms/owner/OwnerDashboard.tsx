@@ -48,7 +48,7 @@ import {
   materials,
   n,
   openPurchasePos,
-  poMatched,
+  lotCost,
   processLoss,
   produced,
   rawAtFoodiva,
@@ -441,9 +441,10 @@ export function OwnerDashboard({
           value={`฿${fmt(totalCost)}`}
           caption={
             // RET-07: a batch with no purchase PO match has no meat cost yet.
-            [...sales, ...influencerBoxes].some(
-              (entry) => entry.lotId && !poMatched(db, entry.lotId),
-            )
+            [...sales, ...influencerBoxes].some((entry) => {
+              const lot = db.lots.find((l) => l.id === entry.lotId);
+              return !!lot && !lotCost(db, lot).meatMatched;
+            })
               ? "รวมเนื้อ ข้าว วัสดุ และสต๊อกที่ซื้อเข้า · บางชุดยังไม่จับคู่ PO ซื้อ ต้นทุนเนื้อยังไม่ครบ"
               : "รวมเนื้อ ข้าว วัสดุ และสต๊อกที่ซื้อเข้า"
           }
