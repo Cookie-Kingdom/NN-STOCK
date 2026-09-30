@@ -84,13 +84,16 @@ export function missingText(missing: readonly BatchStep[], shown = 4) {
 }
 
 const DAY = 86400000;
-/** Batches with an entry in the 30 days up to `asOf` (DASH-02): today in Bangkok. */
+/** Batches with an entry in the 30 days up to `asOf` (DASH-02): today in Bangkok. An entry
+ *  counts by its business date or by when it was recorded, so backdated work still alerts. */
 export function activeBatches(db: Database, asOf = today(), days = 30): Lot[] {
   const cutoff = new Date(Date.parse(`${asOf}T00:00:00Z`) - days * DAY)
     .toISOString()
     .slice(0, 10);
   const recent = new Set(
-    db.entries.filter((e) => e.date >= cutoff).map((e) => e.lotId),
+    db.entries
+      .filter((e) => e.date >= cutoff || (e.at || "").slice(0, 10) >= cutoff)
+      .map((e) => e.lotId),
   );
   return shipments(db).filter((lot) => recent.has(lot.id));
 }

@@ -96,7 +96,7 @@ test("a closed run lacks the smoking invoice, then waits on its review", () => {
   expect(ownerAlerts(s.db).badges.invoices).toBe(2);
 });
 
-test("after smoking the owner is sent to transport, central receive and allocation", () => {
+test("after smoking the owner is sent to transport and central receive, not allocation", () => {
   const closed = smoked();
   closed.run("owner", "closeLot", { confirm: "สมชาย" });
   const afterClose = ownerAlerts(closed.db);
@@ -108,8 +108,9 @@ test("after smoking the owner is sent to transport, central receive and allocati
   });
   expect(ownerAlerts(returned().db).badges["central-receive"]).toBe(1);
   const stocked = ownerAlerts(ready().db);
-  expect(stocked.badges["branch-status"]).toBe(1);
-  expect(stocked.notifications.map((item) => item.title)).toContain(
+  // Branches allocate for themselves now: no allocation badge or bell for the Owner.
+  expect("branch-status" in stocked.badges).toBe(false);
+  expect(stocked.notifications.map((item) => item.title)).not.toContain(
     "มีเนื้อพร้อมจัดสรร 1 Lot",
   );
 });
