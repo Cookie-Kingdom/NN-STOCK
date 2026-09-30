@@ -336,11 +336,15 @@ function smokeOrderLines(db: Database, v: Values) {
     assert(po, "ไม่พบ PO ซื้อที่เลือก");
     assert(!seen.has(po.id), "เลือก PO ซื้อซ้ำในใบเดียวกัน");
     seen.add(po.id);
-    const kg = decimal(String(line.kg ?? ""));
+    // GEN-02: a PO picked with its kg left empty is kept and listed in `missing`.
+    const typed = String(line.kg ?? "").trim();
+    if (!typed) markMissing(v, "lines");
+    const kg = typed ? decimal(typed) : 0;
     assert(
-      Number.isFinite(kg) && kg > 0,
+      Number.isFinite(kg) && kg >= 0,
       `กรอกน้ำหนักที่จะส่งของ ${po.poId} เป็นตัวเลขมากกว่าศูนย์`,
     );
+    warn(!typed || kg > 0, `น้ำหนักที่จะส่งของ ${po.poId} เป็นศูนย์`);
     warn(
       entries(db, "foodivaConfirm", po.id).length,
       `${po.poId} ยังไม่มี Invoice เนื้อจาก Foodiva`,
@@ -352,10 +356,17 @@ function smokeOrderLines(db: Database, v: Values) {
     );
   }
   v.lines = JSON.stringify(
-    lines.map((line) => ({ lotId: line.lotId, kg: String(Number(line.kg)) })),
+    lines.map((line) => ({
+      lotId: line.lotId,
+      kg: String(line.kg ?? "").trim() ? String(decimal(String(line.kg))) : "",
+    })),
   );
   v.requestedKg = String(
-    lines.reduce((total, line) => total + Number(line.kg), 0),
+    lines.reduce(
+      (total, line) =>
+        total + (String(line.kg ?? "").trim() ? decimal(String(line.kg)) : 0),
+      0,
+    ),
   );
 }
 /** The config snapshot a new PO or shipment keeps. Without a legacy inline logo: documents
@@ -852,40 +863,39 @@ function record(
     const receivedKg = v.receivedKg?.trim()
       ? decimal(v.receivedKg)
       : n(lot.values, "receivedKg");
-    const preSmokeKg = Number(v.preSmokeKg);
     assert(
-      Number.isFinite(receivedKg) &&
-        Number.isFinite(preSmokeKg) &&
-        receivedKg > 0 &&
-        preSmokeKg > 0,
-      "กรอกน้ำหนักให้ถูกต้อง",
+      Number.isFinite(receivedKg) && receivedKg >= 0,
+      "กรอกน้ำหนักรับรวมเป็นตัวเลขมากกว่าศูนย์",
     );
+    warn(receivedKg > 0, "น้ำหนักรับรวมเป็นศูนย์");
+    // GEN-02: an empty weight or date is saved and listed in `missing`; a typed bad number is refused.
+    positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
+    const preSmokeKg = n(v, "preSmokeKg");
     withinStock(preSmokeKg, receivedKg, "น้ำหนักก่อนสโมคมากกว่าน้ำหนักรับจริง");
     const batches = drafts.map((draft) => {
-      const inputKg = Number(draft.inputKg);
-      const wasteKg = Number(draft.wasteKg);
-      const weights = packWeights(draft.packs);
+      const round: Values = { ...draft };
+      delete round.missing;
+      required(round, "smokeDate", "วันที่สโมค");
+      positive(round, "inputKg", "น้ำหนักเข้าเตา");
+      positive(round, "wasteKg", "น้ำหนัก Waste", true);
+      const weights = packWeights(round.packs);
+      if (!weights.length) required(round, "packs");
       assert(
-        draft.smokeDate &&
-          Number.isFinite(inputKg) &&
-          Number.isFinite(wasteKg) &&
-          inputKg > 0 &&
-          wasteKg >= 0,
-        "กรอกวันที่ น้ำหนักเข้าเตา และ Waste ให้ครบทุกรอบ",
+        weights.every(isPackWeight),
+        "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
       );
-      assert(
-        weights.length && weights.every(isPackWeight),
-        "กรอกน้ำหนักกล่องรมควันให้ครบและมากกว่า 0 ทุกรอบ",
-      );
+      markMissing(v, ...missingKeys(round));
+      const inputKg = n(round, "inputKg");
+      const wasteKg = n(round, "wasteKg");
       const postSmokeKg = weights.reduce((total, weight) => total + weight, 0);
       warn(
         Math.abs(postSmokeKg + wasteKg - inputKg) <= 0.001,
         "น้ำหนักกล่องรมควันรวมและ Waste ต้องเท่ากับน้ำหนักเข้าเตา",
       );
       return {
-        smokeDate: draft.smokeDate,
-        inputKg: String(inputKg),
-        wasteKg: String(wasteKg),
+        smokeDate: round.smokeDate,
+        inputKg: round.inputKg && String(inputKg),
+        wasteKg: round.wasteKg && String(wasteKg),
         packs: weights.join("\n"),
         postSmokeKg: postSmokeKg.toFixed(2),
         packCount: String(weights.length),
@@ -902,14 +912,15 @@ function record(
     v.receiveId = receiveEntry.id;
     v.prepareId = prepareEntry.id;
     v.receivedKg = String(receivedKg);
-    v.preSmokeKg = String(preSmokeKg);
+    if (v.preSmokeKg) v.preSmokeKg = String(preSmokeKg);
     const latestBatch = batches.at(-1)!;
     lot.values = {
       ...lot.values,
       arrival: v.arrival,
       receivedKg: String(receivedKg),
-      preSmokeKg: String(preSmokeKg),
+      preSmokeKg: v.preSmokeKg,
       inputKg: latestBatch.inputKg,
+
       wasteKg: latestBatch.wasteKg,
       packs: latestBatch.packs,
       postSmokeKg: latestBatch.postSmokeKg,

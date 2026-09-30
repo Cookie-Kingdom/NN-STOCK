@@ -9,6 +9,7 @@ import {
   type Values,
   type EntryKind,
 } from "@/lib/store";
+import { retiredKinds } from "@/lib/store/model";
 
 export const day = "2026-09-09";
 export const packs = (count: number) =>
@@ -80,6 +81,39 @@ export function setup(branch = seed.config.branch): Setup {
 }
 
 export const last = (s: Setup) => s.db.entries.at(-1)!;
+
+/** Old data from before allocation was retired (BR-01, RET-04): an Owner allocation of `kg`
+ *  to `branch` on the newest batch (or `lotId`). mutate refuses new ones, so the kind is
+ *  un-retired for this one save only. */
+export function legacyAllocate(
+  s: Setup,
+  values: { branch: string; kg: string; deliveryDate?: string },
+  lotId?: string,
+) {
+  const at = retiredKinds.indexOf("allocate");
+  retiredKinds.splice(at, 1);
+  try {
+    s.run("owner", "allocate", values, lotId);
+  } finally {
+    retiredKinds.splice(at, 0, "allocate");
+  }
+  return last(s);
+}
+
+/** Old data: a branch receive of `kg` made against `allocation` (new receives never carry
+ *  one). Recorded as a direct receive on the allocation's batch, then tied to it. */
+export function legacyReceive(
+  s: Setup,
+  kg: string,
+  allocation: string,
+  extra: Values = {},
+) {
+  const lotId = s.db.entries.find((e) => e.id === allocation)!.lotId;
+  s.run("branch", "receive", { kg, ...extra }, lotId);
+  last(s).values.allocation = allocation;
+  if (extra.complete) last(s).values.complete = extra.complete;
+  return last(s);
+}
 
 /** A save that goes through with a warning: no refusal, and a warning matching `match`. */
 export function expectWarning(
@@ -175,8 +209,8 @@ export function readyToDispatch(s: Setup, kg: string) {
   smokeOrder(s, [[s.db.lots.at(-1)!.id, kg]], kg, "");
 }
 
-/** Batch weighed in at Chef House: `kg` on the smoke PO and trucked as the Packing List
- * `boxes`, smoke PO accepted, received as `receivedBoxes` (the yellow cells). */
+/** Batch weighed in at Chef House: `kg` on the smoke PO and trucked with a Packing List
+ * totalling `boxes`, smoke PO accepted, received as the total of `receivedBoxes`. */
 export function received(
   s: Setup,
   kg: string,
@@ -251,7 +285,7 @@ export function ready() {
   return s;
 }
 
-/** ศาลาแดง on `day`: 70 kg of one lot thawed, 65.5 kg used in 655 packs, no waste,
+/** ศาลาแดง on `day`: 70 kg of one lot received and thawed, 65.5 kg used, no waste,
  * so 4.5 kg is left in the chiller for tomorrow. The day is not closed yet. */
 export function chillDay() {
   const s = setup();
@@ -282,16 +316,11 @@ export function chillDay() {
     receivedBags: "720",
   });
   s.run("owner", "central", { centralKg: "72" });
-  s.run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    kg: "70",
-    deliveryDate: day,
-  });
-  s.run("branch", "receive", { kg: "70", allocation: last(s).id });
+  // BR-01: the branch records what it received straight on the batch.
+  s.run("branch", "receive", { kg: "70" });
   s.run("branch", "thaw", { kg: "70" });
   s.run("branch", "sale", {
     boxes: "0",
-    addons: "655",
     chiliAddons: "0",
     soldKg: "65.5",
     wasteKg: "0",

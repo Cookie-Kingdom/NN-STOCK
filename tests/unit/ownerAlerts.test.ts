@@ -48,8 +48,9 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
     tab: "foodiva",
   });
   expect(alerts().badges.foodiva).toBe(1);
-  // The transport tab only lists; its dispatch action lives on foodiva, so no badge.
-  expect(alerts().badges).not.toHaveProperty("transport");
+  // The transport badge counts batches with work but no ใบขนส่ง (B4); a purchase PO is none.
+  expect(alerts().badges.transport).toBe(0);
+
   confirm(s, "50");
   // Foodiva opens the batch before the Owner's smoke PO (D2): the batch lists what it
   // lacks (DASH-02) and points at the Owner's first missing step.

@@ -22,10 +22,7 @@ function closedDay() {
     "materials",
     Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
   );
-  s.run("branch", "riceCarry", {
-    leftoverKg: "0",
-    reheat: "เก็บไว้อุ่นวันถัดไป",
-  });
+  s.run("branch", "riceCarry", { leftoverKg: "0" });
   s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
   return { s, sale, lotId: sale.lotId };
 }
@@ -34,9 +31,8 @@ const fix = { soldKg: "60", lineMan: "190000" };
 describe("B5 edit requests", () => {
   test("branch requests an edit to a closed-day sale, owner approves, stock and revenue use it", () => {
     const { s, sale, lotId } = closedDay();
-    expect(() => s.run("branch", "sale", { soldKg: "1" })).toThrow(
-      "ปิดยอดแล้ว",
-    );
+    // A closed day still records; the entry is only warned about (GEN-03).
+    expectWarning(s.check("branch", "sale", { soldKg: "1" }), "ปิดยอดแล้ว");
     const db = s.run("branch", "editRequest", {
       targetId: sale.id,
       values: JSON.stringify(fix),
@@ -85,12 +81,16 @@ describe("B5 edit requests", () => {
       reason: "พิมพ์ยอดผิด",
     });
     const requestId = last(s).id;
-    expect(() =>
-      s.run("owner", "editDecision", {
-        requestId,
-        decision: editDecisions.reject,
-      }),
-    ).toThrow("เหตุผล");
+    // A rejection without its reason saves, marked as not filled in (GEN-02).
+    const unexplained = mutate(
+      s.db,
+      "owner",
+      "editDecision",
+      { requestId, decision: editDecisions.reject },
+      lotId,
+      day,
+    );
+    expect(unexplained.entries.at(-1)!.values.missing).toBe("note");
     const db = s.run("owner", "editDecision", {
       requestId,
       decision: editDecisions.reject,
@@ -126,12 +126,16 @@ describe("B5 edit requests", () => {
 
   test("owner edits directly, reason required", () => {
     const { s, sale, lotId } = closedDay();
-    expect(() =>
-      s.run("owner", "entryEdit", {
-        targetId: sale.id,
-        values: JSON.stringify(fix),
-      }),
-    ).toThrow("เหตุผล");
+    // Without a reason the edit saves, marked as not filled in (GEN-02).
+    const unexplained = mutate(
+      s.db,
+      "owner",
+      "entryEdit",
+      { targetId: sale.id, values: JSON.stringify(fix) },
+      lotId,
+      day,
+    );
+    expect(unexplained.entries.at(-1)!.values.missing).toBe("reason");
     const db = s.run("owner", "entryEdit", {
       targetId: sale.id,
       values: JSON.stringify(fix),
@@ -263,14 +267,10 @@ describe("withdraw, owner edit undo and a link on a closed day", () => {
       "materials",
       Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
     );
-    s.run("branch", "riceCarry", {
-      leftoverKg: "0",
-      reheat: "เก็บไว้อุ่นวันถัดไป",
-    });
+    s.run("branch", "riceCarry", { leftoverKg: "0" });
     s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
-    expect(() => s.run("branch", "receive", { kg: "1" }, "")).toThrow(
-      "ปิดยอดแล้ว",
-    );
+    expectWarning(s.check("branch", "receive", { kg: "1" }, ""), "ปิดยอดแล้ว");
+
     s.run("branch", "link", { targetId: receive.id, lotId: batch }, "");
     expect(balance(s.db, "", "ศาลาแดง").received).toBe(0);
   });

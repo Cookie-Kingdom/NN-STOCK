@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  type Entry,
+  check,
   entries,
-  latestPackingList,
   lotCost,
   lotProgress,
   mutate,
@@ -21,14 +20,8 @@ import {
   smoked,
 } from "./fixtures";
 
-// TODO: the per-box yellow cells are gone (Packing List / cmReceive are totals only);
-// these stand-ins only keep the file compiling until the tests are rewritten.
-const receivedDraft = (list: Entry | undefined, value = "") =>
-  value.split("\n").map((kg) => (kg.trim() ? Number(kg) : undefined));
-const receivedValue = (draft: (number | undefined)[]) =>
-  draft.map((kg) => (kg === undefined ? "" : String(kg))).join("\n");
-
-/** Stage 2: 50 kg as 25 + 25 kg กล่องรับเข้า, smoke PO accepted, waiting for the yellow cells. */
+/** Stage 2: 50 kg on a Packing List of two กล่องรับเข้า, smoke PO accepted, waiting for Chef
+ *  House to weigh in the total. */
 function trucked() {
   const s = setup();
   readyToDispatch(s, "50");
@@ -39,11 +32,11 @@ function trucked() {
   return s;
 }
 
-describe("Chef House yellow cells", () => {
+describe("Chef House received total (CHF-02)", () => {
   it("the Owner's weigh-in (ChefReceiveForm's mutate) is Chef House's, typed by the Owner", () => {
     const s = trucked();
     const lotId = s.db.lots.at(-1)!.id;
-    const input = { arrival: "08:00", receivedBoxes: "24.5\n24.5" };
+    const input = { arrival: "08:00", receivedKg: "49" };
     const next = mutate(s.db, "owner", "cmReceive", input, lotId, day);
     expect(next.entries.at(-1)).toMatchObject({
       kind: "cmReceive",
@@ -58,10 +51,7 @@ describe("Chef House yellow cells", () => {
     dispatch(s);
     packingList(s, "25\n25");
     // The truck is at the door: no PO acceptance needed to weigh the meat in or start.
-    s.run("owner", "cmReceive", {
-      arrival: "08:00",
-      receivedBoxes: "24.5\n24.5",
-    });
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "49" });
     const lotId = s.db.lots.at(-1)!.id;
     expect(lotProgress(s.db, lotId).has("cmReceive")).toBe(true);
     s.run("owner", "prepare", { preSmokeKg: "48" });
@@ -71,40 +61,41 @@ describe("Chef House yellow cells", () => {
     );
   });
 
-  it("drafts one blank cell per กล่องรับเข้า and keeps a blank as a blank line", () => {
-    const { db } = trucked();
-    const list = latestPackingList(db, db.lots.at(-1)!.id);
-    expect(receivedDraft(list)).toEqual([undefined, undefined]);
-    expect(receivedDraft(list, "24.5\n")).toEqual([24.5, undefined]);
-    expect(receivedValue([24.5, undefined])).toBe("24.5\n");
-  });
-
-  it("refuses a skipped box but saves a total off the Packing List", () => {
+  it("saves a total off the Packing List with a warning; stock and cost run on it", () => {
     const s = trucked();
-    expect(() =>
-      s.run("owner", "cmReceive", {
-        arrival: "08:00",
-        receivedBoxes: receivedValue([24.5, undefined]),
-      }),
-    ).toThrow("กรอกน้ำหนักจริงทุกกล่องรับเข้า");
-    s.run("owner", "cmReceive", {
-      arrival: "08:00",
-      receivedBoxes: receivedValue([24.5, 27]),
-    });
+    const lotId = s.db.lots.at(-1)!.id;
+    const result = check(() =>
+      mutate(
+        s.db,
+        "owner",
+        "cmReceive",
+        { arrival: "08:00", receivedKg: "51.5" },
+        lotId,
+        day,
+      ),
+    );
+    expect(result.error).toBe("");
+    expect(result.warnings).toContain("น้ำหนักรับรวมไม่ตรงกับ Packing List");
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "51.5" });
     const lot = s.db.lots.at(-1)!;
     expect(lotProgress(s.db, lot.id).has("cmReceive")).toBe(true);
     expect(lot.values.receivedKg).toBe("51.5");
     expect(lotCost(s.db, lot).meat).toBeCloseTo(51.5 * 250);
   });
 
-  it("chefEdit refuses the yellow cells: they are weighed once at cmReceive (A5)", () => {
+  it("an empty received total saves, marked as not filled in (GEN-02)", () => {
+    const s = trucked();
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "" });
+    const receive = entries(s.db, "cmReceive", s.db.lots.at(-1)!.id).at(-1)!;
+    expect(receive.values.missing?.split(",")).toContain("receivedKg");
+    expect(() =>
+      s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "-1" }),
+    ).toThrow("น้ำหนักรับรวม");
+  });
+
+  it("CHF-04 chefEdit corrects the received total; left out, the saved one stands", () => {
     const s = smoked();
     const lot = s.db.lots.at(-1)!;
-    const receive = entries(s.db, "cmReceive", lot.id).at(-1)!;
-    const list = latestPackingList(s.db, lot.id);
-    expect(receivedDraft(list, receive.values.receivedBoxes)).toEqual([
-      24.5, 24.5,
-    ]);
     const batches = entries(s.db, "smoke", lot.id).map((e) => ({
       id: e.id,
       smokeDate: e.values.smokeDate,
@@ -119,19 +110,38 @@ describe("Chef House yellow cells", () => {
         batches: JSON.stringify(batches),
         ...values,
       });
-    expect(() => edit({ receivedBoxes: receivedValue([30, 25]) })).toThrow(
-      "น้ำหนักรับจริง (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
-    );
-    expect(() => edit({ receivedKg: "55" })).toThrow(/ช่องเหลือง/);
-    // The other fields still save; the received weight and cost stay as weighed in.
     edit({});
+    expect(s.db.lots.at(-1)!.values.arrival).toBe("09:00");
+    expect(s.db.lots.at(-1)!.values.receivedKg).toBe("49");
+    edit({ receivedKg: "50" });
     const edited = s.db.lots.at(-1)!;
-    expect(edited.values.arrival).toBe("09:00");
-    expect(edited.values.receivedKg).toBe("49");
+    expect(edited.values.receivedKg).toBe("50");
+    expect(lotCost(s.db, edited).meat).toBeCloseTo(50 * 250);
+  });
+
+  it("GEN-02 chefEdit saves empty round fields as missing; a typed bad one is refused", () => {
+    const s = smoked();
+    const lot = s.db.lots.at(-1)!;
+    const rounds = entries(s.db, "smoke", lot.id).map((e) => ({
+      id: e.id,
+      smokeDate: e.values.smokeDate,
+      inputKg: e.values.inputKg,
+      wasteKg: e.values.wasteKg,
+      packs: e.values.packs,
+    }));
+    const edit = (first: Values, values: Values = {}) =>
+      s.run("owner", "chefEdit", {
+        arrival: "09:00",
+        preSmokeKg: "48",
+        batches: JSON.stringify([{ ...rounds[0], ...first }, rounds[1]]),
+        ...values,
+      });
+    expect(() => edit({ inputKg: "-1" })).toThrow("น้ำหนักเข้าเตา");
+    expect(() => edit({}, { preSmokeKg: "abc" })).toThrow("น้ำหนักก่อนสโมค");
+    edit({ smokeDate: "", inputKg: "", wasteKg: "" }, { preSmokeKg: "" });
     expect(
-      entries(s.db, "cmReceive", lot.id).at(-1)!.values.receivedBoxes,
-    ).toBe(receive.values.receivedBoxes);
-    expect(lotCost(s.db, edited).meat).toBeCloseTo(49 * 250);
+      entries(s.db, "chefEdit", lot.id).at(-1)!.values.missing?.split(","),
+    ).toEqual(["preSmokeKg", "smokeDate", "inputKg", "wasteKg"]);
   });
 
   it("closing yields the กล่องรมควัน count and kg for the next step", () => {
@@ -150,7 +160,7 @@ describe("Chef House yellow cells", () => {
         smokeDate: day,
         inputKg: "1",
         wasteKg: "0",
-        packs: "",
+        packs: "0",
       }),
     ).toThrow("กล่องรมควัน");
   });

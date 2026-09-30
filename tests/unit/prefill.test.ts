@@ -562,20 +562,13 @@ test("Chef House forms carry names and start weights from the lot", () => {
   expect(again.sources.invoiceNumber.label).toBe("จากใบที่ส่งกลับ");
 });
 
-test("branch meat forms: one open allocation is picked, thaw repeats the last one within frozen stock, sale kg follows the packs", () => {
+test("branch meat forms: receive starts blank, thaw repeats the last one within frozen stock, sale kg follows the packs", () => {
   const s = chillDay();
   const branch = "ศาลาแดง";
   const lot = () => s.db.lots.at(-1);
-  s.run("owner", "allocate", { branch, kg: "2", deliveryDate: day });
-  const allocation = last(s).id;
-  const receive = prefillWithSources(s.db, "receive", lot(), { branch });
-  expect(receive.values).toEqual({ allocation, kg: "2" });
-  expect(receive.sources.kg.expected).toBe(true);
-  // Only the acting branch's allocations count.
-  expect(prefillValues(s.db, "receive", lot(), { branch: "มีนบุรี" })).toEqual(
-    {},
-  );
-  s.run("branch", "receive", { kg: "2", allocation });
+  // BR-02: no allocation to pick from; the branch types what arrived.
+  expect(prefillValues(s.db, "receive", lot(), { branch })).toEqual({});
+  s.run("branch", "receive", { kg: "2" });
 
   // Last thaw was 70 kg; only 2 kg is frozen now.
   const thaw = prefillWithSources(s.db, "thaw", lot(), { branch });
@@ -586,14 +579,13 @@ test("branch meat forms: one open allocation is picked, thaw repeats the last on
   const sale = (values = {}) =>
     prefillWithSources(s.db, "sale", lot(), { branch, values });
   expect(sale().values).toEqual({});
-  expect(sale({ boxes: "3", addons: "2" }).values).toEqual({ soldKg: "0.51" });
+  expect(sale({ boxes: "3" }).values).toEqual({ soldKg: "0.3" });
   expect(sale({ boxes: "3" }).sources.soldKg).toEqual({
     label: "ตามจำนวนซีล",
     expected: true,
   });
   s.run("branch", "sale", {
     boxes: "0",
-    addons: "10",
     chiliAddons: "0",
     soldKg: "1.015",
     wasteKg: "0",
@@ -645,10 +637,11 @@ test("branch rice forms carry the branch's last choice and fill up to par or fro
     rawRiceCost: "275",
   });
   expect(bought.sources.rawRiceKg.expected).toBeFalsy();
-  // Minburi only buys cooked rice: cooked up to its par.
+  // Minburi can self-cook too (B2): with no purchase of its own, raw rice up to its par.
   expect(
     prefillValues(s.db, "ricePurchase", undefined, { branch: "มีนบุรี" }),
-  ).toEqual({ cookedRiceKg: "30", cookedRiceCost: "1350" });
+  ).toEqual({ rawRiceKg: "20", rawRiceCost: "1100" });
+
   // Switching the source: no supplier for it yet, cooked rice up to its par.
   expect(
     prefillValues(s.db, "ricePurchase", undefined, {
@@ -684,7 +677,12 @@ test("branch rice forms carry the branch's last choice and fill up to par or fro
   expect(rice({ rawUsedKg: "5" }).values.riceKg).toBe("10");
   expect(rice().sources.riceKg.expected).toBe(true);
 
-  const carry = prefillWithSources(s.db, "riceCarry", undefined, { branch });
+  // Cooked rice is per day (B2): the day's own stock is what is left to throw away.
+  const carry = prefillWithSources(s.db, "riceCarry", undefined, {
+    branch,
+    date: day,
+  });
+
   expect(carry.values).toEqual({ leftoverKg: "8" });
   expect(carry.sources.leftoverKg.expected).toBe(true);
 });
@@ -696,10 +694,7 @@ test("the day's closer carries per branch", () => {
     "materials",
     Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
   );
-  s.run("branch", "riceCarry", {
-    leftoverKg: "0",
-    reheat: "เก็บไว้อุ่นวันถัดไป",
-  });
+  s.run("branch", "riceCarry", { leftoverKg: "0" });
   s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
   expect(
     prefillValues(s.db, "closeDay", undefined, { branch: "ศาลาแดง" }),

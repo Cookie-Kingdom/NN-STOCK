@@ -2,15 +2,13 @@ import { describe, expect, test } from "vitest";
 import { check, entries, mutate } from "@/lib/store";
 import { dispatch, expectWarning, readyToDispatch, setup } from "./fixtures";
 
-// TODO: the Packing List has no box rows any more; this stand-in only keeps the file
-// compiling until the tests are rewritten.
-const packingListBoxes = (value = "") =>
-  value
-    .split("\n")
-    .filter((line) => line.trim())
-    .map(Number);
-
-const list = { invoiceNo: "INV-1", product: "เนื้อวัว", slicedLostKg: "30" };
+const list = {
+  invoiceNo: "INV-1",
+  product: "เนื้อวัว",
+  attachment: "packing.pdf",
+  slicedNetKg: "30",
+  slicedLostKg: "30",
+};
 
 /** A shipment with its outbound transport document, which is what a Packing List needs. */
 function dispatched() {
@@ -21,25 +19,27 @@ function dispatched() {
 }
 
 describe("packingList", () => {
-  test("drops blank rows and totals the ones that were filled", () => {
+  test("SHP-02 saves the typed totals and an optional box count; no box rows", () => {
     const s = dispatched();
-    s.run("owner", "packingList", { ...list, boxes: "14.5\n\n  \n15.5\n" });
+    s.run("owner", "packingList", { ...list, boxCount: "2" });
     const saved = entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!;
-    expect(packingListBoxes(saved.values.boxes)).toEqual([14.5, 15.5]);
-    expect(saved.values.boxCount).toBe("2");
     expect(saved.values.slicedNetKg).toBe("30");
+    expect(saved.values.boxCount).toBe("2");
+    expect(saved.values.boxes).toBeUndefined();
+    // A box count that is not whole only warns.
+    expectWarning(
+      s.check("owner", "packingList", { ...list, boxCount: "2.5" }),
+      "จำนวนกล่องรับเข้าต้องเป็นจำนวนเต็ม",
+    );
   });
 
-  test("Sliced Weight Net is the rows added up, whatever the form sent", () => {
+  test("GEN-02 empty invoice, product, file and total save, listed as not filled in", () => {
     const s = dispatched();
-    s.run("owner", "packingList", {
-      ...list,
-      boxes: "14.5\n15.5",
-      slicedNetKg: "28",
-    });
+    s.run("owner", "packingList", { slicedLostKg: "0" });
     const saved = entries(s.db, "packingList", s.db.lots.at(-1)!.id).at(-1)!;
-    expect(saved.values.slicedNetKg).toBe("30");
-    expect(packingListBoxes(saved.values.boxes)).toEqual([14.5, 15.5]);
+    expect(saved.values.missing?.split(",").sort()).toEqual(
+      ["attachment", "invoiceNo", "product", "slicedNetKg"].sort(),
+    );
   });
 
   test("Sliced Weight Lost is stored as Foodiva typed it, not derived from Inv. Weight", () => {
@@ -56,38 +56,20 @@ describe("packingList", () => {
     ).toBe("29.5");
   });
 
-  test("refuses an empty list and a bad weight; an over-weight total only warns", () => {
+  test("refuses a typed bad weight; an over-weight total only warns", () => {
     const s = dispatched();
     const lotId = s.db.lots.at(-1)!.id;
     const save = (values: Record<string, string>) =>
       mutate(s.db, "owner", "packingList", values, lotId, s.db.entries[0].date);
-    expect(() => save({ ...list, boxes: "" })).toThrow(/อย่างน้อย 1 กล่อง/);
-    expect(() => save({ ...list, boxes: "-2" })).toThrow(/มากกว่าศูนย์/);
-    expect(() => save({ ...list, boxes: "10", slicedLostKg: "" })).toThrow(
-      /Sliced Weight Lost/,
-    );
+    expect(() => save({ ...list, slicedNetKg: "-2" })).toThrow(/มากกว่าศูนย์/);
     // Zero is a normal list — nothing was lost — but a negative loss is not.
-    expect(() =>
-      save({ ...list, boxes: "10", slicedLostKg: "0" }),
-    ).not.toThrow();
-    expect(() => save({ ...list, boxes: "10", slicedLostKg: "-1" })).toThrow(
+    expect(() => save({ ...list, slicedLostKg: "0" })).not.toThrow();
+    expect(() => save({ ...list, slicedLostKg: "-1" })).toThrow(
       /Sliced Weight Lost/,
     );
     // Over Inv. Weight is only a warning: the list still saves.
     expectWarning(
-      check(() => save({ ...list, boxes: "10\n20", invWeightKg: "25" })),
-      /เกิน Inv. Weight/,
-    );
-    // A Sliced Weight Net sent along is ignored, so it can never dodge the warning.
-    expectWarning(
-      check(() =>
-        save({
-          ...list,
-          boxes: "10\n20",
-          slicedNetKg: "25",
-          invWeightKg: "25",
-        }),
-      ),
+      check(() => save({ ...list, invWeightKg: "25" })),
       /เกิน Inv. Weight/,
     );
   });
@@ -97,7 +79,7 @@ describe("packingList", () => {
     readyToDispatch(s, "40");
     const date = s.db.entries[0].date;
     const save = (role: "owner" | "branch", lotId: string) =>
-      mutate(s.db, role, "packingList", { ...list, boxes: "10" }, lotId, date);
+      mutate(s.db, role, "packingList", list, lotId, date);
     const shipment = s.db.lots.at(-1)!.id;
     // After the smoke PO the list still saves; it is only said (SHP-02).
     expectWarning(

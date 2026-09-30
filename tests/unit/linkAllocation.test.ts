@@ -4,17 +4,19 @@ import {
   centralStock,
   pendingReceiveKg,
 } from "@/lib/store";
-import { expectWarning, last, ready } from "./fixtures";
+import { last, legacyAllocate, legacyReceive, ready } from "./fixtures";
 
 const branch = "ศาลาแดง";
 
-/** 35 kg central on the newest batch, `allocated` kg of it allocated to ศาลาแดง, then a
+/** 35 kg central on the newest batch, `allocated` kg of it allocated to ศาลาแดง (old data,
+ *  from before allocation was retired), then a
  *  ไม่ระบุ Lot receive of `kg` linked to the batch (DM-08). */
 function linked(kg: string, allocated?: string) {
   const s = ready();
   const batch = s.db.lots.at(-1)!.id;
-  if (allocated) s.run("owner", "allocate", { branch, kg: allocated });
-  const allocation = allocated ? last(s) : undefined;
+  const allocation = allocated
+    ? legacyAllocate(s, { branch, kg: allocated })
+    : undefined;
   s.run("branch", "receive", { kg }, "");
   s.run("branch", "link", { targetId: last(s).id, lotId: batch }, "");
   return { s, batch, allocation };
@@ -31,12 +33,8 @@ test("DM-08 a linked receive smaller than the allocation leaves the rest outstan
   const { s, batch, allocation } = linked("4", "10");
   expect(allocationOutstanding(s.db, allocation!)).toBe(6);
   expect(centralStock(s.db, batch)).toBe(25);
-  // The rest can still be received against the allocation; more than that warns.
-  expectWarning(
-    s.check("branch", "receive", { kg: "7", allocation: allocation!.id }),
-    /รับเกินยอดค้างรับ · กรอกได้สูงสุด 6.00/,
-  );
-  s.run("branch", "receive", { kg: "6", allocation: allocation!.id });
+  // An old receive of the rest against the allocation clears it.
+  legacyReceive(s, "6", allocation!.id);
   expect(allocationOutstanding(s.db, allocation!)).toBe(0);
   expect(centralStock(s.db, batch)).toBe(25);
 });

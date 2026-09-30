@@ -64,6 +64,12 @@ const derivedLabels: Record<string, string> = {
   chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
   allocation: "ใบจัดสรร",
   batches: "Log สโมคที่แก้ไข",
+  // chefEdit has no form of its own: its `missing` names these round fields.
+  preSmokeKg: "น้ำหนักก่อนสโมค",
+  smokeDate: "วันที่สโมค",
+  inputKg: "น้ำหนักเข้าเตา",
+  wasteKg: "Waste",
+  packs: "น้ำหนักกล่องรมควัน",
   meatCost: "ต้นทุนเนื้อที่ตัดสต๊อก",
   wasteCost: "ต้นทุนเนื้อ Waste",
   revision: "บันทึกครั้งที่",
