@@ -54,9 +54,10 @@ const prefilledControl =
   "data-[prefilled=auto]:[&_:is(input,select,textarea)]:bg-accent-subtle/60 data-[prefilled=expected]:[&_:is(input,select,textarea)]:border-warning data-[prefilled=expected]:[&_:is(input,select,textarea)]:bg-warning-subtle";
 
 /**
- * The caption under a prefilled control: where the value came from, and for a
- * predicted reading a warning to weigh or count it. aria-hidden keeps it out of the
- * field's accessible name, which the wrapping label would otherwise extend.
+ * The caption under a prefilled control: a short "filled by the system" mark, warning
+ * coloured for a predicted reading. Where the value came from stays in the tooltip.
+ * aria-hidden keeps it out of the field's accessible name, which the wrapping label
+ * would otherwise extend.
  */
 export function PrefillCaption({
   label,
@@ -68,9 +69,10 @@ export function PrefillCaption({
   return (
     <Caption
       aria-hidden
+      title={label}
       className={cn("mt-1.5 block", expected && "font-medium text-warning")}
     >
-      {expected ? `${label} · ค่าคาดการณ์ — ตรวจ/ชั่งจริงแล้วแก้` : label}
+      กรอกอัตโนมัติ
     </Caption>
   );
 }
