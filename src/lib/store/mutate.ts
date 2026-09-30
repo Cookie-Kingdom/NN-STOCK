@@ -1234,7 +1234,6 @@ function record(
   } else if (kind === "sale") {
     for (const [k, label] of [
       ["boxes", "จำนวนกล่องมาตรฐาน"],
-      ["addons", "จำนวนเนื้อซีล Add-on"],
       ["chiliAddons", "จำนวนน้ำพริกหลอด"],
       ["soldKg", "น้ำหนักเนื้อที่ใช้ไป"],
       ["wasteKg", "น้ำหนักเนื้อที่เสียไป"],
@@ -1243,7 +1242,7 @@ function record(
       ["riceWasteKg", "น้ำหนักข้าวที่เสียไป"],
     ])
       positive(v, k, label, true);
-    for (const k of ["boxes", "addons", "chiliAddons"])
+    for (const k of ["boxes", "chiliAddons"])
       warn(Number.isInteger(n(v, k)), "จำนวนขายต้องเป็นจำนวนเต็ม");
     v.riceServings = v.boxes;
     v.chiliComplimentary = "0";
@@ -1289,7 +1288,6 @@ function record(
     v.revenue = v.lineMan;
     v.menuTotal = String(
       n(v, "boxes") * n(db.config, "boxPrice") +
-        n(v, "addons") * n(db.config, "addonPrice") +
         n(v, "chiliAddons") * n(db.config, "chiliPrice"),
     );
     // BR-05: meat and waste cost are read from `saleCost`, so a later `link` reprices them.
@@ -1311,8 +1309,7 @@ function record(
     /* A giveaway sends whole standard boxes only, so the meat it costs follows the
      * box count (`packKg`, น้ำหนักเฉลี่ยต่อซีล) instead of being weighed and typed —
      * the same discipline as packingList's slicedNetKg. Whatever the form sent for
-     * these two keys is overwritten, and every stock helper keeps reading `soldKg`. */
-    v.addons = "0";
+     * `soldKg` is overwritten, and every stock helper keeps reading `soldKg`. */
     v.soldKg = String(n(v, "boxes") * n(db.config, "packKg"));
     const sentPacks = n(v, "boxes");
     warn(
@@ -1519,7 +1516,6 @@ function record(
     // Labels match the Thai setting names in ConfigView.
     for (const [key, label] of Object.entries({
       boxPrice: "ราคากล่องมาตรฐาน",
-      addonPrice: "ราคาเนื้อซีลเพิ่ม",
       packKg: "น้ำหนักเฉลี่ยต่อซีล",
       chiliPrice: "ราคาขายน้ำพริกหลอด",
       rawRicePar: "จำนวนฐานข้าวเหนียวดิบ",

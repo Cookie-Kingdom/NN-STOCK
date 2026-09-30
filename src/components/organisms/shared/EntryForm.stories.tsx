@@ -396,14 +396,14 @@ export const BranchRicePurchaseBoughtCooked = ricePurchase(riceSources[1]);
  *  the weighed kg itself; LINE MAN and the chili count stay blank. */
 export const BranchSaleFromPacks = branchPlay(
   "ขายเนื้อ (เนื้อชิลพร้อมขาย)",
-  typeInto([[/เนื้อซีล Add-on/, "40"]]),
+  typeInto([[/กล่องมาตรฐาน · เนื้อ 1 ซีล/, "40"]]),
 );
 
 /** 95 g per pack: the form warns, but the sale still saves (no FormError). */
 export const BranchSalePackWeightWarning = branchPlay(
   "ขายเนื้อ (เนื้อชิลพร้อมขาย)",
   typeInto([
-    [/เนื้อซีล Add-on/, "10"],
+    [/กล่องมาตรฐาน · เนื้อ 1 ซีล/, "10"],
     [/น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "0.95"],
   ]),
   { date: "วันถัดไป" },

@@ -307,7 +307,6 @@ function roleplay(endDate: string, dayCount: number): Database {
         "sale",
         {
           boxes: "14",
-          addons: "0",
           chiliAddons: "0",
           soldKg: "1.421",
           wasteKg: "0.100",

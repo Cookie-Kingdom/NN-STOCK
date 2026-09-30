@@ -105,7 +105,6 @@ export function restoreSaleMoney(old: Database, incoming: Database): Database {
         const config = incoming.config;
         values["to.menuTotal"] = String(
           n(values, "to.boxes") * n(config, "boxPrice") +
-            n(values, "to.addons") * n(config, "addonPrice") +
             n(values, "to.chiliAddons") * n(config, "chiliPrice"),
         );
       }
