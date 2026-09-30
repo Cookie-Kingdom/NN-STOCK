@@ -50,7 +50,13 @@ export function WorkingDateField({
       >
         <span className="flex flex-wrap items-center gap-2">
           วันที่ทำรายการ
-          {date && date < max && <Badge tone="warning">บันทึกย้อนหลัง</Badge>}
+          {/* -my-1 cancels the badge's py-1, so the label row keeps its height and the
+              input below doesn't jump when the badge appears. */}
+          {date && date < max && (
+            <Badge tone="warning" className="-my-1">
+              บันทึกย้อนหลัง
+            </Badge>
+          )}
         </span>
         <Input
           variant={variant}
