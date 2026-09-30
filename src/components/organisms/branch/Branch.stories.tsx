@@ -198,8 +198,9 @@ export const MaterialReceipt: Story = {
   ),
 };
 
-/** "รับวัสดุโดยไม่มีใบโอน" opened: material, quantity and receiver are typed by the
- *  branch; บันทึกรับวัสดุ saves a materialConfirm with no transferId (MAT-01). */
+/** "รับวัสดุโดยไม่มีใบโอน" opened: a table of material + quantity rows (เพิ่มแถว adds one)
+ *  and one receiver under it; บันทึกรับวัสดุ saves a materialConfirm with no transferId
+ *  per row (MAT-01). */
 export const MaterialReceiptNoTransfer: Story = {
   ...MaterialReceipt,
   play: async ({ canvasElement }) => {

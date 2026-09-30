@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
+import { IconButton } from "@/components/atoms/IconButton";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
 import { Spinner } from "@/components/atoms/Spinner";
@@ -26,6 +28,15 @@ import {
   type Entry,
   type Values,
 } from "@/lib/store";
+
+/** One row of the no-transfer receipt table. */
+type DirectRow = { id: number; material: string; quantity: string };
+let nextRowId = 0;
+const newRow = (): DirectRow => ({
+  id: nextRowId++,
+  material: "",
+  quantity: "",
+});
 
 export function MaterialReceiptConfirmation({
   db,
@@ -90,44 +101,58 @@ export function MaterialReceiptConfirmation({
     const next = await run(() => build(latestDatabase(), transfer));
     if (next) setMessage(`ยืนยันรับ ${transfer.values.material} แล้ว`);
   };
-  /* MAT-01/MAT-04: material that came in with no transfer document — a materialConfirm
-   * with an empty transferId. Material, quantity and receiver are all the branch types;
-   * a transfer can be linked to it later. `null` while the form is shut. */
-  const [direct, setDirect] = useState<Values | null>(null);
-  const buildDirect = (from: Database, v: Values) =>
-    mutate(
+  /* MAT-01/MAT-04: material that came in with no transfer document — one materialConfirm
+   * with an empty transferId per table row, all saved together under one receiver.
+   * A transfer can be linked to each later. `null` while the form is shut. */
+  const [direct, setDirect] = useState<{
+    rows: DirectRow[];
+    receiver: string;
+  } | null>(null);
+  const buildDirect = (from: Database, rows: DirectRow[], receiver: string) =>
+    rows.reduce(
+      (current, row) =>
+        mutate(
+          current,
+          "branch",
+          "materialConfirm",
+          {
+            transferId: "",
+            material: row.material,
+            receivedQuantity: row.quantity,
+            receiver,
+          },
+          "",
+          date,
+          branch,
+        ),
       from,
-      "branch",
-      "materialConfirm",
-      {
-        transferId: "",
-        material: v.material || "",
-        receivedQuantity: v.receivedQuantity || "",
-        receiver: v.receiver || "",
-      },
-      "",
-      date,
-      branch,
     );
-  const setDirectValue = (key: string, value: string) =>
-    setDirect((current) => ({ ...current, [key]: value }));
+  const setRow = (id: number, key: "material" | "quantity", value: string) =>
+    setDirect(
+      (current) =>
+        current && {
+          ...current,
+          rows: current.rows.map((row) =>
+            row.id === id ? { ...row, [key]: value } : row,
+          ),
+        },
+    );
   const directComplete =
     !!direct &&
-    ["material", "receivedQuantity", "receiver"].every((key) =>
-      String(direct[key] ?? "").trim(),
-    );
+    !!direct.receiver.trim() &&
+    direct.rows.every((row) => row.material && row.quantity.trim());
   const directLive =
     direct && directComplete
-      ? check(() => buildDirect(db, direct))
+      ? check(() => buildDirect(db, direct.rows, direct.receiver))
       : { error: "", warnings: [] };
   const saveDirect = async () => {
     if (!direct) return;
     setConfirming("direct");
-    const next = await run(() => buildDirect(latestDatabase(), direct));
+    const next = await run(() =>
+      buildDirect(latestDatabase(), direct.rows, direct.receiver),
+    );
     if (next) {
-      setMessage(
-        `รับ ${direct.material} ${direct.receivedQuantity} ชิ้นแล้ว (ไม่มีใบโอน)`,
-      );
+      setMessage(`รับวัสดุ ${direct.rows.length} รายการแล้ว (ไม่มีใบโอน)`);
       setDirect(null);
     }
   };
@@ -220,84 +245,142 @@ export function MaterialReceiptConfirmation({
           ];
         })}
         action={
-          <FilterBar>
+          <FilterBar className="items-center">
             <Button
               variant="secondary"
               size="sm"
+              className="min-h-10"
               disabled={closed || !!direct}
               onClick={() => {
                 setMessage("");
-                setDirect({ receiver: typedReceiver ? draft.receiver : "" });
+                setDirect({
+                  rows: [newRow()],
+                  receiver: typedReceiver ? draft.receiver : "",
+                });
               }}
             >
               รับวัสดุโดยไม่มีใบโอน
             </Button>
             <WorkingDateField
               variant="filter"
-              className="text-caption text-text-secondary"
+              inline
+              className="text-body-sm text-text-secondary"
               date={date}
               onDate={onDate}
             />
-            <div>
-              <TableFilter label="ชื่อผู้รับจริง">
-                <Input
-                  variant="filter"
-                  value={shownReceiver}
-                  placeholder={`ผู้ดูแลสาขา ${branch}`}
-                  prefilled={
-                    !typedReceiver && shownReceiver ? "auto" : undefined
-                  }
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      receiver: event.target.value,
-                    }))
-                  }
-                />
-              </TableFilter>
-              {!typedReceiver && shownReceiver && (
-                <PrefillCaption label="ตามใบส่งวัสดุของ Owner" />
-              )}
-            </div>
+            {/* No caption under this one: it would push the box out of line with the
+                rest of the bar. The tint marks it prefilled, the tooltip says from where. */}
+            <TableFilter label="ชื่อผู้รับจริง">
+              <Input
+                variant="filter"
+                value={shownReceiver}
+                placeholder={`ผู้ดูแลสาขา ${branch}`}
+                prefilled={!typedReceiver && shownReceiver ? "auto" : undefined}
+                title={
+                  !typedReceiver && shownReceiver
+                    ? "กรอกอัตโนมัติ · ตามใบส่งวัสดุของ Owner"
+                    : undefined
+                }
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    receiver: event.target.value,
+                  }))
+                }
+              />
+            </TableFilter>
           </FilterBar>
         }
       />
       {direct && (
         <Panel>
           <strong>รับวัสดุโดยไม่มีใบโอน · {date}</strong>
+          <table className="w-full max-w-2xl border-separate border-spacing-0">
+            <thead>
+              <tr className="text-left text-caption text-text-secondary">
+                <th className="border-b border-border py-2 pr-3 font-semibold">
+                  วัสดุ
+                </th>
+                <th className="w-44 border-b border-border py-2 pr-3 font-semibold max-md:w-28">
+                  จำนวนที่รับจริง (ชิ้น)
+                </th>
+                <th className="w-12 border-b border-border py-2">
+                  <span className="sr-only">ลบแถว</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {direct.rows.map((row, index) => (
+                <tr key={row.id}>
+                  <td className="py-2 pr-3">
+                    <Select
+                      variant="table"
+                      className="w-full max-w-80 text-left"
+                      autoFocus={index === direct.rows.length - 1}
+                      aria-label={`วัสดุ แถวที่ ${index + 1}`}
+                      value={row.material}
+                      onChange={(event) =>
+                        setRow(row.id, "material", event.target.value)
+                      }
+                    >
+                      <option value="">เลือกวัสดุ</option>
+                      {materials.map((material) => (
+                        <option key={material}>{material}</option>
+                      ))}
+                    </Select>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <Input
+                      variant="table"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      className="w-full max-w-40"
+                      aria-label={`จำนวนที่รับจริง แถวที่ ${index + 1}`}
+                      value={row.quantity}
+                      onChange={(event) =>
+                        setRow(row.id, "quantity", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td className="py-2 text-right">
+                    <IconButton
+                      size="sm"
+                      label={`ลบแถวที่ ${index + 1}`}
+                      disabled={direct.rows.length <= 1}
+                      icon={<Trash2 className="size-4" />}
+                      onClick={() =>
+                        setDirect({
+                          ...direct,
+                          rows: direct.rows.filter(({ id }) => id !== row.id),
+                        })
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus className="size-4" />}
+              onClick={() =>
+                setDirect({ ...direct, rows: [...direct.rows, newRow()] })
+              }
+            >
+              เพิ่มแถว
+            </Button>
+          </div>
           <FormGrid>
-            <FormField label="วัสดุ">
-              <Select
-                autoFocus
-                value={direct.material || ""}
-                onChange={(event) =>
-                  setDirectValue("material", event.target.value)
-                }
-              >
-                <option value="">เลือกวัสดุ</option>
-                {materials.map((material) => (
-                  <option key={material}>{material}</option>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label="จำนวนที่รับจริง (ชิ้น)">
-              <Input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={direct.receivedQuantity || ""}
-                onChange={(event) =>
-                  setDirectValue("receivedQuantity", event.target.value)
-                }
-              />
-            </FormField>
             <FormField label="ชื่อผู้รับจริง">
               <Input
-                value={direct.receiver || ""}
+                value={direct.receiver}
                 placeholder={`ผู้ดูแลสาขา ${branch}`}
                 onChange={(event) =>
-                  setDirectValue("receiver", event.target.value)
+                  setDirect({ ...direct, receiver: event.target.value })
                 }
               />
             </FormField>
@@ -318,7 +401,7 @@ export function MaterialReceiptConfirmation({
             >
               {saving && confirming === "direct"
                 ? "กำลังบันทึก…"
-                : "บันทึกรับวัสดุ"}
+                : `บันทึกรับวัสดุ ${direct.rows.length} รายการ`}
             </Button>
             <Button
               variant="secondary"

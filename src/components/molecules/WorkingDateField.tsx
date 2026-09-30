@@ -17,6 +17,7 @@ export function WorkingDateField({
   onDate,
   variant = "form",
   asField = false,
+  inline = false,
   className,
   inputClassName,
 }: {
@@ -25,6 +26,8 @@ export function WorkingDateField({
   variant?: "form" | "filter";
   /** Field typography, field width and the gap before the next block of a dialog form. */
   asField?: boolean;
+  /** Label beside the input, like a `TableFilter`, so it lines up in a table's filter bar. */
+  inline?: boolean;
   className?: string;
   inputClassName?: string;
 }) {
@@ -39,7 +42,12 @@ export function WorkingDateField({
         className,
       )}
     >
-      <label className="flex flex-col gap-1">
+      <label
+        className={cn(
+          "flex gap-1",
+          inline ? "flex-row items-center gap-2" : "flex-col",
+        )}
+      >
         <span className="flex flex-wrap items-center gap-2">
           วันที่ทำรายการ
           {date && date < max && <Badge tone="warning">บันทึกย้อนหลัง</Badge>}
