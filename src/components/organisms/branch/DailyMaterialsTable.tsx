@@ -174,7 +174,8 @@ export function DailyMaterialsTable({
           <FilterBar>
             <WorkingDateField
               variant="filter"
-              className="text-caption text-text-secondary"
+              inline
+              className="text-body-sm text-text-secondary"
               date={date}
               onDate={onDate}
             />

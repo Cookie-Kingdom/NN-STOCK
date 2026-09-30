@@ -19,7 +19,7 @@ export const controlVariants = cva(
           "min-h-9.5 w-37.5 rounded-md border-2 border-accent bg-bg px-2 py-1.5 text-right text-num-md tabular-nums inset-ring inset-ring-accent/10 focus:outline-3 focus:outline-accent/15",
         /** `.table-filter input|select` */
         filter:
-          "min-w-36 rounded-md border border-border bg-surface px-2.5 py-2 text-body-sm focus:outline-2 focus:outline-offset-2 focus:outline-accent max-md:text-body",
+          "min-h-10 min-w-36 rounded-md border border-border bg-surface px-2.5 py-2 text-body-sm focus:outline-2 focus:outline-offset-2 focus:outline-accent max-md:text-body",
       },
       /** `.reason-control` — free-text reason inside a table row */
       reason: {

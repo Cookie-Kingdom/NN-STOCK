@@ -89,10 +89,10 @@ test("MAT-01 MAT-04 branch receives packaging with no transfer from the Owner", 
     page.getByRole("button", { name: "รับวัสดุโดยไม่มีใบโอน" }),
   );
   const main = page.locator("main");
-  const material = main.getByRole("combobox", { name: "วัสดุ", exact: true });
+  const material = main.getByRole("combobox", { name: "วัสดุ แถวที่ 1" });
   await material.selectOption({ index: 1 });
   const name = (await material.locator("option:checked").innerText()).trim();
-  await main.getByLabel("จำนวนที่รับจริง (ชิ้น)", { exact: true }).fill("50");
+  await main.getByLabel("จำนวนที่รับจริง แถวที่ 1").fill("50");
   await main
     .getByLabel("ชื่อผู้รับจริง", { exact: true })
     .last()

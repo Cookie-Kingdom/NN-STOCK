@@ -174,11 +174,9 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
       );
       const main = page.locator("main");
       await main
-        .getByRole("combobox", { name: "วัสดุ", exact: true })
+        .getByRole("combobox", { name: "วัสดุ แถวที่ 1" })
         .selectOption({ index: 1 });
-      await main
-        .getByLabel("จำนวนที่รับจริง (ชิ้น)", { exact: true })
-        .fill("20");
+      await main.getByLabel("จำนวนที่รับจริง แถวที่ 1").fill("20");
       await main
         .getByLabel("ชื่อผู้รับจริง", { exact: true })
         .last()
