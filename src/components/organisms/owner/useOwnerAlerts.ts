@@ -61,6 +61,14 @@ export function useOwnerAlerts(db: Database) {
     const p = lotProgress(db, lot.id);
     return p.has("foodivaReturnReceive") && !p.has("central");
   }).length;
+  // RET-07: batches whose smoke PO names no purchase PO yet; matched on the same tab.
+  const unmatchedCount = shipmentLots.filter((lot) => {
+    const p = lotProgress(db, lot.id);
+    return (
+      !(p.has("foodivaReturnReceive") && !p.has("central")) &&
+      missingSteps(db, lot.id, ["matchPo"]).length > 0
+    );
+  }).length;
   // Invoices the owner has to act on, the same ones the bell lists: a Foodiva meat invoice
   // still unpaid, a Chef House smoking invoice to review or to pay.
   const pendingInvoices = ownerPendingInvoices(db);
@@ -231,7 +239,7 @@ export function useOwnerAlerts(db: Database) {
       transport: transportLots.length,
       "cm-receive": cmReceiveCount,
       work: workCount,
-      "central-receive": centralReceiveCount,
+      "central-receive": centralReceiveCount + unmatchedCount,
       config: missingMaterialSettings,
       // The bell sends both edit requests and unlinked branch meat to history.
       history: editAlerts.length + unlinkedCount,

@@ -725,6 +725,22 @@ export const noInvoicePosDb: Database = (() => {
   return s.db;
 })();
 
+/** RET-07: an invoiced 100 kg purchase PO no smoke PO draws on yet, and three batches not
+ *  matched to it: a smoke PO saved without purchase PO lines (not in central yet), one
+ *  counted into central (40 kg) the same way, and a Foodiva-opened batch in central (30 kg)
+ *  with no smoke PO at all. */
+export const unmatchedPoDb: Database = (() => {
+  const s = setup();
+  purchase(s, "100");
+  confirm(s, "100");
+  smokeOrder(s, [], "50", "");
+  smokeOrder(s, [], "40", "");
+  s.run("owner", "central", { centralKg: "40" });
+  dispatch(s, "");
+  s.run("owner", "central", { centralKg: "30" });
+  return s.db;
+})();
+
 /** `noInvoicePosDb` after the Owner's smoke PO opened a new batch drawing 300 + 200 kg from
  *  both uninvoiced POs: no transport document, Packing List, return or central yet. */
 export const freeOrderDb: Database = (() => {

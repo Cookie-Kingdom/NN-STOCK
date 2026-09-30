@@ -45,7 +45,8 @@ export type Tab =
   | "config";
 
 /** An entry form, by the kind it records, or one of two read-only document views. */
-export type ModalKind = EntryKind | "smokeOrderPreview" | "packingListView";
+export type ModalKind =
+  EntryKind | "smokeOrderPreview" | "packingListView" | "matchPo";
 export type Modal = { kind: ModalKind; lotId: string };
 /** `Modal.lotId` (and a branch form's lot select) for the branch's "ไม่ระบุ Lot" bucket,
  *  which the ledger stores as `lotId: ""` (BR-02..04). `""` itself means "none picked". */

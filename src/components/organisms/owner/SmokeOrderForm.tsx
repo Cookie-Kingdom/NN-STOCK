@@ -182,7 +182,14 @@ export function SmokeOrderForm({
                 <LotProgressChips db={db} lotId={lot.id} />
               </Notice>
             )}
-            <SmokeOrderLines db={db} pos={pos} kg={kg} onLine={setLine} />
+            {/* RET-07: the match can wait; central receive asks for it later. */}
+            <SmokeOrderLines
+              db={db}
+              pos={pos}
+              kg={kg}
+              title="PO ซื้อที่ใช้ในชุดนี้ (กก.) · ไม่บังคับ · จับคู่ภายหลังได้ที่หน้ารับเข้าสต๊อกกลาง"
+              onLine={setLine}
+            />
             <FormGrid>
               {formFields.map((field) => (
                 <EntryFieldControl

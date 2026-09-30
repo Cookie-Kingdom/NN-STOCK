@@ -241,6 +241,12 @@ const batchLines = (db: Database, lot: Lot): ShipmentLine[] => {
   const order = entries(db, "smokeOrder", lot.id).at(-1);
   return order ? shipmentLines({ ...lot, values: order.values }) : [];
 };
+/** RET-07: the batch's smoke PO names at least one purchase PO, so its meat can be traced
+ *  back and costed. Advice only: an unmatched batch still moves on (SMK-05 matches it later). */
+export function poMatched(db: Database, lotId: string) {
+  const lot = db.lots.find((l) => l.id === lotId);
+  return !!lot && batchLines(db, lot).length > 0;
+}
 /** Every shipment batch (Lot S). */
 export function shipments(db: Database) {
   return db.lots.filter((lot) => lot.kind === "shipment");
@@ -786,13 +792,12 @@ export function isClosed(db: Database, branch: string, date: string) {
 }
 /** DASH-03: meat (smoke PO lines × PO price, pro rata to Chef House's received kg), the
  *  smoking fee (D8: the batch's latest smoking invoice, else the smoke PO's estimate, else 0)
- *  and freight. `perKg` is 0 until the batch is in central stock. */
+ *  and freight. `perKg` is 0 until the batch is in central stock, and leaves the meat out
+ *  while `meatMatched` is false (RET-07). */
 export function lotCost(db: Database, lot: Lot) {
   const v = lot.values;
-  const meat = shipmentShares(db, lot).reduce(
-    (total, share) => total + share.meat,
-    0,
-  );
+  const shares = shipmentShares(db, lot);
+  const meat = shares.reduce((total, share) => total + share.meat, 0);
   const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
   const order = entries(db, "smokeOrder", lot.id).at(-1);
   const smokingCostSource: "invoice" | "estimate" | "none" = invoice
@@ -807,6 +812,8 @@ export function lotCost(db: Database, lot: Lot) {
   const total = meat + smoke + freight;
   return {
     meat,
+    /** RET-07: the smoke PO names no purchase PO yet, so `meat` is 0 for want of a match. */
+    meatMatched: shares.length > 0,
     smoke,
     smokingCostSource,
     freight,
