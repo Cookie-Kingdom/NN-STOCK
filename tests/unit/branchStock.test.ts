@@ -4,20 +4,15 @@ import {
   type BranchStockRow,
 } from "@/components/organisms/branch/BranchStockView";
 import { materials } from "@/lib/store";
-import { day, last, ready } from "./fixtures";
-
-/** 35 kg at central stock, `kg` of it allocated to ศาลาแดง. */
-function allocated(kg: string) {
-  const s = ready();
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg, deliveryDate: day });
-  return s;
-}
+import { legacyAllocate, ready } from "./fixtures";
 
 const meatRows = (rows: BranchStockRow[]) =>
   rows.filter((row) => row.genre === "เนื้อ");
 
-test("a Lot still waiting to be received keeps a row at 0 กก.", () => {
-  const s = allocated("20");
+test("a Lot with an old allocation still waiting to be received keeps a row at 0 กก.", () => {
+  const s = ready();
+  // Old data: allocations are retired (BR-01), their pending kg still shows.
+  legacyAllocate(s, { branch: "ศาลาแดง", kg: "20" });
   const rows = branchStockRows(s.db, "ศาลาแดง", s.db.lots);
   const meat = meatRows(rows);
   expect(meat).toHaveLength(1);
@@ -26,8 +21,8 @@ test("a Lot still waiting to be received keeps a row at 0 กก.", () => {
 });
 
 test("once received the row reads the branch's own balance", () => {
-  const s = allocated("20");
-  s.run("branch", "receive", { kg: "20", allocation: last(s).id });
+  const s = ready();
+  s.run("branch", "receive", { kg: "20" });
   const meat = meatRows(branchStockRows(s.db, "ศาลาแดง", s.db.lots));
   expect(meat[0].quantity).toBe("20.00");
   expect(meat[0].detail).toBe("แช่แข็ง 20.00 · ชิล/ละลายแล้ว 0.00");
@@ -39,12 +34,12 @@ test("once received the row reads the branch's own balance", () => {
 });
 
 test("another branch's Lot never shows, and the fixed rows always do", () => {
-  const s = allocated("20");
-  s.run("branch", "receive", { kg: "20", allocation: last(s).id });
+  const s = ready();
+  s.run("branch", "receive", { kg: "20" });
   const rows = branchStockRows(s.db, "มีนบุรี", s.db.lots);
   expect(meatRows(rows)).toEqual([]);
-  // Cooked rice and chili (Minburi has no raw rice) plus one row per material.
-  expect(rows).toHaveLength(2 + materials.length);
+  // Raw rice, cooked rice and chili (Minburi can self-cook too) plus one row per material.
+  expect(rows).toHaveLength(3 + materials.length);
   expect(rows.filter((row) => row.genre === "วัสดุบรรจุภัณฑ์")).toHaveLength(
     materials.length,
   );

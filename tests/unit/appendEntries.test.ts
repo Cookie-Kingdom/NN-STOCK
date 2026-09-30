@@ -54,16 +54,10 @@ test("appendDelta keeps only new entries (by id) and changed lots", () => {
 test("BR-05 a branch sale stores no meat cost; saleCost prices it from the full data", () => {
   const s = ready();
   const lotId = s.db.lots.at(-1)!.id;
-  s.run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    kg: "30",
-    deliveryDate: day,
-  });
-  s.run("branch", "receive", { kg: "30", allocation: last(s).id });
+  s.run("branch", "receive", { kg: "30" });
   s.run("branch", "thaw", { kg: "30" });
   const sale = {
     boxes: "0",
-    addons: "10",
     chiliAddons: "0",
     soldKg: "1",
     wasteKg: "0.5",
@@ -166,7 +160,7 @@ test("append_entries refuses what save_app_state refuses", () => {
   expect(readState(db).revision).toBe(revision);
 });
 
-test("append_entries refuses entries on a closed branch day, except an edit request", () => {
+test("append_entries takes entries on a closed branch day (0037: mutate only warns)", () => {
   const s = setup();
   const db = openLocalDb(":memory:");
   const { revision } = replaceState(db, s.db);
@@ -181,20 +175,24 @@ test("append_entries refuses entries on a closed branch day, except an edit requ
     at: "",
     values: {},
   });
-  expect(() =>
-    appendState(
-      db,
-      branch,
-      [entry("closeDay"), entry("receive")],
-      [],
-      revision,
-    ),
-  ).toThrow("Branch day is closed");
-  const closed = appendState(db, branch, [entry("closeDay")], [], revision);
-  expect(() =>
-    appendState(db, branch, [entry("receive")], [], closed.revision),
-  ).toThrow("Branch day is closed");
-  appendState(db, branch, [entry("editRequest")], [], closed.revision);
+  const closed = appendState(
+    db,
+    branch,
+    [entry("closeDay"), entry("receive")],
+    [],
+    revision,
+  );
+  const after = appendState(
+    db,
+    branch,
+    [entry("receive")],
+    [],
+    closed.revision,
+  );
+  appendState(db, branch, [entry("editRequest")], [], after.revision);
+  expect(
+    readState(db).payload.entries.filter((e) => e.kind === "receive"),
+  ).toHaveLength(2);
 });
 
 test("append_entries and entries() refuse a link to another branch's or the Owner's entry", () => {

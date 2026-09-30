@@ -14,7 +14,8 @@ import { branchHiddenKeys, omit } from "./store/visibility";
  * is the only scoped account.
  *
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
- * 20260929000035, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
+ * 20260930000038, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
+
  * `scopeDatabase` is the JS port of scope_app_state() (20260929000035; GET /api/local-db uses it):
  * every batch S (BR-08: the receive picker and the link dialog list them all) plus the lots of
  * BR-07, the branch's own entries on those lots or on no lot, and the other branches'

@@ -28,8 +28,9 @@ test("every batch is parked at its own step", () => {
     )!;
   const last = (sh: number) =>
     batchKinds.filter((kind) => lotProgress(db, batch(sh).id).has(kind)).at(-1);
+  // SH-0001 is in central stock; branches record their receives themselves (BR-01).
   expect([1, 2, 3, 4, 5, 6, 10, 11, 12].map(last)).toEqual([
-    "allocate",
+    "central",
     "smokeOrder",
     "packingList",
     "packingList",
@@ -61,7 +62,6 @@ test("the Owner has one of every pending signal", () => {
     "รอชำระ Invoice เนื้อ",
     "Chef House ปิด Lot แล้ว",
     "Foodiva รับเนื้อรมควันแล้ว 1 Lot",
-    "มีเนื้อพร้อมจัดสรร 2 Lot",
   ])
     expect(list).toContain(title);
   expect(alerts.missingMaterialSettings).toBe(0);
@@ -70,7 +70,6 @@ test("the Owner has one of every pending signal", () => {
 test("the two branches are in different states today", () => {
   expect(titles(branchAlerts(db, "ศาลาแดง", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขรอพิจารณา"),
-    "รับเนื้อเข้าสาขา 1 Lot",
     `ยังไม่แบ่งละลายเนื้อวันที่ ${end}`,
     `ยังไม่บันทึกยอดขายวันที่ ${end}`,
     `ยังขาด 4 รายการก่อนปิดวันที่ ${end}`,
@@ -80,7 +79,6 @@ test("the two branches are in different states today", () => {
   expect(titles(branchAlerts(db, "มีนบุรี", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขไม่สำเร็จ"),
     expect.stringContaining("คำขอแก้ไขสำเร็จ"),
-    "รับเนื้อเข้าสาขา 1 Lot",
     `ยังขาด 1 รายการก่อนปิดวันที่ ${end}`,
   ]);
   for (const offset of [4, 3, 2]) {

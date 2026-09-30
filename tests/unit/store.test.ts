@@ -16,6 +16,7 @@ import {
   isClosed,
   issuedRawRiceStock,
   lotCost,
+  poMatched,
   materialPar,
   materials,
   mutate,
@@ -66,6 +67,8 @@ import {
   dispatch,
   invoice,
   last,
+  legacyAllocate,
+  legacyReceive,
   packingList,
   packs,
   purchase,
@@ -145,7 +148,9 @@ describe("derived values from the entry log", () => {
     );
     expect(rawRiceStock(db, "ศาลาแดง")).toBe(6);
     expect(issuedRawRiceStock(db, "ศาลาแดง")).toBe(1);
-    expect(cookedRiceStock(db, "ศาลาแดง")).toBe(4);
+    // Cooked rice is per day (B2): that day's stock, nothing carried to the next.
+    expect(cookedRiceStock(db, "ศาลาแดง", day)).toBe(4);
+    expect(cookedRiceStock(db, "ศาลาแดง", "2026-09-10")).toBe(0);
   });
 
   test("chili is bought by the owner, allocated to branches and sold", () => {
@@ -215,6 +220,7 @@ describe("derived values from the entry log", () => {
     const db = { ...withEntries(order), lots: [po, lot] };
     expect(lotCost(db, lot)).toEqual({
       meat: 2500,
+      meatMatched: true,
       smoke: 2200,
       smokingCostSource: "estimate",
       freight: 2000,
@@ -224,6 +230,33 @@ describe("derived values from the entry log", () => {
     expect(
       lotCost(db, { ...lot, values: { ...lot.values, centralKg: "10" } }).perKg,
     ).toBe(670);
+    expect(poMatched(db, "L1")).toBe(true);
+  });
+
+  test("RET-07 a batch whose smoke PO names no purchase PO is unmatched: its cost leaves the meat out", () => {
+    const lot: Lot = {
+      id: "L1",
+      poId: "SH-1",
+      kind: "shipment",
+      config: {},
+      values: { outboundCost: "2000", returnCost: "0", centralKg: "10" },
+    };
+    const order = entry({
+      kind: "smokeOrder",
+      role: "owner",
+      lotId: "L1",
+      values: { estimatedCost: "2200", lines: "[]" },
+    });
+    const db = { ...withEntries(order), lots: [lot] };
+    expect(poMatched(db, "L1")).toBe(false);
+    expect(lotCost(db, lot)).toMatchObject({
+      meat: 0,
+      meatMatched: false,
+      total: 4200,
+      perKg: 420,
+    });
+    // No batch at all is not matched either.
+    expect(poMatched(db, "nope")).toBe(false);
   });
 
   test("D8 the smoking fee is the latest live invoice, else the PO estimate, else nothing", () => {
@@ -334,7 +367,7 @@ describe("derived values from the entry log", () => {
 });
 
 describe("mutate guards", () => {
-  test("PRIN-03 a wrong role is refused without mutation; an allocation over stock only warns", () => {
+  test("PRIN-03 a wrong role is refused without mutation; a thaw over stock only warns", () => {
     const s = setup();
     expect(() =>
       s.run("branch", "purchase", {
@@ -345,8 +378,8 @@ describe("mutate guards", () => {
     ).toThrow(/ไม่มีสิทธิ์/);
     expect(s.db.lots).toHaveLength(0);
     expectWarning(
-      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "1" }),
-      /สต๊อกกลางไม่พอ/,
+      s.check("branch", "thaw", { kg: "1" }, ""),
+      /สต๊อกแช่แข็งไม่พอ/,
     );
   });
 
@@ -388,7 +421,7 @@ describe("mutate guards", () => {
     expect(s.db.lots[0].config).toEqual(snapshot);
   });
 
-  test("a closed day blocks branch writes until the owner unlocks it", () => {
+  test("a closed day warns on branch writes until the owner unlocks it (GEN-03)", () => {
     const closed = withEntries(entry({ kind: "closeDay" }));
     const rice = {
       riceSource: riceSources[0],
@@ -396,9 +429,13 @@ describe("mutate guards", () => {
       rawRiceKg: "1",
       rawRiceCost: "1",
     };
-    expect(() =>
-      mutate(closed, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
-    ).toThrow(/ปิดยอดแล้ว/);
+    // GEN-03: a closed day still records; the entry is only warned about.
+    expectWarning(
+      check(() =>
+        mutate(closed, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
+      ),
+      /ปิดยอดแล้ว/,
+    );
     expect(() =>
       mutate(
         seed,
@@ -418,9 +455,11 @@ describe("mutate guards", () => {
       day,
     );
     expect(isClosed(reopened, "ศาลาแดง", day)).toBe(false);
-    expect(() =>
-      mutate(reopened, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
-    ).not.toThrow();
+    expect(
+      check(() =>
+        mutate(reopened, "branch", "ricePurchase", rice, "", day, "ศาลาแดง"),
+      ).warnings.join(" "),
+    ).not.toMatch(/ปิดยอดแล้ว/);
   });
 
   test("branch writes, day locks and history follow the signed-in branch, not config.branch", () => {
@@ -456,28 +495,20 @@ describe("mutate guards", () => {
     const minburiClosed = withEntries(
       entry({ kind: "closeDay", branch: "มีนบุรี" }),
     );
-    expect(() =>
-      mutate(
-        minburiClosed,
-        "branch",
-        "ricePurchase",
-        cookedRice,
-        "",
-        day,
-        "มีนบุรี",
-      ),
-    ).toThrow(/ปิดยอดแล้ว/);
-    expect(() =>
-      mutate(
-        minburiClosed,
-        "branch",
-        "ricePurchase",
-        rawRice,
-        "",
-        day,
-        "ศาลาแดง",
-      ),
-    ).not.toThrow();
+    const closedWarning = (values: Values, branch: string) =>
+      check(() =>
+        mutate(
+          minburiClosed,
+          "branch",
+          "ricePurchase",
+          values,
+          "",
+          day,
+          branch,
+        ),
+      ).warnings.some((w) => /ปิดยอดแล้ว/.test(w));
+    expect(closedWarning(cookedRice, "มีนบุรี")).toBe(true);
+    expect(closedWarning(rawRice, "ศาลาแดง")).toBe(false);
   });
 
   test("void reverses an allowed entry once and needs a reason", () => {
@@ -499,9 +530,13 @@ describe("mutate guards", () => {
     const allocation = last(s);
     expect(ownerChiliStock(s.db)).toBe(30);
     expect(chiliStock(s.db, "ศาลาแดง")).toBe(20);
-    expect(() => s.run("owner", "void", { targetId: allocation.id })).toThrow(
-      /เหตุผล/,
-    );
+    // Without a reason the void saves, marked as not filled in (GEN-02).
+    let missing: string | undefined;
+    s.dry(() => {
+      s.run("owner", "void", { targetId: allocation.id });
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("reason");
     s.run("owner", "void", { targetId: allocation.id, reason: "ส่งผิด" });
     expect(last(s).values).toMatchObject({
       targetKind: "chiliAllocate",
@@ -535,7 +570,14 @@ describe("mutate guards", () => {
     expect(next.config).toMatchObject({ boxPrice: "400", tolerance: "20" });
     expect(seed.config.boxPrice).toBe("350");
     expect(() =>
-      mutate(seed, "owner", "config", { ...seed.config, packKg: "0" }, "", day),
+      mutate(
+        seed,
+        "owner",
+        "config",
+        { ...seed.config, packKg: "-1" },
+        "",
+        day,
+      ),
     ).toThrow(/มากกว่าศูนย์/);
   });
 });
@@ -578,10 +620,18 @@ describe("lot workflow", () => {
         smoker: "Chef House",
         ...(rawKg === undefined ? {} : { rawKg }),
       });
-    // No Packing List yet: the Owner types the kg.
-    expect(() => order()).toThrow(/น้ำหนัก PO รมควัน/);
+    // No Packing List yet and no kg typed: it saves, marked as not filled in (GEN-02).
+    let missing: string | undefined;
+    s.dry(() => {
+      order();
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("rawKg");
     packingList(s, "15\n15");
-    expect(() => order("0")).toThrow(/น้ำหนัก PO รมควัน/);
+    expectWarning(
+      s.dry(() => order("0")),
+      /น้ำหนัก PO รมควัน/,
+    );
     // Pre-filled from the 30 kg Packing List but the Owner may order more.
     order("32");
     expect(last(s).values).toMatchObject({
@@ -591,7 +641,11 @@ describe("lot workflow", () => {
       orderNumber: "SO-2026-0001",
       status: "Sent",
     });
-    expect(() => order("32")).toThrow(/ออก PO รมควันของการส่งนี้แล้ว/);
+    // GEN-06: a second smoke PO is said; the newest counts.
+    expectWarning(
+      s.dry(() => order("32")),
+      /ออก PO รมควันของการส่งนี้แล้ว/,
+    );
     // SHP-02: a later Packing List still saves and is said.
     expectWarning(
       s.dry(() => packingList(s, "30")),
@@ -615,9 +669,18 @@ describe("lot workflow", () => {
         attachment,
         netPayable,
       });
-    expect(() => bill("0")).toThrow(/ยอดเรียกเก็บค่ารมควัน/);
-    expect(() => bill("10500", "")).toThrow(/Invoice ที่แนบ/);
+    expectWarning(
+      s.dry(() => bill("0")),
+      /ยอดเรียกเก็บค่ารมควัน/,
+    );
+    let missing: string | undefined;
+    s.dry(() => {
+      bill("10500", "");
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("attachment");
     bill("10500");
+
     const sent = last(s);
     // The 50 kg smoke PO at ฿220 still shows as the reference quantity and amount.
     expect(sent.values).toMatchObject({
@@ -985,89 +1048,53 @@ describe("lot workflow", () => {
     expect(produced(s.db, id)).toBe(37);
     expect(last(s).kind).toBe("chefEdit");
     s.run("owner", "closeLot", { confirm: "x" }, id);
-    // CHF-04: no more corrections once the run is closed.
-    expect(() =>
-      edit(
-        {},
-        smokes.map((item) => draft(item)),
+    // CHF-04: a correction after the run is closed still saves; it is said.
+    expectWarning(
+      s.dry(() =>
+        edit(
+          {},
+          smokes.map((item) => draft(item)),
+        ),
       ),
-    ).toThrow(/ปิด Lot แล้ว/);
+      /ปิด Lot แล้ว/,
+    );
   });
 
-  test("allocating by kg: 500 + 200 of 700 kg, received in parts, over-allocation warns", () => {
+  test("old allocations (DM-08): 500 + 200 of 700 kg, received in parts, count until filled", () => {
     const s = returned();
     s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
     const id = s.db.lots.at(-1)!.id;
-    s.run("owner", "allocate", {
+    // Old data from before allocation was retired (BR-01): its math still counts.
+    const sala = legacyAllocate(s, {
       branch: "ศาลาแดง",
       kg: "500",
       deliveryDate: day,
     });
-    const sala = last(s);
-    s.run("owner", "allocate", {
-      branch: "มีนบุรี",
-      kg: "150",
-      deliveryDate: day,
-    });
+    legacyAllocate(s, { branch: "มีนบุรี", kg: "150", deliveryDate: day });
     expect(centralStock(s.db, id)).toBe(50);
-    expectWarning(
-      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "50.01" }),
-      /สต๊อกกลางไม่พอ/,
-    );
-    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "50" });
+    legacyAllocate(s, { branch: "มีนบุรี", kg: "50" });
     expect(centralStock(s.db, id)).toBe(0);
-    s.run("branch", "receive", {
-      kg: "300",
-      allocation: sala.id,
-      reason: "ทยอยรับ",
-    });
+    legacyReceive(s, "300", sala.id, { reason: "ทยอยรับ" });
     expect(allocationOutstanding(s.db, sala)).toBe(200);
-    s.run("branch", "receive", { kg: "200", allocation: sala.id });
+    legacyReceive(s, "200", sala.id);
     expect(allocationOutstanding(s.db, sala)).toBe(0);
     expect(pendingReceiveKg(s.db, id, "ศาลาแดง")).toBe(0);
-    expectWarning(
-      s.check("branch", "receive", {
-        kg: "1",
-        allocation: sala.id,
-        reason: "x",
-      }),
-      /รับเกินยอดค้างรับ/,
-    );
   });
 
-  test("receiving an allocation's exact kg past 0.01 is not over the outstanding (COR-15)", () => {
+  test("an old allocation's exact kg past 0.01 is filled by the same receive (COR-15)", () => {
     const s = ready();
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "10.004" });
-    const sala = last(s);
+    const sala = legacyAllocate(s, { branch: "ศาลาแดง", kg: "10.004" });
     expect(allocationOutstanding(s.db, sala)).toBe(10);
-    s.run("branch", "receive", { kg: "10.004", allocation: sala.id });
+    legacyReceive(s, "10.004", sala.id);
     expect(allocationOutstanding(s.db, sala)).toBe(0);
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-    expectWarning(
-      s.check("branch", "receive", { kg: "5.006", allocation: last(s).id }),
-      /รับเกินยอดค้างรับ/,
-    );
   });
 
-  test("a receive marked complete closes the allocation on a shortfall, with a reason", () => {
+  test("an old receive marked complete closes its allocation on a shortfall", () => {
     const s = returned();
     s.run("owner", "central", { centralKg: "700", reason: "ทดสอบ" });
     const id = s.db.lots.at(-1)!.id;
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "500" });
-    const sala = last(s);
-    expectWarning(
-      s.dry(() =>
-        s.run("branch", "receive", {
-          kg: "499.5",
-          allocation: sala.id,
-          complete: "1",
-        }),
-      ),
-      /เหตุผลส่วนต่าง/,
-    );
-    s.run("branch", "receive", {
-      kg: "499.5",
-      allocation: sala.id,
+    const sala = legacyAllocate(s, { branch: "ศาลาแดง", kg: "500" });
+    legacyReceive(s, "499.5", sala.id, {
       complete: "1",
       reason: "น้ำหนักหายระหว่างขนส่ง",
     });
@@ -1076,21 +1103,15 @@ describe("lot workflow", () => {
     expect(balance(s.db, id, "ศาลาแดง").received).toBe(499.5);
   });
 
-  test("BR-01/BR-02 over-allocation and over-thaw warn; another branch's allocation is refused", () => {
+  test("BR-01/BR-02 a branch receives straight on the batch; over central and over-thaw warn; a new allocation is refused", () => {
     const s = ready();
-    expectWarning(
-      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "36" }),
-      /ไม่พอ/,
-    );
-    s.run("owner", "allocate", { branch: "มีนบุรี", kg: "5" });
-    expect(() =>
-      s.run("branch", "receive", {
-        kg: "5",
-        allocation: last(s).id,
-      }),
-    ).toThrow(/ไม่ใช่ของสาขาคุณ/);
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    expect(
+      s.check("owner", "allocate", { branch: "มีนบุรี", kg: "5" }).error,
+    ).toBe("รายการชนิดนี้เลิกใช้แล้ว");
+    expectWarning(s.check("branch", "receive", { kg: "36" }), /สต๊อกกลางไม่พอ/);
+    s.run("branch", "receive", { kg: "5", allocation: "anything" });
+    // A new receive never carries an allocation.
+    expect(last(s).values.allocation).toBeUndefined();
     expectWarning(s.check("branch", "thaw", { kg: "6" }), /ไม่พอ/);
   });
 });
@@ -1098,16 +1119,20 @@ describe("lot workflow", () => {
 describe("branch supplies", () => {
   test("materials move from owner stock to a branch only after the branch confirms", () => {
     const material = materials[0];
-    expect(() =>
-      mutate(
-        seed,
-        "owner",
-        "materialTransfer",
-        { material, branch: "ศาลาแดง", quantity: "1", receiver: "x" },
-        "",
-        day,
+    // MAT-01: a transfer before the branch's par is set saves; it is said.
+    expectWarning(
+      check(() =>
+        mutate(
+          seed,
+          "owner",
+          "materialTransfer",
+          { material, branch: "ศาลาแดง", quantity: "1", receiver: "x" },
+          "",
+          day,
+        ),
       ),
-    ).toThrow(/ตั้งจำนวนฐาน/);
+      /ตั้งจำนวนฐาน/,
+    );
     const s = setup();
     s.run("owner", "materialReceive", {
       purchaseDate: "2026-09-08",
@@ -1183,7 +1208,13 @@ describe("branch supplies", () => {
       ...extra,
     });
     s.run("branch", "materials", sheet("0")); // the accidental empty save
-    expect(() => s.run("branch", "materials", sheet("40"))).toThrow(/เหตุผล/);
+    // A second round without its reason saves, marked as not filled in (GEN-02).
+    let missing: string | undefined;
+    s.dry(() => {
+      s.run("branch", "materials", sheet("40"));
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("correctionReason");
     s.run("branch", "materials", sheet("40", { correctionReason: "กรอกผิด" }));
     expect(last(s).values.revision).toBe("2");
     expect(entries(s.db, "materials", undefined, "ศาลาแดง", day)).toHaveLength(
@@ -1219,44 +1250,48 @@ describe("branch supplies", () => {
     s.run("branch", "riceIssue", { rawRiceIssuedKg: "10", receiver: "x" });
     s.run("branch", "rice", { rawUsedKg: "10", riceKg: "14" });
     expect(rawRiceStock(s.db, branch)).toBe(0);
-    expect(cookedRiceStock(s.db, branch)).toBe(14);
+    expect(cookedRiceStock(s.db, branch, day)).toBe(14);
     expect(requiredRiceKinds(s.db, branch, day)).toEqual(["rice", "riceCarry"]);
   });
 
-  test("มีนบุรี never cooks rice: purchases are always cooked, no issue or cook", () => {
-    const s = setup("มีนบุรี");
+  test("มีนบุรี can self-cook too (B2): raw in, issued, cooked", () => {
+    const branch = "มีนบุรี";
+    const s = setup(branch);
     s.run("branch", "ricePurchase", {
       riceSource: riceSources[0],
       supplier: "x",
-      cookedRiceKg: "12",
-      cookedRiceCost: "540",
       rawRiceKg: "10",
       rawRiceCost: "500",
+      cookedRiceKg: "12",
     });
     expect(last(s).values).toMatchObject({
-      riceSource: riceSources[1],
-      rawRiceKg: "0",
-      totalCost: "540",
+      riceSource: riceSources[0],
+      cookedRiceKg: "0",
+      totalCost: "500",
     });
-    for (const [kind, values] of [
-      ["riceIssue", { rawRiceIssuedKg: "1", receiver: "x" }],
-      ["rice", { rawUsedKg: "1", riceKg: "1" }],
-    ] as const)
-      expect(() => s.run("branch", kind, values)).toThrow(/ไม่หุงข้าวเหนียว/);
+    s.run("branch", "riceIssue", { rawRiceIssuedKg: "10", receiver: "x" });
+    s.run("branch", "rice", { rawUsedKg: "10", riceKg: "14" });
+    expect(rawRiceStock(s.db, branch)).toBe(0);
+    expect(cookedRiceStock(s.db, branch, day)).toBe(14);
+    expect(requiredRiceKinds(s.db, branch, day)).toEqual(["rice", "riceCarry"]);
   });
 
   test.each(["ศาลาแดง", "มีนบุรี"])(
     "%s buys cooked rice: no raw weight, no par floor",
     (branch) => {
       const s = setup(branch);
-      expect(() =>
+      // Raw weights on a bought-cooked round are zeroed; the cooked ones are left empty.
+      let missing: string | undefined;
+      s.dry(() => {
         s.run("branch", "ricePurchase", {
           riceSource: riceSources[1],
           supplier: "x",
           rawRiceKg: "10",
           rawRiceCost: "500",
-        }),
-      ).toThrow(/ข้าวเหนียวสุก/);
+        });
+        missing = last(s).values.missing;
+      });
+      expect(missing).toBe("cookedRiceKg,cookedRiceCost");
       // Below cookedRicePar (30 kg): a hint in the form, not a block.
       s.run("branch", "ricePurchase", {
         riceSource: riceSources[1],
@@ -1268,21 +1303,12 @@ describe("branch supplies", () => {
         rawRiceKg: "0",
         totalCost: "540",
       });
-      expect(cookedRiceStock(s.db, branch)).toBe(12);
+      expect(cookedRiceStock(s.db, branch, day)).toBe(12);
       expect(requiredRiceKinds(s.db, branch, day)).toEqual(["riceCarry"]);
-      s.run("branch", "riceCarry", {
-        leftoverKg: "12",
-        reheat: "เก็บไว้อุ่นวันถัดไป",
-      });
-      expect(last(s).values.reheat).toBe("เก็บไว้อุ่นวันถัดไป");
-      expect(cookedRiceStock(s.db, branch)).toBe(12);
-      // Discarded leftover is rice waste: it leaves the cooked stock.
-      s.run("branch", "riceCarry", {
-        leftoverKg: "5",
-        reheat: "ไม่นำกลับมาใช้",
-        reason: "x",
-      });
-      expect(cookedRiceStock(s.db, branch)).toBe(7);
+      // B2: cooked rice never carries over; the day-end leftover is all waste.
+      s.run("branch", "riceCarry", { leftoverKg: "5" });
+      expect(cookedRiceStock(s.db, branch, day)).toBe(7);
+      expect(cookedRiceStock(s.db, branch, "2026-09-10")).toBe(0);
     },
   );
 
@@ -1307,22 +1333,32 @@ describe("branch supplies", () => {
           }),
         ),
       );
-    expect(() => closeWith(withDay())).toThrow(
-      /ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/,
-    );
-    expect(() => closeWith(withDay("riceCarry"))).not.toThrow();
-    expect(() => closeWith(withDay("riceIssue", "riceCarry"))).toThrow(
-      /ยังไม่บันทึกข้าวช่วงเช้า/,
-    );
-    expect(() =>
-      closeWith(withDay("riceIssue", "rice", "riceCarry")),
-    ).not.toThrow();
+    // RUL-90: an unfinished checklist no longer blocks; it is said and listed in `missing`.
+    const close = (db: Database) => {
+      const result = check(() => closeWith(db));
+      expect(result.error).toBe("");
+      return {
+        warnings: result.warnings.join(" "),
+        missing: closeWith(db).entries.at(-1)!.values.missing,
+      };
+    };
+    expect(close(withDay())).toMatchObject({
+      warnings: expect.stringMatching(/ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/),
+      missing: "riceCarry",
+    });
+    expect(close(withDay("riceCarry")).missing).toBeUndefined();
+    expect(close(withDay("riceIssue", "riceCarry"))).toMatchObject({
+      warnings: expect.stringMatching(/ยังไม่บันทึกข้าวช่วงเช้า/),
+      missing: "rice",
+    });
+    expect(
+      close(withDay("riceIssue", "rice", "riceCarry")).missing,
+    ).toBeUndefined();
   });
 
   test("closeDayChecklist is the rule mutate closes by", () => {
     const s = ready();
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    s.run("branch", "receive", { kg: "5" });
     s.run("branch", "thaw", { kg: "5" });
     const missing = () =>
       closeDayChecklist(s.db, "ศาลาแดง", day).filter(
@@ -1333,8 +1369,9 @@ describe("branch supplies", () => {
       "materials",
       "riceCarry",
     ]);
-    // Blocked with the checklist's own message for its first missing item.
-    expect(() => s.run("branch", "closeDay", { confirm: "x" })).toThrow(
+    // Said with the checklist's own message for each missing item; it no longer blocks.
+    expectWarning(
+      s.check("branch", "closeDay", { confirm: "x" }),
       missing()[0].message,
     );
     expect(missing()[0].message).toMatch(/รายการขาย/);
@@ -1348,7 +1385,6 @@ describe("branch supplies", () => {
     ).not.toContain("influencerBox");
     s.run("branch", "sale", {
       boxes: "0",
-      addons: "40",
       chiliAddons: "0",
       soldKg: "4",
       wasteKg: "0",
@@ -1361,34 +1397,30 @@ describe("branch supplies", () => {
       "materials",
       Object.fromEntries(materials.map((_, i) => [`material${i}`, "10"])),
     );
-    expect(() => s.run("branch", "closeDay", { confirm: "x" })).toThrow(
+    expectWarning(
+      s.check("branch", "closeDay", { confirm: "x" }),
       missing()[0].message,
     );
-    s.run("branch", "riceCarry", { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" });
+    s.run("branch", "riceCarry", { leftoverKg: "0" });
     expect(missing()).toEqual([]);
     // No close-time rule any more (FB-14): 09:00 closes like 22:00 did.
     s.run("branch", "closeDay", { time: "09:00", confirm: "x" });
     expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
-    // A closed day refuses every branch entry, and a second close.
+    // A closed day still records (GEN-03): every branch entry, a second close too, is said.
     for (const kind of ["riceCarry", "closeDay"] as const)
-      expect(() =>
-        s.run("branch", kind, {
-          leftoverKg: "0",
-          reheat: "ไม่นำกลับมาใช้",
-          confirm: "x",
-        }),
-      ).toThrow(/ปิดยอดแล้ว/);
+      expectWarning(
+        s.check("branch", kind, { leftoverKg: "0", confirm: "x" }),
+        /ปิดยอดแล้ว/,
+      );
   });
 
   test("sales deviation validation", () => {
     const s = ready();
-    s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    s.run("branch", "receive", { kg: "5" });
     s.run("branch", "thaw", { kg: "5" });
     expectWarning(
       s.check("branch", "sale", {
         boxes: "10",
-        addons: "0",
         chiliAddons: "0",
         soldKg: "6",
         wasteKg: "0",
@@ -1409,8 +1441,8 @@ describe("branch supplies", () => {
  *  influencer giveaway draws on. */
 function giveawayReady() {
   const s = ready();
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "5" });
-  s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+  s.run("branch", "receive", { kg: "5" });
+
   s.run("branch", "thaw", { kg: "5" });
   s.run("branch", "ricePurchase", {
     riceSource: riceSources[0],
@@ -1442,9 +1474,13 @@ const box = {
 test("an influencer box leaves the shelf and costs meat plus postage", () => {
   const s = giveawayReady();
   const id = s.db.lots.at(-1)!.id;
-  expect(() =>
-    s.run("branch", "influencerBox", { ...box, influencer: "" }),
-  ).toThrow(/อินฟลูเอนเซอร์/);
+  // Without a name the giveaway saves, marked as not filled in (GEN-02).
+  let missing: string | undefined;
+  s.dry(() => {
+    s.run("branch", "influencerBox", { ...box, influencer: "" });
+    missing = last(s).values.missing;
+  });
+  expect(missing).toBe("influencer");
   expectWarning(
     s.check("branch", "influencerBox", { ...box, boxes: "50" }),
     /เกินเนื้อที่ละลายแล้ว/,
@@ -1454,11 +1490,10 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
     /น้ำพริก/,
   );
   // The kg is derived from the box count, so whatever the form sends is overwritten.
-  s.run("branch", "influencerBox", { ...box, soldKg: "9", addons: "7" });
+  s.run("branch", "influencerBox", { ...box, soldKg: "9" });
   expect(last(s).values.soldKg).toBe(String(2 * Number(seed.config.packKg)));
-  expect(last(s).values.addons).toBe("0");
   expect(balance(s.db, id, "ศาลาแดง").ready).toBeCloseTo(4.797, 3);
-  expect(cookedRiceStock(s.db, "ศาลาแดง")).toBeCloseTo(9.6, 3);
+  expect(cookedRiceStock(s.db, "ศาลาแดง", day)).toBeCloseTo(9.6, 3);
   expect(chiliStock(s.db, "ศาลาแดง")).toBe(4);
   // BR-05: the meat cost is read, not stored.
   expect(last(s).values.meatCost).toBeUndefined();
@@ -1472,7 +1507,6 @@ test("an influencer box leaves the shelf and costs meat plus postage", () => {
 /** The day's sale as the form sends it: small enough to leave room for giveaways. */
 const saleValues = {
   boxes: "10",
-  addons: "0",
   chiliAddons: "1",
   soldKg: "1",
   wasteKg: "0",
@@ -1559,10 +1593,11 @@ describe("recording the day's sale with influencer giveaways", () => {
         "ศาลาแดง",
         day,
         id,
-        [box, { ...box, influencer: "" }],
+        [box, { ...box, boxes: "-1" }],
         { ...saleValues, boxes: "1", soldKg: "0.1" },
       );
-    expect(refused).toThrow(/อินฟลูเอนเซอร์ที่ 2 · กรอกชื่ออินฟลูเอนเซอร์/);
+    expect(refused).toThrow(/อินฟลูเอนเซอร์ที่ 2 \(@nong\) · กรอก/);
+
     expect(s.db.entries.length).toBe(before);
     expect(entries(s.db, "influencerBox", undefined, "ศาลาแดง", day)).toEqual(
       [],
@@ -1591,30 +1626,16 @@ describe("recording the day's sale with influencer giveaways", () => {
   });
 });
 
-test("full loop: partial smoke, central, two branches, partial receipt, sale and lock", () => {
+test("full loop: partial smoke, central, branch receives in parts, sale and close", () => {
   const s = ready();
   const id = s.db.lots.at(-1)!.id;
   expect(produced(s.db, id)).toBe(36);
   expect(lotProgress(s.db, id).has("central")).toBe(true);
   expect(lotCost(s.db, s.db.lots.at(-1)!).freight).toBe(2000);
-  s.run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    kg: "10",
-    deliveryDate: day,
-  });
-  const allocation = last(s).id;
-  s.run("owner", "allocate", {
-    branch: "มีนบุรี",
-    kg: "5",
-    deliveryDate: day,
-  });
-  expect(centralStock(s.db, id)).toBe(20);
-  s.run("branch", "receive", {
-    kg: "4",
-    allocation,
-    reason: "ทยอยรับ",
-  });
-  s.run("branch", "receive", { kg: "6", allocation });
+  // BR-01: the branch records what it received straight on the batch, in parts.
+  s.run("branch", "receive", { kg: "4" });
+  s.run("branch", "receive", { kg: "6" });
+  expect(centralStock(s.db, id)).toBe(25);
   s.run("branch", "thaw", { kg: "4.2" });
   s.run("branch", "ricePurchase", {
     riceSource: riceSources[0],
@@ -1635,11 +1656,10 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
   s.run("branch", "rice", { rawUsedKg: "4", riceKg: "10" });
   expect(rawRiceStock(s.db, "ศาลาแดง")).toBe(6);
   expect(issuedRawRiceStock(s.db, "ศาลาแดง")).toBe(0);
-  expect(cookedRiceStock(s.db, "ศาลาแดง")).toBe(10);
+  expect(cookedRiceStock(s.db, "ศาลาแดง", day)).toBe(10);
   expect(chiliStock(s.db, "ศาลาแดง")).toBe(50);
   s.run("branch", "sale", {
     boxes: "40",
-    addons: "0",
     chiliAddons: "2",
     soldKg: "4",
     wasteKg: ".2",
@@ -1686,16 +1706,19 @@ test("full loop: partial smoke, central, two branches, partial receipt, sale and
     ),
   );
   expect(last(s).values.material0).toBe("450");
-  expect(() =>
-    s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" }),
-  ).toThrow(/ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/);
+  expectWarning(
+    s.check("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" }),
+    /ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ/,
+  );
   s.run("branch", "riceCarry", {
-    leftoverKg: String(cookedRiceStock(s.db, "ศาลาแดง")),
-    reheat: "เก็บไว้อุ่นวันถัดไป",
+    leftoverKg: String(cookedRiceStock(s.db, "ศาลาแดง", day)),
   });
+  expect(cookedRiceStock(s.db, "ศาลาแดง", day)).toBe(0);
   s.run("branch", "closeDay", { time: "22:00", confirm: "ผู้ดูแล" });
+  expect(last(s).values.missing).toBeUndefined();
   expect(isClosed(s.db, "ศาลาแดง", day)).toBe(true);
-  expect(() => s.run("branch", "thaw", { kg: "1" })).toThrow(/ปิดยอด/);
+  expectWarning(s.check("branch", "thaw", { kg: "1" }), /ปิดยอด/);
+
   expect(
     visibleEntries(s.db, "branch", "ศาลาแดง").every(
       (item) => !("meatCost" in item.values),
@@ -1821,7 +1844,6 @@ describe("chill carryover", () => {
       "sale",
       {
         boxes: "0",
-        addons: "45",
         chiliAddons: "0",
         soldKg: "4.5",
         wasteKg: "0",
@@ -1844,22 +1866,14 @@ describe("chill carryover", () => {
   test("stock as of a past date follows the entry log, not today's totals", () => {
     const s = chillDay();
     const id = lotOf(s.db);
-    // Day 2: the last 2 kg of central stock allocated, 1.5 kg received, 1 kg thawed.
+    // Day 2: 1.5 kg received straight on the batch (BR-01), 1 kg thawed.
     const run = (
       db: Database,
       role: ActingRole,
       kind: EntryKind,
       values: Values,
     ) => mutate(db, role, kind, values, id, nextDay, branch);
-    let db = run(s.db, "owner", "allocate", {
-      branch,
-      kg: "2",
-      deliveryDate: nextDay,
-    });
-    db = run(db, "branch", "receive", {
-      kg: "1.5",
-      allocation: db.entries.at(-1)!.id,
-    });
+    let db = run(s.db, "branch", "receive", { kg: "1.5" });
     db = run(db, "branch", "thaw", { kg: "1" });
     expect(branchMeatDay(db, id, branch, day)).toMatchObject({
       pending: 0,
@@ -1870,7 +1884,7 @@ describe("chill carryover", () => {
     });
     const two = branchMeatDay(db, id, branch, nextDay);
     expect(two).toMatchObject({ chillIn: 4.5, thawed: 1, usedTotal: 65.5 });
-    expect(two.pending).toBeCloseTo(0.5, 6);
+    expect(two.pending).toBe(0);
     expect(two.received).toBeCloseTo(71.5, 6);
     expect(two.frozen).toBeCloseTo(0.5, 6);
     expect(two.chillOut).toBeCloseTo(5.5, 6);
@@ -1881,13 +1895,12 @@ describe("chill carryover", () => {
 
   test("95 g per pack saves and only warns", () => {
     const s = ready();
-    s.run("owner", "allocate", { branch, kg: "5" });
-    s.run("branch", "receive", { kg: "5", allocation: last(s).id });
+    s.run("branch", "receive", { kg: "5" });
     s.run("branch", "thaw", { kg: "5" });
     const sale = {
-      boxes: "0",
-      addons: "10",
+      boxes: "10",
       chiliAddons: "0",
+
       soldKg: "0.95",
       wasteKg: "0",
       riceWasteKg: "0",
@@ -1907,8 +1920,9 @@ describe("free ledger (PRD v9)", () => {
   const list = {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
+    attachment: "packing.pdf",
+    slicedNetKg: "50",
     slicedLostKg: "50",
-    boxes: "25\n25",
   };
   const bill = {
     invoiceNumber: "CH-1",
@@ -1936,7 +1950,7 @@ describe("free ledger (PRD v9)", () => {
       "smokeOrder",
       { requestedSmokeDate: day, smoker: "Chef House", rawKg: "50" },
     ],
-    ["owner", "cmReceive", { arrival: "08:00", receivedBoxes: "24.5\n24.5" }],
+    ["owner", "cmReceive", { arrival: "08:00", receivedKg: "49" }],
     ["owner", "prepare", { preSmokeKg: "48" }],
     [
       "owner",
@@ -1957,12 +1971,11 @@ describe("free ledger (PRD v9)", () => {
       },
     ],
     ["owner", "central", { centralKg: "35" }],
-    ["owner", "allocate", { branch: "ศาลาแดง", kg: "10", deliveryDate: day }],
   ];
 
   test("PRIN-01 every batch kind saves in any order on one batch", () => {
     // A fixed shuffle, so a failure is the same failure every run.
-    const order = [11, 4, 8, 1, 10, 6, 0, 9, 3, 7, 2, 5];
+    const order = [4, 8, 1, 10, 6, 0, 9, 3, 7, 2, 5];
     const s = setup();
     purchase(s, "50");
     confirm(s, "50");
@@ -1980,12 +1993,11 @@ describe("free ledger (PRD v9)", () => {
     }
     s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" }, lotId);
     expect(s.db.lots.filter((lot) => lot.kind)).toHaveLength(1);
-    expect(entries(s.db, "allocate", lotId)).toHaveLength(1);
-    expect(centralStock(s.db, lotId)).toBe(25);
+    expect(centralStock(s.db, lotId)).toBe(35);
   });
 
   test("M0 the Owner records every Foodiva and Chef House kind on one batch, in any order", () => {
-    const order = [9, 7, 3, 11, 5, 1, 2, 4, 10, 0, 6, 8];
+    const order = [9, 7, 3, 5, 1, 2, 4, 10, 0, 6, 8];
     const s = setup();
     purchase(s, "50");
     s.run(
@@ -2069,7 +2081,7 @@ describe("free ledger (PRD v9)", () => {
     expect(entryBy({ role: "owner", actor: "manager" })).toBe(
       "Account Manager",
     );
-    expect(centralStock(s.db, lotId)).toBe(25);
+    expect(centralStock(s.db, lotId)).toBe(35);
   });
 
   test("SMK-07 lotProgress lists the kinds a batch holds, never the bookkeeping", () => {
@@ -2092,26 +2104,18 @@ describe("free ledger (PRD v9)", () => {
     ).toContain("closeLot");
     // A void takes its target out; the void itself is not progress.
     const t = ready();
-    t.run("owner", "allocate", {
-      branch: "ศาลาแดง",
-      kg: "5",
-      deliveryDate: day,
-    });
-    t.run("owner", "void", { targetId: last(t).id, reason: "x" });
-    expect(lotProgress(t.db, t.db.lots.at(-1)!.id).has("allocate")).toBe(false);
-    expect(lotProgress(t.db, t.db.lots.at(-1)!.id).has("void")).toBe(false);
+    const tLot = t.db.lots.at(-1)!.id;
+    const central = entries(t.db, "central", tLot)[0];
+    t.run("owner", "void", { targetId: central.id, reason: "x" }, tLot);
+    expect(lotProgress(t.db, tLot).has("central")).toBe(false);
+    expect(lotProgress(t.db, tLot).has("void")).toBe(false);
   });
 
   test("SMK-01 a Chef cmReceive before the smoke PO, and the Owner's PO lands on that batch", () => {
     const s = setup();
     purchase(s, "50");
     confirm(s, "50");
-    s.run(
-      "owner",
-      "cmReceive",
-      { arrival: "08:00", receivedBoxes: "24.5\n24.5" },
-      "",
-    );
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "49" }, "");
     const batch = s.db.lots.at(-1)!;
     expect(batch.kind).toBe("shipment");
     expect(batch.poId).toBe("SH-2026-0001");
@@ -2145,7 +2149,8 @@ describe("free ledger (PRD v9)", () => {
     expect(lotCost(s.db, batch).meat).toBe(30 * 200 + 10 * 300);
     dispatch(s);
     packingList(s, "20\n20");
-    s.run("owner", "cmReceive", { arrival: "08:00", receivedBoxes: "19\n19" });
+    s.run("owner", "cmReceive", { arrival: "08:00", receivedKg: "38" });
+
     // Once weighed in: 38 kg split 3:1.
     expect(lotCost(s.db, s.db.lots.at(-1)!).meat).toBeCloseTo(
       28.5 * 200 + 9.5 * 300,

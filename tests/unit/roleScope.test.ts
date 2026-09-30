@@ -23,10 +23,10 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// VIS-05: the latest app_state_scope_rules() (migration 0035) matches branchScope.
-test("the SQL rule (migration 0035) is the same as branchScope", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0038) matches branchScope.
+test("the SQL rule (migration 0038) is the same as branchScope", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260929000035_branch_scope_all_batches.sql",
+    "supabase/migrations/20260930000038_scope_rules_drop_addon_price.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
@@ -202,8 +202,9 @@ test("a void of a followed entry (a withdrawn edit request) is sent", () => {
 test("the sample data exercises every role", () => {
   for (const kind of [
     "sale",
-    "allocate",
+    "receive",
     "packingList",
+
     "smoke",
     "purchase",
   ] as const)

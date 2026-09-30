@@ -41,10 +41,15 @@ test.each<[EntryKind, RegExp]>([
   ["closeLot", /ปิด Lot นี้แล้ว/],
   ["return", /เรียกรถขากลับของชุดนี้แล้ว/],
   ["central", /รับเข้าสต๊อกกลางของชุดนี้แล้ว/],
-])("GEN-06: a second %s on one batch is refused", (kind, message) => {
-  const s = ready();
-  expect(s.check("owner", kind).error).toMatch(message);
-});
+])(
+  "GEN-06: a second %s on one batch saves with a warning (the newest counts)",
+  (kind, message) => {
+    const s = ready();
+    const result = s.check("owner", kind);
+    expect(result.error).toBe("");
+    expect(result.warnings.join(" ")).toMatch(message);
+  },
+);
 
 test("GEN-05: a purchase-PO entry warns only when dated before the PO was opened", () => {
   let db: Database = mutate(

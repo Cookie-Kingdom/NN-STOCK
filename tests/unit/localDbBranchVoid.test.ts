@@ -10,8 +10,9 @@ import { seed, type Entry } from "@/lib/store";
 import { retiredKinds } from "@/lib/store/model";
 
 // Migration 20260929000035 (append_entries), JS port: on a closed day a branch still files an
-// edit request, withdraws it (a void of its own pending request only) and links.
-test("a closed branch day takes a request, its withdrawal and a link, nothing else", () => {
+// edit request, withdraws it (a void of its own pending request only) and links; since 0037
+// it records anything else on that day too.
+test("a closed branch day takes a request, its withdrawal, a link and new entries", () => {
   const db = openLocalDb(":memory:");
   const branch = "มีนบุรี";
   const e = (id: string, kind: string, values: Record<string, string> = {}) =>
@@ -38,9 +39,7 @@ test("a closed branch day takes a request, its withdrawal and a link, nothing el
     e("rq1", "editRequest", { targetId: "r1", "to.kg": "2" }),
     e("cd1", "closeDay", { confirm: "x" }),
   );
-  expect(() => append(e("r2", "receive", { kg: "1" }))).toThrow(
-    "Branch day is closed",
-  );
+  append(e("r2", "receive", { kg: "1" }));
   expect(() => append(e("wd0", "void", { targetId: "r1" }))).toThrow(
     "Void target is not a pending edit request of this branch",
   );

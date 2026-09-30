@@ -15,8 +15,9 @@ describe("dispatchWithPackingList", () => {
       {
         invoiceNo: "INV-1",
         product: "เนื้อวัว",
+        attachment: "packing.pdf",
+        slicedNetKg: "50",
         slicedLostKg: "50",
-        boxes: "25\n25",
       },
       day,
       "owner",
@@ -39,11 +40,11 @@ describe("dispatchWithPackingList", () => {
         s.db,
         s.db.lots.at(-1)!.id,
         send,
-        { invoiceNo: "INV-1", product: "เนื้อวัว", boxes: "" },
+        { invoiceNo: "INV-1", product: "เนื้อวัว", slicedNetKg: "-5" },
         day,
         "owner",
       ),
-    ).toThrow("กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
+    ).toThrow("Sliced Weight Net");
     expect(lotProgress(s.db, s.db.lots.at(-1)!.id).has("dispatch")).toBe(false);
   });
 });

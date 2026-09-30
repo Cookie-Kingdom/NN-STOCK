@@ -10,7 +10,6 @@ const manager = accountById("manager");
 const config = {
   ...seed.config,
   boxPrice: "350",
-  addonPrice: "320",
   chiliPrice: "30",
 };
 const entry = (e: Partial<Entry> & Pick<Entry, "id" | "kind" | "role">) =>
@@ -28,7 +27,6 @@ const sale = entry({
   role: "branch",
   values: {
     boxes: "2",
-    addons: "0",
     chiliAddons: "0",
     lineMan: "700",
     revenue: "700",
@@ -80,7 +78,6 @@ test("a manager approval from the stripped copy keeps stored money and takes the
       targetId: "s1",
       targetKind: "sale",
       "to.boxes": "3",
-      "to.addons": "0",
       "to.chiliAddons": "0",
       "to.lineMan": "1", // made up: dropped
     },
@@ -118,17 +115,17 @@ test("a manager direct edit keeps the current money and works out menuTotal agai
       targetId: "s1",
       targetKind: "sale",
       "to.boxes": "1",
-      "to.addons": "1",
-      "to.chiliAddons": "0",
+      "to.chiliAddons": "1",
     },
   });
   saveState(db, manager, { ...seen, entries: [...seen.entries, edit] }, 2);
   const { entries } = readState(db).payload;
   expect(entries[0]).toEqual(sale);
+  // menuTotal = boxes × boxPrice + chiliAddons × chiliPrice (no Add-on any more).
   expect(entries[2].values).toMatchObject({
     "from.lineMan": "700",
     "to.lineMan": "700",
-    "to.menuTotal": "670",
+    "to.menuTotal": "380",
   });
 });
 

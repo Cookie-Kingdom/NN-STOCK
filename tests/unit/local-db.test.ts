@@ -127,7 +127,8 @@ test("the Owner and the Account Manager save Foodiva / Chef House work", () => {
     actor: "manager",
   });
 
-  const input = { receivedBoxes: "24.5\n24.5", arrival: "08:00" };
+  const input = { receivedKg: "49", arrival: "08:00" };
+
   const stored = readState(db).payload;
   const received = mutate(stored, "owner", "cmReceive", input, lotId, day);
   // The Manager must stamp its own name, not the Owner's.

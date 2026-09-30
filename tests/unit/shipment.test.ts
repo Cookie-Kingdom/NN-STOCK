@@ -117,7 +117,7 @@ describe("smoke PO lines", () => {
 });
 
 describe("batch at Chef House", () => {
-  test("CHF-02 yellow cells off the Packing List save, and meat cost splits back to each PO pro rata", () => {
+  test("CHF-02 a received total off the Packing List saves, and meat cost splits back to each PO pro rata", () => {
     const s = setup();
     const [a, b] = purchases(s, ["300", "250"], ["700", "200"]);
     smokeOrder(
@@ -132,16 +132,16 @@ describe("batch at Chef House", () => {
     dispatch(s);
     packingList(s, "500\n500");
     s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
-    const receive = (receivedBoxes: string) =>
-      s.run("owner", "cmReceive", { receivedBoxes, arrival: "08:00" });
-    // A box count off the Packing List is said, not refused.
+    const receive = (receivedKg: string) =>
+      s.run("owner", "cmReceive", { receivedKg, arrival: "08:00" });
+    // A total off the Packing List is said, not refused.
     expectWarning(
       s.dry(() => receive("450")),
-      "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List",
+      "น้ำหนักรับรวมไม่ตรงกับ Packing List",
     );
-    expect(() => receive("450\n")).toThrow("กรอกน้ำหนักจริงทุกกล่องรับเข้า");
-    expect(() => receive("0\n0")).toThrow("น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
-    receive("450\n500");
+    expect(() => receive("-1")).toThrow("น้ำหนักรับรวม");
+    receive("950");
+
     const batch = s.db.lots.at(-1)!;
     expect(batch.values.receivedKg).toBe("950");
     expect(shipmentShares(s.db, batch)).toEqual([

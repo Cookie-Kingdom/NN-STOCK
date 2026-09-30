@@ -8,13 +8,6 @@ import { day, last, ready, setup } from "./fixtures";
 const titles = (db: Database, branch: string, date = day) =>
   branchAlerts(db, branch, date).notifications.map((item) => item.title);
 
-/** A lot at central stock with `kg` allocated to `branch`. */
-function allocated(branch: string, kg: string) {
-  const s = ready();
-  s.run("owner", "allocate", { branch, kg, deliveryDate: day });
-  return s;
-}
-
 /** Every day starts uncounted, so this line rides along until `materials` is saved. */
 const notCounted = `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${day}`;
 
@@ -25,21 +18,16 @@ test("an empty day asks to be closed and to count the materials", () => {
   ]);
 });
 
-test("an allocation waits at its own branch and nowhere else", () => {
-  const s = allocated("ศาลาแดง", "17.5");
-  expect(branchAlerts(s.db, "ศาลาแดง", day).notifications[0]).toEqual({
-    title: "รับเนื้อเข้าสาขา 1 Lot",
-    detail: "Owner จัดสรรมา 17.50 กก. ยังไม่ได้รับเข้าสาขาศาลาแดง",
-    tab: "day",
-  });
-  // มีนบุรี was not allocated anything: its bell must not mention the other branch's Lot.
-  expect(titles(s.db, "มีนบุรี")).toEqual([
-    `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
-    notCounted,
-  ]);
-  expect(branchAlerts(s.db, "มีนบุรี", day).badges.day).toBe(1);
+test("meat in central stock rings no branch's bell: branches record receives themselves (BR-07)", () => {
+  const s = ready();
+  for (const branch of ["ศาลาแดง", "มีนบุรี"]) {
+    expect(titles(s.db, branch)).toEqual([
+      `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+      notCounted,
+    ]);
+    expect(branchAlerts(s.db, branch, day).badges.day).toBe(1);
+  }
 });
-
 test("material sent to one branch is not the other branch's job", () => {
   const s = setup();
   s.run("owner", "materialReceive", {
@@ -94,9 +82,8 @@ test("ตรวจนับสต๊อกวัสดุ waits until the day's 
 });
 
 test("the day's own work follows the daily workflow, step by step", () => {
-  const s = allocated("ศาลาแดง", "20");
-  const allocation = last(s);
-  s.run("branch", "receive", { kg: "20", allocation: allocation.id });
+  const s = ready();
+  s.run("branch", "receive", { kg: "20" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([
     `ยังไม่แบ่งละลายเนื้อวันที่ ${day}`,
     `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
@@ -117,7 +104,6 @@ test("the day's own work follows the daily workflow, step by step", () => {
 
   s.run("branch", "sale", {
     boxes: "0",
-    addons: "190",
     chiliAddons: "0",
     soldKg: "19",
     wasteKg: "0",
@@ -135,10 +121,7 @@ test("the day's own work follows the daily workflow, step by step", () => {
     "materials",
     Object.fromEntries(materials.map((_, index) => [`material${index}`, "10"])),
   );
-  s.run("branch", "riceCarry", {
-    leftoverKg: "0",
-    reheat: "เก็บไว้อุ่นวันถัดไป",
-  });
+  s.run("branch", "riceCarry", { leftoverKg: "0" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([`พร้อมปิดวันที่ ${day}`]);
   expect(branchAlerts(s.db, "ศาลาแดง", day).badges["material-count"]).toBe(0);
 
@@ -148,8 +131,8 @@ test("the day's own work follows the daily workflow, step by step", () => {
 });
 
 test("an edit request is only ever shown to the branch that made it", () => {
-  const s = allocated("ศาลาแดง", "20");
-  s.run("branch", "receive", { kg: "20", allocation: last(s).id });
+  const s = ready();
+  s.run("branch", "receive", { kg: "20" });
   const receipt = last(s);
   const asked = mutate(
     s.db,
@@ -175,7 +158,7 @@ test("an edit request is only ever shown to the branch that made it", () => {
 });
 
 test("every branch alert points at a tab a branch actually has", () => {
-  const s = allocated("ศาลาแดง", "20");
+  const s = ready();
   const tabs = branchAlerts(s.db, "ศาลาแดง", day).notifications.map(
     (item) => item.tab,
   );

@@ -25,7 +25,6 @@ test("DASH-01 the ไม่ระบุ Lot figure is what is left in the bucket
     "sale",
     {
       boxes: "0",
-      addons: "20",
       chiliAddons: "0",
       soldKg: "2",
       wasteKg: "0",
@@ -92,10 +91,17 @@ test("DASH-02 counts its 30 days back from today, not from the newest entry", ()
   confirm(s, "40");
   dispatch(s, "");
   const batch = s.db.lots.at(-1)!.id;
+  // Recorded on their business day, so `at` does not keep the batch active on its own.
+  for (const entry of s.db.entries) entry.at = `${day}T08:00:00.000Z`;
   expect(activeBatches(s.db, day).map((lot) => lot.id)).toEqual([batch]);
   expect(activeBatches(s.db, "2026-10-09").map((lot) => lot.id)).toEqual([
     batch,
   ]);
   // More than 30 days after the batch's last entry: nothing is active any more.
   expect(activeBatches(s.db, "2026-10-10")).toEqual([]);
+  // An entry recorded within the 30 days (a back-dated one) keeps it active (DASH-02).
+  s.db.entries.at(-1)!.at = "2026-10-05T08:00:00.000Z";
+  expect(activeBatches(s.db, "2026-10-10").map((lot) => lot.id)).toEqual([
+    batch,
+  ]);
 });
