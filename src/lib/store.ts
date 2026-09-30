@@ -47,6 +47,7 @@ export {
   latestPackingList,
   packingListKg,
   shipmentShares,
+  poMatched,
   shipmentChain,
   reservedForOwnerContent,
   ownerWasteReceived,

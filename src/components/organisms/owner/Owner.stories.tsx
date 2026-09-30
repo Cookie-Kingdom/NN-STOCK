@@ -14,6 +14,7 @@ import {
   ownerReservedDb,
   partialBatchDb,
   unlinkedDb,
+  unmatchedPoDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import type { Tab } from "@/lib/nav";
@@ -70,6 +71,7 @@ const centralState = pick("สถานะ", {
   ตัวอย่าง: db,
   พร้อมจัดสรร: centralDb,
   ไม่มีรถกลับ: freeOrderDb,
+  "ยังไม่จับคู่ PO ซื้อ": unmatchedPoDb,
 });
 const dailyState = pick("สถานะ", {
   ตัวอย่าง: db,
@@ -159,7 +161,13 @@ export const Stock: Story = {
  *  - ตัวอย่าง: the seven-day demo run.
  *  - พร้อมจัดสรร: the batch is in central stock (35 kg), nothing left to receive.
  *  - ไม่มีรถกลับ: a batch with only its smoke PO; it can be received with no truck home
- *    and no Foodiva receipt, the chips say what is missing. */
+ *    and no Foodiva receipt, the chips say what is missing. Its "PO ซื้อ" cell lists the
+ *    two purchase POs it draws on (300 + 200 kg).
+ *  - ยังไม่จับคู่ PO ซื้อ (RET-07): a smoke PO saved without purchase PO lines shows the
+ *    "ยังไม่จับคู่ PO ซื้อ" badge and chip, its button opens the match dialog (`matchPo`);
+ *    below, "เข้าสต๊อกกลางแล้ว · ยังไม่จับคู่ PO ซื้อ" keeps the two batches already in
+ *    central: one the same, one with no smoke PO at all ("ยังไม่มี PO รมควัน", its
+ *    button opens the smoke PO form on that batch). Nothing blocks receiving. */
 export const CentralReceive: Story = {
   argTypes: { db: centralState.argType },
   args: { db: centralState.initial },

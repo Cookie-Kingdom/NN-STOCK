@@ -2,6 +2,7 @@ import { today } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   lotProgress,
+  poMatched,
   shipments,
   type Database,
   type EntryKind,
@@ -25,7 +26,9 @@ export const batchSteps = [
   "return",
   "foodivaReturnReceive",
   "central",
-] as const satisfies readonly EntryKind[];
+  // RET-07: not an entry of its own; the smoke PO's `lines` naming a purchase PO.
+  "matchPo",
+] as const satisfies readonly (EntryKind | "matchPo")[];
 export type BatchStep = (typeof batchSteps)[number];
 
 /** Chip-sized names; the dialog titles are too long to line up in a table cell. */
@@ -42,6 +45,7 @@ export const stepLabels: Record<BatchStep, string> = {
   return: "รถขากลับ",
   foodivaReturnReceive: "Foodiva รับเข้าตู้",
   central: "สต๊อกกลาง",
+  matchPo: "จับคู่ PO ซื้อ",
 };
 
 /** Where the Owner records each step, its own and the ones it types for Foodiva and
@@ -59,16 +63,23 @@ const ownerStepTab: Record<BatchStep, Tab> = {
   return: "return-shipment",
   foodivaReturnReceive: "foodiva",
   central: "central-receive",
+  matchPo: "central-receive",
 };
 
-/** Steps of `steps` the batch has no entry for yet (DASH-02). */
+/** Steps of `steps` the batch has no entry for yet (DASH-02). "จับคู่ PO ซื้อ" is missing
+ *  once there is something to match: a smoke PO without purchase PO lines, or a batch that
+ *  reached central stock with no smoke PO at all (RET-07). */
 export function missingSteps(
   db: Database,
   lotId: string,
   steps: readonly BatchStep[] = batchSteps,
 ): BatchStep[] {
   const done = lotProgress(db, lotId);
-  return steps.filter((step) => !done.has(step));
+  return steps.filter((step) =>
+    step === "matchPo"
+      ? (done.has("smokeOrder") || done.has("central")) && !poMatched(db, lotId)
+      : !done.has(step),
+  );
 }
 
 /** The tab of the first missing step, else the manifest. */

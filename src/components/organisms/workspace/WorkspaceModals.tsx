@@ -15,6 +15,7 @@ import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
 import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
 import { ChefReceiveForm } from "@/components/organisms/owner/ChefReceiveForm";
 import { FoodivaDispatchForm } from "@/components/organisms/owner/FoodivaDispatchForm";
+import { MatchPurchasePoDialog } from "@/components/organisms/owner/MatchPurchasePoDialog";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -205,6 +206,16 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           setChosen(next.lots.at(-1)?.id || chosen);
           done(savedMessage(titles.smokeOrder));
         }}
+      />
+    );
+  }
+  if (modal.kind === "matchPo") {
+    return (
+      <MatchPurchasePoDialog
+        db={db}
+        lotId={modal.lotId}
+        onClose={close}
+        onSaved={done}
       />
     );
   }

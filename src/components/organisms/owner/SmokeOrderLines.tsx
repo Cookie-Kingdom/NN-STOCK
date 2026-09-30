@@ -14,17 +14,19 @@ export function SmokeOrderLines({
   pos,
   kg,
   own = {},
+  title = "PO ซื้อที่ใช้ในชุดนี้ (กก.)",
   onLine,
 }: {
   db: Database;
   pos: Lot[];
   kg: Record<string, string>;
   own?: Record<string, number>;
+  title?: string;
   onLine: (poId: string, value: string) => void;
 }) {
   return (
     <DataTable
-      title="PO ซื้อที่ใช้ในชุดนี้ (กก.)"
+      title={title}
       columns={["เลข PO", "Invoice เนื้อ", "คงเหลือ", "ส่งชุดนี้ (กก.)"]}
       numericColumns={["ส่งชุดนี้ (กก.)"]}
       emptyText="ไม่มี PO ซื้อที่มีเนื้อคงเหลือ · ออก PO รมควันได้โดยไม่ระบุ PO ซื้อ แล้วผูกภายหลัง"

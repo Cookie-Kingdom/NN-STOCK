@@ -123,6 +123,7 @@ export function EditEntryForm({
   db,
   request,
   error,
+  initialReason = "",
   onCancel,
   onSubmit,
 }: {
@@ -131,6 +132,8 @@ export function EditEntryForm({
   db?: Database;
   request: boolean;
   error?: string;
+  /** Starts the reason box, for an edit opened for one purpose (RET-07's PO match). */
+  initialReason?: string;
   onCancel: () => void;
   onSubmit: (values: Values, reason: string) => void;
 }) {
@@ -141,7 +144,7 @@ export function EditEntryForm({
       !editLockedKeys.includes(f.key),
   );
   const [values, setValues] = useState<Values>(() => ({ ...entry.values }));
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialReason);
   // SMK-05: a smoke PO's lines are edited with the same table the new PO form uses.
   const own: Record<string, number> = Object.fromEntries(
     (JSON.parse(entry.values.lines || "[]") as Values[]).map((line) => [

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
 import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
@@ -279,13 +280,19 @@ export function Report({
             const c = lotCost(db, l);
             const p = lotProgress(db, l.id);
             const out = offShelfRows.filter((e) => e.lotId === l.id);
+            // RET-07: no purchase PO lines, no meat cost: a ฿/kg without it would mislead.
+            const unmatched = (
+              <Badge key="unmatched" tone="warning">
+                ยังไม่จับคู่
+              </Badge>
+            );
             return [
               `${l.poId} · ${l.id}`,
               batchKinds
                 .filter((k) => p.has(k))
                 .map((k) => titles[k])
                 .at(-1) ?? "—",
-              fmt(c.meat),
+              c.meatMatched ? fmt(c.meat) : unmatched,
               // D8: the smoke PO's estimate until Chef House's invoice is in.
               c.smokingCostSource === "estimate"
                 ? `${fmt(c.smoke)} (ประมาณการ)`
@@ -293,10 +300,18 @@ export function Report({
                   ? "—"
                   : fmt(c.smoke),
               fmt(c.freight),
-              fmt(c.total),
-              n(l.values, "centralKg") > 0 ? fmt(c.perKg) : "—",
+              c.meatMatched ? fmt(c.total) : `${fmt(c.total)} (ไม่รวมเนื้อ)`,
+              !c.meatMatched
+                ? unmatched
+                : n(l.values, "centralKg") > 0
+                  ? fmt(c.perKg)
+                  : "—",
               out.length ? fmt(soldKg(out)) : "—",
-              out.length ? fmt(meatCostOf(out)) : "—",
+              !out.length
+                ? "—"
+                : c.meatMatched
+                  ? fmt(meatCostOf(out))
+                  : unmatched,
             ];
           }),
           // BR-05 / D3: branch meat in the "ไม่ระบุ Lot" bucket is sold at no cost until linked.
