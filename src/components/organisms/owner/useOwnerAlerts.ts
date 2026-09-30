@@ -11,7 +11,6 @@ import {
 } from "@/components/organisms/owner/lotSteps";
 import {
   awaitingReturn,
-  centralStock,
   currentSmokingInvoices,
   type Database,
   entries,
@@ -62,11 +61,6 @@ export function useOwnerAlerts(db: Database) {
     const p = lotProgress(db, lot.id);
     return p.has("foodivaReturnReceive") && !p.has("central");
   }).length;
-  const allocationCount = shipmentLots.filter(
-    (lot) =>
-      lotProgress(db, lot.id).has("central") &&
-      centralStock(db, lot.id) > 0.001,
-  ).length;
   // Invoices the owner has to act on, the same ones the bell lists: a Foodiva meat invoice
   // still unpaid, a Chef House smoking invoice to review or to pay.
   const pendingInvoices = ownerPendingInvoices(db);
@@ -88,8 +82,12 @@ export function useOwnerAlerts(db: Database) {
     lot,
     p: lotProgress(db, lot.id),
   }));
-  // The outbound transport doc is made on the foodiva tab (the transport tab only lists),
-  // so a batch still waiting on it counts here, not on a `transport` badge.
+  // The outbound transport doc is made on the foodiva tab, so a batch waiting on it counts
+  // there too; the `transport` badge repeats it for every batch with work but no ใบขนส่ง,
+  // with a smoke PO or opened some other way (Chef House weighed in first, etc.).
+  const transportLots = active.filter(
+    ({ p }) => p.size > 0 && !p.has("dispatch"),
+  );
   const foodivaCount =
     purchaseLots(db).filter(
       (lot) => !lotProgress(db, lot.id).has("foodivaConfirm"),
@@ -130,6 +128,11 @@ export function useOwnerAlerts(db: Database) {
             },
           ],
     ),
+    ...transportLots.map(({ lot }): OwnerNotification => ({
+      title: `ต้องทำใบขนส่ง · ${lot.poId}`,
+      detail: "ออกใบขนส่งขาไปของ Foodiva",
+      tab: "foodiva",
+    })),
     // DASH-02: per batch active in the last 30 days, the steps it has no entry for. Advice
     // only; the smoking invoice's own review state is said on its own below.
     ...activeBatches(db).flatMap((item): OwnerNotification[] => {
@@ -205,15 +208,6 @@ export function useOwnerAlerts(db: Database) {
           },
         ]
       : []),
-    ...(allocationCount
-      ? [
-          {
-            title: `มีเนื้อพร้อมจัดสรร ${allocationCount} Lot`,
-            detail: "เลือกสาขาและจัดสรรเนื้อที่รออยู่ที่ Foodiva",
-            tab: "branch-status" as Tab,
-          },
-        ]
-      : []),
     ...(missingMaterialSettings
       ? [
           {
@@ -234,12 +228,13 @@ export function useOwnerAlerts(db: Database) {
       invoices: billingCount,
       "smoke-po": smokePoCount,
       foodiva: foodivaCount,
+      transport: transportLots.length,
       "cm-receive": cmReceiveCount,
       work: workCount,
       "central-receive": centralReceiveCount,
-      "branch-status": allocationCount,
       config: missingMaterialSettings,
-      history: editAlerts.length,
+      // The bell sends both edit requests and unlinked branch meat to history.
+      history: editAlerts.length + unlinkedCount,
     } satisfies Partial<Record<Tab, number>>,
   };
 }
