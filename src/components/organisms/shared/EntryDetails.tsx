@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
+import { MissingMark } from "@/components/atoms/MissingMark";
 import { ReadRow } from "@/components/atoms/ReadRow";
 import { Textarea } from "@/components/atoms/Textarea";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
@@ -31,6 +32,8 @@ import {
   entries,
   entryEdits,
   check,
+  missingKeys,
+  missingText,
   mutate,
   openEditRequest,
   entryBy,
@@ -86,7 +89,10 @@ const derivedLabels: Record<string, string> = {
 const linkEchoKeys = ["targetKind", "targetDate", "targetRole", "targetBranch"];
 
 const fieldLabel = (kind: string, key: string) =>
-  forms[kind]?.find((f) => f.key === key)?.label || derivedLabels[key] || key;
+  forms[kind]?.find((f) => f.key === key)?.label ||
+  derivedLabels[key] ||
+  titles[key as EntryKind] || // closeDay's unfinished checklist items
+  key;
 
 const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
 
@@ -94,7 +100,9 @@ const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
 export function EditDiff({ values }: { values: Values }) {
   const from = unpack("from.", values),
     to = unpack("to.", values);
-  const changed = Object.keys(to).filter((k) => (from[k] ?? "") !== to[k]);
+  const changed = Object.keys(to).filter(
+    (k) => k !== "missing" && (from[k] ?? "") !== to[k],
+  );
   return changed.length ? (
     changed.map((k) => (
       <ReadRow
@@ -327,6 +335,7 @@ export function EntryDetails({
     onChanged([done, ...warnings].join(" · "));
   };
   const isEdit = ["entryEdit", "editRequest", "editDecision"].includes(e.kind);
+  const missing = missingKeys(current.values);
   return (
     <details open={open} className="border-b border-border py-3.5">
       <summary>
@@ -375,6 +384,11 @@ export function EntryDetails({
                 : "ยังไม่ผูก Lot"}
             </Badge>
           )}
+          {!isEdit && missing.length > 0 && (
+            <Badge tone="warning" className="ml-2">
+              {missingText} {missing.length} ช่อง
+            </Badge>
+          )}
           {e.kind === "editDecision" && (
             <Badge
               tone={e.values.decision === "อนุมัติ" ? "success" : "danger"}
@@ -418,7 +432,10 @@ export function EntryDetails({
           {Object.entries(current.values)
             .filter(
               ([k, v]) =>
-                v !== "" && !(e.kind === "link" && linkEchoKeys.includes(k)),
+                v !== "" &&
+                k !== "missing" &&
+                !missing.includes(k) &&
+                !(e.kind === "link" && linkEchoKeys.includes(k)),
             )
             .map(([k, v]) => {
               const reference = referenceText(lookup, k, v);
@@ -438,6 +455,13 @@ export function EntryDetails({
                 />
               );
             })}
+          {missing.map((k) => (
+            <ReadRow
+              key={k}
+              label={fieldLabel(e.kind, k)}
+              value={<MissingMark />}
+            />
+          ))}
         </>
       )}
       <small className="text-text-secondary">บันทึก {at(e.at)}</small>

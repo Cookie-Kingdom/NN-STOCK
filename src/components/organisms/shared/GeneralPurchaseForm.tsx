@@ -106,25 +106,14 @@ function build(
   let next = from;
   const addedIngredients = new Set(savedIngredients);
   for (const line of lines) {
-    const item = line.item.trim();
+    const item = line.item === "__custom__" ? "" : line.item.trim();
     // A line without its own date follows the working date, like MaterialPurchaseForm.
     const purchaseDate = line.purchaseDate || date;
-    const supplier = line.supplier.trim();
-    const quantity = Number(line.quantity);
-    const unitPrice = Number(line.unitPrice);
-    if (!item || item === "__custom__")
-      throw new Error("กรอกรายการที่ซื้อให้ครบ");
     if (line.category === "วัตถุดิบ" && /เนื้อ/.test(item))
       throw new Error(
         "เนื้อให้สร้างผ่านใบสั่งซื้อ PO และยืนยันรับจาก Foodiva เพื่อเชื่อม Lot และสต๊อกให้ถูกต้อง",
       );
-    if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
-    if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
-    if (!line.unit.trim()) throw new Error(`กรอกหน่วยของ ${item}`);
-    if (!Number.isFinite(quantity) || quantity <= 0)
-      throw new Error(`กรอกจำนวน ${item}`);
-    if (!Number.isFinite(unitPrice) || unitPrice < 0)
-      throw new Error(`กรอกราคาซื้อ ${item}`);
+    // An empty field is saved and marked missing by mutate (GEN-02); it refuses only a bad number.
     next = mutate(
       next,
       "owner",
@@ -134,15 +123,19 @@ function build(
         purchaseCategory: line.category,
         item,
         unit: line.unit.trim(),
-        quantity: String(quantity),
-        unitPrice: String(unitPrice),
-        supplier,
+        quantity: line.quantity.trim(),
+        unitPrice: line.unitPrice.trim(),
+        supplier: line.supplier.trim(),
         reference: line.reference.trim(),
       },
       "",
       purchaseDate,
     );
-    if (line.category === "วัตถุดิบ" && !standardIngredients.includes(item))
+    if (
+      item &&
+      line.category === "วัตถุดิบ" &&
+      !standardIngredients.includes(item)
+    )
       addedIngredients.add(item);
   }
   return {
@@ -243,29 +236,17 @@ export function GeneralPurchaseForm({
     setError("");
   };
   const source = (id: string, key: CarriedKey) => sources[`${id}:${key}`];
-  const complete = lines.every(
-    (line) =>
-      line.item.trim() &&
-      line.item !== "__custom__" &&
-      (line.purchaseDate || date) &&
-      line.unit.trim() &&
-      line.quantity.trim() &&
-      line.unitPrice.trim() &&
-      line.supplier.trim(),
-  );
   /* The save's own code, dry-run on the lines as they stand, so a bad line is
    * reported while it is being typed instead of after ยืนยัน. mutate clones the
-   * database, so a dry run changes nothing. Held back until every line is filled
-   * in: an unfinished form must not be told off for being unfinished. */
+   * database, so a dry run changes nothing. An empty field is never an error. */
   const liveError = useMemo(() => {
-    if (!complete) return "";
     try {
       build(latestDatabase(), lines, date, savedIngredients);
       return "";
     } catch (caught) {
       return caught instanceof Error ? caught.message : "";
     }
-  }, [complete, lines, date, savedIngredients]);
+  }, [lines, date, savedIngredients]);
   const addLine = () =>
     setLines((current) => [...current, newGeneralPurchaseLine("")]);
   const removeLine = (id: string) =>
