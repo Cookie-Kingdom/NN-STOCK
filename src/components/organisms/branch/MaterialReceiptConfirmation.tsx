@@ -295,7 +295,7 @@ export function MaterialReceiptConfirmation({
       {direct && (
         <Panel>
           <strong>รับวัสดุโดยไม่มีใบโอน · {date}</strong>
-          <table className="w-full max-w-2xl border-separate border-spacing-0">
+          <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-caption text-text-secondary">
                 <th className="border-b border-border py-2 pr-3 font-semibold">
@@ -315,7 +315,7 @@ export function MaterialReceiptConfirmation({
                   <td className="py-2 pr-3">
                     <Select
                       variant="table"
-                      className="w-full max-w-80 text-left"
+                      className="w-full text-left"
                       autoFocus={index === direct.rows.length - 1}
                       aria-label={`วัสดุ แถวที่ ${index + 1}`}
                       value={row.material}
