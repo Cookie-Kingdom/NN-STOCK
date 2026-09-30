@@ -36,13 +36,11 @@ export function DailyMaterialsTable({
   branch,
   date,
   onDate,
-  disabled,
 }: {
   db: Database;
   branch: string;
   date: string;
   onDate: (date: string) => void;
-  disabled: boolean;
 }) {
   const saved = savedMaterialCount(db, branch, date);
   /* Locked by default, the way the Owner's ตั้งค่า tables are: the day's figures read
@@ -76,8 +74,7 @@ export function DailyMaterialsTable({
     wasEditing.current = editing !== null;
   }, [editing]);
 
-  // A day that closes while the table is open falls straight back to the locked view.
-  const open = editing !== null && !disabled;
+  const open = editing !== null;
   const opening = (i: number) => branchMaterialStock(db, branch, i, date);
   const savedUsed = (i: number) => (saved ? n(saved.values, "used" + i) : 0);
   const used = (i: number) => n(draft, "used" + i);
@@ -192,8 +189,6 @@ export function DailyMaterialsTable({
                   ? "ขอแก้ไขยอดนับ (Edit count)"
                   : "ตรวจนับวัสดุวันนี้ (Count)"
               }
-              disabled={disabled}
-              disabledLabel="ปิดวันแล้ว · แก้ไขไม่ได้"
               editRef={editButton}
             />
           </FilterBar>

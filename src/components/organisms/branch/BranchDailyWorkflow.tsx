@@ -80,7 +80,6 @@ export function BranchDailyWorkflow({
       <Button
         key="receive-action"
         variant="table"
-        disabled={closed}
         onClick={() => open("receive", pending[0]?.id ?? "")}
       >
         รับของ
@@ -96,11 +95,7 @@ export function BranchDailyWorkflow({
         "ไม่มีเนื้อแช่แข็ง"
       ),
       frozen.length ? (
-        <Button
-          variant="table"
-          disabled={closed}
-          onClick={() => open("thaw", frozen[0])}
-        >
+        <Button variant="table" onClick={() => open("thaw", frozen[0])}>
           แบ่งละลาย
         </Button>
       ) : (
@@ -120,12 +115,7 @@ export function BranchDailyWorkflow({
       ) : (
         "วันนี้ไม่ต้องบันทึกข้าวเหนียว"
       ),
-      <Button
-        key="rice-action"
-        variant="table"
-        disabled={closed}
-        onClick={() => onTab("rice")}
-      >
+      <Button key="rice-action" variant="table" onClick={() => onTab("rice")}>
         ไปเมนูข้าวเหนียววันนี้
       </Button>,
     ],
@@ -141,11 +131,7 @@ export function BranchDailyWorkflow({
         "รอเนื้อละลาย"
       ),
       ready.length ? (
-        <Button
-          variant="table"
-          disabled={closed}
-          onClick={() => open("sale", ready[0])}
-        >
+        <Button variant="table" onClick={() => open("sale", ready[0])}>
           บันทึกยอดขาย
         </Button>
       ) : (
@@ -155,7 +141,7 @@ export function BranchDailyWorkflow({
     [
       <strong key="close">5. ปิดวัน</strong>,
       closed
-        ? "ปิดวันแล้ว · ข้อมูลวันนี้ถูกล็อก"
+        ? "ปิดวันแล้ว · ยังบันทึกเพิ่มได้"
         : missing
           ? `ยังขาด ${missing} รายการก่อนปิดวัน`
           : "พร้อมปิดวัน",

@@ -49,7 +49,7 @@ export function CloseDayChecklist({
         </Notice>
       ) : (
         <Notice tone="success" role="none">
-          ข้อมูลครบ ปิดวันได้ทุกเวลา · ปิดแล้วข้อมูลวันนี้ถูกล็อก
+          ข้อมูลครบ ปิดวันได้ทุกเวลา · ปิดแล้วยังบันทึกเพิ่มได้
         </Notice>
       )}
     </>

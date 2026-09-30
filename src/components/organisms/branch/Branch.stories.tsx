@@ -57,8 +57,6 @@ type Story = StoryObj<{
   db: Database;
   date: string;
   branch: string;
-  closed: boolean;
-  disabled: boolean;
   hasLots: boolean;
   actions: boolean;
 }>;
@@ -107,9 +105,9 @@ const riceState = pick("ข้อมูล", {
   ยังไม่ยกข้าวไปวันถัดไป: chillDb,
 });
 
-/** Pick the day's state in Controls: เปิดวัน, after ปิดวัน (status reads locked and
- *  every action is disabled), or "ไม่ระบุ Lot" (meat received with no batch: thawing
- *  and selling open on that bucket). "รับของ" is always open, allocation or not. */
+/** Pick the day's state in Controls: เปิดวัน, after ปิดวัน (status reads closed; steps
+ *  1-4 stay open, only ตรวจและปิดวัน is disabled), or "ไม่ระบุ Lot" (meat received
+ *  with no batch: thawing and selling open on that bucket). "รับของ" is always open, allocation or not. */
 export const DailyWorkflow: Story = {
   argTypes: { db: dayState.argType },
   args: { db: dayState.initial },
@@ -174,22 +172,19 @@ export const CloseChecklist: Story = {
 };
 
 /** ข้าวเหนียว. สาขา: ศาลาแดง นึ่งเองหรือซื้อข้าวสุก (4 แถว), มีนบุรี ซื้อข้าวสุกอย่างเดียว.
- *  ข้อมูล = "ยังไม่ยกข้าวไปวันถัดไป" marks the rows closing still needs; disabled = the
- *  day is closed; hasLots off = no Lot at the branch yet. */
+ *  ข้อมูล = "ยังไม่ยกข้าวไปวันถัดไป" marks the rows closing still needs; hasLots off = no Lot at the branch yet. */
 export const RiceTasks: Story = {
   argTypes: {
     branch: branchArg,
     db: riceState.argType,
-    disabled: { control: "boolean" },
     hasLots: { control: "boolean" },
   },
   args: {
     branch,
     db: riceState.initial,
-    disabled: false,
     hasLots: true,
   },
-  render: ({ branch, db, disabled, hasLots }) => (
+  render: ({ branch, db, hasLots }) => (
     <DailyTaskTable
       title={
         cooksRice(branch)
@@ -205,7 +200,6 @@ export const RiceTasks: Story = {
       db={db}
       branch={branch}
       date={day}
-      disabled={disabled}
       hasLots={hasLots}
       open={open}
     />
@@ -215,18 +209,12 @@ export const RiceTasks: Story = {
 /** ล็อกไว้เป็นค่าเริ่มต้นเหมือนตาราง "ตั้งค่า" ของ Owner. เลือกสถานะใน Controls:
  *  - นับแล้ว: ยอดที่บันทึกไว้ของวันนี้อ่านเป็นตัวอักษรล้วน ไม่มีช่องกรอก
  *  - ยังไม่นับ: ทุกช่องเป็น "—" และปุ่มเดียวคือ "ตรวจนับวัสดุวันนี้"
- *  - ปิดวันแล้ว: ตารางล็อกถาวร ปุ่มบอกเหตุผลและกดไม่ได้ */
+ *  - ปิดวันแล้ว: ยังกด "ขอแก้ไขยอดนับ" ได้ตามปกติ */
 export const Materials: Story = {
   argTypes: { db: materialsState.argType },
   args: { db: materialsState.initial },
   render: ({ db }) => (
-    <DailyMaterialsTable
-      db={db}
-      branch={branch}
-      date={day}
-      onDate={fn()}
-      disabled={isClosed(db, branch, day)}
-    />
+    <DailyMaterialsTable db={db} branch={branch} date={day} onDate={fn()} />
   ),
 };
 
@@ -246,17 +234,16 @@ export const MaterialsEditing: Story = {
 // demoDb confirms every shipment it makes, so the pending-row state (and its live
 // "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding. The received
 // quantity starts at the sent one ("ตามยอดส่ง", expected) and the receiver at the
-// name the Owner wrote on the transfer. closed = the day is locked.
+// name the Owner wrote on the transfer.
 export const MaterialReceipt: Story = {
-  argTypes: { db: receiptState.argType, closed: { control: "boolean" } },
-  args: { db: receiptState.initial, closed: false },
-  render: ({ db, closed }) => (
+  argTypes: { db: receiptState.argType },
+  args: { db: receiptState.initial },
+  render: ({ db }) => (
     <MaterialReceiptConfirmation
       db={db}
       branch={branch}
       date={day}
       onDate={fn()}
-      closed={closed}
     />
   ),
 };
