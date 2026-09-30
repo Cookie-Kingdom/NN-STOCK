@@ -2182,7 +2182,27 @@ describe("free ledger (PRD v9)", () => {
         [po, "2"],
       ]).error,
     ).toMatch(/ซ้ำ/);
-    expect(order([[po, "0"]]).error).toMatch(/มากกว่าศูนย์/);
+    // A typed bad kg is refused; zero only warns and an empty kg is saved as missing (GEN-02).
+    expect(order([[po, "-1"]]).error).toMatch(/มากกว่าศูนย์/);
+    expectWarning(order([[po, "0"]]), /เป็นศูนย์/);
+    expect(order([[po, ""]]).error).toBe("");
+    let missing: string | undefined;
+    s.dry(() => {
+      s.run(
+        "owner",
+        "smokeOrder",
+        {
+          requestedSmokeDate: day,
+          smoker: "Chef House",
+          rawKg: "10",
+          lines: JSON.stringify([{ lotId: po, kg: "" }]),
+        },
+        "",
+      );
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("lines");
+
     expectWarning(order([[po, "10"]]), /ยังไม่มี Invoice เนื้อ/);
     expectWarning(
       order([[po, "101"]]),

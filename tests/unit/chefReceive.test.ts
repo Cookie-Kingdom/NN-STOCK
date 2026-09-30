@@ -119,6 +119,31 @@ describe("Chef House received total (CHF-02)", () => {
     expect(lotCost(s.db, edited).meat).toBeCloseTo(50 * 250);
   });
 
+  it("GEN-02 chefEdit saves empty round fields as missing; a typed bad one is refused", () => {
+    const s = smoked();
+    const lot = s.db.lots.at(-1)!;
+    const rounds = entries(s.db, "smoke", lot.id).map((e) => ({
+      id: e.id,
+      smokeDate: e.values.smokeDate,
+      inputKg: e.values.inputKg,
+      wasteKg: e.values.wasteKg,
+      packs: e.values.packs,
+    }));
+    const edit = (first: Values, values: Values = {}) =>
+      s.run("owner", "chefEdit", {
+        arrival: "09:00",
+        preSmokeKg: "48",
+        batches: JSON.stringify([{ ...rounds[0], ...first }, rounds[1]]),
+        ...values,
+      });
+    expect(() => edit({ inputKg: "-1" })).toThrow("น้ำหนักเข้าเตา");
+    expect(() => edit({}, { preSmokeKg: "abc" })).toThrow("น้ำหนักก่อนสโมค");
+    edit({ smokeDate: "", inputKg: "", wasteKg: "" }, { preSmokeKg: "" });
+    expect(
+      entries(s.db, "chefEdit", lot.id).at(-1)!.values.missing?.split(","),
+    ).toEqual(["preSmokeKg", "smokeDate", "inputKg", "wasteKg"]);
+  });
+
   it("closing yields the กล่องรมควัน count and kg for the next step", () => {
     const s = closed();
     const id = s.db.lots.at(-1)!.id;
