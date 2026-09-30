@@ -54,7 +54,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
       {tab === "day" && (
         <>
           <Notice>
-            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้ ·
+            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวสุกไม่ยกไปวันถัดไป
+            เหลือปลายวันเป็นของเสีย ·
             เนื้อละลายแล้วที่ใช้ไม่หมดเก็บเป็นคงเหลือชิล ยกไปวันถัดไปได้
           </Notice>
           <BranchDailyWorkflow
@@ -104,7 +105,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
       {tab === "rice" && (
         <>
           <Notice>
-            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวคงเหลือยกไปวันถัดไปได้
+            วันที่ทำรายการ {date} · สาขา {branch} · ข้าวสุกไม่ยกไปวันถัดไป
+            เหลือปลายวันเป็นของเสีย
           </Notice>
           <DailyTaskTable
             title={riceTask.title}

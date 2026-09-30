@@ -568,14 +568,10 @@ export function OwnerDashboard({
                   ไม่ระบุ Lot {fmt(balance(db, "", branchName).frozen)} กก.
                 </span>
               )}
+              {/* Both branches may cook their own rice now (B2), so both show both. */}
+              <span>ข้าวดิบ {fmt(rawRiceStock(db, branchName))} กก.</span>
               <span>
-                {branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"}{" "}
-                {fmt(
-                  branchName === "มีนบุรี"
-                    ? cookedRiceStock(db, branchName, date)
-                    : rawRiceStock(db, branchName),
-                )}{" "}
-                กก.
+                ข้าวสุก {fmt(cookedRiceStock(db, branchName, date))} กก.
               </span>
               <span>น้ำพริก {fmt(chiliStock(db, branchName))} หลอด</span>
             </div>

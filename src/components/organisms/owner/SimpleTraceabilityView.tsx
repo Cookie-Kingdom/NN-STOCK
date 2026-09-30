@@ -206,7 +206,18 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     lot.id,
                   ).at(-1);
                   const central = entries(db, "central", lot.id).at(-1);
+                  // Old data only: allocation is retired (BR-01); branches record what they took in.
                   const allocations = entries(db, "allocate", lot.id);
+                  // BR-02: every branch receive on this batch, linked to it later too (entries()).
+                  const receives = entries(db, "receive", lot.id).sort(
+                    byDateAt,
+                  );
+                  const receivedByBranch = [
+                    ...new Set(receives.map((e) => e.branch)),
+                  ].map(
+                    (branch) =>
+                      `${branch} ${fmt(receives.filter((e) => e.branch === branch).reduce((t, e) => t + n(e.values, "kg"), 0))} กก.`,
+                  );
                   // Sales and influencer boxes, oldest first; counted in days, not entries.
                   const sales = offShelf(db, lot.id).sort(byDateAt);
                   const saleDays = new Set(sales.map((e) => e.date)).size;
@@ -223,6 +234,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     foodivaReturn,
                     central,
                     ...allocations,
+                    ...receives,
                     ...sales,
                   ]
                     .filter((entry): entry is Entry => !!entry)
@@ -233,39 +245,64 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                     .at(-1);
                   const latestDocument = sales.length
                     ? `ขายที่สาขา · ${saleDays} วัน`
-                    : allocations.length
-                      ? `จัดสรรไปสาขา · ${allocations.length} ใบ`
-                      : central
-                        ? `รับเข้าสต๊อกกลาง · ${fmt(n(central.values, "centralKg"))} กก.`
-                        : foodivaReturn
-                          ? `Foodiva รับเข้าตู้ · ${fmt(n(foodivaReturn.values, "receivedKg"))} กก.`
-                          : returnTrip
-                            ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
-                            : chefInvoice
-                              ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
-                              : smokeOrder
-                                ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
-                                : dispatch
-                                  ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
-                                  : latest
-                                    ? titles[latest.kind]
-                                    : "—";
-                  const route = allocations.length
-                    ? "สต๊อกกลาง → สาขา"
-                    : returnTrip
-                      ? "Chef House → Foodiva"
-                      : progress.has("dispatch") && !progress.has("closeLot")
-                        ? "Foodiva → Chef House"
-                        : progress.has("closeLot")
-                          ? "Chef House → Foodiva"
-                          : progress.has("cmReceive") || progress.has("smoke")
-                            ? "Chef House"
-                            : "—";
+                    : receives.length
+                      ? `สาขารับเข้า · ${receivedByBranch.join(" · ")}`
+                      : allocations.length
+                        ? `จัดสรรไปสาขา · ${allocations.length} ใบ`
+                        : central
+                          ? `รับเข้าสต๊อกกลาง · ${fmt(n(central.values, "centralKg"))} กก.`
+                          : foodivaReturn
+                            ? `Foodiva รับเข้าตู้ · ${fmt(n(foodivaReturn.values, "receivedKg"))} กก.`
+                            : returnTrip
+                              ? `ใบขนส่งกลับ · ${fmt(n(returnTrip.values, "returnKg"))} กก.`
+                              : chefInvoice
+                                ? `Invoice Chef House · ${chefInvoice.values.invoiceNumber}`
+                                : smokeOrder
+                                  ? `PO โรงรมควัน · ${smokeOrder.values.orderNumber}`
+                                  : dispatch
+                                    ? `ใบขนส่งขาไป · ${fmt(packingListKg(db, lot.id) ?? n(dispatch.values, "dispatchKg"))} กก.`
+                                    : latest
+                                      ? titles[latest.kind]
+                                      : "—";
+                  const route =
+                    receives.length || allocations.length
+                      ? "สต๊อกกลาง → สาขา"
+                      : returnTrip
+                        ? "Chef House → Foodiva"
+                        : progress.has("dispatch") && !progress.has("closeLot")
+                          ? "Foodiva → Chef House"
+                          : progress.has("closeLot")
+                            ? "Chef House → Foodiva"
+                            : progress.has("cmReceive") || progress.has("smoke")
+                              ? "Chef House"
+                              : "—";
                   const chefFile = uploadedAttachment(
                     db,
                     "smokingInvoice",
                     lot.id,
                   );
+                  const allocationRows: [
+                    string,
+                    ReactNode,
+                    string,
+                    string,
+                    ReactNode,
+                  ][] = allocations.length
+                    ? [
+                        [
+                          "จัดสรรไปสาขา",
+                          `${allocations.length} ใบ`,
+                          allocations.at(-1)?.date || "—",
+                          allocations
+                            .map(
+                              (a) =>
+                                `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`,
+                            )
+                            .join(" · "),
+                          "—",
+                        ],
+                      ]
+                    : [];
                   const detailRows: [
                     string,
                     ReactNode,
@@ -557,19 +594,14 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                       "—",
                     ],
                     [
-                      "จัดสรรไปสาขา",
-                      allocations.length ? `${allocations.length} ใบ` : "—",
-                      allocations.at(-1)?.date || "—",
-                      allocations.length
-                        ? allocations
-                            .map(
-                              (a) =>
-                                `${a.values.branch} ${fmt(n(a.values, "kg"))} กก.`,
-                            )
-                            .join(" · ")
-                        : "—",
+                      "สาขารับเข้า",
+                      receives.length ? `${receives.length} ครั้ง` : "—",
+                      receives.at(-1)?.date || "—",
+                      receivedByBranch.join(" · ") || "—",
                       "—",
                     ],
+                    // Old allocations stay visible where the data has them.
+                    ...allocationRows,
                     [
                       "ขายที่สาขา",
                       sales.length ? `${saleDays} วัน` : "—",

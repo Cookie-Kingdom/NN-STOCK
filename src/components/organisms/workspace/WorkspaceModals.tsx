@@ -150,10 +150,15 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           const lotId = next.entries.findLast(
             (e) => e.kind === "dispatch",
           )?.lotId;
+          // SHP-03: the Packing List is optional; name only what was saved.
+          const saved =
+            next.entries.at(-1)?.kind === "packingList"
+              ? "บันทึกใบขนส่งและ Packing List แล้ว"
+              : "บันทึกใบขนส่งแล้ว";
           done(
             lotId && entries(next, "smokeOrder", lotId).length
-              ? "บันทึกใบขนส่งและ Packing List แล้ว"
-              : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
+              ? saved
+              : `${saved} · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน`,
           );
         }}
       />
