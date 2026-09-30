@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
-import { FormError } from "./FormError";
 import { Notice } from "./Notice";
 
 const meta = {
@@ -39,8 +38,4 @@ export const Default: Story = {
     action: action.argType,
   },
   args: { tone: "info", onDismiss: dismiss.initial, action: action.initial },
-};
-
-export const FormErrorMessage: Story = {
-  render: () => <FormError error="กรุณากรอกน้ำหนักให้มากกว่า 0" />,
 };

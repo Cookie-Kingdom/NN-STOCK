@@ -14,12 +14,10 @@ import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import {
-  ReadOnlyValue,
-  SectionAction,
-} from "@/components/organisms/shared/SectionAction";
+import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
+import { SectionAction } from "@/components/molecules/SectionAction";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { timeOptions } from "@/lib/forms";
@@ -234,7 +232,7 @@ function ConfigValue({
       type={type === "text" ? "text" : "number"}
       inputMode={type === "number" ? "decimal" : undefined}
       min={type === "number" ? "0" : undefined}
-      step={name === "packKg" ? "0.001" : name === "tolerance" ? "1" : "0.01"}
+      step={name === "packKg" ? "0.001" : "0.01"}
       value={draft[name] ?? ""}
       onChange={(event) => onChange(name, event.target.value)}
     />
@@ -388,10 +386,11 @@ export function ConfigView({ db }: { db: Database }) {
 
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         title="ตั้งค่าระบบ (Settings)"
         description="รายการด้านล่างคือค่าที่ Owner ปรับได้ทั้งหมดในเดโม ค่าต้นทุนการผลิตจะถูกบันทึกติดกับ PO ตอนสร้างรายการ ส่วนค่ารถใช้ค่าปัจจุบัน ณ ตอนสร้างใบขนส่ง"
-        aside={
+        actions={
           message && !editing ? (
             <Badge tone="inverse" className="flex-none">
               {message}
@@ -573,12 +572,6 @@ export function ConfigView({ db }: { db: Database }) {
             "ค่ากลาง 101.5 กรัม ระบบยอมรับช่วง 100–103 กรัม",
           ),
           settingRow(
-            "ข้าวเหนียวในกล่อง (Included sticky rice)",
-            "฿0.00",
-            "200 กรัม / กล่อง",
-            "รวมอยู่ในราคากล่อง",
-          ),
-          settingRow(
             "ราคาขายน้ำพริกหลอด (Chili selling price)",
             <ConfigValue
               {...edit}
@@ -724,18 +717,7 @@ export function ConfigView({ db }: { db: Database }) {
               type="branch"
             />,
             "สาขา",
-            "ใช้เมื่อ Owner, Foodiva หรือ Chef House ทำรายการโดยไม่เลือกสาขา · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
-          ),
-          settingRow(
-            "ค่าคลาดเคลื่อนยอดขาย (Sales tolerance)",
-            <ConfigValue
-              {...edit}
-              section="branch"
-              name="tolerance"
-              display={plain}
-            />,
-            "%",
-            "กำหนดช่วงยอดขายที่ยอมรับได้",
+            "ใช้เมื่อ Owner หรือ Account Manager ทำรายการโดยไม่เลือกสาขา รวมถึงรายการที่บันทึกแทน Foodiva และ Chef House · บัญชีสาขาใช้สาขาของตัวเองเสมอ",
           ),
         ]}
       />

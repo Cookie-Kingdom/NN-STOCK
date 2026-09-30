@@ -27,22 +27,22 @@ import {
   weighIn,
 } from "./helpers";
 
-/* Checklist "ทดสอบก่อน" 1: one smoke batch recorded back to front across three roles.
- * Chef House opens it, Foodiva adds the transport document to it, the Owner issues the
- * smoke PO on it last and Chef House accepts that PO. No step waits on another, and the
- * batch never splits into two. */
-test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch across roles stays one batch", async ({
+/* One smoke batch recorded back to front, all from /owner: the Owner types Chef House's
+ * weigh-in, production and smoking invoice first, then Foodiva's transport document on
+ * that batch, then issues the smoke PO on it last and accepts it for Chef House. No step
+ * waits on another, and the batch never splits into two. */
+test("PRIN-01 GEN-09 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch stays one batch", async ({
   page,
 }) => {
   await startFresh(page);
+  await signInAs(page, ACCOUNTS.owner);
   let batch = "";
   let shipment = "";
 
   await step(
     page,
-    "Chef House: เปิดชุดใหม่ ชั่งรับโดยไม่มี Packing List / PO",
+    "Owner (แทน Chef House): เปิดชุดใหม่ ชั่งรับโดยไม่มี Packing List / PO",
     async () => {
-      await signInAs(page, ACCOUNTS.chef);
       await weighIn(page, "", ["50", "50"]);
       await openMenu(page, SCREENS.production.menu);
       const batches = await idsOnScreen(page, BATCH_ID);
@@ -56,7 +56,7 @@ test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order bat
 
   await step(
     page,
-    "Chef House: ก่อนสโมค สโมค ปิด Lot ใบวางบิล ก่อนมี PO",
+    "Owner (แทน Chef House): ก่อนสโมค สโมค ปิด Lot ใบวางบิล ก่อนมี PO",
     async () => {
       await recordPreSmoke(page, batch, "95");
       await recordSmoke(page, batch, {
@@ -78,16 +78,14 @@ test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order bat
   let poWithInvoice = "";
   let poWithoutInvoice = "";
   await step(page, "Owner: PO ซื้อ 2 ใบ", async () => {
-    await signInAs(page, ACCOUNTS.owner);
     poWithInvoice = await createPurchasePo(page, "300", "250");
     poWithoutInvoice = await createPurchasePo(page, "200", "310");
   });
 
   await step(
     page,
-    "Foodiva: เห็นชุดของ Chef House แล้วทำใบขนส่ง + Packing List บนชุดนั้น",
+    "Owner (แทน Foodiva): ใบขนส่ง + Packing List บนชุดเดิม และ Invoice เนื้อ",
     async () => {
-      await signInAs(page, ACCOUNTS.foodiva);
       await openMenu(page, SCREENS.batches.menu);
       const row = tableRow(page, SCREENS.batches.table, batch);
       await expect(row).toHaveCount(1);
@@ -105,7 +103,6 @@ test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order bat
     page,
     "Owner: ออก PO รมควันบนชุดเดิม อ้าง PO ซื้อ 2 ใบ (ใบหนึ่งยังไม่มี Invoice)",
     async () => {
-      await signInAs(page, ACCOUNTS.owner);
       await openSmokePo(page, batch, [
         { poId: poWithInvoice, kg: "60" },
         { poId: poWithoutInvoice, kg: "40" },
@@ -127,9 +124,8 @@ test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order bat
 
   await step(
     page,
-    "Chef House: เห็น PO รมควันบนชุดเดิมและยืนยันรับ",
+    "Owner (แทน Chef House): ยืนยันรับ PO รมควันบนชุดเดิม",
     async () => {
-      await signInAs(page, ACCOUNTS.chef);
       await acceptSmokePo(page, batch);
       await openMenu(page, SCREENS.production.menu);
       expect(await idsOnScreen(page, BATCH_ID)).toEqual([batch]);
@@ -142,7 +138,6 @@ test("PRIN-01 GEN-09 VIS-02 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order bat
   );
 
   await step(page, "Owner: ชุดเดียว เลขที่การส่งเดียว", async () => {
-    await signInAs(page, ACCOUNTS.owner);
     await openMenu(page, SCREENS.smokePo.menu);
     const row = tableRow(page, SCREENS.smokePo.table, batch);
     await expect(row).toContainText(shipment);
@@ -193,16 +188,19 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
     },
   );
 
-  await step(page, "Chef House: ชุดที่มีแค่ชั่งรับกับสโมค", async () => {
-    await signInAs(page, ACCOUNTS.chef);
-    await weighIn(page, "", ["40"]);
-    await openMenu(page, SCREENS.production.menu);
-    batch = (await idsOnScreen(page, BATCH_ID))[0];
-    await recordSmoke(page, batch, { inputKg: "38", packs: ["19", "19"] });
-  });
+  await step(
+    page,
+    "Owner (แทน Chef House): ชุดที่มีแค่ชั่งรับกับสโมค",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await weighIn(page, "", ["40"]);
+      await openMenu(page, SCREENS.production.menu);
+      batch = (await idsOnScreen(page, BATCH_ID))[0];
+      await recordSmoke(page, batch, { inputKg: "38", packs: ["19", "19"] });
+    },
+  );
 
   await step(page, "Owner: แดชบอร์ด ยังไม่ผูก", async () => {
-    await signInAs(page, ACCOUNTS.owner);
     poId = await createPurchasePo(page, "200", "250");
     await openMenu(page, SCREENS.smokePo.menu);
     shipment = (

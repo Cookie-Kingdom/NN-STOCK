@@ -5,6 +5,7 @@ import {
   entries,
   n,
   titles,
+  type ActingRole,
   type Database,
   type Entry,
   type EntryKind,
@@ -12,7 +13,7 @@ import {
 import { fmt } from "@/lib/format";
 
 /** "12 ก.ย." for a YYYY-MM-DD business date. */
-export const shortDate = (date = "") =>
+const shortDate = (date = "") =>
   date
     ? new Date(`${date}T00:00:00`).toLocaleDateString("th-TH", {
         day: "numeric",
@@ -22,7 +23,7 @@ export const shortDate = (date = "") =>
 
 /** A batch or purchase PO by its PO number; `""` is the branch's "ไม่ระบุ Lot" bucket. */
 export function lotName(db: Database | undefined, lotId: string) {
-  if (!lotId) return "ยังไม่ผูก Lot";
+  if (!lotId) return "ไม่ระบุ Lot";
   const lot = db?.lots.find((l) => l.id === lotId);
   if (!lot) return lotId;
   return lot.poId && lot.poId !== lot.id ? `${lot.poId} · ${lot.id}` : lot.id;
@@ -57,7 +58,7 @@ export function entryName(db: Database | undefined, id: string) {
 }
 
 /** A smoke PO's `lines` JSON as one "PO-2026-0001 × 300.00 กก." per line. */
-export function lineNames(db: Database | undefined, value: string) {
+function lineNames(db: Database | undefined, value: string) {
   try {
     const lines: { lotId?: string; kg?: string }[] = JSON.parse(value);
     return lines
@@ -102,11 +103,10 @@ export const linkableKinds: EntryKind[] = [
   "materialConfirm",
 ];
 
-/** LNK-01: the Owner links anything linkable; a role only its own entries (a branch, its own branch's). */
-export const canLink = (e: Entry, role: Entry["role"], branch: string) =>
+/** LNK-01: the Owner links anything linkable; a branch only its own branch's entries. */
+export const canLink = (e: Entry, role: ActingRole, branch: string) =>
   linkableKinds.includes(e.kind) &&
-  (role === "owner" ||
-    (role === e.role && (role !== "branch" || e.branch === branch)));
+  (role === "owner" || (e.role === "branch" && e.branch === branch));
 
 /** The live `link` on an entry (latest wins, voided ones skipped), if any. */
 export const linkOf = (db: Database | undefined, id: string) =>

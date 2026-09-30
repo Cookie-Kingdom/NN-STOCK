@@ -11,6 +11,7 @@ import {
   ownerReservedDb,
   packedDb,
   packingShortDb,
+  paidDb,
   paidWithoutInvoiceDb,
   returnGapDb,
   returnTruckDb,
@@ -62,6 +63,7 @@ const invoiceState = pick("สถานะ", {
   "ยังไม่มี Invoice": freeOrderDb,
   "ชำระก่อนมี Invoice": paidWithoutInvoiceDb,
   ค่ารมรอชำระ: acceptedInvoiceDb,
+  ชำระแล้ว: paidDb,
 });
 
 /** เลือกสถานะใน Controls:
@@ -126,34 +128,29 @@ export const ReturnShipment: Story = {
  *  - ยังไม่มี Invoice: two purchase POs and one batch with no invoice, each a row with a
  *    "ยังไม่มี Invoice" badge and a live "ชำระเงิน".
  *  - ชำระก่อนมี Invoice: the 300 kg PO paid before Foodiva invoiced it (ชำระแล้ว).
- *  - ค่ารมรอชำระ: an accepted smoking invoice waiting to be paid. */
+ *  - ค่ารมรอชำระ: an accepted smoking invoice waiting to be paid.
+ *  - ชำระแล้ว: both paid, the สลิป column lists each slip with view and download. */
 export const Invoices: Story = {
   argTypes: { db: invoiceState.argType },
   args: { db: invoiceState.initial },
   render: ({ db }) => <InvoiceView db={db} open={open} />,
 };
 
-/** Three batches: a smoke PO still waiting for Foodiva, a batch Foodiva opened with no
- *  smoke PO, and a closed lot. Chips list what each lacks; both buttons stay live. */
+const workflowState = pick("ชุด", {
+  "PO รมควันรอ Foodiva": dispatchDb,
+  "Foodiva เปิดชุด ยังไม่มี PO": packedDb,
+  "ปิด Lot แล้ว": closedDb,
+});
+
+/** The latest batch's "ยังขาด" chips and the Owner's buttons, which stay live whatever is
+ *  missing. เลือกชุดใน Controls:
+ *  - PO รมควันรอ Foodiva: a smoke PO still waiting for Foodiva's transport document.
+ *  - Foodiva เปิดชุด ยังไม่มี PO: Foodiva trucked a batch before any smoke PO.
+ *  - ปิด Lot แล้ว: Chef House closed the lot. */
 export const WorkflowAction: Story = {
-  parameters: { db: dispatchDb },
-  render: () => (
-    <div className="flex flex-wrap gap-6">
-      <LotWorkflowAction
-        db={dispatchDb}
-        lot={dispatchDb.lots.at(-1)!}
-        open={open}
-      />
-      <LotWorkflowAction
-        db={packedDb}
-        lot={packedDb.lots.at(-1)!}
-        open={open}
-      />
-      <LotWorkflowAction
-        db={closedDb}
-        lot={closedDb.lots.at(-1)!}
-        open={open}
-      />
-    </div>
+  argTypes: { db: workflowState.argType },
+  args: { db: workflowState.initial },
+  render: ({ db }) => (
+    <LotWorkflowAction db={db} lot={db.lots.at(-1)!} open={open} />
   ),
 };

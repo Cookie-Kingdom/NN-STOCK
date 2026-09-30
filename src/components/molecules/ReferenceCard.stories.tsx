@@ -1,24 +1,42 @@
-import type { ComponentProps } from "react";
+import type { ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
-import { ButtonRow } from "./ButtonRow";
-import { PoLotCell } from "./PoLotCell";
 import { ReferenceCard } from "./ReferenceCard";
+
+const rows = pick<[string, ReactNode][]>("rows", {
+  ใบสั่งซื้อ: [
+    ["ผู้ขาย", "Foodiva"],
+    ["น้ำหนักสั่ง", "120.00 กก."],
+    ["ราคา/กก.", "฿320.00"],
+    ["หมายเหตุ", ""],
+  ],
+  ตรวจสอบก่อนบันทึก: [
+    ["น้ำหนักรับจริง", "118.40 กก."],
+    ["ส่วนต่างจากที่สั่ง", "1.60 กก."],
+    ["มูลค่ารวม", "฿37,888.00"],
+  ],
+});
+
+const action = pick<ReactNode>("action", {
+  ปุ่มดูเอกสาร: <Button variant="table">ดูเอกสาร</Button>,
+  ไม่มี: undefined,
+});
 
 const meta = {
   title: "Molecules/ReferenceCard",
   component: ReferenceCard,
+  argTypes: {
+    title: { control: "text" },
+    number: { control: "text" },
+    rows: rows.argType,
+    action: action.argType,
+  },
   args: {
     title: "ใบสั่งซื้อ",
     number: "PO-2026-0412",
-    rows: [
-      ["ผู้ขาย", "Foodiva"],
-      ["น้ำหนักสั่ง", "120.00 กก."],
-      ["ราคา/กก.", "฿320.00"],
-      ["หมายเหตุ", ""],
-    ],
-    action: <Button variant="table">ดูเอกสาร</Button>,
+    rows: rows.initial,
+    action: action.initial,
   },
   decorators: [
     (Story) => (
@@ -30,54 +48,15 @@ const meta = {
 } satisfies Meta<typeof ReferenceCard>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
-
-type Props = ComponentProps<typeof ReferenceCard>;
-
-const state = pick<Partial<Props>>("สถานะ", {
-  มีเลขที่: {},
-  ไม่มีเลขที่: {
-    title: "ตรวจสอบก่อนบันทึก",
-    number: undefined,
-    action: undefined,
-    rows: [
-      ["น้ำหนักรับจริง", "118.40 กก."],
-      ["ส่วนต่างจากที่สั่ง", "1.60 กก."],
-      ["มูลค่ารวม", "฿37,888.00"],
-    ],
-  },
-});
 
 /** Pick the state in Controls:
- *  - มีเลขที่: a saved document, its number in the heading and an action
- *  - ไม่มีเลขที่: without `number` the heading is the plain title — how the pre-save
- *    preview of a form's own values uses the card */
-export const Default: StoryObj<Props & { state: Partial<Props> }> = {
-  argTypes: { state: state.argType },
-  args: { state: state.initial },
-  render: ({ state, ...args }) => <ReferenceCard {...args} {...state} />,
-};
-
-export const PoLot: Story = {
-  render: () => (
-    <div className="flex gap-10">
-      <PoLotCell poId="PO-2026-0412" lotId="LOT-0915-01" sub="ศาลาแดง" />
-      <PoLotCell lotId="LOT-0915-02" />
-    </div>
-  ),
-};
-
-export const Buttons: Story = {
-  render: () => (
-    <div className="grid gap-4">
-      <ButtonRow>
-        <Button variant="primary">บันทึก</Button>
-        <Button>ยกเลิก</Button>
-      </ButtonRow>
-      <ButtonRow compact>
-        <Button variant="table">แก้ไข</Button>
-        <Button variant="table">ลบ</Button>
-      </ButtonRow>
-    </div>
+ *  - `number` set: a saved document, its number in the heading
+ *  - `number` empty: the heading is the plain title — how the pre-save preview of a
+ *    form's own values uses the card (rows ตรวจสอบก่อนบันทึก, no action)
+ *  - `action`: e.g. a document preview button on the right of the heading
+ *  - rows: an empty value (หมายเหตุ) prints "—" */
+export const Default: StoryObj<typeof meta> = {
+  render: ({ number, ...args }) => (
+    <ReferenceCard {...args} number={number || undefined} />
   ),
 };

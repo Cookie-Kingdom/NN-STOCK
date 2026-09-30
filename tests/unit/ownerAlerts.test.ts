@@ -1,10 +1,11 @@
-import { expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 // Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { materials, seed } from "@/lib/store";
 import {
   closed,
   confirm,
+  day,
   dispatch,
   invoice,
   packingList,
@@ -15,6 +16,15 @@ import {
   smoked,
   smokeOrder,
 } from "./fixtures";
+
+// DASH-02 counts its 30 days back from today (Bangkok): pin the clock near the fixture day.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${day}T12:00:00+07:00`));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 test("an empty database only asks for material settings", () => {
   const alerts = ownerAlerts(structuredClone(seed));
@@ -34,30 +44,34 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   const first = () => alerts().notifications[0];
   purchase(s, "50");
   expect(first()).toMatchObject({
-    title: "รอ Foodiva ออก Invoice · F260909-001",
-    tab: "po",
+    title: "ออก Invoice เนื้อ · F260909-001",
+    tab: "foodiva",
   });
-  expect(alerts().badges.transport).toBe(0); // a purchase PO is never a truck job
+  expect(alerts().badges.foodiva).toBe(1);
+  // The transport tab only lists; its dispatch action lives on foodiva, so no badge.
+  expect(alerts().badges).not.toHaveProperty("transport");
   confirm(s, "50");
   // Foodiva opens the batch before the Owner's smoke PO (D2): the batch lists what it
   // lacks (DASH-02) and points at the Owner's first missing step.
   dispatch(s, "");
   expect(first()).toEqual({
-    title: "ชุด SH-2026-0001 ยังขาด 12 ขั้น",
-    detail:
-      "ยังขาด: PO รมควัน, Packing List, Chef รับ PO, ชั่งรับ และอีก 8 ขั้น",
+    title: "ชุด SH-2026-0001 ยังขาด 11 ขั้น",
+    detail: "ยังขาด: PO รมควัน, Packing List, ชั่งรับ, ก่อนสโมค และอีก 7 ขั้น",
     tab: "smoke-po",
   });
   expect(alerts().badges["smoke-po"]).toBe(1);
   packingList(s, "25\n24.5");
-  expect(first().title).toBe("ชุด SH-2026-0001 ยังขาด 11 ขั้น");
+  expect(first().title).toBe("ชุด SH-2026-0001 ยังขาด 10 ขั้น");
+  expect(alerts().badges["cm-receive"]).toBe(1);
   smokeOrder(s, [["F260909-001", "50"]]);
+  // Every step now opens the tab it is recorded on, the partners' ones included.
   expect(first()).toMatchObject({
-    title: "ชุด SH-2026-0001 ยังขาด 10 ขั้น",
-    tab: "invoices",
+    title: "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
+    tab: "cm-receive",
   });
   expect(alerts().badges["smoke-po"]).toBe(0);
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  // Q1: Chef accepting the PO is still recordable but no longer a missing step.
+  s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   expect(alerts().notifications.map((n) => n.title)).toEqual([
     "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
     "รอชำระ Invoice เนื้อ · PO-2026-0001",
@@ -74,7 +88,9 @@ test("a closed run lacks the smoking invoice, then waits on its review", () => {
       detail: expect.stringContaining("Invoice ค่ารม"),
     }),
   );
+  expect(ownerAlerts(s.db).badges.work).toBe(1); // bill the smoking for Chef House
   invoice(s);
+  expect(ownerAlerts(s.db).badges.work).toBe(0);
   expect(titles()).toContain("รอตรวจ Invoice ค่ารมควัน · CH-1");
   // the badge counts the unpaid meat invoice too, same as the bell
   expect(ownerAlerts(s.db).badges.invoices).toBe(2);
@@ -82,7 +98,7 @@ test("a closed run lacks the smoking invoice, then waits on its review", () => {
 
 test("after smoking the owner is sent to transport, central receive and allocation", () => {
   const closed = smoked();
-  closed.run("cm", "closeLot", { confirm: "สมชาย" });
+  closed.run("owner", "closeLot", { confirm: "สมชาย" });
   const afterClose = ownerAlerts(closed.db);
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({

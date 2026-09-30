@@ -1,20 +1,25 @@
 /** `mutate`: the only way to change the database. Every entry is validated here; a batch's
- *  `values` cache is filled here. It refuses only the wrong role, a bad date, a closed branch
- *  day and duplicates (PRIN-03); everything else is a warning (`warn`) the form shows. */
+ *  `values` cache is filled here. It refuses (`assert`) what would make the log wrong: the wrong
+ *  role, a retired kind, a bad date or time, a closed branch day, a missing required value or
+ *  reference (a PO, an allocation, an edit target) and duplicates (PRIN-03). A quantity over
+ *  stock or plan is only a warning (`warn`) the form shows. */
 import { fmt } from "../format";
 import { newId } from "../id";
 import {
   batchKinds,
   branchMeatKinds,
   branches,
-  editApprovers,
+  canLink,
   editDecisions,
   editLockedKeys,
   materials,
   pack,
+  retiredKinds,
+  voidableKinds,
   type Database,
   type Entry,
   type EntryKind,
+  type ActingRole,
   type Lot,
   type Role,
   type Values,
@@ -45,6 +50,7 @@ import {
   ownerWasteOutstanding,
   ownerWasteReceived,
   packWeights,
+  pendingReceiveKg,
   poRemainingKg,
   processed,
   produced,
@@ -113,7 +119,7 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
     ...db,
     entries: [
       ...db.entries,
-      { ...target, id: newId(), kind, role: editApprovers[0], values },
+      { ...target, id: newId(), kind, role: "owner", values },
     ],
   });
   /* The Account Manager's copy has no sale money (C4): a sale without its LINE MAN amount is
@@ -125,7 +131,8 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
   if (moneyHidden && input.lineMan === undefined) input.lineMan = "0";
   const checked = record(
     as("void", { targetId: target.id }),
-    target.role,
+    // Partners' entries are recorded by the Owner for them; recordRole() re-stamps the kind.
+    target.role === "branch" ? "branch" : "owner",
     target.kind,
     input,
     target.lotId,
@@ -159,7 +166,7 @@ function editValues(db: Database, target: Entry, proposed: Values) {
 function editTarget(
   db: Database,
   targetId: string,
-  role: Role,
+  role: ActingRole,
   branch: string,
 ) {
   const target = db.entries.find((e) => e.id === targetId);
@@ -213,6 +220,15 @@ const ownership: Partial<Record<EntryKind, Role>> = {
   unlock: "owner",
   void: "owner",
 };
+/** The role an entry of `kind` is stamped with when `role` records it: whose document it is.
+ *  The Owner may record Foodiva's and Chef House's kinds for them ("แทน"); those keep the
+ *  partner's role, and record() puts the typist in `actor`. Anything else stays `role`. */
+export function recordRole(kind: EntryKind, role: ActingRole): Role {
+  const owner = ownership[kind];
+  return role === "owner" && (owner === "foodiva" || owner === "cm")
+    ? owner
+    : role;
+}
 /** Per-กล่องรับเข้า weights of a Packing List. They live in one entry value, one
  *  line each, the way `smoke` stores its pack weights. */
 export function packingListBoxes(value = "") {
@@ -373,10 +389,11 @@ function lotConfig(db: Database): Values {
   );
 }
 /** GEN-09: a new shipment batch, `S<yymmdd>-NNN-xxxx` with the next `SH-YYYY-NNNN` number.
- *  NNN and the SH number count the batches this client can see; Chef House and a branch see a
- *  subset, so they may repeat a batch they cannot see. The 4 random hex chars keep the id itself
- *  unique, so the server never mistakes a new batch for a values change of a stored one
- *  (is_new_batch, migration 20260928000031). The SH number is display only. */
+ *  NNN and the SH number count the batches this client has; only the Owner and the Account
+ *  Manager open batches (a branch cannot add lots, migration 0034) and both load every batch,
+ *  but two devices saving at once may still repeat a number. The 4 random hex chars keep the id itself
+ *  unique, so one device's new batch never lands on another's under the same id. The SH number
+ *  is display only. */
 function newBatch(db: Database, next: Database, date: string): Lot {
   const count = next.lots.filter((l) => l.kind === "shipment").length + 1;
   const lot: Lot = {
@@ -406,11 +423,20 @@ const cachedKinds: EntryKind[] = [
   "return",
   "central",
 ];
+/** GEN-06: batch kinds recorded once per batch, with what a second save is refused with. */
+const oncePerBatch: Partial<Record<EntryKind, string>> = {
+  dispatch: "ทำใบขนส่งขาไปของชุดนี้แล้ว",
+  cmReceive: "ยืนยันรับเนื้อของชุดนี้แล้ว",
+  prepare: "บันทึกน้ำหนักก่อนสโมคของชุดนี้แล้ว",
+  closeLot: "ปิด Lot นี้แล้ว",
+  return: "เรียกรถขากลับของชุดนี้แล้ว",
+  central: "รับเข้าสต๊อกกลางของชุดนี้แล้ว · แก้น้ำหนักที่ประวัติ",
+};
 /** Batch values never cached on the lot: bulky, or an entry's own bookkeeping. */
 const uncached = ["attachmentData", "slips", "batches"];
 export function mutate(
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,
@@ -423,7 +449,7 @@ export function mutate(
 /** `mutate`, plus `correcting`: re-checks an entry being edited, whose day may be closed. */
 function record(
   db: Database,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,
@@ -434,11 +460,18 @@ function record(
   const forbidden = "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้";
   assert(
     kind === "editRequest"
-      ? !editApprovers.includes(role)
-      : kind === "entryEdit" || kind === "editDecision"
-        ? editApprovers.includes(role)
-        : kind === "link" || ownership[kind] === role, // link: checked against its target below
+      ? role !== "owner"
+      : kind === "void"
+        ? role === "owner" || role === "branch" // a branch only withdraws its own request, below
+        : kind === "entryEdit" || kind === "editDecision"
+          ? role === "owner"
+          : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
     forbidden,
+  );
+  // An edit of an old entry re-checks it; a new one of a kind with no screen is refused.
+  assert(
+    correcting || !retiredKinds.includes(kind),
+    "รายการชนิดนี้เลิกใช้แล้ว",
   );
   // Same clock as format.ts `today` (kept inline: this module has no imports).
   const todayDate = new Date().toLocaleDateString("en-CA", {
@@ -461,13 +494,7 @@ function record(
     v = { ...input };
   let lot = next.lots.find((l) => l.id === lotId);
   const branch = role === "branch" ? actorBranch : v.branch || db.config.branch;
-  for (const key of [
-    "arrival",
-    "time",
-    "closeTime",
-    "pickupTime",
-    "dispatchTime",
-  ]) {
+  for (const key of ["arrival", "time", "pickupTime", "dispatchTime"]) {
     if (key in v)
       assert(
         /^([01]\d|2[0-3]):[0-5]\d$/.test(v[key]),
@@ -476,8 +503,10 @@ function record(
   }
   if (role === "branch") {
     assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
-    // A request changes nothing until an approver decides, so a closed day still takes one.
-    if (!correcting && kind !== "editRequest")
+    /* A request changes nothing until an approver decides, so a closed day still takes one,
+     * and its withdrawal. A link is dated today whatever day its target is on (STK-37), so
+     * a closed today must not stop tying an older entry to its batch. */
+    if (!correcting && !["editRequest", "void", "link"].includes(kind))
       assert(
         !isClosed(db, branch, date),
         "วันนี้ปิดยอดแล้ว ต้องให้ Owner ปลดล็อกก่อน",
@@ -492,7 +521,7 @@ function record(
       `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว ต้องปลดล็อกก่อน`,
     );
   // GEN-10: purchase-PO kinds on Lot F only; batch kinds on Lot S only, and with no lot they
-  // open a new batch (GEN-09, D2: Owner, Foodiva and Chef House alike).
+  // open a new batch (GEN-09, D2: whether stamped owner, foodiva or cm).
   if (["foodivaConfirm", "ownerWasteReceive", "meatPayment"].includes(kind))
     assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
   if (batchKinds.includes(kind)) {
@@ -502,18 +531,25 @@ function record(
   }
   if (branchMeatKinds.includes(kind) && lotId)
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
-  // GEN-04 / GEN-05: a date before what the lot already holds is said, not refused.
+  // GEN-04: a batch entry dated before the batch's latest one, GEN-05: a purchase-PO entry
+  // dated before the PO was opened (its earliest). Said, not refused.
   if (lot && !branchMeatKinds.includes(kind) && kind !== "allocate") {
     const lotRef = lot.id;
-    const others = db.entries.filter((e) => e.lotId === lotRef);
-    const latest = others.reduce((max, e) => (e.date > max ? e.date : max), "");
+    const dates = db.entries
+      .filter((e) => e.lotId === lotRef)
+      .map((e) => e.date)
+      .sort();
+    const bound = lot.kind ? dates.at(-1) : dates[0];
     warn(
-      !latest || date >= latest,
+      !bound || date >= bound,
       lot.kind
-        ? `วันที่ก่อนรายการอื่นของชุดนี้ (${latest})`
-        : `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${others.map((e) => e.date).sort()[0]})`,
+        ? `วันที่ก่อนรายการอื่นของชุดนี้ (${bound})`
+        : `วันที่ก่อนวันเปิด PO ของ Lot นี้ (${bound})`,
     );
   }
+  // GEN-06: once per batch; a wrong value is corrected with an edit (or chefEdit), not a second save.
+  const once = oncePerBatch[kind];
+  if (once && lot) assert(!entries(db, kind, lot.id).length, once);
   if (kind === "purchase") {
     required(v, "supplier", "ผู้ขาย");
     required(v, "customerName", "ชื่อบริษัท / ลูกค้า");
@@ -621,7 +657,13 @@ function record(
       const status = smokingInvoiceStatus(db, invoice);
       assert(status !== "ชำระแล้ว", "ชำระ Invoice ใบนี้แล้ว");
       warn(status === "รอชำระ", "ยังไม่ได้รับยอด Invoice นี้");
-    } else delete v.invoiceId;
+    } else {
+      delete v.invoiceId;
+      assert(
+        !entries(db, "invoicePayment", lotId).length,
+        "ชำระค่ารมควันของชุดนี้แล้ว",
+      );
+    }
     required(v, "paymentDate", "วันที่ชำระ");
     required(v, "paidBy", "ผู้ดำเนินการชำระ");
     positive(v, "paidAmount", "ยอดชำระ");
@@ -963,13 +1005,15 @@ function record(
       delete v.allocation;
       delete v.complete;
       if (lotId) {
-        warn(
-          entries(db, "allocate", lotId, branch).some(
-            (a) => allocationOutstanding(db, a) > 0,
-          ),
-          "ไม่มีใบจัดสรรค้างสำหรับชุดนี้",
+        const pending = pendingReceiveKg(db, lotId, branch);
+        warn(pending > 0, "ไม่มีใบจัดสรรค้างสำหรับชุดนี้");
+        // DM-08: the kg that fills this branch's allocations is already off centralStock;
+        // only the straight remainder beyond them comes out of it.
+        withinStock(
+          n(v, "kg"),
+          pending + Math.max(0, centralStock(db, lotId)),
+          "สต๊อกกลางไม่พอ",
         );
-        withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
       }
     }
   } else if (kind === "thaw") {
@@ -1044,66 +1088,6 @@ function record(
     assert(
       Number.isInteger(n(v, "chiliIssuedTubes")),
       "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
-    );
-    withinStock(
-      n(v, "chiliIssuedTubes"),
-      chiliStock(db, branch),
-      "น้ำพริกในสต๊อกไม่พอ",
-      "หลอด",
-    );
-    required(v, "receiver", "ผู้รับของ");
-  } else if (kind === "supplyPurchase") {
-    for (const key of [
-      "rawRiceKg",
-      "rawRiceCost",
-      "cookedRiceKg",
-      "cookedRiceCost",
-      "chiliTubes",
-      "chiliCost",
-    ])
-      v[key] ??= "0";
-    positive(v, "rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า", true);
-    positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ", true);
-    assert(cooksRice(branch) || n(v, "rawRiceKg") === 0, noCookMessage);
-    positive(v, "cookedRiceKg", "ข้าวเหนียวสุกซื้อเข้า", true);
-    positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก", true);
-    positive(v, "chiliTubes", "น้ำพริกซื้อเข้า", true);
-    positive(v, "chiliCost", "ยอดซื้อน้ำพริก", true);
-    assert(
-      n(v, "rawRiceKg") > 0 ||
-        n(v, "cookedRiceKg") > 0 ||
-        n(v, "chiliTubes") > 0,
-      "กรอกจำนวนข้าวเหนียวหรือน้ำพริกที่ซื้อเข้า",
-    );
-    assert(
-      Number.isInteger(n(v, "chiliTubes")),
-      "น้ำพริกต้องเป็นจำนวนหลอดเต็ม",
-    );
-    if (n(v, "rawRiceKg") > 0)
-      positive(v, "rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ");
-    if (n(v, "cookedRiceKg") > 0)
-      positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
-    if (n(v, "chiliTubes") > 0) positive(v, "chiliCost", "ยอดซื้อน้ำพริก");
-    required(v, "supplier", "ผู้จำหน่าย");
-    v.totalCost = String(
-      n(v, "rawRiceCost") + n(v, "cookedRiceCost") + n(v, "chiliCost"),
-    );
-  } else if (kind === "supplyIssue") {
-    positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก", true);
-    assert(cooksRice(branch) || n(v, "rawRiceIssuedKg") === 0, noCookMessage);
-    positive(v, "chiliIssuedTubes", "น้ำพริกที่เบิก", true);
-    assert(
-      n(v, "rawRiceIssuedKg") > 0 || n(v, "chiliIssuedTubes") > 0,
-      "กรอกจำนวนข้าวเหนียวดิบหรือน้ำพริกที่เบิก",
-    );
-    assert(
-      Number.isInteger(n(v, "chiliIssuedTubes")),
-      "น้ำพริกที่เบิกต้องเป็นจำนวนหลอดเต็ม",
-    );
-    withinStock(
-      n(v, "rawRiceIssuedKg"),
-      rawRiceStock(db, branch),
-      "ข้าวเหนียวดิบในสต๊อกไม่พอ",
     );
     withinStock(
       n(v, "chiliIssuedTubes"),
@@ -1240,17 +1224,17 @@ function record(
     }
     required(v, "receiver", "ชื่อผู้รับจริง");
   } else if (kind === "sale") {
-    for (const k of [
-      "boxes",
-      "addons",
-      "chiliAddons",
-      "soldKg",
-      "wasteKg",
-      "expense",
-      "lineMan",
-      "riceWasteKg",
+    for (const [k, label] of [
+      ["boxes", "จำนวนกล่องมาตรฐาน"],
+      ["addons", "จำนวนเนื้อซีล Add-on"],
+      ["chiliAddons", "จำนวนน้ำพริกหลอด"],
+      ["soldKg", "น้ำหนักเนื้อที่ใช้ไป"],
+      ["wasteKg", "น้ำหนักเนื้อที่เสียไป"],
+      ["expense", "ค่าใช้จ่ายสาขา"],
+      ["lineMan", "ยอดขาย LINE MAN"],
+      ["riceWasteKg", "น้ำหนักข้าวที่เสียไป"],
     ])
-      positive(v, k, k, true);
+      positive(v, k, label, true);
     for (const k of ["boxes", "addons", "chiliAddons"])
       assert(Number.isInteger(n(v, k)), "จำนวนขายต้องเป็นจำนวนเต็ม");
     v.riceServings = v.boxes;
@@ -1365,30 +1349,20 @@ function record(
     required(v, "reason", "เหตุผลปลดล็อก");
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
-    const reversible = [
-      "allocate",
-      "chiliAllocate",
-      "receive",
-      "thaw",
-      "ricePurchase",
-      "chiliPurchase",
-      "riceIssue",
-      "chiliIssue",
-      "rice",
-      "riceCarry",
-      "sale",
-      "influencerBox",
-      "materials",
-      "materialReceive",
-      "generalPurchase",
-      "materialTransfer",
-      "materialConfirm",
-      "closeDay",
-      "expense",
-      "unlock",
-      "link",
-    ];
-    assert(target && reversible.includes(target.kind), "รายการนี้ยกเลิกไม่ได้");
+    if (role === "branch") {
+      // A branch withdraws its own edit request while it still waits for a decision.
+      assert(
+        target?.kind === "editRequest" &&
+          target.role === "branch" &&
+          target.branch === branch,
+        "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
+      );
+      assert(!editDecisionOf(db, target.id), "คำขอนี้พิจารณาแล้ว");
+    } else
+      assert(
+        target && voidableKinds.includes(target.kind),
+        "รายการนี้ยกเลิกไม่ได้",
+      );
     assert(
       !db.entries.some(
         (entry) =>
@@ -1427,6 +1401,15 @@ function record(
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetBranch = target.branch;
+    // The batch cache follows: back to the live central before it, if any (DM-09).
+    const cached = next.lots.find((l) => l.id === target.lotId);
+    if (target.kind === "central" && cached) {
+      const previous = entries(db, "central", target.lotId)
+        .filter((e) => e.id !== target.id)
+        .at(-1);
+      if (previous) cached.values.centralKg = previous.values.centralKg;
+      else delete cached.values.centralKg;
+    }
   } else if (kind === "link") {
     // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
     const target = db.entries.find((entry) => entry.id === v.targetId);
@@ -1435,12 +1418,7 @@ function record(
       "ไม่พบรายการ",
     );
     assert(linkable.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
-    assert(
-      role === "owner" ||
-        (role === target.role &&
-          (role !== "branch" || target.branch === branch)),
-      forbidden,
-    );
+    assert(canLink({ role, branch }, target), forbidden);
     assert(
       v.lotId?.trim() || v.transferId?.trim(),
       "เลือกชุดหรือใบโอนที่จะผูก",
@@ -1529,13 +1507,11 @@ function record(
     // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
     // config entry of the append-only log. Left out, the merge below keeps it.
     if (v.logoData === db.config.logoData) delete v.logoData;
-    v.ricePrice = "0";
     // Labels match the Thai setting names in ConfigView.
     for (const [key, label] of Object.entries({
       boxPrice: "ราคากล่องมาตรฐาน",
       addonPrice: "ราคาเนื้อซีลเพิ่ม",
       packKg: "น้ำหนักเฉลี่ยต่อซีล",
-      ricePrice: "ราคาข้าว",
       chiliPrice: "ราคาขายน้ำพริกหลอด",
       rawRicePar: "จำนวนฐานข้าวเหนียวดิบ",
       rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
@@ -1546,10 +1522,8 @@ function record(
       outboundFee: "ค่าขนส่งขาไป",
       returnFee: "ค่าขนส่งขากลับ",
       roundFee: "ค่าขนส่งไป-กลับ",
-      tolerance: "ค่าคลาดเคลื่อนยอดขาย",
     }))
       positive(v, key, label, key !== "packKg");
-    assert(n(v, "tolerance") <= 100, "ค่าคลาดเคลื่อนต้องไม่เกิน 100%");
     assert(branches.includes(v.branch), "เลือกสาขาสำหรับบัญชีทดลอง");
     required(v, "companyName", "ชื่อบริษัท");
     for (let i = 0; i < materials.length; i++) {
@@ -1583,10 +1557,13 @@ function record(
     : kind === "ownerWasteReceive"
       ? v.receivedDate || date
       : date;
+  const stamped = recordRole(kind, role);
   next.entries.push({
     id: newId(),
     kind,
-    role,
+    role: stamped,
+    // Recorded for a partner: the typist (persistence re-stamps the Account Manager's).
+    ...(stamped !== role ? { actor: "owner" as const } : {}),
     lotId: lot?.id || lotId,
     branch,
     date: entryDate,
@@ -1596,7 +1573,7 @@ function record(
   return next;
 }
 
-/** Foodiva's one outbound form: the transport document and its Packing List land in one save,
+/** Foodiva's one outbound form (the Owner may type it for Foodiva): the transport document and its Packing List land in one save,
  *  all or nothing (SHP-03). With `lotId === ""` the document opens the batch the list joins. */
 export const dispatchWithPackingList = (
   db: Database,
@@ -1604,11 +1581,13 @@ export const dispatchWithPackingList = (
   trip: Values,
   packing: Values,
   date: string,
+  /** Who types it: the Owner / Manager recording it for Foodiva (stamped Foodiva's). */
+  role: ActingRole,
 ) => {
-  const sent = mutate(db, "foodiva", "dispatch", trip, lotId, date);
+  const sent = mutate(db, role, "dispatch", trip, lotId, date);
   return mutate(
     sent,
-    "foodiva",
+    role,
     "packingList",
     packing,
     lotId || sent.lots.at(-1)!.id,

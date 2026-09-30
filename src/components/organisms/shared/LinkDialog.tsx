@@ -23,13 +23,13 @@ import {
   titles,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
 
 /** The choices a `link` on `target` can point at: shipment batches for branch meat, the
  *  branch's material transfers no other receipt has taken for a material receipt (LNK-02). */
-export function linkChoices(db: Database, target: Entry) {
+function linkChoices(db: Database, target: Entry) {
   if (target.kind === "materialConfirm") {
     const taken = new Set(
       entries(db, "materialConfirm")
@@ -76,7 +76,7 @@ export function LinkDialog({
   entry: Entry;
   /** What the choices are read from: every batch / transfer this account can see. */
   db: Database;
-  role: Role;
+  role: ActingRole;
   branch?: string;
   onClose: () => void;
   onLinked: (message: string) => void;

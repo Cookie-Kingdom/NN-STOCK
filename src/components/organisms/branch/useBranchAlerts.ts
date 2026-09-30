@@ -36,7 +36,7 @@ function pendingMaterialTransfers(db: Database, branch: string) {
 
 /** Every "this branch has to do something" signal for `date`.
  *
- *  A branch account reads the whole database (`visibleDatabase` only narrows Chef House),
+ *  A branch account reads the whole database (`visibleDatabase` only strips sale money for the Account Manager),
  *  so every read here is scoped by `branch`: the allocations, the balances, the daily
  *  entries and the close checklist all take it, and a lot only counts once it was
  *  allocated to this branch or holds this branch's own entries (BR-07, `ws.lots`). The
@@ -51,7 +51,7 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
  *  `material-count` and are counted on those badges, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
-  const lots = visibleLots(db, "branch", branch);
+  const lots = visibleLots(db, branch);
   const lotIds = [...lots.map((lot) => lot.id), ""];
   const pendingLots = lots.filter(
     (lot) => pendingReceiveKg(db, lot.id, branch) > 0,

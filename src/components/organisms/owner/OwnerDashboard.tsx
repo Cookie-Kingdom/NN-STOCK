@@ -29,9 +29,9 @@ import {
   missingText,
 } from "@/components/organisms/owner/lotSteps";
 import { UnlinkedTile } from "@/components/organisms/owner/UnlinkedTile";
-import { CostDonut } from "@/components/organisms/shared/CostDonut";
+import { CostDonut } from "@/components/molecules/CostDonut";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import { SalesBars } from "@/components/organisms/shared/SalesBars";
+import { SalesBars } from "@/components/molecules/SalesBars";
 import {
   averageYield,
   balance,
@@ -41,12 +41,13 @@ import {
   chiliStock,
   cookedRiceStock,
   currentSmokingInvoices,
-  drawnKg,
+  ownerPendingInvoices,
   entries,
   isClosed,
   materialPar,
   materials,
   n,
+  openPurchasePos,
   processLoss,
   produced,
   rawAtFoodiva,
@@ -68,9 +69,9 @@ import { type Tab } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 const summaryColumns = [
-  "Open PO",
+  "PO ซื้อที่ยังเปิด",
   "Smoking Invoice ค้าง",
-  "Raw Meat ที่ Foodiva",
+  "Raw Meat ที่ Foodiva (รอส่ง Chef House)",
   "Raw Meat ที่โรงรม",
   "Finished smoked meat",
   "Loss รวม",
@@ -186,12 +187,8 @@ export function OwnerDashboard({
   const activeLots = runs.filter(
     (lot) => !lotProgress(db, lot.id).has("central"),
   ).length;
-  const foodivaInvoicesForOwner = db.lots.filter(
-    (lot) =>
-      !lot.kind &&
-      entries(db, "foodivaConfirm", lot.id).length > 0 &&
-      !drawnKg(db, lot.id),
-  );
+  // RPT-11: a Foodiva meat invoice the Owner has not paid yet; it clears once paid.
+  const foodivaInvoicesForOwner = ownerPendingInvoices(db).unpaidMeatLots;
   const alertDetails: {
     title: string;
     detail: string;
@@ -468,7 +465,8 @@ export function OwnerDashboard({
         columns={summaryColumns}
         rows={[
           [
-            String(activeLots),
+            // Purchase POs with beef left to send or the meat invoice unpaid.
+            String(openPurchasePos(db).length),
             String(
               currentSmokingInvoices(db).filter(
                 (entry) => smokingInvoiceStatus(db, entry) !== "ชำระแล้ว",
@@ -588,7 +586,7 @@ export function OwnerDashboard({
               )}{" "}
               กก.
             </span>
-            <span>Lot ที่กำลังดำเนินการ {activeLots}</span>
+            <span>ชุดรมควันที่ยังไม่เข้าสต๊อกกลาง {activeLots}</span>
           </div>
         </Panel>
       </div>

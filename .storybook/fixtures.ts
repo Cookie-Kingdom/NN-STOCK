@@ -5,10 +5,10 @@ import {
   materials,
   mutate,
   riceSources,
-  sevenDayRoleplay,
   type Database,
   type EntryKind,
 } from "@/lib/store";
+import { sevenDayRoleplay } from "@/lib/store/demo";
 import {
   chillDay,
   closed,
@@ -79,7 +79,7 @@ export const foodivaBatchesDb: Database = (() => {
   packingList(s, "30\n30");
   smokeOrder(s, [[po, "40"]], "40", "");
   s.run(
-    "foodiva",
+    "owner",
     "foodivaReturnReceive",
     {
       receivedDate: day,
@@ -97,7 +97,7 @@ export const foodivaBatchesDb: Database = (() => {
 export const repeatDispatchDb: Database = (() => {
   const s = setup();
   readyToDispatch(s, "50");
-  s.run("foodiva", "dispatch", {
+  s.run("owner", "dispatch", {
     pickupDate: day,
     pickupTime: "06:30",
     origin: "กรุงเทพฯ",
@@ -108,7 +108,7 @@ export const repeatDispatchDb: Database = (() => {
     driverName: "สมชาย ใจดี",
     driverPhone: "0812345678",
   });
-  s.run("foodiva", "packingList", {
+  s.run("owner", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     code: "BF-01",
@@ -296,17 +296,20 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
   readyToDispatch(s, "50");
   dispatch(s);
   // Inv. Weight is the meat before cutting; Sliced Weight Lost is Foodiva's own figure.
-  s.run("foodiva", "packingList", {
+  s.run("owner", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     invWeightKg: "52",
     slicedLostKg: "50",
     boxes: "25\n25",
   });
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+  s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   if (steps > 0)
-    s.run("cm", "cmReceive", { receivedBoxes: "24.5\n24.5", arrival: "08:00" });
-  if (steps > 1) s.run("cm", "prepare", { preSmokeKg: "48" });
+    s.run("owner", "cmReceive", {
+      receivedBoxes: "24.5\n24.5",
+      arrival: "08:00",
+    });
+  if (steps > 1) s.run("owner", "prepare", { preSmokeKg: "48" });
   return s.db;
 }
 
@@ -350,7 +353,7 @@ export const returnedDb: Database = returned().db;
 /** Return leg weighed short: Chef House sent 36 kg (360 กล่องรมควัน), Foodiva counted 35.5 kg in. */
 export const returnGapDb: Database = mutate(
   returnTruckDb,
-  "foodiva",
+  "owner",
   "foodivaReturnReceive",
   {
     receivedDate: day,
@@ -408,18 +411,23 @@ export const chefBusyDb: Database = (() => {
  *  no smoke PO, then weighed before smoking. The row carries "ยังไม่มี PO รมควัน". */
 function chefFirst(steps: 0 | 1) {
   const s = setup();
-  s.run("cm", "cmReceive", { receivedBoxes: "15\n15", arrival: "08:00" }, "");
-  s.run("cm", "prepare", { preSmokeKg: "29" });
+  s.run(
+    "owner",
+    "cmReceive",
+    { receivedBoxes: "15\n15", arrival: "08:00" },
+    "",
+  );
+  s.run("owner", "prepare", { preSmokeKg: "29" });
   if (steps > 0) {
-    s.run("cm", "smoke", {
+    s.run("owner", "smoke", {
       smokeDate: day,
       inputKg: "29",
       wasteKg: "5",
       packs: packs(240),
     });
-    s.run("cm", "closeLot", { confirm: "สมชาย" });
+    s.run("owner", "closeLot", { confirm: "สมชาย" });
     // SVC-01: with no smoke PO Chef House types the billed kg itself.
-    s.run("cm", "smokingInvoice", {
+    s.run("owner", "smokingInvoice", {
       invoiceNumber: "CH-1",
       invoiceDate: day,
       serviceQuantity: "30",
@@ -775,8 +783,13 @@ export const paidWithoutInvoiceDb: Database = mutate(
  *  it: the batch holds only `cmReceive` and `smoke` (DASH-05). */
 export const partialBatchDb: Database = (() => {
   const s = setup();
-  s.run("cm", "cmReceive", { receivedBoxes: "20\n20", arrival: "08:00" }, "");
-  s.run("cm", "smoke", {
+  s.run(
+    "owner",
+    "cmReceive",
+    { receivedBoxes: "20\n20", arrival: "08:00" },
+    "",
+  );
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "30",
     wasteKg: "8",
@@ -838,8 +851,13 @@ export const unlinkedDb: Database = (() => {
     },
     "",
   );
-  s.run("cm", "cmReceive", { receivedBoxes: "20\n20", arrival: "08:00" }, "");
-  s.run("cm", "smoke", {
+  s.run(
+    "owner",
+    "cmReceive",
+    { receivedBoxes: "20\n20", arrival: "08:00" },
+    "",
+  );
+  s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "30",
     wasteKg: "8",

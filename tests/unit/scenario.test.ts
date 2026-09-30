@@ -7,10 +7,10 @@ import {
   batchKinds,
   isClosed,
   lotProgress,
-  ownerBranchScenario,
   ownerWasteOutstanding,
   purchaseLots,
 } from "@/lib/store";
+import { ownerBranchScenario } from "@/lib/store/scenario";
 
 const end = today();
 const db = ownerBranchScenario(end);
@@ -52,12 +52,12 @@ test("the Owner has one of every pending signal", () => {
   const list = titles(alerts.notifications).join("\n");
   for (const title of [
     "คำขอแก้ไขรอพิจารณา 1 รายการ",
-    "รอ Foodiva ออก Invoice",
+    "ออก Invoice เนื้อ",
     // DASH-02: one advisory line per active batch, naming the steps it lacks.
     "ชุด SH-2026-0002 ยังขาด",
     "รอตรวจ Invoice ค่ารมควัน",
     "รอชำระ Invoice ค่ารมควัน",
-    "รอ Chef House แก้ Invoice",
+    "แก้ Invoice ค่ารมควัน",
     "รอชำระ Invoice เนื้อ",
     "Chef House ปิด Lot แล้ว",
     "Foodiva รับเนื้อรมควันแล้ว 1 Lot",

@@ -17,6 +17,7 @@ export const Default: Story = {
   argTypes: {
     defaultChecked: { control: "boolean" },
     disabled: { control: "boolean" },
+    "aria-label": { control: "text" },
   },
   args: { defaultChecked: false, disabled: false },
   // defaultChecked only applies on mount, so remount when it changes.

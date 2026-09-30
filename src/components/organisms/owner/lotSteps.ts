@@ -1,3 +1,4 @@
+import { today } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   lotProgress,
@@ -14,7 +15,7 @@ export const batchSteps = [
   "smokeOrder",
   "dispatch",
   "packingList",
-  "smokeOrderAccept",
+  // Q1: no "Chef รับ PO" step; the Owner issues the smoke PO itself. It can still be recorded.
   "cmReceive",
   "prepare",
   "smoke",
@@ -32,7 +33,6 @@ export const stepLabels: Record<BatchStep, string> = {
   smokeOrder: "PO รมควัน",
   dispatch: "ใบขนส่ง",
   packingList: "Packing List",
-  smokeOrderAccept: "Chef รับ PO",
   cmReceive: "ชั่งรับ",
   prepare: "ก่อนสโมค",
   smoke: "สโมค",
@@ -44,11 +44,20 @@ export const stepLabels: Record<BatchStep, string> = {
   central: "สต๊อกกลาง",
 };
 
-/** Where the Owner records each of its own steps. */
-const ownerStepTab: Partial<Record<BatchStep, Tab>> = {
+/** Where the Owner records each step, its own and the ones it types for Foodiva and
+ *  Chef House. */
+const ownerStepTab: Record<BatchStep, Tab> = {
   smokeOrder: "smoke-po",
+  dispatch: "foodiva",
+  packingList: "foodiva",
+  cmReceive: "cm-receive",
+  prepare: "work",
+  smoke: "work",
+  closeLot: "work",
+  smokingInvoice: "work",
   invoicePayment: "invoices",
   return: "return-shipment",
+  foodivaReturnReceive: "foodiva",
   central: "central-receive",
 };
 
@@ -62,13 +71,9 @@ export function missingSteps(
   return steps.filter((step) => !done.has(step));
 }
 
-/** The tab of the first missing step the Owner itself records, else the manifest. */
+/** The tab of the first missing step, else the manifest. */
 export function missingStepTab(missing: readonly BatchStep[]): Tab {
-  for (const step of missing) {
-    const tab = ownerStepTab[step];
-    if (tab) return tab;
-  }
-  return "transport";
+  return missing.length ? ownerStepTab[missing[0]] : "transport";
 }
 
 /** "PO รมควัน, ใบขนส่ง, … และอีก 3 ขั้น" */
@@ -79,15 +84,9 @@ export function missingText(missing: readonly BatchStep[], shown = 4) {
 }
 
 const DAY = 86400000;
-/** Batches with an entry in the 30 days before the newest entry in the database
- *  (DASH-02). Measured from the data, not the clock, so an old test round stays readable. */
-export function activeBatches(db: Database, days = 30): Lot[] {
-  const newest = db.entries.reduce(
-    (max, e) => (e.date > max ? e.date : max),
-    "",
-  );
-  if (!newest) return [];
-  const cutoff = new Date(Date.parse(`${newest}T00:00:00Z`) - days * DAY)
+/** Batches with an entry in the 30 days up to `asOf` (DASH-02): today in Bangkok. */
+export function activeBatches(db: Database, asOf = today(), days = 30): Lot[] {
+  const cutoff = new Date(Date.parse(`${asOf}T00:00:00Z`) - days * DAY)
     .toISOString()
     .slice(0, 10);
   const recent = new Set(

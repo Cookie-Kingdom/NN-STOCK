@@ -41,14 +41,11 @@ const emptyRows: PackingListBox[] = Array.from({ length: 10 }, (_, index) => ({
   no: index + 1,
 }));
 
-function Editable({
-  start,
-  column,
-}: {
-  start: PackingListBox[];
-  column: "weight" | "received";
-}) {
+type Mode = "foodiva" | "chef" | "owner";
+
+function Editable({ start, mode }: { start: PackingListBox[]; mode: Mode }) {
   const [rows, setRows] = useState(start);
+  const column = mode === "foodiva" ? "weight" : "received";
   const edit = (no: number, value: number | undefined) =>
     setRows((current) =>
       current.map((box) => (box.no === no ? { ...box, [column]: value } : box)),
@@ -61,15 +58,14 @@ function Editable({
         no: index + 1,
       })),
     );
+  const foodiva = mode === "foodiva";
   return (
     <PackingListTable
-      header={
-        column === "weight" ? { ...header, slicedNet: undefined } : header
-      }
+      header={foodiva ? { ...header, slicedNet: undefined } : header}
       boxes={rows}
-      onRows={column === "weight" ? resize : undefined}
+      onRows={foodiva ? resize : undefined}
       onRemoveRow={
-        column === "weight"
+        foodiva
           ? (no) =>
               setRows((current) =>
                 current
@@ -78,48 +74,54 @@ function Editable({
               )
           : undefined
       }
-      onWeight={column === "weight" ? edit : undefined}
-      onReceived={column === "received" ? edit : undefined}
+      onWeight={foodiva ? edit : undefined}
+      onReceived={mode === "chef" ? edit : undefined}
     />
   );
 }
 
-const meta = {
-  title: "Develop/PackingListTable",
-  component: PackingListTable,
-  args: { header, boxes },
-} satisfies Meta<typeof PackingListTable>;
-
-export default meta;
-type Story = StoryObj<typeof meta>;
-
-/** Foodiva types the list itself: rows are added at the foot, deleted per row behind
- *  a confirmation, and counted in the field at the head. Only the Packing List column
- *  is editable. */
-export const FoodivaFill: Story = {
-  render: () => <Editable start={emptyRows} column="weight" />,
-};
-
-const progress = pick("ชั่งแล้ว", {
+const start = pick("แถว", {
+  "ว่าง 10 แถว (Foodiva เริ่มกรอก)": emptyRows,
   ยังไม่ชั่ง: boxes,
   ชั่งไปครึ่งหนึ่ง: boxes.map((box, i) => (i < 8 ? weighed[i] : box)),
+  ชั่งครบ: weighed,
 });
 
-/** Chef House opens the saved list and fills the yellow cells. เลือกใน Controls:
- *  - ยังไม่ชั่ง: every yellow cell empty
- *  - ชั่งไปครึ่งหนึ่ง: the badge counts what is still missing and the totals hold off */
-export const ChefHouseFill: StoryObj<{ start: PackingListBox[] }> = {
-  argTypes: { start: progress.argType },
-  args: { start: progress.initial },
-  render: ({ start }) => (
+const meta: Meta<{ mode: Mode; start: PackingListBox[] }> = {
+  title: "Organisms/Shared/PackingListTable",
+  argTypes: {
+    mode: {
+      name: "ผู้กรอก",
+      control: {
+        type: "radio",
+        labels: {
+          foodiva: "Foodiva (กรอก Packing List)",
+          chef: "Chef House (ช่องเหลือง)",
+          owner: "Owner (อ่านอย่างเดียว)",
+        },
+      },
+      options: ["foodiva", "chef", "owner"],
+    },
+    start: start.argType,
+  },
+  args: { mode: "foodiva", start: start.initial },
+};
+
+export default meta;
+
+/** เลือกใน Controls:
+ *  - ผู้กรอก:
+ *    - Foodiva: กรอกเองทั้งรายการ เพิ่มแถวท้ายตาราง ลบแถวทีละแถว (มียืนยัน) และนับจำนวนแถว
+ *      ในช่องหัวตาราง; แก้ได้เฉพาะคอลัมน์ Packing List
+ *    - Chef House: เปิดรายการที่บันทึกแล้วกรอกช่องเหลือง
+ *    - Owner: ไม่มี callback — มุมมองอ่านอย่างเดียวต่อการส่ง จำนวนแถวแสดงแต่แก้ไม่ได้
+ *  - แถว: ว่าง / ยังไม่ชั่ง / ชั่งไปครึ่งหนึ่ง (badge นับที่ยังขาด ยอดรวมรอ) / ชั่งครบ */
+export const Table: StoryObj<typeof meta> = {
+  render: ({ mode, start }) => (
     <Editable
-      key={start.filter((box) => box.received !== undefined).length}
+      key={`${mode}-${start.length}-${start.filter((box) => box.received !== undefined).length}`}
       start={start}
-      column="received"
+      mode={mode}
     />
   ),
 };
-
-/** Neither callback: the read-only view Owner/Manager sees per shipment. The row
- *  count is shown but cannot be changed. */
-export const OwnerView: Story = { args: { boxes: weighed } };

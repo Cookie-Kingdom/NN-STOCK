@@ -52,7 +52,7 @@ export type Modal = { kind: ModalKind; lotId: string };
 export const NO_LOT = "~no-lot";
 export const noLotLabel = "ไม่ระบุ Lot";
 
-export type NavItem = { id: Tab; label: string; icon: typeof Package };
+type NavItem = { id: Tab; label: string; icon: typeof Package };
 export type NavGroup = { label?: string; items: NavItem[] };
 
 /* One nav per account. An account only lists what its own workspace renders —
@@ -73,13 +73,31 @@ export const ownerNav: NavGroup[] = [
       { id: "invoices", label: "ใบ Invoice", icon: ClipboardList },
     ],
   },
+  // Foodiva and Chef House are partners, not users: the Owner records their steps here.
+  {
+    label: "งาน Foodiva",
+    items: [
+      {
+        id: "foodiva",
+        label: "Invoice เนื้อ · ใบขนส่ง · รับเข้าตู้",
+        icon: Beef,
+      },
+    ],
+  },
+  {
+    label: "งาน Chef House",
+    items: [
+      { id: "cm-receive", label: "ชั่งรับเนื้อ", icon: Warehouse },
+      { id: "work", label: "ผลิต · สโมค · Invoice ค่ารม", icon: Factory },
+    ],
+  },
   {
     label: "ขนส่งและรับเข้า",
     items: [
       { id: "transport", label: "ใบขนส่งขาไป", icon: ArrowRight },
       {
         id: "return-shipment",
-        label: "สร้างใบขนส่งขากลับ",
+        label: "เรียกรถขากลับ",
         icon: ArrowLeft,
       },
       {
@@ -119,26 +137,6 @@ export const ownerNav: NavGroup[] = [
 export const managerNav: NavGroup[] = ownerNav.filter(
   (group) => !group.items.some((item) => item.id === "owner-dashboard"),
 );
-
-export const foodivaNav: NavGroup[] = [
-  {
-    items: [
-      { id: "foodiva", label: "PO และสต๊อก Foodiva", icon: Beef },
-      { id: "history", label: "ประวัติ", icon: History },
-    ],
-  },
-];
-
-export const chefNav: NavGroup[] = [
-  {
-    items: [
-      { id: "cm-receive", label: "ยืนยันรับเนื้อ", icon: Warehouse },
-      { id: "work", label: "งานผลิต", icon: ClipboardList },
-      { id: "stock", label: "สต๊อก", icon: Package },
-      { id: "history", label: "ประวัติ", icon: History },
-    ],
-  },
-];
 
 export const branchNav: NavGroup[] = [
   {

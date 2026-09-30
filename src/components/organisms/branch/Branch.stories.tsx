@@ -12,10 +12,15 @@ import {
   open,
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
+import {
+  chiliMatchDb,
+  chiliMismatchDb,
+} from "../../../../.storybook/fixtures-F1";
 import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import {
   closeDayChecklist,
+  cooksRice,
   isClosed,
   requiredRiceKinds,
   visibleLots,
@@ -32,10 +37,6 @@ import { MeatDaySummary } from "./MeatDaySummary";
 
 const db = demoDb;
 const branch = "ศาลาแดง";
-const closed = isClosed(db, branch, day);
-/** The same list the workspace hands the branch (BR-07): Lots allocated to this branch
- *  or holding its own entries. */
-const branchLots = visibleLots(db, "branch", branch);
 
 /** Storybook's stand-in for the user picking a กลุ่มสต๊อก in the filter bar. */
 const pickGenre =
@@ -52,7 +53,22 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<{ db: Database; date: string }>;
+type Story = StoryObj<{
+  db: Database;
+  date: string;
+  branch: string;
+  closed: boolean;
+  disabled: boolean;
+  hasLots: boolean;
+  actions: boolean;
+}>;
+
+/** Controls: which branch the organism renders for. */
+const branchArg = {
+  name: "สาขา",
+  options: ["ศาลาแดง", "มีนบุรี"],
+  control: "radio" as const,
+};
 
 const dayState = pick("วัน", {
   เปิดวัน: db,
@@ -69,6 +85,27 @@ const materialsState = pick("สถานะ", {
   ปิดวันแล้ว: dayClosedDb,
 });
 const meatDay = pick("วัน", { วันนี้: day, วันถัดไป: nextDay });
+const meatDayDb = pick("ข้อมูล", {
+  ชิลยกไปพรุ่งนี้: chillDb,
+  "ไม่ระบุ Lot": unlinkedBranchDb,
+});
+const stockState = pick("ข้อมูล", {
+  "ผูก Lot แล้ว": db,
+  "ไม่ระบุ Lot": unlinkedBranchDb,
+});
+const receiptState = pick("ข้อมูล", {
+  มีใบโอนค้างรับ: materialTransferDb,
+  ไม่มีใบโอนค้าง: db,
+});
+const chiliState = pick("น้ำพริก", {
+  ยังไม่ตรวจนับ: db,
+  นับตรง: chiliMatchDb,
+  นับไม่ตรง: chiliMismatchDb,
+});
+const riceState = pick("ข้อมูล", {
+  บันทึกครบแล้ว: db,
+  ยังไม่ยกข้าวไปวันถัดไป: chillDb,
+});
 
 /** Pick the day's state in Controls: เปิดวัน, after ปิดวัน (status reads locked and
  *  every action is disabled), or "ไม่ระบุ Lot" (meat received with no batch: thawing
@@ -81,7 +118,7 @@ export const DailyWorkflow: Story = {
       db={db}
       branch={branch}
       date={day}
-      lots={visibleLots(db, "branch", branch)}
+      lots={visibleLots(db, branch)}
       closed={isClosed(db, branch, day)}
       open={open}
       onTab={fn()}
@@ -89,39 +126,33 @@ export const DailyWorkflow: Story = {
   ),
 };
 
-/** สต๊อก: ทุกอย่างที่อยู่ที่สาขานี้จริง ๆ ในตารางเดียว กรองด้วยกลุ่มสต๊อกและรายการ */
+/** สต๊อก: ทุกอย่างที่อยู่ที่สาขานี้จริง ๆ ในตารางเดียว กรองด้วยกลุ่มสต๊อกและรายการ.
+ *  ข้อมูล = "ไม่ระบุ Lot": แถว "ไม่ระบุ Lot · เนื้อรมควัน" พร้อมป้าย "ยังไม่ผูก Lot" และวัสดุ
+ *  ที่รับโดยไม่มีใบโอนนับเข้าสต๊อกวัสดุ (materials[0] +50). Lots are the same list the
+ *  workspace hands the branch (BR-07): allocated to it or holding its own entries. */
 export const StockView: Story = {
-  render: () => <BranchStockView db={db} branch={branch} lots={branchLots} />,
-};
-
-/** เนื้อที่รับเข้าโดยไม่ระบุ Lot: แถว "ไม่ระบุ Lot · เนื้อรมควัน" พร้อมป้าย "ยังไม่ผูก Lot"
- *  และวัสดุที่รับโดยไม่มีใบโอนนับเข้าสต๊อกวัสดุ (materials[0] +50) */
-export const StockViewUnlinked: Story = {
-  parameters: { db: unlinkedBranchDb },
-  render: () => (
-    <BranchStockView
-      db={unlinkedBranchDb}
-      branch={branch}
-      lots={visibleLots(unlinkedBranchDb, "branch", branch)}
-    />
+  argTypes: { db: stockState.argType },
+  args: { db: stockState.initial },
+  render: ({ db }) => (
+    <BranchStockView db={db} branch={branch} lots={visibleLots(db, branch)} />
   ),
 };
 
 /** กลุ่มสต๊อก = เนื้อ: เหลือเฉพาะ Lot ที่สาขานี้ถือหรือรออยู่ */
 export const StockViewMeat: Story = {
-  render: StockView.render,
+  ...StockView,
   play: pickGenre("เนื้อ"),
 };
 
 /** กลุ่มสต๊อก = วัตถุดิบ: ข้าวสาร ข้าวสุก และน้ำพริกหลอดของสาขา */
 export const StockViewSupplies: Story = {
-  render: StockView.render,
+  ...StockView,
   play: pickGenre("วัตถุดิบ"),
 };
 
 /** กลุ่มสต๊อก = วัสดุบรรจุภัณฑ์: วัสดุทั้งหมด พร้อมฐานและราคาต่อชิ้น */
 export const StockViewMaterials: Story = {
-  render: StockView.render,
+  ...StockView,
   play: pickGenre("วัสดุบรรจุภัณฑ์"),
 };
 
@@ -129,24 +160,53 @@ export const StockViewMaterials: Story = {
  *  ครบแล้ว: every required item done, the day can close (influencer giveaways are
  *  entered inside the close dialog itself, not as a row here). */
 export const CloseChecklist: Story = {
-  argTypes: { db: checklistState.argType },
-  args: { db: checklistState.initial },
-  render: ({ db }) => (
-    <CloseDayChecklist items={closeDayChecklist(db, branch, day)} onGo={open} />
+  argTypes: {
+    db: checklistState.argType,
+    actions: { name: "มีปุ่มไปกรอก (onGo)", control: "boolean" },
+  },
+  args: { db: checklistState.initial, actions: true },
+  render: ({ db, actions }) => (
+    <CloseDayChecklist
+      items={closeDayChecklist(db, branch, day)}
+      onGo={actions ? open : undefined}
+    />
   ),
 };
 
+/** ข้าวเหนียว. สาขา: ศาลาแดง นึ่งเองหรือซื้อข้าวสุก (4 แถว), มีนบุรี ซื้อข้าวสุกอย่างเดียว.
+ *  ข้อมูล = "ยังไม่ยกข้าวไปวันถัดไป" marks the rows closing still needs; disabled = the
+ *  day is closed; hasLots off = no Lot at the branch yet. */
 export const RiceTasks: Story = {
-  render: () => (
+  argTypes: {
+    branch: branchArg,
+    db: riceState.argType,
+    disabled: { control: "boolean" },
+    hasLots: { control: "boolean" },
+  },
+  args: {
+    branch,
+    db: riceState.initial,
+    disabled: false,
+    hasLots: true,
+  },
+  render: ({ branch, db, disabled, hasLots }) => (
     <DailyTaskTable
-      title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
-      kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
+      title={
+        cooksRice(branch)
+          ? "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
+          : "ข้าวเหนียว · ซื้อข้าวสุกจากข้างนอก"
+      }
+      kinds={
+        cooksRice(branch)
+          ? ["ricePurchase", "riceIssue", "rice", "riceCarry"]
+          : ["ricePurchase", "riceCarry"]
+      }
       required={requiredRiceKinds(db, branch, day)}
       db={db}
       branch={branch}
       date={day}
-      disabled={closed}
-      hasLots
+      disabled={disabled}
+      hasLots={hasLots}
       open={open}
     />
   ),
@@ -174,6 +234,8 @@ export const Materials: Story = {
  *  (บังคับกรอกเมื่อวันนี้เคยบันทึกไว้แล้ว) และปุ่ม ยกเลิก / บันทึกและล็อก */
 export const MaterialsEditing: Story = {
   ...Materials,
+  // demoDb's day is closed; closeReadyDb has the count saved on a day still open.
+  args: { db: closeReadyDb },
   play: async ({ canvasElement }) => {
     fireEvent.click(
       within(canvasElement).getByRole("button", { name: /ขอแก้ไขยอดนับ/ }),
@@ -184,16 +246,17 @@ export const MaterialsEditing: Story = {
 // demoDb confirms every shipment it makes, so the pending-row state (and its live
 // "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding. The received
 // quantity starts at the sent one ("ตามยอดส่ง", expected) and the receiver at the
-// name the Owner wrote on the transfer.
+// name the Owner wrote on the transfer. closed = the day is locked.
 export const MaterialReceipt: Story = {
-  parameters: { db: materialTransferDb },
-  render: () => (
+  argTypes: { db: receiptState.argType, closed: { control: "boolean" } },
+  args: { db: receiptState.initial, closed: false },
+  render: ({ db, closed }) => (
     <MaterialReceiptConfirmation
-      db={materialTransferDb}
+      db={db}
       branch={branch}
       date={day}
       onDate={fn()}
-      closed={false}
+      closed={closed}
     />
   ),
 };
@@ -212,8 +275,13 @@ export const MaterialReceiptNoTransfer: Story = {
   },
 };
 
+/** สรุปรายวัน + น้ำพริก. สาขา switches the rows (มีนบุรี only buys cooked rice).
+ *  น้ำพริก (ศาลาแดง, an open day with 20 tubes allocated and 2 sold): ยังไม่ตรวจนับ,
+ *  นับตรง (badge ตรงกัน) or นับไม่ตรง (badge ยอดไม่ตรง + หมายเหตุส่วนต่าง). */
 export const Summary: Story = {
-  render: () => (
+  argTypes: { branch: branchArg, db: chiliState.argType },
+  args: { branch, db: chiliState.initial },
+  render: ({ branch, db }) => (
     <>
       <DailySummary db={db} branch={branch} date={day} />
       <ChiliDailySummary db={db} branch={branch} date={day} />
@@ -222,21 +290,13 @@ export const Summary: Story = {
 };
 
 /** 70 kg thawed, 65.5 kg used: 4.5 kg คงเหลือชิล goes to tomorrow, and the day can
- *  close. Switch วัน to วันถัดไป: yesterday's 4.5 kg shows as ชิลยกมา. */
+ *  close. Switch วัน to วันถัดไป: yesterday's 4.5 kg shows as ชิลยกมา. ข้อมูล =
+ *  "ไม่ระบุ Lot": meat with no batch, the "ไม่ระบุ Lot" row with its "ยังไม่ผูก Lot"
+ *  badge (6 kg thawed, 3 kg used, 3 kg chill to tomorrow). */
 export const MeatDay: Story = {
-  parameters: { db: chillDb },
-  argTypes: { date: meatDay.argType },
-  args: { date: meatDay.initial },
-  render: ({ date }) => (
-    <MeatDaySummary db={chillDb} branch={branch} date={date} />
-  ),
-};
-
-/** Meat with no batch: the "ไม่ระบุ Lot" row with its "ยังไม่ผูก Lot" badge — 6 kg
- *  thawed, 3 kg used, 3 kg chill to tomorrow. */
-export const MeatDayUnlinked: Story = {
-  parameters: { db: unlinkedBranchDb },
-  render: () => (
-    <MeatDaySummary db={unlinkedBranchDb} branch={branch} date={day} />
+  argTypes: { db: meatDayDb.argType, date: meatDay.argType },
+  args: { db: meatDayDb.initial, date: meatDay.initial },
+  render: ({ db, date }) => (
+    <MeatDaySummary db={db} branch={branch} date={date} />
   ),
 };

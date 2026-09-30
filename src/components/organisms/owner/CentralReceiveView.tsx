@@ -3,7 +3,7 @@
 import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   entries,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Select } from "@/components/atoms/Select";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
@@ -21,6 +21,7 @@ import {
   preSmokeTrimKg,
   rawAtSmoker,
   shipments,
+  smokedAtFoodiva,
   lotProgress,
   titles,
   type Database,
@@ -28,6 +29,7 @@ import {
   type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 const locationColumns = ["PO", "Lot", "จุดเก็บ", "คงเหลือ", "รายละเอียด"];
 const movementColumns = [
@@ -136,14 +138,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     (lot) => lotFilter === "ทั้งหมด" || lot.id === lotFilter,
   );
   const locationRows = lots.flatMap((lot) => {
-    const returnReceived = n(
-      entries(db, "foodivaReturnReceive", lot.id).at(-1)?.values || {},
-      "receivedKg",
-    );
-    const foodivaSmoked = Math.max(
-      0,
-      returnReceived - n(lot.values, "centralKg"),
-    );
+    const foodivaSmoked = smokedAtFoodiva(db, lot);
     const chefSmoked =
       lotProgress(db, lot.id).has("closeLot") &&
       !entries(db, "return", lot.id).length
@@ -154,9 +149,9 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         [
           lot.poId,
           lot.id,
-          "Foodiva · เนื้อดิบ",
+          "Foodiva · เนื้อดิบรอส่ง Chef House",
           `${fmt(rawAtFoodiva(db, lot))} กก.`,
-          "คงเหลือจาก PO ก่อนส่ง Chef House",
+          "พร้อมส่งเชียงใหม่ตาม Invoice (ยอดสั่งถ้ายังไม่มี Invoice) หักที่ขึ้นรถแล้ว",
         ],
         [
           lot.poId,
@@ -255,7 +250,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       (entry) => lotFilter === "ทั้งหมด" || lotLabel(entry.lotId) === lotFilter,
     )
     // Oldest first, the order DataTable's sort expects; the table flips it.
-    .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
+    .sort(byDateAt)
     .map((entry) => {
       const [location, action, amount] = descriptions[entry.kind](entry, db);
       return [
@@ -269,7 +264,8 @@ export function MeatMovementLogView({ db }: { db: Database }) {
     });
   return (
     <div className="grid gap-6">
-      <PanelHeading
+      <SectionHeading
+        framed
         overline="OWNER · BEEF TRACE"
         title="Log เนื้อคงเหลือ"
         description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"

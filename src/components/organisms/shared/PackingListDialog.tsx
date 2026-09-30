@@ -4,11 +4,11 @@ import { Notice } from "@/components/molecules/Notice";
 import {
   packingListView,
   receivedDraft,
-} from "@/components/organisms/chef/receivedBoxes";
+} from "@/components/organisms/shared/receivedBoxes";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
 import { fmt } from "@/lib/format";
 import {
@@ -75,7 +75,8 @@ export function PackingListDialog({
         {view ? (
           <>
             {list.values.attachmentStorageKey && (
-              <AttachmentViewButton
+              <AttachmentButton
+                action="view"
                 name={list.values.attachment}
                 storageKey={list.values.attachmentStorageKey}
                 label={`ไฟล์ที่ Foodiva แนบ · ${list.values.attachment}`}

@@ -5,7 +5,7 @@ import {
   seed,
   type Database,
   type EntryKind,
-  type Role,
+  type ActingRole,
   type Values,
 } from "./model";
 import { branchMaterialStock, cookedRiceStock, riceSources } from "./derived";
@@ -30,7 +30,12 @@ function roleplay(endDate: string, dayCount: number): Database {
   }
   let currentDate = dates[0];
   let currentBranch = branches[0];
-  const run = (role: Role, kind: EntryKind, values: Values, lotId = "") => {
+  const run = (
+    role: ActingRole,
+    kind: EntryKind,
+    values: Values,
+    lotId = "",
+  ) => {
     db = mutate(db, role, kind, values, lotId, currentDate, currentBranch);
   };
   const packs = Array.from({ length: packCount }, () => "0.100").join("\n");
@@ -58,7 +63,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   });
   const poLotId = db.lots[0].id;
   run(
-    "foodiva",
+    "owner",
     "foodivaConfirm",
     {
       invoiceNo: "INV-DEMO-001",
@@ -88,7 +93,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     String(Math.min(20, rawKg - i * 20)),
   ).join("\n");
   // Foodiva opens the batch with its transport document (GEN-09); the Owner's smoke PO joins it.
-  run("foodiva", "dispatch", {
+  run("owner", "dispatch", {
     pickupDate: dates[0],
     origin: "Foodiva · กรุงเทพฯ",
     destination: "Chef House · เชียงใหม่",
@@ -102,7 +107,7 @@ function roleplay(endDate: string, dayCount: number): Database {
   });
   const lotId = db.lots.at(-1)!.id;
   run(
-    "foodiva",
+    "owner",
     "packingList",
     {
       invoiceNo: "INV-DEMO-001",
@@ -124,11 +129,11 @@ function roleplay(endDate: string, dayCount: number): Database {
     },
     lotId,
   );
-  run("cm", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
-  run("cm", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
-  run("cm", "prepare", { preSmokeKg: String(rawKg) }, lotId);
+  run("owner", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
+  run("owner", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
+  run("owner", "prepare", { preSmokeKg: String(rawKg) }, lotId);
   run(
-    "cm",
+    "owner",
     "smoke",
     {
       smokeDate: dates[0],
@@ -138,9 +143,9 @@ function roleplay(endDate: string, dayCount: number): Database {
     },
     lotId,
   );
-  run("cm", "closeLot", { confirm: "Chef House" }, lotId);
+  run("owner", "closeLot", { confirm: "Chef House" }, lotId);
   run(
-    "cm",
+    "owner",
     "smokingInvoice",
     {
       invoiceNumber: "CH-INV-DEMO-001",
@@ -190,7 +195,7 @@ function roleplay(endDate: string, dayCount: number): Database {
     lotId,
   );
   run(
-    "foodiva",
+    "owner",
     "foodivaReturnReceive",
     {
       receivedDate: dates[4],

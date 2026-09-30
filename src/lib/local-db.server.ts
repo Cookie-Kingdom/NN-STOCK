@@ -6,12 +6,14 @@ import type { Account } from "./accounts";
 import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
-  branches,
+  canLink,
+  entries,
+  isClosed,
+  openEditRequest,
   seed,
   type Database,
   type Entry,
   type Lot,
-  type Role,
   type EntryKind,
 } from "./store";
 
@@ -40,22 +42,23 @@ export function readState(db: DatabaseSync): AppStateRow {
 }
 
 /** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
- * money (C4), every other role its role-scoped copy (load_app_state in 20260925000028;
- * scope_app_state latest in 20260928000031). */
+ * money (C4), a branch its role-scoped copy; Foodiva and Chef House accounts are retired
+ * (load_app_state and scope_app_state in 20260929000033). */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
 ): AppStateRow {
+  // A missing, unknown or retired (e.g. old `chef`) cookie maps to null: never the full state.
+  if (!account) fail("Authentication required");
   const row = readState(db);
-  if (!account || (account.role === "owner" && !account.hidesSales)) return row;
-  if (account.role === "owner")
+  if (account!.role === "owner" && !account!.hidesSales) return row;
+  if (account!.role === "owner")
     return { ...row, payload: stripSaleMoney(row.payload) };
   return {
     ...row,
     payload: scopeDatabase(
       row.payload,
-      account.role,
-      account.branch ? [account.branch] : [],
+      account!.branch ? [account!.branch] : [],
     ),
   };
 }
@@ -64,54 +67,32 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds each non-owner role may append: `ownership` in store/mutate.ts plus editRequest. */
-const allowedKinds: Partial<Record<Role, EntryKind[]>> = {
-  branch: [
-    "receive",
-    "thaw",
-    "supplyPurchase",
-    "supplyIssue",
-    "ricePurchase",
-    "chiliPurchase",
-    "riceIssue",
-    "chiliIssue",
-    "rice",
-    "riceCarry",
-    "sale",
-    "influencerBox",
-    "materials",
-    "materialConfirm",
-    "closeDay",
-    "editRequest",
-    "link",
-  ],
-  cm: [
-    "smokingInvoice",
-    "smokeOrderAccept",
-    "cmReceive",
-    "prepare",
-    "smoke",
-    "closeLot",
-    "chefEdit",
-    "editRequest",
-    "link",
-  ],
-  foodiva: [
-    "foodivaConfirm",
-    "packingList",
-    "foodivaReturnReceive",
-    "dispatch",
-    "editRequest",
-    "link",
-  ],
-};
+/** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036), plus
+ *  editRequest, link and void (a branch only voids its own pending edit request; derived.ts
+ *  ignores any other). */
+const branchKinds: EntryKind[] = [
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "riceIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materials",
+  "materialConfirm",
+  "closeDay",
+  "editRequest",
+  "link",
+  "void",
+];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const without = (value: object, ...keys: string[]) =>
   Object.fromEntries(
     Object.entries(value).filter(([key]) => !keys.includes(key)),
   );
 
-/** JS port of `save_app_state` (latest in supabase/migrations/20260928000030_free_ledger_app_state.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20260929000034_branch_append_guards.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -120,6 +101,8 @@ export function saveState(
   expectedRevision: number | null,
 ): AppStateRow {
   if (!account) fail("Authentication required");
+  if (account!.role !== "owner")
+    fail("Branch accounts save through append_entries");
   if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
     fail("Payload too large");
   let payload = input as Database;
@@ -138,18 +121,6 @@ export function saveState(
   if (account!.hidesSales) payload = restoreSaleMoney(old, payload);
   if (expectedRevision == null || expectedRevision !== revision)
     fail("State changed on another device. Reload and try again.");
-  const role = account!.role;
-  if (role !== "owner" && !isDeepStrictEqual(payload.config, old.config))
-    fail("Only an owner can change configuration");
-  if (
-    role !== "owner" &&
-    (payload.version !== 9 ||
-      !isDeepStrictEqual(
-        without(payload, "entries", "lots"),
-        without(old, "entries", "lots"),
-      ))
-  )
-    fail("Only an owner can change application state");
   if (payload.entries.length < old.entries.length)
     fail("Existing history cannot be removed");
   if (
@@ -158,89 +129,27 @@ export function saveState(
     )
   )
     fail("Existing history cannot be changed");
-  // The Account Manager writes as role "owner" and stamps every new entry; nobody else may.
+  // The Account Manager stamps every new entry (owner / foodiva / cm); the Owner may stamp
+  // "owner" on a partner's entry it typed (M0).
   const manager = account!.id === "manager";
   for (const entry of payload.entries.slice(old.entries.length)) {
-    if (manager && entry?.role !== "owner")
+    const actorOk = manager
+      ? entry?.actor === "manager"
+      : entry?.actor === undefined ||
+        (entry.actor === "owner" &&
+          (entry.role === "foodiva" || entry.role === "cm"));
+    if (!actorOk) fail("Entry actor does not match signed-in account");
+    if (manager && !["owner", "foodiva", "cm"].includes(entry.role))
       fail("Entry role does not match signed-in account");
-    if (entry?.actor !== (manager ? "manager" : undefined))
-      fail("Entry actor does not match signed-in account");
-  }
-  if (role !== "owner") {
-    const added = payload.entries.slice(old.entries.length);
-    // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
-    const configBranch = branches.includes(old.config.branch ?? "")
-      ? old.config.branch
-      : branches[0];
-    for (const entry of added) {
-      if (entry?.role !== role)
-        fail("Entry role does not match signed-in account");
-      if (role === "branch" && entry.branch !== account!.branch)
-        fail("Entry branch does not match signed-in account");
-    }
-    for (const entry of added) {
-      if (!allowedKinds[role]?.includes(entry.kind))
-        fail("Entry kind is not allowed for this account");
-      if (
-        !entry.id ||
-        payload.entries.filter((other) => other?.id === entry.id).length > 1
-      )
-        fail("Entry id must be unique");
-      if (
-        entry.lotId &&
-        entry.lotId !== "-" &&
-        !payload.lots.some((lot) => lot?.id === entry.lotId)
-      )
-        fail("Entry lot does not exist");
-      if (
-        (role === "cm" || role === "foodiva") &&
-        entry.branch != null &&
-        entry.branch !== configBranch
-      )
-        fail("Entry branch does not match signed-in account");
-    }
-    // SRV-02: no workflow step to check. A lot keeps its identity; only its values cache
-    // moves (DM-09), and Foodiva or Chef House may open a new shipment batch (GEN-09).
-    if (payload.lots.length < old.lots.length)
-      fail("Only an owner can remove lots");
-    old.lots.forEach((lot, index) => {
-      const next = payload.lots[index];
-      if (
-        !next ||
-        !isDeepStrictEqual(without(next, "values"), without(lot, "values")) ||
-        !isObject(next.values)
-      )
-        fail("Lot changes must follow the workflow");
-    });
-    if (
-      payload.lots
-        .slice(old.lots.length)
-        .some(
-          (lot) =>
-            !isShipmentLot(lot) ||
-            !isObject(lot.values) ||
-            payload.lots.filter((other) => other?.id === lot.id).length > 1,
-        )
-    )
-      fail("Only an owner can add or remove lots");
   }
   return replaceState(db, payload);
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-/** A new shipment batch as `mutate` opens one: `S<yymmdd>-NNN-xxxx` / `SH-…` ids, kind
- *  "shipment" (is_new_batch, migration 20260928000031). */
-const isShipmentLot = (lot: unknown): lot is Lot =>
-  isObject(lot) &&
-  lot.kind === "shipment" &&
-  typeof lot.id === "string" &&
-  /^S\d{6}-\d{3}-[0-9a-f]{4}$/.test(lot.id) &&
-  typeof lot.poId === "string" &&
-  /^SH-\d{4}-\d{4}$/.test(lot.poId);
 
-/** JS port of `append_entries` (supabase/migrations/20260928000030_free_ledger_app_state.sql):
- * a Branch, Foodiva or Chef House save, which sends only its new entries and changed lots.
+/** JS port of `append_entries` (latest in supabase/migrations/20260929000036_append_retired_kinds.sql):
+ * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
   db: DatabaseSync,
@@ -257,8 +166,7 @@ export function appendState(
   )
     fail("Payload too large");
   const role = account!.role;
-  if (role === "owner")
-    fail("Only branch, Foodiva and Chef House accounts append entries");
+  if (role !== "branch") fail("Only branch accounts append entries");
   const added = entryInput as Entry[];
   const changes = (lotInput ?? []) as Lot[];
   if (
@@ -273,14 +181,11 @@ export function appendState(
     fail("State changed on another device. Reload and try again.");
   if (added.some((entry) => entry.actor != null))
     fail("Entry actor does not match signed-in account");
-  if (added.some((entry) => entry.role !== role))
+  if (added.some((entry) => entry.role !== "branch"))
     fail("Entry role does not match signed-in account");
-  if (
-    role === "branch" &&
-    added.some((entry) => entry.branch !== account!.branch)
-  )
+  if (added.some((entry) => entry.branch !== account!.branch))
     fail("Entry branch does not match signed-in account");
-  if (added.some((entry) => !allowedKinds[role]?.includes(entry.kind)))
+  if (added.some((entry) => !branchKinds.includes(entry.kind)))
     fail("Entry kind is not allowed for this account");
   const oldIds = new Set(old.entries.map((entry) => entry?.id));
   if (
@@ -292,41 +197,15 @@ export function appendState(
     )
   )
     fail("Entry id must be unique");
-  // cm/foodiva entries carry config.branch (mutate), read the way normalize() reads it.
-  const configBranch = branches.includes(old.config.branch ?? "")
-    ? old.config.branch
-    : branches[0];
-  if (
-    (role === "cm" || role === "foodiva") &&
-    added.some((entry) => entry.branch != null && entry.branch !== configBranch)
-  )
-    fail("Entry branch does not match signed-in account");
 
-  const workflow = "Lot changes must follow the workflow";
-  if (new Set(changes.map((lot) => lot.id)).size !== changes.length)
-    fail(workflow);
-  const lots = [...old.lots];
-  for (const change of changes) {
-    const index = old.lots.findIndex((lot) => lot?.id === change.id);
-    if (index < 0) {
-      // GEN-09: a new shipment batch opened by Foodiva or Chef House.
-      if (!isShipmentLot(change) || lots.some((lot) => lot?.id === change.id))
-        fail("Only an owner can add or remove lots");
-      lots.push({ ...change, values: change.values ?? {} });
-      continue;
-    }
-    const lot = old.lots[index];
-    if (!isObject(change.values ?? {})) fail(workflow);
-    // Only values are taken (DM-09); they merge over the stored ones.
-    lots[index] = { ...lot, values: { ...lot.values, ...change.values } };
-  }
-  // After the lots: a batch opened in this save counts (as in append_entries).
+  // No branch kind opens a batch or writes the lot cache (lotCost reads it).
+  if (changes.length) fail("Only an owner can change lots");
   if (
     added.some(
       (entry) =>
         entry.lotId &&
         entry.lotId !== "-" &&
-        !lots.some((lot) => lot?.id === entry.lotId),
+        !old.lots.some((lot) => lot?.id === entry.lotId),
     )
   )
     fail("Entry lot does not exist");
@@ -337,15 +216,65 @@ export function appendState(
     `to.${key}`,
     `from.${key}`,
   ]);
-  const entries = added.map((entry) => ({
-    ...entry,
-    values: without(entry.values, ...costKeys) as Entry["values"],
-  }));
-  return replaceState(db, {
-    ...old,
-    lots,
-    entries: [...old.entries, ...entries],
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Bangkok",
   });
+  // In log order, so an entry sees the ones before it in this save (a closeDay, a link target).
+  const log = { ...old, entries: [...old.entries] };
+  for (const entry of added) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") || entry.date > today)
+      fail("Entry date is invalid or after today");
+    // 0035: a request, its withdrawal and a link (dated today whatever day its target is on,
+    // STK-37) go through on a closed day.
+    if (
+      !["editRequest", "void", "link"].includes(entry.kind) &&
+      isClosed(log, entry.branch, entry.date)
+    )
+      fail("Branch day is closed");
+    const target = log.entries.find(
+      (other) => other?.id === entry.values.targetId,
+    );
+    if (entry.kind === "link" && !(target && canLink(entry, target)))
+      fail("Link target is not an entry of this branch");
+    // A branch voids only its own edit request still waiting for a decision (mutate.ts).
+    if (
+      entry.kind === "void" &&
+      !(
+        target?.kind === "editRequest" &&
+        target.role === "branch" &&
+        target.branch === entry.branch &&
+        !log.entries.some(
+          (other) =>
+            (other?.kind === "editDecision" &&
+              other.values?.requestId === target.id) ||
+            (other?.kind === "void" && other.values?.targetId === target.id),
+        )
+      )
+    )
+      fail("Void target is not a pending edit request of this branch");
+    // 0036: the duplicates mutate refuses, one open request per entry and one confirm per transfer.
+    if (
+      entry.kind === "editRequest" &&
+      openEditRequest(log, entry.values.targetId)
+    )
+      fail("Entry already has a pending edit request");
+    const transferId = entry.values.transferId;
+    if (
+      (entry.kind === "materialConfirm" || entry.kind === "link") &&
+      transferId &&
+      entries(log, "materialConfirm").some(
+        (confirm) =>
+          confirm.id !== entry.values.targetId &&
+          confirm.values.transferId === transferId,
+      )
+    )
+      fail("Material transfer is already confirmed");
+    log.entries.push({
+      ...entry,
+      values: without(entry.values, ...costKeys) as Entry["values"],
+    });
+  }
+  return replaceState(db, log);
 }
 
 /** Writes the state with no guards. saveState calls it after its checks; on its own

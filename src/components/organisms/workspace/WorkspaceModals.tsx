@@ -12,27 +12,14 @@ import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTran
 import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
 import { skipNextDialogEnter } from "@/components/organisms/shared/Dialog";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
-import { ChefLotEditForm } from "@/components/organisms/chef/ChefLotEditForm";
-import { ChefReceiveForm } from "@/components/organisms/chef/ChefReceiveForm";
-import { FoodivaDispatchForm } from "@/components/organisms/foodiva/FoodivaDispatchForm";
-import { SmokeOrderPreviewDialog } from "@/components/organisms/chef/SmokeOrderPreviewDialog";
+import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
+import { ChefReceiveForm } from "@/components/organisms/owner/ChefReceiveForm";
+import { FoodivaDispatchForm } from "@/components/organisms/owner/FoodivaDispatchForm";
+import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { ModalKind } from "@/lib/nav";
 import { entries, titles, type EntryKind } from "@/lib/store";
-
-const CUSTOM_DIALOGS = [
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "packingList",
-  "allocate",
-  "chefEdit",
-  "smokeOrderPreview",
-  "cmReceive",
-  "dispatch",
-  "packingListView",
-];
 
 // The stock tab's two buttons each open a pair of forms: the first kind is what the
 // button opens, the chooser swaps in the other. Each form still saves its own kind.
@@ -166,7 +153,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
           done(
             lotId && entries(next, "smokeOrder", lotId).length
               ? "บันทึกใบขนส่งและ Packing List แล้ว"
-              : "บันทึกใบขนส่งและ Packing List แล้ว · แจ้ง Owner ออก PO รมควัน",
+              : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
           );
         }}
       />
@@ -226,7 +213,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       <SmokeOrderPreviewDialog db={db} lotId={modal.lotId} onClose={close} />
     );
   }
-  if (CUSTOM_DIALOGS.includes(modal.kind)) return null;
 
   return (
     <EntryForm
@@ -238,13 +224,14 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       modal={modal}
       onClose={close}
       onOpen={ws.open}
+      onTab={setTab}
       switcher={switcher}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);
         if (modal.kind === "purchase") {
           setTab("po");
           done(
-            "สร้างใบ PO แล้ว · รอ Foodiva ยืนยัน Invoice และน้ำหนักก่อนทำใบขนส่ง",
+            "สร้างใบ PO แล้ว · ออก Invoice เนื้อแทน Foodiva ได้ที่งาน Foodiva",
           );
         } else {
           done(savedMessage(titles[modal.kind as EntryKind]));

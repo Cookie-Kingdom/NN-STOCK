@@ -5,7 +5,6 @@ import {
   poRemainingKg,
   shipmentShares,
   shipments,
-  visibleDatabase,
 } from "@/lib/store";
 import {
   confirm,
@@ -16,7 +15,6 @@ import {
   packingList,
   purchase,
   setup,
-  smoked,
   smokeOrder,
   type Setup,
 } from "./fixtures";
@@ -115,10 +113,6 @@ describe("smoke PO lines", () => {
     expect(poRemainingKg(s.db, a)).toBe(300);
     expect(poRemainingKg(s.db, b)).toBe(0);
     expect(poRemainingKg(s.db, c)).toBe(400);
-    // Chef House never sees the lines, edited or not.
-    expect(JSON.stringify(visibleDatabase(s.db, "cm"))).not.toContain(
-      '"lines"',
-    );
   });
 });
 
@@ -137,9 +131,9 @@ describe("batch at Chef House", () => {
     );
     dispatch(s);
     packingList(s, "500\n500");
-    s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
+    s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
     const receive = (receivedBoxes: string) =>
-      s.run("cm", "cmReceive", { receivedBoxes, arrival: "08:00" });
+      s.run("owner", "cmReceive", { receivedBoxes, arrival: "08:00" });
     // A box count off the Packing List is said, not refused.
     expectWarning(
       s.dry(() => receive("450")),
@@ -170,30 +164,6 @@ describe("batch at Chef House", () => {
     ]);
     expect(lotCost(s.db, batch).meat).toBe(204250);
   });
-
-  test("PRIN-06 Chef House's database holds no purchase PO number, price or smoke PO lines", () => {
-    const s = smoked();
-    // A second batch with a smoke PO but nothing of Chef House's is still its business, and so
-    // is one Foodiva opened and trucked without a PO (VIS-02), so Chef never opens it twice.
-    const [id] = purchases(s, ["20"]);
-    smokeOrder(s, [[id, "20"]], "20", "");
-    dispatch(s, "");
-    const chef = visibleDatabase(s.db, "cm");
-    const json = JSON.stringify(chef);
-    expect(json).not.toContain("PO-");
-    expect(json).not.toContain('"price"');
-    expect(json).not.toContain('"lines"');
-    expect(chef.lots.map((lot) => lot.poId)).toEqual([
-      "SH-2026-0001",
-      "SH-2026-0002",
-      "SH-2026-0003",
-    ]);
-    expect(chef.entries.map((e) => e.kind)).toEqual(
-      expect.arrayContaining(["packingList", "smokeOrder", "cmReceive"]),
-    );
-    expect(chef.entries.map((e) => e.kind)).not.toContain("dispatch");
-    expect(visibleDatabase(s.db, "owner")).toBe(s.db);
-  });
 });
 
 describe("meat invoice payment", () => {
@@ -217,7 +187,7 @@ describe("meat invoice payment", () => {
       s.dry(() => pay("10000")),
       "ยังไม่มี Invoice เนื้อจาก Foodiva",
     );
-    s.run("foodiva", "foodivaConfirm", {
+    s.run("owner", "foodivaConfirm", {
       invoiceNo: "INV-9",
       invoiceDate: day,
       attachment: "inv.pdf",
@@ -246,7 +216,7 @@ describe("meat invoice payment", () => {
     expect(() => pay("10000")).toThrow("ชำระ Invoice เนื้อใบนี้แล้ว");
     // PO-02: Foodiva may still re-issue its invoice; it is only told the PO is paid.
     expectWarning(
-      s.check("foodiva", "foodivaConfirm", {
+      s.check("owner", "foodivaConfirm", {
         invoiceNo: "INV-9b",
         invoiceDate: day,
         attachment: "inv.pdf",

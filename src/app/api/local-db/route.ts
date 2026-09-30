@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
-import { ownerBranchScenario, seed, sevenDayRoleplay } from "@/lib/store";
+import { seed } from "@/lib/store";
+import { sevenDayRoleplay } from "@/lib/store/demo";
+import { ownerBranchScenario } from "@/lib/store/scenario";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served
@@ -23,12 +25,19 @@ const open = () =>
 const signedIn = async () =>
   accountById((await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value);
 
-/** Like load_app_state: the Account Manager's copy has no sale money in it (C4), a Branch,
- * Foodiva or Chef House account gets its role-scoped copy (src/lib/role-scope.ts). */
+/** Like load_app_state: the Account Manager's copy has no sale money in it (C4), a branch
+ * gets its role-scoped copy (src/lib/role-scope.ts); no, an unknown or a retired account is refused. */
 export async function GET() {
   if (!enabled) return new Response(null, { status: 404 });
   const { db, loadState } = await open();
-  return Response.json(loadState(db, (await signedIn()) ?? null));
+  try {
+    return Response.json(loadState(db, (await signedIn()) ?? null));
+  } catch (error) {
+    return Response.json(
+      { message: (error as Error).message },
+      { status: 403 },
+    );
+  }
 }
 
 /** e2e setup: `?state=seed` resets to the seed (startFresh), `?state=sample` loads

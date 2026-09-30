@@ -14,7 +14,6 @@ import { EditDiff } from "@/components/organisms/shared/EntryDetails";
 import { editOutcome } from "@/components/organisms/workspace/editRequestAlerts";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
-  editApprovers,
   editDecisions,
   editRequestRows,
   check,
@@ -23,7 +22,7 @@ import {
   titles,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
   type EntryKind,
 } from "@/lib/store";
 import { today } from "@/lib/format";
@@ -40,12 +39,16 @@ function RequestRow({
 }: {
   request: Entry;
   decision?: Entry;
-  role: Role;
+  role: ActingRole;
   onChanged: (message: string) => void;
 }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  const decide = (choice: string) => {
+  const run = (
+    kind: EntryKind,
+    values: Record<string, string>,
+    done: string,
+  ) => {
     setError("");
     let next = undefined as Database | undefined;
     // A stock left below zero is only a warning: it is said with the result, and saved.
@@ -53,25 +56,34 @@ function RequestRow({
       next = mutate(
         latestDatabase(),
         role,
-        "editDecision",
-        { requestId: request.id, decision: choice, note },
+        kind,
+        values,
         "",
         today(),
+        request.branch,
       );
     });
     if (!next) return setError(error || "บันทึกไม่สำเร็จ");
     saveDatabase(next);
-    onChanged(
-      [
-        choice === editDecisions.approve
-          ? "อนุมัติคำขอแล้ว ระบบใช้ค่าใหม่คำนวณยอดทันที"
-          : "ไม่อนุมัติคำขอแล้ว ค่าเดิมยังใช้อยู่",
-        ...warnings,
-      ].join(" · "),
-    );
+    onChanged([done, ...warnings].join(" · "));
   };
+  const decide = (choice: string) =>
+    run(
+      "editDecision",
+      { requestId: request.id, decision: choice, note },
+      choice === editDecisions.approve
+        ? "อนุมัติคำขอแล้ว ระบบใช้ค่าใหม่คำนวณยอดทันที"
+        : "ไม่อนุมัติคำขอแล้ว ค่าเดิมยังใช้อยู่",
+    );
+  // The requester takes back a request nobody has decided yet (a void of the request).
+  const withdraw = () =>
+    run(
+      "void",
+      { targetId: request.id, reason: "ผู้ขอถอนคำขอแก้ไข" },
+      "ถอนคำขอแก้ไขแล้ว ค่าเดิมยังใช้อยู่",
+    );
   const outcome = editOutcome(decision);
-  const approver = editApprovers.includes(role);
+  const approver = role === "owner";
   return (
     <div className="border-b border-border py-3.5 last:border-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -134,6 +146,14 @@ function RequestRow({
           <FormError error={error} />
         </>
       )}
+      {!decision && !approver && request.role === "branch" && (
+        <>
+          <ButtonRow compact>
+            <Button onClick={withdraw}>ถอนคำขอ</Button>
+          </ButtonRow>
+          <FormError error={error} />
+        </>
+      )}
     </div>
   );
 }
@@ -146,11 +166,11 @@ export function EditRequestList({
   onChanged,
 }: {
   db: Database;
-  role: Role;
+  role: ActingRole;
   onChanged: (message: string) => void;
 }) {
   const rows = editRequestRows(db);
-  const approver = editApprovers.includes(role);
+  const approver = role === "owner";
   const waiting = rows.filter((row) => !row.decision).length;
   return (
     <Panel>

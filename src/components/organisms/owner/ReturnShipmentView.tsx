@@ -4,13 +4,13 @@ import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
-import { LotProgressChips } from "@/components/organisms/owner/LotProgressChips";
+import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
+  awaitingReturn,
   entries,
   produced,
   producedBags,
-  shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
@@ -35,13 +35,11 @@ export function ReturnShipmentView({
   db: Database;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
-  const readyToReturn = shipments(db).filter(
-    (lot) => !entries(db, "return", lot.id).length,
-  );
+  const readyToReturn = awaitingReturn(db);
   return (
     <>
       <SectionHeading
-        title="สร้างใบขนส่งขากลับ"
+        title="เรียกรถขากลับ"
         description="ทุกชุดที่ยังไม่มีใบขนส่งขากลับ · Owner เรียกรถขากลับ Chef House → Foodiva ได้ทุกเมื่อ ไม่ต้องรอปิด Lot"
       />
       <DataTable
@@ -74,7 +72,7 @@ export function ReturnShipmentView({
               key={lot.id}
               onClick={() => open("return", lot.id)}
             >
-              สร้างใบขนส่งขากลับ · {fmt(produced(db, lot.id))} กก.
+              เรียกรถขากลับ · {fmt(produced(db, lot.id))} กก.
             </Button>,
           ];
         })}

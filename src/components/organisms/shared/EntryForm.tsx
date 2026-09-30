@@ -21,9 +21,9 @@ import { MeatDaySummary } from "@/components/organisms/branch/MeatDaySummary";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { DocumentPrintButton } from "@/components/organisms/shared/DocumentPrintButton";
-import { AttachmentViewButton } from "@/components/organisms/shared/InvoiceDownloadButton";
-import { PackWeightFields } from "@/components/organisms/shared/PackWeightFields";
+import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
+import { AttachmentButton } from "@/components/molecules/AttachmentButton";
+import { PackWeightFields } from "@/components/molecules/PackWeightFields";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
@@ -41,13 +41,13 @@ import {
 import {
   allocationOutstanding,
   balance,
-  centralStock,
   closeDayChecklist,
   cookedRiceStock,
   entries,
   mutate,
   n,
   check,
+  recordRole,
   packWeightWarning,
   pendingReceiveKg,
   riceSources,
@@ -60,12 +60,12 @@ import {
   lotProgress,
   titles,
   type Database,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
-import { NO_LOT, noLotLabel, type Modal } from "@/lib/nav";
+import { NO_LOT, noLotLabel, type Modal, type Tab } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
@@ -73,10 +73,8 @@ type FieldSpec = NonNullable<(typeof forms)[keyof typeof forms]>[number];
 const submitLabels: Record<string, string> = {
   closeDay: "ยืนยันปิดวัน",
   purchase: "บันทึก PO เนื้อ",
-  smokeOrder: "บันทึก PO รมควันเนื้อ",
   smokingInvoice: "Submit ใบวางบิล",
-  dispatch: "สร้างใบขนส่งขาไป",
-  return: "สร้างใบขนส่งขากลับ",
+  return: "เรียกรถขากลับ",
 };
 
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
@@ -238,7 +236,7 @@ export function EntryFieldControl({
                   : 0.01
               : undefined
           }
-          max={f.key === "tolerance" ? 100 : f.past ? today() : undefined}
+          max={f.past ? today() : undefined}
           required={!f.optional}
           value={values[f.key] ?? ""}
           onChange={(e) => set(f.key, e.target.value)}
@@ -359,11 +357,12 @@ export function EntryForm({
   onClose,
   onSaved,
   onOpen,
+  onTab,
   branch,
   switcher,
 }: {
   db: Database;
-  role: Role;
+  role: ActingRole;
   /** The workspace branch: the branch account's own, or config.branch for other roles. */
   branch: string;
   date: string;
@@ -374,23 +373,19 @@ export function EntryForm({
   onSaved: (db: Database) => void;
   /** Opens another workspace form in place of this one (the close-day checklist). */
   onOpen?: (kind: EntryKind) => void;
+  /** Leaves the form for a workspace tab (the checklist's material count). */
+  onTab?: (tab: Tab) => void;
   /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
   switcher?: ReactNode;
 }) {
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
-  const useLot = [
-    "receive",
-    "thaw",
-    "sale",
-    "influencerBox",
-    "allocate",
-  ].includes(kind);
+  const useLot = ["receive", "thaw", "sale", "influencerBox"].includes(kind);
   /* A branch's meat forms (BR-08): receiving lists every batch S, with or without an
    * allocation; thawing and selling list the batches this branch holds meat of. All of
    * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
    * when it holds meat to thaw or sell otherwise. */
-  const branchMeat = role === "branch" && useLot && kind !== "allocate";
+  const branchMeat = role === "branch" && useLot;
   const branchStock = (id: string) => {
     const stock = balance(db, id, branch);
     return kind === "thaw" ? stock.frozen : stock.ready;
@@ -402,11 +397,7 @@ export function EntryForm({
           l.id === modal.lotId ||
           balance(db, l.id, branch).received > 0.001,
       )
-    : db.lots.filter(
-        (l) =>
-          lotProgress(db, l.id).has("central") &&
-          (role === "owner" || entries(db, "allocate", l.id, branch).length),
-      );
+    : [];
   const noLotChoice =
     branchMeat &&
     (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
@@ -438,8 +429,6 @@ export function EntryForm({
     set: setValue,
     refill,
   } = usePrefill(() => {
-    if (kind === "config")
-      return { base: { ...db.config }, prefill: { values: {}, sources: {} } };
     const base = { ...defaults(kind, date) };
     if (kind === "receive") base.complete = "1";
     return { base, prefill: prefillValues(db, kind, lot, { branch, date }) };
@@ -501,8 +490,6 @@ export function EntryForm({
    *  allocations ("ค้างรับ"), else what came in already; a batch with neither is still
    *  receivable straight, with no allocation (BR-02). */
   const lotSummary = (id: string) => {
-    if (kind === "allocate")
-      return `${fmt(centralStock(db, id))} กก. รอจัดสรรที่ Foodiva`;
     if (kind === "receive") {
       if (!id) return "รับเข้าก่อน ผูกชุดทีหลังได้";
       const received = entries(db, "receive", id, branch).reduce(
@@ -547,12 +534,6 @@ export function EntryForm({
         : riceSource === riceSources[1]
           ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
           : !/^(raw|cooked)Rice/.test(field.key);
-    if (kind === "supplyPurchase")
-      return branch === "มีนบุรี"
-        ? !["rawRiceKg", "rawRiceCost"].includes(field.key)
-        : !["cookedRiceKg", "cookedRiceCost"].includes(field.key);
-    if (kind === "supplyIssue" && branch === "มีนบุรี")
-      return field.key !== "rawRiceIssuedKg";
     return true;
   });
   const set = (key: string, value: string) => {
@@ -626,7 +607,7 @@ export function EntryForm({
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
   const missing = checklist.find((item) => item.required && !item.done);
-  const isPurchaseOrder = kind === "purchase" || kind === "smokeOrder";
+  const isPurchaseOrder = kind === "purchase";
   const title = titles[kind];
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -693,7 +674,7 @@ export function EntryForm({
   }
   return (
     <Dialog
-      overline={`${date} · ${roleName[role]}`}
+      overline={`${date} · ${roleName[recordRole(kind, role)]}`}
       title={title}
       // The sale holds its own long form plus repeated influencer blocks; a form
       // with a switcher keeps the width of the MaterialTransferForm it swaps with;
@@ -749,7 +730,7 @@ export function EntryForm({
                 label="Lot ต้นทาง"
                 hint={
                   lotPick === NO_LOT
-                    ? "ยังไม่ผูก Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
+                    ? "ไม่ระบุ Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
                     : undefined
                 }
               >
@@ -828,9 +809,11 @@ export function EntryForm({
               <>
                 <CloseDayChecklist
                   items={checklist}
-                  onGo={(item) =>
-                    item.kind && onOpen ? onOpen(item.kind) : onClose()
-                  }
+                  onGo={(item) => {
+                    if (item.kind && onOpen) return onOpen(item.kind);
+                    onClose();
+                    onTab?.("material-count");
+                  }}
                 />
                 <MeatDaySummary db={db} branch={branch} date={date} />
                 <DailySummary db={db} branch={branch} date={date} />
@@ -863,8 +846,7 @@ export function EntryForm({
                 สต๊อก และรายงานจะคำนวณเพิ่มจากรายการใหม่
               </Notice>
             )}
-            {((kind === "supplyPurchase" && branch === "มีนบุรี") ||
-              (kind === "ricePurchase" && riceSource === riceSources[1])) && (
+            {kind === "ricePurchase" && riceSource === riceSources[1] && (
               <Notice>
                 ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
                 ควรซื้อเพิ่มอย่างน้อย{" "}
@@ -932,7 +914,7 @@ export function EntryForm({
                 )}
                 action={
                   reference.attachment ? (
-                    <AttachmentViewButton {...reference.attachment} />
+                    <AttachmentButton action="view" {...reference.attachment} />
                   ) : (
                     <DocumentPrintButton
                       title={reference.title}

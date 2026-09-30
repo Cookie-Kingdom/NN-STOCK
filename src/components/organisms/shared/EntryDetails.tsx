@@ -12,8 +12,9 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryForm";
-import { SlipList } from "@/components/organisms/shared/InvoiceDownloadButton";
+import { SlipList } from "@/components/molecules/AttachmentButton";
 import { LinkDialog } from "@/components/organisms/shared/LinkDialog";
+import { SmokeOrderLines } from "@/components/organisms/owner/SmokeOrderLines";
 import {
   canLink,
   isLinked,
@@ -25,7 +26,6 @@ import {
 import { forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
-  editApprovers,
   editBlock,
   editLockedKeys,
   entries,
@@ -34,39 +34,18 @@ import {
   mutate,
   openEditRequest,
   entryBy,
+  poRemainingKg,
+  purchaseLots,
   titles,
   unpack,
+  voidableKinds,
   type Database,
   type Entry,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
 import { today } from "@/lib/format";
-
-const reversibleKinds = [
-  "allocate",
-  "chiliAllocate",
-  "receive",
-  "thaw",
-  "ricePurchase",
-  "chiliPurchase",
-  "riceIssue",
-  "chiliIssue",
-  "rice",
-  "riceCarry",
-  "sale",
-  "influencerBox",
-  "materials",
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "materialConfirm",
-  "closeDay",
-  "expense",
-  "unlock",
-  "link",
-];
 
 /** Labels for computed values that are not fields of the entry's form. */
 const derivedLabels: Record<string, string> = {
@@ -106,7 +85,7 @@ const derivedLabels: Record<string, string> = {
  *  name already says them. */
 const linkEchoKeys = ["targetKind", "targetDate", "targetRole", "targetBranch"];
 
-export const fieldLabel = (kind: string, key: string) =>
+const fieldLabel = (kind: string, key: string) =>
   forms[kind]?.find((f) => f.key === key)?.label || derivedLabels[key] || key;
 
 const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
@@ -129,16 +108,19 @@ export function EditDiff({ values }: { values: Values }) {
   );
 }
 
-/** The entry's own form, prefilled with its current values, plus the reason. An approver's
- *  save applies at once; anyone else's is a request the approver decides. */
+/** The entry's own form, prefilled with its current values, plus the reason. An owner's
+ *  save applies at once; anyone else's is a request the owner decides. */
 export function EditEntryForm({
   entry,
+  db,
   request,
   error,
   onCancel,
   onSubmit,
 }: {
   entry: Entry;
+  /** The log, for a smoke PO's purchase-PO lines (SMK-05). */
+  db?: Database;
   request: boolean;
   error?: string;
   onCancel: () => void;
@@ -152,6 +134,22 @@ export function EditEntryForm({
   );
   const [values, setValues] = useState<Values>(() => ({ ...entry.values }));
   const [reason, setReason] = useState("");
+  // SMK-05: a smoke PO's lines are edited with the same table the new PO form uses.
+  const own: Record<string, number> = Object.fromEntries(
+    (JSON.parse(entry.values.lines || "[]") as Values[]).map((line) => [
+      line.lotId,
+      Number(line.kg),
+    ]),
+  );
+  const [kg, setKg] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(own).map(([id, v]) => [id, String(v)])),
+  );
+  const linePos =
+    db && entry.kind === "smokeOrder"
+      ? purchaseLots(db).filter(
+          (po) => po.id in own || poRemainingKg(db, po.id) > 0.001,
+        )
+      : undefined;
   const noop = () => {};
   return (
     <form
@@ -159,7 +157,18 @@ export function EditEntryForm({
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(
-          Object.fromEntries(fields.map((f) => [f.key, values[f.key] ?? ""])),
+          {
+            ...Object.fromEntries(
+              fields.map((f) => [f.key, values[f.key] ?? ""]),
+            ),
+            ...(linePos && {
+              lines: JSON.stringify(
+                linePos
+                  .filter((po) => kg[po.id]?.trim())
+                  .map((po) => ({ lotId: po.id, kg: kg[po.id].trim() })),
+              ),
+            }),
+          },
           reason,
         );
       }}
@@ -169,6 +178,15 @@ export function EditEntryForm({
           ? "ส่งคำขอให้ Owner พิจารณา · ค่าจะเปลี่ยนเมื่ออนุมัติแล้วเท่านั้น"
           : "บันทึกแล้วค่าใหม่ใช้ทันที · ประวัติเก็บค่าเดิม เหตุผล และเวลาไว้"}
       </Notice>
+      {db && linePos && (
+        <SmokeOrderLines
+          db={db}
+          pos={linePos}
+          kg={kg}
+          own={own}
+          onLine={(poId, value) => setKg((old) => ({ ...old, [poId]: value }))}
+        />
+      )}
       <FormGrid>
         {fields.map((f, index) => (
           <EntryFieldControl
@@ -253,7 +271,7 @@ export function EntryDetails({
   entry: Entry;
   /** The log as `role` sees it: resolves PO numbers, edits and open requests. */
   db?: Database;
-  role: Role;
+  role: ActingRole;
   branch?: string;
   /** A later "void" entry targets this one: no second cancel. */
   voided?: boolean;
@@ -271,8 +289,7 @@ export function EntryDetails({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const owner = role === "owner";
-  const approver = editApprovers.includes(role);
-  const reversible = reversibleKinds.includes(e.kind) && !voided;
+  const reversible = voidableKinds.includes(e.kind) && !voided;
   const lookup = lookupProp ?? db;
   const edits = db ? entryEdits(db, e.id) : [];
   // Current values: the entry with its edits applied (entries() does the overlay).
@@ -428,14 +445,15 @@ export function EntryDetails({
       {mode === "edit" ? (
         <EditEntryForm
           entry={current}
-          request={!approver}
+          db={db}
+          request={!owner}
           error={error}
           onCancel={() => setMode("")}
           onSubmit={(values, why) =>
             run(
-              approver ? "entryEdit" : "editRequest",
+              owner ? "entryEdit" : "editRequest",
               { targetId: e.id, values: JSON.stringify(values), reason: why },
-              approver
+              owner
                 ? "แก้ไขรายการแล้ว ระบบคำนวณยอดใหม่และเก็บค่าเดิมไว้ในประวัติ"
                 : "ส่งคำขอแก้ไขแล้ว รอ Owner พิจารณา · ผลจะแจ้งที่กระดิ่ง",
               "บันทึกการแก้ไขไม่สำเร็จ",
@@ -445,7 +463,7 @@ export function EntryDetails({
       ) : (
         <>
           <FormError error={error} className="mt-3.5" />
-          {((editable && !(pending && !approver)) ||
+          {((editable && !(pending && !owner)) ||
             (owner && reversible) ||
             linkable) && (
             <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-border pt-3.5">
@@ -477,9 +495,9 @@ export function EntryDetails({
                 </>
               ) : (
                 <ButtonRow className="my-0">
-                  {editable && !(pending && !approver) && (
+                  {editable && !(pending && !owner) && (
                     <Button onClick={() => setMode("edit")}>
-                      {approver ? "แก้ไข" : "ขอแก้ไข"}
+                      {owner ? "แก้ไข" : "ขอแก้ไข"}
                     </Button>
                   )}
                   {linkable && (

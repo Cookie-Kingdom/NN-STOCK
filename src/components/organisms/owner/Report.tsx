@@ -5,7 +5,7 @@ import { BranchSelectFilter } from "@/components/molecules/BranchSelectFilter";
 import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
-import { PanelHeading } from "@/components/molecules/PanelHeading";
+import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   branches,
@@ -25,6 +25,7 @@ import {
   type Entry,
 } from "@/lib/store";
 import { fmt, today } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 const OWNER_WIDE_KINDS = ["expense", "materialReceive", "generalPurchase"];
 
@@ -62,7 +63,7 @@ export function Report({
       ...entries(db, "chiliPurchase"),
     ]
       .filter(inRange)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at)),
+      .sort(byDateAt),
     supplyCost = supplyPurchases.reduce(
       (sum, entry) => sum + n(entry.values, "totalCost"),
       0,
@@ -135,11 +136,12 @@ export function Report({
     });
   return (
     <div className="grid gap-7.5">
-      <PanelHeading
+      <SectionHeading
+        framed
         align="end"
         title="ตัวกรองรายงาน (Report filters)"
         description="เลือกช่วงวันที่และสาขา ทุกตารางด้านล่างจะเปลี่ยนพร้อมกัน"
-        aside={
+        actions={
           <FilterBar>
             <DateRangeFilter
               from={fromDate}
@@ -411,9 +413,7 @@ export function Report({
         ]}
         rows={entries(db, "chiliAllocate")
           .filter(inRange)
-          .sort(
-            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
-          )
+          .sort(byDateAt)
           .map((entry) => [
             entry.date,
             entry.branch,
@@ -441,9 +441,7 @@ export function Report({
           ...entries(db, "materialConfirm"),
         ]
           .filter(inRange)
-          .sort(
-            (a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at),
-          )
+          .sort(byDateAt)
           .map((entry) => {
             const transfer =
               entry.kind === "materialConfirm"
@@ -475,15 +473,17 @@ export function Report({
       />
       <DataTable
         className="m-0"
-        title="วัสดุคงเหลือล่าสุด"
+        // The last count in the range, not the running stock (`branchMaterialStock`, which the
+        // dashboard and stock tab show): a transfer after the count is not in it.
+        title="วัสดุนับล่าสุดในช่วงที่เลือก"
         columns={[
           "สาขา",
           "วัสดุ",
           "ใช้ล่าสุด",
-          "คงเหลือ",
+          "นับล่าสุด",
           "ฐานเต็ม",
           "ราคา / หน่วย",
-          "มูลค่าคงเหลือ",
+          "มูลค่าตามที่นับ",
           "สถานะ",
         ]}
         rows={branches.flatMap((br) => {

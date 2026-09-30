@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import { managerNav, navLabel } from "@/lib/nav";
 import {
-  editApprovers,
   editDecisions,
   entries,
   entryBy,
@@ -41,7 +40,7 @@ describe("C4 Account Manager", () => {
   });
 
   test("approves edit requests", () => {
-    expect(editApprovers).toContain(manager.role);
+    expect(manager.role).toBe("owner");
     const { s, sale, request } = saleWithRequest();
     const db = s.run(manager.role, "editDecision", {
       requestId: request.id,
@@ -82,7 +81,7 @@ describe("C4 Account Manager", () => {
   test("sees no sales money, but still sees purchase prices and costs", () => {
     const { s } = saleWithRequest();
     expect(revenue(s.db)).toBeGreaterThan(0);
-    const db = visibleDatabase(s.db, manager.role, "", manager.hidesSales);
+    const db = visibleDatabase(s.db, manager.hidesSales);
     expect(revenue(db)).toBe(0);
     for (const e of db.entries)
       for (const key of Object.keys(e.values))
@@ -92,7 +91,7 @@ describe("C4 Account Manager", () => {
     expect(saleCost(db, entries(db, "sale")[0]).meatCost).toBeGreaterThan(0);
     expect(entries(db, "purchase")[0].values.price).toBe("250");
     // The Owner's own view is the database itself.
-    expect(visibleDatabase(s.db, "owner")).toBe(s.db);
+    expect(visibleDatabase(s.db)).toBe(s.db);
   });
 
   test("the log names the Account Manager apart from the Owner", () => {

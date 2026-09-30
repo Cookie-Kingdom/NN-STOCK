@@ -1,13 +1,12 @@
-import { Beef, Briefcase, Building2, Factory, Store } from "lucide-react";
-import type { Role } from "@/lib/store";
+import { Beef, Briefcase, Building2, Store } from "lucide-react";
+import type { ActingRole } from "@/lib/store";
 import type { Tab } from "@/lib/nav";
 
-export type AccountId =
-  "owner" | "manager" | "foodiva" | "chef" | "saladaeng" | "minburi";
+export type AccountId = "owner" | "manager" | "saladaeng" | "minburi";
 
 export type Account = {
   id: AccountId;
-  role: Role;
+  role: ActingRole;
   /** Set only for branch accounts — the branch whose data this account may touch. */
   branch?: string;
   /** No Owner Dashboard and no sales money (Account Manager). */
@@ -44,27 +43,6 @@ export const accounts: Account[] = [
     path: "/owner",
     homeTab: "po",
     icon: Briefcase,
-  },
-  {
-    id: "foodiva",
-    role: "foodiva",
-    name: "Foodiva",
-    title: "ผู้ขายเนื้อ · ออก Invoice",
-    summary:
-      "รับ PO ออก Invoice เก็บเนื้อรอรถ และยืนยันรับเนื้อรมควันกลับเข้าสต๊อก",
-    path: "/foodiva",
-    homeTab: "foodiva",
-    icon: Beef,
-  },
-  {
-    id: "chef",
-    role: "cm",
-    name: "Chef House",
-    title: "ฝ่ายผลิต · เชียงใหม่",
-    summary: "รับเนื้อ ผลิต และส่งมอบสต๊อกกลับส่วนกลาง",
-    path: "/chef",
-    homeTab: "cm-receive",
-    icon: Factory,
   },
   {
     id: "saladaeng",

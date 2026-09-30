@@ -14,7 +14,7 @@ process.env.LOCAL_DB_FILE = `artifacts/e2e-local${lane}.db`;
 if (!process.env.TEST_WORKER_INDEX)
   rmSync(process.env.LOCAL_DB_FILE, { force: true });
 // Every run keeps its own results folder so reruns never overwrite earlier evidence
-// (videos, failure screenshots, HTML report, results.json). The runner stamps
+// (videos, failure screenshots, HTML report). The runner stamps
 // E2E_RUN once; workers inherit it, so they resolve the same folder.
 process.env.E2E_RUN ??= new Date()
   .toISOString()
@@ -31,8 +31,6 @@ export default defineConfig({
   reporter: [
     ["list"],
     ["html", { outputFolder: `${runDir}/report`, open: "never" }],
-    // Read by scripts/e2e-flow-report.mjs to render one flow page per spec.
-    ["json", { outputFile: `${runDir}/results.json` }],
   ],
   use: { ...base.use, baseURL: `http://localhost:${port}` },
   webServer: {

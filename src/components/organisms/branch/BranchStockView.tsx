@@ -29,12 +29,7 @@ import { noLotLabel } from "@/lib/nav";
 /** The branch screen only ever lists what is physically at this one branch, so there is
  *  no สถานที่ filter and none of the Owner's rows (Foodiva, คลัง Owner, waste,
  *  ประวัติการซื้อ) can appear here. */
-export const branchGenreOptions = [
-  "ทั้งหมด",
-  "เนื้อ",
-  "วัตถุดิบ",
-  "วัสดุบรรจุภัณฑ์",
-];
+const branchGenreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์"];
 
 const inventoryColumns = ["กลุ่ม", "รายการ", "คงเหลือ", "หน่วย", "รายละเอียด"];
 

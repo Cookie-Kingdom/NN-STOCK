@@ -10,6 +10,7 @@ import {
   missingText,
 } from "@/components/organisms/owner/lotSteps";
 import {
+  awaitingReturn,
   centralStock,
   currentSmokingInvoices,
   type Database,
@@ -27,7 +28,7 @@ import {
   unlinkedSummary,
 } from "@/lib/store";
 
-export type OwnerNotification = { title: string; detail: string; tab: Tab };
+type OwnerNotification = { title: string; detail: string; tab: Tab };
 
 /** What the owner is shown before the first payload lands. Until then the UI is
  * still on the seed, and a signal read off it is an alarm nobody can act on. */
@@ -38,14 +39,11 @@ export const noOwnerAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
-/** Shipments Chef House has closed that still need the Owner to book the truck home.
- *  The return-trip screen and the alerts read the same list, so a lot can never be
- *  ready in one place and missing in the other. */
-export function returnReadyLots(db: Database) {
-  return shipments(db).filter(
-    (lot) =>
-      lotProgress(db, lot.id).has("closeLot") &&
-      !entries(db, "return", lot.id).length,
+/** Shipments Chef House has closed that still need the Owner to book the truck home: the
+ *  closed subset of the return screen's rows (`awaitingReturn`, RET-06). */
+function returnReadyLots(db: Database) {
+  return awaitingReturn(db).filter((lot) =>
+    lotProgress(db, lot.id).has("closeLot"),
   );
 }
 
@@ -58,10 +56,6 @@ export function useOwnerAlerts(db: Database) {
   ).length;
 
   const shipmentLots = shipments(db);
-  // Outbound only: the return trip has its own tab and counts on its own badge.
-  const transportCount = shipmentLots.filter(
-    (lot) => !lotProgress(db, lot.id).has("dispatch"),
-  ).length;
   const returnReady = returnReadyLots(db);
   // Foodiva has the smoked beef in its freezer; the Owner has not counted it into central.
   const centralReceiveCount = shipmentLots.filter((lot) => {
@@ -79,9 +73,48 @@ export function useOwnerAlerts(db: Database) {
   const { unpaidMeatLots } = pendingInvoices;
   const billingCount = pendingInvoices.total;
   // Batches Foodiva or Chef House opened that still have no smoke PO.
-  const smokePoCount = unlinkedSummary(db).batchesWithoutSmokeOrder.length;
-  // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch.
-  const unlinkedCount = entries(db, "receive", "").length;
+  const unlinked = unlinkedSummary(db);
+  const smokePoCount = unlinked.batchesWithoutSmokeOrder.length;
+  // Branch meat received into "ไม่ระบุ Lot", waiting to be linked to a batch: the same kg
+  // the dashboard's "ยังไม่ผูก" tile shows (DASH-01).
+  const unlinkedCount = unlinked.meatReceives;
+  const unlinkedKg = Object.values(unlinked.meatKg).reduce(
+    (total, kg) => total + kg,
+    0,
+  );
+  // The partners' steps the Owner types for them, on batches that moved in the last 30
+  // days (DASH-02). Hints, never gates; same counts the old Foodiva / Chef House badges had.
+  const active = activeBatches(db).map((lot) => ({
+    lot,
+    p: lotProgress(db, lot.id),
+  }));
+  // The outbound transport doc is made on the foodiva tab (the transport tab only lists),
+  // so a batch still waiting on it counts here, not on a `transport` badge.
+  const foodivaCount =
+    purchaseLots(db).filter(
+      (lot) => !lotProgress(db, lot.id).has("foodivaConfirm"),
+    ).length +
+    active.filter(
+      ({ p }) =>
+        (p.has("smokeOrder") && !p.has("dispatch")) ||
+        (p.has("dispatch") && !p.has("packingList")) ||
+        (p.has("return") &&
+          !p.has("central") &&
+          !p.has("foodivaReturnReceive")),
+    ).length;
+  const cmReceiveCount = active.filter(
+    ({ p }) =>
+      (p.has("dispatch") || p.has("packingList")) && !p.has("cmReceive"),
+  ).length;
+  const workCount = active.filter(({ lot, p }) => {
+    const invoice = entries(db, "smokingInvoice", lot.id).at(-1);
+    return (
+      (p.has("cmReceive") && !p.has("closeLot")) ||
+      // The smoking invoice is usually billed once the run is closed.
+      (p.has("closeLot") &&
+        (!invoice || smokingInvoiceStatus(db, invoice) === "ส่งกลับแก้ไข"))
+    );
+  }).length;
 
   const editAlerts = editRequestAlerts(db, "owner", "");
   const notifications: OwnerNotification[] = [
@@ -91,9 +124,9 @@ export function useOwnerAlerts(db: Database) {
         ? []
         : [
             {
-              title: `รอ Foodiva ออก Invoice · ${item.id}`,
-              detail: "ติดตาม Foodiva ให้ยืนยันน้ำหนักและแนบ Invoice เนื้อ",
-              tab: "po",
+              title: `ออก Invoice เนื้อ · ${item.id}`,
+              detail: "ยืนยันน้ำหนักและแนบ Invoice เนื้อของ Foodiva",
+              tab: "foodiva",
             },
           ],
     ),
@@ -136,9 +169,10 @@ export function useOwnerAlerts(db: Database) {
       if (status === "ส่งกลับแก้ไข")
         return [
           {
-            title: `รอ Chef House แก้ Invoice · ${number}`,
-            detail: "Owner ส่งกลับแก้ไขแล้ว รอ Chef House Submit ใหม่",
-            tab: "invoices",
+            title: `แก้ Invoice ค่ารมควัน · ${number}`,
+            detail:
+              "ส่งกลับแก้ไขแล้ว · แก้ใบวางบิลของ Chef House แล้ว Submit ใหม่",
+            tab: "work",
           },
         ];
       return [];
@@ -156,8 +190,8 @@ export function useOwnerAlerts(db: Database) {
     ...(unlinkedCount
       ? [
           {
-            title: `รายการที่ยังไม่ผูก Lot: ${unlinkedCount}`,
-            detail: "สาขารับเนื้อโดยไม่ระบุ Lot · ผูกกับชุดรมควันภายหลังได้",
+            title: `เนื้อสาขายังไม่ผูก Lot: ${fmt(unlinkedKg)} กก.`,
+            detail: `คงเหลือในถังไม่ระบุ Lot · รอผูก ${unlinkedCount} รายการรับ · ผูกกับชุดรมควันภายหลังได้`,
             tab: "history" as Tab,
           },
         ]
@@ -196,10 +230,12 @@ export function useOwnerAlerts(db: Database) {
     missingMaterialSettings,
     returnReady,
     badges: {
-      transport: transportCount,
       "return-shipment": returnReady.length,
       invoices: billingCount,
       "smoke-po": smokePoCount,
+      foodiva: foodivaCount,
+      "cm-receive": cmReceiveCount,
+      work: workCount,
       "central-receive": centralReceiveCount,
       "branch-status": allocationCount,
       config: missingMaterialSettings,

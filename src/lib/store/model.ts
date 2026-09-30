@@ -1,5 +1,7 @@
 /** The domain's shapes and fixed tables: types, entry kinds, titles, edit rules, the seed. */
 export type Role = "owner" | "foodiva" | "cm" | "branch";
+/** Who can sign in and act: Foodiva and Chef House are entry stamps only (partners, not users). */
+export type ActingRole = "owner" | "branch";
 export type Values = Record<string, string>;
 /** Every entry kind in the log (all but the legacy one are what `mutate` records). A kind
  *  outside this list is a compile error. */
@@ -65,9 +67,10 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
-  /** "manager": the Account Manager wrote it as role "owner" (C4). Absent: the role's own
-   *  account (for "owner", the Owner). Stamped at save by persistence, checked by save_app_state. */
-  actor?: "manager";
+  /** "manager": the Account Manager wrote it (C4), stamped at save by persistence and checked by
+   *  save_app_state. "owner": the Owner recorded a Foodiva/Chef House kind for them, stamped by
+   *  mutate (recordRole). Absent: the role's own account (for "owner", the Owner). */
+  actor?: "manager" | "owner";
 };
 export type Lot = {
   id: string;
@@ -92,9 +95,12 @@ export const roleName = {
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
-/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner. */
+/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner, and an
+ *  entry typed for a partner says so ("Owner · แทน Chef House"). Both actors act as "owner". */
 export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
-  e.actor === "manager" ? "Account Manager" : roleName[e.role];
+  `${e.actor === "manager" ? "Account Manager" : roleName[e.actor ?? e.role]}${
+    e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
+  }`;
 export const materials = [
   "กล่องพิมพ์ลาย",
   "กระดาษรอง",
@@ -188,10 +194,6 @@ export const titles: Record<EntryKind, string> = {
   // No title ever: the log showed the raw kind for it, and still does.
   steakTransfer: "steakTransfer",
 };
-/** Roles that correct history directly and decide edit requests (spec 8.1). The Account Manager
- *  (C4) signs in as role "owner", so it is an approver through this entry; every check reads the
- *  list, none names "owner". */
-export const editApprovers: Role[] = ["owner"];
 /** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
  *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
  *  Chef House's production steps (chefEdit fixes those before ปิด Lot); kinds fixed by saving
@@ -218,6 +220,43 @@ export const editableKinds: EntryKind[] = [
   "expense",
   "foodivaConfirm",
   "smokingInvoice",
+  // STK-03: a mistyped central kg is corrected here (it is recorded once per batch).
+  "central",
+];
+/** Kinds the Owner may void ("แก้รายการผิดด้วยการยกเลิก"): mutate refuses the rest, and the
+ *  Log only offers the button on these. */
+export const voidableKinds: EntryKind[] = [
+  "central",
+  "allocate",
+  "chiliAllocate",
+  "receive",
+  "thaw",
+  "ricePurchase",
+  "chiliPurchase",
+  "riceIssue",
+  "chiliIssue",
+  "rice",
+  "riceCarry",
+  "sale",
+  "influencerBox",
+  "materials",
+  "materialReceive",
+  "generalPurchase",
+  "materialTransfer",
+  "materialConfirm",
+  "closeDay",
+  "expense",
+  "unlock",
+  "link",
+  "entryEdit",
+];
+/** Branch kinds with no screen any more: old entries still count in stock (and the ones in
+ *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones. */
+export const retiredKinds: EntryKind[] = [
+  "supplyPurchase",
+  "supplyIssue",
+  "chiliPurchase",
+  "chiliIssue",
 ];
 export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
 /** Values an edit may not change: they tie the entry to a branch or a day. Changing one is a
@@ -241,9 +280,17 @@ export const unpack = (prefix: string, values: Values): Values =>
 /** Entries whose `to.` values overlay their target: a direct edit, or an approved request.
  *  Only an approver's entry counts, so a forged branch-role edit changes nothing. */
 export const isEditOverlay = (e: Entry) =>
-  editApprovers.includes(e.role) &&
+  e.role === "owner" &&
   (e.kind === "entryEdit" ||
     (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
+/** LNK: the Owner links any entry, a branch only an entry of its own branch. `mutate` refuses
+ *  the rest, `entries()` ignores them, and append_entries (migration 20260929000034) too. */
+export const canLink = (
+  link: Pick<Entry, "role" | "branch">,
+  target: Pick<Entry, "role" | "branch">,
+) =>
+  link.role === "owner" ||
+  (target.role === "branch" && target.branch === link.branch);
 export const seed: Database = {
   version: 9,
   lots: [],
@@ -252,7 +299,6 @@ export const seed: Database = {
     boxPrice: "350",
     addonPrice: "320",
     packKg: "0.1015",
-    ricePrice: "0",
     chiliPrice: "30",
     rawRicePar: "20",
     rawRiceUnitPrice: "55",
@@ -263,8 +309,6 @@ export const seed: Database = {
     outboundFee: "1200",
     returnFee: "1200",
     roundFee: "2000",
-    tolerance: "20",
-    closeTime: "22:00",
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",

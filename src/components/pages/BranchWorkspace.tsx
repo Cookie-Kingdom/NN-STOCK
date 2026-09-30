@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Notice } from "@/components/molecules/Notice";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
 import { BranchStockView } from "@/components/organisms/branch/BranchStockView";
@@ -38,7 +37,6 @@ const riceTask = (branch: string): { title: string; kinds: EntryKind[] } =>
 export function BranchWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { branch, closed, date, db, tab } = ws;
-  const [showNotifications, setShowNotifications] = useState(false);
 
   // Meat and material to take in, and the day's own work on `date`. Held back until the
   // server payload replaces the seed.
@@ -49,17 +47,8 @@ export function BranchWorkspace({ account }: { account: Account }) {
     <WorkspaceShell
       account={account}
       nav={branchNav}
-      tab={tab}
-      onTab={ws.setTab}
-      date={date}
-      onDate={ws.setDate}
       badges={badges}
       notifications={notifications}
-      showNotifications={showNotifications}
-      onToggleNotifications={() => setShowNotifications((value) => !value)}
-      loading={!ws.loaded}
-      toast={ws.toast}
-      onCloseToast={() => ws.setToast("")}
       ws={ws}
     >
       {closed && (

@@ -7,7 +7,7 @@
 --
 --   * roles anon, authenticated, service_role
 --   * schema auth
---   * auth.users, with the columns `schema_smoke_test.sql` inserts
+--   * auth.users, with the columns the tests insert
 --   * public.rls_auto_enable(), the "pre-existing project helper" that migration
 --     0006 revokes execute on but no migration creates (see FINDINGS in
 --     `rls_deny_all_test.sql`)

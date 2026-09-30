@@ -53,16 +53,12 @@ export function useWorkspace(account: Account) {
 
   const branch = account.branch ?? raw.config.branch;
   const role = account.role;
-  // Chef House's screens read a copy without purchase POs or prices, the Account Manager's one
-  // without sales money; saves use latestDatabase().
+  // The Account Manager's screens read a copy without sales money; saves use latestDatabase().
   const hidesSales = !!account.hidesSales;
-  const db = useMemo(
-    () => visibleDatabase(raw, role, branch, hidesSales),
-    [raw, role, branch, hidesSales],
-  );
+  const db = useMemo(() => visibleDatabase(raw, hidesSales), [raw, hidesSales]);
   // BR-07: a branch lists the batches allocated to it or holding its own entries.
   const lots = useMemo(
-    () => (role === "branch" ? visibleLots(db, role, branch) : db.lots),
+    () => (role === "branch" ? visibleLots(db, branch) : db.lots),
     [db, role, branch],
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];

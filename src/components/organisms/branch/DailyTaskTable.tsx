@@ -6,7 +6,6 @@ import { entries, titles, type Database, type EntryKind } from "@/lib/store";
 
 const optionalHint: Record<string, string> = {
   ricePurchase: "บันทึกเฉพาะวันที่ซื้อ",
-  chiliPurchase: "บันทึกเฉพาะวันที่ซื้อ",
   riceIssue: "บันทึกเฉพาะวันที่นึ่งเอง",
   rice: "ต้องบันทึกเมื่อเบิกข้าวดิบวันนั้น",
 };
@@ -42,7 +41,7 @@ export function DailyTaskTable({
         const count = entries(db, kind, undefined, branch, date).length;
         const optional = required
           ? !required.includes(kind)
-          : ["ricePurchase", "chiliPurchase"].includes(kind);
+          : kind === "ricePurchase";
         const label = titles[kind];
         return [
           optional ? `${label} · ${optionalHint[kind] ?? "ไม่บังคับ"}` : label,

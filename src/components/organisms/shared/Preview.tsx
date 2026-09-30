@@ -253,11 +253,9 @@ export function Preview({
       ],
     ];
   }
-  if (kind === "riceIssue" || kind === "chiliIssue" || kind === "supplyIssue") {
-    // มีนบุรี buys cooked rice, so its combined form has no raw rice to issue.
-    const rice =
-      kind === "riceIssue" || (kind === "supplyIssue" && branch !== "มีนบุรี");
-    const chili = kind !== "riceIssue";
+  if (kind === "riceIssue" || kind === "chiliIssue") {
+    const rice = kind === "riceIssue";
+    const chili = !rice;
     rows = [
       ...(rice
         ? issueRows(

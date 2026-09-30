@@ -1,31 +1,32 @@
 /** What each role may see of the log, and the edit-request queries built on it. */
 import {
-  editApprovers,
   editableKinds,
   isEditOverlay,
   type Database,
   type Entry,
   type EntryKind,
-  type Role,
+  type ActingRole,
   type Values,
 } from "./model";
-import { entries, shipments, smokingInvoiceStatus } from "./derived";
-/** Value keys a role must not see. Chef House also never sees purchase POs, meat prices or freight.
- *  It does see the Foodiva invoice number on the Packing List (`invoiceNo`). Foodiva sees the
- *  smoke PO (VIS-04) but not what the smoking costs. */
-const hiddenKeys = (role: Role) =>
-  role === "cm"
-    ? ["meatCost", "wasteCost", "lines", "price", "outboundCost", "returnCost"]
-    : role === "foodiva"
-      ? ["meatCost", "wasteCost", "estimatedCost", "serviceRate"]
-      : ["meatCost", "wasteCost"];
+import { entries, isVoided, smokingInvoiceStatus } from "./derived";
+/** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
+ *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
+export const branchHiddenKeys = [
+  "meatCost",
+  "wasteCost",
+  "estimatedCost",
+  "serviceRate",
+  "lines",
+  "price",
+  "outboundCost",
+  "returnCost",
+];
 export const omit = (values: Values, keys: string[]) =>
   Object.fromEntries(
     Object.entries(values).filter(
       ([k]) => !keys.includes(k.replace(/^(to|from)\./, "")),
     ),
   );
-const hide = (values: Values, role: Role) => omit(values, hiddenKeys(role));
 /** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
 export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
 const editKinds: EntryKind[] = [
@@ -34,100 +35,61 @@ const editKinds: EntryKind[] = [
   "editDecision",
   "link",
 ];
-/** Owner entries Chef House works from: the smoke PO and Packing List it smokes, and the review and payment of its invoice. */
-const chefHouseKinds: EntryKind[] = [
-  "smokeOrder",
-  "packingList",
-  "invoiceReview",
-  "invoicePayment",
-];
-/** Owner entries Foodiva sees: the payment of its meat invoice, whose slip is evidence for both
- *  sides (storage folder `meatPayment/`, migration 20260925000027), and the smoke PO that says
- *  what to send (VIS-04). Foodiva supplies every lot. */
-const foodivaKinds: EntryKind[] = ["meatPayment", "smokeOrder"];
-/** Kinds that put a batch on Chef House's list (VIS-02), besides any cm entry: the smoke PO,
- *  and Foodiva's dispatch / Packing List so a batch Foodiva opened is not opened twice. */
-export const chefBatchKinds: EntryKind[] = [
-  "smokeOrder",
-  "dispatch",
-  "packingList",
-];
-/** VIS-02 / BR-07 — the lots a role's screens list. Chef House: batches with a smoke PO, a
- *  Foodiva dispatch or Packing List, or any entry of its own, never a purchase PO. A branch:
- *  lots allocated to it or holding its own entries. `role-scope.ts` sends the same set;
- *  scope_app_state() (migration 20260928000031) states the same rule. */
-export function visibleLots(db: Database, role: Role, branch?: string) {
-  if (role === "cm")
-    return shipments(db).filter((lot) =>
-      db.entries.some(
-        (e) =>
-          e.lotId === lot.id &&
-          (chefBatchKinds.includes(e.kind) || e.role === "cm"),
-      ),
-    );
-  if (role === "branch")
-    return db.lots.filter((lot) =>
-      db.entries.some(
-        (e) =>
-          e.lotId === lot.id &&
-          e.branch === branch &&
-          (e.kind === "allocate" || e.role === "branch"),
-      ),
-    );
-  return db.lots;
+/** BR-07 — the lots a branch's screens list: lots allocated to it or holding its own entries.
+ *  `role-scope.ts` sends the same set; scope_app_state() (migration 20260929000033) states the
+ *  same rule. The Owner (and Account Manager) see every lot. */
+export function visibleLots(db: Database, branch?: string) {
+  return db.lots.filter((lot) =>
+    db.entries.some(
+      (e) =>
+        e.lotId === lot.id &&
+        e.branch === branch &&
+        (e.kind === "allocate" || e.role === "branch"),
+    ),
+  );
 }
+/** Owner entries addressed to a branch, which the branch has already received (role-scope.ts
+ *  sends them): shown read-only in its history. */
+const sentToBranch: EntryKind[] = [
+  "allocate",
+  "chiliAllocate",
+  "materialTransfer",
+];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
-export function visibleEntries(db: Database, role: Role, branch?: string) {
-  const shipmentIds = new Set(shipments(db).map((lot) => lot.id));
-  // Edits, requests and decisions about this role's own entries (its branch's, for a branch).
+export function visibleEntries(
+  db: Database,
+  role: ActingRole,
+  branch?: string,
+) {
+  if (role === "owner") return db.entries;
+  // A branch: its own branch's entries and what the Owner sent it, plus edits, requests
+  // and decisions about them.
   const aboutMine = (e: Entry) =>
     editKinds.includes(e.kind) &&
-    e.values.targetRole === role &&
-    (role !== "branch" || e.values.targetBranch === branch);
+    e.values.targetRole === "branch" &&
+    e.values.targetBranch === branch;
   return db.entries
     .filter(
       (e) =>
-        role === "owner" ||
-        (role === "cm"
-          ? shipmentIds.has(e.lotId) &&
-            (e.role === "cm" || chefHouseKinds.includes(e.kind) || aboutMine(e))
-          : (e.role === role && (role !== "branch" || e.branch === branch)) ||
-            (role === "foodiva" && foodivaKinds.includes(e.kind)) ||
-            aboutMine(e)),
+        (e.branch === branch &&
+          (e.role === "branch" || sentToBranch.includes(e.kind))) ||
+        aboutMine(e),
     )
-    .map((e) =>
-      role === "owner" ? e : { ...e, values: hide(e.values, role) },
-    );
+    .map((e) => ({ ...e, values: omit(e.values, branchHiddenKeys) }));
 }
-/** The database a role's screens read. Chef House gets only its batches (`visibleLots`), stripped
- * of purchase POs and prices; other roles get `db` untouched. `hideSales` (Account Manager) also drops
- * every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in the
- * app: the server already strips it (load_app_state, GET /api/local-db) and puts it back on save
- * (save_app_state, src/lib/sale-money.ts), so sale money never reaches its browser. */
-export function visibleDatabase(
-  db: Database,
-  role: Role,
-  branch?: string,
-  hideSales = false,
-): Database {
-  if (hideSales)
-    db = {
-      ...db,
-      entries: db.entries.map((e) => ({
-        ...e,
-        values: omit(e.values, saleMoneyKeys),
-      })),
-    };
-  if (role !== "cm") return db;
-  const lots = visibleLots(db, role).map((lot) => ({
-    ...lot,
-    values: hide(lot.values, role),
-  }));
-  const ids = new Set(lots.map((lot) => lot.id));
+/** The database a role's screens read: `db` untouched, except that `hideSales` (Account Manager)
+ * drops every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in
+ * the app: the server already strips it (load_app_state, GET /api/local-db) and puts it back on save
+ * (save_app_state, src/lib/sale-money.ts), so sale money never reaches its browser. A branch's
+ * narrowing happens on the server (role-scope.ts) and in `visibleLots` / `visibleEntries`. */
+export function visibleDatabase(db: Database, hideSales = false): Database {
+  if (!hideSales) return db;
   return {
     ...db,
-    lots,
-    entries: visibleEntries(db, role, branch).filter((e) => ids.has(e.lotId)),
+    entries: db.entries.map((e) => ({
+      ...e,
+      values: omit(e.values, saleMoneyKeys),
+    })),
   };
 }
 /** Why `role` may not edit `target` ("" when it may). Approvers edit any editable entry;
@@ -135,7 +97,7 @@ export function visibleDatabase(
 export function editBlock(
   db: Database,
   target: Entry,
-  role: Role,
+  role: ActingRole,
   branch = "",
 ) {
   if (!editableKinds.includes(target.kind))
@@ -148,8 +110,8 @@ export function editBlock(
   )
     return "Invoice นี้ชำระแล้ว แก้ไขไม่ได้";
   if (
-    !editApprovers.includes(role) &&
-    (target.role !== role || (role === "branch" && target.branch !== branch))
+    role === "branch" &&
+    (target.role !== "branch" || target.branch !== branch)
   )
     return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
   return "";
@@ -161,9 +123,13 @@ export const openEditRequest = (db: Database, targetId: string) =>
   entries(db, "editRequest").find(
     (e) => e.values.targetId === targetId && !editDecisionOf(db, e.id),
   );
-/** Direct edits and approved requests applied to one entry, oldest first. */
+/** Direct edits and approved requests applied to one entry, oldest first; a voided one no
+ *  longer applies, so it is left out. */
 export const entryEdits = (db: Database, targetId: string) =>
-  db.entries.filter((e) => isEditOverlay(e) && e.values.targetId === targetId);
+  db.entries.filter(
+    (e) =>
+      isEditOverlay(e) && e.values.targetId === targetId && !isVoided(db, e.id),
+  );
 /** Every edit request in `db` with its decision: waiting ones first, then newest first.
  *  Pass a role's visible database to get only that role's own requests. */
 export function editRequestRows(db: Database) {

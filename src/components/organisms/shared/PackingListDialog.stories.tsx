@@ -17,39 +17,36 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj<{ db: Database }>;
 
-const shipment = pick("PO ซื้อ", {
+const shipment = pick("การส่ง", {
   "PO เดียว": packedDb,
   "3 PO": multiPoPackedDb,
+  "Chef House ชั่งแล้ว": cmReceivedDb,
 });
 
-/** What the Owner opens from the smoke PO tab: the purchase POs the shipment covers
- *  ("PO ซื้อในการส่งนี้"), then Foodiva's list and its totals. เลือก PO ซื้อ ใน Controls:
- *  - PO เดียว: การส่งจาก PO ซื้อใบเดียว
- *  - 3 PO: การส่งเดียวจาก PO ซื้อสามใบ แต่ละใบมีใบแจ้งหนี้ Foodiva และ kg ที่ขอ */
-export const Owner: Story = {
-  argTypes: { db: shipment.argType },
-  args: { db: shipment.initial },
-  render: ({ db }) => (
+/** เลือกใน Controls:
+ *  - การส่ง:
+ *    - PO เดียว: การส่งจาก PO ซื้อใบเดียว
+ *    - 3 PO: การส่งเดียวจาก PO ซื้อสามใบ แต่ละใบมีใบแจ้งหนี้ Foodiva และ kg ที่ขอ
+ *    - Chef House ชั่งแล้ว: ช่องเหลืองกรอกแล้ว; Sliced Weight Lost คงตามที่ Foodiva พิมพ์
+ *  - showPurchaseOrders: สิ่งที่ Owner เปิดจากแท็บ PO รมควัน — "PO ซื้อในการส่งนี้" ก่อน
+ *    รายการของ Foodiva; ปิดแล้วไม่มีชื่อ PO ซื้อ */
+export const PackingList: StoryObj<{
+  db: Database;
+  showPurchaseOrders: boolean;
+}> = {
+  argTypes: {
+    db: shipment.argType,
+    showPurchaseOrders: { control: "boolean" },
+  },
+  args: { db: shipment.initial, showPurchaseOrders: true },
+  render: ({ db, showPurchaseOrders }) => (
     <PackingListDialog
+      key={db.entries.length}
       db={db}
       lotId={db.lots.at(-1)!.id}
       onClose={fn()}
-      showPurchaseOrders
-    />
-  ),
-};
-
-/** After Chef House weighed in: the yellow cells are filled; Sliced Weight Lost stays as
- *  Foodiva typed it. Without `showPurchaseOrders`, no purchase PO is named. */
-export const Received: Story = {
-  parameters: { db: cmReceivedDb },
-  render: () => (
-    <PackingListDialog
-      db={cmReceivedDb}
-      lotId={cmReceivedDb.lots.at(-1)!.id}
-      onClose={fn()}
+      showPurchaseOrders={showPurchaseOrders}
     />
   ),
 };

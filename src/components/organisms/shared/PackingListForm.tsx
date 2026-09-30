@@ -219,7 +219,7 @@ export function PackingListForm({
     const next = await run(async () =>
       mutate(
         latestDatabase(),
-        "foodiva",
+        "owner",
         "packingList",
         await collect(),
         lotId,

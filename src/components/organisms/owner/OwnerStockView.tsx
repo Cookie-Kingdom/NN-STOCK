@@ -16,7 +16,6 @@ import {
   chiliSold,
   chiliStock,
   cookedRiceStock,
-  drawnKg,
   entries,
   issuedRawRiceStock,
   materialPar,
@@ -27,14 +26,15 @@ import {
   ownerMaterialStock,
   ownerWasteOutstanding,
   ownerWasteReceived,
+  rawAtFoodiva,
   rawRiceStock,
-  readyForChefHouse,
   reservedForOwnerContent,
   type Database,
   type Lot,
   type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
+import { byDateAt } from "@/lib/store/derived";
 
 // Assets and other expenses are not stock: they live in the purchase history below.
 const genreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์"];
@@ -111,10 +111,7 @@ export function OwnerStockView({
       const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
       const central = Math.max(0, centralStock(db, lot.id));
       // Raw beef sits on the purchase PO until a shipment trucks it; smoked beef on the shipment.
-      const readyAtFoodiva = Math.max(
-        0,
-        readyForChefHouse(db, lot.id) - drawnKg(db, lot.id, true),
-      );
+      const readyAtFoodiva = rawAtFoodiva(db, lot);
       const ownerReserved = reservedForOwnerContent(db, lot.id);
       const ownerWaiting = ownerWasteOutstanding(db, lot.id);
       const ownerReceived = ownerWasteReceived(db, lot.id);
@@ -124,10 +121,10 @@ export function OwnerStockView({
             genre: "เนื้อ",
             item: `${lot.id} · เนื้อดิบพร้อมส่ง Chef House`,
             unit: "กก.",
-            at: { Foodiva: invoiceConfirmed ? readyAtFoodiva : 0 },
+            at: { Foodiva: readyAtFoodiva },
             detail: invoiceConfirmed
               ? "จาก Invoice Foodiva · รอส่งไป Chef House"
-              : "รอ Foodiva ยืนยัน Invoice",
+              : "ตามยอดสั่ง · รอ Foodiva ยืนยัน Invoice",
             meatType: "เนื้อดิบพร้อมส่ง Chef House",
           },
           ...(invoiceConfirmed
@@ -356,7 +353,7 @@ export function OwnerStockView({
       supplier: entry.values.supplier,
       reference: entry.values.reference || "—",
     })),
-  ].sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+  ].sort(byDateAt);
   const visiblePurchases = purchases.filter(
     (purchase) =>
       (genre === "ทั้งหมด" ||

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { linkedDb, unlinkedDb } from "../../../../.storybook/fixtures";
+import { setMockDatabase } from "../../../../.storybook/mocks/persistence";
+import { pick } from "../../../../.storybook/pick";
 import { entries, type Database, type EntryKind } from "@/lib/store";
 import { LinkDialog } from "./LinkDialog";
 
@@ -12,53 +14,54 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
 
 /** The target as `entries()` shows it, with any earlier link overlaid. */
 const target = (db: Database, kind: EntryKind) =>
   entries(db, kind).find((e) => e.branch === "ศาลาแดง")!;
 
-/** ศาลาแดง's 10 kg received with no lot. The choices are every shipment batch with what is
- *  left in central stock; saving records a `link` and the balance moves to that batch. */
-export const BranchMeat: Story = {
-  render: () => (
-    <LinkDialog
-      entry={target(unlinkedDb, "receive")}
-      db={unlinkedDb}
-      role="branch"
-      branch="ศาลาแดง"
-      onClose={fn()}
-      onLinked={fn()}
-    />
-  ),
-};
+const scenario = pick("รายการที่ผูก", {
+  "เนื้อสาขา (ยังไม่ผูก)": {
+    db: unlinkedDb,
+    kind: "receive" as EntryKind,
+    role: "branch" as const,
+    branch: "ศาลาแดง" as string | undefined,
+  },
+  รับวัสดุ: {
+    db: unlinkedDb,
+    kind: "materialConfirm" as EntryKind,
+    role: "branch" as const,
+    branch: "ศาลาแดง" as string | undefined,
+  },
+  "Owner ผูกใหม่": {
+    db: linkedDb,
+    kind: "receive" as EntryKind,
+    role: "owner" as const,
+    branch: undefined as string | undefined,
+  },
+});
 
-/** A material receipt recorded before the Owner's transfer: the choices are ศาลาแดง's
- *  transfers no other receipt has taken. */
-export const MaterialReceipt: Story = {
-  render: () => (
-    <LinkDialog
-      entry={target(unlinkedDb, "materialConfirm")}
-      db={unlinkedDb}
-      role="branch"
-      branch="ศาลาแดง"
-      onClose={fn()}
-      onLinked={fn()}
-    />
-  ),
-};
-
-/** The Owner re-linking a receive that already sits on a batch: "ผูกอยู่กับ" names it and
- *  saving the same batch again is disabled; a later link wins (LNK-05). */
-export const Relink: Story = {
-  parameters: { db: linkedDb },
-  render: () => (
-    <LinkDialog
-      entry={target(linkedDb, "receive")}
-      db={linkedDb}
-      role="owner"
-      onClose={fn()}
-      onLinked={fn()}
-    />
-  ),
+/** เลือกใน Controls:
+ *  - เนื้อสาขา: ศาลาแดงรับ 10 kg ไม่มี Lot; ตัวเลือกคือทุก batch ที่ส่งพร้อมยอดที่เหลือใน
+ *    สต๊อกกลาง; บันทึกแล้วเป็น `link` และยอดย้ายไป batch นั้น
+ *  - รับวัสดุ: รับวัสดุที่บันทึกก่อน Owner ส่ง; ตัวเลือกคือใบส่งวัสดุของศาลาแดงที่ยังไม่มีใบรับ
+ *  - Owner ผูกใหม่: รายการรับที่ผูก batch แล้ว "ผูกอยู่กับ" บอกชื่อ และบันทึก batch เดิมซ้ำ
+ *    ไม่ได้; link หลังสุดชนะ (LNK-05) */
+export const Link: StoryObj<{ scenario: typeof scenario.initial }> = {
+  argTypes: { scenario: scenario.argType },
+  args: { scenario: scenario.initial },
+  render: ({ scenario: { db, kind, role, branch } }) => {
+    // The decorator only sees `parameters.db`; saving re-reads the picked db.
+    setMockDatabase(db);
+    return (
+      <LinkDialog
+        key={`${kind}-${role}`}
+        entry={target(db, kind)}
+        db={db}
+        role={role}
+        branch={branch}
+        onClose={fn()}
+        onLinked={fn()}
+      />
+    );
+  },
 };

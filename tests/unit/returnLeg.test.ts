@@ -1,6 +1,13 @@
 import { expect, test } from "vitest";
 import { transportDocumentRows } from "@/components/organisms/owner/documentRows";
-import { entries, shipmentChain, type Values } from "@/lib/store";
+// Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
+import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
+import {
+  awaitingReturn,
+  entries,
+  shipmentChain,
+  type Values,
+} from "@/lib/store";
 import {
   expectWarning,
   closed,
@@ -47,7 +54,7 @@ test("the chain follows one shipment from purchase PO to Foodiva's freezer", () 
     { poId: po.poId, requestedKg: 50 },
   ]);
   s.run("owner", "return", back("36"));
-  s.run("foodiva", "foodivaReturnReceive", receive("35.5"));
+  s.run("owner", "foodivaReturnReceive", receive("35.5"));
   expect(shipmentChain(s.db, lot())).toMatchObject({
     returnKg: 36,
     foodivaKg: 35.5,
@@ -90,14 +97,14 @@ test("Foodiva weighs in against the return truck's kg, not the whole smoke outpu
   const s = closed();
   s.run("owner", "return", back("20"));
   // 20 of 36 kg came back: receiving all 20 needs no reason.
-  s.run("foodiva", "foodivaReturnReceive", receive("20"));
+  s.run("owner", "foodivaReturnReceive", receive("20"));
   const t = closed();
   t.run("owner", "return", back("20"));
   expectWarning(
-    t.dry(() => t.run("foodiva", "foodivaReturnReceive", receive("15"))),
+    t.dry(() => t.run("owner", "foodivaReturnReceive", receive("15"))),
     /เหตุผลส่วนต่าง/,
   );
-  t.run("foodiva", "foodivaReturnReceive", receive("15", "น้ำแข็งละลาย"));
+  t.run("owner", "foodivaReturnReceive", receive("15", "น้ำแข็งละลาย"));
 });
 
 test("transport documents name the shipment and its purchase POs", () => {
@@ -119,4 +126,20 @@ test("transport documents name the shipment and its purchase POs", () => {
     น้ำหนักส่ง: "36.00 กก.",
   });
   expect(rows).not.toHaveProperty("Lot เนื้อ");
+});
+
+test("the return screen lists every shipment without a truck home; the alert only closed ones (RET-06)", () => {
+  const s = setup();
+  readyToDispatch(s, "50");
+  const ids = () => awaitingReturn(s.db).map((lot) => lot.id);
+  const lot = () => s.db.lots.at(-1)!;
+  expect(ids()).toEqual([lot().id]); // not closed, still bookable
+  expect(ownerAlerts(s.db).returnReady).toEqual([]);
+  const c = closed();
+  expect(ownerAlerts(c.db).returnReady.map((l) => l.id)).toEqual(
+    awaitingReturn(c.db).map((l) => l.id),
+  );
+  c.run("owner", "return", back("36"));
+  expect(awaitingReturn(c.db)).toEqual([]);
+  expect(ownerAlerts(c.db).returnReady).toEqual([]);
 });

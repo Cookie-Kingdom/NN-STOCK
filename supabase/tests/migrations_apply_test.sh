@@ -34,7 +34,8 @@ else
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   docker run -d --name "$CONTAINER" -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=meatshop \
     postgres:17 >/dev/null || { echo "FAIL  could not start postgres:17"; exit 1; }
-  until docker exec "$CONTAINER" pg_isready -U postgres -q 2>/dev/null; do sleep 1; done
+  # TCP, not the socket: the image's init-time server takes socket connections only, then restarts.
+  until docker exec "$CONTAINER" pg_isready -h 127.0.0.1 -U postgres -q 2>/dev/null; do sleep 1; done
 fi
 
 # The auth schema and the anon/authenticated roles that Supabase supplies for free.

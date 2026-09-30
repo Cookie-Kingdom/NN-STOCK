@@ -1,6 +1,7 @@
 /** Figures recomputed from the entry log (stock, cost, yield, invoices); nothing here is stored. */
 import { fmt } from "../format";
 import {
+  canLink,
   isEditOverlay,
   materials,
   titles,
@@ -32,10 +33,22 @@ const entryIndexes = new WeakMap<Entry[], EntryIndex>();
 function entryIndex(db: Database): EntryIndex {
   const cached = entryIndexes.get(db.entries);
   if (cached?.length === db.entries.length) return cached;
+  // Only the Owner voids, except a branch withdrawing its own edit request; a void
+  // appended under another role changes nothing.
+  const byId = new Map(db.entries.map((entry) => [entry.id, entry]));
   const voided = new Set(
     db.entries
-      // Only the Owner voids; a void appended under another role changes nothing.
-      .filter((entry) => entry.kind === "void" && entry.role === "owner")
+      .filter((entry) => {
+        if (entry.kind !== "void") return false;
+        if (entry.role === "owner") return true;
+        const target = byId.get(entry.values.targetId);
+        return (
+          entry.role === "branch" &&
+          target?.kind === "editRequest" &&
+          target.role === "branch" &&
+          target.branch === entry.branch
+        );
+      })
       .map((entry) => entry.values.targetId),
   );
   // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
@@ -63,14 +76,16 @@ function entryIndex(db: Database): EntryIndex {
   }
   /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`) after the
    * fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
-   * falls back to the one before (LNK-05). */
+   * falls back to the one before (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
   const links = new Map<string, Values>();
-  for (const e of db.entries)
-    if (e.kind === "link" && !voided.has(e.id))
+  for (const e of db.entries) {
+    const target = e.kind === "link" && byId.get(e.values.targetId);
+    if (target && !voided.has(e.id) && canLink(e, target))
       links.set(e.values.targetId, {
         ...links.get(e.values.targetId),
         ...e.values,
       });
+  }
   const byKind = new Map<EntryKind, Entry[]>();
   for (const raw of db.entries) {
     if (voided.has(raw.id)) continue;
@@ -92,6 +107,9 @@ function entryIndex(db: Database): EntryIndex {
   entryIndexes.set(db.entries, index);
   return index;
 }
+/** Whether a void that counts (see entryIndex) names this entry. */
+export const isVoided = (db: Database, id: string) =>
+  entryIndex(db).voided.has(id);
 /** Live entries of one kind, with edits, chefEdit and `link` overlaid. `lotId === ""` is the
  *  branch's "ไม่ระบุ Lot" bucket (BR-04); leave it `undefined` for every lot. */
 export function entries(
@@ -159,32 +177,51 @@ export function lotProgress(db: Database, lotId: string): Set<EntryKind> {
   return done;
 }
 /** RET-04: central kg less allocations and less what branches took straight from the batch
- *  (a `receive` on it with no allocation). */
+ *  (a `receive` on it with no allocation, beyond what fills an allocation: DM-08). The kg is
+ *  the live `central` entry's (edits and voids applied); a branch's payload has no Owner
+ *  entries, so there it is the lot cache. */
 export function centralStock(db: Database, lotId: string) {
   const lot = db.lots.find((l) => l.id === lotId);
+  const recorded = db.entries.some(
+    (e) => e.kind === "central" && e.lotId === lotId,
+  );
+  const central = recorded
+    ? entries(db, "central", lotId).at(-1)?.values
+    : lot?.values;
+  const unallocated = entries(db, "receive", lotId).filter(
+    (r) => !r.values.allocation,
+  );
   return (
-    num(lot?.values || {}, "centralKg") -
+    num(central || {}, "centralKg") -
     sum(entries(db, "allocate", lotId), "kg") -
-    sum(
-      entries(db, "receive", lotId).filter((r) => !r.values.allocation),
-      "kg",
+    [...new Set(unallocated.map((r) => r.branch))].reduce(
+      (total, branch) => total + unallocatedFill(db, lotId, branch).straight,
+      0,
     )
   );
 }
-/** Raw beef is held by Foodiva until it is dispatched to the smoker or picked up by the Owner. */
+/** Raw beef at Foodiva waiting to go to Chef House, the one figure every screen shows for it:
+ *  the PO's ready-for-Chiang-Mai kg (the ordered kg until Foodiva invoices) less what trucks
+ *  have taken. The part kept for the Owner (Waste) is apart: `ownerWasteOutstanding`. */
 export function rawAtFoodiva(db: Database, lot: Lot) {
   // A shipment's beef is counted on the purchase POs it draws from.
   if (lot.kind) return 0;
-  const confirmation = entries(db, "foodivaConfirm", lot.id).at(-1);
-  const invoicedKg = confirmation
-    ? n(confirmation.values, "confirmedKg")
+  const ready = entries(db, "foodivaConfirm", lot.id).length
+    ? readyForChefHouse(db, lot.id)
     : n(lot.values, "orderedKg");
   const smoker = drawnKg(db, lot.id, true);
   // Legacy: early builds could record "steakTransfer" (raw beef moved to Steak). No UI creates
   // it any more, but app_state history is append-only, so old transfers still leave Foodiva.
   const steak = sum(entries(db, "steakTransfer", lot.id), "quantityKg");
-  const ownerReceived = ownerWasteReceived(db, lot.id);
-  return Math.max(0, invoicedKg - smoker - steak - ownerReceived);
+  return Math.max(0, ready - smoker - steak);
+}
+/** Smoked beef Foodiva took into its freezer that the Owner has not counted into central yet. */
+export function smokedAtFoodiva(db: Database, lot: Lot) {
+  const received = entries(db, "foodivaReturnReceive", lot.id).at(-1);
+  return Math.max(
+    0,
+    n(received?.values || {}, "receivedKg") - n(lot.values, "centralKg"),
+  );
 }
 export function readyForChefHouse(db: Database, lotId: string) {
   const confirmation = entries(db, "foodivaConfirm", lotId).at(-1);
@@ -210,6 +247,12 @@ const batchLines = (db: Database, lot: Lot): ShipmentLine[] => {
 /** Every shipment batch (Lot S). */
 export function shipments(db: Database) {
   return db.lots.filter((lot) => lot.kind === "shipment");
+}
+/** Shipments with no truck home yet (RET-06): the Owner may book the return whenever the
+ *  truck is arranged, closed lot or not. The return screen lists these and the Owner's
+ *  "Chef House closed the lot" alert is the closed subset, so an alerted lot is always a row. */
+export function awaitingReturn(db: Database) {
+  return shipments(db).filter((lot) => !entries(db, "return", lot.id).length);
 }
 /** Kg of one purchase PO that smoke POs draw (only batches already trucked with `dispatchedOnly`, PO-05). */
 export function drawnKg(
@@ -403,8 +446,28 @@ export function packWeightWarning(v: Values) {
 }
 /** Kg a branch still has to receive on one allocation, rounded to the 0.01 the user
  * sees and types; the allocation is done once that reaches 0, or once a receive was
- * marked `complete` (a shortfall the branch accepted, its reason on that receive). */
+ * marked `complete` (a shortfall the branch accepted, its reason on that receive).
+ * Receives on the batch with no `allocation` fill it too (DM-08, `unallocatedFill`). */
 export function allocationOutstanding(
+  db: Database,
+  allocation: Entry,
+  throughDate?: string,
+) {
+  const filled =
+    unallocatedFill(
+      db,
+      allocation.lotId,
+      allocation.branch,
+      throughDate,
+    ).filled.get(allocation.id) ?? 0;
+  const kg =
+    Math.round(
+      (recordedOutstanding(db, allocation, throughDate) - filled) * 100,
+    ) / 100;
+  return Math.max(0, kg);
+}
+/** `allocationOutstanding` counting only receives recorded against the allocation. */
+function recordedOutstanding(
   db: Database,
   allocation: Entry,
   throughDate?: string,
@@ -420,9 +483,37 @@ export function allocationOutstanding(
       (!throughDate || r.date <= throughDate),
   );
   if (received.some((r) => r.values.complete === "1")) return 0;
-  const kg =
-    Math.round((n(allocation.values, "kg") - sum(received, "kg")) * 100) / 100;
-  return Math.max(0, kg);
+  return Math.max(0, n(allocation.values, "kg") - sum(received, "kg"));
+}
+/** DM-08: a branch's receives on a batch with no `allocation` (typed as รับตรง, or a ไม่ระบุ Lot
+ *  receive linked to the batch later) fill that branch's outstanding allocations on the batch,
+ *  in log order, exactly as if recorded against them. Only the kg beyond every outstanding
+ *  allocation is a straight receive (RET-04) and comes off central stock on its own.
+ *  ponytail: no date order between receive and allocation, since a receive linked later may
+ *  predate the allocation it fills. A branch that really took extra meat straight before an
+ *  allocation should record the receive against that allocation or mark it complete. */
+function unallocatedFill(
+  db: Database,
+  lotId: string,
+  branch: string,
+  throughDate?: string,
+) {
+  const upTo = (e: Entry) => !throughDate || e.date <= throughDate;
+  let left = sum(
+    entries(db, "receive", lotId, branch).filter(
+      (r) => !r.values.allocation && upTo(r),
+    ),
+    "kg",
+  );
+  const filled = new Map<string, number>();
+  for (const allocation of entries(db, "allocate", lotId, branch).filter(
+    upTo,
+  )) {
+    const kg = Math.min(left, recordedOutstanding(db, allocation, throughDate));
+    filled.set(allocation.id, kg);
+    left -= kg;
+  }
+  return { filled, straight: left };
 }
 /** Kg allocated to a branch and not yet received; with `throughDate`, as of the end
  * of that day (allocations and receives dated after it do not count). */
@@ -580,14 +671,9 @@ export function ownerChiliStock(db: Database) {
   const purchased = entries(db, "generalPurchase")
     .filter((entry) => entry.values.item === "น้ำพริกหลอด")
     .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
-  const legacyBranchPurchases =
-    sum(entries(db, "supplyPurchase"), "chiliTubes") +
-    sum(entries(db, "chiliPurchase"), "chiliTubes");
-  return (
-    purchased +
-    legacyBranchPurchases -
-    sum(entries(db, "chiliAllocate"), "chiliTubes")
-  );
+  // Old branch chili purchases (chiliPurchase, supplyPurchase) went straight to the branch and
+  // count in its chiliAllocated only: they were never in the Owner's store.
+  return purchased - sum(entries(db, "chiliAllocate"), "chiliTubes");
 }
 export function chiliSold(db: Database, branch: string, throughDate?: string) {
   return sum(
@@ -601,10 +687,6 @@ export function chiliStock(db: Database, branch: string, throughDate?: string) {
   return (
     chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate)
   );
-}
-/** Kept for old components; it now means the current branch balance, not a branch issue. */
-export function issuedChiliStock(db: Database, branch: string) {
-  return chiliStock(db, branch);
 }
 export function materialSent(
   db: Database,
@@ -745,14 +827,18 @@ export function saleCost(db: Database, sale: Entry) {
 }
 /** DASH-01: what is recorded but not tied to its source yet, for the Owner's dashboard. */
 export function unlinkedSummary(db: Database) {
+  const receives = entries(db, "receive", "");
   const meatKg: Record<string, number> = {};
-  for (const branch of [
-    ...new Set(entries(db, "receive", "").map((e) => e.branch)),
-  ])
-    meatKg[branch] = balance(db, "", branch).received;
+  for (const branch of [...new Set(receives.map((e) => e.branch))]) {
+    const { frozen, ready } = balance(db, "", branch);
+    meatKg[branch] = frozen + ready;
+  }
   return {
-    /** Branch meat received into the "ไม่ระบุ Lot" bucket, kg per branch. */
+    /** Branch meat still on hand in the "ไม่ระบุ Lot" bucket (frozen + chill), kg per branch
+     *  with an unlinked receive: selling from the bucket lowers it, linking moves it. */
     meatKg,
+    /** Receives in that bucket still waiting to be linked to a batch. */
+    meatReceives: receives.length,
     /** Material receipts with no transfer document. */
     materialConfirms: entries(db, "materialConfirm").filter(
       (e) => !e.values.transferId,
@@ -765,18 +851,29 @@ export function unlinkedSummary(db: Database) {
       .map((lot) => lot.id),
   };
 }
+/** Purchase POs still open: beef left to send to Chef House, or the meat invoice unpaid. */
+export function openPurchasePos(db: Database) {
+  return purchaseLots(db).filter(
+    (lot) =>
+      poRemainingKg(db, lot.id) > 0.001 ||
+      !entries(db, "meatPayment", lot.id).length,
+  );
+}
 export function smokeServiceRate(quantityKg: number) {
   if (quantityKg >= 1500) return 180;
   if (quantityKg >= 1000) return 200;
   return 220;
 }
+/** The payment that settles this invoice: one naming it, or one made on its batch before any
+ *  invoice existed (SVC-01, no `invoiceId`). A pre-paid batch has nothing left to pay, so
+ *  every invoice on it reads "ชำระแล้ว" and skips review, the same as a paid invoice. */
+export function smokingInvoicePayment(db: Database, invoice: Entry) {
+  return entries(db, "invoicePayment", invoice.lotId).find(
+    (entry) => !entry.values.invoiceId || entry.values.invoiceId === invoice.id,
+  );
+}
 export function smokingInvoiceStatus(db: Database, invoice: Entry) {
-  if (
-    entries(db, "invoicePayment", invoice.lotId).some(
-      (entry) => entry.values.invoiceId === invoice.id,
-    )
-  )
-    return "ชำระแล้ว";
+  if (smokingInvoicePayment(db, invoice)) return "ชำระแล้ว";
   const review = entries(db, "invoiceReview", invoice.lotId)
     .filter((entry) => entry.values.invoiceId === invoice.id)
     .at(-1);
@@ -828,3 +925,9 @@ export function ownerPendingInvoices(db: Database) {
 export function revenue(db: Database) {
   return sum(entries(db, "sale"), "revenue");
 }
+
+/** Oldest first: by business date, then by when it was typed. */
+export const byDateAt = (
+  a: { date: string; at: string },
+  b: { date: string; at: string },
+) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at);

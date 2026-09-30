@@ -13,8 +13,6 @@ const meta = {
 } satisfies Meta<typeof FilterBar>;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
-
 function Filters() {
   const [branch, setBranch] = useState("ทั้งหมด");
   const [from, setFrom] = useState("2026-09-01");
@@ -42,4 +40,16 @@ function Filters() {
   );
 }
 
-export const Default: Story = { render: () => <Filters /> };
+/** Filters sit level on their bottom edge and wrap onto a second line when the row
+ *  runs out of room. Drag `width` in Controls to see the wrap. */
+export const Default: StoryObj<{ width: number }> = {
+  argTypes: {
+    width: { control: { type: "range", min: 280, max: 1200, step: 20 } },
+  },
+  args: { width: 1200 },
+  render: ({ width }) => (
+    <div style={{ maxWidth: width }}>
+      <Filters />
+    </div>
+  ),
+};

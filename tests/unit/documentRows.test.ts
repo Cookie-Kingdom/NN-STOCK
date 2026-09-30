@@ -2,7 +2,6 @@ import { expect, test } from "vitest";
 import {
   foodivaInvoiceRows,
   smokeOrderPrintRows,
-  smokeOrderTraceRows,
   smokingInvoiceRows,
   transportDocumentRows,
 } from "@/components/organisms/owner/documentRows";
@@ -15,8 +14,8 @@ import {
 } from "@/components/organisms/shared/documentRows";
 import {
   entries,
+  shipments,
   seed,
-  visibleDatabase,
   type Entry,
   type Lot,
   type EntryKind,
@@ -134,13 +133,6 @@ test("invoice and smoke PO rows follow the lot's documents", () => {
     "ราคา / กก.": "฿220.00",
     "ยอดรวมก่อน VAT": "฿11,000.00",
   });
-  expect(
-    asObject(smokeOrderTraceRows(s.db, lot, latest("smokeOrder"))),
-  ).toMatchObject({
-    เลขที่การส่ง: "SH-2026-0001",
-    "Packing List": "2 กล่องรับเข้า · 50.00 กก.",
-    ผู้รับออเดอร์: "—",
-  });
 });
 
 test("the smoke PO of a 3-PO shipment, as Chef House opens it, names no purchase PO, meat price or Foodiva invoice", () => {
@@ -159,12 +151,12 @@ test("the smoke PO of a 3-PO shipment, as Chef House opens it, names no purchase
   dispatch(s, "");
   packingList(s, "750\n740");
   smokeOrder(s, lines);
-  const chef = visibleDatabase(s.db, "cm");
-  const lot = chef.lots[0];
+  // Q6: built from the Owner's full database, the smoke PO still names only the shipment.
+  const lot = shipments(s.db)[0];
   const rows = smokeOrderPrintRows(
-    chef,
+    s.db,
     lot,
-    entries(chef, "smokeOrder", lot.id)[0],
+    entries(s.db, "smokeOrder", lot.id)[0],
   );
   expect(asObject(rows)).toMatchObject({
     เลขที่การส่ง: "SH-2026-0001",

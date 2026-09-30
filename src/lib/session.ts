@@ -5,18 +5,13 @@ import { accountById, type Account, type AccountId } from "@/lib/accounts";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
+import type { Database } from "@/lib/supabase/types";
 import { setSaveActor, setSaveAppendOnly } from "@/lib/persistence";
 
-type Profile = {
-  display_name: string;
-  role:
-    | "L1_OWNER"
-    | "L1_MANAGER"
-    | "L2_BRANCH_ADMIN"
-    | "L3_CM_OPERATOR"
-    | "L4_SUPPLIER";
-  is_active: boolean;
-};
+type Profile = Pick<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "display_name" | "role" | "is_active"
+>;
 export type SessionState = {
   ready: boolean;
   account: Account | null;
@@ -41,18 +36,19 @@ function accountForProfile(
   locationName?: string,
 ): Account | null {
   if (!profile.is_active) return null;
-  const id: AccountId =
+  /* Any other role (the old L3/L4 partner profiles) has no account: generic inactive message.
+   * So has a branch admin with no user_locations row: the server gives it no branch and would
+   * refuse every save, so it must not open as ศาลาแดง. */
+  const id: AccountId | null =
     profile.role === "L1_OWNER"
       ? "owner"
       : profile.role === "L1_MANAGER"
         ? "manager"
-        : profile.role === "L3_CM_OPERATOR"
-          ? "chef"
-          : profile.role === "L4_SUPPLIER"
-            ? "foodiva"
-            : locationName?.includes("มีนบุรี")
-              ? "minburi"
-              : "saladaeng";
+        : profile.role !== "L2_BRANCH_ADMIN" || !locationName
+          ? null
+          : locationName?.includes("มีนบุรี")
+            ? "minburi"
+            : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;
 }
@@ -108,12 +104,18 @@ async function refreshSession() {
 
   let locationName: string | undefined;
   if (profile.role === "L2_BRANCH_ADMIN") {
-    const { data } = await supabase
+    /* ponytail: one branch per account. With two rows the server (account_branches) scopes
+     * to both, but the app opens one: the lowest location_id, so it is at least the same
+     * one every time. */
+    const { data, error: locationError } = await supabase
       .from("user_locations")
       .select("locations(name_th)")
       .eq("profile_id", userData.user.id)
+      .order("location_id")
       .limit(1)
       .maybeSingle();
+    // A failed request is not "no branch": keep the open workspace, as for the profile.
+    if (state.account && locationError) return;
     locationName = data?.locations?.name_th;
   }
   const account = accountForProfile(profile, locationName);
@@ -134,10 +136,11 @@ supabase?.auth.onAuthStateChange((event) => {
 
 export async function signIn(email: string, password: string) {
   if (!supabase) {
-    const account = accountById(email.split("@")[0]);
+    const id = email.split("@")[0];
+    const account = accountById(id);
     if (!account)
       return localAuthError(
-        "โหมด local: ใช้อีเมล owner@local.test, manager@, foodiva@, chef@, saladaeng@ หรือ minburi@local.test",
+        "โหมด local: ใช้อีเมล owner@local.test, manager@, saladaeng@ หรือ minburi@local.test",
       );
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };

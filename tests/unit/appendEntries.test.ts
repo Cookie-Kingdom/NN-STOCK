@@ -9,29 +9,22 @@ import {
   replaceState,
 } from "@/lib/local-db.server";
 import {
+  balance,
   mutate,
   saleCost,
   type Database,
-  type Role,
+  type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
-import {
-  day,
-  dispatch,
-  last,
-  packingList,
-  readyToDispatch,
-  ready,
-  setup,
-} from "./fixtures";
+import { day, dispatch, last, readyToDispatch, ready, setup } from "./fixtures";
 
-/* append_entries (migration 0030) through its JS port: a non-owner loads its role-scoped copy,
+/* append_entries (migration 0034) through its JS port: a branch loads its role-scoped copy,
  * runs mutate on it as the app does, and saves only the delta. */
 function save(
   full: Database,
   accountId: string,
-  role: Role,
+  role: ActingRole,
   kind: EntryKind,
   input: Values,
   lotId: string,
@@ -104,64 +97,17 @@ test("BR-05 a branch sale stores no meat cost; saleCost prices it from the full 
   expect(saleCost(stored, stored.entries.at(-1)!).meatCost).toBeGreaterThan(0);
 });
 
-test("Chef House moves a lot from its scoped copy without losing what it never received", () => {
-  const s = setup();
-  readyToDispatch(s, "50");
-  dispatch(s);
-  packingList(s, "25\n25");
-  s.run("cm", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  const lotId = s.db.lots.at(-1)!.id;
-  const input = { receivedBoxes: "24.5\n24.5", arrival: "08:00" };
-  const expected = mutate(s.db, "cm", "cmReceive", input, lotId, day);
-  const { delta, stored } = save(s.db, "chef", "cm", "cmReceive", input, lotId);
-  expect(delta.lots[0].values.lines).toBeUndefined();
-  expect(stored.lots).toEqual(expected.lots);
-  expect(stored.entries.at(-1)!.values).toEqual(
-    expected.entries.at(-1)!.values,
-  );
-});
-
-test("Foodiva's truck updates the batch values from the scoped copy", () => {
-  const s = setup();
-  readyToDispatch(s, "50");
-  const lotId = s.db.lots.at(-1)!.id;
-  const send = {
-    pickupDate: day,
-    pickupTime: "06:30",
-    origin: "กรุงเทพ",
-    destination: "เชียงใหม่",
-    trip: "ไปกลับ",
-  };
-  const expected = mutate(s.db, "foodiva", "dispatch", send, lotId, day);
-  const { stored } = save(s.db, "foodiva", "foodiva", "dispatch", send, lotId);
-  expect(stored.lots).toEqual(expected.lots);
-});
-
-test("GEN-09 Chef House opens a batch and records its first entry in one save", () => {
-  const s = setup();
-  readyToDispatch(s, "50");
-  const input = { receivedBoxes: "20\n20", arrival: "08:00" };
-  const { delta, stored } = save(s.db, "chef", "cm", "cmReceive", input, "");
-  const [batch] = delta.lots;
-  // The random suffix keeps the id apart from batches Chef House cannot see.
-  expect(batch.id).toMatch(/^S\d{6}-\d{3}-[0-9a-f]{4}$/);
-  expect(stored.lots.filter((lot) => lot.id === batch.id)).toHaveLength(1);
-  expect(stored.lots).toHaveLength(s.db.lots.length + 1);
-  expect(stored.entries.at(-1)!.lotId).toBe(batch.id);
-});
-
 test("append_entries refuses what save_app_state refuses", () => {
   const s = setup();
   readyToDispatch(s, "50");
   const db = openLocalDb(":memory:");
   const { revision } = replaceState(db, s.db);
-  const chef = accountById("chef");
-  const foodiva = accountById("foodiva");
+  const branch = accountById("saladaeng");
   const lot = s.db.lots.at(-1)!;
   const entry = (values: Partial<Database["entries"][number]> = {}) => ({
     id: crypto.randomUUID(),
-    kind: "cmReceive",
-    role: "cm" as const,
+    kind: "receive",
+    role: "branch" as const,
     lotId: lot.id,
     branch: "ศาลาแดง",
     date: day,
@@ -171,7 +117,7 @@ test("append_entries refuses what save_app_state refuses", () => {
   });
   const append =
     (
-      account: typeof chef,
+      account: typeof branch,
       entries: unknown[],
       lots: unknown[] = [],
       rev = revision,
@@ -179,32 +125,115 @@ test("append_entries refuses what save_app_state refuses", () => {
     () =>
       appendState(db, account, entries, lots, rev);
 
-  expect(append(chef, [entry()], [], revision - 1)).toThrow(
+  expect(append(branch, [entry()], [], revision - 1)).toThrow(
     "State changed on another device. Reload and try again.",
   );
-  expect(append(accountById("owner"), [])).toThrow("append entries");
-  expect(append(chef, [entry({ kind: "sale" })])).toThrow(
+  expect(append(accountById("owner"), [])).toThrow(
+    "Only branch accounts append entries",
+  );
+  expect(append(branch, [entry({ kind: "cmReceive" })])).toThrow(
     "kind is not allowed",
   );
-  expect(append(chef, [entry({ role: "branch" })])).toThrow(
+  expect(append(branch, [entry({ role: "cm" })])).toThrow(
     "role does not match",
   );
-  expect(append(chef, [entry({ id: s.db.entries[0].id })])).toThrow(
+  expect(append(branch, [entry({ actor: "owner" })])).toThrow(
+    "actor does not match",
+  );
+  expect(append(branch, [entry({ id: s.db.entries[0].id })])).toThrow(
     "id must be unique",
   );
-  expect(append(chef, [entry({ lotId: "nope" })])).toThrow(
+  expect(append(branch, [entry({ lotId: "nope" })])).toThrow(
     "lot does not exist",
   );
-  expect(append(chef, [entry({ branch: "มีนบุรี" })])).toThrow(
+  expect(append(branch, [entry({ branch: "มีนบุรี" })])).toThrow(
     "branch does not match",
   );
-  // SRV-02: no stage. Values move; a lot's identity and a purchase PO stay the Owner's.
-  expect(append(chef, [], [{ ...lot, values: "x" }])).toThrow("workflow");
+  // A branch never changes a lot: lotCost reads outboundCost / returnCost / centralKg from it.
   expect(
-    append(foodiva, [], [{ ...lot, id: "F000000-001", poId: "PO-2026-0009" }]),
-  ).toThrow("Only an owner");
-  expect(append(foodiva, [], [{ ...lot, id: "new" }])).toThrow(
-    "Only an owner can add or remove lots",
+    append(
+      branch,
+      [],
+      [{ ...lot, values: { ...lot.values, outboundCost: "0" } }],
+    ),
+  ).toThrow("Only an owner can change lots");
+  expect(append(branch, [], [{ ...lot, id: "new" }])).toThrow(
+    "Only an owner can change lots",
+  );
+  expect(append(branch, [entry({ date: "2999-01-01" })])).toThrow(
+    "after today",
   );
   expect(readState(db).revision).toBe(revision);
+});
+
+test("append_entries refuses entries on a closed branch day, except an edit request", () => {
+  const s = setup();
+  const db = openLocalDb(":memory:");
+  const { revision } = replaceState(db, s.db);
+  const branch = accountById("saladaeng");
+  const entry = (kind: string, id = crypto.randomUUID()) => ({
+    id,
+    kind,
+    role: "branch" as const,
+    lotId: "",
+    branch: "ศาลาแดง",
+    date: day,
+    at: "",
+    values: {},
+  });
+  expect(() =>
+    appendState(
+      db,
+      branch,
+      [entry("closeDay"), entry("receive")],
+      [],
+      revision,
+    ),
+  ).toThrow("Branch day is closed");
+  const closed = appendState(db, branch, [entry("closeDay")], [], revision);
+  expect(() =>
+    appendState(db, branch, [entry("receive")], [], closed.revision),
+  ).toThrow("Branch day is closed");
+  appendState(db, branch, [entry("editRequest")], [], closed.revision);
+});
+
+test("append_entries and entries() refuse a link to another branch's or the Owner's entry", () => {
+  const s = ready();
+  const batch = s.db.lots.at(-1)!.id;
+  s.run("branch", "receive", { kg: "10" }, "");
+  const receive = last(s);
+  const owners = s.db.entries.find((e) => e.role === "owner")!;
+  const db = openLocalDb(":memory:");
+  const { revision } = replaceState(db, s.db);
+  const link = (targetId: string, branch: string) => ({
+    id: crypto.randomUUID(),
+    kind: "link" as const,
+    role: "branch" as const,
+    lotId: "",
+    branch,
+    date: day,
+    at: "",
+    values: { targetId, lotId: batch },
+  });
+  const minburi = accountById("minburi");
+  expect(() =>
+    appendState(db, minburi, [link(receive.id, "มีนบุรี")], [], revision),
+  ).toThrow("Link target is not an entry of this branch");
+  expect(() =>
+    appendState(db, minburi, [link(owners.id, "มีนบุรี")], [], revision),
+  ).toThrow("Link target is not an entry of this branch");
+  appendState(
+    db,
+    accountById("saladaeng"),
+    [link(receive.id, "ศาลาแดง")],
+    [],
+    revision,
+  );
+  // A crafted link already in the log moves nothing.
+  const crafted = {
+    ...s.db,
+    entries: [...s.db.entries, link(receive.id, "มีนบุรี")],
+  };
+  expect(balance(crafted, batch, "ศาลาแดง").received).toBe(0);
+  expect(balance(crafted, "", "ศาลาแดง").received).toBe(10);
 });

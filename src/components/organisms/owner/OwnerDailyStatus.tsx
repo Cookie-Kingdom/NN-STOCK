@@ -57,7 +57,7 @@ export function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
         workDate,
         <strong key={`${name}-${workDate}-${kind}`}>{name}</strong>,
         titles[kind],
-        `${Math.max(1, Math.round((dayNumber(date) - dayNumber(workDate)) / dayMs))} วัน`,
+        `${Math.max(0, Math.round((dayNumber(date) - dayNumber(workDate)) / dayMs))} วัน`,
         <Badge tone="danger" key="pending">
           ค้างกรอก
         </Badge>,

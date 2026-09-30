@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
+import { ChefLotTable } from "@/components/organisms/owner/ChefLotTable";
+import { ChefReceiveTable } from "@/components/organisms/owner/ChefReceiveTable";
+import { FoodivaView } from "@/components/organisms/owner/FoodivaView";
 import { CentralReceiveView } from "@/components/organisms/owner/CentralReceiveView";
 import { ConfigView } from "@/components/organisms/owner/ConfigView";
 import { InvoiceView } from "@/components/organisms/owner/InvoiceView";
@@ -38,7 +41,6 @@ import { branches, shipments } from "@/lib/store";
 export function OwnerWorkspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const { db, date, open, setTab, tab } = ws;
-  const [showNotifications, setShowNotifications] = useState(false);
   const everyAlert = useOwnerAlerts(db);
   const alerts = ws.loaded ? everyAlert : noOwnerAlerts;
   const hideSales = !!account.hidesSales;
@@ -53,17 +55,8 @@ export function OwnerWorkspace({ account }: { account: Account }) {
     <WorkspaceShell
       account={account}
       nav={hideSales ? managerNav : ownerNav}
-      tab={tab}
-      onTab={setTab}
-      date={date}
-      onDate={ws.setDate}
       badges={alerts.badges}
       notifications={alerts.notifications}
-      showNotifications={showNotifications}
-      onToggleNotifications={() => setShowNotifications((value) => !value)}
-      loading={!ws.loaded}
-      toast={ws.toast}
-      onCloseToast={() => ws.setToast("")}
       ws={ws}
     >
       <OwnerAlertBanners db={db} alerts={alerts} tab={tab} onTab={setTab} />
@@ -74,6 +67,21 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "po" && <PurchaseOrderView db={db} open={open} />}
       {tab === "smoke-po" && <SmokingPurchaseOrderView db={db} open={open} />}
       {tab === "invoices" && <InvoiceView db={db} open={open} />}
+
+      {/* Partners' work, typed by the Owner / Manager for them (M0 stamps whose it is). */}
+      {tab === "foodiva" && <FoodivaView db={db} open={open} />}
+      {tab === "cm-receive" && <ChefReceiveTable db={db} open={open} />}
+      {tab === "work" && (
+        <>
+          <ChefLotTable db={db} lots={shipments(db)} open={open} />
+          <MeatStockTable
+            db={db}
+            variant="chef"
+            lots={shipments(db)}
+            open={open}
+          />
+        </>
+      )}
       {tab === "transport" && <TransportManifestView db={db} open={open} />}
       {tab === "return-shipment" && <ReturnShipmentView db={db} open={open} />}
       {tab === "central-receive" && <CentralReceiveView db={db} open={open} />}
@@ -88,8 +96,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
           />
           <MeatStockTable
             db={db}
-            role={ws.role}
-            branch={ws.branch}
+            variant="owner"
             lots={shipments(db)}
             open={open}
           />

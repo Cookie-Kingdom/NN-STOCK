@@ -1,34 +1,34 @@
-import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fireEvent, fn, within } from "storybook/test";
 import {
   day,
   editDecidedDb,
   editPendingDb,
+  multiPoDb,
 } from "../../../../.storybook/fixtures";
 import { Panel } from "@/components/atoms/Panel";
+import { EditEntryForm } from "@/components/organisms/shared/EntryDetails";
 import {
-  EditEntryForm,
-  EntryDetails,
-} from "@/components/organisms/shared/EntryDetails";
-import { entries, visibleEntries, type Database } from "@/lib/store";
+  entries,
+  visibleEntries,
+  type ActingRole,
+  type Database,
+} from "@/lib/store";
 import { EditRequestList } from "./EditRequestList";
 import { editRequestAlerts } from "./editRequestAlerts";
-import { HistoryPanel } from "./HistoryPanel";
 import { NotificationPopover } from "./NotificationPopover";
 
-type Role = "owner" | "branch";
-
-/** B5 แก้ไขย้อนหลัง: the edit/request form, the request list, the bells and an edited entry.
+/** B5 แก้ไขย้อนหลัง: the edit/request form, the request list and the bells. An edited
+ *  entry and the branch history with requests are WorkspaceData (EntryDetail, History).
  *  Forms inside, so no Docs page. */
 const meta: Meta = {
-  title: "Organisms/Edit Requests",
+  title: "Organisms/Workspace/EditRequests",
   tags: ["!autodocs"],
   parameters: { db: editDecidedDb },
 };
 
 export default meta;
-type Story = StoryObj<{ role: Role }>;
+type Story = StoryObj<{ role: ActingRole }>;
 
 /** Controls: who is looking, ศาลาแดง or the Owner. */
 const byRole = {
@@ -42,7 +42,7 @@ const byRole = {
       },
     },
   },
-  args: { role: "branch" as Role },
+  args: { role: "branch" as ActingRole },
 };
 
 const asBranch = (db: Database): Database => ({
@@ -79,7 +79,8 @@ export const RequestForm: Story = {
 };
 
 /** Pick ผู้ใช้ in Controls:
- *  - ศาลาแดง: only its own requests, with สำเร็จ / ไม่สำเร็จ, and no buttons.
+ *  - ศาลาแดง: only its own requests, with สำเร็จ / ไม่สำเร็จ, and 「ถอนคำขอ」 on the
+ *    one still waiting (a void of the request).
  *  - Owner: the waiting request with อนุมัติ / ไม่อนุมัติ first, then the decided ones. */
 export const RequestList: Story = {
   ...byRole,
@@ -92,8 +93,23 @@ export const RequestList: Story = {
   ),
 };
 
-function Bell({ db, role }: { db: Database; role: Role }) {
-  const [open, setOpen] = useState(true);
+/** SMK-05: the Owner edits a smoke PO. Above its fields, the purchase-PO table of the new
+ *  PO form, prefilled with the 400 kg it draws; "คงเหลือ" adds that 400 kg back. */
+export const SmokeOrderEdit: StoryObj = {
+  render: () => (
+    <Panel>
+      <EditEntryForm
+        entry={entries(multiPoDb, "smokeOrder")[0]}
+        db={multiPoDb}
+        request={false}
+        onCancel={fn()}
+        onSubmit={fn()}
+      />
+    </Panel>
+  ),
+};
+
+function Bell({ db, role }: { db: Database; role: ActingRole }) {
   return (
     <div className="flex min-h-100 justify-end p-6">
       <NotificationPopover
@@ -103,8 +119,6 @@ function Bell({ db, role }: { db: Database; role: Role }) {
           role === "branch" ? "ศาลาแดง" : "",
           day,
         )}
-        open={open}
-        onToggle={() => setOpen((value) => !value)}
         onSelect={fn()}
       />
     </div>
@@ -116,32 +130,10 @@ function Bell({ db, role }: { db: Database; role: Role }) {
  *  - Owner: "คำขอแก้ไขรอพิจารณา 1 รายการ", opening the history tab. */
 export const RequesterBell: Story = {
   ...byRole,
+  play: async ({ canvasElement }) => {
+    fireEvent.click(
+      within(canvasElement).getByRole("button", { name: /^การแจ้งเตือน/ }),
+    );
+  },
   render: ({ role }) => <Bell db={editDecidedDb} role={role} />,
-};
-
-/** The approved sale: badge "แก้ไขแล้ว", current values, and who asked, who approved, when. */
-export const EditedEntryDetails: Story = {
-  render: () => (
-    <Panel>
-      <EntryDetails
-        entry={sale(editDecidedDb)}
-        db={editDecidedDb}
-        role="owner"
-        open
-        onChanged={fn()}
-      />
-    </Panel>
-  ),
-};
-
-/** ศาลาแดง's history tab: its requests above the log, "ขอแก้ไข" on its own entries. */
-export const BranchHistory: Story = {
-  render: () => (
-    <HistoryPanel
-      db={editDecidedDb}
-      role="branch"
-      branch="ศาลาแดง"
-      onChanged={fn()}
-    />
-  ),
 };

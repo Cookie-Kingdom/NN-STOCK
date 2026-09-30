@@ -10,7 +10,7 @@ import { Stat } from "@/components/atoms/Stat";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { TableSection } from "@/components/organisms/shared/TableSection";
+import { TableSection } from "@/components/molecules/TableSection";
 
 /** Head of a Packing List — typed in by Foodiva, or read out of the file it uploads
  *  once the template is known. */

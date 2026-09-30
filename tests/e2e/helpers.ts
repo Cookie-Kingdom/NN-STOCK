@@ -7,22 +7,21 @@ import path from "node:path";
  *
  * Run against the local SQLite backend: `pnpm test:e2e:local`. */
 
-/* Accounts. Local SQLite mode signs in `<account>@local.test` with any password;
+/* Accounts. Foodiva and Chef House are partners, not users: the Owner / Account Manager
+ * record their steps from the /owner tabs (SCREENS below). Local SQLite mode signs in `<account>@local.test` with any password;
  * against Supabase the credentials come from E2E_<ENV>_EMAIL / E2E_<ENV>_PASSWORD,
  * loaded from .env.local by playwright.config.ts. */
 export const ACCOUNTS = {
   owner: "owner",
-  foodiva: "foodiva",
-  chef: "chef",
+  manager: "manager",
   saladaeng: "saladaeng",
   minburi: "minburi",
 } as const;
-export type AccountKey = keyof typeof ACCOUNTS;
+type AccountKey = keyof typeof ACCOUNTS;
 
 const ACCOUNT_ENV: Record<AccountKey, string> = {
   owner: "OWNER",
-  foodiva: "FOODIVA",
-  chef: "CHEF",
+  manager: "MANAGER",
   saladaeng: "SALADAENG",
   minburi: "MINBURI",
 };
@@ -30,8 +29,7 @@ const ACCOUNT_ENV: Record<AccountKey, string> = {
 /** Mirrors `path` in src/lib/accounts.ts. */
 const ACCOUNT_PATH: Record<AccountKey, string> = {
   owner: "/owner",
-  foodiva: "/foodiva",
-  chef: "/chef",
+  manager: "/owner",
   saladaeng: "/branch",
   minburi: "/branch",
 };
@@ -46,7 +44,7 @@ function credentialsFor(account: AccountKey) {
 }
 
 /** Skips the current test when any of the accounts has no credentials in env. */
-export function skipUnlessCredentials(...accounts: AccountKey[]) {
+function skipUnlessCredentials(...accounts: AccountKey[]) {
   const missing = accounts.filter((account) => !credentialsFor(account));
   test.skip(
     missing.length > 0,
@@ -74,17 +72,17 @@ export function menuItem(page: Page, label: string) {
   });
 }
 
-export function escapeRegExp(text: string) {
+function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export const INVOICE_FIXTURE = path.join(
+const INVOICE_FIXTURE = path.join(
   process.cwd(),
   "tests/fixtures/invoice-demo.pdf",
 );
 
 /** A red dot that follows the mouse, so the recorded videos show every click. */
-export async function installVisibleCursor(page: Page) {
+async function installVisibleCursor(page: Page) {
   await page.addInitScript(() => {
     document.addEventListener(
       "mousemove",
@@ -137,7 +135,7 @@ export async function typeValue(page: Page, locator: Locator, value: string) {
   await expect(locator).toHaveValue(value);
 }
 
-export async function button(page: Page, name: string | RegExp) {
+async function button(page: Page, name: string | RegExp) {
   await pointAndClick(page, page.getByRole("button", { name }).last());
 }
 
@@ -257,7 +255,7 @@ export async function step(
 
 /* ---- ids on screen ----------------------------------------------------------- */
 
-export const PO_ID = /PO-\d{4}-\d{4}/;
+const PO_ID = /PO-\d{4}-\d{4}/;
 export const SHIPMENT_NO = /SH-\d{4}-\d{4}/;
 /** A smoke batch id: `S<yymmdd>-NNN-xxxx` (GEN-09). */
 export const BATCH_ID = /S\d{6}-\d{3}-[0-9a-z]{4}/i;
@@ -269,20 +267,29 @@ export async function idsOnScreen(page: Page, pattern: RegExp) {
 }
 
 /* ---- documents, by action (not by account) -------------------------------------
- * Each helper records one document from the workspace the page is signed in to, and
- * names the action rather than the account: Chef House and Foodiva work is expected to
- * move into the Owner workspace, and only the menu/table names here would change. */
+ * Each helper records one document from the /owner workspace (Owner or Account Manager)
+ * and names the action rather than whose document it is: Foodiva and Chef House work
+ * lives in the "งาน Foodiva" / "งาน Chef House" tabs. */
+
+const FOODIVA_TAB = "Invoice เนื้อ · ใบขนส่ง · รับเข้าตู้";
 
 /** The menus and tables each action is reached through. */
 export const SCREENS = {
   purchasePo: { menu: "ใบสั่งซื้อ PO" },
   meatInvoice: {
-    menu: "PO และสต๊อก Foodiva",
+    menu: FOODIVA_TAB,
     table: "PO เนื้อที่ต้องออก Invoice",
   },
-  batches: { menu: "PO และสต๊อก Foodiva", table: "ชุดรมควัน" },
-  weighIn: { menu: "ยืนยันรับเนื้อ", table: "การส่งที่รอยืนยันรับ" },
-  production: { menu: "งานผลิต", table: "รายการ Lot ทั้งหมด" },
+  batches: { menu: FOODIVA_TAB, table: "ชุดรมควัน" },
+  freezer: {
+    menu: FOODIVA_TAB,
+    table: "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva",
+  },
+  weighIn: { menu: "ชั่งรับเนื้อ", table: "การส่งที่รอยืนยันรับ" },
+  production: {
+    menu: "ผลิต · สโมค · Invoice ค่ารม",
+    table: "รายการ Lot ทั้งหมด",
+  },
   smokePo: { menu: "ใบสั่ง PO โรงรมควัน", table: "รายการ PO โรงรมควัน" },
   invoices: { menu: "ใบ Invoice" },
   centralReceive: { menu: "รับเนื้อเข้าสต๊อกกลาง" },
@@ -382,7 +389,7 @@ export async function weighIn(page: Page, batch: string, boxesKg: string[]) {
 }
 
 /** The action button of one batch row on the production table (`match` = batch id). */
-export function productionButton(page: Page, name: string, match: string) {
+function productionButton(page: Page, name: string, match: string) {
   return tableRow(page, SCREENS.production.table, match)
     .getByRole("button", { name, exact: true })
     .first();
@@ -473,7 +480,7 @@ export async function acceptSmokePo(page: Page, batch: string) {
 }
 
 /** Fills the Packing List dialog opened over the transport document: one row per box. */
-export async function fillPackingList(page: Page, boxesKg: string[]) {
+async function fillPackingList(page: Page, boxesKg: string[]) {
   await pointAndClick(
     page,
     topDialog(page).getByRole("button", {
@@ -590,6 +597,26 @@ export async function issueSmokePoOnNewBatch(page: Page, rawKg: string) {
   return batch;
 }
 
+/** Foodiva's freezer receipt of the smoked meat back from Chef House (RET-02: needs no
+ *  return truck). */
+export async function receiveIntoFreezer(
+  page: Page,
+  batch: string,
+  kg: string,
+  boxes: string,
+) {
+  await openMenu(page, SCREENS.freezer.menu);
+  await pointAndClick(
+    page,
+    tableRow(page, SCREENS.freezer.table, batch).getByRole("button", {
+      name: "ยืนยันรับเข้าตู้",
+    }),
+  );
+  await field(page, /น้ำหนักรับจริง/, kg);
+  await field(page, /จำนวนกล่องรมควันที่รับ/, boxes);
+  await saveEntry(page);
+}
+
 /** The central-stock receive of a batch (RET-03: needs no return truck). */
 export async function receiveCentral(page: Page, batch: string, kg: string) {
   await openMenu(page, SCREENS.centralReceive.menu);
@@ -670,24 +697,4 @@ export async function historyEntry(
 ) {
   await openMenu(page, menu);
   return page.locator("main details").filter({ hasText: text }).first();
-}
-
-/* ---- bell & secrecy ------------------------------------------------------------ */
-
-/** Opens the header bell and returns the list of things to do next. */
-export async function openNotifications(page: Page) {
-  await pointAndClick(
-    page,
-    page.getByRole("button", { name: /^การแจ้งเตือน/ }),
-  );
-  return page.getByLabel("รายการที่ต้องทำต่อ");
-}
-
-/** PRIN-06: no purchase PO number, no meat price label and none of `secrets`
- *  (distinctive prices) anywhere on the page or its open dialogs. */
-export async function expectNoPurchaseData(page: Page, secrets: string[] = []) {
-  const text = await page.locator("body").innerText();
-  expect(text, "purchase PO number").not.toMatch(PO_ID);
-  expect(text, "meat price label").not.toContain("ราคาเนื้อ");
-  for (const secret of secrets) expect(text).not.toContain(secret);
 }
