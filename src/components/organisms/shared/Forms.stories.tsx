@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent, within } from "storybook/test";
 import {
-  allocatedDb,
-  centralDb,
   day,
   demoDb,
   materialTransferDb,
@@ -17,7 +15,6 @@ import { materials, type Database } from "@/lib/store";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
-import { AllocationForm } from "./AllocationForm";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
 import { MaterialTransferForm } from "./MaterialTransferForm";
@@ -85,33 +82,6 @@ const buy = (value: string) =>
     { value: "materialReceive", label: "วัสดุบรรจุภัณฑ์" },
     { value: "generalPurchase", label: "ซื้ออื่น ๆ (น้ำพริก, น้ำดอง ฯลฯ)" },
   ]);
-
-/** Owner types kg per branch; `ที่เหลือทั้งหมด` fills the exact rest of central stock.
- *  เลือกสถานะใน Controls:
- *  - ยังไม่จัดสรร: the whole central stock is offered
- *  - จัดสรรไปบางส่วน: a lot already partly sent to ศาลาแดง; only the rest of central
- *    stock is offered
- *  - ตามสัดส่วนครั้งก่อน: the last allocation went ศาลาแดง 6 / มีนบุรี 4, so the 25 kg
- *    left open split 15 / 10, captioned ตามสัดส่วนครั้งก่อน. Typing or ที่เหลือทั้งหมด
- *    drops the caption */
-export const Allocation: Story = {
-  ...controls({
-    ยังไม่จัดสรร: centralDb,
-    จัดสรรไปบางส่วน: allocatedDb,
-    ตามสัดส่วนครั้งก่อน: prefillHistoryDb,
-  }),
-  render: ({ db, date }) => (
-    <AllocationForm
-      key={`${db.entries.length}:${date}`}
-      db={db}
-      lotId={db.lots.at(-1)!.id}
-      date={date}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  ),
-};
 
 const history = { ไม่มีประวัติ: demoDb, มีประวัติ: prefillHistoryDb };
 // The `db` arg holds the option label until Storybook maps it.

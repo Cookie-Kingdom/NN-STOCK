@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import {
   acceptedInvoiceDb,
-  allocatedDb,
   centralDb,
   chillDb,
   closeReadyDb,
@@ -294,8 +293,7 @@ const branch = {
     lotId: NO_LOT,
   },
   "ขายเนื้อ + อินฟลูเอนเซอร์": { db: giveawayReadyDb, kind: "sale" },
-  "รับเนื้อ (มีใบจัดสรร)": { db: allocatedDb, kind: "receive" },
-  "รับเนื้อ (ไม่มีใบจัดสรร)": { db: centralDb, kind: "receive", lotId: "" },
+  รับเนื้อ: { db: centralDb, kind: "receive", lotId: "" },
   "รับเนื้อ (ไม่ระบุ Lot)": {
     db: unlinkedBranchDb,
     kind: "receive",

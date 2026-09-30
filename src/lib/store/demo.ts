@@ -211,20 +211,6 @@ function roleplay(endDate: string, dayCount: number): Database {
     lotId,
   );
   run("owner", "central", { centralKg: String(rawKg) }, lotId);
-  run(
-    "owner",
-    "allocate",
-    { branch: "ศาลาแดง", deliveryDate: dates[0], kg: String(rawKg / 2) },
-    lotId,
-  );
-  const salaAllocation = db.entries.at(-1)?.id || "";
-  run(
-    "owner",
-    "allocate",
-    { branch: "มีนบุรี", deliveryDate: dates[0], kg: String(rawKg / 2) },
-    lotId,
-  );
-  const minburiAllocation = db.entries.at(-1)?.id || "";
   for (const material of materials) {
     run("owner", "materialReceive", {
       material,
@@ -266,16 +252,7 @@ function roleplay(endDate: string, dayCount: number): Database {
         }),
       );
       if (dayIndex === 0) {
-        run(
-          "branch",
-          "receive",
-          {
-            kg: String(rawKg / 2),
-            allocation:
-              branch === "ศาลาแดง" ? salaAllocation : minburiAllocation,
-          },
-          lotId,
-        );
+        run("branch", "receive", { kg: String(rawKg / 2) }, lotId);
       }
       if (branch === "ศาลาแดง") {
         run("branch", "ricePurchase", {

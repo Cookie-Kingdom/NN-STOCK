@@ -958,9 +958,10 @@ function record(
     withinStock(n(v, "kg"), centralStock(db, lotId), "สต๊อกกลางไม่พอ");
     assert(branches.includes(v.branch), "เลือกสาขา");
   } else if (kind === "receive") {
-    // BR-02: on any batch or none (`""`), with an allocation or straight from the batch.
+    // BR-02: the branch records what it received, on any batch or none (`""`). Allocations
+    // are retired; only an edit of an old receive still carries one.
     positive(v, "kg", "น้ำหนักรับ");
-    if (v.allocation?.trim()) {
+    if (correcting && v.allocation?.trim()) {
       const allocation = entries(db, "allocate", lotId).find(
         (e) => e.id === v.allocation,
       );
@@ -982,7 +983,6 @@ function record(
       delete v.complete;
       if (lotId) {
         const pending = pendingReceiveKg(db, lotId, branch);
-        warn(pending > 0, "ไม่มีใบจัดสรรค้างสำหรับชุดนี้");
         // DM-08: the kg that fills this branch's allocations is already off centralStock;
         // only the straight remainder beyond them comes out of it.
         withinStock(

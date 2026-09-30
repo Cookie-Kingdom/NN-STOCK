@@ -204,9 +204,9 @@ export function MeatMovementLogView({ db }: { db: Database }) {
       [
         lot.poId,
         lot.id,
-        "Foodiva · เนื้อรมควันรอจัดสรร",
+        "Foodiva · เนื้อรมควันรอสาขารับ",
         `${fmt(centralStock(db, lot.id))} กก.`,
-        `${fmt(centralStock(db, lot.id))} กก. พร้อมจัดสรร`,
+        `${fmt(centralStock(db, lot.id))} กก. พร้อมให้สาขารับ`,
       ],
       ...branches.map((branchName) => {
         const stock = balance(db, lot.id, branchName);

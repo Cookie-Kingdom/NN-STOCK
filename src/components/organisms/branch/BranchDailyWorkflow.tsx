@@ -9,7 +9,6 @@ import {
   balance,
   closeDayChecklist,
   entries,
-  pendingReceiveKg,
   requiredRiceKinds,
   type Database,
   type Lot,
@@ -36,9 +35,6 @@ export function BranchDailyWorkflow({
   /** ขั้นที่ 3 ไม่เปิด modal — มันพาไปแท็บข้าวเหนียววันนี้ ที่มีทุกฟอร์มของข้าว */
   onTab: (tab: Tab) => void;
 }) {
-  const pending = lots.filter(
-    (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
-  );
   /* Thawing and selling also draw on the "ไม่ระบุ Lot" bucket (BR-03), opened as
    * NO_LOT; a batch goes first when both hold meat. */
   const bucket = balance(db, "", branch);
@@ -68,18 +64,12 @@ export function BranchDailyWorkflow({
   const tasks: ReactNode[][] = [
     [
       <strong key="receive">1. รับเนื้อเข้าสาขา</strong>,
-      pending.length ? (
-        <CountPill variant="task" key="new">
-          งานเข้าใหม่ {pending.length} Lot
-        </CountPill>
-      ) : (
-        "ไม่มีใบจัดสรรค้างรับ · รับเนื้อได้โดยไม่ต้องมีใบจัดสรร"
-      ),
-      // Always open (BR-08): meat can come in with no allocation, on any batch or none.
+      "บันทึกเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง (ไม่รู้ Lot เลือก ไม่ระบุ Lot แล้วผูกทีหลัง)",
+      // Always open (BR-01/08): the branch records what it received, on any batch or none.
       <Button
         key="receive-action"
         variant="table"
-        onClick={() => open("receive", pending[0]?.id ?? "")}
+        onClick={() => open("receive", "")}
       >
         รับของ
       </Button>,

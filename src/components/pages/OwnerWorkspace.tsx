@@ -74,12 +74,7 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "work" && (
         <>
           <ChefLotTable db={db} lots={shipments(db)} open={open} />
-          <MeatStockTable
-            db={db}
-            variant="chef"
-            lots={shipments(db)}
-            open={open}
-          />
+          <MeatStockTable db={db} variant="chef" lots={shipments(db)} />
         </>
       )}
       {tab === "transport" && <TransportManifestView db={db} open={open} />}
@@ -91,15 +86,10 @@ export function OwnerWorkspace({ account }: { account: Account }) {
       {tab === "branch-status" && (
         <>
           <SectionHeading
-            title="จัดสรรเนื้อและสต๊อกไปสาขา"
-            description="จัดสรรได้ทุกชุด ระบุสาขาและน้ำหนักที่ต้องการส่ง · เกินสต๊อกกลางระบบจะเตือนแต่ยังบันทึกได้"
+            title="สต๊อกเนื้อสาขา"
+            description="สาขาบันทึกรับเนื้อเองพร้อมเลือก Lot · เนื้อที่ยังไม่ผูก Lot แสดงในแถว ไม่ระบุ Lot"
           />
-          <MeatStockTable
-            db={db}
-            variant="owner"
-            lots={shipments(db)}
-            open={open}
-          />
+          <MeatStockTable db={db} variant="owner" lots={shipments(db)} />
         </>
       )}
 

@@ -4,7 +4,6 @@ import {
   SegmentedChoice,
   type SegmentedOption,
 } from "@/components/molecules/SegmentedChoice";
-import { AllocationForm } from "@/components/organisms/shared/AllocationForm";
 import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
@@ -156,17 +155,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
               : "บันทึกใบขนส่งและ Packing List แล้ว · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน",
           );
         }}
-      />
-    );
-  }
-  if (modal.kind === "allocate") {
-    return (
-      <AllocationForm
-        db={db}
-        lotId={modal.lotId}
-        {...dateProps}
-        onClose={close}
-        onSaved={(summary) => done(`จัดสรรไปสาขาแล้ว · ${summary}`)}
       />
     );
   }

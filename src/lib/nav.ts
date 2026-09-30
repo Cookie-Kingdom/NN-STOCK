@@ -112,7 +112,7 @@ export const ownerNav: NavGroup[] = [
     items: [
       {
         id: "branch-status",
-        label: "จัดสรรเนื้อ และสต๊อกไปสาขา",
+        label: "สต๊อกเนื้อสาขา",
         icon: ListChecks,
       },
       { id: "stock", label: "สต๊อกของทั้งหมด", icon: Package },

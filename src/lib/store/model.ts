@@ -250,9 +250,11 @@ export const voidableKinds: EntryKind[] = [
   "link",
   "entryEdit",
 ];
-/** Branch kinds with no screen any more: old entries still count in stock (and the ones in
- *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones. */
+/** Kinds with no screen any more: old entries still count in stock (and the ones in
+ *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones.
+ *  `allocate`: branches record what they received themselves (BR-01). */
 export const retiredKinds: EntryKind[] = [
+  "allocate",
   "supplyPurchase",
   "supplyIssue",
   "chiliPurchase",

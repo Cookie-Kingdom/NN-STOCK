@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
-  centralDb,
   demoDb,
   dispatchDb,
   dispatchedDb,
@@ -68,13 +67,6 @@ const modal = pick<Case>("กล่องโต้ตอบ", {
     db: demoDb,
     kind: "generalPurchase",
     lotId: "",
-  },
-  // `centralDb` has central kg ready to split.
-  จัดสรรไปสาขา: {
-    account: "owner",
-    db: centralDb,
-    kind: "allocate",
-    lotId: last(centralDb),
   },
   "ใบขนส่ง Foodiva (dispatch)": {
     account: "owner",

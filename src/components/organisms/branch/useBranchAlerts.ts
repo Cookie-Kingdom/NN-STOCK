@@ -2,7 +2,6 @@
 
 import type { Notification } from "@/components/organisms/workspace/NotificationPopover";
 import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
-import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   balance,
@@ -11,7 +10,6 @@ import {
   entries,
   isClosed,
   materials,
-  pendingReceiveKg,
   visibleLots,
 } from "@/lib/store";
 
@@ -37,12 +35,13 @@ function pendingMaterialTransfers(db: Database, branch: string) {
 /** Every "this branch has to do something" signal for `date`.
  *
  *  A branch account reads the whole database (`visibleDatabase` only strips sale money for the Account Manager),
- *  so every read here is scoped by `branch`: the allocations, the balances, the daily
- *  entries and the close checklist all take it, and a lot only counts once it was
- *  allocated to this branch or holds this branch's own entries (BR-07, `ws.lots`). The
+ *  so every read here is scoped by `branch`: the balances, the daily entries and the
+ *  close checklist all take it, and a lot only counts once it holds this branch's own
+ *  entries (BR-07, `ws.lots`). The
  *  "ไม่ระบุ Lot" bucket (`lotId ""`) counts as one more lot for thawing and selling.
  *  There is no stage to wait on (DASH-02): each line is what this branch's own balances
- *  still owe, never a gate — "รับเนื้อ" stays open with or without an allocation. `editRequestAlerts` filters through `visibleEntries`, which
+ *  still owe, never a gate. The branch records what meat it received itself (BR-01), so nothing
+ *  waits on an allocation. `editRequestAlerts` filters through `visibleEntries`, which
  *  keeps a branch's requests to its own branch. Nothing about another branch can reach
  *  this bell.
  *
@@ -53,13 +52,6 @@ function pendingMaterialTransfers(db: Database, branch: string) {
 export function useBranchAlerts(db: Database, branch: string, date: string) {
   const lots = visibleLots(db, branch);
   const lotIds = [...lots.map((lot) => lot.id), ""];
-  const pendingLots = lots.filter(
-    (lot) => pendingReceiveKg(db, lot.id, branch) > 0,
-  );
-  const pendingKg = pendingLots.reduce(
-    (total, lot) => total + pendingReceiveKg(db, lot.id, branch),
-    0,
-  );
   const materialTransfers = pendingMaterialTransfers(db, branch);
   // One `materials` entry per branch+date covers all 7 rows, so the day is either
   // counted or not counted at all.
@@ -77,17 +69,7 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
 
   const editAlerts = editRequestAlerts(db, "branch", branch);
   const dayAlerts: Notification[] = [
-    // 1. รับเนื้อเข้าสาขา — one line whatever the number of allocations.
-    ...(pendingLots.length
-      ? [
-          {
-            title: `รับเนื้อเข้าสาขา ${pendingLots.length} Lot`,
-            detail: `Owner จัดสรรมา ${fmt(pendingKg)} กก. ยังไม่ได้รับเข้าสาขา${branch}`,
-            tab: "day" as const,
-          },
-        ]
-      : []),
-    // 2. แบ่งละลายเนื้อ — only while the day has no thaw of its own.
+    // 1. แบ่งละลายเนื้อ — only while the day has no thaw of its own.
     ...(frozen.length && !thawDone
       ? [
           {
@@ -97,7 +79,7 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
           },
         ]
       : []),
-    // 3. บันทึกยอดขาย — the same "ต้องกรอกก่อนปิดวัน" the day table shows.
+    // 2. บันทึกยอดขาย — the same "ต้องกรอกก่อนปิดวัน" the day table shows.
     ...(ready.length && !saleDone
       ? [
           {
@@ -107,7 +89,7 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
           },
         ]
       : []),
-    // 4. ปิดวัน — closeDayChecklist decides, exactly as the close dialog does.
+    // 3. ปิดวัน — closeDayChecklist decides, exactly as the close dialog does.
     ...(closed
       ? []
       : [

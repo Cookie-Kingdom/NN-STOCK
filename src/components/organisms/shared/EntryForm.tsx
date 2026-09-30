@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
-import { Checkbox } from "@/components/atoms/Checkbox";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -39,8 +38,8 @@ import {
   type PrefillSource,
 } from "@/lib/prefill";
 import {
-  allocationOutstanding,
   balance,
+  centralStock,
   closeDayChecklist,
   cookedRiceStock,
   entries,
@@ -49,7 +48,6 @@ import {
   check,
   recordRole,
   packWeightWarning,
-  pendingReceiveKg,
   riceSources,
   shipments,
   roleName,
@@ -381,8 +379,8 @@ export function EntryForm({
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
   const useLot = ["receive", "thaw", "sale", "influencerBox"].includes(kind);
-  /* A branch's meat forms (BR-08): receiving lists every batch S, with or without an
-   * allocation; thawing and selling list the batches this branch holds meat of. All of
+  /* A branch's meat forms (BR-08): receiving lists every batch S (the branch records
+   * what it received itself, BR-01); thawing and selling list the batches this branch holds meat of. All of
    * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
    * when it holds meat to thaw or sell otherwise. */
   const branchMeat = role === "branch" && useLot;
@@ -482,13 +480,8 @@ export function EntryForm({
   /* `files` fields (payment slips) stay out of `values` until the save: the live
    * mutate check would read a list of names as a broken slips JSON. */
   const [multiFiles, setMultiFiles] = useState<Record<string, File[]>>({});
-  // The bucket has no allocations: an allocation is always on a batch.
-  const allocations = (lotId ? entries(db, "allocate", lotId, branch) : [])
-    .map((e) => ({ entry: e, outstanding: allocationOutstanding(db, e) }))
-    .filter((a) => a.outstanding > 0);
-  /** What a lot option says. Receiving: what is still to come on this branch's
-   *  allocations ("ค้างรับ"), else what came in already; a batch with neither is still
-   *  receivable straight, with no allocation (BR-02). */
+  /** What a lot option says. Receiving: the batch's central stock and what this branch
+   *  took in already (BR-02); the branch records what it received, no allocation. */
   const lotSummary = (id: string) => {
     if (kind === "receive") {
       if (!id) return "รับเข้าก่อน ผูกชุดทีหลังได้";
@@ -496,15 +489,12 @@ export function EntryForm({
         (total, e) => total + n(e.values, "kg"),
         0,
       );
-      const pending = pendingReceiveKg(db, id, branch);
-      return (
-        [
-          pending > 0.001 && `ค้างรับ ${fmt(pending)} กก.`,
-          received > 0.001 && `รับแล้ว ${fmt(received)} กก.`,
-        ]
-          .filter(Boolean)
-          .join(" · ") || "ไม่มีใบจัดสรร"
-      );
+      return [
+        `สต๊อกกลาง ${fmt(Math.max(0, centralStock(db, id)))} กก.`,
+        received > 0.001 && `รับแล้ว ${fmt(received)} กก.`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
     }
     const stock = balance(db, id, branch);
     return `แช่แข็ง ${fmt(stock.frozen)} กก. / คงเหลือชิล ${fmt(stock.ready)} กก.`;
@@ -551,7 +541,6 @@ export function EntryForm({
     set(key, file.name);
   };
   // Controls mutate() insists on that are rendered outside `formFields`.
-  // A receive's allocation is optional (BR-02): with none it is a straight receive.
   const extraRequired = kind === "smoke" ? ["packs"] : [];
   // GEN-02: an empty field does not stop the save; the form only says how many are left.
   const unfilled = [
@@ -741,14 +730,12 @@ export function EntryForm({
                   onChange={(e) => {
                     setLotPick(e.target.value);
                     setError("");
-                    // Refill what the user has not changed from the new lot; the
-                    // allocation picked for the old lot goes back to the prefill.
+                    // Refill what the user has not changed from the new lot.
                     refill(
                       prefillFor(
                         db.lots.find((l) => l.id === e.target.value),
-                        kind === "receive" ? { allocation: "" } : {},
+                        {},
                       ),
-                      kind === "receive" ? ["allocation"] : [],
                     );
                   }}
                 >
@@ -765,44 +752,6 @@ export function EntryForm({
                   )}
                 </Select>
               </FormField>
-            )}
-            {/* Only a batch with an allocation still to receive asks which one; the
-                blank choice is a straight receive that leaves the allocations open. */}
-            {kind === "receive" && allocations.length > 0 && (
-              <FormField label="ใบจัดสรรที่รับ" optional>
-                <Select
-                  value={values.allocation || ""}
-                  onChange={(e) => {
-                    set("allocation", e.target.value);
-                    refill(prefillFor(lot, { allocation: e.target.value }));
-                  }}
-                >
-                  <option value="">ไม่อ้างใบจัดสรร (รับตรง)</option>
-                  {allocations.map((a) => (
-                    <option key={a.entry.id} value={a.entry.id}>
-                      {a.entry.date} · ค้างรับ {fmt(a.outstanding)} กก. ·{" "}
-                      {a.entry.id.slice(0, 6)}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
-            {kind === "receive" && values.allocation && (
-              <label className="mt-4 flex cursor-pointer items-start gap-3 text-body-sm font-medium">
-                <Checkbox
-                  className="mt-0.5"
-                  checked={values.complete === "1"}
-                  onChange={(e) => set("complete", e.target.checked ? "1" : "")}
-                />
-                <span>
-                  รับครบใบจัดสรรนี้แล้ว
-                  <FieldHint>
-                    ปิดใบจัดสรรหลังบันทึก
-                    ถ้ารับน้อยกว่ายอดค้างรับต้องใส่เหตุผลส่วนต่าง ·
-                    เอาเครื่องหมายออกถ้ายังมีของตามมาอีก
-                  </FieldHint>
-                </span>
-              </label>
             )}
             {kind === "closeDay" && (
               <>
