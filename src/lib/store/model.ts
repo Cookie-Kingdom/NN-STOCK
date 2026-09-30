@@ -302,7 +302,6 @@ export const seed: Database = {
   entries: [],
   config: {
     boxPrice: "350",
-    addonPrice: "320",
     packKg: "0.1015",
     chiliPrice: "30",
     rawRicePar: "20",

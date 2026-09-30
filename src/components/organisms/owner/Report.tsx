@@ -120,14 +120,12 @@ export function Report({
         rows = entries(db, "sale", undefined, branch, date).filter(inRange);
       const rev = rows.reduce((s, e) => s + n(e.values, "revenue"), 0),
         boxes = rows.reduce((s, e) => s + n(e.values, "boxes"), 0),
-        addons = rows.reduce((s, e) => s + n(e.values, "addons"), 0),
         chiliAddons = rows.reduce((s, e) => s + n(e.values, "chiliAddons"), 0),
         waste = rows.reduce((s, e) => s + n(e.values, "wasteKg"), 0);
       return [
         date,
         branch,
         String(boxes),
-        String(addons),
         String(chiliAddons),
         fmt(waste),
         fmt(rev),
@@ -209,29 +207,21 @@ export function Report({
             "วันที่",
             "สาขา",
             "กล่อง",
-            "เนื้อ Add-on",
             "น้ำพริกขายแยก",
             "Waste (กก.)",
             "LINE MAN (บาท)",
             "สถานะ",
           ],
-          6,
+          5,
         )}
-        rows={dayRows.map((row) => noMoney(row, 6))}
+        rows={dayRows.map((row) => noMoney(row, 5))}
       />
       <DataTable
         className="m-0"
         title="ยอดขายสะสมแยกสาขา"
         columns={noMoney(
-          [
-            "สาขา",
-            "กล่อง",
-            "เนื้อ Add-on",
-            "น้ำพริกขายแยก",
-            "Waste (กก.)",
-            "ยอดขาย (บาท)",
-          ],
-          5,
+          ["สาขา", "กล่อง", "น้ำพริกขายแยก", "Waste (กก.)", "ยอดขาย (บาท)"],
+          4,
         )}
         rows={branches.map((br) => {
           const rows = entries(db, "sale", undefined, br).filter(inRange);
@@ -239,12 +229,11 @@ export function Report({
             [
               br,
               String(rows.reduce((s, e) => s + n(e.values, "boxes"), 0)),
-              String(rows.reduce((s, e) => s + n(e.values, "addons"), 0)),
               String(rows.reduce((s, e) => s + n(e.values, "chiliAddons"), 0)),
               fmt(rows.reduce((s, e) => s + n(e.values, "wasteKg"), 0)),
               fmt(rows.reduce((s, e) => s + n(e.values, "revenue"), 0)),
             ],
-            5,
+            4,
           );
         })}
       />

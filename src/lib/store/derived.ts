@@ -436,7 +436,7 @@ export function branchMeatDay(
 /** Meat used per sealed pack outside 100–103 g: a warning for the form, never a
  * block — the branch types what it really used. "" when it is fine. */
 export function packWeightWarning(v: Values) {
-  const packs = num(v, "boxes") + num(v, "addons"),
+  const packs = num(v, "boxes"),
     kg = num(v, "soldKg");
   if (!packs) return kg > 0 ? "มีน้ำหนักเนื้อที่ใช้ แต่ยังไม่มีจำนวนซีล" : "";
   const grams = (kg / packs) * 1000;

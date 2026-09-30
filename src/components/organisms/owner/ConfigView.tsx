@@ -550,17 +550,6 @@ export function ConfigView({ db }: { db: Database }) {
             "ยอดขายกล่องปกติ",
           ),
           settingRow(
-            "ราคาเนื้อซีลเพิ่ม (Add-on pack price)",
-            <ConfigValue
-              {...edit}
-              section="pricing"
-              name="addonPrice"
-              display={baht}
-            />,
-            "บาท / แพ็ก",
-            "ยอดขายเนื้อเพิ่ม",
-          ),
-          settingRow(
             "น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight)",
             <ConfigValue
               {...edit}

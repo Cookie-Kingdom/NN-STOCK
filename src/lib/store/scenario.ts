@@ -597,7 +597,6 @@ export function ownerBranchScenario(endDate: string): Database {
   ) => {
     db = saleWithInfluencers(db, branch, date, history, giveaways, {
       boxes: String(boxes),
-      addons: "0",
       chiliAddons: String(chiliAddons),
       soldKg: (boxes * 0.1015).toFixed(3),
       wasteKg: String(wasteKg),

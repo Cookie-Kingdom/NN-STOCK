@@ -160,7 +160,7 @@ const dayCount = (fromDate: string, toDate: string) =>
 
 /** Sale kg from the sealed-pack count: an estimate the branch weighs. */
 function packKg(db: Database, current?: Values) {
-  const packs = n(current || {}, "boxes") + n(current || {}, "addons");
+  const packs = n(current || {}, "boxes");
   return packs > 0
     ? from(
         {
@@ -596,7 +596,7 @@ export const prefillDrivers: Record<string, string[]> = {
   expense: ["category"],
   ricePurchase: ["riceSource", "rawRiceKg", "cookedRiceKg"],
   rice: ["rawUsedKg"],
-  sale: ["boxes", "addons"],
+  sale: ["boxes"],
   smokeOrder: ["requestedSmokeDate"],
   smokingInvoice: ["serviceQuantity"],
 };

@@ -458,7 +458,6 @@ export const forms: Record<string, Field[]> = {
       true,
       true,
     ),
-    number("addons", "เนื้อซีล Add-on · 320 บาท (แพ็ก)", true, true),
     number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
     {
       ...number(
@@ -537,7 +536,6 @@ export const forms: Record<string, Field[]> = {
       options: branches,
     },
     number("boxPrice", "ราคากล่องมาตรฐาน (Standard box price) · บาท", true),
-    number("addonPrice", "ราคาเนื้อซีลเพิ่ม (Add-on pack price) · บาท", true),
     number("packKg", "น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight) · กก."),
     number("chiliPrice", "ราคาน้ำพริก (Chili paste price) · บาท/หลอด", true),
     number(

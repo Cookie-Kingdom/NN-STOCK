@@ -64,7 +64,6 @@ export const branchScope: {
   configKeys: [
     "branch",
     "boxPrice",
-    "addonPrice",
     "chiliPrice",
     "packKg",
     "rawRicePar",

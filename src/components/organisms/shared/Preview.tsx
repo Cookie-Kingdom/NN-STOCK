@@ -173,7 +173,7 @@ export function Preview({
       ],
     ];
   if ((kind === "sale" || kind === "influencerBox") && lot) {
-    const expected = (n(v, "boxes") + n(v, "addons")) * n(db.config, "packKg");
+    const expected = n(v, "boxes") * n(db.config, "packKg");
     /* Giveaways saved with this sale leave the same shelf, so they count in every
      * "after" row. Their meat is costed like mutate does: boxes × packKg × lot ฿/kg. */
     const perKg = lotCost(db, lot).perKg || 0;
@@ -185,7 +185,7 @@ export function Preview({
     rows = [
       [
         kind === "sale" ? "ยอดตามเมนู" : "มูลค่าของที่แจก (ตามเมนู)",
-        `฿${fmt(n(v, "boxes") * n(db.config, "boxPrice") + n(v, "addons") * n(db.config, "addonPrice") + n(v, "chiliAddons") * n(db.config, "chiliPrice"))}`,
+        `฿${fmt(n(v, "boxes") * n(db.config, "boxPrice") + n(v, "chiliAddons") * n(db.config, "chiliPrice"))}`,
       ],
       [
         kind === "sale" ? "น้ำหนักตามจำนวนขาย" : "น้ำหนักตามจำนวนที่ส่ง",
