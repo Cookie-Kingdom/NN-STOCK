@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { MissingMark } from "@/components/atoms/MissingMark";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { LotProgressChips } from "@/components/molecules/LotProgressChips";
@@ -47,7 +48,13 @@ function PurchasePoCell({
       <span className="grid gap-1">
         {shipmentShares(db, lot).map((share) => (
           <span key={share.lotId}>
-            <strong>{share.poId}</strong> × {fmt(share.requestedKg)} กก.
+            <strong>{share.poId}</strong> ×{" "}
+            {share.requestedKg > 0 ? (
+              `${fmt(share.requestedKg)} กก.`
+            ) : (
+              // Traced to the PO, but no kg: the cost still says "ยังไม่จับคู่" (lotCost).
+              <MissingMark />
+            )}
           </span>
         ))}
       </span>
@@ -63,7 +70,7 @@ function PurchasePoCell({
         variant="table"
         onClick={() => open(order ? "matchPo" : "smokeOrder", lot.id)}
       >
-        จับคู่ PO ซื้อ
+        {order ? "จับคู่ PO ซื้อ" : "ออก PO รมควัน"}
       </Button>
     </span>
   );

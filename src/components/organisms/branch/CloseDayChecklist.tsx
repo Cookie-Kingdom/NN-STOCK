@@ -45,7 +45,9 @@ export function CloseDayChecklist({
       />
       {missing.length ? (
         <Notice tone="warning" role="status">
-          ยังปิดวันไม่ได้ · ขาด {missing.map((item) => item.label).join(", ")}
+          ยังไม่ได้กรอก {missing.length} รายการ ·{" "}
+          {missing.map((item) => item.label).join(", ")} · ปิดวันได้
+          ช่องที่ขาดจะขึ้นว่ายังไม่ได้กรอก
         </Notice>
       ) : (
         <Notice tone="success" role="none">

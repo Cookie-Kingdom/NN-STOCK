@@ -8,7 +8,12 @@ import {
   type ActingRole,
   type Values,
 } from "./model";
-import { entries, isVoided, smokingInvoiceStatus } from "./derived";
+import {
+  centralStock,
+  entries,
+  isVoided,
+  smokingInvoiceStatus,
+} from "./derived";
 /** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
  *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
 export const branchHiddenKeys = [
@@ -35,17 +40,27 @@ const editKinds: EntryKind[] = [
   "editDecision",
   "link",
 ];
-/** BR-07 — the lots a branch's screens list: lots allocated to it or holding its own entries.
- *  `role-scope.ts` sends the same set; scope_app_state() (migration 20260929000033) states the
+/** BR-07 — the lots a branch's screens list: lots holding its own entries (a receive, also
+ *  one linked to the lot later), lots still in central stock that it may receive from
+ *  (BR-08, no allocation needed) and, for old data, lots allocated to it. `role-scope.ts`
+ *  sends every batch S plus those; scope_app_state() (migration 20260929000033) states the
  *  same rule. The Owner (and Account Manager) see every lot. */
 export function visibleLots(db: Database, branch?: string) {
-  return db.lots.filter((lot) =>
-    db.entries.some(
-      (e) =>
-        e.lotId === lot.id &&
-        e.branch === branch &&
-        (e.kind === "allocate" || e.role === "branch"),
-    ),
+  const received = new Set(
+    entries(db, "receive")
+      .filter((e) => e.branch === branch)
+      .map((e) => e.lotId),
+  );
+  return db.lots.filter(
+    (lot) =>
+      received.has(lot.id) ||
+      (lot.kind === "shipment" && centralStock(db, lot.id) > 0.001) ||
+      db.entries.some(
+        (e) =>
+          e.lotId === lot.id &&
+          e.branch === branch &&
+          (e.kind === "allocate" || e.role === "branch"),
+      ),
   );
 }
 /** Owner entries addressed to a branch, which the branch has already received (role-scope.ts

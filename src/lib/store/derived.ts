@@ -812,8 +812,10 @@ export function lotCost(db: Database, lot: Lot) {
   const total = meat + smoke + freight;
   return {
     meat,
-    /** RET-07: the smoke PO names no purchase PO yet, so `meat` is 0 for want of a match. */
-    meatMatched: shares.length > 0,
+    /** RET-07: the smoke PO names no purchase PO yet (or only lines with no kg), so `meat`
+     *  is 0 for want of a match. A PO picked without kg still traces, it just costs nothing. */
+    meatMatched:
+      shares.reduce((total, share) => total + share.requestedKg, 0) > 0,
     smoke,
     smokingCostSource,
     freight,

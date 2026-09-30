@@ -160,7 +160,7 @@ describe("Chef House received total (CHF-02)", () => {
         smokeDate: day,
         inputKg: "1",
         wasteKg: "0",
-        packs: "0",
+        packs: "-1",
       }),
     ).toThrow("กล่องรมควัน");
   });

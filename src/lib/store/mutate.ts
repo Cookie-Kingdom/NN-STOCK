@@ -792,7 +792,10 @@ function record(
       v.trip === "ไปกลับ"
         ? (db.config.roundFee ?? lot.config.roundFee)
         : (db.config.outboundFee ?? lot.config.outboundFee);
-    warn(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
+    warn(
+      !v.origin?.trim() || v.origin !== v.destination,
+      "ต้นทางและปลายทางต้องต่างกัน",
+    );
     v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
     // CHF-01: the truck is at the door; Chef House weighs in with or without a Packing List or PO.
@@ -828,10 +831,12 @@ function record(
     required(v, "smokeDate", "วันที่สโมค");
     const weights = packWeights(v.packs);
     if (!weights.length) required(v, "packs");
+    // A typed negative or non-number is refused; a 0 kg box is said, not refused (PRIN-03).
     assert(
-      weights.every(isPackWeight),
-      "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
+      weights.every((weight) => Number.isFinite(weight) && weight >= 0),
+      "น้ำหนักกล่องรมควันต้องเป็นตัวเลขไม่ติดลบ",
     );
+    warn(weights.every(isPackWeight), "มีกล่องรมควันน้ำหนักเป็นศูนย์");
     const output = weights.reduce((a, b) => a + b, 0);
     warn(
       Math.abs(output + n(v, "wasteKg") - n(v, "inputKg")) <= 0.001,
@@ -880,10 +885,12 @@ function record(
       positive(round, "wasteKg", "น้ำหนัก Waste", true);
       const weights = packWeights(round.packs);
       if (!weights.length) required(round, "packs");
+      // A typed negative or non-number is refused; a 0 kg box is said, not refused (PRIN-03).
       assert(
-        weights.every(isPackWeight),
-        "กรอกน้ำหนักกล่องรมควันทุกกล่องรมควัน ต้องมากกว่า 0 กก.",
+        weights.every((weight) => Number.isFinite(weight) && weight >= 0),
+        "น้ำหนักกล่องรมควันต้องเป็นตัวเลขไม่ติดลบ",
       );
+      warn(weights.every(isPackWeight), "มีกล่องรมควันน้ำหนักเป็นศูนย์");
       markMissing(v, ...missingKeys(round));
       const inputKg = n(round, "inputKg");
       const wasteKg = n(round, "wasteKg");
@@ -946,7 +953,10 @@ function record(
     required(v, "plate", "ทะเบียนรถ");
     required(v, "driverName", "ชื่อคนขับ");
     required(v, "driverPhone", "เบอร์ติดต่อคนขับ");
-    warn(v.origin !== v.destination, "ต้นทางและปลายทางต้องต่างกัน");
+    warn(
+      !v.origin?.trim() || v.origin !== v.destination,
+      "ต้นทางและปลายทางต้องต่างกัน",
+    );
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
     v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
     withinStock(

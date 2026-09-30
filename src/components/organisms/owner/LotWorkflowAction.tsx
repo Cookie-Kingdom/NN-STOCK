@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/atoms/Button";
 import { LotProgressChips } from "@/components/molecules/LotProgressChips";
+import { again } from "@/components/organisms/owner/lotSteps";
 import { fmt } from "@/lib/format";
 import {
   lotProgress,
@@ -30,15 +31,29 @@ export function LotWorkflowAction({
     <span className="inline-grid justify-items-end gap-2">
       <LotProgressChips db={db} lotId={lot.id} />
       <span className="inline-flex flex-wrap justify-end gap-2">
-        {!done.has("smokeOrder") && (
-          <Button variant="table" onClick={() => open("smokeOrder", lot.id)}>
-            {titles.smokeOrder}
-          </Button>
-        )}
-        {!done.has("return") && (
-          <Button variant="table" onClick={() => open("return", lot.id)}>
-            {titles.return}
-            {done.has("smoke") && ` · ${fmt(produced(db, lot.id))} กก.`}
+        {/* GEN-06: a step already saved keeps its button; saving again is said and the
+         *  newest counts. Central stock is re-recorded here once the batch left that tab. */}
+        <Button
+          variant={done.has("smokeOrder") ? "table-secondary" : "table"}
+          onClick={() => open("smokeOrder", lot.id)}
+        >
+          {again(titles.smokeOrder, done.has("smokeOrder"))}
+        </Button>
+        <Button
+          variant={done.has("return") ? "table-secondary" : "table"}
+          onClick={() => open("return", lot.id)}
+        >
+          {again(titles.return, done.has("return"))}
+          {!done.has("return") &&
+            done.has("smoke") &&
+            ` · ${fmt(produced(db, lot.id))} กก.`}
+        </Button>
+        {done.has("central") && (
+          <Button
+            variant="table-secondary"
+            onClick={() => open("central", lot.id)}
+          >
+            {again(titles.central, true)}
           </Button>
         )}
       </span>

@@ -7,6 +7,7 @@ import { Stat } from "@/components/atoms/Stat";
 import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { shipmentPoLabels } from "@/components/organisms/owner/documentRows";
+import { again } from "@/components/organisms/owner/lotSteps";
 import { LotProgressChips } from "@/components/molecules/LotProgressChips";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
@@ -172,15 +173,23 @@ export function FoodivaView({
                 ทำใบขนส่ง + Packing List
               </Button>
             ) : (
-              <Button
-                key="packing"
-                variant="table"
-                onClick={() => open("packingList", lot.id)}
-              >
-                {p.has("packingList")
-                  ? "แก้ไข Packing List"
-                  : "ทำ Packing List"}
-              </Button>
+              // GEN-06: a second transport document is said, not refused; the newest counts.
+              <ButtonRow key="actions" compact>
+                <Button
+                  variant="table-secondary"
+                  onClick={() => open("dispatch", lot.id)}
+                >
+                  {again("ใบขนส่ง", true)}
+                </Button>
+                <Button
+                  variant="table"
+                  onClick={() => open("packingList", lot.id)}
+                >
+                  {p.has("packingList")
+                    ? "แก้ไข Packing List"
+                    : "ทำ Packing List"}
+                </Button>
+              </ButtonRow>
             ),
           ];
         })}
@@ -323,22 +332,20 @@ export function FoodivaView({
                 ยังไม่มีรถขากลับ
               </Badge>
             ),
-            // Once per batch: after the weigh-in the row only says who moves next.
-            got ? (
-              lotProgress(db, lot.id).has("central") ? (
-                "Owner รับเข้าสต๊อกกลางแล้ว"
-              ) : (
-                "รอ Owner รับเข้าสต๊อกกลาง"
-              )
-            ) : (
+            // GEN-06: after the weigh-in the row says who moves next, and a second weigh-in
+            // is still one click away (said, not refused; the newest counts).
+            <span key="receive" className="inline-grid justify-items-end gap-1">
+              {got &&
+                (lotProgress(db, lot.id).has("central")
+                  ? "Owner รับเข้าสต๊อกกลางแล้ว"
+                  : "รอ Owner รับเข้าสต๊อกกลาง")}
               <Button
-                key="receive"
-                variant="table"
+                variant={got ? "table-secondary" : "table"}
                 onClick={() => open("foodivaReturnReceive", lot.id)}
               >
-                ยืนยันรับเข้าตู้
+                {again("ยืนยันรับเข้าตู้", !!got)}
               </Button>
-            ),
+            </span>,
           ];
         })}
       />

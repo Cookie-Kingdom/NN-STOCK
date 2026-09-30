@@ -257,6 +257,16 @@ describe("derived values from the entry log", () => {
     });
     // No batch at all is not matched either.
     expect(poMatched(db, "nope")).toBe(false);
+    // A purchase PO picked with no kg still traces, but costs nothing: not matched for cost.
+    const noKg = entry({
+      kind: "smokeOrder",
+      role: "owner",
+      lotId: "L1",
+      values: { lines: JSON.stringify([{ lotId: "P1", kg: "" }]) },
+    });
+    const traced = { ...withEntries(noKg), lots: [lot] };
+    expect(poMatched(traced, "L1")).toBe(true);
+    expect(lotCost(traced, lot).meatMatched).toBe(false);
   });
 
   test("D8 the smoking fee is the latest live invoice, else the PO estimate, else nothing", () => {
@@ -883,6 +893,12 @@ describe("lot workflow", () => {
       /ไม่ใช่ PO ซื้อ/,
     );
     expect(t.check("owner", "dispatch", send).error).toBe("");
+    // Both ends left empty are just missing, not "the same place".
+    expect(
+      t
+        .check("owner", "dispatch", { ...send, origin: "", destination: "" })
+        .warnings.join("\n"),
+    ).not.toMatch(/ต้องต่างกัน/);
     t.run("owner", "dispatch", {
       ...send,
       trip: "เที่ยวเดียว",
@@ -908,7 +924,13 @@ describe("lot workflow", () => {
         wasteKg,
         packs: bags,
       });
-    expect(() => smoke("0.1", "0", "0.1\nabc")).toThrow(/มากกว่า 0/);
+    expect(() => smoke("0.1", "0", "0.1\nabc")).toThrow(/ไม่ติดลบ/);
+    // A 0 kg box is said, not refused (PRIN-03); a negative one is refused.
+    expectWarning(
+      s.dry(() => smoke("0.1", "0", "0.1\n0")),
+      /น้ำหนักเป็นศูนย์/,
+    );
+    expect(() => smoke("0.1", "0", "0.1\n-1")).toThrow(/ไม่ติดลบ/);
     expectWarning(
       s.dry(() => smoke("10", "0", packs(50))),
       /เท่ากับน้ำหนักเข้าเตา/,

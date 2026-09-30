@@ -21,6 +21,7 @@ import {
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import type { ModalKind } from "@/lib/nav";
+import { again } from "@/components/organisms/owner/lotSteps";
 
 type OpenForm = (kind: ModalKind, lotId?: string) => void;
 
@@ -43,28 +44,50 @@ function ChefLotAction({
   const billable = !latestInvoice || invoiceStatus === "ส่งกลับแก้ไข";
   /* CHF-07 / D7: nothing waits on an earlier step, so every job is a button. Which one
    * is the usual next step only picks the filled style; the rest stay one click away.
-   * A step done once (PO accepted, weighed in, pre-smoke weight, closed) drops out:
-   * its numbers are corrected through "Edit ข้อมูลก่อนปิด Lot", which needs the
-   * weigh-in, the pre-smoke weight and a smoke round to correct (ChefLotEditForm). */
-  const jobs: { kind: ModalKind; label: string; show: boolean }[] = [
+   * A once-per-batch step already saved (PO accepted, weighed in, pre-smoke weight,
+   * closed) stays a button too: saving it again is said, not refused, and the newest
+   * counts (GEN-06). "Edit ข้อมูลก่อนปิด Lot" needs the weigh-in, the pre-smoke weight
+   * and a smoke round to correct (ChefLotEditForm); after ปิด Lot it still saves, with
+   * a warning (CHF-04). */
+  const jobs: {
+    kind: ModalKind;
+    label: string;
+    show: boolean;
+    done?: boolean;
+  }[] = [
     {
       kind: "smokeOrderAccept",
-      label: "ยืนยันรับ PO รมควัน",
-      show: !!smokeOrder && !p.has("smokeOrderAccept"),
+      label: again("ยืนยันรับ PO รมควัน", p.has("smokeOrderAccept")),
+      show: !!smokeOrder,
+      done: p.has("smokeOrderAccept"),
     },
     {
       kind: "cmReceive",
-      label: titles.cmReceive,
-      show: !p.has("cmReceive"),
+      label: again(titles.cmReceive, p.has("cmReceive")),
+      show: true,
+      done: p.has("cmReceive"),
     },
-    { kind: "prepare", label: titles.prepare, show: !p.has("prepare") },
-    { kind: "smoke", label: titles.smoke, show: true },
+    {
+      kind: "prepare",
+      label: again(titles.prepare, p.has("prepare")),
+      show: true,
+      done: p.has("prepare"),
+    },
+    // Another round is optional once one is logged, so it no longer counts as "next".
+    // Smoking after ปิด Lot still saves, with a warning (CHF-05).
+    { kind: "smoke", label: titles.smoke, show: true, done: p.has("smoke") },
     {
       kind: "chefEdit",
       label: "Edit ข้อมูลก่อนปิด Lot",
-      show: !closed && p.has("cmReceive") && p.has("prepare") && p.has("smoke"),
+      show: p.has("cmReceive") && p.has("prepare") && p.has("smoke"),
+      done: closed,
     },
-    { kind: "closeLot", label: "ยืนยันปิด Lot", show: !closed },
+    {
+      kind: "closeLot",
+      label: again("ยืนยันปิด Lot", closed),
+      show: true,
+      done: closed,
+    },
     {
       kind: "smokingInvoice",
       label: latestInvoice
@@ -73,11 +96,7 @@ function ChefLotAction({
       show: billable,
     },
   ];
-  /* Once a round is logged, another round is optional, so it no longer counts as "next".
-   * Smoking after ปิด Lot still saves, with a warning (CHF-05). */
-  const next = jobs.find(
-    (job) => job.show && !(job.kind === "smoke" && p.has("smoke")),
-  );
+  const next = jobs.find((job) => job.show && !job.done);
   const note =
     latestInvoice && invoiceStatus === "ส่งกลับแก้ไข"
       ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()

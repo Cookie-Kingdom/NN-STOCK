@@ -31,6 +31,11 @@ export const batchSteps = [
 ] as const satisfies readonly (EntryKind | "matchPo")[];
 export type BatchStep = (typeof batchSteps)[number];
 
+/** A once-per-batch step already saved keeps its button: a second save is said, not
+ *  refused, and the newest counts (GEN-06). The label says so. */
+export const again = (label: string, done: boolean) =>
+  done ? `${label} · บันทึกเพิ่ม/แก้` : label;
+
 /** Chip-sized names; the dialog titles are too long to line up in a table cell. */
 export const stepLabels: Record<BatchStep, string> = {
   smokeOrder: "PO รมควัน",
