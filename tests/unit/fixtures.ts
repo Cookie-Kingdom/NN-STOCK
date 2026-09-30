@@ -3,7 +3,6 @@ import {
   check,
   materials,
   mutate,
-  packingListBoxes,
   seed,
   type Database,
   type ActingRole,
@@ -113,14 +112,26 @@ export function dispatch(s: Setup, lotId?: string) {
   s.run("owner", "dispatch", send, lotId);
 }
 
-/** Foodiva's Packing List, one กล่องรับเข้า weight per line. */
+/** The kg of one weight per line, added up (the fixtures still name boxes this way). */
+export const lineTotal = (lines: string) =>
+  String(
+    lines
+      .split("\n")
+      .filter((line) => line.trim())
+      .reduce((a, kg) => a + Number(kg), 0),
+  );
+
+/** Foodiva's Packing List: totals only, `boxes` one กล่องรับเข้า weight per line. */
 export function packingList(s: Setup, boxes: string) {
+  const total = lineTotal(boxes);
   s.run("owner", "packingList", {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
+    attachment: "packing.pdf",
+    slicedNetKg: total,
+    boxCount: String(boxes.split("\n").filter((line) => line.trim()).length),
     // Foodiva types Lost; in practice it matches the box total.
-    slicedLostKg: String(packingListBoxes(boxes).reduce((a, kg) => a + kg, 0)),
-    boxes,
+    slicedLostKg: total,
   });
 }
 
@@ -176,7 +187,10 @@ export function received(
   dispatch(s);
   packingList(s, boxes);
   s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
-  s.run("owner", "cmReceive", { receivedBoxes, arrival: "08:00" });
+  s.run("owner", "cmReceive", {
+    receivedKg: lineTotal(receivedBoxes),
+    arrival: "08:00",
+  });
 }
 
 /** Batch fully smoked, not closed: 50 kg sent in two 25 kg boxes, 49 kg weighed in, 36 kg

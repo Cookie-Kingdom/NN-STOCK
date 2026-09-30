@@ -49,6 +49,7 @@ export function ChefLotEditForm({
   const smokeEntries = entries(db, "smoke", lotId);
   const [values, setValues] = useState<Values>(() => ({
     arrival: received?.values.arrival || "",
+    receivedKg: received?.values.receivedKg || "",
     preSmokeKg: prepared?.values.preSmokeKg || "",
   }));
   const [smokeDrafts, setSmokeDrafts] = useState(() =>
@@ -62,7 +63,7 @@ export function ChefLotEditForm({
   );
   const { error, setError, run, saving } = useSaveMutation("แก้ไขไม่สำเร็จ");
   const complete =
-    [values.arrival, values.preSmokeKg].every((value) =>
+    [values.arrival, values.receivedKg, values.preSmokeKg].every((value) =>
       String(value ?? "").trim(),
     ) &&
     smokeDrafts.every(
@@ -138,9 +139,7 @@ export function ChefLotEditForm({
           <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
             แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
-            เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว · น้ำหนักรับจริง{" "}
-            {fmt(n(lot.values, "receivedKg"))} กก. (ช่องเหลือง)
-            บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้
+            เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว
           </Notice>
           <FormGrid>
             <FormField label="เวลารับ">
@@ -153,6 +152,19 @@ export function ChefLotEditForm({
                   <option key={slot}>{slot}</option>
                 ))}
               </Select>
+            </FormField>
+            <FormField
+              label="น้ำหนักรับรวม (กก.)"
+              hint={`บันทึกไว้ ${fmt(n(lot.values, "receivedKg"))} กก. ตอนยืนยันรับเนื้อ`}
+            >
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                value={values.receivedKg}
+                onChange={(event) => set("receivedKg", event.target.value)}
+              />
             </FormField>
             <FormField label="น้ำหนักก่อนสโมค (กก.)">
               <Input

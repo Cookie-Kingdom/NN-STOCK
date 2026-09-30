@@ -88,10 +88,8 @@ function roleplay(endDate: string, dayCount: number): Database {
     },
     poLotId,
   );
-  // Packing List: 20 kg กล่องรับเข้า, the last one takes the remainder; Chef House weighs in the same.
-  const boxes = Array.from({ length: Math.ceil(rawKg / 20) }, (_, i) =>
-    String(Math.min(20, rawKg - i * 20)),
-  ).join("\n");
+  // Packing List totals: 20 kg กล่องรับเข้า; Chef House weighs in the same total.
+  const boxCount = String(Math.ceil(rawKg / 20));
   // Foodiva opens the batch with its transport document (GEN-09); the Owner's smoke PO joins it.
   run("owner", "dispatch", {
     pickupDate: dates[0],
@@ -113,8 +111,10 @@ function roleplay(endDate: string, dayCount: number): Database {
       invoiceNo: "INV-DEMO-001",
       product: "เนื้อวัว",
       invWeightKg: String(rawKg),
-      slicedLostKg: String(rawKg),
-      boxes,
+      slicedNetKg: String(rawKg),
+      slicedLostKg: "0",
+      boxCount,
+      attachment: "packing-list-demo.pdf",
     },
     lotId,
   );
@@ -130,7 +130,12 @@ function roleplay(endDate: string, dayCount: number): Database {
     lotId,
   );
   run("owner", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
-  run("owner", "cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, lotId);
+  run(
+    "owner",
+    "cmReceive",
+    { receivedKg: String(rawKg), arrival: "08:00" },
+    lotId,
+  );
   run("owner", "prepare", { preSmokeKg: String(rawKg) }, lotId);
   run(
     "owner",

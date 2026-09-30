@@ -112,8 +112,10 @@ export const repeatDispatchDb: Database = (() => {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     code: "BF-01",
-    slicedLostKg: "50",
-    boxes: "25\n25",
+    slicedLostKg: "0",
+    slicedNetKg: "50",
+    boxCount: "2",
+    attachment: "packing-list.pdf",
   });
   readyToDispatch(s, "40");
   return s.db;
@@ -300,13 +302,15 @@ function chefHouseLot(steps: 0 | 1 | 2): Database {
     invoiceNo: "INV-1",
     product: "เนื้อวัว",
     invWeightKg: "52",
-    slicedLostKg: "50",
-    boxes: "25\n25",
+    slicedLostKg: "2",
+    slicedNetKg: "50",
+    boxCount: "2",
+    attachment: "packing-list.pdf",
   });
   s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   if (steps > 0)
     s.run("owner", "cmReceive", {
-      receivedBoxes: "24.5\n24.5",
+      receivedKg: "49",
       arrival: "08:00",
     });
   if (steps > 1) s.run("owner", "prepare", { preSmokeKg: "48" });
@@ -411,12 +415,7 @@ export const chefBusyDb: Database = (() => {
  *  no smoke PO, then weighed before smoking. The row carries "ยังไม่มี PO รมควัน". */
 function chefFirst(steps: 0 | 1) {
   const s = setup();
-  s.run(
-    "owner",
-    "cmReceive",
-    { receivedBoxes: "15\n15", arrival: "08:00" },
-    "",
-  );
+  s.run("owner", "cmReceive", { receivedKg: "30", arrival: "08:00" }, "");
   s.run("owner", "prepare", { preSmokeKg: "29" });
   if (steps > 0) {
     s.run("owner", "smoke", {
@@ -783,12 +782,7 @@ export const paidWithoutInvoiceDb: Database = mutate(
  *  it: the batch holds only `cmReceive` and `smoke` (DASH-05). */
 export const partialBatchDb: Database = (() => {
   const s = setup();
-  s.run(
-    "owner",
-    "cmReceive",
-    { receivedBoxes: "20\n20", arrival: "08:00" },
-    "",
-  );
+  s.run("owner", "cmReceive", { receivedKg: "40", arrival: "08:00" }, "");
   s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "30",
@@ -851,12 +845,7 @@ export const unlinkedDb: Database = (() => {
     },
     "",
   );
-  s.run(
-    "owner",
-    "cmReceive",
-    { receivedBoxes: "20\n20", arrival: "08:00" },
-    "",
-  );
+  s.run("owner", "cmReceive", { receivedKg: "40", arrival: "08:00" }, "");
   s.run("owner", "smoke", {
     smokeDate: day,
     inputKg: "30",

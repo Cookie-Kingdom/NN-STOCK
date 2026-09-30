@@ -1,25 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { DialogForm } from "@/components/molecules/DialogForm";
 import { FormError } from "@/components/molecules/FormError";
-import { FormField, PrefillCaption } from "@/components/molecules/FormField";
+import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { WorkingDateField } from "@/components/molecules/WorkingDateField";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
+import { PackingListSummary } from "@/components/organisms/shared/PackingListSummary";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
-import {
-  blankView,
-  listedDraft,
-  packingListView,
-  receivedValue,
-  type ReceivedDraft,
-} from "@/components/organisms/shared/receivedBoxes";
 import { currentTimeSlot, timeOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
@@ -31,13 +25,13 @@ import {
 } from "@/lib/store";
 
 /**
- * Chef House weighs in a shipment: the latest Packing List with only the yellow
- * cells editable, plus the arrival time. A total off the Packing List saves without
- * complaint — it is the weight stock and cost run on.
+ * Chef House weighs in a shipment: the arrival time and the total kg received. The
+ * latest Packing List (its file and Foodiva's sent total) sits above for reference. A
+ * total off the Packing List saves with a warning — it is the weight stock and cost
+ * run on.
  *
  * CHF-01/07: no Packing List on file (or `lotId === ""`, which opens a new batch) is
- * no reason to wait. The table then starts with one blank box and Chef House sets how
- * many came.
+ * no reason to wait: Chef House types the total it weighed.
  */
 export function ChefReceiveForm({
   db,
@@ -59,40 +53,16 @@ export function ChefReceiveForm({
   // The truck is usually weighed in as it arrives, so the time starts at now.
   const [arrival, setArrival] = useState(() => currentTimeSlot());
   const [arrivalTouched, setArrivalTouched] = useState(false);
-  // Each yellow cell starts at its Packing List weight, marked until it is edited.
-  const [received, setReceived] = useState<ReceivedDraft>(() =>
-    list ? listedDraft(list) : [undefined],
-  );
-  const [expected, setExpected] = useState(() =>
-    listedDraft(list).map((kg) => kg !== undefined),
-  );
+  const [receivedKg, setReceivedKg] = useState("");
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   // A lot gone from view; "" is a new batch, not a missing one.
   if (lotId && !lot) return null;
-  const view = list
-    ? packingListView(list, received, expected)
-    : blankView(date, received);
-  // Without a Packing List Chef House says how many boxes came.
-  const resize = (count: number) => {
-    setReceived((current) =>
-      Array.from({ length: count }, (_, i) => current[i]),
-    );
-    setError("");
-  };
-  const removeBox = (no: number) => {
-    setReceived((current) => current.filter((_, i) => i !== no - 1));
-    setError("");
-  };
-  const unweighed = expected.filter(Boolean).length;
-  const missing = received.filter((kg) => kg === undefined).length;
-  const input = { arrival, receivedBoxes: receivedValue(received) };
+  const input = { arrival, receivedKg };
   /* The save's own mutate as a dry run (mutate clones, so it changes nothing), so a
-   * refusal shows while the boxes are typed. Held back until the time and every box
-   * are in; a warning (a number off from what is expected) never blocks the save. */
+   * refusal or warning shows while the total is typed. A warning never blocks the save. */
   const live = check(() =>
     mutate(db, "owner", "cmReceive", input, lotId, date),
   );
-  const liveError = arrival && !missing ? live.error : "";
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -106,26 +76,27 @@ export function ChefReceiveForm({
     <Dialog
       overline={`${date} · Chef House · ${lot ? lot.poId : "ชุดใหม่"}`}
       title={titles.cmReceive}
-      size="wide"
       onClose={onClose}
     >
       <DialogForm noValidate onSubmit={save}>
         <DialogBody>
           <WorkingDateField asField date={date} onDate={onDate} />
           {list ? (
-            <Notice>
-              ช่องสีเหลืองใส่น้ำหนักตาม Packing List ไว้ให้แล้ว
-              ชั่งทีละกล่องรับเข้าแล้วแก้เป็นน้ำหนักจริง ช่องของ Foodiva
-              แก้ไม่ได้ ใส่ 0 ถ้าไม่ได้รับกล่องนั้น ยอดไม่ตรงกับ Packing List
-              ก็บันทึกได้ และแก้ได้จนกว่าจะยืนยันปิด Lot
-            </Notice>
+            <>
+              <Notice>
+                เปิดไฟล์ Packing List ของ Foodiva เพื่อตรวจรายกล่องรับเข้า
+                แล้วกรอกน้ำหนักรับรวมที่ชั่งได้จริง ยอดไม่ตรงกับ Packing List
+                ก็บันทึกได้ และแก้ได้จนกว่าจะยืนยันปิด Lot
+              </Notice>
+              <PackingListSummary values={list.values} />
+            </>
           ) : (
             <Notice tone="warning">
               {lot
                 ? "ชุดนี้ยังไม่มี Packing List จาก Foodiva"
                 : "เปิดชุดใหม่ ระบบออกเลขที่การส่งให้เมื่อบันทึก"}{" "}
-              · ใส่จำนวนกล่องที่มาถึง แล้วชั่งน้ำหนักจริงทีละกล่องในช่องสีเหลือง
-              บันทึกได้เลยโดยไม่ต้องรอ Packing List หรือ PO รมควัน
+              · กรอกน้ำหนักรับรวมที่ชั่งได้ บันทึกได้เลยโดยไม่ต้องรอ Packing
+              List หรือ PO รมควัน
             </Notice>
           )}
           <FormGrid>
@@ -151,43 +122,29 @@ export function ChefReceiveForm({
                 ))}
               </Select>
             </FormField>
+            <FormField
+              label="น้ำหนักรับรวม (กก.)"
+              hint="ยอดนี้ใช้ตัดสต๊อกและคิดต้นทุน"
+            >
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                value={receivedKg}
+                onChange={(event) => {
+                  setReceivedKg(event.target.value);
+                  setError("");
+                }}
+              />
+            </FormField>
           </FormGrid>
-          <PackingListTable
-            {...view}
-            {...(list
-              ? {}
-              : {
-                  title: "กล่องที่รับเข้า",
-                  onRows: resize,
-                  onRemoveRow: removeBox,
-                })}
-            onReceived={(no, kg) => {
-              setReceived((current) =>
-                current.map((value, i) => (i === no - 1 ? kg : value)),
-              );
-              setExpected((current) =>
-                current.map((marked, i) => (i === no - 1 ? false : marked)),
-              );
-              setError("");
-            }}
-          />
-          {unweighed > 0 && (
-            <PrefillCaption
-              label={`ช่องสีเหลือง ${unweighed} กล่อง ตาม Packing List`}
-              expected
-            />
-          )}
           <FormError error={error} />
         </DialogBody>
         <DialogFooter
           submitting={saving}
-          error={liveError}
+          error={live.error}
           warning={live.warnings}
-          hint={
-            missing
-              ? `ยังไม่ได้กรอก ${missing} กล่องรับเข้า`
-              : "ยอดรวมช่องเหลืองจะใช้ตัดสต๊อกและคิดต้นทุน"
-          }
           onCancel={onClose}
           submitLabel="ยืนยันรับเนื้อ"
         />

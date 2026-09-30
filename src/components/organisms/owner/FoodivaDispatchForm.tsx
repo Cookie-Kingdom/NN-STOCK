@@ -27,7 +27,6 @@ import {
   dispatchWithPackingList,
   entries,
   n,
-  packingListBoxes,
   poRemainingKg,
   shipmentLines,
   type Database,
@@ -57,8 +56,8 @@ function lastTruck(db: Database): Prefill {
 /**
  * Foodiva's outbound transport document for a shipment batch (SHP-01): one the Owner's
  * smoke PO opened, one without a smoke PO yet, or a new one (`lotId === ""`, the save
- * opens the batch). The Packing List is filled in a dialog on top but not saved there:
- * "บันทึกใบขนส่ง" saves both in one go, the transport document first
+ * opens the batch). The Packing List (optional) is filled in a dialog on top but not saved
+ * there: "บันทึกใบขนส่ง" saves both in one go, the transport document first
  * (`dispatchWithPackingList`).
  */
 export function FoodivaDispatchForm({
@@ -116,17 +115,15 @@ export function FoodivaDispatchForm({
     lot: db.lots.find((po) => po.id === line.lotId),
   }));
   const total = requestedKg;
-  const boxes = packingListBoxes(draft?.boxes);
-  // The list's own figure, not the box total: Foodiva types Sliced Weight Net.
+  // Foodiva types the list's totals only: Sliced Weight Net and, if it has it, the box count.
   const slicedNetKg = n(draft ?? {}, "slicedNetKg");
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!draft) return;
     // Left blank, the kg sent is the Packing List's Sliced Weight Net.
     const trip = {
       ...values,
-      dispatchKg: values.dispatchKg.trim() || draft.slicedNetKg || "",
+      dispatchKg: values.dispatchKg.trim() || draft?.slicedNetKg || "",
     };
     const next = await run(() =>
       // Only the Owner / Manager types it; the save is stamped Foodiva's (M0).
@@ -343,8 +340,8 @@ export function FoodivaDispatchForm({
               </strong>
               <span className="text-caption text-text-secondary">
                 {draft
-                  ? `${boxes.length} กล่องรับเข้า · Sliced Weight Net ${fmt(slicedNetKg)} กก. · บันทึกพร้อมใบขนส่งเมื่อกด “บันทึกใบขนส่ง”`
-                  : `ยังไม่ได้ทำ · ระบุว่าส่งไปกี่กล่องรับเข้า แต่ละกล่องหนักเท่าไร${total ? ` (Inv. Weight ${fmt(total)} กก.)` : ""}`}
+                  ? `${draft.boxCount?.trim() ? `${draft.boxCount} กล่องรับเข้า · ` : ""}น้ำหนักส่งรวม ${draft.slicedNetKg?.trim() ? `${fmt(slicedNetKg)} กก.` : "ยังไม่ได้กรอก"}${draft.attachment ? ` · ${draft.attachment}` : ""} · บันทึกพร้อมใบขนส่งเมื่อกด “บันทึกใบขนส่ง”`
+                  : `ไม่บังคับ · แนบไฟล์ Packing List และกรอกน้ำหนักส่งรวม${total ? ` (Inv. Weight ${fmt(total)} กก.)` : ""}`}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
@@ -369,10 +366,6 @@ export function FoodivaDispatchForm({
           onCancel={onClose}
           submitLabel="บันทึกใบขนส่ง"
           submitting={saving}
-          submitDisabled={!draft}
-          error={
-            draft ? "" : "ต้องทำ Packing List ของเที่ยวนี้ก่อนจึงจะบันทึกได้"
-          }
           hint={
             lines.length
               ? `${lines.length} ใบ PO ซื้อ · รวม ${fmt(total)} กก.`

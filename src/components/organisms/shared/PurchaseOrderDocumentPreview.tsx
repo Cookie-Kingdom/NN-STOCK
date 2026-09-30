@@ -70,7 +70,9 @@ export function PurchaseOrderDocumentPreview({
     : values.productName || "เนื้อวัว";
   const packDetail = isSmokeOrder
     ? packingList
-      ? `${packingList.values.boxCount} กล่องรับเข้า`
+      ? packingList.values.boxCount?.trim()
+        ? `${packingList.values.boxCount} กล่องรับเข้า`
+        : "ตามไฟล์ Packing List"
       : "รอ Foodiva ทำ Packing List"
     : values.packSize || "—";
 

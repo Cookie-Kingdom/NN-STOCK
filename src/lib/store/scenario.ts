@@ -288,9 +288,6 @@ export function ownerBranchScenario(endDate: string): Database {
           "",
           from,
         ).lotId;
-    const boxes = Array.from({ length: Math.ceil(kg / 20) }, (_, i) =>
-      String(Math.min(20, kg - i * 20)),
-    ).join("\n");
     const waste = kg / 10;
     const packs = (outKg: number) =>
       Array.from({ length: Math.round(outKg * 10) }, () => "0.100").join("\n");
@@ -323,8 +320,10 @@ export function ownerBranchScenario(endDate: string): Database {
           invoiceNo: "INV-UAT-0001",
           product: "เนื้อวัว",
           invWeightKg: String(kg),
+          slicedNetKg: String(kg),
           slicedLostKg: "0",
-          boxes,
+          boxCount: String(Math.ceil(kg / 20)),
+          attachment: "packing-list-uat.pdf",
         },
         lotId,
         from,
@@ -333,7 +332,7 @@ export function ownerBranchScenario(endDate: string): Database {
     if (done("accept"))
       cm("smokeOrderAccept", { acceptedBy: "Chef House UAT" }, from);
     if (done("cmReceive"))
-      cm("cmReceive", { receivedBoxes: boxes, arrival: "08:00" }, mid);
+      cm("cmReceive", { receivedKg: String(kg), arrival: "08:00" }, mid);
     if (done("prepare")) cm("prepare", { preSmokeKg: String(kg) }, mid);
     const smokeRun = (inputKg: number) =>
       cm(

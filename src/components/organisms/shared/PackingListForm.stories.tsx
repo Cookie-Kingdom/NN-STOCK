@@ -46,12 +46,14 @@ const dates = pick("วันที่", {
 
 /** เลือกสถานะใน Controls:
  *  - ร่าง (inside Foodiva's transport form): seeded from the Request's POs and handed back
- *    as a draft. Invoice and product carry their source. Sliced Weight Net is the box rows
- *    added up, Sliced Weight Lost the gap between Inv. Weight and it.
+ *    as a draft. Invoice and product carry their source. Foodiva attaches the file and
+ *    types the total sent (Sliced Weight Net) and, if it has it, the box count; Sliced
+ *    Weight Lost is the gap between Inv. Weight and the total. Blank fields still save,
+ *    marked "ยังไม่ได้กรอก".
  *    - ครั้งแรก: Inv. Weight is the 50 kg this Request asks of its purchase PO
  *    - ครั้งถัดไป: the CODE comes from the last Packing List ("ล่าสุด 09/09"), and Inv.
  *      Weight follows this Request — 40 kg, not the first trip's 50
- *    - เปิดร่างเดิมกลับมา: Foodiva reopens a draft (25 + 25 kg boxes) before saving
+ *    - เปิดร่างเดิมกลับมา: Foodiva reopens a draft (2 boxes, 50 kg) before saving
  *  - แก้ไขรายการที่บันทึกแล้ว: the "ชุดรมควัน" row of a batch Foodiva opened, before any
  *    smoke PO: no Inv. Weight, so Sliced Weight Lost stays 0.00
  *  - แก้ไขหลังออก PO รมควัน (SHP-02): still editable, with a warning to have the Owner
