@@ -72,16 +72,7 @@ function build(
   for (const line of selected) {
     const item = line.label;
     const purchaseDate = purchaseDates[line.key] || date;
-    const quantity = Number(quantities[line.key]);
-    const unitPrice = Number(unitPrices[line.key]);
-    const supplier = suppliers[line.key]?.trim();
-    const reference = references[line.key]?.trim() || "";
-    if (!purchaseDate) throw new Error(`เลือกวันที่ซื้อ ${item}`);
-    if (!supplier) throw new Error(`กรอกผู้จำหน่าย ${item}`);
-    if (!Number.isInteger(quantity) || quantity <= 0)
-      throw new Error(`กรอกจำนวน ${item} เป็นจำนวนเต็มที่มากกว่า 0`);
-    if (!Number.isFinite(unitPrice) || unitPrice < 0)
-      throw new Error(`กรอกราคาซื้อ ${item}`);
+    // An empty field is saved and marked missing by mutate (GEN-02); it refuses only a bad number.
     next = mutate(
       next,
       "owner",
@@ -89,10 +80,10 @@ function build(
       {
         purchaseDate,
         material: item,
-        quantity: String(quantity),
-        unitPrice: String(unitPrice),
-        supplier,
-        reference,
+        quantity: quantities[line.key]?.trim() || "",
+        unitPrice: unitPrices[line.key]?.trim() || "",
+        supplier: suppliers[line.key]?.trim() || "",
+        reference: references[line.key]?.trim() || "",
       },
       "",
       purchaseDate,
@@ -166,21 +157,9 @@ export function MaterialPurchaseForm({
   );
   /* The save's own mutate, run on the values as they stand, so a refusal shows while
    * the line is being typed instead of after บันทึก. mutate clones the database, so a
-   * dry run changes nothing. Held back until every ticked line has its วันที่ จำนวน
-   * ราคา and ผู้จำหน่าย: an unfinished form must not be told off for being
-   * unfinished. */
+   * dry run changes nothing. Nothing ticked yet, or an empty field, is not an error. */
   const liveError = useMemo(() => {
-    const ticked = purchaseLines.filter((line) => checked[line.key]);
-    const complete =
-      ticked.length > 0 &&
-      ticked.every(
-        (line) =>
-          (purchaseDates[line.key] ?? date) &&
-          quantities[line.key]?.trim() &&
-          unitPrices[line.key]?.trim() &&
-          suppliers[line.key]?.trim(),
-      );
-    if (!complete) return "";
+    if (!purchaseLines.some((line) => checked[line.key])) return "";
     try {
       build(
         db,

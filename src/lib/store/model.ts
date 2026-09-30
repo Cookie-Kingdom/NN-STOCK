@@ -263,6 +263,11 @@ export const editDecisions = { approve: "อนุมัติ", reject: "ไม
  *  void and a new entry; a reference to another entry (`allocation`, `transferId`) or the lot
  *  is changed with `link` instead (DM-08). */
 export const editLockedKeys = ["branch", "purchaseDate"];
+/** GEN-02: a field the rules want but the user left empty is saved anyway and listed in the
+ *  entry's `missing` (comma-separated keys), shown as this label. */
+export const missingText = "ยังไม่ได้กรอก";
+export const missingKeys = (v: Values) =>
+  v.missing ? v.missing.split(",") : [];
 /** An edit stores the corrected values as `to.<key>` and the ones it replaced as `from.<key>`:
  *  flat keys, so `hide` strips prices from them like from any other entry. */
 export const pack = (prefix: string, values: Values) =>

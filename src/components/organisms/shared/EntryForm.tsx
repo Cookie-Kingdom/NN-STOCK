@@ -58,6 +58,7 @@ import {
   smokingInvoiceRejection,
   batchKinds,
   lotProgress,
+  missingText,
   titles,
   type Database,
   type ActingRole,
@@ -555,12 +556,14 @@ export function EntryForm({
   // Controls mutate() insists on that are rendered outside `formFields`.
   // A receive's allocation is optional (BR-02): with none it is a straight receive.
   const extraRequired = kind === "smoke" ? ["packs"] : [];
+  // GEN-02: an empty field does not stop the save; the form only says how many are left.
+  const unfilled = [
+    ...formFields.filter((f) => !f.optional).map((f) => f.key),
+    ...extraRequired,
+  ].filter((key) => !String(values[key] ?? "").trim()).length;
   const complete =
     (!useLot || lotChosen) &&
-    [
-      ...formFields.filter((f) => !f.optional).map((f) => f.key),
-      ...extraRequired,
-    ].every((key) => String(values[key] ?? "").trim()) &&
+    !unfilled &&
     // An open influencer block is part of the form: an unfinished one is not told off.
     giveaways.every((g) =>
       influencerRequired.every((key) => String(g.values[key] ?? "").trim()),
@@ -606,7 +609,6 @@ export function EntryForm({
   ]);
   const checklist =
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
-  const missing = checklist.find((item) => item.required && !item.done);
   const isPurchaseOrder = kind === "purchase";
   const title = titles[kind];
   async function submit(e: React.FormEvent) {
@@ -953,15 +955,17 @@ export function EntryForm({
         </div>
         <DialogFooter
           submitting={saving}
-          error={missing ? `ยังปิดวันไม่ได้ · ${missing.message}` : live.error}
+          error={live.error}
+          // closeDay: an unfinished checklist item is among these (mutate warns it).
           warning={live.warnings}
-          submitDisabled={!!missing}
           hint={
-            isPurchaseOrder
-              ? "ตรวจ Preview ก่อนบันทึก PO"
-              : kind === "smokingInvoice"
-                ? "Owner ตรวจยอดเรียกเก็บหลัง Submit และชำระตามยอดนี้"
-                : "ไฟล์แนบจะถูกอัปโหลดไปเก็บบนระบบ (สำรองไว้ในเบราว์เซอร์นี้ด้วย)"
+            unfilled
+              ? `${missingText} ${unfilled} ช่อง · บันทึกได้`
+              : isPurchaseOrder
+                ? "ตรวจ Preview ก่อนบันทึก PO"
+                : kind === "smokingInvoice"
+                  ? "Owner ตรวจยอดเรียกเก็บหลัง Submit และชำระตามยอดนี้"
+                  : "ไฟล์แนบจะถูกอัปโหลดไปเก็บบนระบบ (สำรองไว้ในเบราว์เซอร์นี้ด้วย)"
           }
           onCancel={onClose}
           submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}

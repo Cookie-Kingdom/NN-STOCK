@@ -8,7 +8,6 @@ import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
   canLink,
   entries,
-  isClosed,
   openEditRequest,
   seed,
   type Database,
@@ -224,13 +223,7 @@ export function appendState(
   for (const entry of added) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") || entry.date > today)
       fail("Entry date is invalid or after today");
-    // 0035: a request, its withdrawal and a link (dated today whatever day its target is on,
-    // STK-37) go through on a closed day.
-    if (
-      !["editRequest", "void", "link"].includes(entry.kind) &&
-      isClosed(log, entry.branch, entry.date)
-    )
-      fail("Branch day is closed");
+    // 0037: a closed branch day takes entries too (mutate() only warns).
     const target = log.entries.find(
       (other) => other?.id === entry.values.targetId,
     );

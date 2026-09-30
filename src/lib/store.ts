@@ -17,6 +17,8 @@ export {
   titles,
   editDecisions,
   editLockedKeys,
+  missingKeys,
+  missingText,
   voidableKinds,
   unpack,
   canLink,

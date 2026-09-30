@@ -197,17 +197,15 @@ begin
   assert v_stored -> 'entries' -> 16 ->> 'kind' = 'central', 'owner central not saved';
 
   -- 0035: on a closed day a branch still files an edit request, withdraws it (a void of its own
-  -- pending request, nothing else) and links; anything else is refused.
+  -- pending request, nothing else) and links; since 0037 it records anything else too.
   perform set_config('test.uid', v_branch::text, true);
   select public.append_entries(v_rev, '[
     {"id":"rq1","kind":"editRequest","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","to.kg":"9"}},
     {"id":"cd1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"confirm":"x"}}
   ]'::jsonb, '[]'::jsonb) into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev,
-    '[{"id":"n6","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}}]'::jsonb, '[]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Branch day is closed', format('closed receive: %s', v_err);
+  select public.append_entries(v_rev,
+    '[{"id":"n6","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}}]'::jsonb, '[]'::jsonb)
+    into v_rev;
   foreach v_text in array array['n2', 'e-rcv', 'e-mb'] loop
     v_err := null;
     begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'wd0', 'kind', 'void',

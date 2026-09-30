@@ -1,5 +1,5 @@
--- Migration 20260929000034: append_entries refuses a branch entry dated after today, one on a
--- closed branch day (an edit request excepted) and a link to an entry that is not its branch's.
+-- Migration 20260929000034: append_entries refuses a branch entry dated after today and a link
+-- to an entry that is not its branch's. Since 0037 a closed branch day takes entries.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/branch_append_guards_test.sql
 
 do $$
@@ -57,21 +57,14 @@ begin
     '[{"id":"l1","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-02","values":{"targetId":"mb","lotId":"S1"}}]'::jsonb)
     into v_rev;
 
-  -- A closed day takes nothing but an edit request, also within the same save; an unlock reopens it.
-  v_err := null;
-  begin perform public.append_entries(v_rev, '[
+  -- 0037: a closed day takes entries too, also within the same save; an unlock reopens it.
+  select public.append_entries(v_rev, '[
     {"id":"c1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}},
-    {"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Branch day is closed', format('closed in same save: %s', v_err);
-  select public.append_entries(v_rev,
-    '[{"id":"c1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
+    {"id":"r0","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
     into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev,
-    '[{"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Branch day is closed', format('closed day: %s', v_err);
+  select public.append_entries(v_rev,
+    '[{"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
+    into v_rev;
   select public.append_entries(v_rev,
     '[{"id":"q1","kind":"editRequest","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{"targetId":"mb"}}]'::jsonb)
     into v_rev;
@@ -85,7 +78,7 @@ begin
     '[{"id":"u1","kind":"unlock","role":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb), v_rev) s;
   perform set_config('test.uid', v_branch::text, true);
   select public.append_entries(v_rev,
-    '[{"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
+    '[{"id":"r3","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
     into v_rev;
 
   raise exception 'BRANCH_APPEND_GUARDS_TEST_PASSED';

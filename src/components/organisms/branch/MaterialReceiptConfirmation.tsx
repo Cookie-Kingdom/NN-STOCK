@@ -136,14 +136,10 @@ export function MaterialReceiptConfirmation({
           ),
         },
     );
-  const directComplete =
-    !!direct &&
-    !!direct.receiver.trim() &&
-    direct.rows.every((row) => row.material && row.quantity.trim());
-  const directLive =
-    direct && directComplete
-      ? check(() => buildDirect(db, direct.rows, direct.receiver))
-      : { error: "", warnings: [] };
+  // An empty field is saved and marked missing (GEN-02), so only a bad number stops it.
+  const directLive = direct
+    ? check(() => buildDirect(db, direct.rows, direct.receiver))
+    : { error: "", warnings: [] };
   const saveDirect = async () => {
     if (!direct) return;
     setConfirming("direct");
@@ -419,7 +415,7 @@ export function MaterialReceiptConfirmation({
                 <Button
                   variant="primary"
                   className="flex-1"
-                  disabled={closed || saving || !directComplete}
+                  disabled={closed || saving}
                   icon={
                     saving && confirming === "direct" ? <Spinner /> : undefined
                   }
