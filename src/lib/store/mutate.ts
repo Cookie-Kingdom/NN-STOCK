@@ -228,20 +228,6 @@ export function recordRole(kind: EntryKind, role: ActingRole): Role {
     ? owner
     : role;
 }
-/** Per-กล่องรับเข้า weights of a Packing List. They live in one entry value, one
- *  line each, the way `smoke` stores its pack weights. */
-export function packingListBoxes(value = "") {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map(decimal);
-}
-/** Chef House's weighed-in kg per กล่องรับเข้า, one line per Packing List box and in its order.
- *  Unlike packingListBoxes a blank line stays (as NaN), so a skipped box is caught, not shifted. */
-export function receivedBoxWeights(value = "") {
-  return value.split("\n").map((line) => (line.trim() ? decimal(line) : NaN));
-}
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
@@ -318,26 +304,6 @@ function variance(actual: number, expected: number, v: Values, always = true) {
   )
     // Real counts drift, so a missing reason is flagged, never refused.
     warn(v.reason?.trim(), "ยอดไม่ตรง · ควรระบุเหตุผลส่วนต่าง");
-}
-/** Sum of Chef House's yellow cells, one weight per box. With a Packing List the box count is
- *  expected to match it (CHF-02, a warning); without one Chef House types the boxes it got.
- *  A total off the Packing List is not an error; it is what stock and cost run on. */
-function receivedTotal(db: Database, lotId: string, value = "") {
-  const list = latestPackingList(db, lotId);
-  const got = receivedBoxWeights(value);
-  assert(got.length, "กรอกน้ำหนักจริงอย่างน้อย 1 กล่องรับเข้า");
-  if (list)
-    warn(
-      got.length === packingListBoxes(list.values.boxes).length,
-      "จำนวนกล่องรับเข้าไม่ตรงกับ Packing List",
-    );
-  assert(
-    got.every((kg) => Number.isFinite(kg) && kg >= 0),
-    "กรอกน้ำหนักจริงทุกกล่องรับเข้า (ใส่ 0 ถ้าไม่ได้รับกล่องนั้น)",
-  );
-  const total = got.reduce((a, b) => a + b, 0);
-  assert(total > 0, "น้ำหนักรับจริงรวมต้องมากกว่าศูนย์");
-  return { total, boxes: got.join("\n") };
 }
 /** Optional payment slips: JSON [{ name, storageKey }], the bytes already in attachment storage. */
 function checkSlips(v: Values) {
@@ -746,18 +712,16 @@ function record(
     );
     required(v, "invoiceNo", "เลข Invoice");
     required(v, "product", "รายการสินค้า");
-    const boxes = packingListBoxes(v.boxes);
-    assert(boxes.length, "กรอกน้ำหนักอย่างน้อย 1 กล่องรับเข้า");
-    assert(
-      boxes.every((kg) => Number.isFinite(kg) && kg > 0),
-      "น้ำหนักกล่องรับเข้าต้องเป็นตัวเลขมากกว่าศูนย์",
-    );
-    // Blank rows are dropped at save, so the stored list is contiguous: box no = line no.
-    v.boxes = boxes.map((kg) => kg.toFixed(2)).join("\n");
-    v.boxCount = String(boxes.length);
-    /* A2: Sliced Weight Net is the rows added up, never typed — whatever the form sends
-     * is recomputed here so the two can never drift apart. */
-    v.slicedNetKg = String(boxes.reduce((sum, kg) => sum + kg, 0));
+    // The file is the evidence Chef House looks at; only the totals are typed (no box rows).
+    required(v, "attachment", "Packing List ที่แนบ");
+    positive(v, "slicedNetKg", "Sliced Weight Net");
+    if (v.boxCount?.trim()) {
+      positive(v, "boxCount", "จำนวนกล่องรับเข้า");
+      warn(
+        Number.isInteger(n(v, "boxCount")),
+        "จำนวนกล่องรับเข้าต้องเป็นจำนวนเต็ม",
+      );
+    }
     /* Sliced Weight Lost is what cutting took away — Inv. Weight less Sliced Weight Net,
      * never Chef House's yellow cells. Zero is a normal list: nothing was lost. */
     positive(v, "slicedLostKg", "Sliced Weight Lost", true);
@@ -766,7 +730,7 @@ function record(
       withinStock(
         n(v, "slicedNetKg"),
         n(v, "invWeightKg"),
-        "น้ำหนักรวมกล่องรับเข้าเกิน Inv. Weight",
+        "Sliced Weight Net เกิน Inv. Weight",
         "กก.",
         "รวมได้สูงสุด",
       );
@@ -822,9 +786,14 @@ function record(
   } else if (kind === "cmReceive" && lot) {
     // CHF-01: the truck is at the door; Chef House weighs in with or without a Packing List or PO.
     required(v, "arrival", "เวลาถึง");
-    const received = receivedTotal(db, lotId, v.receivedBoxes);
-    v.receivedBoxes = received.boxes;
-    v.receivedKg = String(received.total);
+    positive(v, "receivedKg", "น้ำหนักรับรวม");
+    // CHF-02: a total off the Packing List is said, not refused; stock and cost run on it.
+    const list = latestPackingList(db, lotId);
+    if (list && v.receivedKg && list.values.slicedNetKg?.trim())
+      warn(
+        Math.abs(n(v, "receivedKg") - n(list.values, "slicedNetKg")) < 0.005,
+        "น้ำหนักรับรวมไม่ตรงกับ Packing List",
+      );
   } else if (kind === "prepare" && lot) {
     // CHF-03: no PO or receive needed; a received kg on file caps it, as a warning.
     positive(v, "preSmokeKg", "น้ำหนักก่อนสโมค");
@@ -879,12 +848,10 @@ function record(
         smokeEntries.every((entry, index) => drafts[index]?.id === entry.id),
       "ไม่พบข้อมูล Lot ล่าสุด",
     );
-    // The yellow cells are weighed once, at cmReceive, and never edited again (A5).
-    assert(
-      v.receivedBoxes === undefined && v.receivedKg === undefined,
-      "น้ำหนักรับจริง (ช่องเหลือง) บันทึกครั้งเดียวตอนยืนยันรับเนื้อ แก้ไขไม่ได้",
-    );
-    const receivedKg = n(lot.values, "receivedKg");
+    // Chef House may correct its received total; left out, the saved one stands.
+    const receivedKg = v.receivedKg?.trim()
+      ? decimal(v.receivedKg)
+      : n(lot.values, "receivedKg");
     const preSmokeKg = Number(v.preSmokeKg);
     assert(
       Number.isFinite(receivedKg) &&
@@ -940,6 +907,7 @@ function record(
     lot.values = {
       ...lot.values,
       arrival: v.arrival,
+      receivedKg: String(receivedKg),
       preSmokeKg: String(preSmokeKg),
       inputKg: latestBatch.inputKg,
       wasteKg: latestBatch.wasteKg,
@@ -1574,17 +1542,19 @@ function record(
 }
 
 /** Foodiva's one outbound form (the Owner may type it for Foodiva): the transport document and its Packing List land in one save,
- *  all or nothing (SHP-03). With `lotId === ""` the document opens the batch the list joins. */
+ *  all or nothing (SHP-03). With `lotId === ""` the document opens the batch the list joins.
+ *  The Packing List is optional here: without one only the transport document is saved. */
 export const dispatchWithPackingList = (
   db: Database,
   lotId: string,
   trip: Values,
-  packing: Values,
+  packing: Values | undefined,
   date: string,
   /** Who types it: the Owner / Manager recording it for Foodiva (stamped Foodiva's). */
   role: ActingRole,
 ) => {
   const sent = mutate(db, role, "dispatch", trip, lotId, date);
+  if (!packing) return sent;
   return mutate(
     sent,
     role,

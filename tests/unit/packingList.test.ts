@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { check, entries, mutate, packingListBoxes } from "@/lib/store";
+import { check, entries, mutate } from "@/lib/store";
 import { dispatch, expectWarning, readyToDispatch, setup } from "./fixtures";
+
+// TODO: the Packing List has no box rows any more; this stand-in only keeps the file
+// compiling until the tests are rewritten.
+const packingListBoxes = (value = "") =>
+  value
+    .split("\n")
+    .filter((line) => line.trim())
+    .map(Number);
 
 const list = { invoiceNo: "INV-1", product: "เนื้อวัว", slicedLostKg: "30" };
 

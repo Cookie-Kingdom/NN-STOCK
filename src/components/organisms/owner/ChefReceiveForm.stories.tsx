@@ -27,13 +27,12 @@ const receiveState = pick("ชุด", {
 });
 
 /** Chef House weighs in meat at the door. เลือกชุดใน Controls:
- *  - รถมาพร้อม Packing List: the batch on the truck with its 25 + 25 kg Packing List; the
- *    yellow cells start at 25 marked "ตาม Packing List" (expected), the arrival time at
- *    the current slot. Type e.g. 24.5 in a cell: its marker goes, and a total off the
- *    list still saves.
+ *  - รถมาพร้อม Packing List: the batch on the truck with its Packing List (file, 2 boxes,
+ *    50 kg sent) shown for reference; the arrival time starts at the current slot. Type
+ *    the received total, e.g. 49: a total off the list is warned about and still saves.
+ *    Left blank it saves too, marked "ยังไม่ได้กรอก".
  *  - ไม่มี Packing List (CHF-07): the Owner's smoke PO is in but Foodiva's Packing List is
- *    not. The table starts with one blank yellow box; set the box count (or "เพิ่มแถว"),
- *    weigh each box, save.
+ *    not. Type the received total and save.
  *  - เปิดชุดใหม่: meat at the door with no batch at all (`lotId === ""`). Saving opens a new
  *    batch with its own shipment number (CHF-01). */
 export const Receive: Story = {

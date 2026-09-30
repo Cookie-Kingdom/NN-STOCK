@@ -9,13 +9,11 @@ import {
   entries,
   latestPackingList,
   lotProgress,
-  n,
-  packingListBoxes,
   shipments,
   type Database,
   type EntryKind,
 } from "@/lib/store";
-import { fmt } from "@/lib/format";
+import { packingListSummary } from "@/components/organisms/owner/documentRows";
 
 /** CHF-07: every batch that Chef House has not weighed in yet, whether or not
  *  Foodiva's Packing List or the Owner's smoke PO is in. Meat that arrives with no batch
@@ -35,7 +33,7 @@ export function ChefReceiveTable({
     <>
       <SectionHeading
         title="ยืนยันรับเนื้อที่ Chef House"
-        description="เลือกการส่งที่รถมาถึง แล้วกรอกน้ำหนักจริงรายกล่องรับเข้าในช่องสีเหลือง · เนื้อมาถึงแต่ไม่มีในรายการ กดเปิดชุดใหม่"
+        description="เลือกการส่งที่รถมาถึง แล้วกรอกน้ำหนักรับรวมที่ชั่งได้ · เนื้อมาถึงแต่ไม่มีในรายการ กดเปิดชุดใหม่"
         actions={
           <Button
             icon={<Plus className="size-4" />}
@@ -60,13 +58,12 @@ export function ChefReceiveTable({
         rowKeys={waiting.map((lot) => lot.id)}
         rows={waiting.map((lot) => {
           const list = latestPackingList(db, lot.id);
-          const boxes = packingListBoxes(list?.values.boxes);
           const order = entries(db, "smokeOrder", lot.id).at(-1);
           return [
             lot.poId,
             lot.values.pickupDate || "-",
             list ? (
-              `${boxes.length} กล่องรับเข้า · ${fmt(n(list.values, "slicedNetKg"))} กก.`
+              packingListSummary(db, lot.id)
             ) : (
               <Badge key={`${lot.id}-list`} tone="neutral">
                 ยังไม่มี Packing List

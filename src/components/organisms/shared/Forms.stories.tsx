@@ -214,8 +214,8 @@ export const GeneralPurchasePrefilled: Story = {
   },
 };
 
-/** Before closing, Chef House can still correct arrival, pre-smoke kg and the smoke log.
- *  The yellow cells are not here: they are weighed once at cmReceive (A5). The form
+/** Before closing, Chef House can still correct arrival, the received total, pre-smoke kg
+ *  and the smoke log. The form
  *  renders nothing until the lot is smoked, so the date is the only real control. */
 export const ChefLotEdit: Story = {
   ...controls({ รมควันแล้ว: smokedDb }),

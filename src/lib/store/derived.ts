@@ -64,9 +64,6 @@ function entryIndex(db: Database): EntryIndex {
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
       arrival: e.values.arrival,
-      ...(e.values.receivedBoxes !== undefined && {
-        receivedBoxes: e.values.receivedBoxes,
-      }),
     });
     fix(e.values.prepareId, { preSmokeKg: e.values.preSmokeKg });
     for (const { id, ...batch } of JSON.parse(
@@ -282,7 +279,10 @@ export function latestPackingList(db: Database, lotId: string) {
  *  `undefined` until Foodiva makes one; the Request kg is only what was asked for. */
 export function packingListKg(db: Database, lotId: string) {
   const list = latestPackingList(db, lotId);
-  return list ? n(list.values, "slicedNetKg") : undefined;
+  // A list saved without its total (GEN-02) says nothing about the kg.
+  return list?.values.slicedNetKg?.trim()
+    ? n(list.values, "slicedNetKg")
+    : undefined;
 }
 /** A batch's kg and meat cost split back to the purchase POs its smoke PO draws on, pro rata
  * to each line: on Chef House's received kg once weighed in, on the line kg before that. */

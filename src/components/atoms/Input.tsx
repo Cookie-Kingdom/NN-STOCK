@@ -51,7 +51,7 @@ const noSpinner =
  *
  * A `type="number"` field has no spinners and ignores the wheel and the up/down
  * arrows: they used to change a figure the user had already typed, silently. Pass
- * `spinner` where the steppers are wanted (PackingListTable).
+ * `spinner` where the steppers are wanted.
  */
 export function Input({
   variant,

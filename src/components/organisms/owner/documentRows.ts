@@ -13,6 +13,10 @@ import {
 
 export type DocumentRows = [string, string][];
 
+/** "N กล่องรับเข้า" of a Packing List, "" when Foodiva left the count out. */
+export const boxCountLabel = (list: Entry | undefined) =>
+  list?.values.boxCount?.trim() ? `${list.values.boxCount} กล่องรับเข้า` : "";
+
 type TransportDirection = "outbound" | "return";
 
 const transportKeys: Record<TransportDirection, { date: string; kg: string }> =
@@ -42,7 +46,7 @@ export function transportDocumentRows(
   direction: TransportDirection,
 ): DocumentRows {
   const keys = transportKeys[direction];
-  // The outbound truck carries the Packing List's boxes; the Request kg only until there is one.
+  // The outbound truck carries the Packing List's total; the Request kg only until there is one.
   const kg =
     (direction === "outbound" ? packingListKg(db, lot.id) : undefined) ??
     n(trip.values, keys.kg);
@@ -100,9 +104,14 @@ export function packingListRows(lot: Lot, list: Entry): DocumentRows {
   return [
     ["เลขที่การส่ง", lot.poId],
     ["สินค้า", list.values.product || "—"],
-    ["กล่องรับเข้า", `${list.values.boxCount || "0"} กล่องรับเข้า`],
-    // Not the box total any more: Foodiva types it, so the row says which figure it is.
-    ["Sliced Weight Net", `${fmt(n(list.values, "slicedNetKg"))} กก.`],
+    ["กล่องรับเข้า", boxCountLabel(list) || "—"],
+    // Foodiva types the total sent; the per-box detail is in the attached file.
+    [
+      "Sliced Weight Net",
+      list.values.slicedNetKg?.trim()
+        ? `${fmt(n(list.values, "slicedNetKg"))} กก.`
+        : "—",
+    ],
     [
       "Inv. Weight",
       list.values.invWeightKg
@@ -115,15 +124,21 @@ export function packingListRows(lot: Lot, list: Entry): DocumentRows {
         ? `${fmt(n(list.values, "slicedLostKg"))} กก.`
         : "—",
     ],
+    ["ไฟล์ Packing List", list.values.attachment || "—"],
   ];
 }
 
-/** "N กล่องรับเข้า · X กก." of the shipment's latest Packing List, "" before there is one. */
+/** "N กล่องรับเข้า · X กก." of the shipment's latest Packing List (either part left out
+ *  when Foodiva did not fill it), "" before there is one. */
 export function packingListSummary(db: Database, lotId: string) {
   const list = latestPackingList(db, lotId);
-  return list
-    ? `${list.values.boxCount} กล่องรับเข้า · ${fmt(n(list.values, "slicedNetKg"))} กก.`
-    : "";
+  if (!list) return "";
+  const kg = packingListKg(db, lotId);
+  return (
+    [boxCountLabel(list), kg === undefined ? "" : `${fmt(kg)} กก.`]
+      .filter(Boolean)
+      .join(" · ") || "Packing List"
+  );
 }
 
 /**
@@ -152,7 +167,7 @@ export function smokeOrderPrintRows(
     ["เลขที่การส่ง", lot.poId],
     ["Packing List", packingListSummary(db, lot.id) || "—"],
     ["สินค้า", "บริการรมควันเนื้อ"],
-    ["ขนาดบรรจุ", list ? `${list.values.boxCount} กล่องรับเข้า` : "—"],
+    ["ขนาดบรรจุ", boxCountLabel(list) || "—"],
     ["จำนวน", `${fmt(n(order.values, "rawKg"))} กก.`],
     ["ราคา / กก.", `฿${fmt(n(order.values, "serviceRate"))}`],
     ["ยอดรวมก่อน VAT", `฿${fmt(n(order.values, "estimatedCost"))}`],

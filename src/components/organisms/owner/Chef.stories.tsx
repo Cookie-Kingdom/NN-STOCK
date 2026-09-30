@@ -61,7 +61,7 @@ const receiveState = pick("สถานะ", {
 
 /** Every batch not weighed in yet, with or without a Packing List or smoke PO, and
  *  "เปิดชุดใหม่" for meat that arrives with no batch at all.
- *  - รถมาพร้อม Packing List: shipment number, boxes and kg, vehicle.
+ *  - รถมาพร้อม Packing List: shipment number, box count and total kg, vehicle.
  *  - มีแต่ PO รมควัน: the Owner's PO is in, Foodiva's Packing List is not.
  *  - ไม่มีชุดรอรับ: the empty table; "เปิดชุดใหม่" is still there. */
 export const ReceiveTable: Story = {

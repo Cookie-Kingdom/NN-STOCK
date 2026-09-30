@@ -25,7 +25,7 @@ type Story = StoryObj<typeof meta>;
  *  - `prefilled="expected"`: a predicted scale or count reading to weigh and correct
  *    (e.g. "360")
  *  - `type="number"`: ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน
- *  - `spinner`: เฉพาะ PackingListTable ที่ยังใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
+ *  - `spinner`: ใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
  *  - `disabled`: locked */
 export const Default: Story = {
   argTypes: {

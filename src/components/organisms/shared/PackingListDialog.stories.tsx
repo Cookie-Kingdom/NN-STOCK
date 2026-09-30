@@ -28,7 +28,7 @@ const shipment = pick("การส่ง", {
  *  - การส่ง:
  *    - PO เดียว: การส่งจาก PO ซื้อใบเดียว
  *    - 3 PO: การส่งเดียวจาก PO ซื้อสามใบ แต่ละใบมีใบแจ้งหนี้ Foodiva และ kg ที่ขอ
- *    - Chef House ชั่งแล้ว: ช่องเหลืองกรอกแล้ว; Sliced Weight Lost คงตามที่ Foodiva พิมพ์
+ *    - Chef House ชั่งแล้ว: มีน้ำหนักรับรวมของ Chef House ใต้น้ำหนักส่งรวม; Sliced Weight Lost คงตามที่ Foodiva พิมพ์
  *  - showPurchaseOrders: สิ่งที่ Owner เปิดจากแท็บ PO รมควัน — "PO ซื้อในการส่งนี้" ก่อน
  *    รายการของ Foodiva; ปิดแล้วไม่มีชื่อ PO ซื้อ */
 export const PackingList: StoryObj<{

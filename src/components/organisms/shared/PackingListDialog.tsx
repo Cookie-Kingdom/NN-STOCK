@@ -1,15 +1,10 @@
 "use client";
 
 import { Notice } from "@/components/molecules/Notice";
-import {
-  packingListView,
-  receivedDraft,
-} from "@/components/organisms/shared/receivedBoxes";
 import { Dialog } from "@/components/organisms/shared/Dialog";
 import { DialogBody } from "@/components/organisms/shared/DialogBody";
 import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
-import { AttachmentButton } from "@/components/molecules/AttachmentButton";
-import { PackingListTable } from "@/components/organisms/shared/PackingListTable";
+import { PackingListSummary } from "@/components/organisms/shared/PackingListSummary";
 import { fmt } from "@/lib/format";
 import {
   entries,
@@ -44,7 +39,8 @@ function PurchaseOrderList({ db, lot }: { db: Database; lot: Lot }) {
   );
 }
 
-/** Read-only Packing List of one shipment, with Chef House's yellow cells once weighed in.
+/** Read-only Packing List of one shipment: Foodiva's file and totals, with Chef House's
+ *  received total once weighed in.
  *  `showPurchaseOrders` (Owner only) lists the purchase POs the shipment covers. */
 export function PackingListDialog({
   db,
@@ -59,12 +55,9 @@ export function PackingListDialog({
 }) {
   const lot = db.lots.find((l) => l.id === lotId);
   const list = latestPackingList(db, lotId);
-  const view =
-    list &&
-    packingListView(list, receivedDraft(list, lot?.values.receivedBoxes));
+  const weighed = entries(db, "cmReceive", lotId).length > 0;
   return (
     <Dialog
-      size="wide"
       overline={`อ่านอย่างเดียว · ${lot?.poId ?? ""}`}
       title="Packing List"
       onClose={onClose}
@@ -72,18 +65,11 @@ export function PackingListDialog({
     >
       <DialogBody>
         {showPurchaseOrders && lot && <PurchaseOrderList db={db} lot={lot} />}
-        {view ? (
-          <>
-            {list.values.attachmentStorageKey && (
-              <AttachmentButton
-                action="view"
-                name={list.values.attachment}
-                storageKey={list.values.attachmentStorageKey}
-                label={`ไฟล์ที่ Foodiva แนบ · ${list.values.attachment}`}
-              />
-            )}
-            <PackingListTable header={view.header} boxes={view.boxes} />
-          </>
+        {list ? (
+          <PackingListSummary
+            values={list.values}
+            receivedKg={weighed ? (lot?.values.receivedKg ?? "") : undefined}
+          />
         ) : (
           <Notice>ยังไม่มี Packing List ของการส่งนี้</Notice>
         )}
