@@ -52,9 +52,9 @@ export function BranchWorkspace({ account }: { account: Account }) {
       ws={ws}
     >
       {closed && (
-        <Notice tone="warning">
-          ปิดวันแล้ว · ข้อมูลวันที่ {date} ถูกล็อก แก้ไขไม่ได้ · Owner
-          ปลดล็อกได้จากหน้ารายงาน
+        <Notice>
+          ปิดยอดวันที่ {date} แล้ว · ยังบันทึกเพิ่มหรือแก้ไขได้
+          (มีบันทึกประวัติ)
         </Notice>
       )}
       {tab === "day" && (
@@ -88,7 +88,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             date={date}
             onDate={ws.setDate}
-            closed={closed}
           />
         </>
       )}
@@ -105,7 +104,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             branch={branch}
             date={date}
             onDate={ws.setDate}
-            disabled={closed}
           />
         </>
       )}
@@ -121,7 +119,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             db={db}
             branch={branch}
             date={date}
-            disabled={closed}
             hasLots={!!ws.lots.length}
             open={ws.open}
           />

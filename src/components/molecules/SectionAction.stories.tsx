@@ -9,8 +9,6 @@ type Args = {
   message: string;
   error: string;
   lockedMessage: string;
-  disabled: boolean;
-  disabledLabel: string;
   onCancel: () => void;
   onSave: () => void;
   onStartEdit: (section: "prices" | "materials") => void;
@@ -35,8 +33,7 @@ export default meta;
  *  - `state` กำลังแก้ตารางนี้: "ยกเลิก" + "บันทึกและล็อก"; `message` อยู่ข้างปุ่ม
  *    `error` แทนที่ message เป็นสีแดงและปิดปุ่มบันทึก
  *  - `state` กำลังแก้ตารางอื่น: ปุ่มถูกปิด อ่าน "กำลังแก้ตารางอื่น" (เปิดได้ทีละตาราง)
- *  - `saving`: ระหว่างบันทึก ปุ่มบันทึกหมุนและอ่าน "กำลังบันทึก…"
- *  - `disabled`: ตารางแก้ไม่ได้เลย (ปิดวันแล้ว) ปุ่มอ่าน `disabledLabel` */
+ *  - `saving`: ระหว่างบันทึก ปุ่มบันทึกหมุนและอ่าน "กำลังบันทึก…" */
 export const Default: StoryObj<Args> = {
   argTypes: {
     state: {
@@ -47,8 +44,6 @@ export const Default: StoryObj<Args> = {
     message: { control: "text" },
     error: { control: "text" },
     lockedMessage: { control: "text" },
-    disabled: { control: "boolean" },
-    disabledLabel: { control: "text" },
   },
   args: {
     state: "ล็อกอยู่",
@@ -56,13 +51,11 @@ export const Default: StoryObj<Args> = {
     message: "แก้ราคาแล้วกดบันทึกเพื่อล็อก",
     error: "",
     lockedMessage: "",
-    disabled: false,
-    disabledLabel: "ปิดวันแล้ว แก้ไม่ได้",
     onCancel: fn(),
     onSave: fn(),
     onStartEdit: fn(),
   },
-  render: ({ state, lockedMessage, disabledLabel, ...args }) => (
+  render: ({ state, lockedMessage, ...args }) => (
     <TableSection
       title="ราคาขาย"
       actions={
@@ -71,7 +64,6 @@ export const Default: StoryObj<Args> = {
           section="prices"
           editing={editing[state]}
           lockedMessage={lockedMessage || undefined}
-          disabledLabel={disabledLabel || undefined}
         />
       }
     >

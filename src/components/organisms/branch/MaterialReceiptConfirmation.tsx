@@ -42,13 +42,11 @@ export function MaterialReceiptConfirmation({
   branch,
   date,
   onDate,
-  closed,
 }: {
   db: Database;
   branch: string;
   date: string;
   onDate: (date: string) => void;
-  closed: boolean;
 }) {
   const pending = entries(db, "materialTransfer", undefined, branch).filter(
     (transfer) =>
@@ -226,7 +224,7 @@ export function MaterialReceiptConfirmation({
             >
               <Button
                 variant="table"
-                disabled={closed || saving}
+                disabled={saving}
                 icon={
                   saving && confirming === transfer.id ? <Spinner /> : undefined
                 }
@@ -245,7 +243,7 @@ export function MaterialReceiptConfirmation({
               variant="secondary"
               size="sm"
               className="min-h-10"
-              disabled={closed || !!direct}
+              disabled={!!direct}
               onClick={() => {
                 setMessage("");
                 setDirect({
@@ -415,7 +413,7 @@ export function MaterialReceiptConfirmation({
                 <Button
                   variant="primary"
                   className="flex-1"
-                  disabled={closed || saving}
+                  disabled={saving}
                   icon={
                     saving && confirming === "direct" ? <Spinner /> : undefined
                   }

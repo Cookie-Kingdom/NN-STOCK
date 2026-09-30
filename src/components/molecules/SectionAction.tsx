@@ -28,8 +28,6 @@ export function SectionAction<Section extends string>({
   saveLabel = "บันทึกและล็อก (Save & lock)",
   busyLabel = "กำลังบันทึก…",
   otherLabel = "กำลังแก้ตารางอื่น",
-  disabled = false,
-  disabledLabel,
   editRef,
 }: {
   section: Section;
@@ -50,9 +48,6 @@ export function SectionAction<Section extends string>({
   busyLabel?: string;
   /** Label of the edit button while another table on the page is open. */
   otherLabel?: string;
-  /** This table cannot be edited at all (a closed day); `disabledLabel` says why. */
-  disabled?: boolean;
-  disabledLabel?: string;
   /** The edit button, so a caller can put focus back on it when the table locks. */
   editRef?: Ref<HTMLButtonElement>;
 }) {
@@ -92,14 +87,10 @@ export function SectionAction<Section extends string>({
           ref={editRef}
           size="sm"
           className="border-text-primary text-text-primary"
-          disabled={disabled || editing !== null}
+          disabled={editing !== null}
           onClick={() => onStartEdit(section)}
         >
-          {disabled
-            ? (disabledLabel ?? editLabel)
-            : editing
-              ? otherLabel
-              : editLabel}
+          {editing ? otherLabel : editLabel}
         </Button>
       )}
     </div>

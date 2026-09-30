@@ -16,7 +16,6 @@ export function DailyTaskTable({
   db,
   branch,
   date,
-  disabled,
   hasLots,
   open,
   required,
@@ -28,7 +27,6 @@ export function DailyTaskTable({
   db: Database;
   branch: string;
   date: string;
-  disabled: boolean;
   hasLots: boolean;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
@@ -50,7 +48,7 @@ export function DailyTaskTable({
           <Button
             key={kind}
             variant="table"
-            disabled={disabled || (!hasLots && kind === "sale")}
+            disabled={!hasLots && kind === "sale"}
             onClick={() => open(kind)}
           >
             กรอกข้อมูล
