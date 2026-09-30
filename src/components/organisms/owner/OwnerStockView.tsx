@@ -242,7 +242,7 @@ export function OwnerStockView({
           cookedRiceStock(db, branchName),
         ]),
       ),
-      detail: "ข้าวสุกคงเหลือ · มีนบุรีเก็บไว้อุ่นขายวันถัดไป",
+      detail: "ข้าวสุกของวันนี้ · ไม่ยกไปวันถัดไป เหลือปลายวันเป็นของเสีย",
     },
     {
       genre: "วัตถุดิบ",

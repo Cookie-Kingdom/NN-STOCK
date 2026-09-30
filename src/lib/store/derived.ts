@@ -1,5 +1,5 @@
 /** Figures recomputed from the entry log (stock, cost, yield, invoices); nothing here is stored. */
-import { fmt } from "../format";
+import { fmt, today } from "../format";
 import {
   canLink,
   isEditOverlay,
@@ -533,10 +533,6 @@ export function pendingReceiveKg(
 }
 /** The two ways a branch gets its sticky rice, picked on every `ricePurchase` (B2). */
 export const riceSources = ["นึ่งเอง (ซื้อข้าวดิบ)", "ซื้อข้าวสุกจากข้างนอก"];
-/** Minburi never cooks rice: it only buys cooked rice. Only Saladaeng may self-cook. */
-export const cooksRice = (branch: string) => branch !== "มีนบุรี";
-export const noCookMessage =
-  "สาขามีนบุรีไม่หุงข้าวเหนียว ซื้อข้าวสุกอย่างเดียว";
 /** Rice records a branch owes for `date`, from what it did rather than which branch it is:
  *  every day ends with a cooked-rice confirmation (`riceCarry`); a day that issued raw rice
  *  for cooking also owes the cook itself (`rice`). closeDay and the Owner's daily status
@@ -621,20 +617,24 @@ export function issuedRawRiceStock(db: Database, branch: string) {
     sum(entries(db, "rice", undefined, branch), "rawUsedKg")
   );
 }
-/** Leftover cooked rice marked ไม่นำกลับมาใช้ is thrown out: rice waste. Read from
- *  `reheat`, not a stamped key, so entries saved before this rule count too. */
-export const riceCarryWasteKg = (items: Entry[]) =>
-  sum(
-    items.filter((entry) => entry.values.reheat === "ไม่นำกลับมาใช้"),
-    "leftoverKg",
-  );
-export function cookedRiceStock(db: Database, branch: string) {
+/** Cooked rice is never carried over: whatever is left at the end of the day is waste. */
+export const riceCarryWasteKg = (items: Entry[]) => sum(items, "leftoverKg");
+/** Cooked sticky rice left at `branch` on `date`. Rice is cooked fresh every day, so only
+ *  that day counts: bought cooked + cooked − served (sales and influencer boxes) − wasted. */
+export function cookedRiceStock(
+  db: Database,
+  branch: string,
+  date: string = today(),
+) {
   return (
-    sum(entries(db, "supplyPurchase", undefined, branch), "cookedRiceKg") +
-    sum(entries(db, "ricePurchase", undefined, branch), "cookedRiceKg") +
-    sum(entries(db, "rice", undefined, branch), "riceKg") -
-    riceCarryWasteKg(entries(db, "riceCarry", undefined, branch)) -
-    offShelf(db, undefined, branch).reduce(
+    sum(
+      entries(db, "supplyPurchase", undefined, branch, date),
+      "cookedRiceKg",
+    ) +
+    sum(entries(db, "ricePurchase", undefined, branch, date), "cookedRiceKg") +
+    sum(entries(db, "rice", undefined, branch, date), "riceKg") -
+    riceCarryWasteKg(entries(db, "riceCarry", undefined, branch, date)) -
+    offShelf(db, undefined, branch, date).reduce(
       (total, entry) =>
         total +
         num(entry.values, "riceServings") * 0.2 +

@@ -319,8 +319,7 @@ function roleplay(endDate: string, dayCount: number): Database {
         lotId,
       );
       run("branch", "riceCarry", {
-        leftoverKg: cookedRiceStock(db, branch).toFixed(3),
-        reheat: "เก็บไว้อุ่นวันถัดไป",
+        leftoverKg: cookedRiceStock(db, branch, currentDate).toFixed(3),
       });
       run("branch", "closeDay", { confirm: "ผู้ดูแลทดสอบ" });
     }

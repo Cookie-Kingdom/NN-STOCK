@@ -564,7 +564,7 @@ export function OwnerDashboard({
                 {branchName === "มีนบุรี" ? "ข้าวสุก" : "ข้าวดิบ"}{" "}
                 {fmt(
                   branchName === "มีนบุรี"
-                    ? cookedRiceStock(db, branchName)
+                    ? cookedRiceStock(db, branchName, date)
                     : rawRiceStock(db, branchName),
                 )}{" "}
                 กก.

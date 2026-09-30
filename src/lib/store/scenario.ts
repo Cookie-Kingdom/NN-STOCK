@@ -584,8 +584,7 @@ export function ownerBranchScenario(endDate: string): Database {
     );
   const carryRice = (branch: string, date: string) =>
     branchRun(branch, date)("riceCarry", {
-      leftoverKg: cookedRiceStock(db, branch).toFixed(3),
-      reheat: "เก็บไว้อุ่นวันถัดไป",
+      leftoverKg: cookedRiceStock(db, branch, date).toFixed(3),
     });
   const sale = (
     branch: string,

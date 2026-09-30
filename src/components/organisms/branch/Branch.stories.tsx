@@ -20,7 +20,6 @@ import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import {
   closeDayChecklist,
-  cooksRice,
   isClosed,
   requiredRiceKinds,
   visibleLots,
@@ -191,16 +190,8 @@ export const RiceTasks: Story = {
   },
   render: ({ branch, db, disabled, hasLots }) => (
     <DailyTaskTable
-      title={
-        cooksRice(branch)
-          ? "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
-          : "ข้าวเหนียว · ซื้อข้าวสุกจากข้างนอก"
-      }
-      kinds={
-        cooksRice(branch)
-          ? ["ricePurchase", "riceIssue", "rice", "riceCarry"]
-          : ["ricePurchase", "riceCarry"]
-      }
+      title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
+      kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
       required={requiredRiceKinds(db, branch, day)}
       db={db}
       branch={branch}

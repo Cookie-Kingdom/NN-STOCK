@@ -35,7 +35,6 @@ import {
   chiliStock,
   closeDayChecklist,
   cookedRiceStock,
-  cooksRice,
   decimal,
   drawnKg,
   entries,
@@ -46,7 +45,6 @@ import {
   materialPar,
   materialUnitPrice,
   n,
-  noCookMessage,
   ownerChiliStock,
   ownerMaterialStock,
   ownerWasteOutstanding,
@@ -83,7 +81,6 @@ function stockLevels(db: Database) {
     }
     levels.set(`ข้าวเหนียวดิบ สาขา${b}#`, rawRiceStock(db, b));
     levels.set(`ข้าวเหนียวดิบที่เบิก สาขา${b}#`, issuedRawRiceStock(db, b));
-    levels.set(`ข้าวเหนียวสุก สาขา${b}#`, cookedRiceStock(db, b));
     levels.set(`น้ำพริก สาขา${b}#`, chiliStock(db, b));
   }
   for (const lot of db.lots) {
@@ -1044,8 +1041,7 @@ function record(
       required(v, "reason", "เหตุผลข้าม FIFO");
   } else if (kind === "ricePurchase") {
     // Every purchase says which way this round goes (B2): self-cook buys raw rice,
-    // bought-cooked buys cooked rice. The other side is zeroed. Minburi only buys cooked.
-    if (!cooksRice(branch)) v.riceSource = riceSources[1];
+    // bought-cooked buys cooked rice. The other side is zeroed.
     assert(riceSources.includes(v.riceSource), "เลือกที่มาของข้าวเหนียวรอบนี้");
     const selfCook = v.riceSource === riceSources[0];
     for (const key of selfCook
@@ -1080,7 +1076,6 @@ function record(
     required(v, "supplier", "ผู้จำหน่ายน้ำพริก");
     v.totalCost = v.chiliCost;
   } else if (kind === "riceIssue") {
-    assert(cooksRice(branch), noCookMessage);
     positive(v, "rawRiceIssuedKg", "ข้าวเหนียวดิบที่เบิก");
     withinStock(
       n(v, "rawRiceIssuedKg"),
@@ -1102,7 +1097,6 @@ function record(
     );
     required(v, "receiver", "ผู้รับของ");
   } else if (kind === "rice") {
-    assert(cooksRice(branch), noCookMessage);
     // Cooked rice may weigh more than the raw rice it came from (FB-10): no ratio check.
     positive(v, "rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง");
     positive(v, "riceKg", "ข้าวเหนียวสุกที่ได้");
@@ -1112,9 +1106,8 @@ function record(
       "ข้าวเหนียวดิบที่เบิกไว้ไม่พอ กรุณาบันทึกเบิกก่อนหุง",
     );
   } else if (kind === "riceCarry") {
-    positive(v, "leftoverKg", "ข้าวเหนียวสุกเหลือปลายวัน", true);
-    variance(n(v, "leftoverKg"), cookedRiceStock(db, branch), v);
-    required(v, "reheat", "การจัดการวันถัดไป");
+    // Cooked rice is never carried over: the day-end leftover is recorded as waste.
+    positive(v, "leftoverKg", "ข้าวเหนียวสุกเหลือทิ้งปลายวัน", true);
   } else if (kind === "materials") {
     for (let i = 0; i < materials.length; i++) {
       positive(v, "material" + i, materials[i], true);
@@ -1258,7 +1251,7 @@ function record(
     );
     withinStock(
       n(v, "riceServings") * 0.2 + n(v, "riceWasteKg"),
-      cookedRiceStock(db, branch),
+      cookedRiceStock(db, branch, date),
       "ข้าวเหนียวไม่พอ",
       "กก.",
       "มีข้าวเหนียวสุก",
@@ -1328,7 +1321,7 @@ function record(
     v.chiliSold = String(n(v, "chiliAddons"));
     withinStock(
       n(v, "riceServings") * 0.2,
-      cookedRiceStock(db, branch),
+      cookedRiceStock(db, branch, date),
       "ข้าวเหนียวไม่พอ",
       "กก.",
       "มีข้าวเหนียวสุก",

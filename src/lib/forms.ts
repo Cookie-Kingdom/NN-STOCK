@@ -439,15 +439,9 @@ export const forms: Record<string, Field[]> = {
   riceCarry: [
     number(
       "leftoverKg",
-      "ข้าวเหนียวสุกเหลือปลายวัน (Cooked rice leftover) · กก.",
+      "ข้าวเหนียวสุกเหลือทิ้งปลายวัน (Cooked rice wasted at day end) · กก.",
       true,
     ),
-    {
-      key: "reheat",
-      label: "การจัดการวันถัดไป (Next-day handling)",
-      type: "select",
-      options: ["เก็บไว้อุ่นวันถัดไป", "ไม่นำกลับมาใช้"],
-    },
     reason,
     note,
   ],

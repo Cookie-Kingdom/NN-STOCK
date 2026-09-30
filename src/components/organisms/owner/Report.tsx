@@ -367,20 +367,13 @@ export function Report({
       <DataTable
         className="m-0"
         title="ข้าวเหนียวสุกคงเหลือปลายวัน"
-        columns={[
-          "วันที่",
-          "สาขา",
-          "คงเหลือ (กก.)",
-          "การจัดการวันถัดไป",
-          "เหตุผลส่วนต่าง",
-        ]}
+        columns={["วันที่", "สาขา", "เหลือทิ้ง (กก.)", "เหตุผลส่วนต่าง"]}
         rows={entries(db, "riceCarry")
           .filter(inRange)
           .map((entry) => [
             entry.date,
             entry.branch,
             fmt(n(entry.values, "leftoverKg")),
-            entry.values.reheat,
             entry.values.reason || "—",
           ])}
       />
