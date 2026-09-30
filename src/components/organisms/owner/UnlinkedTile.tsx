@@ -24,13 +24,7 @@ export function UnlinkedTile({ db }: { db: Database }) {
         ? `${meat.map(([branch, kg]) => `${branch} ${fmt(kg)} กก.`).join(" · ")} · รอผูก ${summary.meatReceives} รายการรับ`
         : "ทุกสาขาผูก Lot ครบ",
     },
-    {
-      label: "รับวัสดุ · ไม่มีใบส่ง",
-      value: `${summary.materialConfirms} รายการ`,
-      detail: summary.materialConfirms
-        ? "สาขาเปิดรายการแล้วกด “ผูกกับ…”"
-        : "ผูกใบส่งครบ",
-    },
+    // A branch's own material receipt needs no transfer (MAT-01): not listed here.
     {
       label: "ชุดรมควัน · ไม่มี PO รมควัน",
       value: `${summary.batchesWithoutSmokeOrder.length} ชุด`,
@@ -44,7 +38,6 @@ export function UnlinkedTile({ db }: { db: Database }) {
   ];
   const open =
     summary.meatReceives > 0 ||
-    summary.materialConfirms > 0 ||
     summary.batchesWithoutSmokeOrder.length > 0 ||
     summary.posWithoutInvoice.length > 0;
   return (
@@ -62,7 +55,7 @@ export function UnlinkedTile({ db }: { db: Database }) {
             : "ทุกรายการผูกกับต้นทางแล้ว"}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+      <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
         {items.map((item) => (
           <div key={item.label} className="grid content-start gap-1">
             <Stat label={item.label} value={item.value} />

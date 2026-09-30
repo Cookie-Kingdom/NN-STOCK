@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
@@ -16,7 +15,6 @@ import {
   titles,
   type Database,
   type Lot,
-  type EntryKind,
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 
@@ -26,18 +24,16 @@ const progressLabel = (db: Database, lotId: string) =>
     .map((k) => titles[k])
     .at(-1) ?? "—";
 
-/** `owner`: every stock point with allocate; `chef`: Chef House's production stock (the Owner's
+/** `owner`: every stock point (branches record their own receipts, BR-01); `chef`: Chef House's production stock (the Owner's
  *  `work` tab). */
 export function MeatStockTable({
   db,
   variant,
   lots,
-  open,
 }: {
   db: Database;
   variant: "owner" | "chef";
   lots: Lot[];
-  open: (kind: EntryKind, lotId?: string) => void;
 }) {
   const lotIds = lots.map((lot) => lot.id);
   const branchCell = (lotId: string, branch: string) => {
@@ -49,14 +45,7 @@ export function MeatStockTable({
     return (
       <DataTable
         title="สต๊อกเนื้อทุกจุด (Meat inventory)"
-        columns={[
-          "Lot",
-          "ค้างที่ Foodiva",
-          "ส่วนกลาง",
-          ...branches,
-          "สถานะ",
-          "การทำงาน",
-        ]}
+        columns={["Lot", "ค้างที่ Foodiva", "ส่วนกลาง", ...branches, "สถานะ"]}
         rowKeys={[...lotIds, ...(unlinked ? [""] : [])]}
         rows={[
           ...lots.map((lot) => [
@@ -68,14 +57,6 @@ export function MeatStockTable({
             `${fmt(centralStock(db, lot.id))} กก.`,
             ...branches.map((branch) => branchCell(lot.id, branch)),
             progressLabel(db, lot.id),
-            // BR-01: always open; over central stock is a warning in the form.
-            <Button
-              key={lot.id}
-              variant="table"
-              onClick={() => open("allocate", lot.id)}
-            >
-              จัดสรร
-            </Button>,
           ]),
           // DASH-06: branch meat in the "ไม่ระบุ Lot" bucket is stock too.
           ...(unlinked
@@ -86,7 +67,6 @@ export function MeatStockTable({
                   "—",
                   ...branches.map((branch) => branchCell("", branch)),
                   "ยังไม่ผูก Lot",
-                  "—",
                 ],
               ]
             : []),

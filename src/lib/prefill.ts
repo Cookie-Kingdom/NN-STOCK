@@ -1,6 +1,5 @@
 import { currentTimeSlot, forms, nextTimeSlot } from "./forms.ts";
 import {
-  allocationOutstanding,
   balance,
   branches,
   chiliStock,
@@ -541,25 +540,8 @@ export function prefillValues(
       : none();
   }
   if (!branch) return none();
-  if (kind === "receive") {
-    const open = entries(db, "allocate", lot.id, branch).filter(
-      (e) => allocationOutstanding(db, e) > 0,
-    );
-    const picked =
-      open.find((e) => e.id === current?.allocation) ||
-      (!current?.allocation && open.length === 1 ? open[0] : undefined);
-    return merge(
-      picked && !current?.allocation
-        ? from({ allocation: picked.id }, { label: "ใบจัดสรรเดียวที่ค้างรับ" })
-        : none(),
-      picked
-        ? positive("kg", allocationOutstanding(db, picked), {
-            label: "ตามยอดค้างรับ",
-            expected: true,
-          })
-        : none(),
-    );
-  }
+  // BR-02: the branch types what it received; there is no allocation to fill it from.
+  if (kind === "receive") return none();
   if (kind === "thaw") {
     const frozen = balance(db, lot.id, branch).frozen;
     const previous = lastValues(db, "thaw", {

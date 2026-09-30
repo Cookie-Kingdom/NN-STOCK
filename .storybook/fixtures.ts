@@ -209,7 +209,7 @@ export const multiPoPackedDb: Database = (() => {
 /** Batch smoked, waiting for Chef House to close it. */
 export const smokedDb: Database = smoked().db;
 
-/** Batch with 35 kg in central stock, ready to allocate. */
+/** Batch with 35 kg in central stock, ready for the branches to receive. */
 export const centralDb: Database = ready().db;
 
 /** Purchase PO with Foodiva's 30 kg Invoice in, no smoke PO drawing on it yet. */
@@ -365,17 +365,6 @@ export const returnGapDb: Database = mutate(
   day,
 );
 
-/** Batch with 17.5 kg allocated to ศาลาแดง, waiting for the branch to receive. */
-export const allocatedDb: Database = (() => {
-  const s = ready();
-  s.run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    kg: "17.5",
-    deliveryDate: day,
-  });
-  return s.db;
-})();
-
 /** A closed run whose smoking invoice the Owner sent back. */
 export const rejectedInvoiceDb: Database = (() => {
   const s = closed();
@@ -476,16 +465,10 @@ export const foodivaTasksDb: Database = (() => {
   return s.db;
 })();
 
-/** ศาลาแดง with work waiting at its bell: 17.5 kg allocated but not received, and 60
- *  units of materials[0] sent but not confirmed. The day itself is still empty, so the
- *  close line lists what it is missing. */
+/** ศาลาแดง with work waiting at its bell: 60 units of materials[0] sent but not
+ *  confirmed. The day itself is still empty, so the close line lists what it is missing. */
 export const branchTasksDb: Database = (() => {
   const s = ready();
-  s.run("owner", "allocate", {
-    branch: "ศาลาแดง",
-    kg: "17.5",
-    deliveryDate: day,
-  });
   s.run("owner", "materialReceive", {
     purchaseDate: day,
     material: materials[0],
@@ -673,15 +656,12 @@ export const editDecidedDb: Database = branchEdit(
   "เลือกการจัดการผิด",
 );
 
-/** A lot at central stock with history for the purchase, transfer and allocation
- *  prefills: 10 of 35 kg allocated ศาลาแดง 6 / มีนบุรี 4 (25 left), a purchase of
- *  materials[0] (200 × ฿3 from ร้านวัสดุ), 60 of it sent to คุณนิด at ศาลาแดง (not
+/** A lot at central stock (35 kg) with history for the purchase and transfer
+ *  prefills: a purchase of materials[0] (200 × ฿3 from ร้านวัสดุ), 60 of it sent to คุณนิด at ศาลาแดง (not
  *  confirmed yet, so the branch is still 100 short of its par) and น้ำพริกหลอด bought
  *  from ร้านน้ำพริกแม่ศรี. */
 export const prefillHistoryDb: Database = (() => {
   const s = ready();
-  s.run("owner", "allocate", { branch: "ศาลาแดง", kg: "6", deliveryDate: day });
-  s.run("owner", "allocate", { branch: "มีนบุรี", kg: "4", deliveryDate: day });
   s.run("owner", "materialReceive", {
     purchaseDate: day,
     material: materials[0],

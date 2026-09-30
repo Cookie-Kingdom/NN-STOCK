@@ -89,7 +89,7 @@ const lotColumns = [
   "เลขที่การส่ง",
   "ขั้นตอน",
   "ผลผลิต",
-  "รอจัดสรร (Foodiva)",
+  "รอสาขารับ (Foodiva)",
   "ศาลาแดง",
   "มีนบุรี",
 ];
@@ -574,10 +574,10 @@ export function OwnerDashboard({
           ))}
           <div className="mt-1 grid gap-1 rounded-lg bg-bg p-4 text-body-sm text-text-secondary">
             <strong className="text-body text-text-primary">
-              รอจัดสรรที่ Foodiva
+              รอสาขารับที่ Foodiva
             </strong>
             <span>
-              เนื้อพร้อมจัดสรร{" "}
+              เนื้อพร้อมให้สาขารับ{" "}
               {fmt(
                 db.lots.reduce(
                   (total, lot) => total + Math.max(0, centralStock(db, lot.id)),

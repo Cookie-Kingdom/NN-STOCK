@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
-  allocatedDb,
   branchTasksDb,
   centralDb,
   closeReadyDb,
@@ -53,7 +52,6 @@ const legacyLogoDb = {
 const stockState = pick("สถานะ", {
   ตัวอย่าง: db,
   "Waste รอรับ": ownerReservedDb,
-  จัดสรรแล้ว: allocatedDb,
   "ไม่ระบุ Lot": unlinkedDb,
 });
 const linkState = pick("สถานะ", {
@@ -68,7 +66,7 @@ const traceState = pick("สถานะ", {
 });
 const centralState = pick("สถานะ", {
   ตัวอย่าง: db,
-  พร้อมจัดสรร: centralDb,
+  สต๊อกกลางพร้อม: centralDb,
   ไม่มีรถกลับ: freeOrderDb,
 });
 const dailyState = pick("สถานะ", {

@@ -174,7 +174,7 @@ export function OwnerStockView({
             ),
           },
           tips: {
-            Foodiva: "รับเข้าสต๊อกกลางแล้ว รอจัดสรร",
+            Foodiva: "รับเข้าสต๊อกกลางแล้ว รอสาขารับ",
             ...Object.fromEntries(
               branchStock.map(({ branchName, stock }) => [
                 branchName,
@@ -182,7 +182,7 @@ export function OwnerStockView({
               ]),
             ),
           },
-          detail: `${fmt(central)} กก. พร้อมจัดสรร · สาขา = แช่แข็ง + ชิล/ละลายแล้ว`,
+          detail: `${fmt(central)} กก. พร้อมให้สาขารับ · สาขา = แช่แข็ง + ชิล/ละลายแล้ว`,
           meatType: "เนื้อรมควัน",
         },
       ];

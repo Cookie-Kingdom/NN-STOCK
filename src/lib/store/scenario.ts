@@ -12,8 +12,8 @@
  *  Chef · SH-0006 closed, no Chef invoice (and waits the return truck) · SH-0007 Chef
  *  invoice to review · SH-0008 invoice to pay · SH-0009 invoice sent back to Chef ·
  *  SH-0010 returned, Foodiva has not weighed it in · SH-0011 Foodiva received, waits
- *  รับเข้าสต๊อกกลาง · SH-0012 in stock, nothing allocated · SH-0013 partly allocated
- *  (มีนบุรี, part received) · SH-0014 all allocated to ศาลาแดง, not received.
+ *  รับเข้าสต๊อกกลาง · SH-0012 in stock, no branch received · SH-0013 part received
+ *  (มีนบุรี) · SH-0014 all in central, not received.
  *
  *  PO-0001 feeds every batch (Owner waste pick-up partly done) · PO-0002 waits
  *  Foodiva's invoice · PO-0003 invoiced, unpaid, waste not picked up · PO-0004 paid, no
@@ -432,18 +432,6 @@ export function ownerBranchScenario(endDate: string): Database {
     [d[0], d[0], d[0]],
     { kg: 60 },
   );
-  const salaAllocation = owner(
-    "allocate",
-    { branch: SALA, deliveryDate: d[0], kg: "30" },
-    history,
-    d[0],
-  ).id;
-  const minAllocation = owner(
-    "allocate",
-    { branch: MIN, deliveryDate: d[0], kg: "24" },
-    history,
-    d[0],
-  ).id;
   shipment("UAT SH-0002 · รอ Foodiva ทำใบขนส่ง", "request", [d[4], d[4], d[4]]);
   shipment(
     "UAT SH-0003 · Foodiva เปิดชุด Packing List พร้อม รอ Owner ออก PO รมควัน",
@@ -492,33 +480,21 @@ export function ownerBranchScenario(endDate: string): Database {
     "foodivaReceive",
     [d[1], d[2], d[4]],
   );
-  shipment("UAT SH-0012 · อยู่ในสต๊อก ยังไม่จัดสรร", "central", [
+  shipment("UAT SH-0012 · อยู่ในสต๊อก สาขายังไม่รับ", "central", [
     d[1],
     d[2],
     d[3],
   ]);
-  const partial = shipment(
-    "UAT SH-0013 · จัดสรรไปมีนบุรีบางส่วน สาขารับไปบางส่วน",
-    "central",
-    [d[1], d[2], d[3]],
-  );
-  const unreceived = shipment(
-    "UAT SH-0014 · จัดสรรไปศาลาแดงหมดแล้ว สาขายังไม่รับ",
-    "central",
-    [d[1], d[2], d[3]],
-  );
-  const minPartial = owner(
-    "allocate",
-    { branch: MIN, deliveryDate: d[4], kg: "15" },
-    partial,
-    d[4],
-  ).id;
-  owner(
-    "allocate",
-    { branch: SALA, deliveryDate: d[4], kg: "45" },
-    unreceived,
-    d[4],
-  );
+  const partial = shipment("UAT SH-0013 · มีนบุรีรับไปบางส่วน", "central", [
+    d[1],
+    d[2],
+    d[3],
+  ]);
+  shipment("UAT SH-0014 · อยู่ส่วนกลางทั้งหมด สาขายังไม่รับ", "central", [
+    d[1],
+    d[2],
+    d[3],
+  ]);
 
   // ── Branch days. ──
   const transfer = (
@@ -668,16 +644,8 @@ export function ownerBranchScenario(endDate: string): Database {
     rawRiceKg: "20",
     rawRiceCost: "1100",
   });
-  branchRun(SALA, d[0])(
-    "receive",
-    { kg: "30", allocation: salaAllocation, complete: "1" },
-    history,
-  );
-  branchRun(MIN, d[0])(
-    "receive",
-    { kg: "24", allocation: minAllocation, complete: "1" },
-    history,
-  );
+  branchRun(SALA, d[0])("receive", { kg: "30" }, history);
+  branchRun(MIN, d[0])("receive", { kg: "24" }, history);
   salaDay(d[0], true);
   minDay(d[0], true);
   const minSaleD0 = entries(db, "sale", undefined, MIN, d[0]).at(-1)!;
@@ -740,7 +708,7 @@ export function ownerBranchScenario(endDate: string): Database {
     receiver: "ผู้ดูแลมีนบุรี",
     reason: "UAT ของมาไม่ครบ ขาด 2 แผ่น",
   });
-  min("receive", { kg: "5", allocation: minPartial }, partial);
+  min("receive", { kg: "5" }, partial);
   minDay(d[4], false);
 
   // ── Edit requests: one waiting, one approved, one rejected. ──

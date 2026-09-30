@@ -377,13 +377,15 @@ export function EntryDetails({
               ผูกแล้ว
             </Badge>
           )}
-          {linkableKinds.includes(e.kind) && !voided && !isLinked(current) && (
-            <Badge tone="warning" className="ml-2">
-              {e.kind === "materialConfirm"
-                ? "ไม่มีใบส่งวัสดุ"
-                : "ยังไม่ผูก Lot"}
-            </Badge>
-          )}
+          {/* A material receipt needs no transfer (MAT-01); unlinked meat is flagged. */}
+          {linkableKinds.includes(e.kind) &&
+            e.kind !== "materialConfirm" &&
+            !voided &&
+            !isLinked(current) && (
+              <Badge tone="warning" className="ml-2">
+                ยังไม่ผูก Lot
+              </Badge>
+            )}
           {!isEdit && missing.length > 0 && (
             <Badge tone="warning" className="ml-2">
               {missingText} {missing.length} ช่อง

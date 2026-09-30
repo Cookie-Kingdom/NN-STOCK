@@ -5,7 +5,6 @@ import {
   day,
   demoDb,
   nextDay,
-  open,
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
@@ -59,7 +58,6 @@ export const MeatStock: StoryObj<{
       db={db}
       variant={variant}
       lots={shipments(db)}
-      open={open}
     />
   ),
 };
