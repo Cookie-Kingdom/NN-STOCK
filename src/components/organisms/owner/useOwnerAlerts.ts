@@ -211,7 +211,7 @@ export function useOwnerAlerts(db: Database) {
       ? [
           {
             title: `Foodiva รับเนื้อรมควันแล้ว ${centralReceiveCount} Lot`,
-            detail: "รับเนื้อเข้าสต๊อกกลางก่อนจัดสรรไปสาขา",
+            detail: "รับเนื้อเข้าสต๊อกกลางก่อนให้สาขารับ",
             tab: "central-receive" as Tab,
           },
         ]

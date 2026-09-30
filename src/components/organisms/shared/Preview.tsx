@@ -179,7 +179,8 @@ export function Preview({
     const expected = n(v, "boxes") * n(db.config, "packKg");
     /* Giveaways saved with this sale leave the same shelf, so they count in every
      * "after" row. Their meat is costed like mutate does: boxes × packKg × lot ฿/kg. */
-    const perKg = lotCost(db, lot).perKg || 0;
+    const cost = lotCost(db, lot);
+    const perKg = cost.perKg || 0;
     const sum = (key: string) => giveaways.reduce((s, g) => s + n(g, key), 0);
     const giftKg = sum("boxes") * n(db.config, "packKg");
     const giftCost = giftKg * perKg + sum("shippingFee");
@@ -237,6 +238,10 @@ export function Preview({
                 ]
               : []),
             ["รวมต้นทุนรายการนี้", `฿${fmt(saleCost + giftCost)}`],
+            /* RET-07: without a purchase-PO match the meat is left out of perKg. */
+            ...(cost.meatMatched
+              ? []
+              : [["ต้นทุนเนื้อ", "ยังไม่จับคู่ PO ซื้อ"]]),
           ] as [string, ReactNode][])
         : []),
     ];
