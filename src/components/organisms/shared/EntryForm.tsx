@@ -52,7 +52,6 @@ import {
   pendingReceiveKg,
   riceSources,
   shipments,
-  cooksRice,
   roleName,
   saleWithInfluencers,
   smokingInvoiceRejection,
@@ -518,8 +517,8 @@ export function EntryForm({
     latestSmokingInvoice && smokingInvoiceRejection(db, latestSmokingInvoice);
   const reference =
     lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
-  // Minburi only buys cooked rice: no source picker, always the bought-cooked side.
-  const riceSource = cooksRice(branch) ? values.riceSource : riceSources[1];
+  const riceSource = values.riceSource;
+  const cookedRice = cookedRiceStock(db, branch, date);
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
     // SVC-01: Chef House types the billed kg only while the batch has no smoke PO.
@@ -527,9 +526,7 @@ export function EntryForm({
       return !!lot && !entries(db, "smokeOrder", lot.id).length;
     // ricePurchase follows the round's choice, not the branch (B2); it starts on the
     // branch's last choice.
-    if (kind === "ricePurchase" && field.key === "riceSource")
-      return cooksRice(branch);
-    if (kind === "ricePurchase")
+    if (kind === "ricePurchase" && field.key !== "riceSource")
       return riceSource === riceSources[0]
         ? !["cookedRiceKg", "cookedRiceCost"].includes(field.key)
         : riceSource === riceSources[1]
@@ -850,19 +847,12 @@ export function EntryForm({
             )}
             {kind === "ricePurchase" && riceSource === riceSources[1] && (
               <Notice>
-                ข้าวเหนียวสุกคงเหลือ {fmt(cookedRiceStock(db, branch))} กก. ·
+                ข้าวเหนียวสุกวันนี้ {fmt(cookedRice)} กก. ·
                 ควรซื้อเพิ่มอย่างน้อย{" "}
-                {fmt(
-                  Math.max(
-                    0,
-                    n(db.config, "cookedRicePar") - cookedRiceStock(db, branch),
-                  ),
-                )}{" "}
+                {fmt(Math.max(0, n(db.config, "cookedRicePar") - cookedRice))}{" "}
                 กก. เพื่อให้มีข้าวสุกไม่น้อยกว่า{" "}
-                {fmt(n(db.config, "cookedRicePar"))} กก.
-                {cookedRiceStock(db, branch) <= 0.001
-                  ? " · วันแรกปกติซื้อประมาณ 31–33 กก."
-                  : " · ระบบหักของเหลือที่นำกลับมาอุ่นแล้ว จึงซื้อวันถัดไปน้อยลงได้"}
+                {fmt(n(db.config, "cookedRicePar"))} กก. ·
+                ข้าวสุกไม่ยกไปวันถัดไป เหลือปลายวันนับเป็นของเสีย
               </Notice>
             )}
             <FormGrid>
@@ -936,6 +926,7 @@ export function EntryForm({
                 lot={lot}
                 kind={kind}
                 v={values}
+                date={date}
                 giveaways={
                   kind === "sale" ? giveaways.map((g) => g.values) : undefined
                 }

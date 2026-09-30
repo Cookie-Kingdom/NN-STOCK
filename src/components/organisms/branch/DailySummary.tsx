@@ -44,31 +44,27 @@ export function DailySummary({
           ),
           "กก.",
         ],
-        ...(branch === "ศาลาแดง"
-          ? [
-              ["ข้าวเหนียวดิบคงเหลือ", fmt(rawRiceStock(db, branch)), "กก."],
-              [
-                "ข้าวเหนียวดิบที่เบิกแล้วยังไม่หุง",
-                fmt(issuedRawRiceStock(db, branch)),
-                "กก.",
-              ],
-            ]
-          : []),
-        ["ข้าวเหนียวสุกคงเหลือ", fmt(cookedRiceStock(db, branch)), "กก."],
-        ...(branch === "มีนบุรี"
-          ? [
-              [
-                "ข้าวเหนียวสุกที่ควรซื้อเพิ่ม",
-                fmt(
-                  Math.max(
-                    0,
-                    n(db.config, "cookedRicePar") - cookedRiceStock(db, branch),
-                  ),
-                ),
-                "กก.",
-              ],
-            ]
-          : []),
+        ["ข้าวเหนียวดิบคงเหลือ", fmt(rawRiceStock(db, branch)), "กก."],
+        [
+          "ข้าวเหนียวดิบที่เบิกแล้วยังไม่หุง",
+          fmt(issuedRawRiceStock(db, branch)),
+          "กก.",
+        ],
+        [
+          "ข้าวเหนียวสุกคงเหลือวันนี้",
+          fmt(cookedRiceStock(db, branch, date)),
+          "กก.",
+        ],
+        [
+          "ข้าวเหนียวสุกที่ควรซื้อเพิ่ม",
+          fmt(
+            Math.max(
+              0,
+              n(db.config, "cookedRicePar") - cookedRiceStock(db, branch, date),
+            ),
+          ),
+          "กก.",
+        ],
         ["น้ำพริกที่ Owner จัดสรร", String(chiliAllocated(db, branch)), "หลอด"],
         ["น้ำพริกคงเหลือหลังหักยอดขาย", String(chiliStock(db, branch)), "หลอด"],
         [

@@ -52,6 +52,7 @@ export function Preview({
   kind,
   v,
   giveaways = [],
+  date,
 }: {
   db: Database;
   branch: string;
@@ -60,6 +61,8 @@ export function Preview({
   v: Values;
   /** Influencer blocks entered on the sale form, saved with the sale. */
   giveaways?: Values[];
+  /** The workspace date: cooked rice is counted per day. */
+  date?: string;
 }) {
   let rows: [string, ReactNode][] = [];
   if (kind === "purchase")
@@ -239,18 +242,14 @@ export function Preview({
     ];
   }
   if (kind === "riceCarry") {
-    const discard = v.reheat === "ไม่นำกลับมาใช้";
-    const stock = cookedRiceStock(db, branch);
+    // Cooked rice is never carried over: the whole leftover is waste.
     rows = [
-      ["ข้าวเหนียวสุกในระบบ", `${fmt(stock)} กก.`],
       [
-        "Waste ข้าวเหนียวสุก (ไม่นำกลับมาใช้)",
-        `${fmt(discard ? n(v, "leftoverKg") : 0)} กก.`,
+        "ข้าวเหนียวสุกในระบบวันนี้",
+        `${fmt(cookedRiceStock(db, branch, date))} กก.`,
       ],
-      [
-        "ข้าวเหนียวสุกยกไปวันถัดไป",
-        `${fmt(discard ? stock - n(v, "leftoverKg") : stock)} กก.`,
-      ],
+      ["Waste ข้าวเหนียวสุก (ทิ้งปลายวัน)", `${fmt(n(v, "leftoverKg"))} กก.`],
+      ["ข้าวเหนียวสุกยกไปวันถัดไป", "0.00 กก."],
     ];
   }
   if (kind === "riceIssue" || kind === "chiliIssue") {

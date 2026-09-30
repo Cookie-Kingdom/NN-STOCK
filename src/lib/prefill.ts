@@ -18,7 +18,6 @@ import {
   rawRiceStock,
   readyForChefHouse,
   riceSources,
-  cooksRice,
   smokeServiceRate,
   type Database,
   type Entry,
@@ -236,14 +235,13 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
   if (!branch) return none();
   if (kind === "ricePurchase") {
     const carried = carryLast(db, "ricePurchase", ["riceSource"], { branch });
-    const source = !cooksRice(branch)
-      ? riceSources[1]
-      : current?.riceSource || carried.values.riceSource || riceSources[0];
+    const source =
+      current?.riceSource || carried.values.riceSource || riceSources[0];
     const selfCook = source === riceSources[0];
     const side = selfCook ? "rawRice" : "cookedRice";
     const stock = selfCook
       ? rawRiceStock(db, branch)
-      : cookedRiceStock(db, branch);
+      : cookedRiceStock(db, branch, ctx.date);
     const shortfall = Math.max(0, n(db.config, `${side}Par`) - stock);
     const typed = current?.[`${side}Kg`]?.trim();
     const amount = typed ? Number(typed) : shortfall;
@@ -308,8 +306,8 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
   }
   if (kind === "riceCarry")
     return from(
-      { leftoverKg: kg(Math.max(0, cookedRiceStock(db, branch))) },
-      { label: "ตามสต๊อกคงเหลือ", expected: true },
+      { leftoverKg: kg(Math.max(0, cookedRiceStock(db, branch, ctx.date))) },
+      { label: "ตามข้าวสุกคงเหลือวันนี้", expected: true },
     );
   if (kind === "closeDay")
     return carryLast(db, "closeDay", ["confirm"], { branch });

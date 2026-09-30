@@ -19,7 +19,6 @@ import {
   materials,
   pendingReceiveKg,
   rawRiceStock,
-  cooksRice,
   type Database,
   type Lot,
 } from "@/lib/store";
@@ -71,23 +70,19 @@ export function branchStockRows(
         },
       ];
     }),
-    ...(cooksRice(branch)
-      ? [
-          {
-            genre: "วัตถุดิบ",
-            item: "ข้าวเหนียวดิบ (ข้าวสาร)",
-            quantity: fmt(rawRiceStock(db, branch)),
-            unit: "กก.",
-            detail: `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branch))} กก.`,
-          },
-        ]
-      : []),
+    {
+      genre: "วัตถุดิบ",
+      item: "ข้าวเหนียวดิบ (ข้าวสาร)",
+      quantity: fmt(rawRiceStock(db, branch)),
+      unit: "กก.",
+      detail: `เบิกแล้ว ${fmt(issuedRawRiceStock(db, branch))} กก.`,
+    },
     {
       genre: "วัตถุดิบ",
       item: "ข้าวเหนียวสุก",
       quantity: fmt(cookedRiceStock(db, branch)),
       unit: "กก.",
-      detail: "ข้าวสุกคงเหลือ ยกไปวันถัดไปได้",
+      detail: "ข้าวสุกของวันนี้ ไม่ยกไปวันถัดไป (เหลือปลายวันเป็นของเสีย)",
     },
     {
       genre: "วัตถุดิบ",
