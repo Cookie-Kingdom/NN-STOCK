@@ -5,8 +5,6 @@ import {
   SCREENS,
   SHIPMENT_NO,
   acceptSmokePo,
-  allocate,
-  allocationRow,
   branchReceive,
   branchStockRow,
   closeBatch,
@@ -15,6 +13,7 @@ import {
   idsOnScreen,
   issueMeatInvoice,
   lotSelect,
+  meatStockRow,
   openBranchTask,
   openMenu,
   openSmokePo,
@@ -63,7 +62,7 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
     page,
     "Owner (แทน Foodiva): ใบขนส่ง + Packing List ชุดใหม่",
     async () => {
-      await recordDispatch(page, "", ["50", "50"]);
+      await recordDispatch(page, "", "100");
       const row = tableRow(page, SCREENS.batches.table, BATCH_ID);
       await expect(row).toHaveCount(1);
       const text = await row.innerText();
@@ -84,7 +83,7 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
   );
 
   await step(page, "Owner (แทน Chef House): ชั่งรับเนื้อ", async () => {
-    await weighIn(page, shipment, ["49", "49"]);
+    await weighIn(page, shipment, "98");
     await expect(tableRow(page, SCREENS.weighIn.table, shipment)).toHaveCount(
       0,
     );
@@ -116,10 +115,9 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
     );
   });
 
-  await step(page, "Owner: รับเข้าสต๊อกกลาง จัดสรรศาลาแดง 30 กก.", async () => {
+  await step(page, "Owner: รับเข้าสต๊อกกลาง 92 กก.", async () => {
     await receiveCentral(page, batch, "92");
-    await allocate(page, batch, BRANCH, "30");
-    await expect(await allocationRow(page, batch)).toContainText("62.00 กก.");
+    await expect(await meatStockRow(page, batch)).toContainText("92.00 กก.");
   });
 
   await step(
@@ -155,4 +153,15 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
       "แช่แข็ง 20.00 · ชิล/ละลายแล้ว 6.00",
     );
   });
+
+  await step(
+    page,
+    "Owner: สาขารับเองแล้วสต๊อกกลางของชุดลด 30 กก.",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      const row = await meatStockRow(page, batch);
+      await expect(row).toContainText("62.00 กก.");
+      await expect(row).toContainText("20.00 แช่แข็ง / 6.00 ชิล/ละลายแล้ว");
+    },
+  );
 });

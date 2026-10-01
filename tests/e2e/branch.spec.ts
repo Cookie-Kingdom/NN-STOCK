@@ -3,8 +3,6 @@ import {
   ACCOUNTS,
   NO_LOT,
   SCREENS,
-  allocate,
-  allocationRow,
   branchReceive,
   branchStockRow,
   expectWarning,
@@ -12,6 +10,7 @@ import {
   historyEntry,
   issueSmokePoOnNewBatch,
   lotSelect,
+  meatStockRow,
   openBranchTask,
   openMenu,
   pointAndClick,
@@ -36,9 +35,11 @@ test("BR-02 BR-03 BR-04 BR-08 branch receives 10 kg ไม่ระบุ Lot wi
 
   await step(page, "สาขาศาลาแดง: รับของ 10 กก. ไม่ระบุ Lot", async () => {
     await openMenu(page, SCREENS.branchDay.menu);
+    // BR-01: nothing is allocated to wait for; the receive is always open.
     await expect(page.locator("main")).toContainText(
-      "ไม่มีใบจัดสรรค้างรับ · รับเนื้อได้โดยไม่ต้องมีใบจัดสรร",
+      "บันทึกเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง",
     );
+    await expect(page.locator("main")).not.toContainText("ใบจัดสรร");
     await openBranchTask(page, "รับของ");
     await expect(lotSelect(page)).toHaveValue("");
     await expect(
@@ -103,7 +104,9 @@ test("MAT-01 MAT-04 branch receives packaging with no transfer from the Owner", 
   );
 
   const entry = await historyEntry(page, "ประวัติ", "ยืนยันรับวัสดุที่สาขา");
-  await expect(entry).toContainText("ไม่มีใบส่งวัสดุ");
+  // MAT-01: a receipt with no transfer is a normal one, not flagged.
+  await expect(entry).toBeVisible();
+  await expect(entry).not.toContainText("ไม่มีใบส่งวัสดุ");
 
   await openMenu(page, "สต๊อก");
   const row = page
@@ -120,13 +123,12 @@ test("LNK-04 LNK-06 branch links a ไม่ระบุ Lot receive to a batch 
   let batch = "";
   await step(
     page,
-    "Owner: ชุดใหม่ เข้าสต๊อกกลาง 80 กก. จัดสรรศาลาแดง 10 กก.",
+    "Owner: ชุดใหม่ เข้าสต๊อกกลาง 80 กก. (ไม่มีการจัดสรร)",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       batch = await issueSmokePoOnNewBatch(page, "100");
       await receiveCentral(page, batch, "80");
-      await allocate(page, batch, BRANCH, "10");
-      await expect(await allocationRow(page, batch)).toContainText("70.00 กก.");
+      await expect(await meatStockRow(page, batch)).toContainText("80.00 กก.");
     },
   );
 
@@ -164,10 +166,12 @@ test("LNK-04 LNK-06 branch links a ไม่ระบุ Lot receive to a batch 
 
   await step(
     page,
-    "Owner: รับที่ผูกแล้วเติมใบจัดสรร 10 กก. สต๊อกกลางไม่หักซ้ำ (DM-08)",
+    "Owner: รับที่ผูกแล้วหักสต๊อกกลางของชุด 10 กก. ครั้งเดียว",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await expect(await allocationRow(page, batch)).toContainText("70.00 กก.");
+      const row = await meatStockRow(page, batch);
+      await expect(row).toContainText("70.00 กก.");
+      await expect(row).toContainText("10.00 แช่แข็ง");
     },
   );
 });

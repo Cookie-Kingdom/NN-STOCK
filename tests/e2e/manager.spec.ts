@@ -50,7 +50,7 @@ test("Account Manager records Foodiva and Chef House steps; no dashboard, no sal
     async () => {
       const poId = await createPurchasePo(page, "100", "250");
       await issueMeatInvoice(page, poId, "100");
-      await recordDispatch(page, "", ["50", "50"]);
+      await recordDispatch(page, "", "100");
       const text = await tableRow(
         page,
         SCREENS.batches.table,
@@ -65,7 +65,7 @@ test("Account Manager records Foodiva and Chef House steps; no dashboard, no sal
     page,
     "Account Manager (แทน Chef House): ชั่งรับ ก่อนสโมค สโมค ปิด Lot Invoice ค่ารม",
     async () => {
-      await weighIn(page, shipment, ["49", "49"]);
+      await weighIn(page, shipment, "98");
       await recordPreSmoke(page, batch, "96");
       await recordSmoke(page, batch, {
         inputKg: "96",
