@@ -278,14 +278,14 @@ export const SCREENS = {
   purchasePo: { menu: "ใบสั่งซื้อ PO" },
   meatInvoice: {
     menu: FOODIVA_TAB,
-    table: "PO เนื้อที่ต้องออก Invoice",
+    table: "PO เนื้อและ Invoice ของ Foodiva",
   },
   batches: { menu: FOODIVA_TAB, table: "ชุดรมควัน" },
   freezer: {
     menu: FOODIVA_TAB,
     table: "เนื้อรมควันขากลับ · รับเข้าตู้ Foodiva",
   },
-  weighIn: { menu: "ชั่งรับเนื้อ", table: "การส่งที่รอยืนยันรับ" },
+  weighIn: { menu: "ชั่งรับเนื้อ", table: "การส่งที่ยังไม่ได้จดรับ" },
   production: {
     menu: "ผลิต · สโมค · Invoice ค่ารม",
     table: "รายการ Lot ทั้งหมด",
@@ -304,7 +304,7 @@ export const SCREENS = {
   ownerDashboard: { menu: "แดชบอร์ด" },
   traceability: { menu: "เอกสารและ Traceability" },
   config: { menu: "ตั้งค่า" },
-  branchDay: { menu: "กรอกรายวัน" },
+  branchDay: { menu: "จดรายวัน" },
   rice: {
     menu: "ข้าวเหนียววันนี้",
     table: "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
@@ -676,7 +676,7 @@ export function lotSelect(page: Page) {
   return topDialog(page).getByRole("combobox", { name: /^Lot ต้นทาง/ });
 }
 
-/** One task on the branch day screen ("รับของ", "แบ่งละลาย", "บันทึกยอดขาย"). */
+/** One task on the branch day screen ("รับของ", "แบ่งละลาย", "จดยอดขาย"). */
 export async function openBranchTask(page: Page, name: string) {
   await openMenu(page, SCREENS.branchDay.menu);
   await pointAndClick(
