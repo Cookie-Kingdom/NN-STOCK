@@ -44,12 +44,12 @@ export function DailyMaterialsTable({
 }) {
   const saved = savedMaterialCount(db, branch, date);
   /* Locked by default, the way the Owner's ตั้งค่า tables are: the day's figures read
-   * as plain text until ขอแก้ไข is pressed, and บันทึกและล็อก puts them back. A saved
+   * as plain text until แก้ไข is pressed, and บันทึกและล็อก puts them back. A saved
    * day stays editable — staff mistype, and a form that locks for good turns a typo
    * into a support call — and every save is kept as its own entry, so the owner can
    * read the corrections in the history. */
   const [editing, setEditing] = useState<Section | null>(null);
-  /* Seeded from the server entry, and seeded again whenever one arrives: on ขอแก้ไข
+  /* Seeded from the server entry, and seeded again whenever one arrives: on แก้ไข
    * from `latestDatabase()`, and on a save from the database the save returned. The
    * locked cells read `saved` directly, so what the table shows after a save is what
    * the server holds and never the draft that was typed. */
@@ -66,7 +66,7 @@ export function DailyMaterialsTable({
   const firstCell = useRef<HTMLInputElement>(null);
   const wasEditing = useRef(false);
   /* Focus follows the mode: into the first box to be filled when the table opens,
-   * back onto ขอแก้ไข when it locks, so a keyboard never lands back at the top of
+   * back onto แก้ไข when it locks, so a keyboard never lands back at the top of
    * the page. */
   useEffect(() => {
     if (editing) firstCell.current?.focus();
@@ -102,7 +102,7 @@ export function DailyMaterialsTable({
     setMessage("");
   };
   const cancel = () => {
-    // Back to the figures the table was showing before ขอแก้ไข.
+    // Back to the figures the table was showing before แก้ไข.
     setDraft(materialCountDraft(saved));
     setEditing(null);
     setMessage("");
@@ -186,7 +186,7 @@ export function DailyMaterialsTable({
               lockedMessage={message}
               editLabel={
                 saved
-                  ? "ขอแก้ไขยอดนับ (Edit count)"
+                  ? "แก้ไขยอดนับ (Edit count)"
                   : "ตรวจนับวัสดุวันนี้ (Count)"
               }
               editRef={editButton}

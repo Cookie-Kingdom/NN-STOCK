@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import {
+  changesDb,
   demoDb,
-  editDecidedDb,
   linkedDb,
   unlinkedDb,
 } from "../../../../.storybook/fixtures";
@@ -89,7 +89,7 @@ const historyData = pick("ข้อมูล", {
   ปกติ: demoDb,
   "ยังไม่ผูก Lot": unlinkedDb,
   ผูกแล้ว: linkedDb,
-  คำขอแก้ไข: editDecidedDb,
+  แก้ไขและลบ: changesDb,
 });
 
 /** Pick ข้อมูล, ผู้ใช้ and ซ่อนยอดขาย in Controls:
@@ -100,7 +100,9 @@ const historyData = pick("ข้อมูล", {
  *  - ผูกแล้ว: the three meat entries read "ผูกแล้ว", show the batch by its PO number, and
  *    each `link` names its target ("รับของเข้าสาขา 9 ก.ย. · ศาลาแดง 10.00 กก."), never a
  *    raw id. Owner sees every link; ศาลาแดง its own.
- *  - คำขอแก้ไข: ศาลาแดง's requests above the log, "ขอแก้ไข" on its own entries.
+ *  - แก้ไขและลบ (EDT-22..22): "ประวัติการแก้ไขและลบ" above the log, every account's changes
+ *    for the Owner and ศาลาแดง's own for the branch; "แก้ไข" and "ลบรายการ" on each entry
+ *    the account may change, "ลบแล้ว" on the deleted one.
  *  - ซ่อนยอดขาย: the Account Manager's log, sales without amounts and no edit button. */
 export const History: StoryObj<{
   db: Database;
@@ -134,8 +136,12 @@ const detail = pick<Detail>("รายการ", {
     db: demoDb,
   },
   ขายที่แก้ไขแล้ว: {
-    entry: entries(editDecidedDb, "sale")[0],
-    db: editDecidedDb,
+    entry: entries(changesDb, "sale")[0],
+    db: changesDb,
+  },
+  รายการที่ลบแล้ว: {
+    entry: changesDb.entries.find((e) => e.kind === "riceCarry")!,
+    db: changesDb,
   },
 });
 
@@ -143,28 +149,26 @@ const detail = pick<Detail>("รายการ", {
  *  - ล่าสุด: the log's last entry.
  *  - รับของ (มีใบจัดสรร): "ใบจัดสรร" reads as the allocation's date, branch and kg, not its
  *    id (LNK-07).
- *  - ขายที่แก้ไขแล้ว: badge "แก้ไขแล้ว", current values, and who asked, who approved, when.
- *  Toggle ยกเลิกแล้ว for a voided entry, เปิดรายละเอียด to start expanded. */
+ *  - ขายที่แก้ไขแล้ว: badge "แก้ไขแล้ว", current values, and who edited it, when and why.
+ *  - รายการที่ลบแล้ว: badge "ลบแล้ว", the values as recorded, no buttons.
+ *  Toggle เปิดรายละเอียด to start expanded. */
 export const EntryDetail: StoryObj<{
   detail: Detail;
-  voided: boolean;
   open: boolean;
   hideSales: boolean;
 }> = {
   argTypes: {
     detail: detail.argType,
-    voided: { name: "ยกเลิกแล้ว", control: "boolean" },
     open: { name: "เปิดรายละเอียด", control: "boolean" },
     hideSales: hideSalesControl,
   },
-  args: { detail: detail.initial, voided: false, open: true, hideSales: false },
-  render: ({ detail, voided, open, hideSales }) => (
+  args: { detail: detail.initial, open: true, hideSales: false },
+  render: ({ detail, open, hideSales }) => (
     <EntryDetails
       key={`${detail.entry.id}:${open}`}
       entry={detail.entry}
       db={detail.db}
       role="owner"
-      voided={voided}
       open={open}
       hideSales={hideSales}
       onChanged={fn()}

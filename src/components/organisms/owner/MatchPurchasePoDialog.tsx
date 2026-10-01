@@ -41,11 +41,10 @@ export function MatchPurchasePoDialog({
           <EditEntryForm
             entry={order}
             db={db}
-            request={false}
             error={error}
             initialReason="จับคู่ PO ซื้อที่หน้ารับเข้าสต๊อกกลาง"
             onCancel={onClose}
-            onSubmit={(values, reason) => {
+            onSubmit={(values, reason, moved) => {
               setError("");
               let next = undefined as Database | undefined;
               const { warnings, error } = check(() => {
@@ -57,6 +56,7 @@ export function MatchPurchasePoDialog({
                     targetId: order.id,
                     values: JSON.stringify(values),
                     reason,
+                    ...moved,
                   },
                   "",
                   today(),

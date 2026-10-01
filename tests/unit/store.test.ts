@@ -556,11 +556,12 @@ describe("mutate guards", () => {
     expect(chiliStock(s.db, "ศาลาแดง")).toBe(0);
     expect(() =>
       s.run("owner", "void", { targetId: allocation.id, reason: "x" }),
-    ).toThrow(/ถูกยกเลิกแล้ว/);
-    purchase(s, "1");
+    ).toThrow(/ถูกลบแล้ว/);
+    // Every kind is deleted but the settings (EDT-23).
+    s.run("owner", "config", { ...s.db.config });
     expect(() =>
       s.run("owner", "void", { targetId: last(s).id, reason: "x" }),
-    ).toThrow(/ยกเลิกไม่ได้/);
+    ).toThrow(/ลบไม่ได้/);
   });
 
   test("config merges validated settings; old stored keys pass through unchecked", () => {

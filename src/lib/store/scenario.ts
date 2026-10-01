@@ -27,12 +27,7 @@ import {
   type ActingRole,
   type Values,
 } from "./model";
-import {
-  branchMaterialStock,
-  cookedRiceStock,
-  entries,
-  riceSources,
-} from "./derived";
+import { branchMaterialStock, cookedRiceStock, riceSources } from "./derived";
 import { mutate, saleWithInfluencers } from "./mutate";
 
 const [SALA, MIN] = branches;
@@ -645,7 +640,6 @@ export function ownerBranchScenario(endDate: string): Database {
   branchRun(MIN, d[0])("receive", { kg: "24" }, history);
   salaDay(d[0], true);
   minDay(d[0], true);
-  const minSaleD0 = entries(db, "sale", undefined, MIN, d[0]).at(-1)!;
   // d1
   salaDay(d[1], true, { influencer: true });
   const minRiceD1 = minDay(d[1], true);
@@ -708,22 +702,10 @@ export function ownerBranchScenario(endDate: string): Database {
   min("receive", { kg: "5" }, partial);
   minDay(d[4], false);
 
-  // ── Edit requests: one waiting, one approved, one rejected. ──
+  // ── Changes (EDT-22/20): a branch edits its own entry, and undoes another edit. ──
   run(
     "branch",
-    "editRequest",
-    {
-      targetId: salaSaleD2.id,
-      reason: "UAT กรอกยอด LINE MAN ผิด",
-      values: JSON.stringify({ lineMan: "9500" }),
-    },
-    "",
-    d[4],
-    SALA,
-  );
-  const approved = run(
-    "branch",
-    "editRequest",
+    "entryEdit",
     {
       targetId: minRiceD1.id,
       reason: "UAT ราคาข้าวสุกจริง 300 บาท",
@@ -733,33 +715,25 @@ export function ownerBranchScenario(endDate: string): Database {
     d[3],
     MIN,
   );
-  owner(
-    "editDecision",
-    { requestId: approved.id, decision: "อนุมัติ" },
-    "",
-    d[3],
-  );
-  const rejected = run(
+  const undone = run(
     "branch",
-    "editRequest",
+    "entryEdit",
     {
-      targetId: minSaleD0.id,
-      reason: "UAT ขอแก้จำนวนกล่อง",
-      values: JSON.stringify({ boxes: "26" }),
+      targetId: salaSaleD2.id,
+      reason: "UAT กรอกยอด LINE MAN ผิด",
+      values: JSON.stringify({ lineMan: "9500" }),
     },
     "",
     d[4],
-    MIN,
+    SALA,
   );
-  owner(
-    "editDecision",
-    {
-      requestId: rejected.id,
-      decision: "ไม่อนุมัติ",
-      note: "UAT ยอดตรงกับใบเสร็จแล้ว",
-    },
+  run(
+    "branch",
+    "void",
+    { targetId: undone.id, reason: "UAT ยอดเดิมถูกแล้ว" },
     "",
     d[4],
+    SALA,
   );
   return db;
 }

@@ -66,7 +66,7 @@ begin
     '[{"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{}}]'::jsonb)
     into v_rev;
   select public.append_entries(v_rev,
-    '[{"id":"q1","kind":"editRequest","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{"targetId":"mb"}}]'::jsonb)
+    '[{"id":"q1","kind":"entryEdit","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-03","values":{"targetId":"mb","to.kg":"2"}}]'::jsonb)
     into v_rev;
   select public.append_entries(v_rev,
     '[{"id":"r2","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-04","values":{}}]'::jsonb)

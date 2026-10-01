@@ -1,7 +1,6 @@
 "use client";
 
 import type { Notification } from "@/components/organisms/workspace/NotificationPopover";
-import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import type { Tab } from "@/lib/nav";
 import {
   balance,
@@ -41,9 +40,7 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  "ไม่ระบุ Lot" bucket (`lotId ""`) counts as one more lot for thawing and selling.
  *  There is no stage to wait on (DASH-02): each line is what this branch's own balances
  *  still owe, never a gate. The branch records what meat it received itself (BR-01), so nothing
- *  waits on an allocation. `editRequestAlerts` filters through `visibleEntries`, which
- *  keeps a branch's requests to its own branch. Nothing about another branch can reach
- *  this bell.
+ *  waits on an allocation. Nothing about another branch can reach this bell.
  *
  *  The day lines read the same helpers as `BranchDailyWorkflow`'s thaw, sale and close
  *  rows, so the bell and that table can never disagree. Material work
@@ -67,7 +64,6 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
     (item) => item.required && !item.done,
   ).length;
 
-  const editAlerts = editRequestAlerts(db, "branch", branch);
   const dayAlerts: Notification[] = [
     // แบ่งละลายเนื้อ — only while the day has no thaw of its own.
     ...(frozen.length && !thawDone
@@ -126,18 +122,12 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
     : [];
 
   return {
-    notifications: [
-      ...editAlerts,
-      ...dayAlerts,
-      ...receiveAlerts,
-      ...countAlerts,
-    ],
+    notifications: [...dayAlerts, ...receiveAlerts, ...countAlerts],
     dayTasks: dayAlerts.length,
     badges: {
       day: dayAlerts.length,
       "material-receive": materialTransfers.length,
       "material-count": uncountedMaterials,
-      history: editAlerts.length,
     } satisfies Partial<Record<Tab, number>>,
   };
 }

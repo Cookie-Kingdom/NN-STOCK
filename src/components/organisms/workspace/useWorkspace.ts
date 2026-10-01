@@ -6,7 +6,7 @@ import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import type { Modal, ModalKind, Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
-import { isClosed, visibleDatabase, visibleLots } from "@/lib/store";
+import { isClosed, liveLots, visibleDatabase, visibleLots } from "@/lib/store";
 
 /** State every workspace needs: the database, which day is being worked on,
  * which lots this account may see, and the open dialog. */
@@ -47,7 +47,7 @@ export function useWorkspace(account: Account) {
   const db = useMemo(() => visibleDatabase(raw, hidesSales), [raw, hidesSales]);
   // BR-07: a branch lists the batches allocated to it or holding its own entries.
   const lots = useMemo(
-    () => (role === "branch" ? visibleLots(db, branch) : db.lots),
+    () => (role === "branch" ? visibleLots(db, branch) : liveLots(db)),
     [db, role, branch],
   );
   const lot = lots.find((l) => l.id === chosen) || lots[0];

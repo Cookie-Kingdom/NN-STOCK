@@ -7,10 +7,14 @@ import {
   PACKING_LIST_FILE,
   SCREENS,
   SHIPMENT_NO,
+  branchReceive,
   branchStockRow,
+  changeRow,
+  createPurchasePo,
   expectWarning,
   field,
   issueSmokePoOnNewBatch,
+  logRow,
   lotSelect,
   menuItem,
   openBranchTask,
@@ -173,6 +177,187 @@ test("EDT-01 EDT-17 the weigh-in total is corrected from the Log and the batch f
 
   await openMenu(page, SCREENS.production.menu);
   await expect(batch).toContainText("42.00 กก.");
+});
+
+/* EDT-22/22: a branch corrects its own entry without asking anyone; what the Owner gets is
+ * the change log, with who changed what, and a one-press undo. */
+test("EDT-22 EDT-25 a branch corrects its own entry at once and the Owner reads it in the change log", async ({
+  page,
+}) => {
+  const edit = "แก้ไขรายการ · รับของเข้าสาขา";
+
+  await step(page, "สาขาศาลาแดง: รับ 10 กก. แล้วแก้เป็น 12 เอง", async () => {
+    await signInAs(page, ACCOUNTS.saladaeng);
+    await branchReceive(page, NO_LOT, "10");
+    await openMenu(page, "ประวัติ");
+    const entry = logRow(page, "รับของเข้าสาขา");
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "แก้ไข", exact: true }),
+    );
+    await typeValue(page, entry.getByLabel(/น้ำหนักรับเข้าสาขา/), "12");
+    await typeValue(page, entry.getByLabel("เหตุผลที่แก้ไข"), "ชั่งใหม่");
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+    );
+    await expect(entry.locator("summary")).toContainText("แก้ไขแล้ว");
+    await expect(await branchStockRow(page, "ศาลาแดง", "")).toContainText(
+      "แช่แข็ง 12.00",
+    );
+  });
+
+  await step(page, "Owner: อ่านการแก้ไขของสาขา แล้วย้อนกลับ", async () => {
+    await signInAs(page, ACCOUNTS.owner);
+    await openMenu(page, "Log");
+    const row = changeRow(page, edit);
+    await expect(row).toContainText("ศาลาแดง");
+    await expect(row).toContainText("ชั่งใหม่");
+    await expect(row).toContainText("10 → 12");
+    await pointAndClick(
+      page,
+      row.getByRole("button", { name: "ย้อนกลับ", exact: true }),
+    );
+    await expect(row).toContainText("ย้อนกลับแล้ว");
+  });
+
+  await step(page, "สาขาศาลาแดง: สต๊อกกลับเป็น 10 กก.", async () => {
+    await signInAs(page, ACCOUNTS.saladaeng);
+    await expect(await branchStockRow(page, "ศาลาแดง", "")).toContainText(
+      "แช่แข็ง 10.00",
+    );
+    await openMenu(page, "ประวัติ");
+    await expect(
+      changeRow(page, "ย้อนกลับการแก้ไข · รับของเข้าสาขา"),
+    ).toBeVisible();
+    await expect(changeRow(page, edit)).toContainText("ย้อนกลับแล้ว");
+  });
+});
+
+/* EDT-23: a delete is an entry in the log too, so the deleted one is put back from it. */
+test("EDT-23 a deleted entry leaves the figures and comes back when restored", async ({
+  page,
+}) => {
+  await signInAs(page, ACCOUNTS.saladaeng);
+  await branchReceive(page, NO_LOT, "10");
+  await expect(await branchStockRow(page, "ศาลาแดง", "")).toContainText(
+    "แช่แข็ง 10.00",
+  );
+
+  await step(page, "สาขาศาลาแดง: ลบรายการรับของ ยอดหาย", async () => {
+    await openMenu(page, "ประวัติ");
+    const entry = logRow(page, "รับของเข้าสาขา");
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ลบรายการ", exact: true }),
+    );
+    await typeValue(page, entry.getByLabel("เหตุผล"), "บันทึกซ้ำ");
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+    );
+    await expect(page.getByText("ลบรายการแล้ว ระบบคำนวณยอดใหม่")).toBeVisible();
+    await expect(entry.locator("summary")).toContainText("ลบแล้ว");
+    await expect(await branchStockRow(page, "ศาลาแดง", "")).toHaveCount(0);
+  });
+
+  await step(page, "สาขาศาลาแดง: กู้คืนจากรายการลบ ยอดกลับมา", async () => {
+    await openMenu(page, "ประวัติ");
+    const deletion = logRow(page, "ลบรายการ · รับของเข้าสาขา");
+    await pointAndClick(page, deletion.locator("summary"));
+    await expect(deletion).toContainText("บันทึกซ้ำ");
+    await pointAndClick(
+      page,
+      deletion.getByRole("button", { name: "กู้คืนรายการ", exact: true }),
+    );
+    await pointAndClick(
+      page,
+      deletion.getByRole("button", { name: "ยืนยันกู้คืน", exact: true }),
+    );
+    await expect(
+      page.getByText("กู้คืนรายการแล้ว ระบบคำนวณยอดใหม่"),
+    ).toBeVisible();
+    await expect(deletion.locator("summary")).toContainText("ย้อนกลับแล้ว");
+    await expect(
+      logRow(page, "รับของเข้าสาขา").locator("summary"),
+    ).not.toContainText("ลบแล้ว");
+    await expect(await branchStockRow(page, "ศาลาแดง", "")).toContainText(
+      "แช่แข็ง 10.00",
+    );
+  });
+});
+
+test("EDT-23 a purchase PO is deleted from the Log and restored", async ({
+  page,
+}) => {
+  await signInAs(page, ACCOUNTS.owner);
+  const poId = await createPurchasePo(page, "300", "250");
+  const main = page.locator("main");
+  const toInvoice = tableRow(page, SCREENS.meatInvoice.table, poId);
+
+  await step(page, "Owner: ลบ PO จาก Log · PO หายจากรายการ", async () => {
+    await openMenu(page, "Log");
+    const entry = logRow(page, "สร้าง PO เนื้อ");
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ลบรายการ", exact: true }),
+    );
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+    );
+    await expect(entry.locator("summary")).toContainText("ลบแล้ว");
+    await openMenu(page, SCREENS.purchasePo.menu);
+    await expect(main).not.toContainText(poId);
+    await openMenu(page, SCREENS.meatInvoice.menu);
+    await expect(toInvoice).toHaveCount(0);
+  });
+
+  await step(page, "Owner: ย้อนกลับจากประวัติการแก้ไขและลบ", async () => {
+    await openMenu(page, "Log");
+    const row = changeRow(page, "ลบรายการ · สร้าง PO เนื้อ");
+    await expect(row).toContainText(poId);
+    await pointAndClick(
+      page,
+      row.getByRole("button", { name: "ย้อนกลับ", exact: true }),
+    );
+    await expect(row).toContainText("ย้อนกลับแล้ว");
+    await openMenu(page, SCREENS.purchasePo.menu);
+    await expect(main).toContainText(poId);
+    await openMenu(page, SCREENS.meatInvoice.menu);
+    await expect(toInvoice).toContainText("300.00 กก.");
+  });
+});
+
+/* EDT-24: the date is a field of the edit like any other; the entry moves to that day. */
+test("EDT-24 the date of an entry is corrected from the Log", async ({
+  page,
+}) => {
+  const moved = `${bangkokDate()} → ${bangkokDate(-1)}`;
+  await signInAs(page, ACCOUNTS.owner);
+  await weighIn(page, "", "40");
+  await openMenu(page, "Log");
+  const entry = logRow(page, "ยืนยันรับเนื้อที่ Chef House");
+  await pointAndClick(page, entry.locator("summary"));
+  await expect(entry.locator("summary")).toContainText(bangkokDate());
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "แก้ไข", exact: true }),
+  );
+  await entry.getByLabel("วันที่ทำรายการ").fill(bangkokDate(-1));
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+  );
+  await expect(entry.locator("summary")).toContainText(bangkokDate(-1));
+  await expect(entry.locator("summary")).toContainText("บันทึกย้อนหลัง");
+  await expect(entry).toContainText(moved);
+  const row = changeRow(page, "แก้ไขรายการ · ยืนยันรับเนื้อที่ Chef House");
+  await expect(row).toContainText("วันที่ทำรายการ");
+  await expect(row).toContainText(moved);
 });
 
 test("GEN-03 a branch still records on a day it has closed, with a warning; a future date is refused", async ({

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import {
@@ -6,54 +7,59 @@ import {
   readState,
   replaceState,
 } from "@/lib/local-db.server";
-import { seed, type Entry } from "@/lib/store";
+import { isVoided, seed, type Entry, type Values } from "@/lib/store";
 import { retiredKinds } from "@/lib/store/model";
 
-// Migration 20260929000035 (append_entries), JS port: on a closed day a branch still files an
-// edit request, withdraws it (a void of its own pending request only) and links; since 0037
-// it records anything else on that day too.
-test("a closed branch day takes a request, its withdrawal, a link and new entries", () => {
+// Migration 20261001000039 (append_entries), JS port: a branch edits, deletes and restores its
+// own live entries directly, on a closed day too; nobody else's, and an undo is not undone.
+// The state and the cases are the SQL test's, read from its file so the two cannot drift.
+test("a branch edits, deletes and restores only its own live entries", () => {
+  const sql = readFileSync(
+    "supabase/tests/branch_direct_changes_test.sql",
+    "utf8",
+  );
+  const json = (tag: string) =>
+    JSON.parse(
+      sql.match(new RegExp(`\\$${tag}\\$([\\s\\S]*?)\\$${tag}\\$`))?.[1] ??
+        "null",
+    );
   const db = openLocalDb(":memory:");
-  const branch = "มีนบุรี";
-  const e = (id: string, kind: string, values: Record<string, string> = {}) =>
-    ({
-      id,
-      kind,
-      role: "branch",
-      lotId: "",
-      branch,
-      date: "2026-09-10",
-      values,
-    }) as Entry;
-  replaceState(db, {
-    ...seed,
-    lots: [
-      { id: "S1", poId: "SH-1", kind: "shipment", config: {}, values: {} },
-    ],
-    entries: [e("r1", "receive", { kg: "3" })],
-  } as typeof seed);
+  replaceState(db, { ...seed, ...json("state") });
   const minburi = accountById("minburi");
-  const append = (...entries: Entry[]) =>
-    appendState(db, minburi, entries, [], readState(db).revision);
-  append(
-    e("rq1", "editRequest", { targetId: "r1", "to.kg": "2" }),
-    e("cd1", "closeDay", { confirm: "x" }),
-  );
-  append(e("r2", "receive", { kg: "1" }));
-  expect(() => append(e("wd0", "void", { targetId: "r1" }))).toThrow(
-    "Void target is not a pending edit request of this branch",
-  );
-  append(
-    e("lk1", "link", { targetId: "r1", lotId: "S1" }),
-    e("wd1", "void", { targetId: "rq1" }),
-  );
-  expect(() => append(e("wd2", "void", { targetId: "rq1" }))).toThrow(
-    "Void target is not a pending edit request of this branch",
-  );
+  const cases: [string, string, Values, string][] = json("cases");
+  expect(cases.length).toBeGreaterThan(30);
+  for (const [id, kind, values, error] of cases) {
+    const append = () =>
+      appendState(
+        db,
+        minburi,
+        [
+          {
+            id,
+            kind,
+            role: "branch",
+            lotId: "",
+            branch: "มีนบุรี",
+            date: "2026-09-10",
+            values,
+          },
+        ],
+        [],
+        readState(db).revision,
+      );
+    const label = `${kind} ${JSON.stringify(values)}`;
+    if (error) expect(append, label).toThrow(error);
+    else expect(append, label).not.toThrow();
+  }
+  // r1 by its second delete, not by the restored first one (entry_voided in the SQL test).
+  const log = readState(db).payload;
+  expect(
+    log.entries.filter((e) => isVoided(log, e.id)).map((e) => e.id),
+  ).toEqual(["r1", "r0", "m0", "ed2", "lk1", "dl1", "em2"]);
 });
 
-// Migration 20260929000036: the duplicates mutate refuses from a branch.
-test("a branch cannot open a second edit request or confirm a transfer twice", () => {
+// Migration 20260929000036: a material transfer is confirmed once, directly or through a link.
+test("a branch cannot confirm a transfer twice", () => {
   const db = openLocalDb(":memory:");
   const e = (id: string, kind: string, values: Record<string, string> = {}) =>
     ({
@@ -69,17 +75,6 @@ test("a branch cannot open a second edit request or confirm a transfer twice", (
   const append = (...entries: Entry[]) =>
     appendState(db, minburi, entries, [], readState(db).revision);
   append(
-    e("r1", "receive", { kg: "3" }),
-    e("q1", "editRequest", { targetId: "r1" }),
-  );
-  expect(() => append(e("q2", "editRequest", { targetId: "r1" }))).toThrow(
-    "Entry already has a pending edit request",
-  );
-  append(
-    e("w1", "void", { targetId: "q1" }),
-    e("q2", "editRequest", { targetId: "r1" }),
-  );
-  append(
     e("m1", "materialConfirm", { transferId: "t1" }),
     e("m2", "materialConfirm"),
   );
@@ -93,9 +88,15 @@ test("a branch cannot open a second edit request or confirm a transfer twice", (
   expect(() =>
     append(e("m3", "materialConfirm", { transferId: "t2" })),
   ).toThrow("Material transfer is already confirmed");
+  // 0039: the branch deleting its own confirm frees the transfer, in the same save.
+  append(
+    e("w1", "void", { targetId: "m1" }),
+    e("m3", "materialConfirm", { transferId: "t1" }),
+  );
 });
 
-// Migration 20260929000036: no new entry of a retired kind (retiredKinds in store/model.ts).
+// Migrations 20260929000036 and 20261001000039 (editRequest): no new entry of a retired kind
+// (retiredKinds in store/model.ts).
 test("a branch cannot append a retired kind", () => {
   const db = openLocalDb(":memory:");
   const minburi = accountById("minburi");

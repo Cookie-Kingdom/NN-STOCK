@@ -1,6 +1,8 @@
 /** Figures recomputed from the entry log (stock, cost, yield, invoices); nothing here is stored. */
 import { fmt, today } from "../format";
 import {
+  batchKinds,
+  canChange,
   canLink,
   isEditOverlay,
   materials,
@@ -33,33 +35,41 @@ const entryIndexes = new WeakMap<Entry[], EntryIndex>();
 function entryIndex(db: Database): EntryIndex {
   const cached = entryIndexes.get(db.entries);
   if (cached?.length === db.entries.length) return cached;
-  // Only the Owner voids, except a branch withdrawing its own edit request; a void
-  // appended under another role changes nothing.
+  /* A delete counts when its author may change the target (canChange), and only while it is
+   * not deleted itself: that is the undo (EDT-23). A void of a void always comes later in the
+   * log, so walking newest first settles each one before it is read. */
   const byId = new Map(db.entries.map((entry) => [entry.id, entry]));
-  const voided = new Set(
-    db.entries
-      .filter((entry) => {
-        if (entry.kind !== "void") return false;
-        if (entry.role === "owner") return true;
-        const target = byId.get(entry.values.targetId);
-        return (
-          entry.role === "branch" &&
-          target?.kind === "editRequest" &&
-          target.role === "branch" &&
-          target.branch === entry.branch
-        );
-      })
-      .map((entry) => entry.values.targetId),
-  );
+  const voided = new Set<string>();
+  for (let i = db.entries.length - 1; i >= 0; i--) {
+    const entry = db.entries[i];
+    if (entry.kind !== "void" || voided.has(entry.id)) continue;
+    const target = byId.get(entry.values.targetId);
+    if (entry.role === "owner" || (target && canChange(entry, target)))
+      voided.add(entry.values.targetId);
+  }
   // chefEdit is append-only: its corrections overlay the receive/prepare/smoke entries it names.
   const fixes = new Map<string, Values>();
   const fix = (id: string | undefined, values: Values) => {
     if (id) fixes.set(id, { ...fixes.get(id), ...values });
   };
+  // EDT-24: an edit may also re-date its target or move it to another lot.
+  const moves = new Map<string, { date?: string; lotId?: string }>();
   for (const e of db.entries) {
     if (voided.has(e.id)) continue;
     // B5 edits overlay the same way, in log order: a later edit wins.
-    if (isEditOverlay(e)) fix(e.values.targetId, unpack("to.", e.values));
+    if (isEditOverlay(e, byId.get(e.values.targetId))) {
+      fix(e.values.targetId, unpack("to.", e.values));
+      if (e.values.toDate || e.values.toLotId)
+        moves.set(e.values.targetId, {
+          ...moves.get(e.values.targetId),
+          ...(e.values.toDate && { date: e.values.toDate }),
+          ...(e.values.toLotId && { lotId: e.values.toLotId }),
+        });
+    }
+    // A link's transfer is laid over in the same order, so of an edit and a link the later wins.
+    const linked = e.kind === "link" && byId.get(e.values.targetId);
+    if (linked && e.values.transferId && canLink(e, linked))
+      fix(e.values.targetId, { transferId: e.values.transferId });
     if (e.kind !== "chefEdit") continue;
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
@@ -71,31 +81,28 @@ function entryIndex(db: Database): EntryIndex {
     ) as Values[])
       fix(id, batch);
   }
-  /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`) after the
-   * fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
+  /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`, above) after
+   * the fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
    * falls back to the one before (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
-  const links = new Map<string, Values>();
+  const lots = new Map<string, string>();
   for (const e of db.entries) {
     const target = e.kind === "link" && byId.get(e.values.targetId);
-    if (target && !voided.has(e.id) && canLink(e, target))
-      links.set(e.values.targetId, {
-        ...links.get(e.values.targetId),
-        ...e.values,
-      });
+    if (target && e.values.lotId && !voided.has(e.id) && canLink(e, target))
+      lots.set(e.values.targetId, e.values.lotId);
   }
   const byKind = new Map<EntryKind, Entry[]>();
   for (const raw of db.entries) {
     if (voided.has(raw.id)) continue;
-    const link = links.get(raw.id);
-    const e = link
-      ? {
-          ...raw,
-          lotId: link.lotId || raw.lotId,
-          values: link.transferId
-            ? { ...raw.values, transferId: link.transferId }
-            : raw.values,
-        }
-      : raw;
+    const linked = lots.get(raw.id);
+    const move = moves.get(raw.id);
+    const e =
+      linked || move
+        ? {
+            ...raw,
+            date: move?.date || raw.date,
+            lotId: linked || move?.lotId || raw.lotId,
+          }
+        : raw;
     const list = byKind.get(e.kind);
     if (list) list.push(e);
     else byKind.set(e.kind, [e]);
@@ -107,7 +114,7 @@ function entryIndex(db: Database): EntryIndex {
 /** Whether a void that counts (see entryIndex) names this entry. */
 export const isVoided = (db: Database, id: string) =>
   entryIndex(db).voided.has(id);
-/** Live entries of one kind, with edits, chefEdit and `link` overlaid. `lotId === ""` is the
+/** Live entries of one kind, with edits (values, date, lot), chefEdit and `link` overlaid. `lotId === ""` is the
  *  branch's "ไม่ระบุ Lot" bucket (BR-04); leave it `undefined` for every lot. */
 export function entries(
   db: Database,
@@ -227,8 +234,26 @@ export function readyForChefHouse(db: Database, lotId: string) {
     ? n(confirmation.values, "readyForChiangMaiKg")
     : n(confirmation.values, "confirmedKg");
 }
+/** Lots still in use. A PO whose `purchase` was deleted, or a batch with every step deleted,
+ *  stays in `lots` (ids and numbers are never reused) with only `deleted` in its cache: the
+ *  Owner's save writes it, so a branch, which holds no Owner entries, reads it too. */
+export const liveLots = (db: Database) =>
+  db.lots.filter((lot) => !lot.values.deleted);
 export const purchaseLots = (db: Database) =>
-  db.lots.filter((lot) => !lot.kind);
+  liveLots(db).filter((lot) => !lot.kind);
+/** EDT-23: other live entries stand on this PO, or a live smoke PO draws from it. */
+export const poInUse = (db: Database, lotId: string) =>
+  lotProgress(db, lotId).size > 1 ||
+  shipments(db).some((lot) =>
+    batchLines(db, lot).some((line) => line.lotId === lotId),
+  );
+/** A batch's live steps in log order: what its values cache is rebuilt from (DM-09). */
+export function batchEntries(db: Database, lotId: string) {
+  const position = new Map(db.entries.map((e, index) => [e.id, index]));
+  return batchKinds
+    .flatMap((kind) => entries(db, kind, lotId))
+    .sort((a, b) => position.get(a.id)! - position.get(b.id)!);
+}
 export function shipmentLines(lot: Lot): ShipmentLine[] {
   return (JSON.parse(lot.values.lines || "[]") as Values[]).map((line) => ({
     lotId: line.lotId,
@@ -249,7 +274,7 @@ export function poMatched(db: Database, lotId: string) {
 }
 /** Every shipment batch (Lot S). */
 export function shipments(db: Database) {
-  return db.lots.filter((lot) => lot.kind === "shipment");
+  return liveLots(db).filter((lot) => lot.kind === "shipment");
 }
 /** Shipments with no truck home yet (RET-06): the Owner may book the return whenever the
  *  truck is arranged, closed lot or not. The return screen lists these and the Owner's

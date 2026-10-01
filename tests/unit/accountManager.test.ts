@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import { managerNav, navLabel } from "@/lib/nav";
 import {
-  editDecisions,
   entries,
   entryBy,
   revenue,
@@ -16,16 +15,16 @@ import { chillDay, last, purchaseInfo, setup } from "./fixtures";
 
 const manager = accountById("manager")!;
 
-/** chillDay's sale, plus a branch edit request that changes its LINE MAN amount. */
-function saleWithRequest() {
+/** chillDay's sale, plus the Owner's edit of it that changes its LINE MAN amount. */
+function saleWithEdit() {
   const s = chillDay();
   const sale = last(s);
-  s.run("branch", "editRequest", {
+  s.run("owner", "entryEdit", {
     targetId: sale.id,
     values: JSON.stringify({ soldKg: "60", lineMan: "190000" }),
     reason: "พิมพ์ยอดผิด",
   });
-  return { s, sale, request: last(s) };
+  return { s, sale };
 }
 
 describe("C4 Account Manager", () => {
@@ -39,39 +38,48 @@ describe("C4 Account Manager", () => {
     expect(last(s)).toMatchObject({ kind: "purchase", role: "owner" });
   });
 
-  test("approves edit requests", () => {
+  test("edits and deletes a branch's entry like the Owner (EDT-22)", () => {
     expect(manager.role).toBe("owner");
-    const { s, sale, request } = saleWithRequest();
-    const db = s.run(manager.role, "editDecision", {
-      requestId: request.id,
-      decision: editDecisions.approve,
+    const s = chillDay();
+    const sale = last(s);
+    s.run(manager.role, "entryEdit", {
+      targetId: sale.id,
+      values: JSON.stringify({ lineMan: "190000" }),
+      reason: "พิมพ์ยอดผิด",
     });
     expect(
-      entries(db, "sale").find((e) => e.id === sale.id)?.values.revenue,
+      entries(s.db, "sale").find((e) => e.id === sale.id)?.values.revenue,
     ).toBe("190000");
+    s.run(manager.role, "void", { targetId: sale.id, reason: "ซ้ำ" });
+    expect(entries(s.db, "sale")).toEqual([]);
   });
 
-  test("approves a sale's edit request from the copy without money; the server fills it in", () => {
-    const { s, sale, request } = saleWithRequest();
+  test("edits a sale from the copy without money; the server fills it in", () => {
+    const { s, sale } = saleWithEdit();
     // What the manager's browser holds: load_app_state / GET /api/local-db strip the money.
     const seen = stripSaleMoney(s.db);
-    const approved = mutate(
+    const edited = mutate(
       seen,
       manager.role,
-      "editDecision",
-      { requestId: request.id, decision: editDecisions.approve },
+      "entryEdit",
+      {
+        targetId: sale.id,
+        values: JSON.stringify({ soldKg: "62" }),
+        reason: "แก้น้ำหนัก",
+      },
       "",
       sale.date,
     );
-    expect(JSON.stringify(approved)).not.toMatch(
+    expect(JSON.stringify(edited)).not.toMatch(
       /"(to\.|from\.)?(revenue|lineMan|menuTotal)"/,
     );
-    // save_app_state (restoreSaleMoney locally) puts the stored and requested money back.
-    const saved = restoreSaleMoney(s.db, approved);
+    // save_app_state (restoreSaleMoney locally) puts the stored money back: the sale's own,
+    // as the Owner's earlier edit left it.
+    const saved = restoreSaleMoney(s.db, edited);
     expect(saved.entries.slice(0, s.db.entries.length)).toEqual(s.db.entries);
-    const edited = entries(saved, "sale").find((e) => e.id === sale.id)!;
-    expect(edited.values).toMatchObject({
-      soldKg: "60",
+    const now = entries(saved, "sale").find((e) => e.id === sale.id)!;
+    expect(now.values).toMatchObject({
+      soldKg: "62",
       lineMan: "190000",
       revenue: "190000",
       menuTotal: sale.values.menuTotal,
@@ -79,7 +87,7 @@ describe("C4 Account Manager", () => {
   });
 
   test("sees no sales money, but still sees purchase prices and costs", () => {
-    const { s } = saleWithRequest();
+    const { s } = saleWithEdit();
     expect(revenue(s.db)).toBeGreaterThan(0);
     const db = visibleDatabase(s.db, manager.hidesSales);
     expect(revenue(db)).toBe(0);

@@ -186,7 +186,7 @@ export const titles: Record<EntryKind, string> = {
   expense: "ค่าใช้จ่าย Owner",
   config: "บันทึกการตั้งค่า",
   unlock: "ปลดล็อกวัน",
-  void: "ยกเลิกรายการ",
+  void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
   editRequest: "ขอแก้ไขรายการ",
   editDecision: "พิจารณาคำขอแก้ไข",
@@ -209,59 +209,54 @@ const notEditable: EntryKind[] = [
   "steakTransfer",
 ];
 /** Kinds whose values can be corrected after they were saved (B5, EDT-01): every kind that
- *  records something, like a cell in a sheet. An approver corrects any of them directly; the
- *  role that recorded one files an `editRequest`, closed day or not. */
+ *  records something, like a cell in a sheet. The Owner corrects any of them, a branch its own
+ *  (`canChange`), closed day or not; the edit is an `entryEdit` laid over the entry. */
 export const editableKinds: EntryKind[] = entryKinds.filter(
   (kind) => !notEditable.includes(kind),
 );
-/** Kinds the Owner may void ("แก้รายการผิดด้วยการยกเลิก"): mutate refuses the rest, and the
- *  Log only offers the button on these. */
-export const voidableKinds: EntryKind[] = [
-  "central",
-  "allocate",
-  "chiliAllocate",
-  "receive",
-  "thaw",
-  "ricePurchase",
-  "chiliPurchase",
-  "riceIssue",
-  "chiliIssue",
-  "rice",
-  "riceCarry",
-  "sale",
-  "influencerBox",
-  "materials",
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "materialConfirm",
-  "closeDay",
-  "expense",
-  "unlock",
-  "link",
-  "entryEdit",
-];
+/** Kinds that cannot be deleted: the settings (saved again from their screen) and the retired
+ *  request kinds. Everything else can, a delete (`void`) included: that puts the entry back. */
+const notVoidable: EntryKind[] = ["config", "editRequest", "editDecision"];
+/** Kinds a `void` may name (EDT-23): mutate refuses the rest, and the Log only offers the
+ *  button on these. */
+export const voidableKinds: EntryKind[] = entryKinds.filter(
+  (kind) => !notVoidable.includes(kind),
+);
 /** Kinds with no screen any more: old entries still count in stock (and the ones in
  *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones.
- *  `allocate`: branches record what they received themselves (BR-01). */
+ *  `allocate`: branches record what they received themselves (BR-01). `editRequest` /
+ *  `editDecision`: every account edits its own entries directly (EDT-22). */
 export const retiredKinds: EntryKind[] = [
   "allocate",
   "supplyPurchase",
   "supplyIssue",
   "chiliPurchase",
   "chiliIssue",
+  "editRequest",
+  "editDecision",
 ];
 export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
-/** Values an edit may not change: they tie the entry to a branch or a day. Changing one is a
- *  void and a new entry; a reference to another entry (`allocation`, `transferId`) or the lot
- *  is changed with `link` instead (DM-08). */
-const editLockedKeys = ["branch", "purchaseDate"];
-/** The keys an edit of `kind` may not change: the shared ones, plus the date an Owner's
- *  waste pick-up is filed under (its `receivedDate` is the entry's own date). */
-export const editLocked = (kind: EntryKind) =>
-  kind === "ownerWasteReceive"
-    ? [...editLockedKeys, "receivedDate"]
-    : editLockedKeys;
+/** Values an edit may not change: the branch an Owner entry is addressed to. The other
+ *  branch's account never receives an entry stored under this one (scope_app_state), so that
+ *  is a delete and a new entry. */
+export const editLockedKeys = ["branch"];
+/** Kinds filed under a date that is one of their own fields (EDT-24): editing that field
+ *  re-dates the entry, so their edit form has no separate date. */
+export const dateField: Partial<Record<EntryKind, string>> = {
+  materialReceive: "purchaseDate",
+  generalPurchase: "purchaseDate",
+  ownerWasteReceive: "receivedDate",
+};
+/** Kinds an edit may move to another lot (EDT-24): the Owner's entries on a batch or a
+ *  purchase PO. A PO itself is its lot; branch meat is moved with `link` (DM-08). */
+export const lotMovableKinds: EntryKind[] = [
+  ...batchKinds.filter((kind) => kind !== "allocate" && kind !== "chefEdit"),
+  "foodivaConfirm",
+  "ownerWasteReceive",
+  "meatPayment",
+];
+/** Changes to other entries: the kinds the change log lists, newest first (EDT-25). */
+export const changeKinds: EntryKind[] = ["entryEdit", "void", "link"];
 /** GEN-02: a field the rules want but the user left empty is saved anyway and listed in the
  *  entry's `missing` (comma-separated keys), shown as this label. */
 export const missingText = "ยังไม่ได้กรอก";
@@ -281,20 +276,31 @@ export const unpack = (prefix: string, values: Values): Values =>
       .filter(([key]) => key.startsWith(prefix))
       .map(([key, value]) => [key.slice(prefix.length), value]),
   );
-/** Entries whose `to.` values overlay their target: a direct edit, or an approved request.
- *  Only an approver's entry counts, so a forged branch-role edit changes nothing. */
-export const isEditOverlay = (e: Entry) =>
-  e.role === "owner" &&
-  (e.kind === "entryEdit" ||
-    (e.kind === "editDecision" && e.values.decision === editDecisions.approve));
-/** LNK: the Owner links any entry, a branch only an entry of its own branch. `mutate` refuses
- *  the rest, `entries()` ignores them, and append_entries (migration 20260929000034) too. */
-export const canLink = (
-  link: Pick<Entry, "role" | "branch">,
+/** Who may change (edit, delete, undo, link) an entry: the Owner any, a branch only one its
+ *  own branch recorded. `mutate` refuses the rest, `entries()` ignores them, and so does
+ *  append_entries (migration 20261001000039). */
+export const canChange = (
+  by: Pick<Entry, "role" | "branch">,
   target: Pick<Entry, "role" | "branch">,
 ) =>
-  link.role === "owner" ||
-  (target.role === "branch" && target.branch === link.branch);
+  by.role === "owner" ||
+  (by.role === "branch" &&
+    target.role === "branch" &&
+    target.branch === by.branch);
+/** LNK: a link is a change like any other. */
+export const canLink = canChange;
+/** Entries whose `to.` values overlay their target: an edit by an account that may change the
+ *  target, or a request the Owner approved (old logs; requests are retired). A forged edit of
+ *  another account's entry changes nothing. */
+export const isEditOverlay = (
+  e: Entry,
+  target?: Pick<Entry, "role" | "branch">,
+) =>
+  e.kind === "entryEdit"
+    ? e.role === "owner" || (!!target && canChange(e, target))
+    : e.role === "owner" &&
+      e.kind === "editDecision" &&
+      e.values.decision === editDecisions.approve;
 export const seed: Database = {
   version: 9,
   lots: [],

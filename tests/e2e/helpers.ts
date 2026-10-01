@@ -712,3 +712,25 @@ export async function historyEntry(
   await openMenu(page, menu);
   return page.locator("main details").filter({ hasText: text }).first();
 }
+
+/** The history row whose summary starts with `title`: the entry itself ("รับของเข้าสาขา"),
+ *  or a change to it ("ลบรายการ · รับของเข้าสาขา"), never a row that only names it. */
+export function logRow(page: Page, title: string) {
+  return page
+    .locator("main details")
+    .filter({
+      has: page.locator("summary", {
+        hasText: new RegExp(`^${escapeRegExp(title)}`),
+      }),
+    })
+    .first();
+}
+
+/** A row of the change log at the top of the history tab (EDT-25), by how it starts:
+ *  "แก้ไขรายการ · รับของเข้าสาขา". */
+export function changeRow(page: Page, title: string) {
+  return tableSection(page, "ประวัติการแก้ไขและลบ")
+    .locator(":scope > div")
+    .filter({ hasText: new RegExp(`^${escapeRegExp(title)}`) })
+    .first();
+}

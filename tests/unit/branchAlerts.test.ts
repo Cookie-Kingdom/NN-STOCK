@@ -2,8 +2,8 @@ import { expect, test } from "vitest";
 // Aliased: it is a plain function despite the name, and the alias keeps the hooks lint rule quiet.
 import { useBranchAlerts as branchAlerts } from "@/components/organisms/branch/useBranchAlerts";
 import { branchNav } from "@/lib/nav";
-import { materials, mutate, seed, type Database } from "@/lib/store";
-import { day, last, ready, setup } from "./fixtures";
+import { materials, seed, type Database } from "@/lib/store";
+import { day, ready, setup } from "./fixtures";
 
 const titles = (db: Database, branch: string, date = day) =>
   branchAlerts(db, branch, date).notifications.map((item) => item.title);
@@ -123,33 +123,6 @@ test("the day's own work follows the daily workflow, step by step", () => {
   s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([]);
   expect(branchAlerts(s.db, "ศาลาแดง", day).badges.day).toBe(0);
-});
-
-test("an edit request is only ever shown to the branch that made it", () => {
-  const s = ready();
-  s.run("branch", "receive", { kg: "20" });
-  const receipt = last(s);
-  const asked = mutate(
-    s.db,
-    "branch",
-    "editRequest",
-    {
-      targetId: receipt.id,
-      values: JSON.stringify({ kg: "19" }),
-      reason: "ชั่งได้ไม่ครบ",
-    },
-    "",
-    day,
-    "ศาลาแดง",
-  );
-  expect(
-    titles(asked, "ศาลาแดง").some((title) => title.startsWith("คำขอแก้ไข")),
-  ).toBe(true);
-  expect(branchAlerts(asked, "ศาลาแดง", day).badges.history).toBe(1);
-  expect(
-    titles(asked, "มีนบุรี").some((title) => title.startsWith("คำขอแก้ไข")),
-  ).toBe(false);
-  expect(branchAlerts(asked, "มีนบุรี", day).badges.history).toBe(0);
 });
 
 test("every branch alert points at a tab a branch actually has", () => {

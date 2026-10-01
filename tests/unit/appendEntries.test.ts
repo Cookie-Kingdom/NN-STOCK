@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import { appendDelta } from "@/lib/app-state-delta";
@@ -12,14 +13,17 @@ import {
   balance,
   mutate,
   saleCost,
+  titles,
+  voidableKinds,
   type Database,
   type ActingRole,
   type Values,
   type EntryKind,
 } from "@/lib/store";
+import { editableKinds } from "@/lib/store/model";
 import { day, dispatch, last, readyToDispatch, ready, setup } from "./fixtures";
 
-/* append_entries (migration 0034) through its JS port: a branch loads its role-scoped copy,
+/* append_entries (latest in migration 0039) through its JS port: a branch loads its role-scoped copy,
  * runs mutate on it as the app does, and saves only the delta. */
 function save(
   full: Database,
@@ -182,17 +186,77 @@ test("append_entries takes entries on a closed branch day (0037: mutate only war
     [],
     revision,
   );
-  const after = appendState(
+  const received = entry("receive");
+  const after = appendState(db, branch, [received], [], closed.revision);
+  // 0039: and an edit of its own entry, where it took an edit request before.
+  appendState(
     db,
     branch,
-    [entry("receive")],
+    [{ ...entry("entryEdit"), values: { targetId: received.id } }],
     [],
-    closed.revision,
+    after.revision,
   );
-  appendState(db, branch, [entry("editRequest")], [], after.revision);
   expect(
     readState(db).payload.entries.filter((e) => e.kind === "receive"),
   ).toHaveLength(2);
+});
+
+// 0039: what mutate writes for a branch's own edit, delete and restore is what append_entries
+// takes: entries only, no lot.
+test("a branch saves its own edit, delete and restore as mutate writes them", () => {
+  const s = ready();
+  const lotId = s.db.lots.at(-1)!.id;
+  s.run("branch", "receive", { kg: "30" });
+  const receive = last(s);
+  const db = openLocalDb(":memory:");
+  replaceState(db, s.db);
+  const account = accountById("saladaeng");
+  const change = (kind: EntryKind, input: Values) => {
+    const { payload, revision } = loadState(db, account);
+    const next = mutate(payload, "branch", kind, input, "", day, "ศาลาแดง");
+    const delta = appendDelta(payload, next);
+    expect(delta.lots).toEqual([]);
+    appendState(db, account, delta.entries, delta.lots, revision);
+    return delta.entries.at(-1)!;
+  };
+  const received = () =>
+    balance(readState(db).payload, lotId, "ศาลาแดง").received;
+  const edit = change("entryEdit", {
+    targetId: receive.id,
+    values: JSON.stringify({ kg: "20" }),
+    reason: "ชั่งใหม่",
+  });
+  expect(received()).toBe(20);
+  change("void", { targetId: edit.id, reason: "แก้ผิด" });
+  expect(received()).toBe(30);
+  const removed = change("void", { targetId: receive.id, reason: "ซ้ำ" });
+  expect(received()).toBe(0);
+  change("void", { targetId: removed.id, reason: "ลบผิด" });
+  expect(received()).toBe(30);
+});
+
+// 0039: append_entries names the kinds no edit and no delete may target; they are the store's.
+test("the SQL edit / delete kind lists (migration 0039) are the store's", () => {
+  const sql = readFileSync(
+    "supabase/migrations/20261001000039_branch_direct_changes.sql",
+    "utf8",
+  );
+  const list = (name: string) =>
+    [
+      ...(sql
+        .match(
+          new RegExp(`${name} constant text\\[\\] := array\\[(.*?)\\]`),
+        )?.[1]
+        .matchAll(/'(\w+)'/g) ?? []),
+    ]
+      .map((match) => match[1])
+      .sort();
+  const outside = (kinds: EntryKind[]) =>
+    (Object.keys(titles) as EntryKind[])
+      .filter((kind) => !kinds.includes(kind))
+      .sort();
+  expect(list("not_editable")).toEqual(outside(editableKinds));
+  expect(list("not_voidable")).toEqual(outside(voidableKinds));
 });
 
 test("append_entries and entries() refuse a link to another branch's or the Owner's entry", () => {
