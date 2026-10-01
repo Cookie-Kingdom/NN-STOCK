@@ -601,17 +601,6 @@ export function ConfigView({ db }: { db: Database }) {
             "ราคามาตรฐานสำหรับประเมินมูลค่าสต๊อก",
           ),
           settingRow(
-            "จำนวนฐานน้ำพริก (Chili par level)",
-            <ConfigValue
-              {...edit}
-              section="supplies"
-              name="chiliPar"
-              display={plain}
-            />,
-            "หลอด",
-            "ระดับสต๊อกเป้าหมายของแต่ละสาขา",
-          ),
-          settingRow(
             "ราคาต่อหน่วยน้ำพริก (Chili unit price)",
             <ConfigValue
               {...edit}

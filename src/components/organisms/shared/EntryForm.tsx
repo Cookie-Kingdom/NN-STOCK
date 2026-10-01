@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
@@ -364,7 +364,6 @@ export function EntryForm({
   onOpen,
   onTab,
   branch,
-  switcher,
 }: {
   db: Database;
   role: ActingRole;
@@ -386,8 +385,6 @@ export function EntryForm({
   onOpen?: (kind: EntryKind) => void;
   /** Leaves the form for a workspace tab (the checklist's material count). */
   onTab?: (tab: Tab) => void;
-  /** Rendered under the dialog header: the chooser that swaps this form for its sibling. */
-  switcher?: ReactNode;
 }) {
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
@@ -699,20 +696,12 @@ export function EntryForm({
     <Dialog
       overline={`${date} · ${roleName[recordRole(kind, role)]}`}
       title={title}
-      // The sale holds its own long form plus repeated influencer blocks; a form
-      // with a switcher keeps the width of the MaterialTransferForm it swaps with;
-      // every other form keeps its width.
+      // The sale holds its own long form plus repeated influencer blocks; every other
+      // form keeps its width.
       size={
-        isPurchaseOrder
-          ? "preview"
-          : kind === "sale"
-            ? "formWide"
-            : switcher
-              ? "wide"
-              : "default"
+        isPurchaseOrder ? "preview" : kind === "sale" ? "formWide" : "default"
       }
       onClose={onClose}
-      toolbar={switcher}
     >
       {/* noValidate: a native `required` bubble is not in the DOM and Escape on it
           also closes the dialog. Let mutate() refuse and say why in FormError. */}

@@ -37,7 +37,7 @@ const dialogVariants = cva(
         /** sale: the day's own long form plus repeated influencer blocks. Wider than
          *  a form, still `max-w` capped, so a phone gets the same sheet. */
         formWide: "w-230",
-        /** `.material-transfer-dialog` */
+        /** the transport document form */
         wide: "w-270",
         /** `.material-purchase-dialog` / `.general-purchase-dialog` */
         xl: "w-290 max-w-[calc(100vw-2.25rem)]",

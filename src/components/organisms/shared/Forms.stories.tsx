@@ -3,7 +3,6 @@ import { fn, userEvent, within } from "storybook/test";
 import {
   day,
   demoDb,
-  materialTransferDb,
   multiPoPackedDb,
   nextDay,
   packedDb,
@@ -17,7 +16,6 @@ import { ChefLotEditForm } from "@/components/organisms/owner/ChefLotEditForm";
 import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { GeneralPurchaseForm } from "./GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "./MaterialPurchaseForm";
-import { MaterialTransferForm } from "./MaterialTransferForm";
 import { today } from "@/lib/format";
 
 // The Owner's dialogs other than EntryForm (see EntryForm.stories). Every story opens a
@@ -112,44 +110,6 @@ export const MaterialPurchasePrefilled: Story = {
   play: async ({ canvasElement }) => {
     const form = within(canvasElement.ownerDocument.body);
     await userEvent.click(form.getByLabelText(`ซื้อ ${materials[0]}`));
-  },
-};
-
-/** เลือกสถานะใน Controls:
- *  - ไม่มีประวัติ: the seven-day demo run
- *  - มีประวัติ: ticking ศาลาแดง fills up to par and the last receiver (see
- *    MaterialTransferPrefilled)
- *  - ส่งไปแล้วรอรับ: 60 of 200 units already sent to ศาลาแดง, not yet confirmed */
-export const MaterialTransfer: Story = {
-  ...controls({ ...history, ส่งไปแล้วรอรับ: materialTransferDb }, true),
-  render: ({ db, date, switcher }) => (
-    <MaterialTransferForm
-      key={`${db.entries.length}:${date}`}
-      db={db}
-      date={date}
-      onDate={onDate}
-      onClose={onClose}
-      onSaved={onSaved}
-      switcher={
-        switcher
-          ? chooser("ส่งอะไรไปสาขา", "materialTransfer", [
-              { value: "materialTransfer", label: "วัสดุบรรจุภัณฑ์" },
-              { value: "chiliAllocate", label: "น้ำพริกหลอด" },
-            ])
-          : undefined
-      }
-    />
-  ),
-};
-
-/** Ticking ศาลาแดง fills the จำนวน up to the branch's par (เติมให้ครบจำนวนฐาน) and ผู้รับ
- *  from the branch's last transfer. */
-export const MaterialTransferPrefilled: Story = {
-  ...MaterialTransfer,
-  args: { ...MaterialTransfer.args, db: withHistory },
-  play: async ({ canvasElement }) => {
-    const form = within(canvasElement.ownerDocument.body);
-    await userEvent.click(form.getByLabelText(`ส่ง ${materials[0]} ไปศาลาแดง`));
   },
 };
 

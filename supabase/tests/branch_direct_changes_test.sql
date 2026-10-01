@@ -1,5 +1,7 @@
 -- Migration 20261001000039: a branch edits, deletes and restores its own live entries directly,
 -- nobody else's, and an undo is not undone; entry_voided reads a restored delete as live.
+-- Migration 20261001000040: a chiliReceive and a materialConfirm are changed like any other, and
+-- the removed Owner kinds are refused.
 -- tests/unit/localDbBranchVoid.test.ts runs appendState (the JS port) on the same state and cases,
 -- read from this file by their dollar-quote tags.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/branch_direct_changes_test.sql
@@ -14,13 +16,14 @@ declare
   v_text   text;
   v_case   jsonb;
   v_log    jsonb;
-  -- r0 is deleted by the Owner (ov); q0 is a request from before 0039.
+  -- r0 is deleted by the Owner (ov); q0 is a request from before 0039; sc is ศาลาแดง's chili receipt.
   v_state constant jsonb := $state$
   {"lots": [{"id":"S1","poId":"SH-1","kind":"shipment","config":{},"values":{}}],
    "entries": [
     {"id":"r1","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"kg":"3"}},
     {"id":"r0","kind":"receive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"kg":"1"}},
     {"id":"sd","kind":"receive","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"kg":"3"}},
+    {"id":"sc","kind":"chiliReceive","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"chiliTubes":"20"}},
     {"id":"o1","kind":"allocate","role":"owner","lotId":"S1","branch":"มีนบุรี","date":"2026-09-01","values":{"kg":"3"}},
     {"id":"m0","kind":"materials","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{}},
     {"id":"q0","kind":"editRequest","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"targetId":"r1"}},
@@ -65,16 +68,17 @@ declare
     ["dl2", "void", {"targetId": "r1"}, ""],
     ["dl0", "void", {"targetId": "m0"}, ""],
     ["x", "editRequest", {"targetId": "r1"}, "Entry kind is not allowed for this account"],
-    ["m1", "materialConfirm", {"transferId": "t1"}, ""],
-    ["m2", "materialConfirm", {}, ""],
-    ["x", "entryEdit", {"targetId": "m2", "to.transferId": "t1"}, "Material transfer is already confirmed"],
-    ["em2", "entryEdit", {"targetId": "m2", "to.transferId": "t2"}, ""],
-    ["x", "materialConfirm", {"transferId": "t2"}, "Material transfer is already confirmed"],
-    ["x", "link", {"targetId": "m1", "transferId": "t2"}, "Material transfer is already confirmed"],
-    ["em1", "entryEdit", {"targetId": "m1", "to.transferId": "t1"}, ""],
-    ["un4", "void", {"targetId": "em2"}, ""],
-    ["m3", "materialConfirm", {"transferId": "t2"}, ""],
-    ["x", "entryEdit", {"targetId": "m2", "to.transferId": "t2"}, "Material transfer is already confirmed"]
+    ["x", "chiliAllocate", {"chiliTubes": "5"}, "Entry kind is not allowed for this account"],
+    ["x", "materialTransfer", {"material": "ถุงซีลเนื้อ", "quantity": "5"}, "Entry kind is not allowed for this account"],
+    ["cr1", "chiliReceive", {"chiliTubes": "5", "receiver": "x"}, ""],
+    ["m1", "materialConfirm", {"material": "ถุงซีลเนื้อ", "receivedQuantity": "5", "receiver": "x"}, ""],
+    ["m2", "materialConfirm", {"material": "ถุงซีลเนื้อ", "receivedQuantity": "5", "receiver": "x"}, ""],
+    ["ecr", "entryEdit", {"targetId": "cr1", "to.chiliTubes": "4"}, ""],
+    ["em1", "entryEdit", {"targetId": "m1", "to.receivedQuantity": "4"}, ""],
+    ["un4", "void", {"targetId": "em1"}, ""],
+    ["dcr", "void", {"targetId": "cr1"}, ""],
+    ["x", "entryEdit", {"targetId": "sc", "to.chiliTubes": "1"}, "Edit target is not an entry of this branch"],
+    ["x", "void", {"targetId": "sc"}, "Void target is not an entry of this branch"]
   ]
   $cases$;
 begin
@@ -106,7 +110,7 @@ begin
   select payload -> 'entries' into v_log from public.app_state;
   select string_agg(e ->> 'id', ',' order by ord) into v_text
     from jsonb_array_elements(v_log) with ordinality t(e, ord) where public.entry_voided(v_log, e);
-  assert v_text = 'r1,r0,m0,ed2,lk1,dl1,em2', format('voided: %s', v_text);
+  assert v_text = 'r1,r0,m0,ed2,lk1,dl1,cr1,em1', format('voided: %s', v_text);
 
   raise exception 'BRANCH_DIRECT_CHANGES_TEST_PASSED';
 end $$;

@@ -23,10 +23,10 @@ import {
 const full = thirtyDayRoleplay("2026-09-20");
 const dates = [...new Set(full.entries.map((e) => e.date))];
 
-// VIS-05: the latest app_state_scope_rules() (migration 0038) matches branchScope.
-test("the SQL rule (migration 0038) is the same as branchScope", () => {
+// VIS-05: the latest app_state_scope_rules() (migration 0040) matches branchScope.
+test("the SQL rule (migration 0040) is the same as branchScope", () => {
   const sql = readFileSync(
-    "supabase/migrations/20260930000038_scope_rules_drop_addon_price.sql",
+    "supabase/migrations/20261001000040_branch_self_receive.sql",
     "utf8",
   );
   const json = sql.match(/\$rules\$([\s\S]*?)\$rules\$/)?.[1];
@@ -124,6 +124,25 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
     r("e2", "entryEdit", "branch", { targetId: "r2", "to.kg": "3" }),
     r("un", "void", "branch", { targetId: "e2" }),
   ]);
+  // The "self receive" block of the same SQL test (0040): a branch's copy holds its own chili
+  // and material receipts (STK-43, MAT-01), none of another branch's and none of the Owner's
+  // purchases (STK-44).
+  const received = {
+    ...db,
+    entries: [
+      e("cr-mb", "chiliReceive", "branch", "", "มีนบุรี", { chiliTubes: "20" }),
+      e("cr-sd", "chiliReceive", "branch", "", "ศาลาแดง", { chiliTubes: "5" }),
+      e("mc-mb", "materialConfirm", "branch", "", "มีนบุรี", {
+        receivedQuantity: "6",
+      }),
+      e("mc-sd", "materialConfirm", "branch", "", "ศาลาแดง", {
+        receivedQuantity: "3",
+      }),
+      e("mr", "materialReceive", "owner", "", "มีนบุรี", { quantity: "10" }),
+      e("gp", "generalPurchase", "owner", "", "มีนบุรี", { quantity: "50" }),
+    ],
+  } as unknown as Database;
+  expect(ids(scopeDatabase(received, ["มีนบุรี"])).entries).toBe("cr-mb,mc-mb");
 });
 
 // BR-08: every batch S reaches the branch, and centralStock (the "สต๊อกกลางไม่พอ" warning, the

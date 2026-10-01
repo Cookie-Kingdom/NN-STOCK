@@ -68,12 +68,11 @@ const modal = pick<Case>("กล่องโต้ตอบ", {
     kind: "expense",
     lotId: "",
   },
-  // "ส่งของไปสาขา": no lot; the chooser swaps it for the chili-tube allocation.
-  ส่งวัสดุไปสาขา: { account: "owner", db: demoDb, kind: "materialTransfer" },
-  "ส่งน้ำพริกหลอด (chiliAllocate)": {
-    account: "owner",
+  // STK-43: the branch writes down the chili it received; an ordinary entry form.
+  "จดบันทึก: ศาลาแดงรับน้ำพริก (chiliReceive)": {
+    account: "saladaeng",
     db: demoDb,
-    kind: "chiliAllocate",
+    kind: "chiliReceive",
     lotId: "",
   },
   // "+ ซื้อเข้าคลัง"; the chooser swaps in the other purchase.

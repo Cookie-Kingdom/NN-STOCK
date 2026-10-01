@@ -76,7 +76,7 @@ export {
   rawRiceStock,
   issuedRawRiceStock,
   cookedRiceStock,
-  chiliAllocated,
+  chiliReceived,
   ownerChiliStock,
   chiliSold,
   chiliStock,

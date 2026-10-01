@@ -20,17 +20,6 @@ export const noBranchAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
-/** Material the Owner sent this branch that nobody has confirmed as arrived — the same
- *  list `MaterialReceiptConfirmation` shows, read the same way. */
-function pendingMaterialTransfers(db: Database, branch: string) {
-  const confirms = entries(db, "materialConfirm", undefined, branch);
-  return entries(db, "materialTransfer", undefined, branch).filter(
-    (transfer) =>
-      transfer.values.requiresConfirm &&
-      !confirms.some((entry) => entry.values.transferId === transfer.id),
-  );
-}
-
 /** What this branch has not jotted yet for `date`: plain facts, never an instruction.
  *
  *  A branch account reads the whole database (`visibleDatabase` only strips sale money for the Account Manager),
@@ -39,17 +28,16 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  entries (BR-07, `ws.lots`). The
  *  "ไม่ระบุ Lot" bucket (`lotId ""`) counts as one more lot for thawing and selling.
  *  There is no stage to wait on (DASH-02): each line is what this branch's own balances
- *  still owe, never a gate. The branch records what meat it received itself (BR-01), so nothing
- *  waits on an allocation. Nothing about another branch can reach this bell.
+ *  still owe, never a gate. The branch records what meat, material and chili it received
+ *  itself (BR-01, MAT-01, STK-43), so nothing waits on the Owner. Nothing about another
+ *  branch can reach this bell.
  *
  *  The day lines read the same helpers as `BranchDailyWorkflow`'s thaw, sale and close
- *  rows, so the bell and that table can never disagree. Material work
- *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
- *  `material-count` and are counted on those badges, never on `day`. */
+ *  rows, so the bell and that table can never disagree. The material count has its own
+ *  tab, so its line points at `material-count` and is counted on that badge, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
   const lots = visibleLots(db, branch);
   const lotIds = [...lots.map((lot) => lot.id), ""];
-  const materialTransfers = pendingMaterialTransfers(db, branch);
   // One `materials` entry per branch+date covers all 7 rows, so the day is either
   // counted or not counted at all.
   const materialsCounted =
@@ -101,16 +89,7 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
         ]),
   ];
 
-  // The two material tabs, each with its own line so the bell and the pill agree.
-  const receiveAlerts: Notification[] = materialTransfers.length
-    ? [
-        {
-          title: `วัสดุรอยืนยันรับ ${materialTransfers.length} รายการ`,
-          detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
-          tab: "material-receive" as const,
-        },
-      ]
-    : [];
+  // The material-count tab has its own line so the bell and the pill agree.
   const countAlerts: Notification[] = uncountedMaterials
     ? [
         {
@@ -122,11 +101,10 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
     : [];
 
   return {
-    notifications: [...dayAlerts, ...receiveAlerts, ...countAlerts],
+    notifications: [...dayAlerts, ...countAlerts],
     dayTasks: dayAlerts.length,
     badges: {
       day: dayAlerts.length,
-      "material-receive": materialTransfers.length,
       "material-count": uncountedMaterials,
     } satisfies Partial<Record<Tab, number>>,
   };

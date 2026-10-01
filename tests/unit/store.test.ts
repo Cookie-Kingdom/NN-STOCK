@@ -7,7 +7,7 @@ import {
   branchMeatDay,
   branches,
   centralStock,
-  chiliAllocated,
+  chiliReceived,
   chiliStock,
   closeDayChecklist,
   cookedRiceStock,
@@ -153,7 +153,7 @@ describe("derived values from the entry log", () => {
     expect(cookedRiceStock(db, "ศาลาแดง", "2026-09-10")).toBe(0);
   });
 
-  test("chili is bought by the owner, allocated to branches and sold", () => {
+  test("STK-43 / STK-44 chili is bought by the Owner, received by branches and sold", () => {
     const db = withEntries(
       entry({
         kind: "generalPurchase",
@@ -165,17 +165,26 @@ describe("derived values from the entry log", () => {
         role: "owner",
         values: { item: "อื่น ๆ", quantity: "99" },
       }),
-      entry({
-        kind: "chiliAllocate",
-        role: "owner",
-        values: { chiliTubes: "20" },
-      }),
+      entry({ kind: "chiliReceive", values: { chiliTubes: "20" } }),
       entry({ kind: "sale", date: "2026-09-10", values: { chiliSold: "3" } }),
     );
     expect(ownerChiliStock(db)).toBe(30);
     expect(chiliStock(db, "ศาลาแดง")).toBe(17);
     expect(chiliStock(db, "ศาลาแดง", day)).toBe(20);
-    expect(chiliAllocated(db, "ศาลาแดง", "2026-09-08")).toBe(0);
+    expect(chiliReceived(db, "ศาลาแดง", "2026-09-08")).toBe(0);
+    expect(chiliStock(db, "มีนบุรี")).toBe(0);
+    // Every branch's receipts come off the Owner's store, below zero when it bought less.
+    const over = withEntries(
+      ...db.entries,
+      entry({
+        kind: "chiliReceive",
+        branch: "มีนบุรี",
+        values: { chiliTubes: "40" },
+      }),
+    );
+    expect(ownerChiliStock(over)).toBe(-10);
+    expect(chiliStock(over, "มีนบุรี")).toBe(40);
+    expect(chiliStock(over, "ศาลาแดง")).toBe(17);
   });
 
   test("a day stays closed until an unlock later in the log than the last close", () => {
@@ -337,19 +346,19 @@ describe("derived values from the entry log", () => {
       visibleEntries(withEntries(meatPayment), "branch", "ศาลาแดง"),
     ).toEqual([]);
     expect(visibleEntries(db, "branch")).toEqual([]);
-    // What the Owner sent the branch is shown (read-only in its history), not other branches'.
-    const allocate = entry({ kind: "allocate", role: "owner", lotId: "S1" });
-    const transfer = entry({
-      kind: "materialTransfer",
+    // What the Owner sent the branch (an old allocation) is shown, read-only in its history,
+    // not other branches'.
+    const allocate = entry({
+      kind: "allocate",
       role: "owner",
-      branch: "มีนบุรี",
-      values: { price: "5", quantity: "1" },
+      lotId: "S1",
+      values: { price: "5", kg: "1" },
     });
-    const sent = withEntries(allocate, transfer);
-    expect(visibleEntries(sent, "branch", "ศาลาแดง")).toEqual([allocate]);
-    expect(visibleEntries(sent, "branch", "มีนบุรี")).toEqual([
-      { ...transfer, values: { quantity: "1" } },
+    const sent = withEntries(allocate);
+    expect(visibleEntries(sent, "branch", "ศาลาแดง")).toEqual([
+      { ...allocate, values: { kg: "1" } },
     ]);
+    expect(visibleEntries(sent, "branch", "มีนบุรี")).toEqual([]);
   });
 
   test("revenue sums sales and material par falls back to branch-suffixed settings", () => {
@@ -523,10 +532,6 @@ describe("mutate guards", () => {
 
   test("void reverses an allowed entry once and needs a reason", () => {
     const s = setup();
-    expectWarning(
-      s.check("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "1" }),
-      /ไม่พอ/,
-    );
     s.run("owner", "generalPurchase", {
       purchaseDate: day,
       item: "น้ำพริกหลอด",
@@ -536,7 +541,7 @@ describe("mutate guards", () => {
       supplier: "x",
     });
     expect(last(s).values.totalCost).toBe("300");
-    s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "20" });
+    s.run("branch", "chiliReceive", { chiliTubes: "20", receiver: "x" });
     const allocation = last(s);
     expect(ownerChiliStock(s.db)).toBe(30);
     expect(chiliStock(s.db, "ศาลาแดง")).toBe(20);
@@ -549,7 +554,7 @@ describe("mutate guards", () => {
     expect(missing).toBe("reason");
     s.run("owner", "void", { targetId: allocation.id, reason: "ส่งผิด" });
     expect(last(s).values).toMatchObject({
-      targetKind: "chiliAllocate",
+      targetKind: "chiliReceive",
       targetBranch: "ศาลาแดง",
     });
     expect(ownerChiliStock(s.db)).toBe(50);
@@ -562,6 +567,23 @@ describe("mutate guards", () => {
     expect(() =>
       s.run("owner", "void", { targetId: last(s).id, reason: "x" }),
     ).toThrow(/ลบไม่ได้/);
+  });
+
+  test("the removed kinds are no kinds at all: mutate refuses them for every role", () => {
+    const s = setup();
+    const before = s.db;
+    for (const role of ["owner", "branch"] as const)
+      for (const kind of ["materialTransfer", "chiliAllocate", "nope"])
+        expect(
+          s.check(role, kind as EntryKind, {
+            branch: "ศาลาแดง",
+            material: materials[0],
+            quantity: "1",
+            chiliTubes: "1",
+            receiver: "x",
+          }),
+        ).toEqual({ warnings: [], error: "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้" });
+    expect(s.db).toBe(before);
   });
 
   test("config merges validated settings; old stored keys pass through unchecked", () => {
@@ -1140,22 +1162,8 @@ describe("lot workflow", () => {
 });
 
 describe("branch supplies", () => {
-  test("materials move from owner stock to a branch only after the branch confirms", () => {
+  test("MAT-01 / STK-44 a branch's material receipt goes on its shelf and comes off the Owner's store", () => {
     const material = materials[0];
-    // MAT-01: a transfer before the branch's par is set saves; it is said.
-    expectWarning(
-      check(() =>
-        mutate(
-          seed,
-          "owner",
-          "materialTransfer",
-          { material, branch: "ศาลาแดง", quantity: "1", receiver: "x" },
-          "",
-          day,
-        ),
-      ),
-      /ตั้งจำนวนฐาน/,
-    );
     const s = setup();
     s.run("owner", "materialReceive", {
       purchaseDate: "2026-09-08",
@@ -1169,35 +1177,121 @@ describe("branch supplies", () => {
       values: { totalCost: "20" },
     });
     expect(ownerMaterialStock(s.db, material)).toBe(10);
-    const transfer = (quantity: string) =>
-      s.run("owner", "materialTransfer", {
-        material,
-        branch: "ศาลาแดง",
-        quantity,
-        receiver: "x",
-      });
-    expectWarning(
-      s.dry(() => transfer("11")),
-      /ไม่พอ/,
-    );
-    transfer("6");
-    const transferId = last(s).id;
-    expect(ownerMaterialStock(s.db, material)).toBe(4);
-    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(0);
-    const receive = (values: Values) =>
+    const receive = (receivedQuantity: string) =>
       s.run("branch", "materialConfirm", {
-        transferId,
-        receivedQuantity: "5",
+        material,
+        receivedQuantity,
         receiver: "x",
-        ...values,
       });
+    receive("6");
+    expect(last(s)).toMatchObject({
+      role: "branch",
+      branch: "ศาลาแดง",
+      values: { material, receivedQuantity: "6", receiver: "x" },
+    });
+    expect(ownerMaterialStock(s.db, material)).toBe(4);
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(6);
+    // More than the Owner has on file: saved with no warning, and the store shows the minus.
+    expect(s.dry(() => receive("9"))).toEqual({ warnings: [], error: "" });
+    receive("9");
+    expect(ownerMaterialStock(s.db, material)).toBe(-5);
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(15);
+    // Another material and another branch's shelf are not touched.
+    expect(ownerMaterialStock(s.db, materials[1])).toBe(0);
+    expect(branchMaterialStock(s.db, "มีนบุรี", 0)).toBe(0);
+    // A receipt dated later is not on the shelf of an earlier day.
+    expect(branchMaterialStock(s.db, "ศาลาแดง", 0, "2026-09-08")).toBe(0);
+    // The rules: a listed material, a whole number, and nothing empty goes unmarked (GEN-02).
+    expect(() =>
+      s.run("branch", "materialConfirm", {
+        material: "ไม่มีในรายการ",
+        receivedQuantity: "1",
+        receiver: "x",
+      }),
+    ).toThrow(/เลือกวัสดุ/);
+    expect(() => receive("-1")).toThrow(/เป็นตัวเลขมากกว่าศูนย์/);
     expectWarning(
-      s.dry(() => receive({})),
-      /เหตุผลส่วนต่าง/,
+      s.dry(() => receive("1.5")),
+      /จำนวนเต็ม/,
     );
-    receive({ reason: "ขาด 1" });
-    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
-    expect(() => receive({ reason: "ซ้ำ" })).toThrow(/ยืนยันรับรายการนี้แล้ว/);
+    let missing: string | undefined;
+    s.dry(() => {
+      s.run("branch", "materialConfirm", {});
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("material,receivedQuantity,receiver");
+    // Only a branch writes down what it received.
+    expect(() =>
+      s.run("owner", "materialConfirm", {
+        material,
+        receivedQuantity: "1",
+        receiver: "x",
+      }),
+    ).toThrow(/ไม่มีสิทธิ์/);
+  });
+
+  test("STK-43 a branch writes down the chili it received", () => {
+    const s = setup();
+    const receive = (values: Values) => s.run("branch", "chiliReceive", values);
+    // STK-44: the Owner has bought none (a branch's copy never has): still no warning.
+    expect(s.dry(() => receive({ chiliTubes: "20", receiver: "นิด" }))).toEqual(
+      { warnings: [], error: "" },
+    );
+    receive({
+      chiliTubes: "20",
+      receiver: "นิด",
+      reference: "DN-1",
+      note: "มากับรถเนื้อ",
+    });
+    expect(last(s)).toMatchObject({
+      kind: "chiliReceive",
+      role: "branch",
+      branch: "ศาลาแดง",
+      lotId: "",
+      date: day,
+      values: { chiliTubes: "20", receiver: "นิด", reference: "DN-1" },
+    });
+    expect(chiliReceived(s.db, "ศาลาแดง")).toBe(20);
+    expect(chiliStock(s.db, "ศาลาแดง")).toBe(20);
+    expect(chiliStock(s.db, "มีนบุรี")).toBe(0);
+    expect(ownerChiliStock(s.db)).toBe(-20);
+    // A typed value that is no positive number is refused; a fraction or a zero is said.
+    for (const chiliTubes of ["-1", "abc"])
+      expect(() => receive({ chiliTubes, receiver: "นิด" })).toThrow(
+        /กรอกจำนวนน้ำพริกที่รับเป็นตัวเลขมากกว่าศูนย์/,
+      );
+    expectWarning(
+      s.dry(() => receive({ chiliTubes: "1.5", receiver: "นิด" })),
+      /น้ำพริกต้องเป็นจำนวนหลอดเต็ม/,
+    );
+    expectWarning(
+      s.dry(() => receive({ chiliTubes: "0", receiver: "นิด" })),
+      /เป็นศูนย์/,
+    );
+    // GEN-02: left empty it is saved and marked.
+    let missing: string | undefined;
+    s.dry(() => {
+      receive({});
+      missing = last(s).values.missing;
+    });
+    expect(missing).toBe("chiliTubes,receiver");
+    // The Owner does not record a branch's receipt.
+    expect(() =>
+      s.run("owner", "chiliReceive", { chiliTubes: "1", receiver: "x" }),
+    ).toThrow(/ไม่มีสิทธิ์/);
+    // It reaches the sale: 20 on the shelf, 21 asked for.
+    expectWarning(
+      s.check("branch", "sale", {
+        boxes: "0",
+        chiliAddons: "21",
+        soldKg: "0",
+        wasteKg: "0",
+        riceWasteKg: "0",
+        expense: "0",
+        lineMan: "630",
+      }),
+      /น้ำพริกในสต๊อกไม่พอ · กรอกได้สูงสุด 20 หลอด/,
+    );
   });
 
   test("a wrong material count can be saved over, and every round stays in the log", () => {
@@ -1209,14 +1303,8 @@ describe("branch supplies", () => {
       unitPrice: "1",
       supplier: "x",
     });
-    s.run("owner", "materialTransfer", {
-      material: materials[0],
-      branch: "ศาลาแดง",
-      quantity: "100",
-      receiver: "x",
-    });
     s.run("branch", "materialConfirm", {
-      transferId: last(s).id,
+      material: materials[0],
       receivedQuantity: "100",
       receiver: "x",
     });
@@ -1483,7 +1571,7 @@ function giveawayReady() {
     unitPrice: "6",
     supplier: "ผู้ผลิตน้ำพริก",
   });
-  s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "5" });
+  s.run("branch", "chiliReceive", { chiliTubes: "5", receiver: "ผู้ดูแล" });
   return s;
 }
 
@@ -1674,7 +1762,7 @@ test("full loop: partial smoke, central, branch receives in parts, sale and clos
     unitPrice: "6",
     supplier: "ผู้ผลิตน้ำพริก",
   });
-  s.run("owner", "chiliAllocate", { branch: "ศาลาแดง", chiliTubes: "50" });
+  s.run("branch", "chiliReceive", { chiliTubes: "50", receiver: "ผู้ดูแล" });
   s.run("branch", "riceIssue", { rawRiceIssuedKg: "4", receiver: "ผู้ดูแล" });
   s.run("branch", "rice", { rawUsedKg: "4", riceKg: "10" });
   expect(rawRiceStock(s.db, "ศาลาแดง")).toBe(6);
@@ -1705,14 +1793,8 @@ test("full loop: partial smoke, central, branch receives in parts, sale and clos
       unitPrice: "1",
       supplier: "ผู้ขายวัสดุ",
     });
-    s.run("owner", "materialTransfer", {
-      material: materials[i],
-      branch: "ศาลาแดง",
-      quantity: "500",
-      receiver: "ผู้ดูแล",
-    });
     s.run("branch", "materialConfirm", {
-      transferId: last(s).id,
+      material: materials[i],
       receivedQuantity: "500",
       receiver: "ผู้ดูแล",
     });
@@ -2283,14 +2365,14 @@ describe("free ledger (PRD v9)", () => {
     expect(balance(s.db, batch, "ศาลาแดง").received).toBe(10);
     s.run("owner", "void", { targetId: last(s).id, reason: "x" }, "");
     expect(balance(s.db, batch, "ศาลาแดง").received).toBe(10);
-    // LNK-03: only branch meat and material receipts link.
+    // LNK-03: only branch meat links.
     const central = entries(s.db, "central")[0];
     expect(() =>
       s.run("owner", "link", { targetId: central.id, lotId: batch }, ""),
     ).toThrow(/ผูกย้อนหลังไม่ได้/);
   });
 
-  test("MAT-01 a material receipt with no transfer counts at the branch and links to one later", () => {
+  test("MAT-01 a material receipt counts at the branch, and no link ties it to anything", () => {
     const s = setup();
     s.run(
       "branch",
@@ -2299,7 +2381,8 @@ describe("free ledger (PRD v9)", () => {
       "",
     );
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
-    expect(ownerMaterialStock(s.db, materials[0])).toBe(0);
+    // STK-44: the Owner recorded no purchase, so its store reads the minus.
+    expect(ownerMaterialStock(s.db, materials[0])).toBe(-5);
     s.run(
       "owner",
       "materialReceive",
@@ -2312,39 +2395,14 @@ describe("free ledger (PRD v9)", () => {
       },
       "",
     );
-    s.run(
-      "owner",
-      "materialTransfer",
-      {
-        material: materials[0],
-        branch: "ศาลาแดง",
-        quantity: "5",
-        receiver: "นิด",
-      },
-      "",
-    );
-    const transfer = last(s);
+    expect(ownerMaterialStock(s.db, materials[0])).toBe(15);
     expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
+    // LNK-03: a material receipt has nothing to be linked to.
     const confirm = entries(s.db, "materialConfirm")[0];
-    s.run(
-      "branch",
-      "link",
-      { targetId: confirm.id, transferId: transfer.id },
-      "",
-    );
-    expect(entries(s.db, "materialConfirm")[0].values.transferId).toBe(
-      transfer.id,
-    );
-    expect(branchMaterialStock(s.db, "ศาลาแดง", 0)).toBe(5);
-    // The transfer is taken: a second receipt on it is refused (GEN-06).
-    expect(() =>
-      s.run(
-        "branch",
-        "materialConfirm",
-        { transferId: transfer.id, receivedQuantity: "5", receiver: "นิด" },
-        "",
-      ),
-    ).toThrow(/ยืนยันรับรายการนี้แล้ว/);
+    for (const role of ["branch", "owner"] as const)
+      expect(() =>
+        s.run(role, "link", { targetId: confirm.id, lotId: "S1" }, ""),
+      ).toThrow(/ผูกย้อนหลังไม่ได้/);
   });
 
   test("DASH-07 sales, cost and profit of a fully linked day are what they were before A0", () => {

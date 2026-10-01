@@ -12,7 +12,7 @@ import {
   branchMaterialStock,
   branches,
   centralStock,
-  chiliAllocated,
+  chiliReceived,
   chiliSold,
   chiliStock,
   cookedRiceStock,
@@ -38,9 +38,10 @@ import { byDateAt } from "@/lib/store/derived";
 
 // Assets and other expenses are not stock: they live in the purchase history below.
 const genreOptions = ["ทั้งหมด", "เนื้อ", "วัตถุดิบ", "วัสดุบรรจุภัณฑ์"];
-// One column per place stock sits. Smoked beef waiting for allocation is kept at
-// Foodiva; everything the Owner holds (materials, chili tubes, received waste) is one
-// place, "คลัง Owner".
+// One column per place stock sits. Smoked beef waiting for a branch to receive it is kept
+// at Foodiva; everything the Owner holds (materials, chili tubes, received waste) is one
+// place, "คลัง Owner". STK-44: materials and chili there are what was bought less what the
+// branches wrote down as received, shown as it is, below zero included.
 const stockLocations = ["Foodiva", "คลัง Owner", ...branches];
 const meatTypeOptions = [
   "เนื้อดิบพร้อมส่ง Chef House",
@@ -106,6 +107,11 @@ export function OwnerStockView({
     (entry) => entry.values.item === "น้ำพริกหลอด",
   );
   const lastChiliPurchase = chiliPurchases.at(-1);
+  const chiliBought = chiliPurchases.reduce(
+    (sum, entry) => sum + n(entry.values, "quantity"),
+    0,
+  );
+  const chiliTaken = chiliBought - ownerChiliStock(db);
   const rows: StockRow[] = [
     ...lots.flatMap((lot): StockRow[] => {
       const invoiceConfirmed = entries(db, "foodivaConfirm", lot.id).length > 0;
@@ -257,22 +263,27 @@ export function OwnerStockView({
           ]),
         ),
       },
-      tips: Object.fromEntries(
-        branches.map((branchName) => [
-          branchName,
-          `Owner จัดสรร ${fmt(chiliAllocated(db, branchName))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
-        ]),
-      ),
-      detail: lastChiliPurchase
-        ? `ซื้อเข้า ${fmt(chiliPurchases.reduce((sum, entry) => sum + n(entry.values, "quantity"), 0))} หลอด · จัดสรรไปสาขา ${fmt(entries(db, "chiliAllocate").reduce((sum, entry) => sum + n(entry.values, "chiliTubes"), 0))} หลอด`
-        : ownerChiliStock(db) > 0
-          ? "ยอดคงเหลือเดิมจากข้อมูลทดลอง · การซื้อครั้งถัดไปให้บันทึกผ่านการซื้ออื่น ๆ"
+      tips: {
+        "คลัง Owner": "ซื้อเข้า หักที่สาขาจดรับแล้ว",
+        ...Object.fromEntries(
+          branches.map((branchName) => [
+            branchName,
+            `รับเข้า ${fmt(chiliReceived(db, branchName))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branchName))} หลอด`,
+          ]),
+        ),
+      },
+      detail:
+        lastChiliPurchase || chiliTaken
+          ? `ซื้อเข้า ${fmt(chiliBought)} หลอด · สาขาจดรับแล้ว ${fmt(chiliTaken)} หลอด`
           : "ยังไม่มีประวัติการซื้อ",
     },
     ...materials.map((material, index) => {
       const lastPurchase = entries(db, "materialReceive")
         .filter((entry) => entry.values.material === material)
         .at(-1);
+      const taken = entries(db, "materialConfirm")
+        .filter((entry) => entry.values.material === material)
+        .reduce((sum, entry) => sum + n(entry.values, "receivedQuantity"), 0);
       return {
         genre: "วัสดุบรรจุภัณฑ์",
         item: material,
@@ -286,15 +297,20 @@ export function OwnerStockView({
             ]),
           ),
         },
-        tips: Object.fromEntries(
-          branches.map((branchName) => [
-            branchName,
-            `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
-          ]),
-        ),
-        detail: lastPurchase
-          ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
-          : "ยังไม่มีประวัติการซื้อ",
+        tips: {
+          "คลัง Owner": "ซื้อเข้า หักที่สาขาจดรับแล้ว",
+          ...Object.fromEntries(
+            branches.map((branchName) => [
+              branchName,
+              `ฐาน ${fmt(materialPar(db, branchName, index))} · ฿${fmt(materialUnitPrice(db, branchName, index))} / ชิ้น`,
+            ]),
+          ),
+        },
+        detail: `${
+          lastPurchase
+            ? `ซื้อล่าสุด ${lastPurchase.values.purchaseDate || lastPurchase.date} · ฿${fmt(n(lastPurchase.values, "unitPrice"))} / ชิ้น`
+            : "ยังไม่มีประวัติการซื้อ"
+        } · สาขาจดรับแล้ว ${fmt(taken)} ชิ้น`,
       };
     }),
   ];

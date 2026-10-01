@@ -8,7 +8,6 @@ import {
 import { EntryForm } from "@/components/organisms/shared/EntryForm";
 import { GeneralPurchaseForm } from "@/components/organisms/shared/GeneralPurchaseForm";
 import { MaterialPurchaseForm } from "@/components/organisms/shared/MaterialPurchaseForm";
-import { MaterialTransferForm } from "@/components/organisms/shared/MaterialTransferForm";
 import { PackingListDialog } from "@/components/organisms/shared/PackingListDialog";
 import { skipNextDialogEnter } from "@/components/organisms/shared/Dialog";
 import { PackingListForm } from "@/components/organisms/shared/PackingListForm";
@@ -22,8 +21,8 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { Modal, ModalKind } from "@/lib/nav";
 import { titles, type EntryKind } from "@/lib/store";
 
-// The stock tab's two buttons each open a pair of forms: the first kind is what the
-// button opens, the chooser swaps in the other. Each form still saves its own kind.
+// The stock tab's button opens a pair of forms: the first kind is what the button opens,
+// the chooser swaps in the other. Each form still saves its own kind.
 const STOCK_PAIRS: { label: string; options: SegmentedOption<ModalKind>[] }[] =
   [
     {
@@ -31,13 +30,6 @@ const STOCK_PAIRS: { label: string; options: SegmentedOption<ModalKind>[] }[] =
       options: [
         { value: "materialReceive", label: "วัสดุบรรจุภัณฑ์" },
         { value: "generalPurchase", label: "ซื้ออื่น ๆ (น้ำพริก, น้ำดอง ฯลฯ)" },
-      ],
-    },
-    {
-      label: "ส่งอะไรไปสาขา",
-      options: [
-        { value: "materialTransfer", label: "วัสดุบรรจุภัณฑ์" },
-        { value: "chiliAllocate", label: "น้ำพริกหลอด" },
       ],
     },
   ];
@@ -95,17 +87,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     />
   );
 
-  if (modal.kind === "materialTransfer") {
-    return (
-      <MaterialTransferForm
-        switcher={switcher}
-        db={db}
-        {...dateProps}
-        onClose={close}
-        onSaved={() => done("บันทึกส่งวัสดุไปสาขาแล้ว")}
-      />
-    );
-  }
   if (modal.kind === "materialReceive") {
     return (
       <MaterialPurchaseForm
@@ -229,7 +210,6 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       onClose={close}
       onOpen={ws.open}
       onTab={setTab}
-      switcher={switcher}
       again={again}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);

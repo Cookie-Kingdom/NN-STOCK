@@ -26,12 +26,6 @@ const scenario = pick("รายการที่ผูก", {
     role: "branch" as const,
     branch: "ศาลาแดง" as string | undefined,
   },
-  รับวัสดุ: {
-    db: unlinkedDb,
-    kind: "materialConfirm" as EntryKind,
-    role: "branch" as const,
-    branch: "ศาลาแดง" as string | undefined,
-  },
   "Owner ผูกใหม่": {
     db: linkedDb,
     kind: "receive" as EntryKind,
@@ -43,7 +37,6 @@ const scenario = pick("รายการที่ผูก", {
 /** เลือกใน Controls:
  *  - เนื้อสาขา: ศาลาแดงรับ 10 kg ไม่มี Lot; ตัวเลือกคือทุก batch ที่ส่งพร้อมยอดที่เหลือใน
  *    สต๊อกกลาง; บันทึกแล้วเป็น `link` และยอดย้ายไป batch นั้น
- *  - รับวัสดุ: รับวัสดุที่บันทึกก่อน Owner ส่ง; ตัวเลือกคือใบส่งวัสดุของศาลาแดงที่ยังไม่มีใบรับ
  *  - Owner ผูกใหม่: รายการรับที่ผูก batch แล้ว "ผูกอยู่กับ" บอกชื่อ และบันทึก batch เดิมซ้ำ
  *    ไม่ได้; link หลังสุดชนะ (LNK-05) */
 export const Link: StoryObj<{ scenario: typeof scenario.initial }> = {

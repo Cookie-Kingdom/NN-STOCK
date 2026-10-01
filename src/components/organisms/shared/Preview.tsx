@@ -213,7 +213,7 @@ export function Preview({
       ],
       [
         kind === "sale" ? "น้ำพริกก่อนขาย" : "น้ำพริกก่อนตัดสต๊อก",
-        `${fmt(chiliStock(db, branch))} หลอดที่ Owner จัดสรร`,
+        `${fmt(chiliStock(db, branch))} หลอด`,
       ],
       [
         "น้ำพริกที่จะหัก",

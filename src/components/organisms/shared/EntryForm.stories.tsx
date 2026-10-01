@@ -26,7 +26,6 @@ import {
 } from "../../../../.storybook/fixtures";
 import { setMockDatabase } from "../../../../.storybook/mocks/persistence";
 import { pick } from "../../../../.storybook/pick";
-import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { today } from "@/lib/format";
 import { NO_LOT } from "@/lib/nav";
 import {
@@ -55,7 +54,6 @@ type Args = {
   form: Setup;
   date: string;
   branch: string;
-  switcher: boolean;
 };
 type Story = StoryObj<Args>;
 
@@ -89,27 +87,9 @@ const option = <O extends Record<string, Setup>>(
   label: keyof O & string,
 ) => label as unknown as Setup;
 
-/** The stock tab's chooser in the Owner's "ส่งอะไรไปสาขา" dialog (WorkspaceModals). */
-const chiliSwitcher = (
-  <SegmentedChoice
-    label="ส่งอะไรไปสาขา"
-    options={[
-      { value: "materialTransfer", label: "วัสดุบรรจุภัณฑ์" },
-      { value: "chiliAllocate", label: "น้ำพริกหลอด" },
-    ]}
-    value="chiliAllocate"
-    onChange={fn()}
-  />
-);
-
 function renderForm(
   role: ActingRole,
-  {
-    form: { db, kind, lotId = db.lots.at(-1)?.id ?? "" },
-    date,
-    branch,
-    switcher,
-  }: Args,
+  { form: { db, kind, lotId = db.lots.at(-1)?.id ?? "" }, date, branch }: Args,
   again?: { lot: string; note: string },
 ) {
   // ponytail: the preview decorator only syncs an arg named `db`; this one sits in `form`.
@@ -129,7 +109,6 @@ function renderForm(
       onSavedMore={onSavedMore}
       again={again}
       onOpen={onOpen}
-      switcher={switcher ? chiliSwitcher : undefined}
     />
   );
 }
@@ -146,17 +125,11 @@ const actor = (
     branch: branch
       ? { name: "สาขา", control: "radio", options: [...branches] }
       : { table: { disable: true } },
-    switcher: {
-      name: "ตัวเลือกสลับฟอร์ม",
-      control: "boolean",
-      ...(role === "branch" && { table: { disable: true } }),
-    },
   },
   args: {
     form: options.initial,
     date: dates.initial,
     branch,
-    switcher: false,
   },
   render: (args) => renderForm(role, args),
 });
@@ -187,7 +160,6 @@ const owner = {
     kind: "central",
     lotId: "",
   },
-  ส่งน้ำพริกไปสาขา: { db: demoDb, kind: "chiliAllocate" },
   "รับเนื้อที่ Foodiva เก็บไว้ (A8)": {
     db: ownerReservedDb,
     kind: "ownerWasteReceive",
@@ -203,8 +175,6 @@ const owner = {
  *  - ใบวางบิล: review (accept / send back) and payment, amount prefilled, slips optional
  *  - จ่ายค่าเนื้อ Foodiva: the meat invoice on the purchase PO, amount prefilled
  *  - ชั่งเข้าสต๊อกกลาง: the smoked meat Foodiva received back
- *  - ส่งน้ำพริกไปสาขา: tubes up to the branch's par (capped at stock), last receiver.
- *    ตัวเลือกสลับฟอร์ม shows the stock tab's chooser above it
  *  - รับเนื้อที่ Foodiva เก็บไว้: 6 kg outstanding, prefilled as expected
  *  - ค่าใช้จ่าย: last category, payer and that category's last amount
  *  - เปิดวันที่ปิดแล้ว: the reason is always typed
@@ -234,19 +204,6 @@ export const OwnerPurchaseMobile: Story = {
 export const OwnerPurchaseTablet: Story = {
   ...OwnerPurchaseMobile,
   globals: { viewport: { value: "tablet", isRotated: false } },
-};
-
-/** Switching the branch refills the untouched tubes and receiver for มีนบุรี. */
-export const OwnerChiliAllocateMinburi: Story = {
-  ...Owner,
-  args: { ...Owner.args, form: option(owner, "ส่งน้ำพริกไปสาขา") },
-  play: async ({ canvasElement }) => {
-    const body = within(canvasElement.ownerDocument.body);
-    await userEvent.selectOptions(
-      body.getByLabelText(/สาขาปลายทาง/),
-      "มีนบุรี",
-    );
-  },
 };
 
 /** Picking another category refills the untouched amount with that category's last one. */
@@ -345,6 +302,7 @@ const branch = {
   เบิกข้าวเหนียว: { db: demoDb, kind: "riceIssue" },
   หุงข้าว: { db: demoDb, kind: "rice" },
   ข้าวเหลือสิ้นวัน: { db: demoDb, kind: "riceCarry" },
+  รับน้ำพริกเข้าสาขา: { db: demoDb, kind: "chiliReceive", lotId: "" },
   "ปิดวัน (ยังไม่ครบ)": { db: chillDb, kind: "closeDay", lotId: "" },
   "ปิดวัน (ครบแล้ว)": { db: closeReadyDb, kind: "closeDay", lotId: "" },
 } satisfies Record<string, Setup>;
@@ -359,6 +317,7 @@ const branch = {
  *  - ละลายเนื้อ: the oldest frozen lot (FIFO), last thaw's kg (expected)
  *  - กล่องอินฟลูเอนเซอร์: name, boxes, tubes, shipping fee; kg derived on save
  *  - ข้าว: purchase tops up to par (captioned), withdrawals check stock
+ *  - รับน้ำพริกเข้าสาขา (STK-43): tubes, the receiver (carried from the last one), reference
  *  - ปิดวัน: ยังไม่ครบ lists what is missing with ไปกรอก and keeps ยืนยันปิดวัน disabled
  *    (disabled state); ครบแล้ว is all ✓ and enabled at any time (FB-14) */
 export const Branch: Story = actor("branch", forms(branch), branches[0]);

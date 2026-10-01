@@ -241,12 +241,6 @@ export function MeatMovementLogView({ db }: { db: Database }) {
   const movementRows = Object.keys(descriptions)
     .flatMap((kind) => entries(db, kind as EntryKind))
     .filter(
-      (entry) =>
-        !(
-          entry.kind === "link" && entry.values.targetKind === "materialConfirm"
-        ),
-    )
-    .filter(
       (entry) => lotFilter === "ทั้งหมด" || lotLabel(entry.lotId) === lotFilter,
     )
     // Oldest first, the order DataTable's sort expects; the table flips it.

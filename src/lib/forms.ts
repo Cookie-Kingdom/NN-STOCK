@@ -143,24 +143,6 @@ export const forms: Record<string, Field[]> = {
     text("receiver", "ผู้รับเนื้อ"),
     note,
   ],
-  materialTransfer: [
-    {
-      key: "material",
-      label: "วัสดุที่ส่ง (Material)",
-      type: "select",
-      options: materials,
-    },
-    {
-      key: "branch",
-      label: "สาขาปลายทาง (Destination branch)",
-      type: "select",
-      options: branches,
-    },
-    number("quantity", "จำนวนที่ส่ง · ชิ้น", false, true),
-    text("receiver", "ผู้รับของ (Receiver)"),
-    text("reference", "เลขที่ใบส่งของ", true),
-    note,
-  ],
   purchase: [
     text("supplier", "ผู้ขาย · Foodiva"),
     text("customerName", "ชื่อบริษัท / ลูกค้า"),
@@ -386,15 +368,10 @@ export const forms: Record<string, Field[]> = {
     text("reference", "เลขที่ใบเสร็จ (Reference)", true),
     note,
   ],
-  chiliAllocate: [
-    {
-      key: "branch",
-      label: "สาขาปลายทาง (Destination branch)",
-      type: "select",
-      options: branches,
-    },
-    number("chiliTubes", "จำนวนน้ำพริกที่จัดสรร · หลอด", false, true),
-    text("receiver", "ผู้รับ / ผู้ดูแลสาขา", true),
+  // STK-43: the branch writes down the chili it received.
+  chiliReceive: [
+    number("chiliTubes", "จำนวนน้ำพริกที่รับ · หลอด", false, true),
+    text("receiver", "ชื่อผู้รับจริง"),
     text("reference", "เลขที่อ้างอิงใบส่งของ", true),
     note,
   ],
@@ -542,7 +519,6 @@ export const forms: Record<string, Field[]> = {
       "ราคาต่อหน่วยข้าวเหนียวดิบ (Raw rice unit price) · บาท/กก.",
       true,
     ),
-    number("chiliPar", "จำนวนฐานน้ำพริก (Chili par level) · หลอด", true, true),
     number(
       "chiliUnitPrice",
       "ราคาต่อหน่วยน้ำพริก (Chili unit price) · บาท/หลอด",
@@ -608,11 +584,10 @@ const editOnly: Record<string, Field[]> = {
     text("reference", "เลขอ้างอิง / ใบเสร็จ", true),
   ],
   materialConfirm: [
-    // Against a transfer the material is the transfer's own (mutate puts it back).
     { key: "material", label: "วัสดุ", type: "select", options: materials },
     number("receivedQuantity", "จำนวนที่รับจริง · ชิ้น", false, true),
     text("receiver", "ชื่อผู้รับจริง"),
-    reason,
+    note,
   ],
 };
 /** The fields the Log's edit of `kind` shows: its form's, without the files (an edit keeps

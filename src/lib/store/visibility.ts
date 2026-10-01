@@ -61,13 +61,9 @@ export function visibleLots(db: Database, branch?: string) {
       ),
   );
 }
-/** Owner entries addressed to a branch, which the branch has already received (role-scope.ts
- *  sends them): shown read-only in its history. */
-const sentToBranch: EntryKind[] = [
-  "allocate",
-  "chiliAllocate",
-  "materialTransfer",
-];
+/** Owner entries addressed to a branch (old allocations; role-scope.ts sends them): shown
+ *  read-only in its history. */
+const sentToBranch: EntryKind[] = ["allocate"];
 /** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
 export function visibleEntries(
   db: Database,

@@ -491,51 +491,39 @@ export function ownerBranchScenario(endDate: string): Database {
   ]);
 
   // ── Branch days. ──
-  const transfer = (
-    branch: string,
-    material: string,
-    quantity: number,
-    date: string,
-  ) =>
-    owner(
-      "materialTransfer",
-      {
-        material,
-        branch,
-        quantity: String(quantity),
-        receiver: `ผู้ดูแล${branch}`,
-      },
-      "",
-      date,
-    ).id;
   const branchRun =
     (branch: string, date: string) =>
     (kind: EntryKind, values: Values, lotId = "") =>
       run("branch", kind, values, lotId, date, branch);
-  // Opening stock from d0: every material bought goes to both branches and is confirmed.
+  // MAT-01, STK-43: a branch writes down the material and the chili it received.
+  const receiveMaterial = (
+    branch: string,
+    material: string,
+    quantity: number,
+    date: string,
+    note = "",
+  ) =>
+    branchRun(branch, date)("materialConfirm", {
+      material,
+      receivedQuantity: String(quantity),
+      receiver: `ผู้ดูแล${branch}`,
+      note,
+    });
+  const receiveChili = (branch: string, date: string, reference: string) =>
+    branchRun(branch, date)("chiliReceive", {
+      chiliTubes: "20",
+      receiver: `ผู้ดูแล${branch}`,
+      reference,
+    });
+  // Opening stock from d0: both branches take in every material the Owner bought.
   for (const branch of branches)
     materials.forEach((material, i) => {
       if (i === NEVER_BOUGHT) return;
       const quantity = branch === MIN && i === LOW_AT_MINBURI ? 15 : 100;
-      const id = transfer(branch, material, quantity, d[0]);
-      branchRun(branch, d[0])("materialConfirm", {
-        transferId: id,
-        receivedQuantity: String(quantity),
-        receiver: `ผู้ดูแล${branch}`,
-      });
+      receiveMaterial(branch, material, quantity, d[0]);
     });
-  owner("chiliAllocate", {
-    branch: SALA,
-    chiliTubes: "20",
-    receiver: `ผู้ดูแล${SALA}`,
-    reference: "UAT-CHILI-SALA-1",
-  });
-  owner("chiliAllocate", {
-    branch: MIN,
-    chiliTubes: "20",
-    receiver: `ผู้ดูแล${MIN}`,
-    reference: "UAT-CHILI-MIN-1",
-  });
+  receiveChili(SALA, d[0], "UAT-CHILI-SALA-1");
+  receiveChili(MIN, d[0], "UAT-CHILI-MIN-1");
 
   const countMaterials = (branch: string, date: string) =>
     branchRun(branch, date)(
@@ -657,23 +645,8 @@ export function ownerBranchScenario(endDate: string): Database {
     note: "ปิดใหม่หลังปลดล็อก",
   });
   // d3: new chili and raw rice; ศาลาแดง sells but never counts materials, carries rice or closes.
-  owner(
-    "chiliAllocate",
-    {
-      branch: SALA,
-      chiliTubes: "20",
-      receiver: `ผู้ดูแล${SALA}`,
-      reference: "UAT-CHILI-SALA-2",
-    },
-    "",
-    d[3],
-  );
-  const confirmed = transfer(MIN, "ถุงหิ้วกระดาษ", 30, d[3]);
-  branchRun(MIN, d[3])("materialConfirm", {
-    transferId: confirmed,
-    receivedQuantity: "30",
-    receiver: "ผู้ดูแลมีนบุรี",
-  });
+  receiveChili(SALA, d[3], "UAT-CHILI-SALA-2");
+  receiveMaterial(MIN, "ถุงหิ้วกระดาษ", 30, d[3]);
   branchRun(SALA, d[3])("ricePurchase", {
     riceSource: riceSources[0],
     supplier: "ร้านข้าวสาร UAT",
@@ -683,23 +656,14 @@ export function ownerBranchScenario(endDate: string): Database {
   salaDay(d[3], false);
   minDay(d[3], true);
 
-  // d4 (today). ศาลาแดง: issued raw rice, nothing else yet; two transfers to confirm.
-  transfer(SALA, materials[0], 50, d[4]);
-  transfer(SALA, "ถุงซีลเนื้อ", 50, d[4]);
+  // d4 (today). ศาลาแดง: issued raw rice, nothing else yet.
   branchRun(SALA, d[4])("riceIssue", {
     rawRiceIssuedKg: "4",
     receiver: "ผู้ดูแลศาลาแดง",
   });
-  // มีนบุรี: took in 5 of 15 kg, confirmed a short transfer, sold and counted; rice not carried yet.
-  const short = transfer(MIN, "กระดาษรอง", 40, d[4]);
-  const min = branchRun(MIN, d[4]);
-  min("materialConfirm", {
-    transferId: short,
-    receivedQuantity: "38",
-    receiver: "ผู้ดูแลมีนบุรี",
-    reason: "UAT ของมาไม่ครบ ขาด 2 แผ่น",
-  });
-  min("receive", { kg: "5" }, partial);
+  // มีนบุรี: took in 5 of 15 kg and a short delivery, sold and counted; rice not carried yet.
+  receiveMaterial(MIN, "กระดาษรอง", 38, d[4], "UAT ของมาไม่ครบ ขาด 2 แผ่น");
+  branchRun(MIN, d[4])("receive", { kg: "5" }, partial);
   minDay(d[4], false);
 
   // ── Changes (EDT-22/20): a branch edits its own entry, and undoes another edit. ──

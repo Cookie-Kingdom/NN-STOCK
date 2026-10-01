@@ -16,7 +16,7 @@ const state = pick("สถานะ", {
 
 /** DASH-01, the "ยังไม่ผูก" tile on the dashboard. เลือกสถานะใน Controls:
  *  - ผูกครบ: the demo run; every figure is 0 with its "ครบ" caption.
- *  - ยังไม่ผูก: ศาลาแดง 10 kg with no lot, 1 material receipt with no transfer, 1 batch
+ *  - ยังไม่ผูก: ศาลาแดง 10 kg with no lot, 1 batch
  *    with no smoke PO, 1 purchase PO with no Foodiva invoice.
  *  - ผูกเนื้อแล้ว: the same after ศาลาแดง linked its meat; the meat figure reads 0. */
 export const Tile: StoryObj<{ db: Database }> = {

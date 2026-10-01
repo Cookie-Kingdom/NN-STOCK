@@ -60,9 +60,8 @@ const look = pick("รูปแบบ", {
  * the grid collapses to a single column and every field goes full width.
  * Pick รูปแบบ in Controls:
  *  - ปกติ: the plain grid
- *  - การ์ด: the same grid drawn as a card — the transfer form groups its receivers
- *    this way. The caller's classes win over the grid's own, so the margin and gaps
- *    are its call. */
+ *  - การ์ด: the same grid drawn as a card. The caller's classes win over the grid's
+ *    own, so the margin and gaps are its call. */
 export const Default: Story = {
   argTypes: { className: look.argType },
   args: { className: look.initial },

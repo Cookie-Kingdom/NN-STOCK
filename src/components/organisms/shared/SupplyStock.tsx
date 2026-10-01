@@ -2,7 +2,7 @@
 
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
-  chiliAllocated,
+  chiliReceived,
   chiliStock,
   cookedRiceStock,
   entries,
@@ -28,7 +28,7 @@ export function SupplyStock({
         "ข้าวดิบในคลัง",
         "ข้าวดิบที่เบิก",
         "ข้าวสุก",
-        "น้ำพริกที่ Owner จัดสรร",
+        "น้ำพริกที่รับเข้า",
         "น้ำพริกคงเหลือ",
         "ข้าวที่ควรซื้อเพิ่ม",
         "ซื้อเข้าล่าสุด",
@@ -47,7 +47,7 @@ export function SupplyStock({
           `${fmt(rawRiceStock(db, name))} กก.`,
           `${fmt(issuedRawRiceStock(db, name))} กก.`,
           `${fmt(cookedRiceStock(db, name))} กก.`,
-          `${fmt(chiliAllocated(db, name))} หลอด`,
+          `${fmt(chiliReceived(db, name))} หลอด`,
           `${fmt(chiliStock(db, name))} หลอด`,
           `${fmt(
             Math.max(

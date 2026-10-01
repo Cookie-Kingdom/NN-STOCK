@@ -3,7 +3,7 @@
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   branchMeatDay,
-  chiliAllocated,
+  chiliReceived,
   chiliStock,
   cookedRiceStock,
   entries,
@@ -65,7 +65,7 @@ export function DailySummary({
           ),
           "กก.",
         ],
-        ["น้ำพริกที่ Owner จัดสรร", String(chiliAllocated(db, branch)), "หลอด"],
+        ["น้ำพริกที่รับเข้า", String(chiliReceived(db, branch)), "หลอด"],
         ["น้ำพริกคงเหลือหลังหักยอดขาย", String(chiliStock(db, branch)), "หลอด"],
         [
           "ตรวจนับวัสดุ",

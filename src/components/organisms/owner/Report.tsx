@@ -393,16 +393,17 @@ export function Report({
       />
       <DataTable
         className="m-0"
-        title="ประวัติจัดสรรน้ำพริกโดย Owner"
+        // STK-43: what the branches wrote down as received.
+        title="ประวัติสาขารับน้ำพริก"
         columns={[
           "วันที่",
           "สาขา",
-          "จัดสรร",
+          "จำนวน",
           "ผู้รับ",
           "เลขอ้างอิง",
           "หมายเหตุ",
         ]}
-        rows={entries(db, "chiliAllocate")
+        rows={entries(db, "chiliReceive")
           .filter(inRange)
           .sort(byDateAt)
           .map((entry) => [
@@ -416,56 +417,42 @@ export function Report({
       />
       <DataTable
         className="m-0"
-        title="ประวัติรับและส่งวัสดุ (Material audit trail)"
+        // MAT-01: what the Owner bought and what the branches wrote down as received.
+        title="ประวัติซื้อและรับวัสดุ (Material audit trail)"
         columns={[
           "วันที่",
           "รายการ",
           "วัสดุ",
           "ต้นทาง / ปลายทาง",
           "จำนวน",
-          "ผู้เกี่ยวข้อง",
-          "อ้างอิง / สถานะ",
+          "ผู้รับ",
+          "อ้างอิง / หมายเหตุ",
         ]}
         rows={[
           ...entries(db, "materialReceive"),
-          ...entries(db, "materialTransfer"),
           ...entries(db, "materialConfirm"),
         ]
           .filter(inRange)
           .sort(byDateAt)
           .map((entry) => {
-            const transfer =
-              entry.kind === "materialConfirm"
-                ? db.entries.find((item) => item.id === entry.values.transferId)
-                : undefined;
+            const bought = entry.kind === "materialReceive";
             return [
               entry.date,
-              entry.kind === "materialReceive"
-                ? "รับเข้าคลัง Owner"
-                : entry.kind === "materialTransfer"
-                  ? "ส่งไปสาขา"
-                  : "สาขายืนยันรับ",
-              entry.values.material || transfer?.values.material || "—",
-              entry.kind === "materialReceive"
+              bought ? "ซื้อเข้าคลัง Owner" : "สาขารับเข้า",
+              entry.values.material || "—",
+              bought
                 ? `${entry.values.supplier || "—"} → คลัง Owner`
-                : entry.kind === "materialTransfer"
-                  ? `คลัง Owner → ${entry.branch || "—"}`
-                  : entry.branch || "—",
-              `${fmt(n(entry.values, "quantity") || n(entry.values, "receivedQuantity"))} ชิ้น`,
-              entry.values.receiver || "Owner",
-              entry.kind === "materialConfirm"
-                ? entry.values.reason || "รับครบ"
-                : entry.values.reference ||
-                  (entry.values.requiresConfirm
-                    ? "สาขายังไม่ได้จดรับ"
-                    : "ข้อมูลเดิม"),
+                : entry.branch || "—",
+              `${fmt(n(entry.values, bought ? "quantity" : "receivedQuantity"))} ชิ้น`,
+              entry.values.receiver || (bought ? "Owner" : "—"),
+              (bought ? entry.values.reference : entry.values.note) || "—",
             ];
           })}
       />
       <DataTable
         className="m-0"
         // The last count in the range, not the running stock (`branchMaterialStock`, which the
-        // dashboard and stock tab show): a transfer after the count is not in it.
+        // dashboard and stock tab show): a receipt after the count is not in it.
         title="วัสดุนับล่าสุดในช่วงที่เลือก"
         columns={[
           "สาขา",

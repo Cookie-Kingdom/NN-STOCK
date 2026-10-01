@@ -452,7 +452,6 @@ export const chefPoLaterDb: Database = (() => {
   return s.db;
 })();
 
-/** A material shipment to ศาลาแดง still waiting for the branch to confirm what arrived. */
 /** Foodiva with one of each open task, so its bell lists them all: a 60 kg PO with no
  *  Invoice, a 40 kg smoke PO with no transport document, and a closed run on the return
  *  truck waiting to be weighed into Foodiva's freezer. */
@@ -474,8 +473,8 @@ export const foodivaTasksDb: Database = (() => {
   return s.db;
 })();
 
-/** ศาลาแดง with work waiting at its bell: 60 units of materials[0] sent but not
- *  confirmed. The day itself is still empty, so the close line lists what it is missing. */
+/** ศาลาแดง with nothing jotted yet: the Owner bought 200 units of materials[0], the branch
+ *  received none. The day itself is still empty, so the close line lists what it is missing. */
 export const branchTasksDb: Database = (() => {
   const s = ready();
   s.run("owner", "materialReceive", {
@@ -485,37 +484,33 @@ export const branchTasksDb: Database = (() => {
     unitPrice: "3",
     supplier: "ร้านวัสดุ",
   });
-  s.run("owner", "materialTransfer", {
-    material: materials[0],
-    branch: "ศาลาแดง",
-    quantity: "60",
-    receiver: "ผู้ดูแลสาขา",
-  });
   return s.db;
 })();
 
-export const materialTransferDb: Database = (() => {
-  const s = setup();
+/** STK-44: ศาลาแดง wrote down more than the Owner recorded buying, so คลัง Owner reads below
+ *  zero: materials[0] bought 20, received 50 (-30); chili never bought, 30 tubes received (-30). */
+export const ownerShortDb: Database = (() => {
+  const s = ready();
   s.run("owner", "materialReceive", {
     purchaseDate: day,
     material: materials[0],
-    quantity: "200",
+    quantity: "20",
     unitPrice: "3",
     supplier: "ร้านวัสดุ",
   });
-  s.run("owner", "materialTransfer", {
-    material: materials[0],
-    branch: "ศาลาแดง",
-    quantity: "60",
-    receiver: "ผู้ดูแลสาขา",
-  });
+  s.run(
+    "branch",
+    "materialConfirm",
+    { material: materials[0], receivedQuantity: "50", receiver: "นิด" },
+    "",
+  );
+  s.run("branch", "chiliReceive", { chiliTubes: "30", receiver: "นิด" }, "");
   return s.db;
 })();
 
-/** ศาลาแดง with no allocation and no transfer document (BR-02, MAT-01): 10 kg of meat
- *  received into the "ไม่ระบุ Lot" bucket (`lotId ""`), 6 kg thawed and 3 kg sold from
- *  it, so the bucket holds 4 kg frozen and 3 kg chill. 50 units of materials[0] came in
- *  with no transfer (a materialConfirm with an empty transferId). */
+/** ศาลาแดง with no allocation (BR-02, MAT-01): 10 kg of meat received into the
+ *  "ไม่ระบุ Lot" bucket (`lotId ""`), 6 kg thawed and 3 kg sold from it, so the bucket
+ *  holds 4 kg frozen and 3 kg chill. 50 units of materials[0] received too. */
 export const unlinkedBranchDb: Database = (() => {
   const s = setup();
   s.run("branch", "receive", { kg: "10" }, "");
@@ -572,7 +567,7 @@ export const closeReadyDb: Database = chillBranchRun(
   "riceCarry",
   { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
 );
-/** closeReadyDb with cooked rice bought and chili allocated: a sale form opened on its
+/** closeReadyDb with cooked rice bought and chili received: a sale form opened on its
  *  lot (4.5 kg chill left) has meat, rice and chili for influencer giveaways too. */
 export const giveawayReadyDb: Database = (() => {
   const withRice = chillBranchRun(closeReadyDb, "ricePurchase", {
@@ -596,14 +591,10 @@ export const giveawayReadyDb: Database = (() => {
     "",
     day,
   );
-  return mutate(
-    withChili,
-    "owner",
-    "chiliAllocate",
-    { branch: "ศาลาแดง", chiliTubes: "50" },
-    "",
-    day,
-  );
+  return chillBranchRun(withChili, "chiliReceive", {
+    chiliTubes: "50",
+    receiver: "ผู้ดูแลสาขา",
+  });
 })();
 
 /** closeReadyDb after ปิดวัน: ศาลาแดง's `day` is locked. */
@@ -665,10 +656,8 @@ export const changesDb: Database = (() => {
   });
 })();
 
-/** A lot at central stock (35 kg) with history for the purchase and transfer
- *  prefills: a purchase of materials[0] (200 × ฿3 from ร้านวัสดุ), 60 of it sent to คุณนิด at ศาลาแดง (not
- *  confirmed yet, so the branch is still 100 short of its par) and น้ำพริกหลอด bought
- *  from ร้านน้ำพริกแม่ศรี. */
+/** A lot at central stock (35 kg) with history for the purchase prefills: a purchase of
+ *  materials[0] (200 × ฿3 from ร้านวัสดุ) and น้ำพริกหลอด bought from ร้านน้ำพริกแม่ศรี. */
 export const prefillHistoryDb: Database = (() => {
   const s = ready();
   s.run("owner", "materialReceive", {
@@ -677,12 +666,6 @@ export const prefillHistoryDb: Database = (() => {
     quantity: "200",
     unitPrice: "3",
     supplier: "ร้านวัสดุ",
-  });
-  s.run("owner", "materialTransfer", {
-    material: materials[0],
-    branch: "ศาลาแดง",
-    quantity: "60",
-    receiver: "คุณนิด",
   });
   s.run("owner", "generalPurchase", {
     purchaseDate: day,
@@ -817,9 +800,9 @@ export const partialBatchDb: Database = (() => {
 
 /** A6: `centralDb`'s 35 kg batch plus what was recorded without its source. ศาลาแดง took in
  *  10 kg with no lot, thawed 4 and sold 3 from the "ไม่ระบุ Lot" bucket; it received 5 units
- *  of materials[0] with no transfer while the Owner's 5-unit transfer waits; Chef House
- *  weighed in and smoked a second batch with no smoke PO; a 60 kg purchase PO has no Foodiva
- *  invoice. The dashboard's "ยังไม่ผูก" counts 10 kg, 1 material, 1 batch, 1 PO. */
+ *  of the 20 materials[0] the Owner bought; Chef House weighed in and smoked a second batch
+ *  with no smoke PO; a 60 kg purchase PO has no Foodiva invoice. The dashboard's "ยังไม่ผูก"
+ *  counts 10 kg, 1 batch, 1 PO. */
 export const unlinkedDb: Database = (() => {
   const s = ready();
   s.run("branch", "receive", { kg: "10" }, "");
@@ -854,17 +837,6 @@ export const unlinkedDb: Database = (() => {
       quantity: "20",
       unitPrice: "1",
       supplier: "ร้านวัสดุ",
-    },
-    "",
-  );
-  s.run(
-    "owner",
-    "materialTransfer",
-    {
-      material: materials[0],
-      branch: "ศาลาแดง",
-      quantity: "5",
-      receiver: "นิด",
     },
     "",
   );

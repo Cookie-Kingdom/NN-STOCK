@@ -25,7 +25,7 @@ export const accounts: Account[] = [
     role: "owner",
     name: "Owner",
     title: "เจ้าของร้าน",
-    summary: "จัดซื้อ จัดสรร ตั้งค่า และติดตามรายงานของทุกสาขา",
+    summary: "จัดซื้อ ตั้งค่า และติดตามรายงานของทุกสาขา",
     path: "/owner",
     homeTab: "owner-dashboard",
     icon: Building2,

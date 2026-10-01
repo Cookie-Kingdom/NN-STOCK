@@ -1,5 +1,7 @@
 -- Migration 20260929000036: append_entries refuses the retired branch kinds, and a branch profile
 -- linked to several locations has one branch, the one on the lowest location_id.
+-- Migration 20261001000040: a branch appends what it received (chiliReceive, materialConfirm), never
+-- the removed Owner kinds, and transfer_confirmed is gone.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/append_retired_kinds_test.sql
 
 do $$
@@ -35,8 +37,10 @@ begin
     'lots', '[]'::jsonb, 'entries', '[]'::jsonb), null) s;
   perform set_config('test.uid', v_branch::text, true);
 
-  -- 0039: editRequest too (every account edits its own entries directly).
-  foreach v_kind in array array['supplyPurchase', 'supplyIssue', 'chiliPurchase', 'chiliIssue', 'editRequest'] loop
+  -- 0039: editRequest too (every account edits its own entries directly). 0040: the Owner's
+  -- chiliAllocate and materialTransfer are no kinds at all any more.
+  foreach v_kind in array array['supplyPurchase', 'supplyIssue', 'chiliPurchase', 'chiliIssue', 'editRequest',
+    'chiliAllocate', 'materialTransfer'] loop
     v_err := null;
     begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'x1', 'kind', v_kind,
       'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{}'::jsonb)));
@@ -54,39 +58,24 @@ begin
   select public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'x1', 'kind', 'receive',
     'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{}'::jsonb))) into v_rev;
 
-  -- A material transfer is confirmed once, directly or through a link.
+  -- 0040 (STK-43, MAT-01): the branch writes down the chili and the material it received.
   select public.append_entries(v_rev, jsonb_build_array(
+    jsonb_build_object('id', 'c1', 'kind', 'chiliReceive', 'role', 'branch', 'lotId', '', 'branch', v_mine,
+      'date', '2026-09-01', 'values', '{"chiliTubes":"20","receiver":"x"}'::jsonb),
     jsonb_build_object('id', 'm1', 'kind', 'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{"transferId":"t1"}'::jsonb),
+      'date', '2026-09-01', 'values', '{"material":"ถุงซีลเนื้อ","receivedQuantity":"5","receiver":"x"}'::jsonb),
     jsonb_build_object('id', 'm2', 'kind', 'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{}'::jsonb))) into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'm3', 'kind',
-    'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01',
-    'values', '{"transferId":"t1"}'::jsonb)));
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Material transfer is already confirmed', format('second confirm: %s', v_err);
-  v_err := null;
-  begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'l1', 'kind', 'link',
-    'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01',
-    'values', '{"targetId":"m2","transferId":"t1"}'::jsonb)));
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Material transfer is already confirmed', format('link to confirmed: %s', v_err);
-  select public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'l1', 'kind', 'link',
-    'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01',
-    'values', '{"targetId":"m2","transferId":"t2"}'::jsonb))) into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'm3', 'kind',
-    'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01',
-    'values', '{"transferId":"t2"}'::jsonb)));
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Material transfer is already confirmed', format('confirmed by link: %s', v_err);
-  -- 0039: the branch deleting its own confirm frees the transfer (entry_voided), in the same save.
-  select public.append_entries(v_rev, jsonb_build_array(
-    jsonb_build_object('id', 'w1', 'kind', 'void', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{"targetId":"m1"}'::jsonb),
-    jsonb_build_object('id', 'm3', 'kind', 'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{"transferId":"t1"}'::jsonb))) into v_rev;
+      'date', '2026-09-01', 'values', '{"material":"ถุงซีลเนื้อ","receivedQuantity":"5","receiver":"x"}'::jsonb)
+    )) into v_rev;
+  assert (select count(*) from public.app_state s, jsonb_array_elements(s.payload -> 'entries') e
+    where e ->> 'id' in ('c1', 'm1', 'm2')) = 3, 'chiliReceive and two materialConfirm stored';
+  -- Its copy holds them (app_state_scope_rules).
+  assert (select count(*) from jsonb_array_elements(
+      public.scope_app_state((select payload from public.app_state), array[v_mine]) -> 'entries') e
+    where e ->> 'kind' in ('chiliReceive', 'materialConfirm')) = 3, 'a branch reads its receipts back';
+  assert not public.app_state_scope_rules() -> 'kinds' ?| array['chiliAllocate', 'materialTransfer'],
+    'the removed kinds are in no scope rule';
+  assert to_regprocedure('public.transfer_confirmed(jsonb, text, text)') is null, 'transfer_confirmed is gone';
 
   raise exception 'APPEND_RETIRED_KINDS_TEST_PASSED';
 end $$;

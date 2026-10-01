@@ -77,7 +77,12 @@ export function BranchWorkspace({ account }: { account: Account }) {
           {/* ยอดขาย/ของเสีย อยู่ที่แถวยอดขายของ BranchDailyWorkflow ที่เดียว ·
            * กล่องโปรโมทอินฟลูเอนเซอร์อยู่ในฟอร์มยอดขาย */}
           {/* การนับน้ำพริกประจำวัน ไม่ใช่รายการสต๊อก จึงอยู่ที่หน้าจดรายวัน */}
-          <ChiliDailySummary db={db} branch={branch} date={date} />
+          <ChiliDailySummary
+            db={db}
+            branch={branch}
+            date={date}
+            open={ws.open}
+          />
         </>
       )}
       {tab === "material-receive" && (

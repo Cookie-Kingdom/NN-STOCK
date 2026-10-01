@@ -3,13 +3,12 @@ import { mutate, type Database } from "@/lib/store";
 import { chillDb, day } from "./fixtures";
 
 const branch = "ศาลาแดง";
-/** chillDb (day still open) with 20 chili tubes allocated to ศาลาแดง. */
+/** chillDb (day still open) with 20 chili tubes ศาลาแดง wrote down as received. */
 const chiliDb = mutate(
   chillDb,
-  "owner",
-  "chiliAllocate",
+  "branch",
+  "chiliReceive",
   {
-    branch,
     chiliTubes: "20",
     receiver: "ผู้ดูแลศาลาแดง",
     reference: "CHILI-F1",
@@ -44,3 +43,13 @@ const chiliCounted = (count: number): Database =>
 
 export const chiliMatchDb: Database = chiliCounted(18);
 export const chiliMismatchDb: Database = chiliCounted(17);
+/** chiliMatchDb, then 20 more tubes received the same day: the count still matches. */
+export const chiliReceivedAfterCountDb: Database = mutate(
+  chiliMatchDb,
+  "branch",
+  "chiliReceive",
+  { chiliTubes: "20", receiver: "ผู้ดูแลศาลาแดง" },
+  "",
+  day,
+  branch,
+);

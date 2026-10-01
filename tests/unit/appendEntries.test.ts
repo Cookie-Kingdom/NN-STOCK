@@ -20,10 +20,10 @@ import {
   type Values,
   type EntryKind,
 } from "@/lib/store";
-import { editableKinds } from "@/lib/store/model";
+import { editableKinds, entryKinds } from "@/lib/store/model";
 import { day, dispatch, last, readyToDispatch, ready, setup } from "./fixtures";
 
-/* append_entries (latest in migration 0039) through its JS port: a branch loads its role-scoped copy,
+/* append_entries (latest in migration 0040) through its JS port: a branch loads its role-scoped copy,
  * runs mutate on it as the app does, and saves only the delta. */
 function save(
   full: Database,
@@ -236,9 +236,9 @@ test("a branch saves its own edit, delete and restore as mutate writes them", ()
 });
 
 // 0039: append_entries names the kinds no edit and no delete may target; they are the store's.
-test("the SQL edit / delete kind lists (migration 0039) are the store's", () => {
+test("the SQL edit / delete kind lists (migration 0040) are the store's", () => {
   const sql = readFileSync(
-    "supabase/migrations/20261001000039_branch_direct_changes.sql",
+    "supabase/migrations/20261001000040_branch_self_receive.sql",
     "utf8",
   );
   const list = (name: string) =>
@@ -257,6 +257,66 @@ test("the SQL edit / delete kind lists (migration 0039) are the store's", () => 
       .sort();
   expect(list("not_editable")).toEqual(outside(editableKinds));
   expect(list("not_voidable")).toEqual(outside(voidableKinds));
+});
+
+// 0040: the kinds a branch may write are kept by hand in three places. append_entries and its JS
+// port (branchKinds) take what mutate records for a branch: its own kinds less the retired ones,
+// plus the changes to its own entries (entryEdit, link, void).
+test("the branch kinds of append_entries (migration 0040), its JS port and mutate are the same", () => {
+  const sql = readFileSync(
+    "supabase/migrations/20261001000040_branch_self_receive.sql",
+    "utf8",
+  );
+  const allowed = [
+    ...(sql
+      .match(/'kind' = any \(array\[([\s\S]*?)\]\)/)?.[1]
+      .matchAll(/'(\w+)'/g) ?? []),
+  ]
+    .map((match) => match[1])
+    .sort();
+  const refusal = (save: () => unknown) => {
+    try {
+      save();
+      return "";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+  const s = setup();
+  const db = openLocalDb(":memory:");
+  replaceState(db, s.db);
+  const ported = entryKinds.filter(
+    (kind) =>
+      refusal(() =>
+        appendState(
+          db,
+          accountById("saladaeng"),
+          [
+            {
+              id: crypto.randomUUID(),
+              kind,
+              role: "branch",
+              lotId: "",
+              branch: "ศาลาแดง",
+              date: day,
+              at: "",
+              values: {},
+            },
+          ],
+          [],
+          readState(db).revision,
+        ),
+      ) !== "Entry kind is not allowed for this account",
+  );
+  const recorded = entryKinds.filter(
+    (kind) =>
+      !["บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้", "รายการชนิดนี้เลิกใช้แล้ว"].includes(
+        refusal(() => mutate(s.db, "branch", kind, {}, "", day, "ศาลาแดง")),
+      ),
+  );
+  expect(allowed.length).toBeGreaterThan(0);
+  expect([...ported].sort()).toEqual(allowed);
+  expect([...recorded].sort()).toEqual(allowed);
 });
 
 test("append_entries and entries() refuse a link to another branch's or the Owner's entry", () => {

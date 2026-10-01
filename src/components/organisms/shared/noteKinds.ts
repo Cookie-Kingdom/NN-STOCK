@@ -53,12 +53,11 @@ const groups: Record<ActingRole, NoteGroup[]> = {
         "expense",
       ],
     },
-    { label: "สต๊อก / วัตถุดิบ", kinds: ["materialTransfer", "chiliAllocate"] },
     { label: "ประจำวัน", kinds: ["unlock"] },
   ],
   branch: [
     { label: "ซื้อ", kinds: ["ricePurchase"] },
-    { label: "รับเข้า", kinds: ["receive", "materialConfirm"] },
+    { label: "รับเข้า", kinds: ["receive", "materialConfirm", "chiliReceive"] },
     {
       label: "สต๊อก / วัตถุดิบ",
       kinds: ["thaw", "riceIssue", "rice", "riceCarry", "materials"],

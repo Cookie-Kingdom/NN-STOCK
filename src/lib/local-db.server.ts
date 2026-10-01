@@ -8,7 +8,6 @@ import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
   canChange,
   canLink,
-  entries,
   isVoided,
   seed,
   voidableKinds,
@@ -69,12 +68,13 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036), plus
- *  the changes to its own entries (`changeKinds`, 0039): entryEdit, link and void. */
+/** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036, 0040),
+ *  plus the changes to its own entries (`changeKinds`, 0039): entryEdit, link and void. */
 const branchKinds: EntryKind[] = [
   "receive",
   "thaw",
   "ricePurchase",
+  "chiliReceive",
   "riceIssue",
   "rice",
   "riceCarry",
@@ -149,7 +149,7 @@ export function saveState(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (latest in supabase/migrations/20261001000039_branch_direct_changes.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20261001000040_branch_self_receive.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -275,23 +275,6 @@ export function appendState(
       )
         fail("An undo cannot be undone");
     }
-    // 0036, MAT-02: a material transfer is confirmed once. 0039: an edit that puts a confirm on
-    // a transfer (`to.transferId`) is checked like that link; entries() overlays edits and links.
-    const transferId =
-      entry.kind === "entryEdit"
-        ? entry.values["to.transferId"]
-        : entry.kind === "materialConfirm" || entry.kind === "link"
-          ? entry.values.transferId
-          : undefined;
-    if (
-      transferId &&
-      entries(log, "materialConfirm").some(
-        (confirm) =>
-          confirm.id !== entry.values.targetId &&
-          confirm.values.transferId === transferId,
-      )
-    )
-      fail("Material transfer is already confirmed");
     log.entries.push({
       ...entry,
       values: without(entry.values, ...costKeys) as Entry["values"],
