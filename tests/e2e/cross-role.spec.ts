@@ -117,7 +117,7 @@ test("PRIN-01 GEN-09 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch stay
       const row = tableRow(page, SCREENS.smokePo.table, batch);
       await expect(row).toContainText(poWithInvoice);
       await expect(row).toContainText(poWithoutInvoice);
-      await expect(row).toContainText("รอยืนยัน");
+      await expect(row).toContainText("ยังไม่ได้จดรับ");
       await expect(row).toContainText("CH-INV-0001");
     },
   );
@@ -233,10 +233,10 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
     await pointAndClick(page, row.first());
     const main = page.locator("main");
     // The steps it has show their figures; every step it lacks is "—", none hidden.
-    await expect(main).toContainText("3. Chef House รับจริง40.00 กก.");
-    await expect(main).toContainText("4. รมควันเสร็จ2 กล่องรมควัน · 38.00 กก.");
-    await expect(main).toContainText("2. ส่งไป Chef House—");
-    await expect(main).toContainText("5. ส่งกลับ Foodiva—");
+    await expect(main).toContainText("Chef House รับจริง40.00 กก.");
+    await expect(main).toContainText("รมควันเสร็จ2 กล่องรมควัน · 38.00 กก.");
+    await expect(main).toContainText("ส่งไป Chef House—");
+    await expect(main).toContainText("ส่งกลับ Foodiva—");
     await expect(main).toContainText("PO โรงรมควัน————");
     await expect(main).toContainText("รับเข้าสต๊อกกลาง————");
     await expect(page.getByText(/Application error|Unhandled/)).toHaveCount(0);

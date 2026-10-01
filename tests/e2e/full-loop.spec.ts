@@ -111,7 +111,7 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
   await step(page, "Owner (แทน Foodiva): รับเข้าตู้", async () => {
     await receiveIntoFreezer(page, shipment, "92", "2");
     await expect(tableRow(page, SCREENS.freezer.table, shipment)).toContainText(
-      "รอ Owner รับเข้าสต๊อกกลาง",
+      "ยังไม่ได้จดรับเข้าสต๊อกกลาง",
     );
   });
 
@@ -144,7 +144,7 @@ test("PRIN-01 full loop from purchase PO to branch sale, partner steps typed by 
     await lotSelect(page).selectOption(batch);
     await field(page, /น้ำหนักละลาย/, "10");
     await saveEntry(page);
-    await openBranchTask(page, "บันทึกยอดขาย");
+    await openBranchTask(page, "จดยอดขาย");
     await lotSelect(page).selectOption(batch);
     await field(page, /กล่องมาตรฐาน/, "20");
     await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "4");

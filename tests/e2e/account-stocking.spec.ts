@@ -28,7 +28,6 @@ import {
   startFresh,
   step,
   tableRow,
-  tableSection,
   topDialog,
   typeValue,
   weighIn,
@@ -134,9 +133,7 @@ test("GEN-02 PRIN-03 EDT-01 a purchase PO saves with empty fields marked ยั�
 
   await step(page, "Owner: PO ใช้น้ำหนักใหม่ ไม่มี PO ใบที่สอง", async () => {
     await openMenu(page, SCREENS.meatInvoice.menu);
-    const rows = tableSection(page, /^PO เนื้อที่ต้องออก Invoice$/)
-      .getByRole("row")
-      .filter({ hasText: /PO-\d{4}-\d{4}/ });
+    const rows = tableRow(page, SCREENS.meatInvoice.table, /PO-\d{4}-\d{4}/);
     await expect(rows).toHaveCount(1);
     await expect(rows).toContainText("320.00 กก.");
   });
@@ -372,7 +369,7 @@ test("GEN-03 a branch still records on a day it has closed, with a warning; a fu
     await expectWarning(page, "ยังไม่ยืนยันข้าวเหนียวสุกคงเหลือ");
     await saveEntry(page);
     await expect(main).toContainText("ยังบันทึกเพิ่มหรือแก้ไขได้");
-    await expect(main).toContainText("ปิดวันแล้ว · ยังบันทึกเพิ่มได้");
+    await expect(main).toContainText("ปิดวันแล้ว · ยังจดเพิ่มได้");
     await expect(
       main.getByRole("button", { name: "ตรวจและปิดวัน", exact: true }),
     ).toBeDisabled();
@@ -473,10 +470,10 @@ test("SHP-04 NTF a batch with work but no transport document counts on ใบข
   const transport = menuItem(page, "ใบขนส่งขาไป");
   const bell = page.getByRole("button", { name: /^การแจ้งเตือน \d+ รายการ$/ });
   const todo = page
-    .getByRole("region", { name: "รายการที่ต้องทำต่อ" })
-    .getByRole("button", { name: /ต้องทำใบขนส่ง · SH-/ });
+    .getByRole("region", { name: "การแจ้งเตือน" })
+    .getByRole("button", { name: /ยังไม่ได้จดใบขนส่ง · SH-/ });
 
-  await step(page, "Owner: ออก PO รมควัน → ต้องทำใบขนส่ง 1", async () => {
+  await step(page, "Owner: ออก PO รมควัน → ยังไม่ได้จดใบขนส่ง 1", async () => {
     await issueSmokePoOnNewBatch(page, "80");
     await expect(transport).toContainText("1");
     await pointAndClick(page, bell);
@@ -534,7 +531,8 @@ test("RICE cooked rice starts from zero every day; Minburi cooks its own", async
     await pointAndClick(
       page,
       tableRow(page, SCREENS.rice.table, title).getByRole("button", {
-        name: "กรอกข้อมูล",
+        name: "จด",
+        exact: true,
       }),
     );
   };

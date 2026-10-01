@@ -37,15 +37,15 @@ test("BR-02 BR-03 BR-04 BR-08 branch receives 10 kg ไม่ระบุ Lot wi
     await openMenu(page, SCREENS.branchDay.menu);
     // BR-01: nothing is allocated to wait for; the receive is always open.
     await expect(page.locator("main")).toContainText(
-      "บันทึกเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง",
+      "จดเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง",
     );
     await expect(page.locator("main")).not.toContainText("ใบจัดสรร");
     await openBranchTask(page, "รับของ");
-    await expect(lotSelect(page)).toHaveValue("");
+    // The form starts on the bucket: a receive with no lot picked is still a receive.
+    await expect(lotSelect(page)).toHaveValue(NO_LOT);
     await expect(
       lotSelect(page).locator(`option[value="${NO_LOT}"]`),
     ).toHaveText(/ไม่ระบุ Lot · รับเข้าก่อน ผูกชุดทีหลังได้/);
-    await lotSelect(page).selectOption(NO_LOT);
     await field(page, /น้ำหนักรับเข้าสาขา/, "10");
     await saveEntry(page);
     const row = await branchStockRow(page, BRANCH, "");
@@ -69,8 +69,8 @@ test("BR-02 BR-03 BR-04 BR-08 branch receives 10 kg ไม่ระบุ Lot wi
     },
   );
 
-  await step(page, "สาขาศาลาแดง: บันทึกยอดขายจากถังไม่ระบุ Lot", async () => {
-    await openBranchTask(page, "บันทึกยอดขาย");
+  await step(page, "สาขาศาลาแดง: จดยอดขายจากถังไม่ระบุ Lot", async () => {
+    await openBranchTask(page, "จดยอดขาย");
     await expect(lotSelect(page)).toHaveValue(NO_LOT);
     await field(page, /กล่องมาตรฐาน/, "20");
     await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "2");
