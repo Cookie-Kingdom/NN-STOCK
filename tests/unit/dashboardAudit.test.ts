@@ -1,7 +1,16 @@
 import { expect, test } from "vitest";
-import { activeBatches } from "@/components/organisms/owner/lotSteps";
+import {
+  activeBatches,
+  latestNote,
+  latestNoteLabel,
+} from "@/components/organisms/owner/lotSteps";
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
-import { openPurchasePos, smokedAtFoodiva, unlinkedSummary } from "@/lib/store";
+import {
+  openPurchasePos,
+  smokedAtFoodiva,
+  titles,
+  unlinkedSummary,
+} from "@/lib/store";
 import {
   confirm,
   day,
@@ -104,4 +113,26 @@ test("DASH-02 counts its 30 days back from today, not from the newest entry", ()
   expect(activeBatches(s.db, "2026-10-10").map((lot) => lot.id)).toEqual([
     batch,
   ]);
+});
+
+test("จดล่าสุด is the newest live note on the batch, not the furthest along", () => {
+  const s = ready();
+  const lotId = s.db.lots.at(-1)!.id;
+  expect(latestNote(s.db, lotId)).toBe("central");
+  // PRIN-02: there is no order, so an "earlier" record written afterwards is the newest.
+  s.run("owner", "prepare", { preSmokeKg: "96" }, lotId);
+  expect(latestNote(s.db, lotId)).toBe("prepare");
+  expect(latestNoteLabel(s.db, lotId)).toBe(titles.prepare);
+  // A voided note does not count, even with a live one of its kind before it; the void
+  // itself is no note.
+  s.run("owner", "central", { centralKg: "34" }, lotId);
+  expect(latestNote(s.db, lotId)).toBe("central");
+  s.run("owner", "void", { targetId: last(s).id, reason: "ผิดชุด" }, lotId);
+  expect(latestNote(s.db, lotId)).toBe("prepare");
+  // A branch receive with no lot, linked onto the batch afterwards, counts on that batch.
+  s.run("branch", "receive", { kg: "10" }, "");
+  expect(latestNote(s.db, lotId)).toBe("prepare");
+  s.run("branch", "link", { targetId: last(s).id, lotId }, "");
+  expect(latestNote(s.db, lotId)).toBe("receive");
+  expect(latestNoteLabel(s.db, "no-such-lot")).toBe("—");
 });

@@ -113,7 +113,8 @@ export const AlertBanners: StoryObj<{
 };
 
 /** The header button reads "ยังไม่ครบ N จุด" (neutral, not a warning) or "จดครบแล้ว"; it
- *  opens "รายการที่ยังไม่ครบ". "จดล่าสุด" in the lot table names each batch's latest record.
+ *  opens "รายการที่ยังไม่ครบ". "จดล่าสุด" in the lot table names each batch's newest
+ *  note, whichever kind it is (not the one furthest along).
  *  เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run; "ยังไม่ผูก" reads all clear.
  *  - ยังไม่ผูก: ศาลาแดง 10 kg in "ไม่ระบุ Lot", 1 material receipt with no transfer, 1 batch

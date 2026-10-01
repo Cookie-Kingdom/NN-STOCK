@@ -24,6 +24,7 @@ import {
 } from "@/components/organisms/owner/ownerDaily";
 import {
   activeBatches,
+  latestNoteLabel,
   missingStepTab,
   missingSteps,
   missingText,
@@ -59,9 +60,7 @@ import {
   saleCost,
   shipments,
   smokingInvoiceStatus,
-  batchKinds,
   lotProgress,
-  titles,
   type Database,
   type Entry,
 } from "@/lib/store";
@@ -180,11 +179,6 @@ export function OwnerDashboard({
   });
   // Production runs are shipments; a purchase PO is not a batch and is not listed here.
   const runs = shipments(db);
-  const progressLabel = (lotId: string) =>
-    batchKinds
-      .filter((k) => lotProgress(db, lotId).has(k))
-      .map((k) => titles[k])
-      .at(-1) ?? "—";
   const activeLots = runs.filter(
     (lot) => !lotProgress(db, lot.id).has("central"),
   ).length;
@@ -604,7 +598,7 @@ export function OwnerDashboard({
         rowKeys={runs.map((lot) => lot.id)}
         rows={runs.map((lot) => [
           lot.poId,
-          progressLabel(lot.id),
+          latestNoteLabel(db, lot.id),
           `${fmt(produced(db, lot.id))} กก.`,
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} กก.`,

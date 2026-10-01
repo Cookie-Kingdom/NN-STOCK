@@ -6,7 +6,6 @@ import { ButtonRow } from "@/components/molecules/ButtonRow";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
-  batchKinds,
   entries,
   lotProgress,
   n,
@@ -21,7 +20,7 @@ import {
 } from "@/lib/store";
 import { fmt } from "@/lib/format";
 import type { ModalKind } from "@/lib/nav";
-import { again } from "@/components/organisms/owner/lotSteps";
+import { again, latestNoteLabel } from "@/components/organisms/owner/lotSteps";
 
 type OpenForm = (kind: ModalKind, lotId?: string) => void;
 
@@ -185,10 +184,7 @@ export function ChefLotTable({
           n(lot.values, "receivedKg")
             ? `${fmt(n(lot.values, "receivedKg"))} กก.`
             : "ยังไม่ได้จดรับ",
-          batchKinds
-            .filter((k) => lotProgress(db, lot.id).has(k))
-            .map((k) => titles[k])
-            .at(-1) ?? "—",
+          latestNoteLabel(db, lot.id),
           produced(db, lot.id) ? `${fmt(produced(db, lot.id))} กก.` : "-",
           producedBags(db, lot.id)
             ? `${producedBags(db, lot.id)} กล่องรมควัน`

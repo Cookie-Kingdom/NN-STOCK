@@ -36,7 +36,8 @@ const lotState = pick("สถานะ", {
 /** เลือกสถานะใน Controls. Every record button looks the same (CHF-07): none is picked
  *  out as "the next one", and a button is missing only where the save would be refused
  *  ("ยืนยันรับ PO รมควัน" with no smoke PO; "Edit ข้อมูลก่อนปิด Lot" with no weigh-in or
- *  pre-smoke weight to correct). "จดล่าสุด" names the latest record on the batch.
+ *  pre-smoke weight to correct). "จดล่าสุด" names the newest note on the batch,
+ *  whichever kind it is (not the one furthest along).
  *  - มี PO รมควัน ยังไม่ได้จดรับ: the Owner's smoke PO is not accepted yet and the meat is
  *    not weighed in; both buttons are there, along with pre-smoke, smoke, close and the
  *    invoice.

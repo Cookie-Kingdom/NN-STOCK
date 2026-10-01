@@ -27,6 +27,7 @@ import {
   lotRequiredKinds,
   poLotKinds,
 } from "@/components/organisms/shared/noteKinds";
+import { latestNote } from "@/components/organisms/owner/lotSteps";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
@@ -59,7 +60,6 @@ import {
   saleWithInfluencers,
   smokingInvoiceRejection,
   batchKinds,
-  lotProgress,
   missingText,
   titles,
   type Database,
@@ -533,10 +533,8 @@ export function EntryForm({
   const reference =
     lot && !meatLot ? referenceDocument(db, kind, lot) : undefined;
   // 「จดล่าสุด」: the newest note on the lot, whichever kind it is.
-  const noted = lot && !meatLot ? lotProgress(db, lot.id) : undefined;
-  const latestNote =
-    noted &&
-    db.entries.findLast((e) => e.lotId === lotId && noted.has(e.kind))?.kind;
+  const noted = !!lot && !meatLot;
+  const latestKind = noted ? latestNote(db, lot.id) : undefined;
   const riceSource = values.riceSource;
   const cookedRice = cookedRiceStock(db, branch, date);
   const formFields = (forms[kind] || []).filter((field) => {
@@ -749,7 +747,7 @@ export function EntryForm({
             {noted && (
               <Notice>
                 {lotId} ·{" "}
-                {latestNote ? `จดล่าสุด: ${titles[latestNote]}` : "ยังไม่ได้จด"}
+                {latestKind ? `จดล่าสุด: ${titles[latestKind]}` : "ยังไม่ได้จด"}
               </Notice>
             )}
             {useLot && (

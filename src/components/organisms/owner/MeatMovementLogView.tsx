@@ -198,7 +198,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         "Foodiva · เนื้อรมควัน",
         `${fmt(foodivaSmoked)} กก.`,
         foodivaSmoked > 0
-          ? "รับจาก Chef House แล้ว รอ Owner รับเข้าสต๊อกกลาง"
+          ? "รับจาก Chef House แล้ว · ยังไม่ได้จดรับเข้าสต๊อกกลาง"
           : "—",
       ],
       [

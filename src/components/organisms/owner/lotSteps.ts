@@ -1,9 +1,11 @@
 import { today } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
+  entries,
   lotProgress,
   poMatched,
   shipments,
+  titles,
   type Database,
   type EntryKind,
   type Lot,
@@ -97,6 +99,24 @@ export function missingText(missing: readonly BatchStep[], shown = 4) {
   const names = missing.slice(0, shown).map((step) => stepLabels[step]);
   const rest = missing.length - names.length;
   return `ยังไม่ได้จด: ${names.join(", ")}${rest > 0 ? ` และอีก ${rest} รายการ` : ""}`;
+}
+
+/** 「จดล่าสุด」: the kind of the newest note on the lot, whichever kind it is; there is no
+ *  order of steps to be furthest along (PRIN-02). Newest is log order. A voided note does
+ *  not count, and one linked onto the lot afterwards does. */
+export function latestNote(db: Database, lotId: string): EntryKind | undefined {
+  const live = new Set(
+    [...lotProgress(db, lotId)].flatMap((kind) =>
+      entries(db, kind, lotId).map((e) => e.id),
+    ),
+  );
+  return db.entries.findLast((e) => live.has(e.id))?.kind;
+}
+
+/** `latestNote` as a table cell. */
+export function latestNoteLabel(db: Database, lotId: string) {
+  const kind = latestNote(db, lotId);
+  return kind ? titles[kind] : "—";
 }
 
 const DAY = 86400000;

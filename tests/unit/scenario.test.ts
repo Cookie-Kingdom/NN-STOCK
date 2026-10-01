@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 // Aliased: plain functions despite the names; the alias keeps the hooks lint rule quiet.
 import { useBranchAlerts as branchAlerts } from "@/components/organisms/branch/useBranchAlerts";
+import { latestNote } from "@/components/organisms/owner/lotSteps";
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { today } from "@/lib/format";
 import {
-  batchKinds,
   isClosed,
   lotProgress,
   ownerWasteOutstanding,
@@ -26,11 +26,12 @@ test("every batch is parked at its own step", () => {
     db.lots.find(
       (lot) => lot.poId.endsWith(`-${String(sh).padStart(4, "0")}`) && lot.kind,
     )!;
-  const last = (sh: number) =>
-    batchKinds.filter((kind) => lotProgress(db, batch(sh).id).has(kind)).at(-1);
-  // SH-0001 is in central stock; branches record their receives themselves (BR-01).
+  const last = (sh: number) => latestNote(db, batch(sh).id);
+  // 「จดล่าสุด」 is the newest note, whichever kind: SH-0001 is in central stock and the
+  // branches already sell from it, so its newest note is a branch's sale.
+  expect(lotProgress(db, batch(1).id).has("central")).toBe(true);
   expect([1, 2, 3, 4, 5, 6, 10, 11, 12].map(last)).toEqual([
-    "central",
+    "sale",
     "smokeOrder",
     "packingList",
     "packingList",
