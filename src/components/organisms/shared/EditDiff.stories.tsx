@@ -1,40 +1,33 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import type { Values } from "@/lib/store";
-import { editDecidedDb, editPendingDb } from "../../../../.storybook/fixtures";
+import { changesDb, movedDb } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import { EditDiff } from "./EntryDetails";
 
-/** The first entry in `db` that carries an edit's before → after. */
-const diffOf = (values: Values[]) =>
-  values.find((v) => Object.keys(v).some((k) => k.startsWith("to.")))!;
-
-const request = diffOf(editPendingDb.entries.map((e) => e.values));
-const decision = diffOf(
-  editDecidedDb.entries
-    .filter((e) => e.kind === "editDecision")
-    .map((e) => e.values),
-);
+/** ศาลาแดง's edit of its sale: 65.5 → 60 kg and the LINE MAN amount. */
+const edit = changesDb.entries.find((e) => e.kind === "entryEdit")!.values;
+/** The Owner's edit that only moves a payment to another day and PO. */
+const moved = movedDb.entries.at(-1)!.values;
 const unchanged = Object.fromEntries(
-  Object.entries(request).map(([k, v]) =>
-    k.startsWith("to.") ? [k, request[`from.${k.slice(3)}`] ?? v] : [k, v],
+  Object.entries(edit).map(([k, v]) =>
+    k.startsWith("to.") ? [k, edit[`from.${k.slice(3)}`] ?? v] : [k, v],
   ),
 );
 
 const values = pick("การแก้ไข", {
-  คำขอแก้ไข: request,
-  ผลการพิจารณา: decision,
+  แก้ค่า: edit,
+  "ย้ายวันที่และ Lot": moved,
   ไม่มีค่าที่เปลี่ยน: unchanged,
 });
 
-const meta: Meta<{ values: Values }> = {
+const meta = {
   title: "Organisms/Shared/EditDiff",
   component: EditDiff,
   argTypes: { values: values.argType },
-  args: { values: values.initial },
-};
+  args: { values: values.initial, db: movedDb },
+} satisfies Meta<typeof EditDiff>;
 
 export default meta;
 
-/** ก่อน → หลังของการแก้ไข แสดงเฉพาะค่าที่เปลี่ยน. เลือกใน Controls: คำขอแก้ไขที่รอ Owner,
- *  การแก้ไขหลังพิจารณา หรือคำขอที่ไม่มีค่าเปลี่ยน ("ไม่มีค่าที่เปลี่ยน") */
+/** ก่อน → หลังของการแก้ไข แสดงเฉพาะค่าที่เปลี่ยน. เลือกใน Controls: การแก้ค่าของสาขา,
+ *  การย้ายวันที่ทำรายการและ Lot (EDT-24) หรือการแก้ไขที่ไม่มีค่าเปลี่ยน ("ไม่มีค่าที่เปลี่ยน") */
 export const Diff: StoryObj<typeof meta> = {};

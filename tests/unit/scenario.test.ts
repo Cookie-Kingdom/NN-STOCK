@@ -53,7 +53,6 @@ test("the Owner has one of every pending signal", () => {
   const alerts = ownerAlerts(db);
   const list = titles(alerts.notifications).join("\n");
   for (const title of [
-    "คำขอแก้ไขรอพิจารณา 1 รายการ",
     "ยังไม่ได้จด Invoice เนื้อ",
     // DASH-02: one advisory line per active batch, naming the records it has no entry for.
     "ชุด SH-2026-0002 ยังไม่ได้จด",
@@ -70,7 +69,6 @@ test("the Owner has one of every pending signal", () => {
 
 test("the two branches are in different states today", () => {
   expect(titles(branchAlerts(db, "ศาลาแดง", end).notifications)).toEqual([
-    expect.stringContaining("คำขอแก้ไขรอพิจารณา"),
     `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${end}`,
     `ยังไม่ได้จดยอดขายวันที่ ${end}`,
     `ยังไม่ได้จด 4 รายการของวันที่ ${end}`,
@@ -78,8 +76,6 @@ test("the two branches are in different states today", () => {
     `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${end}`,
   ]);
   expect(titles(branchAlerts(db, "มีนบุรี", end).notifications)).toEqual([
-    expect.stringContaining("คำขอแก้ไขไม่สำเร็จ"),
-    expect.stringContaining("คำขอแก้ไขสำเร็จ"),
     `ยังไม่ได้จด 1 รายการของวันที่ ${end}`,
   ]);
   for (const offset of [4, 3, 2]) {

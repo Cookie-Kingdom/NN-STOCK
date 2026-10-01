@@ -100,12 +100,29 @@ test("scopeDatabase picks what the SQL test expects from scope_app_state", () =>
         targetBranch: "ศาลาแดง",
       }),
       r("vd", "void", "owner", { targetId: "r2", reason: "x" }),
+      // 0039: the receive restored, and that branch's own edit undone.
+      r("bk", "void", "owner", {
+        targetId: "vd",
+        reason: "x",
+        targetKind: "void",
+      }),
+      r("e2", "entryEdit", "branch", {
+        targetId: "r2",
+        "to.kg": "3",
+        "from.kg": "4",
+        reason: "x",
+      }),
+      r("un", "void", "branch", { targetId: "e2", reason: "x" }),
+      r("wq", "void", "branch", { targetId: "rq" }),
     ],
   } as unknown as Database;
   expect(scopeDatabase(central, ["มีนบุรี"]).entries).toEqual([
     r("r2", "receive", "branch", { kg: "5" }),
     r("ed", "entryEdit", "owner", { targetId: "r2", "to.kg": "4" }),
     r("vd", "void", "owner", { targetId: "r2" }),
+    r("bk", "void", "owner", { targetId: "vd" }),
+    r("e2", "entryEdit", "branch", { targetId: "r2", "to.kg": "3" }),
+    r("un", "void", "branch", { targetId: "e2" }),
   ]);
 });
 
@@ -153,9 +170,37 @@ test("a branch gets every batch S and the Owner's central stock", () => {
         kind: "void" as const,
         values: { targetId: "x-rcv2", reason: "r" },
       },
+      // 0039: that branch deleted a receive and put it back, edited one and undid the edit.
+      ...(
+        [
+          ["x-rcv3", "receive", { kg: "3" }],
+          ["x-v3", "void", { targetId: "x-rcv3", reason: "r" }],
+          ["x-bk3", "void", { targetId: "x-v3", reason: "r" }],
+          ["x-ed", "entryEdit", { targetId: "x-rcv", "to.kg": "1" }],
+          ["x-un", "void", { targetId: "x-ed", reason: "r" }],
+        ] as const
+      ).map(([id, kind, values]) => ({
+        ...extra,
+        id,
+        kind,
+        role: "branch" as const,
+        values,
+      })),
     ],
   };
+  // 6 and 3 kg live, 2 kg deleted: past the 4 kg allocation, 5 kg came straight from central.
+  expect(centralStock(db, "S-new")).toBe(
+    centralStock({ ...db, entries: full.entries }, "S-new") - 9,
+  );
   const scoped = scopeDatabase(db, [branch]);
+  expect(scoped.entries.map((e) => e.id)).toEqual(
+    expect.arrayContaining(["x-v3", "x-bk3", "x-ed", "x-un"]),
+  );
+  expect(
+    visibleEntries(scoped, "branch", branch).filter((e) =>
+      e.id.startsWith("x-"),
+    ),
+  ).toEqual([]);
   expect(scoped.lots.map((l) => l.id)).toEqual(
     expect.arrayContaining(shipments(db).map((l) => l.id)),
   );
@@ -172,7 +217,7 @@ test("a branch gets every batch S and the Owner's central stock", () => {
   ).not.toContain("x-rcv");
 });
 
-test("a void of a followed entry (a withdrawn edit request) is sent", () => {
+test("a void of a followed own entry (an undone edit, a restored delete) is sent", () => {
   const e = (id: string, kind: string, values: Record<string, string> = {}) =>
     ({
       id,
@@ -188,14 +233,23 @@ test("a void of a followed entry (a withdrawn edit request) is sent", () => {
     lots: [],
     entries: [
       e("e-rcv", "receive"),
+      // An old log's withdrawn edit request, then 0039's direct changes.
       e("e-req", "editRequest", { targetId: "e-rcv" }),
       e("e-wd", "void", { targetId: "e-req" }),
+      e("e-ed", "entryEdit", { targetId: "e-rcv" }),
+      e("e-un", "void", { targetId: "e-ed" }),
+      e("e-del", "void", { targetId: "e-rcv" }),
+      e("e-bk", "void", { targetId: "e-del" }),
     ],
   } as unknown as Database;
   expect(scopeDatabase(db, ["มีนบุรี"]).entries.map((x) => x.id)).toEqual([
     "e-rcv",
     "e-req",
     "e-wd",
+    "e-ed",
+    "e-un",
+    "e-del",
+    "e-bk",
   ]);
 });
 

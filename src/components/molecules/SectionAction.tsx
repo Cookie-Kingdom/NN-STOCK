@@ -5,7 +5,7 @@ import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
 
 /**
- * The locked / editing switch a table puts in its action slot: one `ขอแก้ไข` button
+ * The locked / editing switch a table puts in its action slot: one `แก้ไข` button
  * while the table is locked, `ยกเลิก` + `บันทึกและล็อก` while it is open, and the
  * message the user needs beside the button they just pressed — never below the rows,
  * where a seven-row table pushes it off the screen.
@@ -24,7 +24,7 @@ export function SectionAction<Section extends string>({
   onSave,
   onStartEdit,
   lockedMessage,
-  editLabel = "ขอแก้ไข (Request edit)",
+  editLabel = "แก้ไข (Edit)",
   saveLabel = "บันทึกและล็อก (Save & lock)",
   busyLabel = "กำลังบันทึก…",
   otherLabel = "กำลังแก้ตารางอื่น",

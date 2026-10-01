@@ -1,7 +1,9 @@
 /** What each role may see of the log, and the edit-request queries built on it. */
 import {
+  canChange,
   editableKinds,
   isEditOverlay,
+  voidableKinds,
   type Database,
   type Entry,
   type EntryKind,
@@ -30,6 +32,7 @@ export const omit = (values: Values, keys: string[]) =>
 /** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
 export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
 const editKinds: EntryKind[] = [
+  "void",
   "entryEdit",
   "editRequest",
   "editDecision",
@@ -72,19 +75,20 @@ export function visibleEntries(
   branch?: string,
 ) {
   if (role === "owner") return db.entries;
-  // A branch: its own branch's entries and what the Owner sent it, plus edits, requests
-  // and decisions about them.
-  const aboutMine = (e: Entry) =>
-    editKinds.includes(e.kind) &&
-    e.values.targetRole === "branch" &&
-    e.values.targetBranch === branch;
-  return db.entries
-    .filter(
-      (e) =>
-        (e.branch === branch &&
-          (e.role === "branch" || sentToBranch.includes(e.kind))) ||
-        aboutMine(e),
+  /* A branch: its own branch's entries and what the Owner sent it, plus every change to
+   * one of them (an edit, a link, a delete) and every undo of such a change, whoever made
+   * it. A change comes after what it names in the log, so one pass in log order follows
+   * the chain. */
+  const seen = new Set<string>();
+  for (const e of db.entries)
+    if (
+      (e.branch === branch &&
+        (e.role === "branch" || sentToBranch.includes(e.kind))) ||
+      (editKinds.includes(e.kind) && seen.has(e.values.targetId))
     )
+      seen.add(e.id);
+  return db.entries
+    .filter((e) => seen.has(e.id))
     .map((e) => ({ ...e, values: omit(e.values, branchHiddenKeys) }));
 }
 /** The database a role's screens read: `db` untouched, except that `hideSales` (Account Manager)
@@ -102,8 +106,8 @@ export function visibleDatabase(db: Database, hideSales = false): Database {
     })),
   };
 }
-/** Why `role` may not edit `target` ("" when it may). Approvers edit any editable entry;
- *  anyone else only their own (a branch: its own branch's), and only by request. */
+/** Why `role` may not edit `target` ("" when it may): the Owner edits any editable entry, a
+ *  branch its own branch's, both directly (EDT-22). */
 export function editBlock(
   db: Database,
   target: Entry,
@@ -112,39 +116,55 @@ export function editBlock(
 ) {
   if (!editableKinds.includes(target.kind))
     return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
-  if (!entries(db, target.kind).some((e) => e.id === target.id))
-    return "รายการนี้ถูกยกเลิกแล้ว";
-  if (
-    role === "branch" &&
-    (target.role !== "branch" || target.branch !== branch)
-  )
+  if (isVoided(db, target.id)) return "รายการนี้ถูกลบแล้ว";
+  if (!canChange({ role, branch }, target))
     return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
   return "";
 }
-export const editDecisionOf = (db: Database, requestId: string) =>
-  entries(db, "editDecision").find((e) => e.values.requestId === requestId);
-/** The request on `targetId` still waiting for a decision. One at a time per entry. */
-export const openEditRequest = (db: Database, targetId: string) =>
-  entries(db, "editRequest").find(
-    (e) => e.values.targetId === targetId && !editDecisionOf(db, e.id),
-  );
 /** Direct edits and approved requests applied to one entry, oldest first; a voided one no
  *  longer applies, so it is left out. */
-export const entryEdits = (db: Database, targetId: string) =>
-  db.entries.filter(
+export function entryEdits(db: Database, targetId: string) {
+  const target = db.entries.find((e) => e.id === targetId);
+  return db.entries.filter(
     (e) =>
-      isEditOverlay(e) && e.values.targetId === targetId && !isVoided(db, e.id),
+      e.values.targetId === targetId &&
+      isEditOverlay(e, target) &&
+      !isVoided(db, e.id),
   );
-/** Every edit request in `db` with its decision: waiting ones first, then newest first.
- *  Pass a role's visible database to get only that role's own requests. */
-export function editRequestRows(db: Database) {
-  return entries(db, "editRequest")
-    .map((request) => ({ request, decision: editDecisionOf(db, request.id) }))
-    .sort(
-      (a, b) =>
-        Number(!!a.decision) - Number(!!b.decision) ||
-        (b.decision?.at || b.request.at).localeCompare(
-          a.decision?.at || a.request.at,
-        ),
-    );
+}
+/** Why `role` may not delete `target` ("" when it may). Deleting an edit or a link undoes it,
+ *  deleting a delete puts the entry back (EDT-23). The changes of one entry are a stack: only
+ *  its latest edit is undone, and an undo is not undone (edit, link or delete again instead).
+ *  That also keeps every void within two steps of the entry it is about, which is as far as
+ *  scope_app_state follows them for a branch. */
+export function voidBlock(
+  db: Database,
+  target: Entry,
+  role: ActingRole,
+  branch = "",
+) {
+  if (!voidableKinds.includes(target.kind)) return "รายการชนิดนี้ลบไม่ได้";
+  if (isVoided(db, target.id))
+    return target.kind === "void" || target.kind === "entryEdit"
+      ? "รายการนี้ย้อนกลับแล้ว"
+      : "รายการนี้ถูกลบแล้ว";
+  if (!canChange({ role, branch }, target))
+    return "ลบได้เฉพาะรายการของบัญชีนี้";
+  const about = db.entries.find((e) => e.id === target.values.targetId);
+  if (
+    target.kind === "void" &&
+    (!about ||
+      !voidableKinds.includes(about.kind) ||
+      ["void", "entryEdit", "link"].includes(about.kind))
+  )
+    return "รายการนี้ย้อนกลับไม่ได้ · แก้ไขหรือลบใหม่แทน";
+  // Among the edits only: a request approved in an old log is no edit to undo first.
+  if (
+    target.kind === "entryEdit" &&
+    entryEdits(db, target.values.targetId)
+      .filter((e) => e.kind === "entryEdit")
+      .at(-1)?.id !== target.id
+  )
+    return "ย้อนกลับการแก้ไขล่าสุดของรายการนี้ก่อน";
+  return "";
 }

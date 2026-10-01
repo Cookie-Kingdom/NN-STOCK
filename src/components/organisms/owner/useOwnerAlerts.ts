@@ -1,6 +1,5 @@
 "use client";
 
-import { editRequestAlerts } from "@/components/organisms/workspace/editRequestAlerts";
 import { fmt } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
@@ -123,9 +122,7 @@ export function useOwnerAlerts(db: Database) {
     );
   }).length;
 
-  const editAlerts = editRequestAlerts(db, "owner", "");
   const notifications: OwnerNotification[] = [
-    ...editAlerts,
     ...purchaseLots(db).flatMap((item): OwnerNotification[] =>
       entries(db, "foodivaConfirm", item.id).length
         ? []
@@ -241,8 +238,8 @@ export function useOwnerAlerts(db: Database) {
       work: workCount,
       "central-receive": centralReceiveCount + unmatchedCount,
       config: missingMaterialSettings,
-      // The bell sends both edit requests and unlinked branch meat to history.
-      history: editAlerts.length + unlinkedCount,
+      // The bell sends unlinked branch meat to history.
+      history: unlinkedCount,
     } satisfies Partial<Record<Tab, number>>,
   };
 }

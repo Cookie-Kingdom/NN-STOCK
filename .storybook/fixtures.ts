@@ -611,59 +611,59 @@ export const dayClosedDb: Database = chillBranchRun(closeReadyDb, "closeDay", {
   confirm: "ผู้ดูแล",
 });
 
-/** B5: ศาลาแดง asks to correct one of its entries on the closed `day`. */
-const branchEdit = (
-  db: Database,
-  kind: string,
-  values: Record<string, string>,
-  reason: string,
-) =>
-  mutate(
-    db,
-    "branch",
-    "editRequest",
-    {
-      targetId: db.entries.find((e) => e.kind === kind)!.id,
+/** EDT-22..22: dayClosedDb with every kind of change in its log. ศาลาแดง corrects its own
+ *  sale on the closed `day` (65.5 → 60 kg) and its thaw (70 → 68 kg), the Owner undoes the
+ *  thaw edit, ศาลาแดง deletes its cooked-rice count, and the Owner deletes an expense and
+ *  puts it back. */
+export const changesDb: Database = (() => {
+  const newest = (db: Database, kind: EntryKind) =>
+    db.entries.filter((e) => e.kind === kind).at(-1)!.id;
+  const owner = (
+    db: Database,
+    kind: EntryKind,
+    values: Record<string, string>,
+  ) => mutate(db, "owner", kind, values, "", day);
+  const edit = (
+    db: Database,
+    kind: EntryKind,
+    values: Record<string, string>,
+    reason: string,
+  ) =>
+    chillBranchRun(db, "entryEdit", {
+      targetId: newest(db, kind),
       values: JSON.stringify(values),
       reason,
-    },
-    "",
-    day,
-    "ศาลาแดง",
+    });
+  let db = edit(
+    dayClosedDb,
+    "sale",
+    { soldKg: "60", lineMan: "190000" },
+    "พิมพ์น้ำหนักเนื้อผิด",
   );
-/** The Owner decides the newest request. */
-const decide = (db: Database, decision: string, note = "") =>
-  mutate(
-    db,
-    "owner",
-    "editDecision",
-    { requestId: db.entries.at(-1)!.id, decision, note },
-    "",
-    day,
-  );
-/** dayClosedDb with one request waiting: the sale's 65.5 kg should have been 60. */
-export const editPendingDb: Database = branchEdit(
-  dayClosedDb,
-  "sale",
-  { soldKg: "60", lineMan: "190000" },
-  "พิมพ์น้ำหนักเนื้อผิด",
-);
-/** The sale edit approved, a thaw edit rejected, a rice-carry edit still waiting. */
-export const editDecidedDb: Database = branchEdit(
-  decide(
-    branchEdit(
-      decide(editPendingDb, "อนุมัติ"),
-      "thaw",
-      { kg: "70" },
-      "ชั่งน้ำหนักผิด",
-    ),
-    "ไม่อนุมัติ",
-    "ตรวจแล้ว 7 ถุงถูกต้อง",
-  ),
-  "riceCarry",
-  { leftoverKg: "0", reheat: "ไม่นำกลับมาใช้" },
-  "เลือกการจัดการผิด",
-);
+  db = edit(db, "thaw", { kg: "68" }, "ชั่งน้ำหนักผิด");
+  db = owner(db, "void", {
+    targetId: newest(db, "entryEdit"),
+    reason: "ตรวจแล้ว 70 กก. ถูกต้อง",
+  });
+  db = chillBranchRun(db, "void", {
+    targetId: newest(db, "riceCarry"),
+    reason: "นับข้าวซ้ำ",
+  });
+  db = owner(db, "expense", {
+    category: "ค่าเช่า",
+    amount: "15000",
+    payer: "Owner",
+    detail: "ค่าเช่าเดือนนี้",
+  });
+  db = owner(db, "void", {
+    targetId: newest(db, "expense"),
+    reason: "บันทึกซ้ำ",
+  });
+  return owner(db, "void", {
+    targetId: newest(db, "void"),
+    reason: "ตรวจแล้วไม่ซ้ำ",
+  });
+})();
 
 /** A lot at central stock (35 kg) with history for the purchase and transfer
  *  prefills: a purchase of materials[0] (200 × ฿3 from ร้านวัสดุ), 60 of it sent to คุณนิด at ศาลาแดง (not
@@ -781,6 +781,23 @@ export const paidWithoutInvoiceDb: Database = mutate(
   "meatPayment",
   { paymentDate: day, paidBy: "Owner", paidAmount: "75000", slips: "[]" },
   freeOrderDb.lots[0].id,
+  day,
+);
+
+/** EDT-24: `paidWithoutInvoiceDb` after the Owner moves that payment to the day before and
+ *  onto the second PO. */
+export const movedDb: Database = mutate(
+  paidWithoutInvoiceDb,
+  "owner",
+  "entryEdit",
+  {
+    targetId: paidWithoutInvoiceDb.entries.at(-1)!.id,
+    values: "{}",
+    reason: "ชำระของ PO ที่สอง",
+    toDate: "2026-09-08",
+    toLotId: paidWithoutInvoiceDb.lots[1].id,
+  },
+  "",
   day,
 );
 

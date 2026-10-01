@@ -11,13 +11,14 @@ import {
   branchMeatKinds,
   branches,
   canLink,
-  editDecisions,
-  editLocked,
+  dateField,
+  editLockedKeys,
+  lotMovableKinds,
   materials,
   missingKeys,
   pack,
   retiredKinds,
-  voidableKinds,
+  titles,
   type Database,
   type Entry,
   type EntryKind,
@@ -25,11 +26,11 @@ import {
   type Lot,
   type Role,
   type Values,
-  unpack,
 } from "./model";
 import {
   allocationOutstanding,
   balance,
+  batchEntries,
   branchMaterialStock,
   centralStock,
   chiliStock,
@@ -40,8 +41,10 @@ import {
   entries,
   isClosed,
   isPackWeight,
+  isVoided,
   issuedRawRiceStock,
   latestPackingList,
+  liveLots,
   materialPar,
   materialUnitPrice,
   n,
@@ -51,6 +54,7 @@ import {
   ownerWasteReceived,
   packWeights,
   pendingReceiveKg,
+  poInUse,
   poRemainingKg,
   processed,
   produced,
@@ -62,13 +66,7 @@ import {
   smokingInvoiceStatus,
   sum,
 } from "./derived";
-import {
-  editBlock,
-  editDecisionOf,
-  omit,
-  openEditRequest,
-  saleMoneyKeys,
-} from "./visibility";
+import { editBlock, omit, saleMoneyKeys, voidBlock } from "./visibility";
 /** Stock figures an edit must not push below zero, keyed `label#id`. */
 function stockLevels(db: Database) {
   const levels = new Map<string, number>();
@@ -104,16 +102,34 @@ function stockLevels(db: Database) {
     levels.set(`${m} ในคลัง Owner#`, ownerMaterialStock(db, m));
   return levels;
 }
-/** The target's values as `proposed` would leave them, normalised and checked by the target
- *  kind's own rules as if it were saved again now without the original (so its own kg are
- *  back in stock). Then no stock may go below zero that was not already there. */
-function correctedValues(db: Database, target: Entry, proposed: Values) {
-  for (const key of editLocked(target.kind))
+/** `target` as `proposed` (and a new date or lot, EDT-24) would leave it: its values
+ *  normalised and checked by the target kind's own rules as if it were saved again now without
+ *  the original (so its own kg are back in stock), and where it moved. Then no stock may go
+ *  below zero that was not already there. */
+function correctedEntry(
+  db: Database,
+  target: Entry,
+  proposed: Values,
+  date: string,
+  lotId: string,
+) {
+  for (const key of editLockedKeys)
     assert(
       proposed[key] === undefined ||
         proposed[key] === (target.values[key] ?? ""),
-      "แก้สาขา วันที่ซื้อ หรือรายการอ้างอิงไม่ได้ · ให้ Owner ยกเลิกแล้วบันทึกใหม่",
+      "แก้สาขาปลายทางไม่ได้ · ลบรายการแล้วบันทึกใหม่",
     );
+  assert(
+    lotId === target.lotId ||
+      (lotMovableKinds.includes(target.kind) &&
+        liveLots(db).some((lot) => lot.id === lotId)),
+    "ย้าย Lot ของรายการนี้ไม่ได้",
+  );
+  const held = lotId !== target.lotId && referring(db, target)[0];
+  assert(
+    !held,
+    `${held ? titles[held.kind] : ""} อ้างถึงรายการนี้อยู่ · ย้ายหรือลบรายการนั้นก่อน`,
+  );
   const as = (kind: EntryKind, values: Values): Database => ({
     ...db,
     entries: [
@@ -145,74 +161,125 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
     target.role === "branch" ? "branch" : "owner",
     target.kind,
     input,
-    target.lotId,
-    target.date,
+    lotId,
+    date,
     target.branch,
     true,
-  ).entries.at(-1)!.values;
-  const corrected = moneyHidden ? omit(checked, saleMoneyKeys) : checked;
+  ).entries.at(-1)!;
+  const values = moneyHidden
+    ? omit(checked.values, saleMoneyKeys)
+    : checked.values;
+  // The overlay merges, so a value the rules no longer write (the invoice of a payment moved
+  // to a batch that has none) is cleared, not left as it was.
+  for (const key of Object.keys(target.values))
+    if (checked.values[key] === undefined && key !== "attachmentData")
+      values[key] = "";
+  // A date kept in the values (a purchase's, a waste pick-up's) moves the entry with it.
+  const moved: Values = {
+    ...(checked.date !== target.date && {
+      fromDate: target.date,
+      toDate: checked.date,
+    }),
+    // The lot asked for, not the scratch save's: a PO saved again there would open a new lot.
+    ...(lotId !== target.lotId && { fromLotId: target.lotId, toLotId: lotId }),
+  };
   const before = stockLevels(db);
   const after = as("entryEdit", {
     targetId: target.id,
-    ...pack("to.", corrected),
+    ...pack("to.", values),
+    ...moved,
   });
+  const touched = cachedOn(db, target, moved.toLotId);
   for (const [key, level] of stockLevels({
     ...after,
-    lots: after.lots.map((lot) => recache(db, lot, target, corrected)),
+    lots: after.lots.map((lot) =>
+      touched.has(lot.id) ? recached(after, lot) : lot,
+    ),
   }))
     warn(
       level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
       `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
     );
-  return corrected;
+  return { values, moved };
 }
-/** DM-09: `lot` with its values cache following an edit of `target` (or the undoing of one,
- *  `drop` then names the keys that edit had added). A purchase PO's lot is the PO itself. A
- *  batch holds the latest values recorded on it, so the cached entries saved after `target`
- *  are laid over the corrected ones again, in log order: an edit of an older round, or of the
- *  transport document, never overwrites what a later entry put there. The return leg's fee
- *  is not taken from an entry: it follows the trip (free on a round trip), so a trip changed
- *  by the edit prices it again. */
-function recache(
-  db: Database,
-  lot: Lot,
-  target: Entry,
-  corrected: Values,
-  drop: string[] = [],
-): Lot {
-  if (lot.id !== target.lotId) return lot;
-  if (!lot.kind)
-    return target.kind === "purchase"
-      ? { ...lot, values: { ...lot.values, ...omit(corrected, uncached) } }
-      : lot;
-  if (!cachedKinds.includes(target.kind)) return lot;
-  const kept = [...uncached, "returnCost"];
-  let values = { ...omit(lot.values, drop), ...omit(corrected, kept) };
-  const at = db.entries.findIndex((entry) => entry.id === target.id);
-  for (const later of db.entries.slice(at + 1)) {
-    if (later.lotId !== lot.id || !cachedKinds.includes(later.kind)) continue;
-    const live = entries(db, later.kind, lot.id).find((e) => e.id === later.id);
-    if (live) values = { ...values, ...omit(live.values, kept) };
+/** Kinds a lot's cache is rebuilt for: a batch's steps (the cached ones, and all of them for
+ *  `deleted`) and the PO itself. No branch kind is among them, so a branch never writes a lot. */
+const lotKinds: EntryKind[] = [...batchKinds, "purchase"];
+/** The lots whose cache a change to `entry` reaches: the one it was recorded on, every lot an
+ *  edit moved it from or to, and `more`. */
+function cachedOn(db: Database, entry: Entry, ...more: (string | undefined)[]) {
+  if (!lotKinds.includes(entry.kind)) return new Set<string>();
+  const raw = db.entries.find((e) => e.id === entry.id) ?? entry;
+  return new Set(
+    [
+      raw.lotId,
+      entry.lotId,
+      ...db.entries
+        .filter((e) => e.kind === "entryEdit" && e.values.targetId === entry.id)
+        .flatMap((e) => [e.values.fromLotId, e.values.toLotId]),
+      ...more,
+    ].filter((id): id is string => !!id),
+  );
+}
+/** DM-09: `lot` with its values cache rebuilt from the live entries of `db`, the log after an
+ *  edit, a delete or an undo. A purchase PO's lot is the PO itself. A batch holds the latest
+ *  values recorded on it: its live cached entries laid over each other in log order, so an
+ *  edit of an older round never overwrites what a later entry put there. The return leg's fee
+ *  follows the trip: free on a round trip, else the fee the return was saved with (the one in
+ *  the settings when it was saved free). With nothing live left the lot is `deleted` (liveLots). */
+function recached(db: Database, lot: Lot): Lot {
+  if (!lot.kind) {
+    const po = entries(db, "purchase", lot.id).at(-1);
+    return {
+      ...lot,
+      values: po ? omit(po.values, uncached) : { deleted: "1" },
+    };
   }
-  if (
-    values.returnCost !== undefined &&
-    (values.trip ?? "") !== (lot.values.trip ?? "")
-  )
+  const live = batchEntries(db, lot.id);
+  if (!live.length) return { ...lot, values: { deleted: "1" } };
+  const values: Values = {};
+  for (const entry of live)
+    if (cachedKinds.includes(entry.kind))
+      Object.assign(values, omit(entry.values, [...uncached, "returnCost"]));
+  const back = live.findLast((entry) => entry.kind === "return");
+  if (back)
     values.returnCost =
       values.trip === "ไปกลับ"
         ? "0"
-        : (db.config.returnFee ?? lot.config.returnFee);
+        : n(back.values, "returnCost")
+          ? back.values.returnCost
+          : (db.config.returnFee ?? lot.config.returnFee);
   return { ...lot, values };
 }
-/** What an edit entry stores about its target: the before and after values and whose it is. */
-function editValues(db: Database, target: Entry, proposed: Values) {
+/** What an edit entry stores about its target: the before and after values, where it moved
+ *  (`fromDate` → `toDate`, `fromLotId` → `toLotId`) and whose it is. */
+function editValues(
+  db: Database,
+  target: Entry,
+  proposed: Values,
+  date: string,
+  lotId: string,
+) {
+  const { values, moved } = correctedEntry(db, target, proposed, date, lotId);
+  /* Only what the edit changes is laid over the entry, so a link or a Chef House correction
+   * under it still shows through, and undoing that still takes effect. A sale carries all of
+   * it: restore_sale_money works the menu total out from the edit's own counts. */
+  const changed =
+    target.kind === "sale"
+      ? values
+      : Object.fromEntries(
+          Object.entries(values).filter(
+            ([key, value]) => value !== (target.values[key] ?? ""),
+          ),
+        );
   return {
     targetKind: target.kind,
     targetDate: target.date,
     targetRole: target.role,
     targetBranch: target.branch,
     ...pack("from.", target.values),
-    ...pack("to.", correctedValues(db, target, proposed)),
+    ...pack("to.", changed),
+    ...moved,
   };
 }
 /** `targetId`'s entry with its current (edited) values, if `role` may edit it. */
@@ -448,6 +515,34 @@ function newBatch(db: Database, next: Database, date: string): Lot {
   next.lots.push(lot);
   return lot;
 }
+/** The next running number of a kind's document. Deleted ones count too (EDT-23): a number
+ *  is never given to a second document. */
+const nextNumber = (db: Database, kind: EntryKind) =>
+  String(db.entries.filter((e) => e.kind === kind).length + 1).padStart(4, "0");
+/** The value that names another entry by id, per kind (EDT-23). */
+const referenceKey: Partial<Record<EntryKind, string>> = {
+  smokeOrderAccept: "orderId",
+  invoiceReview: "invoiceId",
+  invoicePayment: "invoiceId",
+  receive: "allocation",
+  materialConfirm: "transferId",
+};
+/** The ids of the entries `e` names: its document, or what a Chef House correction corrects. */
+const named = (e: Entry): string[] =>
+  (e.kind === "chefEdit"
+    ? [
+        e.values.receiveId,
+        e.values.prepareId,
+        ...(JSON.parse(e.values.batches || "[]") as Values[]).map((b) => b.id),
+      ]
+    : [e.values[referenceKey[e.kind] ?? ""]]
+  ).filter(Boolean);
+/** Live entries that name `target`: deleting or moving it would leave them pointing at
+ *  nothing, so they go first. */
+const referring = (db: Database, target: Entry) =>
+  ([...Object.keys(referenceKey), "chefEdit"] as EntryKind[])
+    .flatMap((kind) => entries(db, kind))
+    .filter((e) => named(e).includes(target.id));
 /** LNK-03: entries that can be tied to a batch or a transfer after the fact. */
 const linkable: EntryKind[] = [...branchMeatKinds, "materialConfirm"];
 /** DM-09: the batch kinds whose values are cached on the lot (`lot.values`), the ones the
@@ -501,13 +596,10 @@ function record(
 ): Database {
   const forbidden = "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้";
   assert(
-    kind === "editRequest"
-      ? role !== "owner"
-      : kind === "void"
-        ? role === "owner" || role === "branch" // a branch only withdraws its own request, below
-        : kind === "entryEdit" || kind === "editDecision"
-          ? role === "owner"
-          : kind === "link" || ownership[kind] === recordRole(kind, role), // link: checked against its target below
+    // An edit, a delete and a link are checked against their target below (canChange).
+    ["entryEdit", "void", "link"].includes(kind) ||
+      retiredKinds.includes(kind) ||
+      ownership[kind] === recordRole(kind, role),
     forbidden,
   );
   // An edit of an old entry re-checks it; a new one of a kind with no screen is refused.
@@ -534,6 +626,8 @@ function record(
   checkDate(date, "วันที่ทำรายการ");
   const next: Database = structuredClone(db),
     v = { ...input };
+  // Lots whose cache is rebuilt once the entry is in (an edit, a delete, an undo).
+  const touched = new Set<string>();
   // Recomputed on every save, so an edit that fills a field clears it (the overlay merges).
   delete v.missing;
   let lot = next.lots.find((l) => l.id === lotId);
@@ -547,10 +641,9 @@ function record(
   }
   if (role === "branch") {
     assert(branches.includes(branch), "ไม่พบสาขาของบัญชีนี้");
-    /* A request changes nothing until an approver decides, so a closed day still takes one,
-     * and its withdrawal. A link is dated today whatever day its target is on (STK-37), so
-     * a closed today must not stop tying an older entry to its batch. */
-    if (!correcting && !["editRequest", "void", "link"].includes(kind))
+    /* An edit, a delete and a link are dated today whatever day their target is on (STK-37),
+     * so a closed today is not what they change. */
+    if (!correcting && !["entryEdit", "void", "link"].includes(kind))
       warn(!isClosed(db, branch, date), "วันนี้ปิดยอดแล้ว");
   } else if (
     !correcting &&
@@ -560,8 +653,12 @@ function record(
     warn(!isClosed(db, branch, date), `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว`);
   // GEN-10: purchase-PO kinds on Lot F only; batch kinds on Lot S only, and with no lot they
   // open a new batch (GEN-09, D2: whether stamped owner, foodiva or cm).
-  if (["foodivaConfirm", "ownerWasteReceive", "meatPayment"].includes(kind))
-    assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
+  const poStep = [
+    "foodivaConfirm",
+    "ownerWasteReceive",
+    "meatPayment",
+  ].includes(kind);
+  if (poStep) assert(lot && !lot.kind, "รายการนี้ต้องทำกับ PO ซื้อ");
   if (batchKinds.includes(kind)) {
     if (!lotId) lot = newBatch(db, next, date);
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
@@ -569,6 +666,22 @@ function record(
   }
   if (branchMeatKinds.includes(kind) && lotId)
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
+  /* EDT-23: a deleted PO or batch takes no new step, and no branch receives from it (it
+   * still thaws and sells what it holds of one). Putting a batch step back, or the PO itself,
+   * re-checks it here as a correction and revives the lot; an invoice or a payment waits for
+   * its PO. A kind with no lot of its own is not held up by one. */
+  if (
+    lot?.values.deleted &&
+    (lotKinds.includes(kind) || poStep || kind === "receive")
+  )
+    assert(
+      correcting &&
+        (kind === "receive" ||
+          (lot.kind ? batchKinds.includes(kind) : kind === "purchase")),
+      lot.kind
+        ? "ชุดนี้ถูกลบแล้ว · กู้คืนรายการของชุดก่อน"
+        : "PO นี้ถูกลบแล้ว · กู้คืน PO ก่อน",
+    );
   // GEN-04: a batch entry dated before the batch's latest one, GEN-05: a purchase-PO entry
   // dated before the PO was opened (its earliest). Said, not refused.
   // An edit keeps the entry's own date, so it is not told off for it again.
@@ -631,7 +744,7 @@ function record(
     if (v.rawKg) v.rawKg = String(Number(v.rawKg));
     v.serviceRate = String(smokeServiceRate(n(v, "rawKg")));
     // Kept on an edit (correctedValues re-runs this with the old values): the number does not move.
-    v.orderNumber ||= `SO-${date.slice(0, 4)}-${String(entries(db, "smokeOrder").length + 1).padStart(4, "0")}`;
+    v.orderNumber ||= `SO-${date.slice(0, 4)}-${nextNumber(db, "smokeOrder")}`;
     v.estimatedCost = String(n(v, "rawKg") * n(v, "serviceRate"));
     v.status = "Sent";
   } else if (kind === "smokeOrderAccept" && lot) {
@@ -866,7 +979,7 @@ function record(
       "ต้นทางและปลายทางต้องต่างกัน",
     );
     if (!correcting || !v.transferNumber)
-      v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
+      v.transferNumber = `TR-${date.slice(0, 4)}-${nextNumber(db, "dispatch")}`;
   } else if (kind === "cmReceive" && lot) {
     // CHF-01: the truck is at the door; Chef House weighs in with or without a Packing List or PO.
     required(v, "arrival", "เวลาถึง");
@@ -916,17 +1029,23 @@ function record(
     v.postSmokeKg = output.toFixed(2);
     v.packCount = String(weights.length);
     if (!correcting || !v.subLot)
-      v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
+      v.subLot = `SB-${date.slice(0, 4)}-${nextNumber(db, "smoke")}`;
   } else if (kind === "chefEdit" && lot) {
     // Corrects the receive/prepare/smoke values without touching those entries (see entries()).
     warn(!entries(db, "closeLot", lotId).length, "ปิด Lot แล้ว");
     const receiveEntry = entries(next, "cmReceive", lotId).at(-1);
     const prepareEntry = entries(next, "prepare", lotId).at(-1);
-    const smokeEntries = entries(next, "smoke", lotId);
     let drafts: Values[] = [];
     try {
       drafts = JSON.parse(v.batches || "[]");
     } catch {}
+    // Put back after a delete, it still corrects the rounds it named: not the ones smoked since.
+    const smokeEntries = entries(next, "smoke", lotId).filter(
+      (entry) =>
+        !correcting ||
+        (Array.isArray(drafts) &&
+          drafts.some((draft) => draft?.id === entry.id)),
+    );
     assert(
       receiveEntry &&
         prepareEntry &&
@@ -991,19 +1110,8 @@ function record(
     v.prepareId = prepareEntry.id;
     v.receivedKg = String(receivedKg);
     if (v.preSmokeKg) v.preSmokeKg = String(preSmokeKg);
-    const latestBatch = batches.at(-1)!;
-    lot.values = {
-      ...lot.values,
-      arrival: v.arrival,
-      receivedKg: String(receivedKg),
-      preSmokeKg: v.preSmokeKg,
-      inputKg: latestBatch.inputKg,
-
-      wasteKg: latestBatch.wasteKg,
-      packs: latestBatch.packs,
-      postSmokeKg: latestBatch.postSmokeKg,
-      packCount: latestBatch.packCount,
-    };
+    // DM-09: the cache follows from the corrected entries (recached).
+    touched.add(lot.id);
     v.batches = JSON.stringify(
       batches.map((batch, index) => ({ id: smokeEntries[index].id, ...batch })),
     );
@@ -1030,7 +1138,7 @@ function record(
     );
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
     if (!correcting || !v.transferNumber)
-      v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
+      v.transferNumber = `TR-${date.slice(0, 4)}-R${nextNumber(db, "return")}`;
     withinStock(
       n(v, "returnKg"),
       produced(db, lotId),
@@ -1213,7 +1321,12 @@ function record(
      * a quiet rewrite: every round stays in the log. */
     const recorded = entries(db, "materials", undefined, branch, date);
     if (recorded.length) {
-      v.revision = String(recorded.length + 1);
+      // Deleted rounds count too: a round number is not used twice.
+      v.revision = String(
+        db.entries.filter(
+          (e) => e.kind === kind && e.branch === branch && e.date === date,
+        ).length + 1,
+      );
       required(v, "correctionReason", "เหตุผลที่แก้ไขยอดวัสดุ");
     }
   } else if (kind === "materialReceive") {
@@ -1412,99 +1525,117 @@ function record(
     assert(correcting || isClosed(db, branch, date), "วันนี้ยังไม่ได้ปิด");
     required(v, "reason", "เหตุผลปลดล็อก");
   } else if (kind === "void") {
+    // EDT-23: a delete. Of an edit or a link it undoes that; of a delete it puts the entry back.
     const target = db.entries.find((entry) => entry.id === v.targetId);
-    if (role === "branch") {
-      // A branch withdraws its own edit request while it still waits for a decision.
-      assert(
-        target?.kind === "editRequest" &&
-          target.role === "branch" &&
-          target.branch === branch,
-        "บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้",
-      );
-      assert(!editDecisionOf(db, target.id), "คำขอนี้พิจารณาแล้ว");
-    } else
-      assert(
-        target && voidableKinds.includes(target.kind),
-        "รายการนี้ยกเลิกไม่ได้",
-      );
-    assert(
-      !db.entries.some(
-        (entry) =>
-          entry.kind === "void" && entry.values.targetId === v.targetId,
-      ),
-      "รายการนี้ถูกยกเลิกแล้ว",
-    );
+    assert(target, "ไม่พบรายการ");
+    const block = voidBlock(db, target, role, branch);
+    assert(!block, block);
     /* A void takes the target out of every figure, like an edit does, so it gets the same
      * stock check. An allocation or transfer the branch already took in would otherwise go
      * back to central stock while the branch keeps it: void the branch's entry first. */
     if (target.kind === "allocate")
       assert(
         !entries(db, "receive").some((r) => r.values.allocation === target.id),
-        "สาขารับเนื้อจากใบจัดสรรนี้แล้ว · ยกเลิกรายการรับเนื้อก่อน",
+        "สาขารับเนื้อจากใบจัดสรรนี้แล้ว · ลบรายการรับเนื้อก่อน",
       );
     if (target.kind === "materialTransfer")
       assert(
         !entries(db, "materialConfirm").some(
           (c) => c.values.transferId === target.id,
         ),
-        "สาขายืนยันรับวัสดุจากใบโอนนี้แล้ว · ยกเลิกรายการยืนยันรับก่อน",
+        "สาขายืนยันรับวัสดุจากใบโอนนี้แล้ว · ลบรายการยืนยันรับก่อน",
       );
-    const before = stockLevels(db);
-    for (const [key, level] of stockLevels({
+    const held = referring(db, target)[0];
+    assert(
+      !held,
+      `${held ? titles[held.kind] : ""} อ้างถึงรายการนี้อยู่ · ลบรายการนั้นก่อน`,
+    );
+    // A PO is its lot: what stands on it, or draws from it, would be left with no PO.
+    assert(
+      target.kind !== "purchase" || !poInUse(db, target.lotId),
+      "PO นี้ยังมีรายการอื่นหรือ PO รมควันผูกอยู่ · ลบรายการเหล่านั้นก่อน",
+    );
+    const after: Database = {
       ...db,
       entries: [
         ...db.entries,
-        { ...target, id: newId(), kind, role, values: { targetId: target.id } },
-      ],
-    }))
-      warn(
-        level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
-        `ยกเลิกแล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · ยกเลิกรายการที่ตามมาก่อน`,
-      );
-    required(v, "reason", "เหตุผลยกเลิกรายการ");
-    v.targetKind = target.kind;
-    v.targetDate = target.date;
-    v.targetBranch = target.branch;
-    // The batch cache follows: back to the live central before it, if any (DM-09).
-    const cached = next.lots.find((l) => l.id === target.lotId);
-    if (target.kind === "central" && cached) {
-      const previous = entries(db, "central", target.lotId)
-        .filter((e) => e.id !== target.id)
-        .at(-1);
-      if (previous) cached.values.centralKg = previous.values.centralKg;
-      else delete cached.values.centralKg;
-    }
-    // Undoing an edit: the cache goes back to what the edited entry reads without it.
-    const edited =
-      target.kind === "entryEdit" &&
-      db.entries.find((entry) => entry.id === target.values.targetId);
-    if (edited) {
-      const restored = entries(
         {
-          ...db,
+          ...target,
+          id: newId(),
+          kind,
+          role,
+          branch,
+          values: { targetId: target.id },
+        },
+      ],
+    };
+    // The entry this is about: the target itself, or the one its edit or delete names.
+    const about =
+      target.kind === "void" || target.kind === "entryEdit"
+        ? db.entries.find((entry) => entry.id === target.values.targetId)
+        : undefined;
+    /* Putting an entry back, or back to what it was before an edit, saves it again: its
+     * kind's rules run on the log as it is now, without the entry itself (an invoice paid
+     * meanwhile, a transfer confirmed by another entry, a PO deleted since). */
+    const back =
+      about && entries(after, about.kind).find((e) => e.id === about.id);
+    assert(back || target.kind !== "void", "ไม่พบรายการ");
+    // What it names must still be there: the rules above would settle for another document.
+    const names = (back ? named(back) : []).map((id) =>
+      db.entries.find((e) => e.id === id),
+    );
+    const gone = names.findIndex((e) => !e || isVoided(db, e.id));
+    assert(
+      gone < 0,
+      `${names[gone] ? titles[names[gone].kind] : "รายการ"} ที่รายการนี้อ้างถึงถูกลบแล้ว · กู้คืนรายการนั้นก่อน`,
+    );
+    if (about && back)
+      record(
+        {
+          ...after,
           entries: [
-            ...db.entries,
+            ...after.entries,
             {
-              ...target,
+              ...about,
               id: newId(),
               kind,
-              role,
-              values: { targetId: target.id },
+              role: "owner",
+              values: { targetId: about.id },
             },
           ],
         },
-        edited.kind,
-      ).find((entry) => entry.id === edited.id);
-      // Keys the edit added (a field left empty at first) go with it.
-      const from = unpack("from.", target.values);
-      const added = Object.keys(unpack("to.", target.values)).filter(
-        (key) => !(key in from),
+        back.role === "branch" ? "branch" : "owner",
+        back.kind,
+        back.values,
+        back.lotId,
+        back.date,
+        back.branch,
+        true,
       );
-      if (restored)
-        next.lots = next.lots.map((l) =>
-          recache(db, l, edited, restored.values, added),
-        );
-    }
+    const done =
+      target.kind === "void"
+        ? "กู้คืน"
+        : target.kind === "entryEdit" || target.kind === "link"
+          ? "ย้อนกลับ"
+          : "ลบ";
+    const before = stockLevels(db);
+    for (const id of cachedOn(db, about ?? target)) touched.add(id);
+    for (const [key, level] of stockLevels({
+      ...after,
+      lots: after.lots.map((l) => (touched.has(l.id) ? recached(after, l) : l)),
+    }))
+      warn(
+        level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
+        `${done}แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
+      );
+    required(v, "reason", "เหตุผล");
+    v.targetKind = target.kind;
+    // The day it is filed under now, an edit's move included.
+    v.targetDate = (
+      entries(db, target.kind).find((e) => e.id === target.id) ?? target
+    ).date;
+    v.targetRole = target.role;
+    v.targetBranch = target.branch;
   } else if (kind === "link") {
     // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
     const target = db.entries.find((entry) => entry.id === v.targetId);
@@ -1521,7 +1652,7 @@ function record(
     if (v.lotId?.trim()) {
       assert(
         branchMeatKinds.includes(target.kind) &&
-          db.lots.some((l) => l.id === v.lotId && l.kind === "shipment"),
+          liveLots(db).some((l) => l.id === v.lotId && l.kind === "shipment"),
         "ไม่พบชุดรมควันที่เลือก",
       );
     } else delete v.lotId;
@@ -1543,55 +1674,32 @@ function record(
     v.targetRole = target.role;
     v.targetBranch = target.branch;
     lotId = v.lotId || target.lotId;
-  } else if (kind === "entryEdit" || kind === "editRequest") {
+  } else if (kind === "entryEdit") {
     // Recorded, not applied: entries() overlays the `to.` values on the target (like chefEdit).
     const target = editTarget(db, v.targetId, role, branch);
-    if (kind === "editRequest")
-      assert(
-        !openEditRequest(db, target.id),
-        "รายการนี้มีคำขอแก้ไขรอพิจารณาอยู่แล้ว",
-      );
     required(v, "reason", "เหตุผลที่แก้ไข");
     let proposed: Values = {};
     try {
       proposed = JSON.parse(v.values || "{}");
     } catch {}
-    delete v.values;
-    Object.assign(v, editValues(db, target, proposed));
-    lotId = target.lotId;
-    // The lot cache follows a direct edit (SMK-05: the smoke PO's lines; a purchase PO's own values).
-    if (kind === "entryEdit")
-      next.lots = next.lots.map((l) =>
-        recache(db, l, target, unpack("to.", v)),
-      );
-  } else if (kind === "editDecision") {
-    const request = entries(db, "editRequest").find(
-      (e) => e.id === v.requestId,
+    // EDT-24: `toDate` re-dates the entry, `toLotId` moves it to another lot.
+    const { toDate, toLotId } = v;
+    for (const key of ["values", "toDate", "toLotId"]) delete v[key];
+    // A kind filed under one of its own fields moves by that field.
+    const dated = dateField[target.kind];
+    if (dated && toDate) proposed[dated] ??= toDate;
+    Object.assign(
+      v,
+      editValues(
+        db,
+        target,
+        proposed,
+        toDate || target.date,
+        toLotId || target.lotId,
+      ),
     );
-    assert(request, "ไม่พบคำขอแก้ไข");
-    assert(!editDecisionOf(db, request.id), "คำขอนี้พิจารณาแล้ว");
-    assert(
-      Object.values(editDecisions).includes(v.decision),
-      "เลือกอนุมัติหรือไม่อนุมัติ",
-    );
-    v.targetId = request.values.targetId;
-    v.requesterRole = request.role;
-    v.requesterBranch = request.branch;
-    if (v.decision === editDecisions.approve) {
-      // Checked again now: the log may have moved on since the request was filed.
-      const target = editTarget(db, v.targetId, role, branch);
-      Object.assign(v, editValues(db, target, unpack("to.", request.values)));
-    } else {
-      required(v, "note", "เหตุผลที่ไม่อนุมัติ");
-      for (const key of [
-        "targetKind",
-        "targetDate",
-        "targetRole",
-        "targetBranch",
-      ])
-        v[key] = request.values[key];
-    }
-    lotId = request.lotId;
+    lotId = v.toLotId || target.lotId;
+    for (const id of cachedOn(db, target, v.toLotId)) touched.add(id);
   } else if (kind === "config") {
     // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
     // config entry of the append-only log. Left out, the merge below keeps it.
@@ -1640,11 +1748,7 @@ function record(
   // writes its own corrections above).
   if (lot?.kind && cachedKinds.includes(kind))
     lot.values = { ...lot.values, ...omit(v, uncached) };
-  const entryDate = ["materialReceive", "generalPurchase"].includes(kind)
-    ? v.purchaseDate || date
-    : kind === "ownerWasteReceive"
-      ? v.receivedDate || date
-      : date;
+  const entryDate = v[dateField[kind] ?? ""] || date;
   // An edit overlays its target, so "nothing missing now" has to be said to clear the old list.
   if (correcting) v.missing ||= "";
   const stamped = recordRole(kind, role);
@@ -1660,6 +1764,11 @@ function record(
     at: new Date().toISOString(),
     values: v,
   });
+  // DM-09: an edit, a delete or an undo rebuilds the caches it reaches from the live entries.
+  if (touched.size)
+    next.lots = next.lots.map((l) =>
+      touched.has(l.id) ? recached(next, l) : l,
+    );
   return next;
 }
 

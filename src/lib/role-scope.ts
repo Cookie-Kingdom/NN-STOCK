@@ -16,14 +16,16 @@ import { branchHiddenKeys, omit } from "./store/visibility";
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
  * 20260930000038, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
 
- * `scopeDatabase` is the JS port of scope_app_state() (20260929000035; GET /api/local-db uses it):
+ * `scopeDatabase` is the JS port of scope_app_state() (20261001000039; GET /api/local-db uses it):
  * every batch S (BR-08: the receive picker and the link dialog list them all) plus the lots of
  * BR-07, the branch's own entries on those lots or on no lot, and the other branches'
  * `allocate` / `receive` cut down to `centralKeys` so centralStock() (the "สต๊อกกลางไม่พอ"
  * warning, the link dialog) counts them. visibleEntries() keeps those out of the branch's screens.
  *
- *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest` and `editDecision` are
- *                never listed: they are sent when the entry they name (`targetId`) is sent.
+ *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest`, `editDecision` and `link`
+ *                are never listed: they are sent when the entry they name (`targetId`) is sent,
+ *                and so is a void naming one of them (an undone edit or link, a restored
+ *                delete: EDT-23; no chain is longer).
  *  - hiddenKeys  value keys stripped from every entry and lot (also as an edit's to./from.).
  *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
  *                trailing `*` keeps every key with that prefix. normalize() fills the rest
@@ -138,8 +140,13 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
   const follows = (e: Entry) =>
     followKinds.includes(e?.kind) && own.has(target(e));
   const followed = new Set(all.filter(follows).map((e) => e.id));
+  const followsOther = (e: Entry) =>
+    followKinds.includes(e?.kind) &&
+    e.kind !== "editRequest" &&
+    others.has(target(e));
+  const followedOther = new Set(all.filter(followsOther).map((e) => e.id));
+  // A void of a followed entry too, own or not: an undone edit or link, a restored delete.
   const entries = all.flatMap((e) => {
-    // A void of a followed entry too: the branch withdrawing its own edit request.
     if (
       direct(e) ||
       follows(e) ||
@@ -148,9 +155,8 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
       return [{ ...e, values: hide(e.values, rule.hiddenKeys) }];
     if (
       central(e) ||
-      (followKinds.includes(e?.kind) &&
-        e.kind !== "editRequest" &&
-        others.has(target(e)))
+      followsOther(e) ||
+      (e?.kind === "void" && followedOther.has(target(e)))
     )
       return [{ ...e, values: pick(e.values, rule.centralKeys) }];
     return [];

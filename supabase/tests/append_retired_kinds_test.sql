@@ -35,7 +35,8 @@ begin
     'lots', '[]'::jsonb, 'entries', '[]'::jsonb), null) s;
   perform set_config('test.uid', v_branch::text, true);
 
-  foreach v_kind in array array['supplyPurchase', 'supplyIssue', 'chiliPurchase', 'chiliIssue'] loop
+  -- 0039: editRequest too (every account edits its own entries directly).
+  foreach v_kind in array array['supplyPurchase', 'supplyIssue', 'chiliPurchase', 'chiliIssue', 'editRequest'] loop
     v_err := null;
     begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'x1', 'kind', v_kind,
       'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{}'::jsonb)));
@@ -52,21 +53,6 @@ begin
 
   select public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'x1', 'kind', 'receive',
     'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{}'::jsonb))) into v_rev;
-
-  -- One edit request at a time per entry; a withdrawn one frees the entry.
-  select public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'q1', 'kind', 'editRequest',
-    'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{"targetId":"x1"}'::jsonb)))
-    into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'q2', 'kind', 'editRequest',
-    'role', 'branch', 'lotId', '', 'branch', v_mine, 'date', '2026-09-01', 'values', '{"targetId":"x1"}'::jsonb)));
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Entry already has a pending edit request', format('second request: %s', v_err);
-  select public.append_entries(v_rev, jsonb_build_array(
-    jsonb_build_object('id', 'w1', 'kind', 'void', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{"targetId":"q1"}'::jsonb),
-    jsonb_build_object('id', 'q2', 'kind', 'editRequest', 'role', 'branch', 'lotId', '', 'branch', v_mine,
-      'date', '2026-09-01', 'values', '{"targetId":"x1"}'::jsonb))) into v_rev;
 
   -- A material transfer is confirmed once, directly or through a link.
   select public.append_entries(v_rev, jsonb_build_array(
@@ -95,6 +81,12 @@ begin
     'values', '{"transferId":"t2"}'::jsonb)));
   exception when others then v_err := sqlerrm; end;
   assert v_err = 'Material transfer is already confirmed', format('confirmed by link: %s', v_err);
+  -- 0039: the branch deleting its own confirm frees the transfer (entry_voided), in the same save.
+  select public.append_entries(v_rev, jsonb_build_array(
+    jsonb_build_object('id', 'w1', 'kind', 'void', 'role', 'branch', 'lotId', '', 'branch', v_mine,
+      'date', '2026-09-01', 'values', '{"targetId":"m1"}'::jsonb),
+    jsonb_build_object('id', 'm3', 'kind', 'materialConfirm', 'role', 'branch', 'lotId', '', 'branch', v_mine,
+      'date', '2026-09-01', 'values', '{"transferId":"t1"}'::jsonb))) into v_rev;
 
   raise exception 'APPEND_RETIRED_KINDS_TEST_PASSED';
 end $$;

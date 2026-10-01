@@ -80,17 +80,26 @@ begin
   assert v_seen ->> 'version' = '9', 'branch version';
 
   -- 0035: another branch's receive, its Owner void and edit follow it cut to centralKeys; its
-  -- edit request does not (tests/unit/roleScope.test.ts checks scopeDatabase on the same log).
+  -- edit request does not. 0039: so does the void of that void (the receive restored) and of
+  -- that branch's own edit (undone). tests/unit/roleScope.test.ts checks scopeDatabase on the
+  -- same log.
   v_seen := public.scope_app_state(jsonb_build_object('version', 9, 'lots', v_lots, 'config', v_cfg, 'entries', '[
     {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5","reason":"x","meatCost":"9"}},
     {"id":"rq","kind":"editRequest","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
     {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4","from.kg":"5","targetRole":"branch","targetBranch":"ศาลาแดง"}},
-    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","reason":"x"}}
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","reason":"x"}},
+    {"id":"bk","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"vd","reason":"x","targetKind":"void"}},
+    {"id":"e2","kind":"entryEdit","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"3","from.kg":"4","reason":"x"}},
+    {"id":"un","kind":"void","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"e2","reason":"x"}},
+    {"id":"wq","kind":"void","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"rq"}}
   ]'::jsonb), array['มีนบุรี']);
   assert v_seen -> 'entries' = '[
     {"id":"r2","kind":"receive","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"kg":"5"}},
     {"id":"ed","kind":"entryEdit","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"4"}},
-    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2"}}
+    {"id":"vd","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2"}},
+    {"id":"bk","kind":"void","role":"owner","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"vd"}},
+    {"id":"e2","kind":"entryEdit","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"r2","to.kg":"3"}},
+    {"id":"un","kind":"void","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"e2"}}
   ]'::jsonb, format('central follow: %s', v_seen -> 'entries');
 
   -- M1: Foodiva and Chef House accounts are retired, even when active.
@@ -196,36 +205,30 @@ begin
   select payload into v_stored from public.app_state;
   assert v_stored -> 'entries' -> 16 ->> 'kind' = 'central', 'owner central not saved';
 
-  -- 0035: on a closed day a branch still files an edit request, withdraws it (a void of its own
-  -- pending request, nothing else) and links; since 0037 it records anything else too.
+  -- 0039: on a closed day too (0037) a branch edits, links, deletes and restores its own entries
+  -- in one save (the rules: branch_direct_changes_test.sql), and reads every change back. Its
+  -- sale the Owner deleted (e-v1) stays deleted.
   perform set_config('test.uid', v_branch::text, true);
   select public.append_entries(v_rev, '[
-    {"id":"rq1","kind":"editRequest","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","to.kg":"9"}},
-    {"id":"cd1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"confirm":"x"}}
+    {"id":"cd1","kind":"closeDay","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"confirm":"x"}},
+    {"id":"n6","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}},
+    {"id":"ed1","kind":"entryEdit","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","to.kg":"9"}},
+    {"id":"un1","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"ed1"}},
+    {"id":"lk2","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","lotId":"S1"}},
+    {"id":"dl1","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2"}},
+    {"id":"bk1","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"dl1"}}
   ]'::jsonb, '[]'::jsonb) into v_rev;
-  select public.append_entries(v_rev,
-    '[{"id":"n6","kind":"receive","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}}]'::jsonb, '[]'::jsonb)
-    into v_rev;
-  foreach v_text in array array['n2', 'e-rcv', 'e-mb'] loop
+  foreach v_text in array array['e-mb', 'e-v1'] loop
     v_err := null;
     begin perform public.append_entries(v_rev, jsonb_build_array(jsonb_build_object('id', 'wd0', 'kind', 'void',
       'role', 'branch', 'lotId', '', 'branch', 'มีนบุรี', 'date', '2026-09-10', 'values', jsonb_build_object('targetId', v_text))), '[]'::jsonb);
     exception when others then v_err := sqlerrm; end;
-    assert v_err = 'Void target is not a pending edit request of this branch', format('void %s: %s', v_text, v_err);
+    assert v_err = case v_text when 'e-mb' then 'Entry is already deleted' else 'Void target is not an entry of this branch' end,
+      format('void %s: %s', v_text, v_err);
   end loop;
-  select public.append_entries(v_rev, '[
-    {"id":"lk2","kind":"link","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"n2","lotId":"S1"}},
-    {"id":"wd1","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"rq1"}}
-  ]'::jsonb, '[]'::jsonb) into v_rev;
-  v_err := null;
-  begin perform public.append_entries(v_rev,
-    '[{"id":"wd2","kind":"void","role":"branch","lotId":"S2","branch":"มีนบุรี","date":"2026-09-10","values":{"targetId":"rq1"}}]'::jsonb, '[]'::jsonb);
-  exception when others then v_err := sqlerrm; end;
-  assert v_err = 'Void target is not a pending edit request of this branch', format('second withdrawal: %s', v_err);
-  -- The branch reads its withdrawn request and the withdrawal back.
   select l.payload into v_seen from public.load_app_state() l;
-  assert (select count(*) from jsonb_array_elements(v_seen -> 'entries') x where x ->> 'id' in ('rq1', 'wd1', 'lk2')) = 3,
-    format('withdrawal not sent: %s', v_seen -> 'entries');
+  assert (select count(*) from jsonb_array_elements(v_seen -> 'entries') x where x ->> 'id' in ('ed1', 'un1', 'lk2', 'dl1', 'bk1')) = 5,
+    format('changes not sent: %s', v_seen -> 'entries');
 
   raise exception 'ROLE_SCOPED_APP_STATE_TEST_PASSED';
 end $$;

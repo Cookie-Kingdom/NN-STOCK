@@ -10,6 +10,8 @@ const manager = accountById("manager");
 const config = {
   ...seed.config,
   boxPrice: "350",
+  // A config from before the Add-on was dropped, as in the SQL test: it prices nothing now.
+  addonPrice: "320",
   chiliPrice: "30",
 };
 const entry = (e: Partial<Entry> & Pick<Entry, "id" | "kind" | "role">) =>
@@ -115,17 +117,70 @@ test("a manager direct edit keeps the current money and works out menuTotal agai
       targetId: "s1",
       targetKind: "sale",
       "to.boxes": "1",
+      "to.addons": "1",
       "to.chiliAddons": "1",
     },
   });
   saveState(db, manager, { ...seen, entries: [...seen.entries, edit] }, 2);
   const { entries } = readState(db).payload;
   expect(entries[0]).toEqual(sale);
-  // menuTotal = boxes × boxPrice + chiliAddons × chiliPrice (no Add-on any more).
+  // menuTotal = boxes × boxPrice + chiliAddons × chiliPrice (no Add-on any more): the same edit
+  // and config give restore_sale_money the same 380 in app_state_sale_money_test.sql.
   expect(entries[2].values).toMatchObject({
     "from.lineMan": "700",
     "to.lineMan": "700",
     "to.menuTotal": "380",
+  });
+});
+
+// 0039 (current_sale_money): a branch edits its own sale directly, so that edit is the sale's
+// current money, until the branch undoes it. Another branch's edit of it never counts.
+test("a manager edit keeps the money a branch's direct edit set, and the original after its undo", () => {
+  const branchEdit = (id: string, lineMan: string, branch = "มีนบุรี") =>
+    entry({
+      id,
+      kind: "entryEdit",
+      role: "branch",
+      branch,
+      values: {
+        targetId: "s1",
+        targetKind: "sale",
+        "from.lineMan": "700",
+        "to.lineMan": lineMan,
+        "to.revenue": lineMan,
+      },
+    });
+  const forged = branchEdit("f1", "1", "ศาลาแดง");
+  const undo = entry({
+    id: "u1",
+    kind: "void",
+    role: "branch",
+    values: { targetId: "b1" },
+  });
+  // What the manager's edit of the sale's counts is saved with, after `history`.
+  const managerEdit = (...history: Entry[]) => {
+    const db = openLocalDb(":memory:");
+    saveState(db, owner, { ...seed, config, entries: [sale, ...history] }, 1);
+    const seen = stripSaleMoney(readState(db).payload);
+    const edit = entry({
+      id: "x1",
+      kind: "entryEdit",
+      role: "owner",
+      actor: "manager",
+      values: { targetId: "s1", targetKind: "sale", "to.boxes": "1" },
+    });
+    saveState(db, manager, { ...seen, entries: [...seen.entries, edit] }, 2);
+    return readState(db).payload.entries.at(-1)!.values;
+  };
+  expect(managerEdit(branchEdit("b1", "650"), forged)).toMatchObject({
+    "from.lineMan": "650",
+    "to.lineMan": "650",
+    "to.revenue": "650",
+  });
+  expect(managerEdit(branchEdit("b1", "650"), forged, undo)).toMatchObject({
+    "from.lineMan": "700",
+    "to.lineMan": "700",
+    "to.revenue": "700",
   });
 });
 

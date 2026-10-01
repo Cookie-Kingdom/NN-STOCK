@@ -255,21 +255,22 @@ describe("EDT-03 money documents", () => {
 });
 
 describe("branch entries", () => {
-  test("a branch asks to correct its day-close; another branch's entry stays out of reach", () => {
+  test("EDT-22 a branch corrects its own day-close directly; another branch's entry stays out of reach", () => {
     const s = setup();
     s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
     const close = last(s);
-    s.run("branch", "editRequest", {
+    s.run("branch", "entryEdit", {
       targetId: close.id,
       values: JSON.stringify({ confirm: "ผู้ดูแลสาขา" }),
       reason: "ชื่อผิด",
     });
-    expect(last(s).values["to.confirm"]).toBe("ผู้ดูแลสาขา");
+    expect(last(s)).toMatchObject({ kind: "entryEdit", role: "branch" });
+    expect(first(s, "closeDay").values.confirm).toBe("ผู้ดูแลสาขา");
     expect(() =>
       mutate(
         s.db,
         "branch",
-        "editRequest",
+        "entryEdit",
         { targetId: close.id, values: "{}", reason: "x" },
         "",
         day,
@@ -278,7 +279,7 @@ describe("branch entries", () => {
     ).toThrow("เฉพาะรายการของบัญชีนี้");
   });
 
-  test("the date an entry is filed under is not an edit", () => {
+  test("EDT-24 the date an entry is filed under is edited like any other field", () => {
     const s = setup();
     s.run("owner", "materialReceive", {
       purchaseDate: day,
@@ -287,9 +288,13 @@ describe("branch entries", () => {
       unitPrice: "1",
       supplier: "ร้านวัสดุ",
     });
-    expect(() => edit(s, last(s), { purchaseDate: "2026-09-01" })).toThrow(
-      "ยกเลิกแล้วบันทึกใหม่",
-    );
+    edit(s, last(s), { purchaseDate: "2026-09-01" });
+    expect(last(s).values).toMatchObject({
+      fromDate: day,
+      toDate: "2026-09-01",
+    });
+    expect(first(s, "materialReceive")).toMatchObject({ date: "2026-09-01" });
+    expect(first(s, "materialReceive").values.purchaseDate).toBe("2026-09-01");
   });
 });
 
@@ -374,18 +379,13 @@ describe("an edit changes only what was edited", () => {
     expect(entries(s.db, "unlock")[0].values.reason).toBe("ปลดล็อกตามคำขอสาขา");
   });
 
-  test("the Owner approves a branch's request on a newly editable kind", () => {
+  test("the Owner corrects a branch's entry of a newly editable kind", () => {
     const s = setup();
     s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });
-    const close = last(s);
-    s.run("branch", "editRequest", {
-      targetId: close.id,
-      values: JSON.stringify({ confirm: "ผู้ดูแลสาขา" }),
-      reason: "ชื่อผิด",
-    });
-    s.run("owner", "editDecision", {
-      requestId: last(s).id,
-      decision: "อนุมัติ",
+    edit(s, last(s), { confirm: "ผู้ดูแลสาขา" });
+    expect(last(s).values).toMatchObject({
+      targetRole: "branch",
+      targetBranch: "ศาลาแดง",
     });
     expect(first(s, "closeDay").values.confirm).toBe("ผู้ดูแลสาขา");
   });

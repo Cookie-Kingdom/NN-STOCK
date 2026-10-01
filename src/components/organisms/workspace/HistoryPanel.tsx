@@ -4,7 +4,7 @@ import { Panel } from "@/components/atoms/Panel";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
 import { EntryDetails } from "@/components/organisms/shared/EntryDetails";
-import { EditRequestList } from "@/components/organisms/workspace/EditRequestList";
+import { ChangeLog } from "@/components/organisms/workspace/ChangeLog";
 import { type Database, type ActingRole, visibleEntries } from "@/lib/store";
 
 export function HistoryPanel({
@@ -22,18 +22,15 @@ export function HistoryPanel({
   onChanged: (message: string) => void;
 }) {
   const list = visibleEntries(db, role, branch);
-  // Edits, requests and details are read from what this role may see, never the full log.
+  // Edits and details are read from what this role may see, never the full log.
   const visible = { ...db, entries: list };
-  const voided = new Set(
-    db.entries.filter((e) => e.kind === "void").map((e) => e.values.targetId),
-  );
   return (
     <div className="grid gap-6">
-      <EditRequestList db={visible} role={role} onChanged={onChanged} />
+      <ChangeLog db={db} role={role} branch={branch} onChanged={onChanged} />
       <Panel>
         <SectionHeading
           title="ประวัติรายการที่บันทึก"
-          description="แสดงเฉพาะรายการที่บัญชีนี้มีสิทธิ์เห็น · กดรายการเพื่อดูค่าที่กรอก แก้ไข หรือขอแก้ไข"
+          description="แสดงเฉพาะรายการที่บัญชีนี้มีสิทธิ์เห็น · กดรายการเพื่อดูค่าที่กรอก แก้ไข หรือลบ"
         />
         {list.length ? (
           [...list]
@@ -46,7 +43,6 @@ export function HistoryPanel({
                 lookup={db}
                 role={role}
                 branch={branch}
-                voided={voided.has(entry.id)}
                 hideSales={hideSales}
                 onChanged={onChanged}
               />

@@ -1,19 +1,22 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   editDecisions,
+  isVoided,
   n,
   saleMoneyKeys,
   type Database,
   type Entry,
   type Values,
 } from "./store";
+import { isEditOverlay } from "./store/model";
 import { omit } from "./store/visibility";
 
 /* Server side only (local SQLite backend): the Account Manager never receives a sale's money in
  * (C4), and a save from its stripped copy must not erase that money for everyone else.
  * JS port of strip_sale_money / restore_sale_money in
- * supabase/migrations/20260922000021_account_manager_hides_sales.sql.
- * ponytail: duplicated rules, keep in step with that migration when it changes. */
+ * supabase/migrations/20260922000021_account_manager_hides_sales.sql, and of current_sale_money
+ * in 20261001000039_branch_direct_changes.sql.
+ * ponytail: duplicated rules, keep in step with those migrations when they change. */
 
 export const stripSaleMoneyValues = (values: Values): Values =>
   omit(values, saleMoneyKeys);
@@ -29,27 +32,21 @@ export const stripSaleMoney = (db: Database): Database => ({
   entries: db.entries.map(stripEntry),
 });
 
-/** `targetId`'s sale money as it stands in `log`: its own values with approved edits overlaid,
- *  like entries() in store.ts. */
+/** `targetId`'s sale money as it stands in `log`: its own values with the live edits overlaid,
+ *  like entries() in store.ts (the Owner's, the branch's own, an approved old request; an
+ *  undone one no longer counts). */
 function currentMoney(log: Entry[], targetId: string): Values {
   const target = log.find((e) => e.id === targetId);
   if (!target) return {};
-  const voided = new Set(
-    log
-      .filter((e) => e.kind === "void" && e.role === "owner")
-      .map((e) => e.values?.targetId),
-  );
+  const db = { entries: log } as Database;
   const money: Values = {};
   for (const key of saleMoneyKeys)
     if (target.values[key] !== undefined) money[key] = target.values[key];
   for (const e of log)
     if (
-      e.role === "owner" &&
-      !voided.has(e.id) &&
       e.values?.targetId === targetId &&
-      (e.kind === "entryEdit" ||
-        (e.kind === "editDecision" &&
-          e.values.decision === editDecisions.approve))
+      isEditOverlay(e, target) &&
+      !isVoided(db, e.id)
     )
       for (const key of saleMoneyKeys)
         if (e.values["to." + key] !== undefined)

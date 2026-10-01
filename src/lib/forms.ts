@@ -592,6 +592,8 @@ const editOnly: Record<string, Field[]> = {
     note,
   ],
   generalPurchase: [
+    // The entry is filed under this date (dateField): editing it moves the entry.
+    date("purchaseDate", "วันที่ซื้อ", true),
     {
       key: "purchaseCategory",
       label: "กลุ่มการซื้อ",

@@ -6,15 +6,18 @@ import type { Account } from "./accounts";
 import { scopeDatabase } from "./role-scope";
 import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
+  canChange,
   canLink,
   entries,
-  openEditRequest,
+  isVoided,
   seed,
+  voidableKinds,
   type Database,
   type Entry,
   type Lot,
   type EntryKind,
 } from "./store";
+import { editableKinds } from "./store/model";
 
 export type AppStateRow = { payload: Database; revision: number };
 
@@ -67,8 +70,7 @@ const fail = (message: string): never => {
 };
 
 /** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036), plus
- *  editRequest, link and void (a branch only voids its own pending edit request; derived.ts
- *  ignores any other). */
+ *  the changes to its own entries (`changeKinds`, 0039): entryEdit, link and void. */
 const branchKinds: EntryKind[] = [
   "receive",
   "thaw",
@@ -81,7 +83,7 @@ const branchKinds: EntryKind[] = [
   "materials",
   "materialConfirm",
   "closeDay",
-  "editRequest",
+  "entryEdit",
   "link",
   "void",
 ];
@@ -147,7 +149,7 @@ export function saveState(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (latest in supabase/migrations/20260929000036_append_retired_kinds.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20261001000039_branch_direct_changes.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -229,31 +231,59 @@ export function appendState(
     );
     if (entry.kind === "link" && !(target && canLink(entry, target)))
       fail("Link target is not an entry of this branch");
-    // A branch voids only its own edit request still waiting for a decision (mutate.ts).
-    if (
-      entry.kind === "void" &&
-      !(
-        target?.kind === "editRequest" &&
-        target.role === "branch" &&
-        target.branch === entry.branch &&
-        !log.entries.some(
-          (other) =>
-            (other?.kind === "editDecision" &&
-              other.values?.requestId === target.id) ||
-            (other?.kind === "void" && other.values?.targetId === target.id),
+    // 0039, editBlock in store/visibility.ts: a branch edits a live entry of its own branch.
+    if (entry.kind === "entryEdit") {
+      if (!(
+        target &&
+        canChange(entry, target) &&
+        editableKinds.includes(target.kind)
+      ))
+        fail("Edit target is not an entry of this branch");
+      if (isVoided(log, target!.id)) fail("Entry is already deleted");
+      // EDT-24: a branch entry changes lot with `link`, and no edit dates one after today.
+      const { toLotId, toDate } = entry.values;
+      if (toLotId != null && toLotId !== "")
+        fail("Edit cannot move an entry to another lot");
+      if (
+        toDate != null &&
+        toDate !== "" &&
+        !(
+          typeof toDate === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(toDate) &&
+          toDate <= today
         )
       )
-    )
-      fail("Void target is not a pending edit request of this branch");
-    // 0036: the duplicates mutate refuses, one open request per entry and one confirm per transfer.
+        fail("Entry date is invalid or after today");
+    }
+    // 0039, voidBlock in store/visibility.ts: a branch deletes a live entry of its own branch. Of
+    // an edit or a link that undoes it, of a delete it puts the entry back, and that is as far as
+    // it goes: a delete naming a void, an edit or a link is not deleted in turn.
+    if (entry.kind === "void") {
+      if (!(
+        target &&
+        canChange(entry, target) &&
+        voidableKinds.includes(target.kind)
+      ))
+        fail("Void target is not an entry of this branch");
+      if (isVoided(log, target!.id)) fail("Entry is already deleted");
+      const about = log.entries.find(
+        (other) => other?.id === target!.values?.targetId,
+      );
+      if (
+        target!.kind === "void" &&
+        (!about?.kind || ["void", "entryEdit", "link"].includes(about.kind))
+      )
+        fail("An undo cannot be undone");
+    }
+    // 0036, MAT-02: a material transfer is confirmed once. 0039: an edit that puts a confirm on
+    // a transfer (`to.transferId`) is checked like that link; entries() overlays edits and links.
+    const transferId =
+      entry.kind === "entryEdit"
+        ? entry.values["to.transferId"]
+        : entry.kind === "materialConfirm" || entry.kind === "link"
+          ? entry.values.transferId
+          : undefined;
     if (
-      entry.kind === "editRequest" &&
-      openEditRequest(log, entry.values.targetId)
-    )
-      fail("Entry already has a pending edit request");
-    const transferId = entry.values.transferId;
-    if (
-      (entry.kind === "materialConfirm" || entry.kind === "link") &&
       transferId &&
       entries(log, "materialConfirm").some(
         (confirm) =>

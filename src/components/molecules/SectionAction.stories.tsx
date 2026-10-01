@@ -28,7 +28,7 @@ export default meta;
 
 /** The locked / editing switch in a TableSection's title bar (ConfigView, Branch
  *  materials). เลือกใน Controls:
- *  - `state` ล็อกอยู่: ปุ่ม "ขอแก้ไข" ปุ่มเดียว; `lockedMessage` ขึ้นสีเขียวข้างปุ่ม
+ *  - `state` ล็อกอยู่: ปุ่ม "แก้ไข" ปุ่มเดียว; `lockedMessage` ขึ้นสีเขียวข้างปุ่ม
  *    (ยืนยันว่าเพิ่งบันทึกสำเร็จ)
  *  - `state` กำลังแก้ตารางนี้: "ยกเลิก" + "บันทึกและล็อก"; `message` อยู่ข้างปุ่ม
  *    `error` แทนที่ message เป็นสีแดงและปิดปุ่มบันทึก

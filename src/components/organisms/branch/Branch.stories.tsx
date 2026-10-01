@@ -217,7 +217,7 @@ export const RiceTasks: Story = {
 /** ล็อกไว้เป็นค่าเริ่มต้นเหมือนตาราง "ตั้งค่า" ของ Owner. เลือกสถานะใน Controls:
  *  - นับแล้ว: ยอดที่บันทึกไว้ของวันนี้อ่านเป็นตัวอักษรล้วน ไม่มีช่องกรอก
  *  - ยังไม่นับ: ทุกช่องเป็น "—" และปุ่มเดียวคือ "ตรวจนับวัสดุวันนี้"
- *  - ปิดวันแล้ว: ยังกด "ขอแก้ไขยอดนับ" ได้ตามปกติ */
+ *  - ปิดวันแล้ว: ยังกด "แก้ไขยอดนับ" ได้ตามปกติ */
 export const Materials: Story = {
   argTypes: { db: materialsState.argType },
   args: { db: materialsState.initial },
@@ -226,7 +226,7 @@ export const Materials: Story = {
   ),
 };
 
-/** โหมดแก้ไข: กด "ขอแก้ไขยอดนับ" แล้วช่องกรอกจึงปรากฏ พร้อมกล่องเหตุผลที่แก้ไข
+/** โหมดแก้ไข: กด "แก้ไขยอดนับ" แล้วช่องกรอกจึงปรากฏ พร้อมกล่องเหตุผลที่แก้ไข
  *  (บังคับกรอกเมื่อวันนี้เคยบันทึกไว้แล้ว) และปุ่ม ยกเลิก / บันทึกและล็อก */
 export const MaterialsEditing: Story = {
   ...Materials,
@@ -234,7 +234,7 @@ export const MaterialsEditing: Story = {
   args: { db: closeReadyDb },
   play: async ({ canvasElement }) => {
     fireEvent.click(
-      within(canvasElement).getByRole("button", { name: /ขอแก้ไขยอดนับ/ }),
+      within(canvasElement).getByRole("button", { name: /แก้ไขยอดนับ/ }),
     );
   },
 };

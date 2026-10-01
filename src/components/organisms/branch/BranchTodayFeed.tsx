@@ -22,9 +22,6 @@ export function BranchTodayFeed({
 }) {
   const mine = visibleEntries(db, "branch", branch);
   const visible = { ...db, entries: mine };
-  const voided = new Set(
-    db.entries.filter((e) => e.kind === "void").map((e) => e.values.targetId),
-  );
   // The log is append-only, so reversed is newest first.
   const list = mine
     .filter(
@@ -46,7 +43,6 @@ export function BranchTodayFeed({
             lookup={db}
             role="branch"
             branch={branch}
-            voided={voided.has(entry.id)}
             onChanged={onChanged}
           />
         ))
