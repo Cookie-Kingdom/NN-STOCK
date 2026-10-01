@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   BarChart3,
-  CircleAlert,
+  NotebookPen,
   Package,
   TrendingUp,
   Warehouse,
@@ -24,6 +24,7 @@ import {
 } from "@/components/organisms/owner/ownerDaily";
 import {
   activeBatches,
+  latestNoteLabel,
   missingStepTab,
   missingSteps,
   missingText,
@@ -59,9 +60,7 @@ import {
   saleCost,
   shipments,
   smokingInvoiceStatus,
-  batchKinds,
   lotProgress,
-  titles,
   type Database,
   type Entry,
 } from "@/lib/store";
@@ -71,7 +70,7 @@ import { cn } from "@/lib/utils";
 
 const summaryColumns = [
   "PO ซื้อที่ยังเปิด",
-  "Smoking Invoice ค้าง",
+  "Smoking Invoice ยังไม่ชำระ",
   "Raw Meat ที่ Foodiva (รอส่ง Chef House)",
   "Raw Meat ที่โรงรม",
   "Finished smoked meat",
@@ -82,13 +81,13 @@ const branchColumns = [
   "สาขา",
   "ยอดขายช่วงที่เลือก",
   "กล่อง",
-  "งานวันนี้",
+  "จดวันนี้",
   "วัสดุ",
   "ปิดวัน",
 ];
 const lotColumns = [
   "เลขที่การส่ง",
-  "ขั้นตอน",
+  "จดล่าสุด",
   "ผลผลิต",
   "รอสาขารับ (Foodiva)",
   "ศาลาแดง",
@@ -173,18 +172,13 @@ export function OwnerDashboard({
       String(
         rows.reduce((total, entry) => total + n(entry.values, "boxes"), 0),
       ),
-      missing.length ? `ค้าง ${missing.length} รายการ` : "ครบแล้ว",
+      missing.length ? `ยังไม่ได้จด ${missing.length} รายการ` : "จดครบแล้ว",
       lowMaterials ? `ใกล้หมด ${lowMaterials} รายการ` : "ปกติ",
       isClosed(db, branchName, date) ? "ปิดวันแล้ว" : "ยังไม่ปิดวัน",
     ];
   });
-  // Production runs are shipments; purchase POs sit at stage 1 forever and are not pending work.
+  // Production runs are shipments; a purchase PO is not a batch and is not listed here.
   const runs = shipments(db);
-  const progressLabel = (lotId: string) =>
-    batchKinds
-      .filter((k) => lotProgress(db, lotId).has(k))
-      .map((k) => titles[k])
-      .at(-1) ?? "—";
   const activeLots = runs.filter(
     (lot) => !lotProgress(db, lot.id).has("central"),
   ).length;
@@ -221,7 +215,7 @@ export function OwnerDashboard({
           title: branchName,
           detail: [
             pending.length
-              ? `ค้าง: ${pending.map((kind) => requiredDailyLabels[kind] || kind).join(", ")}`
+              ? `ยังไม่ได้จด: ${pending.map((kind) => requiredDailyLabels[kind] || kind).join(", ")}`
               : "",
             lowMaterialNames.length
               ? `วัสดุใกล้หมด: ${lowMaterialNames.join(", ")}`
@@ -233,8 +227,8 @@ export function OwnerDashboard({
         },
       ];
     }),
-    // DASH-02: batches active in the last 30 days and the steps each has no entry for.
-    // Advice only: every one of those steps can still be recorded at any time.
+    // DASH-02: batches active in the last 30 days and the records each has no entry for.
+    // A hint only: every one of them can still be recorded at any time.
     ...activeBatches(db).flatMap((lot) => {
       const missing = missingSteps(db, lot.id);
       return missing.length
@@ -341,16 +335,17 @@ export function OwnerDashboard({
         <Button
           className={cn(
             "flex-none rounded-full px-3.5 py-2.5 font-semibold max-sm:w-full",
+            // Not recorded yet is not an anomaly: neutral, and the text says which it is.
             alertCount
-              ? "border-warning/40 bg-warning-subtle text-warning hover:bg-warning/10"
+              ? "bg-surface-sunken text-text-secondary"
               : "border-success/40 bg-success-subtle text-success hover:bg-success/10",
           )}
           onClick={() => setShowAlerts((value) => !value)}
           aria-expanded={showAlerts}
           aria-controls="owner-alert-details"
-          icon={<CircleAlert size={17} />}
+          icon={<NotebookPen size={17} />}
         >
-          {alertCount ? `ต้องดูแล ${alertCount} จุด` : "การทำงานปกติ"}
+          {alertCount ? `ยังไม่ครบ ${alertCount} จุด` : "จดครบแล้ว"}
           <span className="ml-0.5 border-l border-current pl-2.5 text-caption font-semibold opacity-80">
             {showAlerts ? "ซ่อน" : "ดูรายละเอียด"}
           </span>
@@ -358,13 +353,15 @@ export function OwnerDashboard({
       </section>
       {showAlerts && (
         <section
-          className="rounded-lg border border-warning/40 bg-warning-subtle px-5 py-4.5"
+          className="rounded-lg border border-border bg-surface px-5 py-4.5"
           id="owner-alert-details"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <Overline tone="accent">ACTION REQUIRED</Overline>
-              <h3 className="mt-1 mb-0 text-text-primary">รายการที่ต้องดูแล</h3>
+              <Overline tone="accent">ยังไม่ได้จด</Overline>
+              <h3 className="mt-1 mb-0 text-text-primary">
+                รายการที่ยังไม่ครบ
+              </h3>
             </div>
             <Button variant="text" onClick={() => setShowAlerts(false)}>
               ปิด
@@ -393,7 +390,7 @@ export function OwnerDashboard({
               ))}
             </div>
           ) : (
-            <EmptyState compact text="ยังไม่มีรายการที่ต้องดำเนินการ" />
+            <EmptyState compact text="ไม่มีรายการที่ยังไม่ได้จด" />
           )}
         </section>
       )}
@@ -601,7 +598,7 @@ export function OwnerDashboard({
         rowKeys={runs.map((lot) => lot.id)}
         rows={runs.map((lot) => [
           lot.poId,
-          progressLabel(lot.id),
+          latestNoteLabel(db, lot.id),
           `${fmt(produced(db, lot.id))} กก.`,
           `${fmt(centralStock(db, lot.id))} กก.`,
           `${fmt(balance(db, lot.id, "ศาลาแดง").frozen)} กก.`,

@@ -13,9 +13,10 @@ import {
   type EntryKind,
 } from "@/lib/store";
 
-/** One batch on the manifest: the steps it still has no entry for, and the Owner's own
- *  buttons for it. Nothing waits on anything (PRIN-02): the smoke PO can be issued before
- *  Foodiva's Packing List, the truck home booked before Chef House closes the lot. */
+/** One batch on the manifest: the records it has no entry for yet, and the Owner's own
+ *  buttons for it, all in one style. Nothing waits on anything (PRIN-02): the smoke PO can
+ *  be issued before Foodiva's Packing List, the truck home booked before Chef House closes
+ *  the lot. */
 export function LotWorkflowAction({
   db,
   lot,
@@ -34,13 +35,13 @@ export function LotWorkflowAction({
         {/* GEN-06: a step already saved keeps its button; saving again is said and the
          *  newest counts. Central stock is re-recorded here once the batch left that tab. */}
         <Button
-          variant={done.has("smokeOrder") ? "table-secondary" : "table"}
+          variant="table-secondary"
           onClick={() => open("smokeOrder", lot.id)}
         >
           {again(titles.smokeOrder, done.has("smokeOrder"))}
         </Button>
         <Button
-          variant={done.has("return") ? "table-secondary" : "table"}
+          variant="table-secondary"
           onClick={() => open("return", lot.id)}
         >
           {again(titles.return, done.has("return"))}

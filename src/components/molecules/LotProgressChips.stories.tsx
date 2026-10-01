@@ -13,15 +13,15 @@ import {
 import { shipments, type Database } from "@/lib/store";
 import { LotProgressChips } from "./LotProgressChips";
 
-const progress = pick("ความคืบหน้า", {
-  "เพิ่งออกใบขนส่ง (ขาด 11 ขั้น)": dispatchDb,
-  "สโมคแล้ว (ขาด 6 ขั้น)": smokedDb,
-  "เข้าสต๊อกกลางแล้ว (ขาดค่ารม)": centralDb,
-  ครบทุกขั้น: demoDb,
+const progress = pick("ที่จดแล้ว", {
+  "มีแค่ใบขนส่ง (ยังไม่ได้จด 11 รายการ)": dispatchDb,
+  "สโมคแล้ว (ยังไม่ได้จด 6 รายการ)": smokedDb,
+  "เข้าสต๊อกกลางแล้ว (ยังไม่ได้จดค่ารม)": centralDb,
+  จดครบแล้ว: demoDb,
 });
 
-const steps = pick<readonly BatchStep[]>("ขั้นที่ดู", {
-  ทุกขั้น: batchSteps,
+const steps = pick<readonly BatchStep[]>("รายการที่ดู", {
+  ทุกรายการ: batchSteps,
   "เฉพาะงาน Chef House": ["cmReceive", "prepare", "smoke", "closeLot"],
 });
 
@@ -35,8 +35,9 @@ export default meta;
 
 /** What a smoke batch still has no entry for (FoodivaView, SmokeOrderForm,
  *  LotWorkflowAction). เลือกใน Controls:
- *  - ความคืบหน้า: "ยังขาด" + หนึ่งชิปต่อขั้นที่ยังไม่บันทึก หรือชิปเขียว "ครบทุกขั้น"
- *  - ขั้นที่ดู: `steps` จำกัดเฉพาะขั้นที่หน้าจอนั้นสนใจ ครบแล้วอ่าน "ครบแล้ว" */
+ *  - ที่จดแล้ว: "ยังไม่ได้จด" + หนึ่งชิปต่อรายการที่ยังไม่มี (ไม่เรียงลำดับ ไม่บังคับ)
+ *    หรือชิปเขียว "จดครบแล้ว"
+ *  - รายการที่ดู: `steps` จำกัดเฉพาะรายการที่หน้าจอนั้นสนใจ */
 export const Default: StoryObj<Args> = {
   argTypes: { db: progress.argType, steps: steps.argType },
   args: { db: progress.initial, steps: steps.initial },

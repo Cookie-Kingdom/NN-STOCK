@@ -13,7 +13,7 @@ import {
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { branches, entries, titles, type Database } from "@/lib/store";
 
-const columns = ["วันที่", "สาขา", "รายการ", "ค้างมาแล้ว", "สถานะ"];
+const columns = ["วันที่", "สาขา", "รายการ", "ผ่านมาแล้ว", "สถานะ"];
 const dayMs = 86400000;
 
 function dayNumber(value: string) {
@@ -46,10 +46,10 @@ export function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
           [
             workDate,
             <strong key={`${name}-${workDate}`}>{name}</strong>,
-            "กรอกครบทุกหัวข้อ",
-            "0 วัน",
+            "จดครบทุกหัวข้อ",
+            "—",
             <Badge tone="success" key="complete">
-              ครบแล้ว
+              จดครบแล้ว
             </Badge>,
           ],
         ];
@@ -58,15 +58,15 @@ export function OwnerDailyStatus({ db, date }: { db: Database; date: string }) {
         <strong key={`${name}-${workDate}-${kind}`}>{name}</strong>,
         titles[kind],
         `${Math.max(0, Math.round((dayNumber(date) - dayNumber(workDate)) / dayMs))} วัน`,
-        <Badge tone="danger" key="pending">
-          ค้างกรอก
+        <Badge tone="neutral" key="pending">
+          ยังไม่ได้จด
         </Badge>,
       ]);
     }),
   );
   return (
     <DataTable
-      title={`ติดตามงานผู้จัดการสาขา · ${startDate} ถึง ${date}`}
+      title={`รายการรายวันที่สาขาจด · ${startDate} ถึง ${date}`}
       columns={columns}
       rows={rows}
       action={

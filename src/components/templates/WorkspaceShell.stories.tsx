@@ -113,7 +113,9 @@ const ownerProps = {
   ],
 } satisfies Partial<Parameters<typeof Shell>[0]>;
 
-/** Controls:
+/** The header's จดบันทึก is on every tab of every account and opens the chooser of that
+ *  account's notes (a pick does nothing here: the story's workspace opens no form).
+ *  Controls:
  *  - บัญชี: Owner (badges and a bell with two lines), Account Manager (no dashboard in
  *    the menu), or ศาลาแดง: branch accounts show their branch in the overline and have
  *    no notification bell.

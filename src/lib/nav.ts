@@ -142,7 +142,7 @@ export const managerNav: NavGroup[] = ownerNav.filter(
 export const branchNav: NavGroup[] = [
   {
     items: [
-      { id: "day", label: "กรอกรายวัน", icon: Store },
+      { id: "day", label: "จดรายวัน", icon: Store },
       { id: "material-receive", label: "ยืนยันรับวัสดุ", icon: PackageCheck },
       {
         id: "material-count",

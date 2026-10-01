@@ -1,4 +1,3 @@
-import { expect } from "vitest";
 import {
   check,
   materials,
@@ -115,13 +114,18 @@ export function legacyReceive(
   return last(s);
 }
 
-/** A save that goes through with a warning: no refusal, and a warning matching `match`. */
+/** A save that goes through with a warning: no refusal, and a warning matching `match`.
+ *  Plain throws, not vitest's `expect`: .storybook/fixtures.ts imports this file, and vitest
+ *  loaded in the browser breaks every story that uses the fixtures. */
 export function expectWarning(
   result: { warnings: string[]; error: string },
   match: string | RegExp,
 ) {
-  expect(result.error).toBe("");
-  expect(result.warnings.join("\n")).toMatch(match);
+  if (result.error) throw new Error(`refused: ${result.error}`);
+  const warnings = result.warnings.join("\n");
+  const found =
+    typeof match === "string" ? warnings.includes(match) : match.test(warnings);
+  if (!found) throw new Error(`no warning matching ${match} in: ${warnings}`);
 }
 
 export function purchase(s: Setup, kg: string, price = "250") {

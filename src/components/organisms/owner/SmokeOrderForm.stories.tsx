@@ -34,7 +34,7 @@ const orderState = pick("PO ซื้อ", {
  *  - หลาย PO: a new batch; PO 1,000 kg with 400 already drawn (600 left) plus
  *    300 / 700 / 500 kg POs.
  *  - ชุดที่ Foodiva ส่งแล้ว: opened on a batch Foodiva already trucked with its Packing List
- *    (25 + 25 kg) and no smoke PO: the batch is preselected, its "ยังขาด" chips show, and
+ *    (25 + 25 kg) and no smoke PO: the batch is preselected, its "ยังไม่ได้จด" chips show, and
  *    the kg starts at the Packing List total. The chooser still offers "ชุดใหม่". */
 export const SmokeOrder: Story = {
   argTypes: { db: orderState.argType },

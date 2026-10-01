@@ -10,10 +10,12 @@ const titles = (db: Database, branch: string, date = day) =>
 
 /** Every day starts uncounted, so this line rides along until `materials` is saved. */
 const notCounted = `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${day}`;
+const notJotted = (count: number) =>
+  `ยังไม่ได้จด ${count} รายการของวันที่ ${day}`;
 
 test("an empty day asks to be closed and to count the materials", () => {
   expect(titles(structuredClone(seed), "ศาลาแดง")).toEqual([
-    `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    notJotted(3),
     notCounted,
   ]);
 });
@@ -21,10 +23,7 @@ test("an empty day asks to be closed and to count the materials", () => {
 test("meat in central stock rings no branch's bell: branches record receives themselves (BR-07)", () => {
   const s = ready();
   for (const branch of ["ศาลาแดง", "มีนบุรี"]) {
-    expect(titles(s.db, branch)).toEqual([
-      `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
-      notCounted,
-    ]);
+    expect(titles(s.db, branch)).toEqual([notJotted(3), notCounted]);
     expect(branchAlerts(s.db, branch, day).badges.day).toBe(1);
   }
 });
@@ -52,7 +51,7 @@ test("material sent to one branch is not the other branch's job", () => {
     detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
     tab: "material-receive",
   });
-  // The line belongs to its own tab now — it must not inflate the กรอกรายวัน pill.
+  // The line belongs to its own tab now — it must not inflate the จดรายวัน pill.
   const salaBadges = branchAlerts(s.db, "ศาลาแดง", day).badges;
   expect(salaBadges["material-receive"]).toBe(1);
   expect(salaBadges.day).toBe(branchAlerts(s.db, "มีนบุรี", day).badges.day);
@@ -85,20 +84,17 @@ test("the day's own work follows the daily workflow, step by step", () => {
   const s = ready();
   s.run("branch", "receive", { kg: "20" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([
-    `ยังไม่แบ่งละลายเนื้อวันที่ ${day}`,
-    `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${day}`,
+    notJotted(3),
     notCounted,
   ]);
   // Nothing of this reaches มีนบุรี: no receive, no thaw, no sale of its own.
-  expect(titles(s.db, "มีนบุรี")).toEqual([
-    `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
-    notCounted,
-  ]);
+  expect(titles(s.db, "มีนบุรี")).toEqual([notJotted(3), notCounted]);
 
   s.run("branch", "thaw", { kg: "20", bags: "2" });
   expect(titles(s.db, "ศาลาแดง")).toEqual([
-    `ยังไม่บันทึกยอดขายวันที่ ${day}`,
-    `ยังขาด 3 รายการก่อนปิดวันที่ ${day}`,
+    `ยังไม่ได้จดยอดขายวันที่ ${day}`,
+    notJotted(3),
     notCounted,
   ]);
 
@@ -111,10 +107,7 @@ test("the day's own work follows the daily workflow, step by step", () => {
     expense: "0",
     lineMan: "60000",
   });
-  expect(titles(s.db, "ศาลาแดง")).toEqual([
-    `ยังขาด 2 รายการก่อนปิดวันที่ ${day}`,
-    notCounted,
-  ]);
+  expect(titles(s.db, "ศาลาแดง")).toEqual([notJotted(2), notCounted]);
 
   s.run(
     "branch",
@@ -122,7 +115,9 @@ test("the day's own work follows the daily workflow, step by step", () => {
     Object.fromEntries(materials.map((_, index) => [`material${index}`, "10"])),
   );
   s.run("branch", "riceCarry", { leftoverKg: "0" });
-  expect(titles(s.db, "ศาลาแดง")).toEqual([`พร้อมปิดวันที่ ${day}`]);
+  expect(titles(s.db, "ศาลาแดง")).toEqual([
+    `จดครบแล้ว · ยังไม่ได้ปิดวันที่ ${day}`,
+  ]);
   expect(branchAlerts(s.db, "ศาลาแดง", day).badges["material-count"]).toBe(0);
 
   s.run("branch", "closeDay", { confirm: "ผู้ดูแล" });

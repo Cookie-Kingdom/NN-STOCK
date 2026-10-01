@@ -44,7 +44,7 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
   const first = () => alerts().notifications[0];
   purchase(s, "50");
   expect(first()).toMatchObject({
-    title: "ออก Invoice เนื้อ · F260909-001",
+    title: "ยังไม่ได้จด Invoice เนื้อ · F260909-001",
     tab: "foodiva",
   });
   expect(alerts().badges.foodiva).toBe(1);
@@ -53,28 +53,29 @@ test("a purchase PO waits on Foodiva's invoice, a shipment on its next document"
 
   confirm(s, "50");
   // Foodiva opens the batch before the Owner's smoke PO (D2): the batch lists what it
-  // lacks (DASH-02) and points at the Owner's first missing step.
+  // has no entry for (DASH-02) and opens a tab one of them is recorded on.
   dispatch(s, "");
   expect(first()).toEqual({
-    title: "ชุด SH-2026-0001 ยังขาด 11 ขั้น",
-    detail: "ยังขาด: PO รมควัน, Packing List, ชั่งรับ, ก่อนสโมค และอีก 7 ขั้น",
+    title: "ชุด SH-2026-0001 ยังไม่ได้จด 11 รายการ",
+    detail:
+      "ยังไม่ได้จด: PO รมควัน, Packing List, ชั่งรับ, ก่อนสโมค และอีก 7 รายการ",
     tab: "smoke-po",
   });
   expect(alerts().badges["smoke-po"]).toBe(1);
   packingList(s, "25\n24.5");
-  expect(first().title).toBe("ชุด SH-2026-0001 ยังขาด 10 ขั้น");
+  expect(first().title).toBe("ชุด SH-2026-0001 ยังไม่ได้จด 10 รายการ");
   expect(alerts().badges["cm-receive"]).toBe(1);
   smokeOrder(s, [["F260909-001", "50"]]);
-  // Every step now opens the tab it is recorded on, the partners' ones included.
+  // Every record opens the tab it is written on, the partners' ones included.
   expect(first()).toMatchObject({
-    title: "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
+    title: "ชุด SH-2026-0001 ยังไม่ได้จด 9 รายการ",
     tab: "cm-receive",
   });
   expect(alerts().badges["smoke-po"]).toBe(0);
-  // Q1: Chef accepting the PO is still recordable but no longer a missing step.
+  // Q1: Chef accepting the PO is still recordable but is not on the "ยังไม่ได้จด" list.
   s.run("owner", "smokeOrderAccept", { acceptedBy: "Chef House" });
   expect(alerts().notifications.map((n) => n.title)).toEqual([
-    "ชุด SH-2026-0001 ยังขาด 9 ขั้น",
+    "ชุด SH-2026-0001 ยังไม่ได้จด 9 รายการ",
     "รอชำระ Invoice เนื้อ · PO-2026-0001",
   ]);
 });
@@ -85,7 +86,7 @@ test("a closed run lacks the smoking invoice, then waits on its review", () => {
     ownerAlerts(s.db).notifications.map((item) => item.title);
   expect(ownerAlerts(s.db).notifications).toContainEqual(
     expect.objectContaining({
-      title: expect.stringMatching(/^ชุด SH-2026-0001 ยังขาด/),
+      title: expect.stringMatching(/^ชุด SH-2026-0001 ยังไม่ได้จด/),
       detail: expect.stringContaining("Invoice ค่ารม"),
     }),
   );
@@ -104,7 +105,7 @@ test("after smoking the owner is sent to transport and central receive, not allo
   expect(afterClose.returnReady).toHaveLength(1);
   expect(afterClose.notifications).toContainEqual({
     title: "Chef House ปิด Lot แล้ว · SH-2026-0001",
-    detail: "เรียกรถขากลับ 36.00 กก. · 360 กล่องรมควัน",
+    detail: "ยังไม่ได้จดรถขากลับ · 36.00 กก. · 360 กล่องรมควัน",
     tab: "return-shipment",
   });
   expect(ownerAlerts(returned().db).badges["central-receive"]).toBe(1);

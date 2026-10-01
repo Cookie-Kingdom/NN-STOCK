@@ -7,6 +7,7 @@ import { DateRangeFilter } from "@/components/molecules/DateRangeFilter";
 import { FilterBar } from "@/components/molecules/FilterBar";
 import { Notice } from "@/components/molecules/Notice";
 import { SectionHeading } from "@/components/molecules/SectionHeading";
+import { latestNoteLabel } from "@/components/organisms/owner/lotSteps";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   branches,
@@ -17,11 +18,8 @@ import {
   materialUnitPrice,
   materials,
   n,
-  batchKinds,
-  lotProgress,
   saleCost,
   shipments,
-  titles,
   type Database,
   type Entry,
 } from "@/lib/store";
@@ -265,7 +263,7 @@ export function Report({
         title="ต้นทุนแยก Lot"
         columns={[
           "Lot",
-          "ขั้นล่าสุด",
+          "จดล่าสุด",
           "เนื้อ",
           "รมควัน (Smoking)",
           "รถ",
@@ -275,23 +273,19 @@ export function Report({
           "ต้นทุนเนื้อที่ขาย + Waste",
         ]}
         rows={[
-          // DASH-04: every batch, whatever it holds so far; nothing is filtered by step.
+          // DASH-04: every batch, whatever it holds so far; nothing is filtered by what is recorded.
           ...shipments(db).map((l) => {
             const c = lotCost(db, l);
-            const p = lotProgress(db, l.id);
             const out = offShelfRows.filter((e) => e.lotId === l.id);
             // RET-07: no purchase PO lines, no meat cost: a ฿/kg without it would mislead.
             const unmatched = (
-              <Badge key="unmatched" tone="warning">
+              <Badge key="unmatched" tone="neutral">
                 ยังไม่จับคู่
               </Badge>
             );
             return [
               `${l.poId} · ${l.id}`,
-              batchKinds
-                .filter((k) => p.has(k))
-                .map((k) => titles[k])
-                .at(-1) ?? "—",
+              latestNoteLabel(db, l.id),
               c.meatMatched ? fmt(c.meat) : unmatched,
               // D8: the smoke PO's estimate until Chef House's invoice is in.
               c.smokingCostSource === "estimate"
@@ -463,7 +457,7 @@ export function Report({
                 ? entry.values.reason || "รับครบ"
                 : entry.values.reference ||
                   (entry.values.requiresConfirm
-                    ? "รอสาขายืนยัน"
+                    ? "สาขายังไม่ได้จดรับ"
                     : "ข้อมูลเดิม"),
             ];
           })}

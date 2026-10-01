@@ -3,6 +3,7 @@
 import { Notice } from "@/components/molecules/Notice";
 import { BranchDailyWorkflow } from "@/components/organisms/branch/BranchDailyWorkflow";
 import { BranchStockView } from "@/components/organisms/branch/BranchStockView";
+import { BranchTodayFeed } from "@/components/organisms/branch/BranchTodayFeed";
 import { ChiliDailySummary } from "@/components/organisms/branch/ChiliDailySummary";
 import { DailyMaterialsTable } from "@/components/organisms/branch/DailyMaterialsTable";
 import { DailySummary } from "@/components/organisms/branch/DailySummary";
@@ -67,9 +68,15 @@ export function BranchWorkspace({ account }: { account: Account }) {
             open={ws.open}
             onTab={ws.setTab}
           />
-          {/* ยอดขาย/ของเสีย อยู่ที่ขั้นที่ 4 ของ BranchDailyWorkflow ที่เดียว ·
-           * กล่องโปรโมทอินฟลูเอนเซอร์ย้ายไปอยู่ในฟอร์ม "ยืนยันปิดวัน" (ขั้นที่ 5) */}
-          {/* การนับน้ำพริกประจำวัน ไม่ใช่รายการสต๊อก จึงอยู่ที่หน้ากรอกรายวัน */}
+          <BranchTodayFeed
+            db={db}
+            branch={branch}
+            date={date}
+            onChanged={ws.setToast}
+          />
+          {/* ยอดขาย/ของเสีย อยู่ที่แถวยอดขายของ BranchDailyWorkflow ที่เดียว ·
+           * กล่องโปรโมทอินฟลูเอนเซอร์อยู่ในฟอร์มยอดขาย */}
+          {/* การนับน้ำพริกประจำวัน ไม่ใช่รายการสต๊อก จึงอยู่ที่หน้าจดรายวัน */}
           <ChiliDailySummary db={db} branch={branch} date={date} />
         </>
       )}
@@ -115,7 +122,6 @@ export function BranchWorkspace({ account }: { account: Account }) {
             db={db}
             branch={branch}
             date={date}
-            hasLots={!!ws.lots.length}
             open={ws.open}
           />
         </>

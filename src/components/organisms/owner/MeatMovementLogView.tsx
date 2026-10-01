@@ -198,7 +198,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         "Foodiva · เนื้อรมควัน",
         `${fmt(foodivaSmoked)} กก.`,
         foodivaSmoked > 0
-          ? "รับจาก Chef House แล้ว รอ Owner รับเข้าสต๊อกกลาง"
+          ? "รับจาก Chef House แล้ว · ยังไม่ได้จดรับเข้าสต๊อกกลาง"
           : "—",
       ],
       [
@@ -268,7 +268,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         framed
         overline="OWNER · BEEF TRACE"
         title="Log เนื้อคงเหลือ"
-        description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"
+        description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"
       />
       <DataTable
         title="เนื้อคงเหลือแยกตามจุด"

@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 // Aliased: plain functions despite the names; the alias keeps the hooks lint rule quiet.
 import { useBranchAlerts as branchAlerts } from "@/components/organisms/branch/useBranchAlerts";
+import { latestNote } from "@/components/organisms/owner/lotSteps";
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import { today } from "@/lib/format";
 import {
-  batchKinds,
   isClosed,
   lotProgress,
   ownerWasteOutstanding,
@@ -26,11 +26,12 @@ test("every batch is parked at its own step", () => {
     db.lots.find(
       (lot) => lot.poId.endsWith(`-${String(sh).padStart(4, "0")}`) && lot.kind,
     )!;
-  const last = (sh: number) =>
-    batchKinds.filter((kind) => lotProgress(db, batch(sh).id).has(kind)).at(-1);
-  // SH-0001 is in central stock; branches record their receives themselves (BR-01).
+  const last = (sh: number) => latestNote(db, batch(sh).id);
+  // 「จดล่าสุด」 is the newest note, whichever kind: SH-0001 is in central stock and the
+  // branches already sell from it, so its newest note is a branch's sale.
+  expect(lotProgress(db, batch(1).id).has("central")).toBe(true);
   expect([1, 2, 3, 4, 5, 6, 10, 11, 12].map(last)).toEqual([
-    "central",
+    "sale",
     "smokeOrder",
     "packingList",
     "packingList",
@@ -53,12 +54,12 @@ test("the Owner has one of every pending signal", () => {
   const list = titles(alerts.notifications).join("\n");
   for (const title of [
     "คำขอแก้ไขรอพิจารณา 1 รายการ",
-    "ออก Invoice เนื้อ",
-    // DASH-02: one advisory line per active batch, naming the steps it lacks.
-    "ชุด SH-2026-0002 ยังขาด",
+    "ยังไม่ได้จด Invoice เนื้อ",
+    // DASH-02: one advisory line per active batch, naming the records it has no entry for.
+    "ชุด SH-2026-0002 ยังไม่ได้จด",
     "รอตรวจ Invoice ค่ารมควัน",
     "รอชำระ Invoice ค่ารมควัน",
-    "แก้ Invoice ค่ารมควัน",
+    "Invoice ค่ารมควันส่งกลับแก้ไข",
     "รอชำระ Invoice เนื้อ",
     "Chef House ปิด Lot แล้ว",
     "Foodiva รับเนื้อรมควันแล้ว 1 Lot",
@@ -70,16 +71,16 @@ test("the Owner has one of every pending signal", () => {
 test("the two branches are in different states today", () => {
   expect(titles(branchAlerts(db, "ศาลาแดง", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขรอพิจารณา"),
-    `ยังไม่แบ่งละลายเนื้อวันที่ ${end}`,
-    `ยังไม่บันทึกยอดขายวันที่ ${end}`,
-    `ยังขาด 4 รายการก่อนปิดวันที่ ${end}`,
+    `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${end}`,
+    `ยังไม่ได้จดยอดขายวันที่ ${end}`,
+    `ยังไม่ได้จด 4 รายการของวันที่ ${end}`,
     "วัสดุรอยืนยันรับ 2 รายการ",
     `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${end}`,
   ]);
   expect(titles(branchAlerts(db, "มีนบุรี", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขไม่สำเร็จ"),
     expect.stringContaining("คำขอแก้ไขสำเร็จ"),
-    `ยังขาด 1 รายการก่อนปิดวันที่ ${end}`,
+    `ยังไม่ได้จด 1 รายการของวันที่ ${end}`,
   ]);
   for (const offset of [4, 3, 2]) {
     expect(isClosed(db, "ศาลาแดง", day(offset))).toBe(true);

@@ -27,10 +27,11 @@ const chainState = pick("สถานะ", {
   ตัวอย่าง: demoDb,
 });
 
-/** The latest shipment's chain. เลือกสถานะใน Controls:
- *  - กลับถึงตู้แล้ว: back in Foodiva's freezer, every step filled; Chef House weighed in
+/** The latest shipment's linked records, as an unnumbered list: a record not written yet
+ *  reads "—" whatever the others hold. เลือกสถานะใน Controls:
+ *  - กลับถึงตู้แล้ว: back in Foodiva's freezer, every record filled; Chef House weighed in
  *    1 kg under, Foodiva 0.5 kg under.
- *  - กำลังส่ง: on the truck to Chef House, later steps read "—".
+ *  - กำลังส่ง: on the truck to Chef House, the other records read "—".
  *  - รอ Packing List: smoke PO waiting for Foodiva, "ส่งไป" shows the smoke PO's kg,
  *    no gap badge.
  *  - Packing List ต่ำกว่า PO รมควัน: smoke PO 1,500 kg, Packing List 70 kg, Chef House

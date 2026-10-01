@@ -32,7 +32,7 @@ function pendingMaterialTransfers(db: Database, branch: string) {
   );
 }
 
-/** Every "this branch has to do something" signal for `date`.
+/** What this branch has not jotted yet for `date`: plain facts, never an instruction.
  *
  *  A branch account reads the whole database (`visibleDatabase` only strips sale money for the Account Manager),
  *  so every read here is scoped by `branch`: the balances, the daily entries and the
@@ -45,8 +45,8 @@ function pendingMaterialTransfers(db: Database, branch: string) {
  *  keeps a branch's requests to its own branch. Nothing about another branch can reach
  *  this bell.
  *
- *  The day lines follow `BranchDailyWorkflow`'s `["receive","thaw","sale","close"]` and
- *  read the same helpers, so the bell and that table can never disagree. Material work
+ *  The day lines read the same helpers as `BranchDailyWorkflow`'s thaw, sale and close
+ *  rows, so the bell and that table can never disagree. Material work
  *  moved off `day` onto its own tabs, so those two lines point at `material-receive` and
  *  `material-count` and are counted on those badges, never on `day`. */
 export function useBranchAlerts(db: Database, branch: string, date: string) {
@@ -69,37 +69,37 @@ export function useBranchAlerts(db: Database, branch: string, date: string) {
 
   const editAlerts = editRequestAlerts(db, "branch", branch);
   const dayAlerts: Notification[] = [
-    // 1. แบ่งละลายเนื้อ — only while the day has no thaw of its own.
+    // แบ่งละลายเนื้อ — only while the day has no thaw of its own.
     ...(frozen.length && !thawDone
       ? [
           {
-            title: `ยังไม่แบ่งละลายเนื้อวันที่ ${date}`,
-            detail: `มีเนื้อแช่แข็ง ${frozen.length} Lot · เลือกเนื้อที่จะละลายก่อนขาย`,
+            title: `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${date}`,
+            detail: `มีเนื้อแช่แข็ง ${frozen.length} Lot`,
             tab: "day" as const,
           },
         ]
       : []),
-    // 2. บันทึกยอดขาย — the same "ต้องกรอกก่อนปิดวัน" the day table shows.
+    // ยอดขาย — the same "ยังไม่ได้จด" the day table shows.
     ...(ready.length && !saleDone
       ? [
           {
-            title: `ยังไม่บันทึกยอดขายวันที่ ${date}`,
-            detail: "มีเนื้อละลายพร้อมขาย · ต้องกรอกยอดขายก่อนปิดวัน",
+            title: `ยังไม่ได้จดยอดขายวันที่ ${date}`,
+            detail: "มีเนื้อละลายพร้อมขาย",
             tab: "day" as const,
           },
         ]
       : []),
-    // 3. ปิดวัน — closeDayChecklist decides, exactly as the close dialog does.
+    // ปิดวัน — closeDayChecklist decides, exactly as the close dialog does.
     ...(closed
       ? []
       : [
           {
             title: missing
-              ? `ยังขาด ${missing} รายการก่อนปิดวันที่ ${date}`
-              : `พร้อมปิดวันที่ ${date}`,
+              ? `ยังไม่ได้จด ${missing} รายการของวันที่ ${date}`
+              : `จดครบแล้ว · ยังไม่ได้ปิดวันที่ ${date}`,
             detail: missing
-              ? "เปิดหน้ากรอกรายวันเพื่อดูว่ายังขาดอะไร"
-              : "กรอกครบแล้ว · ตรวจและปิดวันได้เลย",
+              ? "ดูรายการได้ที่สรุปก่อนปิดวัน · ปิดวันได้ทุกเวลา"
+              : "ปิดวันได้ทุกเวลา",
             tab: "day" as const,
           },
         ]),

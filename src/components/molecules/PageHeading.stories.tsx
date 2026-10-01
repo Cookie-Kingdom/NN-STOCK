@@ -12,7 +12,7 @@ const meta = {
   args: {
     overline: "เจ้าของร้าน",
     title: "ภาพรวมวันนี้",
-    description: "สรุปยอดขาย ต้นทุน และงานที่ต้องทำต่อ",
+    description: "สรุปยอดขาย ต้นทุน และรายการที่ยังไม่ได้จด",
     date: today(),
     onDate: fn(),
   },

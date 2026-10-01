@@ -2,16 +2,22 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fireEvent, fn, within } from "storybook/test";
 import { packedDb } from "../../../../.storybook/fixtures";
 import { useOwnerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
+import { accountById } from "@/lib/accounts";
 import { AppBrand, AppHeader } from "./AppHeader";
 import { NotificationPopover, type Notification } from "./NotificationPopover";
+import { QuickAdd } from "./QuickAdd";
 
 const notifications: Notification[] = [
   {
-    title: "ล็อต LOT-0915-01 รอรับเข้าสต๊อกกลาง",
-    detail: "Chef House ส่งมอบแล้ว",
-    tab: "work",
+    title: "Foodiva รับเนื้อรมควันแล้ว 1 Lot",
+    detail: "ยังไม่ได้จดรับเข้าสต๊อกกลาง",
+    tab: "central-receive",
   },
-  { title: "PO-0412 รอออกใบแจ้งหนี้", detail: "Foodiva", tab: "invoices" },
+  {
+    title: "ยังไม่ได้จด Invoice เนื้อ · F260915-001",
+    detail: "น้ำหนักที่ยืนยันและ Invoice เนื้อของ Foodiva",
+    tab: "foodiva",
+  },
 ];
 
 const meta = {
@@ -47,8 +53,13 @@ export const Brand: StoryObj<{ responsive: boolean }> = {
 
 type Alerts = "sample" | "packingList" | "none";
 
-/** Pick การแจ้งเตือน in Controls:
- *  - ตัวอย่าง: two placeholder lines (a lot to receive, a PO to invoice).
+/** The header as a workspace renders it: จดบันทึก, the bell, the theme toggle. Below md
+ *  (viewport toolbar) the three take a row of their own under the brand and จดบันทึก
+ *  fills it.
+ *
+ *  The bell lists notices as plain facts: its count pill is neutral and the panel reads
+ *  "แจ้งเตือน N รายการ" / "ไม่มีแจ้งเตือน" (the same strings on the branch route). Pick การแจ้งเตือน in Controls:
+ *  - ตัวอย่าง: two sample lines (a lot not in central stock, a PO with no invoice).
  *  - Packing List พร้อมแล้ว: the Owner's bell once Foodiva saved the transport document
  *    with its Packing List (P4); "Packing List พร้อมแล้ว" leads to the smoke PO tab.
  *  - ไม่มี: an empty bell. */
@@ -74,7 +85,18 @@ export const Header: StoryObj<{ alerts: Alerts }> = {
     const items = { sample: notifications, packingList, none: [] }[alerts];
     return (
       <div className="min-h-120">
-        <AppHeader actions={<Bell items={items} />} />
+        <AppHeader
+          actions={
+            <>
+              <QuickAdd
+                account={accountById("owner")!}
+                onOpen={fn()}
+                onTab={fn()}
+              />
+              <Bell items={items} />
+            </>
+          }
+        />
       </div>
     );
   },

@@ -38,15 +38,16 @@ export const noOwnerAlerts = {
   badges: {} as Partial<Record<Tab, number>>,
 };
 
-/** Shipments Chef House has closed that still need the Owner to book the truck home: the
- *  closed subset of the return screen's rows (`awaitingReturn`, RET-06). */
+/** Shipments Chef House has closed with no truck home recorded: the closed subset of the
+ *  return screen's rows (`awaitingReturn`, RET-06). */
 function returnReadyLots(db: Database) {
   return awaitingReturn(db).filter((lot) =>
     lotProgress(db, lot.id).has("closeLot"),
   );
 }
 
-/** Every "someone is waiting on the owner" signal, derived from lot state. */
+/** What is not recorded yet, derived from lot state and worded as plain facts: the bell's
+ *  lines and the sidebar counts. Hints, never obligations; nothing waits on them. */
 export function useOwnerAlerts(db: Database) {
   const missingMaterialSettings = materials.filter(
     (_, index) =>
@@ -130,25 +131,25 @@ export function useOwnerAlerts(db: Database) {
         ? []
         : [
             {
-              title: `ออก Invoice เนื้อ · ${item.id}`,
-              detail: "ยืนยันน้ำหนักและแนบ Invoice เนื้อของ Foodiva",
+              title: `ยังไม่ได้จด Invoice เนื้อ · ${item.id}`,
+              detail: "น้ำหนักที่ยืนยันและ Invoice เนื้อของ Foodiva",
               tab: "foodiva",
             },
           ],
     ),
     ...transportLots.map(({ lot }): OwnerNotification => ({
-      title: `ต้องทำใบขนส่ง · ${lot.poId}`,
-      detail: "ออกใบขนส่งขาไปของ Foodiva",
+      title: `ยังไม่ได้จดใบขนส่ง · ${lot.poId}`,
+      detail: "ใบขนส่งขาไปของ Foodiva",
       tab: "foodiva",
     })),
-    // DASH-02: per batch active in the last 30 days, the steps it has no entry for. Advice
+    // DASH-02: per batch active in the last 30 days, the records it has no entry for. A hint
     // only; the smoking invoice's own review state is said on its own below.
     ...activeBatches(db).flatMap((item): OwnerNotification[] => {
       const missing = missingSteps(db, item.id);
       return missing.length
         ? [
             {
-              title: `ชุด ${item.poId} ยังขาด ${missing.length} ขั้น`,
+              title: `ชุด ${item.poId} ยังไม่ได้จด ${missing.length} รายการ`,
               detail: missingText(missing),
               tab: missingStepTab(missing),
             },
@@ -165,7 +166,7 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอตรวจ Invoice ค่ารมควัน · ${number}`,
-            detail: `ตรวจยอดการส่ง ${poId} ก่อนชำระ`,
+            detail: `ยอดการส่ง ${poId} ยังไม่ได้ตรวจ`,
             tab: "invoices",
           },
         ];
@@ -173,16 +174,15 @@ export function useOwnerAlerts(db: Database) {
         return [
           {
             title: `รอชำระ Invoice ค่ารมควัน · ${number}`,
-            detail: `ชำระเงินค่ารมควันการส่ง ${poId}`,
+            detail: `ค่ารมควันการส่ง ${poId} ยังไม่ได้จดชำระ`,
             tab: "invoices",
           },
         ];
       if (status === "ส่งกลับแก้ไข")
         return [
           {
-            title: `แก้ Invoice ค่ารมควัน · ${number}`,
-            detail:
-              "ส่งกลับแก้ไขแล้ว · แก้ใบวางบิลของ Chef House แล้ว Submit ใหม่",
+            title: `Invoice ค่ารมควันส่งกลับแก้ไข · ${number}`,
+            detail: "ใบวางบิลของ Chef House ยังไม่ได้ Submit ใหม่",
             tab: "work",
           },
         ];
@@ -190,12 +190,12 @@ export function useOwnerAlerts(db: Database) {
     }),
     ...unpaidMeatLots.map((item): OwnerNotification => ({
       title: `รอชำระ Invoice เนื้อ · ${item.poId}`,
-      detail: `ชำระ Invoice ${entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo || ""} ของ Foodiva และแนบสลิป`,
+      detail: `Invoice ${entries(db, "foodivaConfirm", item.id).at(-1)?.values.invoiceNo || ""} ของ Foodiva ยังไม่ได้จดชำระ`,
       tab: "invoices",
     })),
     ...returnReady.map((item): OwnerNotification => ({
       title: `Chef House ปิด Lot แล้ว · ${item.poId}`,
-      detail: `เรียกรถขากลับ ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
+      detail: `ยังไม่ได้จดรถขากลับ · ${fmt(produced(db, item.id))} กก. · ${producedBags(db, item.id)} กล่องรมควัน`,
       tab: "return-shipment",
     })),
     ...(unlinkedCount
@@ -211,7 +211,7 @@ export function useOwnerAlerts(db: Database) {
       ? [
           {
             title: `Foodiva รับเนื้อรมควันแล้ว ${centralReceiveCount} Lot`,
-            detail: "รับเนื้อเข้าสต๊อกกลางก่อนให้สาขารับ",
+            detail: "ยังไม่ได้จดรับเข้าสต๊อกกลาง",
             tab: "central-receive" as Tab,
           },
         ]
@@ -220,7 +220,7 @@ export function useOwnerAlerts(db: Database) {
       ? [
           {
             title: `ตั้งค่าวัสดุยังไม่ครบ ${missingMaterialSettings} รายการ`,
-            detail: "กำหนดจำนวนฐานและราคาต่อหน่วยก่อนใช้งานจริง",
+            detail: "ยังไม่ได้ตั้งจำนวนฐานหรือราคาต่อหน่วย",
             tab: "config" as Tab,
           },
         ]

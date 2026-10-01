@@ -33,7 +33,7 @@ export function ChefReceiveTable({
     <>
       <SectionHeading
         title="ยืนยันรับเนื้อที่ Chef House"
-        description="เลือกการส่งที่รถมาถึง แล้วกรอกน้ำหนักรับรวมที่ชั่งได้ · เนื้อมาถึงแต่ไม่มีในรายการ กดเปิดชุดใหม่"
+        description="จดน้ำหนักรับรวมที่ชั่งได้ของการส่งที่รถมาถึง · เนื้อมาถึงแต่ไม่มีในรายการ กดเปิดชุดใหม่"
         actions={
           <Button
             icon={<Plus className="size-4" />}
@@ -44,7 +44,7 @@ export function ChefReceiveTable({
         }
       />
       <DataTable
-        title="การส่งที่รอยืนยันรับ"
+        title="การส่งที่ยังไม่ได้จดรับ"
         defaultSort={{ column: "วันที่รถรับ", desc: true }}
         columns={[
           "เลขที่การส่ง",
@@ -54,7 +54,7 @@ export function ChefReceiveTable({
           "รถ / ผู้ขนส่ง",
           "การทำงาน",
         ]}
-        emptyText="ไม่มีการส่งรอยืนยันรับในขณะนี้ · เนื้อมาถึงแล้วกดเปิดชุดใหม่"
+        emptyText="ไม่มีการส่งที่ยังไม่ได้จดรับ · เนื้อมาถึงแล้วกดเปิดชุดใหม่"
         rowKeys={waiting.map((lot) => lot.id)}
         rows={waiting.map((lot) => {
           const list = latestPackingList(db, lot.id);
@@ -72,7 +72,7 @@ export function ChefReceiveTable({
             order ? (
               order.values.orderNumber || "มี PO แล้ว"
             ) : (
-              <Badge key={`${lot.id}-po`} tone="warning">
+              <Badge key={`${lot.id}-po`} tone="neutral">
                 ยังไม่มี PO รมควัน
               </Badge>
             ),

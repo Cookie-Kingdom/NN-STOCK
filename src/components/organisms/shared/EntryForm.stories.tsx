@@ -61,6 +61,8 @@ type Story = StoryObj<Args>;
 
 const onClose = fn();
 const onSaved = fn();
+// 「บันทึกและจดต่อ」: the workspace remounts the form; here it only logs.
+const onSavedMore = fn().mockName("onSavedMore");
 // The working date lives in the workspace; the date field reports changes here.
 const onDate = fn();
 // A close-day checklist's ไปกรอก opens that item's form.
@@ -108,6 +110,7 @@ function renderForm(
     branch,
     switcher,
   }: Args,
+  again?: { lot: string; note: string },
 ) {
   // ponytail: the preview decorator only syncs an arg named `db`; this one sits in `form`.
   setMockDatabase(db);
@@ -123,6 +126,8 @@ function renderForm(
       modal={{ kind, lotId }}
       onClose={onClose}
       onSaved={onSaved}
+      onSavedMore={onSavedMore}
+      again={again}
       onOpen={onOpen}
       switcher={switcher ? chiliSwitcher : undefined}
     />
@@ -171,7 +176,17 @@ const owner = {
   "ตรวจใบวางบิล Chef House": { db: submittedInvoiceDb, kind: "invoiceReview" },
   "จ่ายใบวางบิล Chef House": { db: acceptedInvoiceDb, kind: "invoicePayment" },
   "จ่ายค่าเนื้อ Foodiva": { db: confirmedDb, kind: "meatPayment" },
+  "จ่ายค่าเนื้อ Foodiva (จากจดบันทึก)": {
+    db: confirmedDb,
+    kind: "meatPayment",
+    lotId: "",
+  },
   ชั่งเข้าสต๊อกกลาง: { db: returnedDb, kind: "central" },
+  "ชั่งเข้าสต๊อกกลาง (จากจดบันทึก)": {
+    db: returnedDb,
+    kind: "central",
+    lotId: "",
+  },
   ส่งน้ำพริกไปสาขา: { db: demoDb, kind: "chiliAllocate" },
   "รับเนื้อที่ Foodiva เก็บไว้ (A8)": {
     db: ownerReservedDb,
@@ -192,8 +207,22 @@ const owner = {
  *    ตัวเลือกสลับฟอร์ม shows the stock tab's chooser above it
  *  - รับเนื้อที่ Foodiva เก็บไว้: 6 kg outstanding, prefilled as expected
  *  - ค่าใช้จ่าย: last category, payer and that category's last amount
- *  - เปิดวันที่ปิดแล้ว: the reason is always typed */
+ *  - เปิดวันที่ปิดแล้ว: the reason is always typed
+ *  - จากจดบันทึก (no lot handed in): the lot is a field. ชั่งเข้าสต๊อกกลาง starts on
+ *    "ไม่ระบุ Lot" and saves like that; picking a batch shows its "จดล่าสุด" line and
+ *    prefills as if opened from that batch's row. จ่ายค่าเนื้อ is one mutate refuses
+ *    without a PO: no "ไม่ระบุ Lot", the select waits for a pick.
+ *  Every form but ปิดวัน / ปลดล็อกวัน has 「บันทึกและจดต่อ」 beside the save button. */
 export const Owner: Story = actor("owner", forms(owner));
+
+/** The form 「บันทึกและจดต่อ」 leaves open: what was saved is said at the top (the page's
+ *  toast is behind the dialog), the fields are fresh and the date is kept. */
+export const OwnerSavedAndContinue: Story = {
+  ...Owner,
+  args: { ...Owner.args, form: option(owner, "ค่าใช้จ่าย") },
+  render: (args) =>
+    renderForm("owner", args, { lot: "", note: "ค่าใช้จ่าย Owner แล้ว" }),
+};
 
 /** Below lg the form and the PO preview stack in one scroll area. */
 export const OwnerPurchaseMobile: Story = {
@@ -238,6 +267,11 @@ export const OwnerExpenseOtherCategory: Story = {
 const chef = {
   "รับ PO รมควัน": { db: smokeOrderDb, kind: "smokeOrderAccept" },
   น้ำหนักก่อนรมควัน: { db: cmReceivedDb, kind: "prepare" },
+  "น้ำหนักก่อนรมควัน (จากจดบันทึก)": {
+    db: cmReceivedDb,
+    kind: "prepare",
+    lotId: "",
+  },
   บันทึกรอบรมควัน: { db: preparedDb, kind: "smoke" },
   "ปิด Lot": { db: smokedDb, kind: "closeLot" },
   ใบวางบิลค่ารมควัน: { db: closedDb, kind: "smokingInvoice" },
@@ -250,7 +284,8 @@ const chef = {
 
 /** Chef House's work, typed by the Owner. เลือกฟอร์มใน Controls:
  *  - รับ PO รมควัน: accepted before the meat is trucked up
- *  - น้ำหนักก่อนรมควัน: after trimming and blotting
+ *  - น้ำหนักก่อนรมควัน: after trimming and blotting; จากจดบันทึก: the Lot select,
+ *    on "ไม่ระบุ Lot" (the save opens a new batch) until a batch is picked
  *  - บันทึกรอบรมควัน: one round per save, per-pack weights below the fields
  *  - ปิด Lot: freezes the yield and hands it back to the Owner
  *  - ใบวางบิลค่ารมควัน: number, file (required), amount from smoke PO kg × rate (A7)
@@ -319,8 +354,8 @@ const branch = {
  *    weight until typed; the influencer section starts collapsed
  *  - ไม่ระบุ Lot: the bucket with 4 kg frozen and 3 kg chill; receiving on it says the
  *    meat costs 0 until linked (BR-03, BR-08)
- *  - รับเนื้อ (มีใบจัดสรร): the outstanding allocation picked, kg prefilled (expected);
- *    ไม่มีใบจัดสรร: every batch plus "ไม่ระบุ Lot", waiting for a pick
+ *  - รับเนื้อ: no lot handed in, so it starts on "ไม่ระบุ Lot"; every batch is in the
+ *    list to pick instead
  *  - ละลายเนื้อ: the oldest frozen lot (FIFO), last thaw's kg (expected)
  *  - กล่องอินฟลูเอนเซอร์: name, boxes, tubes, shipping fee; kg derived on save
  *  - ข้าว: purchase tops up to par (captioned), withdrawals check stock

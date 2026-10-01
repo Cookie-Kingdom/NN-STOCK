@@ -63,7 +63,7 @@ export function ChiliDailySummary({
         [
           "หมายเหตุส่วนต่าง",
           mismatch ? latestCount?.values.chiliRemark || "—" : "—",
-          mismatch ? "ต้องระบุเมื่อยอดไม่ตรง" : "",
+          mismatch ? "ระบุเมื่อยอดไม่ตรง" : "",
         ],
       ]}
     />

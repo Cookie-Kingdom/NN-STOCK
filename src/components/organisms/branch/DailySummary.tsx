@@ -71,8 +71,8 @@ export function DailySummary({
           "ตรวจนับวัสดุ",
           String(entries(db, "materials", undefined, branch, date).length),
           entries(db, "materials", undefined, branch, date).length
-            ? "บันทึกแล้ว"
-            : "ยังไม่บันทึก",
+            ? "จดแล้ว"
+            : "ยังไม่ได้จด",
         ],
       ]}
     />

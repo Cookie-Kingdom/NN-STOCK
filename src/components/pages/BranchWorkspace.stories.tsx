@@ -19,7 +19,7 @@ const navItems = branchNav.flatMap((group) => group.items);
 const dataState = pick("ข้อมูล", {
   เปิดวัน: demoDb,
   ปิดวันแล้ว: dayClosedDb,
-  งานค้าง: branchTasksDb,
+  ยังไม่ได้จด: branchTasksDb,
 });
 
 const meta: Meta<Args> = {
@@ -58,10 +58,10 @@ type Story = StoryObj<Args>;
 
 /** Every tab of the branch workspace, moved to the fixture day (it opens on today).
  *  Controls:
- *  - แท็บ: กรอกรายวัน (5 steps; step 3 leads to ข้าวเหนียววันนี้), ยืนยันรับวัสดุ,
+ *  - แท็บ: จดรายวัน (5 steps; step 3 leads to ข้าวเหนียววันนี้), ยืนยันรับวัสดุ,
  *    ตรวจนับสต๊อกวัสดุวันนี้, ข้าวเหนียววันนี้, สต๊อก (one table like the Owner's, this
  *    branch only), สรุปคงเหลือเนื้อ, สรุปสาขา, ประวัติ.
- *  - ข้อมูล: เปิดวัน; ปิดวันแล้ว (locked notice, every day form disabled); งานค้าง
+ *  - ข้อมูล: เปิดวัน; ปิดวันแล้ว (locked notice, every day form disabled); ยังไม่ได้จด
  *    (60 units of material still to confirm, materials not yet counted).
  *  - สาขา: ศาลาแดง or มีนบุรี (buys cooked rice only). */
 export const Workspace: Story = {
@@ -73,13 +73,13 @@ export const Workspace: Story = {
   },
 };
 
-/** The bell opened on งานค้าง. Pick สาขา in Controls:
+/** The bell opened on ยังไม่ได้จด. Pick สาขา in Controls:
  *  - ศาลาแดง: meat allocated but not received, material waiting to be confirmed
- *    and the day still short of what closing needs. Every line opens กรอกรายวัน.
+ *    and the day still short of what closing needs. Every line opens จดรายวัน.
  *  - มีนบุรี: the same database, but none of ศาลาแดง's work reaches this branch's bell. */
 export const Notifications: Story = {
   // ponytail: the pick's label; Storybook maps it to branchTasksDb.
-  args: { db: "งานค้าง" as unknown as Database },
+  args: { db: "ยังไม่ได้จด" as unknown as Database },
   play: async ({ canvasElement }) => {
     fireEvent.click(
       within(canvasElement).getByLabelText(/^การแจ้งเตือน/, {

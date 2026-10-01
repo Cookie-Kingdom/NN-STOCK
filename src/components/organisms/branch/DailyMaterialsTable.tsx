@@ -296,18 +296,18 @@ export function DailyMaterialsTable({
               saved?.values["materialReason" + i] || "—"
             ),
             saved
-              ? "บันทึกแล้ว"
+              ? "จดแล้ว"
               : opening(i)
-                ? "รอบันทึก"
+                ? "ยังไม่ได้จด"
                 : materialPar(db, branch, i)
-                  ? "รอ Owner ส่งวัสดุมาสาขา"
+                  ? "ยังไม่มีวัสดุที่สาขา"
                   : "Owner ยังไม่ตั้งฐาน",
           ];
         })}
       />
       {saved && (
         <Notice>
-          บันทึกล่าสุด {new Date(saved.at).toLocaleString("th-TH")} · ครั้งที่{" "}
+          จดล่าสุด {new Date(saved.at).toLocaleString("th-TH")} · ครั้งที่{" "}
           {saved.values.revision || "1"} · แก้ไขแล้วบันทึกซ้ำได้
           ทุกครั้งที่บันทึกถูกเก็บไว้ในประวัติให้ Owner ตรวจสอบ
         </Notice>

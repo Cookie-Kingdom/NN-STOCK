@@ -184,9 +184,10 @@ export const GeneralPurchasePrefilled: Story = {
   },
 };
 
-/** Before closing, Chef House can still correct arrival, the received total, pre-smoke kg
- *  and the smoke log. The form
- *  renders nothing until the lot is smoked, so the date is the only real control. */
+/** Corrects arrival, the received total, pre-smoke kg and the smoke log, at any time: after
+ *  ปิด Lot it still saves, with a warning. The form renders nothing until the lot has a
+ *  weigh-in and a pre-smoke weight (mutate refuses a correction without them); smoke
+ *  rounds are optional. The date is the only real control. */
 export const ChefLotEdit: Story = {
   ...controls({ รมควันแล้ว: smokedDb }),
   render: ({ db, date }) => (

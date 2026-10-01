@@ -399,7 +399,7 @@ export function ConfigView({ db }: { db: Database }) {
         }
       />
       <DataTable
-        title="ข้อมูลหลักก่อนเริ่มระบบ (System setup)"
+        title="ข้อมูลหลัก (System setup)"
         action={<SectionAction section="main" {...actionProps} />}
         columns={[
           "รายการ (Setting)",

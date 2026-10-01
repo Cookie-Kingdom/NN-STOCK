@@ -3,12 +3,12 @@
 import { Button } from "@/components/atoms/Button";
 import { Notice } from "@/components/molecules/Notice";
 import { DataTable } from "@/components/organisms/shared/DataTable";
-import type { CloseDayItem } from "@/lib/store";
+import { missingText, type CloseDayItem } from "@/lib/store";
 
-/** What closing the day needs (closeDayChecklist, the same list mutate checks), with a
- *  way to go fill each missing item. `onGo` opens that item's form, or, for materials
+/** What the day holds so far (closeDayChecklist, the same list mutate warns about), with
+ *  a way to jot each item still empty. `onGo` opens that item's form, or, for materials
  *  (counted on the ตรวจนับสต๊อกวัสดุวันนี้ tab), goes to that tab. An item with
- *  no form (the chill carried into tomorrow) is information and never blocks. */
+ *  no form (the chill carried into tomorrow) is information. Nothing here blocks closing. */
 export function CloseDayChecklist({
   items,
   onGo,
@@ -20,23 +20,23 @@ export function CloseDayChecklist({
   return (
     <>
       <DataTable
-        title="ตรวจก่อนปิดวัน"
-        columns={["รายการ", "สถานะ", "ไปกรอก"]}
+        title="สรุปก่อนปิดวัน"
+        columns={["รายการ", "สถานะ", "จด"]}
         rowKeys={items.map((item) => item.key)}
         rows={items.map((item) => [
           item.label,
-          item.required
-            ? item.done
-              ? "✓"
-              : "ยังไม่ทำ"
-            : !item.kind
-              ? "ข้อมูล · ไม่บังคับ"
-              : item.done
-                ? "✓ บันทึกแล้ว"
-                : "ไม่บังคับ · ยังไม่บันทึก",
+          !item.kind && !item.required
+            ? "ข้อมูล"
+            : item.done
+              ? "จดแล้ว"
+              : "ยังไม่ได้จด",
           (item.required || item.kind) && !item.done && onGo ? (
-            <Button key={item.key} variant="table" onClick={() => onGo(item)}>
-              {item.kind ? "ไปกรอก" : "ไปหน้าตรวจนับวัสดุ"}
+            <Button
+              key={item.key}
+              variant="table-secondary"
+              onClick={() => onGo(item)}
+            >
+              {item.kind ? "จด" : "ไปหน้าตรวจนับวัสดุ"}
             </Button>
           ) : (
             "-"
@@ -44,14 +44,14 @@ export function CloseDayChecklist({
         ])}
       />
       {missing.length ? (
-        <Notice tone="warning" role="status">
-          ยังไม่ได้กรอก {missing.length} รายการ ·{" "}
+        <Notice role="status">
+          ยังไม่ได้จด {missing.length} รายการ ·{" "}
           {missing.map((item) => item.label).join(", ")} · ปิดวันได้
-          ช่องที่ขาดจะขึ้นว่ายังไม่ได้กรอก
+          ช่องที่เว้นไว้จะขึ้นว่า{missingText}
         </Notice>
       ) : (
         <Notice tone="success" role="none">
-          ข้อมูลครบ ปิดวันได้ทุกเวลา · ปิดแล้วยังบันทึกเพิ่มได้
+          จดครบแล้ว · ปิดวันได้ทุกเวลา · ปิดแล้วยังจดเพิ่มได้
         </Notice>
       )}
     </>
