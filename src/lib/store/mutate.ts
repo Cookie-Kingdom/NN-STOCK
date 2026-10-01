@@ -12,7 +12,7 @@ import {
   branches,
   canLink,
   editDecisions,
-  editLockedKeys,
+  editLocked,
   materials,
   missingKeys,
   pack,
@@ -108,7 +108,7 @@ function stockLevels(db: Database) {
  *  kind's own rules as if it were saved again now without the original (so its own kg are
  *  back in stock). Then no stock may go below zero that was not already there. */
 function correctedValues(db: Database, target: Entry, proposed: Values) {
-  for (const key of editLockedKeys)
+  for (const key of editLocked(target.kind))
     assert(
       proposed[key] === undefined ||
         proposed[key] === (target.values[key] ?? ""),
@@ -128,6 +128,17 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
     target.kind === "sale" && target.values.lineMan === undefined;
   const input = { ...target.values, ...proposed };
   if (moneyHidden && input.lineMan === undefined) input.lineMan = "0";
+  // The truck fee is the one in force when the manifest was made; a changed trip is priced again.
+  if (
+    target.kind === "dispatch" &&
+    (input.trip ?? "") !== (target.values.trip ?? "")
+  )
+    delete input.outboundCost;
+  if (target.kind === "smokingInvoice")
+    warn(
+      smokingInvoiceStatus(db, target) !== "ชำระแล้ว",
+      "Invoice นี้ชำระแล้ว · ตรวจยอดชำระกับยอดใหม่",
+    );
   const checked = record(
     as("void", { targetId: target.id }),
     // Partners' entries are recorded by the Owner for them; recordRole() re-stamps the kind.
@@ -141,14 +152,57 @@ function correctedValues(db: Database, target: Entry, proposed: Values) {
   ).entries.at(-1)!.values;
   const corrected = moneyHidden ? omit(checked, saleMoneyKeys) : checked;
   const before = stockLevels(db);
-  for (const [key, level] of stockLevels(
-    as("entryEdit", { targetId: target.id, ...pack("to.", corrected) }),
-  ))
+  const after = as("entryEdit", {
+    targetId: target.id,
+    ...pack("to.", corrected),
+  });
+  for (const [key, level] of stockLevels({
+    ...after,
+    lots: after.lots.map((lot) => recache(db, lot, target, corrected)),
+  }))
     warn(
       level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
       `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
     );
   return corrected;
+}
+/** DM-09: `lot` with its values cache following an edit of `target` (or the undoing of one,
+ *  `drop` then names the keys that edit had added). A purchase PO's lot is the PO itself. A
+ *  batch holds the latest values recorded on it, so the cached entries saved after `target`
+ *  are laid over the corrected ones again, in log order: an edit of an older round, or of the
+ *  transport document, never overwrites what a later entry put there. The return leg's fee
+ *  is not taken from an entry: it follows the trip (free on a round trip), so a trip changed
+ *  by the edit prices it again. */
+function recache(
+  db: Database,
+  lot: Lot,
+  target: Entry,
+  corrected: Values,
+  drop: string[] = [],
+): Lot {
+  if (lot.id !== target.lotId) return lot;
+  if (!lot.kind)
+    return target.kind === "purchase"
+      ? { ...lot, values: { ...lot.values, ...omit(corrected, uncached) } }
+      : lot;
+  if (!cachedKinds.includes(target.kind)) return lot;
+  const kept = [...uncached, "returnCost"];
+  let values = { ...omit(lot.values, drop), ...omit(corrected, kept) };
+  const at = db.entries.findIndex((entry) => entry.id === target.id);
+  for (const later of db.entries.slice(at + 1)) {
+    if (later.lotId !== lot.id || !cachedKinds.includes(later.kind)) continue;
+    const live = entries(db, later.kind, lot.id).find((e) => e.id === later.id);
+    if (live) values = { ...values, ...omit(live.values, kept) };
+  }
+  if (
+    values.returnCost !== undefined &&
+    (values.trip ?? "") !== (lot.values.trip ?? "")
+  )
+    values.returnCost =
+      values.trip === "ไปกลับ"
+        ? "0"
+        : (db.config.returnFee ?? lot.config.returnFee);
+  return { ...lot, values };
 }
 /** What an edit entry stores about its target: the before and after values and whose it is. */
 function editValues(db: Database, target: Entry, proposed: Values) {
@@ -517,7 +571,13 @@ function record(
     assert(lot?.kind === "shipment", "รายการนี้ต้องทำกับการส่ง ไม่ใช่ PO ซื้อ");
   // GEN-04: a batch entry dated before the batch's latest one, GEN-05: a purchase-PO entry
   // dated before the PO was opened (its earliest). Said, not refused.
-  if (lot && !branchMeatKinds.includes(kind) && kind !== "allocate") {
+  // An edit keeps the entry's own date, so it is not told off for it again.
+  if (
+    !correcting &&
+    lot &&
+    !branchMeatKinds.includes(kind) &&
+    kind !== "allocate"
+  ) {
     const lotRef = lot.id;
     const dates = db.entries
       .filter((e) => e.lotId === lotRef)
@@ -619,8 +679,9 @@ function record(
       ) || entries(db, "smokingInvoice", lotId).at(-1);
     assert(invoice, "ไม่พบ Invoice ค่ารมควันที่ต้องตรวจ");
     v.invoiceId = invoice.id;
+    // A review recorded before the payment can still be corrected after it.
     assert(
-      smokingInvoiceStatus(db, invoice) !== "ชำระแล้ว",
+      correcting || smokingInvoiceStatus(db, invoice) !== "ชำระแล้ว",
       "Invoice นี้ชำระแล้ว",
     );
     assert(
@@ -628,7 +689,7 @@ function record(
       "เลือกผลการตรวจยอด",
     );
     required(v, "reviewedBy", "ชื่อผู้ตรวจ");
-    v.reviewedAt = new Date().toISOString();
+    if (!correcting || !v.reviewedAt) v.reviewedAt = new Date().toISOString();
   } else if (kind === "invoicePayment" && lot) {
     // SVC-03: paid with or without an invoice; the same invoice is never paid twice (GEN-06).
     const invoice =
@@ -734,7 +795,13 @@ function record(
       );
     }
     /* Sliced Weight Lost is what cutting took away — Inv. Weight less Sliced Weight Net,
-     * never Chef House's yellow cells. Zero is a normal list: nothing was lost. */
+     * never Chef House's yellow cells. Zero is a normal list: nothing was lost. The form
+     * works it out; an edit of the total sent works it out again. */
+    if (correcting && v.invWeightKg?.trim() && v.slicedNetKg?.trim())
+      v.slicedLostKg = String(
+        Math.round(Math.abs(n(v, "invWeightKg") - n(v, "slicedNetKg")) * 100) /
+          100,
+      );
     positive(v, "slicedLostKg", "Sliced Weight Lost", true);
     if (v.invWeightKg?.trim()) {
       positive(v, "invWeightKg", "Inv. Weight");
@@ -787,16 +854,19 @@ function record(
     required(v, "pickupTime", "เวลารถรับ");
     required(v, "origin", "ต้นทาง");
     required(v, "destination", "ปลายทาง");
-    // Fees come from the settings in force when the manifest is made, not the lot's purchase-time snapshot.
-    v.outboundCost =
-      v.trip === "ไปกลับ"
-        ? (db.config.roundFee ?? lot.config.roundFee)
-        : (db.config.outboundFee ?? lot.config.outboundFee);
+    // Fees come from the settings in force when the manifest is made, not the lot's purchase-time
+    // snapshot. An edit keeps the fee and the number it was saved with (correctedValues).
+    if (!correcting || v.outboundCost === undefined)
+      v.outboundCost =
+        v.trip === "ไปกลับ"
+          ? (db.config.roundFee ?? lot.config.roundFee)
+          : (db.config.outboundFee ?? lot.config.outboundFee);
     warn(
       !v.origin?.trim() || v.origin !== v.destination,
       "ต้นทางและปลายทางต้องต่างกัน",
     );
-    v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
+    if (!correcting || !v.transferNumber)
+      v.transferNumber = `TR-${date.slice(0, 4)}-${String(entries(db, "dispatch").length + 1).padStart(4, "0")}`;
   } else if (kind === "cmReceive" && lot) {
     // CHF-01: the truck is at the door; Chef House weighs in with or without a Packing List or PO.
     required(v, "arrival", "เวลาถึง");
@@ -845,7 +915,8 @@ function record(
     v.wasteKg = String(n(v, "wasteKg"));
     v.postSmokeKg = output.toFixed(2);
     v.packCount = String(weights.length);
-    v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
+    if (!correcting || !v.subLot)
+      v.subLot = `SB-${date.slice(0, 4)}-${String(entries(db, "smoke").length + 1).padStart(4, "0")}`;
   } else if (kind === "chefEdit" && lot) {
     // Corrects the receive/prepare/smoke values without touching those entries (see entries()).
     warn(!entries(db, "closeLot", lotId).length, "ปิด Lot แล้ว");
@@ -958,16 +1029,20 @@ function record(
       "ต้นทางและปลายทางต้องต่างกัน",
     );
     positive(v, "returnKg", "น้ำหนักส่งกลับ");
-    v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
+    if (!correcting || !v.transferNumber)
+      v.transferNumber = `TR-${date.slice(0, 4)}-R${String(entries(db, "return").length + 1).padStart(4, "0")}`;
     withinStock(
       n(v, "returnKg"),
       produced(db, lotId),
       "น้ำหนักส่งกลับเกินผลผลิต",
     );
+    // An edit keeps what the batch charges for the leg now (recache prices it by the trip).
     v.returnCost =
-      lot.values.trip === "ไปกลับ"
-        ? "0"
-        : (db.config.returnFee ?? lot.config.returnFee);
+      correcting && lot.values.returnCost !== undefined
+        ? lot.values.returnCost
+        : lot.values.trip === "ไปกลับ"
+          ? "0"
+          : (db.config.returnFee ?? lot.config.returnFee);
   } else if (kind === "central" && lot) {
     // RET-03: counted into central stock whenever it arrives; Foodiva's figure, if any, is compared.
     positive(v, "centralKg", "น้ำหนักรับกลาง");
@@ -1333,7 +1408,8 @@ function record(
     required(v, "category", "หมวดหมู่");
     required(v, "detail", "รายละเอียด");
   } else if (kind === "unlock") {
-    assert(isClosed(db, branch, date), "วันนี้ยังไม่ได้ปิด");
+    // An edit of an older unlock: the day may have been closed and unlocked again since.
+    assert(correcting || isClosed(db, branch, date), "วันนี้ยังไม่ได้ปิด");
     required(v, "reason", "เหตุผลปลดล็อก");
   } else if (kind === "void") {
     const target = db.entries.find((entry) => entry.id === v.targetId);
@@ -1398,6 +1474,37 @@ function record(
       if (previous) cached.values.centralKg = previous.values.centralKg;
       else delete cached.values.centralKg;
     }
+    // Undoing an edit: the cache goes back to what the edited entry reads without it.
+    const edited =
+      target.kind === "entryEdit" &&
+      db.entries.find((entry) => entry.id === target.values.targetId);
+    if (edited) {
+      const restored = entries(
+        {
+          ...db,
+          entries: [
+            ...db.entries,
+            {
+              ...target,
+              id: newId(),
+              kind,
+              role,
+              values: { targetId: target.id },
+            },
+          ],
+        },
+        edited.kind,
+      ).find((entry) => entry.id === edited.id);
+      // Keys the edit added (a field left empty at first) go with it.
+      const from = unpack("from.", target.values);
+      const added = Object.keys(unpack("to.", target.values)).filter(
+        (key) => !(key in from),
+      );
+      if (restored)
+        next.lots = next.lots.map((l) =>
+          recache(db, l, edited, restored.values, added),
+        );
+    }
   } else if (kind === "link") {
     // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
     const target = db.entries.find((entry) => entry.id === v.targetId);
@@ -1452,17 +1559,11 @@ function record(
     delete v.values;
     Object.assign(v, editValues(db, target, proposed));
     lotId = target.lotId;
-    // The batch cache follows a direct edit of a batch entry (SMK-05: the smoke PO's lines).
-    const edited = next.lots.find((l) => l.id === target.lotId);
-    if (
-      kind === "entryEdit" &&
-      edited?.kind &&
-      cachedKinds.includes(target.kind)
-    )
-      edited.values = {
-        ...edited.values,
-        ...omit(unpack("to.", v), uncached),
-      };
+    // The lot cache follows a direct edit (SMK-05: the smoke PO's lines; a purchase PO's own values).
+    if (kind === "entryEdit")
+      next.lots = next.lots.map((l) =>
+        recache(db, l, target, unpack("to.", v)),
+      );
   } else if (kind === "editDecision") {
     const request = entries(db, "editRequest").find(
       (e) => e.id === v.requestId,

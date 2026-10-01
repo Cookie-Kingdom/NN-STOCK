@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   BATCH_ID,
-  INVOICE_FIXTURE,
   MISSING,
   NO_LOT,
   PACKING_LIST_FILE,
@@ -52,7 +51,7 @@ test.beforeEach(async ({ page }) => {
   await startFresh(page);
 });
 
-test("GEN-02 PRIN-03 a purchase PO saves with empty fields marked ยังไม่ได้กรอก; a negative weight is refused", async ({
+test("GEN-02 PRIN-03 EDT-01 a purchase PO saves with empty fields marked ยังไม่ได้กรอก, refuses a negative weight, and is completed from the Log", async ({
   page,
 }) => {
   await signInAs(page, ACCOUNTS.owner);
@@ -102,65 +101,78 @@ test("GEN-02 PRIN-03 a purchase PO saves with empty fields marked ยังไ�
     await expect(entry.getByText(MISSING, { exact: true })).toHaveCount(2);
   });
 
-  /* A PO is not among the kinds the Log edits, so the "fill it in later" half is walked
-   * on the meat invoice of that PO: saved without the confirmer's name, completed from
-   * the Log, and the marker goes (`missing` is recomputed on every save). */
+  /* EDT-01: the PO is edited from the Log like a cell in a sheet. Filling one of the two
+   * empty fields leaves one marker (`missing` is recomputed on every save), and a new
+   * weight reaches the PO itself. */
   await step(
     page,
-    "Owner (แทน Foodiva): Invoice เนื้อ เว้นชื่อผู้ยืนยัน",
+    "Owner: แก้ไข PO จาก Log เติมผู้ขาย แก้น้ำหนัก",
     async () => {
-      await openMenu(page, SCREENS.meatInvoice.menu);
       await pointAndClick(
         page,
-        tableSection(page, /^PO เนื้อที่ต้องออก Invoice$/).getByRole("button", {
-          name: "ออกและอัปโหลด Invoice",
-        }),
+        entry.getByRole("button", { name: "แก้ไข", exact: true }),
       );
-      await field(page, /เลข Invoice เนื้อ/, "FD-INV-0001");
-      await field(page, /น้ำหนักตาม Invoice/, "300");
-      await field(page, /พร้อมส่งไป Chef House/, "300");
-      await field(page, /เนื้อส่วนที่เหลือรอ Owner รับ/, "0");
-      await field(page, /ยอดรวม Invoice/, "75000");
-      await topDialog(page)
-        .locator('input[type="file"]')
-        .setInputFiles(INVOICE_FIXTURE);
-      await saveEntry(page);
+      await typeValue(page, entry.getByLabel(/ผู้ขาย · Foodiva/), "Foodiva");
+      await typeValue(page, entry.getByLabel(/น้ำหนักสั่งซื้อ/), "320");
+      await typeValue(
+        page,
+        entry.getByLabel("เหตุผลที่แก้ไข"),
+        "เติมชื่อผู้ขาย แก้น้ำหนักตามใบสั่ง",
+      );
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+      );
+      await expect(entry.locator("summary")).toContainText("แก้ไขแล้ว");
+      await expect(entry.locator("summary")).toContainText(`${MISSING} 1 ช่อง`);
     },
   );
 
-  await step(page, "Owner: เติมช่องที่ว่างจาก Log ป้ายหายไป", async () => {
-    await openMenu(page, "Log");
-    const invoice = page
-      .locator("main details")
-      .filter({
-        has: page.locator("summary", {
-          hasText: /^ออกและอัปโหลด Invoice เนื้อ/,
-        }),
-      })
-      .first();
-    await expect(invoice.locator("summary")).toContainText(`${MISSING} 1 ช่อง`);
-    await pointAndClick(page, invoice.locator("summary"));
-    await pointAndClick(
-      page,
-      invoice.getByRole("button", { name: "แก้ไข", exact: true }),
-    );
-    await typeValue(
-      page,
-      invoice.getByLabel(/ชื่อผู้ยืนยันจาก Foodiva/),
-      "เจ้าหน้าที่ Foodiva",
-    );
-    await typeValue(
-      page,
-      invoice.getByLabel("เหตุผลที่แก้ไข"),
-      "เติมชื่อผู้ยืนยัน",
-    );
-    await pointAndClick(
-      page,
-      invoice.getByRole("button", { name: "บันทึกการแก้ไข" }),
-    );
-    await expect(invoice.locator("summary")).toContainText("แก้ไขแล้ว");
-    await expect(invoice.locator("summary")).not.toContainText(MISSING);
+  await step(page, "Owner: PO ใช้น้ำหนักใหม่ ไม่มี PO ใบที่สอง", async () => {
+    await openMenu(page, SCREENS.meatInvoice.menu);
+    const rows = tableSection(page, /^PO เนื้อที่ต้องออก Invoice$/)
+      .getByRole("row")
+      .filter({ hasText: /PO-\d{4}-\d{4}/ });
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText("320.00 กก.");
   });
+});
+
+/* EDT-01: a batch step is corrected from the Log too, here Chef House's weigh-in total,
+ * which has no field in the generic form table. The batch reads the new figure at once. */
+test("EDT-01 EDT-17 the weigh-in total is corrected from the Log and the batch follows", async ({
+  page,
+}) => {
+  await signInAs(page, ACCOUNTS.owner);
+  await weighIn(page, "", "40");
+  await openMenu(page, SCREENS.production.menu);
+  const batch = tableRow(page, SCREENS.production.table, BATCH_ID);
+  await expect(batch).toContainText("40.00 กก.");
+
+  await openMenu(page, "Log");
+  const entry = page
+    .locator("main details")
+    .filter({
+      has: page.locator("summary", {
+        hasText: /^ยืนยันรับเนื้อที่ Chef House/,
+      }),
+    })
+    .first();
+  await pointAndClick(page, entry.locator("summary"));
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "แก้ไข", exact: true }),
+  );
+  await typeValue(page, entry.getByLabel(/^น้ำหนักรับรวม/), "42");
+  await typeValue(page, entry.getByLabel("เหตุผลที่แก้ไข"), "ชั่งใหม่");
+  await pointAndClick(
+    page,
+    entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+  );
+  await expect(entry.locator("summary")).toContainText("แก้ไขแล้ว");
+
+  await openMenu(page, SCREENS.production.menu);
+  await expect(batch).toContainText("42.00 กก.");
 });
 
 test("GEN-03 a branch still records on a day it has closed, with a warning; a future date is refused", async ({

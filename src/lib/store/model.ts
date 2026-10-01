@@ -194,35 +194,26 @@ export const titles: Record<EntryKind, string> = {
   // No title ever: the log showed the raw kind for it, and still does.
   steakTransfer: "steakTransfer",
 };
-/** Kinds whose values can be corrected after they were saved (B5). An approver corrects any of
- *  them directly; the role that recorded one files an `editRequest`, closed day or not. Left out:
- *  Chef House's production steps (chefEdit fixes those before ปิด Lot); kinds fixed by saving
- *  again (materials, packingList); closeDay (Owner unlocks instead). `smokeOrder` is here so the
- *  Owner can change its purchase-PO `lines` later (SMK-05). */
-export const editableKinds: EntryKind[] = [
-  "smokeOrder",
-  "receive",
-  "thaw",
-  "ricePurchase",
-  "chiliPurchase",
-  "riceIssue",
-  "chiliIssue",
-  "rice",
-  "riceCarry",
-  "sale",
-  "influencerBox",
-  "materialConfirm",
-  "allocate",
-  "chiliAllocate",
-  "materialReceive",
-  "generalPurchase",
-  "materialTransfer",
-  "expense",
-  "foodivaConfirm",
-  "smokingInvoice",
-  // STK-03: a mistyped central kg is corrected here (it is recorded once per batch).
-  "central",
+/** Kinds the Log does not edit: they are corrections or bookkeeping themselves (`chefEdit`, a
+ *  void, the edit kinds, a link), the settings (changed on their own screen), the daily
+ *  material count (saved again from its screen, each round kept) and the legacy kind. */
+const notEditable: EntryKind[] = [
+  "chefEdit",
+  "materials",
+  "config",
+  "void",
+  "entryEdit",
+  "editRequest",
+  "editDecision",
+  "link",
+  "steakTransfer",
 ];
+/** Kinds whose values can be corrected after they were saved (B5, EDT-01): every kind that
+ *  records something, like a cell in a sheet. An approver corrects any of them directly; the
+ *  role that recorded one files an `editRequest`, closed day or not. */
+export const editableKinds: EntryKind[] = entryKinds.filter(
+  (kind) => !notEditable.includes(kind),
+);
 /** Kinds the Owner may void ("แก้รายการผิดด้วยการยกเลิก"): mutate refuses the rest, and the
  *  Log only offers the button on these. */
 export const voidableKinds: EntryKind[] = [
@@ -264,7 +255,13 @@ export const editDecisions = { approve: "อนุมัติ", reject: "ไม
 /** Values an edit may not change: they tie the entry to a branch or a day. Changing one is a
  *  void and a new entry; a reference to another entry (`allocation`, `transferId`) or the lot
  *  is changed with `link` instead (DM-08). */
-export const editLockedKeys = ["branch", "purchaseDate"];
+const editLockedKeys = ["branch", "purchaseDate"];
+/** The keys an edit of `kind` may not change: the shared ones, plus the date an Owner's
+ *  waste pick-up is filed under (its `receivedDate` is the entry's own date). */
+export const editLocked = (kind: EntryKind) =>
+  kind === "ownerWasteReceive"
+    ? [...editLockedKeys, "receivedDate"]
+    : editLockedKeys;
 /** GEN-02: a field the rules want but the user left empty is saved anyway and listed in the
  *  entry's `missing` (comma-separated keys), shown as this label. */
 export const missingText = "ยังไม่ได้กรอก";

@@ -19,6 +19,7 @@ import {
   packingList,
   packs,
   purchase,
+  purchaseInfo,
   ready,
   readyToDispatch,
   received,
@@ -32,6 +33,15 @@ export { day };
 
 /** One batch end to end, split to both branches, 7 days of sales. */
 export const demoDb: Database = sevenDayRoleplay(day);
+
+/** A purchase PO saved with the seller and the phone left empty (GEN-02): the Log edits it. */
+export const incompletePoDb: Database = setup().run("owner", "purchase", {
+  ...purchaseInfo,
+  supplier: "",
+  phone: "",
+  orderedKg: "300",
+  price: "250",
+});
 
 /** The Owner's 50 kg smoke PO opened a batch that waits for Foodiva's transport document. */
 export const dispatchDb: Database = (() => {

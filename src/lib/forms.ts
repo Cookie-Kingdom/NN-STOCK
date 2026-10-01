@@ -571,6 +571,54 @@ export const forms: Record<string, Field[]> = {
     ]),
   ],
 };
+/** Kinds whose own form is a component of its own (no `forms` entry, or one that no longer
+ *  matches it): what the Log's edit shows for them (EDT-01). Keys are the entry's values. */
+const editOnly: Record<string, Field[]> = {
+  dispatch: forms.dispatch.map((f) =>
+    f.key === "dispatchKg"
+      ? { ...f, label: "น้ำหนักที่ส่ง (กก.)", optional: true }
+      : f,
+  ),
+  packingList: [
+    text("invoiceNo", "เลข Invoice"),
+    text("product", "รายการสินค้า"),
+    text("code", "CODE สินค้า", true),
+    { ...number("boxCount", "จำนวนกล่องรับเข้า", false, true), optional: true },
+    number("slicedNetKg", "น้ำหนักส่งรวม · Sliced Weight Net (กก.)"),
+  ],
+  cmReceive: [
+    { key: "arrival", label: "เวลาที่รถมาถึง", type: "time" },
+    number("receivedKg", "น้ำหนักรับรวม (กก.)"),
+    note,
+  ],
+  generalPurchase: [
+    {
+      key: "purchaseCategory",
+      label: "กลุ่มการซื้อ",
+      type: "select",
+      options: ["วัตถุดิบ", "สินทรัพย์", "ค่าใช้จ่ายอื่น"],
+    },
+    text("item", "รายการ"),
+    number("quantity", "จำนวน"),
+    text("unit", "หน่วย"),
+    number("unitPrice", "ราคาซื้อ / หน่วย", true),
+    text("supplier", "ผู้จำหน่าย"),
+    text("reference", "เลขอ้างอิง / ใบเสร็จ", true),
+  ],
+  materialConfirm: [
+    // Against a transfer the material is the transfer's own (mutate puts it back).
+    { key: "material", label: "วัสดุ", type: "select", options: materials },
+    number("receivedQuantity", "จำนวนที่รับจริง · ชิ้น", false, true),
+    text("receiver", "ชื่อผู้รับจริง"),
+    reason,
+  ],
+};
+/** The fields the Log's edit of `kind` shows: its form's, without the files (an edit keeps
+ *  the attachment it has). */
+export const editFields = (kind: EntryKind): Field[] =>
+  (editOnly[kind] ?? forms[kind] ?? []).filter(
+    (f) => f.type !== "file" && f.type !== "files",
+  );
 /** The Owner's ready-made ingredient picks. Raw sticky rice is no longer one: each branch
  *  buys (or cooks) its own rice (B2). Older entries that name it still display as saved. */
 export const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง"];

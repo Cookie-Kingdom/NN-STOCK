@@ -24,11 +24,11 @@ import {
   lotName,
   referenceText,
 } from "@/components/organisms/shared/entryReferences";
-import { forms } from "@/lib/forms";
+import { editFields, forms } from "@/lib/forms";
 import { latestDatabase, saveDatabase } from "@/lib/persistence";
 import {
   editBlock,
-  editLockedKeys,
+  editLocked,
   entries,
   entryEdits,
   check,
@@ -95,6 +95,7 @@ const derivedLabels: Record<string, string> = {
 const linkEchoKeys = ["targetKind", "targetDate", "targetRole", "targetBranch"];
 
 const fieldLabel = (kind: string, key: string) =>
+  editFields(kind as EntryKind).find((f) => f.key === key)?.label ||
   forms[kind]?.find((f) => f.key === key)?.label ||
   derivedLabels[key] ||
   titles[key as EntryKind] || // closeDay's unfinished checklist items
@@ -143,13 +144,23 @@ export function EditEntryForm({
   onCancel: () => void;
   onSubmit: (values: Values, reason: string) => void;
 }) {
-  const fields = (forms[entry.kind] ?? []).filter(
-    (f) =>
-      f.type !== "file" &&
-      f.type !== "files" &&
-      !editLockedKeys.includes(f.key),
+  const fields = editFields(entry.kind).filter(
+    (f) => !editLocked(entry.kind).includes(f.key),
   );
-  const [values, setValues] = useState<Values>(() => ({ ...entry.values }));
+  const [values, setValues] = useState<Values>(() => {
+    const start = { ...entry.values };
+    // A place typed by hand is not among the select's options: it goes back under "อื่น ๆ".
+    for (const f of fields)
+      if (
+        f.type === "location" &&
+        start[f.key] &&
+        !f.options!.includes(start[f.key])
+      ) {
+        start[`${f.key}Custom`] = start[f.key];
+        start[f.key] = "อื่น ๆ";
+      }
+    return start;
+  });
   const [reason, setReason] = useState(initialReason);
   // SMK-05: a smoke PO's lines are edited with the same table the new PO form uses.
   const own: Record<string, number> = Object.fromEntries(
@@ -171,12 +182,20 @@ export function EditEntryForm({
   return (
     <form
       className="mt-3.5 border-t border-border pt-3.5"
+      // noValidate: a field left empty is saved and marked (GEN-02), in an edit too; the
+      // browser's own "fill out this field" would stop an edit that fills only one of them.
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
+        // "อื่น ๆ" with a place typed saves the place; left empty it stays "อื่น ๆ".
+        const resolved = { ...values };
+        for (const f of fields)
+          if (f.type === "location" && resolved[f.key] === "อื่น ๆ")
+            resolved[f.key] = resolved[`${f.key}Custom`]?.trim() || "อื่น ๆ";
         onSubmit(
           {
             ...Object.fromEntries(
-              fields.map((f) => [f.key, values[f.key] ?? ""]),
+              fields.map((f) => [f.key, resolved[f.key] ?? ""]),
             ),
             ...(linePos && {
               lines: JSON.stringify(
