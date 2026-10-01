@@ -389,6 +389,38 @@ test("LNK-04 LNK-06 branch links a ไม่ระบุ Lot receive to a batch 
     await expect(row).toContainText("แช่แข็ง 10.00");
   });
 
+  // STK-42: only frozen meat, all of it on the batch: the sale form starts on that batch
+  // from the table's button and from 「จดบันทึก」 alike, and still offers "ไม่ระบุ Lot".
+  await step(
+    page,
+    "สาขาศาลาแดง: มีแต่เนื้อแช่แข็งบนชุด ฟอร์มยอดขายเริ่มที่ชุดนั้นจากทั้งสองทาง",
+    async () => {
+      await openBranchTask(page, "จดยอดขาย");
+      await expect(lotSelect(page)).toHaveValue(batch);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await pointAndClick(
+        page,
+        page
+          .getByRole("banner")
+          .getByRole("button", { name: "จดบันทึก", exact: true }),
+      );
+      await pointAndClick(
+        page,
+        topDialog(page).getByRole("button", {
+          name: "บันทึกยอดขาย / Waste",
+          exact: true,
+        }),
+      );
+      await expect(lotSelect(page)).toHaveValue(batch);
+      await expect(
+        lotSelect(page).locator(`option[value="${NO_LOT}"]`),
+      ).toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    },
+  );
+
   await step(
     page,
     "Owner: รับที่ผูกแล้วหักสต๊อกกลางของชุด 10 กก. ครั้งเดียว",

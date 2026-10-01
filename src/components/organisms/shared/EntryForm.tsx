@@ -154,6 +154,9 @@ export function EntryFieldControl({
         fileName={values[f.key]}
       />
     );
+  // The form's first field takes focus whichever control it is: the Dialog looks for the
+  // mark, and without one focus is left on the close button (ACC-18).
+  const focus = autoFocus ? { autoFocus: true, "data-autofocus": true } : {};
   return (
     <FormField
       label={f.label}
@@ -164,6 +167,7 @@ export function EntryFieldControl({
     >
       {f.type === "select" ? (
         <Select
+          {...focus}
           value={values[f.key] || ""}
           required={!f.optional}
           onChange={(e) => set(f.key, e.target.value)}
@@ -195,6 +199,7 @@ export function EntryFieldControl({
         </>
       ) : f.type === "time" ? (
         <Select
+          {...focus}
           value={values[f.key] || ""}
           required={!f.optional}
           onChange={(e) => set(f.key, e.target.value)}
@@ -206,6 +211,7 @@ export function EntryFieldControl({
         </Select>
       ) : f.type === "textarea" ? (
         <Textarea
+          {...focus}
           compact={f.key === "note"}
           required={!f.optional}
           rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
@@ -214,8 +220,7 @@ export function EntryFieldControl({
         />
       ) : (
         <Input
-          autoFocus={autoFocus}
-          data-autofocus={autoFocus || undefined}
+          {...focus}
           type={f.type || "text"}
           maxLength={f.digits}
           inputMode={
@@ -397,8 +402,9 @@ export function EntryForm({
   const useLot = meatLot || pickLot;
   /* A branch's meat forms (BR-08): receiving lists every batch S (the branch records
    * what it received itself, BR-01); thawing and selling list the batches this branch holds meat of. All of
-   * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
-   * when it holds meat to thaw or sell otherwise. */
+   * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving; to thaw or
+   * sell, when the bucket holds meat or no batch does (STK-42: the note is still taken, as
+   * the buttons of จดวันนี้ open it). */
   const branchMeat = role === "branch" && meatLot;
   const branchStock = (id: string) => {
     const stock = balance(db, id, branch);
@@ -418,7 +424,10 @@ export function EntryForm({
   const noLotChoice = pickLot
     ? !lotRequiredKinds.includes(kind)
     : branchMeat &&
-      (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
+      (kind === "receive" ||
+        modal.lotId === NO_LOT ||
+        branchStock("") > 0.001 ||
+        !choices.some((l) => branchStock(l.id) > 0.001));
   /* The select's value: a lot id, NO_LOT for the bucket, "" while nothing is picked.
    * A lot the form cannot use would leave the required select empty and the browser
    * would block submit before onSubmit, with no message from us. Thawing starts on the
@@ -436,6 +445,12 @@ export function EntryForm({
     if (branchMeat) {
       const stocked = choices.find((l) => branchStock(l.id) > 0.001);
       if (stocked) return stocked.id;
+      // Nothing ready anywhere: a batch still frozen before the bucket, as จดวันนี้ opens it.
+      const frozen =
+        branchStock("") > 0.001
+          ? undefined
+          : choices.find((l) => balance(db, l.id, branch).frozen > 0.001);
+      if (frozen) return frozen.id;
       if (noLotChoice) return NO_LOT;
     }
     return choices[0]?.id ?? "";
@@ -466,12 +481,6 @@ export function EntryForm({
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const nextGiveawayId = useRef(0);
   const addGiveaway = () => {
-    // A giveaway hangs on the lot the sale itself is open on, so it cannot be filled
-    // before that lot is picked (a branch with no thawed lot has none to pick).
-    if (!lotChosen) {
-      setError("ยังไม่ได้เลือก Lot ต้นทาง · เลือกแล้วเพิ่มอินฟลูเอนเซอร์ได้");
-      return "";
-    }
     const id = `giveaway-${++nextGiveawayId.current}`;
     setGiveaways((current) => [
       ...current,
