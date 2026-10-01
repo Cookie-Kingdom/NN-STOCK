@@ -27,7 +27,8 @@ test("meat in central stock rings no branch's bell: branches record receives the
     expect(branchAlerts(s.db, branch, day).badges.day).toBe(1);
   }
 });
-test("material sent to one branch is not the other branch's job", () => {
+
+test("nothing waits on the Owner for material: รับวัสดุ has no alert and no badge (MAT-01)", () => {
   const s = setup();
   s.run("owner", "materialReceive", {
     purchaseDate: day,
@@ -36,28 +37,11 @@ test("material sent to one branch is not the other branch's job", () => {
     unitPrice: "3",
     supplier: "ร้านวัสดุ",
   });
-  s.run("owner", "materialTransfer", {
-    material: materials[0],
-    branch: "ศาลาแดง",
-    quantity: "60",
-    receiver: "ผู้ดูแลสาขา",
-  });
-  expect(
-    branchAlerts(s.db, "ศาลาแดง", day).notifications.find(
-      (item) => item.title === "วัสดุรอยืนยันรับ 1 รายการ",
-    ),
-  ).toEqual({
-    title: "วัสดุรอยืนยันรับ 1 รายการ",
-    detail: "ตรวจจำนวนที่มาถึงจริงแล้วกดยืนยันรับ",
-    tab: "material-receive",
-  });
-  // The line belongs to its own tab now — it must not inflate the จดรายวัน pill.
-  const salaBadges = branchAlerts(s.db, "ศาลาแดง", day).badges;
-  expect(salaBadges["material-receive"]).toBe(1);
-  expect(salaBadges.day).toBe(branchAlerts(s.db, "มีนบุรี", day).badges.day);
-
-  expect(titles(s.db, "มีนบุรี")).not.toContain("วัสดุรอยืนยันรับ 1 รายการ");
-  expect(branchAlerts(s.db, "มีนบุรี", day).badges["material-receive"]).toBe(0);
+  const { badges, notifications } = branchAlerts(s.db, "ศาลาแดง", day);
+  expect(badges).not.toHaveProperty("material-receive");
+  expect(notifications.map((item) => item.tab)).not.toContain(
+    "material-receive",
+  );
 });
 
 test("ตรวจนับสต๊อกวัสดุ waits until the day's one materials entry is saved", () => {

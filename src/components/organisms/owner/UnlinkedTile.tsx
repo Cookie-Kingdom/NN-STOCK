@@ -24,7 +24,6 @@ export function UnlinkedTile({ db }: { db: Database }) {
         ? `${meat.map(([branch, kg]) => `${branch} ${fmt(kg)} กก.`).join(" · ")} · รอผูก ${summary.meatReceives} รายการรับ`
         : "ทุกสาขาผูก Lot ครบ",
     },
-    // A branch's own material receipt needs no transfer (MAT-01): not listed here.
     {
       label: "ชุดรมควัน · ไม่มี PO รมควัน",
       value: `${summary.batchesWithoutSmokeOrder.length} ชุด`,

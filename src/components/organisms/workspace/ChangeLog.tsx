@@ -84,10 +84,7 @@ function ChangeRow({
       {e.kind === "link" && (
         <ReadRow
           label="ผูกกับ"
-          value={["lotId", "transferId"]
-            .filter((key) => e.values[key])
-            .map((key) => referenceText(db, key, e.values[key]))
-            .join(" · ")}
+          value={referenceText(db, "lotId", e.values.lotId)}
         />
       )}
       {!voidBlock(db, e, role, branch) && (

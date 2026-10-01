@@ -222,15 +222,8 @@ function roleplay(endDate: string, dayCount: number): Database {
     });
     for (const branch of branches) {
       currentBranch = branch;
-      run("owner", "materialTransfer", {
-        material,
-        branch,
-        quantity: String(materialPerBranch),
-        receiver: "ผู้ดูแลทดสอบ",
-      });
-      const transferId = db.entries.at(-1)?.id || "";
       run("branch", "materialConfirm", {
-        transferId,
+        material,
         receivedQuantity: String(materialPerBranch),
         receiver: "ผู้ดูแลทดสอบ",
       });
@@ -269,8 +262,7 @@ function roleplay(endDate: string, dayCount: number): Database {
           cookedRiceCost: "1440",
         });
       }
-      run("owner", "chiliAllocate", {
-        branch,
+      run("branch", "chiliReceive", {
         chiliTubes: "20",
         receiver: `ผู้ดูแล${branch}`,
         reference: `CHILI-${workDate}`,

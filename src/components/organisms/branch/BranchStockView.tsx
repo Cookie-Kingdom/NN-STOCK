@@ -9,7 +9,7 @@ import { DataTable } from "@/components/organisms/shared/DataTable";
 import {
   balance,
   branchMaterialStock,
-  chiliAllocated,
+  chiliReceived,
   chiliSold,
   chiliStock,
   cookedRiceStock,
@@ -89,7 +89,7 @@ export function branchStockRows(
       item: "น้ำพริกหลอด",
       quantity: fmt(chiliStock(db, branch)),
       unit: "หลอด",
-      detail: `Owner จัดสรร ${fmt(chiliAllocated(db, branch))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branch))} หลอด`,
+      detail: `รับเข้า ${fmt(chiliReceived(db, branch))} หลอด · ตัดสต๊อกแล้ว ${fmt(chiliSold(db, branch))} หลอด`,
     },
     ...materials.map((material, index) => ({
       genre: "วัสดุบรรจุภัณฑ์",

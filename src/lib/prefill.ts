@@ -1,13 +1,10 @@
 import { currentTimeSlot, forms, nextTimeSlot } from "./forms.ts";
 import {
   balance,
-  branches,
-  chiliStock,
   cookedRiceStock,
   entries,
   issuedRawRiceStock,
   n,
-  ownerChiliStock,
   ownerWasteOutstanding,
   packingListKg,
   pendingSmokeKg,
@@ -199,22 +196,6 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
         : none(),
     );
   }
-  if (kind === "chiliAllocate") {
-    const to = current?.branch || branches[0];
-    const tubes = Math.min(
-      Math.max(0, n(db.config, "chiliPar") - chiliStock(db, to)),
-      Math.max(0, ownerChiliStock(db)),
-    );
-    return merge(
-      tubes >= 1
-        ? from(
-            { chiliTubes: String(Math.floor(tubes)) },
-            { label: "เติมให้ถึงจำนวนฐาน" },
-          )
-        : none(),
-      carryLast(db, "chiliAllocate", ["receiver"], { branch: to }),
-    );
-  }
   if (kind === "expense") {
     const carried = carryLast(db, "expense", ["category", "payer"]);
     // What the select shows: the typed pick, else the carried one, else its first option.
@@ -232,6 +213,8 @@ function lotless(db: Database, kind: string, ctx: PrefillContext): Prefill {
     );
   }
   if (!branch) return none();
+  if (kind === "chiliReceive")
+    return carryLast(db, "chiliReceive", ["receiver"], { branch });
   if (kind === "ricePurchase") {
     const carried = carryLast(db, "ricePurchase", ["riceSource"], { branch });
     const source =
@@ -572,7 +555,6 @@ export function prefillValues(
 /** Fields whose change re-derives other prefilled fields, per kind: EntryForm refills
  *  the untouched ones when one of these changes. */
 export const prefillDrivers: Record<string, string[]> = {
-  chiliAllocate: ["branch"],
   expense: ["category"],
   ricePurchase: ["riceSource", "rawRiceKg", "cookedRiceKg"],
   rice: ["rawUsedKg"],

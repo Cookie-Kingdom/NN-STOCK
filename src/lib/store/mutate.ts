@@ -1,8 +1,8 @@
 /** `mutate`: the only way to change the database. Every entry is validated here; a batch's
  *  `values` cache is filled here. It refuses (`assert`) only what would make the log wrong: the
  *  wrong role, a retired kind, a future or bad date or time, a typed value that is not a number,
- *  a missing reference (a PO, an allocation, an edit target) and paying or confirming the same
- *  document twice (PRIN-03). An empty field is saved and listed in `missing` (GEN-02); a
+ *  a missing reference (a PO, an allocation, an edit target) and paying the same document
+ *  twice (PRIN-03). An empty field is saved and listed in `missing` (GEN-02); a
  *  quantity over stock, a closed day or a second once-per-batch entry is only a warning (`warn`). */
 import { fmt } from "../format";
 import { newId } from "../id";
@@ -45,8 +45,6 @@ import {
   issuedRawRiceStock,
   latestPackingList,
   liveLots,
-  materialPar,
-  materialUnitPrice,
   n,
   ownerChiliStock,
   ownerMaterialStock,
@@ -67,8 +65,10 @@ import {
   sum,
 } from "./derived";
 import { editBlock, omit, saleMoneyKeys, voidBlock } from "./visibility";
-/** Stock figures an edit must not push below zero, keyed `label#id`. */
-function stockLevels(db: Database) {
+/** Stock figures an edit must not push below zero, keyed `label#id`. STK-44: the Owner's store
+ *  only for the Owner; a branch's copy has none of the Owner's purchases, so there it is just
+ *  minus what the branch received. */
+function stockLevels(db: Database, role: ActingRole) {
   const levels = new Map<string, number>();
   for (const b of branches) {
     for (const lotId of [...db.lots.map((lot) => lot.id), ""]) {
@@ -80,6 +80,9 @@ function stockLevels(db: Database) {
     levels.set(`ข้าวเหนียวดิบ สาขา${b}#`, rawRiceStock(db, b));
     levels.set(`ข้าวเหนียวดิบที่เบิก สาขา${b}#`, issuedRawRiceStock(db, b));
     levels.set(`น้ำพริก สาขา${b}#`, chiliStock(db, b));
+    materials.forEach((m, i) =>
+      levels.set(`${m} สาขา${b}#`, branchMaterialStock(db, b, i)),
+    );
   }
   for (const lot of db.lots) {
     levels.set(`สต๊อกกลาง ${lot.id}#`, centralStock(db, lot.id));
@@ -97,9 +100,11 @@ function stockLevels(db: Database) {
           "kg",
         ),
     );
-  levels.set("น้ำพริกในคลัง Owner#", ownerChiliStock(db));
+  if (role === "branch") return levels;
+  // The label ends in a Latin word, so it carries its own space before "จะติดลบ".
+  levels.set("น้ำพริกในคลัง Owner #", ownerChiliStock(db));
   for (const m of materials)
-    levels.set(`${m} ในคลัง Owner#`, ownerMaterialStock(db, m));
+    levels.set(`${m} ในคลัง Owner #`, ownerMaterialStock(db, m));
   return levels;
 }
 /** `target` as `proposed` (and a new date or lot, EDT-24) would leave it: its values
@@ -108,6 +113,7 @@ function stockLevels(db: Database) {
  *  below zero that was not already there. */
 function correctedEntry(
   db: Database,
+  role: ActingRole,
   target: Entry,
   proposed: Values,
   date: string,
@@ -183,19 +189,22 @@ function correctedEntry(
     // The lot asked for, not the scratch save's: a PO saved again there would open a new lot.
     ...(lotId !== target.lotId && { fromLotId: target.lotId, toLotId: lotId }),
   };
-  const before = stockLevels(db);
+  const before = stockLevels(db, role);
   const after = as("entryEdit", {
     targetId: target.id,
     ...pack("to.", values),
     ...moved,
   });
   const touched = cachedOn(db, target, moved.toLotId);
-  for (const [key, level] of stockLevels({
-    ...after,
-    lots: after.lots.map((lot) =>
-      touched.has(lot.id) ? recached(after, lot) : lot,
-    ),
-  }))
+  for (const [key, level] of stockLevels(
+    {
+      ...after,
+      lots: after.lots.map((lot) =>
+        touched.has(lot.id) ? recached(after, lot) : lot,
+      ),
+    },
+    role,
+  ))
     warn(
       level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
       `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
@@ -255,12 +264,20 @@ function recached(db: Database, lot: Lot): Lot {
  *  (`fromDate` → `toDate`, `fromLotId` → `toLotId`) and whose it is. */
 function editValues(
   db: Database,
+  role: ActingRole,
   target: Entry,
   proposed: Values,
   date: string,
   lotId: string,
 ) {
-  const { values, moved } = correctedEntry(db, target, proposed, date, lotId);
+  const { values, moved } = correctedEntry(
+    db,
+    role,
+    target,
+    proposed,
+    date,
+    lotId,
+  );
   /* Only what the edit changes is laid over the entry, so a link or a Chef House correction
    * under it still shows through, and undoing that still takes effect. A sale carries all of
    * it: restore_sale_money works the menu total out from the edit's own counts. */
@@ -315,13 +332,13 @@ const ownership: Partial<Record<EntryKind, Role>> = {
   return: "owner",
   central: "owner",
   allocate: "owner",
-  chiliAllocate: "owner",
   receive: "branch",
   thaw: "branch",
   supplyPurchase: "branch",
   supplyIssue: "branch",
   ricePurchase: "branch",
   chiliPurchase: "branch",
+  chiliReceive: "branch",
   riceIssue: "branch",
   chiliIssue: "branch",
   rice: "branch",
@@ -332,7 +349,6 @@ const ownership: Partial<Record<EntryKind, Role>> = {
   materialReceive: "owner",
   ownerWasteReceive: "owner",
   generalPurchase: "owner",
-  materialTransfer: "owner",
   materialConfirm: "branch",
   closeDay: "branch",
   expense: "owner",
@@ -525,7 +541,6 @@ const referenceKey: Partial<Record<EntryKind, string>> = {
   invoiceReview: "invoiceId",
   invoicePayment: "invoiceId",
   receive: "allocation",
-  materialConfirm: "transferId",
 };
 /** The ids of the entries `e` names: its document, or what a Chef House correction corrects. */
 const named = (e: Entry): string[] =>
@@ -543,8 +558,6 @@ const referring = (db: Database, target: Entry) =>
   ([...Object.keys(referenceKey), "chefEdit"] as EntryKind[])
     .flatMap((kind) => entries(db, kind))
     .filter((e) => named(e).includes(target.id));
-/** LNK-03: entries that can be tied to a batch or a transfer after the fact. */
-const linkable: EntryKind[] = [...branchMeatKinds, "materialConfirm"];
 /** DM-09: the batch kinds whose values are cached on the lot (`lot.values`), the ones the
  *  derived figures read (lines, trip, receivedKg, preSmokeKg, packs, centralKg…). The rest
  *  reuse those keys for other things (foodivaReturnReceive.receivedKg, every `status`), and
@@ -645,12 +658,7 @@ function record(
      * so a closed today is not what they change. */
     if (!correcting && !["entryEdit", "void", "link"].includes(kind))
       warn(!isClosed(db, branch, date), "วันนี้ปิดยอดแล้ว");
-  } else if (
-    !correcting &&
-    ["allocate", "chiliAllocate", "materialTransfer"].includes(kind)
-  )
-    // Owner entries that land in a day a branch has closed are said, not refused.
-    warn(!isClosed(db, branch, date), `สาขา${branch}ปิดยอดวันที่ ${date} แล้ว`);
+  }
   // GEN-10: purchase-PO kinds on Lot F only; batch kinds on Lot S only, and with no lot they
   // open a new batch (GEN-09, D2: whether stamped owner, foodiva or cm).
   const poStep = [
@@ -1231,16 +1239,11 @@ function record(
       positive(v, "cookedRiceCost", "ยอดซื้อข้าวเหนียวสุก");
       v.totalCost = v.cookedRiceCost;
     }
-  } else if (kind === "chiliAllocate") {
-    assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
-    positive(v, "chiliTubes", "จำนวนน้ำพริกที่จัดสรร");
+  } else if (kind === "chiliReceive") {
+    // STK-43: the branch writes down the chili it received, whatever the Owner's store says.
+    positive(v, "chiliTubes", "จำนวนน้ำพริกที่รับ");
     warn(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
-    withinStock(
-      n(v, "chiliTubes"),
-      ownerChiliStock(db),
-      "น้ำพริกในคลัง Owner ไม่พอ กรุณาบันทึกซื้อเข้าคลังก่อน",
-      "หลอด",
-    );
+    required(v, "receiver", "ชื่อผู้รับจริง");
   } else if (kind === "chiliPurchase") {
     positive(v, "chiliTubes", "น้ำพริกซื้อเข้า");
     warn(Number.isInteger(n(v, "chiliTubes")), "น้ำพริกต้องเป็นจำนวนหลอดเต็ม");
@@ -1349,58 +1352,41 @@ function record(
     positive(v, "unitPrice", "ราคาซื้อต่อหน่วย", true);
     required(v, "supplier", "ผู้จำหน่าย");
     v.totalCost = String(n(v, "quantity") * n(v, "unitPrice"));
-  } else if (kind === "materialTransfer") {
-    assert(materials.includes(v.material), "เลือกวัสดุ");
-    assert(branches.includes(v.branch), "เลือกสาขาปลายทาง");
-    const materialIndex = materials.indexOf(v.material);
-    warn(
-      materialPar(db, v.branch, materialIndex) > 0 &&
-        materialUnitPrice(db, v.branch, materialIndex) > 0,
-      `ตั้งจำนวนฐานและราคาต่อหน่วยของ ${v.material} สำหรับสาขา${v.branch} ก่อนส่ง`,
-    );
-    positive(v, "quantity", "จำนวนที่ส่ง");
-    warn(Number.isInteger(n(v, "quantity")), "จำนวนวัสดุต้องเป็นจำนวนเต็ม");
-    withinStock(
-      n(v, "quantity"),
-      ownerMaterialStock(db, v.material),
-      `${v.material} ในคลัง Owner ไม่พอ`,
-      "",
-    );
-    required(v, "receiver", "ผู้รับของ");
-    v.requiresConfirm = "1";
   } else if (kind === "materialConfirm") {
+    // MAT-01: the branch writes down the material it received, whatever the Owner's store says.
+    required(v, "material", "วัสดุ");
+    assert(!v.material || materials.includes(v.material), "เลือกวัสดุ");
     positive(v, "receivedQuantity", "จำนวนที่รับจริง");
     warn(
       Number.isInteger(n(v, "receivedQuantity")),
       "จำนวนรับจริงต้องเป็นจำนวนเต็ม",
     );
-    if (v.transferId?.trim()) {
-      // MAT-02: against a transfer document, confirmed once.
-      const transfer = entries(db, "materialTransfer", undefined, branch).find(
-        (entry) => entry.id === v.transferId,
-      );
-      assert(transfer, "ไม่พบรายการส่งวัสดุ");
-      assert(
-        !entries(db, "materialConfirm", undefined, branch).some(
-          (entry) => entry.values.transferId === v.transferId,
-        ),
-        "ยืนยันรับรายการนี้แล้ว",
-      );
-      v.material = transfer.values.material;
-      withinStock(
-        n(v, "receivedQuantity"),
-        n(transfer.values, "quantity"),
-        "จำนวนรับจริงเกินจำนวนที่ส่ง",
-        "",
-      );
-      variance(n(v, "receivedQuantity"), n(transfer.values, "quantity"), v);
-    } else {
-      // MAT-01: straight in, no transfer document; `link` can tie one later.
-      delete v.transferId;
-      required(v, "material", "วัสดุ");
-      assert(!v.material || materials.includes(v.material), "เลือกวัสดุ");
-    }
     required(v, "receiver", "ชื่อผู้รับจริง");
+    /* MAT-05: a count of that day or a later one, saved without this receipt in its opening,
+     * already holds the stock in its counted figure, so the shelf would read it twice. An edit
+     * or a restore that leaves the opening as the count saw it is not told off. */
+    const index = materials.indexOf(v.material);
+    const counted = [
+      ...new Map(
+        entries(db, "materials", undefined, branch).map((e) => [e.date, e]),
+      ).values(),
+    ]
+      .filter(
+        (e) =>
+          index >= 0 &&
+          e.date >= date &&
+          Math.abs(
+            branchMaterialStock(db, branch, index, e.date) +
+              n(v, "receivedQuantity") -
+              n(e.values, "opening" + index),
+          ) > 0.001,
+      )
+      .map((e) => e.date)
+      .sort()[0];
+    warn(
+      !counted,
+      `วันที่ ${counted} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`,
+    );
   } else if (kind === "sale") {
     for (const [k, label] of [
       ["boxes", "จำนวนกล่องมาตรฐาน"],
@@ -1435,7 +1421,7 @@ function record(
     withinStock(
       n(v, "chiliSold"),
       chiliStock(db, branch),
-      "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
+      "น้ำพริกในสต๊อกไม่พอ",
       "หลอด",
     );
     const hasChiliCount = v.chiliCount !== undefined && v.chiliCount !== "";
@@ -1503,7 +1489,7 @@ function record(
     withinStock(
       n(v, "chiliSold"),
       chiliStock(db, branch),
-      "น้ำพริกที่ Owner จัดสรรให้สาขาไม่พอ",
+      "น้ำพริกในสต๊อกไม่พอ",
       "หลอด",
     );
     delete v.meatCost;
@@ -1531,19 +1517,12 @@ function record(
     const block = voidBlock(db, target, role, branch);
     assert(!block, block);
     /* A void takes the target out of every figure, like an edit does, so it gets the same
-     * stock check. An allocation or transfer the branch already took in would otherwise go
-     * back to central stock while the branch keeps it: void the branch's entry first. */
+     * stock check. An allocation the branch already took in would otherwise go back to
+     * central stock while the branch keeps it: void the branch's entry first. */
     if (target.kind === "allocate")
       assert(
         !entries(db, "receive").some((r) => r.values.allocation === target.id),
         "สาขารับเนื้อจากใบจัดสรรนี้แล้ว · ลบรายการรับเนื้อก่อน",
-      );
-    if (target.kind === "materialTransfer")
-      assert(
-        !entries(db, "materialConfirm").some(
-          (c) => c.values.transferId === target.id,
-        ),
-        "สาขายืนยันรับวัสดุจากใบโอนนี้แล้ว · ลบรายการยืนยันรับก่อน",
       );
     const held = referring(db, target)[0];
     assert(
@@ -1576,7 +1555,7 @@ function record(
         : undefined;
     /* Putting an entry back, or back to what it was before an edit, saves it again: its
      * kind's rules run on the log as it is now, without the entry itself (an invoice paid
-     * meanwhile, a transfer confirmed by another entry, a PO deleted since). */
+     * meanwhile, a PO deleted since). */
     const back =
       about && entries(after, about.kind).find((e) => e.id === about.id);
     assert(back || target.kind !== "void", "ไม่พบรายการ");
@@ -1618,12 +1597,17 @@ function record(
         : target.kind === "entryEdit" || target.kind === "link"
           ? "ย้อนกลับ"
           : "ลบ";
-    const before = stockLevels(db);
+    const before = stockLevels(db, role);
     for (const id of cachedOn(db, about ?? target)) touched.add(id);
-    for (const [key, level] of stockLevels({
-      ...after,
-      lots: after.lots.map((l) => (touched.has(l.id) ? recached(after, l) : l)),
-    }))
+    for (const [key, level] of stockLevels(
+      {
+        ...after,
+        lots: after.lots.map((l) =>
+          touched.has(l.id) ? recached(after, l) : l,
+        ),
+      },
+      role,
+    ))
       warn(
         level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
         `${done}แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
@@ -1637,43 +1621,25 @@ function record(
     v.targetRole = target.role;
     v.targetBranch = target.branch;
   } else if (kind === "link") {
-    // LNK-01..05: ties a recorded entry to a batch and/or a transfer; entries() overlays it.
+    // LNK-01..05: ties recorded branch meat to a batch; entries() overlays it.
     const target = db.entries.find((entry) => entry.id === v.targetId);
     assert(
       target && entries(db, target.kind).some((e) => e.id === target.id),
       "ไม่พบรายการ",
     );
-    assert(linkable.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
+    // LNK-03: only branch meat is tied to a batch after the fact.
+    assert(branchMeatKinds.includes(target.kind), "รายการนี้ผูกย้อนหลังไม่ได้");
     assert(canLink({ role, branch }, target), forbidden);
+    assert(v.lotId?.trim(), "เลือกชุดที่จะผูก");
     assert(
-      v.lotId?.trim() || v.transferId?.trim(),
-      "เลือกชุดหรือใบโอนที่จะผูก",
+      liveLots(db).some((l) => l.id === v.lotId && l.kind === "shipment"),
+      "ไม่พบชุดรมควันที่เลือก",
     );
-    if (v.lotId?.trim()) {
-      assert(
-        branchMeatKinds.includes(target.kind) &&
-          liveLots(db).some((l) => l.id === v.lotId && l.kind === "shipment"),
-        "ไม่พบชุดรมควันที่เลือก",
-      );
-    } else delete v.lotId;
-    if (v.transferId?.trim()) {
-      assert(target.kind === "materialConfirm", "รายการนี้ผูกกับใบโอนไม่ได้");
-      const transfer = entries(db, "materialTransfer").find(
-        (t) => t.id === v.transferId && t.branch === target.branch,
-      );
-      assert(transfer, "ไม่พบรายการส่งวัสดุ");
-      assert(
-        !entries(db, "materialConfirm").some(
-          (c) => c.id !== target.id && c.values.transferId === v.transferId,
-        ),
-        "ยืนยันรับรายการนี้แล้ว",
-      );
-    } else delete v.transferId;
     v.targetKind = target.kind;
     v.targetDate = target.date;
     v.targetRole = target.role;
     v.targetBranch = target.branch;
-    lotId = v.lotId || target.lotId;
+    lotId = v.lotId;
   } else if (kind === "entryEdit") {
     // Recorded, not applied: entries() overlays the `to.` values on the target (like chefEdit).
     const target = editTarget(db, v.targetId, role, branch);
@@ -1692,6 +1658,7 @@ function record(
       v,
       editValues(
         db,
+        role,
         target,
         proposed,
         toDate || target.date,
@@ -1711,7 +1678,6 @@ function record(
       chiliPrice: "ราคาขายน้ำพริกหลอด",
       rawRicePar: "จำนวนฐานข้าวเหนียวดิบ",
       rawRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวดิบ",
-      chiliPar: "จำนวนฐานน้ำพริก",
       chiliUnitPrice: "ราคาต่อหน่วยน้ำพริก",
       cookedRicePar: "จำนวนฐานข้าวเหนียวสุก",
       cookedRiceUnitPrice: "ราคาต่อหน่วยข้าวเหนียวสุก",

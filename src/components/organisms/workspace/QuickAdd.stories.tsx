@@ -24,7 +24,7 @@ const onTab = fn().mockName("onTab");
  *  - ศาลาแดง: the branch's own notes under ซื้อ · รับเข้า · สต๊อก / วัตถุดิบ ·
  *    ขาย / ประจำวัน.
  *  Focus starts on the first note; a pick logs `open(kind, "")` in Actions, and the two
- *  recorded on a screen of their own (เช็ควัสดุ, ยืนยันรับวัสดุ) log `onTab` instead.
+ *  recorded on a screen of their own (เช็ควัสดุ, รับวัสดุ) log `onTab` instead.
  *  ปิดใช้งาน: the button while the server payload is still loading. */
 export const Chooser: Story = {
   argTypes: {

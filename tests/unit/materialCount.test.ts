@@ -34,15 +34,9 @@ function stocked(): Setup {
     unitPrice: "3",
     supplier: "ร้านวัสดุ",
   });
-  s.run("owner", "materialTransfer", {
-    material: materials[0],
-    branch,
-    quantity: "60",
-    receiver: "ผู้ดูแลสาขา",
-  });
-  // The transfer only reaches the shelf once the branch confirms what arrived.
+  // MAT-01: the shelf holds what the branch wrote down as received.
   s.run("branch", "materialConfirm", {
-    transferId: s.db.entries.at(-1)!.id,
+    material: materials[0],
     receivedQuantity: "60",
     receiver: "ผู้ดูแลสาขา",
   });

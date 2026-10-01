@@ -20,6 +20,7 @@ import {
   recordPreSmoke,
   recordSmoke,
   saveEntry,
+  saveMaterialReceipt,
   signInAs,
   startFresh,
   step,
@@ -161,31 +162,12 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
 
   await step(
     page,
-    "สาขา: รับเนื้อไม่ระบุ Lot ทั้งสองสาขา + รับวัสดุไม่มีใบโอน",
+    "สาขา: รับเนื้อไม่ระบุ Lot ทั้งสองสาขา + จดรับวัสดุเอง",
     async () => {
       await signInAs(page, ACCOUNTS.saladaeng);
       await branchReceive(page, NO_LOT, "10");
       await openMenu(page, SCREENS.materialReceive.menu);
-      await pointAndClick(
-        page,
-        page.getByRole("button", { name: "รับวัสดุโดยไม่มีใบโอน" }),
-      );
-      const main = page.locator("main");
-      await main
-        .getByRole("combobox", { name: "วัสดุ แถวที่ 1" })
-        .selectOption({ index: 1 });
-      await main.getByLabel("จำนวนที่รับจริง แถวที่ 1").fill("20");
-      await main
-        .getByLabel("ชื่อผู้รับจริง", { exact: true })
-        .last()
-        .fill("ผู้ดูแลสาขาศาลาแดง");
-      await pointAndClick(
-        page,
-        main.getByRole("button", { name: "บันทึกรับวัสดุ" }),
-      );
-      await expect(
-        main.getByRole("button", { name: "บันทึกรับวัสดุ" }),
-      ).toHaveCount(0);
+      await saveMaterialReceipt(page, [["กล่องพิมพ์ลาย", "20"]]);
       await signInAs(page, ACCOUNTS.minburi);
       await branchReceive(page, NO_LOT, "4");
     },
@@ -214,7 +196,7 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
     await expect(tile).toContainText("14.00 กก.");
     await expect(tile).toContainText("ศาลาแดง 10.00 กก. · มีนบุรี 4.00 กก.");
     await expect(tile).toContainText("รอผูก 2 รายการรับ");
-    // MAT-01: a material receipt with no transfer is not something left to link.
+    // MAT-01: a material receipt has nothing to be linked to.
     await expect(tile).not.toContainText("วัสดุ");
     await expect(tile).toContainText("1 ชุด");
     await expect(tile).toContainText(shipment);

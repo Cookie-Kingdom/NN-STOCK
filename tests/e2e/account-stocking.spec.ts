@@ -8,6 +8,7 @@ import {
   SCREENS,
   SHIPMENT_NO,
   branchReceive,
+  branchReceiveChili,
   branchStockRow,
   changeRow,
   createPurchasePo,
@@ -20,10 +21,14 @@ import {
   openBranchTask,
   openMenu,
   openWeighIn,
+  ownerBuyChili,
+  ownerBuyMaterial,
+  ownerStockRow,
   pointAndClick,
   recordDispatch,
   saveDispatchDialog,
   saveEntry,
+  saveMaterialReceipt,
   signInAs,
   startFresh,
   step,
@@ -355,6 +360,308 @@ test("EDT-24 the date of an entry is corrected from the Log", async ({
   const row = changeRow(page, "แก้ไขรายการ · ยืนยันรับเนื้อที่ Chef House");
   await expect(row).toContainText("วันที่ทำรายการ");
   await expect(row).toContainText(moved);
+});
+
+/* Round 2026-10-01: nobody sends material or allocates chili to a branch. Each branch
+ * writes down what it received (MAT-01, STK-43), and the Owner's store is what the Owner
+ * bought less those receipts (STK-44). It reads below zero when a branch got stock the
+ * Owner never recorded buying. */
+const MATERIAL = "กล่องพิมพ์ลาย";
+const CHILI = "น้ำพริกหลอด";
+
+/** One row of the Owner's stock table: the store, each branch's shelf, and the caption. */
+async function expectOwnerStock(
+  page: Page,
+  item: string,
+  { store, saladaeng, minburi }: Record<string, string>,
+  caption: string,
+) {
+  const row = await ownerStockRow(page, item);
+  const cells = row.getByRole("cell");
+  await expect(cells.nth(4)).toHaveText(store);
+  await expect(cells.nth(5)).toHaveText(saladaeng);
+  await expect(cells.nth(6)).toHaveText(minburi);
+  await expect(row).toContainText(caption);
+}
+
+test("STK-44 MAT-01 STK-43 the Owner's store is what it bought less what the branches recorded, below zero included, and the report lists the receipts", async ({
+  page,
+}) => {
+  const branchTakes = async (
+    account: (typeof ACCOUNTS)[keyof typeof ACCOUNTS],
+    material: string,
+    chili: string,
+  ) => {
+    await signInAs(page, account);
+    await branchReceiveChili(page, chili);
+    await openMenu(page, SCREENS.materialReceive.menu);
+    await saveMaterialReceipt(page, [[MATERIAL, material]]);
+  };
+
+  await step(
+    page,
+    "Owner: ซื้อวัสดุ 100 ชิ้น น้ำพริก 50 หลอด เข้าคลัง · ไม่มีการส่งไปสาขา",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await ownerBuyMaterial(page, MATERIAL, "100");
+      await ownerBuyChili(page, "50");
+      const main = page.locator("main");
+      await expect(
+        main.getByRole("button", { name: "+ ซื้อเข้าคลัง" }),
+      ).toBeVisible();
+      await expect(main.getByRole("button", { name: /ไปสาขา/ })).toHaveCount(0);
+      // 「จดบันทึก」 offers the purchases, and nothing that sends or allocates.
+      await pointAndClick(
+        page,
+        page.getByRole("button", { name: "จดบันทึก", exact: true }),
+      );
+      const picker = topDialog(page);
+      await expect(
+        picker.getByRole("button", { name: "บันทึกซื้อวัสดุเข้าคลัง Owner" }),
+      ).toBeVisible();
+      await expect(picker).not.toContainText(/ส่งวัสดุ|จัดสรร|ไปสาขา/);
+      await pointAndClick(
+        page,
+        picker.getByRole("button", { name: "ปิด", exact: true }),
+      );
+      await expectOwnerStock(
+        page,
+        MATERIAL,
+        { store: "100.00", saladaeng: "0.00", minburi: "0.00" },
+        "สาขาจดรับแล้ว 0.00 ชิ้น",
+      );
+      await expectOwnerStock(
+        page,
+        CHILI,
+        { store: "50.00", saladaeng: "0.00", minburi: "0.00" },
+        "ซื้อเข้า 50.00 หลอด · สาขาจดรับแล้ว 0.00 หลอด",
+      );
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: จดรับวัสดุ 30 ชิ้น น้ำพริก 20 หลอด",
+    async () => {
+      await branchTakes(ACCOUNTS.saladaeng, "30", "20");
+    },
+  );
+
+  await step(page, "Owner: คลัง = ซื้อเข้า − ที่สาขาจดรับ", async () => {
+    await signInAs(page, ACCOUNTS.owner);
+    await expectOwnerStock(
+      page,
+      MATERIAL,
+      { store: "70.00", saladaeng: "30.00", minburi: "0.00" },
+      "สาขาจดรับแล้ว 30.00 ชิ้น",
+    );
+    await expectOwnerStock(
+      page,
+      CHILI,
+      { store: "30.00", saladaeng: "20.00", minburi: "0.00" },
+      "ซื้อเข้า 50.00 หลอด · สาขาจดรับแล้ว 20.00 หลอด",
+    );
+  });
+
+  await step(
+    page,
+    "สาขามีนบุรี: จดรับมากกว่าที่ Owner ซื้อ (วัสดุ 100 น้ำพริก 40)",
+    async () => {
+      await branchTakes(ACCOUNTS.minburi, "100", "40");
+    },
+  );
+
+  await step(page, "Owner: คลังติดลบ แสดงตามจริง", async () => {
+    await signInAs(page, ACCOUNTS.owner);
+    await expectOwnerStock(
+      page,
+      MATERIAL,
+      { store: "-30.00", saladaeng: "30.00", minburi: "100.00" },
+      "สาขาจดรับแล้ว 130.00 ชิ้น",
+    );
+    await expectOwnerStock(
+      page,
+      CHILI,
+      { store: "-10.00", saladaeng: "20.00", minburi: "40.00" },
+      "ซื้อเข้า 50.00 หลอด · สาขาจดรับแล้ว 60.00 หลอด",
+    );
+  });
+
+  await step(page, "Owner: รายงานแสดงประวัติที่สาขาจดรับ", async () => {
+    await openMenu(page, "รายงาน");
+    const chili = "ประวัติสาขารับน้ำพริก";
+    await expect(tableRow(page, chili, "ศาลาแดง")).toContainText("20.00 หลอด");
+    await expect(tableRow(page, chili, "มีนบุรี")).toContainText("40.00 หลอด");
+    const trail = "ประวัติซื้อและรับวัสดุ (Material audit trail)";
+    const bought = tableRow(page, trail, "ซื้อเข้าคลัง Owner");
+    await expect(bought).toContainText("100.00 ชิ้น");
+    await expect(bought).toContainText("ร้านบรรจุภัณฑ์ → คลัง Owner");
+    const received = tableRow(page, trail, "สาขารับเข้า");
+    await expect(received).toHaveCount(2);
+    await expect(received.filter({ hasText: "ศาลาแดง" })).toContainText(
+      "30.00 ชิ้น",
+    );
+    await expect(received.filter({ hasText: "มีนบุรี" })).toContainText(
+      "100.00 ชิ้น",
+    );
+  });
+});
+
+/* A chili or material receipt is a branch entry like any other: the branch edits and
+ * deletes its own (EDT-22/23), the Owner reads that in the change log and undoes it
+ * (EDT-25), and the other branch never sees it. */
+test("EDT-22 EDT-23 EDT-25 a branch edits and deletes its own chili and material receipts; the Owner undoes it; the other branch does not see them", async ({
+  page,
+}) => {
+  const chiliReceipt = "รับน้ำพริกเข้าสาขา";
+  const materialReceipt = "รับวัสดุเข้าสาขา";
+  const shelf = (item: string) =>
+    tableRow(page, "ตารางสต๊อกทั้งหมด · ศาลาแดง", item)
+      .getByRole("cell")
+      .nth(2);
+  /** Branch: corrects the one number of a receipt from its history row. */
+  const edit = async (title: string, label: RegExp, value: string) => {
+    await openMenu(page, "ประวัติ");
+    const entry = logRow(page, title);
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "แก้ไข", exact: true }),
+    );
+    await typeValue(page, entry.getByLabel(label), value);
+    await typeValue(page, entry.getByLabel("เหตุผลที่แก้ไข"), "นับใหม่");
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+    );
+    await expect(entry.locator("summary")).toContainText("แก้ไขแล้ว");
+  };
+  /** Branch: deletes a receipt from its history row. */
+  const remove = async (title: string) => {
+    await openMenu(page, "ประวัติ");
+    const entry = logRow(page, title);
+    await pointAndClick(page, entry.locator("summary"));
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ลบรายการ", exact: true }),
+    );
+    await typeValue(page, entry.getByLabel("เหตุผล"), "จดซ้ำ");
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+    );
+    await expect(entry.locator("summary")).toContainText("ลบแล้ว");
+  };
+
+  await step(
+    page,
+    "สาขาศาลาแดง: รับน้ำพริก 20 หลอด วัสดุ 50 ชิ้น",
+    async () => {
+      await signInAs(page, ACCOUNTS.saladaeng);
+      await branchReceiveChili(page, "20");
+      await openMenu(page, SCREENS.materialReceive.menu);
+      await saveMaterialReceipt(page, [[MATERIAL, "50"]]);
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: แก้น้ำพริกเป็น 25 วัสดุเป็น 40 สต๊อกตาม",
+    async () => {
+      await edit(chiliReceipt, /จำนวนน้ำพริกที่รับ/, "25");
+      await edit(materialReceipt, /จำนวนที่รับจริง/, "40");
+      await openMenu(page, "สต๊อก");
+      await expect(shelf(CHILI)).toHaveText("25.00");
+      await expect(shelf(MATERIAL)).toHaveText("40.00");
+    },
+  );
+
+  await step(page, "สาขาศาลาแดง: ลบทั้งสองรายการ สต๊อกเป็น 0", async () => {
+    await remove(chiliReceipt);
+    await remove(materialReceipt);
+    await openMenu(page, "สต๊อก");
+    await expect(shelf(CHILI)).toHaveText("0.00");
+    await expect(shelf(MATERIAL)).toHaveText("0.00");
+  });
+
+  await step(
+    page,
+    "สาขามีนบุรี: รับน้ำพริก 5 หลอด เห็นแต่รายการของตัวเอง",
+    async () => {
+      await signInAs(page, ACCOUNTS.minburi);
+      // The same form, this time from 「จดบันทึก」.
+      await pointAndClick(
+        page,
+        page.getByRole("button", { name: "จดบันทึก", exact: true }),
+      );
+      await pointAndClick(
+        page,
+        topDialog(page).getByRole("button", {
+          name: chiliReceipt,
+          exact: true,
+        }),
+      );
+      await expect(topDialog(page)).toContainText(chiliReceipt);
+      await field(page, /จำนวนน้ำพริกที่รับ/, "5");
+      await field(page, /ชื่อผู้รับจริง/, "ผู้ดูแลสาขามีนบุรี");
+      await saveEntry(page);
+      await openMenu(page, "ประวัติ");
+      const main = page.locator("main");
+      // Its own receipt is the whole history: nothing of ศาลาแดง's, changes included.
+      await expect(main.locator("details")).toHaveCount(1);
+      await expect(logRow(page, chiliReceipt)).toBeVisible();
+      await expect(main).toContainText("ยังไม่มีการแก้ไขหรือลบ");
+      await expect(main).not.toContainText(materialReceipt);
+    },
+  );
+
+  await step(
+    page,
+    "Owner: อ่านการแก้ไขและลบของสาขา ย้อนกลับการลบและการแก้น้ำพริก",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await openMenu(page, "Log");
+      const chiliEdit = changeRow(page, `แก้ไขรายการ · ${chiliReceipt}`);
+      await expect(chiliEdit).toContainText("ศาลาแดง");
+      await expect(chiliEdit).toContainText("นับใหม่");
+      await expect(chiliEdit).toContainText("20 → 25");
+      await expect(
+        changeRow(page, `แก้ไขรายการ · ${materialReceipt}`),
+      ).toContainText("50 → 40");
+      for (const title of [
+        `ลบรายการ · ${chiliReceipt}`,
+        `ลบรายการ · ${materialReceipt}`,
+        `แก้ไขรายการ · ${chiliReceipt}`,
+      ]) {
+        const row = changeRow(page, title);
+        await expect(row).toContainText("ศาลาแดง");
+        await pointAndClick(
+          page,
+          row.getByRole("button", { name: "ย้อนกลับ", exact: true }),
+        );
+        await expect(row).toContainText("ย้อนกลับแล้ว");
+      }
+    },
+  );
+
+  await step(
+    page,
+    "Owner: ศาลาแดงกลับเป็นน้ำพริก 20 หลอด วัสดุ 40 ชิ้น คลัง Owner ติดลบเท่าที่สาขาจดรับ",
+    async () => {
+      await expectOwnerStock(
+        page,
+        CHILI,
+        { store: "-25.00", saladaeng: "20.00", minburi: "5.00" },
+        "สาขาจดรับแล้ว 25.00 หลอด",
+      );
+      await expectOwnerStock(
+        page,
+        MATERIAL,
+        { store: "-40.00", saladaeng: "40.00", minburi: "0.00" },
+        "สาขาจดรับแล้ว 40.00 ชิ้น",
+      );
+    },
+  );
 });
 
 test("GEN-03 a branch still records on a day it has closed, with a warning; a future date is refused", async ({

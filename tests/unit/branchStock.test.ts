@@ -47,3 +47,24 @@ test("another branch's Lot never shows, and the fixed rows always do", () => {
     new Set(["วัตถุดิบ", "วัสดุบรรจุภัณฑ์"]),
   );
 });
+
+test("chili and material the branch wrote down as received are its stock (STK-43, MAT-01)", () => {
+  const s = ready();
+  s.run("branch", "chiliReceive", { chiliTubes: "30", receiver: "นิด" }, "");
+  s.run(
+    "branch",
+    "materialConfirm",
+    { material: materials[0], receivedQuantity: "50", receiver: "นิด" },
+    "",
+  );
+  const row = (branch: string, item: string) =>
+    branchStockRows(s.db, branch, s.db.lots).find((r) => r.item === item)!;
+  expect(row("ศาลาแดง", "น้ำพริกหลอด")).toMatchObject({
+    quantity: "30.00",
+    detail: "รับเข้า 30.00 หลอด · ตัดสต๊อกแล้ว 0.00 หลอด",
+  });
+  expect(row("ศาลาแดง", materials[0]).quantity).toBe("50.00");
+  // One branch's receipt is not the other's stock.
+  expect(row("มีนบุรี", "น้ำพริกหลอด").quantity).toBe("0.00");
+  expect(row("มีนบุรี", materials[0]).quantity).toBe("0.00");
+});

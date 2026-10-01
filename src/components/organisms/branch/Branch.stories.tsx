@@ -7,7 +7,6 @@ import {
   day,
   dayClosedDb,
   demoDb,
-  materialTransferDb,
   nextDay,
   open,
   unlinkedBranchDb,
@@ -15,12 +14,14 @@ import {
 import {
   chiliMatchDb,
   chiliMismatchDb,
+  chiliReceivedAfterCountDb,
 } from "../../../../.storybook/fixtures-F1";
 import { pick } from "../../../../.storybook/pick";
 import type { Database } from "@/lib/store";
 import {
   closeDayChecklist,
   isClosed,
+  materials,
   requiredRiceKinds,
   visibleLots,
 } from "@/lib/store";
@@ -91,13 +92,14 @@ const stockState = pick("ข้อมูล", {
   "ไม่ระบุ Lot": unlinkedBranchDb,
 });
 const receiptState = pick("ข้อมูล", {
-  มีใบโอนรอยืนยันรับ: materialTransferDb,
-  ไม่มีใบโอนรอยืนยันรับ: db,
+  รับแล้ววันนี้: unlinkedBranchDb,
+  ยังไม่มีรายการ: branchTasksDb,
 });
 const chiliState = pick("น้ำพริก", {
   ยังไม่ตรวจนับ: db,
   นับตรง: chiliMatchDb,
   นับไม่ตรง: chiliMismatchDb,
+  นับตรงแล้วรับเพิ่ม: chiliReceivedAfterCountDb,
 });
 const riceState = pick("ข้อมูล", {
   จดครบแล้ว: db,
@@ -144,7 +146,7 @@ export const TodayFeed: Story = {
 
 /** สต๊อก: ทุกอย่างที่อยู่ที่สาขานี้จริง ๆ ในตารางเดียว กรองด้วยกลุ่มสต๊อกและรายการ.
  *  ข้อมูล = "ไม่ระบุ Lot": แถว "ไม่ระบุ Lot · เนื้อรมควัน" พร้อมป้าย "ยังไม่ผูก Lot" และวัสดุ
- *  ที่รับโดยไม่มีใบโอนนับเข้าสต๊อกวัสดุ (materials[0] +50). Lots are the same list the
+ *  ที่สาขาจดรับเองนับเข้าสต๊อกวัสดุ (materials[0] +50). Lots are the same list the
  *  workspace hands the branch (BR-07): allocated to it or holding its own entries. */
 export const StockView: Story = {
   argTypes: { db: stockState.argType },
@@ -239,10 +241,11 @@ export const MaterialsEditing: Story = {
   },
 };
 
-// demoDb confirms every shipment it makes, so the pending-row state (and its live
-// "เกินจำนวนที่ส่ง" check) needs a database with one still outstanding. The received
-// quantity starts at the sent one ("ตามยอดส่ง", expected) and the receiver at the
-// name the Owner wrote on the transfer.
+/** รับวัสดุ (MAT-01): the form is the screen, open from the start: material + quantity rows
+ *  (เพิ่มแถว adds one), the working date and one receiver on the card beside them. บันทึกรับวัสดุ
+ *  stays disabled until something is typed, saves one materialConfirm per filled row and leaves
+ *  the form fresh for the next note. Below: what the branch received on the working date.
+ *  ข้อมูล: รับแล้ววันนี้ (materials[0] × 50) or ยังไม่มีรายการ (the empty line). */
 export const MaterialReceipt: Story = {
   argTypes: { db: receiptState.argType },
   args: { db: receiptState.initial },
@@ -256,30 +259,35 @@ export const MaterialReceipt: Story = {
   ),
 };
 
-/** "รับวัสดุโดยไม่มีใบโอน" opened: a table of material + quantity rows (เพิ่มแถว adds one)
- *  and one receiver under it; บันทึกรับวัสดุ saves a materialConfirm with no transferId
- *  per row (MAT-01). */
-export const MaterialReceiptNoTransfer: Story = {
+/** A row typed in and a second one added and left blank: the save button counts the filled
+ *  rows only ("บันทึกรับวัสดุ 1 รายการ") and the card totals the pieces. */
+export const MaterialReceiptTyped: Story = {
   ...MaterialReceipt,
   play: async ({ canvasElement }) => {
-    fireEvent.click(
-      within(canvasElement).getByRole("button", {
-        name: "รับวัสดุโดยไม่มีใบโอน",
-      }),
-    );
+    const screen = within(canvasElement);
+    fireEvent.change(screen.getByLabelText("วัสดุ แถวที่ 1"), {
+      target: { value: materials[0] },
+    });
+    fireEvent.change(screen.getByLabelText("จำนวนที่รับจริง แถวที่ 1"), {
+      target: { value: "40" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มแถว" }));
   },
 };
 
 /** สรุปรายวัน + น้ำพริก. สาขา switches the rows (มีนบุรี only buys cooked rice).
- *  น้ำพริก (ศาลาแดง, an open day with 20 tubes allocated and 2 sold): ยังไม่ตรวจนับ,
- *  นับตรง (badge ตรงกัน) or นับไม่ตรง (badge ยอดไม่ตรง + หมายเหตุส่วนต่าง). */
+ *  น้ำพริก (ศาลาแดง, an open day with 20 tubes received and 2 sold): ยังไม่ตรวจนับ,
+ *  นับตรง (badge ตรงกัน), นับไม่ตรง (badge ยอดไม่ตรง + หมายเหตุส่วนต่าง) or นับตรงแล้วรับเพิ่ม
+ *  (20 more tubes after the count: ควรเหลือ follows them, the badge stays ตรงกัน and says
+ *  what the count was made against). The table's
+ *  รับน้ำพริกเข้าสาขา button opens the chiliReceive form (STK-43; Actions panel: open). */
 export const Summary: Story = {
   argTypes: { branch: branchArg, db: chiliState.argType },
   args: { branch, db: chiliState.initial },
   render: ({ branch, db }) => (
     <>
       <DailySummary db={db} branch={branch} date={day} />
-      <ChiliDailySummary db={db} branch={branch} date={day} />
+      <ChiliDailySummary db={db} branch={branch} date={day} open={open} />
     </>
   ),
 };

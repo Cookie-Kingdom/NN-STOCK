@@ -66,10 +66,6 @@ function entryIndex(db: Database): EntryIndex {
           ...(e.values.toLotId && { lotId: e.values.toLotId }),
         });
     }
-    // A link's transfer is laid over in the same order, so of an edit and a link the later wins.
-    const linked = e.kind === "link" && byId.get(e.values.targetId);
-    if (linked && e.values.transferId && canLink(e, linked))
-      fix(e.values.targetId, { transferId: e.values.transferId });
     if (e.kind !== "chefEdit") continue;
     fix(e.values.receiveId, {
       receivedKg: e.values.receivedKg,
@@ -81,9 +77,9 @@ function entryIndex(db: Database): EntryIndex {
     ) as Values[])
       fix(id, batch);
   }
-  /* A `link` ties its target to a batch (`lotId`) and/or a transfer (`transferId`, above) after
-   * the fact (DM-07). Log order, voided links skipped: the latest live link wins, and voiding it
-   * falls back to the one before (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
+  /* A `link` ties its target to a batch (`lotId`) after the fact (DM-07). Log order, voided
+   * links skipped: the latest live link wins, and voiding it falls back to the one before
+   * (LNK-05). A link `canLink` refuses (another branch's entry) is ignored. */
   const lots = new Map<string, string>();
   for (const e of db.entries) {
     const target = e.kind === "link" && byId.get(e.values.targetId);
@@ -674,8 +670,8 @@ export function cookedRiceStock(
     )
   );
 }
-/** Chili tubes are issued to branches only by Owner. Sales reduce the branch balance. */
-export function chiliAllocated(
+/** STK-43: chili tubes a branch wrote down as received. Sales reduce the branch balance. */
+export function chiliReceived(
   db: Database,
   branch: string,
   throughDate?: string,
@@ -683,10 +679,10 @@ export function chiliAllocated(
   const inRange = (entry: Entry) => !throughDate || entry.date <= throughDate;
   return (
     sum(
-      entries(db, "chiliAllocate", undefined, branch).filter(inRange),
+      entries(db, "chiliReceive", undefined, branch).filter(inRange),
       "chiliTubes",
     ) +
-    // Keep old demo records readable after the workflow changed to Owner allocation.
+    // Old branch chili purchases still count.
     sum(
       entries(db, "supplyPurchase", undefined, branch).filter(inRange),
       "chiliTubes",
@@ -697,14 +693,16 @@ export function chiliAllocated(
     )
   );
 }
-/** Owner stock is purchased centrally, then reduced only by allocations to branches. */
+/** STK-44: the Owner's store is what it bought less what branches wrote down as received, the
+ *  way a straight `receive` comes off `centralStock`. Below zero when a branch got stock the
+ *  Owner never recorded buying: shown as it is, never clamped. */
 export function ownerChiliStock(db: Database) {
   const purchased = entries(db, "generalPurchase")
     .filter((entry) => entry.values.item === "น้ำพริกหลอด")
     .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
   // Old branch chili purchases (chiliPurchase, supplyPurchase) went straight to the branch and
-  // count in its chiliAllocated only: they were never in the Owner's store.
-  return purchased - sum(entries(db, "chiliAllocate"), "chiliTubes");
+  // count in its chiliReceived only: they were never in the Owner's store.
+  return purchased - sum(entries(db, "chiliReceive"), "chiliTubes");
 }
 export function chiliSold(db: Database, branch: string, throughDate?: string) {
   return sum(
@@ -716,24 +714,31 @@ export function chiliSold(db: Database, branch: string, throughDate?: string) {
 }
 export function chiliStock(db: Database, branch: string, throughDate?: string) {
   return (
-    chiliAllocated(db, branch, throughDate) - chiliSold(db, branch, throughDate)
+    chiliReceived(db, branch, throughDate) - chiliSold(db, branch, throughDate)
   );
 }
-export function materialSent(
+/** MAT-01: what branches took in of one material: `materialConfirm` is the one way material
+ *  reaches a branch. */
+function materialReceived(
   db: Database,
   material: string,
   branch?: string,
-  date?: string,
+  throughDate?: string,
 ) {
-  return entries(db, "materialTransfer", undefined, branch, date)
-    .filter((entry) => entry.values.material === material)
-    .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
+  return entries(db, "materialConfirm", undefined, branch)
+    .filter(
+      (entry) =>
+        entry.values.material === material &&
+        (!throughDate || entry.date <= throughDate),
+    )
+    .reduce((total, entry) => total + n(entry.values, "receivedQuantity"), 0);
 }
+/** STK-44: bought less received by every branch; may be below zero (see ownerChiliStock). */
 export function ownerMaterialStock(db: Database, material: string) {
-  const received = entries(db, "materialReceive")
+  const bought = entries(db, "materialReceive")
     .filter((entry) => entry.values.material === material)
     .reduce((total, entry) => total + n(entry.values, "quantity"), 0);
-  return received - materialSent(db, material);
+  return bought - materialReceived(db, material);
 }
 export function branchMaterialStock(
   db: Database,
@@ -741,34 +746,12 @@ export function branchMaterialStock(
   materialIndex: number,
   throughDate?: string,
 ) {
-  const material = materials[materialIndex];
-  const confirmations = new Map<string, Entry>();
-  for (const item of entries(db, "materialConfirm", undefined, branch))
-    if (!confirmations.has(item.values.transferId))
-      confirmations.set(item.values.transferId, item);
-  const transferred = entries(db, "materialTransfer", undefined, branch)
-    .filter(
-      (entry) =>
-        entry.values.material === material &&
-        (!throughDate || entry.date <= throughDate),
-    )
-    .reduce((total, entry) => {
-      if (!entry.values.requiresConfirm)
-        return total + n(entry.values, "quantity");
-      const confirmation = confirmations.get(entry.id);
-      return (
-        total + (confirmation ? n(confirmation.values, "receivedQuantity") : 0)
-      );
-    }, 0);
-  // MAT-01: a receipt with no transfer document counts as it is.
-  const direct = entries(db, "materialConfirm", undefined, branch)
-    .filter(
-      (entry) =>
-        !entry.values.transferId &&
-        entry.values.material === material &&
-        (!throughDate || entry.date <= throughDate),
-    )
-    .reduce((total, entry) => total + n(entry.values, "receivedQuantity"), 0);
+  const received = materialReceived(
+    db,
+    materials[materialIndex],
+    branch,
+    throughDate,
+  );
   /* A branch may save a day's count again to fix a typo, so only the newest record
    * of each day counts; the earlier ones stay in the log as the audit trail. */
   const counted = [
@@ -790,7 +773,7 @@ export function branchMaterialStock(
         n(entry.values, "used" + materialIndex)),
     0,
   );
-  return transferred + direct - used + adjustments;
+  return received - used + adjustments;
 }
 export function materialPar(db: Database, branch: string, index: number) {
   return (
@@ -873,10 +856,6 @@ export function unlinkedSummary(db: Database) {
     meatKg,
     /** Receives in that bucket still waiting to be linked to a batch. */
     meatReceives: receives.length,
-    /** Material receipts with no transfer document. */
-    materialConfirms: entries(db, "materialConfirm").filter(
-      (e) => !e.values.transferId,
-    ).length,
     batchesWithoutSmokeOrder: shipments(db)
       .filter((lot) => !entries(db, "smokeOrder", lot.id).length)
       .map((lot) => lot.id),

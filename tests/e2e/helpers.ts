@@ -309,7 +309,12 @@ export const SCREENS = {
     menu: "ข้าวเหนียววันนี้",
     table: "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
   },
-  materialReceive: { menu: "ยืนยันรับวัสดุ" },
+  materialReceive: { menu: "รับวัสดุ" },
+  chili: { table: "น้ำพริกหลอด · รับเข้า / สาขาตรวจสอบยอด" },
+  ownerStock: {
+    menu: "สต๊อกของทั้งหมด",
+    table: "ตารางสต๊อกทั้งหมด (All inventory)",
+  },
 } as const;
 
 /** The marker a field left empty is saved and shown with (GEN-02, `missingText`). */
@@ -701,6 +706,110 @@ export async function branchStockRow(page: Page, branch: string, lot: string) {
     `ตารางสต๊อกทั้งหมด · ${branch}`,
     `${lot || "ไม่ระบุ Lot"} · เนื้อรมควัน`,
   );
+}
+
+/* ---- material and chili -------------------------------------------------------
+ * Nobody sends these to a branch: the Owner buys into its store and each branch writes
+ * down what it received (MAT-01, STK-43). */
+
+/** Branch, on the "รับวัสดุ" tab: one save of a row per `[material, quantity]`, under one
+ *  receiver (MAT-01). `blankRows` more are added and left untouched: they are not saved. */
+export async function saveMaterialReceipt(
+  page: Page,
+  rows: [material: string, quantity: string][],
+  receiver = "ผู้ดูแลสาขา",
+  blankRows = 0,
+) {
+  const main = page.locator("main");
+  const addRow = () =>
+    pointAndClick(page, main.getByRole("button", { name: "เพิ่มแถว" }));
+  for (const [index, [material, quantity]] of rows.entries()) {
+    if (index > 0) await addRow();
+    await main
+      .getByRole("combobox", { name: `วัสดุ แถวที่ ${index + 1}` })
+      .selectOption(material);
+    await typeValue(
+      page,
+      main.getByLabel(`จำนวนที่รับจริง แถวที่ ${index + 1}`),
+      quantity,
+    );
+  }
+  for (let blank = 0; blank < blankRows; blank++) await addRow();
+  await typeValue(
+    page,
+    main.getByLabel("ชื่อผู้รับจริง", { exact: true }),
+    receiver,
+  );
+  await pointAndClick(
+    page,
+    main.getByRole("button", { name: `บันทึกรับวัสดุ ${rows.length} รายการ` }),
+  );
+  await expect(
+    main.getByText(`รับวัสดุ ${rows.length} รายการแล้ว`),
+  ).toBeVisible();
+}
+
+/** Branch: "รับน้ำพริกเข้าสาขา" from the chili table on the day tab (STK-43). */
+export async function branchReceiveChili(
+  page: Page,
+  tubes: string,
+  receiver = "ผู้ดูแลสาขา",
+) {
+  await openMenu(page, SCREENS.branchDay.menu);
+  await pointAndClick(
+    page,
+    tableSection(page, SCREENS.chili.table).getByRole("button", {
+      name: "รับน้ำพริกเข้าสาขา",
+    }),
+  );
+  await field(page, /จำนวนน้ำพริกที่รับ/, tubes);
+  await field(page, /ชื่อผู้รับจริง/, receiver);
+  await saveEntry(page);
+}
+
+/** Owner: "+ ซื้อเข้าคลัง" on the stock tab, `quantity` pieces of one packaging material. */
+export async function ownerBuyMaterial(
+  page: Page,
+  material: string,
+  quantity: string,
+) {
+  await openMenu(page, SCREENS.ownerStock.menu);
+  await button(page, "+ ซื้อเข้าคลัง");
+  const dialog = topDialog(page);
+  await dialog.getByLabel(`ซื้อ ${material}`, { exact: true }).check();
+  await typeValue(page, dialog.getByLabel(`จำนวนซื้อ ${material}`), quantity);
+  await typeValue(page, dialog.getByLabel(`ราคาซื้อ ${material}`), "5");
+  await typeValue(
+    page,
+    dialog.getByLabel(`ผู้จำหน่าย ${material}`),
+    "ร้านบรรจุภัณฑ์",
+  );
+  await saveEntry(page);
+}
+
+/** Owner: the same button's other form, `tubes` of "น้ำพริกหลอด" into the store. */
+export async function ownerBuyChili(page: Page, tubes: string) {
+  await openMenu(page, SCREENS.ownerStock.menu);
+  await button(page, "+ ซื้อเข้าคลัง");
+  await pointAndClick(
+    page,
+    topDialog(page).getByRole("radio", { name: /^ซื้ออื่น ๆ/ }),
+  );
+  const dialog = topDialog(page);
+  await dialog
+    .getByRole("combobox", { name: "เลือกวัตถุดิบ 1" })
+    .selectOption("น้ำพริกหลอด");
+  await typeValue(page, dialog.getByLabel("จำนวน 1", { exact: true }), tubes);
+  await typeValue(page, dialog.getByLabel("ราคาต่อหน่วย 1"), "12");
+  await typeValue(page, dialog.getByLabel("ผู้จำหน่าย 1"), "ร้านน้ำพริก");
+  await saveEntry(page);
+}
+
+/** The Owner's row of one material, or of "น้ำพริกหลอด", on "สต๊อกของทั้งหมด": the
+ *  store ("คลัง Owner", STK-44) and each branch's shelf. */
+export async function ownerStockRow(page: Page, item: string) {
+  await openMenu(page, SCREENS.ownerStock.menu);
+  return tableRow(page, SCREENS.ownerStock.table, item);
 }
 
 /** A history row (`<details>`) of the signed-in workspace that mentions `text`. */

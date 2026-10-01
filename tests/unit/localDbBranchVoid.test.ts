@@ -10,8 +10,9 @@ import {
 import { isVoided, seed, type Entry, type Values } from "@/lib/store";
 import { retiredKinds } from "@/lib/store/model";
 
-// Migration 20261001000039 (append_entries), JS port: a branch edits, deletes and restores its
-// own live entries directly, on a closed day too; nobody else's, and an undo is not undone.
+// Migrations 20261001000039 and 20261001000040 (append_entries), JS port: a branch edits, deletes
+// and restores its own live entries directly, on a closed day too (a chiliReceive and a
+// materialConfirm like any other); nobody else's, and an undo is not undone.
 // The state and the cases are the SQL test's, read from its file so the two cannot drift.
 test("a branch edits, deletes and restores only its own live entries", () => {
   const sql = readFileSync(
@@ -55,52 +56,15 @@ test("a branch edits, deletes and restores only its own live entries", () => {
   const log = readState(db).payload;
   expect(
     log.entries.filter((e) => isVoided(log, e.id)).map((e) => e.id),
-  ).toEqual(["r1", "r0", "m0", "ed2", "lk1", "dl1", "em2"]);
-});
-
-// Migration 20260929000036: a material transfer is confirmed once, directly or through a link.
-test("a branch cannot confirm a transfer twice", () => {
-  const db = openLocalDb(":memory:");
-  const e = (id: string, kind: string, values: Record<string, string> = {}) =>
-    ({
-      id,
-      kind,
-      role: "branch",
-      lotId: "",
-      branch: "มีนบุรี",
-      date: "2026-09-10",
-      values,
-    }) as Entry;
-  const minburi = accountById("minburi");
-  const append = (...entries: Entry[]) =>
-    appendState(db, minburi, entries, [], readState(db).revision);
-  append(
-    e("m1", "materialConfirm", { transferId: "t1" }),
-    e("m2", "materialConfirm"),
-  );
-  expect(() =>
-    append(e("m3", "materialConfirm", { transferId: "t1" })),
-  ).toThrow("Material transfer is already confirmed");
-  expect(() =>
-    append(e("l1", "link", { targetId: "m2", transferId: "t1" })),
-  ).toThrow("Material transfer is already confirmed");
-  append(e("l1", "link", { targetId: "m2", transferId: "t2" }));
-  expect(() =>
-    append(e("m3", "materialConfirm", { transferId: "t2" })),
-  ).toThrow("Material transfer is already confirmed");
-  // 0039: the branch deleting its own confirm frees the transfer, in the same save.
-  append(
-    e("w1", "void", { targetId: "m1" }),
-    e("m3", "materialConfirm", { transferId: "t1" }),
-  );
+  ).toEqual(["r1", "r0", "m0", "ed2", "lk1", "dl1", "cr1", "em1"]);
 });
 
 // Migrations 20260929000036 and 20261001000039 (editRequest): no new entry of a retired kind
-// (retiredKinds in store/model.ts).
-test("a branch cannot append a retired kind", () => {
+// (retiredKinds in store/model.ts). 20261001000040: nor of the two kinds removed outright.
+test("a branch cannot append a retired or a removed kind", () => {
   const db = openLocalDb(":memory:");
   const minburi = accountById("minburi");
-  for (const kind of retiredKinds)
+  for (const kind of [...retiredKinds, "chiliAllocate", "materialTransfer"])
     expect(() =>
       appendState(
         db,

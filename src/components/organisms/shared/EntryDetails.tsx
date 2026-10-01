@@ -87,7 +87,6 @@ const derivedLabels: Record<string, string> = {
   note: "หมายเหตุ",
   orderId: "PO รมควัน",
   invoiceId: "Invoice ค่ารมควัน",
-  transferId: "ใบส่งวัสดุ",
   targetId: "รายการที่ผูก",
   lotId: "ชุดรมควัน",
   material: "วัสดุ",
@@ -435,16 +434,10 @@ export function EntryDetails({
   // overlay); a deleted entry is not among them and reads as it was recorded.
   const edited = (db && entries(db, e.kind).find((x) => x.id === e.id)) || e;
   /* Its live link, read from the whole log: an Owner's void of a branch's link is not among
-   * the branch's own entries. The link only ever sets `lotId` / `transferId`. */
+   * the branch's own entries. The link only ever sets `lotId`. */
   const link = linkOf(lookup, e.id);
   const current = link
-    ? {
-        ...edited,
-        lotId: link.values.lotId || edited.lotId,
-        values: link.values.transferId
-          ? { ...edited.values, transferId: link.values.transferId }
-          : edited.values,
-      }
+    ? { ...edited, lotId: link.values.lotId || edited.lotId }
     : edited;
   const linkable = !!lookup && !voided && canLink(e, role, branch);
   // EDT-22/20: any account edits and deletes what `canChange` lets it, directly.
@@ -516,15 +509,11 @@ export function EntryDetails({
               ผูกแล้ว
             </Badge>
           )}
-          {/* A material receipt needs no transfer (MAT-01); unlinked meat is flagged. */}
-          {linkableKinds.includes(e.kind) &&
-            e.kind !== "materialConfirm" &&
-            !voided &&
-            !isLinked(current) && (
-              <Badge tone="warning" className="ml-2">
-                ยังไม่ผูก Lot
-              </Badge>
-            )}
+          {linkableKinds.includes(e.kind) && !voided && !isLinked(current) && (
+            <Badge tone="warning" className="ml-2">
+              ยังไม่ผูก Lot
+            </Badge>
+          )}
           {!isEdit && missing.length > 0 && (
             <Badge tone="warning" className="ml-2">
               {missingText} {missing.length} ช่อง
@@ -556,7 +545,7 @@ export function EntryDetails({
         </>
       ) : (
         <>
-          {linkableKinds.includes(e.kind) && e.kind !== "materialConfirm" && (
+          {linkableKinds.includes(e.kind) && (
             <ReadRow
               label={derivedLabels.lotId}
               value={lotName(lookup, current.lotId)}

@@ -102,6 +102,20 @@ begin
     {"id":"un","kind":"void","role":"branch","lotId":"S2","branch":"ศาลาแดง","date":"2026-09-07","values":{"targetId":"e2"}}
   ]'::jsonb, format('central follow: %s', v_seen -> 'entries');
 
+  -- 0040: a branch's copy holds its own chili and material receipts (STK-43, MAT-01), none of
+  -- another branch's and none of the Owner's purchases (STK-44). tests/unit/roleScope.test.ts
+  -- checks scopeDatabase on the same log.
+  v_seen := public.scope_app_state(jsonb_build_object('version', 9, 'lots', v_lots, 'config', v_cfg, 'entries', '[
+    {"id":"cr-mb","kind":"chiliReceive","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"chiliTubes":"20"}},
+    {"id":"cr-sd","kind":"chiliReceive","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"chiliTubes":"5"}},
+    {"id":"mc-mb","kind":"materialConfirm","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"receivedQuantity":"6"}},
+    {"id":"mc-sd","kind":"materialConfirm","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"receivedQuantity":"3"}},
+    {"id":"mr","kind":"materialReceive","role":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"quantity":"10"}},
+    {"id":"gp","kind":"generalPurchase","role":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"quantity":"50"}}
+  ]'::jsonb), array['มีนบุรี']);
+  select string_agg(x ->> 'id', ',' order by ord) into v_text from jsonb_array_elements(v_seen -> 'entries') with ordinality t(x, ord);
+  assert v_text = 'cr-mb,mc-mb', format('self receive: %s', v_text);
+
   -- M1: Foodiva and Chef House accounts are retired, even when active.
   foreach v_uid in array array[v_food, v_cm] loop
     perform set_config('test.uid', v_uid::text, true);

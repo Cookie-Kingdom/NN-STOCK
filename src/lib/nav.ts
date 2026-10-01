@@ -143,7 +143,7 @@ export const branchNav: NavGroup[] = [
   {
     items: [
       { id: "day", label: "จดรายวัน", icon: Store },
-      { id: "material-receive", label: "ยืนยันรับวัสดุ", icon: PackageCheck },
+      { id: "material-receive", label: "รับวัสดุ", icon: PackageCheck },
       {
         id: "material-count",
         label: "ตรวจนับสต๊อกวัสดุวันนี้",

@@ -11,6 +11,7 @@ import {
   nextDay,
   open,
   ownerReservedDb,
+  ownerShortDb,
   partialBatchDb,
   unlinkedDb,
   unmatchedPoDb,
@@ -54,6 +55,7 @@ const stockState = pick("สถานะ", {
   ตัวอย่าง: db,
   "Waste รอรับ": ownerReservedDb,
   "ไม่ระบุ Lot": unlinkedDb,
+  "คลัง Owner ติดลบ": ownerShortDb,
 });
 const linkState = pick("สถานะ", {
   ตัวอย่าง: db,
@@ -117,7 +119,7 @@ export const AlertBanners: StoryObj<{
  *  note, whichever kind it is (not the one furthest along).
  *  เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run; "ยังไม่ผูก" reads all clear.
- *  - ยังไม่ผูก: ศาลาแดง 10 kg in "ไม่ระบุ Lot", 1 material receipt with no transfer, 1 batch
+ *  - ยังไม่ผูก: ศาลาแดง 10 kg in "ไม่ระบุ Lot", 1 batch
  *    with no smoke PO (Chef House smoked it first), 1 purchase PO with no Foodiva invoice.
  *  - ผูกแล้ว: the same after ศาลาแดง linked its meat to the 35 kg batch: meat reads 0 and
  *    the sale is costed on the batch. */
@@ -149,9 +151,10 @@ export const DailyStatus: StoryObj<{ db: Database; date: string }> = {
  *  - ตัวอย่าง: the seven-day demo run.
  *  - Waste รอรับ: the Waste row has 6 kg still waiting at Foodiva, 4 kg already in คลัง
  *    Owner, and the บันทึกรับเนื้อ action on the same row.
- *  - จัดสรรแล้ว: smoked beef, what is left at Foodiva to allocate beside the 17.5 kg sent
- *    to ศาลาแดง.
- *  - ไม่ระบุ Lot: a "ไม่ระบุ Lot" row holds ศาลาแดง's 10 kg received with no lot (DASH-06). */
+ *  - ไม่ระบุ Lot: a "ไม่ระบุ Lot" row holds ศาลาแดง's 10 kg received with no lot (DASH-06).
+ *  - คลัง Owner ติดลบ (STK-44): คลัง Owner is bought less what the branches wrote down as
+ *    received, shown as it is: materials[0] bought 20, ศาลาแดง received 50 (-30.00); chili
+ *    never bought, 30 tubes received (-30.00). รายละเอียด reads "สาขาจดรับแล้ว N". */
 export const Stock: Story = {
   argTypes: { db: stockState.argType },
   args: { db: stockState.initial },

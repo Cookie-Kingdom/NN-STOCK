@@ -4,6 +4,7 @@ import { restoreSaleMoney, stripSaleMoney } from "@/lib/sale-money";
 import {
   balance,
   batchKinds,
+  branchMaterialStock,
   branches,
   centralStock,
   check,
@@ -269,11 +270,14 @@ const sale = {
   lineMan: "3560",
 };
 const material = materials[0];
+/** MAT-05: what a material receipt is warned with when the count of `date` has to be saved again. */
+const recount = (date: string) =>
+  `วันที่ ${date} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`;
 
 /** One of everything, in the usual order: a purchase PO with Foodiva's invoice, its payment and
  *  the Owner's waste pick-up; a batch from smoke PO to central stock with its smoking invoice
- *  reviewed and paid; the Owner's chili, material and expense; ศาลาแดง's day, closed and
- *  unlocked. Returns the database after each save, so `at(-1)` is the whole flow. */
+ *  reviewed and paid; the Owner's chili and material purchases and an expense; ศาลาแดง's day
+ *  (the chili and the material it received among it), closed and unlocked. Returns the database after each save, so `at(-1)` is the whole flow. */
 function fullFlow() {
   const s = setup();
   const steps: Database[] = [];
@@ -344,7 +348,12 @@ function fullFlow() {
     },
     "",
   );
-  s.run("owner", "chiliAllocate", { branch: sala, chiliTubes: "20" }, "");
+  s.run(
+    "branch",
+    "chiliReceive",
+    { chiliTubes: "20", receiver: "ผู้ดูแล" },
+    "",
+  );
   s.run(
     "owner",
     "materialReceive",
@@ -357,13 +366,6 @@ function fullFlow() {
     },
     "",
   );
-  s.run(
-    "owner",
-    "materialTransfer",
-    { material, branch: sala, quantity: "6", receiver: "ผู้ดูแล" },
-    "",
-  );
-  const transferId = s.db.entries.at(-1)!.id;
   s.run(
     "owner",
     "expense",
@@ -388,7 +390,7 @@ function fullFlow() {
   s.run(
     "branch",
     "materialConfirm",
-    { transferId, receivedQuantity: "6", receiver: "ผู้ดูแล" },
+    { material, receivedQuantity: "6", receiver: "ผู้ดูแล" },
     "",
   );
   s.run(
@@ -413,12 +415,7 @@ const flow = fullFlow();
 const whole = flow.at(-1)!;
 /** Deletes the flow refuses while something stands on the entry or names it by id: tested on
  *  their own below. */
-const held: EntryKind[] = [
-  "purchase",
-  "materialTransfer",
-  "smokeOrder",
-  "smokingInvoice",
-];
+const held: EntryKind[] = ["purchase", "smokeOrder", "smokingInvoice"];
 const label = (e: Entry, index: number) =>
   `${e.kind} (${index + 1}/${whole.entries.length})`;
 
@@ -486,19 +483,6 @@ describe("EDT-23 delete, then restore, every kind of the flow", () => {
       expect(figures(w.db)).toEqual(figures(before));
     },
   );
-
-  test("a transfer the branch confirmed is deleted only after its confirmation", () => {
-    const w = from(whole);
-    const transfer = only(whole, "materialTransfer");
-    expect(() => del(w, transfer)).toThrow("ลบรายการยืนยันรับก่อน");
-    del(w, only(whole, "materialConfirm"));
-    const stock = ownerMaterialStock(w.db, material);
-    const gone = del(w, transfer);
-    expect(ownerMaterialStock(w.db, material)).toBe(stock + 6);
-    del(w, gone);
-    expect(ownerMaterialStock(w.db, material)).toBe(stock);
-    expect(live(w.db, transfer)).toEqual(transfer);
-  });
 
   test("a Chef House correction is deleted and restored with the values it laid over the rounds", () => {
     const s = smoked();
@@ -1381,25 +1365,14 @@ describe("EDT-24 the lot an entry is recorded on", () => {
 });
 
 describe("EDT-22 a branch changes its own entries directly", () => {
-  /** ศาลาแดง's chillDay (70 kg received and thawed, 65.5 kg sold), มีนบุรี's receive of 1 kg
-   *  on the same batch, and the Owner's chili sent to ศาลาแดง. */
+  /** ศาลาแดง's chillDay (70 kg received and thawed, 65.5 kg sold), an old Owner allocation of
+   *  1 kg addressed to ศาลาแดง, and มีนบุรี's receive of 1 kg on the same batch. */
   const day1 = () => {
-    const w = from(chillDay().db);
+    const s = chillDay();
+    const sent = legacyAllocate(s, { branch: sala, kg: "1" });
+    const w = from(s.db);
     const lotId = only(w.db, "sale").lotId;
     const theirs = w.run("branch", "receive", { kg: "1" }, lotId, day, min);
-    w.run("owner", "generalPurchase", {
-      purchaseDate: day,
-      item: "น้ำพริกหลอด",
-      purchaseCategory: "วัตถุดิบ",
-      unit: "หลอด",
-      quantity: "50",
-      unitPrice: "6",
-      supplier: "ร้านพริก",
-    });
-    const sent = w.run("owner", "chiliAllocate", {
-      branch: sala,
-      chiliTubes: "20",
-    });
     return { w, db: w.db, lotId, sale: only(w.db, "sale"), theirs, sent };
   };
 
@@ -1452,7 +1425,7 @@ describe("EDT-22 a branch changes its own entries directly", () => {
 
   test("an Owner entry is refused for an edit, also one addressed to the branch", () => {
     const { w, sent } = day1();
-    expect(() => edit(w, sent, { chiliTubes: "25" }, {}, "branch")).toThrow(
+    expect(() => edit(w, sent, { kg: "2" }, {}, "branch")).toThrow(
       "แก้ไขได้เฉพาะรายการของบัญชีนี้",
     );
     expect(() =>
@@ -1572,16 +1545,16 @@ describe("EDT-22 a branch changes its own entries directly", () => {
   });
 
   test("a forged edit by a branch of an Owner entry is ignored", () => {
-    const { db, sent, sale } = day1();
+    const { db, sent, sale, lotId } = day1();
     const forged: Entry = {
       ...sale,
       id: "forged-edit",
       kind: "entryEdit",
-      values: { targetId: sent.id, "to.chiliTubes": "500" },
+      values: { targetId: sent.id, "to.kg": "500" },
     };
     const log = { ...db, entries: [...db.entries, forged] };
     expect(live(log, sent)).toEqual(sent);
-    expect(chiliStock(log, sala)).toBe(20);
+    expect(centralStock(log, lotId)).toBe(centralStock(db, lotId));
   });
 
   test("a forged delete by a branch of another branch's entry is ignored", () => {
@@ -1598,7 +1571,7 @@ describe("EDT-22 a branch changes its own entries directly", () => {
   });
 
   test("a forged delete by a branch of an Owner entry is ignored", () => {
-    const { db, sent, sale } = day1();
+    const { db, sent, sale, lotId } = day1();
     const forged: Entry = {
       ...sale,
       id: "forged-void",
@@ -1607,7 +1580,7 @@ describe("EDT-22 a branch changes its own entries directly", () => {
     };
     const log = { ...db, entries: [...db.entries, forged] };
     expect(isVoided(log, sent.id)).toBe(false);
-    expect(chiliStock(log, sala)).toBe(20);
+    expect(centralStock(log, lotId)).toBe(centralStock(db, lotId));
   });
 
   test("a forged restore by a branch of the Owner's delete is ignored", () => {
@@ -1896,53 +1869,6 @@ describe("EDT-23 a restore is checked like a new save", () => {
     expect(() => del(w, gone)).toThrow("ชำระ Invoice เนื้อใบนี้แล้ว");
   });
 
-  test("a transfer confirmed again in the meantime: the first confirmation is not restored", () => {
-    const w = from(setup().db);
-    w.run("owner", "materialReceive", {
-      purchaseDate: day,
-      material,
-      quantity: "10",
-      unitPrice: "1",
-      supplier: "ร้านวัสดุ",
-    });
-    const transfer = w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const confirmIt = () =>
-      w.run("branch", "materialConfirm", {
-        transferId: transfer.id,
-        receivedQuantity: "6",
-        receiver: "ผู้ดูแล",
-      });
-    const gone = del(w, confirmIt(), "branch");
-    confirmIt();
-    expect(() => del(w, gone, "branch")).toThrow("ยืนยันรับรายการนี้แล้ว");
-    expect(entries(w.db, "materialConfirm")).toHaveLength(1);
-  });
-
-  test("a confirmation whose transfer was deleted in the meantime is not restored", () => {
-    const w = from(setup().db);
-    const transfer = w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const confirmed = w.run("branch", "materialConfirm", {
-      transferId: transfer.id,
-      receivedQuantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const gone = del(w, confirmed, "branch");
-    del(w, transfer);
-    expect(() => del(w, gone, "branch")).toThrow(
-      "ส่งวัสดุไปสาขา ที่รายการนี้อ้างถึงถูกลบแล้ว · กู้คืนรายการนั้นก่อน",
-    );
-  });
-
   test("a restore that leaves stock short is said, not refused", () => {
     const db = chillDay().db;
     const w = from(db);
@@ -2076,18 +2002,15 @@ describe("EDT-25 what a branch sees of the change log", () => {
     expect(seenBy(w, sala)).toContain(restore.id);
   });
 
-  /** The Owner's transfer of 6 boxes to ศาลาแดง. */
-  const transfer = (w: World) =>
-    w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
+  /** An old Owner allocation of 1 kg addressed to ศาลาแดง (sentToBranch in visibility.ts). */
+  const allocated = () => {
+    const s = chillDay();
+    const sent = legacyAllocate(s, { branch: sala, kg: "1" });
+    return { w: from(s.db), sent };
+  };
 
-  test("the Owner's delete of a transfer it was sent, and the restore", () => {
-    const { w } = day1();
-    const sent = transfer(w);
+  test("the Owner's delete of an old allocation it was sent, and the restore", () => {
+    const { w, sent } = allocated();
     expect(seenBy(w, sala)).toContain(sent.id);
     const gone = del(w, sent);
     const restore = del(w, gone);
@@ -2097,10 +2020,9 @@ describe("EDT-25 what a branch sees of the change log", () => {
     }
   });
 
-  test("the Owner's edit of a transfer it was sent, and the undo", () => {
-    const { w } = day1();
-    const sent = transfer(w);
-    const fix = edit(w, sent, { quantity: "5" });
+  test("the Owner's edit of an old allocation it was sent, and the undo", () => {
+    const { w, sent } = allocated();
+    const fix = edit(w, sent, { kg: "2" });
     const undo = del(w, fix);
     for (const change of [fix, undo]) {
       expect(seenBy(w, sala)).toContain(change.id);
@@ -2108,22 +2030,25 @@ describe("EDT-25 what a branch sees of the change log", () => {
     }
   });
 
-  test("the Owner's link of its receipt to a transfer, and the undo", () => {
+  test("the Owner's edit of its chili and material receipts, and the undo", () => {
     const { w } = day1();
-    const sent = transfer(w);
-    const got = w.run("branch", "materialConfirm", {
-      material,
-      receivedQuantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const link = w.run("owner", "link", {
-      targetId: got.id,
-      transferId: sent.id,
-    });
-    const undo = del(w, link);
-    for (const change of [link, undo]) {
-      expect(seenBy(w, sala)).toContain(change.id);
-      expect(seenBy(w, min)).not.toContain(change.id);
+    for (const got of [
+      w.run("branch", "chiliReceive", {
+        chiliTubes: "20",
+        receiver: "ผู้ดูแล",
+      }),
+      w.run("branch", "materialConfirm", {
+        material,
+        receivedQuantity: "6",
+        receiver: "ผู้ดูแล",
+      }),
+    ]) {
+      const fix = edit(w, got, { receiver: "ผู้จัดการ" });
+      const undo = del(w, fix);
+      for (const change of [got, fix, undo]) {
+        expect(seenBy(w, sala)).toContain(change.id);
+        expect(seenBy(w, min)).not.toContain(change.id);
+      }
     }
   });
 
@@ -2172,7 +2097,7 @@ describe("EDT-23 a delete that leaves stock short is said, not refused", () => {
     short(s.db, only(s.db, "foodivaConfirm"), /ลบแล้วยอดพร้อมส่ง .*จะติดลบ/);
   });
 
-  test("a chili purchase already sent to a branch", () => {
+  test("STK-44 a chili purchase a branch already received from", () => {
     const db = whole;
     short(
       db,
@@ -2181,7 +2106,7 @@ describe("EDT-23 a delete that leaves stock short is said, not refused", () => {
     );
   });
 
-  test("a material purchase already sent to a branch", () => {
+  test("STK-44 a material purchase a branch already received from", () => {
     const db = whole;
     short(
       db,
@@ -2449,50 +2374,6 @@ describe("EDT-23 the undo of an edit is checked like a new save", () => {
     expect(live(w.db, payment)).toEqual(payment);
     expect(entries(w.db, "invoicePayment", a)).toHaveLength(1);
     expect(smokingInvoiceStatus(w.db, later)).toBe("รอตรวจยอด");
-  });
-
-  test("a receipt detached from its transfer is not attached again once another confirmed it", () => {
-    const w = from(setup().db);
-    const sent = w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const got = {
-      transferId: sent.id,
-      receivedQuantity: "6",
-      receiver: "ผู้ดูแล",
-    };
-    const first = w.run("branch", "materialConfirm", got);
-    const detach = edit(w, first, { transferId: "" }, {}, "branch");
-    expect(live(w.db, first)!.values.transferId).toBe("");
-    w.run("branch", "materialConfirm", got);
-    expect(() => del(w, detach, "branch")).toThrow("ยืนยันรับรายการนี้แล้ว");
-  });
-
-  test("a receipt detached from its transfer is not attached again once the transfer is deleted", () => {
-    const w = from(setup().db);
-    const sent = w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    const first = w.run("branch", "materialConfirm", {
-      transferId: sent.id,
-      receivedQuantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-    expect(() => del(w, sent)).toThrow("ลบรายการยืนยันรับก่อน");
-    const detach = edit(w, first, { transferId: "" }, {}, "branch");
-    const noTransfer = del(w, sent);
-    expect(() => del(w, detach, "branch")).toThrow(
-      "ส่งวัสดุไปสาขา ที่รายการนี้อ้างถึงถูกลบแล้ว · กู้คืนรายการนั้นก่อน",
-    );
-    del(w, noTransfer);
-    del(w, detach, "branch");
-    expect(live(w.db, first)).toEqual(first);
   });
 });
 
@@ -2868,15 +2749,7 @@ describe("EDT-23 what a Chef House correction names", () => {
 });
 
 describe("EDT-22 an edit stores only what it changes", () => {
-  /** A transfer of 6 boxes to ศาลาแดง. */
-  const send = (w: World) =>
-    w.run("owner", "materialTransfer", {
-      material,
-      branch: sala,
-      quantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-  /** ศาลาแดง's receipt of 6 boxes with no transfer document. */
+  /** ศาลาแดง's receipt of 6 boxes. */
   const receipt = (w: World) =>
     w.run("branch", "materialConfirm", {
       material,
@@ -2942,54 +2815,6 @@ describe("EDT-22 an edit stores only what it changes", () => {
     });
     del(w, first, "branch");
     expect(live(w.db, got)).toEqual(got);
-  });
-
-  test("a link undone after a later edit of the entry lets go of the transfer", () => {
-    const w = from(setup().db);
-    const sent = send(w);
-    const got = receipt(w);
-    const link = w.run("branch", "link", {
-      targetId: got.id,
-      transferId: sent.id,
-    });
-    const fix = edit(w, got, { receiver: "ผู้จัดการสาขา" }, {}, "branch");
-    expect(fix.values["to.transferId"]).toBeUndefined();
-    del(w, link, "branch");
-    expect(live(w.db, got)!.values.transferId).toBeUndefined();
-    expect(live(w.db, got)!.values.receiver).toBe("ผู้จัดการสาขา");
-  });
-
-  test("a link made after an edit of the entry takes effect: the new transfer wins", () => {
-    const w = from(setup().db);
-    const [one, other] = [send(w), send(w)];
-    const got = receipt(w);
-    w.run("branch", "link", { targetId: got.id, transferId: one.id });
-    edit(w, got, { receiver: "ผู้จัดการสาขา" }, {}, "branch");
-    w.run("branch", "link", { targetId: got.id, transferId: other.id });
-    expect(live(w.db, got)!.values).toMatchObject({
-      transferId: other.id,
-      receiver: "ผู้จัดการสาขา",
-    });
-    // And the first transfer is open for another receipt again.
-    w.run("branch", "materialConfirm", {
-      transferId: one.id,
-      receivedQuantity: "6",
-      receiver: "ผู้ดูแล",
-    });
-  });
-
-  test("a link made after an edit that set the transfer takes effect", () => {
-    const w = from(setup().db);
-    const [one, other] = [send(w), send(w)];
-    const got = receipt(w);
-    edit(w, got, { transferId: one.id }, {}, "branch");
-    expect(live(w.db, got)!.values.transferId).toBe(one.id);
-    if (
-      attempt(() =>
-        w.run("branch", "link", { targetId: got.id, transferId: other.id }),
-      )
-    )
-      expect(live(w.db, got)!.values.transferId).toBe(other.id);
   });
 
   test("a Chef House correction deleted after a later edit of its round is gone", () => {
@@ -3135,13 +2960,16 @@ describe("EDT-23 a deleted batch", () => {
 
 describe("EDT-22 what an edit may not change", () => {
   test("the branch an Owner entry is addressed to", () => {
-    const w = from(whole);
-    expect(() =>
-      edit(w, only(whole, "chiliAllocate"), { branch: min }),
-    ).toThrow("แก้สาขาปลายทางไม่ได้ · ลบรายการแล้วบันทึกใหม่");
+    // Only old allocations are addressed to a branch any more.
+    const s = ready();
+    const allocation = legacyAllocate(s, { branch: sala, kg: "10" });
+    const w = from(s.db);
+    expect(() => edit(w, allocation, { branch: min })).toThrow(
+      "แก้สาขาปลายทางไม่ได้ · ลบรายการแล้วบันทึกใหม่",
+    );
     // Sent along unchanged, as a form does, it is no change.
-    edit(w, only(whole, "chiliAllocate"), { branch: sala, chiliTubes: "10" });
-    expect(chiliStock(w.db, sala)).toBe(chiliStock(whole, sala) - 10);
+    edit(w, allocation, { branch: sala, kg: "5" });
+    expect(centralStock(w.db, allocation.lotId)).toBe(30);
   });
 
   test("a receive is not linked to a deleted batch", () => {
@@ -3318,12 +3146,455 @@ describe("EDT-23/21 the whole flow, change by change", () => {
     expect([...refused].sort()).toEqual(
       [
         "purchase: PO นี้ยังมีรายการอื่นหรือ PO รมควันผูกอยู่ · ลบรายการเหล่านั้นก่อน",
-        "materialTransfer: สาขายืนยันรับวัสดุจากใบโอนนี้แล้ว · ลบรายการยืนยันรับก่อน",
         "smokeOrder: ยืนยันรับ PO รมควัน อ้างถึงรายการนี้อยู่ · ลบรายการนั้นก่อน",
         "smokingInvoice: ตรวจยอด Invoice ค่ารมควัน อ้างถึงรายการนี้อยู่ · ลบรายการนั้นก่อน",
       ].sort(),
     );
   }, 60_000);
+});
+
+describe("STK-43 / MAT-01 / STK-44 what a branch received, and the Owner's store", () => {
+  const clean = { warnings: [], error: "" };
+  /** The Owner bought 50 chili tubes and 10 of `material`; ศาลาแดง wrote down 20 tubes and 6
+   *  pieces received, มีนบุรี 5 tubes. */
+  const stocked = () => {
+    const w = from(setup().db);
+    const chiliBought = w.run("owner", "generalPurchase", {
+      purchaseDate: day,
+      item: "น้ำพริกหลอด",
+      purchaseCategory: "วัตถุดิบ",
+      unit: "หลอด",
+      quantity: "50",
+      unitPrice: "6",
+      supplier: "ร้านพริก",
+    });
+    const materialBought = w.run("owner", "materialReceive", {
+      purchaseDate: day,
+      material,
+      quantity: "10",
+      unitPrice: "2",
+      supplier: "ร้านวัสดุ",
+    });
+    const chili = w.run("branch", "chiliReceive", {
+      chiliTubes: "20",
+      receiver: "ผู้ดูแล",
+    });
+    const boxes = w.run("branch", "materialConfirm", {
+      material,
+      receivedQuantity: "6",
+      receiver: "ผู้ดูแล",
+    });
+    const theirs = w.run(
+      "branch",
+      "chiliReceive",
+      { chiliTubes: "5", receiver: "ผู้ดูแล" },
+      "",
+      day,
+      min,
+    );
+    return { w, chiliBought, materialBought, chili, boxes, theirs };
+  };
+  const stock = (db: Database) => ({
+    chili: chiliStock(db, sala),
+    boxes: branchMaterialStock(db, sala, 0),
+    ownerChili: ownerChiliStock(db),
+    ownerBoxes: ownerMaterialStock(db, material),
+  });
+  const change = (target: Entry, values: Values) => ({
+    targetId: target.id,
+    values: JSON.stringify(values),
+    reason: "x",
+  });
+
+  test("a chili receipt is edited, undone, deleted and restored by its branch: stock follows", () => {
+    const { w, chili } = stocked();
+    const start = { chili: 20, boxes: 6, ownerChili: 25, ownerBoxes: 4 };
+    expect(stock(w.db)).toEqual(start);
+    const fix = edit(w, chili, { chiliTubes: "30" }, {}, "branch");
+    expect(fix).toMatchObject({ role: "branch", branch: sala });
+    expect(stock(w.db)).toEqual({ ...start, chili: 30, ownerChili: 15 });
+    del(w, fix, "branch");
+    expect(stock(w.db)).toEqual(start);
+    const gone = del(w, chili, "branch");
+    expect(live(w.db, chili)).toBeUndefined();
+    expect(stock(w.db)).toEqual({ ...start, chili: 0, ownerChili: 45 });
+    del(w, gone, "branch");
+    expect(stock(w.db)).toEqual(start);
+    expect(live(w.db, chili)).toEqual(chili);
+  });
+
+  test("a material receipt is edited, undone, deleted and restored by its branch: stock follows", () => {
+    const { w, boxes } = stocked();
+    const start = stock(w.db);
+    const fix = edit(w, boxes, { receivedQuantity: "9" }, {}, "branch");
+    expect(stock(w.db)).toEqual({ ...start, boxes: 9, ownerBoxes: 1 });
+    del(w, fix, "branch");
+    expect(stock(w.db)).toEqual(start);
+    const gone = del(w, boxes, "branch");
+    expect(stock(w.db)).toEqual({ ...start, boxes: 0, ownerBoxes: 10 });
+    del(w, gone, "branch");
+    expect(stock(w.db)).toEqual(start);
+    expect(live(w.db, boxes)).toEqual(boxes);
+    // Another material of the receipt moves both shelves.
+    edit(w, boxes, { material: materials[1] }, {}, "branch");
+    expect(stock(w.db)).toEqual({ ...start, boxes: 0, ownerBoxes: 10 });
+    expect(branchMaterialStock(w.db, sala, 1)).toBe(6);
+    expect(ownerMaterialStock(w.db, materials[1])).toBe(-6);
+  });
+
+  test("a change that leaves the branch's own shelf short is said, not refused", () => {
+    const { w, chili, boxes } = stocked();
+    // 3 tubes sold, 4 pieces used and 2 counted.
+    w.run("branch", "sale", {
+      ...sale,
+      boxes: "0",
+      soldKg: "0",
+      chiliAddons: "3",
+      lineMan: "90",
+    });
+    w.run(
+      "branch",
+      "materials",
+      Object.fromEntries(
+        materials.flatMap((_, i) => [
+          ["opening" + i, i ? "0" : "6"],
+          ["used" + i, i ? "0" : "4"],
+          ["material" + i, i ? "0" : "2"],
+        ]),
+      ),
+    );
+    expect(stock(w.db)).toMatchObject({ chili: 17, boxes: 2 });
+    for (const role of ["branch", "owner"] as const) {
+      expectWarning(
+        w.check(role, "void", { targetId: chili.id, reason: "x" }),
+        "ลบแล้วน้ำพริก สาขาศาลาแดงจะติดลบ (-3.00)",
+      );
+      expectWarning(
+        w.check(role, "entryEdit", change(chili, { chiliTubes: "2" })),
+        "แก้แล้วน้ำพริก สาขาศาลาแดงจะติดลบ (-1.00)",
+      );
+      expectWarning(
+        w.check(role, "void", { targetId: boxes.id, reason: "x" }),
+        `ลบแล้ว${material} สาขาศาลาแดงจะติดลบ (-4.00)`,
+      );
+      expectWarning(
+        w.check(role, "entryEdit", change(boxes, { receivedQuantity: "3" })),
+        `แก้แล้ว${material} สาขาศาลาแดงจะติดลบ (-1.00)`,
+      );
+    }
+    // Enough left: nothing to say.
+    expect(
+      w.check("branch", "entryEdit", change(chili, { chiliTubes: "3" })),
+    ).toEqual(clean);
+    // The material receipt is under that day's count, so the count is to be saved again (MAT-05).
+    expect(
+      w.check("branch", "entryEdit", change(boxes, { receivedQuantity: "4" })),
+    ).toEqual({ ...clean, warnings: [recount(day)] });
+    // Said, and saved.
+    del(w, chili, "branch");
+    del(w, boxes, "branch");
+    expect(stock(w.db)).toMatchObject({ chili: -3, boxes: -4 });
+  });
+
+  test("a sale keeps the shelf its chili count was made against; an edit of the sale counts again", () => {
+    const { w } = stocked();
+    const sold = w.run("branch", "sale", {
+      ...sale,
+      boxes: "0",
+      soldKg: "0",
+      chiliAddons: "3",
+      lineMan: "90",
+      chiliCount: "17",
+    });
+    expect(sold.values.chiliExpected).toBe("17");
+    // 10 more tubes after the count: the sale still says 17 (the day table reads it).
+    w.run("branch", "chiliReceive", { chiliTubes: "10", receiver: "ผู้ดูแล" });
+    expect(live(w.db, sold)?.values.chiliExpected).toBe("17");
+    expectWarning(
+      w.check("branch", "entryEdit", change(sold, { lineMan: "100" })),
+      "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ",
+    );
+    edit(w, sold, { lineMan: "100" }, {}, "branch");
+    expect(live(w.db, sold)?.values.chiliExpected).toBe("27");
+  });
+
+  test("STK-44 a branch is never warned about the Owner's store", () => {
+    // A branch's copy holds none of the Owner's purchases: the store there is only a minus.
+    const w = from(setup().db);
+    const chili = w.run("branch", "chiliReceive", {
+      chiliTubes: "20",
+      receiver: "ผู้ดูแล",
+    });
+    const boxes = w.run("branch", "materialConfirm", {
+      material,
+      receivedQuantity: "6",
+      receiver: "ผู้ดูแล",
+    });
+    expect(ownerChiliStock(w.db)).toBe(-20);
+    expect(ownerMaterialStock(w.db, material)).toBe(-6);
+    // A new receipt, a raised one and a restored one each take the store further down.
+    expect(
+      w.check("branch", "chiliReceive", { chiliTubes: "5", receiver: "x" }),
+    ).toEqual(clean);
+    expect(
+      w.check("branch", "materialConfirm", {
+        material,
+        receivedQuantity: "5",
+        receiver: "x",
+      }),
+    ).toEqual(clean);
+    expect(
+      w.check("branch", "entryEdit", change(chili, { chiliTubes: "30" })),
+    ).toEqual(clean);
+    expect(
+      w.check("branch", "entryEdit", change(boxes, { receivedQuantity: "9" })),
+    ).toEqual(clean);
+    for (const got of [chili, boxes]) {
+      const gone = del(w, got, "branch");
+      expect(
+        w.check("branch", "void", { targetId: gone.id, reason: "x" }),
+      ).toEqual(clean);
+    }
+  });
+
+  test("STK-44 the Owner is told when its purchase, deleted or edited, takes the store below zero", () => {
+    const { w, chiliBought, materialBought } = stocked();
+    // Branches wrote down 25 of the 50 tubes and 6 of the 10 pieces.
+    expectWarning(
+      w.check("owner", "void", { targetId: chiliBought.id, reason: "x" }),
+      "ลบแล้วน้ำพริกในคลัง Owner จะติดลบ (-25.00)",
+    );
+    expectWarning(
+      w.check("owner", "entryEdit", change(chiliBought, { quantity: "20" })),
+      "แก้แล้วน้ำพริกในคลัง Owner จะติดลบ (-5.00)",
+    );
+    expectWarning(
+      w.check("owner", "void", { targetId: materialBought.id, reason: "x" }),
+      `ลบแล้ว${material} ในคลัง Owner จะติดลบ (-6.00)`,
+    );
+    expectWarning(
+      w.check("owner", "entryEdit", change(materialBought, { quantity: "5" })),
+      `แก้แล้ว${material} ในคลัง Owner จะติดลบ (-1.00)`,
+    );
+    // Still at or above what the branches received: nothing to say.
+    expect(
+      w.check("owner", "entryEdit", change(chiliBought, { quantity: "25" })),
+    ).toEqual(clean);
+    expect(
+      w.check("owner", "entryEdit", change(materialBought, { quantity: "6" })),
+    ).toEqual(clean);
+    // Said, and saved: the store reads the minus as it is.
+    del(w, chiliBought);
+    del(w, materialBought);
+    expect(stock(w.db)).toEqual({
+      chili: 20,
+      boxes: 6,
+      ownerChili: -25,
+      ownerBoxes: -6,
+    });
+  });
+
+  test("STK-44 the Owner is told when a branch's receipt, raised or restored, takes the store below zero; the branch is not", () => {
+    const { w, chiliBought, materialBought, chili, boxes } = stocked();
+    // 25 tubes and 4 pieces left in the store.
+    const raised = [
+      [change(chili, { chiliTubes: "50" }), "น้ำพริกในคลัง Owner", "-5.00"],
+      [
+        change(boxes, { receivedQuantity: "12" }),
+        `${material} ในคลัง Owner`,
+        "-2.00",
+      ],
+    ] as const;
+    for (const [values, store, left] of raised) {
+      expectWarning(
+        w.check("owner", "entryEdit", values),
+        `แก้แล้ว${store} จะติดลบ (${left})`,
+      );
+      expect(w.check("branch", "entryEdit", values)).toEqual(clean);
+    }
+    // Both receipts deleted, then the Owner's purchases cut to less than they took.
+    const gone = [del(w, chili, "branch"), del(w, boxes, "branch")];
+    edit(w, chiliBought, { quantity: "10" });
+    edit(w, materialBought, { quantity: "3" });
+    const restored = [
+      ["น้ำพริกในคลัง Owner", "-15.00"],
+      [`${material} ในคลัง Owner`, "-3.00"],
+    ];
+    gone.forEach((target, i) => {
+      const back = { targetId: target.id, reason: "x" };
+      expectWarning(
+        w.check("owner", "void", back),
+        `กู้คืนแล้ว${restored[i][0]} จะติดลบ (${restored[i][1]})`,
+      );
+      expect(w.check("branch", "void", back)).toEqual(clean);
+    });
+    // Said, and saved.
+    for (const target of gone) del(w, target);
+    expect(stock(w.db)).toMatchObject({ ownerChili: -15, ownerBoxes: -3 });
+  });
+
+  test("a branch cannot touch another branch's chili or material receipt", () => {
+    const { w, theirs } = stocked();
+    const theirBoxes = w.run(
+      "branch",
+      "materialConfirm",
+      { material, receivedQuantity: "3", receiver: "ผู้ดูแล" },
+      "",
+      day,
+      min,
+    );
+    for (const target of [theirs, theirBoxes]) {
+      expect(editBlock(w.db, target, "branch", sala)).toBe(
+        "แก้ไขได้เฉพาะรายการของบัญชีนี้",
+      );
+      expect(() => edit(w, target, { receiver: "x" }, {}, "branch")).toThrow(
+        "แก้ไขได้เฉพาะรายการของบัญชีนี้",
+      );
+      expect(() => del(w, target, "branch")).toThrow(
+        "ลบได้เฉพาะรายการของบัญชีนี้",
+      );
+      // Forged ones change nothing.
+      const forged = (kind: EntryKind, values: Values): Database => ({
+        ...w.db,
+        entries: [
+          ...w.db.entries,
+          { ...target, id: "forged", kind, branch: sala, values },
+        ],
+      });
+      expect(isVoided(forged("void", { targetId: target.id }), target.id)).toBe(
+        false,
+      );
+      expect(
+        live(
+          forged("entryEdit", {
+            targetId: target.id,
+            "to.chiliTubes": "500",
+            "to.receivedQuantity": "500",
+          }),
+          target,
+        ),
+      ).toEqual(target);
+      // Its own branch may, and so may the Owner.
+      del(
+        w,
+        edit(w, target, { receiver: "x" }, {}, "branch", min),
+        "branch",
+        min,
+      );
+      del(w, del(w, target));
+      // And ศาลาแดง does not read it.
+      expect(
+        visibleEntries(w.db, "branch", sala).map((e) => e.id),
+      ).not.toContain(target.id);
+    }
+    expect(chiliStock(w.db, min)).toBe(5);
+    expect(branchMaterialStock(w.db, min, 0)).toBe(3);
+  });
+});
+
+describe("MAT-05 a material receipt under a day already counted", () => {
+  const clean = { warnings: [], error: "" };
+  const receipt = (receivedQuantity: string) => ({
+    material,
+    receivedQuantity,
+    receiver: "ผู้ดูแล",
+  });
+  /** The count of `date` as the table saves it: `used` and `actual` of the first material. */
+  const count = (
+    w: World,
+    date: string,
+    used: string,
+    actual: string,
+    extra: Values = {},
+  ) =>
+    w.run(
+      "branch",
+      "materials",
+      {
+        ...Object.fromEntries(
+          materials.flatMap((_, i) => {
+            const opening = String(branchMaterialStock(w.db, sala, i, date));
+            return [
+              ["opening" + i, opening],
+              ["used" + i, i ? "0" : used],
+              ["material" + i, i ? opening : actual],
+            ];
+          }),
+        ),
+        ...extra,
+      },
+      "",
+      date,
+    );
+  /** 100 received and counted on `earlier` (10 used, 90 left); on `day` 50 more arrive, nobody
+   *  writes them down, and the count finds 120 (20 used). */
+  const counted = () => {
+    const w = from(setup().db);
+    const first = w.run(
+      "branch",
+      "materialConfirm",
+      receipt("100"),
+      "",
+      earlier,
+    );
+    count(w, earlier, "10", "90");
+    count(w, day, "20", "120", { materialReason0: "ของเข้าเพิ่ม" });
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+    return { w, first };
+  };
+
+  test("a receipt dated on or before a counted day is warned about, never refused", () => {
+    const { w } = counted();
+    expect(
+      w.check("branch", "materialConfirm", receipt("50"), "", day),
+    ).toEqual({ ...clean, warnings: [recount(day)] });
+    // Before both counts: the earliest is named.
+    expect(
+      w.check("branch", "materialConfirm", receipt("50"), "", earlier),
+    ).toEqual({ ...clean, warnings: [recount(earlier)] });
+    // Saved as typed: the shelf reads the 50 twice until that day's count is saved again.
+    w.run("branch", "materialConfirm", receipt("50"), "", day);
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(170);
+    count(w, day, "20", "120", { correctionReason: "จดรับย้อนหลัง" });
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+  });
+
+  test("a receipt after the last count, or with no count at all, is not warned about", () => {
+    const { w } = counted();
+    expect(
+      w.check("branch", "materialConfirm", receipt("50"), "", today()),
+    ).toEqual(clean);
+    expect(
+      from(setup().db).check("branch", "materialConfirm", receipt("50")),
+    ).toEqual(clean);
+  });
+
+  test("an edit or a restore is warned about only when it changes what the count saw", () => {
+    const { w, first } = counted();
+    const change = (values: Values) => ({
+      targetId: first.id,
+      values: JSON.stringify(values),
+      reason: "x",
+    });
+    for (const role of ["branch", "owner"] as const) {
+      expect(w.check(role, "entryEdit", change({ receiver: "x" }))).toEqual(
+        clean,
+      );
+      expect(
+        w.check(role, "entryEdit", change({ receivedQuantity: "80" })),
+      ).toEqual({ ...clean, warnings: [recount(earlier)] });
+    }
+    // Deleted and put back as the counts saw it.
+    const gone = del(w, first, "branch");
+    expect(
+      w.check("branch", "void", { targetId: gone.id, reason: "x" }),
+    ).toEqual(clean);
+    // Its day counted again without it: putting it back is a receipt under that count.
+    count(w, earlier, "10", "90", { correctionReason: "ลบรายการรับ" });
+    expect(
+      w.check("branch", "void", { targetId: gone.id, reason: "x" }),
+    ).toEqual({ ...clean, warnings: [recount(earlier)] });
+  });
 });
 
 describe("C4 the Account Manager's copy without sale money", () => {

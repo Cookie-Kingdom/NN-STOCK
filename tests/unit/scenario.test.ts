@@ -72,7 +72,6 @@ test("the two branches are in different states today", () => {
     `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${end}`,
     `ยังไม่ได้จดยอดขายวันที่ ${end}`,
     `ยังไม่ได้จด 4 รายการของวันที่ ${end}`,
-    "วัสดุรอยืนยันรับ 2 รายการ",
     `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${end}`,
   ]);
   expect(titles(branchAlerts(db, "มีนบุรี", end).notifications)).toEqual([

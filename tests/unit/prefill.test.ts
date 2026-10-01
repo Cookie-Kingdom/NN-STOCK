@@ -413,31 +413,17 @@ test("a one-way return carries the last return truck and picks the next time slo
   });
 });
 
-test("chili allocation tops the branch up to par from the Owner's stock; expenses carry by category", () => {
+test("a chili receipt carries the branch's last receiver; expenses carry by category", () => {
   const s = setup();
-  s.run("owner", "generalPurchase", {
-    purchaseDate: day,
-    item: "น้ำพริกหลอด",
-    purchaseCategory: "วัตถุดิบ",
-    quantity: "150",
-    unitPrice: "20",
-    supplier: "ร้านน้ำพริก",
-  });
-  s.run("owner", "chiliAllocate", {
-    branch: "ศาลาแดง",
-    chiliTubes: "30",
-    receiver: "พี่เอ",
-  });
-  expect(prefillValues(s.db, "chiliAllocate")).toEqual({
-    chiliTubes: "70",
-    receiver: "พี่เอ",
-  });
-  // มีนบุรี is 100 short, the Owner holds 120: the whole 100, and no one to carry.
+  s.run("branch", "chiliReceive", { chiliTubes: "30", receiver: "พี่เอ" });
+  // STK-43: the count is what arrived, so only the receiver is carried.
   expect(
-    prefillValues(s.db, "chiliAllocate", undefined, {
-      values: { branch: "มีนบุรี" },
-    }),
-  ).toEqual({ chiliTubes: "100" });
+    prefillValues(s.db, "chiliReceive", undefined, { branch: "ศาลาแดง" }),
+  ).toEqual({ receiver: "พี่เอ" });
+  // มีนบุรี has received none: no one to carry.
+  expect(
+    prefillValues(s.db, "chiliReceive", undefined, { branch: "มีนบุรี" }),
+  ).toEqual({});
 
   s.run("owner", "expense", {
     category: "ค่าเช่า",

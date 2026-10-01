@@ -37,8 +37,6 @@ export function entryName(db: Database | undefined, id: string) {
   switch (e.kind) {
     case "allocate":
       return `ใบจัดสรร ${shortDate(e.values.deliveryDate || e.date)} · ${e.values.branch} ${fmt(n(e.values, "kg"))} กก.`;
-    case "materialTransfer":
-      return `ใบส่งวัสดุ ${on} · ${e.values.material} ${fmt(n(e.values, "quantity"))} ชิ้น`;
     case "smokeOrder":
       return `PO รมควัน ${e.values.orderNumber || on}`;
     case "smokingInvoice":
@@ -77,7 +75,6 @@ const entryRefKeys = [
   "orderId",
   "invoiceId",
   "allocation",
-  "transferId",
   "targetId",
   "requestId",
   "receiveId",
@@ -97,11 +94,8 @@ export function referenceText(
   return undefined;
 }
 
-/** LNK-03: kinds a `link` may tie to a batch (branch meat) or a transfer (materialConfirm). */
-export const linkableKinds: EntryKind[] = [
-  ...branchMeatKinds,
-  "materialConfirm",
-];
+/** LNK-03: kinds a `link` may tie to a batch: branch meat. */
+export const linkableKinds: EntryKind[] = branchMeatKinds;
 
 /** LNK-01: the Owner links anything linkable; a branch only its own branch's entries. */
 export const canLink = (e: Entry, role: ActingRole, branch: string) =>
@@ -116,6 +110,5 @@ export const linkOf = (db: Database | undefined, id: string) =>
         .at(-1)
     : undefined;
 
-/** Is it tied to its source yet: branch meat to a batch, a material receipt to a transfer. */
-export const isLinked = (e: Entry) =>
-  e.kind === "materialConfirm" ? !!e.values.transferId : !!e.lotId;
+/** Is branch meat tied to its batch yet. */
+export const isLinked = (e: Entry) => !!e.lotId;
