@@ -86,7 +86,7 @@ export function ChefReceiveForm({
               <Notice>
                 เปิดไฟล์ Packing List ของ Foodiva เพื่อตรวจรายกล่องรับเข้า
                 แล้วกรอกน้ำหนักรับรวมที่ชั่งได้จริง ยอดไม่ตรงกับ Packing List
-                ก็บันทึกได้ และแก้ได้จนกว่าจะยืนยันปิด Lot
+                ก็บันทึกได้ และแก้ภายหลังได้ที่ Log
               </Notice>
               <PackingListSummary values={list.values} />
             </>

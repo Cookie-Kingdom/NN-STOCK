@@ -16,7 +16,7 @@ export {
   branchMeatKinds,
   titles,
   editDecisions,
-  editLockedKeys,
+  editLocked,
   missingKeys,
   missingText,
   voidableKinds,

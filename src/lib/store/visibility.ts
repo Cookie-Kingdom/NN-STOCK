@@ -8,12 +8,7 @@ import {
   type ActingRole,
   type Values,
 } from "./model";
-import {
-  centralStock,
-  entries,
-  isVoided,
-  smokingInvoiceStatus,
-} from "./derived";
+import { centralStock, entries, isVoided } from "./derived";
 /** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
  *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
 export const branchHiddenKeys = [
@@ -119,11 +114,6 @@ export function editBlock(
     return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
   if (!entries(db, target.kind).some((e) => e.id === target.id))
     return "รายการนี้ถูกยกเลิกแล้ว";
-  if (
-    target.kind === "smokingInvoice" &&
-    smokingInvoiceStatus(db, target) === "ชำระแล้ว"
-  )
-    return "Invoice นี้ชำระแล้ว แก้ไขไม่ได้";
   if (
     role === "branch" &&
     (target.role !== "branch" || target.branch !== branch)
