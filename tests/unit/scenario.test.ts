@@ -53,12 +53,12 @@ test("the Owner has one of every pending signal", () => {
   const list = titles(alerts.notifications).join("\n");
   for (const title of [
     "คำขอแก้ไขรอพิจารณา 1 รายการ",
-    "ออก Invoice เนื้อ",
-    // DASH-02: one advisory line per active batch, naming the steps it lacks.
-    "ชุด SH-2026-0002 ยังขาด",
+    "ยังไม่ได้จด Invoice เนื้อ",
+    // DASH-02: one advisory line per active batch, naming the records it has no entry for.
+    "ชุด SH-2026-0002 ยังไม่ได้จด",
     "รอตรวจ Invoice ค่ารมควัน",
     "รอชำระ Invoice ค่ารมควัน",
-    "แก้ Invoice ค่ารมควัน",
+    "Invoice ค่ารมควันส่งกลับแก้ไข",
     "รอชำระ Invoice เนื้อ",
     "Chef House ปิด Lot แล้ว",
     "Foodiva รับเนื้อรมควันแล้ว 1 Lot",
@@ -70,16 +70,16 @@ test("the Owner has one of every pending signal", () => {
 test("the two branches are in different states today", () => {
   expect(titles(branchAlerts(db, "ศาลาแดง", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขรอพิจารณา"),
-    `ยังไม่แบ่งละลายเนื้อวันที่ ${end}`,
-    `ยังไม่บันทึกยอดขายวันที่ ${end}`,
-    `ยังขาด 4 รายการก่อนปิดวันที่ ${end}`,
+    `ยังไม่ได้จดแบ่งละลายเนื้อวันที่ ${end}`,
+    `ยังไม่ได้จดยอดขายวันที่ ${end}`,
+    `ยังไม่ได้จด 4 รายการของวันที่ ${end}`,
     "วัสดุรอยืนยันรับ 2 รายการ",
     `ยังไม่ตรวจนับสต๊อกวัสดุวันที่ ${end}`,
   ]);
   expect(titles(branchAlerts(db, "มีนบุรี", end).notifications)).toEqual([
     expect.stringContaining("คำขอแก้ไขไม่สำเร็จ"),
     expect.stringContaining("คำขอแก้ไขสำเร็จ"),
-    `ยังขาด 1 รายการก่อนปิดวันที่ ${end}`,
+    `ยังไม่ได้จด 1 รายการของวันที่ ${end}`,
   ]);
   for (const offset of [4, 3, 2]) {
     expect(isClosed(db, "ศาลาแดง", day(offset))).toBe(true);

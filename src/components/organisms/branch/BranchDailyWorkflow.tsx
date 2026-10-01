@@ -1,8 +1,8 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
-import { CountPill } from "@/components/atoms/CountPill";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { NO_LOT, type Tab } from "@/lib/nav";
 import {
@@ -17,6 +17,9 @@ import {
 
 const taskKeys = ["receive", "thaw", "rice", "sale", "close"];
 
+/** จดวันนี้: what a branch can jot on `date`, in any order. Nothing here waits on
+ *  anything else (the store only warns), so every button is live; the status column
+ *  only says what is and is not jotted yet. */
 export function BranchDailyWorkflow({
   db,
   branch,
@@ -32,110 +35,92 @@ export function BranchDailyWorkflow({
   lots: Lot[];
   closed: boolean;
   open: (kind: EntryKind, lotId?: string) => void;
-  /** ขั้นที่ 3 ไม่เปิด modal — มันพาไปแท็บข้าวเหนียววันนี้ ที่มีทุกฟอร์มของข้าว */
+  /** ข้าวเหนียวไม่เปิด modal — มันพาไปแท็บข้าวเหนียววันนี้ ที่มีทุกฟอร์มของข้าว */
   onTab: (tab: Tab) => void;
 }) {
-  /* Thawing and selling also draw on the "ไม่ระบุ Lot" bucket (BR-03), opened as
-   * NO_LOT; a batch goes first when both hold meat. */
-  const bucket = balance(db, "", branch);
-  const withBucket = (ids: string[], kg: number) =>
-    kg > 0.001 ? [...ids, NO_LOT] : ids;
-  const frozen = withBucket(
-    lots
-      .filter((lot) => balance(db, lot.id, branch).frozen > 0.001)
-      .map((lot) => lot.id),
-    bucket.frozen,
-  );
-  const ready = withBucket(
-    lots
-      .filter((lot) => balance(db, lot.id, branch).ready > 0.001)
-      .map((lot) => lot.id),
-    bucket.ready,
-  );
-  const saleDone = entries(db, "sale", undefined, branch, date).length > 0;
-  // Which rice forms today owes: riceCarry always, plus rice once raw rice was issued.
-  const riceRequired = requiredRiceKinds(db, branch, date);
-  const riceMissing = riceRequired.filter(
-    (kind) => entries(db, kind, undefined, branch, date).length === 0,
-  );
+  /* The lot a thaw or sale form opens on: the first batch holding that meat, else the
+   * "ไม่ระบุ Lot" bucket (BR-03, `lotId ""`, opened as NO_LOT). With no such meat at all
+   * the form still opens on the bucket, and the store warns about the stock. */
+  const holding = (key: "frozen" | "ready") =>
+    [...lots.map((lot) => lot.id), ""].find(
+      (id) => balance(db, id, branch)[key] > 0.001,
+    );
+  const frozen = holding("frozen");
+  const jotted = (kind: EntryKind) =>
+    entries(db, kind, undefined, branch, date).length > 0;
+  // riceCarry every day, plus rice once raw rice was issued.
+  const riceMissing = requiredRiceKinds(db, branch, date).filter(
+    (kind) => !jotted(kind),
+  ).length;
   const missing = closeDayChecklist(db, branch, date).filter(
     (item) => item.required && !item.done,
   ).length;
+  // Not jotted yet is a plain fact, never an alarm: neutral chip, and the text says it.
+  const notYet = (key: string, count?: number) => (
+    <Badge key={key}>ยังไม่ได้จด{count ? ` ${count} รายการ` : ""}</Badge>
+  );
   const tasks: ReactNode[][] = [
     [
-      <strong key="receive">1. รับเนื้อเข้าสาขา</strong>,
-      "บันทึกเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง (ไม่รู้ Lot เลือก ไม่ระบุ Lot แล้วผูกทีหลัง)",
-      // Always open (BR-01/08): the branch records what it received, on any batch or none.
+      <strong key="receive">รับเนื้อเข้าสาขา</strong>,
+      "จดเนื้อที่รับเข้าสาขา · เลือก Lot ต้นทาง (ไม่รู้ Lot เลือก ไม่ระบุ Lot แล้วผูกทีหลัง)",
+      // BR-01/08: the branch jots what it received, on any batch or none.
       <Button
         key="receive-action"
-        variant="table"
+        variant="table-secondary"
         onClick={() => open("receive", "")}
       >
         รับของ
       </Button>,
     ],
     [
-      <strong key="thaw">2. แบ่งละลายเนื้อ</strong>,
-      frozen.length ? (
-        <CountPill variant="task" key="need">
-          ต้องเลือกเนื้อที่จะละลาย
-        </CountPill>
-      ) : (
-        "ไม่มีเนื้อแช่แข็ง"
-      ),
-      frozen.length ? (
-        <Button variant="table" onClick={() => open("thaw", frozen[0])}>
-          แบ่งละลาย
-        </Button>
-      ) : (
-        "-"
-      ),
+      <strong key="thaw">แบ่งละลายเนื้อ</strong>,
+      jotted("thaw")
+        ? "จดแล้ว"
+        : frozen === undefined
+          ? "ไม่มีเนื้อแช่แข็ง"
+          : notYet("thaw-status"),
+      <Button
+        key="thaw-action"
+        variant="table-secondary"
+        onClick={() => open("thaw", frozen || NO_LOT)}
+      >
+        แบ่งละลาย
+      </Button>,
     ],
     [
-      <strong key="rice">3. หุงข้าวเหนียว</strong>,
-      riceMissing.length ? (
-        <CountPill variant="task" key="rice-todo">
-          ต้องบันทึกข้าวเหนียว {riceMissing.length} รายการก่อนปิดวัน
-        </CountPill>
-      ) : riceRequired.length ? (
-        "บันทึกแล้ว"
-      ) : (
-        "วันนี้ไม่ต้องบันทึกข้าวเหนียว"
-      ),
-      <Button key="rice-action" variant="table" onClick={() => onTab("rice")}>
+      <strong key="rice">ข้าวเหนียว</strong>,
+      riceMissing ? notYet("rice-status", riceMissing) : "จดครบแล้ว",
+      <Button
+        key="rice-action"
+        variant="table-secondary"
+        onClick={() => onTab("rice")}
+      >
         ไปเมนูข้าวเหนียววันนี้
       </Button>,
     ],
     [
-      <strong key="sale">4. บันทึกยอดขาย</strong>,
-      ready.length && !saleDone ? (
-        <CountPill variant="task" key="sales">
-          ต้องกรอกก่อนปิดวัน
-        </CountPill>
-      ) : saleDone ? (
-        "บันทึกแล้ว"
-      ) : (
-        "รอเนื้อละลาย"
-      ),
-      ready.length ? (
-        <Button variant="table" onClick={() => open("sale", ready[0])}>
-          บันทึกยอดขาย
-        </Button>
-      ) : (
-        "-"
-      ),
+      <strong key="sale">ยอดขาย</strong>,
+      jotted("sale") ? "จดแล้ว" : notYet("sale-status"),
+      <Button
+        key="sale-action"
+        variant="table-secondary"
+        // Sold before the thaw was jotted: the batch still frozen is the likely one.
+        onClick={() => open("sale", holding("ready") || frozen || NO_LOT)}
+      >
+        จดยอดขาย
+      </Button>,
     ],
     [
-      <strong key="close">5. ปิดวัน</strong>,
+      <strong key="close">ปิดวัน</strong>,
       closed
-        ? "ปิดวันแล้ว · ยังบันทึกเพิ่มได้"
+        ? "ปิดวันแล้ว · ยังจดเพิ่มได้"
         : missing
-          ? `ยังขาด ${missing} รายการก่อนปิดวัน`
-          : "พร้อมปิดวัน",
-      // The day screen's only close button: the dialog lists what is still missing.
+          ? notYet("close-status", missing)
+          : "จดครบแล้ว",
+      // The day screen's only close button: the dialog lists what is not jotted yet.
       <Button
         key="close-action"
-        variant="table"
+        variant="table-secondary"
         disabled={closed}
         onClick={() => open("closeDay")}
       >
@@ -145,8 +130,8 @@ export function BranchDailyWorkflow({
   ];
   return (
     <DataTable
-      title={`งานหลักประจำวัน · ${branch}`}
-      columns={["ลำดับงาน", "สถานะ", "ทำรายการ"]}
+      title={`จดวันนี้ · ${branch}`}
+      columns={["รายการ", "สถานะ", "จด"]}
       rowKeys={taskKeys}
       rows={tasks}
     />

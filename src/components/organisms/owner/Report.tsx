@@ -265,7 +265,7 @@ export function Report({
         title="ต้นทุนแยก Lot"
         columns={[
           "Lot",
-          "ขั้นล่าสุด",
+          "จดล่าสุด",
           "เนื้อ",
           "รมควัน (Smoking)",
           "รถ",
@@ -275,14 +275,14 @@ export function Report({
           "ต้นทุนเนื้อที่ขาย + Waste",
         ]}
         rows={[
-          // DASH-04: every batch, whatever it holds so far; nothing is filtered by step.
+          // DASH-04: every batch, whatever it holds so far; nothing is filtered by what is recorded.
           ...shipments(db).map((l) => {
             const c = lotCost(db, l);
             const p = lotProgress(db, l.id);
             const out = offShelfRows.filter((e) => e.lotId === l.id);
             // RET-07: no purchase PO lines, no meat cost: a ฿/kg without it would mislead.
             const unmatched = (
-              <Badge key="unmatched" tone="warning">
+              <Badge key="unmatched" tone="neutral">
                 ยังไม่จับคู่
               </Badge>
             );
@@ -463,7 +463,7 @@ export function Report({
                 ? entry.values.reason || "รับครบ"
                 : entry.values.reference ||
                   (entry.values.requiresConfirm
-                    ? "รอสาขายืนยัน"
+                    ? "สาขายังไม่ได้จดรับ"
                     : "ข้อมูลเดิม"),
             ];
           })}

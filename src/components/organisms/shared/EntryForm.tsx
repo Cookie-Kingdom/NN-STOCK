@@ -23,6 +23,10 @@ import { DialogFooter } from "@/components/organisms/shared/DialogFooter";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { PackWeightFields } from "@/components/molecules/PackWeightFields";
+import {
+  lotRequiredKinds,
+  poLotKinds,
+} from "@/components/organisms/shared/noteKinds";
 import { Preview } from "@/components/organisms/shared/Preview";
 import { PurchaseOrderDocumentPreview } from "@/components/organisms/shared/PurchaseOrderDocumentPreview";
 import { referenceDocument } from "@/components/organisms/shared/referenceDocument";
@@ -49,6 +53,7 @@ import {
   recordRole,
   packWeightWarning,
   riceSources,
+  purchaseLots,
   shipments,
   roleName,
   saleWithInfluencers,
@@ -354,6 +359,8 @@ export function EntryForm({
   modal,
   onClose,
   onSaved,
+  onSavedMore,
+  again,
   onOpen,
   onTab,
   branch,
@@ -369,6 +376,12 @@ export function EntryForm({
   modal: Modal;
   onClose: () => void;
   onSaved: (db: Database) => void;
+  /** 「บันทึกและจดต่อ」: saved, and the caller remounts the form for another entry of the
+   *  same kind (`lot` is the lot select's value). Absent: the form only saves and closes. */
+  onSavedMore?: (db: Database, lot: string) => void;
+  /** A form remounted by 「บันทึกและจดต่อ」: it starts on `lot` and says `note` (what was
+   *  just saved) at its top, since the page's toast is behind the dialog. */
+  again?: { lot: string; note: string };
   /** Opens another workspace form in place of this one (the close-day checklist). */
   onOpen?: (kind: EntryKind) => void;
   /** Leaves the form for a workspace tab (the checklist's material count). */
@@ -378,12 +391,18 @@ export function EntryForm({
 }) {
   // WorkspaceModals opens the two document views (ModalKind) in their own dialogs.
   const kind = modal.kind as EntryKind;
-  const useLot = ["receive", "thaw", "sale", "influencerBox"].includes(kind);
+  const meatLot = ["receive", "thaw", "sale", "influencerBox"].includes(kind);
+  /* PRIN-04: the lot is a field of the note, not the way in. A batch or purchase-PO kind
+   * opened with no lot (จดบันทึก) offers the lots it can go on, like the branch's meat
+   * forms do; opened from a lot's row it stays on that lot, with no select. */
+  const pickLot =
+    !modal.lotId && (batchKinds.includes(kind) || poLotKinds.includes(kind));
+  const useLot = meatLot || pickLot;
   /* A branch's meat forms (BR-08): receiving lists every batch S (the branch records
    * what it received itself, BR-01); thawing and selling list the batches this branch holds meat of. All of
    * them also offer the "ไม่ระบุ Lot" bucket (`lotId ""`): always when receiving, and
    * when it holds meat to thaw or sell otherwise. */
-  const branchMeat = role === "branch" && useLot;
+  const branchMeat = role === "branch" && meatLot;
   const branchStock = (id: string) => {
     const stock = balance(db, id, branch);
     return kind === "thaw" ? stock.frozen : stock.ready;
@@ -395,20 +414,26 @@ export function EntryForm({
           l.id === modal.lotId ||
           balance(db, l.id, branch).received > 0.001,
       )
-    : [];
-  const noLotChoice =
-    branchMeat &&
-    (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
+    : pickLot
+      ? (poLotKinds.includes(kind) ? purchaseLots : shipments)(db)
+      : [];
+  // "ไม่ระบุ Lot" is offered wherever mutate saves the kind without a lot.
+  const noLotChoice = pickLot
+    ? !lotRequiredKinds.includes(kind)
+    : branchMeat &&
+      (kind === "receive" || modal.lotId === NO_LOT || branchStock("") > 0.001);
   /* The select's value: a lot id, NO_LOT for the bucket, "" while nothing is picked.
    * A lot the form cannot use would leave the required select empty and the browser
    * would block submit before onSubmit, with no message from us. Thawing starts on the
-   * oldest frozen lot (FIFO), the one mutate expects; a branch receive with no lot
-   * handed in waits for the branch to pick one (or "ไม่ระบุ Lot"). */
+   * oldest frozen lot (FIFO), the one mutate expects; a form with no lot handed in
+   * starts on "ไม่ระบุ Lot" where there is one (a receive, a batch kind), and
+   * 「บันทึกและจดต่อ」 hands in the lot the last entry was saved on. */
   const [lotPick, setLotPick] = useState(() => {
-    if (!useLot || choices.some((l) => l.id === modal.lotId))
-      return modal.lotId;
-    if (modal.lotId === NO_LOT && noLotChoice) return NO_LOT;
-    if (branchMeat && kind === "receive") return "";
+    const handed = again?.lot ?? modal.lotId;
+    if (!useLot || choices.some((l) => l.id === handed)) return handed;
+    if (handed === NO_LOT && noLotChoice) return NO_LOT;
+    if (pickLot || (branchMeat && kind === "receive"))
+      return noLotChoice ? NO_LOT : "";
     const fifo = kind === "thaw" ? oldestFrozenLot(db, branch) : undefined;
     if (fifo && choices.some((l) => l.id === fifo.id)) return fifo.id;
     if (branchMeat) {
@@ -447,7 +472,7 @@ export function EntryForm({
     // A giveaway hangs on the lot the sale itself is open on, so it cannot be filled
     // before that lot is picked (a branch with no thawed lot has none to pick).
     if (!lotChosen) {
-      setError("เลือก Lot ต้นทางก่อน แล้วจึงเพิ่มอินฟลูเอนเซอร์");
+      setError("ยังไม่ได้เลือก Lot ต้นทาง · เลือกแล้วเพิ่มอินฟลูเอนเซอร์ได้");
       return "";
     }
     const id = `giveaway-${++nextGiveawayId.current}`;
@@ -506,14 +531,20 @@ export function EntryForm({
   const rejection =
     latestSmokingInvoice && smokingInvoiceRejection(db, latestSmokingInvoice);
   const reference =
-    lot && !useLot ? referenceDocument(db, kind, lot) : undefined;
+    lot && !meatLot ? referenceDocument(db, kind, lot) : undefined;
+  // 「จดล่าสุด」: the newest note on the lot, whichever kind it is.
+  const noted = lot && !meatLot ? lotProgress(db, lot.id) : undefined;
+  const latestNote =
+    noted &&
+    db.entries.findLast((e) => e.lotId === lotId && noted.has(e.kind))?.kind;
   const riceSource = values.riceSource;
   const cookedRice = cookedRiceStock(db, branch, date);
   const formFields = (forms[kind] || []).filter((field) => {
     if (kind === "smoke" && field.key === "packs") return false;
-    // SVC-01: Chef House types the billed kg only while the batch has no smoke PO.
+    // SVC-01: Chef House types the billed kg only while the batch has no smoke PO
+    // (a note with no lot opens a batch that has none).
     if (kind === "smokingInvoice" && field.key === "serviceQuantity")
-      return !!lot && !entries(db, "smokeOrder", lot.id).length;
+      return !(lot && entries(db, "smokeOrder", lot.id).length);
     // ricePurchase follows the round's choice, not the branch (B2); it starts on the
     // branch's last choice.
     if (kind === "ricePurchase" && field.key !== "riceSource")
@@ -597,8 +628,12 @@ export function EntryForm({
     kind === "closeDay" ? closeDayChecklist(db, branch, date) : [];
   const isPurchaseOrder = kind === "purchase";
   const title = titles[kind];
+  // Set by 「บันทึกและจดต่อ」 for the submit it requests; Enter and the save button close.
+  const more = useRef(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    const stay = more.current;
+    more.current = false;
     // run() rebuilds the change after a revision conflict; upload each file once.
     const uploaded: Record<string, string> = {};
     const saved = await run(async () => {
@@ -658,7 +693,9 @@ export function EntryForm({
         branch,
       );
     });
-    if (saved) onSaved(saved);
+    if (!saved) return;
+    if (stay && onSavedMore) onSavedMore(saved, lotPick);
+    else onSaved(saved);
   }
   return (
     <Dialog
@@ -698,28 +735,35 @@ export function EntryForm({
                 : "overflow-visible",
             )}
           >
+            {again && (
+              <Notice tone="success" className="mt-0">
+                {again.note} · จดรายการใหม่ได้เลย
+              </Notice>
+            )}
             <WorkingDateField asField date={date} onDate={onDate} />
             {isPurchaseOrder && (
               <Notice className="mb-4.5">
                 เอกสาร PO ในส่วน Preview จะเปลี่ยนตามข้อมูลที่กรอกทันที
               </Notice>
             )}
-            {lot && !useLot && (
+            {noted && (
               <Notice>
-                {lot.id} ·{" "}
-                {batchKinds
-                  .filter((k) => lotProgress(db, lot.id).has(k))
-                  .map((k) => titles[k])
-                  .at(-1) ?? "—"}
+                {lotId} ·{" "}
+                {latestNote ? `จดล่าสุด: ${titles[latestNote]}` : "ยังไม่ได้จด"}
               </Notice>
             )}
             {useLot && (
               <FormField
-                label="Lot ต้นทาง"
+                // The branch's meat comes from a batch; any other note only goes on a lot.
+                label={pickLot ? "Lot" : "Lot ต้นทาง"}
                 hint={
                   lotPick === NO_LOT
-                    ? "ไม่ระบุ Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
-                    : undefined
+                    ? pickLot
+                      ? "ไม่ระบุ Lot · ระบบเปิดชุดใหม่ให้รายการนี้"
+                      : "ไม่ระบุ Lot · ต้นทุนเนื้อเป็น 0 จนกว่าจะผูกกับชุดรมควัน"
+                    : pickLot && !noLotChoice && !lotPick
+                      ? "รายการนี้จดได้เมื่อระบุ Lot"
+                      : undefined
                 }
               >
                 <Select
@@ -739,15 +783,17 @@ export function EntryForm({
                     );
                   }}
                 >
-                  <option value="">เลือก Lot</option>
+                  {!lotPick && <option value="">เลือก Lot</option>}
                   {choices.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.id} · {lotSummary(l.id)}
+                      {l.id} · {pickLot ? l.poId : lotSummary(l.id)}
                     </option>
                   ))}
                   {noLotChoice && (
                     <option value={NO_LOT}>
-                      {noLotLabel} · {lotSummary("")}
+                      {pickLot
+                        ? noLotLabel
+                        : `${noLotLabel} · ${lotSummary("")}`}
                     </option>
                   )}
                 </Select>
@@ -904,14 +950,27 @@ export function EntryForm({
             unfilled
               ? `${missingText} ${unfilled} ช่อง · บันทึกได้`
               : isPurchaseOrder
-                ? "ตรวจ Preview ก่อนบันทึก PO"
+                ? "Preview คือเอกสาร PO ที่จะบันทึก"
                 : kind === "smokingInvoice"
                   ? "Owner ตรวจยอดเรียกเก็บหลัง Submit และชำระตามยอดนี้"
                   : "ไฟล์แนบจะถูกอัปโหลดไปเก็บบนระบบ (สำรองไว้ในเบราว์เซอร์นี้ด้วย)"
           }
           onCancel={onClose}
           submitLabel={submitLabels[kind] ?? "บันทึกรายการ"}
-        />
+        >
+          {/* Not on the two that end or reopen a day: there is no second one to jot. */}
+          {onSavedMore && kind !== "closeDay" && kind !== "unlock" && (
+            <Button
+              disabled={saving || !!live.error}
+              onClick={(e) => {
+                more.current = true;
+                e.currentTarget.form?.requestSubmit();
+              }}
+            >
+              บันทึกและจดต่อ
+            </Button>
+          )}
+        </DialogFooter>
       </DialogForm>
     </Dialog>
   );

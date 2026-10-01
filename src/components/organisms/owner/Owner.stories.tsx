@@ -73,14 +73,14 @@ const centralState = pick("สถานะ", {
 });
 const dailyState = pick("สถานะ", {
   ตัวอย่าง: db,
-  ปิดวันได้: closeReadyDb,
-  งานรอ: branchTasksDb,
+  จดครบแล้ว: closeReadyDb,
+  ยังไม่ได้จด: branchTasksDb,
 });
 const logoState = pick("โลโก้", { ปกติ: db, โลโก้แบบเก่า: legacyLogoDb });
 
-/** The warnings above every Owner tab. Controls:
+/** The notes above every Owner tab: plain facts in the neutral tone, no "must do". Controls:
  *  - missingMaterialSettings: materials with no base count / unit price (0 hides it).
- *  - returnReady: closed lots waiting for a truck home (0 hides it); the kg is their total.
+ *  - returnReady: closed lots with no truck home recorded (0 hides it); the kg is their total.
  *  - tab: the open tab; each banner hides on the tab its button leads to (config /
  *    return-shipment). Both at 0 renders nothing. */
 export const AlertBanners: StoryObj<{
@@ -112,7 +112,9 @@ export const AlertBanners: StoryObj<{
   ),
 };
 
-/** เลือกสถานะใน Controls:
+/** The header button reads "ยังไม่ครบ N จุด" (neutral, not a warning) or "จดครบแล้ว"; it
+ *  opens "รายการที่ยังไม่ครบ". "จดล่าสุด" in the lot table names each batch's latest record.
+ *  เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run; "ยังไม่ผูก" reads all clear.
  *  - ยังไม่ผูก: ศาลาแดง 10 kg in "ไม่ระบุ Lot", 1 material receipt with no transfer, 1 batch
  *    with no smoke PO (Chef House smoked it first), 1 purchase PO with no Foodiva invoice.
@@ -124,11 +126,11 @@ export const Dashboard: Story = {
   render: ({ db }) => <OwnerDashboard db={db} date={day} onNavigate={fn()} />,
 };
 
-/** Every branch × day from 7 days back to `date`: "ครบแล้ว" or one "ค้างกรอก" row per
- *  missing kind. เลือกใน Controls:
+/** Every branch × day from 7 days back to `date`: "จดครบแล้ว" or one neutral "ยังไม่ได้จด"
+ *  row per kind with no entry. เลือกใน Controls:
  *  - สถานะ ตัวอย่าง: the seven-day demo run.
- *  - สถานะ ปิดวันได้: ศาลาแดง filled everything on `day`.
- *  - สถานะ งานรอ: ศาลาแดง's `day` is still empty, so it lists what is missing.
+ *  - สถานะ จดครบแล้ว: ศาลาแดง filled everything on `day`.
+ *  - สถานะ ยังไม่ได้จด: ศาลาแดง's `day` is still empty, so it lists what has no entry.
  *  - date: `day` or the day after (every row one day older). The branch filter and
  *    "ตั้งแต่" are the table's own state. */
 export const DailyStatus: StoryObj<{ db: Database; date: string }> = {
@@ -175,7 +177,7 @@ export const CentralReceive: Story = {
 /** เลือกสถานะใน Controls:
  *  - ตัวอย่าง: the seven-day demo run.
  *  - ยังไม่ผูก: a "ไม่ระบุ Lot" row for ศาลาแดง's unlinked meat (also in the Lot filter),
- *    and a batch holding only Chef House's weigh-in and smoke, its empty steps "—".
+ *    and a batch holding only Chef House's weigh-in and smoke, its other records "—".
  *  - ผูกแล้ว: the bucket is gone; the receive, thaw and sale sit on the batch, with the
  *    "ผูก Lot" moves in the log and central stock 25 kg (RET-04). */
 export const MeatMovementLog: Story = {

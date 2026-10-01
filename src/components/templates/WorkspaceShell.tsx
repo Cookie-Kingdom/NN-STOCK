@@ -8,6 +8,7 @@ import {
   NotificationPopover,
   type Notification,
 } from "@/components/organisms/workspace/NotificationPopover";
+import { QuickAdd } from "@/components/organisms/workspace/QuickAdd";
 import { PageHeading } from "@/components/molecules/PageHeading";
 import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -45,12 +46,21 @@ export function WorkspaceShell({
     <div className="flex min-h-screen flex-col bg-bg text-body text-text-primary md:h-dvh">
       <AppHeader
         actions={
-          notifications && (
-            <NotificationPopover
-              notifications={notifications}
-              onSelect={onTab}
+          <>
+            {/* Not while the seed stands in for the server payload: a form would read it. */}
+            <QuickAdd
+              account={account}
+              disabled={!ws.loaded}
+              onOpen={ws.open}
+              onTab={onTab}
             />
-          )
+            {notifications && (
+              <NotificationPopover
+                notifications={notifications}
+                onSelect={onTab}
+              />
+            )}
+          </>
         }
       />
       <div className="grid flex-1 grid-cols-[218px_minmax(0,1fr)] max-[1100px]:grid-cols-[205px_minmax(0,1fr)] max-md:block md:min-h-0 md:grid-rows-[minmax(0,1fr)]">

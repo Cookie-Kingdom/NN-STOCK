@@ -26,6 +26,7 @@ import {
 } from "@/lib/store";
 import { BranchDailyWorkflow } from "./BranchDailyWorkflow";
 import { BranchStockView } from "./BranchStockView";
+import { BranchTodayFeed } from "./BranchTodayFeed";
 import { CloseDayChecklist } from "./CloseDayChecklist";
 import { ChiliDailySummary } from "./ChiliDailySummary";
 import { DailyMaterialsTable } from "./DailyMaterialsTable";
@@ -56,7 +57,6 @@ type Story = StoryObj<{
   db: Database;
   date: string;
   branch: string;
-  hasLots: boolean;
   actions: boolean;
 }>;
 
@@ -91,8 +91,8 @@ const stockState = pick("ข้อมูล", {
   "ไม่ระบุ Lot": unlinkedBranchDb,
 });
 const receiptState = pick("ข้อมูล", {
-  มีใบโอนค้างรับ: materialTransferDb,
-  ไม่มีใบโอนค้าง: db,
+  มีใบโอนรอยืนยันรับ: materialTransferDb,
+  ไม่มีใบโอนรอยืนยันรับ: db,
 });
 const chiliState = pick("น้ำพริก", {
   ยังไม่ตรวจนับ: db,
@@ -100,13 +100,20 @@ const chiliState = pick("น้ำพริก", {
   นับไม่ตรง: chiliMismatchDb,
 });
 const riceState = pick("ข้อมูล", {
-  บันทึกครบแล้ว: db,
+  จดครบแล้ว: db,
   ยังไม่ยกข้าวไปวันถัดไป: chillDb,
 });
+const feedState = pick("ข้อมูล", {
+  มีรายการ: dayClosedDb,
+  "ไม่ระบุ Lot": unlinkedBranchDb,
+  ยังไม่มีรายการ: branchTasksDb,
+});
 
-/** Pick the day's state in Controls: เปิดวัน, after ปิดวัน (status reads closed; steps
- *  1-4 stay open, only ตรวจและปิดวัน is disabled), or "ไม่ระบุ Lot" (meat received
- *  with no batch: thawing and selling open on that bucket). "รับของ" is always open, allocation or not. */
+/** จดวันนี้: a plain list, no numbering and no order. Every button is live whatever the
+ *  stock (thawing or selling with no meat opens on the "ไม่ระบุ Lot" bucket and the store
+ *  only warns); what is not jotted reads "ยังไม่ได้จด" on a neutral chip. Pick the day's
+ *  state in Controls: เปิดวัน, after ปิดวัน (status reads closed; only ตรวจและปิดวัน is
+ *  disabled), or "ไม่ระบุ Lot" (meat received with no batch). */
 export const DailyWorkflow: Story = {
   argTypes: { db: dayState.argType },
   args: { db: dayState.initial },
@@ -120,6 +127,18 @@ export const DailyWorkflow: Story = {
       open={open}
       onTab={fn()}
     />
+  ),
+};
+
+/** จดแล้ววันนี้, under จดวันนี้ on the day tab: the branch's own entries of the working
+ *  date, newest first, as the Log's rows (open one to see what was jotted). มีรายการ: a
+ *  full day through ปิดวัน. "ไม่ระบุ Lot": rows carrying the "ยังไม่ผูก Lot" badge.
+ *  ยังไม่มีรายการ: the empty line. */
+export const TodayFeed: Story = {
+  argTypes: { db: feedState.argType },
+  args: { db: feedState.initial },
+  render: ({ db }) => (
+    <BranchTodayFeed db={db} branch={branch} date={day} onChanged={fn()} />
   ),
 };
 
@@ -153,13 +172,14 @@ export const StockViewMaterials: Story = {
   play: pickGenre("วัสดุบรรจุภัณฑ์"),
 };
 
-/** The checklist on its own. ยังไม่ครบ: materials and cooked rice still missing.
- *  ครบแล้ว: every required item done, the day can close (influencer giveaways are
- *  entered inside the close dialog itself, not as a row here). */
+/** สรุปก่อนปิดวัน on its own. ยังไม่ครบ: materials and cooked rice read "ยังไม่ได้จด" and
+ *  the note under the table is neutral (the day can close anyway). ครบแล้ว: every item
+ *  reads "จดแล้ว" (influencer giveaways are entered inside the sale form, not as a row
+ *  here). */
 export const CloseChecklist: Story = {
   argTypes: {
     db: checklistState.argType,
-    actions: { name: "มีปุ่มไปกรอก (onGo)", control: "boolean" },
+    actions: { name: "มีปุ่มจด (onGo)", control: "boolean" },
   },
   args: { db: checklistState.initial, actions: true },
   render: ({ db, actions }) => (
@@ -171,19 +191,17 @@ export const CloseChecklist: Story = {
 };
 
 /** ข้าวเหนียว. สาขา: ศาลาแดง นึ่งเองหรือซื้อข้าวสุก (4 แถว), มีนบุรี ซื้อข้าวสุกอย่างเดียว.
- *  ข้อมูล = "ยังไม่ยกข้าวไปวันถัดไป" marks the rows closing still needs; hasLots off = no Lot at the branch yet. */
+ *  ข้อมูล = "ยังไม่ยกข้าวไปวันถัดไป" shows the rows reading "ยังไม่ได้จด"; every จด button is live. */
 export const RiceTasks: Story = {
   argTypes: {
     branch: branchArg,
     db: riceState.argType,
-    hasLots: { control: "boolean" },
   },
   args: {
     branch,
     db: riceState.initial,
-    hasLots: true,
   },
-  render: ({ branch, db, hasLots }) => (
+  render: ({ branch, db }) => (
     <DailyTaskTable
       title="ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก"
       kinds={["ricePurchase", "riceIssue", "rice", "riceCarry"]}
@@ -191,7 +209,6 @@ export const RiceTasks: Story = {
       db={db}
       branch={branch}
       date={day}
-      hasLots={hasLots}
       open={open}
     />
   ),

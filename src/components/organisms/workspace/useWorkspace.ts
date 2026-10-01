@@ -1,13 +1,7 @@
 "use client";
 
 import { useRouter, useSelectedLayoutSegment } from "next/navigation";
-import {
-  startTransition,
-  useMemo,
-  useOptimistic,
-  useRef,
-  useState,
-} from "react";
+import { startTransition, useMemo, useOptimistic, useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import type { Modal, ModalKind, Tab } from "@/lib/nav";
@@ -27,23 +21,18 @@ export function useWorkspace(account: Account) {
    * already loaded, only the navigation was making them look slow. The optimistic
    * value reverts when the transition settles, by which time the segment matches. */
   const [tab, showTab] = useOptimistic(segment);
-  const nextTab = useRef<Tab | null>(null);
   const setTab = (next: Tab) =>
     startTransition(() => {
-      // Only a toast set in the same click follows this navigation.
-      nextTab.current = next;
-      queueMicrotask(() => (nextTab.current = null));
       showTab(next);
       router.push(`${account.path}/${next}`);
     });
   const [date, setDate] = useState(today);
   const [chosen, setChosen] = useState("");
   const [modal, setModal] = useState<Modal | null>(null);
-  // A toast stays until closed or until the page changes. It belongs to the page the
-  // user lands on, so "save PO → go to PO tab" keeps its message.
+  // A toast stays until closed or until the page changes: a save never moves the user
+  // to another page, so it belongs to the page it was made on.
   const [note, setNote] = useState({ message: "", page: segment });
-  const setToast = (message: string) =>
-    setNote({ message, page: nextTab.current ?? segment });
+  const setToast = (message: string) => setNote({ message, page: segment });
   const [seenPage, setSeenPage] = useState(segment);
   if (seenPage !== segment) {
     setSeenPage(segment);

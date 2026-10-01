@@ -268,7 +268,7 @@ export function MeatMovementLogView({ db }: { db: Database }) {
         framed
         overline="OWNER · BEEF TRACE"
         title="Log เนื้อคงเหลือ"
-        description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และลำดับการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"
+        description="ดูเนื้อคงเหลือราย Lot ในทุกจุด และการเคลื่อนไหวตั้งแต่ Foodiva ถึงสาขา"
       />
       <DataTable
         title="เนื้อคงเหลือแยกตามจุด"

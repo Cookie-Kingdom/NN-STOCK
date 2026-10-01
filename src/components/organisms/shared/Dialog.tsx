@@ -64,11 +64,14 @@ export type DialogProps = Omit<ComponentProps<"dialog">, "title" | "open"> &
   };
 
 let switchedAt = -Infinity;
+let switchFocus = "";
 /** Call right before swapping one dialog for another (a SegmentedChoice picking a
  *  sibling form): the dialog that mounts next skips its enter animation, so only the
- *  form changes instead of the whole popup replaying its open. */
-export function skipNextDialogEnter() {
+ *  form changes instead of the whole popup replaying its open. `focus` is what takes
+ *  focus in it: the chooser's picked option, or `[data-autofocus]` for a fresh form. */
+export function skipNextDialogEnter(focus = '[aria-checked="true"]') {
   switchedAt = performance.now();
+  switchFocus = focus;
 }
 
 /**
@@ -108,9 +111,7 @@ export function Dialog({
     // focuses the first focusable (the close button). Hand focus back to the marked field.
     // After a swap, stay on the chooser's picked option rather than the close button.
     dialog
-      .querySelector<HTMLElement>(
-        instant ? '[aria-checked="true"]' : "[data-autofocus]",
-      )
+      .querySelector<HTMLElement>(instant ? switchFocus : "[data-autofocus]")
       ?.focus();
     return () => {
       if (dialog.open) dialog.close();

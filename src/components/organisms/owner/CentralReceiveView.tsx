@@ -28,7 +28,7 @@ const columns = [
   "จำนวนกล่องรมควัน",
   "ใบขนส่งกลับ",
   "PO ซื้อ",
-  "ขั้นที่ยังขาด",
+  "ยังไม่ได้จด",
   "การทำงาน",
 ];
 
@@ -62,7 +62,7 @@ function PurchasePoCell({
   const order = entries(db, "smokeOrder", lot.id).length > 0;
   return (
     <span className="grid justify-items-start gap-1">
-      <Badge tone="warning">
+      <Badge tone="neutral">
         {order ? "ยังไม่จับคู่ PO ซื้อ" : "ยังไม่มี PO รมควัน"}
       </Badge>
       {/* No smoke PO yet: its form (preselected on this batch) holds the same lines. */}

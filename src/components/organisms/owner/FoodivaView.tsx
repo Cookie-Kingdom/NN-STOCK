@@ -44,7 +44,7 @@ export function FoodivaView({
   const pos = purchaseLots(db);
   // Newest batch first: every shipment batch, whoever opened it (SHP-04).
   const batches = [...shipments(db)].reverse();
-  // SMK-09: a smoke PO with no transport document yet is Foodiva's incoming work.
+  // SMK-09: smoke POs with no transport document yet, listed on their own.
   const incoming = batches.filter((lot) => {
     const p = lotProgress(db, lot.id);
     return p.has("smokeOrder") && !p.has("dispatch");
@@ -74,7 +74,7 @@ export function FoodivaView({
       <SectionHeading
         framed
         title="งาน Foodiva"
-        description="รับ PO ออก Invoice แล้วระบุน้ำหนักพร้อมส่งเชียงใหม่ และเนื้อส่วนที่เหลือรอ Owner รับ (Waste)"
+        description="จด Invoice เนื้อ น้ำหนักพร้อมส่งเชียงใหม่ เนื้อส่วนที่เหลือรอ Owner รับ (Waste) ใบขนส่ง และ Packing List ของ Foodiva ได้ทุกเมื่อ"
         actions={
           <>
             <Stat
@@ -98,7 +98,7 @@ export function FoodivaView({
           "รวม",
           "การทำงาน",
         ]}
-        emptyText="ไม่มี PO รมควันที่รอทำใบขนส่ง"
+        emptyText="ทุก PO รมควันมีใบขนส่งแล้ว"
         rowKeys={incoming.map((lot) => lot.id)}
         rows={incoming.map((lot) => {
           const order = entries(db, "smokeOrder", lot.id).at(-1);
@@ -134,7 +134,7 @@ export function FoodivaView({
           "PO รมควัน",
           "PO ซื้อ (กก.)",
           "ส่งไป",
-          "ความคืบหน้า",
+          "ยังไม่ได้จด",
           "การทำงาน",
         ]}
         emptyText="ยังไม่มีชุดรมควัน · กด “เปิดชุดใหม่” เพื่อทำใบขนส่งและ Packing List"
@@ -151,7 +151,7 @@ export function FoodivaView({
             order ? (
               `${order.values.orderNumber || "PO รมควัน"} · ${order.date}`
             ) : (
-              <Badge key="order" tone="warning">
+              <Badge key="order" tone="neutral">
                 ยังไม่มี PO รมควัน
               </Badge>
             ),
@@ -182,7 +182,7 @@ export function FoodivaView({
                   {again("ใบขนส่ง", true)}
                 </Button>
                 <Button
-                  variant="table"
+                  variant="table-secondary"
                   onClick={() => open("packingList", lot.id)}
                 >
                   {p.has("packingList")
@@ -195,7 +195,7 @@ export function FoodivaView({
         })}
       />
       <DataTable
-        title="PO เนื้อที่ต้องออก Invoice"
+        title="PO เนื้อและ Invoice ของ Foodiva"
         defaultSort={{ column: "วันที่ออก PO", desc: true }}
         columns={[
           "เลข PO",
@@ -223,16 +223,14 @@ export function FoodivaView({
             confirm ? (
               `${confirm.values.invoiceNo} · ${fmt(n(confirm.values, "confirmedKg"))} กก.`
             ) : (
-              <Badge tone="danger" key="pending">
-                รอออก Invoice
+              <Badge tone="neutral" key="pending">
+                ยังไม่ได้จด Invoice
               </Badge>
             ),
             confirm ? `${fmt(readyForChefHouse(db, lot.id))} กก.` : "—",
             confirm ? `${fmt(ownerWasteOutstanding(db, lot.id))} กก.` : "—",
             `${fmt(rawAtFoodiva(db, lot))} กก.`,
-            confirm
-              ? `${fmt(poRemainingKg(db, lot.id))} กก.`
-              : "ต้องออก Invoice",
+            confirm ? `${fmt(poRemainingKg(db, lot.id))} กก.` : "—",
             payment ? (
               <span key="payment" className="grid justify-items-end gap-1.5">
                 <Badge tone="success">
@@ -241,8 +239,8 @@ export function FoodivaView({
                 <SlipList value={payment.values.slips} />
               </span>
             ) : confirm ? (
-              <Badge key="payment" tone="warning">
-                รอ Owner ชำระ
+              <Badge key="payment" tone="neutral">
+                ยังไม่ได้จดชำระ
               </Badge>
             ) : (
               "—"
@@ -324,23 +322,23 @@ export function FoodivaView({
                   : "รับแล้ว · ยังไม่มีใบขนส่งขากลับ"}
               </Badge>
             ) : trip ? (
-              <Badge tone="danger" key="status">
-                ต้องรับเข้า
+              <Badge tone="neutral" key="status">
+                ยังไม่ได้จดรับเข้า
               </Badge>
             ) : (
               <Badge tone="neutral" key="status">
                 ยังไม่มีรถขากลับ
               </Badge>
             ),
-            // GEN-06: after the weigh-in the row says who moves next, and a second weigh-in
-            // is still one click away (said, not refused; the newest counts).
+            // GEN-06: after the weigh-in the row says whether central stock is recorded, and a
+            // second weigh-in is still one click away (said, not refused; the newest counts).
             <span key="receive" className="inline-grid justify-items-end gap-1">
               {got &&
                 (lotProgress(db, lot.id).has("central")
                   ? "Owner รับเข้าสต๊อกกลางแล้ว"
-                  : "รอ Owner รับเข้าสต๊อกกลาง")}
+                  : "ยังไม่ได้จดรับเข้าสต๊อกกลาง")}
               <Button
-                variant={got ? "table-secondary" : "table"}
+                variant="table-secondary"
                 onClick={() => open("foodivaReturnReceive", lot.id)}
               >
                 {again("ยืนยันรับเข้าตู้", !!got)}

@@ -23,23 +23,25 @@ export default meta;
 type Story = StoryObj<{ db: Database }>;
 
 const foodivaState = pick("สถานะ", {
-  รอส่งของ: dispatchDb,
+  ยังไม่มีใบขนส่ง: dispatchDb,
   "เปิดชุดเอง ยังไม่มี PO รมควัน": packedDb,
   "Owner ออก PO รมควันภายหลัง": packedThenOrderedDb,
   ชุดหลายแบบ: foodivaBatchesDb,
   "PO คงเหลือ": multiPoDb,
   "เก็บไว้ให้ Owner": ownerReservedDb,
-  "Invoice รอชำระ": confirmedDb,
+  "Invoice ยังไม่ได้จดชำระ": confirmedDb,
   "Invoice จ่ายแล้ว": paidDb,
   รถขากลับกำลังมา: returnTruckDb,
   รับขากลับแล้ว: returnGapDb,
-  เสร็จสิ้น: demoDb,
+  จดครบแล้ว: demoDb,
 });
 
-/** The Owner's Foodiva tab (Foodiva is a partner, not a user). "ชุดรมควัน" lists every shipment batch with its progress chips
- *  (from `lotProgress`, hints only) and "เปิดชุดใหม่" opens a transport document on a new
- *  batch. "PO รมควันที่ยังไม่มีใบขนส่ง" is the incoming work. เลือกสถานะใน Controls:
- *  - รอส่งของ: the Owner's smoke PO opened a batch waiting for Foodiva's transport document;
+/** The Owner's Foodiva tab (Foodiva is a partner, not a user). "ชุดรมควัน" lists every
+ *  shipment batch with its "ยังไม่ได้จด" chips (from `lotProgress`, hints only) and
+ *  "เปิดชุดใหม่" opens a transport document on a new batch. Nothing here is a queue: a
+ *  record not written yet is a neutral "ยังไม่ได้จด…" badge, and only a weight gap is red.
+ *  เลือกสถานะใน Controls:
+ *  - ยังไม่มีใบขนส่ง: the Owner's smoke PO opened a batch with no transport document yet;
  *    it shows in both tables.
  *  - เปิดชุดเอง ยังไม่มี PO รมควัน: Foodiva opened and trucked a batch with its Packing List
  *    before any smoke PO; "PO รมควัน" says ยังไม่มี and "แก้ไข Packing List" is open.
@@ -50,8 +52,8 @@ const foodivaState = pick("สถานะ", {
  *  - PO คงเหลือ: no PO waits for a truck; every purchase PO shows its kg left to send.
  *  - เก็บไว้ให้ Owner: 10 kg kept for the Owner, 4 kg already picked up; "เก็บไว้ให้ Owner
  *    คงเหลือ" shows 6 kg.
- *  - Invoice รอชำระ: invoice in, the Owner has not paid it yet; "การชำระเงิน" says รอ
- *    Owner ชำระ.
+ *  - Invoice ยังไม่ได้จดชำระ: invoice in, no payment recorded yet; "การชำระเงิน" says
+ *    ยังไม่ได้จดชำระ.
  *  - Invoice จ่ายแล้ว: the Owner paid the meat invoice; "จ่ายแล้ว" with date and amount,
  *    and the slip opens from the row (storage folder `meatPayment/`, readable by Foodiva
  *    since migration 0027).
@@ -59,7 +61,7 @@ const foodivaState = pick("สถานะ", {
  *    sent (กล่องรมควัน / kg). The button is on every batch not yet weighed in.
  *  - รับขากลับแล้ว: weighed in 0.5 kg short of what Chef House sent; the gap is flagged
  *    until the Owner's central count.
- *  - เสร็จสิ้น: the seven-day demo run, completed. */
+ *  - จดครบแล้ว: the seven-day demo run, everything recorded. */
 export const WaitingForDispatch: Story = {
   argTypes: { db: foodivaState.argType },
   args: { db: foodivaState.initial },

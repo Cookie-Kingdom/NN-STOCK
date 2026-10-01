@@ -11,13 +11,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Pick `variant` in Controls; each one renders where it is used:
+/** A neutral count of things not recorded yet: muted, never red, and the number carries
+ *  the meaning. Pick `variant` in Controls; each one renders where it is used:
  *  - `menu`: after a sidebar menu label
- *  - `overlay`: on the corner of an icon button (the bell)
- *  - `task`: a standalone pill with text, e.g. "ค้าง 2 งาน" */
+ *  - `overlay`: on the corner of an icon button (the bell) */
 export const Default: Story = {
   argTypes: {
-    variant: { control: "inline-radio", options: ["menu", "overlay", "task"] },
+    variant: { control: "inline-radio", options: ["menu", "overlay"] },
     children: { control: "text" },
   },
   args: { variant: "menu" },
@@ -27,8 +27,6 @@ export const Default: Story = {
         <Bell size={19} />
         <CountPill {...args} />
       </span>
-    ) : args.variant === "task" ? (
-      <CountPill {...args} />
     ) : (
       <div className="flex w-56 items-center gap-2 rounded-md border border-border p-3">
         สต๊อกกลาง

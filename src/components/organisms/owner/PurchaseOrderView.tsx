@@ -73,7 +73,7 @@ export function PurchaseOrderView({
             `${item.values.customerName || "-"} / ${item.values.attention || "-"}`,
             `${item.values.productName || "เนื้อวัว"} / ${item.values.packSize || "-"}`,
             `${fmt(n(item.values, "orderedKg"))} กก.`,
-            confirm?.values.invoiceNo || "รอยืนยัน",
+            confirm?.values.invoiceNo || "ยังไม่ได้จด",
             confirm ? `${fmt(poRemainingKg(db, item.id))} กก.` : "—",
             // A8: of what Foodiva keeps for the Owner, what the Owner has not taken yet.
             confirm ? `${fmt(ownerWasteOutstanding(db, item.id))} กก.` : "—",

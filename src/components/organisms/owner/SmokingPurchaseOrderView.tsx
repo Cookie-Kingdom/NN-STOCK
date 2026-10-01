@@ -64,7 +64,7 @@ export function SmokingPurchaseOrderView({
         description="1 ชุดรมควัน = 1 PO รมควัน · ออก PO ได้ทุกเมื่อ ไม่ต้องรอ Packing List · เลือกชุดใหม่หรือชุดที่ Foodiva / Chef House เปิดไว้แล้ว แล้วระบุ PO ซื้อและน้ำหนักที่ใช้"
         actions={
           <Stat
-            label="PO รอยืนยันจาก Chef House"
+            label="PO ที่ยังไม่ได้จดรับจาก Chef House"
             value={`${waitingForChefHouse} ใบ`}
           />
         }
@@ -122,8 +122,8 @@ export function SmokingPurchaseOrderView({
             accepted ? (
               `${accepted.values.acceptedBy} · รับแล้ว`
             ) : order ? (
-              <Badge tone="warning" key="accept">
-                รอยืนยัน
+              <Badge tone="neutral" key="accept">
+                ยังไม่ได้จดรับ
               </Badge>
             ) : (
               "—"

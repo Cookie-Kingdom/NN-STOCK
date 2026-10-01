@@ -28,14 +28,15 @@ export function AppBrand({ responsive = false }: { responsive?: boolean }) {
 }
 
 /**
- * Top bar of every workspace: brand on the left, `actions` (e.g. notifications) and the
- * theme toggle on the right.
+ * Top bar of every workspace: brand on the left, `actions` (จดบันทึก, notifications) and
+ * the theme toggle on the right. Below md the actions take a row of their own under the
+ * brand, so จดบันทึก keeps its label on a phone.
  */
 export function AppHeader({ actions }: { actions?: ReactNode }) {
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-8 py-4.5 max-md:px-4 max-md:py-3.5">
+    <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-8 py-4.5 max-md:flex-wrap max-md:px-4 max-md:py-3.5">
       <AppBrand responsive />
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5 max-md:w-full max-md:justify-end">
         {actions}
         <ThemeToggle />
       </div>

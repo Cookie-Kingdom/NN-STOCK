@@ -22,7 +22,7 @@ export function AppSidebar({
   nav: NavGroup[];
   tab: Tab;
   onTab: (tab: Tab) => void;
-  /** Per-tab counters rendered as a red pill. */
+  /** Per-tab counts of things not recorded yet, rendered as a neutral pill. */
   badges?: Partial<Record<Tab, number>>;
 }) {
   const router = useRouter();

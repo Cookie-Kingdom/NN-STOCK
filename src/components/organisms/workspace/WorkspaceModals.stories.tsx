@@ -5,6 +5,7 @@ import {
   dispatchDb,
   dispatchedDb,
   packedDb,
+  returnedDb,
   smokedDb,
   smokeOrderDb,
 } from "../../../../.storybook/fixtures";
@@ -47,6 +48,26 @@ const modal = pick<Case>("กล่องโต้ตอบ", {
   },
   // A branch account: `EntryForm` gets `branch` from the signed-in account.
   "ศาลาแดง: ขาย": { account: "saladaeng", db: demoDb, kind: "sale" },
+  // What จดบันทึก opens: the kind on no lot. The lot is a field, on "ไม่ระบุ Lot".
+  "จดบันทึก: รับเข้าสต๊อกกลาง (ไม่ระบุ Lot)": {
+    account: "owner",
+    db: returnedDb,
+    kind: "central",
+    lotId: "",
+  },
+  "จดบันทึก: ศาลาแดงรับเนื้อ (ไม่ระบุ Lot)": {
+    account: "saladaeng",
+    db: demoDb,
+    kind: "receive",
+    lotId: "",
+  },
+  // 「บันทึกและจดต่อ」 saves, says so at the top and leaves a fresh form on the same date.
+  "จดบันทึก: ค่าใช้จ่าย (บันทึกและจดต่อ)": {
+    account: "owner",
+    db: demoDb,
+    kind: "expense",
+    lotId: "",
+  },
   // "ส่งของไปสาขา": no lot; the chooser swaps it for the chili-tube allocation.
   ส่งวัสดุไปสาขา: { account: "owner", db: demoDb, kind: "materialTransfer" },
   "ส่งน้ำพริกหลอด (chiliAllocate)": {
@@ -128,7 +149,12 @@ function Modals({ account, kind, lotId }: Case) {
 
 /** Pick กล่องโต้ตอบ in Controls: each option is what WorkspaceModals routes a `modal`
  *  kind to, opened on data where that dialog has something to show. ปิดอยู่: no modal,
- *  WorkspaceModals returns null. */
+ *  WorkspaceModals returns null.
+ *
+ *  The จดบันทึก cases open a kind with no lot, as the header's chooser does. On an entry
+ *  form, 「บันทึกและจดต่อ」 saves (Actions panel), keeps the dialog open without replaying
+ *  its enter, says what was saved at the top and puts focus back on the first field;
+ *  the save button still saves and closes. No save moves the page to another tab. */
 export const Default: StoryObj<{ modal: Case }> = {
   argTypes: { modal: { ...modal.argType, control: "select" } },
   args: { modal: modal.initial },

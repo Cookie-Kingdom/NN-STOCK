@@ -91,7 +91,8 @@ export function ChefLotEditForm({
     );
     return { warnings, error: complete ? error : "" };
   }, [complete, db, values, smokeDrafts, lotId, date]);
-  if (!lot || !received || !prepared || !smokeEntries.length) return null;
+  // mutate refuses a correction with no weigh-in or pre-smoke weight; smoke rounds are optional.
+  if (!lot || !received || !prepared) return null;
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setError("");
@@ -138,8 +139,7 @@ export function ChefLotEditForm({
         <DialogBody>
           <WorkingDateField asField date={date} onDate={onDate} />
           <Notice>
-            แก้ไขได้เฉพาะก่อนยืนยันปิด Lot
-            เมื่อปิดแล้วข้อมูลจะเป็นอ่านอย่างเดียว
+            แก้ได้ทุกเมื่อ · ถ้าปิด Lot แล้วยังบันทึกได้ ระบบจะแจ้งให้ทราบ
           </Notice>
           <FormGrid>
             <FormField label="เวลารับ">
@@ -241,9 +241,7 @@ export function ChefLotEditForm({
           <Notice tone={balanced ? "success" : "warning"} role="none">
             น้ำหนักเข้าเตารวมจาก Log {fmt(smokeTotal)} กก. · น้ำหนักก่อนสโมค{" "}
             {fmt(preSmokeKgValue)} กก. ·{" "}
-            {balanced
-              ? "ยอดตรงกัน พร้อมปิด Lot"
-              : "ยอดยังไม่ตรง ต้องปรับ Log หรือ น้ำหนักก่อนสโมคก่อนปิด Lot"}
+            {balanced ? "ยอดตรงกัน" : "ยอดยังไม่ตรงกัน"}
           </Notice>
           <FormError error={error} />
         </DialogBody>

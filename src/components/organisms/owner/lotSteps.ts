@@ -9,9 +9,9 @@ import {
   type Lot,
 } from "@/lib/store";
 
-/** The steps a smoke batch (Lot S) usually goes through, in the usual order. Only a
- *  checklist: every one can be recorded at any time (PRIN-02), so a step not done is
- *  "ยังขาด", never a closed button. */
+/** The records a smoke batch (Lot S) usually ends up with. A label list, not a sequence:
+ *  every one can be recorded at any time (PRIN-02), so one not recorded is "ยังไม่ได้จด",
+ *  never a closed button. */
 export const batchSteps = [
   "smokeOrder",
   "dispatch",
@@ -87,16 +87,16 @@ export function missingSteps(
   );
 }
 
-/** The tab of the first missing step, else the manifest. */
+/** A tab one of the missing records is written on (the first listed), else the manifest. */
 export function missingStepTab(missing: readonly BatchStep[]): Tab {
   return missing.length ? ownerStepTab[missing[0]] : "transport";
 }
 
-/** "PO รมควัน, ใบขนส่ง, … และอีก 3 ขั้น" */
+/** "ยังไม่ได้จด: PO รมควัน, ใบขนส่ง, … และอีก 3 รายการ" */
 export function missingText(missing: readonly BatchStep[], shown = 4) {
   const names = missing.slice(0, shown).map((step) => stepLabels[step]);
   const rest = missing.length - names.length;
-  return `ยังขาด: ${names.join(", ")}${rest > 0 ? ` และอีก ${rest} ขั้น` : ""}`;
+  return `ยังไม่ได้จด: ${names.join(", ")}${rest > 0 ? ` และอีก ${rest} รายการ` : ""}`;
 }
 
 const DAY = 86400000;

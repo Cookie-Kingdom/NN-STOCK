@@ -61,7 +61,7 @@ const registerColumns = [
   "ผู้ดำเนินการล่าสุด",
 ];
 const detailColumns = [
-  "เอกสาร / ขั้นตอน",
+  "เอกสาร / รายการ",
   "เลขอ้างอิง",
   "วันที่",
   "สถานะ / น้ำหนัก",
@@ -680,7 +680,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
                                     {lot.poId} / {lot.id}
                                   </strong>
                                   <span className="text-caption text-text-secondary">
-                                    ลำดับเอกสารและจุดตรวจสอบย้อนกลับ
+                                    เอกสารและจุดตรวจสอบย้อนกลับ
                                   </span>
                                 </div>
                                 <DocumentPreview
@@ -796,7 +796,7 @@ export function SimpleTraceabilityView({ db }: { db: Database }) {
       </TableSection>
 
       <Footnote className="-mt-1">
-        หน้านี้อ่านอย่างเดียวและไม่เปลี่ยนข้อมูลใด ๆ ทุกขั้นตอนยังทำจากเมนู PO,
+        หน้านี้อ่านอย่างเดียวและไม่เปลี่ยนข้อมูลใด ๆ ทุกรายการยังจดจากเมนู PO,
         ใบ Invoice, ใบขนส่ง, งานผลิต และสต๊อกตามเดิม
       </Footnote>
     </div>

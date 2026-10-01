@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   SegmentedChoice,
   type SegmentedOption,
@@ -18,8 +19,8 @@ import { MatchPurchasePoDialog } from "@/components/organisms/owner/MatchPurchas
 import { SmokeOrderPreviewDialog } from "@/components/organisms/owner/SmokeOrderPreviewDialog";
 import { SmokeOrderForm } from "@/components/organisms/owner/SmokeOrderForm";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import type { ModalKind } from "@/lib/nav";
-import { entries, titles, type EntryKind } from "@/lib/store";
+import type { Modal, ModalKind } from "@/lib/nav";
+import { titles, type EntryKind } from "@/lib/store";
 
 // The stock tab's two buttons each open a pair of forms: the first kind is what the
 // button opens, the chooser swaps in the other. Each form still saves its own kind.
@@ -59,7 +60,16 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
     setTab,
     setDate,
   } = ws;
+  /* 「บันทึกและจดต่อ」: the open form again, fresh, on the lot the last entry was saved on.
+   * Tied to the `modal` object it was saved in, so the next dialog opened starts clean. */
+  const [more, setMore] = useState<{
+    modal: Modal;
+    count: number;
+    lot: string;
+    note: string;
+  }>();
   if (!modal) return null;
+  const again = more?.modal === modal ? more : undefined;
   const close = () => setModal(null);
   // Forms edit the one workspace date, so the page's date-derived data follows.
   const dateProps = {
@@ -145,22 +155,14 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={(next) => {
-          // Nag for a smoke PO only when the batch has none yet (free ledger: it may come later).
-          const lotId = next.entries.findLast(
-            (e) => e.kind === "dispatch",
-          )?.lotId;
+        onSaved={(next) =>
           // SHP-03: the Packing List is optional; name only what was saved.
-          const saved =
+          done(
             next.entries.at(-1)?.kind === "packingList"
               ? "บันทึกใบขนส่งและ Packing List แล้ว"
-              : "บันทึกใบขนส่งแล้ว";
-          done(
-            lotId && entries(next, "smokeOrder", lotId).length
-              ? saved
-              : `${saved} · ออก PO รมควันต่อที่ใบสั่ง PO โรงรมควัน`,
-          );
-        }}
+              : "บันทึกใบขนส่งแล้ว",
+          )
+        }
       />
     );
   }
@@ -171,9 +173,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
         lotId={modal.lotId}
         {...dateProps}
         onClose={close}
-        onSaved={() =>
-          done("แก้ไขข้อมูล Lot แล้ว · ตรวจสอบก่อนกดยืนยันปิด Lot")
-        }
+        onSaved={() => done("แก้ไขข้อมูล Lot แล้ว")}
       />
     );
   }
@@ -220,7 +220,7 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
 
   return (
     <EntryForm
-      key={`${modal.kind}-${modal.lotId}`}
+      key={`${modal.kind}-${modal.lotId}-${again?.count ?? 0}`}
       db={db}
       role={role}
       branch={branch}
@@ -230,16 +230,18 @@ export function WorkspaceModals({ ws }: { ws: Workspace }) {
       onOpen={ws.open}
       onTab={setTab}
       switcher={switcher}
+      again={again}
       onSaved={(next) => {
         setChosen(next.lots.at(-1)?.id || chosen);
-        if (modal.kind === "purchase") {
-          setTab("po");
-          done(
-            "สร้างใบ PO แล้ว · ออก Invoice เนื้อแทน Foodiva ได้ที่งาน Foodiva",
-          );
-        } else {
-          done(savedMessage(titles[modal.kind as EntryKind]));
-        }
+        done(savedMessage(titles[modal.kind as EntryKind]));
+      }}
+      onSavedMore={(next, lot) => {
+        setChosen(next.lots.at(-1)?.id || chosen);
+        const note = savedMessage(titles[modal.kind as EntryKind]);
+        setToast(note);
+        // The form remounts in place: no second enter, focus back on its first field.
+        skipNextDialogEnter("[data-autofocus]");
+        setMore({ modal, count: (again?.count ?? 0) + 1, lot, note });
       }}
     />
   );

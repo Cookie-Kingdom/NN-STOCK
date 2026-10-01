@@ -43,7 +43,7 @@ export function TransportManifestView({
     <>
       <SectionHeading
         title="ใบขนส่งเนื้อ"
-        description="Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva · ทุกขั้นบันทึกได้ไม่ต้องรอกัน ป้ายบอกเฉพาะขั้นที่ยังไม่มีรายการ"
+        description="Foodiva ทำใบขนส่งขาไป Foodiva → Chef House · Owner เรียกรถขากลับ Chef House → Foodiva · จดได้ทุกเมื่อ ไม่ต้องรอกัน ป้ายบอกเฉพาะรายการที่ยังไม่ได้จด"
       />
       <DataTable
         title="รายการส่ง"
@@ -81,7 +81,7 @@ export function TransportManifestView({
               <ButtonRow key={`${lot.id}-outbound`} className="my-0">
                 <span>
                   {sentKg === undefined
-                    ? `รอ Packing List · ${outbound.values.plate || "ยังไม่ระบุรถ"}`
+                    ? `ยังไม่มี Packing List · ${outbound.values.plate || "ยังไม่ระบุรถ"}`
                     : `Packing List ${fmt(sentKg)} กก. · ${outbound.values.plate || "ยังไม่ระบุรถ"}`}
                   <br />
                   <small className="text-text-secondary">{requestedLine}</small>
@@ -137,7 +137,7 @@ export function TransportManifestView({
                       </Badge>
                     </>
                   ) : (
-                    "รอ Foodiva รับเข้าตู้"
+                    "ยังไม่ได้จดรับเข้าตู้"
                   )}
                 </span>
                 <DocumentPrintButton

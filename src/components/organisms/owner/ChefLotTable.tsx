@@ -40,54 +40,30 @@ function ChefLotAction({
     ? smokingInvoiceStatus(db, latestInvoice)
     : "";
   const p = lotProgress(db, lot.id);
-  const closed = p.has("closeLot");
   const billable = !latestInvoice || invoiceStatus === "ส่งกลับแก้ไข";
-  /* CHF-07 / D7: nothing waits on an earlier step, so every job is a button. Which one
-   * is the usual next step only picks the filled style; the rest stay one click away.
-   * A once-per-batch step already saved (PO accepted, weighed in, pre-smoke weight,
-   * closed) stays a button too: saving it again is said, not refused, and the newest
-   * counts (GEN-06). "Edit ข้อมูลก่อนปิด Lot" needs the weigh-in, the pre-smoke weight
-   * and a smoke round to correct (ChefLotEditForm); after ปิด Lot it still saves, with
-   * a warning (CHF-04). */
-  const jobs: {
-    kind: ModalKind;
-    label: string;
-    show: boolean;
-    done?: boolean;
-  }[] = [
+  /* CHF-07 / D7: nothing waits on anything else, so every record is a button and all of
+   * them look the same: none is "the next one". One already saved (PO accepted, weighed
+   * in, pre-smoke weight, closed) stays a button too: saving it again is said, not
+   * refused, and the newest counts (GEN-06). A button is left out only where mutate
+   * refuses the save: accepting a smoke PO that does not exist, and "Edit ข้อมูลก่อนปิด
+   * Lot" with no weigh-in or pre-smoke weight to correct (after ปิด Lot it still saves,
+   * with a warning, CHF-04). */
+  const jobs: { kind: ModalKind; label: string; show?: boolean }[] = [
     {
       kind: "smokeOrderAccept",
       label: again("ยืนยันรับ PO รมควัน", p.has("smokeOrderAccept")),
       show: !!smokeOrder,
-      done: p.has("smokeOrderAccept"),
     },
-    {
-      kind: "cmReceive",
-      label: again(titles.cmReceive, p.has("cmReceive")),
-      show: true,
-      done: p.has("cmReceive"),
-    },
-    {
-      kind: "prepare",
-      label: again(titles.prepare, p.has("prepare")),
-      show: true,
-      done: p.has("prepare"),
-    },
-    // Another round is optional once one is logged, so it no longer counts as "next".
+    { kind: "cmReceive", label: again(titles.cmReceive, p.has("cmReceive")) },
+    { kind: "prepare", label: again(titles.prepare, p.has("prepare")) },
     // Smoking after ปิด Lot still saves, with a warning (CHF-05).
-    { kind: "smoke", label: titles.smoke, show: true, done: p.has("smoke") },
+    { kind: "smoke", label: titles.smoke },
     {
       kind: "chefEdit",
       label: "Edit ข้อมูลก่อนปิด Lot",
-      show: p.has("cmReceive") && p.has("prepare") && p.has("smoke"),
-      done: closed,
+      show: p.has("cmReceive") && p.has("prepare"),
     },
-    {
-      kind: "closeLot",
-      label: again("ยืนยันปิด Lot", closed),
-      show: true,
-      done: closed,
-    },
+    { kind: "closeLot", label: again("ยืนยันปิด Lot", p.has("closeLot")) },
     {
       kind: "smokingInvoice",
       label: latestInvoice
@@ -96,14 +72,13 @@ function ChefLotAction({
       show: billable,
     },
   ];
-  const next = jobs.find((job) => job.show && !job.done);
   const note =
     latestInvoice && invoiceStatus === "ส่งกลับแก้ไข"
       ? smokingInvoiceRejection(db, latestInvoice)?.values.comment?.trim()
       : "";
   return (
     <ButtonRow compact>
-      {!smokeOrder && <Badge tone="warning">ยังไม่มี PO รมควัน</Badge>}
+      {!smokeOrder && <Badge tone="neutral">ยังไม่มี PO รมควัน</Badge>}
       {latestInvoice && invoiceStatus === "ส่งกลับแก้ไข" && (
         <Badge tone="danger">ส่งกลับแก้ไข{note ? ` · ${note}` : ""}</Badge>
       )}
@@ -113,11 +88,11 @@ function ChefLotAction({
         </Badge>
       )}
       {jobs
-        .filter((job) => job.show)
+        .filter((job) => job.show !== false)
         .map((job) => (
           <Button
             key={job.kind}
-            variant={job === next ? "table" : "table-secondary"}
+            variant="table-secondary"
             onClick={() => open(job.kind, lot.id)}
           >
             {job.label}
@@ -177,7 +152,7 @@ export function ChefLotTable({
     <>
       <SectionHeading
         title="Lot งานผลิต Chef House"
-        description="ดูสถานะและทำงานต่อจากตาราง โดยไม่ต้องเปิดทีละการ์ด"
+        description="ดูที่จดไว้และจดเพิ่มได้จากตาราง ไม่ต้องเปิดทีละการ์ด"
       />
       <DataTable
         title="รายการ Lot ทั้งหมด"
@@ -186,7 +161,7 @@ export function ChefLotTable({
           "PO รมควัน",
           "เอกสาร PO",
           "รับจริง",
-          "สถานะ",
+          "จดล่าสุด",
           "น้ำหนักหลังรมควัน",
           "กล่องรมควัน",
           "การทำงาน",
@@ -209,7 +184,7 @@ export function ChefLotTable({
           ),
           n(lot.values, "receivedKg")
             ? `${fmt(n(lot.values, "receivedKg"))} กก.`
-            : "รอยืนยันรับ",
+            : "ยังไม่ได้จดรับ",
           batchKinds
             .filter((k) => lotProgress(db, lot.id).has(k))
             .map((k) => titles[k])

@@ -26,7 +26,7 @@ function Gap({ actual, sent }: { actual?: number; sent?: number }) {
 export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
   const [showList, setShowList] = useState(false);
   const chain = shipmentChain(db, lot);
-  const steps: [string, ReactNode, ReactNode?][] = [
+  const records: [string, ReactNode, ReactNode?][] = [
     [
       "PO ซื้อ (ตาม PO รมควัน)",
       // No smoke PO yet: the batch was opened by Foodiva or Chef House (DASH-05).
@@ -95,19 +95,19 @@ export function ShipmentChainCard({ db, lot }: { db: Database; lot: Lot }) {
           ดู Packing List
         </Button>
       </div>
-      <ol className="m-0 grid list-none grid-cols-6 gap-2 p-0 max-lg:grid-cols-3 max-md:grid-cols-1">
-        {steps.map(([label, value, extra], index) => (
+      <ul className="m-0 grid list-none grid-cols-6 gap-2 p-0 max-lg:grid-cols-3 max-md:grid-cols-1">
+        {records.map(([label, value, extra]) => (
           <li
             key={label}
             className="grid content-start justify-items-start gap-1 rounded-lg border border-border bg-bg p-3 text-body-sm"
           >
-            <small className="text-caption text-text-secondary">{`${index + 1}. ${label}`}</small>
-            {/* A step not recorded yet is "—", whatever the others hold (DASH-05). */}
+            <small className="text-caption text-text-secondary">{label}</small>
+            {/* A record not written yet is "—", whatever the others hold (DASH-05). */}
             <strong className="tabular-nums">{value ?? "—"}</strong>
             {value !== undefined && extra}
           </li>
         ))}
-      </ol>
+      </ul>
       {showList && (
         <PackingListDialog
           db={db}

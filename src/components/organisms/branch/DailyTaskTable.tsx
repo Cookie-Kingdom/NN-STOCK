@@ -4,10 +4,10 @@ import { Button } from "@/components/atoms/Button";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { entries, titles, type Database, type EntryKind } from "@/lib/store";
 
-const optionalHint: Record<string, string> = {
-  ricePurchase: "บันทึกเฉพาะวันที่ซื้อ",
-  riceIssue: "บันทึกเฉพาะวันที่นึ่งเอง",
-  rice: "ต้องบันทึกเมื่อเบิกข้าวดิบวันนั้น",
+const occasionalHint: Record<string, string> = {
+  ricePurchase: "จดเฉพาะวันที่ซื้อ",
+  riceIssue: "จดเฉพาะวันที่นึ่งเอง",
+  rice: "จดเมื่อเบิกข้าวดิบวันนั้น",
 };
 
 export function DailyTaskTable({
@@ -16,42 +16,42 @@ export function DailyTaskTable({
   db,
   branch,
   date,
-  hasLots,
   open,
   required,
 }: {
   title: string;
   kinds: EntryKind[];
-  /** Kinds owed today; the others read as optional. Omitted: the fixed optional list. */
+  /** Kinds the day's summary counts as not jotted; the others only happen on some days.
+   *  Omitted: the fixed occasional list. */
   required?: EntryKind[];
   db: Database;
   branch: string;
   date: string;
-  hasLots: boolean;
   open: (kind: EntryKind, lotId?: string) => void;
 }) {
   return (
     <DataTable
       title={title}
-      columns={["รายการ", "สถานะ", "จำนวนรายการ", "การทำงาน"]}
+      columns={["รายการ", "สถานะ", "จำนวนรายการ", "จด"]}
       rowKeys={kinds}
       rows={kinds.map((kind) => {
         const count = entries(db, kind, undefined, branch, date).length;
-        const optional = required
+        const occasional = required
           ? !required.includes(kind)
           : kind === "ricePurchase";
         const label = titles[kind];
         return [
-          optional ? `${label} · ${optionalHint[kind] ?? "ไม่บังคับ"}` : label,
-          count ? "บันทึกแล้ว" : optional ? "ไม่บังคับวันนี้" : "รอบันทึก",
+          occasional && occasionalHint[kind]
+            ? `${label} · ${occasionalHint[kind]}`
+            : label,
+          count ? "จดแล้ว" : occasional ? "ยังไม่มีรายการ" : "ยังไม่ได้จด",
           String(count),
           <Button
             key={kind}
-            variant="table"
-            disabled={!hasLots && kind === "sale"}
+            variant="table-secondary"
             onClick={() => open(kind)}
           >
-            กรอกข้อมูล
+            จด
           </Button>,
         ];
       })}

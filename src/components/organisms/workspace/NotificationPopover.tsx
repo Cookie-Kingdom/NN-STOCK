@@ -9,7 +9,8 @@ import type { Tab } from "@/lib/nav";
 
 export type Notification = { title: string; detail: string; tab: Tab };
 
-/** Bell button with a count, opening a list of follow-up tasks that each jump to their tab.
+/** Bell button with a count, opening the list of notices (things not recorded yet, edit
+ *  requests and the like); each line jumps to its tab. Shared by the owner and branch routes, so its own copy stays generic.
  *  A native `popover`: the browser owns open/close, Escape, click-outside and the button's
  *  expanded state; CSS anchor positioning hangs the panel under the bell. */
 export function NotificationPopover({
@@ -41,15 +42,15 @@ export function NotificationPopover({
         id={id}
         popover="auto"
         className="inset-auto [top:anchor(bottom)] [right:anchor(right)] m-0 mt-2.5 w-[min(390px,calc(100vw-32px))] origin-top-right rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in"
-        aria-label="รายการที่ต้องทำต่อ"
+        aria-label="การแจ้งเตือน"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">
           <div className="grid gap-0.5">
             <strong className="text-body font-semibold">การแจ้งเตือน</strong>
             <span className="text-caption text-text-secondary">
               {notifications.length
-                ? `ต้องทำต่อ ${notifications.length} รายการ`
-                : "ไม่มีงานค้าง"}
+                ? `แจ้งเตือน ${notifications.length} รายการ`
+                : "ไม่มีแจ้งเตือน"}
             </span>
           </div>
           <Button variant="text" popoverTarget={id} popoverTargetAction="hide">
@@ -74,7 +75,7 @@ export function NotificationPopover({
         ) : (
           <EmptyState
             compact
-            text="ยังไม่มีงานที่ต้องทำต่อ"
+            text="ไม่มีแจ้งเตือน"
             className="mx-0.75 mb-0.5"
           />
         )}

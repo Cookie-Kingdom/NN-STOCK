@@ -18,7 +18,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
- *  - `compact`: the small inline version, e.g. "ไม่มีงานค้าง" with the CircleCheck
+ *  - `compact`: the small inline version, e.g. "ไม่มีรายการที่ยังไม่ได้จด" with the CircleCheck
  *    icon */
 export const Default: Story = {
   argTypes: {
