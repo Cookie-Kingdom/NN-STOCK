@@ -110,9 +110,16 @@ export function Dialog({
     // React's autoFocus fires while the dialog is still closed, and showModal() then
     // focuses the first focusable (the close button). Hand focus back to the marked field.
     // After a swap, stay on the chooser's picked option rather than the close button.
-    dialog
-      .querySelector<HTMLElement>(instant ? switchFocus : "[data-autofocus]")
-      ?.focus();
+    // A form that marks no field opens on its first control (ACC-18): Enter on the close
+    // button would shut it.
+    (
+      dialog.querySelector<HTMLElement>(
+        instant ? switchFocus : "[data-autofocus]",
+      ) ??
+      dialog.querySelector<HTMLElement>(
+        "form :is(input, select, textarea):not([type=hidden], :disabled)",
+      )
+    )?.focus();
     return () => {
       if (dialog.open) dialog.close();
       previous?.focus();

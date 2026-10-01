@@ -12,7 +12,9 @@ export type Notification = { title: string; detail: string; tab: Tab };
 /** Bell button with a count, opening the list of notices (things not recorded yet, edit
  *  requests and the like); each line jumps to its tab. Shared by the owner and branch routes, so its own copy stays generic.
  *  A native `popover`: the browser owns open/close, Escape, click-outside and the button's
- *  expanded state; CSS anchor positioning hangs the panel under the bell. */
+ *  expanded state; CSS anchor positioning hangs the panel under the bell. Below md the bell
+ *  is not the last thing in its row, so the panel keeps to the screen's gutter instead of
+ *  the bell's right edge, which would push it off the left of a phone. */
 export function NotificationPopover({
   notifications,
   onSelect,
@@ -41,7 +43,7 @@ export function NotificationPopover({
         ref={panel}
         id={id}
         popover="auto"
-        className="inset-auto [top:anchor(bottom)] [right:anchor(right)] m-0 mt-2.5 w-[min(390px,calc(100vw-32px))] origin-top-right rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in"
+        className="inset-auto [top:anchor(bottom)] [right:anchor(right)] m-0 mt-2.5 w-[min(390px,calc(100vw-32px))] origin-top-right rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in max-md:[right:1rem]"
         aria-label="การแจ้งเตือน"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">

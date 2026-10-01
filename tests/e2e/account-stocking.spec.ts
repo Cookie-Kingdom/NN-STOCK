@@ -7,6 +7,7 @@ import {
   PACKING_LIST_FILE,
   SCREENS,
   SHIPMENT_NO,
+  bangkokDate,
   branchReceive,
   branchReceiveChili,
   branchStockRow,
@@ -29,6 +30,7 @@ import {
   saveDispatchDialog,
   saveEntry,
   saveMaterialReceipt,
+  setWorkingDate,
   signInAs,
   startFresh,
   step,
@@ -43,17 +45,6 @@ import {
  * List is a file plus one total, and cooked rice starts from zero every day. What each
  * test walks is the flow as it is now (vault: Features/Account Stocking/Checklist
  * 2026-09-30). */
-
-/** A Bangkok business date, `offset` days from today (the app's `today()`). */
-function bangkokDate(offset = 0) {
-  const day = new Date(Date.now() + offset * 86_400_000);
-  return day.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
-}
-
-/** The working date of the open dialog; it is the workspace's one date. */
-async function setWorkingDate(page: Page, date: string) {
-  await topDialog(page).getByLabel("วันที่ทำรายการ").fill(date);
-}
 
 test.beforeEach(async ({ page }) => {
   await startFresh(page);

@@ -187,6 +187,17 @@ export async function openMenu(page: Page, label: string) {
   await pointAndClick(page, menuItem(page, label));
 }
 
+/** A Bangkok business date, `offset` days from today (the app's `today()`). */
+export function bangkokDate(offset = 0) {
+  const day = new Date(Date.now() + offset * 86_400_000);
+  return day.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+}
+
+/** The working date of the open dialog; it is the workspace's one date. */
+export async function setWorkingDate(page: Page, date: string) {
+  await topDialog(page).getByLabel("วันที่ทำรายการ").fill(date);
+}
+
 /* ---- session --------------------------------------------------------------- */
 
 /** Resets the local SQLite database to the empty v9 seed and opens "/". Every test
@@ -255,7 +266,7 @@ export async function step(
 
 /* ---- ids on screen ----------------------------------------------------------- */
 
-const PO_ID = /PO-\d{4}-\d{4}/;
+export const PO_ID = /PO-\d{4}-\d{4}/;
 export const SHIPMENT_NO = /SH-\d{4}-\d{4}/;
 /** A smoke batch id: `S<yymmdd>-NNN-xxxx` (GEN-09). */
 export const BATCH_ID = /S\d{6}-\d{3}-[0-9a-z]{4}/i;
