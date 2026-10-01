@@ -76,7 +76,7 @@ function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const INVOICE_FIXTURE = path.join(
+export const INVOICE_FIXTURE = path.join(
   process.cwd(),
   "tests/fixtures/invoice-demo.pdf",
 );
@@ -292,13 +292,28 @@ export const SCREENS = {
   },
   smokePo: { menu: "ใบสั่ง PO โรงรมควัน", table: "รายการ PO โรงรมควัน" },
   invoices: { menu: "ใบ Invoice" },
-  centralReceive: { menu: "รับเนื้อเข้าสต๊อกกลาง" },
-  allocate: { menu: "จัดสรรเนื้อ และสต๊อกไปสาขา" },
+  centralReceive: {
+    menu: "รับเนื้อเข้าสต๊อกกลาง",
+    table: "ชุดที่ยังไม่เข้าสต๊อกกลาง",
+    unmatched: "เข้าสต๊อกกลางแล้ว · ยังไม่จับคู่ PO ซื้อ",
+  },
+  branchMeat: {
+    menu: "สต๊อกเนื้อสาขา",
+    table: "สต๊อกเนื้อทุกจุด (Meat inventory)",
+  },
   ownerDashboard: { menu: "แดชบอร์ด" },
   traceability: { menu: "เอกสารและ Traceability" },
+  config: { menu: "ตั้งค่า" },
   branchDay: { menu: "กรอกรายวัน" },
+  rice: {
+    menu: "ข้าวเหนียววันนี้",
+    table: "ข้าวเหนียว · นึ่งเอง หรือซื้อข้าวสุกจากข้างนอก",
+  },
   materialReceive: { menu: "ยืนยันรับวัสดุ" },
 } as const;
+
+/** The marker a field left empty is saved and shown with (GEN-02, `missingText`). */
+export const MISSING = "ยังไม่ได้กรอก";
 
 /** Creates a purchase PO for `orderedKg` at `price` ฿/kg; returns its `PO-yyyy-NNNN`. */
 export async function createPurchasePo(
@@ -360,10 +375,9 @@ export async function issueMeatInvoice(
   return invoiceNo;
 }
 
-/** Weigh-in (`cmReceive`) at Chef House. `batch` = "" opens a new batch ("เปิดชุดใหม่",
- *  CHF-01/GEN-09); otherwise the row of that batch (id or SH-number). Without a Packing
- *  List the boxes are typed one by one. */
-export async function weighIn(page: Page, batch: string, boxesKg: string[]) {
+/** Opens the weigh-in (`cmReceive`) at Chef House. `batch` = "" opens a new batch
+ *  ("เปิดชุดใหม่", CHF-01/GEN-09); otherwise the row of that batch (id or SH-number). */
+export async function openWeighIn(page: Page, batch: string) {
   await openMenu(page, SCREENS.weighIn.menu);
   if (batch)
     await pointAndClick(
@@ -373,18 +387,14 @@ export async function weighIn(page: Page, batch: string, boxesKg: string[]) {
       }),
     );
   else await button(page, "เปิดชุดใหม่");
-  const dialog = topDialog(page);
-  await expect(dialog).toContainText("ยืนยันรับเนื้อที่ Chef House");
-  const rows = dialog.getByLabel("จำนวนแถวของตาราง");
-  if (await rows.count()) await rows.fill(String(boxesKg.length));
-  for (const [index, kg] of boxesKg.entries())
-    await typeValue(
-      page,
-      dialog.getByLabel(`น้ำหนักจริงกล่องรับเข้าที่ ${index + 1}`, {
-        exact: true,
-      }),
-      kg,
-    );
+  await expect(topDialog(page)).toContainText("ยืนยันรับเนื้อที่ Chef House");
+}
+
+/** Weigh-in: Chef House types one total, the kg it weighed (SHP-02). The boxes are in
+ *  Foodiva's Packing List file, not typed. */
+export async function weighIn(page: Page, batch: string, receivedKg: string) {
+  await openWeighIn(page, batch);
+  await field(page, /^น้ำหนักรับรวม/, receivedKg);
   await saveEntry(page);
 }
 
@@ -479,8 +489,12 @@ export async function acceptSmokePo(page: Page, batch: string) {
   await saveEntry(page);
 }
 
-/** Fills the Packing List dialog opened over the transport document: one row per box. */
-async function fillPackingList(page: Page, boxesKg: string[]) {
+/** The name the Packing List file is saved under (the invoice fixture stands in). */
+export const PACKING_LIST_FILE = path.basename(INVOICE_FIXTURE);
+
+/** Fills the Packing List dialog opened over the transport document (SHP-02): the file is
+ *  the per-box evidence, and only the total sent (`netKg`) is typed. */
+async function fillPackingList(page: Page, netKg: string) {
   await pointAndClick(
     page,
     topDialog(page).getByRole("button", {
@@ -488,22 +502,15 @@ async function fillPackingList(page: Page, boxesKg: string[]) {
     }),
   );
   const list = topDialog(page);
-  await expect(list).toContainText("กรอกน้ำหนักรายกล่องรับเข้า");
+  await expect(list).toContainText("กรอกเฉพาะน้ำหนักส่งรวม");
+  await list.locator('input[type="file"]').setInputFiles(INVOICE_FIXTURE);
   const invoice = list.getByLabel("เลข Invoice", { exact: true });
   if (!(await invoice.inputValue()))
     await typeValue(page, invoice, "FD-PL-001");
   const product = list.getByLabel("รายการสินค้า", { exact: true });
   if (!(await product.inputValue()))
     await typeValue(page, product, "เนื้อวัวสำหรับรมควัน");
-  await list.getByLabel("จำนวนแถวของตาราง").fill(String(boxesKg.length));
-  for (const [index, kg] of boxesKg.entries())
-    await typeValue(
-      page,
-      list.getByLabel(`น้ำหนักตาม Packing List กล่องรับเข้าที่ ${index + 1}`, {
-        exact: true,
-      }),
-      kg,
-    );
+  await typeValue(page, list.getByLabel(/^น้ำหนักส่งรวม/), netKg);
   await pointAndClick(
     page,
     list.getByRole("button", { name: "ใส่ Packing List ในใบขนส่ง" }),
@@ -513,11 +520,7 @@ async function fillPackingList(page: Page, boxesKg: string[]) {
 
 /** Transport document + Packing List on a batch (`batch` = id / SH-number of a row in
  *  "ชุดรมควัน", or "" for "เปิดชุดใหม่"), saved together (SHP-01/03). */
-export async function recordDispatch(
-  page: Page,
-  batch: string,
-  boxesKg: string[],
-) {
+export async function recordDispatch(page: Page, batch: string, netKg: string) {
   await openMenu(page, SCREENS.batches.menu);
   if (batch)
     await pointAndClick(
@@ -533,11 +536,11 @@ export async function recordDispatch(
         name: "เปิดชุดใหม่",
       }),
     );
-  await saveDispatchDialog(page, boxesKg);
+  await saveDispatchDialog(page, netKg);
 }
 
 /** The open transport-document dialog: truck (unless prefilled), Packing List, save. */
-export async function saveDispatchDialog(page: Page, boxesKg: string[]) {
+export async function saveDispatchDialog(page: Page, netKg: string) {
   const dialog = topDialog(page);
   for (const [label, value] of [
     ["ทะเบียนรถ", "70-1234 กทม."],
@@ -547,7 +550,7 @@ export async function saveDispatchDialog(page: Page, boxesKg: string[]) {
     const input = dialog.getByLabel(label, { exact: true });
     if (!(await input.inputValue())) await typeValue(page, input, value);
   }
-  await fillPackingList(page, boxesKg);
+  await fillPackingList(page, netKg);
   await pointAndClick(
     page,
     page.getByRole("button", { name: "บันทึกใบขนส่ง", exact: true }),
@@ -622,7 +625,7 @@ export async function receiveCentral(page: Page, batch: string, kg: string) {
   await openMenu(page, SCREENS.centralReceive.menu);
   await pointAndClick(
     page,
-    tableRow(page, "ชุดที่ยังไม่เข้าสต๊อกกลาง", batch).getByRole("button", {
+    tableRow(page, SCREENS.centralReceive.table, batch).getByRole("button", {
       name: "รับเข้าสต๊อกกลาง",
     }),
   );
@@ -630,26 +633,37 @@ export async function receiveCentral(page: Page, batch: string, kg: string) {
   await saveEntry(page);
 }
 
-/** The Owner's inventory row of a batch on the allocation screen. */
-export async function allocationRow(page: Page, batch: string) {
-  await openMenu(page, SCREENS.allocate.menu);
-  return tableRow(page, "สต๊อกเนื้อทุกจุด (Meat inventory)", batch);
+/** RET-07: names the purchase POs a batch drew from, at central receive. `table` is the
+ *  one the batch sits in: still waiting for central stock, or already counted in. Leaves
+ *  the dialog open so the caller can read it before `saveEntry`. */
+export async function openMatchPo(
+  page: Page,
+  table: string,
+  batch: string,
+  lines: { poId: string; kg: string }[],
+) {
+  await openMenu(page, SCREENS.centralReceive.menu);
+  await pointAndClick(
+    page,
+    tableRow(page, table, batch).getByRole("button", {
+      name: "จับคู่ PO ซื้อ",
+    }),
+  );
+  const dialog = topDialog(page);
+  await expect(dialog).toContainText("จับคู่ PO ซื้อ");
+  for (const line of lines)
+    await typeValue(
+      page,
+      dialog.getByLabel(`น้ำหนักที่ส่งจาก ${line.poId}`),
+      line.kg,
+    );
 }
 
-/** Allocates `kg` of a batch to one branch (the other branch left at 0). */
-export async function allocate(
-  page: Page,
-  batch: string,
-  branch: "ศาลาแดง" | "มีนบุรี",
-  kg: string,
-) {
-  const row = await allocationRow(page, batch);
-  await pointAndClick(page, row.getByRole("button", { name: "จัดสรร" }));
-  const dialog = topDialog(page);
-  const other = branch === "ศาลาแดง" ? "มีนบุรี" : "ศาลาแดง";
-  await typeValue(page, dialog.getByLabel(`${other} (กก.)`), "0");
-  await typeValue(page, dialog.getByLabel(`${branch} (กก.)`), kg);
-  await saveEntry(page);
+/** The Owner's row of a batch on "สต๊อกเนื้อสาขา": central stock and each branch's. Nobody
+ *  allocates meat any more (BR-01); the branch's own receive is what moves it. */
+export async function meatStockRow(page: Page, batch: string) {
+  await openMenu(page, SCREENS.branchMeat.menu);
+  return tableRow(page, SCREENS.branchMeat.table, batch);
 }
 
 /* ---- branch meat -------------------------------------------------------------- */

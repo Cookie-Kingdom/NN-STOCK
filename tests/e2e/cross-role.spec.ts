@@ -43,7 +43,7 @@ test("PRIN-01 GEN-09 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch stay
     page,
     "Owner (แทน Chef House): เปิดชุดใหม่ ชั่งรับโดยไม่มี Packing List / PO",
     async () => {
-      await weighIn(page, "", ["50", "50"]);
+      await weighIn(page, "", "100");
       await openMenu(page, SCREENS.production.menu);
       const batches = await idsOnScreen(page, BATCH_ID);
       expect(batches, "one new batch").toHaveLength(1);
@@ -90,7 +90,7 @@ test("PRIN-01 GEN-09 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch stay
       const row = tableRow(page, SCREENS.batches.table, batch);
       await expect(row).toHaveCount(1);
       shipment = (await row.innerText()).match(SHIPMENT_NO)![0];
-      await recordDispatch(page, batch, ["50", "50"]);
+      await recordDispatch(page, batch, "100");
       await expect(row).toContainText("100.00 กก.");
       await expect(
         row.getByRole("button", { name: "แก้ไข Packing List" }),
@@ -131,9 +131,12 @@ test("PRIN-01 GEN-09 SMK-01 SMK-03 CHF-01 CHF-03 SVC-01 reverse-order batch stay
       expect(await idsOnScreen(page, BATCH_ID)).toEqual([batch]);
       const row = tableRow(page, SCREENS.production.table, batch);
       await expect(row).not.toContainText("ยังไม่มี PO รมควัน");
+      // GEN-06: a step already saved keeps its button; a second save is said, not refused.
       await expect(
-        row.getByRole("button", { name: "ยืนยันรับ PO รมควัน" }),
-      ).toHaveCount(0);
+        row.getByRole("button", {
+          name: "ยืนยันรับ PO รมควัน · บันทึกเพิ่ม/แก้",
+        }),
+      ).toBeVisible();
     },
   );
 
@@ -193,7 +196,7 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
     "Owner (แทน Chef House): ชุดที่มีแค่ชั่งรับกับสโมค",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
-      await weighIn(page, "", ["40"]);
+      await weighIn(page, "", "40");
       await openMenu(page, SCREENS.production.menu);
       batch = (await idsOnScreen(page, BATCH_ID))[0];
       await recordSmoke(page, batch, { inputKg: "38", packs: ["19", "19"] });
@@ -210,7 +213,9 @@ test("DASH-01 DASH-05 dashboard counts what is not linked yet; a partial batch t
     const tile = page.getByRole("region", { name: "ยังไม่ผูก" });
     await expect(tile).toContainText("14.00 กก.");
     await expect(tile).toContainText("ศาลาแดง 10.00 กก. · มีนบุรี 4.00 กก.");
-    await expect(tile).toContainText("1 รายการ");
+    await expect(tile).toContainText("รอผูก 2 รายการรับ");
+    // MAT-01: a material receipt with no transfer is not something left to link.
+    await expect(tile).not.toContainText("วัสดุ");
     await expect(tile).toContainText("1 ชุด");
     await expect(tile).toContainText(shipment);
     await expect(tile).toContainText("1 ใบ");
