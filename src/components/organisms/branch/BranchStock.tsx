@@ -199,7 +199,8 @@ export function MaterialCount({
                   : thaiDay(chili.countedOn)}
             </Cell>
             <Cell right className="font-normal text-text-secondary">
-              นับในฟอร์มยอดขาย
+              {/* The Account Manager has no sale form (V2-ACC-01). */}
+              {account.hidesSales ? "สาขานับเอง" : "นับในฟอร์มยอดขาย"}
             </Cell>
           </tr>
         </StockTable>

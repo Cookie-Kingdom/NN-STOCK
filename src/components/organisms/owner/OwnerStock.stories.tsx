@@ -37,7 +37,8 @@ type Story = StoryObj<typeof meta>;
  *  และกล่องวัสดุของแต่ละสาขาบันทึกยอดนับของสาขานั้น */
 export const Owner: Story = {};
 
-/** Account Manager: เห็นและนับแทนสาขาได้เหมือน Owner */
+/** Account Manager: เห็นและนับแทนสาขาได้เหมือน Owner · แถวน้ำพริกบอก「สาขานับเอง」
+ *  เพราะ Manager ไม่มีฟอร์มยอดขาย */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },

@@ -363,8 +363,11 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(deposit).toHaveCount(0);
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
-  const removal = changes.locator("[data-entry]").first();
-  await expect(removal).toContainText("ลบรายการ · จ่ายเงิน");
+  // By its text, not its place: the restore becomes the newest row of the log.
+  const removal = changes
+    .locator("[data-entry]")
+    .filter({ hasText: "ลบรายการ · จ่ายเงิน" });
+  await expect(removal).toHaveCount(1);
   await removal.getByRole("button", { name: "ย้อนกลับ" }).click();
   await expect(toast(page, /^กู้คืนแล้ว: จ่ายเงิน/)).toBeVisible();
   await expect(removal).toContainText("ย้อนกลับแล้ว");
