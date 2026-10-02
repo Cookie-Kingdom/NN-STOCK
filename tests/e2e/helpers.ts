@@ -168,6 +168,12 @@ export async function expectWarning(page: Page, message: string | RegExp) {
   await expect(dialog.locator('button[type="submit"]').last()).toBeEnabled();
 }
 
+/** The notice of a save on the page (the toast), not one inside a dialog. Asked for by a
+ *  part of its text; `toHaveText` then reads the whole of it, warnings included. */
+export function toast(page: Page, message: string | RegExp) {
+  return page.locator("main").getByRole("status").filter({ hasText: message });
+}
+
 /** A table card (TableSection), addressed by its heading. */
 export function tableSection(page: Page, title: string | RegExp) {
   return page

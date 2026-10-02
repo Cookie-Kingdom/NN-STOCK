@@ -17,7 +17,7 @@ export function HistoryPanel({
   db: Database;
   role: ActingRole;
   branch: string;
-  /** Account Manager: sales arrive without their money, so they are not edited here. */
+  /** Account Manager: sales arrive without their money, and are edited without it. */
   hideSales?: boolean;
   onChanged: (message: string) => void;
 }) {

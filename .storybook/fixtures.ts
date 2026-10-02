@@ -567,6 +567,23 @@ export const closeReadyDb: Database = chillBranchRun(
   "riceCarry",
   { leftoverKg: "0", reheat: "เก็บไว้อุ่นวันถัดไป" },
 );
+/** closeReadyDb with the materials counted on `nextDay` too: that count opened on what `day`'s
+ *  left, so `day`'s count saved again with another figure is told to save it again (MAT-05). */
+export const recountDb: Database = mutate(
+  closeReadyDb,
+  "branch",
+  "materials",
+  Object.fromEntries(
+    materials.flatMap((_, i) => [
+      [`opening${i}`, "10"],
+      [`used${i}`, "0"],
+      [`material${i}`, "10"],
+    ]),
+  ),
+  "",
+  nextDay,
+  "ศาลาแดง",
+);
 /** closeReadyDb with cooked rice bought and chili received: a sale form opened on its
  *  lot (4.5 kg chill left) has meat, rice and chili for influencer giveaways too. */
 export const giveawayReadyDb: Database = (() => {

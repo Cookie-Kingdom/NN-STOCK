@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ACCOUNTS,
   BATCH_ID,
+  MISSING,
   NO_LOT,
   PO_ID,
   SCREENS,
@@ -22,6 +23,7 @@ import {
   step,
   tableRow,
   tableSection,
+  toast,
   topDialog,
   typeValue,
 } from "./helpers";
@@ -248,11 +250,6 @@ async function closeDialog(page: Page) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 
-/** The save notice on the page (the toast), not one inside a dialog. */
-function toast(page: Page, message: string) {
-  return page.locator("main").getByRole("status").filter({ hasText: message });
-}
-
 /** The bell's panel, opened for `read` and closed again. */
 async function readBell(page: Page, read: (panel: Locator) => Promise<void>) {
   await pointAndClick(
@@ -307,7 +304,7 @@ test.beforeEach(async ({ page }) => {
   await startFresh(page);
 });
 
-test("ACC-18 ACC-19 ACC-20 PSM-48 จดบันทึก is on every tab of the Owner and the Account Manager; the chooser groups the notes, works from the keyboard, and each note opens its form in place", async ({
+test("ACC-18 ACC-19 ACC-20 PSM-48 จดบันทึก is on every tab of the Owner and the Account Manager; the chooser groups the notes, works from the keyboard, and each note opens its form in place; every note that starts on ไม่ระบุ Lot is saved there and opens a batch", async ({
   page,
 }) => {
   const groups = OWNER_NOTES.map(
@@ -467,6 +464,40 @@ test("ACC-18 ACC-19 ACC-20 PSM-48 จดบันทึก is on every tab of th
       await expect(logRow(page, "น้ำหนักก่อนสโมค")).toContainText(
         "Account Manager · แทน Chef House",
       );
+    },
+  );
+
+  // PSM-46 / GEN-09 for the other seven notes that start on "ไม่ระบุ Lot": each is saved as
+  // it opens, with nothing typed (GEN-02), and each opens a batch of its own.
+  await step(
+    page,
+    "Account Manager: อีก 7 รายการ บันทึกโดยไม่ระบุ Lot และไม่กรอกอะไร ได้ชุดใหม่รายการละชุด",
+    async () => {
+      const free = OWNER_NOTES.flatMap(([, notes]) => notes)
+        .filter((note) => note.lot === "free")
+        .map((note) => note.title)
+        .filter((title) => title !== "น้ำหนักก่อนสโมค");
+      expect(free).toHaveLength(7);
+      for (const title of free) {
+        await pickNote(page, title);
+        await expect(noteLot(page), title).toHaveValue(NO_LOT);
+        await saveEntry(page);
+        await expect(toast(page, saved(title)), title).toBeVisible();
+      }
+      await openMenu(page, "Log");
+      const batches: string[] = [];
+      for (const title of free) {
+        const summary = logRow(page, title).locator("summary");
+        // The fields left empty are marked, not asked for.
+        await expect(summary, title).toContainText(MISSING);
+        batches.push((await summary.innerText()).match(BATCH_ID)?.[0] ?? title);
+      }
+      await openMenu(page, SCREENS.production.menu);
+      const listed = await idsOnScreen(page, BATCH_ID);
+      // The seven new ones and the pre-smoke note's: eight batches, none shared.
+      expect(listed).toHaveLength(8);
+      expect(new Set(batches).size).toBe(7);
+      expect(listed).toEqual(expect.arrayContaining(batches));
     },
   );
 });

@@ -3296,7 +3296,7 @@ describe("STK-43 / MAT-01 / STK-44 what a branch received, and the Owner's store
     expect(stock(w.db)).toMatchObject({ chili: -3, boxes: -4 });
   });
 
-  test("a sale keeps the shelf its chili count was made against; an edit of the sale counts again", () => {
+  test("a sale keeps the shelf its chili count was made against; an edit of a chili figure is judged against that shelf", () => {
     const { w } = stocked();
     const sold = w.run("branch", "sale", {
       ...sale,
@@ -3310,11 +3310,149 @@ describe("STK-43 / MAT-01 / STK-44 what a branch received, and the Owner's store
     // 10 more tubes after the count: the sale still says 17 (the day table reads it).
     w.run("branch", "chiliReceive", { chiliTubes: "10", receiver: "ผู้ดูแล" });
     expect(live(w.db, sold)?.values.chiliExpected).toBe("17");
+    const mismatch = "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ";
+    // Another field, or the same chili figures as the form sends them back: not judged again.
+    for (const values of [
+      { lineMan: "100" },
+      { lineMan: "100", chiliAddons: "3", chiliCount: "17" },
+    ] as Values[])
+      expect(w.check("branch", "entryEdit", change(sold, values))).toEqual(
+        clean,
+      );
+    const fixed = edit(w, sold, { lineMan: "100" }, {}, "branch");
+    expect(live(w.db, sold)?.values).toMatchObject({
+      lineMan: "100",
+      chiliExpected: "17",
+    });
+    // Undoing that edit, or deleting the sale and putting it back, does not judge it either.
+    expect(
+      w.check("branch", "void", { targetId: fixed.id, reason: "x" }),
+    ).toEqual(clean);
+    const gone = del(w, sold, "branch");
+    expect(
+      w.check("branch", "void", { targetId: gone.id, reason: "x" }),
+    ).toEqual(clean);
+    del(w, gone, "branch");
+    // A chili figure changed: judged against the shelf of the count (20 received, 3 or 4
+    // sold), not today's 27.
+    for (const values of [
+      { chiliAddons: "4" },
+      { chiliCount: "18" },
+      { chiliCount: "27" },
+    ] as Values[])
+      expectWarning(
+        w.check("branch", "entryEdit", change(sold, values)),
+        mismatch,
+      );
+    // One more tube sold and one fewer counted: the count is right again. A remark answers
+    // a count that is not.
+    for (const values of [
+      { chiliAddons: "4", chiliCount: "16" },
+      { chiliCount: "16", chiliRemark: "หลอดแตก 1" },
+    ] as Values[])
+      expect(w.check("branch", "entryEdit", change(sold, values))).toEqual(
+        clean,
+      );
+    edit(w, sold, { chiliAddons: "4", chiliCount: "16" }, {}, "branch");
+    expect(live(w.db, sold)?.values).toMatchObject({
+      chiliCount: "16",
+      chiliSold: "4",
+      chiliExpected: "16",
+    });
+    // The next edit stands on the edited figures: back to 3 sold, 17 are expected again.
     expectWarning(
-      w.check("branch", "entryEdit", change(sold, { lineMan: "100" })),
+      w.check("branch", "entryEdit", change(sold, { chiliAddons: "3" })),
+      mismatch,
+    );
+    edit(w, sold, { chiliAddons: "3", chiliCount: "17" }, {}, "branch");
+    expect(live(w.db, sold)?.values.chiliExpected).toBe("17");
+    // A remark taken off a count that is still off is told off again.
+    edit(w, sold, { chiliCount: "15", chiliRemark: "หลอดแตก 2" }, {}, "branch");
+    expectWarning(
+      w.check("branch", "entryEdit", change(sold, { chiliRemark: "" })),
+      mismatch,
+    );
+    // The shelf is the sale's own: one the call sends is not taken.
+    edit(w, sold, { lineMan: "110", chiliExpected: "999" }, {}, "branch");
+    expect(live(w.db, sold)?.values).toMatchObject({
+      lineMan: "110",
+      chiliExpected: "17",
+    });
+  });
+
+  test("a later receipt and sale do not move what an edited count is judged against", () => {
+    const { w } = stocked();
+    const sold = w.run(
+      "branch",
+      "sale",
+      {
+        ...sale,
+        boxes: "0",
+        soldKg: "0",
+        chiliAddons: "3",
+        lineMan: "90",
+        chiliCount: "17",
+      },
+      "",
+      earlier,
+    );
+    // The next day: 10 more tubes in and 5 sold, 22 on the shelf.
+    w.run("branch", "chiliReceive", { chiliTubes: "10", receiver: "ผู้ดูแล" });
+    w.run("branch", "sale", {
+      ...sale,
+      boxes: "0",
+      soldKg: "0",
+      chiliAddons: "5",
+      lineMan: "150",
+    });
+    expect(chiliStock(w.db, sala)).toBe(22);
+    // One tube short on the first day: said, and the sale still reads 17 expected.
+    expectWarning(
+      w.check("branch", "entryEdit", change(sold, { chiliCount: "16" })),
       "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ",
     );
-    edit(w, sold, { lineMan: "100" }, {}, "branch");
+    edit(w, sold, { chiliCount: "16" }, {}, "branch");
+    expect(live(w.db, sold)?.values).toMatchObject({
+      chiliCount: "16",
+      chiliExpected: "17",
+    });
+  });
+
+  test("a sale saved before the shelf was kept is judged against today's shelf", () => {
+    const { w } = stocked();
+    const sold = w.run("branch", "sale", {
+      ...sale,
+      boxes: "0",
+      soldKg: "0",
+      chiliAddons: "3",
+      lineMan: "90",
+      chiliCount: "17",
+    });
+    // Old data: the sale holds no `chiliExpected`.
+    w.db = {
+      ...w.db,
+      entries: w.db.entries.map((e) =>
+        e.id === sold.id
+          ? {
+              ...e,
+              values: Object.fromEntries(
+                Object.entries(e.values).filter(
+                  ([key]) => key !== "chiliExpected",
+                ),
+              ),
+            }
+          : e,
+      ),
+    };
+    w.run("branch", "chiliReceive", { chiliTubes: "10", receiver: "ผู้ดูแล" });
+    expectWarning(
+      w.check("branch", "entryEdit", change(sold, { chiliCount: "18" })),
+      "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ",
+    );
+    expect(
+      w.check("branch", "entryEdit", change(sold, { chiliCount: "27" })),
+    ).toEqual(clean);
+    edit(w, sold, { chiliCount: "27" }, {}, "branch");
     expect(live(w.db, sold)?.values.chiliExpected).toBe("27");
   });
 
@@ -3499,33 +3637,31 @@ describe("MAT-05 a material receipt under a day already counted", () => {
     receivedQuantity,
     receiver: "ผู้ดูแล",
   });
-  /** The count of `date` as the table saves it: `used` and `actual` of the first material. */
-  const count = (
+  /** The count of `date` as the table sends it: `used` and `actual` of the first material. */
+  const tally = (
     w: World,
     date: string,
     used: string,
     actual: string,
     extra: Values = {},
-  ) =>
-    w.run(
-      "branch",
-      "materials",
-      {
-        ...Object.fromEntries(
-          materials.flatMap((_, i) => {
-            const opening = String(branchMaterialStock(w.db, sala, i, date));
-            return [
-              ["opening" + i, opening],
-              ["used" + i, i ? "0" : used],
-              ["material" + i, i ? opening : actual],
-            ];
-          }),
-        ),
-        ...extra,
-      },
-      "",
-      date,
-    );
+  ): Values => ({
+    ...Object.fromEntries(
+      materials.flatMap((_, i) => {
+        const opening = String(branchMaterialStock(w.db, sala, i, date));
+        return [
+          ["opening" + i, opening],
+          ["used" + i, i ? "0" : used],
+          ["material" + i, i ? opening : actual],
+        ];
+      }),
+    ),
+    ...extra,
+  });
+  const count = (
+    w: World,
+    date: string,
+    ...figures: [used: string, actual: string, extra?: Values]
+  ) => w.run("branch", "materials", tally(w, date, ...figures), "", date);
   /** 100 received and counted on `earlier` (10 used, 90 left); on `day` 50 more arrive, nobody
    *  writes them down, and the count finds 120 (20 used). */
   const counted = () => {
@@ -3537,10 +3673,10 @@ describe("MAT-05 a material receipt under a day already counted", () => {
       "",
       earlier,
     );
-    count(w, earlier, "10", "90");
+    const firstCount = count(w, earlier, "10", "90");
     count(w, day, "20", "120", { materialReason0: "ของเข้าเพิ่ม" });
     expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
-    return { w, first };
+    return { w, first, firstCount };
   };
 
   test("a receipt dated on or before a counted day is warned about, never refused", () => {
@@ -3583,7 +3719,23 @@ describe("MAT-05 a material receipt under a day already counted", () => {
       expect(
         w.check(role, "entryEdit", change({ receivedQuantity: "80" })),
       ).toEqual({ ...clean, warnings: [recount(earlier)] });
+      // Another material: both the one it left and the one it joined were counted that day
+      // (the Owner is also told its own store of the other goes below zero, STK-44).
+      expect(
+        w.check(role, "entryEdit", change({ material: materials[1] })).warnings,
+      ).toContain(recount(earlier));
     }
+    // A count already off its opening (a receipt written under it) is not told off again by
+    // a change that moves nothing.
+    const under = w.run("branch", "materialConfirm", receipt("50"), "", day);
+    expect(
+      w.check("branch", "entryEdit", {
+        targetId: under.id,
+        values: JSON.stringify({ receiver: "x" }),
+        reason: "x",
+      }),
+    ).toEqual(clean);
+    del(w, under, "branch");
     // Deleted and put back as the counts saw it.
     const gone = del(w, first, "branch");
     expect(
@@ -3594,6 +3746,338 @@ describe("MAT-05 a material receipt under a day already counted", () => {
     expect(
       w.check("branch", "void", { targetId: gone.id, reason: "x" }),
     ).toEqual({ ...clean, warnings: [recount(earlier)] });
+  });
+
+  test("deleting a receipt a count was built on, moving it past that count, and undoing either, are warned about", () => {
+    const { w, first } = counted();
+    const move = (toDate: string) => ({
+      targetId: first.id,
+      values: "{}",
+      reason: "x",
+      toDate,
+    });
+    for (const role of ["branch", "owner"] as const) {
+      expect(
+        w.check(role, "void", { targetId: first.id, reason: "x" }),
+      ).toEqual({ ...clean, warnings: [recount(earlier)] });
+      // To the day of the later count: the earlier one opened on it, the later one still does.
+      expect(w.check(role, "entryEdit", move(day))).toEqual({
+        ...clean,
+        warnings: [recount(earlier)],
+      });
+      // Past both counts.
+      expect(w.check(role, "entryEdit", move(today()))).toEqual({
+        ...clean,
+        warnings: [recount(earlier)],
+      });
+    }
+    // A receipt after the last count, moved under it: that count is the one to save again.
+    const late = w.run("branch", "materialConfirm", receipt("5"), "", today());
+    expect(
+      w.check("branch", "entryEdit", { ...move(day), targetId: late.id }),
+    ).toEqual({ ...clean, warnings: [recount(day)] });
+    // Moved and the counts saved again on the new openings: the undo is a change under them.
+    const moved = edit(w, first, {}, { toDate: day }, "branch");
+    count(w, earlier, "10", "90", { correctionReason: "ย้ายวันรับ" });
+    count(w, day, "20", "120", { correctionReason: "ย้ายวันรับ" });
+    expect(
+      w.check("branch", "void", { targetId: moved.id, reason: "x" }),
+    ).toEqual({ ...clean, warnings: [recount(earlier)] });
+    // Saved, not refused.
+    del(w, moved, "branch");
+    expect(live(w.db, first)?.date).toBe(earlier);
+  });
+
+  test("a count whose opening went below zero is saved again, and the shelf is what was counted", () => {
+    const { w, first } = counted();
+    del(w, first, "branch");
+    // The later count opened on the 90 the receipt left: without it, on 10 used and none in.
+    expect(branchMaterialStock(w.db, sala, 0, day)).toBe(-10);
+    const again = w.check("branch", "materials", {
+      ...Object.fromEntries(
+        materials.flatMap((_, i) => [
+          ["opening" + i, i ? "0" : "-10"],
+          ["used" + i, i ? "0" : "20"],
+          ["material" + i, i ? "0" : "120"],
+        ]),
+      ),
+      materialReason0: "ลบรายการรับ",
+      correctionReason: "ลบรายการรับ",
+    });
+    expect(again.error).toBe("");
+    expect(again.warnings).toEqual([
+      `จำนวนใช้ ${material} เกินยอดตั้งต้น · กรอกได้สูงสุด 0`,
+    ]);
+    // Using nothing is not over an opening below zero.
+    expect(
+      w.check("branch", "materials", {
+        ...tally(w, day, "0", "0"),
+        correctionReason: "ลบรายการรับ",
+      }),
+    ).toEqual(clean);
+    const saved = count(w, day, "20", "120", {
+      correctionReason: "ลบรายการรับ",
+    });
+    expect(saved.values.opening0).toBe("-10");
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+  });
+
+  test("counts saved again after a deleted receipt, the earlier day first: the shelf is what was counted last", () => {
+    const { w, first } = counted();
+    del(w, first, "branch");
+    const again = tally(w, earlier, "10", "90", {
+      materialReason0: "ลบรายการรับ",
+      correctionReason: "ลบรายการรับ",
+    });
+    // The later count opened on the 90 this one leaves, and still does.
+    expect(w.check("branch", "materials", again, "", earlier).warnings).toEqual(
+      [`จำนวนใช้ ${material} เกินยอดตั้งต้น · กรอกได้สูงสุด 0`],
+    );
+    w.run("branch", "materials", again, "", earlier);
+    expect(branchMaterialStock(w.db, sala, 0, day)).toBe(90);
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+  });
+
+  test("counts saved again after a deleted receipt, the later day first: the earlier save says to save the later day again", () => {
+    const { w, first } = counted();
+    del(w, first, "branch");
+    const reason = { correctionReason: "ลบรายการรับ" };
+    // The later day, on its opening of -10: nothing counted after it, nothing to say.
+    const later = tally(w, day, "20", "120", reason);
+    expect(
+      w
+        .check("branch", "materials", later)
+        .warnings.filter((m) => m.includes("ตรวจนับวัสดุไปแล้ว")),
+    ).toEqual([]);
+    w.run("branch", "materials", later);
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+    // The earlier day now moves the later day's opening from -10 to 90, under its count.
+    const before = tally(w, earlier, "10", "90", reason);
+    expect(w.check("branch", "materials", before, "", earlier)).toEqual({
+      error: "",
+      warnings: [
+        `จำนวนใช้ ${material} เกินยอดตั้งต้น · กรอกได้สูงสุด 0`,
+        recount(day),
+      ],
+    });
+    w.run("branch", "materials", before, "", earlier);
+    // Off by the 100 the opening moved until the later day is saved again.
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(220);
+    const saved = count(w, day, "20", "120", reason);
+    expect(saved.values.opening0).toBe("90");
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+  });
+
+  test("the opening a count is saved with is the system's, whatever the form sends", () => {
+    const { w } = counted();
+    const forged = {
+      ...tally(w, day, "20", "120", { correctionReason: "x" }),
+      opening0: "-1000",
+    };
+    expectWarning(
+      w.check("branch", "materials", forged),
+      `ยอดตั้งต้น ${material} มีการเปลี่ยนแปลง กรุณาโหลดหน้าใหม่`,
+    );
+    const saved = w.run("branch", "materials", forged);
+    expect(saved.values.opening0).toBe("90");
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(120);
+    // The checks read the stored figure: 20 used of 90 is not over the opening, and 70 left
+    // needs no reason.
+    const plain = { ...tally(w, day, "20", "70"), opening0: "5" };
+    expect(w.check("branch", "materials", plain).warnings).toEqual([
+      `ยอดตั้งต้น ${material} มีการเปลี่ยนแปลง กรุณาโหลดหน้าใหม่`,
+    ]);
+    const kept = w.run("branch", "materials", {
+      ...plain,
+      correctionReason: "x",
+    });
+    expect(kept.values.opening0).toBe("90");
+    expect(kept.values.missing).toBeUndefined();
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(70);
+    // Sent with no opening at all: the same figure, nothing left empty.
+    const { opening0: _, ...bare } = tally(w, today(), "0", "70");
+    void _;
+    const next = w.run("branch", "materials", bare, "", today());
+    expect(next.values.opening0).toBe("70");
+    expect(next.values.missing).toBeUndefined();
+  });
+
+  test("deleting a count a later one opened on, and putting one back on an opening that moved, are warned about", () => {
+    const { w, first, firstCount } = counted();
+    const gone = { targetId: firstCount.id, reason: "x" };
+    for (const role of ["branch", "owner"] as const)
+      expect(w.check(role, "void", gone)).toEqual({
+        ...clean,
+        warnings: [recount(day)],
+      });
+    // Put back as the later count saw it: nothing to say.
+    const deleted = del(w, firstCount, "branch");
+    const back = { targetId: deleted.id, reason: "x" };
+    expect(w.check("branch", "void", back)).toEqual(clean);
+    // The receipt deleted meanwhile: the count put back holds an opening of 100, the day's is 0.
+    del(w, first, "branch");
+    expect(w.check("branch", "void", back).warnings).toContain(
+      recount(earlier),
+    );
+  });
+
+  test("deleting the day's newest count leaves the round before it standing: told off when that one's opening is not the day's", () => {
+    const w = from(setup().db);
+    // Counted with nothing in, then 10 written down under it and the day counted again.
+    count(w, day, "0", "0");
+    w.run("branch", "materialConfirm", receipt("10"), "", day);
+    const second = count(w, day, "2", "8", {
+      correctionReason: "จดรับย้อนหลัง",
+    });
+    expect(branchMaterialStock(w.db, sala, 0)).toBe(8);
+    for (const role of ["branch", "owner"] as const)
+      expect(
+        w.check(role, "void", { targetId: second.id, reason: "x" }),
+      ).toEqual({ ...clean, warnings: [recount(day)] });
+  });
+
+  test("a deleted count that several materials stood on is one warning, one material reads as before", () => {
+    const w = from(setup().db);
+    // Nothing received: 5 of each found on `earlier`, all 5 used on `day`.
+    const found = w.run(
+      "branch",
+      "materials",
+      Object.fromEntries(
+        materials.flatMap((_, i) => [
+          ["opening" + i, "0"],
+          ["used" + i, "0"],
+          ["material" + i, "5"],
+          ["materialReason" + i, "ของเดิมในร้าน"],
+        ]),
+      ),
+      "",
+      earlier,
+    );
+    w.run(
+      "branch",
+      "materials",
+      Object.fromEntries(
+        materials.flatMap((_, i) => [
+          ["opening" + i, "5"],
+          ["used" + i, "5"],
+          ["material" + i, "0"],
+        ]),
+      ),
+    );
+    const gone = { targetId: found.id, reason: "x" };
+    for (const role of ["branch", "owner"] as const)
+      expect(w.check(role, "void", gone)).toEqual({
+        ...clean,
+        warnings: [
+          `ลบแล้ววัสดุ ${materials.length} รายการ สาขาศาลาแดงจะติดลบ (${materials
+            .map((m) => `${m} -5.00`)
+            .join(", ")}) · แก้รายการที่ตามมาก่อน`,
+          // The later count opened on the 5 this one found.
+          recount(day),
+        ],
+      });
+    // One material short: named on its own, as before.
+    const one = from(setup().db);
+    const got = one.run("branch", "materialConfirm", receipt("6"));
+    count(one, day, "4", "2");
+    expect(
+      one.check("branch", "void", { targetId: got.id, reason: "x" }).warnings,
+    ).toEqual([
+      `ลบแล้ว${material} สาขาศาลาแดงจะติดลบ (-4.00) · แก้รายการที่ตามมาก่อน`,
+      recount(day),
+    ]);
+  });
+});
+
+describe("GEN-04 GEN-05 a backdated entry is measured against the lot's live entries", () => {
+  const clean = { warnings: [], error: "" };
+  const arrive = { receivedKg: "50", arrival: "08:00" };
+  /** A batch with its smoke PO and its outbound truck, both on `day`. */
+  const trucked = () => {
+    const s = setup();
+    readyToDispatch(s, "50");
+    dispatch(s);
+    return { w: from(s.db), lotId: s.db.lots.at(-1)!.id };
+  };
+
+  test("a deleted entry of the batch sets no date", () => {
+    const { w, lotId } = trucked();
+    const late = w.run("owner", "cmReceive", arrive, lotId, "2026-09-20");
+    expectWarning(
+      w.check("owner", "prepare", { preSmokeKg: "48" }, lotId, "2026-09-12"),
+      "วันที่ก่อนรายการอื่นของชุดนี้ (2026-09-20)",
+    );
+    del(w, late);
+    expect(w.check("owner", "cmReceive", arrive, lotId, "2026-09-12")).toEqual(
+      clean,
+    );
+  });
+
+  test("an edit made today is not an entry of the batch", () => {
+    const { w, lotId } = trucked();
+    const sent = entries(w.db, "dispatch", lotId)[0];
+    w.run(
+      "owner",
+      "entryEdit",
+      {
+        targetId: sent.id,
+        values: JSON.stringify({ pickupTime: "07:00" }),
+        reason: "x",
+      },
+      "",
+      today(),
+    );
+    expect(w.check("owner", "cmReceive", arrive, lotId, "2026-09-12")).toEqual(
+      clean,
+    );
+  });
+
+  test("an entry moved to another day counts on the day it was moved to", () => {
+    const { w, lotId } = trucked();
+    const late = w.run("owner", "cmReceive", arrive, lotId, "2026-09-20");
+    edit(w, late, {}, { toDate: "2026-09-10" });
+    const weigh = (date: string) =>
+      w.check("owner", "prepare", { preSmokeKg: "48" }, lotId, date);
+    expect(weigh("2026-09-12")).toEqual(clean);
+    expect(weigh("2026-09-10")).toEqual(clean);
+    expectWarning(weigh(day), "วันที่ก่อนรายการอื่นของชุดนี้ (2026-09-10)");
+  });
+
+  test("a deleted entry dated before the PO does not hide a payment dated before it", () => {
+    const s = setup();
+    purchase(s, "40");
+    const w = from(s.db);
+    const lotId = w.db.lots[0].id;
+    const early = "วันที่ก่อนวันเปิด PO";
+    const pay = (date: string) =>
+      w.check(
+        "owner",
+        "meatPayment",
+        { paymentDate: date, paidBy: "Owner", paidAmount: "1" },
+        lotId,
+        date,
+      ).warnings;
+    const invoiced = w.run(
+      "owner",
+      "foodivaConfirm",
+      {
+        invoiceNo: "INV-1",
+        invoiceDate: "2026-09-01",
+        attachment: "inv.pdf",
+        confirmedBy: "Foodiva",
+        confirmedKg: "40",
+        readyForChiangMaiKg: "40",
+        reservedForOwnerKg: "0",
+        invoiceAmount: "1",
+      },
+      lotId,
+      "2026-09-01",
+    );
+    // With the early invoice live, it is the PO's earliest entry.
+    expect(pay("2026-09-05").join()).not.toContain(early);
+    del(w, invoiced);
+    expect(pay("2026-09-05")).toContain(`${early} ของ Lot นี้ (${day})`);
+    expect(pay(day).join()).not.toContain(early);
   });
 });
 
@@ -3623,6 +4107,38 @@ describe("C4 the Account Manager's copy without sale money", () => {
       soldKg: "60",
       lineMan: "190000",
       revenue: "190000",
+    });
+  });
+
+  test("its edit of a sale saved without the LINE MAN amount leaves that marked missing", () => {
+    const db = chillDay().db;
+    const w = from(db);
+    const sold = only(db, "sale");
+    edit(w, sold, { lineMan: "" }, {}, "branch");
+    expect(only(w.db, "sale").values).toMatchObject({
+      lineMan: "",
+      missing: "lineMan",
+    });
+    const edited = mutate(
+      stripSaleMoney(w.db),
+      "owner",
+      "entryEdit",
+      {
+        targetId: sold.id,
+        values: JSON.stringify({ soldKg: "60" }),
+        reason: "แก้น้ำหนัก",
+      },
+      "",
+      day,
+    );
+    // The edit carries no money, and the amount the manager never saw is not called filled.
+    expect(JSON.stringify(edited.entries.at(-1))).not.toMatch(
+      /"(to\.|from\.)?(revenue|lineMan|menuTotal)":/,
+    );
+    expect(only(restoreSaleMoney(w.db, edited), "sale").values).toMatchObject({
+      soldKg: "60",
+      lineMan: "",
+      missing: "lineMan",
     });
   });
 });

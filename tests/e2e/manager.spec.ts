@@ -4,12 +4,17 @@ import {
   BATCH_ID,
   SCREENS,
   SHIPMENT_NO,
+  changeRow,
   closeBatch,
   createPurchasePo,
+  field,
   issueMeatInvoice,
+  logRow,
   menuItem,
+  openBranchTask,
   openMenu,
   openSmokingInvoice,
+  pointAndClick,
   receiveIntoFreezer,
   recordDispatch,
   recordPreSmoke,
@@ -20,6 +25,7 @@ import {
   step,
   tableRow,
   tableSection,
+  typeValue,
   weighIn,
 } from "./helpers";
 
@@ -105,4 +111,90 @@ test("Account Manager records Foodiva and Chef House steps; no dashboard, no sal
     await expect(summary).not.toContainText("ยอดขาย LINE MAN");
     await expect(summary).not.toContainText("ส่วนต่างหลังต้นทุนที่บันทึก");
   });
+});
+
+/* C4: the Account Manager's copy of a sale carries no money. It corrects the rest of the
+ * sale all the same, and the money stays as the branch recorded it. */
+test("ACC-20 EDT-22 EDT-25 the Account Manager edits a branch's sale without its money; the Owner reads the new weight, the same LINE MAN amount and who changed it", async ({
+  page,
+}) => {
+  const sale = "บันทึกยอดขาย / Waste";
+  /** The rows of a sale that are money: typed, recorded, and priced from the menu. */
+  const MONEY = /LINE MAN|ยอดขายบันทึก|ยอดตามเมนู/;
+  await startFresh(page);
+
+  await step(page, "สาขาศาลาแดง: จดยอดขาย LINE MAN 3,000 บาท", async () => {
+    await signInAs(page, ACCOUNTS.saladaeng);
+    await openBranchTask(page, "จดยอดขาย");
+    await field(page, /กล่องมาตรฐาน/, "20");
+    await field(page, /น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/, "2");
+    await field(page, /ยอดขาย LINE MAN/, "3000");
+    await saveEntry(page);
+  });
+
+  await step(
+    page,
+    "Account Manager: Log ไม่มีเงินขาย แก้ไขน้ำหนักเนื้อที่ใช้ไปได้ ฟอร์มไม่มีช่อง LINE MAN",
+    async () => {
+      await signInAs(page, ACCOUNTS.manager);
+      await openMenu(page, "Log");
+      const entry = logRow(page, sale);
+      await pointAndClick(page, entry.locator("summary"));
+      await expect(entry).toContainText("น้ำหนักเนื้อที่ใช้ไปจริงวันนี้");
+      await expect(entry).not.toContainText(MONEY);
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "แก้ไข", exact: true }),
+      );
+      for (const label of [
+        /^กล่องมาตรฐาน/,
+        /^น้ำพริกหลอด/,
+        /^ตรวจนับน้ำพริกจริงปลายวัน/,
+        /^น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/,
+        /^น้ำหนักเนื้อที่เสียไป/,
+        /^น้ำหนักข้าวที่เสียไป/,
+        /^ค่าใช้จ่ายสาขา/,
+        "เหตุผลที่แก้ไข",
+      ])
+        await expect(entry.getByLabel(label)).toHaveCount(1);
+      await expect(entry.getByLabel(/LINE MAN|ยอดขาย/)).toHaveCount(0);
+      await typeValue(
+        page,
+        entry.getByLabel(/^น้ำหนักเนื้อที่ใช้ไปจริงวันนี้/),
+        "2.5",
+      );
+      await typeValue(page, entry.getByLabel("เหตุผลที่แก้ไข"), "ชั่งใหม่");
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+      );
+      await expect(entry.locator("summary")).toContainText("แก้ไขแล้ว");
+      await expect(entry).toContainText("2 → 2.5");
+      await expect(entry).not.toContainText(MONEY);
+    },
+  );
+
+  await step(
+    page,
+    "Owner: น้ำหนักใหม่ เงินขายเท่าเดิม ประวัติการแก้ไขบอกว่า Account Manager แก้",
+    async () => {
+      await signInAs(page, ACCOUNTS.owner);
+      await openMenu(page, "Log");
+      const entry = logRow(page, sale);
+      await pointAndClick(page, entry.locator("summary"));
+      await expect(entry).toContainText(/ใช้ไปจริงวันนี้ \(กก\.\)\s*2\.5/);
+      // The money the manager never held is as the branch recorded it.
+      for (const money of [
+        /ยอดขาย LINE MAN ที่บันทึก \(บาท\)\s*3000/,
+        /ยอดขายบันทึก\s*3000/,
+        /ยอดตามเมนู\s*7000/,
+      ])
+        await expect(entry).toContainText(money);
+      const change = changeRow(page, `แก้ไขรายการ · ${sale}`);
+      await expect(change).toContainText("Account Manager");
+      await expect(change).toContainText("ชั่งใหม่");
+      await expect(change).toContainText("2 → 2.5");
+      await expect(change).not.toContainText(MONEY);
+    },
+  );
 });

@@ -44,6 +44,7 @@ import {
   entryBy,
   poRemainingKg,
   purchaseLots,
+  saleMoneyKeys,
   shipments,
   titles,
   unpack,
@@ -68,6 +69,7 @@ const derivedLabels: Record<string, string> = {
   chiliComplimentary: "น้ำพริกแถม (ยกเลิกแล้ว)",
   riceServings: "ข้าวเหนียวในกล่อง",
   chiliSold: "น้ำพริกที่ตัดสต๊อกรวม",
+  chiliExpected: "น้ำพริกที่ควรเหลือตอนนับ",
   allocation: "ใบจัดสรร",
   batches: "Log สโมคที่แก้ไข",
   // chefEdit has no form of its own: its `missing` names these round fields.
@@ -207,6 +209,7 @@ export function EditEntryForm({
   entry,
   db,
   error,
+  hideSales = false,
   initialReason = "",
   onCancel,
   onSubmit,
@@ -215,6 +218,8 @@ export function EditEntryForm({
   /** The log, for a smoke PO's purchase-PO lines (SMK-05) and the lots an entry moves to. */
   db?: Database;
   error?: string;
+  /** Account Manager: the form has no sale-money field, and the save sends none (C4). */
+  hideSales?: boolean;
   /** Starts the reason box, for an edit opened for one purpose (RET-07's PO match). */
   initialReason?: string;
   onCancel: () => void;
@@ -222,7 +227,9 @@ export function EditEntryForm({
   onSubmit: (values: Values, reason: string, moved: Values) => void;
 }) {
   const fields = editFields(entry.kind).filter(
-    (f) => !editLockedKeys.includes(f.key),
+    (f) =>
+      !editLockedKeys.includes(f.key) &&
+      !(hideSales && saleMoneyKeys.includes(f.key)),
   );
   const [date, setDate] = useState(entry.date);
   const [lotId, setLotId] = useState(entry.lotId);
@@ -412,7 +419,8 @@ export function EntryDetails({
   db?: Database;
   role: ActingRole;
   branch?: string;
-  /** Its sales money was stripped (Account Manager): editing a sale would save it blank. */
+  /** Its sales money was stripped (Account Manager): the edit form leaves the money fields
+   *  out, and the server keeps the money as it is (restore_sale_money). */
   hideSales?: boolean;
   /** The whole log this account holds (not only its own entries): names the documents an
    *  entry refers to (a branch's allocation is the Owner's), finds its live `link`, lists
@@ -441,10 +449,7 @@ export function EntryDetails({
     : edited;
   const linkable = !!lookup && !voided && canLink(e, role, branch);
   // EDT-22/20: any account edits and deletes what `canChange` lets it, directly.
-  const editable =
-    !!lookup &&
-    !(hideSales && e.kind === "sale") &&
-    !editBlock(lookup, e, role, branch);
+  const editable = !!lookup && !editBlock(lookup, e, role, branch);
   const deletable = !!lookup && !voidBlock(lookup, e, role, branch);
   const words = voidWords(e.kind);
   const run = (kind: EntryKind, values: Values, done: string, fail: string) => {
@@ -593,6 +598,7 @@ export function EntryDetails({
           entry={current}
           db={db}
           error={error}
+          hideSales={hideSales}
           onCancel={() => setMode("")}
           onSubmit={(values, why, moved) =>
             run(

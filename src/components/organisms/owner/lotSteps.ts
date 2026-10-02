@@ -2,6 +2,7 @@ import { today } from "@/lib/format";
 import type { Tab } from "@/lib/nav";
 import {
   entries,
+  liveEntries,
   lotProgress,
   poMatched,
   shipments,
@@ -121,13 +122,16 @@ export function latestNoteLabel(db: Database, lotId: string) {
 
 const DAY = 86400000;
 /** Batches with an entry in the 30 days up to `asOf` (DASH-02): today in Bangkok. An entry
- *  counts by its business date or by when it was recorded, so backdated work still alerts. */
+ *  counts by its business date or by when it was recorded, so backdated work still alerts.
+ *  The entries are the live ones: a correction or a delete is no entry of the batch, so one
+ *  made today does not by itself make an old batch active. */
 export function activeBatches(db: Database, asOf = today(), days = 30): Lot[] {
   const cutoff = new Date(Date.parse(`${asOf}T00:00:00Z`) - days * DAY)
     .toISOString()
     .slice(0, 10);
+  // One pass over the log, not one per batch: the Owner's screens ask on every render.
   const recent = new Set(
-    db.entries
+    liveEntries(db)
       .filter((e) => e.date >= cutoff || (e.at || "").slice(0, 10) >= cutoff)
       .map((e) => e.lotId),
   );

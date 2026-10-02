@@ -9,6 +9,7 @@ import {
   demoDb,
   nextDay,
   open,
+  recountDb,
   unlinkedBranchDb,
 } from "../../../../.storybook/fixtures";
 import {
@@ -237,6 +238,28 @@ export const MaterialsEditing: Story = {
   play: async ({ canvasElement }) => {
     fireEvent.click(
       within(canvasElement).getByRole("button", { name: /แก้ไขยอดนับ/ }),
+    );
+  },
+};
+
+/** MAT-05: วันถัดไปนับไปแล้วบนยอดที่วันนี้เหลือ แก้ยอดนับวันนี้ (10 → 8) แล้วบันทึก
+ *  ตารางกลับสู่โหมดดูข้อมูล พร้อมคำเตือนให้บันทึกยอดตรวจนับของวันถัดไปอีกครั้ง */
+export const MaterialsRecount: Story = {
+  ...Materials,
+  args: { db: recountDb },
+  parameters: { db: recountDb },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    fireEvent.click(canvas.getByRole("button", { name: /แก้ไขยอดนับ/ }));
+    fireEvent.change(canvas.getByLabelText(`ยอดตรวจนับจริง ${materials[0]}`), {
+      target: { value: "8" },
+    });
+    fireEvent.change(canvas.getByLabelText("เหตุผลที่แก้ไขยอดวัสดุ"), {
+      target: { value: "นับผิด" },
+    });
+    fireEvent.click(canvas.getByRole("button", { name: /บันทึกและล็อก/ }));
+    await canvas.findByText(
+      `วันที่ ${nextDay} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`,
     );
   },
 };

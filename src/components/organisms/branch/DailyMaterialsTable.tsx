@@ -18,6 +18,7 @@ import {
 } from "./materialCount";
 import {
   branchMaterialStock,
+  check,
   materialPar,
   materials,
   mutate,
@@ -61,6 +62,9 @@ export function DailyMaterialsTable({
     run,
     saving,
   } = useSaveMutation("บันทึกไม่สำเร็จ");
+  /* What the save was warned about, shown with the success message until the table is opened
+   * again: above all MAT-05, a later day's count that no longer stands on its opening. */
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const editButton = useRef<HTMLButtonElement>(null);
   const firstCell = useRef<HTMLInputElement>(null);
@@ -75,21 +79,25 @@ export function DailyMaterialsTable({
   }, [editing]);
 
   const open = editing !== null;
-  const opening = (i: number) => branchMaterialStock(db, branch, i, date);
+  const opening = (i: number, from = db) =>
+    branchMaterialStock(from, branch, i, date);
   const savedUsed = (i: number) => (saved ? n(saved.values, "used" + i) : 0);
   const used = (i: number) => n(draft, "used" + i);
   /* What should be left. Using more than the opening is only a warning (stock drifts),
    * and then nothing is expected to be left, not a negative count. */
-  const expected = (i: number) => Math.max(0, opening(i) - used(i));
-  const remaining = (i: number) =>
-    draft["actual" + i] === "" ? expected(i) : n(draft, "actual" + i);
+  const expected = (i: number, from = db) =>
+    Math.max(0, opening(i, from) - used(i));
+  const remaining = (i: number, from = db) =>
+    draft["actual" + i] === "" ? expected(i, from) : n(draft, "actual" + i);
 
-  const values = () => {
+  /* Built on the database the save is made on: after a revision conflict that is the reloaded
+   * one, and a row left as "what should be left" follows its opening there. */
+  const values = (from: Database) => {
     const out: Values = { correctionReason: draft.correctionReason || "" };
     materials.forEach((_, i) => {
-      out["opening" + i] = String(opening(i));
+      out["opening" + i] = String(opening(i, from));
       out["used" + i] = String(used(i));
-      out["material" + i] = String(remaining(i));
+      out["material" + i] = String(remaining(i, from));
       out["materialReason" + i] = draft["materialReason" + i] || "";
     });
     return out;
@@ -100,6 +108,7 @@ export function DailyMaterialsTable({
     );
     setEditing("count");
     setMessage("");
+    setWarnings([]);
   };
   const cancel = () => {
     // Back to the figures the table was showing before แก้ไข.
@@ -108,23 +117,32 @@ export function DailyMaterialsTable({
     setMessage("");
   };
   async function saveMaterials() {
-    const next = await run(() =>
-      mutate(
-        latestDatabase(),
-        "branch",
-        "materials",
-        values(),
-        "",
-        date,
-        branch,
-      ),
-    );
+    let warned: string[] = [];
+    const next = await run(() => {
+      let counted = undefined as Database | undefined;
+      const now = latestDatabase();
+      const { warnings, error } = check(() => {
+        counted = mutate(
+          now,
+          "branch",
+          "materials",
+          values(now),
+          "",
+          date,
+          branch,
+        );
+      });
+      if (!counted) throw new Error(error);
+      warned = warnings;
+      return counted;
+    });
     if (!next) return;
     // Re-seeded from the entry the save produced, not from what was typed: a revision
     // conflict rebuilds the save on the reloaded database, and this is that result.
     setDraft(materialCountDraft(savedMaterialCount(next, branch, date)));
     setEditing(null);
     setMessage(savedMessage);
+    setWarnings(warned);
   }
 
   return (
@@ -151,6 +169,11 @@ export function DailyMaterialsTable({
               }
             />
           </FormField>
+        </Notice>
+      )}
+      {!open && warnings.length > 0 && (
+        <Notice tone="warning" role="status">
+          {warnings.join(" · ")}
         </Notice>
       )}
       <DataTable
