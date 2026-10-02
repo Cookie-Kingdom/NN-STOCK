@@ -1,0 +1,244 @@
+import { expect, test, type Page } from "@playwright/test";
+import {
+  bangkokDate,
+  fill,
+  form,
+  jot,
+  openPage,
+  region,
+  rows,
+  save,
+  signInAs,
+  start,
+  toast,
+} from "./helpers";
+
+/* Spec v2 section 11, items 15–18: the P&L, gift boxes, the rent reminder, sales channels. */
+
+const today = bangkokDate();
+const [year, month] = today.split("-").map(Number);
+/** `offset` months from this one: its last day, and its name as the pages print it. */
+const monthAt = (offset: number) => {
+  const end = new Date(Date.UTC(year, month + offset, 0));
+  return {
+    lastDay: end.toISOString().slice(0, 10),
+    id: end.toISOString().slice(0, 7),
+    name: end.toLocaleDateString("th-TH", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+};
+const [thisMonth, lastMonth, monthBefore] = [0, -1, -2].map(monthAt);
+/** The cells of a P&L line after its name: the month, then the month before. */
+const line = (page: Page, name: RegExp, table = "P&L รายเดือน") =>
+  region(page, table)
+    .getByRole("row", { name })
+    .locator("td:not(:first-child)");
+/** A figure of the month (Overview, Finance), by its label. */
+const figure = (page: Page, label: string) =>
+  region(page, "ตัวเลขของเดือน")
+    .locator("div")
+    .filter({
+      has: page.locator("small").filter({
+        hasText: new RegExp(`^${label.replace(/[()]/g, "\\$&")}$`),
+      }),
+    })
+    .locator("strong");
+const pay = async (
+  page: Page,
+  category: string,
+  amount: string,
+  date = today,
+) => {
+  await jot(page, "จ่ายเงิน");
+  await fill(
+    page,
+    [/^วันที่$/, date],
+    [/^หมวด/, category],
+    [/^ยอด \(บาท\)/, amount],
+  );
+  await save(page);
+};
+
+test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อุปกรณ์/ลงทุน is on its own line", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  await openPage(page, "Finance");
+  // Jotted today, dated last month: it belongs to last month.
+  await pay(page, "อื่น ๆ", "1000", lastMonth.lastDay);
+  await pay(page, "ขนส่ง", "500");
+  await pay(page, "อุปกรณ์/ลงทุน", "12900");
+
+  const pl = region(page, "P&L รายเดือน");
+  await expect(pl).toContainText("นับตามเดือนที่จ่ายเงิน");
+  await expect(pl.getByRole("columnheader")).toHaveText([
+    "รายการ",
+    thisMonth.name,
+    lastMonth.name,
+  ]);
+  await expect(line(page, /^อื่น ๆ/)).toHaveText(["—", "−฿1,000"]);
+  await expect(line(page, /^ขนส่ง/)).toHaveText(["−฿500", "—"]);
+  // The stove is in neither month's profit; it is the line under it.
+  await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText([
+    "−฿500",
+    "−฿1,000",
+  ]);
+  await expect(pl.getByRole("row").nth(-2)).toContainText(
+    "กำไรจากการดำเนินงาน",
+  );
+  await expect(pl.getByRole("row").last().getByRole("cell")).toHaveText([
+    "อุปกรณ์/ลงทุน (แยกบรรทัด)",
+    "−฿12,900",
+    "—",
+  ]);
+  await expect(figure(page, "จ่ายเงิน (ดำเนินงาน)")).toHaveText("−฿500");
+  await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText("−฿500");
+
+  // Last month, read as its own month.
+  await page.getByLabel(/^เดือน/).fill(lastMonth.id);
+  await expect(pl.getByRole("columnheader")).toHaveText([
+    "รายการ",
+    lastMonth.name,
+    monthBefore.name,
+  ]);
+  await expect(line(page, /^อื่น ๆ/)).toHaveText(["−฿1,000", "—"]);
+  await expect(line(page, /^ขนส่ง/)).toHaveText(["—", "—"]);
+  await expect(line(page, /^อุปกรณ์\/ลงทุน/)).toHaveText(["—", "—"]);
+  await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText("−฿1,000");
+});
+
+test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the P&L profit", async ({
+  page,
+}) => {
+  await start(page, "sample");
+  await signInAs(page, "owner");
+  const gifts = figure(page, "กล่องแจกเดือนนี้");
+  const profit = figure(page, "กำไรจากการดำเนินงาน");
+  await expect(gifts).toContainText("ไม่บวกเข้า P&L");
+  const before = Number((await gifts.innerText()).match(/^([\d,]+) กล่อง/)![1]);
+  const profitBefore = await profit.innerText();
+  const lineBefore = await line(page, /^กำไรจากการดำเนินงาน/).allInnerTexts();
+  expect(profitBefore).toMatch(/฿[\d,]+/);
+
+  await jot(page, "กล่องแจก");
+  await fill(
+    page,
+    [/^สาขา/, "มีนบุรี"],
+    [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"],
+    [/^กล่องที่แจก/, "4"],
+  );
+  await save(page);
+  await expect(toast(page, "จดแล้ว: กล่องแจก")).toBeVisible();
+
+  // The sample's complete Lot: (140,000 + 24,000) ÷ 104 กก. × 0.12 + ฿25 a box.
+  const value = Math.round((before + 4) * ((164000 / 104) * 0.12 + 25));
+  await expect(gifts).toContainText(`${before + 4} กล่อง`);
+  await expect(gifts).toContainText(
+    `มูลค่าต้นทุนประมาณ ฿${value.toLocaleString("en-US")}`,
+  );
+  await expect(profit).toHaveText(profitBefore);
+  await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText(lineBefore);
+  await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
+  await openPage(page, "Finance");
+  await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText(profitBefore);
+  await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
+});
+
+test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jotted is yellow until it is", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  const reminder = region(page, "ยังไม่ได้จด").getByRole("button", {
+    name: `ค่าเช่า/น้ำไฟ ของ${thisMonth.name}`,
+  });
+  await expect(reminder).toBeVisible();
+  const rent = line(page, /^ค่าเช่า\/น้ำไฟ/);
+  await expect(rent).toHaveText(["ยังไม่ได้จด", "—"]);
+  await expect(rent.first()).toHaveAttribute("data-tone", "warning");
+
+  // Nothing is filled in from the month before: last month's rent leaves this month yellow.
+  await pay(page, "ค่าเช่า/น้ำไฟ", "18000", lastMonth.lastDay);
+  await expect(rent).toHaveText(["ยังไม่ได้จด", "−฿18,000"]);
+  await expect(rent.first()).toHaveAttribute("data-tone", "warning");
+  await expect(reminder).toBeVisible();
+
+  // The reminder opens the payment form on that category.
+  await reminder.click();
+  await expect(form(page).getByLabel(/^หมวด/)).toHaveValue("rent");
+  await fill(page, [/^ยอด \(บาท\)/, "20500"]);
+  await save(page);
+  await expect(reminder).toHaveCount(0);
+  await expect(rent).toHaveText(["−฿20,500", "−฿18,000"]);
+  await expect(rent.first()).not.toHaveAttribute("data-tone", "warning");
+  await openPage(page, "Finance");
+  await expect(rent).toHaveText(["−฿20,500", "−฿18,000"]);
+});
+
+test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of the sale form, with its own GP", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  await openPage(page, "Settings");
+  const channels = region(page, "ช่องทางขาย");
+  await channels.getByRole("button", { name: "เพิ่มช่องทาง" }).click();
+  // The row's inputs are named after what is typed in it: take them by place.
+  const inputs = channels.getByRole("textbox");
+  await expect(inputs).toHaveCount(4);
+  await inputs.nth(2).fill("Grab");
+  await inputs.nth(3).fill("30");
+  await channels.getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(toast(page, "บันทึกแล้ว: ช่องทางขาย")).toBeVisible();
+  await expect(channels.getByRole("row", { name: /^Grab/ })).toContainText(
+    "30",
+  );
+
+  // The Owner jots a branch's sale with both channels.
+  await openPage(page, "Daily Log");
+  await page
+    .locator(`[data-date="${today}"]`)
+    .getByRole("button", { name: "ศาลาแดง · ยังไม่ได้จดยอดขาย" })
+    .click();
+  await expect(form(page).getByLabel(/^ยอดขาย Grab/)).toBeVisible();
+  await fill(
+    page,
+    [/^กล่องมาตรฐาน/, "12"],
+    [/^ยอดขาย LINE MAN/, "3500"],
+    [/^ยอดขาย Grab/, "700"],
+  );
+  await save(page);
+  await expect(rows(page, "sale")).toContainText("+฿4,200");
+  await openPage(page, "Finance");
+  await expect(line(page, /^ยอดขาย/).first()).toHaveText("฿4,200");
+  await expect(line(page, /^GP LINE MAN 10%/).first()).toHaveText("−฿350");
+  await expect(line(page, /^GP Grab 30%/).first()).toHaveText("−฿210");
+  await expect(figure(page, "GP")).toHaveText("−฿560");
+
+  // The branch's own form has the field too.
+  await signInAs(page, "saladaeng");
+  await page
+    .locator(`[data-date="${bangkokDate(-1)}"]`)
+    .getByRole("button", { name: "ยังไม่ได้จดยอดขาย" })
+    .click();
+  await expect(form(page).getByLabel(/^ยอดขาย Grab/)).toBeVisible();
+  await form(page).getByRole("button", { name: "ยกเลิก" }).click();
+
+  // V2-ACC-01: the new channel's money is as hidden from the Manager as LINE MAN's.
+  await signInAs(page, "manager");
+  const sent = await (await page.request.get("/api/local-db")).json();
+  const sales: { values: Record<string, string> }[] =
+    sent.payload.entries.filter((e: { kind: string }) => e.kind === "sale");
+  expect(sales).toHaveLength(1);
+  expect(sales[0].values.boxes).toBe("12");
+  expect(
+    Object.keys(sales[0].values).filter(
+      (key) => key === "lineMan" || key.startsWith("sales."),
+    ),
+  ).toEqual([]);
+  expect(JSON.stringify(sent.payload.entries)).not.toMatch(/"(3500|700)"/);
+});
