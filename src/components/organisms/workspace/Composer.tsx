@@ -20,6 +20,7 @@ import type {
 } from "@/components/organisms/workspace/useWorkspace";
 import { saveAttachment } from "@/lib/attachment-store";
 import { defaults, fields } from "@/lib/forms";
+import { pages, type Tab } from "@/lib/nav";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branches,
@@ -50,13 +51,27 @@ const groupNames = {
 const grid =
   "my-0 grid-cols-[repeat(auto-fill,minmax(180px,1fr))] items-start gap-4";
 
+/** The kinds a page's picker offers: the notes that page shows. A payment is on Stock too
+ *  (it can bring materials in). Overview and Daily Log, not listed, offer every kind. */
+const pageKinds: Partial<Record<Tab, (kind: NoteKind) => boolean>> = {
+  lots: (kind) => ["lot", "extra"].includes(kindInfo[kind].group),
+  stock: (kind) =>
+    kind === "central" ||
+    kind === "pay" ||
+    (kindInfo[kind].group === "branch" && kind !== "sale"),
+  finance: (kind) => kind === "pay",
+};
+
 /** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments, the
- *  Account Manager everything but a sale. `mutate` refuses the rest. */
-const kindsFor = (by: Actor) =>
-  noteKinds.filter((kind) =>
-    by.role === "branch"
-      ? kindInfo[kind].group === "branch" || kind === "pay"
-      : !(by.hidesSales && kind === "sale"),
+ *  Account Manager everything but a sale. `mutate` refuses the rest. With `tab`, only the
+ *  ones of that page. */
+const kindsFor = (by: Actor, tab?: Tab) =>
+  noteKinds.filter(
+    (kind) =>
+      (by.role === "branch"
+        ? kindInfo[kind].group === "branch" || kind === "pay"
+        : !(by.hidesSales && kind === "sale")) &&
+      (!tab || !pageKinds[tab] || pageKinds[tab](kind)),
   );
 
 /** The inline card under the page header where every note is jotted. With no kind it asks
@@ -95,7 +110,7 @@ export function Composer({ ws }: { ws: Workspace }) {
 }
 
 function KindPicker({ ws }: { ws: Workspace }) {
-  const kinds = kindsFor(ws.account);
+  const kinds = kindsFor(ws.account, ws.tab);
   const own = ws.account.role === "branch";
   return (
     <section aria-label="จดอะไร" className="flex flex-col gap-4 p-5 max-md:p-4">
@@ -109,6 +124,12 @@ function KindPicker({ ws }: { ws: Workspace }) {
           ปิด
         </Button>
       </div>
+      {pageKinds[ws.tab] && (
+        <Caption>
+          เฉพาะบันทึกของหน้า {pages[ws.tab].label} · บันทึกอื่นจดที่หน้า{" "}
+          {pages.log.label}
+        </Caption>
+      )}
       <div className="flex flex-col gap-3">
         {(Object.keys(groupNames) as (keyof typeof groupNames)[])
           .filter((group) => kinds.some((k) => kindInfo[k].group === group))

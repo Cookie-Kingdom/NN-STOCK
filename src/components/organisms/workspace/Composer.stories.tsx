@@ -47,6 +47,21 @@ export const PickerBranch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
+/** หน้า Lots: เฉพาะกลุ่ม Lot และ จดเพิ่มได้ · Overview และ Daily Log แสดงทุกชนิด */
+export const PickerLots: Story = {
+  parameters: { nextjs: { navigation: { segments: ["lots"] } } },
+};
+
+/** หน้า Stock: รับกลับเข้าสต๊อกกลาง จ่ายเงิน และบันทึกของสาขา (ไม่มียอดขาย) */
+export const PickerStock: Story = {
+  parameters: { nextjs: { navigation: { segments: ["stock"] } } },
+};
+
+/** หน้า Finance: จ่ายเงินอย่างเดียว */
+export const PickerFinance: Story = {
+  parameters: { nextjs: { navigation: { segments: ["finance"] } } },
+};
+
 /** ฟอร์มจ่ายเงิน: ช่องหลัก (หมวด ยอด) สีเหลืองเมื่อว่าง บันทึกได้ทั้งที่ว่าง
  *  ใส่ยอดติดลบแล้วกดบันทึกเพื่อดูข้อความที่เว็บไม่รับ */
 export const Pay: Story = { args: { open: { kind: "pay" } } };
