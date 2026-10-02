@@ -1,172 +1,132 @@
 import {
+  changeKinds,
   type Database,
   type Entry,
-  type Lot,
-  type Values,
   type EntryKind,
+  type Values,
 } from "./store";
-import { branchHiddenKeys, omit } from "./store/visibility";
 
-/* What a branch account receives from load_app_state (review APP-01 / DB-03). Until migration
- * 20260925000028 every role but the Account Manager got the whole payload, and
- * `visibleEntries`/`visibleDatabase` only narrowed the screens. Foodiva and Chef House accounts
- * are retired (20260929000032): the Owner and the Account Manager read everything, and the branch
- * is the only scoped account.
+/* What a branch account receives from load_app_state: its own entries, the Lots it may receive
+ * from, and the stock lines of what the Owner or the Account Manager bought for it (V2-ACC-06,
+ * V2-ACC-07). Nothing of another branch, no cost, no central stock.
  *
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
- * 20261001000040, and tests/unit/roleScope.test.ts checks the two are equal, so change both.
-
- * `scopeDatabase` is the JS port of scope_app_state() (20261001000039; GET /api/local-db uses it):
- * every batch S (BR-08: the receive picker and the link dialog list them all) plus the lots of
- * BR-07, the branch's own entries on those lots or on no lot, and the other branches'
- * `allocate` / `receive` cut down to `centralKeys` so centralStock() (the "สต๊อกกลางไม่พอ"
- * warning, the link dialog) counts them. visibleEntries() keeps those out of the branch's screens.
+ * 20261002000041, and tests/unit/server.test.ts checks the two are equal, so change both.
+ * `scopeDatabase` is the JS port of scope_app_state() there (GET /api/local-db uses it).
  *
- *  - kinds       entry kinds sent. `void`, `entryEdit`, `editRequest`, `editDecision` and `link`
- *                are never listed: they are sent when the entry they name (`targetId`) is sent,
- *                and so is a void naming one of them (an undone edit or link, a restored
- *                delete: EDT-23; no chain is longer).
- *  - hiddenKeys  value keys stripped from every entry and lot (also as an edit's to./from.).
- *  - configKeys  the config keys kept, in `config` and in every lot's config snapshot; a
- *                trailing `*` keeps every key with that prefix. normalize() fills the rest
- *                from the seed, which no branch screen reads.
- *  - centralKinds  another branch's kinds sent for centralStock(), with their void / edit /
- *                decision / link (never an editRequest).
- *  - centralKeys the only value keys those keep: kg, allocation, complete, and what a void, edit,
- *                decision or link needs to apply (targetId, lotId, decision, to.*). */
-
+ *  - kinds       the branch's own entries sent whole: `role: "branch"`, stamped with its branch.
+ *  - hiddenKeys  value keys stripped from those and from every lot (also as an edit's to./from.).
+ *                Not `fullAmount`: a branch types it on its own payment, and the Owner's never
+ *                arrives (`stockKeys`).
+ *  - configKeys  the settings kept, in `config` and in every lot's config. normalize() fills the
+ *                rest from the seed, which no branch screen reads.
+ *  - stockKinds  kinds of the Owner / Account Manager stamped with the branch that reach it for
+ *                stock only: visibleEntries() never lists them.
+ *  - stockKeys   the only value keys those keep: what was bought, how many, and what an edit or
+ *                a delete of the line needs to apply.
+ *
+ * `entryEdit` and `void` are never listed: one is sent when the entry it names (`targetId`) is
+ * sent, cut the same way, and so is a void naming one of those (an undone edit, a restored
+ * delete; no chain is longer, see voidBlock). */
 export const branchScope: {
   kinds: EntryKind[];
   hiddenKeys: string[];
   configKeys: string[];
-  centralKinds: EntryKind[];
-  centralKeys: string[];
+  stockKinds: EntryKind[];
+  stockKeys: string[];
 } = {
-  kinds: [
-    "receive",
-    "thaw",
-    "supplyPurchase",
-    "supplyIssue",
-    "ricePurchase",
-    "chiliPurchase",
-    "chiliReceive",
-    "riceIssue",
-    "chiliIssue",
-    "rice",
-    "riceCarry",
-    "sale",
-    "influencerBox",
-    "materials",
-    "materialConfirm",
-    "closeDay",
-    "allocate",
-    "unlock",
+  kinds: ["receive", "sale", "influencerBox", "materials", "meatCount", "pay"],
+  hiddenKeys: [
+    "price",
+    "invoiceAmount",
+    "netPayable",
+    "lines",
+    "estimatedCost",
+    "serviceRate",
+    "outboundCost",
+    "returnCost",
+    "meatCost",
+    "wasteCost",
   ],
-  hiddenKeys: branchHiddenKeys,
-  configKeys: [
+  configKeys: ["packKg", "materialList", "salesChannels", "payCategories"],
+  stockKinds: ["pay"],
+  stockKeys: [
+    "category",
+    "item",
+    "qty",
     "branch",
-    "boxPrice",
-    "chiliPrice",
-    "packKg",
-    "rawRicePar",
-    "rawRiceUnitPrice",
-    "cookedRicePar",
-    "cookedRiceUnitPrice",
-    "material*",
-  ],
-  centralKinds: ["allocate", "receive"],
-  centralKeys: [
-    "kg",
-    "allocation",
-    "complete",
     "targetId",
-    "lotId",
-    "decision",
-    "to.kg",
-    "to.allocation",
-    "to.complete",
+    "targetKind",
+    "to.category",
+    "to.item",
+    "to.qty",
+    "fromDate",
+    "toDate",
   ],
 };
 
-/** Kinds that follow the entry they name in `targetId`. */
-const followKinds = [
-  "void",
-  "entryEdit",
-  "editRequest",
-  "editDecision",
-  "link",
-];
-
+const isObject = (values: unknown): values is Values =>
+  !!values && typeof values === "object";
+const filterKeys = (values: Values, keep: (key: string) => boolean): Values =>
+  Object.fromEntries(Object.entries(values).filter(([key]) => keep(key)));
+/** scope_strip_values(): without the hidden keys, also as an edit's `to.` / `from.`. */
 const hide = (values: Values, hidden: string[]): Values =>
-  values && typeof values === "object" ? omit(values, hidden) : values;
-const pick = (config: Values, keys: string[]): Values =>
-  Object.fromEntries(
-    Object.entries(config ?? {}).filter(([key]) =>
-      keys.some((k) =>
-        k.endsWith("*") ? key.startsWith(k.slice(0, -1)) : key === k,
-      ),
-    ),
-  );
+  isObject(values)
+    ? filterKeys(
+        values,
+        (key) => !hidden.includes(key.replace(/^(to|from)\./, "")),
+      )
+    : values;
+/** scope_config(): only the named keys. */
+const pick = (values: Values, keys: string[]): Values =>
+  isObject(values) ? filterKeys(values, (key) => keys.includes(key)) : {};
 
 /** The copy of `db` a branch account receives. `branches` is its own branch(es). */
 export function scopeDatabase(db: Database, branches: string[] = []): Database {
   const rule = branchScope;
   const all = db.entries ?? [];
-  const lotsWith = (test: (e: Entry) => boolean) =>
-    new Set(all.filter((e) => e && test(e)).map((e) => e.lotId));
-  // BR-07: a branch's lots. Same rule as visibleLots().
-  const allocated = lotsWith(
-    (e) =>
-      branches.includes(e.branch) &&
-      (e.kind === "allocate" || e.role === "branch"),
-  );
-  // BR-08: plus every batch S.
-  const lots = (db.lots ?? []).filter(
-    (lot: Lot) => lot?.kind === "shipment" || allocated.has(lot?.id),
-  );
-  const lotIds = new Set(lots.map((lot) => lot.id));
-  // Entries on those lots or on no lot ("ไม่ระบุ Lot", `lotId === ""`, maybe linked later).
-  const onLots = (e: Entry) => !e.lotId || lotIds.has(e.lotId);
-  const direct = (e: Entry) =>
-    rule.kinds.includes(e?.kind) && branches.includes(e.branch) && onLots(e);
-  const central = (e: Entry) =>
-    rule.centralKinds.includes(e?.kind) &&
-    !branches.includes(e.branch) &&
-    onLots(e);
-  const own = new Set(all.filter(direct).map((e) => e.id));
-  const others = new Set(all.filter(central).map((e) => e.id));
-  const target = (e: Entry) => e?.values?.targetId;
-  const follows = (e: Entry) =>
-    followKinds.includes(e?.kind) && own.has(target(e));
-  const followed = new Set(all.filter(follows).map((e) => e.id));
-  const followsOther = (e: Entry) =>
-    followKinds.includes(e?.kind) &&
-    e.kind !== "editRequest" &&
-    others.has(target(e));
-  const followedOther = new Set(all.filter(followsOther).map((e) => e.id));
-  // A void of a followed entry too, own or not: an undone edit or link, a restored delete.
+  const targetId = (e: Entry) => e?.values?.targetId;
+  // Entry id → sent whole (an own entry) or cut down to `stockKeys` (a stock line).
+  const direct = new Map<string, boolean>();
+  for (const e of all)
+    if (branches.includes(e?.branch)) {
+      if (e.role === "branch" && rule.kinds.includes(e.kind))
+        direct.set(e.id, true);
+      else if (e.role !== "branch" && rule.stockKinds.includes(e.kind))
+        direct.set(e.id, false);
+    }
+  // An edit or a delete naming one of those, whoever made it, cut like its target.
+  const follow = new Map<string, boolean>();
+  for (const e of all)
+    if (changeKinds.includes(e?.kind) && direct.has(targetId(e)))
+      follow.set(e.id, direct.get(targetId(e))!);
+  // And a delete naming one of those changes: an undone edit, a restored delete.
+  const undo = new Map<string, boolean>();
+  for (const e of all)
+    if (e?.kind === "void" && follow.has(targetId(e)))
+      undo.set(e.id, follow.get(targetId(e))!);
   const entries = all.flatMap((e) => {
-    if (
-      direct(e) ||
-      follows(e) ||
-      (e?.kind === "void" && followed.has(target(e)))
-    )
-      return [{ ...e, values: hide(e.values, rule.hiddenKeys) }];
-    if (
-      central(e) ||
-      followsOther(e) ||
-      (e?.kind === "void" && followedOther.has(target(e)))
-    )
-      return [{ ...e, values: pick(e.values, rule.centralKeys) }];
-    return [];
+    const whole = direct.get(e?.id) ?? follow.get(e?.id) ?? undo.get(e?.id);
+    if (whole === undefined) return [];
+    return [
+      {
+        ...e,
+        values: whole
+          ? hide(e.values, rule.hiddenKeys)
+          : pick(e.values, rule.stockKeys),
+      },
+    ];
   });
   return {
     version: db.version,
-    lots: lots.map((lot) => ({
-      ...lot,
-      values: hide(lot.values ?? {}, rule.hiddenKeys),
-      config: pick(lot.config, rule.configKeys),
-    })),
+    // Every Lot รมควัน: the receive form lists them all. No PO เนื้อ (its price).
+    lots: (db.lots ?? [])
+      .filter((lot) => lot?.kind === "shipment")
+      .map((lot) => ({
+        ...lot,
+        values: hide(lot.values ?? {}, rule.hiddenKeys),
+        config: pick(lot.config, rule.configKeys),
+      })),
     entries,
     config: pick(db.config, rule.configKeys),
   };

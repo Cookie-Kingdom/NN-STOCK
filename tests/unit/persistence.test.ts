@@ -91,7 +91,7 @@ test("loading a v9 payload keeps its history and fills missing settings from the
           config: {},
         },
       ],
-      config: { branch: "ปิดสาขาแล้ว", boxPrice: "999" },
+      config: { boxPrice: "999" },
       entries: [sale],
     },
   });
@@ -174,7 +174,7 @@ test("saving strips attachment bytes, updates the cache first and sends the know
 
 test("saving sends the stored history back untouched and appends only the new entries", async () => {
   const smoke = entry({ inputKg: "5", postSmokeKg: "4" }, "smoke");
-  const config = { branch: "ศาลาแดง", boxPrice: "999" };
+  const config = { boxPrice: "999" };
   const payload = { version: 9, lots: [], entries: [smoke], config };
   await signInWithRow({ revision: 4, payload });
   const db = latestDatabase();

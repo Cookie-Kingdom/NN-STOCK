@@ -2,8 +2,7 @@ import { cookies } from "next/headers";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { seed } from "@/lib/store";
-import { sevenDayRoleplay } from "@/lib/store/demo";
-import { ownerBranchScenario } from "@/lib/store/scenario";
+import { sampleData } from "@/lib/store/demo";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB } from "@/lib/local-db";
 
 // Test-only stand-in for the app_state table and save_app_state RPC. Never served
@@ -25,8 +24,9 @@ const open = () =>
 const signedIn = async () =>
   accountById((await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value);
 
-/** Like load_app_state: the Account Manager's copy has no sale money in it (C4), a branch
- * gets its role-scoped copy (src/lib/role-scope.ts); no, an unknown or a retired account is refused. */
+/** Like load_app_state: the Account Manager's copy has no sale money and no payroll payment in
+ * it (src/lib/manager-scope.ts), a branch gets its role-scoped copy (src/lib/role-scope.ts);
+ * no, an unknown or a retired account is refused. */
 export async function GET() {
   if (!enabled) return new Response(null, { status: 404 });
   const { db, loadState } = await open();
@@ -40,9 +40,8 @@ export async function GET() {
   }
 }
 
-/** e2e setup: `?state=seed` resets to the seed (startFresh), `?state=sample` loads
- * the seven-day sample set (loadSampleData), `?state=uat` loads the Owner/Branch UAT
- * scenario with every pending case (src/lib/store/scenario.ts). */
+/** e2e setup: `?state=seed` resets to the seed, `?state=sample` loads the approved sample's
+ * data set ending today (src/lib/store/demo.ts). */
 export async function PUT(request: Request) {
   if (!enabled) return new Response(null, { status: 404 });
   const state = new URL(request.url).searchParams.get("state");
@@ -50,13 +49,11 @@ export async function PUT(request: Request) {
     state === "seed"
       ? structuredClone(seed)
       : state === "sample"
-        ? sevenDayRoleplay(today())
-        : state === "uat"
-          ? ownerBranchScenario(today())
-          : null;
+        ? sampleData(today())
+        : null;
   if (!payload)
     return Response.json(
-      { message: "state must be seed, sample or uat" },
+      { message: "state must be seed or sample" },
       { status: 400 },
     );
   const { db, replaceState } = await open();

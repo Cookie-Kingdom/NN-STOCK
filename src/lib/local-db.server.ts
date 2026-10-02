@@ -3,20 +3,20 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { Account } from "./accounts";
+import { restoreForManager, stripForManager } from "./manager-scope";
 import { scopeDatabase } from "./role-scope";
-import { restoreSaleMoney, stripSaleMoney } from "./sale-money";
 import {
+  branchCategories,
   canChange,
-  canLink,
+  changeKinds,
   isVoided,
+  managerHidden,
   seed,
   voidableKinds,
   type Database,
   type Entry,
-  type Lot,
   type EntryKind,
 } from "./store";
-import { editableKinds } from "./store/model";
 
 export type AppStateRow = { payload: Database; revision: number };
 
@@ -42,9 +42,8 @@ export function readState(db: DatabaseSync): AppStateRow {
   return { payload: JSON.parse(row.payload), revision: row.revision };
 }
 
-/** Like load_app_state: the Owner reads everything, the Account Manager a copy without sale
- * money (C4), a branch its role-scoped copy; Foodiva and Chef House accounts are retired
- * (load_app_state and scope_app_state in 20260929000033). */
+/** Like load_app_state (20261002000041): the Owner reads everything, the Account Manager a copy
+ * without sale money and with payroll payments as stubs, a branch its role-scoped copy. */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
@@ -54,7 +53,7 @@ export function loadState(
   const row = readState(db);
   if (account!.role === "owner" && !account!.hidesSales) return row;
   if (account!.role === "owner")
-    return { ...row, payload: stripSaleMoney(row.payload) };
+    return { ...row, payload: stripForManager(row.payload) };
   return {
     ...row,
     payload: scopeDatabase(
@@ -68,32 +67,28 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append: `ownership` in store/mutate.ts less `retiredKinds` (0036, 0040),
- *  plus the changes to its own entries (`changeKinds`, 0039): entryEdit, link and void. */
+/** Kinds a branch may append (V2-ACC-07): its notes, and the changes to its own entries. */
 const branchKinds: EntryKind[] = [
   "receive",
-  "thaw",
-  "ricePurchase",
-  "chiliReceive",
-  "riceIssue",
-  "rice",
-  "riceCarry",
   "sale",
   "influencerBox",
   "materials",
-  "materialConfirm",
-  "closeDay",
+  "meatCount",
+  "pay",
   "entryEdit",
-  "link",
   "void",
 ];
+/** Kinds of its own a branch may edit: its notes less the material count (editableKinds). */
+const branchEditable: EntryKind[] = [
+  "receive",
+  "sale",
+  "influencerBox",
+  "meatCount",
+  "pay",
+];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
-const without = (value: object, ...keys: string[]) =>
-  Object.fromEntries(
-    Object.entries(value).filter(([key]) => !keys.includes(key)),
-  );
 
-/** JS port of `save_app_state` (latest in supabase/migrations/20260929000034_branch_append_guards.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20261002000041_v2_note_taking.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -118,8 +113,9 @@ export function saveState(
   )
     fail("Invalid application state");
   const { payload: old, revision } = readState(db);
-  // The Account Manager saves from a copy without sale money (GET strips it): put it back.
-  if (account!.hidesSales) payload = restoreSaleMoney(old, payload);
+  // The Account Manager saves from its stripped copy (GET strips it): put the rest back.
+  const manager = !!account!.hidesSales;
+  if (manager) payload = restoreForManager(old, payload);
   if (expectedRevision == null || expectedRevision !== revision)
     fail("State changed on another device. Reload and try again.");
   if (payload.entries.length < old.entries.length)
@@ -130,26 +126,45 @@ export function saveState(
     )
   )
     fail("Existing history cannot be changed");
-  // The Account Manager stamps every new entry (owner / foodiva / cm); the Owner may stamp
-  // "owner" on a partner's entry it typed (M0).
-  const manager = account!.id === "manager";
+  const byId = new Map(payload.entries.map((entry) => [entry?.id, entry]));
+  // managerHidden reads `values`: a malformed entry has none.
+  const hidden = (entry: Entry, target?: Entry) =>
+    managerHidden(
+      { ...entry, values: entry.values ?? {} },
+      target && { ...target, values: target.values ?? {} },
+    );
+  // The Account Manager stamps every new entry; the Owner stamps "owner" on an entry it jotted
+  // for someone else (a branch kind, an old partner step).
   for (const entry of payload.entries.slice(old.entries.length)) {
     const actorOk = manager
       ? entry?.actor === "manager"
       : entry?.actor === undefined ||
         (entry.actor === "owner" &&
-          (entry.role === "foodiva" || entry.role === "cm"));
+          ["foodiva", "cm", "branch"].includes(entry.role));
     if (!actorOk) fail("Entry actor does not match signed-in account");
-    if (manager && !["owner", "foodiva", "cm"].includes(entry.role))
+    if (!manager) continue;
+    if (!["owner", "foodiva", "cm", "branch"].includes(entry.role))
       fail("Entry role does not match signed-in account");
+    if (entry.kind === "config") fail("Only the Owner changes settings");
+    /* V2-ACC-01, V2-ACC-02: no sale, no payroll payment, no change about one. A delete does not
+     * carry its target's category, so the entry it names is looked up, and for an undo the
+     * entry that one names (voidBlock in store/visibility.ts). */
+    const target = byId.get(entry.values?.targetId);
+    if (
+      hidden(entry, target) ||
+      (target && hidden(target, byId.get(target.values?.targetId)))
+    )
+      fail("Entry kind is not allowed for this account");
   }
+  if (manager && !isDeepStrictEqual(payload.config, old.config))
+    fail("Only the Owner changes settings");
   return replaceState(db, payload);
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (latest in supabase/migrations/20261001000040_branch_self_receive.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20261002000041_v2_note_taking.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(
@@ -169,12 +184,11 @@ export function appendState(
   const role = account!.role;
   if (role !== "branch") fail("Only branch accounts append entries");
   const added = entryInput as Entry[];
-  const changes = (lotInput ?? []) as Lot[];
+  const changes = lotInput ?? [];
   if (
     !Array.isArray(added) ||
     !Array.isArray(changes) ||
-    added.some((entry) => !isObject(entry) || !isObject(entry.values)) ||
-    changes.some((lot) => !isObject(lot))
+    added.some((entry) => !isObject(entry) || !isObject(entry.values))
   )
     fail("Invalid application state");
   const { payload: old, revision } = readState(db);
@@ -199,50 +213,48 @@ export function appendState(
   )
     fail("Entry id must be unique");
 
-  // No branch kind opens a batch or writes the lot cache (lotCost reads it).
-  if (changes.length) fail("Only an owner can change lots");
-  if (
-    added.some(
-      (entry) =>
-        entry.lotId &&
-        entry.lotId !== "-" &&
-        !old.lots.some((lot) => lot?.id === entry.lotId),
-    )
-  )
+  // No branch kind opens a Lot or writes the lot cache.
+  if ((changes as unknown[]).length) fail("Only an owner can change lots");
+  const lotExists = (id: string) => old.lots.some((lot) => lot?.id === id);
+  if (added.some((entry) => entry.lotId && !lotExists(entry.lotId)))
     fail("Entry lot does not exist");
 
-  // BR-05: a sale's meat cost is never stored; `saleCost` reads it, so a scoped copy sends none.
-  const costKeys = ["meatCost", "wasteCost"].flatMap((key) => [
-    key,
-    `to.${key}`,
-    `from.${key}`,
-  ]);
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
   });
-  // In log order, so an entry sees the ones before it in this save (a closeDay, a link target).
+  // In log order, so an entry sees the ones before it in this save (an edit, then its undo).
   const log = { ...old, entries: [...old.entries] };
   for (const entry of added) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") || entry.date > today)
       fail("Entry date is invalid or after today");
-    // 0037: a closed branch day takes entries too (mutate() only warns).
+    // V2-ACC-07: a branch pays in its four categories, and an edit keeps a payment within them.
+    const category =
+      entry.kind === "pay"
+        ? entry.values.category
+        : entry.kind === "entryEdit"
+          ? entry.values["to.category"]
+          : "";
+    if (category && !branchCategories.includes(category))
+      fail("Payment category is not allowed for this account");
     const target = log.entries.find(
       (other) => other?.id === entry.values.targetId,
     );
-    if (entry.kind === "link" && !(target && canLink(entry, target)))
-      fail("Link target is not an entry of this branch");
-    // 0039, editBlock in store/visibility.ts: a branch edits a live entry of its own branch.
+    // editBlock in store/visibility.ts: a branch edits a live entry of its own branch.
     if (entry.kind === "entryEdit") {
       if (!(
         target &&
         canChange(entry, target) &&
-        editableKinds.includes(target.kind)
+        branchEditable.includes(target.kind)
       ))
         fail("Edit target is not an entry of this branch");
       if (isVoided(log, target!.id)) fail("Entry is already deleted");
-      // EDT-24: a branch entry changes lot with `link`, and no edit dates one after today.
+      // Only a receive changes Lot, to one that exists; no edit dates an entry after today.
       const { toLotId, toDate } = entry.values;
-      if (toLotId != null && toLotId !== "")
+      if (
+        toLotId != null &&
+        toLotId !== "" &&
+        !(target!.kind === "receive" && lotExists(toLotId))
+      )
         fail("Edit cannot move an entry to another lot");
       if (
         toDate != null &&
@@ -255,9 +267,9 @@ export function appendState(
       )
         fail("Entry date is invalid or after today");
     }
-    // 0039, voidBlock in store/visibility.ts: a branch deletes a live entry of its own branch. Of
-    // an edit or a link that undoes it, of a delete it puts the entry back, and that is as far as
-    // it goes: a delete naming a void, an edit or a link is not deleted in turn.
+    // voidBlock in store/visibility.ts: a branch deletes a live entry of its own branch. Of an
+    // edit that undoes it, of a delete it puts the entry back, and that is as far as it goes:
+    // a delete naming a delete or an edit is not deleted in turn.
     if (entry.kind === "void") {
       if (!(
         target &&
@@ -271,20 +283,17 @@ export function appendState(
       );
       if (
         target!.kind === "void" &&
-        (!about?.kind || ["void", "entryEdit", "link"].includes(about.kind))
+        (!about?.kind || changeKinds.includes(about.kind))
       )
         fail("An undo cannot be undone");
     }
-    log.entries.push({
-      ...entry,
-      values: without(entry.values, ...costKeys) as Entry["values"],
-    });
+    log.entries.push(entry);
   }
   return replaceState(db, log);
 }
 
 /** Writes the state with no guards. saveState calls it after its checks; on its own
- * it is e2e setup only (PUT /api/local-db, used by loadSampleData in tests/e2e/helpers.ts). */
+ * it is e2e setup only (PUT /api/local-db). */
 export function replaceState(db: DatabaseSync, payload: Database): AppStateRow {
   db.prepare("update app_state set payload = ?, revision = revision + 1").run(
     JSON.stringify(payload),
