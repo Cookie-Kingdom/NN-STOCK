@@ -10,7 +10,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A field the save went through without: quiet, but never mistaken for a value. */
+/** A field the note was saved without: yellow, never mistaken for a value. */
 export const Default: Story = {};
 
 export const InReadRows: Story = {
@@ -18,7 +18,10 @@ export const InReadRows: Story = {
     <div className="max-w-md">
       <ReadRow label="เลข Invoice" value="INV-0921" />
       <ReadRow label="วันที่ Invoice" value={<MissingMark />} />
-      <ReadRow label="Invoice ที่แนบ" value={<MissingMark />} />
+      <ReadRow
+        label="ค่าเนื้อ"
+        value={<MissingMark>ยังคิดไม่ได้</MissingMark>}
+      />
     </div>
   ),
 };

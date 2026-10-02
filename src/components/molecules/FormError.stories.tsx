@@ -3,14 +3,13 @@ import { pick } from "../../../.storybook/pick";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
-import { ButtonRow } from "./ButtonRow";
 import { FormError } from "./FormError";
 import { FormField } from "./FormField";
 
 const meta = {
   title: "Molecules/FormError",
   component: FormError,
-  args: { error: "น้ำหนักรับเข้าต้องมากกว่า 0 กก." },
+  args: { error: "น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข" },
   decorators: [
     (Story) => (
       <div className="max-w-md">
@@ -24,8 +23,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const error = pick("error", {
-  สั้น: "น้ำหนักรับเข้าต้องมากกว่า 0 กก.",
-  ยาว: "บันทึกไม่สำเร็จ: ล็อต LOT-0915-01 ปิดแล้ว จึงแก้ไขน้ำหนักรับเข้าของสาขาศาลาแดงไม่ได้ กรุณาเปิดล็อตใหม่หรือบันทึกเป็นรายการปรับปรุงสต๊อก",
+  สั้น: "น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข",
+  ยาว: "บันทึกไม่สำเร็จ: ข้อมูลบนเซิร์ฟเวอร์เปลี่ยนไประหว่างที่เปิดฟอร์มนี้ เว็บโหลดข้อมูลล่าสุดมาแล้ว ดูรายการของสาขาศาลาแดงอีกครั้ง แล้วจดใหม่",
   ไม่มี: null,
 });
 
@@ -51,11 +50,11 @@ export const InForm: Story = {
       <FormField label="น้ำหนักรับเข้า (กก.)">
         <Input type="number" step="0.01" defaultValue="0" />
       </FormField>
-      <FormError error="น้ำหนักรับเข้าต้องมากกว่า 0 กก." />
-      <ButtonRow>
+      <FormError error="น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข" />
+      <div className="flex flex-wrap gap-2">
         <Button variant="primary">บันทึก</Button>
         <Button variant="secondary">ยกเลิก</Button>
-      </ButtonRow>
+      </div>
     </form>
   ),
 };

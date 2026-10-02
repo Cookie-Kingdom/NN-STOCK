@@ -39,7 +39,7 @@ function Dismissable({
  *  - `tone` success: บันทึกสำเร็จ
  *  - `tone` danger: ฐานข้อมูลปฏิเสธการบันทึก (ข้อความเดียวกับ DatabaseErrorToast)
  *  - `message` ว่าง: ไม่แสดงอะไรเลย; เปลี่ยนข้อความแล้ว fade-up เล่นใหม่
- *  - ปุ่ม × ปิดข้อความ */
+ *  - ปุ่ม × ปิดข้อความ · ข้อความ success ปิดเองใน 6 วินาที ส่วน danger อยู่จนกดปิด */
 export const Default: Story = {
   argTypes: {
     tone: { control: "inline-radio", options: ["success", "danger"] },
@@ -53,6 +53,14 @@ export const Default: Story = {
       onClose={onClose}
     />
   ),
+};
+
+/** ลบแล้ว: มีปุ่ม「เลิกทำ」 กดแล้วทำงานและปิดข้อความ · ข้อความสีเขียวปิดเองใน 6 วินาที */
+export const WithUndo: Story = {
+  args: {
+    message: "ลบแล้ว: ยอดขาย",
+    action: { label: "เลิกทำ", onClick: fn() },
+  },
 };
 
 const refusal =

@@ -15,7 +15,7 @@ type Story = StoryObj<typeof meta>;
 const tokens = [
   ["--motion-fast", "120ms", "กด, เปลี่ยนสีตอน hover"],
   ["--motion-base", "200ms", "popover, toast, เฟดเนื้อหา"],
-  ["--motion-slow", "320ms", "dialog, แถบความคืบหน้า"],
+  ["--motion-slow", "320ms", "การ์ดที่เปิดขึ้นมา"],
   ["--ease-enter", "cubic-bezier(0.16, 1, 0.3, 1)", "เข้า (ชะลอตอนจบ)"],
   ["--ease-exit", "cubic-bezier(0.4, 0, 1, 1)", "ออก (เร่งตอนจบ)"],
   ["--ease-standard", "cubic-bezier(0.2, 0, 0, 1)", "เปลี่ยนสถานะทั่วไป"],

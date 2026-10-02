@@ -1,6 +1,8 @@
 -- Failure-case test: save_app_state refuses branch accounts (0034) and mismatched actors / roles.
 -- M1 (migration 0032): Foodiva / Chef House work is typed by the Owner (actor "owner") or the
 -- Account Manager (actor "manager"); L3 / L4 accounts are refused even when re-activated.
+-- v2 (migration 0041): the Account Manager may jot a branch's note for it (role "branch", actor
+-- "manager") but changes no settings.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/save_app_state_guard_test.sql
 
 do $$
@@ -94,8 +96,9 @@ begin
     'config', '{}'::jsonb, 'entries', ('[' || v_log || ']')::jsonb), v_rev) s;
   assert (select payload -> 'entries' -> 3 ->> 'kind' from public.app_state) = 'dispatch', 'manager dispatch not saved';
 
-  -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots, changes config and
-  -- appends owner / foodiva / cm entries, but may not write as a branch.
+  -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots and appends owner /
+  -- foodiva / cm entries and, for a branch, that branch's notes (always stamped "manager"). It
+  -- changes no settings (0041).
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
@@ -106,19 +109,26 @@ begin
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"branch","branch":"มีนบุรี","actor":"manager"}]')::jsonb), v_rev);
+      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"nobody","actor":"manager"}]')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
-  assert v_err = 'Entry role does not match signed-in account', format('manager as branch with actor: got %s', v_err);
+  assert v_err = 'Entry role does not match signed-in account', format('manager with an unknown role: got %s', v_err);
+  v_err := null;
+  begin
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
+      'config', '{"boxPrice":"350"}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"owner","actor":"manager"}]')::jsonb), v_rev);
+  exception when others then v_err := sqlerrm;
+  end;
+  assert v_err = 'Only the Owner changes settings', format('manager changes config: got %s', v_err);
   select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s, '{"id":"L2","poId":"P2","config":{},"values":{}}'::jsonb),
-    'config', '{"boxPrice":"350"}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"owner","actor":"manager"}]')::jsonb), v_rev) s;
+    'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","kind":"receive","role":"branch","branch":"มีนบุรี","actor":"manager"}]')::jsonb), v_rev) s;
 
   -- The Owner may not claim to be the manager.
   perform set_config('test.uid', v_owner::text, true);
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s, '{"id":"L2","poId":"P2","config":{},"values":{}}'::jsonb),
-      'config', '{"boxPrice":"350"}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"owner","actor":"manager"},{"id":"e4","role":"owner","actor":"manager"}]')::jsonb), v_rev);
+      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","kind":"receive","role":"branch","branch":"มีนบุรี","actor":"manager"},{"id":"e4","role":"owner","actor":"manager"}]')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('owner as manager: got %s', v_err);

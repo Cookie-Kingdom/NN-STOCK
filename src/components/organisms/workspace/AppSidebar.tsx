@@ -1,99 +1,96 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect } from "react";
+import { useEffect } from "react";
 import { LogOut } from "lucide-react";
-import { CountPill } from "@/components/atoms/CountPill";
 import { IconButton } from "@/components/atoms/IconButton";
-import type { Account } from "@/lib/accounts";
-import type { NavGroup, Tab } from "@/lib/nav";
+import { ThemeToggle } from "@/components/molecules/ThemeToggle";
+import { AppBrand } from "@/components/organisms/workspace/AppHeader";
+import { NotificationPopover } from "@/components/organisms/workspace/NotificationPopover";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { navFor, pages } from "@/lib/nav";
 import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-/** Grouped tab navigation plus the signed-in account and sign-out. */
-export function AppSidebar({
-  account,
-  nav,
-  tab,
-  onTab,
-  badges = {},
-}: {
-  account: Account;
-  nav: NavGroup[];
-  tab: Tab;
-  onTab: (tab: Tab) => void;
-  /** Per-tab counts of things not recorded yet, rendered as a neutral pill. */
-  badges?: Partial<Record<Tab, number>>;
-}) {
+/** The workspace's frame. From md up a 224px column: brand, the account's pages, then the
+ *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
+ *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
+export function AppSidebar({ ws }: { ws: Workspace }) {
+  const { account, tab, setTab } = ws;
   const router = useRouter();
-  /* Tabs are buttons, not <Link>s, so nothing prefetches them on its own. Every
-   * tab route is a static page that renders nothing, so warming all of them up
-   * front is cheap and keeps the URL from lagging behind the clicked tab. */
+  /* The pages are buttons, not <Link>s, so nothing prefetches them on its own. Every page
+   * route is static and renders nothing, so warming all of them up front is cheap and keeps
+   * the URL from lagging behind the pressed page. */
   useEffect(() => {
-    for (const group of nav)
-      for (const item of group.items)
-        router.prefetch(`${account.path}/${item.id}`);
-  }, [nav, account.path, router]);
+    for (const id of navFor(account)) router.prefetch(`${account.path}/${id}`);
+  }, [account, router]);
 
   return (
-    /* From md up the shell gives the aside the screen's height: a menu longer than
-     * that scrolls on its own, and the account + sign-out block stays pinned below it. */
-    <aside className="flex flex-col border-r border-border bg-surface px-4.5 py-5.5 max-md:block max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-3 md:min-h-0">
-      <nav className="grid content-start gap-1 max-md:flex max-md:flex-wrap max-md:gap-1.5 md:-mx-1 md:min-h-0 md:overflow-y-auto md:px-1">
-        {nav.map((group, index) => (
-          <Fragment key={group.label ?? index}>
-            {group.label && (
-              <span className="mt-4 mb-1 block px-3 text-caption font-bold tracking-[0.08em] text-text-muted uppercase first:mt-0 max-md:mx-0 max-md:mt-2.5 max-md:mb-0 max-md:basis-full max-md:px-0.5 max-md:first:mt-0">
-                {group.label}
-              </span>
-            )}
-            {group.items.map((item) => {
-              const selected = tab === item.id;
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  aria-current={selected ? "page" : undefined}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md p-3 text-left text-body-sm transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:gap-1.5 max-md:p-2.5 max-md:text-caption max-md:whitespace-nowrap",
-                    selected
-                      ? "bg-accent text-accent-fg"
-                      : "text-text-secondary hover:bg-bg hover:text-text-primary",
-                  )}
-                  onClick={() => onTab(item.id)}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                  {!!badges[item.id] && (
-                    <CountPill variant="menu">{badges[item.id]}</CountPill>
-                  )}
-                </button>
-              );
-            })}
-          </Fragment>
-        ))}
-      </nav>
-      <div className="mt-auto flex items-center gap-2.5 border-t border-border pt-3 pb-0.5 max-md:mt-3 max-md:pt-2.5 max-md:pb-0">
-        <span className="grid size-8.5 flex-none place-items-center rounded-md bg-accent-subtle text-accent">
-          <account.icon size={18} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <strong className="block text-body-sm font-semibold [overflow-wrap:anywhere]">
-            {account.name}
-          </strong>
-          <small className="mt-0.5 block text-caption [overflow-wrap:anywhere] text-text-secondary">
-            {account.title}
-          </small>
-        </span>
-        <IconButton
-          size="sm"
-          label="ออกจากระบบ"
-          icon={<LogOut size={16} />}
-          onClick={async () => {
-            await signOut();
-            router.replace("/");
-          }}
+    <aside className="sticky top-0 z-10 flex h-dvh flex-col gap-6 border-r border-border bg-surface px-3 py-6 max-md:h-auto max-md:flex-row max-md:items-center max-md:gap-1 max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-2">
+      <div className="px-2 max-md:mr-auto max-md:min-w-0 max-md:px-0">
+        <AppBrand
+          compact
+          caption={
+            <small className="block truncate text-caption text-text-secondary md:hidden">
+              {account.name}
+            </small>
+          }
         />
+      </div>
+      <nav
+        aria-label="หน้า"
+        className="flex flex-col gap-0.5 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:flex-row max-md:gap-0 max-md:border-t max-md:border-border max-md:bg-surface max-md:pb-[env(safe-area-inset-bottom)]"
+      >
+        {navFor(account).map((id) => {
+          const page = pages[id];
+          const selected = tab === id;
+          return (
+            <button
+              type="button"
+              key={id}
+              aria-current={selected ? "page" : undefined}
+              onClick={() => setTab(id)}
+              className={cn(
+                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
+                selected
+                  ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
+                  : "text-text-secondary hover:bg-bg hover:text-text-primary",
+              )}
+            >
+              <page.icon size={18} aria-hidden />
+              {page.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div className="mt-auto flex flex-col gap-3 max-md:mt-0 max-md:flex-row max-md:items-center max-md:gap-1">
+        <div className="flex items-center gap-1 px-1 max-md:px-0">
+          <NotificationPopover ws={ws} />
+          <ThemeToggle />
+        </div>
+        <div className="flex items-center gap-2.5 border-t border-border px-1 pt-3 max-md:border-0 max-md:p-0">
+          <span className="grid size-8.5 flex-none place-items-center rounded-md bg-accent-subtle text-accent max-md:hidden">
+            <account.icon size={18} />
+          </span>
+          <span className="min-w-0 flex-1 max-md:hidden">
+            <strong className="block text-body-sm font-semibold [overflow-wrap:anywhere]">
+              {account.name}
+            </strong>
+            <small className="block text-caption [overflow-wrap:anywhere] text-text-secondary">
+              {account.title}
+            </small>
+          </span>
+          <IconButton
+            size="sm"
+            className="max-md:min-h-11 max-md:min-w-11"
+            label="ออกจากระบบ"
+            icon={<LogOut size={16} />}
+            onClick={async () => {
+              await signOut();
+              router.replace("/");
+            }}
+          />
+        </div>
       </div>
     </aside>
   );

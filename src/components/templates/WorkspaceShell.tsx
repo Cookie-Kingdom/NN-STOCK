@@ -1,104 +1,73 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
 import { LoadingPanel } from "@/components/molecules/LoadingState";
-import { AppHeader } from "@/components/organisms/workspace/AppHeader";
-import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
-import {
-  NotificationPopover,
-  type Notification,
-} from "@/components/organisms/workspace/NotificationPopover";
-import { QuickAdd } from "@/components/organisms/workspace/QuickAdd";
 import { PageHeading } from "@/components/molecules/PageHeading";
 import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
+import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
+import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { WorkspaceModals } from "@/components/organisms/workspace/WorkspaceModals";
-import type { Account } from "@/lib/accounts";
-import { navLabel, type NavGroup, type Tab } from "@/lib/nav";
+import { pages } from "@/lib/nav";
 
-export type { Notification };
-
-type Props = {
-  account: Account;
-  nav: NavGroup[];
-  /** Per-tab counters rendered as a red pill in the sidebar. */
-  badges?: Partial<Record<Tab, number>>;
-  notifications?: Notification[];
-  /** The workspace the page runs on: tab, date, toast, loading and the dialog layer. */
-  ws: Workspace;
-  children: ReactNode;
-};
-
+/** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
+ *  beside one column holding the page's head with its 「จดบันทึก」 button, the composer when
+ *  it is open, and the page (`children`). Toasts float at the bottom of the screen. */
 export function WorkspaceShell({
-  account,
-  nav,
-  badges,
-  notifications,
   ws,
   children,
-}: Props) {
-  const { tab, setTab: onTab, date, setDate: onDate } = ws;
+}: {
+  ws: Workspace;
+  children: ReactNode;
+}) {
+  const page = pages[ws.tab];
   return (
-    /* From md up the shell is exactly one screen tall and only the content column
-     * scrolls, so the sidebar (menu + sign-out) is sized by the screen, not by the
-     * page: sign-out stays in view on a long page without scrolling to its end.
-     * Below md the menu is a bar above the page and the window scrolls as before. */
-    <div className="flex min-h-screen flex-col bg-bg text-body text-text-primary md:h-dvh">
-      <AppHeader
-        actions={
-          <>
-            {/* Not while the seed stands in for the server payload: a form would read it. */}
-            <QuickAdd
-              account={account}
-              disabled={!ws.loaded}
-              onOpen={ws.open}
-              onTab={onTab}
-            />
-            {notifications && (
-              <NotificationPopover
-                notifications={notifications}
-                onSelect={onTab}
-              />
-            )}
-          </>
-        }
-      />
-      <div className="grid flex-1 grid-cols-[218px_minmax(0,1fr)] max-[1100px]:grid-cols-[205px_minmax(0,1fr)] max-md:block md:min-h-0 md:grid-rows-[minmax(0,1fr)]">
-        <AppSidebar
-          account={account}
-          nav={nav}
-          tab={tab}
-          onTab={onTab}
-          badges={badges}
+    <div className="grid min-h-dvh grid-cols-[224px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
+      <AppSidebar ws={ws} />
+      <main className="mx-auto flex w-full max-w-[1120px] min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24">
+        <PageHeading
+          title={page.label}
+          description={page.description}
+          action={
+            ws.tab !== "settings" && (
+              <Button
+                variant="primary"
+                icon={<Plus />}
+                // Not while the seed stands in for the server payload: a form would read it.
+                disabled={!ws.loaded}
+                aria-expanded={!!ws.draft}
+                onClick={() => (ws.draft ? ws.closeDraft() : ws.jot())}
+              >
+                จดบันทึก
+              </Button>
+            )
+          }
         />
-        {/* The scroller spans the whole column so its scrollbar sits at the screen's
-            right edge, not beside the centred, max-width <main>. */}
-        <div className="md:overflow-y-auto">
-          <main className="mx-auto w-full max-w-375 px-9 py-7.5 max-[1100px]:p-6 max-md:px-4 max-md:py-5 min-[1600px]:px-12.5 min-[1600px]:py-10.5">
-            <PageHeading
-              overline={`${account.name}${account.branch ? ` · ${account.branch}` : ""}`}
-              title={navLabel(nav, tab)}
-              description={account.summary}
-              date={date}
-              onDate={onDate}
-            />
-            <Toast message={ws.toast} onClose={() => ws.setToast("")} />
-            <DatabaseErrorToast />
-            {/* Views are conditionally rendered per tab, so remounting on tab change loses no state. */}
-            {/* Server payload still loading: the views would show seed data, so show its shape instead. */}
-            {!ws.loaded ? (
-              <LoadingPanel />
-            ) : (
-              <div key={tab} className="animate-fade-in">
-                {children}
-              </div>
-            )}
-          </main>
+        <Composer ws={ws} />
+        {/* Server payload still loading: the page would show seed data, so show its shape instead. */}
+        {!ws.loaded ? (
+          <LoadingPanel />
+        ) : (
+          <div key={ws.tab} className="animate-fade-in">
+            {children}
+          </div>
+        )}
+        {/* Above the bottom tabs on a phone. Only the toasts take clicks, not the strip. */}
+        <div className="pointer-events-none fixed inset-x-4 bottom-6 z-30 mx-auto grid max-w-md gap-2 *:pointer-events-auto max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]">
+          <Toast
+            key={ws.toast.id}
+            className="my-0 shadow-lg"
+            message={ws.toast.message}
+            tone={ws.toast.tone ?? "success"}
+            action={
+              ws.toast.undo && { label: "เลิกทำ", onClick: ws.toast.undo }
+            }
+            onClose={() => ws.setToast("")}
+          />
+          <DatabaseErrorToast className="my-0 shadow-lg" />
         </div>
-      </div>
-      {/* Last, not inside <main>: a showModal() dialog renders in the top layer, so it is
-       * placed here only to keep the layout's own markup above it. */}
-      <WorkspaceModals ws={ws} />
+      </main>
     </div>
   );
 }

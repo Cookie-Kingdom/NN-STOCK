@@ -7,11 +7,6 @@ const meta = {
   args: { placeholder: "หมายเหตุ" },
   argTypes: {
     variant: { control: "inline-radio", options: ["form", "table", "filter"] },
-    prefilled: {
-      control: "inline-radio",
-      options: [undefined, "auto", "expected"],
-    },
-    reason: { control: "boolean" },
     compact: { control: "boolean" },
     disabled: { control: "boolean" },
     defaultValue: { control: "text" },
@@ -23,15 +18,11 @@ type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
  *  - `variant`: form (default); table/filter exist via the shared control styles
- *  - `prefilled`: auto (system-filled tint) or expected (predicted, warning tint)
- *  - `reason`: the free-text reason look inside a table row
- *  - `compact`: starts one line high, for a short reason or memo
- *  - `disabled`: locked */
+ *  - `compact`: starts one line high, for a short note
+ *  - `disabled`: cannot be typed in */
 export const Default: Story = {
   args: {
     variant: "form",
-    prefilled: undefined,
-    reason: false,
     compact: false,
     disabled: false,
     defaultValue: "",

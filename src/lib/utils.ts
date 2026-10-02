@@ -11,7 +11,6 @@ const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       text: [
-        "display",
         "h1",
         "h2",
         "h3",
@@ -19,10 +18,8 @@ const twMerge = extendTailwindMerge({
         "body-sm",
         "label",
         "caption",
-        "num-xl",
         "num-lg",
         "num-md",
-        "num-sm",
       ],
     },
   },

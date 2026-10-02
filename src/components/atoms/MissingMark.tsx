@@ -1,12 +1,17 @@
+import type { ReactNode } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { missingText } from "@/lib/store";
-import { cn } from "@/lib/utils";
 
-/** Stands in for a value that was never filled: the entry was saved without it (GEN-02).
- *  Warning-coloured text, not a chip, so a column of them stays calm. */
-export function MissingMark({ className }: { className?: string }) {
+/** The yellow mark of a value that is not there: a field a note was saved without
+ *  (ยังไม่ได้จด, the default), or a figure the web cannot work out yet. */
+export function MissingMark({
+  children = missingText,
+}: {
+  children?: ReactNode;
+}) {
   return (
-    <span className={cn("text-caption font-medium text-warning", className)}>
-      {missingText}
-    </span>
+    <Badge tone="warning" className="border border-warning/40 py-0 font-medium">
+      {children}
+    </Badge>
   );
 }

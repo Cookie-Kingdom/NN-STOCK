@@ -3,77 +3,102 @@
 import { useRouter, useSelectedLayoutSegment } from "next/navigation";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
 import type { Account } from "@/lib/accounts";
-import { today } from "@/lib/format";
-import type { Modal, ModalKind, Tab } from "@/lib/nav";
+import { today as bangkokToday } from "@/lib/format";
+import { navFor, type Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
-import { isClosed, liveLots, visibleDatabase, visibleLots } from "@/lib/store";
+import { todos, type NoteKind, type Todo, type Values } from "@/lib/store";
 
-/** State every workspace needs: the database, which day is being worked on,
- * which lots this account may see, and the open dialog. */
+/** What the composer opens on: nothing set is the kind picker; a `kind` is that kind's form,
+ *  started from the lot, branch, date and values given; an `editId` is the edit of that entry. */
+export type Draft = {
+  kind?: NoteKind;
+  lotId?: string;
+  branch?: string;
+  date?: string;
+  values?: Values;
+  editId?: string;
+};
+
+type ToastState = {
+  /** Counts up with every toast, so the same message twice is shown twice. */
+  id: number;
+  message: string;
+  tone?: "danger";
+  undo?: () => void;
+};
+
+/** State every page of the workspace shares: the signed-in account, the database, the page
+ *  in view, the composer's draft and the toast. */
 export function useWorkspace(account: Account) {
-  const raw = useDatabase();
+  const db = useDatabase();
   const loaded = useDatabaseLoaded();
   const router = useRouter();
-  // The tab is the URL segment under the role's layout: /owner/po → "po".
-  const segment = (useSelectedLayoutSegment() as Tab | null) ?? account.homeTab;
-  /* The URL stays the source of truth, but the sidebar and the view switch on the
-   * click's own frame instead of waiting for the route payload — every view is
-   * already loaded, only the navigation was making them look slow. The optimistic
-   * value reverts when the transition settles, by which time the segment matches. */
-  const [tab, showTab] = useOptimistic(segment);
-  const setTab = (next: Tab) =>
+  const today = bangkokToday();
+  // The page is the URL segment under the account's layout: /owner/lots → "lots". One the
+  // account does not have (the Account Manager on Overview) is its home page instead.
+  const segment = useSelectedLayoutSegment() as Tab | null;
+  const page =
+    segment && navFor(account).includes(segment) ? segment : account.homeTab;
+  /* The URL stays the source of truth, but the menu and the page switch on the click's own
+   * frame instead of waiting for the route payload. The optimistic value reverts when the
+   * transition settles, by which time the segment matches. */
+  const [tab, showTab] = useOptimistic(page);
+  const [draft, setDraft] = useState<(Draft & { seq: number }) | null>(null);
+  const [toast, show] = useState<ToastState>({ id: 0, message: "" });
+  const say = (next: Omit<ToastState, "id">) =>
+    show((last) => ({ ...next, id: last.id + 1 }));
+  /** Opens the composer: the kind picker, or with `preset.kind` that kind's form. Each call
+   *  is a fresh form (`seq`), so "save and jot another" starts empty. */
+  const jot = (preset: Draft = {}) =>
+    setDraft((last) => ({ ...preset, seq: (last?.seq ?? 0) + 1 }));
+  const setTab = (next: Tab) => {
+    // A form and a toast belong to the page they were opened on.
+    setDraft(null);
+    say({ message: "" });
     startTransition(() => {
       showTab(next);
       router.push(`${account.path}/${next}`);
     });
-  const [date, setDate] = useState(today);
-  const [chosen, setChosen] = useState("");
-  const [modal, setModal] = useState<Modal | null>(null);
-  // A toast stays until closed or until the page changes: a save never moves the user
-  // to another page, so it belongs to the page it was made on.
-  const [note, setNote] = useState({ message: "", page: segment });
-  const setToast = (message: string) => setNote({ message, page: segment });
-  const [seenPage, setSeenPage] = useState(segment);
-  if (seenPage !== segment) {
-    setSeenPage(segment);
-    if (note.page !== segment) setNote({ message: "", page: segment });
-  }
-  const toast = note.page === segment ? note.message : "";
-
-  const branch = account.branch ?? raw.config.branch;
-  const role = account.role;
-  // The Account Manager's screens read a copy without sales money; saves use latestDatabase().
-  const hidesSales = !!account.hidesSales;
-  const db = useMemo(() => visibleDatabase(raw, hidesSales), [raw, hidesSales]);
-  // BR-07: a branch lists the batches allocated to it or holding its own entries.
-  const lots = useMemo(
-    () => (role === "branch" ? visibleLots(db, branch) : liveLots(db)),
-    [db, role, branch],
+  };
+  // Not while the seed stands in for the server payload: it would list a week of days.
+  const list = useMemo(
+    () => (loaded ? todos(db, account, today) : []),
+    [db, account, today, loaded],
   );
-  const lot = lots.find((l) => l.id === chosen) || lots[0];
-  const open = (kind: ModalKind, lotId = lot?.id || "") =>
-    setModal({ kind, lotId });
-  const closed = isClosed(db, branch, date);
 
   return {
+    account,
     db,
     loaded,
-    role,
-    branch,
+    /** `YYYY-MM-DD`, Bangkok: what every derived function takes as `today`. */
+    today,
     tab,
     setTab,
-    date,
-    setDate,
-    chosen,
-    setChosen,
-    modal,
-    setModal,
     toast,
-    setToast,
-    lots,
-    lot,
-    open,
-    closed,
+    /** The green toast of a save; `undo` adds the 「เลิกทำ」 button. "" closes it. */
+    setToast: (message: string, undo?: () => void) => say({ message, undo }),
+    /** The red toast of a change that was refused. */
+    fail: (message: string) => say({ message, tone: "danger" }),
+    draft,
+    jot,
+    /** Opens the composer on the edit of one entry. */
+    edit: (editId: string) => jot({ editId }),
+    closeDraft: () => setDraft(null),
+    /** Everything yellow for this account: the todo box and the bell list it. */
+    todos: list,
+    /** What selecting a todo does: the form it names, the edit of its entry, or the Stock page. */
+    openTodo: (todo: Todo) => {
+      if (todo.page) setTab(todo.page);
+      else if (todo.editId) jot({ editId: todo.editId });
+      else
+        jot({
+          kind: todo.kind,
+          lotId: todo.lotId,
+          branch: todo.branch,
+          date: todo.date,
+          values: todo.category ? { category: todo.category } : undefined,
+        });
+    },
   };
 }
 

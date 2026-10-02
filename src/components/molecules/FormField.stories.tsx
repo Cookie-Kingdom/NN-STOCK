@@ -30,26 +30,13 @@ const state = pick<Partial<Props>>("สถานะ", {
     hint: "แสดงในเอกสารส่งมอบ",
     children: <Textarea compact />,
   },
-  ระบบกรอกให้: {
-    label: "ชื่อผู้รับ",
-    prefilled: { label: "ล่าสุด 18/09" },
-    children: <Input defaultValue="สมชาย" />,
-  },
-  ค่าคาดการณ์: {
-    label: "จำนวนกล่องรมควันที่รับ",
-    prefilled: { label: "ตามยอดส่ง", expected: true },
-    children: <Input type="number" defaultValue="360" />,
-  },
 });
 
 /** Pick the state in Controls:
  *  - ปกติ: a label over one control
  *  - ไม่บังคับพร้อมคำแนะนำ: `optional` mark and a `hint` line
- *  - ระบบกรอกให้: a value the system filled in — a faint tint and where it came from
- *  - ค่าคาดการณ์: a predicted scale or count reading — a warning look so it is
- *    weighed, not trusted
- *  - `as` div: a `<span>` label for a field holding several controls (`prefilled` is
- *    ignored); `wide` only shows inside a grid, see the FormGrid and Group stories */
+ *  - `as` div: a `<span>` label for a field holding several controls;
+ *    `wide` only shows inside a grid, see the FormGrid and Group stories */
 export const Default: StoryObj<Props & { state: Partial<Props> }> = {
   decorators: [
     (Story) => (
@@ -64,39 +51,6 @@ export const Default: StoryObj<Props & { state: Partial<Props> }> = {
   },
   args: { state: state.initial, as: "label" },
   render: ({ state, ...args }) => <FormField {...args} {...state} />,
-};
-
-/** Both kinds side by side with an untouched field, as they appear in a form. */
-export const PrefilledStates: Story = {
-  decorators: [
-    (Story) => (
-      <div className="max-w-2xl">
-        <Story />
-      </div>
-    ),
-  ],
-  render: () => (
-    <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-      <FormField label="ต้นทาง" prefilled={{ label: "ค่าเริ่มต้น" }}>
-        <Select defaultValue="กรุงเทพฯ">
-          <option>เชียงใหม่</option>
-          <option>กรุงเทพฯ</option>
-        </Select>
-      </FormField>
-      <FormField label="ทะเบียนรถ" prefilled={{ label: "ตามเที่ยวขาไป" }}>
-        <Input defaultValue="กข123" />
-      </FormField>
-      <FormField
-        label="น้ำหนักส่งจาก Chef House (กก.)"
-        prefilled={{ label: "ตามยอดสโมค", expected: true }}
-      >
-        <Input type="number" defaultValue="28.50" />
-      </FormField>
-      <FormField label="ผู้ตรวจรับ">
-        <Input />
-      </FormField>
-    </div>
-  ),
 };
 
 /** How lot forms lay fields out: a 2-column grid, `wide` spans both columns. */

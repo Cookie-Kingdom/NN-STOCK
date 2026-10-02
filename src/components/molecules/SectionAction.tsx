@@ -1,18 +1,16 @@
 "use client";
 
-import type { Ref } from "react";
 import { Button } from "@/components/atoms/Button";
 import { Spinner } from "@/components/atoms/Spinner";
+import { cn } from "@/lib/utils";
 
 /**
- * The locked / editing switch a table puts in its action slot: one `แก้ไข` button
- * while the table is locked, `ยกเลิก` + `บันทึกและล็อก` while it is open, and the
- * message the user needs beside the button they just pressed — never below the rows,
- * where a seven-row table pushes it off the screen.
+ * The locked / editing switch a Settings section puts in its title bar: one `แก้ไข` button
+ * while the section is locked, `ยกเลิก` + `บันทึก` while it is open, and the message the
+ * user reads beside the button they just pressed, never below the rows.
  *
- * `section` is this table's own key and `editing` the one table that is open, so a
- * view with several tables (ConfigView) opens exactly one at a time. A view with a
- * single table passes a one-value union.
+ * `section` is this section's own key and `editing` the one section that is open, so a page
+ * with several sections opens exactly one at a time.
  */
 export function SectionAction<Section extends string>({
   section,
@@ -23,54 +21,32 @@ export function SectionAction<Section extends string>({
   onCancel,
   onSave,
   onStartEdit,
-  lockedMessage,
-  editLabel = "แก้ไข (Edit)",
-  saveLabel = "บันทึกและล็อก (Save & lock)",
-  busyLabel = "กำลังบันทึก…",
-  otherLabel = "กำลังแก้ตารางอื่น",
-  editRef,
 }: {
   section: Section;
   editing: Section | null;
   message: string;
-  /** What the save would be refused for, checked as the user types. Takes the
-   *  message's place: while something is wrong, that is the useful thing to read. */
+  /** Why the save was refused. Takes the message's place. */
   error: string;
   saving: boolean;
   onCancel: () => void;
   onSave: () => void;
   onStartEdit: (section: Section) => void;
-  /** Shown beside the edit button while this table is locked — the confirmation of a
-   *  save that has just landed, where the user's eyes already are. */
-  lockedMessage?: string;
-  editLabel?: string;
-  saveLabel?: string;
-  busyLabel?: string;
-  /** Label of the edit button while another table on the page is open. */
-  otherLabel?: string;
-  /** The edit button, so a caller can put focus back on it when the table locks. */
-  editRef?: Ref<HTMLButtonElement>;
 }) {
   const open = editing === section;
   return (
-    <div className="flex items-center gap-3 max-md:justify-between">
+    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
       {open && (error || message) && (
         <span
           role={error ? "alert" : undefined}
-          className={error ? "text-danger" : undefined}
+          className={cn("text-body-sm", error && "text-danger")}
         >
           {error || message}
-        </span>
-      )}
-      {!open && lockedMessage && (
-        <span role="status" className="text-body-sm font-medium text-success">
-          {lockedMessage}
         </span>
       )}
       {open ? (
         <>
           <Button size="sm" onClick={onCancel}>
-            ยกเลิก (Cancel)
+            ยกเลิก
           </Button>
           <Button
             variant="primary"
@@ -79,18 +55,17 @@ export function SectionAction<Section extends string>({
             icon={saving ? <Spinner /> : undefined}
             onClick={onSave}
           >
-            {saving ? busyLabel : saveLabel}
+            {saving ? "กำลังบันทึก…" : "บันทึก"}
           </Button>
         </>
       ) : (
         <Button
-          ref={editRef}
           size="sm"
           className="border-text-primary text-text-primary"
           disabled={editing !== null}
           onClick={() => onStartEdit(section)}
         >
-          {editing ? otherLabel : editLabel}
+          {editing ? "กำลังแก้ส่วนอื่น" : "แก้ไข"}
         </Button>
       )}
     </div>

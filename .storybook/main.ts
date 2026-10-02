@@ -15,6 +15,9 @@ const config: StorybookConfig = {
         alias: [
           { find: /^@\/lib\/persistence$/, replacement: mock("persistence") },
           { find: /^@\/lib\/session$/, replacement: mock("session") },
+          // Server code the story fixtures run (manager-scope.ts) imports it; Vite's
+          // browser stand-in throws at import.
+          { find: /^node:util$/, replacement: mock("node-util") },
         ],
       },
       // Running `next dev`/`next build` alongside rewrites .next; don't reload Storybook for it.

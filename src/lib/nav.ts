@@ -1,171 +1,59 @@
 import {
-  ArrowLeft,
-  ArrowRight,
-  BarChart3,
-  Beef,
-  ClipboardCheck,
   ClipboardList,
   Factory,
-  FilePlus2,
-  History,
   LayoutDashboard,
-  ListChecks,
   Package,
-  PackageCheck,
   Settings,
-  Store,
-  Warehouse,
-  Wheat,
+  Wallet,
+  type LucideIcon,
 } from "lucide-react";
-import type { EntryKind } from "./store";
+import type { Account } from "./accounts";
 
 export type Tab =
-  | "owner-dashboard"
-  | "work"
-  | "cm-receive"
-  | "po"
-  | "smoke-po"
-  | "invoices"
-  | "documents"
-  | "foodiva"
-  | "transport"
-  | "return-shipment"
-  | "central-receive"
-  | "branch-status"
-  | "branch-summary"
-  | "stock"
-  | "meat-summary"
-  | "meat-log"
-  | "day"
-  | "material-receive"
-  | "material-count"
-  | "rice"
-  | "report"
-  | "history"
-  | "config";
+  "overview" | "log" | "lots" | "stock" | "finance" | "settings";
 
-/** An entry form, by the kind it records, or one of two read-only document views. */
-export type ModalKind =
-  EntryKind | "smokeOrderPreview" | "packingListView" | "matchPo";
-export type Modal = { kind: ModalKind; lotId: string };
-/** `Modal.lotId` (and a branch form's lot select) for the branch's "ไม่ระบุ Lot" bucket,
- *  which the ledger stores as `lotId: ""` (BR-02..04). `""` itself means "none picked". */
-export const NO_LOT = "~no-lot";
-export const noLotLabel = "ไม่ระบุ Lot";
+/** Every page: its name (English, V2-ACC-09), the line under it and its icon. */
+export const pages: Record<
+  Tab,
+  { label: string; description: string; icon: LucideIcon }
+> = {
+  overview: {
+    label: "Overview",
+    description: "สรุปของเดือน และสิ่งที่ยังไม่ได้จด",
+    icon: LayoutDashboard,
+  },
+  log: {
+    label: "Daily Log",
+    description: "บันทึกทั้งหมด เรียงตามวัน",
+    icon: ClipboardList,
+  },
+  lots: {
+    label: "Lots",
+    description: "PO เนื้อ และ Lot รมควัน",
+    icon: Factory,
+  },
+  stock: {
+    label: "Stock",
+    description: "เนื้อ วัสดุ และน้ำพริกคงเหลือ",
+    icon: Package,
+  },
+  finance: {
+    label: "Finance",
+    description: "จ่ายเงิน และยอดคงเหลือต่อผู้ขาย",
+    icon: Wallet,
+  },
+  settings: {
+    label: "Settings",
+    description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
+    icon: Settings,
+  },
+};
 
-type NavItem = { id: Tab; label: string; icon: typeof Package };
-export type NavGroup = { label?: string; items: NavItem[] };
-
-/* One nav per account. An account only lists what its own workspace renders —
- * a menu entry with no screen behind it is not expressible here. */
-
-export const ownerNav: NavGroup[] = [
-  {
-    label: "ภาพรวม",
-    items: [
-      { id: "owner-dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: "จัดซื้อและใบสั่ง",
-    items: [
-      { id: "po", label: "ใบสั่งซื้อ PO", icon: FilePlus2 },
-      { id: "smoke-po", label: "ใบสั่ง PO โรงรมควัน", icon: Factory },
-      { id: "invoices", label: "ใบ Invoice", icon: ClipboardList },
-    ],
-  },
-  // Foodiva and Chef House are partners, not users: the Owner records their steps here.
-  {
-    label: "งาน Foodiva",
-    items: [
-      {
-        id: "foodiva",
-        label: "Invoice เนื้อ · ใบขนส่ง · รับเข้าตู้",
-        icon: Beef,
-      },
-    ],
-  },
-  {
-    label: "งาน Chef House",
-    items: [
-      { id: "cm-receive", label: "ชั่งรับเนื้อ", icon: Warehouse },
-      { id: "work", label: "ผลิต · สโมค · Invoice ค่ารม", icon: Factory },
-    ],
-  },
-  {
-    label: "ขนส่งและรับเข้า",
-    items: [
-      { id: "transport", label: "ใบขนส่งขาไป", icon: ArrowRight },
-      {
-        id: "return-shipment",
-        label: "เรียกรถขากลับ",
-        icon: ArrowLeft,
-      },
-      {
-        id: "central-receive",
-        label: "รับเนื้อเข้าสต๊อกกลาง",
-        icon: Warehouse,
-      },
-    ],
-  },
-  {
-    label: "สต๊อกและสาขา",
-    items: [
-      {
-        id: "branch-status",
-        label: "สต๊อกเนื้อสาขา",
-        icon: ListChecks,
-      },
-      { id: "stock", label: "สต๊อกของทั้งหมด", icon: Package },
-      { id: "meat-log", label: "Log เนื้อคงเหลือ", icon: Beef },
-    ],
-  },
-  {
-    label: "เอกสารและรายงาน",
-    items: [
-      { id: "documents", label: "เอกสารและ Traceability", icon: ClipboardList },
-      { id: "report", label: "รายงาน", icon: BarChart3 },
-      { id: "history", label: "Log", icon: History },
-    ],
-  },
-  {
-    label: "ระบบ",
-    items: [{ id: "config", label: "ตั้งค่า", icon: Settings }],
-  },
-];
-
-/** Account Manager: the Owner's workspace without the dashboard (it shows sales money). */
-export const managerNav: NavGroup[] = ownerNav.filter(
-  (group) => !group.items.some((item) => item.id === "owner-dashboard"),
-);
-
-export const branchNav: NavGroup[] = [
-  {
-    items: [
-      { id: "day", label: "จดรายวัน", icon: Store },
-      { id: "material-receive", label: "รับวัสดุ", icon: PackageCheck },
-      {
-        id: "material-count",
-        label: "ตรวจนับสต๊อกวัสดุวันนี้",
-        icon: ClipboardCheck,
-      },
-      { id: "rice", label: "ข้าวเหนียววันนี้", icon: Wheat },
-      { id: "stock", label: "สต๊อก", icon: Package },
-      {
-        id: "meat-summary",
-        label: "สรุปคงเหลือเนื้อ รายวัน / รายล็อต",
-        icon: Beef,
-      },
-      { id: "branch-summary", label: "สรุปสาขา", icon: LayoutDashboard },
-      { id: "history", label: "ประวัติ", icon: History },
-    ],
-  },
-];
-
-export function navLabel(groups: NavGroup[], tab: Tab): string {
-  for (const group of groups) {
-    const hit = group.items.find((item) => item.id === tab);
-    if (hit) return hit.label;
-  }
-  return "";
-}
+/** The pages an account has, in menu order: the Owner all six, the Account Manager four
+ *  (no Overview, no Settings), a branch two. */
+export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
+  account.role === "branch"
+    ? ["log", "stock"]
+    : account.hidesSales
+      ? ["log", "lots", "stock", "finance"]
+      : ["overview", "log", "lots", "stock", "finance", "settings"];

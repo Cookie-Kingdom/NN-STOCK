@@ -126,7 +126,7 @@ export async function saveAttachment(
 export const logoAccept = "image/png,image/jpeg,image/webp";
 export async function saveLogo(file: File): Promise<string> {
   if (!/\.(png|jpe?g|webp)$/i.test(file.name))
-    throw new Error("โลโก้ต้องเป็นไฟล์ PNG, JPG หรือ WebP");
+    throw new Error("เว็บรับโลโก้เป็นไฟล์ PNG, JPG หรือ WebP");
   return saveAttachment(file, "branding");
 }
 

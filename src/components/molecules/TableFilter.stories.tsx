@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { pick } from "../../../.storybook/pick";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
-import { FilterBar } from "./FilterBar";
 import { TableFilter } from "./TableFilter";
 
 const meta = {
@@ -48,10 +47,10 @@ export const Default: StoryObj<Props & { state: Partial<Props> }> = {
   render: ({ state, ...args }) => <TableFilter {...args} {...state} />,
 };
 
-/** Several of them wrap in a FilterBar above the table. */
-export const InFilterBar: Story = {
+/** Several of them wrap in a row above the table. */
+export const InRow: Story = {
   render: () => (
-    <FilterBar>
+    <div className="flex flex-wrap items-end gap-3">
       <TableFilter label="สาขา">
         <Select variant="filter">
           <option>ทั้งหมด</option>
@@ -70,6 +69,6 @@ export const InFilterBar: Story = {
       <TableFilter label="ค้นหา">
         <Input variant="filter" placeholder="เลขล็อต / PO" />
       </TableFilter>
-    </FilterBar>
+    </div>
   ),
 };

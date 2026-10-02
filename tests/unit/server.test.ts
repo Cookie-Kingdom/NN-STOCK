@@ -1,0 +1,282 @@
+import { readFileSync } from "node:fs";
+import { expect, test } from "vitest";
+import { accountById } from "@/lib/accounts";
+import { today } from "@/lib/format";
+import {
+  appendState,
+  loadState,
+  openLocalDb,
+  readState,
+  replaceState,
+  saveState,
+} from "@/lib/local-db.server";
+import { stripForManager } from "@/lib/manager-scope";
+import { branchScope, scopeDatabase } from "@/lib/role-scope";
+import {
+  isSaleMoneyKey,
+  mutate,
+  type Database,
+  type Entry,
+  type EntryKind,
+  type Values,
+} from "@/lib/store";
+import { sampleData } from "@/lib/store/demo";
+
+/* The server side of the local SQLite mode (what e2e runs on), and its parity with migration
+ * 20261002000041: the same state and cases as supabase/tests/v2_app_state_test.sql, read from
+ * that file by their dollar-quote tags. */
+const owner = accountById("owner")!;
+const manager = accountById("manager")!;
+const saladaeng = accountById("saladaeng")!;
+const minburi = accountById("minburi")!;
+const stored = (payload: Database) => {
+  const db = openLocalDb(":memory:");
+  replaceState(db, payload);
+  return db;
+};
+const tagged = (file: string, tag: string) =>
+  JSON.parse(readFileSync(file, "utf8").split(`$${tag}$`)[1]);
+const sqlTest = "supabase/tests/v2_app_state_test.sql";
+const unprefixed = (key: string) => key.replace(/^(to|from)\./, "");
+
+test("branchScope equals the rule JSON in the migration", () => {
+  expect(branchScope).toEqual(
+    tagged("supabase/migrations/20261002000041_v2_note_taking.sql", "rules"),
+  );
+});
+
+test("the Account Manager's copy has no sale money and no payroll amount, name or payer", () => {
+  const sample = sampleData(today());
+  const db = stored(sample);
+  const { payload } = loadState(db, manager);
+  // Every entry stays in its place, so the manager's whole-payload save lines up.
+  expect(payload.entries.map((e) => e.id)).toEqual(
+    sample.entries.map((e) => e.id),
+  );
+  expect(
+    payload.entries
+      .flatMap((e) => Object.keys(e.values))
+      .filter((key) => isSaleMoneyKey(unprefixed(key))),
+  ).toEqual([]);
+  const payroll = payload.entries.filter(
+    (e) => e.values.category === "payroll",
+  );
+  expect(payroll).toHaveLength(3);
+  for (const e of payroll) expect(e.values).toEqual({ category: "payroll" });
+  expect(JSON.stringify(payload)).not.toContain("พี่เอ");
+  // The sales themselves stay (boxes and chili move the branch stock it works out).
+  expect(payload.entries.filter((e) => e.kind === "sale")).toHaveLength(
+    sample.entries.filter((e) => e.kind === "sale").length,
+  );
+  expect(loadState(db, owner).payload).toEqual(sample);
+  expect(() => loadState(db, null)).toThrow("Authentication required");
+});
+
+test("the Account Manager saves no sale, payroll payment or settings, and a normal save keeps the stored sale money", () => {
+  const sample = sampleData(today());
+  const db = stored(sample);
+  const { payload, revision } = loadState(db, manager);
+  // What persistence does to the manager's new entries.
+  const stamp = (next: Database): Database => ({
+    ...next,
+    entries: next.entries.map((e, index) =>
+      index < payload.entries.length ? e : { ...e, actor: "manager" },
+    ),
+  });
+  // mutate() refuses these for the manager, so a tampered client builds them as the Owner.
+  const forged = (kind: EntryKind, input: Values) =>
+    stamp(mutate(payload, { role: "owner" }, kind, input, "", today()));
+  const payrollId = payload.entries.find(
+    (e) => e.values.category === "payroll",
+  )!.id;
+  const saleId = payload.entries.find((e) => e.kind === "sale")!.id;
+  for (const next of [
+    forged("sale", { branch: "ศาลาแดง", boxes: "1", lineMan: "350" }),
+    forged("pay", { category: "payroll", amount: "1", employee: "x" }),
+    forged("void", { targetId: payrollId }),
+    forged("void", { targetId: saleId }),
+    forged("entryEdit", { targetId: saleId, values: '{"boxes":"1"}' }),
+  ])
+    expect(() => saveState(db, manager, next, revision)).toThrow(
+      "Entry kind is not allowed for this account",
+    );
+  for (const next of [
+    forged("config", { boxPrice: "400" }),
+    { ...payload, config: { ...payload.config, boxPrice: "400" } },
+  ])
+    expect(() => saveState(db, manager, next, revision)).toThrow(
+      "Only the Owner changes settings",
+    );
+  // A stored sale the manager's copy changed is refused; one it only lacks money on is put back.
+  const tampered = structuredClone(payload);
+  tampered.entries.find((e) => e.id === saleId)!.values.boxes = "999";
+  expect(() => saveState(db, manager, tampered, revision)).toThrow(
+    "Existing history cannot be changed",
+  );
+  expect(readState(db).payload).toEqual(sample);
+
+  const next = stamp(
+    mutate(
+      payload,
+      manager,
+      "pay",
+      { category: "rent", amount: "100" },
+      "",
+      today(),
+    ),
+  );
+  const saved = saveState(db, manager, next, revision).payload;
+  expect(saved.entries.slice(0, sample.entries.length)).toEqual(sample.entries);
+  expect(saved.entries.at(-1)).toMatchObject({
+    kind: "pay",
+    actor: "manager",
+    values: { category: "rent", amount: "100" },
+  });
+  expect(saved.config).toEqual(sample.config);
+});
+
+test("a branch's copy holds its own entries and the cut-down stock lines, nothing else", () => {
+  const sample = sampleData(today());
+  const { payload } = loadState(stored(sample), minburi);
+  expect(payload.entries.filter((e) => e.role === "branch")).toEqual(
+    sample.entries.filter((e) => e.role === "branch" && e.branch === "มีนบุรี"),
+  );
+  // What the Account Manager bought for it: what and how many, no amount, payer or detail.
+  expect(
+    payload.entries.filter((e) => e.role !== "branch").map((e) => e.values),
+  ).toEqual([
+    { category: "ingredient", item: "chili", qty: "200", branch: "มีนบุรี" },
+  ]);
+  expect(payload.lots.map((lot) => lot.kind)).toEqual([
+    "shipment",
+    "shipment",
+    "shipment",
+  ]);
+  expect(Object.keys(payload.config).sort()).toEqual(
+    [...branchScope.configKeys].sort(),
+  );
+  expect(JSON.stringify(payload)).not.toContain("ศาลาแดง");
+});
+
+test("a branch pays only in its four categories, and saves only by appending", () => {
+  const db = stored(sampleData(today()));
+  const { payload, revision } = loadState(db, saladaeng);
+  const pay = (category: string): Entry => ({
+    id: crypto.randomUUID(),
+    kind: "pay",
+    role: "branch",
+    lotId: "",
+    branch: "ศาลาแดง",
+    date: today(),
+    at: "",
+    values: { category, amount: "10" },
+  });
+  for (const category of ["meat", "payroll", "rent"])
+    expect(() =>
+      appendState(db, saladaeng, [pay(category)], [], revision),
+    ).toThrow("Payment category is not allowed for this account");
+  expect(() => saveState(db, saladaeng, payload, revision)).toThrow(
+    "Branch accounts save through append_entries",
+  );
+  expect(
+    appendState(db, saladaeng, [pay("transport")], [], revision).revision,
+  ).toBe(revision + 1);
+});
+
+test("the JS ports give what the SQL test expects on the same state and cases", () => {
+  const state: Database = tagged(sqlTest, "state");
+  const withValues = (id: string, values: Values) => ({
+    ...state.entries.find((e) => e.id === id)!,
+    values,
+  });
+
+  // scope_app_state
+  const branchSees: [string, Values][] = tagged(sqlTest, "branch");
+  const scoped = scopeDatabase(state, ["มีนบุรี"]);
+  expect(scoped.entries).toEqual(
+    branchSees.map(([id, values]) => withValues(id, values)),
+  );
+  expect(scoped.lots).toEqual([
+    { ...state.lots[1], config: { packKg: "0.12" }, values: { note: "x" } },
+    state.lots[2],
+  ]);
+  expect(scoped.config).toEqual({ packKg: "0.12", materialList: "[]" });
+  expect(scopeDatabase(state, []).entries).toEqual([]);
+
+  // manager_strip_entries
+  const managerSees: Record<string, Values> = tagged(sqlTest, "manager");
+  expect(stripForManager(state).entries).toEqual(
+    state.entries.map((e) => withValues(e.id, managerSees[e.id] ?? e.values)),
+  );
+
+  const db = stored(state);
+  expect(loadState(db, minburi).payload).toEqual(scoped);
+  const errorOf = (save: () => unknown) => {
+    try {
+      save();
+      return "";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+
+  // append_entries, as มีนบุรี
+  const appends: [string, EntryKind, string, Values, string][] = tagged(
+    sqlTest,
+    "appends",
+  );
+  for (const [id, kind, lotId, values, error] of appends) {
+    const entry = {
+      id,
+      kind,
+      role: "branch",
+      lotId,
+      branch: "มีนบุรี",
+      date: "2026-09-10",
+      values,
+    };
+    expect(
+      errorOf(() =>
+        appendState(db, minburi, [entry], [], readState(db).revision),
+      ),
+      JSON.stringify([id, kind, values]),
+    ).toBe(error);
+  }
+  expect(
+    loadState(db, minburi)
+      .payload.entries.map((e) => e.id)
+      .join(),
+  ).toBe("s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,a1,a2,a3,a4,e1,e2,v1,v2,v3");
+
+  // save_app_state, as the Account Manager, from the copy it loads
+  const saves: [Partial<Entry>, string][] = tagged(sqlTest, "saves");
+  for (const [entry, error] of saves) {
+    const { payload, revision } = loadState(db, manager);
+    const added = {
+      lotId: "",
+      branch: "",
+      date: "2026-09-10",
+      ...entry,
+      actor: "manager",
+    } as Entry;
+    expect(
+      errorOf(() =>
+        saveState(
+          db,
+          manager,
+          { ...payload, entries: [...payload.entries, added] },
+          revision,
+        ),
+      ),
+      JSON.stringify(entry),
+    ).toBe(error);
+  }
+  const log = readState(db).payload.entries;
+  expect(log.slice(0, state.entries.length)).toEqual(state.entries);
+  expect(
+    log
+      .slice(state.entries.length)
+      .map((e) => e.id)
+      .join(),
+  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n2,n3");
+});

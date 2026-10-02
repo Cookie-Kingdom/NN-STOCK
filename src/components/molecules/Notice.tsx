@@ -30,7 +30,7 @@ const roleByTone: Partial<Record<NoticeTone, string>> = {
   success: "status",
 };
 
-export type NoticeProps = ComponentProps<"div"> &
+type NoticeProps = ComponentProps<"div"> &
   VariantProps<typeof noticeVariants> & {
     /** Button laid out at the end, vertically centred (`.onboarding-notice`). */
     action?: ReactNode;

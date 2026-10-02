@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { branchNav } from "@/lib/nav";
 
 /* Only tabs in the nav exist; anything else is a 404. Each tab is rendered on its first
  * visit and then served static. No build-time list on purpose: with one, `next dev`
@@ -12,7 +11,6 @@ export default async function BranchTab({
   params,
 }: PageProps<"/branch/[tab]">) {
   const { tab } = await params;
-  if (!branchNav.some((group) => group.items.some((item) => item.id === tab)))
-    notFound();
+  if (tab !== "log" && tab !== "stock") notFound();
   return null;
 }

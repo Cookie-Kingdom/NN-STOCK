@@ -1,76 +1,150 @@
-import { entries, n, type Database, type Lot } from "@/lib/store";
-import { fmt } from "@/lib/format";
+/** The rows of the four printable documents (V2-DOC-01), as label and value pairs for
+ *  `DocumentPrintButton`. The buyer block always comes from Settings (V2-PO-03). */
+import { dateLabel, fmt } from "@/lib/format";
+import { entries, type Database, type Entry, type Lot } from "@/lib/store";
+import { lotLabel } from "./noteText";
 
-export function purchaseOrderRows(lot: Lot, db: Database): [string, string][] {
-  const purchase = entries(db, "purchase", lot.id).at(-1);
-  // Same fallbacks as PurchaseOrderDocumentPreview; lot.config is the config snapshot taken when the PO was created.
-  const config = (key: string) => lot.config?.[key] || db.config[key] || "";
+type DocumentRows = [string, string][];
+
+const kg = (value = "") => (value ? `${fmt(Number(value))} กก.` : "—");
+
+/** The company block and logo: the head of every document. */
+const company = (db: Database): DocumentRows => [
+  ["ลูกค้า", db.config.companyName || "—"],
+  ["ที่อยู่", db.config.companyAddress || "—"],
+  ["Attention", db.config.attention || "—"],
+  ["โทร.", db.config.companyPhone || "—"],
+  ["Tax ID", db.config.taxId || "—"],
+  // A storage key (`branding/…`), or a data URL saved before the move; the print button loads it.
+  ["โลโก้", db.config.logoStorageKey || db.config.logoData || ""],
+];
+
+/** Settings holds a contact and an address for Foodiva and for Chef House only (`key` is
+ *  `foodiva` or `chefHouse`): another seller prints without them. */
+const seller = (db: Database, name: string, key: string): DocumentRows => {
+  const known = name.replace(/\s/g, "").toLowerCase() === key.toLowerCase();
   return [
-    ["วันที่ PO", purchase?.date || lot.values.purchaseDate || "—"],
-    ["Supplier", lot.values.supplier || "Foodiva"],
-    ["ผู้รับออเดอร์", config("foodivaContact") || "ยังไม่ได้ตั้งค่า"],
-    ["ที่อยู่ผู้ให้บริการ", config("foodivaAddress") || "ยังไม่ได้ตั้งค่า"],
+    ["Supplier", name || "—"],
+    ["ผู้รับออเดอร์", (known && db.config[`${key}Contact`]) || "—"],
+    ["ที่อยู่ผู้ให้บริการ", (known && db.config[`${key}Address`]) || "—"],
+  ];
+};
+
+/** PO ซื้อเนื้อ, from the PO's `purchase` note. */
+export function purchaseOrderRows(db: Database, purchase: Entry): DocumentRows {
+  const v = purchase.values;
+  const priced = v.orderedKg && v.price;
+  return [
+    ...company(db),
+    ...seller(db, v.supplier ?? "", "foodiva"),
+    ["วันที่ PO", purchase.date],
     [
-      "ลูกค้า",
-      lot.values.customerName || config("companyName") || "NerdNuea Stock",
+      "สินค้า",
+      [v.productName || "เนื้อวัว", v.productCode].filter(Boolean).join(" · "),
     ],
-    ["ที่อยู่", lot.values.customerAddress || config("companyAddress") || "—"],
-    ["Attention", lot.values.attention || config("attention") || "—"],
-    ["โทร.", lot.values.phone || config("companyPhone") || "—"],
-    ["Tax ID", lot.values.taxId || config("taxId") || "—"],
-    // A storage key (`branding/…`), or a data URL saved before the move; the print button loads it.
-    ["โลโก้", config("logoStorageKey") || config("logoData")],
-    ["สินค้า", lot.values.productName || "เนื้อวัว"],
-    ["ขนาดบรรจุ", lot.values.packSize],
-    ["จำนวน", `${fmt(n(lot.values, "orderedKg"))} กก.`],
-    ["ราคา / กก.", `฿${fmt(n(lot.values, "price"))}`],
+    ["ขนาดบรรจุ", v.packSize || "—"],
+    ["จำนวน", kg(v.orderedKg)],
+    ["ราคา / กก.", v.price ? `฿${fmt(Number(v.price))}` : "—"],
     [
       "ยอดรวมก่อน VAT",
-      `฿${fmt(n(lot.values, "orderedKg") * n(lot.values, "price"))}`,
+      priced ? `฿${fmt(Number(v.orderedKg) * Number(v.price))}` : "—",
     ],
-    // Later stages merge their own `note`/`reference` into lot.values; the PO keeps what it was issued with.
-    ["อ้างอิงผู้ขาย", (purchase?.values ?? lot.values).reference || "—"],
-    ["หมายเหตุ", (purchase?.values ?? lot.values).note || "—"],
+    ["อ้างอิงผู้ขาย", v.reference || "—"],
+    ["หมายเหตุ", v.note || "—"],
   ];
 }
 
-export type DocumentReferenceType = "po" | "lot";
+/** "N กล่องรับเข้า · X กก." of a Packing List, either part left out when it was not jotted. */
+const packingSummary = (list: Entry | undefined) =>
+  [
+    list?.values.boxCount && `${list.values.boxCount} กล่องรับเข้า`,
+    list?.values.slicedNetKg && kg(list.values.slicedNetKg),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-export function lotIssueDate(db: Database, lot: Lot) {
-  const purchase =
-    entries(db, "purchase", lot.id).at(-1) ??
-    entries(db, "smokeOrder", lot.id).at(-1);
-  if (purchase?.date) return purchase.date;
-  const match = lot.id.match(/(\d{4})(\d{2})(\d{2})/);
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : "—";
-}
-
-export function matchesDocumentFilter(
+/** PO รมควัน, from one `smokeOrder` note. The smoker reads it, so it names the Lot and its
+ *  Packing List, never a PO เนื้อ or a meat price. */
+export function smokeOrderPrintRows(
   db: Database,
-  lot: Lot | undefined,
-  referenceType: DocumentReferenceType,
-  query: string,
-  fromDate: string,
-  toDate: string,
-) {
-  if (!lot) return false;
-  const reference = referenceType === "po" ? lot.poId : lot.id;
-  const issueDate = lotIssueDate(db, lot);
-  return (
-    (!query || reference.toLowerCase().includes(query.trim().toLowerCase())) &&
-    (!fromDate || issueDate >= fromDate) &&
-    (!toDate || issueDate <= toDate)
-  );
+  lot: Lot,
+  order: Entry,
+): DocumentRows {
+  const v = order.values;
+  const list = entries(db, "packingList", lot.id).at(-1);
+  return [
+    ...company(db),
+    ...seller(db, v.smoker || "Chef House", "chefHouse"),
+    ["วันที่ PO", v.requestedSmokeDate || order.date],
+    ["กำหนดเสร็จ", v.expectedFinishedDate || "—"],
+    ["เลขที่การส่ง", lot.poId],
+    ["Packing List", packingSummary(list) || "—"],
+    ["สินค้า", "บริการรมควันเนื้อ"],
+    [
+      "ขนาดบรรจุ",
+      list?.values.boxCount ? `${list.values.boxCount} กล่องรับเข้า` : "—",
+    ],
+    ["จำนวน", kg(v.rawKg)],
+    ["หมายเหตุ", v.instruction || "—"],
+  ];
 }
 
-const thaiDate = new Intl.DateTimeFormat("th-TH", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
+/** Packing List of a Lot, from one `packingList` note. */
+export function packingListRows(
+  db: Database,
+  lot: Lot,
+  list: Entry,
+): DocumentRows {
+  const v = list.values;
+  return [
+    ...company(db),
+    ["วันที่", dateLabel(list.date)],
+    ["เลขที่การส่ง", lot.poId],
+    ["เลข Invoice", v.invoiceNo || "—"],
+    ["สินค้า", v.product || "—"],
+    ["CODE สินค้า", v.code || "—"],
+    ["กล่องรับเข้า", v.boxCount ? `${v.boxCount} กล่อง` : "—"],
+    ["น้ำหนักส่งรวม", kg(v.slicedNetKg)],
+    ["Inv. Weight", kg(v.invWeightKg)],
+    ["ไฟล์ Packing List", v.attachment || "—"],
+    ["หมายเหตุ", v.note || "—"],
+  ];
+}
 
-/** `YYYY-MM-DD` → Thai short date (e.g. "15 ก.ย. 2569"); anything else is returned as-is, empty → "—". */
-export function dateLabel(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return value || "—";
-  return thaiDate.format(new Date(`${value}T00:00:00`));
+export const transportDocumentTitle = {
+  dispatch: "ใบขนส่งเนื้อขาไป",
+  return: "ใบขนส่งเนื้อขากลับ",
+};
+
+/** ใบขนส่ง of one truck: a `dispatch` (to the smoker, with the PO เนื้อ its meat is from) or
+ *  a `return` note. */
+export function transportDocumentRows(
+  db: Database,
+  lot: Lot,
+  trip: Entry,
+): DocumentRows {
+  const v = trip.values;
+  const out = trip.kind === "dispatch";
+  const po: DocumentRows = out
+    ? [["PO เนื้อ", v.poLotId ? lotLabel(db, v.poLotId) : "—"]]
+    : [];
+  return [
+    ...company(db),
+    [
+      "วันที่รถรับ",
+      [dateLabel(trip.date), out ? v.pickupTime : v.returnTime]
+        .filter(Boolean)
+        .join(" · "),
+    ],
+    ["เลขที่การส่ง", lot.poId],
+    ...po,
+    ["ต้นทาง", v.origin || "—"],
+    ["ปลายทาง", v.destination || "—"],
+    ["น้ำหนักส่ง", kg(out ? v.dispatchKg : v.returnKg)],
+    ["ประเภทรถ", v.vehicleType || "—"],
+    ["ทะเบียนรถ", v.plate || "—"],
+    ["คนขับ", v.driverName || "—"],
+    ["เบอร์ติดต่อ", v.driverPhone || "—"],
+    ["หมายเหตุ", v.note || "—"],
+  ];
 }

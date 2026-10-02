@@ -1,0 +1,31 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import {
+  WithWorkspace,
+  phone,
+  sampleDb,
+} from "@/components/organisms/workspace/storyWorkspace";
+import { seed } from "@/lib/store";
+import { OverviewPage } from "./OverviewPage";
+
+const Overview = () => (
+  <WithWorkspace>{(ws) => <OverviewPage ws={ws} />}</WithWorkspace>
+);
+
+const meta = {
+  title: "Organisms/Owner/OverviewPage",
+  component: Overview,
+  parameters: { db: sampleDb },
+} satisfies Meta<typeof Overview>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Owner: ยอดขายและกำไรของเดือนนี้ ต้นทุนต่อกล่อง กล่องแจก (ไม่บวกเข้า P&L)
+ *  แล้วตามด้วย P&L และกล่องยังไม่ได้จด */
+export const Owner: Story = {};
+
+/** ยังไม่มีบันทึก: ต้นทุนต่อกล่องยังไม่มี Lot ที่จดครบ */
+export const Empty: Story = { parameters: { db: seed } };
+
+/** จอ 390px: คอลัมน์เดียว */
+export const Phone: Story = { ...phone };

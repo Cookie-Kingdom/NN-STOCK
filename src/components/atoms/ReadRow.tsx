@@ -2,8 +2,8 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * One label/value line of a read-only detail list — lot summaries, modal recaps,
- * anything printed rather than edited. Values are right-aligned and tabular so
+ * One label/value line of a read-only detail list: the branch meat summary, the
+ * before / after of a change. Values are right-aligned and tabular so
  * numbers line up down the column, and the last row drops its divider.
  */
 export function ReadRow({

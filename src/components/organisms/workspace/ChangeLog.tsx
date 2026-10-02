@@ -5,143 +5,186 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Panel } from "@/components/atoms/Panel";
 import { ReadRow } from "@/components/atoms/ReadRow";
-import { ButtonRow } from "@/components/molecules/ButtonRow";
+import { Caption } from "@/components/atoms/Text";
 import { EmptyState } from "@/components/molecules/EmptyState";
-import { FormError } from "@/components/molecules/FormError";
-import { SectionHeading } from "@/components/molecules/SectionHeading";
 import {
-  EditDiff,
-  changeOf,
   entryWho,
-  voidWords,
-} from "@/components/organisms/shared/EntryDetails";
-import { referenceText } from "@/components/organisms/shared/entryReferences";
-import { today } from "@/lib/format";
-import { latestDatabase, saveDatabase } from "@/lib/persistence";
+  fieldLabel,
+  fieldText,
+  fieldsOf,
+  jottedAt,
+  lotLabel,
+} from "@/components/organisms/shared/noteText";
+import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { dateLabel } from "@/lib/format";
 import {
   changeKinds,
-  check,
   isVoided,
-  mutate,
+  titles,
+  unpack,
   visibleEntries,
   voidBlock,
-  type ActingRole,
   type Database,
   type Entry,
+  type EntryKind,
 } from "@/lib/store";
 
-const at = (iso: string) => new Date(iso).toLocaleString("th-TH");
-/** Rows shown before "ดูทั้งหมด". */
-const newest = 30;
+/** Rows shown before 「ดูทั้งหมด」. */
+const newest = 5;
 
-function ChangeRow({
-  change: e,
-  db,
-  role,
-  branch,
-  onChanged,
-}: {
-  change: Entry;
-  db: Database;
-  role: ActingRole;
-  branch: string;
-  onChanged: (message: string) => void;
-}) {
-  const [error, setError] = useState("");
-  const { title, name } = changeOf(db, e);
-  // No confirm step: an undo is itself undone by making the change again.
-  const undo = () => {
-    setError("");
-    const words = voidWords(e.kind);
-    let next = undefined as Database | undefined;
-    // A stock left below zero is only a warning: it is said with the result, and saved.
-    const { warnings, error } = check(() => {
-      next = mutate(
-        latestDatabase(),
-        role,
-        "void",
-        { targetId: e.id, reason: "ย้อนกลับ" },
-        "",
-        today(),
-        branch,
-      );
-    });
-    if (!next) return setError(error || words.fail);
-    saveDatabase(next);
-    onChanged([words.done, ...warnings].join(" · "));
+/** What the delete of another change is called. */
+const undoTitles: Partial<Record<EntryKind, string>> = {
+  void: "กู้คืนรายการ",
+  entryEdit: "ย้อนกลับการแก้ไข",
+};
+
+/** What a change (an edit, a delete) did, and the entry it is about by its title, date and
+ *  lot, as far as `db` names them. An undo names the change it undoes, which names the entry. */
+function changeOf(db: Database, e: Entry) {
+  const find = (id = "") => db.entries.find((x) => x.id === id);
+  const target = find(e.values.targetId);
+  const targetKind = (e.values.targetKind || target?.kind) as EntryKind;
+  const undo = e.kind === "void" ? undoTitles[targetKind] : undefined;
+  const about = undo ? find(target?.values.targetId) : target;
+  const kind = (undo ? target?.values.targetKind : targetKind) as EntryKind;
+  const date = undo
+    ? target?.values.targetDate
+    : e.values.targetDate || target?.date;
+  return {
+    title: undo || titles[e.kind],
+    name: [
+      titles[kind] || kind,
+      date && dateLabel(date),
+      about?.lotId && lotLabel(db, about.lotId),
+    ]
+      .filter(Boolean)
+      .join(" · "),
   };
-  return (
-    <div className="border-b border-border py-3.5 last:border-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-body-sm">
-          {[title, name].filter(Boolean).join(" · ")}
-        </strong>
-        {isVoided(db, e.id) && <Badge>ย้อนกลับแล้ว</Badge>}
-      </div>
-      <ReadRow label="ผู้ทำรายการ" value={`${entryWho(e)} · ${at(e.at)}`} />
-      <ReadRow label="เหตุผล" value={e.values.reason || "–"} />
-      {e.kind === "entryEdit" && <EditDiff values={e.values} db={db} />}
-      {e.kind === "link" && (
-        <ReadRow
-          label="ผูกกับ"
-          value={referenceText(db, "lotId", e.values.lotId)}
-        />
-      )}
-      {!voidBlock(db, e, role, branch) && (
-        <ButtonRow compact>
-          <Button onClick={undo}>ย้อนกลับ</Button>
-        </ButtonRow>
-      )}
-      <FormError error={error} />
-    </div>
-  );
 }
 
-/** EDT-25, the undo stack: every edit, delete and link `role` may see, newest first, each
- *  with what it changed and a one-press undo. The Owner reads back every account's changes; a
- *  branch its own and the Owner's changes to its entries (`visibleEntries`). `db` is the whole
- *  log the account holds. */
-export function ChangeLog({
-  db,
-  role,
-  branch,
-  onChanged,
-}: {
-  db: Database;
-  role: ActingRole;
-  branch: string;
-  onChanged: (message: string) => void;
-}) {
+/** Before → after of an edit: only the values it changed, and where it moved the entry (its
+ *  date, its lot). */
+function EditDiff({ change, ws }: { change: Entry; ws: Workspace }) {
+  const { db, account } = ws;
+  const values = change.values;
+  const from = unpack("from.", values),
+    to = unpack("to.", values);
+  const list = fieldsOf(db, values.targetKind as EntryKind, account);
+  const shown = (key: string, value = "") =>
+    value
+      ? fieldText(
+          db,
+          list.find((f) => f.key === key),
+          value,
+        )
+      : "–";
+  const rows = [
+    ...Object.keys(to)
+      // Not the bookkeeping of the entry: its `missing` list, where a file is stored.
+      .filter(
+        (key) =>
+          key !== "missing" &&
+          !key.endsWith("StorageKey") &&
+          (from[key] ?? "") !== to[key],
+      )
+      .map((key) => [
+        fieldLabel(list, key),
+        `${shown(key, from[key])} → ${shown(key, to[key])}`,
+      ]),
+    ...(values.toDate
+      ? [
+          [
+            "วันที่",
+            `${dateLabel(values.fromDate)} → ${dateLabel(values.toDate)}`,
+          ],
+        ]
+      : []),
+    ...(values.toLotId
+      ? [
+          [
+            "Lot",
+            `${values.fromLotId ? lotLabel(db, values.fromLotId) : "–"} → ${lotLabel(db, values.toLotId)}`,
+          ],
+        ]
+      : []),
+  ];
+  return rows.map(([label, value]) => (
+    <ReadRow key={label} label={label} value={value} />
+  ));
+}
+
+/** Every edit and delete the account may see, newest first, each with what it changed and a
+ *  one-press 「ย้อนกลับ」: of an edit it brings the old values back, of a delete the entry. */
+export function ChangeLog({ ws }: { ws: Workspace }) {
   const [all, setAll] = useState(false);
-  const changes = visibleEntries(db, role, branch)
+  const { db, account } = ws;
+  const { undo } = useEntryActions(ws);
+  const changes = visibleEntries(db, account)
     .filter((e) => changeKinds.includes(e.kind))
     .reverse();
   return (
-    <Panel>
-      <SectionHeading
-        title="ประวัติการแก้ไขและลบ"
-        description="ทุกการแก้ไขและลบเก็บไว้ที่นี่ · กดย้อนกลับเพื่อคืนค่าเดิมหรือกู้คืนรายการที่ลบ"
-      />
+    <Panel aria-label="ประวัติการแก้ไขและลบ">
+      <h2 className="m-0 text-h3">ประวัติการแก้ไขและลบ</h2>
+      <Caption className="mb-1 block">
+        ทุกการแก้ไขและลบเก็บไว้ที่นี่ · กดย้อนกลับเพื่อคืนค่าเดิมหรือกู้คืนที่ลบ
+      </Caption>
       {changes.length ? (
-        (all ? changes : changes.slice(0, newest)).map((change) => (
-          <ChangeRow
-            key={change.id}
-            change={change}
-            db={db}
-            role={role}
-            branch={branch}
-            onChanged={onChanged}
-          />
-        ))
+        (all ? changes : changes.slice(0, newest)).map((change) => {
+          const { title, name } = changeOf(db, change);
+          return (
+            <div
+              key={change.id}
+              data-entry={change.id}
+              className="border-b border-border py-3 last:border-0 last:pb-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <strong className="text-body-sm font-semibold">
+                  {[title, name].filter(Boolean).join(" · ")}
+                </strong>
+                {isVoided(db, change.id) ? (
+                  <Badge>ย้อนกลับแล้ว</Badge>
+                ) : (
+                  !voidBlock(db, change, account) && (
+                    <Button
+                      size="sm"
+                      className="max-md:min-h-11"
+                      onClick={() =>
+                        undo(
+                          change.id,
+                          change.kind === "void"
+                            ? `กู้คืนแล้ว: ${name}`
+                            : `ย้อนกลับการแก้ไขแล้ว: ${name}`,
+                        )
+                      }
+                    >
+                      ย้อนกลับ
+                    </Button>
+                  )
+                )}
+              </div>
+              <Caption>
+                {entryWho(change)} · {jottedAt(change.at)}
+              </Caption>
+              {change.kind === "entryEdit" && (
+                <EditDiff change={change} ws={ws} />
+              )}
+            </div>
+          );
+        })
       ) : (
-        <EmptyState text="ยังไม่มีการแก้ไขหรือลบ" />
+        <EmptyState compact text="ยังไม่มีการแก้ไขหรือลบ" />
       )}
       {changes.length > newest && (
-        <ButtonRow compact>
-          <Button onClick={() => setAll(!all)}>
-            {all ? `ดู ${newest} รายการล่าสุด` : "ดูทั้งหมด"}
-          </Button>
-        </ButtonRow>
+        <Button
+          size="sm"
+          className="mt-3 max-md:min-h-11"
+          onClick={() => setAll(!all)}
+        >
+          {all
+            ? `ดู ${newest} รายการล่าสุด`
+            : `ดูทั้งหมด ${changes.length} รายการ`}
+        </Button>
       )}
     </Panel>
   );

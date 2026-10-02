@@ -1,6 +1,6 @@
 // `pnpm dev:local [-p 3200]`: `next dev` against the local SQLite backend
 // (NEXT_PUBLIC_LOCAL_DB=1, file .local/app.db) on any OS, without cross-env.
-// Load the UAT data with: curl -X PUT "http://localhost:3000/api/local-db?state=uat"
+// Load the sample data with: curl -X PUT "http://localhost:3000/api/local-db?state=sample"
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 

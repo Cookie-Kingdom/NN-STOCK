@@ -1,309 +1,214 @@
-/** Deterministic demo data built through `mutate`. */
+/** The approved sample's data set (Design/Account Stocking/ตัวอย่างหน้าเว็บ v2.html), built
+ *  through `mutate`: Storybook fixtures, `?state=sample` of the local database, the smoke tests. */
+import { defaults } from "../forms";
 import {
   branches,
-  materials,
+  companyPayer as company,
   seed,
+  type Actor,
   type Database,
-  type EntryKind,
-  type ActingRole,
-  type Values,
+  type NoteKind,
 } from "./model";
-import { branchMaterialStock, cookedRiceStock, riceSources } from "./derived";
 import { mutate } from "./mutate";
-/** Creates deterministic daily data for exercising the complete demo loop. */
-function roleplay(endDate: string, dayCount: number): Database {
+const owner: Actor = { role: "owner" };
+const manager: Actor = { role: "owner", hidesSales: true };
+/** 35 days that end on `endDate` (today at most: `mutate` takes no future date). Three Lots:
+ *  one complete, one sent with no PO เนื้อ picked, one with only its PO รมควัน. A sale day
+ *  left out and a sale with no money typed show the yellow. */
+export function sampleData(endDate: string): Database {
   let db = structuredClone(seed);
-  const end = new Date(`${endDate}T00:00:00Z`);
-  const dates = Array.from({ length: dayCount }, (_, index) => {
-    const value = new Date(end);
-    value.setUTCDate(value.getUTCDate() - (dayCount - 1 - index));
-    return value.toISOString().slice(0, 10);
-  });
-  const rawKg = dayCount >= 30 ? 100 : 50;
-  const packCount = rawKg * 10;
-  const smokingAmount = rawKg * 220;
-  const materialPerBranch = dayCount >= 30 ? 400 : 100;
-  const materialPurchased = materialPerBranch * 2;
-  for (let index = 0; index < materials.length; index++) {
-    db.config[`material${index}`] = "100";
-    db.config[`materialPrice${index}`] = "1";
-  }
-  let currentDate = dates[0];
-  let currentBranch = branches[0];
-  const run = (
-    role: ActingRole,
-    kind: EntryKind,
-    values: Values,
+  const add = (
+    by: Actor | string,
+    kind: NoteKind,
+    daysAgo: number,
+    time: string,
+    values: Record<string, string | number>,
     lotId = "",
   ) => {
-    db = mutate(db, role, kind, values, lotId, currentDate, currentBranch);
+    const date = new Date(Date.parse(endDate) - daysAgo * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    db = mutate(
+      db,
+      typeof by === "string" ? { role: "branch", branch: by } : by,
+      kind,
+      {
+        ...defaults(kind),
+        ...Object.fromEntries(
+          Object.entries(values).map(([key, value]) => [key, String(value)]),
+        ),
+      },
+      lotId,
+      date,
+    );
+    // When the sample says it was jotted, and by whom (persistence stamps the Account Manager).
+    const entry = db.entries.at(-1)!;
+    entry.at = new Date(`${date}T${time}:00+07:00`).toISOString();
+    if (by === manager) entry.actor = "manager";
+    return entry.lotId;
   };
-  const packs = Array.from({ length: packCount }, () => "0.100").join("\n");
-  run("owner", "generalPurchase", {
-    purchaseDate: dates[0],
-    purchaseCategory: "วัตถุดิบ",
-    item: "น้ำพริกหลอด",
-    quantity: String(dayCount * branches.length * 20),
-    unit: "หลอด",
-    unitPrice: "20",
-    supplier: "ผู้ผลิตน้ำพริก",
-    reference: "CHILI-DEMO-001",
-  });
-  run("owner", "purchase", {
+  const [saladaeng, minburi] = branches;
+  const po1 = add(manager, "purchase", 24, "10:05", {
     supplier: "Foodiva",
-    customerName: "บริษัท เนิร์ดเนื้อ จำกัด",
-    customerAddress: "กรุงเทพฯ",
-    attention: "ฝ่ายจัดซื้อ",
-    phone: "0800000000",
-    taxId: "0100000000000",
-    packSize: "6 ชิ้นต่อกล่อง",
-    productName: "เนื้อวัว",
-    orderedKg: String(rawKg),
-    price: "250",
+    orderedKg: 200,
+    price: 700,
+    invoiceNo: "INV-F-0912",
+    invoiceAmount: 140000,
   });
-  const poLotId = db.lots[0].id;
-  run(
-    "owner",
-    "foodivaConfirm",
-    {
-      invoiceNo: "INV-DEMO-001",
-      invoiceDate: dates[0],
-      confirmedKg: String(rawKg),
-      readyForChiangMaiKg: String(rawKg),
-      reservedForOwnerKg: "0",
-      invoiceAmount: String(rawKg * 250),
-      attachment: "INV-DEMO-001.pdf",
-      confirmedBy: "Foodiva Demo",
-    },
-    poLotId,
+  const lot1 = add(manager, "smokeOrder", 23, "09:30", { rawKg: 200 });
+  add(
+    manager,
+    "dispatch",
+    22,
+    "08:10",
+    { dispatchKg: 200, poLotId: po1, plate: "2กข 4471" },
+    lot1,
   );
-  run(
-    "owner",
-    "meatPayment",
-    {
-      paymentDate: dates[0],
-      paidAmount: String(rawKg * 250),
-      paidBy: "Owner",
-      paymentReference: "DEMO-MEAT-001",
-    },
-    poLotId,
-  );
-  // Packing List totals: 20 kg กล่องรับเข้า; Chef House weighs in the same total.
-  const boxCount = String(Math.ceil(rawKg / 20));
-  // Foodiva opens the batch with its transport document (GEN-09); the Owner's smoke PO joins it.
-  run("owner", "dispatch", {
-    pickupDate: dates[0],
-    origin: "Foodiva · กรุงเทพฯ",
-    destination: "Chef House · เชียงใหม่",
-    trip: "ไปกลับ",
-    pickupTime: "06:30",
-    vehicleType: "รถห้องเย็น",
-    plate: "DEMO-01",
-    driverName: "คนขับทดสอบ",
-    driverPhone: "0800000000",
-    dispatchKg: String(rawKg),
+  add(manager, "pay", 22, "08:40", {
+    category: "transport",
+    amount: 3500,
+    detail: "รถห้องเย็นไปเชียงใหม่",
+    payer: company,
   });
-  const lotId = db.lots.at(-1)!.id;
-  run(
-    "owner",
-    "packingList",
-    {
-      invoiceNo: "INV-DEMO-001",
-      product: "เนื้อวัว",
-      invWeightKg: String(rawKg),
-      slicedNetKg: String(rawKg),
-      slicedLostKg: "0",
-      boxCount,
-      attachment: "packing-list-demo.pdf",
-    },
-    lotId,
-  );
-  run(
-    "owner",
-    "smokeOrder",
-    {
-      smoker: "Chef House",
-      requestedSmokeDate: dates[0],
-      expectedFinishedDate: dates[2],
-      lines: JSON.stringify([{ lotId: poLotId, kg: String(rawKg) }]),
-    },
-    lotId,
-  );
-  run("owner", "smokeOrderAccept", { acceptedBy: "Chef House Demo" }, lotId);
-  run(
-    "owner",
-    "cmReceive",
-    { receivedKg: String(rawKg), arrival: "08:00" },
-    lotId,
-  );
-  run("owner", "prepare", { preSmokeKg: String(rawKg) }, lotId);
-  run(
-    "owner",
-    "smoke",
-    {
-      smokeDate: dates[0],
-      inputKg: String(rawKg),
-      wasteKg: "0",
-      packs,
-    },
-    lotId,
-  );
-  run("owner", "closeLot", { confirm: "Chef House" }, lotId);
-  run(
-    "owner",
+  add(manager, "pay", 20, "14:00", {
+    category: "meat",
+    amount: 70000,
+    detail: "มัดจำค่าเนื้อ",
+    supplier: "Foodiva",
+    payer: company,
+  });
+  add(manager, "pay", 18, "11:20", {
+    category: "packaging",
+    amount: 103750,
+    detail: "มัดจำกล่องล็อตใหม่",
+    item: "m1",
+    qty: 6000,
+    branch: saladaeng,
+    supplier: "โรงพิมพ์กล่อง",
+    payer: company,
+    fullAmount: 149400,
+  });
+  add(manager, "cmReceive", 21, "13:15", { receivedKg: 199.2 }, lot1);
+  add(owner, "pay", 16, "15:30", {
+    category: "capex",
+    amount: 12900,
+    detail: "เตาอุ่นอาหาร 1 เครื่อง",
+    payer: company,
+  });
+  add(manager, "central", 15, "16:45", { centralKg: 104, boxes: 18 }, lot1);
+  add(
+    manager,
     "smokingInvoice",
-    {
-      invoiceNumber: "CH-INV-DEMO-001",
-      invoiceDate: dates[0],
-      serviceProvider: "Chef House",
-      serviceQuantity: String(rawKg),
-      vat: String(smokingAmount * 0.07),
-      withholdingTax: String(smokingAmount * 0.03),
-      netPayable: String(smokingAmount * 1.04),
-      attachment: "CH-INV-DEMO-001.pdf",
-    },
-    lotId,
+    14,
+    "10:00",
+    { netPayable: 24000, invoiceNumber: "INV-CH-031" },
+    lot1,
   );
-  const chefInvoice = db.entries.at(-1)?.id || "";
-  run(
-    "owner",
-    "invoiceReview",
-    { invoiceId: chefInvoice, decision: "รับยอด", reviewedBy: "Owner" },
-    lotId,
+  add(saladaeng, "receive", 14, "11:30", { kg: 40 }, lot1);
+  add(minburi, "receive", 14, "12:10", { kg: 30 }, lot1);
+  add(owner, "pay", 12, "09:00", {
+    category: "marketing",
+    amount: 5000,
+    detail: "ยิงโฆษณา",
+    payer: company,
+  });
+  add(manager, "pay", 10, "13:40", {
+    category: "smoke",
+    amount: 24000,
+    detail: "ค่ารม Lot แรก",
+    supplier: "Chef House",
+    payer: company,
+  });
+  add(manager, "purchase", 9, "10:20", {
+    supplier: "Foodiva",
+    orderedKg: 150,
+    price: 700,
+  });
+  const lot2 = add(manager, "smokeOrder", 8, "09:10", { rawKg: 100 });
+  add(manager, "dispatch", 7, "08:00", { dispatchKg: 100 }, lot2);
+  add(manager, "pay", 6, "10:30", {
+    category: "ingredient",
+    amount: 2400,
+    detail: "น้ำพริกหลอด",
+    item: "chili",
+    qty: 200,
+    branch: minburi,
+    payer: company,
+  });
+  add(saladaeng, "receive", 5, "11:00", { kg: 20 }, lot1);
+  add(saladaeng, "influencerBox", 3, "15:20", {
+    influencer: "@kinkubnong",
+    boxes: 6,
+    chiliAddons: 6,
+    shippingFee: 180,
+  });
+  const counts = (...qty: number[]) =>
+    Object.fromEntries(qty.map((n, index) => [`count.m${index + 1}`, n]));
+  add(
+    saladaeng,
+    "materials",
+    2,
+    "21:30",
+    counts(5480, 60, 900, 1200, 240, 2100, 300),
   );
-  run(
-    "owner",
-    "invoicePayment",
-    {
-      invoiceId: chefInvoice,
-      paymentDate: dates[0],
-      paidAmount: String(smokingAmount * 1.04),
-      paidBy: "Owner",
-      paymentReference: "DEMO-PAY-001",
-    },
-    lotId,
+  add(
+    minburi,
+    "materials",
+    9,
+    "21:40",
+    counts(380, 150, 420, 600, 90, 800, 110),
   );
-  run(
-    "owner",
-    "return",
-    {
-      returnDate: dates[3],
-      returnTime: "09:00",
-      origin: "Chef House · เชียงใหม่",
-      destination: "Foodiva · กรุงเทพฯ",
-      vehicleType: "รถห้องเย็น",
-      plate: "DEMO-02",
-      driverName: "คนขับทดสอบ",
-      driverPhone: "0800000000",
-      returnKg: String(rawKg),
-    },
-    lotId,
-  );
-  run(
-    "owner",
-    "foodivaReturnReceive",
-    {
-      receivedDate: dates[4],
-      receivedTime: "10:00",
-      receivedKg: String(rawKg),
-      receivedBags: String(packCount),
-    },
-    lotId,
-  );
-  run("owner", "central", { centralKg: String(rawKg) }, lotId);
-  for (const material of materials) {
-    run("owner", "materialReceive", {
-      material,
-      purchaseDate: dates[0],
-      quantity: String(materialPurchased),
-      unitPrice: "1",
-      supplier: "ผู้ขายวัสดุทดสอบ",
-      reference: `MATERIAL-DEMO-${materials.indexOf(material) + 1}`,
+  for (const [index, [employee, amount]] of [
+    ["พี่เอ", 25000],
+    ["น้องฝน", 18000],
+    ["น้องบีม", 16500],
+  ].entries())
+    add(owner, "pay", 2, `17:0${index}`, {
+      category: "payroll",
+      amount,
+      employee,
+      payer: company,
     });
-    for (const branch of branches) {
-      currentBranch = branch;
-      run("branch", "materialConfirm", {
-        material,
-        receivedQuantity: String(materialPerBranch),
-        receiver: "ผู้ดูแลทดสอบ",
-      });
+  add(manager, "pay", 30, "09:00", {
+    category: "rent",
+    amount: 20500,
+    detail: "ค่าเช่าครัว",
+    payer: company,
+  });
+  add(saladaeng, "pay", 1, "08:20", {
+    category: "ingredient",
+    amount: 1200,
+    detail: "ข้าวเหนียว 20 กก.",
+    item: "rice",
+    qty: 20,
+    payer: "น้องฝน",
+  });
+  add(manager, "smokeOrder", 1, "09:00", { rawKg: 50 });
+  add(minburi, "meatCount", 1, "08:00", { kg: 22 });
+  add(saladaeng, "meatCount", 0, "08:30", { kg: 17.9 });
+  for (let d = 35; d >= 1; d--)
+    for (const [bi, branch] of branches.entries()) {
+      // A day one branch forgot: its day shows yellow.
+      if (branch === minburi && d === 2) continue;
+      const boxes = 20 + ((d * 37 + bi * 11) % 16);
+      const chiliAddons = (d * 3 + bi) % 6;
+      const values: Record<string, string | number> = {
+        boxes,
+        chiliAddons,
+        lineMan: Math.round(boxes * 350 * 0.97 + chiliAddons * 30),
+      };
+      // A core field left empty.
+      if (branch === saladaeng && d === 3) delete values.lineMan;
+      if (branch === saladaeng && d === 1)
+        Object.assign(values, {
+          chiliCount: 42,
+          wasteKg: 0.3,
+          reason: "เนื้อตกพื้น",
+          expense: 150,
+          payer: "น้องฝน",
+        });
+      if (branch === minburi && d === 1) values.chiliCount = 185;
+      add(branch, "sale", d, bi ? "21:25" : "21:10", values);
     }
-  }
-  for (const [dayIndex, workDate] of dates.entries()) {
-    currentDate = workDate;
-    for (const branch of branches) {
-      currentBranch = branch;
-      const materialValues = Object.fromEntries(
-        materials.flatMap((_, index) => {
-          const opening = branchMaterialStock(db, branch, index, workDate);
-          const used = Math.min(10, opening);
-          return [
-            [`opening${index}`, String(opening)],
-            [`used${index}`, String(used)],
-            [`material${index}`, String(opening - used)],
-          ];
-        }),
-      );
-      if (dayIndex === 0) {
-        run("branch", "receive", { kg: String(rawKg / 2) }, lotId);
-      }
-      if (branch === "ศาลาแดง") {
-        run("branch", "ricePurchase", {
-          riceSource: riceSources[0],
-          supplier: "ร้านข้าวทดสอบ",
-          rawRiceKg: "5",
-          rawRiceCost: "275",
-        });
-      } else {
-        run("branch", "ricePurchase", {
-          riceSource: riceSources[1],
-          supplier: "ร้านข้าวทดสอบ",
-          cookedRiceKg: "32",
-          cookedRiceCost: "1440",
-        });
-      }
-      run("branch", "chiliReceive", {
-        chiliTubes: "20",
-        receiver: `ผู้ดูแล${branch}`,
-        reference: `CHILI-${workDate}`,
-      });
-      run("branch", "thaw", { kg: "1.521" }, lotId);
-      run("branch", "materials", materialValues);
-      if (branch === "ศาลาแดง") {
-        run("branch", "riceIssue", {
-          rawRiceIssuedKg: "3",
-          receiver: "ผู้ดูแลทดสอบ",
-        });
-        run("branch", "rice", { rawUsedKg: "3", riceKg: "3" });
-      }
-      run(
-        "branch",
-        "sale",
-        {
-          boxes: "14",
-          chiliAddons: "0",
-          soldKg: "1.421",
-          wasteKg: "0.100",
-          riceWasteKg: "0",
-          expense: "0",
-          lineMan: "4900",
-          reason: "ทดสอบปิดยอด",
-        },
-        lotId,
-      );
-      run("branch", "riceCarry", {
-        leftoverKg: cookedRiceStock(db, branch, currentDate).toFixed(3),
-      });
-      run("branch", "closeDay", { confirm: "ผู้ดูแลทดสอบ" });
-    }
-  }
   return db;
-}
-
-export function sevenDayRoleplay(endDate: string): Database {
-  return roleplay(endDate, 7);
-}
-
-export function thirtyDayRoleplay(endDate: string): Database {
-  return roleplay(endDate, 30);
 }

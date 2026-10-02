@@ -1,11 +1,11 @@
-/** The domain's shapes and fixed tables: types, entry kinds, titles, edit rules, the seed. */
+/** The domain's shapes and fixed tables: types, entry kinds, titles, edit rules, settings, the seed. */
 export type Role = "owner" | "foodiva" | "cm" | "branch";
-/** Who can sign in and act: Foodiva and Chef House are entry stamps only (partners, not users). */
+/** Who can sign in and act: Foodiva and Chef House are stamps on old entries only. */
 export type ActingRole = "owner" | "branch";
 export type Values = Record<string, string>;
-/** Every entry kind in the log (all but the legacy one are what `mutate` records). A kind
+/** Every entry kind in the log, the retired ones included (old entries keep them). A kind
  *  outside this list is a compile error. */
-export const entryKinds = [
+const entryKinds = [
   "purchase",
   "meatPayment",
   "smokeOrder",
@@ -51,12 +51,73 @@ export const entryKinds = [
   "entryEdit",
   "editRequest",
   "editDecision",
-  // Ties branch meat recorded without a batch to a shipment batch (LNK-01..05).
   "link",
-  // Legacy, read only: raw beef moved to Steak by early builds (see rawAtFoodiva).
   "steakTransfer",
+  "pay",
+  "meatCount",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
+/** The kinds an account jots (v2), in the order the kind picker lists them. */
+export const noteKinds = [
+  "purchase",
+  "smokeOrder",
+  "dispatch",
+  "central",
+  "smokingInvoice",
+  "pay",
+  "cmReceive",
+  "prepare",
+  "smoke",
+  "packingList",
+  "return",
+  "foodivaReturnReceive",
+  "ownerWasteReceive",
+  "sale",
+  "receive",
+  "meatCount",
+  "influencerBox",
+  "materials",
+] as const;
+export type NoteKind = (typeof noteKinds)[number];
+export const isNoteKind = (kind: EntryKind): kind is NoteKind =>
+  (noteKinds as readonly EntryKind[]).includes(kind);
+/** The four notes a Lot is complete with (V2-LOT-01); the rest of a Lot's kinds never colour it. */
+export const coreLotKinds = [
+  "smokeOrder",
+  "dispatch",
+  "central",
+  "smokingInvoice",
+] as const;
+/** Where a kind sits in the picker and what lot it is jotted on: a Lot (`batch`, a new one
+ *  when none is picked), a PO เนื้อ (`po`), a Lot or none (`optional`), or no lot at all. */
+export const kindInfo: Record<
+  NoteKind,
+  {
+    group: "lot" | "money" | "extra" | "branch";
+    lot?: "batch" | "po" | "optional";
+  }
+> = {
+  purchase: { group: "lot" },
+  smokeOrder: { group: "lot", lot: "batch" },
+  dispatch: { group: "lot", lot: "batch" },
+  central: { group: "lot", lot: "batch" },
+  smokingInvoice: { group: "lot", lot: "batch" },
+  pay: { group: "money" },
+  cmReceive: { group: "extra", lot: "batch" },
+  prepare: { group: "extra", lot: "batch" },
+  smoke: { group: "extra", lot: "batch" },
+  packingList: { group: "extra", lot: "batch" },
+  return: { group: "extra", lot: "batch" },
+  foodivaReturnReceive: { group: "extra", lot: "batch" },
+  ownerWasteReceive: { group: "extra", lot: "po" },
+  sale: { group: "branch" },
+  receive: { group: "branch", lot: "optional" },
+  meatCount: { group: "branch" },
+  influencerBox: { group: "branch" },
+  materials: { group: "branch" },
+};
+/** Who is acting: an `Account` is one. `hidesSales` is the Account Manager. */
+export type Actor = { role: ActingRole; branch?: string; hidesSales?: boolean };
 export type Entry = {
   id: string;
   kind: EntryKind;
@@ -66,103 +127,77 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
-  /** "manager": the Account Manager wrote it (C4), stamped at save by persistence and checked by
-   *  save_app_state. "owner": the Owner recorded a Foodiva/Chef House kind for them, stamped by
+  /** "manager": the Account Manager wrote it, stamped at save by persistence and checked by
+   *  save_app_state. "owner": the Owner jotted a branch kind for the branch, stamped by
    *  mutate (recordRole). Absent: the role's own account (for "owner", the Owner). */
   actor?: "manager" | "owner";
 };
 export type Lot = {
   id: string;
   poId: string;
-  /** Cache of the latest values recorded on the lot (DM-09); every figure is derived from `entries`. */
+  /** A PO: the live `purchase` entry's values, for the PO document. A Lot: empty. Either is
+   *  `{ deleted: "1" }` once no live entry is left on it. Every figure is derived from `entries`. */
   values: Values;
   config: Values;
-  /** "shipment" = one smoking batch (Foodiva → Chef House → central stock); absent = a purchase PO. */
+  /** "shipment" = one Lot รมควัน; absent = a PO เนื้อ. */
   kind?: "shipment";
 };
-/** One purchase PO's share of a smoke PO (`smokeOrder.values.lines`). */
-export type ShipmentLine = { lotId: string; kg: number };
 export type Database = {
   version: 9;
   lots: Lot[];
   entries: Entry[];
   config: Values;
 };
-export const roleName = {
+const roleName = {
   owner: "Owner",
   foodiva: "Foodiva",
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
 /** Who wrote an entry, for the log: the Account Manager is told apart from the Owner, and an
- *  entry typed for a partner says so ("Owner · แทน Chef House"). Both actors act as "owner". */
+ *  entry jotted for someone else says so ("Owner · แทน ผู้ดูแลสาขา"). Both actors act as "owner". */
 export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
   `${e.actor === "manager" ? "Account Manager" : roleName[e.actor ?? e.role]}${
     e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
   }`;
-export const materials = [
-  "กล่องพิมพ์ลาย",
-  "กระดาษรอง",
-  "ถุงซีลเนื้อ",
-  "ถุงซีลข้าว",
-  "ถุงหิ้วกระดาษ",
-  "สติกเกอร์โลโก้",
-  "การ์ด / สติกเกอร์วิธีอุ่น",
-  "ถ้วยพริก",
-  "สติกเกอร์พริก",
-  "สติกเกอร์ข้าวเหนียว",
-];
 export const branches = ["ศาลาแดง", "มีนบุรี"];
-/** Kinds recorded on a shipment batch (Lot S). Sent with `lotId === ""` they open a new batch
- *  (GEN-09); `lotProgress` lists which of them a batch has. Order is the usual trip, for display. */
-export const batchKinds: EntryKind[] = [
-  "smokeOrder",
-  "dispatch",
-  "packingList",
-  "smokeOrderAccept",
-  "cmReceive",
-  "prepare",
-  "smoke",
-  "closeLot",
-  "chefEdit",
-  "smokingInvoice",
-  "invoiceReview",
-  "invoicePayment",
-  "return",
-  "foodivaReturnReceive",
-  "central",
-  "allocate",
-];
-/** Branch meat kinds: `lotId` is a batch or `""`, the branch's "ไม่ระบุ Lot" bucket (DM-03). */
-export const branchMeatKinds: EntryKind[] = [
-  "receive",
-  "thaw",
-  "sale",
-  "influencerBox",
-];
-/** Dialog heading per entry kind. Keep each one equal to the button that opens
- * it, or make the button its prefix: two names for one action reads as two actions. */
+/** Kinds jotted on a Lot รมควัน. Sent with `lotId === ""` they open a new Lot. */
+export const batchKinds: EntryKind[] = noteKinds.filter(
+  (kind) => kindInfo[kind].lot === "batch",
+);
+/** Title per entry kind: the picker button, the form heading and the row. A retired kind
+ *  keeps the title it had. */
 export const titles: Record<EntryKind, string> = {
-  purchase: "สร้าง PO เนื้อ",
+  purchase: "PO เนื้อ",
+  smokeOrder: "PO รมควัน",
+  dispatch: "ส่งไปรม",
+  central: "รับกลับเข้าสต๊อกกลาง",
+  smokingInvoice: "ค่ารม",
+  pay: "จ่ายเงิน",
+  cmReceive: "ชั่งรับที่ Chef House",
+  prepare: "น้ำหนักก่อนสโมค",
+  smoke: "สโมค",
+  packingList: "Packing List",
+  return: "รถขากลับ",
+  foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
+  ownerWasteReceive: "รับเนื้อส่วนที่เหลือ",
+  sale: "ยอดขาย",
+  receive: "รับเนื้อเข้าสาขา",
+  meatCount: "นับเนื้อคงเหลือ",
+  influencerBox: "กล่องแจก",
+  materials: "นับวัสดุคงเหลือ",
+  config: "บันทึกการตั้งค่า",
+  void: "ลบรายการ",
+  entryEdit: "แก้ไขรายการ",
+  // Retired.
   meatPayment: "ชำระ Invoice เนื้อ Foodiva",
-  smokeOrder: "ออก PO รมควันเนื้อ",
   smokeOrderAccept: "ยืนยันรับ PO รมควัน",
-  smokingInvoice: "สร้าง / Submit ใบวางบิลค่ารมควัน",
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
   invoicePayment: "ชำระ Invoice ค่ารมควัน",
   foodivaConfirm: "ออกและอัปโหลด Invoice เนื้อ",
-  packingList: "สร้าง Packing List",
-  foodivaReturnReceive: "ยืนยันรับเข้าตู้ที่ Foodiva",
-  dispatch: "ทำใบขนส่งขาไป",
-  cmReceive: "ยืนยันรับเนื้อที่ Chef House",
-  prepare: "น้ำหนักก่อนสโมค",
-  smoke: "บันทึก Lot สโมครายวัน",
   closeLot: "ยืนยันปิด Lot",
   chefEdit: "Edit ข้อมูลก่อนปิด Lot",
-  return: "เรียกรถขากลับ",
-  central: "รับเข้าสต๊อกกลาง",
   allocate: "จัดสรรไปสาขา",
-  receive: "รับของเข้าสาขา",
   thaw: "แบ่งละลายเนื้อ",
   supplyPurchase: "ซื้อข้าวเหนียวและน้ำพริกเข้าสต๊อก",
   supplyIssue: "บันทึกเบิกข้าวเหนียวและน้ำพริก",
@@ -173,95 +208,48 @@ export const titles: Record<EntryKind, string> = {
   chiliIssue: "เบิกน้ำพริกวันนี้",
   rice: "ข้าวเหนียวช่วงเช้า",
   riceCarry: "ยืนยันข้าวเหนียวสุกคงเหลือ",
-  sale: "บันทึกยอดขาย / Waste",
-  influencerBox: "อินฟลูเอนเซอร์",
-  materials: `เช็ควัสดุ ${materials.length} รายการ`,
   materialReceive: "บันทึกซื้อวัสดุเข้าคลัง Owner",
-  ownerWasteReceive: "รับเนื้อส่วนที่เหลือจาก Foodiva",
   generalPurchase: "บันทึกการซื้ออื่น ๆ",
   materialConfirm: "รับวัสดุเข้าสาขา",
   closeDay: "ยืนยันปิดวัน",
   expense: "ค่าใช้จ่าย Owner",
-  config: "บันทึกการตั้งค่า",
   unlock: "ปลดล็อกวัน",
-  void: "ลบรายการ",
-  entryEdit: "แก้ไขรายการ",
   editRequest: "ขอแก้ไขรายการ",
   editDecision: "พิจารณาคำขอแก้ไข",
   link: "ผูกรายการย้อนหลัง",
   // No title ever: the log showed the raw kind for it, and still does.
   steakTransfer: "steakTransfer",
 };
-/** Kinds the Log does not edit: they are corrections or bookkeeping themselves (`chefEdit`, a
- *  void, the edit kinds, a link), the settings (changed on their own screen), the daily
- *  material count (saved again from its screen, each round kept) and the legacy kind. */
-const notEditable: EntryKind[] = [
-  "chefEdit",
-  "materials",
-  "config",
-  "void",
-  "entryEdit",
-  "editRequest",
-  "editDecision",
-  "link",
-  "steakTransfer",
-];
-/** Kinds whose values can be corrected after they were saved (B5, EDT-01): every kind that
- *  records something, like a cell in a sheet. The Owner corrects any of them, a branch its own
- *  (`canChange`), closed day or not; the edit is an `entryEdit` laid over the entry. */
-export const editableKinds: EntryKind[] = entryKinds.filter(
-  (kind) => !notEditable.includes(kind),
+/** Kinds whose values can be corrected after they were saved (V2-PG-03): every note but the
+ *  material count, which is saved again from the Stock page, each round kept. The edit is an
+ *  `entryEdit` laid over the entry. */
+export const editableKinds: EntryKind[] = noteKinds.filter(
+  (kind) => kind !== "materials",
 );
-/** Kinds that cannot be deleted: the settings (saved again from their screen) and the retired
- *  request kinds. Everything else can, a delete (`void`) included: that puts the entry back. */
-const notVoidable: EntryKind[] = ["config", "editRequest", "editDecision"];
-/** Kinds a `void` may name (EDT-23): mutate refuses the rest, and the Log only offers the
- *  button on these. */
+/** Kinds a `void` may name: all but the settings (saved again from their page). A delete
+ *  included: that puts the entry back. */
 export const voidableKinds: EntryKind[] = entryKinds.filter(
-  (kind) => !notVoidable.includes(kind),
+  (kind) => kind !== "config",
 );
-/** Kinds with no screen any more: old entries still count in stock (and the ones in
- *  `editableKinds` / `voidableKinds` can still be corrected), but mutate records no new ones.
- *  `allocate`: branches record what they received themselves (BR-01). `editRequest` /
- *  `editDecision`: every account edits its own entries directly (EDT-22). */
-export const retiredKinds: EntryKind[] = [
-  "allocate",
-  "supplyPurchase",
-  "supplyIssue",
-  "chiliPurchase",
-  "chiliIssue",
-  "editRequest",
-  "editDecision",
-];
-export const editDecisions = { approve: "อนุมัติ", reject: "ไม่อนุมัติ" };
-/** Values an edit may not change: the branch an Owner entry is addressed to. The other
- *  branch's account never receives an entry stored under this one (scope_app_state), so that
- *  is a delete and a new entry. */
+/** Values an edit may not change: the branch a payment's stock goes to. An entry's branch is
+ *  fixed when it is saved (the other branch's account never receives it), so that is a
+ *  delete and a new entry. */
 export const editLockedKeys = ["branch"];
-/** Kinds filed under a date that is one of their own fields (EDT-24): editing that field
- *  re-dates the entry, so their edit form has no separate date. */
-export const dateField: Partial<Record<EntryKind, string>> = {
-  materialReceive: "purchaseDate",
-  generalPurchase: "purchaseDate",
-  ownerWasteReceive: "receivedDate",
-};
-/** Kinds an edit may move to another lot (EDT-24): the Owner's entries on a batch or a
- *  purchase PO. A PO itself is its lot; branch meat is moved with `link` (DM-08). */
+/** Kinds an edit may move to another lot (`toLotId`). A PO itself is its lot. */
 export const lotMovableKinds: EntryKind[] = [
-  ...batchKinds.filter((kind) => kind !== "allocate" && kind !== "chefEdit"),
-  "foodivaConfirm",
+  ...batchKinds,
   "ownerWasteReceive",
-  "meatPayment",
+  "receive",
 ];
-/** Changes to other entries: the kinds the change log lists, newest first (EDT-25). */
-export const changeKinds: EntryKind[] = ["entryEdit", "void", "link"];
-/** GEN-02: a field the rules want but the user left empty is saved anyway and listed in the
- *  entry's `missing` (comma-separated keys), shown as this label. */
-export const missingText = "ยังไม่ได้กรอก";
+/** Changes to other entries: the kinds the change log lists, newest first. */
+export const changeKinds: EntryKind[] = ["entryEdit", "void"];
+/** V2-RUL-02: a core field left empty is saved anyway and listed in the entry's `missing`
+ *  (comma-separated keys), shown as this label. */
+export const missingText = "ยังไม่ได้จด";
 export const missingKeys = (v: Values) =>
   v.missing ? v.missing.split(",") : [];
 /** An edit stores the corrected values as `to.<key>` and the ones it replaced as `from.<key>`:
- *  flat keys, so `hide` strips prices from them like from any other entry. */
+ *  flat keys, so the server strips hidden ones from them like from any other entry. */
 export const pack = (prefix: string, values: Values) =>
   Object.fromEntries(
     Object.entries(values)
@@ -274,47 +262,108 @@ export const unpack = (prefix: string, values: Values): Values =>
       .filter(([key]) => key.startsWith(prefix))
       .map(([key, value]) => [key.slice(prefix.length), value]),
   );
-/** Who may change (edit, delete, undo, link) an entry: the Owner any, a branch only one its
- *  own branch recorded. `mutate` refuses the rest, `entries()` ignores them, and so does
- *  append_entries (migration 20261001000039). */
+/** Who may change (edit, delete, undo) an entry: the Owner any, a branch only one stamped
+ *  with its own branch. `mutate` refuses the rest, `entries()` ignores them, and so does
+ *  append_entries. What the Account Manager may not touch is `managerHidden`. */
 export const canChange = (
-  by: Pick<Entry, "role" | "branch">,
+  by: { role: Role; branch?: string },
   target: Pick<Entry, "role" | "branch">,
 ) =>
   by.role === "owner" ||
   (by.role === "branch" &&
     target.role === "branch" &&
     target.branch === by.branch);
-/** LNK: a link is a change like any other. */
-export const canLink = canChange;
 /** Entries whose `to.` values overlay their target: an edit by an account that may change the
- *  target, or a request the Owner approved (old logs; requests are retired). A forged edit of
- *  another account's entry changes nothing. */
+ *  target. A forged edit of another account's entry changes nothing. */
 export const isEditOverlay = (
   e: Entry,
   target?: Pick<Entry, "role" | "branch">,
 ) =>
-  e.kind === "entryEdit"
-    ? e.role === "owner" || (!!target && canChange(e, target))
-    : e.role === "owner" &&
-      e.kind === "editDecision" &&
-      e.values.decision === editDecisions.approve;
+  e.kind === "entryEdit" &&
+  (e.role === "owner" || (!!target && canChange(e, target)));
+/* Settings kept as JSON lists in `config` (Settings page). */
+type Channel = { key: string; name: string; gp: number };
+type Material = { id: string; name: string; perBox: number | null };
+type PayCategory = { id: string; name: string };
+const listDefaults = {
+  salesChannels: JSON.stringify([
+    { key: "lineMan", name: "LINE MAN", gp: "10" },
+  ]),
+  materialList: JSON.stringify([
+    { id: "m1", name: "กล่องใหม่", perBox: "1" },
+    { id: "m2", name: "กล่องเก่า", perBox: "" },
+    { id: "m3", name: "ฟรอยข้าวเหนียว", perBox: "1" },
+    { id: "m4", name: "ถุงซีลเนื้อ", perBox: "1" },
+    { id: "m5", name: "ถุงหิ้วกระดาษ", perBox: "" },
+    { id: "m6", name: "สติกเกอร์โลโก้", perBox: "1" },
+    { id: "m7", name: "ถ้วยพริก", perBox: "" },
+  ]),
+  payCategories: JSON.stringify([
+    { id: "meat", name: "เนื้อ" },
+    { id: "smoke", name: "ค่ารม" },
+    { id: "packaging", name: "แพ็กเกจ/วัสดุ" },
+    { id: "ingredient", name: "วัตถุดิบ" },
+    { id: "payroll", name: "ค่าแรง" },
+    { id: "rent", name: "ค่าเช่า/น้ำไฟ" },
+    { id: "transport", name: "ขนส่ง" },
+    { id: "marketing", name: "การตลาด" },
+    { id: "capex", name: "อุปกรณ์/ลงทุน" },
+    { id: "other", name: "อื่น ๆ" },
+  ]),
+};
+/** A list setting as stored; anything unreadable (or not there yet) is the default. */
+function list(config: Values, key: keyof typeof listDefaults): Values[] {
+  try {
+    const parsed: unknown = JSON.parse(config[key] ?? listDefaults[key]);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return JSON.parse(listDefaults[key]);
+}
+/** The sale form has one money field per channel (`key`); `gp` is the channel's GP %. */
+export const salesChannels = (config: Values): Channel[] =>
+  list(config, "salesChannels").map((c) => ({
+    key: c.key,
+    name: c.name,
+    gp: Number(c.gp) || 0,
+  }));
+/** `perBox`: pieces one box uses, what a sale takes off the shelf between counts; null = not estimated. */
+export const materialList = (config: Values): Material[] =>
+  list(config, "materialList").map((m) => ({
+    id: m.id,
+    name: m.name,
+    perBox: Number(m.perBox) || null,
+  }));
+export const payCategories = (config: Values): PayCategory[] =>
+  list(config, "payCategories").map(({ id, name }) => ({ id, name }));
+/* The ten category ids of the seed are fixed: these rules hang on them. */
+export const payrollCategory = "payroll",
+  rentCategory = "rent",
+  capexCategory = "capex";
+/** Categories whose payment may carry an item and a quantity that go into a branch's stock (V2-PAY-05). */
+export const stockCategories = ["packaging", "ingredient"];
+/** The categories a branch account pays in (V2-ACC-07). */
+export const branchCategories = [
+  "ingredient",
+  "packaging",
+  "transport",
+  "other",
+];
+export const ingredients = [
+  { id: "rice", name: "ข้าวเหนียว" },
+  { id: "chili", name: "น้ำพริก" },
+  { id: "brine", name: "น้ำดอง" },
+];
+/** A payer that is not an advance (V2-PAY-07). */
+export const companyPayer = "บริษัท";
 export const seed: Database = {
   version: 9,
   lots: [],
   entries: [],
   config: {
     boxPrice: "350",
-    packKg: "0.1015",
-    chiliPrice: "30",
-    rawRicePar: "20",
-    rawRiceUnitPrice: "55",
-    chiliUnitPrice: "20",
-    cookedRicePar: "30",
-    cookedRiceUnitPrice: "45",
-    outboundFee: "1200",
-    returnFee: "1200",
-    roundFee: "2000",
+    packKg: "0.12",
+    packCost: "25",
+    ...listDefaults,
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",
@@ -329,12 +378,5 @@ export const seed: Database = {
     logoData: "",
     logoStorageKey: "",
     logoName: "",
-    branch: "ศาลาแดง",
-    ...Object.fromEntries(
-      materials.flatMap((_, i) => [
-        ["material" + i, "0"],
-        ["materialPrice" + i, "0"],
-      ]),
-    ),
   },
 };

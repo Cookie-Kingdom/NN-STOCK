@@ -5,9 +5,9 @@ import { saveDatabase, saveDatabaseOrConflict } from "@/lib/persistence";
 import type { Database } from "@/lib/store";
 
 /**
- * The try → save → catch → setError block every dialog form repeated.
+ * The try → save → catch → setError block of every form that saves.
  * `change` reads `latestDatabase()` itself so callers keep their own ordering
- * (EntryForm uploads attachments before reading the database). It may run twice:
+ * (the composer uploads attachments before reading the database). It may run twice:
  * after a revision conflict it is rebuilt on the reloaded database.
  * Resolves to the saved database, or `null` after setting `error`.
  *
@@ -22,8 +22,8 @@ export function useSaveMutation(fallbackMessage: string) {
     if (inFlight.current) return null;
     inFlight.current = true;
     setSaving(true);
-    // The shell's DatabaseErrorToast sits behind the modal (a wide PO dialog hides
-    // it completely), so repeat the server's reason inside the form.
+    // The server's reason goes in the form too, beside what was typed, not only in the
+    // shell's DatabaseErrorToast.
     let serverMessage = "";
     const onDatabaseError = (event: Event) => {
       serverMessage = String((event as CustomEvent).detail);
@@ -31,7 +31,7 @@ export function useSaveMutation(fallbackMessage: string) {
     window.addEventListener("database-error", onDatabaseError);
     try {
       let next = await change();
-      // Wait for the server so a rejected save keeps the dialog open instead of
+      // Wait for the server so a rejected save keeps the form open instead of
       // showing the success toast.
       let result = await saveDatabaseOrConflict(next);
       // Someone else saved since this page loaded: the server copy is reloaded, so

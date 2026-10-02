@@ -1,6 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import { branches, seed, type Database, type Entry } from "./store";
+import { seed, type Database, type Entry } from "./store";
 import { LOCAL_DB, localAccountId } from "./local-db";
 import { createClient } from "./supabase/browser";
 import { appendDelta, type AppendDelta } from "./app-state-delta";
@@ -61,13 +61,7 @@ function normalize(
     version: 9,
     lots: parsed.lots,
     entries,
-    config: {
-      ...seed.config,
-      ...config,
-      branch: branches.includes(config.branch || "")
-        ? config.branch
-        : seed.config.branch,
-    },
+    config: { ...seed.config, ...config },
   };
 }
 

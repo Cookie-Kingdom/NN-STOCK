@@ -1,66 +1,39 @@
-import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
-import { day } from "../../../.storybook/fixtures";
-import { pick } from "../../../.storybook/pick";
-import { today } from "@/lib/format";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
 import { PageHeading } from "./PageHeading";
 
 const meta = {
   title: "Molecules/PageHeading",
   component: PageHeading,
   args: {
-    overline: "เจ้าของร้าน",
-    title: "ภาพรวมวันนี้",
-    description: "สรุปยอดขาย ต้นทุน และรายการที่ยังไม่ได้จด",
-    date: today(),
-    onDate: fn(),
+    title: "Daily Log",
+    description: "บันทึกทั้งหมด เรียงตามวัน",
+    action: (
+      <Button variant="primary" icon={<Plus />}>
+        จดบันทึก
+      </Button>
+    ),
   },
 } satisfies Meta<typeof PageHeading>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The workspace owns the working date, so the story does too. */
-function Controlled({
-  initial,
-  onDate,
-  ...props
-}: Omit<Parameters<typeof PageHeading>[0], "date"> & { initial: string }) {
-  const [date, setDate] = useState(initial);
-  return (
-    <PageHeading
-      {...props}
-      date={date}
-      onDate={(next) => {
-        setDate(next);
-        onDate(next);
-      }}
-    />
-  );
-}
-
-const date = pick("วันที่ทำงาน", {
-  วันนี้: today(),
-  ย้อนหลัง: day,
-  เกินวันนี้: "2099-01-01",
-});
-
-/** เลือกใน Controls:
- *  - วันที่ทำงาน วันนี้: ไม่มีป้าย
- *  - ย้อนหลัง: ป้าย "บันทึกย้อนหลัง" เหนือช่องวันที่; "ใช้วันนี้" พากลับมาวันนี้
- *  - เกินวันนี้: วันที่พิมพ์เองหลังวันนี้ (`max` ของ picker กันพิมพ์ไม่ได้) มีคำเตือนใต้ช่อง
- *  - `overline` / `title` / `description`: ข้อความหัวแท็บ; จอเล็กชื่อยาวจะตัดบรรทัด
- *    ไม่เบียดช่องวันที่ */
+/** `title` / `description`: แก้ได้ใน Controls · ปุ่มหลักอยู่ขวา และลงมาอยู่ใต้ข้อความเมื่อจอแคบ */
 export const Default: Story = {
   argTypes: {
-    date: date.argType,
-    overline: { control: "text" },
     title: { control: "text" },
     description: { control: "text" },
+    action: { control: false },
   },
-  args: { date: date.initial },
-  render: ({ date, ...args }) => (
-    <Controlled key={date} initial={date} {...args} />
-  ),
+};
+
+/** หน้า Settings ไม่มีปุ่มจดบันทึก */
+export const NoAction: Story = {
+  args: {
+    title: "Settings",
+    description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
+    action: undefined,
+  },
 };

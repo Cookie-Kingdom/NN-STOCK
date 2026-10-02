@@ -9,25 +9,19 @@ import {
   OptionalMark,
   fieldClassName,
 } from "@/components/molecules/FormField";
-import { cn } from "@/lib/utils";
 
-export type FileUploadFieldProps = {
+type FileUploadFieldProps = {
   label: ReactNode;
-  /** Keep the label for screen readers only (ConfigView logo cell). */
-  hideLabel?: boolean;
   accept?: string;
   /** Files larger than this are rejected: the input is cleared and `onFile` is not called. */
   maxBytes?: number;
-  /** Message shown on oversize. Defaults to "ไฟล์ต้องมีขนาดไม่เกิน N MB". */
+  /** Message shown on oversize. Defaults to "ไฟล์ใหญ่เกิน N MB เว็บไม่รับ". */
   oversizeMessage?: string;
   /** Selected file, or `null` when the selection is cleared. Callers do any FileReader work. */
   onFile?: (file: File | null) => void;
-  /** Pick several files at once; `onFiles` gets them all (`[]` when cleared) instead of `onFile`. */
-  multiple?: boolean;
-  onFiles?: (files: File[]) => void;
   /** Also receives the oversize message, for callers that show errors at form level. */
   onError?: (message: string) => void;
-  /** Name(s) of the chosen file(s) → "เลือกแล้ว: {name}", one line per name. */
+  /** Name of the chosen file → "เลือกแล้ว: {name}". */
   fileName?: string;
   hint?: ReactNode;
   /** Rendered inside the upload box, under the input (e.g. a logo preview). */
@@ -53,13 +47,10 @@ function megabytes(bytes: number) {
  */
 export function FileUploadField({
   label,
-  hideLabel = false,
   accept,
   maxBytes,
   oversizeMessage,
   onFile,
-  multiple = false,
-  onFiles,
   onError,
   fileName,
   hint,
@@ -73,7 +64,7 @@ export function FileUploadField({
   const [error, setError] = useState("");
   return (
     <label className={fieldClassName(wide, className)}>
-      <span className={cn(hideLabel && "sr-only")}>
+      <span>
         {label}
         {optional && <OptionalMark text={optionalText} />}
       </span>
@@ -85,7 +76,6 @@ export function FileUploadField({
       >
         <FileInput
           accept={accept}
-          multiple={multiple}
           required={required}
           aria-invalid={error ? true : undefined}
           onChange={(event) => {
@@ -96,15 +86,14 @@ export function FileUploadField({
             ) {
               const message =
                 oversizeMessage ??
-                `ไฟล์ต้องมีขนาดไม่เกิน ${megabytes(maxBytes)} MB`;
+                `ไฟล์ใหญ่เกิน ${megabytes(maxBytes)} MB เว็บไม่รับ`;
               event.currentTarget.value = "";
               setError(message);
               onError?.(message);
               return;
             }
             setError("");
-            if (multiple) onFiles?.(files);
-            else onFile?.(files[0] ?? null);
+            onFile?.(files[0] ?? null);
           }}
         />
         {fileName && (

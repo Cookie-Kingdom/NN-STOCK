@@ -21,19 +21,8 @@ export const controlVariants = cva(
         filter:
           "min-h-10 min-w-36 rounded-md border border-border bg-surface px-2.5 py-2 text-body-sm focus:outline-2 focus:outline-offset-2 focus:outline-accent max-md:text-body",
       },
-      /** `.reason-control` — free-text reason inside a table row */
-      reason: {
-        true: "min-w-52.5 text-left text-body-sm font-normal",
-        false: "",
-      },
-      /** A value the system filled in (see `FormField`'s `prefilled`): `auto` is a
-       *  faint tint, `expected` a predicted scale or count reading to check. */
-      prefilled: {
-        auto: "bg-accent-subtle/60",
-        expected: "border-warning bg-warning-subtle inset-ring-warning/20",
-      },
     },
-    defaultVariants: { variant: "form", reason: false },
+    defaultVariants: { variant: "form" },
   },
 );
 
@@ -55,8 +44,6 @@ const noSpinner =
  */
 export function Input({
   variant,
-  reason,
-  prefilled,
   spinner,
   className,
   ...props
@@ -64,12 +51,7 @@ export function Input({
   const mute = props.type === "number" && !spinner;
   return (
     <input
-      className={cn(
-        controlVariants({ variant, reason, prefilled }),
-        mute && noSpinner,
-        className,
-      )}
-      data-prefilled={prefilled || undefined}
+      className={cn(controlVariants({ variant }), mute && noSpinner, className)}
       onWheel={mute ? (event) => event.currentTarget.blur() : undefined}
       onKeyDown={
         mute

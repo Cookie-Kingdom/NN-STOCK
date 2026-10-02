@@ -12,20 +12,17 @@ import { cn } from "@/lib/utils";
  */
 export function Select({
   variant,
-  reason,
-  prefilled,
   className,
   ...props
 }: ComponentProps<"select"> & ControlVariantProps) {
   return (
     <select
       className={cn(
-        controlVariants({ variant, reason, prefilled }),
+        controlVariants({ variant }),
         // `.table-filter select`: wider, with room for the native arrow.
         variant === "filter" && "min-w-37.5 pr-8.5",
         className,
       )}
-      data-prefilled={prefilled || undefined}
       {...props}
     />
   );

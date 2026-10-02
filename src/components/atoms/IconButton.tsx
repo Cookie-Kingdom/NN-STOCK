@@ -17,7 +17,7 @@ const iconButtonVariants = cva(
   },
 );
 
-export type IconButtonProps = Omit<ComponentProps<"button">, "children"> &
+type IconButtonProps = Omit<ComponentProps<"button">, "children"> &
   VariantProps<typeof iconButtonVariants> & {
     /** Required accessible name — becomes `aria-label` and `title`. */
     label: string;
