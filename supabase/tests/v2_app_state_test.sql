@@ -1,4 +1,4 @@
--- Migration 20261002000041 (v2 note-taking): what a branch and the Account Manager receive, and
+-- Migrations 20261002000004 and 20261002000005 (v2 note-taking): what a branch and the Account Manager receive, and
 -- what each may write.
 --   * scope_app_state: a branch gets its own entries, every Lot รมควัน and the stock lines of what
 --     was bought for it, cut down; nothing of another branch, no PO เนื้อ, no cost.

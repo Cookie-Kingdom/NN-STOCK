@@ -7,7 +7,7 @@ import { createClient } from "./supabase/browser";
 
 const databaseName = "nerdnuea-demo-files";
 const storeName = "attachments";
-/** Supabase Storage bucket (migration 20260916000015_attachments_bucket.sql). */
+/** Supabase Storage bucket (migration 20261002000003_attachments_storage.sql). */
 const bucket = "attachments";
 
 type StoredAttachment = {
@@ -77,7 +77,7 @@ async function getLocal(id: string): Promise<StoredAttachment | undefined> {
 
 /* The only files an attachment may be, by extension, with the content type it is
  * stored as (the bucket's allowed_mime_types, migration
- * 20260925000024_attachment_storage_policies.sql). No HTML or SVG: opened, they run
+ * 20261002000003_attachments_storage.sql). No HTML or SVG: opened, they run
  * script. The browser's own `file.type` is not trusted. */
 const allowedTypes: Record<string, string> = {
   pdf: "application/pdf",
@@ -120,7 +120,7 @@ export async function saveAttachment(
 }
 
 /** The company logo goes to `branding/<uuid>/<file name>` (migration
- * 20260925000026_branding_logo_storage.sql: owner and manager write, every active
+ * 20261002000003_attachments_storage.sql: owner and manager write, every active
  * account reads) and config keeps only the key. As a data URL it was copied into
  * the payload with every config save and every new PO. Raster images only. */
 export const logoAccept = "image/png,image/jpeg,image/webp";

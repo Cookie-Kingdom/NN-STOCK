@@ -1,7 +1,7 @@
--- Failure-case test: save_app_state refuses branch accounts (0034) and mismatched actors / roles.
--- M1 (migration 0032): Foodiva / Chef House work is typed by the Owner (actor "owner") or the
+-- Failure-case test: save_app_state refuses branch accounts and mismatched actors / roles.
+-- M1: Foodiva / Chef House work is typed by the Owner (actor "owner") or the
 -- Account Manager (actor "manager"); L3 / L4 accounts are refused even when re-activated.
--- v2 (migration 0041): the Account Manager may jot a branch's note for it (role "branch", actor
+-- v2: the Account Manager may jot a branch's note for it (role "branch", actor
 -- "manager") but changes no settings.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/save_app_state_guard_test.sql
 
@@ -41,7 +41,7 @@ begin
   select s.revision into v_rev from public.save_app_state(
     jsonb_build_object('version', 9, 'entries', '[]'::jsonb, 'lots', jsonb_build_array(lot1), 'config', '{}'::jsonb), null) s;
 
-  -- 0034: a branch account never uses save_app_state, even for its own entry (append_entries only).
+  -- A branch account never uses save_app_state, even for its own entry (append_entries only).
   perform set_config('test.uid', v_branch::text, true);
   v_err := null;
   begin
@@ -98,7 +98,7 @@ begin
 
   -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots and appends owner /
   -- foodiva / cm entries and, for a branch, that branch's notes (always stamped "manager"). It
-  -- changes no settings (0041).
+  -- changes no settings.
   v_err := null;
   begin
     perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),

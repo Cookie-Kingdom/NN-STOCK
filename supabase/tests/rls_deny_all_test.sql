@@ -7,8 +7,8 @@
 -- Two halves, because either alone can pass while the posture is broken:
 --   1. the invariant sweep — every table in public has RLS on and no grants to
 --      anon/authenticated. This is what catches a NEW table added by a later card:
---      migration 0005 looped over pg_tables once, at its own migration time, so a table
---      created afterwards inherits none of it.
+--      RLS is switched on table by table (20261002000001, 20261002000002), so a table
+--      created afterwards has none of it unless its migration says so.
 --   2. the behavioural check — an actual `authenticated` session is refused.
 --
 -- Everything runs in a transaction that aborts on purpose, so nothing persists.
@@ -38,7 +38,7 @@ begin
     from information_schema.role_table_grants
    where table_schema = 'public'
      and grantee in ('anon', 'authenticated')
-     -- Migration 0009 grants these on purpose; each is narrowed by its own RLS policy.
+     -- The migrations grant these on purpose; each is narrowed by its own RLS policy.
      and not (grantee = 'authenticated' and privilege_type = 'SELECT'
               and table_name in ('profiles', 'user_locations', 'locations', 'app_state'));
   assert v_n = 0, format('ADR-004: %s grant(s) leaked to anon/authenticated: %s', v_n, v_bad);

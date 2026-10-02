@@ -11,7 +11,8 @@ import {
  * V2-ACC-07). Nothing of another branch, no cost, no central stock.
  *
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
- * 20261002000041, and tests/unit/server.test.ts checks the two are equal, so change both.
+ * 20261002000004_app_state_scope.sql, and tests/unit/server.test.ts checks the two are equal, so
+ * change both.
  * `scopeDatabase` is the JS port of scope_app_state() there (GET /api/local-db uses it).
  *
  *  - kinds       the branch's own entries sent whole: `role: "branch"`, stamped with its branch.

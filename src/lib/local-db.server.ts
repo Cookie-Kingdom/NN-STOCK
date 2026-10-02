@@ -42,7 +42,7 @@ export function readState(db: DatabaseSync): AppStateRow {
   return { payload: JSON.parse(row.payload), revision: row.revision };
 }
 
-/** Like load_app_state (20261002000041): the Owner reads everything, the Account Manager a copy
+/** Like load_app_state (20261002000005_app_state_rpc.sql): the Owner reads everything, the Account Manager a copy
  * without sale money and with payroll payments as stubs, a branch its role-scoped copy. */
 export function loadState(
   db: DatabaseSync,
@@ -88,7 +88,7 @@ const branchEditable: EntryKind[] = [
 ];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 
-/** JS port of `save_app_state` (latest in supabase/migrations/20261002000041_v2_note_taking.sql).
+/** JS port of `save_app_state` (latest in supabase/migrations/20261002000005_app_state_rpc.sql).
  * ponytail: duplicated rules, keep in step with that function when it changes. */
 export function saveState(
   db: DatabaseSync,
@@ -164,7 +164,7 @@ export function saveState(
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** JS port of `append_entries` (latest in supabase/migrations/20261002000041_v2_note_taking.sql):
+/** JS port of `append_entries` (latest in supabase/migrations/20261002000005_app_state_rpc.sql):
  * a branch save, which sends only its new entries (its lots must be empty).
  * ponytail: duplicated rules, keep in step with that function (and saveState) when they change. */
 export function appendState(

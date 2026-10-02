@@ -8,9 +8,6 @@
 --   * roles anon, authenticated, service_role
 --   * schema auth
 --   * auth.users, with the columns the tests insert
---   * public.rls_auto_enable(), the "pre-existing project helper" that migration
---     0006 revokes execute on but no migration creates (see FINDINGS in
---     `rls_deny_all_test.sql`)
 --
 -- Run against an empty database, before the migrations:
 --   psql "$DATABASE_URL" -f supabase/tests/local_harness.sql
@@ -29,7 +26,7 @@ create table auth.users (
   aud         varchar(255),
   role        varchar(255),
   email       varchar(255),
-  raw_user_meta_data jsonb,  -- read by private.handle_new_user() (migration 0009)
+  raw_user_meta_data jsonb,  -- read by private.handle_new_user() (migration 20261002000001)
   created_at  timestamptz,
   updated_at  timestamptz
 );
@@ -37,11 +34,3 @@ create table auth.users (
 -- Stand-in for the Supabase helper. Real one resolves the JWT subject; nothing in the
 -- current schema calls it, so a null-returning stub is honest rather than a guess.
 create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
-
--- The helper migration 0006 revokes execute on. It exists in the live project but in no
--- migration, so a fresh apply has nothing to revoke from. Recreating it here lets the
--- migration chain be tested; it does not make the chain reproducible. That is the bug.
-create function public.rls_auto_enable() returns event_trigger language plpgsql as $$
-begin
-  null;
-end $$;
