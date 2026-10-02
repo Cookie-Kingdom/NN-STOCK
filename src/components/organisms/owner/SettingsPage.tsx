@@ -251,10 +251,6 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           onCancel={() => setEditing(null)}
           onSave={save}
           onStartEdit={start}
-          editLabel="แก้ไข"
-          saveLabel="บันทึก"
-          cancelLabel="ยกเลิก"
-          otherLabel="กำลังแก้ส่วนอื่น"
         />
       }
     >

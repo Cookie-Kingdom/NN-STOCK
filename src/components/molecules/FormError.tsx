@@ -4,8 +4,8 @@ import { Notice } from "@/components/molecules/Notice";
 
 /**
  * A form's save error, rendered as a danger `Notice` and scrolled into view every time
- * `error` changes. It sits at the end of a scrolling dialog body, where a long form used
- * to hide it below the fold and a rejected save looked like nothing happened. Renders
+ * `error` changes. It sits above the save buttons, where a long form would
+ * hide it below the fold and a refused save would look like nothing happened. Renders
  * nothing while `error` is empty, so it can be left in the form unconditionally.
  */
 export function FormError({

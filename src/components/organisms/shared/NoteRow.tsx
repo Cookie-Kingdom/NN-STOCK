@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { MissingMark } from "@/components/atoms/MissingMark";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import {
   addedKeys,
@@ -23,26 +23,28 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import {
   editBlock,
   isNoteKind,
-  missingText,
   titles,
   voidBlock,
   type Entry,
 } from "@/lib/store";
+import { thaiDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-/** The yellow mark of a value that is not there. */
-const Missing = ({ children }: { children: ReactNode }) => (
-  <Badge tone="warning" className="border border-warning/40 py-0 font-medium">
-    {children}
-  </Badge>
-);
 
 /** One note as a row: when it was jotted, its title and one-line summary, the muted line
  *  under it (PO, Lot, branch), its yellow tags and the amount at the right. Pressing it opens
  *  every value of the note, with 「แก้ไข」 and 「ลบ」 for an account that may change it. A
  *  row with a tag has a yellow left edge. `entry` is a live note with its edits laid over
  *  (`visibleNotes`, `entries`). */
-export function NoteRow({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
+export function NoteRow({
+  entry: e,
+  ws,
+  dated = false,
+}: {
+  entry: Entry;
+  ws: Workspace;
+  /** Also say the day, above the time: for a list that holds notes of several days. */
+  dated?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { db, account } = ws;
   const { remove } = useEntryActions(ws);
@@ -68,7 +70,12 @@ export function NoteRow({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
         onClick={() => setOpen(!open)}
         className="group grid w-full cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto] items-baseline gap-3 py-3 pr-5 pl-4.25 text-left -outline-offset-2 max-md:gap-2 max-md:pr-4 max-md:pl-3.25"
       >
-        <span className="text-caption text-text-secondary">{timeOf(e.at)}</span>
+        <span className="text-caption text-text-secondary">
+          {dated && (
+            <span className="block whitespace-nowrap">{thaiDay(e.date)}</span>
+          )}
+          {timeOf(e.at)}
+        </span>
         <span className="min-w-0 [overflow-wrap:anywhere]">
           <strong className="mr-2 font-semibold group-hover:text-accent">
             {titles[e.kind]}
@@ -82,7 +89,7 @@ export function NoteRow({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
           {flagged && (
             <span className="mt-1 flex flex-wrap gap-1">
               {tags.map((tag) => (
-                <Missing key={tag}>{tag}</Missing>
+                <MissingMark key={tag}>{tag}</MissingMark>
               ))}
             </span>
           )}
@@ -143,11 +150,9 @@ function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
           const value = v[f.key] ?? "";
           const label = `${f.label}${f.unit && f.type !== "number" ? ` (${f.unit})` : ""}`;
           if (f.key === "poLotId" && isUnlinked(db, e))
-            return [[label, <Missing key="none">ยังไม่ผูก</Missing>]];
+            return [[label, <MissingMark key="none">ยังไม่ผูก</MissingMark>]];
           if (!value)
-            return f.core
-              ? [[label, <Missing key="none">{missingText}</Missing>]]
-              : [];
+            return f.core ? [[label, <MissingMark key="none" />]] : [];
           if (f.type === "file")
             return [
               [

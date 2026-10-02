@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
+import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, thaiDay } from "@/lib/format";
 import {
   capexCategory,
@@ -16,12 +17,6 @@ import {
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-/* The plain figure table of Finance and Overview: no sorting and no paging (a P&L has one
- * order), so not a DataTable. */
-export const th =
-  "border-b border-border px-5 py-2 text-left text-caption font-medium whitespace-nowrap text-text-secondary max-md:px-2.5";
-export const td =
-  "border-b border-border px-5 py-3 text-body-sm max-md:px-2.5 [tr:last-child>&]:border-b-0";
 const tones = {
   in: "text-success",
   out: "text-danger",

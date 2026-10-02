@@ -7,6 +7,7 @@ import {
   mutate,
   poInfo,
   purchaseLots,
+  salesChannels,
   shipments,
   supplierBalances,
   todos,
@@ -199,6 +200,41 @@ describe("mutate", () => {
     expect(() =>
       mutate(db, manager, "void", { targetId: sale.id }, "", day),
     ).toThrow();
+  });
+
+  it("a refused list setting says what is wrong", () => {
+    const channels = (...more: object[]) =>
+      mutate(
+        db,
+        owner,
+        "config",
+        {
+          salesChannels: JSON.stringify([
+            { key: "lineMan", name: "LINE MAN", gp: "10" },
+            ...more,
+          ]),
+        },
+        "",
+        day,
+      );
+    expect(() => channels({ key: "sales.a", name: " ", gp: "5" })).toThrow(
+      "ช่องทางขาย: มีแถวที่ยังไม่ได้ใส่ชื่อ",
+    );
+    expect(() =>
+      channels({ key: "sales.a", name: "LINE MAN", gp: "5" }),
+    ).toThrow("ช่องทางขาย: ชื่อ「LINE MAN」ซ้ำกัน");
+    expect(() => channels({ key: "sales.a", name: "Grab", gp: "" })).toThrow(
+      "ช่องทางขาย: ยังไม่ได้ใส่ GP % ของ「Grab」",
+    );
+    expect(() => channels({ key: "sales.a", name: "Grab", gp: "-1" })).toThrow(
+      "ช่องทางขาย: GP % ของ「Grab」ใส่เป็นตัวเลข 0 ขึ้นไป",
+    );
+    expect(() =>
+      mutate(db, owner, "config", { boxPrice: "x" }, "", day),
+    ).toThrow("ราคากล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป");
+    expect(
+      salesChannels(channels({ key: "sales.a", name: "Grab", gp: "0" }).config),
+    ).toHaveLength(2);
   });
 
   it("deleting a PO leaves its Lot unlinked, and putting it back links it again", () => {

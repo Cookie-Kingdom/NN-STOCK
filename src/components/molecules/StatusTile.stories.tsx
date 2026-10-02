@@ -18,6 +18,15 @@ export const Jotted: Story = {};
 /** ยังไม่ได้จด: ทั้งกล่องเป็นปุ่ม กดแล้วเปิดฟอร์ม */
 export const NotJotted: Story = { args: { value: undefined } };
 
+/** `jotText` เปลี่ยนคำบนปุ่มเหลือง เช่น Lot ที่ส่งไปรมแล้วแต่ยังไม่ผูก PO เนื้อ */
+export const NotLinked: Story = {
+  args: {
+    label: "เนื้อจาก PO ไหน",
+    value: undefined,
+    jotText: "ยังไม่ผูก PO เนื้อ · กดเพื่อผูก",
+  },
+};
+
 /** ยังไม่ได้จด และบัญชีนี้จดเองไม่ได้: ไม่มี `onJot` จึงไม่ใช่ปุ่ม */
 export const NotJottedReadOnly: Story = {
   args: { value: undefined, onJot: undefined },

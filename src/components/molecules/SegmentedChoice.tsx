@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type SegmentedOption<T extends string> = { value: T; label: ReactNode };
+type SegmentedOption<T extends string> = { value: T; label: ReactNode };
 
 /**
  * A row of mutually exclusive choices, one always picked — a radio group drawn as

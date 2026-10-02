@@ -11,7 +11,6 @@ const meta = {
   },
   argTypes: {
     variant: { control: "inline-radio", options: ["form", "table", "filter"] },
-    reason: { control: "boolean" },
     disabled: { control: "boolean" },
   },
 } satisfies Meta<typeof Select>;
@@ -21,12 +20,10 @@ type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
  *  - `variant`: form (default), table, or filter (compact, for a filter bar)
- *  - `reason`: the wider, left-aligned look used inside a table row
- *  - `disabled`: locked */
+ *  - `disabled`: cannot be changed */
 export const Default: Story = {
   args: {
     variant: "form",
-    reason: false,
     disabled: false,
   },
 };

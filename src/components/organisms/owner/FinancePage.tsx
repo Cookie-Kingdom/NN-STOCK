@@ -1,14 +1,15 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
 import { Stat } from "@/components/atoms/Stat";
 import { Muted } from "@/components/atoms/Text";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
+import { td, th } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht, thaiDay } from "@/lib/format";
+import { baht } from "@/lib/format";
 import {
   advances,
   monthPl,
@@ -17,15 +18,7 @@ import {
   visibleNotes,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import {
-  FigureCard,
-  FigureTable,
-  monthName,
-  Num,
-  PlTable,
-  td,
-  th,
-} from "./PlTable";
+import { FigureCard, FigureTable, monthName, Num, PlTable } from "./PlTable";
 
 export const figureGrid =
   "grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4 max-md:grid-cols-2 max-md:gap-3";
@@ -151,17 +144,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
       </div>
       <FigureCard title="จ่ายเงินล่าสุด" note={`${pays.length} รายการ`}>
         {pays.length ? (
-          // A row says only when in the day it was jotted, so each day gets a line of its own.
-          pays.map((e, index) => (
-            <Fragment key={e.id}>
-              {e.date !== pays[index - 1]?.date && (
-                <div className="border-b border-border bg-surface-sunken px-5 py-1.5 text-caption text-text-secondary max-md:px-4">
-                  {thaiDay(e.date)}
-                </div>
-              )}
-              <NoteRow entry={e} ws={ws} />
-            </Fragment>
-          ))
+          pays.map((e) => <NoteRow key={e.id} entry={e} ws={ws} dated />)
         ) : (
           <Muted className="px-5 py-3 text-body-sm max-md:px-4">
             ยังไม่มีบันทึกจ่ายเงิน

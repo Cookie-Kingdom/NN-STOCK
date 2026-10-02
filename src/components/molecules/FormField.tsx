@@ -34,7 +34,7 @@ export function FieldHint({ children }: { children: ReactNode }) {
   return <Caption className="mt-2 block">{children}</Caption>;
 }
 
-export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
+type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
   /** `div` (with a `<span>` label) for a field that holds several controls, e.g.
    *  several pack weights: a `<label>` around several inputs is invalid, so each control
    *  must carry its own `aria-label`. */

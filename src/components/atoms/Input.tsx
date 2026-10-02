@@ -21,13 +21,8 @@ export const controlVariants = cva(
         filter:
           "min-h-10 min-w-36 rounded-md border border-border bg-surface px-2.5 py-2 text-body-sm focus:outline-2 focus:outline-offset-2 focus:outline-accent max-md:text-body",
       },
-      /** `.reason-control` — free-text reason inside a table row */
-      reason: {
-        true: "min-w-52.5 text-left text-body-sm font-normal",
-        false: "",
-      },
     },
-    defaultVariants: { variant: "form", reason: false },
+    defaultVariants: { variant: "form" },
   },
 );
 
@@ -49,7 +44,6 @@ const noSpinner =
  */
 export function Input({
   variant,
-  reason,
   spinner,
   className,
   ...props
@@ -57,11 +51,7 @@ export function Input({
   const mute = props.type === "number" && !spinner;
   return (
     <input
-      className={cn(
-        controlVariants({ variant, reason }),
-        mute && noSpinner,
-        className,
-      )}
+      className={cn(controlVariants({ variant }), mute && noSpinner, className)}
       onWheel={mute ? (event) => event.currentTarget.blur() : undefined}
       onKeyDown={
         mute

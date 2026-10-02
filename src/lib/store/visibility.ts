@@ -30,7 +30,7 @@ import {
 } from "./derived";
 /** A sale's money in: what the Account Manager must not see. A channel added in Settings
  *  keeps its money under a `sales.` key. */
-export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
+const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
 export const isSaleMoneyKey = (key: string) =>
   saleMoneyKeys.includes(key) || key.startsWith("sales.");
 /** What the Account Manager neither receives nor writes: a sale, a payroll payment, and any
@@ -89,7 +89,7 @@ export function editBlock(db: Database, target: Entry, by: Actor) {
   return "";
 }
 /** Edits applied to one entry, oldest first; a voided one no longer applies, so it is left out. */
-export function entryEdits(db: Database, targetId: string) {
+function entryEdits(db: Database, targetId: string) {
   const target = db.entries.find((e) => e.id === targetId);
   return db.entries.filter(
     (e) =>

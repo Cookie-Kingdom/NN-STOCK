@@ -18,7 +18,7 @@ import {
   type EntryKind,
 } from "./store";
 
-export type AppStateRow = { payload: Database; revision: number };
+type AppStateRow = { payload: Database; revision: number };
 
 /** Opens (or creates) the SQLite file and seeds the singleton row, the state a
  * Supabase project is in after the owner's first sign-in. */

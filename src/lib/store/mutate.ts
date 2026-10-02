@@ -58,7 +58,7 @@ function checkDay(value: string | undefined): asserts value {
 }
 /** The role an entry of `kind` is stamped with when `role` records it: a branch kind is the
  *  branch's whoever jots it (mutate puts the Owner in `actor`), anything else stays `role`. */
-export const recordRole = (kind: EntryKind, role: ActingRole): Role =>
+const recordRole = (kind: EntryKind, role: ActingRole): Role =>
   isNoteKind(kind) && kindInfo[kind].group === "branch" ? "branch" : role;
 /** The next running number of a kind's document. Deleted ones count too: a number is never
  *  given to a second document. */
@@ -201,42 +201,48 @@ const settingLists: Record<string, { label: string; id: string }> = {
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
-  const bad = (what: string) => `ตั้งค่าไม่ถูกต้อง: ${what}`;
   const amount = (value: unknown) =>
     Number.isFinite(decimal(String(value ?? "")));
+  const figure = "ใส่เป็นตัวเลข 0 ขึ้นไป";
   for (const [key, label] of Object.entries(settingNumbers))
-    if (v[key] !== undefined) assert(amount(v[key]), bad(label));
+    if (v[key] !== undefined) assert(amount(v[key]), `${label}: ${figure}`);
   for (const [key, { label, id }] of Object.entries(settingLists)) {
     if (v[key] === undefined) continue;
     let rows: Values[] = [];
     try {
       rows = JSON.parse(v[key]);
     } catch {}
-    assert(Array.isArray(rows), bad(label));
+    // What only a hand-made save can get wrong: no rows, a row with no id, an id used twice.
+    const broken = `${label}: อ่านรายการไม่ได้`;
+    assert(Array.isArray(rows), broken);
     const ids = rows.map((row) => row?.[id]);
-    assert(
-      rows.every((row) => row?.[id] && String(row.name ?? "").trim()) &&
-        new Set(ids).size === ids.length,
-      bad(label),
-    );
-    // Sale money is hidden from the Account Manager by its key (isSaleMoneyKey).
-    if (key === "salesChannels")
+    assert(ids.every(Boolean) && new Set(ids).size === ids.length, broken);
+    const names = rows.map((row) => String(row.name ?? "").trim());
+    assert(names.every(Boolean), `${label}: มีแถวที่ยังไม่ได้ใส่ชื่อ`);
+    const twice = names.find((name, at) => names.indexOf(name) !== at);
+    assert(twice === undefined, `${label}: ชื่อ「${twice}」ซ้ำกัน`);
+    const empty = (row: Values, value: string) => (row[value] ?? "") === "";
+    const numbers = (value: string, what: string) => {
+      const row = rows.find((row) => !empty(row, value) && !amount(row[value]));
+      assert(!row, `${label}: ${what}ของ「${row?.name}」${figure}`);
+    };
+    if (key === "salesChannels") {
+      // Sale money is hidden from the Account Manager by its key (isSaleMoneyKey).
       assert(
         ids[0] === "lineMan" &&
-          ids.slice(1).every((k) => String(k).startsWith("sales.")) &&
-          rows.every((row) => amount(row.gp)),
-        bad(label),
+          ids.slice(1).every((k) => String(k).startsWith("sales.")),
+        broken,
       );
-    if (key === "materialList")
-      assert(
-        rows.every((row) => !row.perBox || amount(row.perBox)),
-        bad(label),
-      );
+      const none = rows.find((row) => empty(row, "gp"));
+      assert(!none, `${label}: ยังไม่ได้ใส่ GP % ของ「${none?.name}」`);
+      numbers("gp", "GP % ");
+    }
+    if (key === "materialList") numbers("perBox", "ใช้ต่อกล่อง");
     // The seed's ten categories are fixed: the rules hang on their ids.
     if (key === "payCategories")
       assert(
         payCategories(seed.config).every((c) => ids.includes(c.id)),
-        bad(label),
+        `${label}: หมวดตั้งต้นลบไม่ได้`,
       );
   }
 }

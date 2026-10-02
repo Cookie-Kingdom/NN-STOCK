@@ -12,12 +12,15 @@ export function StatusTile({
   label,
   value,
   onJot,
+  jotText = `${missingText} · กดเพื่อจด`,
   className,
 }: {
   label: ReactNode;
   /** What was jotted, e.g. "200 กก." Empty or absent: not jotted. */
   value?: ReactNode;
   onJot?: () => void;
+  /** What the yellow button says. */
+  jotText?: string;
   className?: string;
 }) {
   const name = <strong className="text-body-sm font-semibold">{label}</strong>;
@@ -58,7 +61,7 @@ export function StatusTile({
       )}
     >
       {name}
-      <span className="text-caption">{missingText} · กดเพื่อจด</span>
+      <span className="text-caption">{jotText}</span>
     </button>
   );
 }

@@ -19,7 +19,7 @@ export type Account = {
   icon: typeof Beef;
 };
 
-export const accounts: Account[] = [
+const accounts: Account[] = [
   {
     id: "owner",
     role: "owner",

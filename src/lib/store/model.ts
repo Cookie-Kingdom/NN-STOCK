@@ -5,7 +5,7 @@ export type ActingRole = "owner" | "branch";
 export type Values = Record<string, string>;
 /** Every entry kind in the log, the retired ones included (old entries keep them). A kind
  *  outside this list is a compile error. */
-export const entryKinds = [
+const entryKinds = [
   "purchase",
   "meatPayment",
   "smokeOrder",
@@ -116,12 +116,6 @@ export const kindInfo: Record<
   influencerBox: { group: "branch" },
   materials: { group: "branch" },
 };
-/** Kinds with no form any more: old entries keep their title and can be deleted, no v2 figure
- *  reads them and `mutate` records no new one. */
-export const retiredKinds: EntryKind[] = entryKinds.filter(
-  (kind) =>
-    !isNoteKind(kind) && !["config", "entryEdit", "void"].includes(kind),
-);
 /** Who is acting: an `Account` is one. `hidesSales` is the Account Manager. */
 export type Actor = { role: ActingRole; branch?: string; hidesSales?: boolean };
 export type Entry = {
@@ -154,7 +148,7 @@ export type Database = {
   entries: Entry[];
   config: Values;
 };
-export const roleName = {
+const roleName = {
   owner: "Owner",
   foodiva: "Foodiva",
   cm: "Chef House",
@@ -288,9 +282,9 @@ export const isEditOverlay = (
   e.kind === "entryEdit" &&
   (e.role === "owner" || (!!target && canChange(e, target)));
 /* Settings kept as JSON lists in `config` (Settings page). */
-export type Channel = { key: string; name: string; gp: number };
-export type Material = { id: string; name: string; perBox: number | null };
-export type PayCategory = { id: string; name: string };
+type Channel = { key: string; name: string; gp: number };
+type Material = { id: string; name: string; perBox: number | null };
+type PayCategory = { id: string; name: string };
 const listDefaults = {
   salesChannels: JSON.stringify([
     { key: "lineMan", name: "LINE MAN", gp: "10" },

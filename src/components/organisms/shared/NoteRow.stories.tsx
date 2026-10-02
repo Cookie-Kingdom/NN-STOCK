@@ -11,7 +11,7 @@ import { visibleNotes } from "@/lib/store";
 import { NoteRow } from "./NoteRow";
 
 /** The newest note of each kind the account sees, plus every yellow one. */
-function Rows({ account }: { account: AccountId }) {
+function Rows({ account, dated }: { account: AccountId; dated?: boolean }) {
   return (
     <WithWorkspace account={account}>
       {(ws) => {
@@ -25,7 +25,7 @@ function Rows({ account }: { account: AccountId }) {
                 return first || !!e.values.missing;
               })
               .map((e) => (
-                <NoteRow key={e.id} entry={e} ws={ws} />
+                <NoteRow key={e.id} entry={e} ws={ws} dated={dated} />
               ))}
           </Panel>
         );
@@ -62,6 +62,9 @@ export const Branch: Story = {
   args: { account: "saladaeng" },
   parameters: { db: dbFor("saladaeng") },
 };
+
+/** `dated`: รายการที่รวมบันทึกหลายวัน (Lots, จ่ายเงินล่าสุด) บอกวันที่เหนือเวลา */
+export const Dated: Story = { args: { dated: true } };
 
 /** จอ 390px: ยอดอยู่ขวา ข้อความตัดบรรทัดได้ */
 export const Phone: Story = { ...phone };

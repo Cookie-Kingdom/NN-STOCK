@@ -4,7 +4,7 @@ import { dateLabel, fmt } from "@/lib/format";
 import { entries, type Database, type Entry, type Lot } from "@/lib/store";
 import { lotLabel } from "./noteText";
 
-export type DocumentRows = [string, string][];
+type DocumentRows = [string, string][];
 
 const kg = (value = "") => (value ? `${fmt(Number(value))} กก.` : "—");
 

@@ -64,19 +64,6 @@
   --green-700: #15803d;
   --green-950: #052e16;
 
-  /* Data-visualisation hues (cost donut). The light theme uses the deep steps; the
-   * three lifted ones below replace those that sank into a dark surface — blue-600
-   * managed 3.39:1 there, teal-700 3.20:1 and pine-800 only 1.81:1. The lifted set
-   * keeps each category in its own hue family and stays >=39 dE apart, so a slice is
-   * still told apart by colour alone. */
-  --orange-500: #f97316;
-  --amber-400: #fbbf24;
-  --teal-700: #0f766e;
-  --pine-800: #204b49;
-  --blue-400: #60a5fa;
-  --teal-400: #2dd4bf;
-  --moss-400: #a8c686;
-
   /* Warm-graphite neutrals — the dark theme's own ramp. The slate ramp above is
    * blue-cast, which flattened it against the blue accent and made dark mode read
    * as one murky sheet; these are hue-neutral-warm instead. `-850` sits between
@@ -113,7 +100,7 @@
    * and never generate `ease-*` utilities beside Tailwind's built-ins. */
   --motion-fast: 120ms; /* press, hover colour */
   --motion-base: 200ms; /* popover, toast, content fade */
-  --motion-slow: 320ms; /* dialog, progress bar */
+  --motion-slow: 320ms; /* the bell panel */
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1); /* decelerate */
   --ease-exit: cubic-bezier(0.4, 0, 1, 1); /* accelerate */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -131,13 +118,11 @@
   /* Surfaces and text */
   --color-bg: var(--gray-50);
   --color-surface: var(--gray-0);
-  --color-surface-raised: var(--gray-0);
   --color-surface-sunken: var(--gray-100);
   --color-border: var(--gray-200);
   --color-border-strong: var(--gray-300);
   --color-text-primary: var(--gray-900);
   --color-text-secondary: var(--gray-600);
-  --color-text-muted: var(--gray-400);
   --color-text-inverse: var(--gray-0);
 
   /* Accent. Ours means "primary action / link", per DESIGN.md. shadcn's own
@@ -149,40 +134,18 @@
   --color-accent-fg: var(--gray-0);
 
   /* State. These are business rules, not styling preferences — see DESIGN.md
-   * "Semantic colour rules that are business rules" (BR03, BR12, BR20). */
+   * "Semantic colour rules that are business rules". */
   --color-danger: var(--red-600);
   --color-danger-subtle: var(--red-50);
-  --color-danger-fg: var(--gray-0);
   --color-warning: var(--amber-600);
   --color-warning-subtle: var(--amber-50);
   --color-success: var(--green-600);
   --color-success-subtle: var(--green-50);
 
-  /* Locked chrome. BR15 wants a locked record to read as locked in either theme and
-   * never as a theme artefact; it used to get that by pinning one grey across both,
-   * but gray-500 on the chip fill measured 4.34:1 light and 4.13:1 dark, so the rule
-   * as written could not be met at all. What carries BR15 is the *role* — an inert,
-   * saturation-free grey on a recessed chip — so that is what is now held constant
-   * and the step moves per theme to clear 4.5:1. See the .dark block. */
-  --color-locked: var(--gray-600);
-  --color-locked-subtle: var(--gray-100);
-
   --color-focus-ring: var(--blue-600);
-
-  /* Categorical chart series. The three that sank into a dark surface are lifted in
-   * the .dark block, each within its own hue family, so a cost category still reads
-   * as "the blue one" / "the green one" after a theme switch. */
-  --color-chart-1: var(--orange-500);
-  --color-chart-2: var(--amber-400);
-  --color-chart-3: var(--blue-600);
-  --color-chart-4: var(--teal-700);
-  --color-chart-5: var(--pine-800);
 
   /* Type scale. Line-heights are one step looser than a Latin-only scale
    * because Thai tone marks stack above the baseline. Do not tighten. */
-  --text-display: 2rem;
-  --text-display--line-height: 2.5rem;
-  --text-display--font-weight: 600;
   --text-h1: 1.5rem;
   --text-h1--line-height: 2.125rem;
   --text-h1--font-weight: 600;
@@ -208,18 +171,12 @@
   /* Numeric steps. Separate from the text scale because numbers are the
    * product. Pair every one of these with `tabular-nums` — a column of kg
    * values that does not align is a defect. */
-  --text-num-xl: 2rem;
-  --text-num-xl--line-height: 2.5rem;
-  --text-num-xl--font-weight: 600;
   --text-num-lg: 1.5rem;
   --text-num-lg--line-height: 2rem;
   --text-num-lg--font-weight: 600;
   --text-num-md: 1rem;
   --text-num-md--line-height: 1.5rem;
   --text-num-md--font-weight: 600;
-  --text-num-sm: 0.875rem;
-  --text-num-sm--line-height: 1.25rem;
-  --text-num-sm--font-weight: 500;
 
   /* Radii. Spacing is not redefined: DESIGN.md's space-1…space-16 are exactly
    * Tailwind's default 4pt scale, and a second copy would be a second source
@@ -301,13 +258,11 @@
 .dark {
   --color-bg: var(--graphite-900);
   --color-surface: var(--graphite-850);
-  --color-surface-raised: var(--graphite-800);
   --color-surface-sunken: var(--graphite-950);
   --color-border: var(--graphite-700);
   --color-border-strong: var(--graphite-500);
   --color-text-primary: var(--graphite-50);
   --color-text-secondary: var(--graphite-200);
-  --color-text-muted: var(--graphite-400);
   --color-text-inverse: var(--graphite-900);
 
   --color-accent: var(--azure);
@@ -317,25 +272,12 @@
 
   --color-danger: var(--coral);
   --color-danger-subtle: var(--coral-deep);
-  --color-danger-fg: var(--graphite-950);
   --color-warning: var(--honey);
   --color-warning-subtle: var(--honey-deep);
   --color-success: var(--jade);
   --color-success-subtle: var(--jade-deep);
 
-  /* Same inert grey-on-recessed-chip role as the light theme, one step lifted so it
-   * clears the fill: 6.68:1 here, 6.92:1 light. See the light block for why the step
-   * moves per theme instead of being pinned. */
-  --color-locked: var(--graphite-400);
-  --color-locked-subtle: var(--graphite-950);
-
   --color-focus-ring: var(--azure-lift);
-
-  /* chart-1 and chart-2 already clear the dark surface (6.25:1 and 10.50:1) and are
-   * left alone; the other three are the lifted steps. */
-  --color-chart-3: var(--blue-400);
-  --color-chart-4: var(--teal-400);
-  --color-chart-5: var(--moss-400);
 
   --color-background: var(--graphite-900);
   --color-foreground: var(--graphite-50);

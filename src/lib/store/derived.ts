@@ -131,7 +131,7 @@ export function saleMoney(config: Values, sale: Entry) {
   }
   return { sales, gp };
 }
-export type Outflow = {
+type Outflow = {
   date: string;
   category: string;
   amount: number;
@@ -162,7 +162,7 @@ export function outflows(db: Database): Outflow[] {
   }
   return out;
 }
-export type MonthPl = {
+type MonthPl = {
   sales: number;
   gp: number;
   byCategory: Record<string, number>;
@@ -190,7 +190,7 @@ export function monthPl(db: Database, month: string): MonthPl {
   const opex = Object.values(byCategory).reduce((a, b) => a + b, 0) - capex;
   return { sales, gp, byCategory, opex, profit: sales - gp - opex, capex };
 }
-export type LotInfo = {
+type LotInfo = {
   lot: Lot;
   sentKg: number;
   backKg: number;
@@ -289,7 +289,7 @@ export function poInfo(db: Database, poLotId: string) {
   };
 }
 /** V2-CAL-09: the meat a sale or a gift box takes: the kg typed, else boxes × kg per box, plus waste. */
-export function meatUsedKg(config: Values, e: Entry) {
+function meatUsedKg(config: Values, e: Entry) {
   const byBox = num(e.values, "boxes") * num(config, "packKg");
   if (e.kind === "influencerBox") return byBox;
   if (e.kind !== "sale") return 0;
@@ -353,7 +353,7 @@ export function branchChili(db: Database, branch: string) {
       qty += num(e.values, "qty");
   return { qty, countedOn };
 }
-export type SupplierBalance = {
+type SupplierBalance = {
   supplier: string;
   billed: number;
   paid: number;

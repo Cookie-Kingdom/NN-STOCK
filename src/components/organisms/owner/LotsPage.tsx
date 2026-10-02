@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/atoms/Badge";
+import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
@@ -16,7 +17,7 @@ import {
 } from "@/components/organisms/shared/documentRows";
 import { lotLabel } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht, qty } from "@/lib/format";
+import { baht, fmt, qty } from "@/lib/format";
 import {
   coreLotKinds,
   entries,
@@ -33,15 +34,8 @@ import {
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-/** The yellow mark of a figure that is not there yet. */
-const Missing = ({ children }: { children: ReactNode }) => (
-  <Badge tone="warning" className="border border-warning/40 py-0 font-medium">
-    {children}
-  </Badge>
-);
-
 /** A figure the web cannot work out until more is jotted. */
-const unknown = <Missing>ยังคิดไม่ได้</Missing>;
+const unknown = <MissingMark>ยังคิดไม่ได้</MissingMark>;
 
 const Small = ({ children }: { children: ReactNode }) => (
   <small className="text-caption font-normal text-text-secondary">
@@ -152,7 +146,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
         {visibleNotes(db, account)
           .filter((e) => e.lotId === lot.id)
           .map((e) => (
-            <NoteRow key={e.id} entry={e} ws={ws} />
+            <NoteRow key={e.id} entry={e} ws={ws} dated />
           ))}
       </Panel>
     </div>
@@ -246,6 +240,7 @@ function LotHead({ ws, lot }: { ws: Workspace; lot: Lot }) {
                   ].join(", ")
             }
             onJot={() => info.unlinked && ws.edit(info.unlinked.id)}
+            jotText="ยังไม่ผูก PO เนื้อ · กดเพื่อผูก"
           />
         )}
       </div>
@@ -262,14 +257,14 @@ function LotHead({ ws, lot }: { ws: Workspace; lot: Lot }) {
         </Fact>
         <Fact label="ค่ารม">{info.fee ? baht(info.fee) : unknown}</Fact>
         <Fact label="ต้นทุนเนื้อต่อกล่อง">
-          {info.meatPerBox === null ? unknown : baht(info.meatPerBox)}
+          {info.meatPerBox === null ? unknown : `฿${fmt(info.meatPerBox)}`}
         </Fact>
         <Fact label="ต้นทุนต่อกล่อง">
           {info.costPerBox === null ? (
             unknown
           ) : (
             <>
-              {baht(info.costPerBox)} <Small>รวมแพ็กเกจ</Small>
+              ฿{fmt(info.costPerBox)} <Small>รวมแพ็กเกจ</Small>
             </>
           )}
         </Fact>
@@ -294,7 +289,7 @@ function PoHead({ ws, po }: { ws: Workspace; po: Lot }) {
   const v = purchase?.values ?? {};
   const info = poInfo(db, po.id);
   const empty = missingKeys(v);
-  const none = <Missing>{missingText}</Missing>;
+  const none = <MissingMark />;
   return (
     <>
       <div className={title}>

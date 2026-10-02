@@ -79,7 +79,7 @@ const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
 const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
 const weightReason = text("reason", "เหตุผลเมื่อน้ำหนักต่าง");
-const once = "จดที่นี่แล้วไม่ต้องจด จ่ายเงิน ซ้ำ";
+const once = "เว็บนับเป็นจ่ายเงินให้แล้ว ไม่จด จ่ายเงิน ซ้ำ";
 /** The truck and its driver, on both legs. */
 const truck: Field[] = [
   text("vehicleType", "ประเภทรถ"),

@@ -8,6 +8,7 @@ import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FormError } from "@/components/molecules/FormError";
 import { timeOf } from "@/components/organisms/shared/noteText";
+import { td, th } from "@/components/organisms/shared/tableCell";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty, thaiDay } from "@/lib/format";
@@ -23,13 +24,6 @@ import {
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-/* The plain table of Stock and Settings: no sorting and no paging, so not a DataTable.
- * ponytail: the same two class strings as owner/PlTable.tsx; one shared table once the
- * pages are merged. */
-export const th =
-  "border-b border-border px-5 py-2 text-left text-caption font-medium whitespace-nowrap text-text-secondary max-md:px-2.5";
-export const td =
-  "border-b border-border px-5 py-3 align-middle text-body-sm max-md:px-2.5 [tr:last-child>&]:border-b-0";
 const tones = {
   warning: "bg-warning-subtle font-medium text-warning",
   success: "bg-success-subtle font-medium text-success",
@@ -160,7 +154,7 @@ export function MaterialCount({
             const key = `count.${m.id}`;
             return (
               <tr key={m.id}>
-                <Cell>{m.name}</Cell>
+                <Cell className="md:whitespace-nowrap">{m.name}</Cell>
                 <Left n={s.qty} />
                 <Cell tone={s.stale ? "warning" : "success"}>
                   <span className="whitespace-nowrap">
@@ -170,8 +164,12 @@ export function MaterialCount({
                         ? "วันนี้"
                         : thaiDay(s.countedOn)}
                   </span>
+                  {/* The space sits outside the span: the cell may break there, not the name. */}
                   {s.countedOn && s.stale && (
-                    <span className="whitespace-nowrap"> · เกิน 7 วัน</span>
+                    <>
+                      {" "}
+                      <span className="whitespace-nowrap">· เกิน 7 วัน</span>
+                    </>
                   )}
                 </Cell>
                 <Cell right className="py-1.5">
@@ -191,7 +189,7 @@ export function MaterialCount({
             );
           })}
           <tr>
-            <Cell>น้ำพริก (หลอด)</Cell>
+            <Cell className="md:whitespace-nowrap">น้ำพริก (หลอด)</Cell>
             <Left n={chili.qty} />
             <Cell className="whitespace-nowrap">
               {!chili.countedOn

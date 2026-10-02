@@ -1,34 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Overline } from "./Overline";
 import { Caption, Footnote, Muted } from "./Text";
 
-const meta = {
-  title: "Atoms/Typography",
-  component: Overline,
-  args: { children: "สต๊อกกลาง" },
-  argTypes: {
-    tone: { control: "inline-radio", options: ["default", "accent"] },
-  },
-} satisfies Meta<typeof Overline>;
+const meta = { title: "Atoms/Typography" } satisfies Meta;
 
 export default meta;
-type Story = StoryObj<typeof meta>;
-
-/** `Overline`: pick `tone` (default or accent) in Controls. */
-export const Default: Story = { name: "Overline", args: { tone: "default" } };
 
 /** Bare h1–h3 get their sizes from globals.css. */
-export const Scale: Story = {
+export const Scale: StoryObj = {
   render: () => (
     <div className="grid gap-2">
-      <Overline>Overline</Overline>
-      <h1>หัวข้อ H1 · ระบบสต๊อก</h1>
-      <h2>หัวข้อ H2 · รับเนื้อเข้า</h2>
-      <h3>หัวข้อ H3 · รายการล็อต</h3>
-      <p>ข้อความปกติ (body) 1,234.50 กก.</p>
-      <Muted>Muted — ข้อความรอง</Muted>
-      <Caption>Caption — บรรทัดเล็กใต้ฟิลด์หรือในช่องตาราง</Caption>
-      <Footnote>Footnote — หมายเหตุท้ายตาราง</Footnote>
+      <h1>หัวข้อ H1 · Daily Log</h1>
+      <h2>หัวข้อ H2 · SH-2026-0001</h2>
+      <h3>หัวข้อ H3 · จ่ายเงินล่าสุด</h3>
+      <p>ข้อความปกติ 1,234.50 กก.</p>
+      <Muted>Muted: ข้อความรอง</Muted>
+      <Caption>Caption: บรรทัดเล็กใต้ช่องกรอกหรือในช่องตาราง</Caption>
+      <Footnote>Footnote: หมายเหตุท้ายตาราง</Footnote>
     </div>
   ),
 };

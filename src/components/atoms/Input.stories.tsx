@@ -16,14 +16,12 @@ type Story = StoryObj<typeof meta>;
 /** Pick the state in Controls:
  *  - `variant`: form (default), table (a table cell, e.g. "12.50"), or filter (e.g.
  *    `type="date"` in a filter bar)
- *  - `reason`: the free-text reason field inside a table row (placeholder "เหตุผล")
  *  - `type="number"`: ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน
  *  - `spinner`: ใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
- *  - `disabled`: locked */
+ *  - `disabled`: cannot be typed in */
 export const Default: Story = {
   argTypes: {
     type: { control: "inline-radio", options: ["text", "number", "date"] },
-    reason: { control: "boolean" },
     spinner: { control: "boolean" },
     disabled: { control: "boolean" },
     defaultValue: { control: "text" },
@@ -33,7 +31,6 @@ export const Default: Story = {
     variant: "form",
     type: "text",
     step: "0.01",
-    reason: false,
     spinner: false,
     disabled: false,
     defaultValue: "",
