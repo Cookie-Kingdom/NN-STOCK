@@ -280,3 +280,86 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .join(),
   ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n2,n3");
 });
+
+test("a branch appends only its own branch's kinds, and what the centre jots for it reaches it alone", () => {
+  const db = stored(sampleData(today()));
+  const { revision } = loadState(db, saladaeng);
+  const entry = (over: Partial<Entry>): Entry => ({
+    id: crypto.randomUUID(),
+    kind: "meatCount",
+    role: "branch",
+    lotId: "",
+    branch: "ศาลาแดง",
+    date: today(),
+    at: "",
+    values: { kg: "5" },
+    ...over,
+  });
+  const refused: [Partial<Entry>, string][] = [
+    [{ branch: "มีนบุรี" }, "Entry branch does not match signed-in account"],
+    [{ role: "owner" }, "Entry role does not match signed-in account"],
+    [{ actor: "owner" }, "Entry actor does not match signed-in account"],
+    [{ kind: "purchase" }, "Entry kind is not allowed for this account"],
+    [{ kind: "config" }, "Entry kind is not allowed for this account"],
+    [{ kind: "closeDay" }, "Entry kind is not allowed for this account"],
+    [{ lotId: "nope" }, "Entry lot does not exist"],
+    [{ date: "2999-01-01" }, "Entry date is invalid or after today"],
+  ];
+  for (const [over, message] of refused)
+    expect(
+      () => appendState(db, saladaeng, [entry(over)], [], revision),
+      JSON.stringify(over),
+    ).toThrow(message);
+  expect(() =>
+    appendState(db, saladaeng, [entry({})], [{ id: "x" }], revision),
+  ).toThrow("Only an owner can change lots");
+  expect(() => appendState(db, owner, [entry({})], [], revision)).toThrow(
+    "Only branch accounts append entries",
+  );
+  expect(() => appendState(db, null, [entry({})], [], revision)).toThrow(
+    "Authentication required",
+  );
+  // A stale revision (another device saved first) is refused, not merged.
+  expect(() =>
+    appendState(db, saladaeng, [entry({})], [], revision - 1),
+  ).toThrow("State changed on another device. Reload and try again.");
+  expect(readState(db).revision).toBe(revision);
+
+  // V2-ACC-04, V2-PAY-05: the Account Manager counts and buys for มีนบุรี.
+  const copy = loadState(db, manager);
+  let next = copy.payload;
+  for (const [kind, values] of [
+    ["meatCount", { kg: "12", branch: "มีนบุรี" }],
+    [
+      "pay",
+      {
+        category: "packaging",
+        amount: "500",
+        item: "m1",
+        qty: "50",
+        branch: "มีนบุรี",
+        payer: "บริษัท",
+      },
+    ],
+  ] as [EntryKind, Values][])
+    next = mutate(next, manager, kind, values, "", today());
+  next.entries = next.entries.map((e, index) =>
+    index < copy.payload.entries.length ? e : { ...e, actor: "manager" },
+  );
+  saveState(db, manager, next, copy.revision);
+  const added = (account: typeof minburi) =>
+    loadState(db, account)
+      .payload.entries.slice(-2)
+      .map((e) => [e.kind, e.values]);
+  expect(added(minburi)).toEqual([
+    ["meatCount", { kg: "12", note: "" }],
+    // For stock only: no amount, no payer.
+    [
+      "pay",
+      { category: "packaging", item: "m1", qty: "50", branch: "มีนบุรี" },
+    ],
+  ]);
+  expect(JSON.stringify(loadState(db, saladaeng).payload)).not.toContain(
+    "มีนบุรี",
+  );
+});
