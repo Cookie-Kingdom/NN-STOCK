@@ -26,6 +26,7 @@ export function SectionAction<Section extends string>({
   lockedMessage,
   editLabel = "แก้ไข (Edit)",
   saveLabel = "บันทึกและล็อก (Save & lock)",
+  cancelLabel = "ยกเลิก (Cancel)",
   busyLabel = "กำลังบันทึก…",
   otherLabel = "กำลังแก้ตารางอื่น",
   editRef,
@@ -45,6 +46,7 @@ export function SectionAction<Section extends string>({
   lockedMessage?: string;
   editLabel?: string;
   saveLabel?: string;
+  cancelLabel?: string;
   busyLabel?: string;
   /** Label of the edit button while another table on the page is open. */
   otherLabel?: string;
@@ -70,7 +72,7 @@ export function SectionAction<Section extends string>({
       {open ? (
         <>
           <Button size="sm" onClick={onCancel}>
-            ยกเลิก (Cancel)
+            {cancelLabel}
           </Button>
           <Button
             variant="primary"

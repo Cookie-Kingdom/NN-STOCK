@@ -1,0 +1,47 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { Composer } from "@/components/organisms/workspace/Composer";
+import {
+  WithWorkspace,
+  dbFor,
+  phone,
+  sampleDb,
+} from "@/components/organisms/workspace/storyWorkspace";
+import type { AccountId } from "@/lib/accounts";
+import { OwnerStock } from "./OwnerStock";
+
+/** The page under the composer, as the shell lays them out: 「นับเนื้อ」 opens it. */
+const Stock = ({ account }: { account: AccountId }) => (
+  <WithWorkspace account={account}>
+    {(ws) => (
+      <div className="flex flex-col gap-6">
+        <Composer ws={ws} />
+        <OwnerStock ws={ws} />
+      </div>
+    )}
+  </WithWorkspace>
+);
+
+const meta = {
+  title: "Organisms/Owner/OwnerStock",
+  component: Stock,
+  args: { account: "owner" },
+  argTypes: { account: { control: false } },
+  parameters: { db: sampleDb },
+} satisfies Meta<typeof Stock>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Owner: เนื้อที่ฝากไว้ที่ร้านขายเนื้อ สต๊อกกลางของแต่ละ Lot และเนื้อของแต่ละสาขา
+ *  แล้ววัสดุและน้ำพริกของทุกสาขา · นับแทนสาขาได้:「นับเนื้อ」เปิดฟอร์มนับเนื้อของสาขานั้น
+ *  และกล่องวัสดุของแต่ละสาขาบันทึกยอดนับของสาขานั้น */
+export const Owner: Story = {};
+
+/** Account Manager: เห็นและนับแทนสาขาได้เหมือน Owner */
+export const Manager: Story = {
+  args: { account: "manager" },
+  parameters: { db: dbFor("manager") },
+};
+
+/** จอ 390px: กล่องวัสดุของสองสาขาเรียงต่อกัน */
+export const Phone: Story = { ...phone };
