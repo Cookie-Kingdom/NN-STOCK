@@ -88,4 +88,6 @@ test("over-stock is reported on the row, with the most that can be entered", () 
   );
   // Nothing on the shelf: the row still names a number rather than a negative one.
   expect(materialOverStock(-2, 1)).toBe("ใช้เกินยอดตั้งต้น · กรอกได้สูงสุด 0");
+  // An opening below zero (a receipt it stood on was deleted), nothing used: nothing to say.
+  expect(materialOverStock(-2, 0)).toBe("");
 });

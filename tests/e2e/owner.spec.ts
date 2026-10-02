@@ -1,25 +1,31 @@
 import { expect, test } from "@playwright/test";
 import {
   ACCOUNTS,
+  BATCH_ID,
   SCREENS,
   SHIPMENT_NO,
   createPurchasePo,
   expectWarning,
   field,
+  idsOnScreen,
   issueSmokePoOnNewBatch,
+  logRow,
   meatStockRow,
   menuItem,
   openMatchPo,
   openMenu,
   pointAndClick,
   receiveCentral,
+  recordPreSmoke,
   saveDispatchDialog,
   saveEntry,
   sidebar,
   signInAs,
   startFresh,
+  step,
   tableRow,
   topDialog,
+  weighIn,
 } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
@@ -147,4 +153,120 @@ test("SMK-09 SHP-01 SHP-04 a smoke PO waits for its transport document and leave
   await expect(
     row.getByRole("button", { name: "แก้ไข Packing List" }),
   ).toBeVisible();
+});
+
+/* DASH-02: the dashboard's box and the bell list the batches with an entry in the last 30
+ * days, and count the entries as they stand now: one moved to another batch (EDT-24) counts
+ * there, a deleted one (EDT-23) nowhere. Both batches here were opened 40 days ago (the
+ * browser's clock is put back for that), so only the note made today can list them. */
+test("DASH-02 EDT-23 EDT-24 the dashboard and the bell follow an entry that is moved to another batch or deleted", async ({
+  page,
+}) => {
+  const main = page.locator("main");
+  /** The page as it loads at `time`: the working date starts on that day. */
+  const loadAt = async (time: Date) => {
+    await page.clock.setFixedTime(time);
+    await page.reload();
+    await expect(menuItem(page, "Log")).toBeVisible();
+  };
+  /** A batch opened by a weigh-in, as its id and its shipment number. */
+  const openBatch = async (kg: string, others: string[]) => {
+    await weighIn(page, "", kg);
+    await openMenu(page, SCREENS.smokePo.menu);
+    const id = (await idsOnScreen(page, BATCH_ID)).find(
+      (batch) => !others.includes(batch),
+    )!;
+    const shipment = (
+      await tableRow(page, SCREENS.smokePo.table, id).innerText()
+    ).match(SHIPMENT_NO)![0];
+    return { id, shipment };
+  };
+  /** The box 「รายการที่ยังไม่ครบ」 and the bell name `listed` and none of `unlisted`. */
+  const expectListed = async (listed: string[], unlisted: string[]) => {
+    await openMenu(page, SCREENS.ownerDashboard.menu);
+    const details = page.locator("#owner-alert-details");
+    if (!(await details.count()))
+      await pointAndClick(
+        page,
+        main.getByRole("button", { name: /^(ยังไม่ครบ \d+ จุด|จดครบแล้ว)/ }),
+      );
+    await expect(
+      details.getByRole("heading", { name: "รายการที่ยังไม่ครบ" }),
+    ).toBeVisible();
+    await pointAndClick(
+      page,
+      page.getByRole("button", { name: /^การแจ้งเตือน/ }),
+    );
+    const bell = page.getByRole("region", { name: "การแจ้งเตือน" });
+    await expect(bell).toBeVisible();
+    for (const shipment of listed) {
+      await expect(details).toContainText(`การส่ง ${shipment}`);
+      await expect(bell).toContainText(
+        new RegExp(`ชุด ${shipment} ยังไม่ได้จด \\d+ รายการ`),
+      );
+    }
+    for (const shipment of unlisted) {
+      await expect(details).not.toContainText(shipment);
+      await expect(bell).not.toContainText(shipment);
+    }
+    await page.keyboard.press("Escape");
+  };
+  const note = "น้ำหนักก่อนสโมค";
+  const openNote = async () => {
+    await openMenu(page, "Log");
+    const entry = logRow(page, note);
+    await pointAndClick(page, entry.locator("summary"));
+    return entry;
+  };
+
+  await loadAt(new Date(Date.now() - 40 * 86_400_000));
+  const first = await openBatch("40", []);
+  const second = await openBatch("30", [first.id]);
+  await loadAt(new Date());
+
+  await step(
+    page,
+    "Owner: ชุดที่จดไว้ 40 วันก่อน ไม่ขึ้นทั้งสองชุด",
+    async () => {
+      await expectListed([], [first.shipment, second.shipment]);
+    },
+  );
+
+  await step(page, "Owner: จดน้ำหนักก่อนสโมควันนี้ ชุดแรกขึ้น", async () => {
+    await recordPreSmoke(page, first.id, "38");
+    await expectListed([first.shipment], [second.shipment]);
+  });
+
+  await step(
+    page,
+    "Owner: ย้ายรายการไปชุดที่สอง ชุดที่สองขึ้นแทน ชุดแรกหายไป",
+    async () => {
+      const entry = await openNote();
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "แก้ไข", exact: true }),
+      );
+      await entry.getByLabel("ชุดรมควัน").selectOption(second.id);
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+      );
+      await expect(entry.locator("summary")).toContainText(second.id);
+      await expectListed([second.shipment], [first.shipment]);
+    },
+  );
+
+  await step(page, "Owner: ลบรายการ ไม่มีชุดไหนขึ้น", async () => {
+    const entry = await openNote();
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ลบรายการ", exact: true }),
+    );
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+    );
+    await expect(entry.locator("summary")).toContainText("ลบแล้ว");
+    await expectListed([], [first.shipment, second.shipment]);
+  });
 });

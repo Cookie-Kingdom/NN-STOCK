@@ -1,7 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fireEvent, fn, within } from "storybook/test";
+import { expect, fireEvent, fn, within } from "storybook/test";
 import { Panel } from "@/components/atoms/Panel";
-import { entries, visibleEntries, type Entry } from "@/lib/store";
+import {
+  entries,
+  visibleDatabase,
+  visibleEntries,
+  type Entry,
+} from "@/lib/store";
 import {
   changesDb,
   incompletePoDb,
@@ -84,6 +89,27 @@ export const BranchEdit: StoryObj<typeof meta> = {
     fireEvent.click(
       within(canvasElement).getByRole("button", { name: "แก้ไข" }),
     );
+  },
+};
+
+/** The Account Manager's copy of `changesDb`: every sale without its money (C4). */
+const managerDb = visibleDatabase(changesDb, true);
+
+/** C4: the Account Manager corrects a sale's counts and weights. The row shows no sale money,
+ *  and "แก้ไข" (pressed here) opens the sale form without "ยอดขาย LINE MAN"; the server keeps
+ *  the money as the Owner sees it. */
+export const ManagerSaleEdit: StoryObj<typeof meta> = {
+  args: {
+    entry: managerDb.entries.find((entry) => entry.kind === "sale")!,
+    db: managerDb,
+    hideSales: true,
+  },
+  parameters: { db: managerDb },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    fireEvent.click(canvas.getByRole("button", { name: "แก้ไข" }));
+    await canvas.findByRole("button", { name: "บันทึกการแก้ไข" });
+    await expect(canvas.queryByLabelText(/LINE MAN/)).toBeNull();
   },
 };
 

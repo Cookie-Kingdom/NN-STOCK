@@ -44,6 +44,7 @@ import {
   isVoided,
   issuedRawRiceStock,
   latestPackingList,
+  liveEntries,
   liveLots,
   n,
   ownerChiliStock,
@@ -65,6 +66,8 @@ import {
   sum,
 } from "./derived";
 import { editBlock, omit, saleMoneyKeys, voidBlock } from "./visibility";
+/** What a sale's chili count is warned with when it is not the figure expected on the shelf. */
+const chiliMismatch = "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ";
 /** Stock figures an edit must not push below zero, keyed `label#id`. STK-44: the Owner's store
  *  only for the Owner; a branch's copy has none of the Owner's purchases, so there it is just
  *  minus what the branch received. */
@@ -106,6 +109,92 @@ function stockLevels(db: Database, role: ActingRole) {
   for (const m of materials)
     levels.set(`${m} ในคลัง Owner #`, ownerMaterialStock(db, m));
   return levels;
+}
+/** What a change (`done`: แก้, ลบ, กู้คืน, ย้อนกลับ) is warned with: every level it takes below
+ *  zero, or further below. `after` is `db` with the change in. Several materials of one branch
+ *  are one warning: they go short together, when a count the shelf stood on is changed. */
+function warnShort(
+  db: Database,
+  after: Database,
+  role: ActingRole,
+  done: string,
+) {
+  const before = stockLevels(db, role);
+  const say = (what: string, figure: string) =>
+    warn(
+      false,
+      `${done}แล้ว${what}จะติดลบ (${figure}) · แก้รายการที่ตามมาก่อน`,
+    );
+  const shelves = new Map<string, [string, number][]>();
+  for (const [key, level] of stockLevels(after, role)) {
+    if (level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001) continue;
+    const label = key.split("#")[0];
+    const branch = branches.find((b) =>
+      materials.some((m) => label === `${m} สาขา${b}`),
+    );
+    if (!branch) say(label, fmt(level));
+    else shelves.set(branch, [...(shelves.get(branch) ?? []), [label, level]]);
+  }
+  for (const [branch, short] of shelves)
+    if (short.length === 1) say(short[0][0], fmt(short[0][1]));
+    else
+      say(
+        `วัสดุ ${short.length} รายการ สาขา${branch}`,
+        short
+          .map(
+            ([label, level]) =>
+              `${label.slice(0, -` สาขา${branch}`.length)} ${fmt(level)}`,
+          )
+          .join(", "),
+      );
+}
+/** MAT-05: the earliest day whose newest material count no longer stands on its opening once
+ *  receipt or count `id` is recorded, edited, moved to another day, deleted or put back
+ *  (`before` → `after`). That count holds the stock in its counted figure, so the shelf is off
+ *  by the difference until the count is saved again. A count saved for an earlier day moves
+ *  the opening of every later counted day. A count that was not the day's newest before the
+ *  change (a new one, one put back, an older round left standing by a delete) is told off for
+ *  its own day if the opening it holds is not the day's. A change that leaves the opening as
+ *  the count saw it is not told off. */
+function recountDay(before: Database, after: Database, id: string) {
+  const sides = [before, after]
+    .map((db) =>
+      [...entries(db, "materialConfirm"), ...entries(db, "materials")].find(
+        (e) => e.id === id,
+      ),
+    )
+    .filter((e): e is Entry => !!e);
+  if (!sides.length) return;
+  const { branch } = sides[0];
+  const from = sides.map((e) => e.date).sort()[0];
+  const indexes =
+    sides[0].kind === "materials"
+      ? [...materials.keys()]
+      : sides
+          .map((e) => materials.indexOf(e.values.material))
+          .filter((i) => i >= 0);
+  return [
+    ...new Map(
+      entries(after, "materials", undefined, branch).map((e) => [e.date, e]),
+    ).values(),
+  ]
+    .filter(
+      (e) =>
+        e.date >= from &&
+        indexes.some((i) => {
+          const opening = branchMaterialStock(after, branch, i, e.date);
+          return (
+            Math.abs(opening - n(e.values, "opening" + i)) > 0.001 &&
+            (entries(before, "materials", undefined, branch, e.date).at(-1)
+              ?.id !== e.id ||
+              Math.abs(
+                opening - branchMaterialStock(before, branch, i, e.date),
+              ) > 0.001)
+          );
+        }),
+    )
+    .map((e) => e.date)
+    .sort()[0];
 }
 /** `target` as `proposed` (and a new date or lot, EDT-24) would leave it: its values
  *  normalised and checked by the target kind's own rules as if it were saved again now without
@@ -149,13 +238,41 @@ function correctedEntry(
   const moneyHidden =
     target.kind === "sale" && target.values.lineMan === undefined;
   const input = { ...target.values, ...proposed };
-  if (moneyHidden && input.lineMan === undefined) input.lineMan = "0";
+  if (moneyHidden) input.lineMan = "0";
   // The truck fee is the one in force when the manifest was made; a changed trip is priced again.
   if (
     target.kind === "dispatch" &&
     (input.trip ?? "") !== (target.values.trip ?? "")
   )
     delete input.outboundCost;
+  /* A sale's chili count was judged against the shelf it was made on; it is judged again only
+   * when the edit changes a chili figure or the remark, and then against that same shelf: what
+   * was expected then, less the change in tubes sold. Today's shelf holds every receipt and
+   * sale since. The shelf is the sale's own, never the caller's; a sale saved before it was
+   * kept is judged against today's (the `sale` rules). */
+  if (target.kind === "sale") {
+    const kept = target.values.chiliExpected;
+    if (kept === undefined) delete input.chiliExpected;
+    else if (
+      ["chiliAddons", "chiliCount", "chiliRemark"].every(
+        (key) => (input[key] ?? "") === (target.values[key] ?? ""),
+      )
+    )
+      input.chiliExpected = kept;
+    else {
+      const expected =
+        n(target.values, "chiliExpected") +
+        n(target.values, "chiliSold") -
+        n(input, "chiliAddons");
+      input.chiliExpected = String(expected);
+      warn(
+        (input.chiliCount ?? "") === "" ||
+          n(input, "chiliCount") === expected ||
+          input.chiliRemark?.trim(),
+        chiliMismatch,
+      );
+    }
+  }
   if (target.kind === "smokingInvoice")
     warn(
       smokingInvoiceStatus(db, target) !== "ชำระแล้ว",
@@ -175,6 +292,14 @@ function correctedEntry(
   const values = moneyHidden
     ? omit(checked.values, saleMoneyKeys)
     : checked.values;
+  // The stand-in is no amount: money the sale was saved without stays listed as missing.
+  if (moneyHidden)
+    markMissing(
+      values,
+      ...missingKeys(target.values).filter((key) =>
+        saleMoneyKeys.includes(key),
+      ),
+    );
   // The overlay merges, so a value the rules no longer write (the invoice of a payment moved
   // to a batch that has none) is cleared, not left as it was.
   for (const key of Object.keys(target.values))
@@ -189,14 +314,14 @@ function correctedEntry(
     // The lot asked for, not the scratch save's: a PO saved again there would open a new lot.
     ...(lotId !== target.lotId && { fromLotId: target.lotId, toLotId: lotId }),
   };
-  const before = stockLevels(db, role);
   const after = as("entryEdit", {
     targetId: target.id,
     ...pack("to.", values),
     ...moved,
   });
   const touched = cachedOn(db, target, moved.toLotId);
-  for (const [key, level] of stockLevels(
+  warnShort(
+    db,
     {
       ...after,
       lots: after.lots.map((lot) =>
@@ -204,11 +329,8 @@ function correctedEntry(
       ),
     },
     role,
-  ))
-    warn(
-      level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
-      `แก้แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
-    );
+    "แก้",
+  );
   return { values, moved };
 }
 /** Kinds a lot's cache is rebuilt for: a batch's steps (the cached ones, and all of them for
@@ -641,6 +763,8 @@ function record(
     v = { ...input };
   // Lots whose cache is rebuilt once the entry is in (an edit, a delete, an undo).
   const touched = new Set<string>();
+  // The entry an edit, a delete or an undo is about.
+  let changed = "";
   // Recomputed on every save, so an edit that fills a field clears it (the overlay merges).
   delete v.missing;
   let lot = next.lots.find((l) => l.id === lotId);
@@ -700,7 +824,7 @@ function record(
     kind !== "allocate"
   ) {
     const lotRef = lot.id;
-    const dates = db.entries
+    const dates = liveEntries(db)
       .filter((e) => e.lotId === lotRef)
       .map((e) => e.date)
       .sort();
@@ -1289,20 +1413,26 @@ function record(
       warn(Number.isInteger(n(v, "material" + i)), "วัสดุต้องเป็นจำนวนเต็ม");
       if (v["opening" + i] !== undefined || v["used" + i] !== undefined) {
         const expectedOpening = branchMaterialStock(db, branch, i, date);
-        positive(v, "opening" + i, `ยอดตั้งต้น ${materials[i]}`, true);
+        /* The opening is the system's own figure, not typed: below zero once a receipt it
+         * stood on is deleted (MAT-05), and saving the count again is what puts that right.
+         * It is stored as the system works it out whatever the form sent, so the shelf after
+         * a save is what was counted; a form that showed another figure is told. */
+        const sentOpening = n(v, "opening" + i);
+        v["opening" + i] = String(expectedOpening);
         positive(v, "used" + i, `จำนวนใช้ ${materials[i]}`, true);
         warn(
-          Number.isInteger(n(v, "opening" + i)) &&
+          Number.isInteger(expectedOpening) &&
             Number.isInteger(n(v, "used" + i)),
           "ยอดวัสดุต้องเป็นจำนวนเต็ม",
         );
         warn(
-          n(v, "opening" + i) === expectedOpening,
+          sentOpening === expectedOpening,
           `ยอดตั้งต้น ${materials[i]} มีการเปลี่ยนแปลง กรุณาโหลดหน้าใหม่`,
         );
         withinStock(
           n(v, "used" + i),
-          expectedOpening,
+          // Using nothing is not over an opening below zero.
+          Math.max(0, expectedOpening),
           `จำนวนใช้ ${materials[i]} เกินยอดตั้งต้น`,
           "",
         );
@@ -1362,31 +1492,6 @@ function record(
       "จำนวนรับจริงต้องเป็นจำนวนเต็ม",
     );
     required(v, "receiver", "ชื่อผู้รับจริง");
-    /* MAT-05: a count of that day or a later one, saved without this receipt in its opening,
-     * already holds the stock in its counted figure, so the shelf would read it twice. An edit
-     * or a restore that leaves the opening as the count saw it is not told off. */
-    const index = materials.indexOf(v.material);
-    const counted = [
-      ...new Map(
-        entries(db, "materials", undefined, branch).map((e) => [e.date, e]),
-      ).values(),
-    ]
-      .filter(
-        (e) =>
-          index >= 0 &&
-          e.date >= date &&
-          Math.abs(
-            branchMaterialStock(db, branch, index, e.date) +
-              n(v, "receivedQuantity") -
-              n(e.values, "opening" + index),
-          ) > 0.001,
-      )
-      .map((e) => e.date)
-      .sort()[0];
-    warn(
-      !counted,
-      `วันที่ ${counted} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`,
-    );
   } else if (kind === "sale") {
     for (const [k, label] of [
       ["boxes", "จำนวนกล่องมาตรฐาน"],
@@ -1425,8 +1530,11 @@ function record(
       "หลอด",
     );
     const hasChiliCount = v.chiliCount !== undefined && v.chiliCount !== "";
+    // An edit keeps the shelf the count was made against (correctedEntry judges a changed
+    // chili figure against it, and drops `chiliExpected` only where the sale never held one).
+    const judged = !correcting || v.chiliExpected === undefined;
     const expectedChili = chiliStock(db, branch) - n(v, "chiliSold");
-    v.chiliExpected = String(expectedChili);
+    if (judged) v.chiliExpected = String(expectedChili);
     if (hasChiliCount) {
       positive(v, "chiliCount", "ยอดตรวจนับน้ำพริก", true);
       warn(
@@ -1434,8 +1542,10 @@ function record(
         "ยอดตรวจนับน้ำพริกต้องเป็นจำนวนหลอดเต็ม",
       );
       warn(
-        n(v, "chiliCount") === expectedChili || v.chiliRemark?.trim(),
-        "ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ",
+        !judged ||
+          n(v, "chiliCount") === expectedChili ||
+          v.chiliRemark?.trim(),
+        chiliMismatch,
       );
     }
     if (n(v, "wasteKg") > 0 || n(v, "riceWasteKg") > 0)
@@ -1597,9 +1707,9 @@ function record(
         : target.kind === "entryEdit" || target.kind === "link"
           ? "ย้อนกลับ"
           : "ลบ";
-    const before = stockLevels(db, role);
     for (const id of cachedOn(db, about ?? target)) touched.add(id);
-    for (const [key, level] of stockLevels(
+    warnShort(
+      db,
       {
         ...after,
         lots: after.lots.map((l) =>
@@ -1607,11 +1717,9 @@ function record(
         ),
       },
       role,
-    ))
-      warn(
-        level >= -0.001 || level >= (before.get(key) ?? 0) - 0.001,
-        `${done}แล้ว${key.split("#")[0]}จะติดลบ (${fmt(level)}) · แก้รายการที่ตามมาก่อน`,
-      );
+      done,
+    );
+    changed = (about ?? target).id;
     required(v, "reason", "เหตุผล");
     v.targetKind = target.kind;
     // The day it is filed under now, an edit's move included.
@@ -1667,6 +1775,7 @@ function record(
     );
     lotId = v.toLotId || target.lotId;
     for (const id of cachedOn(db, target, v.toLotId)) touched.add(id);
+    changed = target.id;
   } else if (kind === "config") {
     // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
     // config entry of the append-only log. Left out, the merge below keeps it.
@@ -1730,6 +1839,15 @@ function record(
     at: new Date().toISOString(),
     values: v,
   });
+  // MAT-05, for a new receipt or count and for every change to one. The re-check of an edit or
+  // a restore (`correcting`) is a scratch save: the save it belongs to says it.
+  if (kind === "materialConfirm" || kind === "materials")
+    changed = next.entries.at(-1)!.id;
+  const recount = !correcting && changed && recountDay(db, next, changed);
+  warn(
+    !recount,
+    `วันที่ ${recount} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`,
+  );
   // DM-09: an edit, a delete or an undo rebuilds the caches it reaches from the live entries.
   if (touched.size)
     next.lots = next.lots.map((l) =>

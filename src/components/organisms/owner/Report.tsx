@@ -13,6 +13,7 @@ import {
   branches,
   entries,
   isClosed,
+  liveEntries,
   lotCost,
   materialPar,
   materialUnitPrice,
@@ -39,10 +40,14 @@ export function Report({
   // Drops a table's sales-money column (by index) from its header and rows.
   const noMoney = <T,>(cells: T[], index: number) =>
     hideSales ? cells.filter((_, i) => i !== index) : cells;
-  const allDates = db.entries
-    .map((e) => e.date)
-    .filter(Boolean)
-    .sort();
+  // Live entries, so one edited onto another day (EDT-24) is inside the starting range.
+  // Only the range the screen opens on: worked out once, not on every render.
+  const [allDates] = useState(() =>
+    liveEntries(db)
+      .map((e) => e.date)
+      .filter(Boolean)
+      .sort(),
+  );
   const [fromDate, setFromDate] = useState(allDates[0] || today());
   const [toDate, setToDate] = useState(allDates.at(-1) || today());
   const [branchFilter, setBranchFilter] = useState("ทั้งหมด");

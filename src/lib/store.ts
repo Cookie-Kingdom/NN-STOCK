@@ -37,6 +37,7 @@ export {
   validPackWeights,
   processed,
   lotProgress,
+  liveEntries,
   centralStock,
   rawAtFoodiva,
   smokedAtFoodiva,

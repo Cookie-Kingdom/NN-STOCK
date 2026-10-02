@@ -44,6 +44,7 @@ export function materialCountDraft(saved?: Entry): Values {
  * the figure is fine.
  */
 export function materialOverStock(opening: number, used: number): string {
-  if (used <= opening) return "";
+  // Using nothing is not over an opening below zero (a receipt it stood on was deleted).
+  if (used <= Math.max(0, opening)) return "";
   return `ใช้เกินยอดตั้งต้น · กรอกได้สูงสุด ${Math.max(0, Math.floor(opening))}`;
 }

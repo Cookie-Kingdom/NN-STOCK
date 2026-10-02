@@ -608,7 +608,7 @@ test("EDT-22 EDT-23 EDT-25 a branch edits and deletes its own chili and material
 
   await step(
     page,
-    "Owner: อ่านการแก้ไขและลบของสาขา ย้อนกลับการลบและการแก้น้ำพริก",
+    "Owner: อ่านการแก้ไขและลบของสาขา ย้อนกลับการลบและการแก้ทั้งสองรายการ",
     async () => {
       await signInAs(page, ACCOUNTS.owner);
       await openMenu(page, "Log");
@@ -623,6 +623,7 @@ test("EDT-22 EDT-23 EDT-25 a branch edits and deletes its own chili and material
         `ลบรายการ · ${chiliReceipt}`,
         `ลบรายการ · ${materialReceipt}`,
         `แก้ไขรายการ · ${chiliReceipt}`,
+        `แก้ไขรายการ · ${materialReceipt}`,
       ]) {
         const row = changeRow(page, title);
         await expect(row).toContainText("ศาลาแดง");
@@ -637,7 +638,7 @@ test("EDT-22 EDT-23 EDT-25 a branch edits and deletes its own chili and material
 
   await step(
     page,
-    "Owner: ศาลาแดงกลับเป็นน้ำพริก 20 หลอด วัสดุ 40 ชิ้น คลัง Owner ติดลบเท่าที่สาขาจดรับ",
+    "Owner: ศาลาแดงกลับเป็นน้ำพริก 20 หลอด วัสดุ 50 ชิ้น คลัง Owner ติดลบเท่าที่สาขาจดรับ",
     async () => {
       await expectOwnerStock(
         page,
@@ -648,8 +649,8 @@ test("EDT-22 EDT-23 EDT-25 a branch edits and deletes its own chili and material
       await expectOwnerStock(
         page,
         MATERIAL,
-        { store: "-40.00", saladaeng: "40.00", minburi: "0.00" },
-        "สาขาจดรับแล้ว 40.00 ชิ้น",
+        { store: "-50.00", saladaeng: "50.00", minburi: "0.00" },
+        "สาขาจดรับแล้ว 50.00 ชิ้น",
       );
     },
   );

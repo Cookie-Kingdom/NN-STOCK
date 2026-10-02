@@ -169,6 +169,12 @@ const bookkeeping: EntryKind[] = [
   "editDecision",
   "void",
 ];
+/** Every live entry that is a step: a deleted one is none, an edited one is where the edit
+ *  put it (EDT-24), and an edit, a link or a delete is no entry of its own. */
+export const liveEntries = (db: Database) =>
+  [...entryIndex(db).byKind.keys()]
+    .filter((kind) => !bookkeeping.includes(kind))
+    .flatMap((kind) => entries(db, kind));
 export function lotProgress(db: Database, lotId: string): Set<EntryKind> {
   const done = new Set<EntryKind>();
   for (const [kind, list] of entryIndex(db).byKind)

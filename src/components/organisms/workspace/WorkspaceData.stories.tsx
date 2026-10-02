@@ -8,7 +8,12 @@ import {
 } from "../../../../.storybook/fixtures";
 import { pick } from "../../../../.storybook/pick";
 import { EntryDetails } from "@/components/organisms/shared/EntryDetails";
-import { entries, type Database, type Entry } from "@/lib/store";
+import {
+  entries,
+  visibleDatabase,
+  type Database,
+  type Entry,
+} from "@/lib/store";
 import { accountById } from "@/lib/accounts";
 import { branchNav, managerNav, ownerNav } from "@/lib/nav";
 import { AppSidebar } from "./AppSidebar";
@@ -103,7 +108,8 @@ const historyData = pick("ข้อมูล", {
  *  - แก้ไขและลบ (EDT-22..22): "ประวัติการแก้ไขและลบ" above the log, every account's changes
  *    for the Owner and ศาลาแดง's own for the branch; "แก้ไข" and "ลบรายการ" on each entry
  *    the account may change, "ลบแล้ว" on the deleted one.
- *  - ซ่อนยอดขาย: the Account Manager's log, sales without amounts and no edit button. */
+ *  - ซ่อนยอดขาย: the Account Manager's log, sales without amounts; "แก้ไข" on a sale opens
+ *    its form without "ยอดขาย LINE MAN". */
 export const History: StoryObj<{
   db: Database;
   role: "owner" | "branch";
@@ -117,7 +123,7 @@ export const History: StoryObj<{
   args: { db: historyData.initial, role: "owner", hideSales: false },
   render: ({ db, role, hideSales }) => (
     <HistoryPanel
-      db={db}
+      db={visibleDatabase(db, hideSales)}
       role={role}
       branch={role === "branch" ? "ศาลาแดง" : ""}
       hideSales={hideSales}
@@ -167,7 +173,7 @@ export const EntryDetail: StoryObj<{
     <EntryDetails
       key={`${detail.entry.id}:${open}`}
       entry={detail.entry}
-      db={detail.db}
+      db={visibleDatabase(detail.db, hideSales)}
       role="owner"
       open={open}
       hideSales={hideSales}

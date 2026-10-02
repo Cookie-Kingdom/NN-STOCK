@@ -3,13 +3,16 @@ import {
   ACCOUNTS,
   NO_LOT,
   SCREENS,
+  bangkokDate,
   branchReceive,
   branchReceiveChili,
   branchStockRow,
+  changeRow,
   expectWarning,
   field,
   historyEntry,
   issueSmokePoOnNewBatch,
+  logRow,
   lotSelect,
   meatStockRow,
   openBranchTask,
@@ -23,6 +26,7 @@ import {
   step,
   tableRow,
   tableSection,
+  toast,
   topDialog,
   typeValue,
 } from "./helpers";
@@ -87,7 +91,7 @@ test("BR-02 BR-03 BR-04 BR-08 branch receives 10 kg ไม่ระบุ Lot wi
 
 /* MAT-01: nobody sends material to a branch. The branch writes down what it received on
  * the "รับวัสดุ" tab, whose form is the screen itself; 「จดบันทึก」 leads there. */
-test("MAT-01 branch records two materials in one save on รับวัสดุ, reached from จดบันทึก", async ({
+test("MAT-01 MAT-05 branch records two materials in one save on รับวัสดุ, reached from จดบันทึก; a receipt changed under a count is warned about and the count is saved again", async ({
   page,
 }) => {
   const receiver = "ผู้ดูแลสาขาศาลาแดง";
@@ -241,11 +245,257 @@ test("MAT-01 branch records two materials in one save on รับวัสด�
       ).toHaveCount(3);
     },
   );
+
+  /* MAT-05 for a receipt that is changed afterwards: moved to another day, deleted, put
+   * back, or its move undone. Each is saved, and says which day's count no longer stands on
+   * its opening. Here: 50 + 10 กล่องพิมพ์ลาย and 120 ถุงซีลเนื้อ received today, counted today. */
+  const today = bangkokDate();
+  const yesterday = bangkokDate(-1);
+  const edited = "แก้ไขรายการแล้ว ระบบคำนวณยอดใหม่และเก็บค่าเดิมไว้ในประวัติ";
+  const deleted =
+    "ลบรายการแล้ว ระบบคำนวณยอดใหม่ · กู้คืนได้ที่ประวัติการแก้ไขและลบ";
+  const recount = (date: string) =>
+    `วันที่ ${date} ตรวจนับวัสดุไปแล้ว · บันทึกยอดตรวจนับของวันนั้นอีกครั้งให้ยอดตรงกัน`;
+  const COUNT = "ตรวจนับสต๊อกวัสดุวันนี้";
+  const shelf = (material: string) =>
+    tableRow(page, `ตารางสต๊อกทั้งหมด · ${BRANCH}`, material)
+      .getByRole("cell")
+      .nth(2);
+  const opening = (material: string) =>
+    tableRow(page, COUNT, material).getByRole("cell").nth(1);
+  /** Opens the count of `date`, lets `fill` type into it, and saves it. */
+  const saveCount = async (date: string, fill = async () => {}) => {
+    await openMenu(page, COUNT);
+    await tableSection(page, COUNT).getByLabel("วันที่ทำรายการ").fill(date);
+    await pointAndClick(
+      page,
+      main.getByRole("button", {
+        name: /^(ตรวจนับวัสดุวันนี้|แก้ไขยอดนับ) \(/,
+      }),
+    );
+    await fill();
+    await pointAndClick(
+      page,
+      main.getByRole("button", { name: /^บันทึกและล็อก/ }),
+    );
+    await expect(
+      main.getByRole("status").filter({
+        hasText: "บันทึกการใช้วัสดุวันนี้แล้ว · กลับสู่โหมดดูข้อมูล",
+      }),
+    ).toBeVisible();
+  };
+  /** What the count screen says after a save about a later day's count (MAT-05). */
+  const recountNotice = () => main.getByText(/ตรวจนับวัสดุไปแล้ว/);
+  /** The history row of the receipt of `quantity` pieces, opened. */
+  const openReceipt = async (quantity: string) => {
+    await openMenu(page, "ประวัติ");
+    const entry = main
+      .locator("details")
+      .filter({
+        has: page.locator("summary", { hasText: /^รับวัสดุเข้าสาขา/ }),
+      })
+      .filter({ hasText: new RegExp(`ชิ้น\\s*${quantity}(?!\\d)`) });
+    await pointAndClick(page, entry.locator("summary"));
+    return entry;
+  };
+  /** Deletes the newest live count of `date` from its history row. */
+  const deleteNewestCount = async (date: string) => {
+    await openMenu(page, "ประวัติ");
+    const count = main
+      .locator("details")
+      .filter({
+        has: page.locator("summary", {
+          hasText: new RegExp(`^เช็ควัสดุ 10 รายการ ${date}`),
+        }),
+      })
+      .filter({ hasNot: page.locator("summary", { hasText: "ลบแล้ว" }) })
+      .first();
+    await pointAndClick(page, count.locator("summary"));
+    await pointAndClick(
+      page,
+      count.getByRole("button", { name: "ลบรายการ", exact: true }),
+    );
+    await pointAndClick(
+      page,
+      count.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+    );
+  };
+  /** The one-press undo of a change, from the change log on the history tab. */
+  const undo = async (change: string) => {
+    await openMenu(page, "ประวัติ");
+    const row = changeRow(page, change);
+    await pointAndClick(
+      page,
+      row.getByRole("button", { name: "ย้อนกลับ", exact: true }),
+    );
+    await expect(row).toContainText("ย้อนกลับแล้ว");
+  };
+
+  await step(
+    page,
+    "สาขาศาลาแดง: นับเมื่อวานไว้แล้ว ย้ายวันรับ 50 ชิ้นไปเมื่อวาน ถูกเตือนให้นับเมื่อวานใหม่ แล้วนับใหม่",
+    async () => {
+      // Nothing received or found yesterday: today's count opens on what it did.
+      await saveCount(yesterday);
+      await expect(recountNotice()).toHaveCount(0);
+      const entry = await openReceipt("50");
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "แก้ไข", exact: true }),
+      );
+      await entry.getByLabel("วันที่ทำรายการ").fill(yesterday);
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+      );
+      await expect(toast(page, edited)).toHaveText(
+        `${edited} · ${recount(yesterday)}`,
+      );
+      // What the warning asks for: yesterday's count again, now on the 50 received. 20 were
+      // used, and 5 each of two materials nobody wrote down were found on the shelf.
+      await saveCount(yesterday, async () => {
+        await expect(opening("กล่องพิมพ์ลาย")).toHaveText("50");
+        await main.getByLabel("จำนวนใช้ กล่องพิมพ์ลาย วันนี้").fill("20");
+        await main.getByLabel("ยอดตรวจนับจริง กล่องพิมพ์ลาย").fill("30");
+        for (const found of ["กระดาษรอง", "ถุงซีลข้าว"])
+          await main.getByLabel(`ยอดตรวจนับจริง ${found}`).fill("5");
+        await main.getByLabel("เหตุผลที่แก้ไขยอดวัสดุ").fill("ย้ายวันรับวัสดุ");
+      });
+      // Yesterday now leaves 30 and the 5s found: today's count opened on other figures, and
+      // the count screen says so itself.
+      await expect(recountNotice()).toHaveText(recount(today));
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: ย้อนกลับการย้ายวัน ถูกเตือน · ลบรายการรับที่ใช้ไปแล้ว ชั้นวางติดลบ ถูกเตือนทั้งสองเรื่อง",
+    async () => {
+      await undo("แก้ไขรายการ · รับวัสดุเข้าสาขา");
+      const undone = "ย้อนกลับแล้ว ระบบใช้ค่าเดิมและคำนวณยอดใหม่";
+      await expect(toast(page, undone)).toHaveText(
+        `${undone} · ${recount(yesterday)}`,
+      );
+      // Back on today: 60 received, 20 of them used yesterday. Without the 50 the shelf is
+      // 10 short, and today's count opened on what is no longer there.
+      const entry = await openReceipt("50");
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "ลบรายการ", exact: true }),
+      );
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "ยืนยันลบ", exact: true }),
+      );
+      await expect(toast(page, deleted)).toHaveText(
+        [
+          deleted,
+          `ลบแล้วกล่องพิมพ์ลาย สาขา${BRANCH}จะติดลบ (-10.00) · แก้รายการที่ตามมาก่อน`,
+          recount(today),
+        ].join(" · "),
+      );
+      await expect(entry.locator("summary")).toContainText("ลบแล้ว");
+      await openMenu(page, "สต๊อก");
+      await expect(shelf("กล่องพิมพ์ลาย")).toHaveText("-10.00");
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: ยอดตั้งต้นวันนี้ติดลบ บันทึกยอดนับอีกครั้งได้ สต๊อกเท่ากับที่นับ",
+    async () => {
+      await saveCount(today, async () => {
+        await expect(opening("กล่องพิมพ์ลาย")).toHaveText("-10");
+        // Nothing used of an opening below zero: no warning on the box.
+        await expect(
+          main.getByLabel("จำนวนใช้ กล่องพิมพ์ลาย วันนี้"),
+        ).toHaveValue("0");
+        await expect(main.getByText(/ใช้เกินยอดตั้งต้น/)).toHaveCount(0);
+        await main.getByLabel("ยอดตรวจนับจริง กล่องพิมพ์ลาย").fill("8");
+        await main
+          .getByLabel("เหตุผลส่วนต่าง กล่องพิมพ์ลาย")
+          .fill("ลบรายการรับที่จดซ้ำ");
+        // The 5 found yesterday open today, and are used up.
+        for (const found of ["กระดาษรอง", "ถุงซีลข้าว"]) {
+          await expect(opening(found)).toHaveText("5");
+          await main.getByLabel(`จำนวนใช้ ${found} วันนี้`).fill("5");
+        }
+        await main
+          .getByLabel("เหตุผลที่แก้ไขยอดวัสดุ")
+          .fill("ลบรายการรับที่จดซ้ำ");
+      });
+      // The newest counted day: no later count stands on it.
+      await expect(recountNotice()).toHaveCount(0);
+      await openMenu(page, "สต๊อก");
+      await expect(shelf("กล่องพิมพ์ลาย")).toHaveText("8.00");
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: กู้คืนรายการรับ ถูกเตือนให้นับวันนี้ใหม่ · แก้ชื่อผู้รับ ไม่ถูกเตือน",
+    async () => {
+      await undo("ลบรายการ · รับวัสดุเข้าสาขา");
+      const restored = "กู้คืนรายการแล้ว ระบบคำนวณยอดใหม่";
+      await expect(toast(page, restored)).toHaveText(
+        `${restored} · ${recount(today)}`,
+      );
+      // An edit that leaves every count's opening as it is says nothing more.
+      const entry = await openReceipt("50");
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "แก้ไข", exact: true }),
+      );
+      await typeValue(page, entry.getByLabel("ชื่อผู้รับจริง"), "ผู้ช่วยสาขา");
+      await pointAndClick(
+        page,
+        entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+      );
+      await expect(toast(page, edited)).toHaveText(edited);
+    },
+  );
+
+  // Ten materials stand on one count, so its delete used to say a line for each: now one,
+  // naming the materials that go short (here the two found yesterday and used today). Today's
+  // count opened on what that count left, so it is to be saved again too.
+  await step(
+    page,
+    "สาขาศาลาแดง: ลบยอดนับของเมื่อวานที่ยอดวันนี้ตั้งอยู่ เตือนบรรทัดเดียวรวมทุกวัสดุ และให้นับวันนี้ใหม่",
+    async () => {
+      await deleteNewestCount(yesterday);
+      await expect(toast(page, deleted)).toHaveText(
+        `${deleted} · ลบแล้ววัสดุ 2 รายการ สาขา${BRANCH}จะติดลบ (กระดาษรอง -5.00, ถุงซีลข้าว -5.00) · แก้รายการที่ตามมาก่อน · ${recount(today)}`,
+      );
+      await openMenu(page, "สต๊อก");
+      await expect(shelf("กระดาษรอง")).toHaveText("-5.00");
+    },
+  );
+
+  /* Today was counted twice: first on the 50 and 120 received, and again after the 10 more
+   * and the delete of the 50. Deleting the second round leaves the first one standing, and
+   * that one opened on 50 where the day now opens on the 60 received: it is the day's count
+   * again, so the delete says to save today's count again. */
+  await step(
+    page,
+    "สาขาศาลาแดง: ลบยอดนับรอบล่าสุดของวันนี้ รอบก่อนหน้ากลับมาเป็นยอดของวัน ถูกเตือนให้นับวันนี้ใหม่",
+    async () => {
+      await deleteNewestCount(today);
+      await expect(toast(page, deleted)).toHaveText(
+        `${deleted} · ${recount(today)}`,
+      );
+      // The first round stands: nothing used of the 60 received, none of the 5s found.
+      await openMenu(page, "สต๊อก");
+      await expect(shelf("กล่องพิมพ์ลาย")).toHaveText("60.00");
+      await expect(shelf("กระดาษรอง")).toHaveText("0.00");
+      await openMenu(page, COUNT);
+      await expect(opening("กล่องพิมพ์ลาย")).toHaveText("60");
+    },
+  );
 });
 
 /* STK-43: chili is not allocated either. The branch writes down the tubes it received, and
  * its sales draw on that. */
-test("STK-43 branch records the chili it received; the stock goes up and a sale draws on it", async ({
+test("STK-43 branch records the chili it received; the stock goes up and a sale draws on it; an edit of the sale judges its chili count again only when a chili figure changes, against the shelf it was counted on", async ({
   page,
 }) => {
   await signInAs(page, ACCOUNTS.saladaeng);
@@ -338,6 +588,112 @@ test("STK-43 branch records the chili it received; the stock goes up and a sale 
       await expect(counted()).toContainText("ตรงกัน");
       await expect(counted()).toContainText("ตอนนับควรเหลือ 17.00 หลอด");
       await expect(counted()).not.toContainText("ยอดไม่ตรง");
+    },
+  );
+
+  const edited = "แก้ไขรายการแล้ว ระบบคำนวณยอดใหม่และเก็บค่าเดิมไว้ในประวัติ";
+  /** Corrects figures of the sale from its history row: one, or several in one edit. */
+  const editSale = async (
+    label: RegExp,
+    value: string,
+    ...more: [label: RegExp, value: string][]
+  ) => {
+    await openMenu(page, "ประวัติ");
+    const entry = logRow(page, "บันทึกยอดขาย / Waste");
+    await pointAndClick(page, entry.locator("summary"));
+    // The shelf the count was made against is a named figure of the row, not a raw key.
+    await expect(entry).toContainText("น้ำพริกที่ควรเหลือตอนนับ");
+    await expect(entry).not.toContainText("chiliExpected");
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "แก้ไข", exact: true }),
+    );
+    for (const [name, typed] of [[label, value], ...more] as const)
+      await typeValue(page, entry.getByLabel(name), typed);
+    await pointAndClick(
+      page,
+      entry.getByRole("button", { name: "บันทึกการแก้ไข" }),
+    );
+  };
+
+  // An edit that leaves the chili figures alone does not judge the count again: the shelf
+  // grew after it, and the sale's money is all that was corrected.
+  await step(
+    page,
+    "สาขาศาลาแดง: แก้ยอดขาย LINE MAN ของรายการขาย ไม่ถูกเตือนเรื่องน้ำพริก ยอดนับยังตรงกัน",
+    async () => {
+      await editSale(/^ยอดขาย LINE MAN/, "900");
+      await expect(toast(page, edited)).toHaveText(edited);
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("17.00");
+      await expect(counted()).toContainText("ตรงกัน");
+      await expect(counted()).toContainText("ตอนนับควรเหลือ 17.00 หลอด");
+      await expect(counted()).not.toContainText("ยอดไม่ตรง");
+    },
+  );
+
+  // A corrected count is judged against the shelf it was counted on (17), not today's (27),
+  // which holds the 10 tubes received afterwards.
+  await step(
+    page,
+    "สาขาศาลาแดง: แก้ยอดนับน้ำพริกเป็น 18 เทียบกับชั้นวางตอนนับ (17) ไม่ใช่ตอนนี้ (27) ถูกเตือน",
+    async () => {
+      await editSale(/^ตรวจนับน้ำพริกจริงปลายวัน/, "18");
+      await expect(toast(page, edited)).toHaveText(
+        `${edited} · ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ`,
+      );
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ควรเหลือหลังตัดสต๊อก")).toHaveText("27.00");
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("18.00");
+      await expect(counted()).toContainText("ยอดไม่ตรง");
+      await expect(counted()).toContainText("ตอนนับควรเหลือ 17.00 หลอด");
+    },
+  );
+
+  await step(
+    page,
+    "สาขาศาลาแดง: แก้ยอดนับเป็น 27 เท่าชั้นวางตอนนี้ ยังถูกเตือน · แก้กลับเป็น 17 ตรงกัน ไม่เตือน",
+    async () => {
+      await editSale(/^ตรวจนับน้ำพริกจริงปลายวัน/, "27");
+      await expect(toast(page, edited)).toHaveText(
+        `${edited} · ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ`,
+      );
+      // The day table, so the history row is closed again for the next edit.
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("27.00");
+      await expect(counted()).toContainText("ยอดไม่ตรง");
+      await editSale(/^ตรวจนับน้ำพริกจริงปลายวัน/, "17");
+      await expect(toast(page, edited)).toHaveText(edited);
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("17.00");
+      await expect(counted()).toContainText("ตรงกัน");
+      await expect(counted()).toContainText("ตอนนับควรเหลือ 17.00 หลอด");
+      await expect(counted()).not.toContainText("ยอดไม่ตรง");
+    },
+  );
+
+  // The remark is what answers a count that is off: taking only the remark away judges the
+  // count again, against the shelf it was counted on.
+  await step(
+    page,
+    "สาขาศาลาแดง: แก้ยอดนับเป็น 16 พร้อมหมายเหตุ ไม่เตือน · ลบเฉพาะหมายเหตุออก ยอดยังไม่ตรง ถูกเตือน",
+    async () => {
+      const remark = /^หมายเหตุเมื่อน้ำพริกไม่ตรง/;
+      await editSale(/^ตรวจนับน้ำพริกจริงปลายวัน/, "16", [remark, "หลอดแตก 1"]);
+      await expect(toast(page, edited)).toHaveText(edited);
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("16.00");
+      await expect(counted()).toContainText("ยอดไม่ตรง");
+      await expect(chili("หมายเหตุส่วนต่าง")).toHaveText("หลอดแตก 1");
+      await editSale(remark, "");
+      await expect(toast(page, edited)).toHaveText(
+        `${edited} · ยอดนับน้ำพริกไม่ตรง · ควรระบุหมายเหตุ`,
+      );
+      await openMenu(page, SCREENS.branchDay.menu);
+      await expect(chili("ตรวจนับจริงปลายวัน")).toHaveText("16.00");
+      await expect(counted()).toContainText("ยอดไม่ตรง");
+      await expect(counted()).toContainText("ตอนนับควรเหลือ 17.00 หลอด");
+      await expect(chili("หมายเหตุส่วนต่าง")).toHaveText("—");
     },
   );
 });

@@ -2,7 +2,12 @@ import { expect, test } from "vitest";
 import { accountById } from "@/lib/accounts";
 import { openLocalDb, readState, saveState } from "@/lib/local-db.server";
 import { restoreSaleMoney, stripSaleMoney } from "@/lib/sale-money";
-import { seed, type Database, type Entry } from "@/lib/store";
+import {
+  entries as liveEntries,
+  seed,
+  type Database,
+  type Entry,
+} from "@/lib/store";
 
 /* Same scenario as supabase/tests/app_state_sale_money_test.sql, against the local backend. */
 const owner = accountById("owner");
@@ -131,6 +136,98 @@ test("a manager direct edit keeps the current money and works out menuTotal agai
     "to.lineMan": "700",
     "to.menuTotal": "380",
   });
+});
+
+test("a manager edit made by hand with sale money in it is stripped and filled from the stored money", () => {
+  const db = stored();
+  const seen = stripSaleMoney(readState(db).payload);
+  const edit = entry({
+    id: "x1",
+    kind: "entryEdit",
+    role: "owner",
+    actor: "manager",
+    values: {
+      targetId: "s1",
+      targetKind: "sale",
+      "to.boxes": "1",
+      "to.chiliAddons": "1",
+      "from.lineMan": "2",
+      "to.lineMan": "1",
+      "to.revenue": "3",
+      "to.menuTotal": "4",
+    },
+  });
+  saveState(db, manager, { ...seen, entries: [...seen.entries, edit] }, 2);
+  const { entries } = readState(db).payload;
+  expect(entries[0]).toEqual(sale);
+  expect(entries[2].values).toEqual({
+    targetId: "s1",
+    targetKind: "sale",
+    "to.boxes": "1",
+    "to.chiliAddons": "1",
+    "from.lineMan": "700",
+    "from.revenue": "700",
+    "from.menuTotal": "700",
+    "to.lineMan": "700",
+    "to.revenue": "700",
+    "to.menuTotal": "380",
+  });
+});
+
+test("a manager's undo of its edit, and its delete and restore of a sale, leave the stored money", () => {
+  const db = stored();
+  const saleNow = () =>
+    liveEntries(readState(db).payload, "sale").find((e) => e.id === "s1")
+      ?.values;
+  /** One hand-made entry appended from the manager's stripped copy. */
+  const act = (id: string, kind: Entry["kind"], values: Entry["values"]) => {
+    const { payload, revision } = readState(db);
+    const seen = stripSaleMoney(payload);
+    const added = entry({ id, kind, role: "owner", actor: "manager", values });
+    saveState(
+      db,
+      manager,
+      { ...seen, entries: [...seen.entries, added] },
+      revision,
+    );
+    return saleNow();
+  };
+  const boxes = (count: string) => ({
+    targetId: "s1",
+    targetKind: "sale",
+    "to.boxes": count,
+    "to.chiliAddons": "0",
+  });
+  expect(act("x1", "entryEdit", boxes("1"))).toMatchObject({
+    boxes: "1",
+    lineMan: "700",
+    menuTotal: "350",
+  });
+  // Its undo: the sale reads as stored again.
+  expect(act("u1", "void", { targetId: "x1" })).toEqual(sale.values);
+  // Deleted, then put back.
+  expect(act("v1", "void", { targetId: "s1" })).toBeUndefined();
+  expect(act("v2", "void", { targetId: "v1" })).toEqual(sale.values);
+  expect(readState(db).payload.entries[0]).toEqual(sale);
+  // The Owner's undo of a manager edit, from the full copy.
+  expect(act("x2", "entryEdit", boxes("5"))).toMatchObject({
+    boxes: "5",
+    menuTotal: "1750",
+  });
+  const { payload, revision } = readState(db);
+  const undo = entry({
+    id: "u2",
+    kind: "void",
+    role: "owner",
+    values: { targetId: "x2" },
+  });
+  saveState(
+    db,
+    owner,
+    { ...payload, entries: [...payload.entries, undo] },
+    revision,
+  );
+  expect(saleNow()).toEqual(sale.values);
 });
 
 // 0039 (current_sale_money): a branch edits its own sale directly, so that edit is the sale's

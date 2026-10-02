@@ -9,6 +9,8 @@ import {
   saleMoneyKeys,
   mutate,
   visibleDatabase,
+  type Database,
+  type Values,
 } from "@/lib/store";
 import { restoreSaleMoney, stripSaleMoney } from "@/lib/sale-money";
 import { chillDay, last, purchaseInfo, setup } from "./fixtures";
@@ -84,6 +86,108 @@ describe("C4 Account Manager", () => {
       revenue: "190000",
       menuTotal: sale.values.menuTotal,
     });
+  });
+
+  const MONEY = /"(to\.|from\.)?(revenue|lineMan|menuTotal)"/;
+  /** The manager's save as the server keeps it: mutate on the copy without money, then
+   *  save_app_state's restore (restoreSaleMoney locally) against the stored `full`. */
+  const managerSave = (
+    full: Database,
+    kind: "entryEdit" | "void",
+    values: Values,
+  ) => {
+    const sent = mutate(
+      stripSaleMoney(full),
+      manager.role,
+      kind,
+      values,
+      "",
+      full.entries.at(-1)!.date,
+    );
+    expect(JSON.stringify(sent)).not.toMatch(MONEY);
+    return restoreSaleMoney(full, sent);
+  };
+  const saleOf = (db: Database, id: string) =>
+    entries(db, "sale").find((e) => e.id === id)?.values;
+
+  test("its edit of a sale's boxes and chili gives the Owner the money an Owner edit gives", () => {
+    const { s, sale } = saleWithEdit();
+    const change = {
+      targetId: sale.id,
+      values: JSON.stringify({ boxes: "10", chiliAddons: "2" }),
+      reason: "แก้จำนวน",
+    };
+    const byOwner = mutate(s.db, "owner", "entryEdit", change, "", sale.date);
+    const byManager = managerSave(s.db, "entryEdit", change);
+    expect(saleOf(byManager, sale.id)).toEqual(saleOf(byOwner, sale.id));
+    expect(saleOf(byManager, sale.id)).toMatchObject({
+      boxes: "10",
+      chiliAddons: "2",
+      lineMan: "190000",
+      revenue: "190000",
+      menuTotal: String(
+        10 * Number(s.db.config.boxPrice) + 2 * Number(s.db.config.chiliPrice),
+      ),
+    });
+    expect(revenue(byManager)).toBe(revenue(byOwner));
+  });
+
+  test("a call carrying sale money from its copy neither sets nor blanks the amount", () => {
+    const { s, sale } = saleWithEdit();
+    for (const money of [
+      { lineMan: "" },
+      { lineMan: "5", revenue: "5", menuTotal: "5" },
+    ] as Values[]) {
+      const saved = managerSave(s.db, "entryEdit", {
+        targetId: sale.id,
+        values: JSON.stringify({ soldKg: "62", ...money }),
+        reason: "แก้น้ำหนัก",
+      });
+      const now = saleOf(saved, sale.id)!;
+      expect(now).toMatchObject({
+        soldKg: "62",
+        lineMan: "190000",
+        revenue: "190000",
+        menuTotal: sale.values.menuTotal,
+      });
+      // LINE MAN is not called missing because the manager's form had no such field.
+      expect(now.missing ?? "").toBe("");
+    }
+  });
+
+  test("undoes its own edit of a sale, and the Owner undoes it: the sale and its money are as before", () => {
+    const { s, sale } = saleWithEdit();
+    const before = saleOf(s.db, sale.id);
+    const edited = managerSave(s.db, "entryEdit", {
+      targetId: sale.id,
+      values: JSON.stringify({ boxes: "10", soldKg: "62" }),
+      reason: "แก้จำนวน",
+    });
+    expect(saleOf(edited, sale.id)).not.toEqual(before);
+    const undo = { targetId: edited.entries.at(-1)!.id, reason: "ย้อนกลับ" };
+    const byManager = managerSave(edited, "void", undo);
+    expect(saleOf(byManager, sale.id)).toEqual(before);
+    expect(revenue(byManager)).toBe(revenue(s.db));
+    const byOwner = mutate(edited, "owner", "void", undo, "", sale.date);
+    expect(saleOf(byOwner, sale.id)).toEqual(before);
+  });
+
+  test("deletes a sale and puts it back: the money is the stored one", () => {
+    const { s, sale } = saleWithEdit();
+    const gone = managerSave(s.db, "void", {
+      targetId: sale.id,
+      reason: "ซ้ำ",
+    });
+    expect(entries(gone, "sale")).toEqual([]);
+    expect(revenue(gone)).toBe(0);
+    const back = managerSave(gone, "void", {
+      targetId: gone.entries.at(-1)!.id,
+      reason: "ลบผิด",
+    });
+    expect(saleOf(back, sale.id)).toEqual(saleOf(s.db, sale.id));
+    expect(revenue(back)).toBe(190000);
+    // Stored history is the Owner's, money and all.
+    expect(back.entries.slice(0, s.db.entries.length)).toEqual(s.db.entries);
   });
 
   test("sees no sales money, but still sees purchase prices and costs", () => {

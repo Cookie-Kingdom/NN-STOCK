@@ -6,10 +6,13 @@ import {
 } from "@/components/organisms/owner/lotSteps";
 import { useOwnerAlerts as ownerAlerts } from "@/components/organisms/owner/useOwnerAlerts";
 import {
+  mutate,
   openPurchasePos,
   smokedAtFoodiva,
   titles,
   unlinkedSummary,
+  type Database,
+  type Values,
 } from "@/lib/store";
 import {
   confirm,
@@ -113,6 +116,62 @@ test("DASH-02 counts its 30 days back from today, not from the newest entry", ()
   expect(activeBatches(s.db, "2026-10-10").map((lot) => lot.id)).toEqual([
     batch,
   ]);
+});
+
+test("DASH-02 reads live entries: a deleted one keeps no batch active, a moved one counts where it is now", () => {
+  const s = setup();
+  purchase(s, "40");
+  confirm(s, "40");
+  dispatch(s, "");
+  const first = s.db.lots.at(-1)!.id;
+  dispatch(s, "");
+  const second = s.db.lots.at(-1)!.id;
+  /* Every save is stamped now: put each one back on its business day, but for `recent`,
+   * written down on 5 Oct. A new array, so the entry index is built again. */
+  const stamped = (db: Database, recent = ""): Database => ({
+    ...db,
+    entries: db.entries.map((e) => ({
+      ...e,
+      at: `${e.id === recent ? "2026-10-05" : day}T08:00:00.000Z`,
+    })),
+  });
+  const active = (db: Database, asOf = "2026-10-10") =>
+    activeBatches(db, asOf).map((lot) => lot.id);
+  const change = (db: Database, kind: "entryEdit" | "void", values: Values) =>
+    mutate(db, "owner", kind, { reason: "x", ...values }, "", day);
+  expect(active(stamped(s.db))).toEqual([]);
+  // Chef House's weigh-in on the first batch, written down late.
+  const weighed = mutate(
+    s.db,
+    "owner",
+    "cmReceive",
+    { receivedKg: "40", arrival: "08:00" },
+    first,
+    day,
+  );
+  const id = weighed.entries.at(-1)!.id;
+  expect(active(stamped(weighed, id))).toEqual([first]);
+  // Moved to the other batch (EDT-24): active there, not here.
+  const moved = change(weighed, "entryEdit", {
+    targetId: id,
+    values: "{}",
+    toLotId: second,
+  });
+  expect(active(stamped(moved, id))).toEqual([second]);
+  // The correction itself, made within the 30 days, makes no batch active.
+  expect(active(stamped(moved, moved.entries.at(-1)!.id))).toEqual([]);
+  // Deleted: neither.
+  expect(
+    active(stamped(change(weighed, "void", { targetId: id }), id)),
+  ).toEqual([]);
+  // Re-dated into the 30 days: active by its business date as it stands now.
+  const dated = change(weighed, "entryEdit", {
+    targetId: id,
+    values: "{}",
+    toDate: "2026-09-20",
+  });
+  expect(active(stamped(weighed), "2026-10-15")).toEqual([]);
+  expect(active(stamped(dated), "2026-10-15")).toEqual([first]);
 });
 
 test("จดล่าสุด is the newest live note on the batch, not the furthest along", () => {
