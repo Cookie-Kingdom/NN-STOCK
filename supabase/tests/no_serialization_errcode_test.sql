@@ -4,7 +4,7 @@
 -- retryable and re-runs the whole transaction. A function that raises one of them on purpose
 -- (save_app_state's stale-revision check did) fails the same way on every retry, so the
 -- request never ends and pins the database CPU. Raise a PostgREST custom code such as PT409
--- instead (migration 20260924000022).
+-- instead.
 --
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/no_serialization_errcode_test.sql
 

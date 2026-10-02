@@ -22,8 +22,8 @@ import {
 } from "@/lib/store";
 import { sampleData } from "@/lib/store/demo";
 
-/* The server side of the local SQLite mode (what e2e runs on), and its parity with migration
- * 20261002000041: the same state and cases as supabase/tests/v2_app_state_test.sql, read from
+/* The server side of the local SQLite mode (what e2e runs on), and its parity with the migrations
+ * (20261002000004, 20261002000005): the same state and cases as supabase/tests/v2_app_state_test.sql, read from
  * that file by their dollar-quote tags. */
 const owner = accountById("owner")!;
 const manager = accountById("manager")!;
@@ -41,7 +41,7 @@ const unprefixed = (key: string) => key.replace(/^(to|from)\./, "");
 
 test("branchScope equals the rule JSON in the migration", () => {
   expect(branchScope).toEqual(
-    tagged("supabase/migrations/20261002000041_v2_note_taking.sql", "rules"),
+    tagged("supabase/migrations/20261002000004_app_state_scope.sql", "rules"),
   );
 });
 

@@ -12,7 +12,7 @@ type RowResult = {
   error: { message: string } | null;
 };
 /* save_app_state returns the new revision and nothing else: shipping the payload back
- * only to read one number off it was a large slice of every save (migration 0017). */
+ * only to read one number off it was a large slice of every save. */
 type SaveResult = {
   data: { revision: number } | null;
   error: { message: string; code?: string } | null;
@@ -150,7 +150,7 @@ function withTimeout<
 function readRow(): Promise<RowResult> {
   if (!supabase) return localRequest();
   /* load_app_state, not a select on app_state: the server strips sale money from the Account
-   * Manager's copy (migration 0021), which has no direct read on the table. */
+   * Manager's copy, which has no direct read on the table. */
   return withTimeout(
     supabase.rpc("load_app_state").then(({ data, error }) => ({
       data: (data as AppStateRow[] | null)?.[0] ?? null,
@@ -213,7 +213,7 @@ async function loadDatabase(background = false): Promise<boolean> {
     return false;
   }
   if (!data) {
-    // Only the Owner / Account Manager create the row: save_app_state refuses a branch (0034).
+    // Only the Owner / Account Manager create the row: save_app_state refuses a branch.
     if (appendOnly) {
       reportError("ยังไม่มีข้อมูลในระบบ กรุณาให้ Owner เข้าสู่ระบบก่อน");
       return false;
@@ -314,9 +314,9 @@ let actor: Entry["actor"];
 export function setSaveActor(next: Entry["actor"]) {
   actor = next;
 }
-/* A branch loads only its role-scoped copy (load_app_state, migrations 0028 and 0033), so it cannot send
- * the whole payload back: its saves go to append_entries with just the new entries (lots must be
- * empty, and save_app_state refuses a branch, migration 0034). The Owner and the Account Manager
+/* A branch loads only its role-scoped copy (load_app_state), so it cannot send the whole payload
+ * back: its saves go to append_entries with just the new entries (lots must be empty, and
+ * save_app_state refuses a branch). The Owner and the Account Manager
  * keep save_app_state. */
 let appendOnly = false;
 /** session.ts sets this from the signed-in account's role: true for a branch account. */
@@ -324,7 +324,7 @@ export function setSaveAppendOnly(next: boolean) {
   appendOnly = next;
 }
 /* save_app_state raises the stale revision as PT409 (HTTP 409), never 40001: PostgREST retries
- * 40001 forever (migration 0022). The local API sends only the message. A save built on a
+ * 40001 forever. The local API sends only the message. A save built on a
  * history that a reload has since replaced comes back as "Existing history cannot be
  * changed/removed" (42501): the same situation, so the same quiet reload and rebuild. */
 const isConflict = (error: { message: string; code?: string }) =>

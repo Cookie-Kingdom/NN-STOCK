@@ -1,6 +1,6 @@
 import type { Database, Entry, Lot } from "./store";
 
-/** What a non-owner save sends to append_entries (latest in migration 20260928000030): the entries
+/** What a non-owner save sends to append_entries (supabase/migrations/20261002000005_app_state_rpc.sql): the entries
  *  `next` added to `base` (by id) and the lots it changed. A non-owner holds only its
  *  role-scoped copy of the log, so it can never send the whole payload back. */
 export type AppendDelta = { entries: Entry[]; lots: Lot[] };

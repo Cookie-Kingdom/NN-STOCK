@@ -11,7 +11,7 @@ import {
  * or a payroll payment's amount, name and payer (V2-ACC-01, V2-ACC-02), and a save from its
  * stripped copy must not erase them for everyone else.
  * JS port of manager_strip_values / manager_strip_entries / manager_restore_entries in
- * supabase/migrations/20261002000041_v2_note_taking.sql.
+ * supabase/migrations/20261002000004_app_state_scope.sql.
  * ponytail: duplicated rules, keep in step with that migration when it changes. */
 
 /** What a payroll payment (or a change that carries its category) keeps: where it sits in the
