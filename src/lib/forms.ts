@@ -1,13 +1,26 @@
+/** The fields of every note form. `mutate` validates a save with one pass over the same list,
+ *  so this file imports the store's parts, never `./store` itself. */
 import {
+  branchCategories,
   branches,
-  materials,
-  riceSources,
+  companyPayer,
+  ingredients,
+  materialList,
+  payCategories,
+  payrollCategory,
+  salesChannels,
+  stockCategories,
+  type Actor,
+  type Database,
+  type NoteKind,
   type Values,
-  type EntryKind,
-} from "./store";
+} from "./store/model";
+import { entries, liveEntries, poInfo, purchaseLots } from "./store/derived";
 export type Field = {
   key: string;
   label: string;
+  unit?: string;
+  hint?: string;
   type?:
     | "number"
     | "text"
@@ -16,49 +29,64 @@ export type Field = {
     | "time"
     | "textarea"
     | "select"
-    | "location"
-    | "file"
-    | "files";
-  options?: string[];
-  optional?: boolean;
-  hint?: string;
-  accept?: string;
+    | "file";
+  /** A select's choices; on a text field, suggestions (a `<datalist>`). */
+  options?: { value: string; label: string }[];
+  /** Left empty it is saved, listed in `values.missing` and shown yellow. */
+  core?: boolean;
+  /** Rendered under "จดเพิ่มได้ N ช่อง". */
+  more?: boolean;
   integer?: boolean;
-  zero?: boolean;
-  /** Fixed-length digit string (a tax id): numeric keypad and a length cap. */
-  digits?: number;
-  /** A date that records something that already happened: the picker stops at today. */
-  past?: boolean;
+  accept?: string;
+  /** Hidden, and not saved, when false. */
+  when?: (values: Values) => boolean;
 };
+const text = (key: string, label: string, extra?: Partial<Field>): Field => ({
+  key,
+  label,
+  ...extra,
+});
 const number = (
   key: string,
   label: string,
-  zero = false,
-  integer = false,
-): Field => ({ key, label, type: "number", zero, integer });
-const text = (key: string, label: string, optional = false): Field => ({
+  unit?: string,
+  extra?: Partial<Field>,
+): Field => ({ key, label, unit, type: "number", ...extra });
+const count = (
+  key: string,
+  label: string,
+  unit?: string,
+  extra?: Partial<Field>,
+): Field => number(key, label, unit, { integer: true, ...extra });
+const time = (key: string, label: string): Field => ({
   key,
   label,
-  optional,
+  type: "time",
 });
-/** Phone number: `type=tel` is what puts a phone keypad on a phone. */
-const tel = (key: string, label: string): Field => ({
-  key,
-  label,
-  type: "tel",
-});
-const location = (key: string, label: string): Field => ({
-  key,
-  label,
-  type: "location",
-  options: ["เชียงใหม่", "กรุงเทพฯ", "อื่น ๆ"],
-});
-const date = (key: string, label: string, past = false): Field => ({
+const date = (key: string, label: string): Field => ({
   key,
   label,
   type: "date",
-  past,
 });
+const file = (label: string): Field => ({
+  key: "attachment",
+  label,
+  type: "file",
+  accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
+});
+const core = (field: Field): Field => ({ ...field, core: true });
+const more = (...fields: Field[]): Field[] =>
+  fields.map((field) => ({ ...field, more: true }));
+const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
+const weightReason = text("reason", "เหตุผลเมื่อน้ำหนักต่าง");
+const once = "จดที่นี่แล้วไม่ต้องจด จ่ายเงิน ซ้ำ";
+/** The truck and its driver, on both legs. */
+const truck: Field[] = [
+  text("vehicleType", "ประเภทรถ"),
+  text("plate", "ทะเบียนรถ"),
+  text("driverName", "ชื่อคนขับ"),
+  { key: "driverPhone", label: "เบอร์คนขับ", type: "tel" },
+];
 /** Every half hour of the day. Every `time` field picks from this grid rather than
  *  taking a typed HH:mm — every time this app records lands on one. */
 const timeSlots = Array.from({ length: 48 }, (_, index) => {
@@ -72,549 +100,272 @@ export function timeOptions(current?: string) {
     ? [...timeSlots, current].sort()
     : timeSlots;
 }
-/** The first half-hour slot after `now`, Bangkok time — a pickup time that needs no typing. */
-export function nextTimeSlot(now = new Date()) {
-  const [hour, minute] = now
-    .toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hourCycle: "h23" })
-    .split(":")
-    .map(Number);
-  return timeSlots[(hour * 2 + (minute < 30 ? 1 : 2)) % 48];
-}
-/** The half-hour slot `now` falls in, Bangkok time (10:47 → "10:30") — for a time that
- *  records something happening now. */
-export function currentTimeSlot(now = new Date()) {
-  const [hour, minute] = now
-    .toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hourCycle: "h23" })
-    .split(":")
-    .map(Number);
-  return timeSlots[hour * 2 + (minute < 30 ? 0 : 1)];
-}
-const reason: Field = {
-  key: "reason",
-  label: "เหตุผลส่วนต่าง / Waste / ข้าม FIFO",
-  type: "textarea",
-  optional: true,
-};
-const note: Field = {
-  key: "note",
-  label: "หมายเหตุ",
-  type: "textarea",
-  optional: true,
-};
-/** Payment slips: several files, saved as JSON `[{ name, storageKey }]` (see `uploadedFiles`). */
-const slips: Field = {
-  key: "slips",
-  label: "แนบสลิปการชำระ",
-  type: "files",
-  optional: true,
-  accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
-  hint: "เลือกได้หลายไฟล์พร้อมกัน ไม่บังคับ",
-};
-export type UploadedFile = { name: string; storageKey: string };
-/** A `files` field's stored value; anything unreadable is no files. */
-export function uploadedFiles(value?: string): UploadedFile[] {
-  try {
-    const parsed: unknown = JSON.parse(value || "[]");
-    return Array.isArray(parsed)
-      ? parsed.filter((file) => file?.name && file?.storageKey)
-      : [];
-  } catch {
-    return [];
-  }
-}
-export const forms: Record<string, Field[]> = {
-  materialReceive: [
-    date("purchaseDate", "วันที่ซื้อวัสดุ", true),
-    {
-      key: "material",
-      label: "วัสดุที่ซื้อเข้าคลัง (Material)",
-      type: "select",
-      options: materials,
-    },
-    number("quantity", "จำนวนที่ซื้อ · ชิ้น", false, true),
-    number("unitPrice", "ราคาซื้อจริงต่อหน่วย · บาท/ชิ้น", true),
-    text("supplier", "ผู้จำหน่าย (Supplier)"),
-    text("reference", "เลขอ้างอิง / ใบเสร็จ", true),
-    note,
-  ],
-  ownerWasteReceive: [
-    date("receivedDate", "วันที่ Owner รับเนื้อ", true),
-    number("receivedKg", "น้ำหนักรับจริง (กก.)"),
-    text("receiver", "ผู้รับเนื้อ"),
-    note,
-  ],
-  purchase: [
-    text("supplier", "ผู้ขาย · Foodiva"),
-    text("customerName", "ชื่อบริษัท / ลูกค้า"),
-    {
-      key: "customerAddress",
-      label: "ที่อยู่บริษัท / ที่อยู่ออก PO",
-      type: "textarea",
-    },
-    text("attention", "ชื่อผู้ติดต่อ (Attention)"),
-    tel("phone", "เบอร์ติดต่อ"),
-    { key: "taxId", label: "เลขประจำตัวผู้เสียภาษี", digits: 13 },
-    text("packSize", "ขนาดบรรจุ เช่น 6 ชิ้นต่อกล่อง"),
-    text("productName", "รายการสินค้า"),
-    text("productCode", "รหัสสินค้า (เก็บหลังบ้าน / ไม่บังคับ)", true),
-    number("orderedKg", "น้ำหนักสั่งซื้อ (กก.)"),
-    number("price", "ราคาเนื้อ / กก. (บาท)"),
-    text("reference", "เลขอ้างอิงผู้ขาย", true),
-    note,
-  ],
-  smokeOrder: [
-    text("smoker", "โรงรม / ผู้ให้บริการ"),
-    {
-      ...number("rawKg", "น้ำหนัก PO รมควัน (กก.)"),
-      hint: "ตั้งต้นจากยอดรวม Packing List แก้ได้ถ้าจะสั่งรมไม่เท่ายอดนั้น",
-    },
-    date("requestedSmokeDate", "วันที่ขอรมควัน"),
-    {
-      key: "instruction",
-      label: "คำสั่งพิเศษ",
-      type: "textarea",
-      optional: true,
-    },
-    date("expectedFinishedDate", "วันที่คาดว่าจะเสร็จ"),
-  ],
-  smokeOrderAccept: [text("acceptedBy", "ชื่อผู้รับ PO ของ Chef House"), note],
-  smokingInvoice: [
-    text("invoiceNumber", "เลข Invoice ค่ารมควัน"),
-    date("invoiceDate", "วันที่ Invoice", true),
-    {
-      // SVC-01: shown only while the batch has no smoke PO (EntryForm); with one, the PO's kg is billed.
-      ...number("serviceQuantity", "น้ำหนักที่คิดค่ารมควัน (กก.)"),
-      hint: "ชุดนี้ยังไม่มี PO รมควัน กรอกน้ำหนักที่คิดค่ารมเอง",
-    },
-    {
-      ...number("netPayable", "ยอดเรียกเก็บค่ารมควัน (บาท)"),
-      hint: "ตั้งต้นจากน้ำหนัก PO รมควัน × อัตราค่ารม แก้ให้ตรงกับใบวางบิลจริงได้",
-    },
-    {
-      key: "attachment",
-      label: "แนบไฟล์ Invoice ค่ารมควัน",
-      type: "file",
-      accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
-      hint: "เลือกไฟล์ PDF หรือรูปภาพใบวางบิลของ Chef House",
-    },
-    {
-      key: "invoiceDetail",
-      label: "รายละเอียดเพิ่มเติม",
-      type: "textarea",
-      optional: true,
-    },
-  ],
-  invoiceReview: [
-    {
-      key: "decision",
-      label: "ผลการตรวจยอด",
-      type: "select",
-      options: ["รับยอด", "ส่งกลับแก้ไข"],
-    },
-    text("reviewedBy", "ชื่อผู้ตรวจ"),
-    {
-      key: "comment",
-      label: "หมายเหตุถึง Chef House",
-      type: "textarea",
-      optional: true,
-    },
-  ],
-  invoicePayment: [
-    date("paymentDate", "วันที่ชำระเงิน", true),
-    number("paidAmount", "ยอดชำระ (บาท)"),
-    text("paidBy", "ผู้ดำเนินการชำระ"),
-    text("paymentReference", "เลขอ้างอิงการชำระ", true),
-    slips,
-    note,
-  ],
-  meatPayment: [
-    date("paymentDate", "วันที่ชำระเงิน", true),
-    number("paidAmount", "ยอดชำระ (บาท)"),
-    text("paidBy", "ผู้ดำเนินการชำระ"),
-    text("paymentReference", "เลขอ้างอิงการชำระ", true),
-    slips,
-    note,
-  ],
-  foodivaConfirm: [
-    text("invoiceNo", "เลข Invoice เนื้อ"),
-    date("invoiceDate", "วันที่ Invoice", true),
-    number("confirmedKg", "น้ำหนักตาม Invoice (กก.)"),
-    number("readyForChiangMaiKg", "พร้อมส่งไป Chef House · เชียงใหม่ (กก.)"),
-    number("reservedForOwnerKg", "เนื้อส่วนที่เหลือรอ Owner รับ (Waste)", true),
-    number("invoiceAmount", "ยอดรวม Invoice (บาท)", true),
-    {
-      key: "attachment",
-      label: "อัปโหลด Invoice เนื้อ",
-      type: "file",
-      accept: ".pdf,.png,.jpg,.jpeg,.webp,.heic,.heif",
-      hint: "เลือกไฟล์ PDF หรือรูปภาพของ Invoice",
-    },
-    text("confirmedBy", "ชื่อผู้ยืนยันจาก Foodiva"),
-    note,
-  ],
-  dispatch: [
-    date("pickupDate", "วันที่รถรับ"),
-    location("origin", "ต้นทาง (Origin)"),
-    location("destination", "ปลายทาง (Destination)"),
-    {
-      key: "trip",
-      label: "รูปแบบเที่ยวรถ",
-      type: "select",
-      options: ["เที่ยวเดียว", "ไปกลับ"],
-    },
-    { key: "pickupTime", label: "เวลารถรับ", type: "time" },
-    text("vehicleType", "ประเภทรถ"),
-    text("plate", "ทะเบียนรถ"),
-    text("driverName", "ชื่อคนขับ"),
-    tel("driverPhone", "เบอร์ติดต่อคนขับ"),
-    number("dispatchKg", "น้ำหนักตาม Request (กก.)"),
-    note,
-  ],
-  cmReceive: [{ key: "arrival", label: "เวลาที่รถมาถึง", type: "time" }, note],
-  prepare: [number("preSmokeKg", "น้ำหนักหลังแกะซับ ก่อนสโมค (กก.)"), note],
-  smoke: [
-    date("smokeDate", "วันที่สโมค", true),
-    number("inputKg", "น้ำหนักเข้าเตารอบนี้ (กก.)"),
-    number("wasteKg", "น้ำหนัก Waste (กก.)", true),
-    {
-      key: "packs",
-      label: "น้ำหนักกล่องรมควัน (กก./กล่องรมควัน)",
-      type: "textarea",
-      hint: "กรอกว่ากล่องรมควันนี้กี่กิโล ทีละกล่องรมควัน ระบบจะรวมจำนวนกล่องรมควันและน้ำหนักให้อัตโนมัติ โดยยังไม่ต้องแบ่งเป็นซีลขาย",
-    },
-    note,
-  ],
-  closeLot: [text("confirm", "ชื่อผู้ยืนยันปิด Lot"), note],
-  return: [
-    date("returnDate", "วันที่รถรับจาก Chef House"),
-    { key: "returnTime", label: "เวลารถรับ", type: "time" },
-    location("origin", "ต้นทาง (Origin)"),
-    location("destination", "ปลายทาง (Destination)"),
-    text("vehicleType", "ประเภทรถ"),
-    text("plate", "ทะเบียนรถ"),
-    text("driverName", "ชื่อคนขับ"),
-    tel("driverPhone", "เบอร์ติดต่อคนขับ"),
-    number("returnKg", "น้ำหนักส่งจาก Chef House (กก.)"),
-    note,
-  ],
-  foodivaReturnReceive: [
-    date("receivedDate", "วันที่ Foodiva รับเนื้อรมควัน", true),
-    { key: "receivedTime", label: "เวลารับ", type: "time" },
-    number("receivedKg", "น้ำหนักรับจริง (กก.)"),
-    number("receivedBags", "จำนวนกล่องรมควันที่รับ", false, true),
-    reason,
-    note,
-  ],
-  central: [number("centralKg", "น้ำหนักรับสต๊อกกลาง (กก.)"), reason, note],
-  allocate: [
-    { key: "branch", label: "สาขาปลายทาง", type: "select", options: branches },
-    number("kg", "น้ำหนักจัดสรร (กก.)"),
-    date("deliveryDate", "วันที่ส่งสาขา"),
-    reason,
-    note,
-  ],
-  receive: [number("kg", "น้ำหนักรับเข้าสาขา (กก.)"), reason, note],
-  thaw: [number("kg", "น้ำหนักละลาย (กก.)"), reason, note],
-  supplyPurchase: [
-    text("supplier", "ผู้จำหน่าย (Supplier)"),
-    number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
-    number(
-      "rawRiceCost",
-      "ยอดซื้อข้าวเหนียวดิบ (Rice purchase cost) · บาท",
-      true,
-    ),
-    number(
-      "cookedRiceKg",
-      "ข้าวเหนียวสุกซื้อเข้า (Cooked sticky rice) · กก.",
-      true,
-    ),
-    number(
-      "cookedRiceCost",
-      "ยอดซื้อข้าวเหนียวสุก (Cooked rice purchase cost) · บาท",
-      true,
-    ),
-    number("chiliTubes", "น้ำพริกซื้อเข้า (Chili paste) · หลอด", true, true),
-    number("chiliCost", "ยอดซื้อน้ำพริก (Chili purchase cost) · บาท", true),
-    text("reference", "เลขที่ใบเสร็จ / ใบส่งของ (Reference)", true),
-    note,
-  ],
-  ricePurchase: [
-    {
-      key: "riceSource",
-      label: "รอบนี้ข้าวเหนียวมาจาก (Rice source)",
-      type: "select",
-      options: riceSources,
-    },
-    text("supplier", "ผู้จำหน่ายข้าว (Rice supplier)"),
-    number("rawRiceKg", "ข้าวเหนียวดิบซื้อเข้า (Raw sticky rice) · กก.", true),
-    number("rawRiceCost", "ยอดซื้อข้าวเหนียวดิบ (Purchase cost) · บาท", true),
-    number(
-      "cookedRiceKg",
-      "ข้าวเหนียวสุกซื้อเข้า (Cooked sticky rice) · กก.",
-      true,
-    ),
-    number(
-      "cookedRiceCost",
-      "ยอดซื้อข้าวเหนียวสุก (Purchase cost) · บาท",
-      true,
-    ),
-    text("reference", "เลขที่ใบเสร็จ (Reference)", true),
-    note,
-  ],
-  chiliPurchase: [
-    text("supplier", "ผู้จำหน่ายน้ำพริก (Chili supplier)"),
-    number("chiliTubes", "น้ำพริกซื้อเข้า (Chili paste) · หลอด", false, true),
-    number("chiliCost", "ยอดซื้อน้ำพริก (Purchase cost) · บาท"),
-    text("reference", "เลขที่ใบเสร็จ (Reference)", true),
-    note,
-  ],
-  // STK-43: the branch writes down the chili it received.
-  chiliReceive: [
-    number("chiliTubes", "จำนวนน้ำพริกที่รับ · หลอด", false, true),
-    text("receiver", "ชื่อผู้รับจริง"),
-    text("reference", "เลขที่อ้างอิงใบส่งของ", true),
-    note,
-  ],
-  supplyIssue: [
-    number(
-      "rawRiceIssuedKg",
-      "ข้าวเหนียวดิบที่เบิกวันนี้ (Raw rice issued) · กก.",
-      true,
-    ),
-    number(
-      "chiliIssuedTubes",
-      "น้ำพริกที่เบิกวันนี้ (Chili issued) · หลอด",
-      true,
-      true,
-    ),
-    text("receiver", "ผู้รับของ (Receiver)"),
-    note,
-  ],
-  riceIssue: [
-    number(
-      "rawRiceIssuedKg",
-      "ข้าวเหนียวดิบที่เบิกวันนี้ (Raw rice issued) · กก.",
-    ),
-    text("receiver", "ผู้รับของ (Receiver)"),
-    note,
-  ],
-  chiliIssue: [
-    number(
-      "chiliIssuedTubes",
-      "น้ำพริกที่เบิกวันนี้ (Chili issued) · หลอด",
-      false,
-      true,
-    ),
-    text("receiver", "ผู้รับของ (Receiver)"),
-    note,
-  ],
-  rice: [
-    number("rawUsedKg", "ข้าวเหนียวดิบที่นำมาหุง (Raw rice used) · กก."),
-    number("riceKg", "ข้าวเหนียวสุกที่ได้ (Cooked rice output) · กก."),
-    note,
-  ],
-  riceCarry: [
-    number(
-      "leftoverKg",
-      "ข้าวเหนียวสุกเหลือทิ้งปลายวัน (Cooked rice wasted at day end) · กก.",
-      true,
-    ),
-    reason,
-    note,
-  ],
-  sale: [
-    number(
-      "boxes",
-      "กล่องมาตรฐาน · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)",
-      true,
-      true,
-    ),
-    number("chiliAddons", "น้ำพริกหลอด · จำหน่ายแยก 30 บาท (หลอด)", true, true),
-    {
-      ...number(
-        "chiliCount",
-        "ตรวจนับน้ำพริกจริงปลายวัน · หลอด (เว้นว่างถ้าไม่ได้นับ)",
-        true,
-      ),
-      optional: true,
-    },
-    {
-      key: "chiliRemark",
-      label: "หมายเหตุเมื่อน้ำพริกไม่ตรง",
-      type: "textarea",
-      optional: true,
-    },
-    {
-      ...number("soldKg", "น้ำหนักเนื้อที่ใช้ไปจริงวันนี้ (กก.)", true),
-      hint: "ปกติ 100–103 กรัมต่อซีล · เนื้อที่เหลือระบบคำนวณเป็นคงเหลือชิลยกไปวันถัดไป",
-    },
-    number("wasteKg", "น้ำหนักเนื้อที่เสียไป (กก.)", true),
-    number("riceWasteKg", "น้ำหนักข้าวที่เสียไป (กก.)", true),
-    number("lineMan", "ยอดขาย LINE MAN ที่บันทึก (บาท)", true),
-    number("expense", "ค่าใช้จ่ายสาขา (บาท)", true),
-    text("payer", "ผู้จ่ายเงิน / สำรองจ่าย", true),
-    { ...reason, hint: "ต้องกรอกเมื่อมี Waste เนื้อหรือข้าว" },
-    note,
-  ],
-  influencerBox: [
-    text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง"),
-    number(
-      "boxes",
-      "กล่องมาตรฐานที่ส่ง · เนื้อ 1 ซีล + ข้าว 200 กรัม (กล่อง)",
-      true,
-      true,
-    ),
-    number("chiliAddons", "น้ำพริกหลอด (หลอด)", true, true),
-    /* ไม่มีช่องน้ำหนักเนื้อ: ระบบคิดจากจำนวนกล่อง × น้ำหนักเฉลี่ยต่อซีล (mutate) */
-    number("shippingFee", "ค่าส่ง (บาท)", true),
-    note,
-  ],
-  materials: materials.map((m, i) =>
-    number("material" + i, m + " (ชิ้น)", true, true),
-  ),
-  closeDay: [text("confirm", "ชื่อผู้ยืนยันปิดวัน"), note],
-  expense: [
-    {
-      key: "category",
-      label: "หมวดค่าใช้จ่าย",
-      type: "select",
-      options: [
-        "ค่าเช่า",
-        "อุปกรณ์ / การลงทุน",
-        "ค่าสาธารณูปโภค",
-        "ค่าใช้จ่ายอื่น",
-      ],
-    },
-    number("amount", "จำนวนเงิน (บาท)"),
-    text("payer", "ผู้จ่ายเงิน"),
-    text("detail", "รายละเอียด / อ้างอิงการโอน"),
-    note,
-  ],
-  unlock: [
-    {
-      key: "branch",
-      label: "สาขาที่ปลดล็อก",
-      type: "select",
-      options: branches,
-    },
-    { key: "reason", label: "เหตุผลปลดล็อก", type: "textarea" },
-  ],
-  config: [
-    {
-      key: "branch",
-      label: "สาขาเริ่มต้น (Default branch)",
-      type: "select",
-      options: branches,
-    },
-    number("boxPrice", "ราคากล่องมาตรฐาน (Standard box price) · บาท", true),
-    number("packKg", "น้ำหนักเฉลี่ยต่อซีล (Average sealed meat weight) · กก."),
-    number("chiliPrice", "ราคาน้ำพริก (Chili paste price) · บาท/หลอด", true),
-    number(
-      "rawRicePar",
-      "จำนวนฐานข้าวเหนียวดิบ (Raw rice par level) · กก.",
-      true,
-    ),
-    number(
-      "rawRiceUnitPrice",
-      "ราคาต่อหน่วยข้าวเหนียวดิบ (Raw rice unit price) · บาท/กก.",
-      true,
-    ),
-    number(
-      "chiliUnitPrice",
-      "ราคาต่อหน่วยน้ำพริก (Chili unit price) · บาท/หลอด",
-      true,
-    ),
-    number(
-      "cookedRicePar",
-      "จำนวนฐานข้าวเหนียวสุก (Cooked rice par level) · กก.",
-      true,
-    ),
-    number(
-      "cookedRiceUnitPrice",
-      "ราคาต่อหน่วยข้าวเหนียวสุก (Cooked rice unit price) · บาท/กก.",
-      true,
-    ),
-    number("outboundFee", "ค่าขนส่งขาไป (Outbound delivery fee) · บาท", true),
-    number("returnFee", "ค่าขนส่งขากลับ (Return delivery fee) · บาท", true),
-    number("roundFee", "ค่าขนส่งไป-กลับ (Round-trip fee) · บาท", true),
-    ...materials.flatMap((m, i) => [
-      number("material" + i, `จำนวนฐาน ${m} (Par level) · ชิ้น`, true, true),
-      number(
-        "materialPrice" + i,
-        `ราคาต่อหน่วย ${m} (Unit price) · บาท/ชิ้น`,
-        true,
+const kg = (x: number) =>
+  x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+/** What was typed before under `key` of `kind`, as suggestions after the `first` ones. */
+const known = (db: Database, first: string[], ...keys: [NoteKind, string][]) =>
+  [
+    ...new Set([
+      ...first,
+      ...liveEntries(db).flatMap((e) =>
+        keys
+          .filter(([kind, key]) => e.kind === kind && e.values[key])
+          .map(([, key]) => e.values[key]),
       ),
     ]),
-  ],
-};
-/** Kinds whose own form is a component of its own (no `forms` entry, or one that no longer
- *  matches it): what the Log's edit shows for them (EDT-01). Keys are the entry's values. */
-const editOnly: Record<string, Field[]> = {
-  dispatch: forms.dispatch.map((f) =>
-    f.key === "dispatchKg"
-      ? { ...f, label: "น้ำหนักที่ส่ง (กก.)", optional: true }
-      : f,
-  ),
-  packingList: [
-    text("invoiceNo", "เลข Invoice"),
-    text("product", "รายการสินค้า"),
-    text("code", "CODE สินค้า", true),
-    { ...number("boxCount", "จำนวนกล่องรับเข้า", false, true), optional: true },
-    number("slicedNetKg", "น้ำหนักส่งรวม · Sliced Weight Net (กก.)"),
-  ],
-  cmReceive: [
-    { key: "arrival", label: "เวลาที่รถมาถึง", type: "time" },
-    number("receivedKg", "น้ำหนักรับรวม (กก.)"),
-    note,
-  ],
-  generalPurchase: [
-    // The entry is filed under this date (dateField): editing it moves the entry.
-    date("purchaseDate", "วันที่ซื้อ", true),
-    {
-      key: "purchaseCategory",
-      label: "กลุ่มการซื้อ",
-      type: "select",
-      options: ["วัตถุดิบ", "สินทรัพย์", "ค่าใช้จ่ายอื่น"],
-    },
-    text("item", "รายการ"),
-    number("quantity", "จำนวน"),
-    text("unit", "หน่วย"),
-    number("unitPrice", "ราคาซื้อ / หน่วย", true),
-    text("supplier", "ผู้จำหน่าย"),
-    text("reference", "เลขอ้างอิง / ใบเสร็จ", true),
-  ],
-  materialConfirm: [
-    { key: "material", label: "วัสดุ", type: "select", options: materials },
-    number("receivedQuantity", "จำนวนที่รับจริง · ชิ้น", false, true),
-    text("receiver", "ชื่อผู้รับจริง"),
-    note,
-  ],
-};
-/** The fields the Log's edit of `kind` shows: its form's, without the files (an edit keeps
- *  the attachment it has). */
-export const editFields = (kind: EntryKind): Field[] =>
-  (editOnly[kind] ?? forms[kind] ?? []).filter(
-    (f) => f.type !== "file" && f.type !== "files",
-  );
-/** The Owner's ready-made ingredient picks. Raw sticky rice is no longer one: each branch
- *  buys (or cooks) its own rice (B2). Older entries that name it still display as saved. */
-export const standardIngredients = ["น้ำพริกหลอด", "น้ำดอง"];
-
-export function defaults(kind: EntryKind, dateValue: string): Values {
-  const out: Values = {};
-  for (const f of forms[kind] || [])
-    out[f.key] =
-      f.type === "date"
-        ? dateValue
-        : f.type === "select"
-          ? f.options![0]
-          : f.type === "number" && f.zero && !f.optional
-            ? "0"
-            : "";
-  if (kind === "purchase") out.supplier = "Foodiva";
+  ].map((value) => ({ value, label: value }));
+const isStock = (values: Values) => stockCategories.includes(values.category);
+/** The fields of `kind`'s form, in order, for the account `by`. The entry date is not among
+ *  them: every form has it (always set, today at most). */
+export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
+  switch (kind) {
+    case "purchase":
+      return [
+        core(text("supplier", "ผู้ขาย")),
+        core(number("orderedKg", "น้ำหนักที่สั่งซื้อ", "กก.")),
+        core(number("price", "ราคา / กก.", "บาท")),
+        ...more(
+          text("invoiceNo", "เลข Invoice"),
+          number("invoiceAmount", "ยอด Invoice", "บาท"),
+          file("ไฟล์แนบ Invoice"),
+          text("packSize", "ขนาดบรรจุ"),
+          text("productName", "รายการสินค้า"),
+          text("productCode", "รหัสสินค้า"),
+          text("reference", "เลขอ้างอิงผู้ขาย"),
+          note,
+        ),
+      ];
+    case "smokeOrder":
+      return [
+        core(number("rawKg", "น้ำหนักที่สั่งรม", "กก.")),
+        ...more(
+          text("smoker", "โรงรม"),
+          date("requestedSmokeDate", "วันที่ขอรม"),
+          date("expectedFinishedDate", "วันที่คาดว่าเสร็จ"),
+          { key: "instruction", label: "คำสั่งพิเศษ", type: "textarea" },
+        ),
+      ];
+    case "dispatch":
+      return [
+        core(number("dispatchKg", "น้ำหนักที่ส่ง", "กก.")),
+        {
+          // Not core: left empty the Lot turns yellow instead (V2-LOT-03).
+          key: "poLotId",
+          label: "เนื้อจาก PO ไหน",
+          type: "select",
+          hint: "เว้นว่างแล้วมาผูกทีหลังได้",
+          options: [
+            { value: "", label: "ยังไม่ระบุ" },
+            ...purchaseLots(db).map((lot) => ({
+              value: lot.id,
+              label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ฝากไว้ ${kg(poInfo(db, lot.id).heldKg)} กก.`,
+            })),
+          ],
+        },
+        ...more(
+          text("origin", "ต้นทาง"),
+          text("destination", "ปลายทาง"),
+          time("pickupTime", "เวลา"),
+          ...truck,
+          note,
+        ),
+      ];
+    case "central":
+      return [
+        core(number("centralKg", "น้ำหนักที่รับ", "กก.")),
+        core(count("boxes", "จำนวนกล่องรมควัน", "กล่อง")),
+        ...more(weightReason, note),
+      ];
+    case "smokingInvoice":
+      return [
+        core(number("netPayable", "ยอดค่ารม", "บาท")),
+        core(text("invoiceNumber", "เลข Invoice")),
+        ...more(
+          file("ไฟล์แนบ Invoice"),
+          date("invoiceDate", "วันที่ Invoice"),
+          { key: "invoiceDetail", label: "รายละเอียด", type: "textarea" },
+        ),
+      ];
+    case "pay": {
+      // Owner: every category. Account Manager: all but payroll. Branch: its four (V2-ACC).
+      const categories = payCategories(db.config).filter((c) =>
+        by.role === "branch"
+          ? branchCategories.includes(c.id)
+          : !(by.hidesSales && c.id === payrollCategory),
+      );
+      return [
+        core({
+          key: "category",
+          label: "หมวด",
+          type: "select",
+          options: categories.map((c) => ({ value: c.id, label: c.name })),
+        }),
+        core(number("amount", "ยอด", "บาท")),
+        text("detail", "รายละเอียด"),
+        text("employee", "ชื่อพนักงาน", {
+          when: (values) => values.category === payrollCategory,
+        }),
+        {
+          key: "item",
+          label: "รายการที่ซื้อ",
+          type: "select",
+          when: isStock,
+          options: [
+            { value: "", label: "ไม่ระบุ" },
+            ...[...materialList(db.config), ...ingredients].map((m) => ({
+              value: m.id,
+              label: m.name,
+            })),
+          ],
+        },
+        number("qty", "จำนวน", undefined, {
+          when: isStock,
+          hint: "ใส่จำนวนแล้วยอดเข้าสต๊อกของสาขาทันที",
+        }),
+        {
+          // A branch account pays into its own stock.
+          key: "branch",
+          label: "เข้าสาขาไหน",
+          type: "select",
+          when: (values) => isStock(values) && by.role !== "branch",
+          options: branches.map((value) => ({ value, label: value })),
+        },
+        text("supplier", "ผู้ขาย", {
+          options: known(
+            db,
+            ["Foodiva", "Chef House"],
+            ["purchase", "supplier"],
+            ["smokeOrder", "smoker"],
+            ["pay", "supplier"],
+          ),
+        }),
+        text("payer", "ผู้จ่าย / สำรองจ่าย", {
+          options: known(
+            db,
+            [companyPayer],
+            ["pay", "payer"],
+            ["sale", "payer"],
+          ),
+        }),
+        ...more(
+          number("fullAmount", "ยอดเต็มของใบนี้", "บาท", {
+            hint: "ใส่เมื่อจ่ายบางส่วนหรือมัดจำ",
+          }),
+          file("ใบเสร็จ"),
+          note,
+        ),
+      ];
+    }
+    case "sale":
+      return [
+        core(count("boxes", "กล่องมาตรฐาน", "กล่อง")),
+        count("chiliAddons", "น้ำพริกหลอดจำหน่ายแยก", "หลอด"),
+        count("chiliCount", "นับน้ำพริกจริงปลายวัน", "หลอด"),
+        text("chiliRemark", "หมายเหตุเมื่อน้ำพริกไม่ตรง"),
+        number("soldKg", "เนื้อที่ใช้ไปจริง", "กก.", {
+          hint: "เว้นว่างได้ เว็บคิดจากจำนวนกล่อง",
+        }),
+        number("wasteKg", "เนื้อที่เสียไป", "กก."),
+        number("riceWasteKg", "ข้าวที่เสียไป", "กก."),
+        // One money field per sales channel in Settings; only the first is core.
+        ...salesChannels(db.config).map((channel, index) =>
+          number(
+            channel.key,
+            `ยอดขาย ${channel.name}`,
+            "บาท",
+            index
+              ? undefined
+              : { core: true, hint: "ยอดจริงตามที่ LINE MAN แจ้ง" },
+          ),
+        ),
+        number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),
+        text("payer", "ผู้จ่ายเงิน / สำรองจ่าย"),
+        text("reason", "เหตุผลเมื่อมีของเสีย"),
+        note,
+      ];
+    case "receive":
+      return [
+        core(number("kg", "น้ำหนักรับเข้าสาขา", "กก.")),
+        weightReason,
+        note,
+      ];
+    case "meatCount":
+      return [core(number("kg", "เนื้อคงเหลือที่นับได้", "กก.")), note];
+    case "influencerBox":
+      return [
+        core(text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง")),
+        core(count("boxes", "กล่องที่แจก", "กล่อง")),
+        count("chiliAddons", "น้ำพริก", "หลอด"),
+        number("shippingFee", "ค่าส่ง", "บาท", { hint: once }),
+        note,
+      ];
+    case "materials":
+      return materialList(db.config).map((m) =>
+        count(`count.${m.id}`, m.name, "ชิ้น"),
+      );
+    case "cmReceive":
+      return [
+        number("receivedKg", "น้ำหนักรับรวม", "กก."),
+        time("arrival", "เวลาที่รถมาถึง"),
+        note,
+      ];
+    case "prepare":
+      return [number("preSmokeKg", "น้ำหนักก่อนสโมค", "กก."), note];
+    case "smoke":
+      return [
+        number("inputKg", "น้ำหนักเข้าเตา", "กก."),
+        number("wasteKg", "Waste", "กก."),
+        {
+          key: "packs",
+          label: "น้ำหนักกล่องรมควัน ทีละกล่อง",
+          unit: "กก.",
+          type: "textarea",
+        },
+        note,
+      ];
+    case "packingList":
+      return [
+        text("invoiceNo", "เลข Invoice"),
+        text("product", "รายการสินค้า"),
+        text("code", "CODE สินค้า"),
+        count("boxCount", "จำนวนกล่องรับเข้า"),
+        number("slicedNetKg", "น้ำหนักส่งรวม", "กก."),
+        number("invWeightKg", "Inv. Weight", "กก."),
+        file("ไฟล์ Packing List"),
+        note,
+      ];
+    case "return":
+      return [
+        number("returnKg", "น้ำหนักส่งจาก Chef House", "กก."),
+        time("returnTime", "เวลารถรับ"),
+        text("origin", "ต้นทาง"),
+        text("destination", "ปลายทาง"),
+        ...truck,
+        note,
+      ];
+    case "foodivaReturnReceive":
+      return [
+        number("receivedKg", "น้ำหนักรับจริง", "กก."),
+        count("receivedBags", "จำนวนกล่องรมควันที่รับ"),
+        time("receivedTime", "เวลารับ"),
+        weightReason,
+        note,
+      ];
+    case "ownerWasteReceive":
+      return [
+        number("receivedKg", "น้ำหนักรับจริง", "กก."),
+        text("receiver", "ผู้รับเนื้อ"),
+        note,
+      ];
+  }
+}
+/** What a new form of `kind` starts with; every other field starts empty. */
+export function defaults(kind: NoteKind): Values {
+  if (kind === "purchase") return { supplier: "Foodiva" };
+  if (kind === "smokeOrder") return { smoker: "Chef House" };
   if (kind === "dispatch")
-    Object.assign(out, { origin: "กรุงเทพฯ", destination: "เชียงใหม่" });
+    return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };
   if (kind === "return")
-    Object.assign(out, { origin: "เชียงใหม่", destination: "กรุงเทพฯ" });
-  return out;
+    return { origin: "เชียงใหม่", destination: "กรุงเทพฯ" };
+  return {};
 }

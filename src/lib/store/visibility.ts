@@ -1,124 +1,94 @@
-/** What each role may see of the log, and the edit-request queries built on it. */
+/** What each account may see and change of the log, and the list of everything yellow. */
 import {
+  branches,
   canChange,
+  changeKinds,
   editableKinds,
   isEditOverlay,
+  materialList,
+  missingKeys,
+  payCategories,
+  payrollCategory,
+  rentCategory,
+  titles,
   voidableKinds,
+  type Actor,
   type Database,
   type Entry,
-  type EntryKind,
-  type ActingRole,
-  type Values,
+  type NoteKind,
 } from "./model";
-import { centralStock, entries, isVoided } from "./derived";
-/** Value keys a branch must not see: meat cost (lotCost), what the smoke PO and trucks cost,
- *  and the Owner's prices. role-scope.ts strips the same keys on the server. */
-export const branchHiddenKeys = [
-  "meatCost",
-  "wasteCost",
-  "estimatedCost",
-  "serviceRate",
-  "lines",
-  "price",
-  "outboundCost",
-  "returnCost",
-];
-export const omit = (values: Values, keys: string[]) =>
-  Object.fromEntries(
-    Object.entries(values).filter(
-      ([k]) => !keys.includes(k.replace(/^(to|from)\./, "")),
-    ),
-  );
-/** A sale's money in: what the Account Manager must not see (C4). Its costs stay visible. */
+import {
+  branchMaterial,
+  branchMeat,
+  byDateAt,
+  hasSale,
+  isVoided,
+  liveEntries,
+  lotInfo,
+  outflows,
+  shipments,
+} from "./derived";
+/** A sale's money in: what the Account Manager must not see. A channel added in Settings
+ *  keeps its money under a `sales.` key. */
 export const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
-const editKinds: EntryKind[] = [
-  "void",
-  "entryEdit",
-  "editRequest",
-  "editDecision",
-  "link",
-];
-/** BR-07 — the lots a branch's screens list: lots holding its own entries (a receive, also
- *  one linked to the lot later), lots still in central stock that it may receive from
- *  (BR-08, no allocation needed) and, for old data, lots allocated to it. `role-scope.ts`
- *  sends every batch S plus those; scope_app_state() (migration 20260929000033) states the
- *  same rule. The Owner (and Account Manager) see every lot. */
-export function visibleLots(db: Database, branch?: string) {
-  const received = new Set(
-    entries(db, "receive")
-      .filter((e) => e.branch === branch)
-      .map((e) => e.lotId),
-  );
-  return db.lots.filter(
-    (lot) =>
-      received.has(lot.id) ||
-      (lot.kind === "shipment" && centralStock(db, lot.id) > 0.001) ||
-      db.entries.some(
-        (e) =>
-          e.lotId === lot.id &&
-          e.branch === branch &&
-          (e.kind === "allocate" || e.role === "branch"),
-      ),
+export const isSaleMoneyKey = (key: string) =>
+  saleMoneyKeys.includes(key) || key.startsWith("sales.");
+/** What the Account Manager neither receives nor writes: a sale, a payroll payment, and any
+ *  change about one (`target`: the entry a change names). manager_hidden() states the same rule. */
+export function managerHidden(e: Entry, target?: Entry): boolean {
+  return (
+    e.kind === "sale" ||
+    [
+      e.values.category,
+      e.values["to.category"],
+      e.values["from.category"],
+    ].includes(payrollCategory) ||
+    e.values.targetKind === "sale" ||
+    (target ? managerHidden(target) : false)
   );
 }
-/** Owner entries addressed to a branch (old allocations; role-scope.ts sends them): shown
- *  read-only in its history. */
-const sentToBranch: EntryKind[] = ["allocate"];
-/** `branch` is the signed-in branch account's own branch; a branch role sees nothing without it. */
-export function visibleEntries(
-  db: Database,
-  role: ActingRole,
-  branch?: string,
-) {
-  if (role === "owner") return db.entries;
-  /* A branch: its own branch's entries and what the Owner sent it, plus every change to
-   * one of them (an edit, a link, a delete) and every undo of such a change, whoever made
-   * it. A change comes after what it names in the log, so one pass in log order follows
-   * the chain. */
+/** The part of the raw log an account sees, changes included (the change log reads it). The
+ *  Owner: everything. The Account Manager: all but `managerHidden`. A branch: the entries
+ *  stamped with it, plus every change to one of them and every undo of such a change, whoever
+ *  made it. A change comes after what it names in the log, so one pass in log order follows
+ *  the chain. The Owner's payments for a branch reach it for stock only and are never listed. */
+export function visibleEntries(db: Database, by: Actor): Entry[] {
+  if (by.role === "owner") {
+    if (!by.hidesSales) return db.entries;
+    const byId = new Map(db.entries.map((e) => [e.id, e]));
+    return db.entries.filter(
+      (e) => !managerHidden(e, byId.get(e.values.targetId)),
+    );
+  }
   const seen = new Set<string>();
   for (const e of db.entries)
     if (
-      (e.branch === branch &&
-        (e.role === "branch" || sentToBranch.includes(e.kind))) ||
-      (editKinds.includes(e.kind) && seen.has(e.values.targetId))
+      (e.role === "branch" && e.branch === by.branch) ||
+      (changeKinds.includes(e.kind) && seen.has(e.values.targetId))
     )
       seen.add(e.id);
-  return db.entries
-    .filter((e) => seen.has(e.id))
-    .map((e) => ({ ...e, values: omit(e.values, branchHiddenKeys) }));
+  return db.entries.filter((e) => seen.has(e.id));
 }
-/** The database a role's screens read: `db` untouched, except that `hideSales` (Account Manager)
- * drops every sale's money in (`saleMoneyKeys`, edits included). For the manager that is a no-op in
- * the app: the server already strips it (load_app_state, GET /api/local-db) and puts it back on save
- * (save_app_state, src/lib/sale-money.ts), so sale money never reaches its browser. A branch's
- * narrowing happens on the server (role-scope.ts) and in `visibleLots` / `visibleEntries`. */
-export function visibleDatabase(db: Database, hideSales = false): Database {
-  if (!hideSales) return db;
-  return {
-    ...db,
-    entries: db.entries.map((e) => ({
-      ...e,
-      values: omit(e.values, saleMoneyKeys),
-    })),
-  };
+/** The notes an account's Daily Log lists: live, with their edits laid over, newest first.
+ *  Settings are not notes. */
+export function visibleNotes(db: Database, by: Actor): Entry[] {
+  const seen = new Set(visibleEntries(db, by).map((e) => e.id));
+  return liveEntries(db)
+    .filter((e) => e.kind !== "config" && seen.has(e.id))
+    .sort(byDateAt)
+    .reverse();
 }
-/** Why `role` may not edit `target` ("" when it may): the Owner edits any editable entry, a
- *  branch its own branch's, both directly (EDT-22). */
-export function editBlock(
-  db: Database,
-  target: Entry,
-  role: ActingRole,
-  branch = "",
-) {
+/** Why `by` may not edit `target` ("" when it may): the Owner edits any note, the Account
+ *  Manager all but a sale and a payroll payment, a branch its own branch's. */
+export function editBlock(db: Database, target: Entry, by: Actor) {
   if (!editableKinds.includes(target.kind))
     return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
   if (isVoided(db, target.id)) return "รายการนี้ถูกลบแล้ว";
-  if (!canChange({ role, branch }, target))
+  if (!canChange(by, target) || (by.hidesSales && managerHidden(target)))
     return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
   return "";
 }
-/** Direct edits and approved requests applied to one entry, oldest first; a voided one no
- *  longer applies, so it is left out. */
+/** Edits applied to one entry, oldest first; a voided one no longer applies, so it is left out. */
 export function entryEdits(db: Database, targetId: string) {
   const target = db.entries.find((e) => e.id === targetId);
   return db.entries.filter(
@@ -128,39 +98,114 @@ export function entryEdits(db: Database, targetId: string) {
       !isVoided(db, e.id),
   );
 }
-/** Why `role` may not delete `target` ("" when it may). Deleting an edit or a link undoes it,
- *  deleting a delete puts the entry back (EDT-23). The changes of one entry are a stack: only
- *  its latest edit is undone, and an undo is not undone (edit, link or delete again instead).
- *  That also keeps every void within two steps of the entry it is about, which is as far as
- *  scope_app_state follows them for a branch. */
-export function voidBlock(
-  db: Database,
-  target: Entry,
-  role: ActingRole,
-  branch = "",
-) {
+/** Why `by` may not delete `target` ("" when it may). Deleting an edit undoes it, deleting a
+ *  delete puts the entry back. The changes of one entry are a stack: only its latest edit is
+ *  undone, and an undo is not undone (edit or delete again instead). That also keeps every
+ *  void within two steps of the entry it is about, which is as far as scope_app_state follows
+ *  them for a branch. */
+export function voidBlock(db: Database, target: Entry, by: Actor) {
   if (!voidableKinds.includes(target.kind)) return "รายการชนิดนี้ลบไม่ได้";
   if (isVoided(db, target.id))
-    return target.kind === "void" || target.kind === "entryEdit"
+    return changeKinds.includes(target.kind)
       ? "รายการนี้ย้อนกลับแล้ว"
       : "รายการนี้ถูกลบแล้ว";
-  if (!canChange({ role, branch }, target))
-    return "ลบได้เฉพาะรายการของบัญชีนี้";
   const about = db.entries.find((e) => e.id === target.values.targetId);
-  if (
-    target.kind === "void" &&
-    (!about ||
-      !voidableKinds.includes(about.kind) ||
-      ["void", "entryEdit", "link"].includes(about.kind))
-  )
+  if (!canChange(by, target) || (by.hidesSales && managerHidden(target, about)))
+    return "ลบได้เฉพาะรายการของบัญชีนี้";
+  if (target.kind === "void" && (!about || changeKinds.includes(about.kind)))
     return "รายการนี้ย้อนกลับไม่ได้ · แก้ไขหรือลบใหม่แทน";
-  // Among the edits only: a request approved in an old log is no edit to undo first.
   if (
     target.kind === "entryEdit" &&
-    entryEdits(db, target.values.targetId)
-      .filter((e) => e.kind === "entryEdit")
-      .at(-1)?.id !== target.id
+    entryEdits(db, target.values.targetId).at(-1)?.id !== target.id
   )
     return "ย้อนกลับการแก้ไขล่าสุดของรายการนี้ก่อน";
   return "";
+}
+/** One thing that is yellow, and what selecting it opens: a form (`kind`, with the branch,
+ *  date, lot or category to start from), the edit of an entry (`editId`) or the Stock page. */
+export type Todo = {
+  text: string;
+  kind?: NoteKind;
+  branch?: string;
+  date?: string;
+  lotId?: string;
+  category?: string;
+  editId?: string;
+  page?: "stock";
+};
+const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString("th-TH", {
+    ...options,
+    timeZone: "UTC",
+  });
+const shortDate = (date: string) =>
+  thaiDate(date, { day: "numeric", month: "short" });
+/** Spec section 7: everything yellow for an account, as one list for the Overview box, the
+ *  Daily Log box and the bell. A branch lists its own branch; the Owner and the Account
+ *  Manager both, each line led by the branch name. */
+export function todos(db: Database, by: Actor, today: string): Todo[] {
+  const list: Todo[] = [];
+  const own = by.role === "branch";
+  for (const branch of own ? [by.branch ?? ""] : branches) {
+    const lead = own ? "" : `${branch}: `;
+    if (!by.hidesSales)
+      for (let back = 0; back < 7; back++) {
+        const date = new Date(Date.parse(today) - back * 86400000)
+          .toISOString()
+          .slice(0, 10);
+        if (!hasSale(db, branch, date))
+          list.push({
+            text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
+            kind: "sale",
+            branch,
+            date,
+          });
+      }
+    if (!branchMeat(db, branch, today).countedToday)
+      list.push({ text: `${lead}นับเนื้อวันนี้`, kind: "meatCount", branch });
+    const stale = materialList(db.config).filter(
+      (m) => branchMaterial(db, branch, m.id, today).stale,
+    ).length;
+    if (stale)
+      list.push({
+        text: `${lead}วัสดุ ${stale} รายการไม่ได้นับเกิน 7 วัน`,
+        page: "stock",
+      });
+  }
+  if (!own) {
+    for (const lot of shipments(db).reverse()) {
+      const info = lotInfo(db, lot.id);
+      for (const kind of info.missing)
+        list.push({
+          text: `${lot.poId}: ${titles[kind]}`,
+          kind,
+          lotId: lot.id,
+        });
+      if (info.unlinked)
+        list.push({
+          text: `${lot.poId}: ผูก PO เนื้อ`,
+          editId: info.unlinked.id,
+        });
+    }
+    const month = today.slice(0, 7);
+    if (
+      !outflows(db).some(
+        (o) => o.category === rentCategory && o.date.startsWith(month),
+      )
+    )
+      list.push({
+        text: `${payCategories(db.config).find((c) => c.id === rentCategory)?.name ?? "ค่าเช่า/น้ำไฟ"} ของ${thaiDate(today, { month: "long", year: "numeric" })}`,
+        kind: "pay",
+        category: rentCategory,
+      });
+  }
+  for (const e of visibleNotes(db, by)) {
+    const missing = missingKeys(e.values).length;
+    if (missing)
+      list.push({
+        text: `${titles[e.kind]} ${shortDate(e.date)}: ยังไม่ได้จด ${missing} ช่อง`,
+        editId: e.id,
+      });
+  }
+  return list;
 }

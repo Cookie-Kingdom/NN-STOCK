@@ -9,7 +9,7 @@ export type Account = {
   role: ActingRole;
   /** Set only for branch accounts — the branch whose data this account may touch. */
   branch?: string;
-  /** No Owner Dashboard and no sales money (Account Manager). */
+  /** No sale, payroll, P&L, Overview or Settings (Account Manager, V2-ACC-01). */
   hidesSales?: boolean;
   name: string;
   title: string;
@@ -25,23 +25,22 @@ export const accounts: Account[] = [
     role: "owner",
     name: "Owner",
     title: "เจ้าของร้าน",
-    summary: "จัดซื้อ ตั้งค่า และติดตามรายงานของทุกสาขา",
+    summary: "ดูสรุปของเดือน จดได้ทุกบันทึก และตั้งค่า",
     path: "/owner",
-    homeTab: "owner-dashboard",
+    homeTab: "overview",
     icon: Building2,
   },
   {
-    /* Runs the business for the Owner, so it writes as role "owner" (entries cannot tell the
-     * two apart). Everything the Owner does except the dashboard and sales money. */
+    /* The main note-taker of the central side: it writes as role "owner" (persistence stamps
+     * `actor: "manager"`). Everything the Owner does except sales, payroll, P&L and Settings. */
     id: "manager",
     role: "owner",
     hidesSales: true,
     name: "Account Manager",
     title: "ผู้จัดการบัญชี · ทำงานแทนเจ้าของ",
-    summary:
-      "จัดซื้อ PO, Invoice, การจ่ายเงิน ต้นทุน สต๊อก และตั้งค่าแทนเจ้าของ",
+    summary: "จด PO เนื้อ Lot รมควัน จ่ายเงิน และสต๊อกแทนเจ้าของ",
     path: "/owner",
-    homeTab: "po",
+    homeTab: "log",
     icon: Briefcase,
   },
   {
@@ -50,9 +49,9 @@ export const accounts: Account[] = [
     branch: "ศาลาแดง",
     name: "สาขาศาลาแดง",
     title: "ผู้ดูแลสาขา",
-    summary: "รับของ บันทึกการใช้ ขาย และปิดยอดประจำวัน",
+    summary: "จดยอดขาย รับเนื้อ และนับของคงเหลือของสาขา",
     path: "/branch",
-    homeTab: "day",
+    homeTab: "log",
     icon: Store,
   },
   {
@@ -61,9 +60,9 @@ export const accounts: Account[] = [
     branch: "มีนบุรี",
     name: "สาขามีนบุรี",
     title: "ผู้ดูแลสาขา",
-    summary: "รับของ บันทึกการใช้ ขาย และปิดยอดประจำวัน",
+    summary: "จดยอดขาย รับเนื้อ และนับของคงเหลือของสาขา",
     path: "/branch",
-    homeTab: "day",
+    homeTab: "log",
     icon: Store,
   },
 ];
