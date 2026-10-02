@@ -4,37 +4,31 @@ import { CountPill } from "@/components/atoms/CountPill";
 import { IconButton } from "@/components/atoms/IconButton";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { missingText } from "@/lib/store";
 import { useId, useRef } from "react";
-import type { Tab } from "@/lib/nav";
 
-export type Notification = { title: string; detail: string; tab: Tab };
-
-/** Bell button with a count, opening the list of notices (things not recorded yet, edit
- *  requests and the like); each line jumps to its tab. Shared by the owner and branch routes, so its own copy stays generic.
- *  A native `popover`: the browser owns open/close, Escape, click-outside and the button's
- *  expanded state; CSS anchor positioning hangs the panel under the bell. Below md the bell
- *  is not the last thing in its row, so the panel keeps to the screen's gutter instead of
- *  the bell's right edge, which would push it off the left of a phone. */
-export function NotificationPopover({
-  notifications,
-  onSelect,
-}: {
-  notifications: Notification[];
-  onSelect: (tab: Tab) => void;
-}) {
+/** The bell: a count of everything not jotted yet (the same list as the todo box), opening
+ *  that list; a line does what it does in the box. A native `popover`: the browser owns
+ *  open/close, Escape, click-outside and the button's expanded state; CSS anchor positioning
+ *  hangs the panel on the bell. In the sidebar the bell sits at the bottom left, so the panel
+ *  opens upwards from its left edge; in the phone's top bar it opens downwards and keeps to
+ *  the screen's gutter. */
+export function NotificationPopover({ ws }: { ws: Workspace }) {
   const id = useId();
   const panel = useRef<HTMLElement>(null);
+  const list = ws.todos;
   return (
     <div className="group">
       <IconButton
         className="relative border border-border bg-surface text-accent [anchor-name:--notifications] group-has-[:popover-open]:bg-bg"
-        label={`การแจ้งเตือน ${notifications.length} รายการ`}
+        label={`${missingText} ${list.length} อย่าง`}
         popoverTarget={id}
         icon={
           <>
             <Bell size={19} />
-            {notifications.length > 0 && (
-              <CountPill variant="overlay">{notifications.length}</CountPill>
+            {list.length > 0 && (
+              <CountPill variant="overlay">{list.length}</CountPill>
             )}
           </>
         }
@@ -43,32 +37,32 @@ export function NotificationPopover({
         ref={panel}
         id={id}
         popover="auto"
-        className="inset-auto [top:anchor(bottom)] [right:anchor(right)] m-0 mt-2.5 w-[min(390px,calc(100vw-32px))] origin-top-right rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in max-md:[right:1rem]"
+        className="inset-auto m-0 w-[min(390px,calc(100vw-32px))] rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in max-md:[top:anchor(bottom)] max-md:right-4 max-md:mt-2.5 max-md:origin-top-right md:[bottom:anchor(top)] md:[left:anchor(left)] md:mb-2.5 md:origin-bottom-left"
         aria-label="การแจ้งเตือน"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">
           <div className="grid gap-0.5">
             <strong className="text-body font-semibold">การแจ้งเตือน</strong>
             <span className="text-caption text-text-secondary">
-              {notifications.length
-                ? `แจ้งเตือน ${notifications.length} รายการ`
-                : "ไม่มีแจ้งเตือน"}
+              {list.length
+                ? `${missingText} ${list.length} อย่าง · กดที่รายการเพื่อจด`
+                : "จดครบแล้ว"}
             </span>
           </div>
           <Button variant="text" popoverTarget={id} popoverTargetAction="hide">
             ปิด
           </Button>
         </div>
-        {notifications.length ? (
+        {list.length ? (
           <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
-            {notifications.map((notification, index) => (
+            {list.map((todo, index) => (
               <AlertListItem
                 as="button"
-                key={`${notification.tab}-${notification.title}-${index}`}
-                title={notification.title}
-                detail={notification.detail}
+                key={`${todo.text}-${index}`}
+                title={todo.text}
+                className="min-h-11 items-center"
                 onClick={() => {
-                  onSelect(notification.tab);
+                  ws.openTodo(todo);
                   panel.current?.hidePopover();
                 }}
               />
@@ -77,7 +71,7 @@ export function NotificationPopover({
         ) : (
           <EmptyState
             compact
-            text="ไม่มีแจ้งเตือน"
+            text="ไม่มีรายการที่ยังไม่ได้จด"
             className="mx-0.75 mb-0.5"
           />
         )}

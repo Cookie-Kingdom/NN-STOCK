@@ -7,10 +7,6 @@ const meta = {
   args: { placeholder: "น้ำหนัก (กก.)" },
   argTypes: {
     variant: { control: "inline-radio", options: ["form", "table", "filter"] },
-    prefilled: {
-      control: "inline-radio",
-      options: [undefined, "auto", "expected"],
-    },
   },
 } satisfies Meta<typeof Input>;
 
@@ -21,9 +17,6 @@ type Story = StoryObj<typeof meta>;
  *  - `variant`: form (default), table (a table cell, e.g. "12.50"), or filter (e.g.
  *    `type="date"` in a filter bar)
  *  - `reason`: the free-text reason field inside a table row (placeholder "เหตุผล")
- *  - `prefilled="auto"`: a value the system filled in (table cell or form, e.g. "สมชาย")
- *  - `prefilled="expected"`: a predicted scale or count reading to weigh and correct
- *    (e.g. "360")
  *  - `type="number"`: ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน
  *  - `spinner`: ใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
  *  - `disabled`: locked */
@@ -38,7 +31,6 @@ export const Default: Story = {
   },
   args: {
     variant: "form",
-    prefilled: undefined,
     type: "text",
     step: "0.01",
     reason: false,

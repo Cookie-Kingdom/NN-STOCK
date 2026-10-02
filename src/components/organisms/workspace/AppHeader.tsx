@@ -1,45 +1,40 @@
 import type { ReactNode } from "react";
 import { Beef } from "lucide-react";
-import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { cn } from "@/lib/utils";
 
-/** Logo tile + product name. Shared by the workspace header and the sign-in card. */
-export function AppBrand({ responsive = false }: { responsive?: boolean }) {
+/** Logo tile + product name. Shared by the sign-in card (with the tagline) and the workspace
+ *  sidebar (`compact`: smaller, and `caption` in place of the tagline). */
+export function AppBrand({
+  compact = false,
+  caption,
+}: {
+  compact?: boolean;
+  caption?: ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-11 flex-none place-items-center rounded-lg bg-accent text-accent-fg">
-        <Beef size={24} />
+    <div className="flex min-w-0 items-center gap-3">
+      <span
+        className={cn(
+          "grid flex-none place-items-center rounded-lg bg-accent text-accent-fg",
+          compact ? "size-9" : "size-11",
+        )}
+      >
+        <Beef size={compact ? 20 : 24} />
       </span>
-      <div>
+      <div className="min-w-0">
         <strong
-          className={cn(
-            "text-h2 font-semibold",
-            responsive && "max-md:text-h3",
-          )}
+          className={cn("block font-semibold", compact ? "text-h3" : "text-h2")}
         >
           NerdNuea <span className="text-text-secondary">Stock</span>
         </strong>
-        <small className="mt-0.75 block text-caption tracking-[0.05em] text-text-secondary">
-          ระบบสต๊อกและต้นทุนเนื้อรมควัน
-        </small>
+        {compact ? (
+          caption
+        ) : (
+          <small className="mt-0.75 block text-caption tracking-[0.05em] text-text-secondary">
+            ระบบสต๊อกและต้นทุนเนื้อรมควัน
+          </small>
+        )}
       </div>
     </div>
-  );
-}
-
-/**
- * Top bar of every workspace: brand on the left, `actions` (จดบันทึก, notifications) and
- * the theme toggle on the right. Below md the actions take a row of their own under the
- * brand, so จดบันทึก keeps its label on a phone.
- */
-export function AppHeader({ actions }: { actions?: ReactNode }) {
-  return (
-    <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-8 py-4.5 max-md:flex-wrap max-md:px-4 max-md:py-3.5">
-      <AppBrand responsive />
-      <div className="flex flex-wrap items-center gap-2.5 max-md:w-full max-md:justify-end">
-        {actions}
-        <ThemeToggle />
-      </div>
-    </header>
   );
 }

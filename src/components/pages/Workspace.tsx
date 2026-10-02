@@ -1,27 +1,31 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/atoms/Button";
-import { Muted } from "@/components/atoms/Text";
+import { BranchStock } from "@/components/organisms/branch/BranchStock";
+import { FinancePage } from "@/components/organisms/owner/FinancePage";
+import { LotsPage } from "@/components/organisms/owner/LotsPage";
+import { OverviewPage } from "@/components/organisms/owner/OverviewPage";
+import { OwnerStock } from "@/components/organisms/owner/OwnerStock";
+import { SettingsPage } from "@/components/organisms/owner/SettingsPage";
+import { DailyLog } from "@/components/organisms/shared/DailyLog";
+import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
+import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import type { Account } from "@/lib/accounts";
-import { signOut } from "@/lib/session";
 
-// ponytail: C0 stub, the v2 shell and pages replace it in chunk U1.
+/** The one workspace of every account: the shell, and the page of the tab in view. Which
+ *  tabs an account has is `navFor` (nav.ts); a branch's Stock is its own view. */
 export function Workspace({ account }: { account: Account }) {
-  const router = useRouter();
+  const ws = useWorkspace(account);
+  const Page = {
+    overview: OverviewPage,
+    log: DailyLog,
+    lots: LotsPage,
+    stock: account.role === "branch" ? BranchStock : OwnerStock,
+    finance: FinancePage,
+    settings: SettingsPage,
+  }[ws.tab];
   return (
-    <main className="grid min-h-screen place-content-center justify-items-center gap-3 p-8">
-      <strong className="text-h2">{account.name}</strong>
-      <Muted>กำลังสร้าง</Muted>
-      <Button
-        variant="secondary"
-        onClick={async () => {
-          await signOut();
-          router.replace("/");
-        }}
-      >
-        ออกจากระบบ
-      </Button>
-    </main>
+    <WorkspaceShell ws={ws}>
+      <Page ws={ws} />
+    </WorkspaceShell>
   );
 }

@@ -1,0 +1,73 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
+import { LoadingPanel } from "@/components/molecules/LoadingState";
+import { PageHeading } from "@/components/molecules/PageHeading";
+import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
+import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
+import { Composer } from "@/components/organisms/workspace/Composer";
+import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { pages } from "@/lib/nav";
+
+/** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
+ *  beside one column holding the page's head with its 「จดบันทึก」 button, the composer when
+ *  it is open, and the page (`children`). Toasts float at the bottom of the screen. */
+export function WorkspaceShell({
+  ws,
+  children,
+}: {
+  ws: Workspace;
+  children: ReactNode;
+}) {
+  const page = pages[ws.tab];
+  return (
+    <div className="grid min-h-dvh grid-cols-[224px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
+      <AppSidebar ws={ws} />
+      <main className="mx-auto flex w-full max-w-[1120px] min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24">
+        <PageHeading
+          title={page.label}
+          description={page.description}
+          action={
+            ws.tab !== "settings" && (
+              <Button
+                variant="primary"
+                icon={<Plus />}
+                // Not while the seed stands in for the server payload: a form would read it.
+                disabled={!ws.loaded}
+                aria-expanded={!!ws.draft}
+                onClick={() => (ws.draft ? ws.closeDraft() : ws.jot())}
+              >
+                จดบันทึก
+              </Button>
+            )
+          }
+        />
+        <Composer ws={ws} />
+        {/* Server payload still loading: the page would show seed data, so show its shape instead. */}
+        {!ws.loaded ? (
+          <LoadingPanel />
+        ) : (
+          <div key={ws.tab} className="animate-fade-in">
+            {children}
+          </div>
+        )}
+        {/* Above the bottom tabs on a phone. Only the toasts take clicks, not the strip. */}
+        <div className="pointer-events-none fixed inset-x-4 bottom-6 z-30 mx-auto grid max-w-md gap-2 *:pointer-events-auto max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]">
+          <Toast
+            key={ws.toast.id}
+            className="my-0 shadow-lg"
+            message={ws.toast.message}
+            tone={ws.toast.tone ?? "success"}
+            action={
+              ws.toast.undo && { label: "เลิกทำ", onClick: ws.toast.undo }
+            }
+            onClose={() => ws.setToast("")}
+          />
+          <DatabaseErrorToast className="my-0 shadow-lg" />
+        </div>
+      </main>
+    </div>
+  );
+}
