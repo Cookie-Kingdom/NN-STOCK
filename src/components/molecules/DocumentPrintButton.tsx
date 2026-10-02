@@ -1,13 +1,13 @@
 "use client";
 
 import { Button } from "@/components/atoms/Button";
-import { dateLabel } from "@/components/organisms/shared/documentRows";
 import {
   PO_PAGE_CSS,
   POPUP_DOWNLOAD_BUTTON_STYLE,
   SHEET_CSS,
 } from "@/components/organisms/shared/printDocumentCss";
 import { useLogoSrc } from "@/lib/attachment-store";
+import { dateLabel } from "@/lib/format";
 
 const escape = (value: string) =>
   value.replace(

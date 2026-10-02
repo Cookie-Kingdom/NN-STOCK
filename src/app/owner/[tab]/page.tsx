@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ownerNav } from "@/lib/nav";
+import { pages } from "@/lib/nav";
 
 /* Only tabs in the nav exist; anything else is a 404. Each tab is rendered on its first
  * visit and then served static. No build-time list on purpose: with one, `next dev`
@@ -10,7 +10,6 @@ export const generateStaticParams = () => [];
 // ponytail: renders nothing, the layout's workspace reads the tab from the URL.
 export default async function OwnerTab({ params }: PageProps<"/owner/[tab]">) {
   const { tab } = await params;
-  if (!ownerNav.some((group) => group.items.some((item) => item.id === tab)))
-    notFound();
+  if (!Object.hasOwn(pages, tab)) notFound();
   return null;
 }

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
-import { PoLotCell } from "@/components/molecules/PoLotCell";
 import { pick } from "../../../.storybook/pick";
 import { DataTable } from "@/components/organisms/shared/DataTable";
 import { TableSection } from "./TableSection";
@@ -44,7 +43,7 @@ export const WithActions: Story = {
 const rows = Array.from({ length: 6 }, (_, i) => {
   const n = String(i + 1).padStart(2, "0");
   return [
-    <PoLotCell key="lot" poId={`PO-0412-${n}`} lotId={`LOT-0915-${n}`} />,
+    `PO-0412-${n} · LOT-0915-${n}`,
     "2026-09-09",
     `${(80 + i * 1.5).toFixed(2)} กก.`,
     <Badge key="state" tone={i % 3 === 0 ? "warning" : "success"}>

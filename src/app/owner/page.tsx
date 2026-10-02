@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function OwnerIndex() {
-  redirect("/owner/owner-dashboard");
+  redirect("/owner/overview");
 }

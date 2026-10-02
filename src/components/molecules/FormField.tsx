@@ -36,8 +36,8 @@ export function FieldHint({ children }: { children: ReactNode }) {
 
 export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
   /** `div` (with a `<span>` label) for a field that holds several controls, e.g.
-   *  PackWeightFields: a `<label>` around several inputs is invalid, so each control
-   *  must carry its own `aria-label`. `prefilled` is ignored. */
+   *  several pack weights: a `<label>` around several inputs is invalid, so each control
+   *  must carry its own `aria-label`. */
   as?: "label" | "div";
   label: ReactNode;
   /** Appends the " (ถ้ามี)" marker. */
@@ -47,39 +47,7 @@ export type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
   wide?: boolean;
   /** The control — use `Input` / `Select` / `Textarea` with `variant="form"`. */
   children: ReactNode;
-  /** The system filled this value in: tints the control and says where it came from.
-   *  `expected` marks a predicted scale or count reading the user must check. */
-  prefilled?: { label: string; expected?: boolean };
 };
-
-/** The control inside a prefilled field, by `data-prefilled` on the label. Same look as
- *  `controlVariants`' `prefilled` variant. */
-const prefilledControl =
-  "data-[prefilled=auto]:[&_:is(input,select,textarea)]:bg-accent-subtle/60 data-[prefilled=expected]:[&_:is(input,select,textarea)]:border-warning data-[prefilled=expected]:[&_:is(input,select,textarea)]:bg-warning-subtle";
-
-/**
- * The caption under a prefilled control: a short "filled by the system" mark, warning
- * coloured for a predicted reading. Where the value came from stays in the tooltip.
- * aria-hidden keeps it out of the field's accessible name, which the wrapping label
- * would otherwise extend.
- */
-export function PrefillCaption({
-  label,
-  expected,
-}: {
-  label: string;
-  expected?: boolean;
-}) {
-  return (
-    <Caption
-      aria-hidden
-      title={label}
-      className={cn("mt-1.5 block", expected && "font-medium text-warning")}
-    >
-      กรอกอัตโนมัติ
-    </Caption>
-  );
-}
 
 /**
  * One labelled control in a form: a `<label>` wrapping its control, so no `htmlFor`/`id`
@@ -93,7 +61,6 @@ export function FormField({
   optional = false,
   hint,
   wide = false,
-  prefilled,
   className,
   children,
   ...props
@@ -113,17 +80,10 @@ export function FormField({
       </div>
     );
   return (
-    <label
-      className={fieldClassName(wide, cn(prefilledControl, className))}
-      data-prefilled={
-        prefilled ? (prefilled.expected ? "expected" : "auto") : undefined
-      }
-      {...props}
-    >
+    <label className={fieldClassName(wide, className)} {...props}>
       {label}
       {optional && <OptionalMark />}
       {children}
-      {prefilled && <PrefillCaption {...prefilled} />}
       {hint && <FieldHint>{hint}</FieldHint>}
     </label>
   );

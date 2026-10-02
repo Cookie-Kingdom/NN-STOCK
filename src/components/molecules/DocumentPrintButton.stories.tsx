@@ -1,26 +1,42 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { demoDb } from "../../../.storybook/fixtures";
+import { day, demoDb } from "../../../.storybook/fixtures";
 import { pick } from "../../../.storybook/pick";
-import { purchaseOrderRows } from "@/components/organisms/shared/documentRows";
 import { DocumentPrintButton } from "./DocumentPrintButton";
 
-const lot = demoDb.lots[0];
+const rows = (pairs: [string, string][]) => pairs;
 
 const doc = pick("เอกสาร", {
   "PO ซื้อเนื้อ (กระดาษ PO)": {
     title: "Purchase Order",
-    number: lot.poId,
-    rows: purchaseOrderRows(lot, demoDb),
+    number: "PO-0909-01",
+    rows: rows([
+      ["วันที่ PO", day],
+      ["Supplier", "Foodiva"],
+      ["ผู้รับออเดอร์", "คุณสมชาย"],
+      ["ที่อยู่ผู้ให้บริการ", "เชียงใหม่"],
+      ["ลูกค้า", "NerdNuea Stock"],
+      ["ที่อยู่", "กรุงเทพฯ"],
+      ["Attention", "คุณเจ้าของร้าน"],
+      ["โทร.", "02-000-0000"],
+      ["Tax ID", "0105500000000"],
+      ["สินค้า", "เนื้อวัว"],
+      ["ขนาดบรรจุ", "5 กก."],
+      ["จำนวน", "200.00 กก."],
+      ["ราคา / กก.", "฿700.00"],
+      ["ยอดรวมก่อน VAT", "฿140,000.00"],
+      ["อ้างอิงผู้ขาย", "—"],
+      ["หมายเหตุ", "—"],
+    ]),
   },
   "เอกสารอื่น (ตารางรายละเอียด)": {
     title: "Transport Manifest",
-    number: `TM-${lot.id}`,
-    rows: [
-      ["Lot", lot.id],
-      ["ผู้ขาย", lot.values.supplier],
-      ["น้ำหนักสั่ง", `${lot.values.orderedKg} กก.`],
+    number: "TM-0909-01",
+    rows: rows([
+      ["Lot", "LOT-0909-01"],
+      ["ผู้ขาย", "Foodiva"],
+      ["น้ำหนักสั่ง", "200 กก."],
       ["หมายเหตุ", ""],
-    ] as [string, string][],
+    ]),
   },
 });
 

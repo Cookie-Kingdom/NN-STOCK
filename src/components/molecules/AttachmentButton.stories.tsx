@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { pick } from "../../../.storybook/pick";
-import { AttachmentButton, SlipList } from "./AttachmentButton";
+import { AttachmentButton } from "./AttachmentButton";
 
 const meta = {
   title: "Molecules/AttachmentButton",
@@ -41,20 +41,4 @@ export const Default: StoryObj<Props & { file: Partial<Props> }> = {
   argTypes: { file: file.argType },
   args: { file: file.initial },
   render: ({ file, ...args }) => <AttachmentButton {...args} {...file} />,
-};
-
-const slips = pick<string | undefined>("สลิป", {
-  สองไฟล์: JSON.stringify([
-    { name: "สลิปโอนเงิน.jpg", storageKey: "missing-1" },
-    { name: "สลิปงวด 2.pdf", storageKey: "missing-2" },
-  ]),
-  ไม่มีสลิป: undefined,
-});
-
-/** `SlipList`, pick in Controls: สองไฟล์ = a view + download pair per uploaded file;
- *  ไม่มีสลิป = "ไม่มีสลิป". */
-export const Slips: StoryObj<{ value?: string }> = {
-  argTypes: { value: slips.argType },
-  args: { value: slips.initial },
-  render: ({ value }) => <SlipList value={value} />,
 };
