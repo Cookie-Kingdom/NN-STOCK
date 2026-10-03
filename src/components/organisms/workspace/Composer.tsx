@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
-import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
 import { Caption } from "@/components/atoms/Text";
+import { Dialog } from "@/components/molecules/Dialog";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
@@ -59,15 +59,11 @@ const grid =
 /** A kg the web works out, as typed into a field: at most two decimals. */
 const kgValue = (x: number) => String(Math.round(x * 100) / 100);
 
-/** The inline card under the page header where a note is jotted: the form of `draft.kind`
- *  (opened by a page's jot buttons or a todo), or with `editId` the same form on that entry. */
+/** The dialog where a note is jotted: the form of `draft.kind` (opened by a page's jot
+ *  buttons or a todo), or with `editId` the same form on that entry. It floats over the
+ *  page, so the page stays where it was. */
 export function Composer({ ws }: { ws: Workspace }) {
   const { draft, db, account } = ws;
-  const card = useRef<HTMLDivElement>(null);
-  // Opened from a row or a todo far down the page: bring the card into view.
-  useEffect(() => {
-    if (draft) card.current?.scrollIntoView?.({ block: "nearest" });
-  }, [draft]);
   if (!draft) return null;
   const target = draft.editId
     ? visibleNotes(db, account).find((e) => e.id === draft.editId)
@@ -88,18 +84,15 @@ export function Composer({ ws }: { ws: Workspace }) {
         onClose={ws.closeDraft}
       />
     );
+  // 「บันทึกและจดต่อ」 bumps `seq`: a fresh form in a fresh dialog.
   return (
-    <div ref={card} className="animate-fade-up scroll-mt-20">
-      <Panel flush>
-        <NoteForm
-          key={draft.seq}
-          ws={ws}
-          draft={draft}
-          kind={kind}
-          target={target}
-        />
-      </Panel>
-    </div>
+    <NoteForm
+      key={draft.seq}
+      ws={ws}
+      draft={draft}
+      kind={kind}
+      target={target}
+    />
   );
 }
 
@@ -268,21 +261,12 @@ function NoteForm({
   };
 
   return (
-    <form
-      aria-label="จดบันทึก"
-      noValidate
-      className="flex flex-col gap-4 p-5 max-md:p-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        save(false);
-      }}
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="m-0 text-h3">
-          {target ? "แก้ไข: " : ""}
-          {titles[kind]}
-        </h2>
-        {shown.some((f) => f.core) ? (
+    <Dialog
+      className="w-180"
+      onClose={ws.closeDraft}
+      title={`${target ? "แก้ไข: " : ""}${titles[kind]}`}
+      meta={
+        shown.some((f) => f.core) ? (
           <Badge
             tone="warning"
             className="rounded-md border border-warning/40 font-medium whitespace-normal"
@@ -291,140 +275,156 @@ function NoteForm({
           </Badge>
         ) : (
           <Caption>จดเพิ่มได้ ไม่มีช่องที่ขึ้นสีเหลือง</Caption>
-        )}
-      </div>
-      <FormGrid className={grid}>
-        <FormField label="วันที่">
-          <Input
-            type="date"
-            max={today}
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </FormField>
-        {info.lot && (
-          <FormField label={info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}>
-            <Select
-              value={lotId}
-              onChange={(event) => pickLot(event.target.value)}
-            >
-              {/* An edit moves a note to another lot; it never clears one. */}
-              {info.lot === "optional" && !target?.lotId && (
-                <option value="">ไม่ระบุ PO รมควัน</option>
-              )}
-              {info.lot !== "optional" && !lots.length && (
-                <option value="">
-                  ยังไม่มี {info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
-                </option>
-              )}
-              {lotId && !lots.some((lot) => lot.id === lotId) && (
-                <option value={lotId}>{lotLabel(db, lotId)}</option>
-              )}
-              {lots.map((lot) => (
-                <option key={lot.id} value={lot.id}>
-                  {lot.poId}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-        )}
-        {info.group === "branch" && account.role !== "branch" && (
-          <FormField label="สาขา">
-            {/* An entry's branch is fixed when it is saved. */}
-            <Select
-              value={branch}
-              disabled={!!target}
-              onChange={(event) => setBranch(event.target.value)}
-            >
-              {branches.map((name) => (
-                <option key={name}>{name}</option>
-              ))}
-            </Select>
-          </FormField>
-        )}
-        {main.map((f, index) =>
-          f.type === "poLines" ? (
-            <PoLinesControl
-              key={f.key}
-              field={f}
-              db={db}
-              values={values}
-              set={set}
-              exceptId={target?.id}
-            />
-          ) : (
-            <EntryFieldControl
-              key={f.key}
-              field={f}
-              autoFocus={index === 0}
-              values={values}
-              set={set}
-              onFile={onFile}
-              onFileError={setError}
-            />
-          ),
-        )}
-      </FormGrid>
-      {capacity && (
-        <Notice tone="warning" className="my-0 text-body-sm">
-          {capacity}
-        </Notice>
-      )}
-      {roundNote && (
-        <p aria-live="polite" className="m-0 text-body-sm text-text-secondary">
-          {roundNote}
-        </p>
-      )}
-      {more.length > 0 && (
-        <details className="group" open={moreOpen || undefined}>
-          <summary className="w-fit items-center justify-start gap-1 text-label text-accent">
-            จดเพิ่มได้ {more.length} ช่อง
-            <ChevronDown
-              size={16}
-              aria-hidden
-              className="transition-transform duration-(--motion-base) ease-(--ease-standard) group-open:rotate-180"
-            />
-          </summary>
-          <FormGrid className={`${grid} mt-2`}>
-            {more.map((f) => (
-              <EntryFieldControl
-                key={f.key}
-                field={f}
-                values={values}
-                set={set}
-                onFile={onFile}
-                onFileError={setError}
+        )
+      }
+    >
+      <form
+        aria-label="จดบันทึก"
+        noValidate
+        className="flex min-h-0 flex-auto flex-col"
+        onSubmit={(event) => {
+          event.preventDefault();
+          save(false);
+        }}
+      >
+        <div className="flex min-h-0 flex-auto flex-col gap-4 overflow-auto p-6.5 max-md:p-4">
+          <FormGrid className={grid}>
+            <FormField label="วันที่">
+              <Input
+                type="date"
+                max={today}
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
               />
-            ))}
+            </FormField>
+            {info.lot && (
+              <FormField label={info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}>
+                <Select
+                  value={lotId}
+                  onChange={(event) => pickLot(event.target.value)}
+                >
+                  {/* An edit moves a note to another lot; it never clears one. */}
+                  {info.lot === "optional" && !target?.lotId && (
+                    <option value="">ไม่ระบุ PO รมควัน</option>
+                  )}
+                  {info.lot !== "optional" && !lots.length && (
+                    <option value="">
+                      ยังไม่มี {info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
+                    </option>
+                  )}
+                  {lotId && !lots.some((lot) => lot.id === lotId) && (
+                    <option value={lotId}>{lotLabel(db, lotId)}</option>
+                  )}
+                  {lots.map((lot) => (
+                    <option key={lot.id} value={lot.id}>
+                      {lot.poId}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+            {info.group === "branch" && account.role !== "branch" && (
+              <FormField label="สาขา">
+                {/* An entry's branch is fixed when it is saved. */}
+                <Select
+                  value={branch}
+                  disabled={!!target}
+                  onChange={(event) => setBranch(event.target.value)}
+                >
+                  {branches.map((name) => (
+                    <option key={name}>{name}</option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
+            {main.map((f, index) =>
+              f.type === "poLines" ? (
+                <PoLinesControl
+                  key={f.key}
+                  field={f}
+                  db={db}
+                  values={values}
+                  set={set}
+                  exceptId={target?.id}
+                />
+              ) : (
+                <EntryFieldControl
+                  key={f.key}
+                  field={f}
+                  autoFocus={index === 0}
+                  values={values}
+                  set={set}
+                  onFile={onFile}
+                  onFileError={setError}
+                />
+              ),
+            )}
           </FormGrid>
-        </details>
-      )}
-      <FormError error={error} className="my-0" />
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={saving || lines?.ok === false}
-        >
-          บันทึก
-        </Button>
-        {!target && (
+          {capacity && (
+            <Notice tone="warning" className="my-0 text-body-sm">
+              {capacity}
+            </Notice>
+          )}
+          {roundNote && (
+            <p
+              aria-live="polite"
+              className="m-0 text-body-sm text-text-secondary"
+            >
+              {roundNote}
+            </p>
+          )}
+          {more.length > 0 && (
+            <details className="group" open={moreOpen || undefined}>
+              <summary className="w-fit items-center justify-start gap-1 text-label text-accent">
+                จดเพิ่มได้ {more.length} ช่อง
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className="transition-transform duration-(--motion-base) ease-(--ease-standard) group-open:rotate-180"
+                />
+              </summary>
+              <FormGrid className={`${grid} mt-2`}>
+                {more.map((f) => (
+                  <EntryFieldControl
+                    key={f.key}
+                    field={f}
+                    values={values}
+                    set={set}
+                    onFile={onFile}
+                    onFileError={setError}
+                  />
+                ))}
+              </FormGrid>
+            </details>
+          )}
+          <FormError error={error} className="my-0" />
+        </div>
+        <footer className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border bg-bg px-6.5 py-4 max-md:px-4 max-md:py-3">
           <Button
-            disabled={saving || lines?.ok === false}
-            onClick={() => save(true)}
+            variant="link"
+            className="min-h-11 px-2"
+            onClick={ws.closeDraft}
           >
-            บันทึกและจดต่อ
+            ยกเลิก
           </Button>
-        )}
-        <Button
-          variant="link"
-          className="min-h-11 px-2"
-          onClick={ws.closeDraft}
-        >
-          ยกเลิก
-        </Button>
-      </div>
-    </form>
+          {!target && (
+            <Button
+              disabled={saving || lines?.ok === false}
+              onClick={() => save(true)}
+            >
+              บันทึกและจดต่อ
+            </Button>
+          )}
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saving || lines?.ok === false}
+          >
+            บันทึก
+          </Button>
+        </footer>
+      </form>
+    </Dialog>
   );
 }
 

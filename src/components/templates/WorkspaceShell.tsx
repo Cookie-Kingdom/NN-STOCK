@@ -13,8 +13,9 @@ import { pages } from "@/lib/nav";
 import { kindsForPage, titles } from "@/lib/store";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
- *  beside one column holding the page's head with a button per note kind of the page, the
- *  composer when it is open, and the page (`children`). Toasts float at the bottom of the screen. */
+ *  beside one column holding the page's head with a button per note kind of the page, and
+ *  the page (`children`). The composer opens as a dialog over it; toasts float at the bottom
+ *  of the screen. */
 export function WorkspaceShell({
   ws,
   children,
@@ -55,7 +56,6 @@ export function WorkspaceShell({
             )
           }
         />
-        <Composer ws={ws} />
         {/* Server payload still loading: the page would show seed data, so show its shape instead. */}
         {!ws.loaded ? (
           <LoadingPanel />
@@ -64,6 +64,8 @@ export function WorkspaceShell({
             {children}
           </div>
         )}
+        {/* A modal dialog over the page: it takes no room in the column. */}
+        <Composer ws={ws} />
         {/* Above the bottom tabs on a phone. Only the toasts take clicks, not the strip. */}
         <div className="pointer-events-none fixed inset-x-4 bottom-6 z-30 mx-auto grid max-w-md gap-2 *:pointer-events-auto max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]">
           <Toast

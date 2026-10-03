@@ -11,14 +11,14 @@ import { today } from "@/lib/format";
 import { materialList, mutate, seed } from "@/lib/store";
 import { BranchStock } from "./BranchStock";
 
-/** The page under the composer, as the shell lays them out: 「นับเนื้อคงเหลือ」 opens it. */
+/** The page and the composer, as the shell has them: 「นับเนื้อคงเหลือ」 opens its dialog over the page. */
 const Stock = ({ account }: { account: AccountId }) => (
   <WithWorkspace account={account}>
     {(ws) => (
-      <div className="flex flex-col gap-6">
-        <Composer ws={ws} />
+      <>
         <BranchStock ws={ws} />
-      </div>
+        <Composer ws={ws} />
+      </>
     )}
   </WithWorkspace>
 );
@@ -44,6 +44,8 @@ const countedDb = [
 const meta = {
   title: "Organisms/Branch/BranchStock",
   component: Stock,
+  // 「นับเนื้อ」 opens a modal <dialog>: one per story would stack on a Docs page.
+  tags: ["!autodocs"],
   args: { account: "minburi" },
   argTypes: { account: { control: false } },
   parameters: { db: dbFor("minburi") },
