@@ -103,7 +103,7 @@ function EditDiff({ change, ws }: { change: Entry; ws: Workspace }) {
     ...(values.toLotId
       ? [
           [
-            "Lot",
+            "PO รมควัน",
             `${values.fromLotId ? lotLabel(db, values.fromLotId) : "–"} → ${lotLabel(db, values.toLotId)}`,
           ],
         ]

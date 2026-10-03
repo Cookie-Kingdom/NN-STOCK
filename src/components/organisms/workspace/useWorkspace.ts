@@ -8,7 +8,7 @@ import { navFor, type Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
 import { todos, type NoteKind, type Todo, type Values } from "@/lib/store";
 
-/** What the composer opens on: nothing set is the kind picker; a `kind` is that kind's form,
+/** What the composer opens on: a `kind` is that kind's form,
  *  started from the lot, branch, date and values given; an `editId` is the edit of that entry. */
 export type Draft = {
   kind?: NoteKind;
@@ -47,9 +47,9 @@ export function useWorkspace(account: Account) {
   const [toast, show] = useState<ToastState>({ id: 0, message: "" });
   const say = (next: Omit<ToastState, "id">) =>
     show((last) => ({ ...next, id: last.id + 1 }));
-  /** Opens the composer: the kind picker, or with `preset.kind` that kind's form. Each call
+  /** Opens the composer on `preset.kind`'s form (or `preset.editId`'s edit). Each call
    *  is a fresh form (`seq`), so "save and jot another" starts empty. */
-  const jot = (preset: Draft = {}) =>
+  const jot = (preset: Draft) =>
     setDraft((last) => ({ ...preset, seq: (last?.seq ?? 0) + 1 }));
   const setTab = (next: Tab) => {
     // A form and a toast belong to the page they were opened on.
@@ -96,7 +96,11 @@ export function useWorkspace(account: Account) {
           lotId: todo.lotId,
           branch: todo.branch,
           date: todo.date,
-          values: todo.category ? { category: todo.category } : undefined,
+          values: todo.category
+            ? { category: todo.category }
+            : todo.dispatchId
+              ? { dispatchId: todo.dispatchId }
+              : undefined,
         });
     },
   };

@@ -12,9 +12,11 @@ import {
 import { mutate } from "./mutate";
 const owner: Actor = { role: "owner" };
 const manager: Actor = { role: "owner", hidesSales: true };
-/** 35 days that end on `endDate` (today at most: `mutate` takes no future date). Three Lots:
- *  one complete, one sent with no PO เนื้อ picked, one with only its PO รมควัน. A sale day
- *  left out and a sale with no money typed show the yellow. */
+/** 35 days that end on `endDate` (today at most: `mutate` takes no future date). Three POs
+ *  รมควัน: one complete (one round, its invoice), one with a first round received at Chef
+ *  House only, one bought with nothing sent yet. PO เนื้อ 1 has its invoice and its waste
+ *  received; PO เนื้อ 2 still waits for its waste and its invoice. A sale day left out and a
+ *  sale with no money typed show the yellow. */
 export function sampleData(endDate: string): Database {
   let db = structuredClone(seed);
   const add = (
@@ -51,19 +53,29 @@ export function sampleData(endDate: string): Database {
   const po1 = add(manager, "purchase", 24, "10:05", {
     supplier: "Foodiva",
     orderedKg: 200,
+    wasteKg: 20,
     price: 700,
-    invoiceNo: "INV-F-0912",
-    invoiceAmount: 140000,
   });
+  const lines = (...rows: [string, number][]) =>
+    JSON.stringify(rows.map(([poLotId, kg]) => ({ poLotId, kg: String(kg) })));
   const lot1 = add(manager, "smokeOrder", 23, "09:30", { rawKg: 200 });
   add(
     manager,
     "dispatch",
     22,
     "08:10",
-    { dispatchKg: 200, poLotId: po1, plate: "2กข 4471" },
+    { dispatchKg: 200, poLines: lines([po1, 200]), plate: "2กข 4471" },
     lot1,
   );
+  add(
+    manager,
+    "meatInvoice",
+    21,
+    "10:00",
+    { invoiceNumber: "INV-F-0912", netPayable: 140000 },
+    po1,
+  );
+  add(owner, "ownerWasteReceive", 21, "15:00", { receiver: "Owner" }, po1);
   add(manager, "pay", 22, "08:40", {
     category: "transport",
     amount: 3500,
@@ -95,7 +107,15 @@ export function sampleData(endDate: string): Database {
     detail: "เตาอุ่นอาหาร 1 เครื่อง",
     payer: company,
   });
-  add(manager, "central", 15, "16:45", { centralKg: 104, boxes: 18 }, lot1);
+  add(manager, "smoked", 16, "18:00", { smokedKg: 104, boxes: 18 }, lot1);
+  add(
+    manager,
+    "return",
+    15,
+    "16:45",
+    { returnKg: 104, plate: "3ขค 1180" },
+    lot1,
+  );
   add(
     manager,
     "smokingInvoice",
@@ -115,17 +135,27 @@ export function sampleData(endDate: string): Database {
   add(manager, "pay", 10, "13:40", {
     category: "smoke",
     amount: 24000,
-    detail: "ค่ารม Lot แรก",
+    detail: "ค่ารม PO รมควันแรก",
     supplier: "Chef House",
     payer: company,
   });
   add(manager, "purchase", 9, "10:20", {
     supplier: "Foodiva",
     orderedKg: 150,
+    wasteKg: 15,
     price: 700,
   });
-  const lot2 = add(manager, "smokeOrder", 8, "09:10", { rawKg: 100 });
-  add(manager, "dispatch", 7, "08:00", { dispatchKg: 100 }, lot2);
+  const po2 = db.entries.at(-1)!.lotId;
+  const lot2 = add(manager, "smokeOrder", 8, "09:10", { rawKg: 300 });
+  add(
+    manager,
+    "dispatch",
+    7,
+    "08:00",
+    { dispatchKg: 100, poLines: lines([po2, 100]) },
+    lot2,
+  );
+  add(manager, "cmReceive", 6, "13:00", { receivedKg: 99.5 }, lot2);
   add(manager, "pay", 6, "10:30", {
     category: "ingredient",
     amount: 2400,

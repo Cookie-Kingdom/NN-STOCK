@@ -3,7 +3,7 @@
  *  what would make the log wrong: a future or bad date, a typed value that is not a number, a
  *  note the account may not jot, a lot or a choice that is not there (V2-RUL-01). An empty core
  *  field is saved and listed in `missing` (V2-RUL-02); nothing else is checked or warned. */
-import { fields } from "../forms";
+import { fields, type Field } from "../forms";
 import { today } from "../format";
 import { newId } from "../id";
 import {
@@ -12,7 +12,10 @@ import {
   changeKinds,
   editLockedKeys,
   isNoteKind,
+  isRoundKind,
   kindInfo,
+  oncePerLotKinds,
+  titles,
   lotMovableKinds,
   pack,
   payCategories,
@@ -30,10 +33,14 @@ import {
 } from "./model";
 import {
   decimal,
+  defaultRound,
   entries,
-  packWeights,
+  nextNumberPreview,
+  poInfo,
+  poLines,
   purchaseLots,
   shipments,
+  smokeServiceRate,
 } from "./derived";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
@@ -60,33 +67,78 @@ function checkDay(value: string | undefined): asserts value {
  *  branch's whoever jots it (mutate puts the Owner in `actor`), anything else stays `role`. */
 const recordRole = (kind: EntryKind, role: ActingRole): Role =>
   isNoteKind(kind) && kindInfo[kind].group === "branch" ? "branch" : role;
-/** The next running number of a kind's document. Deleted ones count too: a number is never
- *  given to a second document. */
-const nextNumber = (db: Database, kind: EntryKind) =>
-  String(db.entries.filter((e) => e.kind === kind).length + 1).padStart(4, "0");
+/** A `poLines` field as saved: JSON `[{ poLotId, kg }]`, "" for no line. A PO must be one the
+ *  field offers (or one the edited entry already had) and is picked once; a kg is a number or
+ *  left "" (not typed yet). */
+function linesValue(f: Field, raw: string, kept: string[]): string {
+  if (!raw.trim()) return "";
+  let rows: unknown;
+  try {
+    rows = JSON.parse(raw);
+  } catch {}
+  assert(Array.isArray(rows), `${f.label}: อ่านรายการไม่ได้`);
+  const allowed = new Set([
+    ...(f.options ?? []).map((option) => option.value),
+    ...kept,
+  ]);
+  const seen = new Set<string>();
+  const lines = rows.map((row) => {
+    const poLotId = String(row?.poLotId ?? "");
+    assert(allowed.has(poLotId), "ไม่พบ PO เนื้อที่เลือก");
+    assert(!seen.has(poLotId), "เลือก PO เนื้อซ้ำในรายการเดียวกัน");
+    seen.add(poLotId);
+    const kg = String(row?.kg ?? "").trim();
+    assert(!kg || Number.isFinite(decimal(kg)), `${f.label}: ${badNumber}`);
+    return { poLotId, kg: kg ? String(Number(kg)) : "" };
+  });
+  return lines.length ? JSON.stringify(lines) : "";
+}
+/** The kg of a saved `poLines` value, added up. */
+const linesKg = (value = "") =>
+  poLines(value).reduce((total, line) => total + line.kg, 0);
+const kgText = (x: number) =>
+  x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 /** What a refused choice is called, per select. */
 const selectError: Record<string, string> = {
   poLotId: "ไม่พบ PO เนื้อที่เลือก",
+  dispatchId: "ไม่พบรอบส่งไปรมควันนี้ใน PO รมควันที่เลือก",
   category: "เลือกหมวด",
   item: "เลือกรายการ",
   branch: "เลือกสาขา",
 };
-/** A note's values as saved: one pass over the kind's fields for `by`. A field whose `when`
- *  is false is dropped; a typed number, date, time or choice must be one; an empty core field
- *  is listed in `missing`. Then the numbers the web issues itself, kept when `input` already
- *  has one (an edit). `kept`: the values an edit started from, whose choices still stand even
- *  if Settings or the POs no longer offer them. */
+/** A note's values as saved: one pass over the kind's fields for `by` (on `lotId`). A field
+ *  whose `when` is false is dropped; a typed number, date, time or choice must be one; an
+ *  empty core field is listed in `missing`. Then the numbers the web issues itself, kept when
+ *  `input` already has one (an edit). `kept`: the values an edit started from, whose choices
+ *  still stand even if Settings or the POs no longer offer them. */
 function noteValues(
   db: Database,
   by: Actor,
   kind: NoteKind,
   input: Values,
   date: string,
+  lotId: string,
   kept: Values = {},
 ): Values {
   const v: Values = {};
   const missing: string[] = [];
-  for (const f of fields(kind, db, by)) {
+  // A round step left with no round goes on the newest one still missing it (defaultRound).
+  if (isRoundKind(kind) && !input.dispatchId && lotId)
+    input = { ...input, dispatchId: defaultRound(db, lotId, kind)?.id ?? "" };
+  // The waste received starts at what the PO เนื้อ (or its invoice) says.
+  if (kind === "ownerWasteReceive" && !input.receivedKg?.trim() && lotId) {
+    const waste = poInfo(db, lotId).wasteKg;
+    if (waste) input = { ...input, receivedKg: String(waste) };
+  }
+  // A dispatch saved with one `poLotId` (before several POs) is edited as one line.
+  if (kind === "dispatch" && input.poLines === undefined && input.poLotId)
+    input = {
+      ...input,
+      poLines: JSON.stringify([
+        { poLotId: input.poLotId, kg: input.dispatchKg ?? "" },
+      ]),
+    };
+  for (const f of fields(kind, db, by, lotId)) {
     if (f.when && !f.when(input)) continue;
     let value = (input[f.key] ?? "").trim();
     if (value && f.type === "number") {
@@ -112,40 +164,63 @@ function noteValues(
     if (f.type === "file")
       for (const suffix of ["Data", "StorageKey"])
         if (input[f.key + suffix]) v[f.key + suffix] = input[f.key + suffix];
+    if (f.type === "poLines")
+      value = linesValue(f, value, [
+        ...poLines(kept[f.key]).map((line) => line.poLotId),
+        ...(kept.poLotId ? [kept.poLotId] : []),
+      ]);
     if (f.core && !value) missing.push(f.key);
     v[f.key] = value;
   }
+  if (isRoundKind(kind))
+    assert(
+      v.dispatchId,
+      "ยังไม่มีรอบส่งไปรมควันใน PO รมควันนี้ · จด ส่งไปรมควัน ก่อน",
+    );
+  if (kind === "dispatch") {
+    // A dispatchKg left empty is the lines' kg added up.
+    if (!v.dispatchKg && linesKg(v.poLines)) {
+      v.dispatchKg = String(linesKg(v.poLines));
+      missing.splice(missing.indexOf("dispatchKg"), 1);
+    }
+    // V2-LOT-03: the meat is from POs เนื้อ that add up to the weight sent, every kg typed.
+    const rows: Values[] = v.poLines ? JSON.parse(v.poLines) : [];
+    assert(rows.length, "เลือก PO เนื้อที่ส่งไปรม");
+    assert(
+      rows.every((row) => row.kg !== ""),
+      "ใส่ กก. ของ PO เนื้อทุกบรรทัด",
+    );
+    const total = linesKg(v.poLines);
+    assert(
+      Math.abs(total - Number(v.dispatchKg)) < 0.005,
+      `น้ำหนักจาก PO เนื้อรวม ${kgText(total)} กก. ไม่เท่าน้ำหนักที่ส่ง ${kgText(Number(v.dispatchKg))} กก.`,
+    );
+  }
   if (missing.length) v.missing = missing.join(",");
-  const year = date.slice(0, 4);
   if (kind === "materials")
     assert(Object.values(v).some(Boolean), "ยังไม่ได้ใส่ยอดนับ");
+  // The numbers the web issues itself; an edit keeps the one it has.
   if (kind === "smokeOrder")
     v.orderNumber =
-      input.orderNumber || `SO-${year}-${nextNumber(db, "smokeOrder")}`;
-  if (kind === "dispatch")
+      input.orderNumber || nextNumberPreview(db, "smokeOrder", date)!;
+  if (kind === "dispatch" || kind === "return")
     v.transferNumber =
-      input.transferNumber || `TR-${year}-${nextNumber(db, "dispatch")}`;
-  if (kind === "return")
-    v.transferNumber =
-      input.transferNumber || `TR-${year}-R${nextNumber(db, "return")}`;
-  if (kind === "smoke") {
-    const tokens = v.packs.split(/[\s,]+/).filter(Boolean);
-    assert(
-      tokens.every((token) => Number.isFinite(decimal(token))),
-      `น้ำหนักกล่องรมควัน: ${badNumber}`,
-    );
-    if (tokens.length) {
-      v.postSmokeKg = packWeights(v.packs)
-        .reduce((a, b) => a + b, 0)
-        .toFixed(2);
-      v.packCount = String(tokens.length);
-    }
-    v.subLot = input.subLot || `SB-${year}-${nextNumber(db, "smoke")}`;
+      input.transferNumber || nextNumberPreview(db, kind, date)!;
+  if (kind === "smokeOrder") {
+    // The rate by the Settings tiers unless one is typed; the estimate is kg × rate.
+    const kg = Number(v.rawKg || 0);
+    if (!v.serviceRate && kg)
+      v.serviceRate = String(smokeServiceRate(db.config, kg));
+    v.estimatedCost =
+      kg && v.serviceRate ? String(kg * Number(v.serviceRate)) : "";
   }
+  // A round trip's shipping, both legs: the Settings default unless one is typed (0 is typed).
+  if (kind === "return" && !v.shippingFee && db.config.shippingFee)
+    v.shippingFee = db.config.shippingFee;
   return v;
 }
-/** The lot a note of `kind` goes on: a live Lot for a Lot kind (or none, for a `receive`), a
- *  live PO เนื้อ for `ownerWasteReceive`. */
+/** The lot a note of `kind` goes on: a live PO รมควัน for its kinds (or none, for a
+ *  `receive`), a live PO เนื้อ for a PO เนื้อ's kinds. */
 function lotOf(db: Database, kind: NoteKind, lotId: string) {
   const on = kindInfo[kind].lot;
   if (!on || (on === "optional" && !lotId)) return "";
@@ -153,15 +228,24 @@ function lotOf(db: Database, kind: NoteKind, lotId: string) {
     (on === "po" ? purchaseLots(db) : shipments(db)).some(
       (lot) => lot.id === lotId,
     ),
-    on === "po" ? "เลือก PO เนื้อ" : "เลือก Lot",
+    on === "po" ? "เลือก PO เนื้อ" : "เลือก PO รมควัน",
   );
   return lotId;
+}
+/** A PO's invoice is one (V2-LOT-09): a second live one on the lot is refused. */
+function onceOnLot(db: Database, kind: EntryKind, lotId: string) {
+  if (oncePerLotKinds.includes(kind))
+    assert(
+      !entries(db, kind, lotId).length,
+      `PO นี้มี ${titles[kind].replace("บันทึก ", "")} แล้ว · แก้ไขรายการเดิมแทน`,
+    );
 }
 /** Lot values never cached on a PO: bulky, or the entry's own bookkeeping. */
 const uncached = ["attachmentData", "missing"];
 /** Kinds a lot's cache is rebuilt for: a Lot's notes and the PO itself. No branch kind is
  *  among them, so a branch (which holds no Owner entries) never writes a lot. */
-const lotKinds: EntryKind[] = [...batchKinds, "purchase"];
+const lotKinds: EntryKind[] = [...batchKinds, "smokeOrder", "purchase"];
+/* A PO เนื้อ's own kinds never change its cache: it is the `purchase` entry's values. */
 /** The lots whose cache a change to `entry` (as stored) reaches: the one it was recorded on,
  *  every lot an edit moved it from or to, and `more`. */
 function cachedOn(db: Database, entry: Entry, ...more: (string | undefined)[]) {
@@ -180,7 +264,9 @@ function cachedOn(db: Database, entry: Entry, ...more: (string | undefined)[]) {
 function recached(db: Database, lot: Lot): Lot {
   const po = lot.kind ? undefined : entries(db, "purchase", lot.id).at(-1);
   const live = lot.kind
-    ? batchKinds.some((kind) => entries(db, kind, lot.id).length)
+    ? [...batchKinds, "smokeOrder" as const].some(
+        (kind) => entries(db, kind, lot.id).length,
+      )
     : po;
   return {
     ...lot,
@@ -192,6 +278,10 @@ const settingNumbers: Values = {
   boxPrice: "ราคากล่อง",
   packKg: "น้ำหนักเนื้อต่อกล่อง",
   packCost: "ต้นทุนแพ็กเกจต่อกล่อง",
+  shippingFee: "ค่าขนส่งไป-กลับต่อรอบ",
+  smokeRate: "ค่ารมต่อกก. ต่ำกว่า 1,000 กก.",
+  smokeRate1000: "ค่ารมต่อกก. ตั้งแต่ 1,000 กก.",
+  smokeRate1500: "ค่ารมต่อกก. ตั้งแต่ 1,500 กก.",
 };
 /** A list setting, with the value that names each row. */
 const settingLists: Record<string, { label: string; id: string }> = {
@@ -314,9 +404,10 @@ export function mutate(
     if (toLotId !== target.lotId) {
       assert(
         lotMovableKinds.includes(target.kind),
-        "ย้าย Lot ของรายการนี้ไม่ได้",
+        "ย้าย PO ของรายการนี้ไม่ได้",
       );
       lotOf(db, note, toLotId);
+      onceOnLot(db, note, toLotId);
     }
     /* Checked like a new entry of the same kind by the account that recorded it: the form
      * that account had (its categories, its branch) is the one the entry stays within. */
@@ -330,6 +421,7 @@ export function mutate(
       note,
       { ...target.values, ...proposed },
       target.date,
+      toLotId,
       target.values,
     );
     // An entry's branch is fixed when it is saved: stock a payment sends elsewhere is a new entry.
@@ -397,7 +489,10 @@ export function mutate(
         : !(by.hidesSales && kind === "sale"),
       forbidden,
     );
-    const v = noteValues(db, by, kind, input, date);
+    // The lot first: a step of a PO รมควัน has none to go on without one.
+    if (kind !== "purchase" && kind !== "smokeOrder")
+      lotId = lotOf(db, kind, lotId);
+    const v = noteValues(db, by, kind, input, date, lotId);
     let branch = own;
     if (by.role === "owner" && info.group === "branch") {
       assert(branches.includes(input.branch), "เลือกสาขา");
@@ -418,20 +513,23 @@ export function mutate(
         values: without(v, uncached),
         config: {},
       });
-    } else if (info.lot === "batch" && !lotId) {
-      /* A new Lot, `S<yymmdd>-NNN-xxxx` with the next `SH-YYYY-NNNN`. NNN and the SH number
-       * count the Lots this client has; two devices saving at once may repeat a number, so
-       * 4 random hex chars keep the id itself unique. The SH number is display only. */
+    } else if (kind === "smokeOrder") {
+      /* V2-LOT-07: a PO รมควัน opens its own lot, `S<yymmdd>-NNN-xxxx`, numbered with its
+       * `SO-YYYY-NNNN` (its orderNumber too). NNN and the SO number count the ones this client
+       * has; two devices saving at once may repeat a number, so 4 random hex chars keep the id
+       * itself unique. Nothing else opens one. */
       const count = next.lots.filter((lot) => lot.kind).length + 1;
       lotId = `S${day}-${String(count).padStart(3, "0")}-${newId().slice(0, 4)}`;
       next.lots.push({
         id: lotId,
-        poId: `SH-${date.slice(0, 4)}-${String(count).padStart(4, "0")}`,
+        poId: v.orderNumber,
         kind: "shipment",
         values: {},
         config: {},
       });
-    } else lotId = lotOf(db, kind, lotId);
+    } else {
+      onceOnLot(db, kind, lotId);
+    }
     const role = recordRole(kind, by.role);
     entry = {
       kind,

@@ -15,6 +15,7 @@ import {
   type NoteKind,
   type Values,
 } from "./store/model";
+import { dateLabel } from "./format";
 import { entries, liveEntries, poInfo, purchaseLots } from "./store/derived";
 export type Field = {
   key: string;
@@ -29,8 +30,11 @@ export type Field = {
     | "time"
     | "textarea"
     | "select"
-    | "file";
-  /** A select's choices; on a text field, suggestions (a `<datalist>`). */
+    | "file"
+    /* PO เนื้อ lines: a JSON list `[{ poLotId, kg }]` (`poLines()` reads it), the POs to pick
+     * from in `options`. A PO is picked once; its kg is a number or "" (not typed yet). */
+    | "poLines";
+  /** A select's choices (a `poLines` field's POs); on a text field, suggestions (a `<datalist>`). */
   options?: { value: string; label: string }[];
   /** Left empty it is saved, listed in `values.missing` and shown yellow. */
   core?: boolean;
@@ -115,53 +119,123 @@ const known = (db: Database, first: string[], ...keys: [NoteKind, string][]) =>
     ]),
   ].map((value) => ({ value, label: value }));
 const isStock = (values: Values) => stockCategories.includes(values.category);
+/** A `poLines` field: the live POs เนื้อ to pick from, each with what its seller still holds. */
+const poLinesField = (
+  db: Database,
+  key: string,
+  label: string,
+  extra?: Partial<Field>,
+): Field => ({
+  key,
+  label,
+  type: "poLines",
+  unit: "กก.",
+  options: purchaseLots(db).map((lot) => ({
+    value: lot.id,
+    label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ฝากไว้ ${kg(poInfo(db, lot.id).heldKg)} กก.`,
+  })),
+  ...extra,
+});
+/** A round step's `dispatchId`: the dispatch rounds of `lotId` (every live one when no lot is
+ *  given, as a row reading a saved value needs), newest first. */
+const roundField = (db: Database, lotId?: string): Field => ({
+  key: "dispatchId",
+  label: "รอบส่งไปรมควัน",
+  type: "select",
+  options: [...entries(db, "dispatch", lotId)].reverse().map((e) => ({
+    value: e.id,
+    label: [
+      e.values.transferNumber,
+      e.values.dispatchKg && `${kg(Number(e.values.dispatchKg))} กก.`,
+      dateLabel(e.date),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  })),
+});
 /** The fields of `kind`'s form, in order, for the account `by`. The entry date is not among
- *  them: every form has it (always set, today at most). */
-export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
+ *  them: every form has it (always set, today at most). `lotId`: the PO รมควัน a round step
+ *  is jotted on, which narrows its rounds. */
+export function fields(
+  kind: NoteKind,
+  db: Database,
+  by: Actor,
+  lotId?: string,
+): Field[] {
   switch (kind) {
-    case "purchase":
+    case "purchase": {
+      // Left empty, the PO document prints the buyer from Settings (V2-PO-03).
+      const fromSettings = { hint: "เว้นว่างใช้ค่าจาก Settings" };
       return [
         core(text("supplier", "ผู้ขาย")),
-        core(number("orderedKg", "น้ำหนักที่สั่งซื้อ", "กก.")),
+        core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
+        number("wasteKg", "น้ำหนัก Waste", "กก.", {
+          hint: "ไม่ส่งไปรม · เว็บเตือนจนกว่าจะจด รับ Waste",
+        }),
         core(number("price", "ราคา / กก.", "บาท")),
         ...more(
-          text("invoiceNo", "เลข Invoice"),
-          number("invoiceAmount", "ยอด Invoice", "บาท"),
-          file("ไฟล์แนบ Invoice"),
           text("packSize", "ขนาดบรรจุ"),
           text("productName", "รายการสินค้า"),
           text("productCode", "รหัสสินค้า"),
           text("reference", "เลขอ้างอิงผู้ขาย"),
+          text("customerName", "ชื่อบริษัท / ลูกค้า", fromSettings),
+          {
+            key: "customerAddress",
+            label: "ที่อยู่บริษัท / ที่อยู่ออก PO",
+            type: "textarea",
+            ...fromSettings,
+          },
+          text("attention", "ชื่อผู้ติดต่อ (Attention)", fromSettings),
+          { key: "phone", label: "เบอร์ติดต่อ", type: "tel", ...fromSettings },
+          text("taxId", "เลขประจำตัวผู้เสียภาษี", fromSettings),
           note,
         ),
       ];
-    case "smokeOrder":
+    }
+    case "meatInvoice": {
+      // The real goods may differ from the PO: what is typed here wins (poTerms).
+      const fromPo = { hint: "เว้นว่างใช้ค่าจาก PO" };
       return [
-        core(number("rawKg", "น้ำหนักที่สั่งรม", "กก.")),
+        core(text("invoiceNumber", "เลข Invoice")),
+        core(number("netPayable", "ยอด Invoice", "บาท")),
+        number("orderedKg", "น้ำหนักเนื้อตาม Invoice", "กก.", fromPo),
+        number("wasteKg", "น้ำหนัก Waste ตาม Invoice", "กก.", fromPo),
+        number("price", "ราคา / กก. ตาม Invoice", "บาท", fromPo),
         ...more(
+          date("invoiceDate", "วันที่ Invoice"),
+          file("ไฟล์แนบ Invoice"),
+          note,
+        ),
+      ];
+    }
+    case "ownerWasteReceive":
+      return [
+        core(number("receivedKg", "น้ำหนัก Waste ที่รับ", "กก.")),
+        text("receiver", "ผู้รับ"),
+        note,
+      ];
+    case "smokeOrder": {
+      const rate = (key: string) => `฿${kg(Number(db.config[key]) || 0)}`;
+      return [
+        core(number("rawKg", "น้ำหนักที่ซื้อบริการรม", "กก.")),
+        ...more(
+          number("serviceRate", "ราคาค่ารม / กก.", "บาท", {
+            hint: `เว้นว่าง เว็บคิดตามน้ำหนัก: ต่ำกว่า 1,000 กก. ${rate("smokeRate")} · ตั้งแต่ 1,000 กก. ${rate("smokeRate1000")} · ตั้งแต่ 1,500 กก. ${rate("smokeRate1500")}`,
+          }),
           text("smoker", "โรงรม"),
           date("requestedSmokeDate", "วันที่ขอรม"),
           date("expectedFinishedDate", "วันที่คาดว่าเสร็จ"),
           { key: "instruction", label: "คำสั่งพิเศษ", type: "textarea" },
         ),
       ];
+    }
     case "dispatch":
       return [
         core(number("dispatchKg", "น้ำหนักที่ส่ง", "กก.")),
-        {
-          // Not core: left empty the Lot turns yellow instead (V2-LOT-03).
-          key: "poLotId",
-          label: "เนื้อจาก PO ไหน",
-          type: "select",
-          hint: "เว้นว่างแล้วมาผูกทีหลังได้",
-          options: [
-            { value: "", label: "ยังไม่ระบุ" },
-            ...purchaseLots(db).map((lot) => ({
-              value: lot.id,
-              label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ฝากไว้ ${kg(poInfo(db, lot.id).heldKg)} กก.`,
-            })),
-          ],
-        },
+        // Required: mutate refuses lines that do not add up to dispatchKg (V2-LOT-03).
+        poLinesField(db, "poLines", "เนื้อจาก PO ไหน", {
+          hint: "เลือกได้หลาย PO · รวมกันต้องเท่าน้ำหนักที่ส่ง",
+        }),
         ...more(
           text("origin", "ต้นทาง"),
           text("destination", "ปลายทาง"),
@@ -170,11 +244,35 @@ export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
           note,
         ),
       ];
-    case "central":
+    case "cmReceive":
       return [
-        core(number("centralKg", "น้ำหนักที่รับ", "กก.")),
-        core(count("boxes", "จำนวนกล่องรมควัน", "กล่อง")),
-        ...more(weightReason, note),
+        roundField(db, lotId),
+        core(number("receivedKg", "น้ำหนักรับรวม", "กก.")),
+        time("arrival", "เวลาที่รถมาถึง"),
+        weightReason,
+        note,
+      ];
+    case "smoked":
+      return [
+        roundField(db, lotId),
+        core(number("smokedKg", "น้ำหนักหลังรมควัน", "กก.")),
+        count("boxes", "จำนวนกล่องรมควัน", "กล่อง"),
+        note,
+      ];
+    case "return":
+      return [
+        roundField(db, lotId),
+        core(number("returnKg", "น้ำหนักส่งกลับ", "กก.")),
+        number("shippingFee", "ค่าขนส่งไป-กลับ", "บาท", {
+          hint: "ต่อรอบ รวมขาไปและขากลับ · ตั้งต้นจาก Settings",
+        }),
+        time("returnTime", "เวลารถรับ"),
+        ...more(
+          text("origin", "ต้นทาง"),
+          text("destination", "ปลายทาง"),
+          ...truck,
+          note,
+        ),
       ];
     case "smokingInvoice":
       return [
@@ -303,26 +401,6 @@ export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
       return materialList(db.config).map((m) =>
         count(`count.${m.id}`, m.name, "ชิ้น"),
       );
-    case "cmReceive":
-      return [
-        number("receivedKg", "น้ำหนักรับรวม", "กก."),
-        time("arrival", "เวลาที่รถมาถึง"),
-        note,
-      ];
-    case "prepare":
-      return [number("preSmokeKg", "น้ำหนักก่อนสโมค", "กก."), note];
-    case "smoke":
-      return [
-        number("inputKg", "น้ำหนักเข้าเตา", "กก."),
-        number("wasteKg", "Waste", "กก."),
-        {
-          key: "packs",
-          label: "น้ำหนักกล่องรมควัน ทีละกล่อง",
-          unit: "กก.",
-          type: "textarea",
-        },
-        note,
-      ];
     case "packingList":
       return [
         text("invoiceNo", "เลข Invoice"),
@@ -334,15 +412,6 @@ export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
         file("ไฟล์ Packing List"),
         note,
       ];
-    case "return":
-      return [
-        number("returnKg", "น้ำหนักส่งจาก Chef House", "กก."),
-        time("returnTime", "เวลารถรับ"),
-        text("origin", "ต้นทาง"),
-        text("destination", "ปลายทาง"),
-        ...truck,
-        note,
-      ];
     case "foodivaReturnReceive":
       return [
         number("receivedKg", "น้ำหนักรับจริง", "กก."),
@@ -351,21 +420,29 @@ export function fields(kind: NoteKind, db: Database, by: Actor): Field[] {
         weightReason,
         note,
       ];
-    case "ownerWasteReceive":
-      return [
-        number("receivedKg", "น้ำหนักรับจริง", "กก."),
-        text("receiver", "ผู้รับเนื้อ"),
-        note,
-      ];
   }
 }
-/** What a new form of `kind` starts with; every other field starts empty. */
-export function defaults(kind: NoteKind): Values {
+/** The storage folder a file of a `kind` note goes to (attachment-store.ts): the kind, but a
+ *  payroll receipt goes to `payroll` (Owner only) and a Foodiva invoice to `foodivaConfirm`
+ *  (a folder the storage policies already take, so no SQL change). */
+export const attachmentFolder = (kind: NoteKind, values: Values) =>
+  kind === "pay" && values.category === payrollCategory
+    ? "payroll"
+    : kind === "meatInvoice"
+      ? "foodivaConfirm"
+      : kind;
+/** What a new form of `kind` starts with; every other field starts empty. With `config`, a
+ *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
+export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "purchase") return { supplier: "Foodiva" };
   if (kind === "smokeOrder") return { smoker: "Chef House" };
   if (kind === "dispatch")
     return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };
   if (kind === "return")
-    return { origin: "เชียงใหม่", destination: "กรุงเทพฯ" };
+    return {
+      origin: "เชียงใหม่",
+      destination: "กรุงเทพฯ",
+      ...(config?.shippingFee ? { shippingFee: config.shippingFee } : {}),
+    };
   return {};
 }

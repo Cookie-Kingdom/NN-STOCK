@@ -1,20 +1,31 @@
 /** The rows of the four printable documents (V2-DOC-01), as label and value pairs for
- *  `DocumentPrintButton`. The buyer block always comes from Settings (V2-PO-03). */
+ *  `DocumentPrintButton`. The buyer block comes from Settings; a PO เนื้อ may override each
+ *  line of it (V2-PO-03). */
 import { dateLabel, fmt } from "@/lib/format";
-import { entries, type Database, type Entry, type Lot } from "@/lib/store";
-import { lotLabel } from "./noteText";
+import {
+  dispatchLines,
+  entries,
+  type Database,
+  type Entry,
+  type Lot,
+  type Values,
+} from "@/lib/store";
+import { linesText } from "./noteText";
 
 type DocumentRows = [string, string][];
+/** What a document is built from: a saved entry, or a draft's date and values. */
+type Note = Pick<Entry, "date" | "values">;
 
 const kg = (value = "") => (value ? `${fmt(Number(value))} กก.` : "—");
 
-/** The company block and logo: the head of every document. */
-const company = (db: Database): DocumentRows => [
-  ["ลูกค้า", db.config.companyName || "—"],
-  ["ที่อยู่", db.config.companyAddress || "—"],
-  ["Attention", db.config.attention || "—"],
-  ["โทร.", db.config.companyPhone || "—"],
-  ["Tax ID", db.config.taxId || "—"],
+/** The company block and logo: the head of every document. `own`: a PO เนื้อ's values, whose
+ *  customerName, customerAddress, attention, phone and taxId win over Settings when typed. */
+const company = (db: Database, own: Values = {}): DocumentRows => [
+  ["ลูกค้า", own.customerName || db.config.companyName || "—"],
+  ["ที่อยู่", own.customerAddress || db.config.companyAddress || "—"],
+  ["Attention", own.attention || db.config.attention || "—"],
+  ["โทร.", own.phone || db.config.companyPhone || "—"],
+  ["Tax ID", own.taxId || db.config.taxId || "—"],
   // A storage key (`branding/…`), or a data URL saved before the move; the print button loads it.
   ["โลโก้", db.config.logoStorageKey || db.config.logoData || ""],
 ];
@@ -30,12 +41,12 @@ const seller = (db: Database, name: string, key: string): DocumentRows => {
   ];
 };
 
-/** PO ซื้อเนื้อ, from the PO's `purchase` note. */
-export function purchaseOrderRows(db: Database, purchase: Entry): DocumentRows {
+/** PO ซื้อเนื้อ, from the PO's `purchase` note (saved, or a draft's values). */
+export function purchaseOrderRows(db: Database, purchase: Note): DocumentRows {
   const v = purchase.values;
   const priced = v.orderedKg && v.price;
   return [
-    ...company(db),
+    ...company(db, v),
     ...seller(db, v.supplier ?? "", "foodiva"),
     ["วันที่ PO", purchase.date],
     [
@@ -44,6 +55,8 @@ export function purchaseOrderRows(db: Database, purchase: Entry): DocumentRows {
     ],
     ["ขนาดบรรจุ", v.packSize || "—"],
     ["จำนวน", kg(v.orderedKg)],
+    // Recorded so the Owner waits for it; never charged (the total is meat kg × price).
+    ["Waste", v.wasteKg ? `${kg(v.wasteKg)} (ไม่คิดเงิน)` : "—"],
     ["ราคา / กก.", v.price ? `฿${fmt(Number(v.price))}` : "—"],
     [
       "ยอดรวมก่อน VAT",
@@ -63,21 +76,23 @@ const packingSummary = (list: Entry | undefined) =>
     .filter(Boolean)
     .join(" · ");
 
-/** PO รมควัน, from one `smokeOrder` note. The smoker reads it, so it names the Lot and its
- *  Packing List, never a PO เนื้อ or a meat price. */
+/** The Smoking Service PO (PO รมควัน), from its `smokeOrder` note: the kg of smoking bought,
+ *  the service rate and its estimate. `lot`: the PO รมควัน it opened (none for a draft). */
 export function smokeOrderPrintRows(
   db: Database,
-  lot: Lot,
-  order: Entry,
+  lot: Lot | undefined,
+  order: Note,
 ): DocumentRows {
   const v = order.values;
-  const list = entries(db, "packingList", lot.id).at(-1);
+  const list = lot && entries(db, "packingList", lot.id).at(-1);
+  const money = (value = "") => (value ? `฿${fmt(Number(value))}` : "—");
   return [
     ...company(db),
     ...seller(db, v.smoker || "Chef House", "chefHouse"),
     ["วันที่ PO", v.requestedSmokeDate || order.date],
     ["กำหนดเสร็จ", v.expectedFinishedDate || "—"],
-    ["เลขที่การส่ง", lot.poId],
+    // The print's smoke layout reads this label for the PO รมควัน number.
+    ["เลขที่การส่ง", lot?.poId || v.orderNumber || "—"],
     ["Packing List", packingSummary(list) || "—"],
     ["สินค้า", "บริการรมควันเนื้อ"],
     [
@@ -85,6 +100,8 @@ export function smokeOrderPrintRows(
       list?.values.boxCount ? `${list.values.boxCount} กล่องรับเข้า` : "—",
     ],
     ["จำนวน", kg(v.rawKg)],
+    ["ราคา / กก.", money(v.serviceRate)],
+    ["ยอดรวมก่อน VAT", money(v.estimatedCost)],
     ["หมายเหตุ", v.instruction || "—"],
   ];
 }
@@ -99,7 +116,7 @@ export function packingListRows(
   return [
     ...company(db),
     ["วันที่", dateLabel(list.date)],
-    ["เลขที่การส่ง", lot.poId],
+    ["PO รมควัน", lot.poId],
     ["เลข Invoice", v.invoiceNo || "—"],
     ["สินค้า", v.product || "—"],
     ["CODE สินค้า", v.code || "—"],
@@ -116,8 +133,8 @@ export const transportDocumentTitle = {
   return: "ใบขนส่งเนื้อขากลับ",
 };
 
-/** ใบขนส่ง of one truck: a `dispatch` (to the smoker, with the PO เนื้อ its meat is from) or
- *  a `return` note. */
+/** ใบขนส่ง of one truck: a `dispatch` (to the smoker, with every PO เนื้อ its meat is from
+ *  and the kg of each) or a `return` note. */
 export function transportDocumentRows(
   db: Database,
   lot: Lot,
@@ -126,7 +143,7 @@ export function transportDocumentRows(
   const v = trip.values;
   const out = trip.kind === "dispatch";
   const po: DocumentRows = out
-    ? [["PO เนื้อ", v.poLotId ? lotLabel(db, v.poLotId) : "—"]]
+    ? [["PO เนื้อ", linesText(db, dispatchLines(v)) || "—"]]
     : [];
   return [
     ...company(db),
@@ -136,7 +153,7 @@ export function transportDocumentRows(
         .filter(Boolean)
         .join(" · "),
     ],
-    ["เลขที่การส่ง", lot.poId],
+    ["PO รมควัน", lot.poId],
     ...po,
     ["ต้นทาง", v.origin || "—"],
     ["ปลายทาง", v.destination || "—"],

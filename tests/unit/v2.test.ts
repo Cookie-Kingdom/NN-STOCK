@@ -37,7 +37,7 @@ const minburi: Actor = { role: "branch", branch: "มีนบุรี" };
 const last = (d: Database) => d.entries.at(-1)!;
 
 describe("sample: Lots", () => {
-  const [lot1, lot2, lot3] = shipments(db).map((lot) => lotInfo(db, lot.id));
+  const [lot1, lot2] = shipments(db).map((lot) => lotInfo(db, lot.id));
 
   it("costs the complete Lot", () => {
     expect(lot1).toMatchObject({
@@ -46,27 +46,27 @@ describe("sample: Lots", () => {
       yield: 0.52,
       meatCost: 140000,
       fee: 24000,
+      shippingFee: 6000,
       centralKg: 14,
       complete: true,
     });
-    expect(lot1.costPerKg).toBeCloseTo(1576.92, 2);
-    expect(lot1.meatPerBox).toBeCloseTo(189.23, 2);
-    expect(lot1.costPerBox).toBeCloseTo(214.23, 2);
+    // (140000 + 24000 + 6000) / 104
+    expect(lot1.costPerKg).toBeCloseTo(1634.62, 2);
+    expect(lot1.meatPerBox).toBeCloseTo(196.15, 2);
+    expect(lot1.costPerBox).toBeCloseTo(221.15, 2);
   });
 
   it("counts what is yellow on the others", () => {
-    expect(lot2.missing).toEqual(["central", "smokingInvoice"]);
-    expect(lot2.unlinked).toBeDefined();
+    expect(lot2.missing).toEqual(["smoked", "return", "smokingInvoice"]);
+    expect(lot2.unlinked).toBeUndefined();
     expect(lot2.yellow).toBe(3);
     expect(lot2.costPerBox).toBeNull();
-    expect(lot3.missing).toEqual(["dispatch", "central", "smokingInvoice"]);
-    expect(lot3.yellow).toBe(3);
   });
 
   it("knows what each PO still holds", () => {
     const [po1, po2] = purchaseLots(db).map((lot) => poInfo(db, lot.id));
     expect(po1.heldKg).toBe(0);
-    expect(po2.heldKg).toBe(150);
+    expect(po2.heldKg).toBe(50);
   });
 });
 
@@ -154,7 +154,7 @@ describe("mutate", () => {
     for (const kind of [
       "purchase",
       "smokeOrder",
-      "central",
+      "smoked",
       "cmReceive",
     ] as const)
       expect(() => jot(saladaeng, kind, {})).toThrow(forbidden);
@@ -370,8 +370,8 @@ it("todos: what each account still has to jot", () => {
       "ศาลาแดง: ยอดขาย วันนี้",
       "มีนบุรี: นับเนื้อวันนี้",
       "มีนบุรี: วัสดุ 7 รายการไม่ได้นับเกิน 7 วัน",
-      "SH-2026-0002: ผูก PO เนื้อ",
-      "SH-2026-0003: ส่งไปรม",
+      "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
+      "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
   );
   // V2-PAY-04: the sample's rent is dated the month before.
@@ -380,13 +380,13 @@ it("todos: what each account still has to jot", () => {
   expect(texts(manager)).toEqual(
     expect.arrayContaining([
       "มีนบุรี: นับเนื้อวันนี้",
-      "SH-2026-0002: รับกลับเข้าสต๊อกกลาง",
+      "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด ส่งกลับ",
       "ค่าเช่า/น้ำไฟ ของกันยายน 2569",
     ]),
   );
   const branch = texts(saladaeng);
   expect(branch).toContain("ยอดขาย วันนี้");
-  expect(branch.join()).not.toMatch(/SH-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
+  expect(branch.join()).not.toMatch(/SO-|PO-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
   expect(texts(minburi)).toEqual(
     expect.arrayContaining([
       "นับเนื้อวันนี้",
@@ -398,7 +398,7 @@ it("todos: what each account still has to jot", () => {
 
 it("edit, undo, delete and put back: one kind of each group", () => {
   const cases: [NoteKind, string, string, Actor][] = [
-    ["central", "centralKg", "100", owner], // Lot
+    ["smoked", "smokedKg", "100", owner], // Lot
     ["pay", "amount", "999", manager], // เงิน
     ["cmReceive", "receivedKg", "198", manager], // จดเพิ่มได้
     ["receive", "kg", "41", saladaeng], // สาขา
@@ -448,21 +448,21 @@ it("edit, undo, delete and put back: one kind of each group", () => {
   }
   // The figures follow: the edited weight is the Lot's yield, and an edit can re-date a note.
   const [lot1] = shipments(db);
-  const central = entries(db, "central", lot1.id)[0];
+  const smoked = entries(db, "smoked", lot1.id)[0];
   const moved = mutate(
     db,
     owner,
     "entryEdit",
     {
-      targetId: central.id,
-      values: '{"centralKg":"100"}',
+      targetId: smoked.id,
+      values: '{"smokedKg":"100"}',
       toDate: "2026-08-01",
     },
     "",
     day,
   );
   expect(lotInfo(moved, lot1.id).yield).toBe(0.5);
-  expect(entries(moved, "central", lot1.id)[0].date).toBe("2026-08-01");
+  expect(entries(moved, "smoked", lot1.id)[0].date).toBe("2026-08-01");
 });
 
 it("visibleEntries and visibleNotes: what each account sees of the log", () => {
@@ -563,11 +563,19 @@ describe("figures (V2-CAL)", () => {
     supplier: "Foodiva",
     orderedKg: "100",
     price: "500",
-    invoiceAmount: "50000",
   }).lotId;
+  jot(
+    owner,
+    "meatInvoice",
+    "2026-09-01",
+    { invoiceNumber: "F1", netPayable: "50000" },
+    po,
+  );
   const lot = jot(owner, "smokeOrder", "2026-09-02", { rawKg: "60" }).lotId;
   jot(owner, "dispatch", "2026-09-03", { dispatchKg: "60", poLotId: po }, lot);
-  jot(owner, "central", "2026-09-05", { centralKg: "30", boxes: "10" }, lot);
+  jot(owner, "cmReceive", "2026-09-04", { receivedKg: "60" }, lot);
+  jot(owner, "smoked", "2026-09-05", { smokedKg: "30", boxes: "10" }, lot);
+  jot(owner, "return", "2026-09-05", { returnKg: "30", shippingFee: "0" }, lot);
   jot(
     owner,
     "smokingInvoice",
@@ -674,30 +682,30 @@ describe("figures (V2-CAL)", () => {
       pack: 25,
       total: 169,
     });
-    // V2-LOT-03: unlinked, the Lot is yellow and has no cost.
+    // V2-LOT-03: a dispatch's PO เนื้อ lines are required and add up to what was sent.
     const dispatch = entries(built, "dispatch", lot)[0];
-    const unlinked = mutate(
-      built,
-      owner,
-      "entryEdit",
-      { targetId: dispatch.id, values: '{"poLotId":""}' },
-      "",
-      "2026-09-14",
-    );
-    expect(lotInfo(unlinked, lot)).toMatchObject({
-      yellow: 1,
-      meatCost: 0,
-      costPerBox: null,
-    });
-    expect(boxCost(unlinked)).toBeNull();
+    expect(() =>
+      mutate(
+        built,
+        owner,
+        "entryEdit",
+        { targetId: dispatch.id, values: '{"poLines":""}' },
+        "",
+        "2026-09-14",
+      ),
+    ).toThrow("เลือก PO เนื้อที่ส่งไปรม");
   });
 
   it("CAL-07: a PO holds what was ordered less what went to the smoker", () => {
-    expect(poInfo(built, po)).toEqual({
+    expect(poInfo(built, po)).toMatchObject({
       orderedKg: 100,
+      price: 500,
       sentKg: 60,
       heldKg: 40,
       lotIds: [lot],
+      wasteKg: 0,
+      wasteReceivedKg: 0,
+      wastePending: false,
     });
   });
 

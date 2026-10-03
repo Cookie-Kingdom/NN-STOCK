@@ -8,8 +8,13 @@ import {
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { AccountId } from "@/lib/accounts";
-import { entries, seed, shipments } from "@/lib/store";
-import { documentsDb } from "./LotsPage.fixtures";
+import { purchaseLots, roundsOf, seed, shipments } from "@/lib/store";
+import {
+  documentsDb,
+  invoiceOverrideDb,
+  overCapacityDb,
+  twoRoundsDb,
+} from "./LotsPage.fixtures";
 import { LotsPage } from "./LotsPage";
 
 /** The page with the composer's two openers spied on: the composer itself is the shell's. */
@@ -47,56 +52,91 @@ const pick =
     );
   };
 
-/** เปิดหน้ามาเป็น Lot ใหม่สุด ซึ่งจดแค่ PO รมควัน: อีกสามอย่างเป็นกล่องสีเหลืองที่กดเพื่อจดได้
- *  ตัวเลขที่ยังคิดไม่ได้ขึ้น「ยังคิดไม่ได้」สีเหลือง · รายการซ้าย: ขอบเขียว = จดครบแล้ว ขอบเหลือง = ยังไม่ได้จด N อย่าง */
-export const Owner: Story = {};
-
-/** Lot ที่จดครบสี่อย่างและผูก PO เนื้อแล้ว: กล่องเขียวทั้งหมด มีต้นทุนต่อกล่อง */
-export const LotComplete: Story = { play: pick(/SH-\d+-0001/) };
-
-/** Lot ที่ส่งไปรมแล้วแต่ยังไม่ผูก PO เนื้อ: กดกล่องเหลือง「รับกลับเข้าสต๊อกกลาง」เปิดฟอร์มของ Lot นี้
- *  กด「เนื้อจาก PO ไหน」เปิดแก้ไขบรรทัดส่งไปรมที่ยังไม่ผูก */
-export const LotYellow: Story = {
-  play: async (context) => {
-    const { canvasElement, args } = context;
-    await pick(/SH-\d+-0002/)!(context);
-    const canvas = within(canvasElement);
-    const lot = shipments(sampleDb)[1];
+/** เปิดหน้ามาเป็น PO รมควัน ใหม่สุด ยังไม่ได้ส่งรอบไหน · ปุ่ม「+ สร้าง PO เนื้อ」「+ สร้าง PO รมควัน」
+ *  อยู่บนสุด · รายการซ้าย: ขอบเขียว = จดครบแล้ว ขอบเหลือง + ตัวเลขแดง = ยังไม่ได้จด N อย่าง */
+export const Owner: Story = {
+  play: async ({ canvasElement, args }) => {
     await userEvent.click(
-      canvas.getByRole("button", { name: /รับกลับเข้าสต๊อกกลาง/ }),
+      within(canvasElement).getByRole("button", { name: "+ สร้าง PO รมควัน" }),
     );
-    await expect(args.jot).toHaveBeenLastCalledWith({
-      kind: "central",
-      lotId: lot.id,
-    });
-    await userEvent.click(
-      canvas.getByRole("button", { name: /เนื้อจาก PO ไหน/ }),
-    );
-    await expect(args.edit).toHaveBeenLastCalledWith(
-      entries(sampleDb, "dispatch", lot.id)[0].id,
-    );
+    await expect(args.jot).toHaveBeenLastCalledWith({ kind: "smokeOrder" });
   },
 };
 
-/** PO เนื้อ: สั่งซื้อ ส่งไปรมแล้ว ฝากไว้ที่ร้านขายเนื้อ และปุ่มเอกสาร PO ซื้อเนื้อ */
-export const PurchaseOrder: Story = { play: pick(/PO-\d+-0002/) };
+/** PO รมควัน ที่จดครบ: รอบเดียว สามขั้นเป็นสีเขียว กดเพื่อแก้ไข มีต้นทุนต่อ กก. และต่อกล่อง */
+export const LotComplete: Story = { play: pick(/SO-\d+-0001/) };
 
-/** Lot ที่มีเอกสารครบ: PO รมควัน, Packing List, ใบขนส่งขาไปและขากลับ กดแล้วเปิดหน้าต่างพิมพ์
+/** PO รมควัน สองรอบ: รอบ 1 ครบสามขั้น รอบ 2 เพิ่งส่ง · กด「+ จดรับเนื้อที่ Chef House」ของรอบ 2
+ *  เปิดฟอร์มของรอบนั้น */
+export const TwoRounds: Story = {
+  parameters: { db: twoRoundsDb },
+  play: async (context) => {
+    const { canvasElement, args } = context;
+    await pick(/SO-\d+-0002/)!(context);
+    const lot = shipments(twoRoundsDb)[1];
+    const second = roundsOf(twoRoundsDb, lot.id)[1].dispatch.id;
+    const card = canvasElement.querySelector(`[data-round="${second}"]`);
+    await userEvent.click(
+      within(card as HTMLElement).getByRole("button", {
+        name: /\+ จดรับเนื้อที่ Chef House/,
+      }),
+    );
+    await expect(args.jot).toHaveBeenLastCalledWith({
+      kind: "cmReceive",
+      lotId: lot.id,
+      values: { dispatchId: second },
+    });
+  },
+};
+
+/** ส่งเกินน้ำหนักที่ซื้อบริการรม: แถบเป็นสีเหลือง「เกิน 50 กก.」(เตือน ไม่ใช่ error) */
+export const OverCapacity: Story = {
+  parameters: { db: overCapacityDb },
+  play: pick(/SO-\d+-0001/),
+};
+
+/** PO เนื้อ ที่ยังรอรับ Waste: กล่องเหลือง「รอรับ Waste 15 กก.」กด「รับ Waste แล้ว」เปิดฟอร์มรับ Waste */
+export const PurchaseOrder: Story = {
+  play: async (context) => {
+    const { canvasElement, args } = context;
+    await pick(/PO-\d+-0002/)!(context);
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "รับ Waste แล้ว" }),
+    );
+    await expect(args.jot).toHaveBeenLastCalledWith({
+      kind: "ownerWasteReceive",
+      lotId: purchaseLots(sampleDb)[1].id,
+      values: { receivedKg: "15" },
+    });
+  },
+};
+
+/** PO เนื้อ ที่ Invoice Foodiva ให้น้ำหนักและราคาต่างจาก PO: ตัวเลขขึ้น「(ตาม Invoice)」 */
+export const InvoiceOverride: Story = {
+  parameters: { db: invoiceOverrideDb },
+  play: pick(/PO-\d+-0003/),
+};
+
+/** PO รมควัน ที่มีเอกสารครบ: PO รมควัน, Packing List, ใบขนส่งขาไปและขากลับ กดแล้วเปิดหน้าต่างพิมพ์
  *  (อนุญาต Pop-up ก่อน) หัวเอกสารมาจาก Settings */
 export const Documents: Story = {
   parameters: { db: documentsDb },
-  play: pick(/SH-\d+-0001/),
+  play: pick(/SO-\d+-0001/),
 };
 
-/** Account Manager: เห็นต้นทุนของ Lot เหมือน Owner */
+/** Account Manager: เห็นต้นทุนและปุ่มจดเหมือน Owner */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },
-  play: pick(/SH-\d+-0001/),
+  play: pick(/SO-\d+-0001/),
 };
 
-/** ระบบใหม่ ยังไม่มี Lot และ PO เนื้อ */
+/** ระบบใหม่ ยังไม่มี PO: เหลือแค่ปุ่มสร้าง PO สองปุ่ม */
 export const Empty: Story = { parameters: { db: structuredClone(seed) } };
 
-/** จอ 390px: รายการ Lot เป็นแถวเลื่อนแนวนอน รายละเอียดอยู่ข้างล่าง */
-export const Phone: Story = { ...phone, play: pick(/SH-\d+-0001/) };
+/** จอ 390px: รายการ PO เป็นแถวเลื่อนแนวนอน รอบส่งเรียงลงมาทีละขั้น */
+export const Phone: Story = {
+  ...phone,
+  parameters: { ...phone.parameters, db: twoRoundsDb },
+  play: pick(/SO-\d+-0002/),
+};

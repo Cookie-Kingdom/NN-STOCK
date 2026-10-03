@@ -26,6 +26,8 @@ import {
   liveEntries,
   lotInfo,
   outflows,
+  poInfo,
+  purchaseLots,
   shipments,
 } from "./derived";
 /** A sale's money in: what the Account Manager must not see. A channel added in Settings
@@ -129,6 +131,8 @@ export type Todo = {
   branch?: string;
   date?: string;
   lotId?: string;
+  /** A round step's form starts on this dispatch round. */
+  dispatchId?: string;
   category?: string;
   editId?: string;
   page?: "stock";
@@ -173,18 +177,40 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
       });
   }
   if (!own) {
+    // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).
     for (const lot of shipments(db).reverse()) {
       const info = lotInfo(db, lot.id);
-      for (const kind of info.missing)
+      const lotTodo = (kind: NoteKind) =>
         list.push({
-          text: `${lot.poId}: ${titles[kind]}`,
+          text: `${lot.poId}: ยังไม่ได้จด ${titles[kind]}`,
           kind,
           lotId: lot.id,
         });
-      if (info.unlinked)
+      if (!info.rounds.length) lotTodo("dispatch");
+      for (const round of info.rounds)
+        for (const kind of round.missing)
+          list.push({
+            text: `${lot.poId} รอบ ${round.number}: ยังไม่ได้จด ${titles[kind]}`,
+            kind,
+            lotId: lot.id,
+            dispatchId: round.dispatch.id,
+          });
+      if (info.missing.includes("smokingInvoice")) lotTodo("smokingInvoice");
+    }
+    // A PO เนื้อ: its waste to receive, and its invoice once meat was sent from it.
+    for (const lot of purchaseLots(db).reverse()) {
+      const po = poInfo(db, lot.id);
+      if (po.wastePending)
         list.push({
-          text: `${lot.poId}: ผูก PO เนื้อ`,
-          editId: info.unlinked.id,
+          text: `รอรับ Waste ${lot.poId} ${po.wasteKg.toLocaleString("th-TH", { maximumFractionDigits: 2 })} กก.`,
+          kind: "ownerWasteReceive",
+          lotId: lot.id,
+        });
+      if (po.sentKg > 0 && !po.invoice)
+        list.push({
+          text: `${lot.poId}: ยังไม่ได้จด Invoice Foodiva`,
+          kind: "meatInvoice",
+          lotId: lot.id,
         });
     }
     const month = today.slice(0, 7);

@@ -38,8 +38,8 @@ export const Row: Story = {
     <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
       <StatusTile label="PO รมควัน" value="100 กก." />
       <StatusTile label="ส่งไปรม" value="100 กก." />
-      <StatusTile label="รับกลับเข้าสต๊อกกลาง" onJot={onJot} />
-      <StatusTile label="ค่ารม" onJot={onJot} />
+      <StatusTile label="ส่งกลับ" onJot={onJot} />
+      <StatusTile label="Invoice Chef House" onJot={onJot} />
     </div>
   ),
 };

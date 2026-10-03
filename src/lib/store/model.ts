@@ -55,23 +55,25 @@ const entryKinds = [
   "steakTransfer",
   "pay",
   "meatCount",
+  "smoked",
+  "meatInvoice",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
-/** The kinds an account jots (v2), in the order the kind picker lists them. */
+/** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
+ *  `prepare` and `smoke` are retired: `smoked` holds the weight after smoking. */
 export const noteKinds = [
   "purchase",
+  "meatInvoice",
+  "ownerWasteReceive",
   "smokeOrder",
   "dispatch",
-  "central",
+  "cmReceive",
+  "smoked",
+  "return",
   "smokingInvoice",
   "pay",
-  "cmReceive",
-  "prepare",
-  "smoke",
   "packingList",
-  "return",
   "foodivaReturnReceive",
-  "ownerWasteReceive",
   "sale",
   "receive",
   "meatCount",
@@ -81,15 +83,27 @@ export const noteKinds = [
 export type NoteKind = (typeof noteKinds)[number];
 export const isNoteKind = (kind: EntryKind): kind is NoteKind =>
   (noteKinds as readonly EntryKind[]).includes(kind);
-/** The four notes a Lot is complete with (V2-LOT-01); the rest of a Lot's kinds never colour it. */
+/** The steps of a PO รมควัน after its own `smokeOrder` (which opens it), in order
+ *  (V2-LOT-01). A `dispatch` is one round; `roundKinds` are jotted once per round; the
+ *  invoice once per PO รมควัน. None is forced and any order is taken (lotInfo.missing). */
 export const coreLotKinds = [
-  "smokeOrder",
   "dispatch",
-  "central",
+  "cmReceive",
+  "smoked",
+  "return",
   "smokingInvoice",
 ] as const;
-/** Where a kind sits in the picker and what lot it is jotted on: a Lot (`batch`, a new one
- *  when none is picked), a PO เนื้อ (`po`), a Lot or none (`optional`), or no lot at all. */
+export type CoreLotKind = (typeof coreLotKinds)[number];
+/** The steps of one dispatch round: each names its round in `dispatchId`. */
+export const roundKinds = ["cmReceive", "smoked", "return"] as const;
+export type RoundKind = (typeof roundKinds)[number];
+export const isRoundKind = (kind: EntryKind): kind is RoundKind =>
+  (roundKinds as readonly EntryKind[]).includes(kind);
+/** Kinds a lot holds at most one live entry of: a PO's invoice (one invoice, one PO). */
+export const oncePerLotKinds: EntryKind[] = ["smokingInvoice", "meatInvoice"];
+/** Where a kind sits in the picker and what lot it is jotted on: an existing PO รมควัน
+ *  (`batch`, required), a PO เนื้อ (`po`), a PO รมควัน or none (`optional`), or no lot.
+ *  `purchase` opens a PO เนื้อ and `smokeOrder` a PO รมควัน: nothing else opens a lot. */
 export const kindInfo: Record<
   NoteKind,
   {
@@ -98,23 +112,57 @@ export const kindInfo: Record<
   }
 > = {
   purchase: { group: "lot" },
-  smokeOrder: { group: "lot", lot: "batch" },
+  meatInvoice: { group: "lot", lot: "po" },
+  ownerWasteReceive: { group: "lot", lot: "po" },
+  smokeOrder: { group: "lot" },
   dispatch: { group: "lot", lot: "batch" },
-  central: { group: "lot", lot: "batch" },
+  cmReceive: { group: "lot", lot: "batch" },
+  smoked: { group: "lot", lot: "batch" },
+  return: { group: "lot", lot: "batch" },
   smokingInvoice: { group: "lot", lot: "batch" },
   pay: { group: "money" },
-  cmReceive: { group: "extra", lot: "batch" },
-  prepare: { group: "extra", lot: "batch" },
-  smoke: { group: "extra", lot: "batch" },
   packingList: { group: "extra", lot: "batch" },
-  return: { group: "extra", lot: "batch" },
   foodivaReturnReceive: { group: "extra", lot: "batch" },
-  ownerWasteReceive: { group: "extra", lot: "po" },
   sale: { group: "branch" },
   receive: { group: "branch", lot: "optional" },
   meatCount: { group: "branch" },
   influencerBox: { group: "branch" },
   materials: { group: "branch" },
+};
+/** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker). */
+export type NotePage = "lots" | "stock" | "finance" | "log";
+const pageNoteKinds: Record<NotePage, NoteKind[]> = {
+  lots: [
+    "purchase",
+    "meatInvoice",
+    "ownerWasteReceive",
+    "smokeOrder",
+    "dispatch",
+    "cmReceive",
+    "smoked",
+    "return",
+    "smokingInvoice",
+    "packingList",
+    "foodivaReturnReceive",
+  ],
+  stock: ["receive", "meatCount", "influencerBox", "materials"],
+  finance: ["pay"],
+  // A branch reaches Daily Log and Stock only; Stock has the rest of its kinds.
+  log: ["sale", "pay"],
+};
+/** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments, the
+ *  Account Manager everything but a sale. `mutate` refuses the rest. */
+export const kindsFor = (by: Actor): NoteKind[] =>
+  noteKinds.filter((kind) =>
+    by.role === "branch"
+      ? kindInfo[kind].group === "branch" || kind === "pay"
+      : !(by.hidesSales && kind === "sale"),
+  );
+/** The kinds the picker of `page` offers `by`, in picker order. Overview, Settings and any
+ *  other page: none. */
+export const kindsForPage = (by: Actor, page: string): NoteKind[] => {
+  const on = pageNoteKinds[page as NotePage] ?? [];
+  return kindsFor(by).filter((kind) => on.includes(kind));
 };
 /** Who is acting: an `Account` is one. `hidesSales` is the Account Manager. */
 export type Actor = { role: ActingRole; branch?: string; hidesSales?: boolean };
@@ -139,7 +187,7 @@ export type Lot = {
    *  `{ deleted: "1" }` once no live entry is left on it. Every figure is derived from `entries`. */
   values: Values;
   config: Values;
-  /** "shipment" = one Lot รมควัน; absent = a PO เนื้อ. */
+  /** "shipment" = one PO รมควัน; absent = a PO เนื้อ. */
   kind?: "shipment";
 };
 export type Database = {
@@ -161,7 +209,7 @@ export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
     e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
   }`;
 export const branches = ["ศาลาแดง", "มีนบุรี"];
-/** Kinds jotted on a Lot รมควัน. Sent with `lotId === ""` they open a new Lot. */
+/** Kinds jotted on a PO รมควัน. Sent with `lotId === ""` they open a new one. */
 export const batchKinds: EntryKind[] = noteKinds.filter(
   (kind) => kindInfo[kind].lot === "batch",
 );
@@ -169,18 +217,17 @@ export const batchKinds: EntryKind[] = noteKinds.filter(
  *  keeps the title it had. */
 export const titles: Record<EntryKind, string> = {
   purchase: "PO เนื้อ",
+  meatInvoice: "บันทึก Invoice Foodiva",
   smokeOrder: "PO รมควัน",
-  dispatch: "ส่งไปรม",
-  central: "รับกลับเข้าสต๊อกกลาง",
-  smokingInvoice: "ค่ารม",
+  dispatch: "ส่งไปรมควัน",
+  cmReceive: "รับเนื้อที่ Chef House",
+  smoked: "น้ำหนักหลังรมควัน",
+  return: "ส่งกลับ",
+  smokingInvoice: "บันทึก Invoice Chef House",
   pay: "จ่ายเงิน",
-  cmReceive: "ชั่งรับที่ Chef House",
-  prepare: "น้ำหนักก่อนสโมค",
-  smoke: "สโมค",
   packingList: "Packing List",
-  return: "รถขากลับ",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
-  ownerWasteReceive: "รับเนื้อส่วนที่เหลือ",
+  ownerWasteReceive: "รับ Waste",
   sale: "ยอดขาย",
   receive: "รับเนื้อเข้าสาขา",
   meatCount: "นับเนื้อคงเหลือ",
@@ -190,6 +237,9 @@ export const titles: Record<EntryKind, string> = {
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
   // Retired.
+  central: "รับกลับเข้าสต๊อกกลาง",
+  prepare: "น้ำหนักก่อนสโมค",
+  smoke: "สโมค",
   meatPayment: "ชำระ Invoice เนื้อ Foodiva",
   smokeOrderAccept: "ยืนยันรับ PO รมควัน",
   invoiceReview: "ตรวจยอด Invoice ค่ารมควัน",
@@ -235,10 +285,12 @@ export const voidableKinds: EntryKind[] = entryKinds.filter(
  *  fixed when it is saved (the other branch's account never receives it), so that is a
  *  delete and a new entry. */
 export const editLockedKeys = ["branch"];
-/** Kinds an edit may move to another lot (`toLotId`). A PO itself is its lot. */
+/** Kinds an edit may move to another lot (`toLotId`). A PO itself is its lot; a dispatch
+ *  round and its steps stay on theirs (delete and jot again). */
 export const lotMovableKinds: EntryKind[] = [
-  ...batchKinds,
+  ...batchKinds.filter((kind) => kind !== "dispatch" && !isRoundKind(kind)),
   "ownerWasteReceive",
+  "meatInvoice",
   "receive",
 ];
 /** Changes to other entries: the kinds the change log lists, newest first. */
@@ -363,6 +415,12 @@ export const seed: Database = {
     boxPrice: "350",
     packKg: "0.12",
     packCost: "25",
+    /* A round trip to Chef House and back (both legs), the default of a `return` note's
+     * shippingFee. The smoke service rate per kg: under 1,000 kg, from 1,000, from 1,500. */
+    shippingFee: "6000",
+    smokeRate: "220",
+    smokeRate1000: "200",
+    smokeRate1500: "180",
     ...listDefaults,
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",

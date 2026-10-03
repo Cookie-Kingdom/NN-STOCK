@@ -36,7 +36,7 @@ export const PurchaseOrder: Story = {
   },
 };
 
-/** PO รมควัน: กระดาษ PO แบบเดียวกัน แต่ไม่มีราคา (ค่ารมจดทีหลัง) และอ้างอิง Packing List ของ Lot */
+/** PO รมควัน: กระดาษ PO แบบเดียวกัน มีราคาค่ารม / กก. และยอดรวมประมาณการ อ้างอิง Packing List ของ Lot */
 export const SmokeOrder: Story = {
   args: {
     label: "PO รมควัน",
