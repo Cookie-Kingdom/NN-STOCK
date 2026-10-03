@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { IconButton } from "@/components/atoms/IconButton";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
@@ -13,12 +13,14 @@ import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 /** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
- *  and Stock under the "Nerdnuea x LINE MAN" caption, `pages[].group`), then the
+ *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`, which expands and
+ *  collapses), then the
  *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
  *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
 export function AppSidebar({ ws }: { ws: Workspace }) {
   const { account, tab, setTab } = ws;
   const router = useRouter();
+  const [closed, setClosed] = useState<string[]>([]);
   /* The pages are buttons, not <Link>s, so nothing prefetches them on its own. Every page
    * route is static and renders nothing, so warming all of them up front is cheap and keeps
    * the URL from lagging behind the pressed page. */
@@ -45,23 +47,43 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
         {navFor(account).map((id, i, ids) => {
           const page = pages[id];
           const selected = tab === id;
-          /* A section's caption goes above its first page; below md the tabs keep the
-           * order but carry no caption. */
+          /* A section's header goes above its first page and folds its pages away (md up
+           * only); below md the tabs keep the order but carry no header. */
+          const group = page.group;
           const caption =
-            page.group && page.group !== pages[ids[i - 1]]?.group
-              ? page.group
-              : undefined;
+            group && group !== pages[ids[i - 1]]?.group ? group : undefined;
+          const folded = !!group && closed.includes(group);
           return [
             caption && (
-              <p
+              <button
+                type="button"
                 key={`group-${caption}`}
+                aria-expanded={!folded}
+                onClick={() =>
+                  setClosed((c) =>
+                    folded ? c.filter((g) => g !== caption) : [...c, caption],
+                  )
+                }
                 className={cn(
-                  "px-3 pb-1 text-caption font-semibold text-text-secondary max-md:hidden",
-                  i > 0 && "pt-3",
+                  "flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-left text-caption font-semibold -outline-offset-2 transition-colors duration-(--motion-fast) hover:bg-bg hover:text-text-primary max-md:hidden",
+                  /* a folded section still says it holds the open page */
+                  folded &&
+                    ids.some((t) => t === tab && pages[t].group === caption)
+                    ? "text-accent"
+                    : "text-text-secondary",
+                  i > 0 && "mt-3",
                 )}
               >
                 {caption}
-              </p>
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className={cn(
+                    "flex-none transition-transform duration-(--motion-fast)",
+                    folded && "-rotate-90",
+                  )}
+                />
+              </button>
             ),
             <button
               type="button"
@@ -71,6 +93,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
               className={cn(
                 /* the first page after a section steps away from it */
                 !page.group && pages[ids[i - 1]]?.group && "md:mt-3",
+                folded && "md:hidden",
                 "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
                 selected
                   ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
