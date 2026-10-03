@@ -40,6 +40,10 @@ const numbers: Setting[] = [
   { key: "boxPrice", label: "ราคากล่อง", unit: "บาท" },
   { key: "packKg", label: "น้ำหนักเนื้อต่อกล่อง", unit: "กก." },
   { key: "packCost", label: "ต้นทุนแพ็กเกจต่อกล่อง", unit: "บาท" },
+  { key: "shippingFee", label: "ค่าขนส่งไป-กลับต่อรอบ", unit: "บาท" },
+  { key: "smokeRate", label: "ค่ารมต่อกก. ต่ำกว่า 1,000 กก.", unit: "บาท" },
+  { key: "smokeRate1000", label: "ค่ารมต่อกก. ตั้งแต่ 1,000 กก.", unit: "บาท" },
+  { key: "smokeRate1500", label: "ค่ารมต่อกก. ตั้งแต่ 1,500 กก.", unit: "บาท" },
 ];
 const header: Setting[] = [
   { key: "companyName", label: "ชื่อบริษัท" },

@@ -10,10 +10,11 @@ import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
 import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { pages } from "@/lib/nav";
+import { kindsForPage, titles } from "@/lib/store";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
- *  beside one column holding the page's head with its 「จดบันทึก」 button, the composer when
- *  it is open, and the page (`children`). Toasts float at the bottom of the screen. */
+ *  beside one column holding the page's head with a button per note kind of the page, the
+ *  composer when it is open, and the page (`children`). Toasts float at the bottom of the screen. */
 export function WorkspaceShell({
   ws,
   children,
@@ -22,6 +23,7 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   const page = pages[ws.tab];
+  const kinds = kindsForPage(ws.account, ws.tab);
   return (
     <div className="grid min-h-dvh grid-cols-[224px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />
@@ -30,17 +32,26 @@ export function WorkspaceShell({
           title={page.label}
           description={page.description}
           action={
-            ws.tab !== "settings" && (
-              <Button
-                variant="primary"
-                icon={<Plus />}
-                // Not while the seed stands in for the server payload: a form would read it.
-                disabled={!ws.loaded}
-                aria-expanded={!!ws.draft}
-                onClick={() => (ws.draft ? ws.closeDraft() : ws.jot())}
+            // Lots draws its own jot buttons on the page; Overview and Settings have none.
+            ws.tab !== "lots" &&
+            kinds.length > 0 && (
+              <div
+                role="group"
+                aria-label="จดบันทึก"
+                className="flex flex-wrap gap-2"
               >
-                จดบันทึก
-              </Button>
+                {kinds.map((kind) => (
+                  <Button
+                    key={kind}
+                    icon={<Plus />}
+                    // Not while the seed stands in for the server payload: a form would read it.
+                    disabled={!ws.loaded}
+                    onClick={() => ws.jot({ kind })}
+                  >
+                    {titles[kind]}
+                  </Button>
+                ))}
+              </div>
             )
           }
         />

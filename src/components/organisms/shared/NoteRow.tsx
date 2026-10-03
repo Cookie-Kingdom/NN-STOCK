@@ -12,6 +12,7 @@ import {
   fieldsOf,
   isUnlinked,
   jottedAt,
+  linesText,
   noteAmount,
   noteLine,
   noteSub,
@@ -21,6 +22,7 @@ import {
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import {
+  dispatchLines,
   editBlock,
   isNoteKind,
   titles,
@@ -149,8 +151,18 @@ function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
           if (f.when && !f.when(v)) return [];
           const value = v[f.key] ?? "";
           const label = `${f.label}${f.unit && f.type !== "number" ? ` (${f.unit})` : ""}`;
-          if (f.key === "poLotId" && isUnlinked(db, e))
-            return [[label, <MissingMark key="none">ยังไม่ผูก</MissingMark>]];
+          // Any line's PO: a dispatch saved with one PO (poLotId) reads as one line.
+          if (f.type === "poLines")
+            return [
+              [
+                label,
+                isUnlinked(db, e) ? (
+                  <MissingMark key="none">ยังไม่ผูก</MissingMark>
+                ) : (
+                  linesText(db, dispatchLines(v))
+                ),
+              ],
+            ];
           if (!value)
             return f.core ? [[label, <MissingMark key="none" />]] : [];
           if (f.type === "file")
