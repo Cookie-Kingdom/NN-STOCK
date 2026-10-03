@@ -13,6 +13,8 @@ import {
 import { linesText } from "./noteText";
 
 type DocumentRows = [string, string][];
+/** What a document is built from: a saved entry, or a draft's date and values. */
+type Note = Pick<Entry, "date" | "values">;
 
 const kg = (value = "") => (value ? `${fmt(Number(value))} กก.` : "—");
 
@@ -39,8 +41,8 @@ const seller = (db: Database, name: string, key: string): DocumentRows => {
   ];
 };
 
-/** PO ซื้อเนื้อ, from the PO's `purchase` note. */
-export function purchaseOrderRows(db: Database, purchase: Entry): DocumentRows {
+/** PO ซื้อเนื้อ, from the PO's `purchase` note (saved, or a draft's values). */
+export function purchaseOrderRows(db: Database, purchase: Note): DocumentRows {
   const v = purchase.values;
   const priced = v.orderedKg && v.price;
   return [
@@ -75,11 +77,11 @@ const packingSummary = (list: Entry | undefined) =>
     .join(" · ");
 
 /** The Smoking Service PO (PO รมควัน), from its `smokeOrder` note: the kg of smoking bought,
- *  the service rate and its estimate (V2-DOC-03). `lot`: the PO รมควัน it opened. */
+ *  the service rate and its estimate. `lot`: the PO รมควัน it opened (none for a draft). */
 export function smokeOrderPrintRows(
   db: Database,
   lot: Lot | undefined,
-  order: Entry,
+  order: Note,
 ): DocumentRows {
   const v = order.values;
   const list = lot && entries(db, "packingList", lot.id).at(-1);
@@ -90,7 +92,7 @@ export function smokeOrderPrintRows(
     ["วันที่ PO", v.requestedSmokeDate || order.date],
     ["กำหนดเสร็จ", v.expectedFinishedDate || "—"],
     // The print's smoke layout reads this label for the PO รมควัน number.
-    ["เลขที่การส่ง", lot ? lot.poId : "—"],
+    ["เลขที่การส่ง", lot?.poId || v.orderNumber || "—"],
     ["Packing List", packingSummary(list) || "—"],
     ["สินค้า", "บริการรมควันเนื้อ"],
     [
