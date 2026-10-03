@@ -42,6 +42,7 @@ import {
   shipments,
   smokeServiceRate,
 } from "./derived";
+import { itemNoFor } from "./ledger";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
 const badNumber = "เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข";
@@ -203,6 +204,15 @@ function noteValues(
   if (kind === "smokeOrder")
     v.orderNumber =
       input.orderNumber || nextNumberPreview(db, "smokeOrder", date)!;
+  // V2-LED-03: a ledger item keeps the Item No. of the same name, a new name gets the next one.
+  if (kind === "expense") {
+    // Rendered as a link: nothing but a web address (no `javascript:`).
+    assert(
+      !v.link || /^https?:\/\/\S+$/i.test(v.link),
+      "ลิงก์เอกสารต้องขึ้นต้นด้วย http:// หรือ https://",
+    );
+    v.itemNo = itemNoFor(db, v.item, kept).no;
+  }
   if (kind === "dispatch" || kind === "return")
     v.transferNumber =
       input.transferNumber || nextNumberPreview(db, kind, date)!;

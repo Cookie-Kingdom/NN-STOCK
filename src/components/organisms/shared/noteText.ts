@@ -80,6 +80,7 @@ const addedLabels: Record<string, string> = {
   subLot: "เลขที่รอบสโมค",
   postSmokeKg: "น้ำหนักผลิตรวม (กก.)",
   packCount: "จำนวนกล่องรมควัน",
+  itemNo: "Item No.",
 };
 export const addedKeys = Object.keys(addedLabels);
 export const fieldLabel = (list: Field[], key: string) =>
@@ -180,6 +181,13 @@ export function noteLine(db: Database, e: Entry): string {
         has("fullAmount") && `ยอดเต็ม ${baht(Number(v.fullAmount))}`,
       );
     }
+    case "expense":
+      return join(
+        v.itemType,
+        v.item && (v.itemNo ? `${v.item} (${v.itemNo})` : v.item),
+        v.vendor,
+        v.reference,
+      );
     case "smoke":
       return join(has("wasteKg") && `Waste ${n("wasteKg")} กก.`, v.note);
     case "packingList":
@@ -259,7 +267,7 @@ export function noteAmount(
       : null;
   if (e.kind === "smokingInvoice" || e.kind === "meatInvoice")
     return has("netPayable") ? { text: baht(Number(v.netPayable)) } : null;
-  if (e.kind === "pay")
+  if (e.kind === "pay" || e.kind === "expense")
     return has("amount")
       ? { text: `−${baht(Number(v.amount))}`, tone: "out" }
       : null;

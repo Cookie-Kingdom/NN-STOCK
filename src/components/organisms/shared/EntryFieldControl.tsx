@@ -117,7 +117,11 @@ export function EntryFieldControl({
           {f.options && (
             <datalist id={listId}>
               {options.map((o) => (
-                <option key={o.value} value={o.value} />
+                <option
+                  key={o.value}
+                  value={o.value}
+                  label={o.label !== o.value ? o.label : undefined}
+                />
               ))}
             </datalist>
           )}

@@ -31,6 +31,7 @@ import {
   defaultRound,
   dispatchLines,
   isRoundKind,
+  itemNoFor,
   kindInfo,
   lotInfo,
   missingKeys,
@@ -188,7 +189,15 @@ function NoteForm({
   const shown = fields(kind, db, by, lotId).filter(
     (f) => !f.when || f.when(values),
   );
-  const main = shown.filter((f) => !f.more);
+  const main = shown
+    .filter((f) => !f.more)
+    .map((f) => {
+      // A ledger item: the Item No. the name typed gets (V2-LED-03).
+      if (kind !== "expense" || f.key !== "item" || !values.item?.trim())
+        return f;
+      const no = itemNoFor(db, values.item, target?.values);
+      return { ...f, hint: no.isNew ? `ใหม่: ${no.no}` : `Item No. ${no.no}` };
+    });
   const more = shown.filter((f) => f.more);
   // Open from the start when an edit has something under it; the user's toggle then stands.
   const [moreOpen] = useState(() => more.some((f) => values[f.key]));
