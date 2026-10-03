@@ -34,7 +34,7 @@ export const pages: Record<
   },
   lots: {
     label: "Lots",
-    description: "PO เนื้อ และ Lot รมควัน",
+    description: "PO เนื้อ และ PO รมควัน",
     icon: Factory,
     group: shopGroup,
   },
