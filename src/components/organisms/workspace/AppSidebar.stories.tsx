@@ -22,20 +22,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner: หกหน้า · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
+/** Owner: หกหน้า · Daily Log, Lots, Stock อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
 export const Owner: Story = {};
 
-/** Account Manager: สี่หน้า ไม่มี Overview และ Settings */
+/** Account Manager: สี่หน้า ไม่มี Overview และ Settings · Daily Log, Lots, Stock อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" และ Finance อยู่นอกกลุ่ม */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },
 };
 
-/** สาขา: สองหน้า */
+/** สาขา: สองหน้า (Daily Log, Stock) ใต้หัวข้อ "Nerdnuea x LINE MAN" */
 export const Branch: Story = {
   args: { account: "saladaeng" },
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** จอ 390px: แถบบน (ชื่อบัญชี กระดิ่ง ธีม ออกจากระบบ) และแท็บติดขอบล่าง */
+/** จอ 390px: แถบบน (ชื่อบัญชี กระดิ่ง ธีม ออกจากระบบ) และแท็บติดขอบล่าง เรียงตามเมนู ไม่มีหัวข้อกลุ่ม */
 export const Phone: Story = { ...phone };

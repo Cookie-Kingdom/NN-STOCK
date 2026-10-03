@@ -11,8 +11,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A neutral count of things not recorded yet: muted, never red, and the number carries
- *  the meaning. Pick `variant` in Controls; each one renders where it is used:
+/** A count of things not recorded yet: a red pill (the `destructive` tokens, contrast
+ *  ≥ 4.5:1 in both themes) so it stands out, and the number carries the meaning. Pick `variant` in Controls; each one renders where it is used:
  *  - `menu`: after a sidebar menu label
  *  - `overlay`: on the corner of an icon button (the bell) */
 export const Default: Story = {
