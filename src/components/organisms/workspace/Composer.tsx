@@ -15,6 +15,7 @@ import { FormGrid } from "@/components/molecules/FormGrid";
 import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryFieldControl";
 import { lotLabel } from "@/components/organisms/shared/noteText";
+import { PoDocumentDialog } from "@/components/organisms/shared/PoDocumentDialog";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type {
   Draft,
@@ -74,6 +75,19 @@ export function Composer({ ws }: { ws: Workspace }) {
   const kind = target ? (target.kind as NoteKind) : draft.kind;
   // No kind, or an entry deleted on another device while its edit was opening.
   if (!kind || (draft.editId && !target)) return null;
+  // A PO เนื้อ / PO รมควัน is jotted as its document, in its own dialog.
+  if (kind === "purchase" || kind === "smokeOrder")
+    return (
+      <PoDocumentDialog
+        key={draft.seq}
+        ws={ws}
+        kind={kind}
+        entryId={draft.editId}
+        values={draft.values}
+        date={draft.date}
+        onClose={ws.closeDraft}
+      />
+    );
   return (
     <div ref={card} className="scroll-mt-20">
       <Panel flush>

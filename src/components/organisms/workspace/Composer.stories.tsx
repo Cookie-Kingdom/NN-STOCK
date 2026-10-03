@@ -112,11 +112,12 @@ export const PayBranch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** แก้ไข: ฟอร์มเดิมพร้อมค่าที่จดไว้ ไม่มีปุ่ม บันทึกและจดต่อ */
+/** แก้ไขการส่งไปรม: ฟอร์มเดิมพร้อมค่าที่จดไว้ ไม่มีปุ่ม บันทึกและจดต่อ
+ *  (PO เนื้อ / PO รมควัน เปิดเป็นเอกสาร PO ดู PoDocumentDialog) */
 export const Edit: Story = {
   args: {
     open: {
-      editId: liveEntries(sampleDb).find((e) => e.kind === "purchase")!.id,
+      editId: liveEntries(sampleDb).find((e) => e.kind === "dispatch")!.id,
     },
   },
 };
