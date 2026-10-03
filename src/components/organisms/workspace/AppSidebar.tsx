@@ -12,11 +12,6 @@ import { navFor, pages, type Tab } from "@/lib/nav";
 import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-/** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
- *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`, which expands and
- *  collapses), then the
- *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
- *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
 /** The account's pages cut into runs: a section's pages together, each page outside one alone. */
 function sections(ids: Tab[]) {
   const runs: { group?: string; ids: Tab[] }[] = [];
@@ -29,6 +24,11 @@ function sections(ids: Tab[]) {
   return runs;
 }
 
+/** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
+ *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`, which expands and
+ *  collapses), then the
+ *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
+ *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
 export function AppSidebar({ ws }: { ws: Workspace }) {
   const { account, tab, setTab } = ws;
   const router = useRouter();
