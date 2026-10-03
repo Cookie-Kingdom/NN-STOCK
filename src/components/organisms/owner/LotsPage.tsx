@@ -170,9 +170,10 @@ function LotHead({ ws, lot }: { ws: Workspace; lot: Lot }) {
   const of = (kind: Parameters<typeof entries>[1]) => entries(db, kind, lot.id);
   // What a green tile says: the total jotted, or only that it is jotted when the figure is empty.
   const figure = {
-    smokeOrder: sum(of("smokeOrder"), "rawKg"),
     dispatch: info.sentKg,
-    central: info.backKg,
+    cmReceive: info.receivedKg,
+    smoked: info.backKg,
+    return: sum(of("return"), "returnKg"),
     smokingInvoice: info.fee,
   };
   const documents = [

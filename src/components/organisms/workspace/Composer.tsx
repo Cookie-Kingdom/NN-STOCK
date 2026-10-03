@@ -19,7 +19,7 @@ import type {
   Workspace,
 } from "@/components/organisms/workspace/useWorkspace";
 import { saveAttachment } from "@/lib/attachment-store";
-import { defaults, fields } from "@/lib/forms";
+import { attachmentFolder, defaults, fields } from "@/lib/forms";
 import { pages, type Tab } from "@/lib/nav";
 import { latestDatabase } from "@/lib/persistence";
 import {
@@ -30,7 +30,6 @@ import {
   missingText,
   mutate,
   noteKinds,
-  payrollCategory,
   purchaseLots,
   shipments,
   titles,
@@ -56,9 +55,7 @@ const grid =
 const pageKinds: Partial<Record<Tab, (kind: NoteKind) => boolean>> = {
   lots: (kind) => ["lot", "extra"].includes(kindInfo[kind].group),
   stock: (kind) =>
-    kind === "central" ||
-    kind === "pay" ||
-    (kindInfo[kind].group === "branch" && kind !== "sale"),
+    kind === "pay" || (kindInfo[kind].group === "branch" && kind !== "sale"),
   finance: (kind) => kind === "pay",
 };
 
@@ -237,12 +234,7 @@ function NoteForm({
         delete input[`${key}Data`];
         // A payroll receipt goes to its own folder: the Account Manager cannot read it.
         input[`${key}StorageKey`] = uploaded.current[key] ??=
-          await saveAttachment(
-            file,
-            kind === "pay" && input.category === payrollCategory
-              ? "payroll"
-              : kind,
-          );
+          await saveAttachment(file, attachmentFolder(kind, input));
       }
       const latest = latestDatabase();
       return target

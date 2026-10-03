@@ -33,8 +33,8 @@ export const changedDb = (() => {
     owner,
     "entryEdit",
     {
-      targetId: find(sampleDb, "central").id,
-      values: JSON.stringify({ centralKg: "105", reason: "ชั่งใหม่" }),
+      targetId: find(sampleDb, "smoked").id,
+      values: JSON.stringify({ smokedKg: "105", note: "ชั่งใหม่" }),
     },
     "",
     today(),

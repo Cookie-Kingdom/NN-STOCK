@@ -8,7 +8,7 @@ import {
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { AccountId } from "@/lib/accounts";
-import { entries, seed, shipments } from "@/lib/store";
+import { seed, shipments } from "@/lib/store";
 import { documentsDb } from "./LotsPage.fixtures";
 import { LotsPage } from "./LotsPage";
 
@@ -52,29 +52,22 @@ const pick =
 export const Owner: Story = {};
 
 /** Lot ที่จดครบสี่อย่างและผูก PO เนื้อแล้ว: กล่องเขียวทั้งหมด มีต้นทุนต่อกล่อง */
-export const LotComplete: Story = { play: pick(/SH-\d+-0001/) };
+export const LotComplete: Story = { play: pick(/SO-\d+-0001/) };
 
-/** Lot ที่ส่งไปรมแล้วแต่ยังไม่ผูก PO เนื้อ: กดกล่องเหลือง「รับกลับเข้าสต๊อกกลาง」เปิดฟอร์มของ Lot นี้
- *  กด「เนื้อจาก PO ไหน」เปิดแก้ไขบรรทัดส่งไปรมที่ยังไม่ผูก */
+/** PO รมควันที่ส่งไปรมแล้วหนึ่งรอบ: กดกล่องเหลือง「น้ำหนักหลังรมควัน」เปิดฟอร์มของ PO นี้ */
 export const LotYellow: Story = {
   play: async (context) => {
     const { canvasElement, args } = context;
-    await pick(/SH-\d+-0002/)!(context);
+    await pick(/SO-\d+-0002/)!(context);
     const canvas = within(canvasElement);
     const lot = shipments(sampleDb)[1];
     await userEvent.click(
-      canvas.getByRole("button", { name: /รับกลับเข้าสต๊อกกลาง/ }),
+      canvas.getByRole("button", { name: /น้ำหนักหลังรมควัน/ }),
     );
     await expect(args.jot).toHaveBeenLastCalledWith({
-      kind: "central",
+      kind: "smoked",
       lotId: lot.id,
     });
-    await userEvent.click(
-      canvas.getByRole("button", { name: /เนื้อจาก PO ไหน/ }),
-    );
-    await expect(args.edit).toHaveBeenLastCalledWith(
-      entries(sampleDb, "dispatch", lot.id)[0].id,
-    );
   },
 };
 
@@ -85,18 +78,18 @@ export const PurchaseOrder: Story = { play: pick(/PO-\d+-0002/) };
  *  (อนุญาต Pop-up ก่อน) หัวเอกสารมาจาก Settings */
 export const Documents: Story = {
   parameters: { db: documentsDb },
-  play: pick(/SH-\d+-0001/),
+  play: pick(/SO-\d+-0001/),
 };
 
 /** Account Manager: เห็นต้นทุนของ Lot เหมือน Owner */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },
-  play: pick(/SH-\d+-0001/),
+  play: pick(/SO-\d+-0001/),
 };
 
 /** ระบบใหม่ ยังไม่มี Lot และ PO เนื้อ */
 export const Empty: Story = { parameters: { db: structuredClone(seed) } };
 
 /** จอ 390px: รายการ Lot เป็นแถวเลื่อนแนวนอน รายละเอียดอยู่ข้างล่าง */
-export const Phone: Story = { ...phone, play: pick(/SH-\d+-0001/) };
+export const Phone: Story = { ...phone, play: pick(/SO-\d+-0001/) };
