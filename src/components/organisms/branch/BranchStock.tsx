@@ -92,19 +92,23 @@ export const Left = ({ n }: { n: number }) => (
 
 /** One branch's materials and chili: what is left, when each was last counted (yellow when
  *  never, or more than 7 days ago), and an input per material. 「บันทึกยอดนับ」 saves one
- *  `materials` note dated today that holds only the rows typed (V2-BR-03). The Owner and the
- *  Account Manager count for the branch the card names. */
+ *  `materials` note dated today that holds only the rows typed (V2-BR-03). `readOnly` (the
+ *  Owner's and the Account Manager's Inventory) shows the counts the branch saved, with no
+ *  input and no save. */
 export function MaterialCount({
   ws,
   branch,
   title = "วัสดุ",
   note,
+  readOnly = false,
 }: {
   ws: Workspace;
   branch: string;
   title?: string;
   /** The quiet line beside the title. */
   note?: string;
+  /** Only show what the branch counted: no count column, no save button. */
+  readOnly?: boolean;
 }) {
   const { db, account, today } = ws;
   const [counts, setCounts] = useState<Values>({});
@@ -146,7 +150,11 @@ export function MaterialCount({
         }}
       >
         <StockTable
-          columns={["รายการ", "คงเหลือ", "นับล่าสุด", "นับได้"]}
+          columns={
+            readOnly
+              ? ["รายการ", "คงเหลือ", "นับล่าสุด"]
+              : ["รายการ", "คงเหลือ", "นับล่าสุด", "นับได้"]
+          }
           right={["คงเหลือ", "นับได้"]}
         >
           {materialList(db.config).map((m) => {
@@ -172,19 +180,21 @@ export function MaterialCount({
                     </>
                   )}
                 </Cell>
-                <Cell right className="py-1.5">
-                  {/* Text, not number: `mutate` words the refusal of a bad figure. */}
-                  <Input
-                    inputMode="decimal"
-                    aria-label={`นับ ${m.name}`}
-                    className="mt-0 ml-auto min-h-10 w-24 text-right max-md:w-20"
-                    value={counts[key] ?? ""}
-                    onChange={(event) => {
-                      setError("");
-                      setCounts({ ...counts, [key]: event.target.value });
-                    }}
-                  />
-                </Cell>
+                {!readOnly && (
+                  <Cell right className="py-1.5">
+                    {/* Text, not number: `mutate` words the refusal of a bad figure. */}
+                    <Input
+                      inputMode="decimal"
+                      aria-label={`นับ ${m.name}`}
+                      className="mt-0 ml-auto min-h-10 w-24 text-right max-md:w-20"
+                      value={counts[key] ?? ""}
+                      onChange={(event) => {
+                        setError("");
+                        setCounts({ ...counts, [key]: event.target.value });
+                      }}
+                    />
+                  </Cell>
+                )}
               </tr>
             );
           })}
@@ -198,18 +208,24 @@ export function MaterialCount({
                   ? "วันนี้"
                   : thaiDay(chili.countedOn)}
             </Cell>
-            <Cell right className="font-normal text-text-secondary">
-              {/* The Account Manager has no sale form (V2-ACC-01). */}
-              {account.hidesSales ? "สาขานับเอง" : "นับในฟอร์มยอดขาย"}
-            </Cell>
+            {!readOnly && (
+              <Cell right className="font-normal text-text-secondary">
+                {/* The Account Manager has no sale form (V2-ACC-01). */}
+                {account.hidesSales ? "สาขานับเอง" : "นับในฟอร์มยอดขาย"}
+              </Cell>
+            )}
           </tr>
         </StockTable>
-        <FormError error={error} className="mx-5 mt-3 mb-0 max-md:mx-4" />
-        <div className="flex justify-center px-5 pt-3 pb-4">
-          <Button type="submit" variant="primary" disabled={saving}>
-            บันทึกยอดนับ
-          </Button>
-        </div>
+        {!readOnly && (
+          <>
+            <FormError error={error} className="mx-5 mt-3 mb-0 max-md:mx-4" />
+            <div className="flex justify-center px-5 pt-3 pb-4">
+              <Button type="submit" variant="primary" disabled={saving}>
+                บันทึกยอดนับ
+              </Button>
+            </div>
+          </>
+        )}
       </form>
     </DayCard>
   );

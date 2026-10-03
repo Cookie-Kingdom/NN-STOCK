@@ -6,7 +6,7 @@ import { missingText } from "@/lib/store";
 const box = "flex flex-col gap-3 rounded-lg border p-5 max-md:p-4";
 
 /** Everything the account has not jotted yet, as one yellow list: pressing a line opens its
- *  form (or the edit, or the Stock page). Green and 「จดครบแล้ว」 when there is nothing. */
+ *  form (or the edit, or the Inventory page). Green and 「จดครบแล้ว」 when there is nothing. */
 export function TodoBox({ ws }: { ws: Workspace }) {
   const list = ws.todos;
   if (!list.length)

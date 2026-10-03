@@ -12,7 +12,7 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import type { Account } from "@/lib/accounts";
 
 /** The one workspace of every account: the shell, and the page of the tab in view. Which
- *  tabs an account has is `navFor` (nav.ts); a branch's Stock is its own view. */
+ *  tabs an account has is `navFor` (nav.ts); a branch's Inventory is its own view. */
 export function Workspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const Page = {

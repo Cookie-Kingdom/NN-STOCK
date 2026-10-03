@@ -1,4 +1,4 @@
-/* The cells of the plain tables (Finance, Overview, Stock, Settings). */
+/* The cells of the plain tables (Finance, Overview, Inventory, Settings). */
 export const th =
   "border-b border-border px-5 py-2 text-left text-caption font-medium whitespace-nowrap text-text-secondary max-md:px-2.5";
 export const td =

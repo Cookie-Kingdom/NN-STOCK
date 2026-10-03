@@ -124,7 +124,7 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
   return "";
 }
 /** One thing that is yellow, and what selecting it opens: a form (`kind`, with the branch,
- *  date, lot or category to start from), the edit of an entry (`editId`) or the Stock page. */
+ *  date, lot or category to start from), the edit of an entry (`editId`) or the Inventory page. */
 export type Todo = {
   text: string;
   kind?: NoteKind;
