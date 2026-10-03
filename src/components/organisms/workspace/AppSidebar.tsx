@@ -12,7 +12,8 @@ import { navFor, pages } from "@/lib/nav";
 import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-/** The workspace's frame. From md up a 224px column: brand, the account's pages, then the
+/** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
+ *  and Stock under the "Nerdnuea x LINE MAN" caption, `pages[].group`), then the
  *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
  *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
 export function AppSidebar({ ws }: { ws: Workspace }) {
@@ -41,16 +42,35 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
         aria-label="หน้า"
         className="flex flex-col gap-0.5 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:flex-row max-md:gap-0 max-md:border-t max-md:border-border max-md:bg-surface max-md:pb-[env(safe-area-inset-bottom)]"
       >
-        {navFor(account).map((id) => {
+        {navFor(account).map((id, i, ids) => {
           const page = pages[id];
           const selected = tab === id;
-          return (
+          /* A section's caption goes above its first page; below md the tabs keep the
+           * order but carry no caption. */
+          const caption =
+            page.group && page.group !== pages[ids[i - 1]]?.group
+              ? page.group
+              : undefined;
+          return [
+            caption && (
+              <p
+                key={`group-${caption}`}
+                className={cn(
+                  "px-3 pb-1 text-caption font-semibold text-text-secondary max-md:hidden",
+                  i > 0 && "pt-3",
+                )}
+              >
+                {caption}
+              </p>
+            ),
             <button
               type="button"
               key={id}
               aria-current={selected ? "page" : undefined}
               onClick={() => setTab(id)}
               className={cn(
+                /* the first page after a section steps away from it */
+                !page.group && pages[ids[i - 1]]?.group && "md:mt-3",
                 "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
                 selected
                   ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
@@ -59,8 +79,8 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
             >
               <page.icon size={18} aria-hidden />
               {page.label}
-            </button>
-          );
+            </button>,
+          ];
         })}
       </nav>
       <div className="mt-auto flex flex-col gap-3 max-md:mt-0 max-md:flex-row max-md:items-center max-md:gap-1">
