@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * page when a control takes focus, and the zoom leaves a purely vertical form
  * scrollable sideways. The `table` variant is already 16px (`text-num-md`). */
 export const controlVariants = cva(
-  "text-text-primary outline-none disabled:cursor-not-allowed disabled:bg-bg disabled:text-text-secondary",
+  "text-text-primary outline-transparent transition-[color,background-color,border-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) disabled:cursor-not-allowed disabled:bg-bg disabled:text-text-secondary",
   {
     variants: {
       variant: {

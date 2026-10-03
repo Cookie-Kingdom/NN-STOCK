@@ -13,7 +13,8 @@ import { useId, useRef } from "react";
  *  open/close, Escape, click-outside and the button's expanded state; CSS anchor positioning
  *  hangs the panel on the bell. In the sidebar the bell sits at the bottom left, so the panel
  *  opens upwards from its left edge; in the phone's top bar it opens downwards and keeps to
- *  the screen's gutter. */
+ *  the screen's gutter. It grows out of the bell and shrinks back faster than it came:
+ *  `transition-discrete` keeps it on screen (display, top layer) until the fade is done. */
 export function NotificationPopover({ ws }: { ws: Workspace }) {
   const id = useId();
   const panel = useRef<HTMLElement>(null);
@@ -37,7 +38,7 @@ export function NotificationPopover({ ws }: { ws: Workspace }) {
         ref={panel}
         id={id}
         popover="auto"
-        className="inset-auto m-0 w-[min(390px,calc(100vw-32px))] rounded-lg border border-border bg-surface p-3.5 text-text-primary shadow-lg [position-anchor:--notifications] open:animate-scale-in max-md:[top:anchor(bottom)] max-md:right-4 max-md:mt-2.5 max-md:origin-top-right md:[bottom:anchor(top)] md:[left:anchor(left)] md:mb-2.5 md:origin-bottom-left"
+        className="inset-auto m-0 w-[min(390px,calc(100vw-32px))] scale-96 rounded-lg border border-border bg-surface p-3.5 text-text-primary opacity-0 shadow-lg transition-[opacity,scale,display,overlay] transition-discrete duration-(--motion-fast) ease-(--ease-exit) [position-anchor:--notifications] open:scale-100 open:opacity-100 open:duration-(--motion-base) open:ease-(--ease-enter) max-md:[top:anchor(bottom)] max-md:right-4 max-md:mt-2.5 max-md:origin-top-right md:[bottom:anchor(top)] md:[left:anchor(left)] md:mb-2.5 md:origin-bottom-left starting:open:scale-96 starting:open:opacity-0"
         aria-label="การแจ้งเตือน"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-0.75 pt-0.5 pb-3">

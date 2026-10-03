@@ -22,7 +22,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner: หกหน้า · Daily Log, Lots, Stock อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" ที่กดพับ/กางได้ · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
+/** Owner: หกหน้า · Daily Log, Lots, Stock อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" ที่กดพับ/กางได้ (หน้าในกลุ่มเลื่อนพับลงอย่างนุ่มนวล ลูกศรหมุนตาม) · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
 export const Owner: Story = {};
 
 /** Account Manager: สี่หน้า ไม่มี Overview และ Settings · Daily Log, Lots, Stock อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" และ Finance อยู่นอกกลุ่ม */

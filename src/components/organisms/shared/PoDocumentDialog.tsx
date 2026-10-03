@@ -163,7 +163,7 @@ export function PoDocumentDialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className="m-auto max-h-[92dvh] w-320 max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 open:flex max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none dark:backdrop:bg-black/65"
+      className="m-auto max-h-[92dvh] w-320 max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 open:flex open:animate-scale-in open:backdrop:animate-fade-in max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none max-md:open:animate-fade-up dark:backdrop:bg-black/65"
       onCancel={(event) => {
         // Escape: keep the element open and let the parent unmount it.
         event.preventDefault();

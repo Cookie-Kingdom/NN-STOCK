@@ -79,7 +79,7 @@ export function NoteRow({
           {timeOf(e.at)}
         </span>
         <span className="min-w-0 [overflow-wrap:anywhere]">
-          <strong className="mr-2 font-semibold group-hover:text-accent">
+          <strong className="mr-2 font-semibold transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
             {titles[e.kind]}
           </strong>
           <span className="text-text-secondary">{noteLine(db, e)}</span>
@@ -107,7 +107,7 @@ export function NoteRow({
         </span>
       </button>
       {open && (
-        <div className="flex flex-col gap-3 px-5 pt-1 pb-5 max-md:px-4 md:pl-19">
+        <div className="flex animate-fade-in flex-col gap-3 px-5 pt-1 pb-5 max-md:px-4 md:pl-19">
           <NoteValues entry={e} ws={ws} />
           <p className="text-caption text-text-secondary">
             จดโดย {entryWho(e)} · {jottedAt(e.at)}

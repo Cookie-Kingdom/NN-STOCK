@@ -185,12 +185,14 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
 
-  /* Entrance animations: `animate-fade-in` / `animate-fade-up` / `animate-scale-in`.
+  /* Entrance animations: `animate-fade-in` / `animate-fade-up` / `animate-scale-in`,
+   * and `animate-icon-swap` for an icon that replaces another in place (ThemeToggle).
    * Timings come from the motion primitives above. Reduced motion is handled
    * globally in globals.css, so no `motion-reduce:` classes are needed. */
   --animate-fade-in: fade-in var(--motion-base) var(--ease-enter) both;
   --animate-fade-up: fade-up var(--motion-base) var(--ease-enter) both;
   --animate-scale-in: scale-in var(--motion-slow) var(--ease-enter) both;
+  --animate-icon-swap: icon-swap var(--motion-base) var(--ease-enter) both;
 
   @keyframes fade-in {
     from {
@@ -209,6 +211,17 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes icon-swap {
+    from {
+      opacity: 0;
+      transform: rotate(-60deg) scale(0.7);
+    }
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
 

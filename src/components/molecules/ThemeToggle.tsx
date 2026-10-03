@@ -34,7 +34,10 @@ export function ThemeToggle({ className }: { className?: string }) {
     <IconButton
       className={className}
       label={`ธีม: ${LABEL[pref]} — กดเพื่อเปลี่ยนเป็น${LABEL[next]}`}
-      icon={<Icon size={20} aria-hidden />}
+      // key: the new icon re-mounts and turns in, instead of swapping in place.
+      icon={
+        <Icon key={pref} size={20} aria-hidden className="animate-icon-swap" />
+      }
       onClick={() => setThemePref(next)}
     />
   );

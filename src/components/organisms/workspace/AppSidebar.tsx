@@ -8,9 +8,21 @@ import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 import { NotificationPopover } from "@/components/organisms/workspace/NotificationPopover";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { navFor, pages } from "@/lib/nav";
+import { navFor, pages, type Tab } from "@/lib/nav";
 import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
+
+/** The account's pages cut into runs: a section's pages together, each page outside one alone. */
+function sections(ids: Tab[]) {
+  const runs: { group?: string; ids: Tab[] }[] = [];
+  for (const id of ids) {
+    const group = pages[id].group;
+    const last = runs.at(-1);
+    if (group && last?.group === group) last.ids.push(id);
+    else runs.push({ group, ids: [id] });
+  }
+  return runs;
+}
 
 /** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
  *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`, which expands and
@@ -44,65 +56,81 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
         aria-label="หน้า"
         className="flex flex-col gap-0.5 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:flex-row max-md:gap-0 max-md:border-t max-md:border-border max-md:bg-surface max-md:pb-[env(safe-area-inset-bottom)]"
       >
-        {navFor(account).map((id, i, ids) => {
-          const page = pages[id];
-          const selected = tab === id;
-          /* A section's header goes above its first page and folds its pages away (md up
-           * only); below md the tabs keep the order but carry no header. */
-          const group = page.group;
-          const caption =
-            group && group !== pages[ids[i - 1]]?.group ? group : undefined;
-          const folded = !!group && closed.includes(group);
-          return [
-            caption && (
+        {sections(navFor(account)).map(({ group, ids: own }, i, all) => {
+          const pageButton = (id: Tab) => {
+            const page = pages[id];
+            const selected = tab === id;
+            return (
               <button
                 type="button"
-                key={`group-${caption}`}
-                aria-expanded={!folded}
-                onClick={() =>
-                  setClosed((c) =>
-                    folded ? c.filter((g) => g !== caption) : [...c, caption],
-                  )
-                }
+                key={id}
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setTab(id)}
                 className={cn(
-                  "flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-left text-caption font-semibold -outline-offset-2 transition-colors duration-(--motion-fast) hover:bg-bg hover:text-text-primary max-md:hidden",
-                  /* a folded section still says it holds the open page */
-                  folded &&
-                    ids.some((t) => t === tab && pages[t].group === caption)
-                    ? "text-accent"
-                    : "text-text-secondary",
-                  i > 0 && "mt-3",
+                  /* the first page after a section steps away from it */
+                  !group && all[i - 1]?.group && id === own[0] && "md:mt-3",
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
+                  selected
+                    ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
+                    : "text-text-secondary hover:bg-bg hover:text-text-primary",
                 )}
               >
-                {caption}
-                <ChevronDown
-                  size={16}
-                  aria-hidden
-                  className={cn(
-                    "flex-none transition-transform duration-(--motion-fast)",
-                    folded && "-rotate-90",
-                  )}
-                />
+                <page.icon size={18} aria-hidden />
+                {page.label}
               </button>
-            ),
+            );
+          };
+          if (!group) return own.map(pageButton);
+          const folded = closed.includes(group);
+          return [
             <button
               type="button"
-              key={id}
-              aria-current={selected ? "page" : undefined}
-              onClick={() => setTab(id)}
+              key={`group-${group}`}
+              aria-expanded={!folded}
+              onClick={() =>
+                setClosed((c) =>
+                  folded ? c.filter((g) => g !== group) : [...c, group],
+                )
+              }
               className={cn(
-                /* the first page after a section steps away from it */
-                !page.group && pages[ids[i - 1]]?.group && "md:mt-3",
-                folded && "md:hidden",
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
-                selected
-                  ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
-                  : "text-text-secondary hover:bg-bg hover:text-text-primary",
+                "flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-left text-caption font-semibold -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) hover:bg-bg hover:text-text-primary max-md:hidden",
+                /* a folded section still says it holds the open page */
+                folded && own.includes(tab)
+                  ? "text-accent"
+                  : "text-text-secondary",
+                i > 0 && "mt-3",
               )}
             >
-              <page.icon size={18} aria-hidden />
-              {page.label}
+              {group}
+              <ChevronDown
+                size={16}
+                aria-hidden
+                className={cn(
+                  "flex-none transition-transform duration-(--motion-base) ease-(--ease-standard)",
+                  folded && "-rotate-90",
+                )}
+              />
             </button>,
+            /* md up the pages fold by easing the grid row between 1fr and 0fr; `invisible`
+             * takes them out of the tab order once folded (visibility flips at the end of a
+             * fold and at the start of an unfold). Below md both wrappers are `contents`, so
+             * the pages stay plain bottom tabs. */
+            <div
+              key={`pages-${group}`}
+              className={cn(
+                "max-md:contents md:grid md:transition-[grid-template-rows] md:duration-(--motion-base) md:ease-(--ease-standard)",
+                folded ? "md:grid-rows-[0fr]" : "md:grid-rows-[1fr]",
+              )}
+            >
+              <div
+                className={cn(
+                  "max-md:contents md:flex md:min-h-0 md:flex-col md:gap-0.5 md:overflow-hidden md:transition-[visibility] md:duration-(--motion-base)",
+                  folded && "md:invisible",
+                )}
+              >
+                {own.map(pageButton)}
+              </div>
+            </div>,
           ];
         })}
       </nav>
