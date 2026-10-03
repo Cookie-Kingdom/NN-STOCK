@@ -50,7 +50,7 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** หน้า Stock: ปุ่มจดของสาขา 4 ปุ่ม เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ */
+/** หน้า Inventory: ปุ่มจดของสาขา 3 ปุ่ม (นับวัสดุเป็นงานของแอดมินสาขา) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ */
 export const StockButtons: Story = {
   parameters: { nextjs: { navigation: { segments: ["stock"] } } },
 };
@@ -66,7 +66,7 @@ export const Branch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** จอ 390px หน้า Stock: ปุ่มขึ้นบรรทัดใหม่ แต่ละปุ่มสูง 44px */
+/** จอ 390px หน้า Inventory: ปุ่มขึ้นบรรทัดใหม่ แต่ละปุ่มสูง 44px */
 export const PhoneStock: Story = { ...StockButtons, ...phone };
 
 /** จอ 390px: แถบบน แท็บล่าง เนื้อหาคอลัมน์เดียว */

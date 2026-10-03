@@ -24,7 +24,11 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   const page = pages[ws.tab];
-  const kinds = kindsForPage(ws.account, ws.tab);
+  // Materials are counted by the branch admins on their own Inventory page; the Owner's and
+  // the Manager's Inventory only shows those counts.
+  const kinds = kindsForPage(ws.account, ws.tab).filter(
+    (kind) => ws.account.role === "branch" || kind !== "materials",
+  );
   return (
     <div className="grid min-h-dvh grid-cols-[224px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />

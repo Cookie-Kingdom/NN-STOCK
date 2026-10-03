@@ -86,7 +86,7 @@ export function useWorkspace(account: Account) {
     closeDraft: () => setDraft(null),
     /** Everything yellow for this account: the todo box and the bell list it. */
     todos: list,
-    /** What selecting a todo does: the form it names, the edit of its entry, or the Stock page. */
+    /** What selecting a todo does: the form it names, the edit of its entry, or the Inventory page. */
     openTodo: (todo: Todo) => {
       if (todo.page) setTab(todo.page);
       else if (todo.editId) jot({ editId: todo.editId });

@@ -19,10 +19,10 @@ import {
   shipments,
 } from "@/lib/store";
 
-/** Stock as the Owner and the Account Manager see it: the meat from the seller to each
- *  branch (V2-CAL-07, 08, 10), then every branch's materials and chili. They count for a
- *  branch here too: 「นับเนื้อ」 opens the meat count of that branch, and each branch's
- *  card saves a material count for it. */
+/** Inventory as the Owner and the Account Manager see it: the meat from the seller to each
+ *  branch (V2-CAL-07, 08, 10), then every branch's materials and chili. 「นับเนื้อ」 still
+ *  opens the meat count of a branch; the materials cards are read-only, the branch admins
+ *  count them on their own Inventory page. */
 export function OwnerStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const held = purchaseLots(db)
@@ -89,9 +89,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         </StockTable>
       </DayCard>
       <Caption>
-        วัสดุและน้ำพริกไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที · นับแทนสาขาได้:
-        ใส่เฉพาะรายการที่นับ ยอดนับลงวันที่วันนี้ · ไม่ได้นับเกิน 7
-        วันขึ้นสีเหลือง
+        วัสดุและน้ำพริกไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที ·
+        แอดมินสาขาเป็นคนอัปเดตยอดนับจากหน้าของสาขา หน้านี้ดูได้อย่างเดียว ·
+        ไม่ได้นับเกิน 7 วันขึ้นสีเหลือง
       </Caption>
       <div className="grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1">
         {branches.map((branch) => (
@@ -100,6 +100,8 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
             ws={ws}
             branch={branch}
             title={`วัสดุและน้ำพริก สาขา${branch}`}
+            note="แอดมินสาขาเป็นคนอัปเดต"
+            readOnly
           />
         ))}
       </div>

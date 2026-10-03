@@ -12,7 +12,7 @@ import type { Account } from "./accounts";
 export type Tab =
   "overview" | "log" | "lots" | "stock" | "finance" | "settings";
 
-/** The sidebar section that holds Daily Log, Lots and Stock. */
+/** The sidebar section that holds Daily Log, Lots, Inventory and Finance. */
 export const shopGroup = "Nerdnuea x LINE MAN";
 
 /** Every page: its name (English, V2-ACC-09), the line under it, its icon and, for a page
@@ -39,7 +39,7 @@ export const pages: Record<
     group: shopGroup,
   },
   stock: {
-    label: "Stock",
+    label: "Inventory",
     description: "เนื้อ วัสดุ และน้ำพริกคงเหลือ",
     icon: Package,
     group: shopGroup,
@@ -48,6 +48,7 @@ export const pages: Record<
     label: "Finance",
     description: "จ่ายเงิน และยอดคงเหลือต่อผู้ขาย",
     icon: Wallet,
+    group: shopGroup,
   },
   settings: {
     label: "Settings",
