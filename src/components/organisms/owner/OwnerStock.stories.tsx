@@ -9,14 +9,14 @@ import {
 import type { AccountId } from "@/lib/accounts";
 import { OwnerStock } from "./OwnerStock";
 
-/** The page under the composer, as the shell lays them out: 「นับเนื้อ」 opens it. */
+/** The page and the composer, as the shell has them: 「นับเนื้อ」 opens its dialog over the page. */
 const Stock = ({ account }: { account: AccountId }) => (
   <WithWorkspace account={account}>
     {(ws) => (
-      <div className="flex flex-col gap-6">
-        <Composer ws={ws} />
+      <>
         <OwnerStock ws={ws} />
-      </div>
+        <Composer ws={ws} />
+      </>
     )}
   </WithWorkspace>
 );
@@ -24,6 +24,8 @@ const Stock = ({ account }: { account: AccountId }) => (
 const meta = {
   title: "Organisms/Owner/OwnerStock",
   component: Stock,
+  // 「นับเนื้อ」 opens a modal <dialog>: one per story would stack on a Docs page.
+  tags: ["!autodocs"],
   args: { account: "owner" },
   argTypes: { account: { control: false } },
   parameters: { db: sampleDb },

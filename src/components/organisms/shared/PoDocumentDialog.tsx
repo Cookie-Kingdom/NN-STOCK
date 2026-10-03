@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
-import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { Caption } from "@/components/atoms/Text";
+import { Dialog } from "@/components/molecules/Dialog";
 import {
   DocumentPrintButton,
   poPaperHtml,
@@ -70,8 +69,6 @@ export function PoDocumentDialog({
   onClose: () => void;
 }) {
   const { db, account, today } = ws;
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   const [savedId, setSavedId] = useState(entryId);
   const saved = savedId
     ? visibleNotes(db, account).find((e) => e.id === savedId)
@@ -83,15 +80,6 @@ export function PoDocumentDialog({
   // Changed since the last save (or since it opened on a saved note).
   const [dirty, setDirty] = useState(false);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-
-  useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal?.();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, []);
 
   const shown = fields(kind, db, account).filter(
     (f) => !f.when || f.when(values),
@@ -160,31 +148,24 @@ export function PoDocumentDialog({
   };
 
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      className="m-auto max-h-[92dvh] w-320 max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-lg bg-surface p-0 text-text-primary shadow-2xl backdrop:bg-text-primary/55 open:flex open:animate-scale-in open:backdrop:animate-fade-in max-md:m-0 max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-full max-md:max-w-full max-md:rounded-none max-md:open:animate-fade-up dark:backdrop:bg-black/65"
-      onCancel={(event) => {
-        // Escape: keep the element open and let the parent unmount it.
-        event.preventDefault();
-        onClose();
-      }}
+    <Dialog
+      className="w-320"
+      onClose={onClose}
+      title={
+        <>
+          {titles[kind]} {number}
+        </>
+      }
+      meta={
+        clean ? (
+          <Badge tone="success">บันทึกแล้ว</Badge>
+        ) : saved ? (
+          <Badge tone="warning">แก้ไขยังไม่บันทึก</Badge>
+        ) : (
+          <Badge>ฉบับร่าง</Badge>
+        )
+      }
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border px-6.5 py-5 max-md:p-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 id={titleId} className="m-0 text-h2">
-            {titles[kind]} {number}
-          </h2>
-          {clean ? (
-            <Badge tone="success">บันทึกแล้ว</Badge>
-          ) : saved ? (
-            <Badge tone="warning">แก้ไขยังไม่บันทึก</Badge>
-          ) : (
-            <Badge>ฉบับร่าง</Badge>
-          )}
-        </div>
-        <IconButton label="ปิด" icon={<X size={18} />} onClick={onClose} />
-      </header>
       <form
         noValidate
         aria-label={titles[kind]}
@@ -274,6 +255,6 @@ export function PoDocumentDialog({
           </Button>
         </footer>
       </form>
-    </dialog>
+    </Dialog>
   );
 }

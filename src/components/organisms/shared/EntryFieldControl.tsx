@@ -60,6 +60,8 @@ export function EntryFieldControl({
     );
   const control = {
     autoFocus,
+    // Inside a `Dialog`, which focuses it once it opens.
+    "data-autofocus": autoFocus || undefined,
     value,
     className: cn(f.core && !value && "border-warning/60 bg-warning-subtle"),
     onChange: (event: { target: { value: string } }) =>
