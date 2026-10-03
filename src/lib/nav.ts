@@ -12,10 +12,14 @@ import type { Account } from "./accounts";
 export type Tab =
   "overview" | "log" | "lots" | "stock" | "finance" | "settings";
 
-/** Every page: its name (English, V2-ACC-09), the line under it and its icon. */
+/** The sidebar section that holds Daily Log, Lots and Stock. */
+export const shopGroup = "Nerdnuea x LINE MAN";
+
+/** Every page: its name (English, V2-ACC-09), the line under it, its icon and, for a page
+ *  that sits in a sidebar section, that section's heading. */
 export const pages: Record<
   Tab,
-  { label: string; description: string; icon: LucideIcon }
+  { label: string; description: string; icon: LucideIcon; group?: string }
 > = {
   overview: {
     label: "Overview",
@@ -26,16 +30,19 @@ export const pages: Record<
     label: "Daily Log",
     description: "บันทึกทั้งหมด เรียงตามวัน",
     icon: ClipboardList,
+    group: shopGroup,
   },
   lots: {
     label: "Lots",
     description: "PO เนื้อ และ Lot รมควัน",
     icon: Factory,
+    group: shopGroup,
   },
   stock: {
     label: "Stock",
     description: "เนื้อ วัสดุ และน้ำพริกคงเหลือ",
     icon: Package,
+    group: shopGroup,
   },
   finance: {
     label: "Finance",
