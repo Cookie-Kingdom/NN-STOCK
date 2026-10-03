@@ -45,6 +45,8 @@ export function useWorkspace(account: Account) {
   const [tab, showTab] = useOptimistic(page);
   const [draft, setDraft] = useState<(Draft & { seq: number }) | null>(null);
   const [toast, show] = useState<ToastState>({ id: 0, message: "" });
+  // The PO the Lots page opens on when another page links to it (`showLot`).
+  const [focusLot, setFocusLot] = useState("");
   const say = (next: Omit<ToastState, "id">) =>
     show((last) => ({ ...next, id: last.id + 1 }));
   /** Opens the composer on `preset.kind`'s form (or `preset.editId`'s edit). Each call
@@ -55,6 +57,7 @@ export function useWorkspace(account: Account) {
     // A form and a toast belong to the page they were opened on.
     setDraft(null);
     say({ message: "" });
+    setFocusLot("");
     startTransition(() => {
       showTab(next);
       router.push(`${account.path}/${next}`);
@@ -74,6 +77,12 @@ export function useWorkspace(account: Account) {
     today,
     tab,
     setTab,
+    focusLot,
+    /** Goes to the Lots page with the PO (or Lot) `lotId` picked. */
+    showLot: (lotId: string) => {
+      setTab("lots");
+      setFocusLot(lotId);
+    },
     toast,
     /** The green toast of a save; `undo` adds the 「เลิกทำ」 button. "" closes it. */
     setToast: (message: string, undo?: () => void) => say({ message, undo }),

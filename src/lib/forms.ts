@@ -17,6 +17,15 @@ import {
 } from "./store/model";
 import { dateLabel } from "./format";
 import { entries, liveEntries, poInfo, purchaseLots } from "./store/derived";
+import {
+  defaultLedgerTypes,
+  ledgerChoices,
+  ledgerItems,
+  ledgerPurposes,
+  ledgerSources,
+  ledgerStatuses,
+  shopProject,
+} from "./store/ledger";
 export type Field = {
   key: string;
   label: string;
@@ -412,6 +421,65 @@ export function fields(
         file("ไฟล์ Packing List"),
         note,
       ];
+    case "expense": {
+      const choices = (list: string[]) =>
+        list.map((value) => ({ value, label: value }));
+      const select = (
+        key: string,
+        label: string,
+        labels: Record<string, string>,
+        first: { value: string; label: string }[] = [],
+      ): Field => ({
+        key,
+        label,
+        type: "select",
+        options: [
+          ...first,
+          ...Object.entries(labels).map(([value, label]) => ({ value, label })),
+        ],
+      });
+      // A PO row is worked out from its PO: a hand-jotted row is one of the other three.
+      const sources = Object.fromEntries(
+        Object.entries(ledgerSources).filter(([key]) => key !== "po"),
+      );
+      return [
+        select("source", "ที่มา / ประเภทบิล", sources),
+        text("reference", "เลขที่ใบเสร็จ / บิล"),
+        // Typed: a new category or project is simply a new name (ledgerChoices lists it next time).
+        core(
+          text("itemType", "ประเภทสินค้า", {
+            options: choices(ledgerChoices(db, "itemType", defaultLedgerTypes)),
+          }),
+        ),
+        core(
+          text("item", "รายการ", {
+            options: ledgerItems(db).map((item) => ({
+              value: item.name,
+              label: item.itemNo,
+            })),
+          }),
+        ),
+        text("detail", "รายละเอียด / สเปก"),
+        text("vendor", "ผู้ขาย / ร้านค้า", {
+          options: choices(ledgerChoices(db, "vendor")),
+        }),
+        select("purpose", "ใช้เพื่องาน", ledgerPurposes),
+        text("project", "Project", {
+          when: (values) => values.purpose === "project",
+          options: choices(ledgerChoices(db, "project", [shopProject])),
+        }),
+        number("qty", "จำนวนซื้อ"),
+        number("amount", "ยอดจ่ายจริง", "บาท"),
+        select("status", "สถานะ", ledgerStatuses, [
+          { value: "", label: "ตามยอดจ่าย (มียอด = จ่ายแล้ว)" },
+        ]),
+        ...more(
+          file("เอกสารแนบ"),
+          text("link", "ลิงก์เอกสาร", { hint: "ขึ้นต้นด้วย https://" }),
+          note,
+        ),
+      ];
+    }
     case "foodivaReturnReceive":
       return [
         number("receivedKg", "น้ำหนักรับจริง", "กก."),
@@ -436,6 +504,7 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "purchase") return { supplier: "Foodiva" };
   if (kind === "smokeOrder") return { smoker: "Chef House" };
+  if (kind === "expense") return { source: "petty", purpose: "company" };
   if (kind === "dispatch")
     return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };
   if (kind === "return")

@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountingPage } from "@/components/organisms/owner/AccountingPage";
 import { BranchStock } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
 import { LotsPage } from "@/components/organisms/owner/LotsPage";
@@ -21,6 +22,7 @@ export function Workspace({ account }: { account: Account }) {
     lots: LotsPage,
     stock: account.role === "branch" ? BranchStock : OwnerStock,
     finance: FinancePage,
+    accounting: AccountingPage,
     settings: SettingsPage,
   }[ws.tab];
   return (

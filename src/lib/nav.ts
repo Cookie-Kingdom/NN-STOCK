@@ -1,4 +1,5 @@
 import {
+  BookText,
   ClipboardList,
   Factory,
   LayoutDashboard,
@@ -8,12 +9,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Account } from "./accounts";
+import { shopProject } from "./store/ledger";
 
 export type Tab =
-  "overview" | "log" | "lots" | "stock" | "finance" | "settings";
+  "overview" | "log" | "lots" | "stock" | "finance" | "accounting" | "settings";
 
 /** The sidebar section that holds Daily Log, Lots, Inventory and Finance. */
-export const shopGroup = "Nerdnuea x LINE MAN";
+export const shopGroup = shopProject;
 
 /** Every page: its name (English, V2-ACC-09), the line under it, its icon and, for a page
  *  that sits in a sidebar section, that section's heading. */
@@ -50,6 +52,12 @@ export const pages: Record<
     icon: Wallet,
     group: shopGroup,
   },
+  // Shop-wide, outside the section: every purchase, of the project or not.
+  accounting: {
+    label: "Accounting",
+    description: "รายการซื้อทั้งหมดของร้าน",
+    icon: BookText,
+  },
   settings: {
     label: "Settings",
     description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
@@ -57,11 +65,19 @@ export const pages: Record<
   },
 };
 
-/** The pages an account has, in menu order: the Owner all six, the Account Manager four
+/** The pages an account has, in menu order: the Owner all seven, the Account Manager five
  *  (no Overview, no Settings), a branch two. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
     ? ["log", "stock"]
     : account.hidesSales
-      ? ["log", "lots", "stock", "finance"]
-      : ["overview", "log", "lots", "stock", "finance", "settings"];
+      ? ["log", "lots", "stock", "finance", "accounting"]
+      : [
+          "overview",
+          "log",
+          "lots",
+          "stock",
+          "finance",
+          "accounting",
+          "settings",
+        ];

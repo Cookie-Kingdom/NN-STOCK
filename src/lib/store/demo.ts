@@ -213,6 +213,60 @@ export function sampleData(endDate: string): Database {
     qty: 20,
     payer: "น้องฝน",
   });
+  // The purchase ledger's hand-jotted rows (Accounting): every status and source, an item
+  // bought twice (one Item No.), a project's and the office's.
+  add(manager, "expense", 20, "16:00", {
+    source: "petty",
+    reference: "RC-6701",
+    itemType: "อื่นๆ",
+    item: "กระดาษ A4",
+    detail: "80 แกรม 5 รีม",
+    vendor: "ร้านเครื่องเขียนสีลม",
+    qty: 5,
+    amount: 650,
+  });
+  add(owner, "expense", 15, "11:00", {
+    source: "transfer",
+    reference: "INV-PK-2209",
+    itemType: "วัสดุบรรจุภัณฑ์",
+    item: "ถุงสูญญากาศ",
+    detail: "20x30 ซม.",
+    vendor: "แพ็คดี",
+    purpose: "project",
+    project: "Nerdnuea x LINE MAN",
+    qty: 1000,
+    amount: 3200,
+    link: "https://example.com/inv-pk-2209",
+  });
+  add(manager, "expense", 6, "10:30", {
+    source: "advance",
+    itemType: "สินทรัพย์",
+    item: "เครื่องชั่งดิจิทัล",
+    detail: "30 กก. ละเอียด 1 กรัม",
+    vendor: "ไทยสเกล",
+    qty: 1,
+    status: "pending",
+  });
+  add(manager, "expense", 4, "15:10", {
+    source: "petty",
+    itemType: "อื่นๆ",
+    item: "กระดาษ a4 ",
+    vendor: "ร้านเครื่องเขียนสีลม",
+    qty: 2,
+    amount: 260,
+  });
+  add(owner, "expense", 3, "09:45", {
+    source: "transfer",
+    reference: "QT-0315",
+    itemType: "วัตถุดิบ",
+    item: "พริกป่น",
+    vendor: "ตลาดไท",
+    purpose: "project",
+    project: "Nerdnuea x LINE MAN",
+    qty: 5,
+    amount: 900,
+    status: "cancelled",
+  });
   add(manager, "smokeOrder", 1, "09:00", { rawKg: 50 });
   add(minburi, "meatCount", 1, "08:00", { kg: 22 });
   add(saladaeng, "meatCount", 0, "08:30", { kg: 17.9 });

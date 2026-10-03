@@ -75,7 +75,7 @@ type Props = { ws: Workspace; can: (kind: NoteKind) => boolean };
  *  waste and the Foodiva invoice on a PO เนื้อ. */
 export function LotsPage({ ws }: { ws: Workspace }) {
   const { db, account } = ws;
-  const [picked, setPicked] = useState("");
+  const [picked, setPicked] = useState(ws.focusLot);
   const kinds = kindsForPage(account, "lots");
   const can = (kind: NoteKind) => kinds.includes(kind);
   // Newest first.

@@ -79,6 +79,7 @@ export const noteKinds = [
   "meatCount",
   "influencerBox",
   "materials",
+  "expense",
 ] as const;
 export type NoteKind = (typeof noteKinds)[number];
 export const isNoteKind = (kind: EntryKind): kind is NoteKind =>
@@ -107,7 +108,7 @@ export const oncePerLotKinds: EntryKind[] = ["smokingInvoice", "meatInvoice"];
 export const kindInfo: Record<
   NoteKind,
   {
-    group: "lot" | "money" | "extra" | "branch";
+    group: "lot" | "money" | "extra" | "branch" | "ledger";
     lot?: "batch" | "po" | "optional";
   }
 > = {
@@ -128,9 +129,10 @@ export const kindInfo: Record<
   meatCount: { group: "branch" },
   influencerBox: { group: "branch" },
   materials: { group: "branch" },
+  expense: { group: "ledger" },
 };
 /** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker). */
-export type NotePage = "lots" | "stock" | "finance" | "log";
+export type NotePage = "lots" | "stock" | "finance" | "log" | "accounting";
 const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   lots: [
     "purchase",
@@ -149,9 +151,12 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   finance: ["pay"],
   // A branch reaches Daily Log and Stock only; Stock has the rest of its kinds.
   log: ["sale", "pay"],
+  // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
+  accounting: ["expense"],
 };
-/** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments, the
- *  Account Manager everything but a sale. `mutate` refuses the rest. */
+/** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments (never an
+ *  `expense`: the ledger is the Owner's and the Account Manager's), the Account Manager
+ *  everything but a sale. `mutate` refuses the rest. */
 export const kindsFor = (by: Actor): NoteKind[] =>
   noteKinds.filter((kind) =>
     by.role === "branch"
@@ -262,7 +267,8 @@ export const titles: Record<EntryKind, string> = {
   generalPurchase: "บันทึกการซื้ออื่น ๆ",
   materialConfirm: "รับวัสดุเข้าสาขา",
   closeDay: "ยืนยันปิดวัน",
-  expense: "ค่าใช้จ่าย Owner",
+  // V1 "ค่าใช้จ่าย Owner" retired; the kind now holds a hand-jotted row of the purchase ledger.
+  expense: "บันทึกค่าใช้จ่าย",
   unlock: "ปลดล็อกวัน",
   editRequest: "ขอแก้ไขรายการ",
   editDecision: "พิจารณาคำขอแก้ไข",

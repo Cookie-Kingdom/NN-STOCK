@@ -7,6 +7,8 @@ import {
   branchMeat,
   entries,
   giftBoxes,
+  itemNoFor,
+  ledgerRows,
   liveEntries,
   lotInfo,
   monthPl,
@@ -769,5 +771,97 @@ describe("figures (V2-CAL)", () => {
     );
     expect(giftBoxes(more, "2026-09")).toEqual({ boxes: 10, value: 1690 });
     expect(monthPl(more, "2026-09")).toEqual(monthPl(built, "2026-09"));
+  });
+});
+
+describe("ledger: Item No.", () => {
+  const jot = (d: Database, item: string, by: Actor = manager) =>
+    mutate(d, by, "expense", { item, amount: "10" }, "", day);
+  const no = (d: Database) => last(d).values.itemNo;
+
+  it("issues ITM-0001 up, and reuses the number of the same name (trimmed, any case)", () => {
+    let d = jot(seed, "กระดาษ A4");
+    expect(no(d)).toBe("ITM-0001");
+    d = jot(d, "ปากกา", owner);
+    expect(no(d)).toBe("ITM-0002");
+    d = jot(d, "  กระดาษ a4 ");
+    expect(no(d)).toBe("ITM-0001");
+    expect(itemNoFor(d, "ยางลบ")).toEqual({ no: "ITM-0003", isNew: true });
+  });
+
+  it("never gives a deleted entry's number again, and an edit to a new name gets a new one", () => {
+    let d = jot(seed, "กระดาษ A4");
+    d = jot(d, "ปากกา");
+    d = mutate(d, owner, "void", { targetId: last(d).id }, "", day);
+    d = jot(d, "ยางลบ");
+    expect(no(d)).toBe("ITM-0003");
+    const id = last(d).id;
+    d = mutate(
+      d,
+      manager,
+      "entryEdit",
+      { targetId: id, values: JSON.stringify({ item: "ยางลบ", qty: "2" }) },
+      "",
+      day,
+    );
+    expect(entries(d, "expense").find((e) => e.id === id)!.values.itemNo).toBe(
+      "ITM-0003",
+    );
+    d = mutate(
+      d,
+      manager,
+      "entryEdit",
+      { targetId: id, values: JSON.stringify({ item: "คลิปหนีบ" }) },
+      "",
+      day,
+    );
+    expect(entries(d, "expense").find((e) => e.id === id)!.values.itemNo).toBe(
+      "ITM-0004",
+    );
+  });
+
+  it("is jotted by the Owner and the Manager only", () => {
+    expect(() => jot(seed, "กระดาษ", saladaeng)).toThrow();
+  });
+});
+
+describe("ledger: PO rows", () => {
+  const rows = ledgerRows(db).filter((row) => row.source === "po");
+
+  it("lists every PO เนื้อ and PO รมควัน with its amount", () => {
+    expect(rows).toHaveLength(purchaseLots(db).length + shipments(db).length);
+    const [po1] = purchaseLots(db);
+    const [lot1] = shipments(db);
+    // The Foodiva invoice; the Chef House invoice.
+    expect(rows.find((row) => row.lotId === po1.id)!.poAmount).toBe(140000);
+    expect(rows.find((row) => row.lotId === lot1.id)!.poAmount).toBe(24000);
+  });
+
+  it("spreads a supplier's payments over its POs oldest first", () => {
+    const [po1, po2] = purchaseLots(db);
+    const [lot1] = shipments(db);
+    const row = (id: string) => rows.find((r) => r.lotId === id)!;
+    expect(row(lot1.id)).toMatchObject({ paid: 24000, status: "paid" });
+    expect(row(po1.id)).toMatchObject({ paid: 70000, status: "pending" });
+    expect(row(po2.id)).toMatchObject({ paid: 0, status: "pending" });
+    // Paying the rest and more: the first fills up, the second gets what is over.
+    const d = mutate(
+      db,
+      owner,
+      "pay",
+      { category: "meat", amount: "80000", supplier: "Foodiva" },
+      "",
+      day,
+    );
+    const after = (id: string) => ledgerRows(d).find((r) => r.lotId === id)!;
+    expect(after(po1.id)).toMatchObject({ paid: 140000, status: "paid" });
+    expect(after(po2.id)).toMatchObject({ paid: 10000, status: "pending" });
+  });
+
+  it("drops a deleted PO", () => {
+    const [po1] = purchaseLots(db);
+    const purchase = entries(db, "purchase", po1.id)[0];
+    const d = mutate(db, owner, "void", { targetId: purchase.id }, "", day);
+    expect(ledgerRows(d).some((row) => row.lotId === po1.id)).toBe(false);
   });
 });
