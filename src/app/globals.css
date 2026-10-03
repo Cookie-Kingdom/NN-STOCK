@@ -48,6 +48,11 @@
   summary {
     @apply flex cursor-pointer justify-between gap-3 py-2;
   }
+  /* A disclosure's content eases in when it opens (the browser shows it, so the
+   * animation replays on every open). */
+  details[open] > :not(summary) {
+    @apply animate-fade-in;
+  }
   summary small {
     @apply mt-1 block text-caption text-text-secondary;
   }

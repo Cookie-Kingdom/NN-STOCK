@@ -20,7 +20,7 @@ export function FormError({
     if (error) ref.current?.scrollIntoView?.({ block: "nearest" });
   }, [error]);
   return error ? (
-    <div ref={ref}>
+    <div ref={ref} className="animate-fade-in">
       <Notice tone="danger" className={className}>
         {error}
       </Notice>

@@ -89,7 +89,7 @@ export function Composer({ ws }: { ws: Workspace }) {
       />
     );
   return (
-    <div ref={card} className="scroll-mt-20">
+    <div ref={card} className="animate-fade-up scroll-mt-20">
       <Panel flush>
         <NoteForm
           key={draft.seq}
@@ -382,7 +382,7 @@ function NoteForm({
             <ChevronDown
               size={16}
               aria-hidden
-              className="transition-transform group-open:rotate-180"
+              className="transition-transform duration-(--motion-base) ease-(--ease-standard) group-open:rotate-180"
             />
           </summary>
           <FormGrid className={`${grid} mt-2`}>

@@ -119,11 +119,11 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       aria-pressed={item.id === lot.id}
       onClick={() => setPicked(item.id)}
       className={cn(
-        "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 aria-pressed:outline-2 aria-pressed:outline-accent",
+        "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) aria-pressed:outline-2 aria-pressed:outline-accent",
         warning ? "border-l-warning bg-warning-subtle" : "border-l-success",
       )}
     >
-      <strong className="font-semibold whitespace-nowrap group-hover:text-accent">
+      <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
         {item.poId}
       </strong>
       <span
@@ -193,7 +193,13 @@ export function LotsPage({ ws }: { ws: Workspace }) {
             );
           })}
         </Panel>
-        <Panel flush aria-label={lot.poId} className="overflow-hidden">
+        {/* key: picking another PO re-mounts the panel, so its content fades in. */}
+        <Panel
+          key={lot.id}
+          flush
+          aria-label={lot.poId}
+          className="animate-fade-in overflow-hidden"
+        >
           <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4">
             {lot.kind ? (
               <LotHead ws={ws} can={can} lot={lot} />
