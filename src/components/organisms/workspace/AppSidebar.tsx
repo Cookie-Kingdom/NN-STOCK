@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut, Store } from "lucide-react";
 import { IconButton } from "@/components/atoms/IconButton";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
@@ -25,9 +25,9 @@ function sections(ids: Tab[]) {
 }
 
 /** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots
- *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`, which expands and
- *  collapses), then the
- *  bell, the theme switch, the account and sign-out. Below md it is a top bar (brand, bell,
+ *  and Stock under the "Nerdnuea x LINE MAN" section, `pages[].group`: a page-sized header that
+ *  expands and collapses, its pages indented behind a guide line), then the bell, the theme
+ *  switch, the account and sign-out. Below md it is a top bar (brand, bell,
  *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen. */
 export function AppSidebar({ ws }: { ws: Workspace }) {
   const { account, tab, setTab } = ws;
@@ -93,7 +93,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
                 )
               }
               className={cn(
-                "flex min-h-9 cursor-pointer items-center justify-between gap-2 rounded-md px-3 text-left text-caption font-semibold -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) hover:bg-bg hover:text-text-primary max-md:hidden",
+                "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) hover:bg-bg hover:text-text-primary max-md:hidden",
                 /* a folded section still says it holds the open page */
                 folded && own.includes(tab)
                   ? "text-accent"
@@ -101,7 +101,8 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
                 i > 0 && "mt-3",
               )}
             >
-              {group}
+              <Store size={18} aria-hidden className="flex-none" />
+              <span className="min-w-0 flex-1">{group}</span>
               <ChevronDown
                 size={16}
                 aria-hidden
@@ -113,8 +114,9 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
             </button>,
             /* md up the pages fold by easing the grid row between 1fr and 0fr; `invisible`
              * takes them out of the tab order once folded (visibility flips at the end of a
-             * fold and at the start of an unfold). Below md both wrappers are `contents`, so
-             * the pages stay plain bottom tabs. */
+             * fold and at the start of an unfold). The inner one hangs a guide line under the
+             * header's icon and indents the pages so their icons sit under the header's label.
+             * Below md both wrappers are `contents`, so the pages stay plain bottom tabs. */
             <div
               key={`pages-${group}`}
               className={cn(
@@ -124,7 +126,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
             >
               <div
                 className={cn(
-                  "max-md:contents md:flex md:min-h-0 md:flex-col md:gap-0.5 md:overflow-hidden md:transition-[visibility] md:duration-(--motion-base)",
+                  "max-md:contents md:ml-5.25 md:flex md:min-h-0 md:flex-col md:gap-0.5 md:overflow-hidden md:border-l md:border-border md:pl-2 md:transition-[visibility] md:duration-(--motion-base)",
                   folded && "md:invisible",
                 )}
               >
