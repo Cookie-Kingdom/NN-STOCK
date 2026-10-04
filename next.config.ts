@@ -26,6 +26,9 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Dev only: lets a phone or another machine on the LAN open the dev server by IP;
+  // without it Next answers 403 to /_next dev assets and the page never hydrates.
+  allowedDevOrigins: ["192.168.*.*"],
   // An e2e lane (playwright.local.config.ts) keeps its dev output apart from
   // `pnpm dev` / `pnpm build` so several servers can run in this checkout at once.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
