@@ -50,10 +50,20 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await start(page, "seed");
   await signInAs(page, "manager");
   await openPage(page, "Inventory");
-  // The one Inventory table, a row per item and a column per place (nothing is held at
-  // the seller, so no column for it): SKU · สินค้า · ประเภท · คลังกลาง · สาขาศาลาแดง ·
-  // สาขามีนบุรี · รวม · สถานะ.
-  const table = region(page, "สินค้าคงคลัง");
+  // The meat has a card of its own: here, a row per branch, with nothing to press.
+  const meat = region(page, "เนื้อ (กก.)");
+  await expect(meat.getByRole("columnheader")).toHaveText([
+    "อยู่ที่ไหน",
+    "รายการ",
+    "คงเหลือ",
+    "การนับ",
+  ]);
+  await expect(
+    meat.getByRole("row", { name: /^สาขามีนบุรี/ }).getByRole("cell"),
+  ).toHaveText(["สาขามีนบุรี", "เนื้อพร้อมขาย", "0", "วันนี้ยังไม่ได้นับ"]);
+  await expect(meat.getByRole("button")).toHaveCount(0);
+  // The materials and chili: a row per item and a column per place.
+  const table = region(page, "วัสดุและน้ำพริก");
   await expect(table.getByRole("columnheader")).toHaveText([
     "SKU",
     "สินค้า",
@@ -105,10 +115,12 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   ]);
   await expect(boxes.nth(3)).toHaveText("50ยังไม่เคยนับ");
   await expect(boxes.nth(4)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
-  await expect(table.getByRole("row")).toHaveCount(13);
+  await expect(table.getByRole("row")).toHaveCount(12);
   await page.getByLabel("ค้นหา").fill("m1");
   await expect(table.getByRole("row")).toHaveCount(3);
-  await expect(table).toContainText("แสดง 2 จาก 12 รายการ");
+  await expect(table).toContainText("แสดง 2 จาก 11 รายการ");
+  // The search and the filters leave the meat card as it is.
+  await expect(meat.getByRole("row")).toHaveCount(3);
   await expect(table.getByRole("button")).toHaveCount(0);
   await expect(table.getByRole("textbox")).toHaveCount(0);
 

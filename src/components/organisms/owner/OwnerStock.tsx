@@ -6,7 +6,11 @@ import { Select } from "@/components/atoms/Select";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { TableFilter } from "@/components/molecules/TableFilter";
-import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
+import {
+  Cell,
+  Left,
+  StockTable,
+} from "@/components/organisms/branch/BranchStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty } from "@/lib/format";
 import {
@@ -25,75 +29,45 @@ type Tone = "success" | "warning" | "danger";
 /** What is left at one place; `stale` says why its count is late. */
 type Held = { left: number; stale?: string };
 type Row = {
-  /** Empty when the item has no code of its own. */
   sku: string;
   name: string;
-  type: "เนื้อ" | "วัสดุ" | "น้ำพริก";
+  type: "วัสดุ" | "น้ำพริก";
   /** By place; a place the item cannot be at has no key. */
   at: Record<string, Held>;
 };
 
-const seller = "ร้านขายเนื้อ",
-  central = "คลังกลาง";
+/** Materials and chili have no central stock yet: its column is a dash on every row. */
+const central = "คลังกลาง";
 const branchPlaces = branches.map((branch) => `สาขา${branch}`);
 const none = <Muted as="span">—</Muted>;
 
-/** Inventory as the Owner and the Account Manager see it: one table, a row per item and a
- *  column per place (the meat from the seller to each branch, V2-CAL-07, 08, 10, then the
- *  branches' materials and chili), with a search and a filter by type and by place.
- *  Read-only: the branch admins count on their own Inventory page. */
+/** Inventory as the Owner and the Account Manager see it: the meat from the seller to each
+ *  branch (V2-CAL-07, 08, 10), then one table of the materials and chili, a row per item and
+ *  a column per place, with a search and a filter by type and by place. Read-only: the
+ *  branch admins count on their own Inventory page. */
 export function OwnerStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [where, setWhere] = useState("");
+  const held = purchaseLots(db)
+    .map((lot) => ({ lot, kg: poInfo(db, lot.id).heldKg }))
+    .filter((po) => po.kg > 0);
+  const smoked = shipments(db)
+    .map((lot) => lotInfo(db, lot.id))
+    .filter((info) => info.backKg > 0);
   /** A row with a figure per branch. */
   const perBranch = (
     row: Omit<Row, "at">,
-    held: (branch: string) => Held,
+    left: (branch: string) => Held,
   ): Row => ({
     ...row,
     at: Object.fromEntries(
-      branches.map((branch) => [`สาขา${branch}`, held(branch)]),
+      branches.map((branch) => [`สาขา${branch}`, left(branch)]),
     ),
   });
 
   const rows: Row[] = [
-    ...purchaseLots(db).flatMap((lot): Row[] => {
-      const left = poInfo(db, lot.id).heldKg;
-      return left > 0
-        ? [
-            {
-              sku: lot.poId,
-              name: ["เนื้อฝากไว้", lot.values.supplier]
-                .filter(Boolean)
-                .join(" · "),
-              type: "เนื้อ",
-              at: { [seller]: { left } },
-            },
-          ]
-        : [];
-    }),
-    ...shipments(db).flatMap((lot): Row[] => {
-      const info = lotInfo(db, lot.id);
-      return info.backKg > 0
-        ? [
-            {
-              sku: lot.poId,
-              name: "เนื้อรมควัน",
-              type: "เนื้อ",
-              at: { [central]: { left: info.centralKg } },
-            },
-          ]
-        : [];
-    }),
-    perBranch({ sku: "", name: "เนื้อพร้อมขาย", type: "เนื้อ" }, (branch) => {
-      const meat = branchMeat(db, branch, today);
-      return {
-        left: meat.kg,
-        stale: meat.countedToday ? undefined : "วันนี้ยังไม่ได้นับ",
-      };
-    }),
     ...materialList(db.config).map((m) =>
       perBranch(
         { sku: m.id.toUpperCase(), name: m.name, type: "วัสดุ" },
@@ -116,13 +90,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
     })),
   ];
   // One place picked: its column alone, and the rows that can be there.
-  const places = where
-    ? [where]
-    : [
-        ...(rows.some((row) => row.at[seller]) ? [seller] : []),
-        central,
-        ...branchPlaces,
-      ];
+  const places = where ? [where] : [central, ...branchPlaces];
   const columns = [
     "SKU",
     "สินค้า",
@@ -143,6 +111,48 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <DayCard
+        aria-label="เนื้อ (กก.)"
+        title="เนื้อ (กก.)"
+        aside={<Caption>ตั้งแต่ร้านขายเนื้อจนถึงสาขา</Caption>}
+      >
+        <StockTable
+          columns={["อยู่ที่ไหน", "รายการ", "คงเหลือ", "การนับ"]}
+          right={["คงเหลือ"]}
+        >
+          {held.map(({ lot, kg }) => (
+            <tr key={lot.id}>
+              <Cell>ฝากไว้ที่ร้านขายเนื้อ</Cell>
+              <Cell>
+                {[lot.poId, lot.values.supplier].filter(Boolean).join(" · ")}
+              </Cell>
+              <Left n={kg} />
+              <Cell />
+            </tr>
+          ))}
+          {smoked.map((info) => (
+            <tr key={info.lot.id}>
+              <Cell>สต๊อกกลาง</Cell>
+              <Cell>{info.lot.poId}</Cell>
+              <Left n={info.centralKg} />
+              <Cell />
+            </tr>
+          ))}
+          {branches.map((branch) => {
+            const meat = branchMeat(db, branch, today);
+            return (
+              <tr key={branch}>
+                <Cell>สาขา{branch}</Cell>
+                <Cell>เนื้อพร้อมขาย</Cell>
+                <Left n={meat.kg} />
+                <Cell tone={meat.countedToday ? "success" : "warning"}>
+                  {meat.countedToday ? "นับแล้ววันนี้" : "วันนี้ยังไม่ได้นับ"}
+                </Cell>
+              </tr>
+            );
+          })}
+        </StockTable>
+      </DayCard>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Input
           type="search"
@@ -174,15 +184,15 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
             onChange={(event) => setWhere(event.target.value)}
           >
             <option value="">ทุกที่</option>
-            {[seller, central, ...branchPlaces].map((name) => (
+            {[central, ...branchPlaces].map((name) => (
               <option key={name}>{name}</option>
             ))}
           </Select>
         </TableFilter>
       </div>
       <DayCard
-        aria-label="สินค้าคงคลัง"
-        title="สินค้าคงคลัง"
+        aria-label="วัสดุและน้ำพริก"
+        title="วัสดุและน้ำพริก"
         // A light rule between the columns.
         className="[&_:is(td,th)+:is(td,th)]:border-l"
         aside={
@@ -193,8 +203,10 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
       >
         <StockTable columns={columns} right={[...places, "รวม"]}>
           {shown.map((row) => {
-            const held = places.flatMap((place) => row.at[place] ?? []);
-            const total = held.reduce((sum, h) => sum + h.left, 0);
+            const total = places.reduce(
+              (sum, place) => sum + (row.at[place]?.left ?? 0),
+              0,
+            );
             const late = places.filter((place) => row.at[place]?.stale);
             const [tone, text]: [Tone, string] =
               total <= 0
@@ -203,9 +215,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                   ? ["warning", `ยังไม่ได้นับ: ${late.join(", ")}`]
                   : ["success", "พร้อมใช้"];
             return (
-              <tr key={row.sku || row.name}>
+              <tr key={row.sku}>
                 <Cell className="font-mono whitespace-nowrap text-accent">
-                  {row.sku || none}
+                  {row.sku}
                 </Cell>
                 <Cell className="font-semibold md:whitespace-nowrap">
                   {row.name}
