@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advances,
   boxCost,
+  branchBought,
   branchChili,
   branchMaterial,
   branchMeat,
@@ -236,6 +237,16 @@ describe("mutate", () => {
     });
     expect(last(paid)).toMatchObject({ role: "owner", branch: "มีนบุรี" });
     expect(branchMaterial(paid, "มีนบุรี", "m1", day).qty).toBe(before + 50);
+    // ข้าวเหนียว has no balance: only what was bought for the branch, summed.
+    const rice = { category: "ingredient", amount: "1", item: "rice" };
+    const bought = [
+      { ...rice, qty: "20", branch: "มีนบุรี" },
+      { ...rice, qty: "5", branch: "มีนบุรี" },
+      { ...rice, qty: "9", branch: "ศาลาแดง" },
+    ].reduce((next, input) => mutate(next, owner, "pay", input, "", day), db);
+    expect(branchBought(bought, "มีนบุรี", "rice")).toBe(
+      branchBought(db, "มีนบุรี", "rice") + 25,
+    );
     // Not a stock category: the item, the quantity and the branch are not saved.
     const other = last(
       pay(owner, { category: "other", amount: "1", item: "m1", qty: "5" }),

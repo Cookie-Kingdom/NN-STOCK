@@ -22,10 +22,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner: หกหน้า · Daily Log, Lots, Inventory, Finance อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" ที่ขนาดเท่าปุ่มหน้าอื่นและกดพับ/กางได้ (หน้าในกลุ่มเยื้องเข้ามาหลังเส้นนำทางใต้ไอคอนหัวข้อ เลื่อนพับลงอย่างนุ่มนวล ลูกศรหมุนตาม) · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
+/** Owner: แปดหน้า · Daily Log, Lots, Stock, Inventory, Finance อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" ที่ขนาดเท่าปุ่มหน้าอื่นและกดพับ/กางได้ (หน้าในกลุ่มเยื้องเข้ามาหลังเส้นนำทางใต้ไอคอนหัวข้อ เลื่อนพับลงอย่างนุ่มนวล ลูกศรหมุนตาม) · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
 export const Owner: Story = {};
 
-/** Account Manager: สี่หน้า ไม่มี Overview และ Settings · ทั้งสี่หน้า (Daily Log, Lots, Inventory, Finance) อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" */
+/** Account Manager: หกหน้า ไม่มี Overview และ Settings · ห้าหน้า (Daily Log, Lots, Stock, Inventory, Finance) อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },
