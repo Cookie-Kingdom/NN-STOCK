@@ -80,14 +80,18 @@ export function visibleNotes(db: Database, by: Actor): Entry[] {
     .sort(byDateAt)
     .reverse();
 }
-/** Why `by` may not edit `target` ("" when it may): the Owner edits any note, the Account
- *  Manager all but a sale and a payroll payment, a branch its own branch's. */
+/** A branch's note (whoever jotted it) is the branch's to change, not the Owner's or the
+ *  Account Manager's. */
+const branchOnly = "บันทึกของสาขา · สาขาเป็นคนแก้";
+/** Why `by` may not edit `target` ("" when it may): the Owner edits any note but a branch's,
+ *  the Account Manager those but a payroll payment, a branch its own branch's. */
 export function editBlock(db: Database, target: Entry, by: Actor) {
   if (!editableKinds.includes(target.kind))
     return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
   if (isVoided(db, target.id)) return "รายการนี้ถูกลบแล้ว";
   if (!canChange(by, target) || (by.hidesSales && managerHidden(target)))
     return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
+  if (by.role === "owner" && target.role === "branch") return branchOnly;
   return "";
 }
 /** Edits applied to one entry, oldest first; a voided one no longer applies, so it is left out. */
@@ -101,10 +105,10 @@ function entryEdits(db: Database, targetId: string) {
   );
 }
 /** Why `by` may not delete `target` ("" when it may). Deleting an edit undoes it, deleting a
- *  delete puts the entry back. The changes of one entry are a stack: only its latest edit is
- *  undone, and an undo is not undone (edit or delete again instead). That also keeps every
- *  void within two steps of the entry it is about, which is as far as scope_app_state follows
- *  them for a branch. */
+ *  delete puts the entry back; of a branch's note either is the branch's alone. The changes of
+ *  one entry are a stack: only its latest edit is undone, and an undo is not undone (edit or
+ *  delete again instead). That also keeps every void within two steps of the entry it is
+ *  about, which is as far as scope_app_state follows them for a branch. */
 export function voidBlock(db: Database, target: Entry, by: Actor) {
   if (!voidableKinds.includes(target.kind)) return "รายการชนิดนี้ลบไม่ได้";
   if (isVoided(db, target.id))
@@ -114,6 +118,11 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
   const about = db.entries.find((e) => e.id === target.values.targetId);
   if (!canChange(by, target) || (by.hidesSales && managerHidden(target, about)))
     return "ลบได้เฉพาะรายการของบัญชีนี้";
+  // A change (an edit, a delete) is judged by the note it is about.
+  const noteRole = changeKinds.includes(target.kind)
+    ? (about?.role ?? target.values.targetRole)
+    : target.role;
+  if (by.role === "owner" && noteRole === "branch") return branchOnly;
   if (target.kind === "void" && (!about || changeKinds.includes(about.kind)))
     return "รายการนี้ย้อนกลับไม่ได้ · แก้ไขหรือลบใหม่แทน";
   if (
@@ -123,12 +132,12 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
     return "ย้อนกลับการแก้ไขล่าสุดของรายการนี้ก่อน";
   return "";
 }
-/** One thing that is yellow, and what selecting it opens: a form (`kind`, with the branch,
- *  date, lot or category to start from), the edit of an entry (`editId`) or the Inventory page. */
+/** One thing that is yellow, and what selecting it opens: a form (`kind`, with the date, lot
+ *  or category to start from), the edit of an entry (`editId`) or the Inventory page. One
+ *  with none of the three opens nothing (`todoOpens`): a branch's note the Owner only watches. */
 export type Todo = {
   text: string;
   kind?: NoteKind;
-  branch?: string;
   date?: string;
   lotId?: string;
   /** A round step's form starts on this dispatch round. */
@@ -137,6 +146,8 @@ export type Todo = {
   editId?: string;
   page?: "stock";
 };
+export const todoOpens = (todo: Todo) =>
+  !!(todo.kind || todo.editId || todo.page);
 const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString("th-TH", {
     ...options,
@@ -157,16 +168,18 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
         const date = new Date(Date.parse(today) - back * 86400000)
           .toISOString()
           .slice(0, 10);
+        // Only the branch jots its sale and its count: for the others the line is a status.
         if (!hasSale(db, branch, date))
           list.push({
             text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
-            kind: "sale",
-            branch,
-            date,
+            ...(own && { kind: "sale" as const, date }),
           });
       }
     if (!branchMeat(db, branch, today).countedToday)
-      list.push({ text: `${lead}นับเนื้อวันนี้`, kind: "meatCount", branch });
+      list.push({
+        text: `${lead}นับเนื้อวันนี้`,
+        ...(own && { kind: "meatCount" as const }),
+      });
     const stale = materialList(db.config).filter(
       (m) => branchMaterial(db, branch, m.id, today).stale,
     ).length;
@@ -230,7 +243,8 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
     if (missing)
       list.push({
         text: `${titles[e.kind]} ${shortDate(e.date)}: ยังไม่ได้จด ${missing} ช่อง`,
-        editId: e.id,
+        // A note this account may not edit (a branch's, for the Owner) is a status line.
+        ...(!editBlock(db, e, by) && { editId: e.id }),
       });
   }
   return list;

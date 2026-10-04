@@ -88,6 +88,7 @@ export {
   editBlock,
   voidBlock,
   type Todo,
+  todoOpens,
   todos,
 } from "./store/visibility";
 export {

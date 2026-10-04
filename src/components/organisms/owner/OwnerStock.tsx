@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/atoms/Button";
 import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import {
@@ -20,9 +19,8 @@ import {
 } from "@/lib/store";
 
 /** Inventory as the Owner and the Account Manager see it: the meat from the seller to each
- *  branch (V2-CAL-07, 08, 10), then every branch's materials and chili. 「นับเนื้อ」 still
- *  opens the meat count of a branch; the materials cards are read-only, the branch admins
- *  count them on their own Inventory page. */
+ *  branch (V2-CAL-07, 08, 10), then every branch's materials and chili. Read-only: the
+ *  branch admins count their meat and materials on their own Inventory page. */
 export function OwnerStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const held = purchaseLots(db)
@@ -68,21 +66,8 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                 <Cell>สาขา{branch}</Cell>
                 <Cell>เนื้อพร้อมขาย</Cell>
                 <Left n={meat.kg} />
-                <Cell
-                  tone={meat.countedToday ? "success" : "warning"}
-                  className="py-1"
-                >
-                  <span className="flex flex-wrap items-center justify-between gap-x-3">
-                    {meat.countedToday ? "นับแล้ววันนี้" : "วันนี้ยังไม่ได้นับ"}
-                    <Button
-                      variant="link"
-                      className="min-h-11 text-label"
-                      aria-label={`นับเนื้อ สาขา${branch}`}
-                      onClick={() => ws.jot({ kind: "meatCount", branch })}
-                    >
-                      นับเนื้อ
-                    </Button>
-                  </span>
+                <Cell tone={meat.countedToday ? "success" : "warning"}>
+                  {meat.countedToday ? "นับแล้ววันนี้" : "วันนี้ยังไม่ได้นับ"}
                 </Cell>
               </tr>
             );

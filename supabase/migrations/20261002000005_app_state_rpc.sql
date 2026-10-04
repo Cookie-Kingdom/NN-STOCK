@@ -6,8 +6,9 @@
 -- * save_app_state: the whole payload, from the Owner or the Account Manager. Entries are
 --   append-only. The Account Manager's stored history is put back from the server's copy, and
 --   it may not append a sale, a payroll payment, a change about one, or settings (a `config`
---   entry, or a payload whose config differs). Both may jot a branch's notes for it: role
---   "branch" with actor "owner" / "manager".
+--   entry, or a payload whose config differs). Neither writes a branch's notes: no new entry
+--   with role "branch", no edit or delete of one, no undo of a change to one. The ones already
+--   in the log stay.
 -- * append_entries: a branch sends only its new entries. Its kinds are the v2 ones; a payment
 --   stays in the branch's four categories; an edit names a live note of the branch and only a
 --   `receive` changes Lot.
@@ -76,7 +77,7 @@ begin
     where n.entry is distinct from o.entry
   ) then raise exception 'Existing history cannot be changed' using errcode = '42501'; end if;
   -- The Account Manager stamps every new entry; the Owner stamps "owner" on an entry it jotted for
-  -- someone else (a branch kind, an old partner step).
+  -- someone else (an old partner step; a branch's note is refused below).
   if exists (
     select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
     where n.ord > old_entry_count and not coalesce(case when is_manager then n.entry ->> 'actor' = 'manager'
@@ -107,6 +108,19 @@ begin
         and (public.manager_hidden(n.entry, t.entry) or public.manager_hidden(t.entry, a.entry))
     ) then raise exception 'Entry kind is not allowed for this account' using errcode = '42501'; end if;
   end if;
+  -- A branch's notes are the branch's to write (append_entries): no new entry with role "branch",
+  -- no edit or delete of one whoever jotted it, and no undo of a change to one. The target is
+  -- looked up as above.
+  if exists (
+    select 1 from jsonb_array_elements(new_entries) with ordinality n(entry, ord)
+    left join lateral (select x as entry from jsonb_array_elements(new_entries) x
+      where x ->> 'id' = n.entry -> 'values' ->> 'targetId' limit 1) t on true
+    left join lateral (select x as entry from jsonb_array_elements(new_entries) x
+      where x ->> 'id' = t.entry -> 'values' ->> 'targetId' limit 1) a on true
+    where n.ord > old_entry_count
+      and (n.entry ->> 'role' = 'branch' or (n.entry ->> 'kind' in ('entryEdit', 'void')
+        and (t.entry ->> 'role' = 'branch' or a.entry ->> 'role' = 'branch')))
+  ) then raise exception 'Only a branch account writes a branch''s notes' using errcode = '42501'; end if;
   if not has_row then
     return query insert into public.app_state(singleton, payload, revision, updated_by) values (true, p_payload, 1, auth.uid())
       returning app_state.revision, app_state.updated_at; return;

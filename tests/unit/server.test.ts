@@ -83,19 +83,39 @@ test("the Account Manager saves no sale, payroll payment or settings, and a norm
       index < payload.entries.length ? e : { ...e, actor: "manager" },
     ),
   });
-  // mutate() refuses these for the manager, so a tampered client builds them as the Owner.
-  const forged = (kind: EntryKind, input: Values) =>
-    stamp(mutate(payload, { role: "owner" }, kind, input, "", today()));
+  // mutate() refuses these, so a tampered client builds them by hand.
+  const forged = (kind: EntryKind, values: Values, over: Partial<Entry> = {}) =>
+    stamp({
+      ...payload,
+      entries: [
+        ...payload.entries,
+        {
+          id: crypto.randomUUID(),
+          kind,
+          role: "owner",
+          lotId: "",
+          branch: "",
+          date: today(),
+          at: "",
+          values,
+          ...over,
+        },
+      ],
+    });
   const payrollId = payload.entries.find(
     (e) => e.values.category === "payroll",
   )!.id;
   const saleId = payload.entries.find((e) => e.kind === "sale")!.id;
   for (const next of [
-    forged("sale", { branch: "ศาลาแดง", boxes: "1", lineMan: "350" }),
+    forged(
+      "sale",
+      { boxes: "1", lineMan: "350" },
+      { role: "branch", branch: "ศาลาแดง" },
+    ),
     forged("pay", { category: "payroll", amount: "1", employee: "x" }),
     forged("void", { targetId: payrollId }),
     forged("void", { targetId: saleId }),
-    forged("entryEdit", { targetId: saleId, values: '{"boxes":"1"}' }),
+    forged("entryEdit", { targetId: saleId, "to.boxes": "1" }),
   ])
     expect(() => saveState(db, manager, next, revision)).toThrow(
       "Entry kind is not allowed for this account",
@@ -278,10 +298,10 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .slice(state.entries.length)
       .map((e) => e.id)
       .join(),
-  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n2,n3");
+  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n3");
 });
 
-test("a branch appends only its own branch's kinds, and what the centre jots for it reaches it alone", () => {
+test("a branch appends only its own branch's kinds, the centre writes none of its notes, and what the centre buys for it reaches it alone", () => {
   const db = stored(sampleData(today()));
   const { revision } = loadState(db, saladaeng);
   const entry = (over: Partial<Entry>): Entry => ({
@@ -325,34 +345,86 @@ test("a branch appends only its own branch's kinds, and what the centre jots for
   ).toThrow("State changed on another device. Reload and try again.");
   expect(readState(db).revision).toBe(revision);
 
-  // V2-ACC-04, V2-PAY-05: the Account Manager counts and buys for มีนบุรี.
+  // A branch's notes are the branch's: the Owner and the Account Manager jot none, change none
+  // and undo no change to one, whatever a tampered client stamps on the entry.
   const copy = loadState(db, manager);
-  let next = copy.payload;
-  for (const [kind, values] of [
-    ["meatCount", { kg: "12", branch: "มีนบุรี" }],
-    [
-      "pay",
+  const full = loadState(db, owner).payload;
+  const noteId = full.entries.find((e) => e.role === "branch")!.id;
+  const change = (kind: EntryKind, targetId: string, id?: string) =>
+    entry({
+      kind,
+      role: "owner",
+      branch: "",
+      values: { targetId },
+      ...(id ? { id } : {}),
+    });
+  const centre: [typeof owner, Entry[]][] = [
+    [owner, [entry({ branch: "มีนบุรี" })]],
+    [owner, [entry({ branch: "มีนบุรี", actor: "owner" })]],
+    [owner, [change("entryEdit", noteId)]],
+    [owner, [change("void", noteId)]],
+    [manager, [entry({ branch: "มีนบุรี", actor: "manager" })]],
+  ];
+  for (const [account, added] of centre)
+    expect(
+      () =>
+        saveState(
+          db,
+          account,
+          {
+            ...(account === owner ? full : copy.payload),
+            entries: [
+              ...(account === owner ? full : copy.payload).entries,
+              ...added,
+            ],
+          },
+          copy.revision,
+        ),
+      JSON.stringify(added),
+    ).toThrow("Only a branch account writes a branch's notes");
+  // An old change of the Owner's to a branch's note stays in the log; undoing it is refused.
+  const old = stored({
+    ...full,
+    entries: [...full.entries, change("void", noteId, "ov")],
+  });
+  expect(() =>
+    saveState(
+      old,
+      owner,
       {
-        category: "packaging",
-        amount: "500",
-        item: "m1",
-        qty: "50",
-        branch: "มีนบุรี",
-        payer: "บริษัท",
+        ...full,
+        entries: [...readState(old).payload.entries, change("void", "ov")],
       },
-    ],
-  ] as [EntryKind, Values][])
-    next = mutate(next, manager, kind, values, "", today());
+      readState(old).revision,
+    ),
+  ).toThrow("Only a branch account writes a branch's notes");
+  expect(readState(db).revision).toBe(revision);
+
+  // V2-PAY-05: the Account Manager still buys for มีนบุรี.
+  const next = mutate(
+    copy.payload,
+    manager,
+    "pay",
+    {
+      category: "packaging",
+      amount: "500",
+      item: "m1",
+      qty: "50",
+      branch: "มีนบุรี",
+      payer: "บริษัท",
+    },
+    "",
+    today(),
+  );
   next.entries = next.entries.map((e, index) =>
     index < copy.payload.entries.length ? e : { ...e, actor: "manager" },
   );
   saveState(db, manager, next, copy.revision);
   const added = (account: typeof minburi) =>
     loadState(db, account)
-      .payload.entries.slice(-2)
+      .payload.entries.slice(-1)
       .map((e) => [e.kind, e.values]);
   expect(added(minburi)).toEqual([
-    ["meatCount", { kg: "12", note: "" }],
     // For stock only: no amount, no payer.
     [
       "pay",

@@ -37,22 +37,27 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** โครงของทุกหน้า: เมนูซ้าย 256px หัวหน้า (ชื่อหน้า คำอธิบาย ปุ่มจดของหน้านั้น) แล้วตามด้วยหน้า
- *  Daily Log มีปุ่ม 「ยอดขาย」 「จ่ายเงิน」 · กดเพื่อเปิดฟอร์มใต้หัวหน้า
+ *  Daily Log เป็นหน้าไว้ดู หัวหน้าไม่มีปุ่มจด
  *  ลบบันทึกแล้วข้อความแจ้งด้านล่างมี 「เลิกทำ」 */
 export const Owner: Story = {};
 
-/** กล่องจดเปิดอยู่ใต้หัวหน้า */
+/** กล่องจดเปิดอยู่เหนือหน้า */
 export const Composing: Story = { args: { open: { kind: "pay" } } };
 
-/** Account Manager: ไม่มียอดขาย มีแต่ 「จ่ายเงิน」 */
+/** Account Manager */
 export const Manager: Story = {
   args: { account: "manager" },
   parameters: { db: dbFor("manager") },
 };
 
-/** หน้า Inventory: ปุ่มจดของสาขา 3 ปุ่ม (นับวัสดุเป็นงานของแอดมินสาขา) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ */
+/** หน้า Inventory ของสาขา: ปุ่มจดของสาขา 6 ปุ่ม (ยอดขาย จ่ายเงิน รับเนื้อเข้าสาขา นับเนื้อคงเหลือ
+ *  กล่องแจก นับวัสดุคงเหลือ) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · ของ Owner และ Account Manager ไม่มีปุ่ม */
 export const StockButtons: Story = {
-  parameters: { nextjs: { navigation: { pathname: "/owner/nn-x-lm/inventory" } } },
+  args: { account: "saladaeng" },
+  parameters: {
+    db: dbFor("saladaeng"),
+    nextjs: { navigation: { pathname: "/branch/nn-x-lm/inventory" } },
+  },
 };
 
 /** หน้า Lots: หัวหน้าไม่มีปุ่ม (ปุ่มจดอยู่ในหน้า Lots เอง) */

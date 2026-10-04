@@ -24,11 +24,7 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   const page = pages[ws.tab];
-  // Materials are counted by the branch admins on their own Inventory page; the Owner's and
-  // the Manager's Inventory only shows those counts.
-  const kinds = kindsForPage(ws.account, ws.tab).filter(
-    (kind) => ws.account.role === "branch" || kind !== "materials",
-  );
+  const kinds = kindsForPage(ws.account, ws.tab);
   return (
     <div className="grid min-h-dvh grid-cols-[256px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />
@@ -37,7 +33,7 @@ export function WorkspaceShell({
           title={page.label}
           description={page.description}
           action={
-            // Lots draws its own jot buttons on the page; Overview and Settings have none.
+            // Lots draws its own jot buttons on the page; Overview, Daily Log and Settings have none.
             ws.tab !== "lots" &&
             kinds.length > 0 && (
               <div

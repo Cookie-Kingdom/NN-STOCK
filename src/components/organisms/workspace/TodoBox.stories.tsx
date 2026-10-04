@@ -7,13 +7,19 @@ import { WithWorkspace, dbFor, sampleDb } from "./storyWorkspace";
 import { TodoBox } from "./TodoBox";
 
 /** The box, and the bell that lists the same things. */
-const Box = ({ account }: { account: AccountId }) => (
+const Box = ({
+  account,
+  statusOnly,
+}: {
+  account: AccountId;
+  statusOnly?: boolean;
+}) => (
   <div className="max-w-80">
     <WithWorkspace account={account}>
       {(ws) => (
         <div className="grid gap-4">
           <NotificationPopover ws={ws} />
-          <TodoBox ws={ws} />
+          <TodoBox ws={ws} statusOnly={statusOnly} />
           {ws.draft && (
             <p className="text-caption text-text-secondary">
               เปิดฟอร์ม: {JSON.stringify(ws.draft)}
@@ -53,7 +59,7 @@ const meta = {
   title: "Organisms/Workspace/TodoBox",
   component: Box,
   args: { account: "owner" },
-  argTypes: { account: { control: false } },
+  argTypes: { account: { control: false }, statusOnly: { control: false } },
   parameters: { db: sampleDb },
 } satisfies Meta<typeof Box>;
 
@@ -61,8 +67,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Owner: ยอดขายและนับเนื้อของสองสาขา Lot ที่ยังจดไม่ครบ ค่าเช่าของเดือน และบันทึกที่ช่องหลักยังว่าง
- *  กดรายการแล้วเปิดฟอร์มของรายการนั้น (บรรทัดใต้กล่องบอกว่าเปิดอะไร) · กระดิ่งด้านบนคือรายการเดียวกัน */
+ *  กดรายการแล้วเปิดฟอร์มของรายการนั้น (บรรทัดใต้กล่องบอกว่าเปิดอะไร) · กระดิ่งด้านบนคือรายการเดียวกัน
+ *  · รายการของสาขา (ยอดขาย นับเนื้อ บันทึกของสาขาที่ช่องยังว่าง) เป็นสถานะ ไม่มีลูกศร กดไม่ได้: สาขาเป็นคนจด */
 export const Owner: Story = {};
+
+/** `statusOnly` (หน้า Daily Log): ทุกรายการเป็นสถานะ กดไม่ได้ ไม่มีบรรทัด「กดที่รายการเพื่อจด」
+ *  · กระดิ่งยังกดได้เหมือนเดิม */
+export const StatusOnly: Story = {
+  args: { account: "saladaeng", statusOnly: true },
+  parameters: { db: dbFor("saladaeng") },
+};
 
 /** Account Manager: ไม่มีรายการยอดขาย */
 export const Manager: Story = {

@@ -17,10 +17,12 @@ import { Composer } from "./Composer";
 import { WithWorkspace, dbFor, phone, sampleDb } from "./storyWorkspace";
 import type { Draft, Workspace } from "./useWorkspace";
 
-/** A row's 「ลบ」 on the first live note of `kind`, pressed once on load. */
+/** A row's 「ลบ」 on the first live note of `kind` the account jotted, pressed once on load. */
 function DeleteButton({ ws, kind }: { ws: Workspace; kind: NoteKind }) {
   const { remove } = useEntryActions(ws);
-  const entry = liveEntries(ws.db).find((e) => e.kind === kind);
+  const entry = liveEntries(ws.db).find(
+    (e) => e.kind === kind && e.role === ws.account.role,
+  );
   useEffect(() => {
     if (entry) remove(entry);
     // Once, on mount: the story opens on the confirm.
@@ -191,9 +193,10 @@ export const CmReceive: Story = {
   parameters: { db: poDb(true) },
 };
 
-/** Owner จดยอดขายแทนสาขา: มีช่องสาขา · เปิดจากป้ายเหลืองของวัน จึงมีสาขาและวันที่มาให้ */
-export const SaleForBranch: Story = {
-  args: { open: { kind: "sale", branch: "มีนบุรี" } },
+/** สาขาจดยอดขายของตัวเอง (จากปุ่มบนหน้า Inventory): ไม่มีช่องสาขา สาขาคือบัญชีที่เข้าใช้ */
+export const SaleBranch: Story = {
+  args: { account: "minburi", open: { kind: "sale" } },
+  parameters: { db: dbFor("minburi") },
 };
 
 /** สาขา: จ่ายเงินได้เฉพาะหมวดของสาขา */

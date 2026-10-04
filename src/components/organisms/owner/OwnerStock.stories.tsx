@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Composer } from "@/components/organisms/workspace/Composer";
 import {
   WithWorkspace,
   dbFor,
@@ -10,23 +9,15 @@ import {
 import type { AccountId } from "@/lib/accounts";
 import { OwnerStock } from "./OwnerStock";
 
-/** The page and the composer, as the shell has them: 「นับเนื้อ」 opens its dialog over the page. */
 const Stock = ({ account }: { account: AccountId }) => (
   <WithWorkspace account={account}>
-    {(ws) => (
-      <>
-        <OwnerStock ws={ws} />
-        <Composer ws={ws} />
-      </>
-    )}
+    {(ws) => <OwnerStock ws={ws} />}
   </WithWorkspace>
 );
 
 const meta = {
   title: "Organisms/Owner/OwnerStock",
   component: Stock,
-  // 「นับเนื้อ」 opens a modal <dialog>: one per story would stack on a Docs page.
-  tags: ["!autodocs"],
   args: { account: "owner" },
   argTypes: { account: { control: false } },
   parameters: { db: sampleDb },
@@ -36,7 +27,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Owner: เนื้อที่ฝากไว้ที่ร้านขายเนื้อ สต๊อกกลางของแต่ละ Lot และเนื้อของแต่ละสาขา
- *  แล้ววัสดุและน้ำพริกของทุกสาขา ·「นับเนื้อ」เปิดฟอร์มนับเนื้อของสาขานั้น
+ *  แล้ววัสดุและน้ำพริกของทุกสาขา · ช่อง「การนับ」บอกว่าสาขานับเนื้อวันนี้แล้วหรือยัง (สาขาเป็นคนนับ)
  *  · กล่องวัสดุของแต่ละสาขาดูได้อย่างเดียว (แอดมินสาขาเป็นคนอัปเดต) ไม่มีช่องนับและปุ่มบันทึก */
 export const Owner: Story = {};
 

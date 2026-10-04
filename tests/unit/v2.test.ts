@@ -8,6 +8,7 @@ import {
   entries,
   giftBoxes,
   itemNoFor,
+  kindsForPage,
   ledgerRows,
   ledgerSummary,
   liveEntries,
@@ -21,6 +22,7 @@ import {
   seed,
   shipments,
   supplierBalances,
+  todoOpens,
   todos,
   visibleEntries,
   visibleNotes,
@@ -129,19 +131,23 @@ describe("mutate", () => {
       jot(owner, "pay", { category: "payroll", amount: "1", employee: "x" })
         .values,
     ).toMatchObject({ category: "payroll", employee: "x" });
-    // V2-ACC-03, 04: the Owner jots anything for a branch, the Account Manager all but a sale.
-    expect(
-      jot(owner, "sale", { branch: "มีนบุรี", boxes: "1", lineMan: "350" }),
-    ).toMatchObject({ role: "branch", actor: "owner", branch: "มีนบุรี" });
+    // V2-ACC-03, 04: a branch's kinds are the branch's alone, the Owner jots none for it.
     for (const [kind, values] of [
+      ["sale", { boxes: "1", lineMan: "350" }],
       ["receive", { kg: "1" }],
       ["meatCount", { kg: "1" }],
       ["influencerBox", { influencer: "x", boxes: "1" }],
       ["materials", { "count.m1": "1" }],
-    ] as const)
-      expect(
-        jot(manager, kind, { ...values, branch: "มีนบุรี" }),
-      ).toMatchObject({ role: "branch", branch: "มีนบุรี" });
+    ] as const) {
+      for (const by of [owner, manager])
+        expect(() => jot(by, kind, { ...values, branch: "มีนบุรี" })).toThrow(
+          forbidden,
+        );
+      expect(jot(minburi, kind, values)).toMatchObject({
+        role: "branch",
+        branch: "มีนบุรี",
+      });
+    }
     expect(() =>
       mutate(db, manager, "config", { boxPrice: "1" }, "", day),
     ).toThrow(forbidden);
@@ -204,7 +210,7 @@ describe("mutate", () => {
     });
   });
 
-  it("stamps a branch kind with the branch, whoever jots it", () => {
+  it("stamps a branch's note with its own branch, never the input's", () => {
     const own = last(
       mutate(
         db,
@@ -217,14 +223,6 @@ describe("mutate", () => {
     );
     expect(own).toMatchObject({ role: "branch", branch: "ศาลาแดง" });
     expect(own.actor).toBeUndefined();
-    expect(
-      last(
-        mutate(db, owner, "meatCount", { kg: "5", branch: "มีนบุรี" }, "", day),
-      ),
-    ).toMatchObject({ role: "branch", actor: "owner", branch: "มีนบุรี" });
-    expect(() => mutate(db, owner, "meatCount", { kg: "5" }, "", day)).toThrow(
-      "เลือกสาขา",
-    );
   });
 
   it("a payment with a quantity goes into the branch's stock", () => {
@@ -281,11 +279,18 @@ describe("mutate", () => {
 
     const before = branchMeat(db, "ศาลาแดง", day).kg;
     const count = entries(db, "meatCount", undefined, "ศาลาแดง").at(-1)!;
-    const deleted = mutate(db, owner, "void", { targetId: count.id }, "", day);
+    const deleted = mutate(
+      db,
+      saladaeng,
+      "void",
+      { targetId: count.id },
+      "",
+      day,
+    );
     expect(branchMeat(deleted, "ศาลาแดง", day).kg).not.toBe(before);
     const back = mutate(
       deleted,
-      owner,
+      saladaeng,
       "void",
       { targetId: last(deleted).id },
       "",
@@ -293,13 +298,37 @@ describe("mutate", () => {
     );
     expect(branchMeat(back, "ศาลาแดง", day).kg).toBe(before);
     // Another branch's entry, and the Account Manager on a sale.
-    const minburi: Actor = { role: "branch", branch: "มีนบุรี" };
     expect(() =>
       mutate(db, minburi, "void", { targetId: count.id }, "", day),
     ).toThrow();
     expect(() =>
       mutate(db, manager, "void", { targetId: sale.id }, "", day),
     ).toThrow();
+    // A branch's note is the branch's to change: the Owner and the Account Manager neither
+    // edit nor delete it, nor undo a change of it.
+    const branchOnly = "บันทึกของสาขา · สาขาเป็นคนแก้";
+    for (const by of [owner, manager]) {
+      expect(() =>
+        mutate(
+          db,
+          by,
+          "entryEdit",
+          { targetId: count.id, values: '{"kg":"1"}' },
+          "",
+          day,
+        ),
+      ).toThrow(branchOnly);
+      expect(() =>
+        mutate(db, by, "void", { targetId: count.id }, "", day),
+      ).toThrow(branchOnly);
+      // The branch's delete of the count: not theirs to undo.
+      expect(() =>
+        mutate(deleted, by, "void", { targetId: last(deleted).id }, "", day),
+      ).toThrow(branchOnly);
+    }
+    expect(() =>
+      mutate(edited, owner, "void", { targetId: last(edited).id }, "", day),
+    ).toThrow(branchOnly);
   });
 
   it("a refused list setting says what is wrong", () => {
@@ -397,6 +426,40 @@ it("todos: what each account still has to jot", () => {
     ]),
   );
   expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
+  // A branch's line opens its form; for the Owner the same line is a status and opens nothing.
+  const line = (by: Actor, text: string) =>
+    todos(db, by, day).find((todo) => todo.text === text)!;
+  expect(line(saladaeng, "ยอดขาย วันนี้")).toMatchObject({
+    kind: "sale",
+    date: day,
+  });
+  expect(todoOpens(line(owner, "ศาลาแดง: ยอดขาย วันนี้"))).toBe(false);
+  expect(todoOpens(line(owner, "มีนบุรี: นับเนื้อวันนี้"))).toBe(false);
+  expect(
+    todos(db, owner, day)
+      .filter((todo) => todo.text.endsWith("ยังไม่ได้จด 1 ช่อง"))
+      .some(todoOpens),
+  ).toBe(false);
+});
+
+it("kindsForPage: the jot buttons of each page, per account", () => {
+  expect(kindsForPage(saladaeng, "stock")).toEqual([
+    "sale",
+    "pay",
+    "receive",
+    "meatCount",
+    "influencerBox",
+    "materials",
+  ]);
+  for (const by of [owner, manager]) {
+    expect(kindsForPage(by, "stock")).toEqual([]);
+    expect(kindsForPage(by, "finance")).toEqual(["pay"]);
+    expect(kindsForPage(by, "accounting")).toEqual(["expense"]);
+    expect(kindsForPage(by, "lots")).toHaveLength(11);
+  }
+  // Daily Log is for looking: no account jots from it.
+  for (const by of [owner, manager, saladaeng])
+    expect(kindsForPage(by, "log")).toEqual([]);
 });
 
 it("edit, undo, delete and put back: one kind of each group", () => {
@@ -407,7 +470,10 @@ it("edit, undo, delete and put back: one kind of each group", () => {
     ["receive", "kg", "41", saladaeng], // สาขา
   ];
   for (const [kind, key, value, by] of cases) {
-    const target = visibleNotes(db, by).find((e) => e.kind === kind)!;
+    // The centre's accounts change the centre's notes only (a branch's `pay` is the branch's).
+    const target = visibleNotes(db, by).find(
+      (e) => e.kind === kind && e.role === by.role,
+    )!;
     const now = (d: Database) =>
       liveEntries(d).find((e) => e.id === target.id)?.values[key];
     const undo = (d: Database) =>
@@ -469,20 +535,39 @@ it("edit, undo, delete and put back: one kind of each group", () => {
 });
 
 it("visibleEntries and visibleNotes: what each account sees of the log", () => {
-  // The Owner corrects a branch's sale, deletes a payroll payment and a transport payment.
+  // The log holds an Owner's correction of a branch's sale from before a branch's notes
+  // became the branch's alone: it still applies. The Owner deletes a payroll payment and a
+  // transport payment.
   const sale = entries(db, "sale", undefined, "ศาลาแดง").at(-1)!;
   const pays = entries(db, "pay");
   const payroll = pays.find((e) => e.values.category === "payroll")!;
   const transport = pays.find((e) => e.values.category === "transport")!;
-  let changed = mutate(
-    db,
-    owner,
-    "entryEdit",
-    { targetId: sale.id, values: '{"boxes":"1"}' },
-    "",
-    day,
-  );
-  const saleEdit = last(changed).id;
+  const saleEdit = "old-owner-edit";
+  let changed: Database = {
+    ...db,
+    entries: [
+      ...db.entries,
+      {
+        id: saleEdit,
+        kind: "entryEdit",
+        role: "owner",
+        lotId: "",
+        branch: "",
+        date: day,
+        at: `${day}T12:00:00.000Z`,
+        values: {
+          targetId: sale.id,
+          targetKind: "sale",
+          targetRole: "branch",
+          targetBranch: "ศาลาแดง",
+          "to.boxes": "1",
+        },
+      },
+    ],
+  };
+  expect(() =>
+    mutate(changed, owner, "void", { targetId: saleEdit }, "", day),
+  ).toThrow("บันทึกของสาขา · สาขาเป็นคนแก้");
   changed = mutate(changed, owner, "void", { targetId: payroll.id }, "", day);
   const payrollVoid = last(changed).id;
   changed = mutate(changed, owner, "void", { targetId: transport.id }, "", day);

@@ -15,11 +15,10 @@ import {
 } from "@/lib/store";
 
 /** What the composer opens on: a `kind` is that kind's form,
- *  started from the lot, branch, date and values given; an `editId` is the edit of that entry. */
+ *  started from the lot, date and values given; an `editId` is the edit of that entry. */
 export type Draft = {
   kind?: NoteKind;
   lotId?: string;
-  branch?: string;
   date?: string;
   values?: Values;
   editId?: string;
@@ -111,7 +110,6 @@ export function useWorkspace(account: Account) {
         jot({
           kind: todo.kind,
           lotId: todo.lotId,
-          branch: todo.branch,
           date: todo.date,
           values: todo.category
             ? { category: todo.category }

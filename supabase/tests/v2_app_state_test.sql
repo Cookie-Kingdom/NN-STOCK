@@ -5,7 +5,8 @@
 --   * manager_strip_entries / load_app_state: no sale money, payroll payments as stubs.
 --   * append_entries: the v2 branch kinds, the four payment categories, changes to its own notes.
 --   * save_app_state: the Account Manager writes no sale, no payroll payment, no change about
---     one and no settings; its save keeps the stored sale money and payroll amounts.
+--     one and no settings; its save keeps the stored sale money and payroll amounts. Neither it
+--     nor the Owner writes a branch's notes: no new one, no change to one, no undo of a change.
 --   * Nobody but the Owner selects app_state directly.
 -- tests/unit/server.test.ts runs the JS ports (src/lib/role-scope.ts, manager-scope.ts,
 -- local-db.server.ts) on the same state and cases, read from this file by their dollar-quote tags.
@@ -134,7 +135,10 @@ declare
     [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "pv", "targetKind": "void"}}, "Entry kind is not allowed for this account"],
     [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "oe", "targetKind": "entryEdit"}}, "Entry kind is not allowed for this account"],
     [{"id": "x", "kind": "config", "role": "owner", "values": {"boxPrice": "1"}}, "Only the Owner changes settings"],
-    [{"id": "n2", "kind": "meatCount", "role": "branch", "branch": "มีนบุรี", "values": {"kg": "2"}}, ""],
+    [{"id": "x", "kind": "meatCount", "role": "branch", "branch": "มีนบุรี", "values": {"kg": "2"}}, "Only a branch account writes a branch's notes"],
+    [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "r1", "targetKind": "receive", "to.kg": "4"}}, "Only a branch account writes a branch's notes"],
+    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "mc", "targetKind": "meatCount"}}, "Only a branch account writes a branch's notes"],
+    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "ov", "targetKind": "void"}}, "Only a branch account writes a branch's notes"],
     [{"id": "n3", "kind": "void", "role": "owner", "values": {"targetId": "ps", "targetKind": "pay"}}, ""]
   ]
   $saves$;
@@ -258,13 +262,13 @@ begin
   end;
   assert v_err = 'Existing history cannot be changed', format('manager payroll stub: got %s', v_err);
 
-  -- The manager's saves kept what its copy did not hold; the Owner jots a branch's note and settings.
+  -- The manager's saves kept what its copy did not hold.
   perform set_config('test.uid', v_owner::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   assert v_seen -> 'entries' -> 0 = v_state -> 'entries' -> 0 and v_seen -> 'entries' -> 6 = v_state -> 'entries' -> 6
     and v_seen -> 'entries' -> 14 = v_state -> 'entries' -> 14, 'a manager save changed sale money or a payroll payment';
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n2,n3', 'the log is not what was appended';
+    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n3', 'the log is not what was appended';
   v_err := '';
   begin
     perform public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries') || '[
@@ -272,8 +276,24 @@ begin
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('owner actor on its own entry: got %s', v_err);
+  -- A branch's notes are the branch's: the Owner jots none (stamped "owner" or not), changes none
+  -- and undoes no change to one (oe is its old edit of s1).
+  foreach v_case in array array[
+    '{"kind":"sale","role":"branch","actor":"owner","branch":"ศาลาแดง","values":{"boxes":"1","lineMan":"350"}}',
+    '{"kind":"receive","role":"branch","branch":"ศาลาแดง","values":{"kg":"1"}}',
+    '{"kind":"entryEdit","role":"owner","values":{"targetId":"s1","targetKind":"sale","to.boxes":"3"}}',
+    '{"kind":"void","role":"owner","values":{"targetId":"mc","targetKind":"meatCount"}}',
+    '{"kind":"void","role":"owner","values":{"targetId":"oe","targetKind":"entryEdit"}}']::jsonb[] loop
+    v_err := '';
+    begin
+      perform public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries')
+        || jsonb_build_array('{"id":"o1","lotId":"","branch":"","date":"2026-09-10"}'::jsonb || v_case)), v_rev);
+    exception when others then v_err := sqlerrm;
+    end;
+    assert v_err = 'Only a branch account writes a branch''s notes', format('owner save %s: got %s', v_case, v_err);
+  end loop;
+  -- Its own notes and settings it saves.
   select s.revision into v_rev from public.save_app_state(jsonb_set(jsonb_set(v_seen, '{config,boxPrice}', '"360"'), '{entries}', (v_seen -> 'entries') || '[
-    {"id":"o1","kind":"sale","role":"branch","actor":"owner","lotId":"","branch":"ศาลาแดง","date":"2026-09-10","values":{"boxes":"1","lineMan":"350"}},
     {"id":"o2","kind":"pay","role":"owner","lotId":"","branch":"","date":"2026-09-10","values":{"category":"payroll","amount":"9"}},
     {"id":"o3","kind":"config","role":"owner","lotId":"","branch":"","date":"2026-09-10","values":{"boxPrice":"360"}}]'::jsonb), v_rev) s;
 

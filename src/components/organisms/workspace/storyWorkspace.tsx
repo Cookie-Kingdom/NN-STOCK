@@ -24,10 +24,11 @@ export function dbFor(id: AccountId, db: Database = sampleDb): Database {
 }
 
 const owner = accountById("owner")!;
-/** The sample with an edit, a delete, and a delete that was undone (the change log). */
+/** The sample with an edit, a delete, and a delete that was undone (the change log). The
+ *  Owner's own notes: a branch's are the branch's to change. */
 export const changedDb = (() => {
   const find = (db: Database, kind: string) =>
-    liveEntries(db).find((e) => e.kind === kind)!;
+    liveEntries(db).find((e) => e.kind === kind && e.role === "owner")!;
   let db = mutate(
     sampleDb,
     owner,
@@ -39,7 +40,7 @@ export const changedDb = (() => {
     "",
     today(),
   );
-  for (const kind of ["influencerBox", "meatCount"])
+  for (const kind of ["pay", "cmReceive"])
     db = mutate(
       db,
       owner,
