@@ -247,12 +247,9 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   await openPage(page, "Daily Log");
   await expect(rows(page, "pay")).toHaveCount(0);
   const copy = await serverCopy(page);
-  // Its entries and Lots hold nothing of the other branch. (The settings do name it: the
-  // list of branches that count raw rice, `rawRiceBranches`.)
-  expect(JSON.stringify([copy.entries, copy.lots])).not.toMatch(
-    /ศาลาแดง|วินส่งของทดสอบ/,
-  );
-  expect(JSON.stringify(copy.config)).not.toMatch(/วินส่งของทดสอบ/);
+  expect(JSON.stringify(copy)).not.toMatch(/ศาลาแดง|วินส่งของทดสอบ/);
+  // Of the branches that count raw rice it is told its own alone: here, that it does not.
+  expect(copy.config.rawRiceBranches).toBe("[]");
   expect(
     copy.entries.filter(
       (e: { role: string; branch: string }) =>
