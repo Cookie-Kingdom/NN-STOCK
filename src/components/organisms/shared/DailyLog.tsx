@@ -31,9 +31,10 @@ const dayBack = (today: string, back: number) =>
   new Date(Date.parse(today) - back * 86400000).toISOString().slice(0, 10);
 
 /** Every note the account sees, one card per day, newest day first: the last 7 days, and 7
- *  more with each press of 「ดูย้อนหลังอีก 7 วัน」. A day's head says per branch whether its
- *  sale is jotted; a day with one missing is yellow and its pill opens the sale form for that
- *  branch and day. Beside the days: everything not jotted yet, and for a branch its meat. */
+ *  more with each press of 「ดูย้อนหลังอีก 7 วัน」. A page for looking: nothing here opens a
+ *  new note, only a row its edit or delete. A day's head says per branch whether its sale is
+ *  jotted; a day with one missing is yellow. Beside the days: everything not jotted yet (a
+ *  status list), and for a branch its meat. */
 export function DailyLog({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
   const [filter, setFilter] = useState<Filter>("all");
@@ -70,16 +71,10 @@ export function DailyLog({ ws }: { ws: Workspace }) {
           saleBranches.map((name) => {
             const lead = own ? "" : `${name} · `;
             return unsold.includes(name) ? (
-              <button
-                key={name}
-                type="button"
-                onClick={() => ws.jot({ kind: "sale", branch: name, date })}
-                // The pill stays small; the pseudo-element makes the touch target 44px tall.
-                className="relative inline-flex cursor-pointer items-center rounded-full border border-warning/40 bg-warning-subtle px-2.5 py-1 text-caption font-semibold whitespace-nowrap text-warning transition-colors duration-(--motion-fast) ease-(--ease-standard) after:absolute after:inset-x-0 after:-inset-y-2 hover:border-warning"
-              >
+              <Badge key={name} tone="warning">
                 {lead}
                 {missingText}ยอดขาย
-              </button>
+              </Badge>
             ) : (
               <Badge key={name} tone="success">
                 {lead}จดยอดขายแล้ว
@@ -131,7 +126,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
         </Button>
       </div>
       <aside className="flex min-w-0 flex-col gap-4">
-        <TodoBox ws={ws} />
+        <TodoBox ws={ws} statusOnly />
         {meat && (
           <Panel compact aria-label="เนื้อคงเหลือ">
             <h2 className="m-0 text-h3">เนื้อคงเหลือ</h2>

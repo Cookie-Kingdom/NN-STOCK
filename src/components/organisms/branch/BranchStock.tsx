@@ -115,20 +115,12 @@ export function MaterialCount({
       Object.entries(counts).filter(([, value]) => value.trim()),
     );
     const next = await run(() =>
-      // A branch account's branch is its own; `branch` is read for the Owner and Manager.
-      mutate(
-        latestDatabase(),
-        account,
-        "materials",
-        { ...typed, branch },
-        "",
-        today,
-      ),
+      mutate(latestDatabase(), account, "materials", typed, "", today),
     );
     if (!next) return;
     setCounts({});
     ws.setToast(
-      `จดแล้ว: ${titles.materials}${account.role === "branch" ? "" : ` สาขา${branch}`} · ${Object.keys(typed).length} รายการ`,
+      `จดแล้ว: ${titles.materials} · ${Object.keys(typed).length} รายการ`,
     );
   };
   return (
@@ -198,8 +190,7 @@ export function MaterialCount({
                   : thaiDay(chili.countedOn)}
             </Cell>
             <Cell right className="font-normal text-text-secondary">
-              {/* The Account Manager has no sale form (V2-ACC-01). */}
-              {account.hidesSales ? "สาขานับเอง" : "นับในฟอร์มยอดขาย"}
+              นับในฟอร์มยอดขาย
             </Cell>
           </tr>
         </StockTable>

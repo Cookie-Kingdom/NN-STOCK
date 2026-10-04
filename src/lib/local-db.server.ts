@@ -134,7 +134,7 @@ export function saveState(
       target && { ...target, values: target.values ?? {} },
     );
   // The Account Manager stamps every new entry; the Owner stamps "owner" on an entry it jotted
-  // for someone else (a branch kind, an old partner step).
+  // for someone else (an old partner step; a branch's note is refused below).
   for (const entry of payload.entries.slice(old.entries.length)) {
     const actorOk = manager
       ? entry?.actor === "manager"
@@ -142,19 +142,27 @@ export function saveState(
         (entry.actor === "owner" &&
           ["foodiva", "cm", "branch"].includes(entry.role));
     if (!actorOk) fail("Entry actor does not match signed-in account");
-    if (!manager) continue;
-    if (!["owner", "foodiva", "cm", "branch"].includes(entry.role))
-      fail("Entry role does not match signed-in account");
-    if (entry.kind === "config") fail("Only the Owner changes settings");
-    /* V2-ACC-01, V2-ACC-02: no sale, no payroll payment, no change about one. A delete does not
-     * carry its target's category, so the entry it names is looked up, and for an undo the
-     * entry that one names (voidBlock in store/visibility.ts). */
-    const target = byId.get(entry.values?.targetId);
+    // The entry a change names, and for an undo the entry that one names.
+    const target = byId.get(entry?.values?.targetId);
+    const about = target && byId.get(target.values?.targetId);
+    if (manager) {
+      if (!["owner", "foodiva", "cm", "branch"].includes(entry.role))
+        fail("Entry role does not match signed-in account");
+      if (entry.kind === "config") fail("Only the Owner changes settings");
+      /* V2-ACC-01, V2-ACC-02: no sale, no payroll payment, no change about one. A delete does
+       * not carry its target's category, so the entry it names is looked up, and for an undo
+       * the entry that one names (voidBlock in store/visibility.ts). */
+      if (hidden(entry, target) || (target && hidden(target, about)))
+        fail("Entry kind is not allowed for this account");
+    }
+    // A branch's notes are the branch's to write (appendState): no new entry with role "branch",
+    // no edit or delete of one whoever jotted it, and no undo of a change to one.
     if (
-      hidden(entry, target) ||
-      (target && hidden(target, byId.get(target.values?.targetId)))
+      entry?.role === "branch" ||
+      (changeKinds.includes(entry?.kind) &&
+        (target?.role === "branch" || about?.role === "branch"))
     )
-      fail("Entry kind is not allowed for this account");
+      fail("Only a branch account writes a branch's notes");
   }
   if (manager && !isDeepStrictEqual(payload.config, old.config))
     fail("Only the Owner changes settings");

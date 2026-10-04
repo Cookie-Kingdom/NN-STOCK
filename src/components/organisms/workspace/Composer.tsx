@@ -36,14 +36,12 @@ import { baht, qty, thaiDay } from "@/lib/format";
 import { attachmentFolder, defaults, fields, type Field } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  branches,
   capacityWarning,
   defaultRound,
   dispatchLines,
   isRoundKind,
   itemNoFor,
   kindInfo,
-  lotInfo,
   missingKeys,
   missingText,
   mutate,
@@ -211,10 +209,8 @@ function NoteForm({
       target?.lotId ??
       draft.lotId ??
       (info.lot === "optional"
-        ? // The newest PO รมควัน with meat still in the central stock; a branch holds no such figure.
-          account.role === "owner"
-          ? (lots.find((lot) => lotInfo(db, lot.id).centralKg > 0)?.id ?? "")
-          : ""
+        ? // A branch's receipt: the branch picks its PO รมควัน, or none.
+          ""
         : // The rest go on the newest one. purchase and smokeOrder open their own lot.
           (lots[0]?.id ?? "")),
   );
@@ -262,9 +258,6 @@ function NoteForm({
     });
   };
   const [date, setDate] = useState(target?.date ?? draft.date ?? today);
-  const [branch, setBranch] = useState(
-    target?.branch || draft.branch || branches[0],
-  );
   const files = useRef<Record<string, File>>({});
   /** Storage keys of files already uploaded, so a second attempt does not upload again. */
   const uploaded = useRef<Record<string, string>>({});
@@ -295,7 +288,6 @@ function NoteForm({
   const figures = noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
   const core = shown.filter((f) => f.core);
-  const picksBranch = info.group === "branch" && account.role !== "branch";
 
   const save = async (again: boolean) => {
     setError("");
@@ -323,15 +315,7 @@ function NoteForm({
             "",
             today,
           )
-        : mutate(
-            latest,
-            account,
-            kind,
-            // A branch kind jotted for a branch: the branch picked at the head of the form.
-            info.group === "branch" ? { ...input, branch } : input,
-            lotId,
-            date,
-          );
+        : mutate(latest, account, kind, input, lotId, date);
     });
     if (!next) return;
     const saved = target
@@ -341,8 +325,7 @@ function NoteForm({
     ws.setToast(
       `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,
     );
-    if (again)
-      ws.jot({ kind, lotId: saved?.lotId, branch: saved?.branch || undefined });
+    if (again) ws.jot({ kind, lotId: saved?.lotId });
     else ws.closeDraft();
   };
 
@@ -354,7 +337,6 @@ function NoteForm({
       subtitle={[
         target && `แก้ไขบันทึกของ ${thaiDay(target.date)}`,
         lotId && lotLabel(db, lotId),
-        picksBranch && `สาขา${branch}`,
         !target && date && fullDay(date),
       ]
         .filter(Boolean)
@@ -380,13 +362,7 @@ function NoteForm({
         >
           <div className="flex flex-col gap-5 p-6.5 max-md:p-4 md:overflow-auto">
             <FieldSections
-              whenTitle={
-                info.lot
-                  ? "เมื่อไร และของ PO ไหน"
-                  : picksBranch
-                    ? "เมื่อไร และของสาขาไหน"
-                    : undefined
-              }
+              whenTitle={info.lot ? "เมื่อไร และของ PO ไหน" : undefined}
               shown={shown}
               narrow={size === "md"}
               when={
@@ -424,20 +400,6 @@ function NoteForm({
                           <option key={lot.id} value={lot.id}>
                             {lot.poId}
                           </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  )}
-                  {picksBranch && (
-                    <FormField label="สาขา">
-                      {/* An entry's branch is fixed when it is saved. */}
-                      <Select
-                        value={branch}
-                        disabled={!!target}
-                        onChange={(event) => setBranch(event.target.value)}
-                      >
-                        {branches.map((name) => (
-                          <option key={name}>{name}</option>
                         ))}
                       </Select>
                     </FormField>

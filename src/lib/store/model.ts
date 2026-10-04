@@ -131,8 +131,9 @@ export const kindInfo: Record<
   materials: { group: "branch" },
   expense: { group: "ledger" },
 };
-/** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker). */
-export type NotePage = "lots" | "stock" | "finance" | "log" | "accounting";
+/** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker:
+ *  Daily Log is for looking), each with its kinds in the order its buttons stand. */
+export type NotePage = "lots" | "stock" | "finance" | "accounting";
 const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   lots: [
     "purchase",
@@ -147,27 +148,30 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
     "packingList",
     "foodivaReturnReceive",
   ],
-  stock: ["receive", "meatCount", "influencerBox", "materials"],
+  // A branch's Inventory: every kind it jots. The Owner's and the Manager's has none.
+  stock: ["sale", "pay", "receive", "meatCount", "influencerBox", "materials"],
   finance: ["pay"],
-  // A branch reaches Daily Log and Stock only; Stock has the rest of its kinds.
-  log: ["sale", "pay"],
   // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
   accounting: ["expense"],
 };
 /** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments (never an
- *  `expense`: the ledger is the Owner's and the Account Manager's), the Account Manager
- *  everything but a sale. `mutate` refuses the rest. */
+ *  `expense`: the ledger is the Owner's and the Account Manager's), the Owner and the Account
+ *  Manager everything but a branch's kinds. `mutate` refuses the rest. */
 export const kindsFor = (by: Actor): NoteKind[] =>
   noteKinds.filter((kind) =>
     by.role === "branch"
       ? kindInfo[kind].group === "branch" || kind === "pay"
-      : !(by.hidesSales && kind === "sale"),
+      : kindInfo[kind].group !== "branch",
   );
-/** The kinds the picker of `page` offers `by`, in picker order. Overview, Settings and any
- *  other page: none. */
+/** The kinds the picker of `page` offers `by`, in the page's order. Overview, Daily Log,
+ *  Settings and any other page: none. */
 export const kindsForPage = (by: Actor, page: string): NoteKind[] => {
-  const on = pageNoteKinds[page as NotePage] ?? [];
-  return kindsFor(by).filter((kind) => on.includes(kind));
+  // The Owner's `pay` is jotted from Finance, not from the Inventory it only looks at.
+  if (page === "stock" && by.role !== "branch") return [];
+  const may = kindsFor(by);
+  return (pageNoteKinds[page as NotePage] ?? []).filter((kind) =>
+    may.includes(kind),
+  );
 };
 /** Who is acting: an `Account` is one. `hidesSales` is the Account Manager. */
 export type Actor = { role: ActingRole; branch?: string; hidesSales?: boolean };
@@ -181,8 +185,9 @@ export type Entry = {
   at: string;
   values: Values;
   /** "manager": the Account Manager wrote it, stamped at save by persistence and checked by
-   *  save_app_state. "owner": the Owner jotted a branch kind for the branch, stamped by
-   *  mutate (recordRole). Absent: the role's own account (for "owner", the Owner). */
+   *  save_app_state. "owner": the Owner jotted a branch kind for the branch, on old entries
+   *  only (no account jots for a branch now). Absent: the role's own account (for "owner",
+   *  the Owner). */
   actor?: "manager" | "owner";
 };
 export type Lot = {
@@ -320,9 +325,11 @@ export const unpack = (prefix: string, values: Values): Values =>
       .filter(([key]) => key.startsWith(prefix))
       .map(([key, value]) => [key.slice(prefix.length), value]),
   );
-/** Who may change (edit, delete, undo) an entry: the Owner any, a branch only one stamped
- *  with its own branch. `mutate` refuses the rest, `entries()` ignores them, and so does
- *  append_entries. What the Account Manager may not touch is `managerHidden`. */
+/** Whose change (edit, delete, undo) of an entry counts when the log is read: the Owner's of
+ *  any, a branch's only of one stamped with its own branch. `entries()` ignores the rest, and
+ *  so does append_entries. A new change is refused by `editBlock` / `voidBlock`, which are
+ *  stricter: the Owner no longer changes a branch's note, but its old changes still apply.
+ *  What the Account Manager may not touch is `managerHidden`. */
 export const canChange = (
   by: { role: Role; branch?: string },
   target: Pick<Entry, "role" | "branch">,

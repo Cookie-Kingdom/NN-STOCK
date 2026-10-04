@@ -14,6 +14,7 @@ import {
   isNoteKind,
   isRoundKind,
   kindInfo,
+  kindsFor,
   oncePerLotKinds,
   titles,
   lotMovableKinds,
@@ -22,13 +23,11 @@ import {
   payrollCategory,
   seed,
   type Actor,
-  type ActingRole,
   type Database,
   type Entry,
   type EntryKind,
   type Lot,
   type NoteKind,
-  type Role,
   type Values,
 } from "./model";
 import {
@@ -64,10 +63,6 @@ function checkDay(value: string | undefined): asserts value {
   assert(value && isDay(value) && value >= "2020-01-01", "เลือกวันที่");
   assert(value <= today(), "วันที่อยู่ในอนาคต เว็บไม่รับ");
 }
-/** The role an entry of `kind` is stamped with when `role` records it: a branch kind is the
- *  branch's whoever jots it (mutate puts the Owner in `actor`), anything else stays `role`. */
-const recordRole = (kind: EntryKind, role: ActingRole): Role =>
-  isNoteKind(kind) && kindInfo[kind].group === "branch" ? "branch" : role;
 /** A `poLines` field as saved: JSON `[{ poLotId, kg }]`, "" for no line. A PO must be one the
  *  field offers (or one the edited entry already had) and is picked once; a kg is a number or
  *  left "" (not typed yet). */
@@ -491,23 +486,14 @@ export function mutate(
     entry = { kind, role: "owner", lotId: "", branch: "", date, values: v };
   } else {
     assert(isNoteKind(kind), "รายการชนิดนี้เลิกใช้แล้ว");
-    const info = kindInfo[kind];
-    // V2-ACC: a branch jots branch kinds and its payments; the Account Manager no sale.
-    assert(
-      by.role === "branch"
-        ? info.group === "branch" || kind === "pay"
-        : !(by.hidesSales && kind === "sale"),
-      forbidden,
-    );
+    // V2-ACC: a branch jots branch kinds and its payments; nobody else jots a branch kind.
+    assert(kindsFor(by).includes(kind), forbidden);
     // The lot first: a step of a PO รมควัน has none to go on without one.
     if (kind !== "purchase" && kind !== "smokeOrder")
       lotId = lotOf(db, kind, lotId);
     const v = noteValues(db, by, kind, input, date, lotId);
     let branch = own;
-    if (by.role === "owner" && info.group === "branch") {
-      assert(branches.includes(input.branch), "เลือกสาขา");
-      branch = input.branch;
-    } else if (by.role === "owner" && kind === "pay") {
+    if (by.role === "owner" && kind === "pay") {
       // V2-PAY-05: a payment that buys stock is stamped with the branch the stock goes to.
       assert(v.branch || !v.qty, "เลือกสาขา");
       branch = v.branch ?? "";
@@ -540,17 +526,7 @@ export function mutate(
     } else {
       onceOnLot(db, kind, lotId);
     }
-    const role = recordRole(kind, by.role);
-    entry = {
-      kind,
-      role,
-      // Jotted for a branch: the typist (persistence re-stamps the Account Manager's).
-      ...(role !== by.role ? { actor: "owner" as const } : {}),
-      lotId,
-      branch,
-      date,
-      values: v,
-    };
+    entry = { kind, role: by.role, lotId, branch, date, values: v };
   }
   next.entries.push({ id: newId(), at: new Date().toISOString(), ...entry });
   if (touched.size)

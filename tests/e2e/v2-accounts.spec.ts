@@ -76,17 +76,15 @@ test("2 · V2-ACC-01 Manager finds no sale, payroll or P&L on any page, and the 
   page,
 }) => {
   await start(page, "sample");
-  // The Owner jots today's sale and a payroll payment: both must stay out of the Manager's reach.
-  await signInAs(page, "owner");
-  await openPage(page, "Daily Log");
+  // A branch jots today's sale and the Owner a payroll payment: both must stay out of the
+  // Manager's reach.
+  await signInAs(page, "saladaeng");
+  await openPage(page, "Inventory");
   await jot(page, "ยอดขาย");
-  await fill(
-    page,
-    [/^สาขา/, "ศาลาแดง"],
-    [/^กล่องมาตรฐาน/, "22"],
-    [/^ยอดขาย LINE MAN/, "7654"],
-  );
+  await fill(page, [/^กล่องมาตรฐาน/, "22"], [/^ยอดขาย LINE MAN/, "7654"]);
   await save(page);
+  await signInAs(page, "owner");
+  await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
@@ -119,6 +117,8 @@ test("2 · V2-ACC-01 Manager finds no sale, payroll or P&L on any page, and the 
   }
   // Neither among the page's buttons nor among the categories of a payment (V2-ACC-02).
   await openPage(page, "Daily Log");
+  await expect(jotButtons(page)).toHaveCount(0);
+  await openPage(page, "Finance");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).not.toContain("ค่าแรง");
@@ -150,14 +150,13 @@ test("3 · V2-ACC-02 Manager pays in 9 categories, none of them payroll", async 
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
-  // V2-ACC-04: everything for a branch but its sale (its materials the branch counts itself).
+  // V2-ACC-04: nothing for a branch (a branch jots its own notes); Daily Log is for looking.
   await openPage(page, "Inventory");
-  await expect(jotButtons(page)).toHaveText([
-    "รับเนื้อเข้าสาขา",
-    "นับเนื้อคงเหลือ",
-    "กล่องแจก",
-  ]);
+  await expect(jotButtons(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /นับเนื้อ/ })).toHaveCount(0);
   await openPage(page, "Daily Log");
+  await expect(jotButtons(page)).toHaveCount(0);
+  await openPage(page, "Finance");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
@@ -180,6 +179,7 @@ test("3 · V2-ACC-02 Manager pays in 9 categories, none of them payroll", async 
   );
   await save(page);
   await expect(toast(page, "จดแล้ว: จ่ายเงิน")).toBeVisible();
+  await openPage(page, "Daily Log");
   await expect(rows(page, "pay")).toHaveCount(1);
   await expect(rows(page, "pay")).toContainText("ค่าเช่า/น้ำไฟ · ค่าเช่าครัว");
   await expect(rows(page, "pay")).toContainText("−฿20,500");
@@ -196,6 +196,17 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
 }) => {
   await start(page, "sample");
   await signInAs(page, "saladaeng");
+  // Daily Log is for looking: a branch jots everything from its Inventory.
+  await expect(jotButtons(page)).toHaveCount(0);
+  await openPage(page, "Inventory");
+  await expect(jotButtons(page)).toHaveText([
+    "ยอดขาย",
+    "จ่ายเงิน",
+    "รับเนื้อเข้าสาขา",
+    "นับเนื้อคงเหลือ",
+    "กล่องแจก",
+    "นับวัสดุคงเหลือ",
+  ]);
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
     "เลือกหมวด",
@@ -215,6 +226,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
     [/^รายละเอียด/, "วินส่งของทดสอบ"],
   );
   await save(page);
+  await openPage(page, "Daily Log");
   await expect(rows(page, "pay").first()).toContainText(
     "ขนส่ง · วินส่งของทดสอบ",
   );
@@ -272,15 +284,19 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
         );
       }
       if (name === "Settings") continue;
-      // An open note offers 「แก้ไข」 and 「ลบ」 only.
+      // An open note offers 「แก้ไข」 and 「ลบ」 only, and to the Owner and the Manager a
+      // branch's note offers neither.
       if (name === "Daily Log") {
-        const note = page.locator("[data-entry][data-kind]").first();
-        await note.getByRole("button").first().click();
-        await expect(note.getByRole("button")).toHaveText([
-          /.+/,
-          "แก้ไข",
-          "ลบ",
-        ]);
+        const branchNote = page
+          .locator(
+            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="meatCount"], [data-kind="influencerBox"], [data-kind="materials"])',
+          )
+          .first();
+        await branchNote.getByRole("button").first().click();
+        await expect(branchNote.getByRole("button")).toHaveText(
+          pagesOf[account].length === 2 ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
+        );
+        await expect(jotButtons(page)).toHaveCount(0);
       }
       // The page's buttons are the v2 kinds, and nothing that closes, locks or confirms.
       expect(

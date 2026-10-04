@@ -27,12 +27,17 @@ const day = (page: Page, offset = 0) =>
 /** A row of a stock table, by the item it starts with. */
 const stockRow = (card: Locator, item: string) =>
   card.getByRole("row", { name: new RegExp(`^${item}`) }).getByRole("cell");
-/** Opens the sale form from the yellow pill of a day, as a branch does. */
+/** The lines of the 「ยังไม่ได้จด」 box that start with `text`. */
+const todoLines = (page: Page, text: string) =>
+  region(page, "ยังไม่ได้จด")
+    .locator("strong")
+    .filter({ hasText: new RegExp(`^${text}`) });
+/** Opens the sale form from the branch's Inventory, as a branch does, on the day `offset`
+ *  days from today: an earlier day is typed in the form's date. */
 const jotSaleOf = async (page: Page, offset = 0) => {
-  await day(page, offset)
-    .getByRole("button", { name: "ยังไม่ได้จดยอดขาย" })
-    .click();
-  await expect(popupTitle(page)).toHaveText("ยอดขาย");
+  await openPage(page, "Inventory");
+  await jot(page, "ยอดขาย");
+  if (offset) await fill(page, [/^วันที่$/, bangkokDate(offset)]);
   await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(
     bangkokDate(offset),
   );
@@ -100,7 +105,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await expect(boxes.nth(4)).toHaveAttribute("data-tone", "danger");
   await expect(boxes.nth(6)).toHaveText("หมด");
   await expect(boxes.nth(6)).toHaveAttribute("data-tone", "danger");
-  await openPage(page, "Daily Log");
+  await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
@@ -150,8 +155,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   expect(sent.payload.entries.map((e: { values: object }) => e.values)).toEqual(
     [{ category: "packaging", item: "m1", qty: "50", branch: "มีนบุรี" }],
   );
-  // Its own payment adds to the same shelf.
-  await openPage(page, "Daily Log");
+  // Its own payment, jotted from its Inventory, adds to the same shelf.
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
@@ -161,7 +165,6 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^จำนวน/, "20"],
   );
   await save(page);
-  await openPage(page, "Inventory");
   await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(1)).toHaveText("70");
 
   await signInAs(page, "saladaeng");
@@ -231,11 +234,18 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   const todo = region(page, "ยังไม่ได้จด");
   for (const offset of [0, -1, -6])
     await expect(day(page, offset)).toHaveAttribute("data-tone", "warning");
-  await expect(todo.getByRole("button", { name: /^ยอดขาย/ })).toHaveCount(7);
+  await expect(todoLines(page, "ยอดขาย")).toHaveCount(7);
+  // Daily Log is for looking: the pill and the box's lines say it, and open nothing.
+  await expect(day(page).getByText("ยังไม่ได้จดยอดขาย")).toBeVisible();
+  await expect(day(page).getByRole("button", { name: /ยอดขาย/ })).toHaveCount(
+    0,
+  );
+  await expect(todo.getByRole("button")).toHaveCount(0);
 
   await jotSaleOf(page);
   await fill(page, [/^กล่องมาตรฐาน/, "24"], [/^ยอดขาย LINE MAN/, "8200"]);
   await save(page);
+  await openPage(page, "Daily Log");
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
   await expect(day(page)).toContainText("จดยอดขายแล้ว");
   await expect(day(page).locator('[data-kind="sale"]')).toContainText(
@@ -247,9 +257,10 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await jotSaleOf(page, -1);
   await fill(page, [/^กล่องมาตรฐาน/, "20"], [/^ยอดขาย LINE MAN/, "6900"]);
   await save(page);
+  await openPage(page, "Daily Log");
   await expect(day(page, -1)).toHaveAttribute("data-tone", "ok");
   await expect(day(page, -2)).toHaveAttribute("data-tone", "warning");
-  await expect(todo.getByRole("button", { name: /^ยอดขาย/ })).toHaveCount(5);
+  await expect(todoLines(page, "ยอดขาย")).toHaveCount(5);
 });
 
 test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not turn the day yellow in Daily Log", async ({
@@ -262,10 +273,10 @@ test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not 
   await save(page);
 
   // The day is green on its sale alone, while the meat is still to count.
+  await openPage(page, "Daily Log");
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
-  await expect(
-    region(page, "ยังไม่ได้จด").getByRole("button", { name: "นับเนื้อวันนี้" }),
-  ).toBeVisible();
+  await expect(todoLines(page, "นับเนื้อวันนี้")).toBeVisible();
+  await expect(region(page, "ยังไม่ได้จด").getByRole("button")).toHaveCount(0);
   await openPage(page, "Inventory");
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toHaveAttribute("data-tone", "warning");
@@ -281,9 +292,7 @@ test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not 
   await expect(meat).toContainText("นับแล้ววันนี้");
   await expect(meat).toContainText("เนื้อคงเหลือ 12.5 กก.");
   await openPage(page, "Daily Log");
-  await expect(
-    region(page, "ยังไม่ได้จด").getByRole("button", { name: "นับเนื้อวันนี้" }),
-  ).toHaveCount(0);
+  await expect(todoLines(page, "นับเนื้อวันนี้")).toHaveCount(0);
 });
 
 test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting it clears the yellow", async ({
@@ -334,7 +343,6 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
   await save(page);
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toContainText("10 กก.");
-  await openPage(page, "Daily Log");
 
   await jotSaleOf(page);
   await fill(page, [/^กล่องมาตรฐาน/, "10"], [/^ยอดขาย LINE MAN/, "3500"]);
@@ -346,6 +354,7 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
   await expect(toast(page, "จดแล้ว: ยอดขาย")).toHaveText(
     /^จดแล้ว: ยอดขาย(?!.*ยังไม่ได้จด)/,
   );
+  await openPage(page, "Daily Log");
   await expect(rows(page, "sale")).not.toHaveAttribute("data-tone");
   await expect(region(page, "ยังไม่ได้จด")).not.toContainText("ช่อง");
   // 10 − 10 กล่อง × 0.12 กก.
@@ -481,6 +490,8 @@ test.describe("phone, 390px wide", () => {
     await fits();
     await fill(page, [/^กล่องมาตรฐาน/, "18"], [/^ยอดขาย LINE MAN/, "6100"]);
     await save(page);
+    await openPage(page, "Daily Log");
+    await fits();
     await expect(day(page)).toHaveAttribute("data-tone", "ok");
     await expect(day(page).locator('[data-kind="sale"]')).toContainText(
       "+฿6,100",

@@ -5,7 +5,7 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { missingText } from "@/lib/store";
+import { missingText, todoOpens } from "@/lib/store";
 import { useId, useRef } from "react";
 
 /** The bell: a count of everything not jotted yet (the same list as the todo box), opening
@@ -56,18 +56,26 @@ export function NotificationPopover({ ws }: { ws: Workspace }) {
         </div>
         {list.length ? (
           <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
-            {list.map((todo, index) => (
-              <AlertListItem
-                as="button"
-                key={`${todo.text}-${index}`}
-                title={todo.text}
-                className="min-h-11 items-center"
-                onClick={() => {
-                  ws.openTodo(todo);
-                  panel.current?.hidePopover();
-                }}
-              />
-            ))}
+            {list.map((todo, index) =>
+              todoOpens(todo) ? (
+                <AlertListItem
+                  as="button"
+                  key={`${todo.text}-${index}`}
+                  title={todo.text}
+                  className="min-h-11 items-center"
+                  onClick={() => {
+                    ws.openTodo(todo);
+                    panel.current?.hidePopover();
+                  }}
+                />
+              ) : (
+                <AlertListItem
+                  key={`${todo.text}-${index}`}
+                  title={todo.text}
+                  className="min-h-11 items-center border-transparent bg-bg p-2.5"
+                />
+              ),
+            )}
           </div>
         ) : (
           <EmptyState
