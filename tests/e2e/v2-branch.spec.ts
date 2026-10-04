@@ -1,11 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   bangkokDate,
+  confirmDelete,
   fill,
   form,
   jot,
-  nav,
   openPage,
+  pageButtons,
+  popupTitle,
   region,
   rows,
   save,
@@ -29,16 +31,17 @@ const jotSaleOf = async (page: Page, offset = 0) => {
   await day(page, offset)
     .getByRole("button", { name: "ยังไม่ได้จดยอดขาย" })
     .click();
-  await expect(form(page).getByRole("heading")).toHaveText("ยอดขาย");
+  await expect(popupTitle(page)).toHaveText("ยอดขาย");
   await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(
     bangkokDate(offset),
   );
 };
-/** Opens a note's row and presses one of its buttons. */
+/** Opens a note's row and presses one of its buttons; a 「ลบ」 is confirmed. */
 const press = async (row: Locator, name: "แก้ไข" | "ลบ") => {
   const head = row.getByRole("button").first();
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
   await row.getByRole("button", { name, exact: true }).click();
+  if (name === "ลบ") await confirmDelete(row.page());
 };
 
 test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stock at once, jotted by the Manager or by the branch", async ({
@@ -46,9 +49,10 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   const minburi = region(page, "วัสดุและน้ำพริก สาขามีนบุรี");
   await expect(stockRow(minburi, "กล่องใหม่").nth(1)).toHaveText("0");
+  await openPage(page, "Daily Log");
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
@@ -59,6 +63,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^เข้าสาขาไหน/, "มีนบุรี"],
   );
   await save(page);
+  await openPage(page, "Inventory");
   await expect(stockRow(minburi, "กล่องใหม่").nth(1)).toHaveText("50");
   await expect(
     stockRow(region(page, "วัสดุและน้ำพริก สาขาศาลาแดง"), "กล่องใหม่").nth(1),
@@ -67,15 +72,17 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   // The branch has it with nothing to press, and never sees what it cost.
   await signInAs(page, "minburi");
   await expect(rows(page, "pay")).toHaveCount(0);
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   const own = region(page, "วัสดุ");
   await expect(stockRow(own, "กล่องใหม่").nth(1)).toHaveText("50");
-  await expect(page.getByRole("button", { name: /รับ/ })).toHaveCount(0);
+  // (The page's own 「รับเนื้อเข้าสาขา」 is for meat.)
+  await expect(own.getByRole("button", { name: /รับ/ })).toHaveCount(0);
   const sent = await (await page.request.get("/api/local-db")).json();
   expect(sent.payload.entries.map((e: { values: object }) => e.values)).toEqual(
     [{ category: "packaging", item: "m1", qty: "50", branch: "มีนบุรี" }],
   );
   // Its own payment adds to the same shelf.
+  await openPage(page, "Daily Log");
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
@@ -85,10 +92,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^จำนวน/, "20"],
   );
   await save(page);
+  await openPage(page, "Inventory");
   await expect(stockRow(own, "กล่องใหม่").nth(1)).toHaveText("70");
 
   await signInAs(page, "saladaeng");
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   await expect(stockRow(region(page, "วัสดุ"), "กล่องใหม่").nth(1)).toHaveText(
     "0",
   );
@@ -112,6 +120,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
     [/^ผู้จ่ายเงิน/, "น้องฝน"],
   );
   await save(page);
+  await openPage(page, "Inventory");
   await jot(page, "กล่องแจก");
   await fill(
     page,
@@ -121,6 +130,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   );
   await save(page);
   // Neither made a payment note.
+  await openPage(page, "Daily Log");
   await expect(rows(page, "sale")).toContainText("ค่าใช้จ่ายสาขา ฿150");
   await expect(rows(page, "pay")).toHaveCount(0);
 
@@ -173,7 +183,7 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await expect(todo.getByRole("button", { name: /^ยอดขาย/ })).toHaveCount(5);
 });
 
-test("12 · V2-BR-02 meat not counted today is yellow in Stock and does not turn the day yellow in Daily Log", async ({
+test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not turn the day yellow in Daily Log", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -187,14 +197,14 @@ test("12 · V2-BR-02 meat not counted today is yellow in Stock and does not turn
   await expect(
     region(page, "ยังไม่ได้จด").getByRole("button", { name: "นับเนื้อวันนี้" }),
   ).toBeVisible();
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toHaveAttribute("data-tone", "warning");
   await expect(meat).toContainText("วันนี้ยังไม่ได้นับ");
   await openPage(page, "Daily Log");
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
 
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   await meat.getByRole("button", { name: "นับเนื้อคงเหลือ" }).click();
   await fill(page, [/^เนื้อคงเหลือที่นับได้/, "12.5"]);
   await save(page);
@@ -212,6 +222,7 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
+  await openPage(page, "Inventory");
   // One counted 8 days ago, one 7 days ago.
   for (const [offset, item, count] of [
     [-8, /^กล่องใหม่/, "100"],
@@ -221,7 +232,6 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
     await fill(page, [/^วันที่$/, bangkokDate(offset)], [item, count]);
     await save(page);
   }
-  await openPage(page, "Stock");
   const card = region(page, "วัสดุ");
   const stale = stockRow(card, "กล่องใหม่");
   await expect(stale.nth(1)).toHaveText("100");
@@ -249,11 +259,13 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
+  await openPage(page, "Inventory");
   await jot(page, "นับเนื้อคงเหลือ");
   await fill(page, [/^เนื้อคงเหลือที่นับได้/, "10"]);
   await save(page);
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toContainText("10 กก.");
+  await openPage(page, "Daily Log");
 
   await jotSaleOf(page);
   await fill(page, [/^กล่องมาตรฐาน/, "10"], [/^ยอดขาย LINE MAN/, "3500"]);
@@ -269,7 +281,7 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
   await expect(region(page, "ยังไม่ได้จด")).not.toContainText("ช่อง");
   // 10 − 10 กล่อง × 0.12 กก.
   await expect(meat).toContainText("8.8 กก.");
-  await openPage(page, "Stock");
+  await openPage(page, "Inventory");
   await expect(region(page, "เนื้อคงเหลือ")).toContainText(
     "เนื้อคงเหลือ 8.8 กก.",
   );
@@ -295,7 +307,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(sale).toHaveAttribute("data-tone", "warning");
   await expect(sale).toContainText("ยังไม่ได้จด: ยอดขาย LINE MAN");
   await press(sale, "แก้ไข");
-  await expect(form(page).getByRole("heading")).toHaveText("แก้ไข: ยอดขาย");
+  await expect(popupTitle(page)).toHaveText("แก้ไข: ยอดขาย");
   await fill(page, [/^ยอดขาย LINE MAN/, "7000"]);
   await save(page);
   await expect(toast(page, "แก้แล้ว: ยอดขาย")).toBeVisible();
@@ -322,28 +334,28 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(toast(page, "กู้คืนแล้ว: รับเนื้อเข้าสาขา")).toBeVisible();
   await expect(receipt).toContainText("20 กก.");
 
-  // The Owner: a Lot's core note and an extra note of weeks ago.
+  // The Owner: two notes of a PO รมควัน's round, of weeks ago.
   await signInAs(page, "owner");
   await openPage(page, "Lots");
   await page
     .locator("[data-lot]")
-    .filter({ hasText: `SH-${year}-0001` })
+    .filter({ hasText: `SO-${year}-0001` })
     .click();
-  const lot = region(page, `SH-${year}-0001`);
+  const lot = region(page, `SO-${year}-0001`);
   const yieldOf = lot
     .locator("dt")
     .filter({ hasText: /^Yield$/ })
     .locator("xpath=following-sibling::dd");
   await expect(yieldOf).toHaveText("52%");
-  await press(lot.locator('[data-kind="central"]'), "แก้ไข");
-  await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(bangkokDate(-15));
-  await fill(page, [/^น้ำหนักที่รับ/, "100"]);
+  await press(lot.locator('[data-kind="smoked"]'), "แก้ไข");
+  await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(bangkokDate(-16));
+  await fill(page, [/^น้ำหนักหลังรมควัน/, "100"]);
   await save(page);
   await expect(yieldOf).toHaveText("50%");
   const weighed = lot.locator('[data-kind="cmReceive"]');
   await press(weighed, "ลบ");
   await expect(weighed).toHaveCount(0);
-  await toast(page, "ลบแล้ว: ชั่งรับที่ Chef House")
+  await toast(page, "ลบแล้ว: รับเนื้อที่ Chef House")
     .getByRole("button", { name: "เลิกทำ" })
     .click();
   await expect(weighed).toContainText("199.2 กก.");
@@ -393,10 +405,7 @@ test.describe("phone, 390px wide", () => {
             document.documentElement.clientWidth,
         ),
       ).toBeLessThanOrEqual(0);
-    await expect(nav(page).getByRole("button")).toHaveText([
-      "Daily Log",
-      "Stock",
-    ]);
+    await expect(pageButtons(page)).toHaveText(["Daily Log", "Inventory"]);
     await fits();
 
     await jotSaleOf(page);
@@ -408,7 +417,7 @@ test.describe("phone, 390px wide", () => {
       "+฿6,100",
     );
 
-    await openPage(page, "Stock");
+    await openPage(page, "Inventory");
     await fits();
     const meat = region(page, "เนื้อคงเหลือ");
     await expect(meat).toHaveAttribute("data-tone", "warning");

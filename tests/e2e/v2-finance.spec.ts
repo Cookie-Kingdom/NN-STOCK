@@ -124,6 +124,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   const lineBefore = await line(page, /^กำไรจากการดำเนินงาน/).allInnerTexts();
   expect(profitBefore).toMatch(/฿[\d,]+/);
 
+  await openPage(page, "Inventory");
   await jot(page, "กล่องแจก");
   await fill(
     page,
@@ -133,9 +134,11 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   );
   await save(page);
   await expect(toast(page, "จดแล้ว: กล่องแจก")).toBeVisible();
+  await openPage(page, "Overview");
 
-  // The sample's complete Lot: (140,000 + 24,000) ÷ 104 กก. × 0.12 + ฿25 a box.
-  const value = Math.round((before + 4) * ((164000 / 104) * 0.12 + 25));
+  // The sample's complete PO รมควัน: (140,000 + 24,000 + 6,000 of its round trip) ÷ 104 กก.
+  // × 0.12 + ฿25 a box.
+  const value = Math.round((before + 4) * ((170000 / 104) * 0.12 + 25));
   await expect(gifts).toContainText(`${before + 4} กล่อง`);
   await expect(gifts).toContainText(
     `มูลค่าต้นทุนประมาณ ฿${value.toLocaleString("en-US")}`,
@@ -162,7 +165,9 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
 
   // Nothing is filled in from the month before: last month's rent leaves this month yellow.
+  await openPage(page, "Finance");
   await pay(page, "ค่าเช่า/น้ำไฟ", "18000", lastMonth.lastDay);
+  await openPage(page, "Overview");
   await expect(rent).toHaveText(["ยังไม่ได้จด", "−฿18,000"]);
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
   await expect(reminder).toBeVisible();

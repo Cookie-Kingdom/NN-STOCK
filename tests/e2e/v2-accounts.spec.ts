@@ -3,8 +3,10 @@ import {
   fill,
   form,
   jot,
+  jotButtons,
   nav,
   openPage,
+  pageButtons,
   region,
   rows,
   save,
@@ -16,10 +18,18 @@ import {
 /* Spec v2 section 11, items 1–4 and 19: who sees which page, and what each account may jot. */
 
 const pagesOf = {
-  owner: ["Overview", "Daily Log", "Lots", "Stock", "Finance", "Settings"],
-  manager: ["Daily Log", "Lots", "Stock", "Finance"],
-  saladaeng: ["Daily Log", "Stock"],
-  minburi: ["Daily Log", "Stock"],
+  owner: [
+    "Overview",
+    "Daily Log",
+    "Lots",
+    "Inventory",
+    "Finance",
+    "Accounting",
+    "Settings",
+  ],
+  manager: ["Daily Log", "Lots", "Inventory", "Finance", "Accounting"],
+  saladaeng: ["Daily Log", "Inventory"],
+  minburi: ["Daily Log", "Inventory"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
@@ -28,15 +38,13 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 6 pages, Manager 4, Branch 2, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 7 pages, Manager 5, Branch 2, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");
   for (const account of accounts) {
     await signInAs(page, account);
-    await expect(nav(page).getByRole("button")).toHaveText([
-      ...pagesOf[account],
-    ]);
+    await expect(pageButtons(page)).toHaveText([...pagesOf[account]]);
     // The home page: Overview for the Owner, Daily Log for everyone else.
     await expect(h1(page)).toHaveText(pagesOf[account][0]);
     for (const name of pagesOf[account]) {
@@ -102,14 +110,16 @@ test("2 · V2-ACC-01 Manager finds no sale, payroll or P&L on any page, and the 
       await expect(page.locator("[data-lot]")).toHaveCount(5);
     if (name === "Finance")
       await expect(region(page, "จ่ายเงินแยกหมวด")).toBeVisible();
-    expect(await page.locator("body").innerText(), name).not.toMatch(hidden);
+    // 「Nerdnuea x LINE MAN」 is the shop's name (the menu's section, a ledger Project), not a sale.
+    const text = await page.locator("body").innerText();
+    expect(text.replaceAll("Nerdnuea x LINE MAN", ""), name).not.toMatch(
+      hidden,
+    );
   }
-  // Neither in the picker nor among the categories of a payment (V2-ACC-02).
-  await page.getByRole("button", { name: "จดบันทึก", exact: true }).click();
-  await expect(region(page, "จดอะไร")).not.toContainText("ยอดขาย");
-  await region(page, "จดอะไร")
-    .getByRole("button", { name: "จ่ายเงิน", exact: true })
-    .click();
+  // Neither among the page's buttons nor among the categories of a payment (V2-ACC-02).
+  await openPage(page, "Daily Log");
+  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
+  await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).not.toContain("ค่าแรง");
 
   // What the server sends the Manager: no sale-money key on any entry, and of a payroll
@@ -139,21 +149,16 @@ test("3 · V2-ACC-02 Manager pays in 9 categories, none of them payroll", async 
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
-  await page.getByRole("button", { name: "จดบันทึก", exact: true }).click();
-  // V2-ACC-04: everything for a branch but its sale.
-  await expect(
-    region(page, "จดอะไร")
-      .getByRole("group", { name: "สาขา" })
-      .getByRole("button"),
-  ).toHaveText([
+  // V2-ACC-04: everything for a branch but its sale (its materials the branch counts itself).
+  await openPage(page, "Inventory");
+  await expect(jotButtons(page)).toHaveText([
     "รับเนื้อเข้าสาขา",
     "นับเนื้อคงเหลือ",
     "กล่องแจก",
-    "นับวัสดุคงเหลือ",
   ]);
-  await region(page, "จดอะไร")
-    .getByRole("button", { name: "จ่ายเงิน", exact: true })
-    .click();
+  await openPage(page, "Daily Log");
+  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
+  await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
     "เลือกหมวด",
     "เนื้อ",
@@ -276,11 +281,11 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
           "ลบ",
         ]);
       }
-      // The picker lists the v2 kinds, and nothing that closes, locks or confirms.
-      await page.getByRole("button", { name: "จดบันทึก", exact: true }).click();
-      const picker = region(page, "จดอะไร");
-      expect(await picker.innerText(), where).not.toMatch(retired);
-      await picker.getByRole("button", { name: "ปิด", exact: true }).click();
+      // The page's buttons are the v2 kinds, and nothing that closes, locks or confirms.
+      expect(
+        (await jotButtons(page).allInnerTexts()).join(" "),
+        where,
+      ).not.toMatch(retired);
     }
   }
 });
