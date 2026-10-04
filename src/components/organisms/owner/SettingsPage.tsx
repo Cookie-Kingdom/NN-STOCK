@@ -404,57 +404,64 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
   const logo = logoOf(editing === "header" ? draft : db.config);
 
   return (
-    <div className="flex flex-col gap-4">
-      {card(
-        "numbers",
-        "แก้แล้วตัวเลขในหน้าอื่นเปลี่ยนตาม",
-        plain("numbers", numbers),
-      )}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
+    // A wide screen: two columns of sections, so the forms and tables keep their width.
+    <div className="flex flex-col gap-4 2xl:grid 2xl:grid-cols-2 2xl:items-start">
+      <div className="flex min-w-0 flex-col gap-4">
         {card(
-          "channels",
-          "เพิ่มช่องทางแล้วฟอร์มยอดขายมีช่องยอดเงินเพิ่ม · ช่องทางแรกลบไม่ได้ · ลบช่องทางแล้ว ยอดที่เคยจดในช่องทางนั้นไม่ถูกนับ",
-          list("channels", (row) => row.key !== "lineMan"),
+          "numbers",
+          "แก้แล้วตัวเลขในหน้าอื่นเปลี่ยนตาม",
+          plain("numbers", numbers),
+        )}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
+          {card(
+            "channels",
+            "เพิ่มช่องทางแล้วฟอร์มยอดขายมีช่องยอดเงินเพิ่ม · ช่องทางแรกลบไม่ได้ · ลบช่องทางแล้ว ยอดที่เคยจดในช่องทางนั้นไม่ถูกนับ",
+            list("channels", (row) => row.key !== "lineMan"),
+          )}
+          {card(
+            "categories",
+            `${payCategories(db.config).length} หมวด · หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้ ลบไม่ได้`,
+            list("categories", (row) => !fixedCategories.includes(row.id)),
+          )}
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-col gap-4">
+        {card(
+          "materials",
+          '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ',
+          list("materials", () => true),
         )}
         {card(
-          "categories",
-          `${payCategories(db.config).length} หมวด · หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้ ลบไม่ได้`,
-          list("categories", (row) => !fixedCategories.includes(row.id)),
+          "header",
+          "ใช้กับ PO ซื้อเนื้อ, PO รมควัน, Packing List, ใบขนส่ง",
+          plain(
+            "header",
+            header,
+            editing === "header" ? (
+              <FileUploadField
+                wide
+                label="โลโก้บนเอกสาร"
+                accept={logoAccept}
+                maxBytes={1024 * 1024}
+                oversizeMessage="ไฟล์โลโก้ใหญ่เกิน 1 MB"
+                onError={setError}
+                onFile={pickLogo}
+                preview={logo && <Logo source={logo} />}
+                hint={draft.logoName || "PNG, JPG หรือ WebP ไม่เกิน 1 MB"}
+              />
+            ) : (
+              <div className="col-span-full">
+                <dt className="text-label text-text-secondary">
+                  โลโก้บนเอกสาร
+                </dt>
+                <dd className="m-0 mt-1 font-semibold">
+                  {logo ? <Logo source={logo} /> : "ยังไม่มีโลโก้"}
+                </dd>
+              </div>
+            ),
+          ),
         )}
       </div>
-      {card(
-        "materials",
-        '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ',
-        list("materials", () => true),
-      )}
-      {card(
-        "header",
-        "ใช้กับ PO ซื้อเนื้อ, PO รมควัน, Packing List, ใบขนส่ง",
-        plain(
-          "header",
-          header,
-          editing === "header" ? (
-            <FileUploadField
-              wide
-              label="โลโก้บนเอกสาร"
-              accept={logoAccept}
-              maxBytes={1024 * 1024}
-              oversizeMessage="ไฟล์โลโก้ใหญ่เกิน 1 MB"
-              onError={setError}
-              onFile={pickLogo}
-              preview={logo && <Logo source={logo} />}
-              hint={draft.logoName || "PNG, JPG หรือ WebP ไม่เกิน 1 MB"}
-            />
-          ) : (
-            <div className="col-span-full">
-              <dt className="text-label text-text-secondary">โลโก้บนเอกสาร</dt>
-              <dd className="m-0 mt-1 font-semibold">
-                {logo ? <Logo source={logo} /> : "ยังไม่มีโลโก้"}
-              </dd>
-            </div>
-          ),
-        ),
-      )}
     </div>
   );
 }

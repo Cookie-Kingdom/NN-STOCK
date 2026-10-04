@@ -4,6 +4,7 @@ import {
   WithWorkspace,
   dbFor,
   phone,
+  wide,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -139,4 +140,10 @@ export const Phone: Story = {
   ...phone,
   parameters: { ...phone.parameters, db: twoRoundsDb },
   play: pick(/SO-\d+-0002/),
+};
+
+/** จอ 1920px: บันทึกของ PO อยู่ข้างตัวเลข */
+export const Wide: Story = {
+  ...wide,
+  parameters: { ...wide.parameters, db: twoRoundsDb },
 };

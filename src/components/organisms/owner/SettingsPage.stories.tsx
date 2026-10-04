@@ -3,6 +3,7 @@ import { Caption } from "@/components/atoms/Text";
 import {
   WithWorkspace,
   phone,
+  wide,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import { fields } from "@/lib/forms";
@@ -41,3 +42,6 @@ export const Default: Story = {};
 
 /** จอ 390px */
 export const Phone: Story = { ...phone };
+
+/** จอ 1920px: ส่วนต่าง ๆ เรียงสองคอลัมน์ */
+export const Wide: Story = { ...wide };

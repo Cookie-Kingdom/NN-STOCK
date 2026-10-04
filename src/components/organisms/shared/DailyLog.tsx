@@ -97,65 +97,66 @@ export function DailyLog({ ws }: { ws: Workspace }) {
   const meat = own ? branchMeat(db, account.branch ?? "", today) : null;
 
   return (
-    <div className="flex flex-col gap-6 max-md:gap-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4">
-        <div className="flex min-w-0 flex-col gap-4">
-          <SegmentedChoice
-            label="กรองบันทึก"
-            className="self-start"
-            value={filter}
-            onChange={setFilter}
-            options={[
-              { value: "all", label: "ทั้งหมด" },
-              { value: "missing", label: missingText },
-              ...(own
-                ? []
-                : ([
-                    { value: "lot", label: "Lot" },
-                    { value: "money", label: "เงิน" },
-                    { value: "branch", label: "สาขา" },
-                  ] as const)),
-            ]}
-          />
-          {cards.some(Boolean) ? (
-            cards
-          ) : (
-            <EmptyState text="ไม่มีบันทึกในช่วงนี้" />
-          )}
-          <Button
-            size="sm"
-            className="self-center max-md:min-h-11"
-            onClick={() => setDays(days + 7)}
-          >
-            ดูย้อนหลังอีก 7 วัน
-          </Button>
-        </div>
-        <aside className="flex min-w-0 flex-col gap-4">
-          <TodoBox ws={ws} />
-          {meat && (
-            <Panel compact aria-label="เนื้อคงเหลือ">
-              <h2 className="m-0 text-h3">เนื้อคงเหลือ</h2>
-              <ReadRow
-                label="ตอนนี้"
-                value={
-                  <span className={cn(meat.kg < 0 && "text-danger")}>
-                    {qty(meat.kg)} กก.
-                  </span>
-                }
-              />
-              <ReadRow
-                label="นับล่าสุด"
-                value={
-                  meat.counted
-                    ? `${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)}`
-                    : "—"
-                }
-              />
-            </Panel>
-          )}
-        </aside>
+    // A wide screen: the change log is a third column, so a day's rows stay a readable length.
+    <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4 min-[1700px]:grid-cols-[minmax(0,1fr)_320px_380px]">
+      <div className="flex min-w-0 flex-col gap-4">
+        <SegmentedChoice
+          label="กรองบันทึก"
+          className="self-start"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: "ทั้งหมด" },
+            { value: "missing", label: missingText },
+            ...(own
+              ? []
+              : ([
+                  { value: "lot", label: "Lot" },
+                  { value: "money", label: "เงิน" },
+                  { value: "branch", label: "สาขา" },
+                ] as const)),
+          ]}
+        />
+        {cards.some(Boolean) ? (
+          cards
+        ) : (
+          <EmptyState text="ไม่มีบันทึกในช่วงนี้" />
+        )}
+        <Button
+          size="sm"
+          className="self-center max-md:min-h-11"
+          onClick={() => setDays(days + 7)}
+        >
+          ดูย้อนหลังอีก 7 วัน
+        </Button>
       </div>
-      <ChangeLog ws={ws} />
+      <aside className="flex min-w-0 flex-col gap-4">
+        <TodoBox ws={ws} />
+        {meat && (
+          <Panel compact aria-label="เนื้อคงเหลือ">
+            <h2 className="m-0 text-h3">เนื้อคงเหลือ</h2>
+            <ReadRow
+              label="ตอนนี้"
+              value={
+                <span className={cn(meat.kg < 0 && "text-danger")}>
+                  {qty(meat.kg)} กก.
+                </span>
+              }
+            />
+            <ReadRow
+              label="นับล่าสุด"
+              value={
+                meat.counted
+                  ? `${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)}`
+                  : "—"
+              }
+            />
+          </Panel>
+        )}
+      </aside>
+      <div className="col-span-full min-w-0 min-[1700px]:col-auto">
+        <ChangeLog ws={ws} />
+      </div>
     </div>
   );
 }

@@ -44,8 +44,12 @@ export function FinancePage({ ws }: { ws: Workspace }) {
     .slice(0, 12);
 
   return (
-    <div className="flex flex-col gap-4">
-      <TableFilter label="เดือน" className="self-start">
+    // A wide screen: the latest payments are a third column beside the tables.
+    <div className="flex flex-col gap-4 min-[1700px]:grid min-[1700px]:grid-cols-3 min-[1700px]:items-start">
+      <TableFilter
+        label="เดือน"
+        className="self-start min-[1700px]:col-span-full min-[1700px]:justify-self-start"
+      >
         <Input
           type="month"
           variant="filter"
@@ -55,7 +59,10 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         />
       </TableFilter>
       {owner && (
-        <Panel className={figureGrid} aria-label="ตัวเลขของเดือน">
+        <Panel
+          className={cn(figureGrid, "min-[1700px]:col-span-full")}
+          aria-label="ตัวเลขของเดือน"
+        >
           <Stat
             label={`ยอดขาย ${monthName(month)}`}
             value={<span className="text-success">+{baht(pl.sales)}</span>}
@@ -78,7 +85,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
           />
         </Panel>
       )}
-      <div className={cardGrid}>
+      <div className={cn(cardGrid, "min-[1700px]:col-span-2")}>
         <PlTable db={db} month={month} full={owner} />
         <div className="flex min-w-0 flex-col gap-4">
           <FigureCard
