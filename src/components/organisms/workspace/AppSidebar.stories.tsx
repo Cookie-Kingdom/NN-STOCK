@@ -4,7 +4,7 @@ import { AppSidebar } from "./AppSidebar";
 import { WithWorkspace, dbFor, phone, sampleDb } from "./storyWorkspace";
 
 const Sidebar = ({ account }: { account: AccountId }) => (
-  <div className="grid grid-cols-[224px_1fr] max-md:block">
+  <div className="grid grid-cols-[256px_1fr] max-md:block">
     <WithWorkspace account={account}>
       {(ws) => <AppSidebar ws={ws} />}
     </WithWorkspace>
