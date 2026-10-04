@@ -29,7 +29,7 @@ const meta = {
   parameters: {
     db: sampleDb,
     layout: "fullscreen",
-    nextjs: { navigation: { segments: ["log"] } },
+    nextjs: { navigation: { pathname: "/owner/nn-x-lm/daily-log" } },
   },
 } satisfies Meta<typeof Shell>;
 
@@ -52,12 +52,12 @@ export const Manager: Story = {
 
 /** หน้า Inventory: ปุ่มจดของสาขา 3 ปุ่ม (นับวัสดุเป็นงานของแอดมินสาขา) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ */
 export const StockButtons: Story = {
-  parameters: { nextjs: { navigation: { segments: ["stock"] } } },
+  parameters: { nextjs: { navigation: { pathname: "/owner/nn-x-lm/inventory" } } },
 };
 
 /** หน้า Lots: หัวหน้าไม่มีปุ่ม (ปุ่มจดอยู่ในหน้า Lots เอง) */
 export const LotsNoButtons: Story = {
-  parameters: { nextjs: { navigation: { segments: ["lots"] } } },
+  parameters: { nextjs: { navigation: { pathname: "/owner/nn-x-lm/lots" } } },
 };
 
 /** สาขา */

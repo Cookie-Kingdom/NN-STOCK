@@ -1,10 +1,10 @@
 "use client";
 
-import { useRouter, useSelectedLayoutSegment } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today as bangkokToday } from "@/lib/format";
-import { navFor, type Tab } from "@/lib/nav";
+import { pagePath, tabAt, type Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
 import { todos, type NoteKind, type Todo, type Values } from "@/lib/store";
 
@@ -34,11 +34,9 @@ export function useWorkspace(account: Account) {
   const loaded = useDatabaseLoaded();
   const router = useRouter();
   const today = bangkokToday();
-  // The page is the URL segment under the account's layout: /owner/lots → "lots". One the
-  // account does not have (the Account Manager on Overview) is its home page instead.
-  const segment = useSelectedLayoutSegment() as Tab | null;
-  const page =
-    segment && navFor(account).includes(segment) ? segment : account.homeTab;
+  // The page is the one at the URL: /owner/nn-x-lm/lots → "lots". One the account does not
+  // have (the Account Manager on Overview) is its home page instead.
+  const page = tabAt(account, usePathname()) ?? account.homeTab;
   /* The URL stays the source of truth, but the menu and the page switch on the click's own
    * frame instead of waiting for the route payload. The optimistic value reverts when the
    * transition settles, by which time the segment matches. */
@@ -60,7 +58,7 @@ export function useWorkspace(account: Account) {
     setFocusLot("");
     startTransition(() => {
       showTab(next);
-      router.push(`${account.path}/${next}`);
+      router.push(pagePath(account, next));
     });
   };
   // Not while the seed stands in for the server payload: it would list a week of days.

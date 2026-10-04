@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { pagePath } from "@/lib/nav";
 
 export default function BranchIndex() {
-  redirect("/branch/log");
+  redirect(pagePath({ path: "/branch" }, "log"));
 }
