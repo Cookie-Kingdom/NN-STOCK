@@ -47,7 +47,7 @@ export type Field = {
   options?: { value: string; label: string }[];
   /** Left empty it is saved, listed in `values.missing` and shown yellow. */
   core?: boolean;
-  /** Rendered under "จดเพิ่มได้ N ช่อง". */
+  /** Rendered in the form's last section, always open. */
   more?: boolean;
   integer?: boolean;
   accept?: string;
