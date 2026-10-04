@@ -372,7 +372,7 @@ it("todos: what each account still has to jot", () => {
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
       "มีนบุรี: นับเนื้อวันนี้",
-      "มีนบุรี: วัสดุ 7 รายการไม่ได้นับเกิน 7 วัน",
+      "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
       "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
@@ -393,7 +393,7 @@ it("todos: what each account still has to jot", () => {
   expect(texts(minburi)).toEqual(
     expect.arrayContaining([
       "นับเนื้อวันนี้",
-      "วัสดุ 7 รายการไม่ได้นับเกิน 7 วัน",
+      "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
     ]),
   );
   expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
