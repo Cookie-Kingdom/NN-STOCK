@@ -11,6 +11,7 @@ import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { pages } from "@/lib/nav";
 import { kindsForPage, titles } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
  *  beside one column holding the page's head with a button per note kind of the page, and
@@ -32,7 +33,13 @@ export function WorkspaceShell({
   return (
     <div className="grid min-h-dvh grid-cols-[256px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />
-      <main className="mx-auto flex w-full max-w-[1120px] min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24">
+      <main
+        className={cn(
+          "mx-auto flex w-full min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24",
+          // The ledger has 15 columns: it takes the whole width of the screen.
+          ws.tab !== "accounting" && "max-w-[1120px]",
+        )}
+      >
         <PageHeading
           title={page.label}
           description={page.description}
