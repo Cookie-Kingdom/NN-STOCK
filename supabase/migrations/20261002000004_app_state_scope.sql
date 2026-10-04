@@ -8,7 +8,8 @@
 --   deletes naming any of those. Nothing of another branch. hiddenKeys are stripped from the
 --   branch's own entries and the Lots, so `fullAmount` is not one: a branch types it on its own
 --   payment (V2-ACC-07). The Owner's never reaches a branch, stockKeys being the only keys a
---   stock line keeps.
+--   stock line keeps. Of `rawRiceBranches` it gets its own branch's name or an empty list: whether
+--   it counts raw rice, not whether the other branch does (V2-BR-08).
 -- * The Account Manager (manager_*) gets a copy with no sale money (also under a `sales.`
 --   channel key) and every payroll payment as a stub: its category and what it names, no
 --   amount, name or payer.
@@ -90,14 +91,14 @@ declare
   config_keys text[] := array(select jsonb_array_elements_text(rule -> 'configKeys'));
   stock_kinds text[] := array(select jsonb_array_elements_text(rule -> 'stockKinds'));
   stock_keys text[] := array(select jsonb_array_elements_text(rule -> 'stockKeys'));
-  scoped_lots jsonb; scoped_entries jsonb;
+  scoped_lots jsonb; scoped_entries jsonb; scoped_config jsonb; rice text;
 begin
   p_branches := coalesce(p_branches, '{}'::text[]);
 
   -- Every Lot รมควัน: the receive form lists them all. No PO เนื้อ (its price).
   select coalesce(jsonb_agg(l || jsonb_build_object(
       'values', public.scope_strip_values(coalesce(l -> 'values', '{}'::jsonb), hidden),
-      'config', public.scope_config(l -> 'config', config_keys)) order by ord), '[]'::jsonb)
+      'config', public.scope_config(l -> 'config', config_keys) - 'rawRiceBranches') order by ord), '[]'::jsonb)
   into scoped_lots
   from jsonb_array_elements(all_lots) with ordinality t(l, ord)
   where coalesce(l ->> 'kind' = 'shipment', false);
@@ -135,8 +136,20 @@ begin
   into scoped_entries
   from picked p;
 
+  -- Of the branches that count raw rice, only its own. An unreadable list is dropped, so the app
+  -- reads the seed's, as the Owner's copy does.
+  scoped_config := public.scope_config(p_payload -> 'config', config_keys);
+  rice := scoped_config ->> 'rawRiceBranches';
+  scoped_config := scoped_config - 'rawRiceBranches';
+  if rice is json array then
+    scoped_config := scoped_config || jsonb_build_object('rawRiceBranches', (
+      select coalesce(jsonb_agg(b order by ord), '[]'::jsonb)::text
+      from jsonb_array_elements(rice::jsonb) with ordinality t(b, ord)
+      where jsonb_typeof(b) = 'string' and b #>> '{}' = any (p_branches)));
+  end if;
+
   return jsonb_build_object('version', p_payload -> 'version', 'lots', scoped_lots, 'entries', scoped_entries,
-    'config', public.scope_config(p_payload -> 'config', config_keys));
+    'config', scoped_config);
 end $$;
 
 -- managerHidden in src/lib/store/visibility.ts: a sale, a payroll payment, a change about a sale,

@@ -20,7 +20,8 @@ import {
  *                Not `fullAmount`: a branch types it on its own payment, and the Owner's never
  *                arrives (`stockKeys`).
  *  - configKeys  the settings kept, in `config` and in every lot's config. normalize() fills the
- *                rest from the seed, which no branch screen reads.
+ *                rest from the seed, which no branch screen reads. Of `rawRiceBranches` a branch
+ *                gets its own name or an empty list, never the other branch's (V2-BR-08).
  *  - stockKinds  kinds of the Owner / Account Manager stamped with the branch that reach it for
  *                stock only: visibleEntries() never lists them.
  *  - stockKeys   the only value keys those keep: what was bought, how many, and what an edit or
@@ -87,6 +88,23 @@ const hide = (values: Values, hidden: string[]): Values =>
 /** scope_config(): only the named keys. */
 const pick = (values: Values, keys: string[]): Values =>
   isObject(values) ? filterKeys(values, (key) => keys.includes(key)) : {};
+/** `config` with, of the branches that count raw rice, only `branches`. An unreadable list is
+ *  dropped, so the app reads the seed's, as the Owner's copy does. */
+function ownRice(config: Values, branches: string[]): Values {
+  const { rawRiceBranches: stored, ...rest } = config;
+  let list: unknown;
+  try {
+    list = JSON.parse(stored);
+  } catch {}
+  return Array.isArray(list)
+    ? {
+        ...rest,
+        rawRiceBranches: JSON.stringify(
+          list.filter((b) => branches.includes(b)),
+        ),
+      }
+    : rest;
+}
 
 /** The copy of `db` a branch account receives. `branches` is its own branch(es). */
 export function scopeDatabase(db: Database, branches: string[] = []): Database {
@@ -132,9 +150,9 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
       .map((lot) => ({
         ...lot,
         values: hide(lot.values ?? {}, rule.hiddenKeys),
-        config: pick(lot.config, rule.configKeys),
+        config: ownRice(pick(lot.config, rule.configKeys), []),
       })),
     entries,
-    config: pick(db.config, rule.configKeys),
+    config: ownRice(pick(db.config, rule.configKeys), branches),
   };
 }

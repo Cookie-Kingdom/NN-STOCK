@@ -175,10 +175,12 @@ test("a branch's copy holds its own entries and the cut-down stock lines, nothin
   expect(Object.keys(payload.config).sort()).toEqual(
     [...branchScope.configKeys].sort(),
   );
-  // The settings name the branches that count raw rice; nothing else is of the other branch.
-  expect(JSON.stringify([payload.entries, payload.lots])).not.toContain(
-    "ศาลาแดง",
-  );
+  // Of the branches that count raw rice it is told its own alone (the sample: ศาลาแดง only).
+  expect(payload.config.rawRiceBranches).toBe("[]");
+  expect(loadState(stored(sample), saladaeng).payload.config).toMatchObject({
+    rawRiceBranches: '["ศาลาแดง"]',
+  });
+  expect(JSON.stringify(payload)).not.toContain("ศาลาแดง");
 });
 
 test("a branch pays only in its four categories, and saves only by appending", () => {
@@ -228,6 +230,17 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     materialList: "[]",
     rawRiceBranches: '["มีนบุรี"]',
   });
+  expect(JSON.stringify(scoped)).not.toContain("ศาลาแดง");
+  expect(scopeDatabase(state, ["ศาลาแดง"]).config.rawRiceBranches).toBe(
+    '["ศาลาแดง"]',
+  );
+  expect(scopeDatabase(state, []).config.rawRiceBranches).toBe("[]");
+  expect(
+    scopeDatabase(
+      { ...state, config: { ...state.config, rawRiceBranches: "x" } },
+      ["มีนบุรี"],
+    ).config,
+  ).not.toHaveProperty("rawRiceBranches");
   expect(scopeDatabase(state, []).entries).toEqual([]);
 
   // manager_strip_entries

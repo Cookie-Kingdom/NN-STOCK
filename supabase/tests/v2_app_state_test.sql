@@ -29,7 +29,7 @@ declare
   -- is the Owner's edit of มีนบุรี's sale; mc the Owner jotted for มีนบุรี; tw is a retired kind.
   v_state constant jsonb := $state$
   {"version": 9,
-   "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","rawRiceBranches":"[\"มีนบุรี\"]","companyName":"x"},
+   "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","rawRiceBranches":"[\"ศาลาแดง\",\"มีนบุรี\"]","companyName":"x"},
    "lots": [
     {"id":"F1","poId":"PO-1","config":{},"values":{"price":"700","supplier":"Foodiva"}},
     {"id":"S1","poId":"SH-1","kind":"shipment","config":{"boxPrice":"350","packKg":"0.12"},"values":{"netPayable":"9","note":"x"}},
@@ -168,6 +168,12 @@ begin
     {"id":"S2","poId":"SH-2","kind":"shipment","config":{},"values":{}}]'::jsonb, format('branch lots: %s', v_seen -> 'lots');
   assert v_seen -> 'config' = '{"packKg":"0.12","materialList":"[]","rawRiceBranches":"[\"มีนบุรี\"]"}'::jsonb, format('branch config: %s', v_seen -> 'config');
   assert v_seen ->> 'version' = '9', 'branch version';
+  -- Of the branches that count raw rice it is told its own alone (above), so nothing names the other.
+  assert v_seen::text not like '%ศาลาแดง%', 'the branch copy names the other branch';
+  assert public.scope_app_state(v_state, array['ศาลาแดง']) -> 'config' ->> 'rawRiceBranches' = '["ศาลาแดง"]', 'the other branch''s own flag';
+  assert public.scope_app_state(v_state, '{}'::text[]) -> 'config' ->> 'rawRiceBranches' = '[]', 'no branch, no flag';
+  assert not public.scope_app_state(jsonb_set(v_state, '{config,rawRiceBranches}', '"x"'), array['มีนบุรี']) -> 'config' ? 'rawRiceBranches',
+    'an unreadable list is dropped';
   assert public.scope_app_state(v_state, '{}'::text[]) -> 'entries' = '[]'::jsonb, 'an account with no branch sees entries';
   perform set_config('test.uid', v_branch::text, true);
   assert (select l.payload from public.load_app_state() l) = v_seen, 'branch load is not its scoped copy';
