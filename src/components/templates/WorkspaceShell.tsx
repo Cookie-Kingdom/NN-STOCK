@@ -9,7 +9,7 @@ import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
 import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
 import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { pages } from "@/lib/nav";
+import { descriptionFor, pages } from "@/lib/nav";
 import { kindsForPage, titles } from "@/lib/store";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
@@ -31,7 +31,7 @@ export function WorkspaceShell({
       <main className="mx-auto flex w-full min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24">
         <PageHeading
           title={page.label}
-          description={page.description}
+          description={descriptionFor(ws.account, ws.tab)}
           action={
             // Lots draws its own jot buttons on the page; Overview, Daily Log and Settings have none.
             ws.tab !== "lots" &&

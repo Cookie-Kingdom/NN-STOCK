@@ -842,10 +842,14 @@ describe("figures (V2-CAL)", () => {
 
   it("CAL-12: chili is the count in the sale form, plus what was bought, less sold and given", () => {
     // 40 (counted 11 ก.ย.) − 3 + 10
-    expect(branchChili(built, "ศาลาแดง")).toEqual({
+    expect(branchChili(built, "ศาลาแดง", "2026-09-18")).toEqual({
       qty: 47,
       countedOn: "2026-09-11",
+      stale: false,
     });
+    // Late as a material is: more than 7 days after the count, or never counted.
+    expect(branchChili(built, "ศาลาแดง", "2026-09-19").stale).toBe(true);
+    expect(branchChili(built, "มีนบุรี", "2026-09-11").stale).toBe(true);
   });
 
   it("CAL-13: a supplier's balance is its bills less what was paid to it", () => {

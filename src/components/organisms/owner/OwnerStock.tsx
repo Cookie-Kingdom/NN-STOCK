@@ -8,10 +8,69 @@ import { DayCard } from "@/components/molecules/DayCard";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { qty } from "@/lib/format";
+import { qty as fmt, thaiDay } from "@/lib/format";
 import { branchMaterial, branches, materialList } from "@/lib/store";
 
-type Tone = "success" | "warning" | "danger";
+/** What is left at one place and its last count (`branchMaterial`, `branchChili`). */
+export type Held = { qty: number; countedOn: string; stale: boolean };
+
+/** One place's cell of a row: the figure, and under it the last count. Red with nothing
+ *  left, yellow with a late count; no cell at all (a dash) where the item cannot be. */
+export function HeldCell({ held, today }: { held?: Held; today: string }) {
+  if (!held)
+    return (
+      <Cell right>
+        <Muted as="span">—</Muted>
+      </Cell>
+    );
+  const { qty, countedOn, stale } = held;
+  return (
+    <Cell right tone={qty <= 0 ? "danger" : stale ? "warning" : undefined}>
+      {fmt(qty)}
+      <span className="block text-caption font-normal">
+        {!countedOn
+          ? "ยังไม่เคยนับ"
+          : countedOn === today
+            ? "นับวันนี้"
+            : `นับ ${thaiDay(countedOn)}${stale ? " · เกิน 7 วัน" : ""}`}
+      </span>
+    </Cell>
+  );
+}
+
+/** A row's total and status over `places`: out, a late count somewhere, or ready. */
+export function StatusCells({
+  at,
+  places,
+  total: showTotal = true,
+}: {
+  at: Record<string, Held>;
+  places: string[];
+  /** The total's cell, before the status. */
+  total?: boolean;
+}) {
+  const total = places.reduce((sum, place) => sum + (at[place]?.qty ?? 0), 0);
+  const late = places.filter((place) => at[place]?.stale);
+  return (
+    <>
+      {showTotal && (
+        <Cell right tone={total < 0 ? "danger" : undefined}>
+          {fmt(total)}
+        </Cell>
+      )}
+      <Cell
+        tone={total <= 0 ? "danger" : late.length ? "warning" : "success"}
+        className="whitespace-nowrap"
+      >
+        {total <= 0
+          ? "หมด"
+          : late.length
+            ? `ยังไม่ได้นับ: ${late.join(", ")}`
+            : "พร้อมใช้"}
+      </Cell>
+    </>
+  );
+}
 
 /** Materials have no central stock yet: its column is a dash on every row. */
 const central = "คลังกลาง";
@@ -28,22 +87,11 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
   const rows = materialList(db.config).map((m) => ({
     sku: m.id.toUpperCase(),
     name: m.name,
-    /** What is left at each branch; `stale` says why its count is late. */
     at: Object.fromEntries(
-      branches.map((branch) => {
-        const s = branchMaterial(db, branch, m.id, today);
-        return [
-          `สาขา${branch}`,
-          {
-            left: s.qty,
-            stale: !s.stale
-              ? undefined
-              : s.countedOn
-                ? "เกิน 7 วัน"
-                : "ยังไม่เคยนับ",
-          },
-        ];
-      }),
+      branches.map((branch): [string, Held] => [
+        `สาขา${branch}`,
+        branchMaterial(db, branch, m.id, today),
+      ]),
     ),
   }));
   // One place picked: its column alone, and the rows that can be there.
@@ -102,60 +150,20 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         }
       >
         <StockTable columns={columns} right={[...places, "รวม"]}>
-          {shown.map((row) => {
-            const total = places.reduce(
-              (sum, place) => sum + (row.at[place]?.left ?? 0),
-              0,
-            );
-            const late = places.filter((place) => row.at[place]?.stale);
-            const [tone, text]: [Tone, string] =
-              total <= 0
-                ? ["danger", "หมด"]
-                : late.length
-                  ? ["warning", `ยังไม่ได้นับ: ${late.join(", ")}`]
-                  : ["success", "พร้อมใช้"];
-            return (
-              <tr key={row.sku}>
-                <Cell className="font-mono whitespace-nowrap text-accent">
-                  {row.sku}
-                </Cell>
-                <Cell className="font-semibold md:whitespace-nowrap">
-                  {row.name}
-                </Cell>
-                {places.map((place) => {
-                  const h = row.at[place];
-                  return h ? (
-                    <Cell
-                      key={place}
-                      right
-                      tone={
-                        h.left <= 0 ? "danger" : h.stale ? "warning" : undefined
-                      }
-                    >
-                      {qty(h.left)}
-                      {h.stale && (
-                        <span className="block text-caption font-normal">
-                          {h.stale}
-                        </span>
-                      )}
-                    </Cell>
-                  ) : (
-                    <Cell key={place} right>
-                      <Muted as="span">—</Muted>
-                    </Cell>
-                  );
-                })}
-                {!where && (
-                  <Cell right tone={total < 0 ? "danger" : undefined}>
-                    {qty(total)}
-                  </Cell>
-                )}
-                <Cell tone={tone} className="whitespace-nowrap">
-                  {text}
-                </Cell>
-              </tr>
-            );
-          })}
+          {shown.map((row) => (
+            <tr key={row.sku}>
+              <Cell className="font-mono whitespace-nowrap text-accent">
+                {row.sku}
+              </Cell>
+              <Cell className="font-semibold md:whitespace-nowrap">
+                {row.name}
+              </Cell>
+              {places.map((place) => (
+                <HeldCell key={place} held={row.at[place]} today={today} />
+              ))}
+              <StatusCells at={row.at} places={places} total={!where} />
+            </tr>
+          ))}
           {shown.length === 0 && (
             <tr>
               <Cell
@@ -169,10 +177,10 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         </StockTable>
       </DayCard>
       <Caption>
-        หน้านี้ดูได้อย่างเดียว แอดมินสาขาเป็นคนนับจากหน้าของสาขา · ช่องสีเหลือง
-        = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน · ช่องสีแดง = ไม่เหลือ ·
-        วัสดุยังไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที · เนื้อ ข้าวเหนียว
-        และน้ำพริกอยู่ที่หน้า Stock
+        หน้านี้ดูได้อย่างเดียว แอดมินสาขาเป็นคนนับจากหน้าของสาขา ·
+        วัสดุนับเป็นชิ้น · ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ·
+        ช่องสีแดง = ไม่เหลือ · วัสดุยังไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที ·
+        เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock
       </Caption>
     </div>
   );

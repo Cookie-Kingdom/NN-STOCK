@@ -568,6 +568,9 @@ export function branchMeat(db: Database, branch: string, today: string) {
     else kg -= meatUsedKg(db.config, e);
   return { kg, counted, countedToday: counted?.date === today };
 }
+/** A count is late when there is none, or the last one is more than 7 days before `today`. */
+const staleCount = (countedOn: string, today: string) =>
+  !countedOn || Date.parse(today) - Date.parse(countedOn) > 7 * 86400000;
 /** V2-CAL-11 / V2-BR-03: the last count, plus what payments bought for the branch since, less
  *  the boxes sold and given × `perBox`. Stale = never counted, or more than 7 days ago. */
 export function branchMaterial(
@@ -588,12 +591,11 @@ export function branchMaterial(
       qty += num(e.values, "qty");
     else if (e.kind === "sale" || e.kind === "influencerBox")
       qty -= num(e.values, "boxes") * perBox;
-  const stale =
-    !countedOn || Date.parse(today) - Date.parse(countedOn) > 7 * 86400000;
-  return { qty, countedOn, stale };
+  return { qty, countedOn, stale: staleCount(countedOn, today) };
 }
-/** V2-CAL-12: chili is counted in the sale form only; payments add, sales and gifts take. */
-export function branchChili(db: Database, branch: string) {
+/** V2-CAL-12: chili is counted in the sale form only; payments add, sales and gifts take.
+ *  Stale as a material is. */
+export function branchChili(db: Database, branch: string, today: string) {
   let qty = 0,
     countedOn = "";
   for (const e of branchWalk(db, branch))
@@ -604,7 +606,7 @@ export function branchChili(db: Database, branch: string) {
       qty -= num(e.values, "chiliAddons");
     else if (e.kind === "pay" && e.values.item === "chili")
       qty += num(e.values, "qty");
-  return { qty, countedOn };
+  return { qty, countedOn, stale: staleCount(countedOn, today) };
 }
 /** What payments bought of `item` for the branch, summed. Not a balance: for an item with no
  *  count and no use jotted (ข้าวเหนียว), nothing is ever taken from it. */

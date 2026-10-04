@@ -90,6 +90,34 @@ export const Left = ({ n }: { n: number }) => (
   </Cell>
 );
 
+/** When a material or the chili was last counted: yellow when never, or more than 7 days ago. */
+function Counted({
+  s,
+  today,
+}: {
+  s: { countedOn: string; stale: boolean };
+  today: string;
+}) {
+  return (
+    <Cell tone={s.stale ? "warning" : "success"}>
+      <span className="whitespace-nowrap">
+        {!s.countedOn
+          ? "ยังไม่เคยนับ"
+          : s.countedOn === today
+            ? "วันนี้"
+            : thaiDay(s.countedOn)}
+      </span>
+      {/* The space sits outside the span: the cell may break there, not the name. */}
+      {s.countedOn && s.stale && (
+        <>
+          {" "}
+          <span className="whitespace-nowrap">· เกิน 7 วัน</span>
+        </>
+      )}
+    </Cell>
+  );
+}
+
 /** One branch's materials and chili: what is left, when each was last counted (yellow when
  *  never, or more than 7 days ago), and an input per material. 「บันทึกยอดนับ」 saves one
  *  `materials` note dated today that holds only the rows typed (V2-BR-03). */
@@ -108,7 +136,7 @@ export function MaterialCount({
   const { db, account, today } = ws;
   const [counts, setCounts] = useState<Values>({});
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const chili = branchChili(db, branch);
+  const chili = branchChili(db, branch, today);
   const save = async () => {
     setError("");
     const typed = Object.fromEntries(
@@ -147,22 +175,7 @@ export function MaterialCount({
               <tr key={m.id}>
                 <Cell className="md:whitespace-nowrap">{m.name}</Cell>
                 <Left n={s.qty} />
-                <Cell tone={s.stale ? "warning" : "success"}>
-                  <span className="whitespace-nowrap">
-                    {!s.countedOn
-                      ? "ยังไม่เคยนับ"
-                      : s.countedOn === today
-                        ? "วันนี้"
-                        : thaiDay(s.countedOn)}
-                  </span>
-                  {/* The space sits outside the span: the cell may break there, not the name. */}
-                  {s.countedOn && s.stale && (
-                    <>
-                      {" "}
-                      <span className="whitespace-nowrap">· เกิน 7 วัน</span>
-                    </>
-                  )}
-                </Cell>
+                <Counted s={s} today={today} />
                 <Cell right className="py-1.5">
                   {/* Text, not number: `mutate` words the refusal of a bad figure. */}
                   <Input
@@ -182,13 +195,7 @@ export function MaterialCount({
           <tr>
             <Cell className="md:whitespace-nowrap">น้ำพริก (หลอด)</Cell>
             <Left n={chili.qty} />
-            <Cell className="whitespace-nowrap">
-              {!chili.countedOn
-                ? "ยังไม่เคยนับ"
-                : chili.countedOn === today
-                  ? "วันนี้"
-                  : thaiDay(chili.countedOn)}
-            </Cell>
+            <Counted s={chili} today={today} />
             <Cell right className="font-normal text-text-secondary">
               นับในฟอร์มยอดขาย
             </Cell>

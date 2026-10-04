@@ -83,6 +83,13 @@ export const pages: Record<
   },
 };
 
+/** The line under a page's name. The Owner's and the Manager's Inventory holds the materials
+ *  only (their meat and chili are on Stock); a branch's holds all three. */
+export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
+  tab === "stock" && account.role !== "branch"
+    ? "วัสดุคงเหลือของแต่ละสาขา"
+    : pages[tab].description;
+
 /** The pages an account has, in menu order: the Owner all eight, the Account Manager six
  *  (no Overview, no Settings), a branch two. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>

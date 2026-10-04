@@ -75,13 +75,20 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "รวม",
     "สถานะ",
   ]);
-  // Sticky rice is what was bought so far, not a balance; chili has nothing left.
+  // Sticky rice is what was bought so far, not a balance; chili has nothing left, and says
+  // under each figure that it was never counted.
   await expect(
     rice.getByRole("row", { name: /^ข้าวเหนียว/ }).getByRole("cell"),
   ).toHaveText(["ข้าวเหนียว", "0", "0", "0", "ซื้อเข้าสะสม · ยังไม่มียอดนับ"]);
   await expect(
     rice.getByRole("row", { name: /^น้ำพริก/ }).getByRole("cell"),
-  ).toHaveText(["น้ำพริก", "0", "0", "0", "หมด"]);
+  ).toHaveText([
+    "น้ำพริก (หลอด)",
+    "0ยังไม่เคยนับ",
+    "0ยังไม่เคยนับ",
+    "0",
+    "หมด",
+  ]);
   await expect(jotButtons(page)).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   // Inventory: the materials, a row per material and a column per place.
@@ -321,7 +328,13 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
     "success",
   );
   await expect(stockRow(card, "ถ้วยพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(9);
+  // The other nine materials, and the chili: never counted, yellow as a material is.
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(10);
+  await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
+  await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveAttribute(
+    "data-tone",
+    "warning",
+  );
 
   await card.getByRole("textbox", { name: "นับ กล่องพิมพ์ลาย" }).fill("95");
   await card.getByRole("button", { name: "บันทึกยอดนับ" }).click();
@@ -329,7 +342,7 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   await expect(stale.nth(1)).toHaveText("95");
   await expect(stale.nth(2)).toHaveAttribute("data-tone", "success");
   await expect(stale.nth(2)).toHaveText("วันนี้");
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(8);
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(9);
 });
 
 test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจริง left empty saves with no yellow, and the meat drops by boxes × kg per box", async ({
