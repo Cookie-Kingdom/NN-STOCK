@@ -238,7 +238,8 @@ export function BranchStock({ ws }: { ws: Workspace }) {
   const meat = branchMeat(ws.db, branch, ws.today);
   const done = meat.countedToday;
   return (
-    <div className="flex flex-col gap-4">
+    // A wide screen: the meat beside the materials.
+    <div className="flex flex-col gap-4 min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] min-[1700px]:items-start">
       <section
         aria-label="เนื้อคงเหลือ"
         data-tone={done ? "success" : "warning"}

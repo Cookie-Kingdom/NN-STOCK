@@ -91,3 +91,15 @@ export const phone = {
   },
   globals: { viewport: { value: "phone", isRotated: false } },
 };
+
+/** Spread into a story to show it at 1920px, where a page lays its parts out side by side. */
+export const wide = {
+  parameters: {
+    viewport: {
+      options: {
+        wide: { name: "1920px", styles: { width: "1920px", height: "1080px" } },
+      },
+    },
+  },
+  globals: { viewport: { value: "wide", isRotated: false } },
+};

@@ -1,28 +1,38 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
-import { Badge } from "@/components/atoms/Badge";
+import { useId, useRef, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Caption } from "@/components/atoms/Text";
 import { Dialog } from "@/components/molecules/Dialog";
-import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
-import { FormGrid } from "@/components/molecules/FormGrid";
-import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryFieldControl";
-import { lotLabel } from "@/components/organisms/shared/noteText";
+import {
+  FieldSections,
+  FiguresPanel,
+  FormFooter,
+  SaveButton,
+  fullDay,
+  type Figure,
+  type Figures,
+} from "@/components/organisms/shared/formParts";
+import {
+  lotLabel,
+  noteAmount,
+  noteLine,
+} from "@/components/organisms/shared/noteText";
 import { PoDocumentDialog } from "@/components/organisms/shared/PoDocumentDialog";
+import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type {
   Draft,
   Workspace,
 } from "@/components/organisms/workspace/useWorkspace";
 import { saveAttachment } from "@/lib/attachment-store";
-import { qty } from "@/lib/format";
+import { baht, qty, thaiDay } from "@/lib/format";
 import { attachmentFolder, defaults, fields, type Field } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
@@ -44,6 +54,7 @@ import {
   remainingKg,
   roundsOf,
   shipments,
+  supplierBalances,
   titles,
   visibleNotes,
   type Actor,
@@ -52,18 +63,27 @@ import {
   type NoteKind,
   type Values,
 } from "@/lib/store";
+import { ledgerStatuses } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
 
-/** The sample's form grid: as many 180px columns as fit. */
-const grid =
-  "my-0 grid-cols-[repeat(auto-fill,minmax(180px,1fr))] items-start gap-4";
 /** A kg the web works out, as typed into a field: at most two decimals. */
 const kgValue = (x: number) => String(Math.round(x * 100) / 100);
+const kgText = (x: number) => `${qty(x)} กก.`;
+
+/** The workspace's dialogs, floating over the page so it stays where it was: the note being
+ *  jotted, and the confirm a 「ลบ」 opens. */
+export function Composer({ ws }: { ws: Workspace }) {
+  return (
+    <>
+      <DraftDialog ws={ws} />
+      {ws.deleting && <ConfirmDelete ws={ws} entry={ws.deleting} />}
+    </>
+  );
+}
 
 /** The dialog where a note is jotted: the form of `draft.kind` (opened by a page's jot
- *  buttons or a todo), or with `editId` the same form on that entry. It floats over the
- *  page, so the page stays where it was. */
-export function Composer({ ws }: { ws: Workspace }) {
+ *  buttons or a todo), or with `editId` the same form on that entry. */
+function DraftDialog({ ws }: { ws: Workspace }) {
   const { draft, db, account } = ws;
   if (!draft) return null;
   const target = draft.editId
@@ -97,6 +117,70 @@ export function Composer({ ws }: { ws: Workspace }) {
   );
 }
 
+/** The step between 「ลบ」 and the delete: which note it is, what follows, and focus on
+ *  「ยกเลิก」. Confirming deletes as before, with 「เลิกทำ」 on the toast. */
+function ConfirmDelete({ ws, entry }: { ws: Workspace; entry: Entry }) {
+  const { db } = ws;
+  const { confirmRemove } = useEntryActions(ws);
+  const textId = useId();
+  const close = () => ws.setDeleting(null);
+  const amount = noteAmount(db, entry);
+  const rows = [
+    ["บันทึก", titles[entry.kind]],
+    ["รายละเอียด", noteLine(db, entry) || "—"],
+    [
+      "วันที่",
+      [fullDay(entry.date), entry.lotId && lotLabel(db, entry.lotId)]
+        .filter(Boolean)
+        .join(" · "),
+    ],
+    ...(amount ? [["ยอด", amount.text]] : []),
+  ];
+  return (
+    <Dialog
+      size="sm"
+      title="ลบบันทึกนี้?"
+      alert={{ describedBy: textId }}
+      onClose={close}
+    >
+      <div className="flex flex-col gap-4 px-6.5 pt-3 pb-6 max-md:px-4 max-md:pb-4">
+        <dl className="m-0 flex flex-col gap-2 rounded-md border border-border bg-bg px-4 py-3">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex items-baseline gap-3">
+              <dt className="w-20 shrink-0 text-body-sm text-text-secondary">
+                {label}
+              </dt>
+              <dd className="m-0 min-w-0 font-medium [overflow-wrap:anywhere] tabular-nums">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p id={textId} className="m-0 text-body-sm text-text-secondary">
+          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม · ยังดูได้ใน Change log
+        </p>
+        <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
+          <Button data-autofocus onClick={close}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              close();
+              confirmRemove(entry);
+            }}
+          >
+            ลบ
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+/** The form of every note kind. `md` and one column for a short note; `lg` with the
+ *  「เว็บคิดให้」 rail for a kind the web works figures out for (and, without a rail, for a
+ *  long note). */
 function NoteForm({
   ws,
   draft,
@@ -186,11 +270,8 @@ function NoteForm({
   const uploaded = useRef<Record<string, string>>({});
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
 
-  const shown = fields(kind, db, by, lotId).filter(
-    (f) => !f.when || f.when(values),
-  );
-  const main = shown
-    .filter((f) => !f.more)
+  const shown = fields(kind, db, by, lotId)
+    .filter((f) => !f.when || f.when(values))
     .map((f) => {
       // A ledger item: the Item No. the name typed gets (V2-LED-03).
       if (kind !== "expense" || f.key !== "item" || !values.item?.trim())
@@ -198,9 +279,6 @@ function NoteForm({
       const no = itemNoFor(db, values.item, target?.values);
       return { ...f, hint: no.isNew ? `ใหม่: ${no.no}` : `Item No. ${no.no}` };
     });
-  const more = shown.filter((f) => f.more);
-  // Open from the start when an edit has something under it; the user's toggle then stands.
-  const [moreOpen] = useState(() => more.some((f) => values[f.key]));
   const set = (key: string, value: string) => {
     typed.current.add(key);
     setValues((last) => ({ ...last, [key]: value }));
@@ -212,13 +290,12 @@ function NoteForm({
     set(key, file?.name ?? "");
   };
 
-  // A dispatch: what the PO รมควัน has room for, and whether its PO เนื้อ lines add up.
-  const lines = kind === "dispatch" ? lineCheck(values) : undefined;
-  const capacity =
-    kind === "dispatch" && lotId && values.dispatchKg
-      ? capacityWarning(db, lotId, Number(values.dispatchKg) || 0, target?.id)
-      : "";
-  const roundNote = roundText(db, kind, lotId, values);
+  // A dispatch whose PO เนื้อ lines do not add up cannot be saved; the footer says why.
+  const gap = kind === "dispatch" ? lineCheck(values).gap : "";
+  const figures = noteFigures(kind, db, lotId, values, target);
+  const size = figures || shown.length > 8 ? "lg" : "md";
+  const core = shown.filter((f) => f.core);
+  const picksBranch = info.group === "branch" && account.role !== "branch";
 
   const save = async (again: boolean) => {
     setError("");
@@ -271,21 +348,17 @@ function NoteForm({
 
   return (
     <Dialog
-      className="w-180"
+      size={size}
       onClose={ws.closeDraft}
       title={`${target ? "แก้ไข: " : ""}${titles[kind]}`}
-      meta={
-        shown.some((f) => f.core) ? (
-          <Badge
-            tone="warning"
-            className="rounded-md border border-warning/40 font-medium whitespace-normal"
-          >
-            ช่องสีเหลือง = {missingText} บันทึกได้และเติมทีหลังได้
-          </Badge>
-        ) : (
-          <Caption>จดเพิ่มได้ ไม่มีช่องที่ขึ้นสีเหลือง</Caption>
-        )
-      }
+      subtitle={[
+        target && `แก้ไขบันทึกของ ${thaiDay(target.date)}`,
+        lotId && lotLabel(db, lotId),
+        picksBranch && `สาขา${branch}`,
+        !target && date && fullDay(date),
+      ]
+        .filter(Boolean)
+        .join(" · ")}
     >
       <form
         aria-label="จดบันทึก"
@@ -296,119 +369,120 @@ function NoteForm({
           save(false);
         }}
       >
-        <div className="flex min-h-0 flex-auto flex-col gap-4 overflow-auto p-6.5 max-md:p-4">
-          <FormGrid className={grid}>
-            <FormField label="วันที่">
-              <Input
-                type="date"
-                max={today}
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </FormField>
-            {info.lot && (
-              <FormField label={info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}>
-                <Select
-                  value={lotId}
-                  onChange={(event) => pickLot(event.target.value)}
-                >
-                  {/* An edit moves a note to another lot; it never clears one. */}
-                  {info.lot === "optional" && !target?.lotId && (
-                    <option value="">ไม่ระบุ PO รมควัน</option>
-                  )}
-                  {info.lot !== "optional" && !lots.length && (
-                    <option value="">
-                      ยังไม่มี {info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
-                    </option>
-                  )}
-                  {lotId && !lots.some((lot) => lot.id === lotId) && (
-                    <option value={lotId}>{lotLabel(db, lotId)}</option>
-                  )}
-                  {lots.map((lot) => (
-                    <option key={lot.id} value={lot.id}>
-                      {lot.poId}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
-            {info.group === "branch" && account.role !== "branch" && (
-              <FormField label="สาขา">
-                {/* An entry's branch is fixed when it is saved. */}
-                <Select
-                  value={branch}
-                  disabled={!!target}
-                  onChange={(event) => setBranch(event.target.value)}
-                >
-                  {branches.map((name) => (
-                    <option key={name}>{name}</option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
-            {main.map((f, index) =>
-              f.type === "poLines" ? (
-                <PoLinesControl
-                  key={f.key}
-                  field={f}
-                  db={db}
-                  values={values}
-                  set={set}
-                  exceptId={target?.id}
-                />
-              ) : (
-                <EntryFieldControl
-                  key={f.key}
-                  field={f}
-                  autoFocus={index === 0}
-                  values={values}
-                  set={set}
-                  onFile={onFile}
-                  onFileError={setError}
-                />
-              ),
-            )}
-          </FormGrid>
-          {capacity && (
-            <Notice tone="warning" className="my-0 text-body-sm">
-              {capacity}
-            </Notice>
+        {/* With a rail the form and the rail scroll on their own from md up; below md they
+            stack in one scroll area, the rail as a box under the form. */}
+        <div
+          className={cn(
+            "min-h-0 flex-auto overflow-auto",
+            figures &&
+              "md:grid md:grid-cols-[minmax(0,1fr)_17.5rem] md:grid-rows-[minmax(0,1fr)] md:overflow-hidden",
           )}
-          {roundNote && (
-            <p
-              aria-live="polite"
-              className="m-0 text-body-sm text-text-secondary"
-            >
-              {roundNote}
-            </p>
-          )}
-          {more.length > 0 && (
-            <details className="group" open={moreOpen || undefined}>
-              <summary className="w-fit items-center justify-start gap-1 text-label text-accent">
-                จดเพิ่มได้ {more.length} ช่อง
-                <ChevronDown
-                  size={16}
-                  aria-hidden
-                  className="transition-transform duration-(--motion-base) ease-(--ease-standard) group-open:rotate-180"
-                />
-              </summary>
-              <FormGrid className={`${grid} mt-2`}>
-                {more.map((f) => (
+        >
+          <div className="flex flex-col gap-5 p-6.5 max-md:p-4 md:overflow-auto">
+            <FieldSections
+              whenTitle={
+                info.lot
+                  ? "เมื่อไร และของ PO ไหน"
+                  : picksBranch
+                    ? "เมื่อไร และของสาขาไหน"
+                    : undefined
+              }
+              shown={shown}
+              narrow={size === "md"}
+              when={
+                <>
+                  <FormField label="วันที่">
+                    <Input
+                      type="date"
+                      max={today}
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                    />
+                  </FormField>
+                  {info.lot && (
+                    <FormField
+                      label={info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
+                    >
+                      <Select
+                        value={lotId}
+                        onChange={(event) => pickLot(event.target.value)}
+                      >
+                        {/* An edit moves a note to another lot; it never clears one. */}
+                        {info.lot === "optional" && !target?.lotId && (
+                          <option value="">ไม่ระบุ PO รมควัน</option>
+                        )}
+                        {info.lot !== "optional" && !lots.length && (
+                          <option value="">
+                            ยังไม่มี{" "}
+                            {info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
+                          </option>
+                        )}
+                        {lotId && !lots.some((lot) => lot.id === lotId) && (
+                          <option value={lotId}>{lotLabel(db, lotId)}</option>
+                        )}
+                        {lots.map((lot) => (
+                          <option key={lot.id} value={lot.id}>
+                            {lot.poId}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                  )}
+                  {picksBranch && (
+                    <FormField label="สาขา">
+                      {/* An entry's branch is fixed when it is saved. */}
+                      <Select
+                        value={branch}
+                        disabled={!!target}
+                        onChange={(event) => setBranch(event.target.value)}
+                      >
+                        {branches.map((name) => (
+                          <option key={name}>{name}</option>
+                        ))}
+                      </Select>
+                    </FormField>
+                  )}
+                </>
+              }
+              render={(f, first) =>
+                f.type === "poLines" ? (
+                  <PoLinesControl
+                    key={f.key}
+                    field={f}
+                    db={db}
+                    values={values}
+                    set={set}
+                    exceptId={target?.id}
+                  />
+                ) : (
                   <EntryFieldControl
                     key={f.key}
                     field={f}
+                    autoFocus={first}
                     values={values}
                     set={set}
                     onFile={onFile}
                     onFileError={setError}
                   />
-                ))}
-              </FormGrid>
-            </details>
+                )
+              }
+            />
+          </div>
+          {figures && (
+            <FiguresPanel
+              figures={figures}
+              className="p-6.5 max-md:m-4 max-md:rounded-lg max-md:border max-md:border-border max-md:p-4 md:overflow-auto md:border-l md:border-border"
+            />
           )}
-          <FormError error={error} className="my-0" />
         </div>
-        <footer className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border bg-bg px-6.5 py-4 max-md:px-4 max-md:py-3">
+        <FormFooter
+          stack={size === "md"}
+          missing={
+            core.length ? core.filter((f) => !values[f.key]).length : undefined
+          }
+          blocked={gap && `บันทึกไม่ได้ · ${gap}`}
+          error={error}
+        >
           <Button
             variant="link"
             className="min-h-11 px-2"
@@ -417,21 +491,12 @@ function NoteForm({
             ยกเลิก
           </Button>
           {!target && (
-            <Button
-              disabled={saving || lines?.ok === false}
-              onClick={() => save(true)}
-            >
+            <Button disabled={saving || !!gap} onClick={() => save(true)}>
               บันทึกและจดต่อ
             </Button>
           )}
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={saving || lines?.ok === false}
-          >
-            บันทึก
-          </Button>
-        </footer>
+          <SaveButton saving={saving} disabled={!!gap} />
+        </FormFooter>
       </form>
     </Dialog>
   );
@@ -450,30 +515,183 @@ function formLines(json = ""): Line[] {
   } catch {}
   return [];
 }
-/** A dispatch's PO เนื้อ lines against its dispatchKg: the status line, and whether it may be
- *  saved (every line has a PO and a kg, and they add up; `mutate` refuses the rest). An empty
- *  dispatchKg becomes the lines' total (mutate fills it in). */
+/** A dispatch's PO เนื้อ lines against its dispatchKg. `gap` is why it may not be saved, ""
+ *  when it may: every line has a PO and a kg, and they add up (`mutate` refuses the rest).
+ *  An empty dispatchKg becomes the lines' total (mutate fills it in). */
 function lineCheck(values: Values) {
   const rows = formLines(values.poLines);
   const total = rows.reduce((a, row) => a + (Number(row.kg) || 0), 0);
   const target = Number(values.dispatchKg) || 0;
   const left = target - total;
   const even = !target || Math.abs(left) < 0.005;
-  return {
-    ok:
-      rows.length > 0 &&
-      rows.every((row) => row.poLotId && row.kg.trim()) &&
-      even,
-    text: !rows.length
-      ? "ยังไม่ได้เลือก PO เนื้อ"
-      : !target
-        ? `รวม ${qty(total)} กก.`
-        : `รวม ${qty(total)} / ${qty(target)} กก. · ${even ? "ครบ" : left > 0 ? `ขาด ${qty(left)}` : `เกิน ${qty(-left)}`}`,
-  };
+  const gap = !rows.length
+    ? "ยังไม่ได้เลือก PO เนื้อ"
+    : even
+      ? rows.every((row) => row.poLotId && row.kg.trim())
+        ? ""
+        : "บรรทัด PO เนื้อยังไม่ครบ"
+      : left > 0
+        ? `ขาด ${kgText(left)}`
+        : `เกิน ${kgText(-left)}`;
+  return { total, target, gap };
+}
+
+/** 「เว็บคิดให้」 for a note, worked out from what is typed so far; `null` for a kind with
+ *  nothing to work out (it gets no rail). */
+function noteFigures(
+  kind: NoteKind,
+  db: Database,
+  lotId: string,
+  v: Values,
+  target?: Entry,
+): Figures | null {
+  const typed = (key: string) => v[key] && Number.isFinite(Number(v[key]));
+  if (kind === "dispatch") {
+    // Whether the PO เนื้อ lines add up, and what the PO รมควัน has room for.
+    const lines = lineCheck(v);
+    const kg = lines.target;
+    const room = lotId ? remainingKg(db, lotId, target?.id) : null;
+    return {
+      rows: [
+        { label: "รวมบรรทัด PO เนื้อ", value: kgText(lines.total) },
+        { label: "ต้องส่ง", value: kg ? kgText(kg) : "—" },
+        {
+          label: "ขาด / เกิน",
+          value: lines.gap || "ครบ",
+          tone: lines.gap ? "warning" : "success",
+        },
+        {
+          label: "PO รมควันรับได้อีก",
+          value: room === null ? "—" : kgText(room),
+          rule: true,
+        },
+        {
+          label: "เหลือหลังส่งรอบนี้",
+          value: room === null ? "—" : kgText(room - kg),
+          tone: room !== null && room - kg < 0 ? "warning" : undefined,
+        },
+      ],
+      note:
+        lotId && v.dispatchKg ? capacityWarning(db, lotId, kg, target?.id) : "",
+    };
+  }
+  if (kind === "cmReceive" || kind === "smoked") {
+    // A round step: a receipt against what was sent, a smoked weight's waste.
+    const round = lotId
+      ? roundsOf(db, lotId).find((r) => r.dispatch.id === v.dispatchId)
+      : undefined;
+    if (!round) return { rows: [], note: "เลือกรอบส่งไปรมควันเพื่อดูตัวเลข" };
+    if (kind === "cmReceive") {
+      const got = typed("receivedKg") ? Number(v.receivedKg) : null;
+      const diff = got === null ? 0 : got - round.sentKg;
+      const same = Math.abs(diff) < 0.005;
+      return {
+        rows: [
+          { label: "ส่งรอบนี้", value: kgText(round.sentKg) },
+          { label: "รับจริง", value: got === null ? "—" : kgText(got) },
+          {
+            label: "ต่างจากที่ส่ง",
+            value:
+              got === null
+                ? "—"
+                : same
+                  ? "ตรงกัน"
+                  : `${diff > 0 ? "+" : "−"}${kgText(Math.abs(diff))}`,
+            tone: got === null ? undefined : same ? "success" : "warning",
+            rule: true,
+          },
+        ],
+      };
+    }
+    // The base: what Chef House received this round, else what was sent.
+    const base = round.received ? round.receivedKg : round.sentKg;
+    const smoked = typed("smokedKg") ? Number(v.smokedKg) : null;
+    const waste = smoked === null ? 0 : base - smoked;
+    return {
+      rows: [
+        {
+          label: round.received ? "Chef House รับ" : "ส่งรอบนี้",
+          value: kgText(base),
+        },
+        {
+          label: "หลังรมควัน",
+          value: smoked === null ? "—" : kgText(smoked),
+        },
+        {
+          label: "Waste",
+          value: smoked === null ? "—" : kgText(waste),
+          rule: true,
+        },
+        {
+          label: "Waste %",
+          value:
+            smoked === null || base <= 0
+              ? "—"
+              : `${qty((waste / base) * 100)}%`,
+        },
+      ],
+    };
+  }
+  if (kind === "expense") {
+    const no = itemNoFor(db, v.item ?? "", target?.values);
+    const amount = Number(v.amount) || 0;
+    // As the ledger reads a row: a status typed, else paid once it has an amount.
+    const status = (v.status ||
+      (amount ? "paid" : "pending")) as keyof typeof ledgerStatuses;
+    return {
+      rows: [
+        { label: "Item No.", value: no.no || "—" },
+        {
+          label: "รายการนี้",
+          value: !no.no ? "—" : no.isNew ? "ใหม่" : "เดิม",
+        },
+        { label: "สถานะ", value: ledgerStatuses[status] ?? "—", rule: true },
+        {
+          label: "ยอดค้างจ่าย",
+          value: baht(status === "pending" ? amount : 0),
+          tone: status === "pending" && amount ? "warning" : undefined,
+        },
+      ],
+      note: no.no ? "" : "พิมพ์ชื่อรายการเพื่อดู Item No.",
+    };
+  }
+  if (kind === "pay") {
+    const amount = Number(v.amount) || 0;
+    const rows: Figure[] = [{ label: "จ่ายครั้งนี้", value: baht(amount) }];
+    if (!v.supplier)
+      return { rows, note: "ใส่ผู้ขายเพื่อดูยอดค้างจ่ายก่อนและหลังจ่าย" };
+    const balance = supplierBalances(db).find((b) => b.supplier === v.supplier);
+    // An edit: the saved balance already counts this payment (and its bill), so take the
+    // saved one back out before laying what is typed over it.
+    const own =
+      balance && target?.values.supplier === v.supplier
+        ? (Number(target.values.amount) || 0) -
+          (Number(target.values.fullAmount) || 0)
+        : 0;
+    const before = (balance?.left ?? 0) + own + (Number(v.fullAmount) || 0);
+    const after = before - amount;
+    return {
+      rows: [
+        ...rows,
+        {
+          label: `ค้างจ่าย ${v.supplier} ก่อนจ่าย`,
+          value: baht(before),
+          rule: true,
+        },
+        {
+          label: "หลังจ่าย",
+          value: baht(after),
+          tone: after > 0 ? "warning" : "success",
+        },
+      ],
+    };
+  }
+  return null;
 }
 
 /** A dispatch's PO เนื้อ lines: rows of [PO | kg | remove]. A PO picked fills its kg with what
- *  it still holds, up to what the dispatch still lacks (`prefillLineKg`); a PO is picked once. */
+ *  it still holds, up to what the dispatch still lacks (`prefillLineKg`); a PO is picked once.
+ *  Whether they add up is in the rail. */
 function PoLinesControl({
   field: f,
   db,
@@ -508,7 +726,6 @@ function PoLinesControl({
       : "";
     write(rows.map((row, i) => (i === index ? { poLotId, kg } : row)));
   };
-  const status = lineCheck(values);
   const empty = "border-warning/60 bg-warning-subtle";
   return (
     <FormField
@@ -525,11 +742,11 @@ function PoLinesControl({
       }
       hint={f.hint}
     >
-      <div className="mt-2 flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {rows.map((row, index) => (
           <div
             key={index}
-            className="grid grid-cols-[minmax(0,1fr)_120px_auto] items-center gap-2 max-md:grid-cols-[minmax(0,1fr)_88px_auto]"
+            className="grid grid-cols-[minmax(0,1fr)_120px_auto] items-end gap-2 max-md:grid-cols-[minmax(0,1fr)_88px_auto]"
           >
             <Select
               aria-label={`PO เนื้อ บรรทัด ${index + 1}`}
@@ -558,7 +775,7 @@ function PoLinesControl({
               inputMode="decimal"
               autoComplete="off"
               value={row.kg}
-              className={cn(!row.kg && empty)}
+              className={cn("text-right tabular-nums", !row.kg && empty)}
               onChange={(event) =>
                 write(
                   rows.map((r, i) =>
@@ -569,50 +786,21 @@ function PoLinesControl({
             />
             <IconButton
               label={`ลบบรรทัด ${index + 1}`}
-              icon={<X />}
+              icon={<X size={18} />}
               onClick={() => write(rows.filter((_, i) => i !== index))}
             />
           </div>
         ))}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {rows.length < pos.length && (
-            <Button
-              icon={<Plus />}
-              onClick={() => write([...rows, { poLotId: "", kg: "" }])}
-            >
-              เพิ่ม PO เนื้อ
-            </Button>
-          )}
-          <span
-            aria-live="polite"
-            className={cn(
-              "text-body-sm font-semibold",
-              status.ok ? "text-success" : "text-warning",
-            )}
+        {rows.length < pos.length && (
+          <Button
+            icon={<Plus />}
+            className="mt-1 w-fit"
+            onClick={() => write([...rows, { poLotId: "", kg: "" }])}
           >
-            {status.text}
-          </span>
-        </div>
+            เพิ่ม PO เนื้อ
+          </Button>
+        )}
       </div>
     </FormField>
   );
-}
-
-/** The live line under a round step: a receipt against what was sent, a smoked weight's waste. */
-function roundText(db: Database, kind: NoteKind, lotId: string, v: Values) {
-  const raw = kind === "cmReceive" ? v.receivedKg : v.smokedKg;
-  if ((kind !== "cmReceive" && kind !== "smoked") || !lotId || !raw) return "";
-  const round = roundsOf(db, lotId).find((r) => r.dispatch.id === v.dispatchId);
-  const typedKg = Number(raw);
-  if (!round || !Number.isFinite(typedKg)) return "";
-  if (kind === "cmReceive") {
-    const diff = typedKg - round.sentKg;
-    return Math.abs(diff) < 0.005
-      ? "ตรงกับตอนส่ง"
-      : `${diff > 0 ? "+" : "−"}${qty(Math.abs(diff))} กก. จากที่ส่ง ${qty(round.sentKg)} กก.`;
-  }
-  // The base: what Chef House received this round, else what was sent.
-  const base = round.received ? round.receivedKg : round.sentKg;
-  const waste = base - typedKg;
-  return `Waste ${qty(waste)} กก.${base > 0 ? ` (${qty((waste / base) * 100)}%)` : ""} จาก ${qty(base)} กก.${round.received ? "ที่รับ" : "ที่ส่ง"}`;
 }

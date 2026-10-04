@@ -32,7 +32,8 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
     .map((lot) => lotInfo(db, lot.id))
     .filter((info) => info.backKg > 0);
   return (
-    <div className="flex flex-col gap-4">
+    // A wide screen: the meat at the left, the branches' materials at the right.
+    <div className="flex flex-col gap-4 min-[1700px]:grid min-[1700px]:grid-cols-2 min-[1700px]:items-start">
       <DayCard
         aria-label="เนื้อ (กก.)"
         title="เนื้อ (กก.)"
@@ -88,22 +89,24 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
           })}
         </StockTable>
       </DayCard>
-      <Caption>
-        วัสดุและน้ำพริกไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที ·
-        แอดมินสาขาเป็นคนอัปเดตยอดนับจากหน้าของสาขา หน้านี้ดูได้อย่างเดียว ·
-        ไม่ได้นับเกิน 7 วันขึ้นสีเหลือง
-      </Caption>
-      <div className="grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1">
-        {branches.map((branch) => (
-          <MaterialCount
-            key={branch}
-            ws={ws}
-            branch={branch}
-            title={`วัสดุและน้ำพริก สาขา${branch}`}
-            note="แอดมินสาขาเป็นคนอัปเดต"
-            readOnly
-          />
-        ))}
+      <div className="flex min-w-0 flex-col gap-4">
+        <Caption>
+          วัสดุและน้ำพริกไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที ·
+          แอดมินสาขาเป็นคนอัปเดตยอดนับจากหน้าของสาขา หน้านี้ดูได้อย่างเดียว ·
+          ไม่ได้นับเกิน 7 วันขึ้นสีเหลือง
+        </Caption>
+        <div className="grid grid-cols-2 items-start gap-4 max-[1000px]:grid-cols-1">
+          {branches.map((branch) => (
+            <MaterialCount
+              key={branch}
+              ws={ws}
+              branch={branch}
+              title={`วัสดุและน้ำพริก สาขา${branch}`}
+              note="แอดมินสาขาเป็นคนอัปเดต"
+              readOnly
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

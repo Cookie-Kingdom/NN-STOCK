@@ -136,6 +136,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       </span>
     </button>
   );
+  const notes = visibleNotes(db, account).filter((e) => e.lotId === lot.id);
   const heading = (text: string) => (
     <h3 className="m-0 px-3 pt-2 pb-1 text-caption font-medium text-text-secondary max-[1000px]:hidden">
       {text}
@@ -193,25 +194,28 @@ export function LotsPage({ ws }: { ws: Workspace }) {
             );
           })}
         </Panel>
-        {/* key: picking another PO re-mounts the panel, so its content fades in. */}
+        {/* key: picking another PO re-mounts the panel, so its content fades in.
+            A wide screen: the PO's notes sit beside its figures, not under them. */}
         <Panel
           key={lot.id}
           flush
           aria-label={lot.poId}
-          className="animate-fade-in overflow-hidden"
+          className="animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
         >
-          <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4">
+          <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4 min-[1700px]:border-r min-[1700px]:border-b-0 min-[1700px]:last:col-span-full min-[1700px]:last:border-r-0">
             {lot.kind ? (
               <LotHead ws={ws} can={can} lot={lot} />
             ) : (
               <PoHead ws={ws} can={can} po={lot} />
             )}
           </div>
-          {visibleNotes(db, account)
-            .filter((e) => e.lotId === lot.id)
-            .map((e) => (
-              <NoteRow key={e.id} entry={e} ws={ws} dated />
-            ))}
+          {notes.length > 0 && (
+            <div className="min-w-0">
+              {notes.map((e) => (
+                <NoteRow key={e.id} entry={e} ws={ws} dated />
+              ))}
+            </div>
+          )}
         </Panel>
       </div>
     </div>

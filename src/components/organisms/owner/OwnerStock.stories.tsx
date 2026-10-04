@@ -4,6 +4,7 @@ import {
   WithWorkspace,
   dbFor,
   phone,
+  wide,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
@@ -47,3 +48,6 @@ export const Manager: Story = {
 
 /** จอ 390px: กล่องวัสดุของสองสาขาเรียงต่อกัน */
 export const Phone: Story = { ...phone };
+
+/** จอ 1920px: เนื้ออยู่ซ้าย วัสดุของสาขาอยู่ขวา */
+export const Wide: Story = { ...wide };

@@ -3,6 +3,7 @@ import {
   WithWorkspace,
   dbFor,
   phone,
+  wide,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
@@ -42,3 +43,6 @@ export const Empty: Story = { parameters: { db: seed } };
 
 /** จอ 390px: คอลัมน์เดียว ตัวเลขสองช่องต่อแถว */
 export const Phone: Story = { ...phone };
+
+/** จอ 1920px: จ่ายเงินล่าสุดเป็นคอลัมน์ที่สาม */
+export const Wide: Story = { ...wide };

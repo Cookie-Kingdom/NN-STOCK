@@ -6,7 +6,13 @@ import type { Account } from "@/lib/accounts";
 import { today as bangkokToday } from "@/lib/format";
 import { pagePath, tabAt, type Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
-import { todos, type NoteKind, type Todo, type Values } from "@/lib/store";
+import {
+  todos,
+  type Entry,
+  type NoteKind,
+  type Todo,
+  type Values,
+} from "@/lib/store";
 
 /** What the composer opens on: a `kind` is that kind's form,
  *  started from the lot, branch, date and values given; an `editId` is the edit of that entry. */
@@ -43,6 +49,7 @@ export function useWorkspace(account: Account) {
   const [tab, showTab] = useOptimistic(page);
   const [draft, setDraft] = useState<(Draft & { seq: number }) | null>(null);
   const [toast, show] = useState<ToastState>({ id: 0, message: "" });
+  const [deleting, setDeleting] = useState<Entry | null>(null);
   // The PO the Lots page opens on when another page links to it (`showLot`).
   const [focusLot, setFocusLot] = useState("");
   const say = (next: Omit<ToastState, "id">) =>
@@ -91,6 +98,9 @@ export function useWorkspace(account: Account) {
     /** Opens the composer on the edit of one entry. */
     edit: (editId: string) => jot({ editId }),
     closeDraft: () => setDraft(null),
+    /** The note a 「ลบ」 is asking about: the composer shows its confirm. `null` closes it. */
+    deleting,
+    setDeleting,
     /** Everything yellow for this account: the todo box and the bell list it. */
     todos: list,
     /** What selecting a todo does: the form it names, the edit of its entry, or the Inventory page. */

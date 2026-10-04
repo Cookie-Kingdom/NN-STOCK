@@ -10,11 +10,11 @@ import {
 } from "@/lib/persistence";
 import { mutate, titles, type Entry } from "@/lib/store";
 
-/** Delete and undo, each one press with no confirm step: a delete is put back by 「เลิกทำ」
- *  on its toast or by the change log. A refusal by `mutate` is the red toast; one by the
+/** Delete and undo. 「ลบ」 asks first (the confirm the composer shows), and a delete is still
+ *  put back by 「เลิกทำ」 on its toast or by the change log. A refusal by `mutate` is the red toast; one by the
  *  server is said by persistence (`DatabaseErrorToast`). */
 export function useEntryActions(
-  ws: Pick<Workspace, "account" | "setToast" | "fail">,
+  ws: Pick<Workspace, "account" | "setToast" | "fail" | "setDeleting">,
 ) {
   // The toast's undo outlives the row that was deleted, so no React state here.
   const busy = useRef(false);
@@ -45,7 +45,7 @@ export function useEntryActions(
     if (await saveVoid(changeId)) ws.setToast(done);
   };
   /** Deletes an entry; its toast offers the undo. */
-  const remove = async (entry: Entry) => {
+  const confirmRemove = async (entry: Entry) => {
     const title = titles[entry.kind];
     const voidId = await saveVoid(entry.id);
     if (voidId)
@@ -53,5 +53,7 @@ export function useEntryActions(
         undo(voidId, `กู้คืนแล้ว: ${title}`),
       );
   };
-  return { remove, undo };
+  /** What a 「ลบ」 button calls: opens the confirm on `entry`. */
+  const remove = (entry: Entry) => ws.setDeleting(entry);
+  return { remove, confirmRemove, undo };
 }

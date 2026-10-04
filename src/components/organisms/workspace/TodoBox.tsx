@@ -32,7 +32,8 @@ export function TodoBox({ ws }: { ws: Workspace }) {
         </h2>
         <Caption>กดที่รายการเพื่อจด</Caption>
       </div>
-      <div className="grid gap-1.5">
+      {/* One column in a narrow box (beside the Daily Log), more where the box is wide. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-1.5">
         {list.map((todo, index) => (
           <AlertListItem
             as="button"
