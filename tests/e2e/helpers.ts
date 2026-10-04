@@ -37,13 +37,19 @@ export async function signInAs(page: Page, account: AccountKey) {
   await page.getByLabel("รหัสผ่าน").fill("local-test");
   await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
   await expect(signOut).toBeVisible({ timeout: 30_000 });
-  // The page's button is enabled once the server's payload is in.
-  await expect(jotButton(page)).toBeEnabled({ timeout: 30_000 });
+  // The page stands in a loading panel until the server's payload is in.
+  await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0, {
+    timeout: 30_000,
+  });
 }
 
 /** The page list: the sidebar, or the bottom tabs on a phone. */
 export const nav = (page: Page) =>
   page.getByRole("navigation", { name: "หน้า" });
+
+/** The pages of the menu, without the button that folds their section. */
+export const pageButtons = (page: Page) =>
+  nav(page).locator("button:not([aria-expanded])");
 
 /** Opens a page by its (English) name and waits for its heading. */
 export async function openPage(page: Page, name: string) {
@@ -55,25 +61,38 @@ export async function openPage(page: Page, name: string) {
 export const region = (page: Page, name: string | RegExp) =>
   page.getByRole("region", { name, exact: true });
 
-const jotButton = (page: Page) =>
-  page.getByRole("button", { name: "จดบันทึก", exact: true });
+/** The popup in view: a note's form, a PO document, or the confirm of a delete. */
+export const popup = (page: Page) => page.locator("dialog[open]");
 
-/** The composer's form, open on one kind. */
-export const form = (page: Page) => page.locator('form[aria-label="จดบันทึก"]');
+/** The popup's title: the note's kind, behind 「แก้ไข: 」 on an edit. */
+export const popupTitle = (page: Page) => popup(page).locator("h2");
 
-/** Presses 「จดบันทึก」 and picks a kind by its title in the picker. */
+/** The form of the popup in view. */
+export const form = (page: Page) => popup(page).locator("form");
+
+/** The buttons at the head of a page, one per kind of note the page takes. */
+export const jotButtons = (page: Page) =>
+  page.getByRole("group", { name: "จดบันทึก" }).getByRole("button");
+
+/** Presses the page's button of a kind, by its title: its form opens as a popup. */
 export async function jot(page: Page, kind: string) {
-  await jotButton(page).click();
-  await region(page, "จดอะไร")
-    .getByRole("group")
-    .getByRole("button", { name: kind, exact: true })
+  await jotButtons(page)
+    .filter({ hasText: new RegExp(`^${kind}$`) })
     .click();
-  await expect(form(page).getByRole("heading")).toHaveText(kind);
+  await expect(popupTitle(page)).toHaveText(kind);
+}
+
+/** 「ลบ」 on a note asks first: confirms it. */
+export async function confirmDelete(page: Page) {
+  await page
+    .getByRole("alertdialog", { name: "ลบบันทึกนี้?" })
+    .getByRole("button", { name: "ลบ", exact: true })
+    .click();
 }
 
 /** Fills the open form: `[label, value]` pairs in order; a `<select>` takes the option's
  *  text. A label's text runs on into its unit, its hint or its options, so each is matched
- *  from its start (`/^ยอด \(บาท\)/`); a field folded under 「จดเพิ่มได้」 is not matched. */
+ *  from its start (`/^ยอด \(บาท\)/`). */
 export async function fill(page: Page, ...pairs: [RegExp, string][]) {
   for (const [label, value] of pairs) {
     const control = form(page).getByLabel(label).filter({ visible: true });
@@ -86,6 +105,14 @@ export async function fill(page: Page, ...pairs: [RegExp, string][]) {
 /** 「บันทึก」: the form closes on a save and stays open, with the reason, on a refusal. */
 export async function save(page: Page) {
   await form(page).getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(form(page)).toHaveCount(0);
+}
+
+/** 「บันทึก」 on a PO document: it stays open on the saved PO, so 「ปิด」 after it. */
+export async function savePo(page: Page) {
+  await form(page).getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(popup(page).locator("header")).toContainText("บันทึกแล้ว");
+  await form(page).getByRole("button", { name: "ปิด", exact: true }).click();
   await expect(form(page)).toHaveCount(0);
 }
 
