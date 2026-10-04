@@ -13,6 +13,7 @@ export const ledgerSources = {
   po: "ดึงจากระบบ PO",
   advance: "พนักงานสำรองจ่าย",
   transfer: "โอนจ่ายตรง",
+  credit: "บัตรเครดิต",
 } as const;
 export type LedgerSource = keyof typeof ledgerSources;
 export const ledgerPurposes = {
