@@ -50,16 +50,29 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await start(page, "seed");
   await signInAs(page, "manager");
   await openPage(page, "Inventory");
-  // The one Inventory table: SKU · สินค้า · ประเภท · คงเหลือ · อยู่ที่ · สถานะ.
-  const boxesAt = (branch: string) =>
-    region(page, "สินค้าคงคลัง")
-      .getByRole("row", { name: /^M1 กล่องพิมพ์ลาย/ })
-      .filter({ hasText: `สาขา${branch}` })
-      .getByRole("cell");
-  const minburi = boxesAt("มีนบุรี");
-  await expect(minburi.nth(3)).toHaveText("0");
-  await expect(minburi.nth(5)).toHaveText("หมด");
-  await expect(minburi.nth(5)).toHaveAttribute("data-tone", "danger");
+  // The one Inventory table, a row per item and a column per place (nothing is held at
+  // the seller, so no column for it): SKU · สินค้า · ประเภท · คลังกลาง · สาขาศาลาแดง ·
+  // สาขามีนบุรี · รวม · สถานะ.
+  const table = region(page, "สินค้าคงคลัง");
+  await expect(table.getByRole("columnheader")).toHaveText([
+    "SKU",
+    "สินค้า",
+    "ประเภท",
+    "คลังกลาง",
+    "สาขาศาลาแดง",
+    "สาขามีนบุรี",
+    "รวม",
+    "สถานะ",
+  ]);
+  const boxes = table
+    .getByRole("row", { name: /^M1 กล่องพิมพ์ลาย/ })
+    .getByRole("cell");
+  // A material is never in the central stock.
+  await expect(boxes.nth(3)).toHaveText("—");
+  await expect(boxes.nth(5)).toHaveText("0ยังไม่เคยนับ");
+  await expect(boxes.nth(5)).toHaveAttribute("data-tone", "danger");
+  await expect(boxes.nth(7)).toHaveText("หมด");
+  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "danger");
   await openPage(page, "Daily Log");
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -72,20 +85,30 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   );
   await save(page);
   await openPage(page, "Inventory");
-  await expect(minburi.nth(3)).toHaveText("50");
-  await expect(minburi.nth(4)).toHaveText("สาขามีนบุรี");
-  // Bought, never counted: yellow.
-  await expect(minburi.nth(5)).toHaveText("ยังไม่เคยนับ");
-  await expect(minburi.nth(5)).toHaveAttribute("data-tone", "warning");
-  await expect(boxesAt("ศาลาแดง").nth(3)).toHaveText("0");
-  // The filter by where it is leaves that branch's rows only; the page writes nothing.
-  const table = region(page, "สินค้าคงคลัง");
+  await expect(boxes.nth(4)).toHaveText("0ยังไม่เคยนับ");
+  // Bought, never counted: yellow, and the cell says why.
+  await expect(boxes.nth(5)).toHaveText("50ยังไม่เคยนับ");
+  await expect(boxes.nth(5)).toHaveAttribute("data-tone", "warning");
+  await expect(boxes.nth(6)).toHaveText("50");
+  await expect(boxes.nth(7)).toHaveText(
+    "ยังไม่ได้นับ: สาขาศาลาแดง, สาขามีนบุรี",
+  );
+  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "warning");
+  // The filter by place leaves that place's column only; the page writes nothing.
   await page.getByLabel("อยู่ที่").selectOption("สาขามีนบุรี");
-  await expect(boxesAt("ศาลาแดง")).toHaveCount(0);
+  await expect(table.getByRole("columnheader")).toHaveText([
+    "SKU",
+    "สินค้า",
+    "ประเภท",
+    "สาขามีนบุรี",
+    "สถานะ",
+  ]);
+  await expect(boxes.nth(3)).toHaveText("50ยังไม่เคยนับ");
+  await expect(boxes.nth(4)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
   await expect(table.getByRole("row")).toHaveCount(13);
   await page.getByLabel("ค้นหา").fill("m1");
   await expect(table.getByRole("row")).toHaveCount(3);
-  await expect(table).toContainText("แสดง 2 จาก 24 รายการ");
+  await expect(table).toContainText("แสดง 2 จาก 12 รายการ");
   await expect(table.getByRole("button")).toHaveCount(0);
   await expect(table.getByRole("textbox")).toHaveCount(0);
 
