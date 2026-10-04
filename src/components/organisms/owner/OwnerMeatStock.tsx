@@ -7,6 +7,7 @@ import {
   Left,
   StockTable,
 } from "@/components/organisms/branch/BranchStock";
+import { HeldCell, StatusCells } from "@/components/organisms/owner/OwnerStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty } from "@/lib/format";
 import {
@@ -33,7 +34,10 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
     .filter((info) => info.backKg > 0);
   // Sticky rice has no count and no use jotted: what was bought so far, not a balance.
   const rice = branches.map((branch) => branchBought(db, branch, "rice"));
-  const chili = branches.map((branch) => branchChili(db, branch).qty);
+  const places = branches.map((branch) => `สาขา${branch}`);
+  const chili = Object.fromEntries(
+    branches.map((branch) => [`สาขา${branch}`, branchChili(db, branch, today)]),
+  );
   const sum = (figures: number[]) => figures.reduce((a, b) => a + b, 0);
   return (
     <div className="flex flex-col gap-4">
@@ -86,13 +90,8 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
         className="[&_:is(td,th)+:is(td,th)]:border-l"
       >
         <StockTable
-          columns={[
-            "สินค้า",
-            ...branches.map((branch) => `สาขา${branch}`),
-            "รวม",
-            "สถานะ",
-          ]}
-          right={[...branches.map((branch) => `สาขา${branch}`), "รวม"]}
+          columns={["สินค้า", ...places, "รวม", "สถานะ"]}
+          right={[...places, "รวม"]}
         >
           <tr>
             <Cell className="font-semibold">ข้าวเหนียว</Cell>
@@ -107,29 +106,19 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
             </Cell>
           </tr>
           <tr>
-            <Cell className="font-semibold">น้ำพริก</Cell>
-            {chili.map((n, i) => (
-              <Cell
-                key={branches[i]}
-                right
-                tone={n <= 0 ? "danger" : undefined}
-              >
-                {qty(n)}
-              </Cell>
+            <Cell className="font-semibold">น้ำพริก (หลอด)</Cell>
+            {places.map((place) => (
+              <HeldCell key={place} held={chili[place]} today={today} />
             ))}
-            <Cell right tone={sum(chili) < 0 ? "danger" : undefined}>
-              {qty(sum(chili))}
-            </Cell>
-            <Cell tone={sum(chili) <= 0 ? "danger" : "success"}>
-              {sum(chili) <= 0 ? "หมด" : "พร้อมใช้"}
-            </Cell>
+            <StatusCells at={chili} places={places} />
           </tr>
         </StockTable>
       </DayCard>
       <Caption>
         หน้านี้ดูได้อย่างเดียว แอดมินสาขาเป็นคนนับจากหน้าของสาขา ·
         ข้าวเหนียวเป็นยอดที่ซื้อเข้าสาขาสะสม ยังไม่มีการนับและการตัดยอด
-        จึงไม่ใช่ยอดคงเหลือ
+        จึงไม่ใช่ยอดคงเหลือ · น้ำพริก: ช่องสีเหลือง = ยังไม่เคยนับ
+        หรือไม่ได้นับเกิน 7 วัน · ช่องสีแดง = ไม่เหลือ
       </Caption>
     </div>
   );
