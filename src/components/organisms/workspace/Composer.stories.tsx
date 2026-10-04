@@ -124,7 +124,8 @@ export const Edit: Story = {
 
 /** บันทึกค่าใช้จ่าย (Accounting): ประเภทสินค้า รายการ ผู้ขาย Project พิมพ์ใหม่หรือเลือกจากที่เคยจด ·
  *  พิมพ์ 「กระดาษ A4」 เห็น Item No. เดิม พิมพ์ชื่อใหม่เห็น 「ใหม่: ITM-…」 ·
- *  เลือก ใช้งานโปรเจกต์ แล้วช่อง Project ขึ้นมา */
+ *  เลือก ใช้งานโปรเจกต์ แล้วช่อง Project ขึ้นมา (ซื้อเข้าบริษัทส่วนกลาง ไม่มีช่องนี้) ·
+ *  ที่มาเริ่มที่ 「โอนจ่ายตรง」 ไม่มี 「เงินสดย่อย」 */
 export const Expense: Story = {
   args: { account: "manager", open: { kind: "expense" } },
   parameters: { db: dbFor("manager") },

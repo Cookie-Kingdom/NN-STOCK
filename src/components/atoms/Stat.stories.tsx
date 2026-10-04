@@ -17,6 +17,15 @@ type Story = StoryObj<typeof meta>;
 /** Type `label` / `value` in Controls; a long value wraps instead of overflowing. */
 export const Default: Story = {};
 
+/** `note`: a quiet line under the figure. */
+export const WithNote: Story = {
+  args: {
+    label: "งบที่กันไว้จาก PO",
+    value: "฿210,000",
+    note: "2 รายการที่ยังรอจ่าย",
+  },
+};
+
 export const Row: Story = {
   argTypes: {
     label: { table: { disable: true } },

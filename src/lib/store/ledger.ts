@@ -11,7 +11,6 @@ import {
 
 export const ledgerSources = {
   po: "ดึงจากระบบ PO",
-  petty: "เงินสดย่อย",
   advance: "พนักงานสำรองจ่าย",
   transfer: "โอนจ่ายตรง",
 } as const;
@@ -40,7 +39,8 @@ export type LedgerRow = {
   id: string;
   date: string;
   at: string;
-  source: LedgerSource;
+  /** "" on a hand-jotted row with no source, or one no longer offered (the retired `petty`). */
+  source: LedgerSource | "";
   /** A PO row: its lot (the link to the Lots page). */
   lotId?: string;
   /** A hand-jotted row: its entry (edit, delete, attachment). */
@@ -223,7 +223,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
       id: e.id,
       date: e.date,
       at: e.at,
-      source: v.source in ledgerSources ? (v.source as LedgerSource) : "petty",
+      source: v.source in ledgerSources ? (v.source as LedgerSource) : "",
       entry: e,
       reference: v.reference ?? "",
       itemType: v.itemType ?? "",
@@ -241,4 +241,29 @@ export function ledgerRows(db: Database): LedgerRow[] {
     });
   }
   return rows.sort(byDateAt).reverse();
+}
+
+/** The Accounting page's two figures, from the rows: what the POs still waiting for payment
+ *  hold the budget for, and what was paid in `month` (`YYYY-MM`) and in the month before it.
+ *  A cancelled row holds no money. */
+export function ledgerSummary(rows: LedgerRow[], month: string) {
+  const waiting = rows.filter(
+    (row) => row.source === "po" && row.status === "pending",
+  );
+  const before = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5) - 2, 1))
+    .toISOString()
+    .slice(0, 7);
+  /* ponytail: a row's money counts in the month of the row (a PO's date, an expense's date),
+   * not of each `pay` note: ledgerRows spreads a supplier's payments over its POs without
+   * their dates. Carry the pay dates on the row if the month has to be exact. */
+  const paidIn = (m: string) =>
+    rows
+      .filter((row) => row.status !== "cancelled" && row.date.startsWith(m))
+      .reduce((a, row) => a + (row.paid ?? 0), 0);
+  return {
+    reserved: waiting.reduce((a, row) => a + (row.poAmount ?? 0), 0),
+    waiting: waiting.length,
+    paid: paidIn(month),
+    paidBefore: paidIn(before),
+  };
 }

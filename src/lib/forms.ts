@@ -438,13 +438,13 @@ export function fields(
           ...Object.entries(labels).map(([value, label]) => ({ value, label })),
         ],
       });
-      // A PO row is worked out from its PO: a hand-jotted row is one of the other three.
+      // A PO row is worked out from its PO: a hand-jotted row is one of the others.
       const sources = Object.fromEntries(
         Object.entries(ledgerSources).filter(([key]) => key !== "po"),
       );
       return [
         select("source", "ที่มา / ประเภทบิล", sources),
-        text("reference", "เลขที่ใบเสร็จ / บิล"),
+        text("reference", "เลขที่อ้างอิง (PO / ใบเสร็จ)"),
         // Typed: a new category or project is simply a new name (ledgerChoices lists it next time).
         core(
           text("itemType", "ประเภทสินค้า", {
@@ -463,18 +463,19 @@ export function fields(
         text("vendor", "ผู้ขาย / ร้านค้า", {
           options: choices(ledgerChoices(db, "vendor")),
         }),
+        number("qty", "จำนวนซื้อ"),
         select("purpose", "ใช้เพื่องาน", ledgerPurposes),
+        // ซื้อเข้าบริษัทส่วนกลาง has no project: the field is not shown, and not saved.
         text("project", "Project", {
           when: (values) => values.purpose === "project",
           options: choices(ledgerChoices(db, "project", [shopProject])),
         }),
-        number("qty", "จำนวนซื้อ"),
         number("amount", "ยอดจ่ายจริง", "บาท"),
         select("status", "สถานะ", ledgerStatuses, [
           { value: "", label: "ตามยอดจ่าย (มียอด = จ่ายแล้ว)" },
         ]),
+        file("เอกสารแนบ"),
         ...more(
-          file("เอกสารแนบ"),
           text("link", "ลิงก์เอกสาร", { hint: "ขึ้นต้นด้วย https://" }),
           note,
         ),
@@ -504,7 +505,7 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "purchase") return { supplier: "Foodiva" };
   if (kind === "smokeOrder") return { smoker: "Chef House" };
-  if (kind === "expense") return { source: "petty", purpose: "company" };
+  if (kind === "expense") return { source: "transfer", purpose: "company" };
   if (kind === "dispatch")
     return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };
   if (kind === "return")

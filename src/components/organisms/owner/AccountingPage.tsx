@@ -5,12 +5,15 @@ import { Building2, FolderKanban, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
+import { Input } from "@/components/atoms/Input";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
+import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { Notice } from "@/components/molecules/Notice";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
@@ -22,11 +25,13 @@ import {
   ledgerRows,
   ledgerSources,
   ledgerStatuses,
+  ledgerSummary,
   voidBlock,
   type LedgerRow,
   type LedgerStatus,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { figureGrid } from "./FinancePage";
 import { Num } from "./PlTable";
 
 const statusTone: Record<LedgerStatus, "warning" | "success" | "danger"> = {
@@ -48,21 +53,42 @@ const columns = [
 const figures = ["จำนวนซื้อ", "ยอดตาม PO (กันงบไว้)", "ยอดจ่ายจริง"];
 const none = <Muted as="span">—</Muted>;
 const isWebLink = (value = "") => /^https?:\/\/\S+$/i.test(value);
+const central = "ส่วนกลาง";
+/** A row's Project as the table and the Project filter name it. */
+const projectOf = (row: LedgerRow) =>
+  row.purpose === "project" ? row.project : central;
 
 /** The shop's purchase ledger: every PO เนื้อ and PO รมควัน (worked out from the PO, its
  *  invoice and the payments to its supplier) and every expense jotted by hand, newest first,
- *  with a filter by status and by source and the totals of what is shown. */
+ *  under the two figures worked out from it (what the POs still to pay hold, what was paid
+ *  this month), with a search, a filter by project, status and source, and the totals of
+ *  what is shown. */
 export function AccountingPage({ ws }: { ws: Workspace }) {
-  const { db, account } = ws;
+  const { db, account, today } = ws;
   const { remove } = useEntryActions(ws);
   const [status, setStatus] = useState("");
   const [source, setSource] = useState("");
+  const [project, setProject] = useState("");
+  const [search, setSearch] = useState("");
   const all = ledgerRows(db);
+  const word = search.trim().toLowerCase();
   const rows = all.filter(
     (row) =>
       (!status || row.status === status) &&
-      (!source || (source === "po") === (row.source === "po")),
+      (!source || (source === "po") === (row.source === "po")) &&
+      (!project || projectOf(row) === project) &&
+      (!word ||
+        [row.item, row.detail, row.vendor, row.reference, row.itemNo].some(
+          (text) => text.toLowerCase().includes(word),
+        )),
   );
+  const projects = [...new Set(all.map(projectOf).filter(Boolean))];
+  const summary = ledgerSummary(all, today.slice(0, 7));
+  const change = summary.paidBefore
+    ? ((summary.paid - summary.paidBefore) / summary.paidBefore) * 100
+    : null;
+  // The quick filter: the POs still to pay, in one click; a second click clears it.
+  const poPending = source === "po" && status === "pending";
   // A cancelled row holds no money.
   const counted = rows.filter((row) => row.status !== "cancelled");
   const total = (key: "poAmount" | "paid") =>
@@ -88,7 +114,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       <tr key={row.id} data-source={row.source}>
         <td className={cn(td, "whitespace-nowrap")}>{dateLabel(row.date)}</td>
         <td className={cn(td, "whitespace-nowrap")}>
-          {ledgerSources[row.source]}
+          {row.source ? ledgerSources[row.source] : none}
         </td>
         <td className={cn(td, "whitespace-nowrap")}>
           {row.lotId ? (
@@ -113,7 +139,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           {row.purpose === "project" ? (
             row.project || <MissingMark />
           ) : (
-            <Muted as="span">ส่วนกลาง</Muted>
+            <Muted as="span">{central}</Muted>
           )}
         </td>
         <Num>
@@ -185,7 +211,50 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-x-5 gap-y-3">
+      <Notice className="my-0 text-body-sm">
+        PO เนื้อ และ PO รมควัน ที่จดในหน้า Lots ขึ้นที่นี่เองเป็นรายการรอจ่าย ·
+        ยอดจ่ายจริงมาจากบันทึกจ่ายเงินให้ผู้ขาย
+      </Notice>
+      <Panel className={figureGrid} aria-label="สรุปรายการซื้อ">
+        <Stat
+          label="งบที่กันไว้จาก PO"
+          value={baht(summary.reserved)}
+          note={`${summary.waiting} รายการที่ยังรอจ่าย`}
+        />
+        <Stat
+          label="จ่ายจริงเดือนนี้"
+          value={baht(summary.paid)}
+          note={
+            change === null
+              ? "— จากเดือนก่อน"
+              : change
+                ? `${change > 0 ? "เพิ่มขึ้น" : "ลดลง"} ${qty(Math.round(Math.abs(change) * 10) / 10)}% จากเดือนก่อน`
+                : "เท่ากับเดือนก่อน"
+          }
+        />
+      </Panel>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <Input
+          type="search"
+          variant="filter"
+          aria-label="ค้นหา"
+          placeholder="ค้นหารายการ ผู้ขาย เลข PO หรือ Item No."
+          className="min-w-64 flex-1 max-md:basis-full"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <TableFilter label="Project">
+          <Select
+            variant="filter"
+            value={project}
+            onChange={(event) => setProject(event.target.value)}
+          >
+            <option value="">ทั้งหมด</option>
+            {projects.map((name) => (
+              <option key={name}>{name}</option>
+            ))}
+          </Select>
+        </TableFilter>
         <TableFilter label="สถานะ">
           <Select
             variant="filter"
@@ -211,11 +280,23 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <option value="manual">บันทึกเอง</option>
           </Select>
         </TableFilter>
+        <Button
+          size="sm"
+          aria-pressed={poPending}
+          className="min-h-10 aria-pressed:border-accent aria-pressed:text-accent"
+          onClick={() => {
+            setSource(poPending ? "" : "po");
+            setStatus(poPending ? "" : "pending");
+          }}
+        >
+          PO รอจ่าย ({summary.waiting})
+        </Button>
       </div>
       <Panel flush className="overflow-hidden">
         <div className="overflow-x-auto">
           <table
-            className="w-full border-collapse"
+            // The ledger's grid: a line between columns, and the row under the pointer.
+            className="w-full border-collapse [&_tbody_tr:hover]:bg-surface-sunken [&_td]:border-r [&_td:last-child]:border-r-0 [&_th]:border-r [&_th:last-child]:border-r-0"
             aria-label="บัญชีรายการซื้อ"
           >
             <thead>
@@ -275,6 +356,9 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           </table>
         </div>
       </Panel>
+      <Caption aria-live="polite">
+        แสดง {rows.length} จาก {all.length} รายการ
+      </Caption>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   giftBoxes,
   itemNoFor,
   ledgerRows,
+  ledgerSummary,
   liveEntries,
   lotInfo,
   monthPl,
@@ -863,5 +864,47 @@ describe("ledger: PO rows", () => {
     const purchase = entries(db, "purchase", po1.id)[0];
     const d = mutate(db, owner, "void", { targetId: purchase.id }, "", day);
     expect(ledgerRows(d).some((row) => row.lotId === po1.id)).toBe(false);
+  });
+});
+
+describe("ledger: summary", () => {
+  it("holds the pending POs' amounts, and sums what was paid per month", () => {
+    const rows = ledgerRows(db);
+    const waiting = rows.filter(
+      (row) => row.source === "po" && row.status === "pending",
+    );
+    expect(waiting.length).toBeGreaterThan(0);
+    expect(ledgerSummary(rows, "2026-09")).toMatchObject({
+      waiting: waiting.length,
+      reserved: waiting.reduce((a, row) => a + row.poAmount!, 0),
+    });
+
+    const jot = (d: Database, date: string, values: Record<string, string>) =>
+      mutate(d, owner, "expense", { item: "x", ...values }, "", date);
+    let d = jot(seed, "2026-01-05", { amount: "100" });
+    d = jot(d, "2025-12-20", { amount: "50" });
+    d = jot(d, "2026-01-06", { amount: "900", status: "cancelled" });
+    // The month before January is December of the year before.
+    expect(ledgerSummary(ledgerRows(d), "2026-01")).toEqual({
+      reserved: 0,
+      waiting: 0,
+      paid: 100,
+      paidBefore: 50,
+    });
+  });
+
+  it("keeps a row saved with the retired เงินสดย่อย source, with no source", () => {
+    const d = mutate(seed, owner, "expense", { item: "x" }, "", day);
+    const old = {
+      ...d,
+      entries: d.entries.map((e) => ({
+        ...e,
+        values: { ...e.values, source: "petty" },
+      })),
+    };
+    expect(ledgerRows(old)[0].source).toBe("");
+    expect(() =>
+      mutate(seed, owner, "expense", { item: "x", source: "petty" }, "", day),
+    ).toThrow();
   });
 });

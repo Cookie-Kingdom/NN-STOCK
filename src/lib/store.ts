@@ -103,5 +103,6 @@ export {
   itemNoFor,
   ledgerChoices,
   ledgerRows,
+  ledgerSummary,
 } from "./store/ledger";
 export { mutate } from "./store/mutate";
