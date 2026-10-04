@@ -428,15 +428,14 @@ export function fields(
         key: string,
         label: string,
         labels: Record<string, string>,
-        first: { value: string; label: string }[] = [],
       ): Field => ({
         key,
         label,
         type: "select",
-        options: [
-          ...first,
-          ...Object.entries(labels).map(([value, label]) => ({ value, label })),
-        ],
+        options: Object.entries(labels).map(([value, label]) => ({
+          value,
+          label,
+        })),
       });
       // A PO row is worked out from its PO: a hand-jotted row is one of the others.
       const sources = Object.fromEntries(
@@ -471,9 +470,7 @@ export function fields(
           options: choices(ledgerChoices(db, "project", [shopProject])),
         }),
         number("amount", "ยอดจ่ายจริง", "บาท"),
-        select("status", "สถานะ", ledgerStatuses, [
-          { value: "", label: "ตามยอดจ่าย (มียอด = จ่ายแล้ว)" },
-        ]),
+        select("status", "สถานะ", ledgerStatuses),
         file("เอกสารแนบ"),
         ...more(
           text("link", "ลิงก์เอกสาร", { hint: "ขึ้นต้นด้วย https://" }),
