@@ -55,7 +55,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
-  // Stock: the meat, then the sticky rice and the chili; nothing to press.
+  // Stock: the meat, then the raw sticky rice and the chili; nothing to press.
   await openPage(page, "Stock");
   const meat = region(page, "เนื้อ (กก.)");
   await expect(meat.getByRole("columnheader")).toHaveText([
@@ -75,11 +75,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "รวม",
     "สถานะ",
   ]);
-  // Sticky rice is what was bought so far, not a balance; chili has nothing left, and says
-  // under each figure that it was never counted.
+  // Raw rice is counted by the branch that steams its own (ศาลาแดง; มีนบุรี has a dash). It
+  // and the chili have nothing left, and say under each figure that they were never counted.
   await expect(
-    rice.getByRole("row", { name: /^ข้าวเหนียว/ }).getByRole("cell"),
-  ).toHaveText(["ข้าวเหนียว", "0", "0", "0", "ซื้อเข้าสะสม · ยังไม่มียอดนับ"]);
+    rice.getByRole("row", { name: /^ข้าวเหนียวดิบ/ }).getByRole("cell"),
+  ).toHaveText(["ข้าวเหนียวดิบ (กก.)", "0ยังไม่เคยนับ", "—", "0", "หมด"]);
   await expect(
     rice.getByRole("row", { name: /^น้ำพริก/ }).getByRole("cell"),
   ).toHaveText([
@@ -156,6 +156,8 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await openPage(page, "Inventory");
   const own = region(page, "วัสดุ");
   await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(1)).toHaveText("50");
+  // มีนบุรี buys its rice cooked: no raw rice to count.
+  await expect(own.getByRole("row", { name: /ข้าวเหนียวดิบ/ })).toHaveCount(0);
   // (The page's own 「รับเนื้อเข้าสาขา」 is for meat.)
   await expect(own.getByRole("button", { name: /รับ/ })).toHaveCount(0);
   const sent = await (await page.request.get("/api/local-db")).json();
@@ -328,8 +330,9 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
     "success",
   );
   await expect(stockRow(card, "ถ้วยพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
-  // The other nine materials, and the chili: never counted, yellow as a material is.
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(10);
+  // The other nine materials, the raw rice (ศาลาแดง steams its own) and the chili: never
+  // counted, yellow as a material is.
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(11);
   await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
   await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveAttribute(
     "data-tone",
@@ -342,6 +345,16 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   await expect(stale.nth(1)).toHaveText("95");
   await expect(stale.nth(2)).toHaveAttribute("data-tone", "success");
   await expect(stale.nth(2)).toHaveText("วันนี้");
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(10);
+  // The raw rice is counted in the same table, in kg.
+  const rice = stockRow(card, "ข้าวเหนียวดิบ");
+  await expect(rice.nth(2)).toHaveText("ยังไม่เคยนับ");
+  await card
+    .getByRole("textbox", { name: "นับ ข้าวเหนียวดิบ (กก.)" })
+    .fill("12.5");
+  await card.getByRole("button", { name: "บันทึกยอดนับ" }).click();
+  await expect(rice.nth(1)).toHaveText("12.5");
+  await expect(rice.nth(2)).toHaveAttribute("data-tone", "success");
   await expect(card.locator('td[data-tone="warning"]')).toHaveCount(9);
 });
 

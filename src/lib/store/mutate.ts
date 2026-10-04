@@ -301,6 +301,18 @@ function checkConfig(v: Values) {
   const figure = "ใส่เป็นตัวเลข 0 ขึ้นไป";
   for (const [key, label] of Object.entries(settingNumbers))
     if (v[key] !== undefined) assert(amount(v[key]), `${label}: ${figure}`);
+  if (v.rawRiceBranches !== undefined) {
+    let list: unknown;
+    try {
+      list = JSON.parse(v.rawRiceBranches);
+    } catch {}
+    assert(
+      Array.isArray(list) &&
+        list.every((branch) => branches.includes(branch)) &&
+        new Set(list).size === list.length,
+      "สาขาที่ใช้ข้าวเหนียวดิบ: อ่านรายการไม่ได้",
+    );
+  }
   for (const [key, { label, id }] of Object.entries(settingLists)) {
     if (v[key] === undefined) continue;
     let rows: Values[] = [];

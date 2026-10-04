@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   advances,
   boxCost,
-  branchBought,
   branchChili,
   branchMaterial,
   branchMeat,
+  branchRice,
   entries,
   giftBoxes,
   itemNoFor,
@@ -18,6 +18,7 @@ import {
   mutate,
   poInfo,
   purchaseLots,
+  rawRiceBranches,
   saleMoney,
   salesChannels,
   seed,
@@ -237,16 +238,6 @@ describe("mutate", () => {
     });
     expect(last(paid)).toMatchObject({ role: "owner", branch: "มีนบุรี" });
     expect(branchMaterial(paid, "มีนบุรี", "m1", day).qty).toBe(before + 50);
-    // ข้าวเหนียว has no balance: only what was bought for the branch, summed.
-    const rice = { category: "ingredient", amount: "1", item: "rice" };
-    const bought = [
-      { ...rice, qty: "20", branch: "มีนบุรี" },
-      { ...rice, qty: "5", branch: "มีนบุรี" },
-      { ...rice, qty: "9", branch: "ศาลาแดง" },
-    ].reduce((next, input) => mutate(next, owner, "pay", input, "", day), db);
-    expect(branchBought(bought, "มีนบุรี", "rice")).toBe(
-      branchBought(db, "มีนบุรี", "rice") + 25,
-    );
     // Not a stock category: the item, the quantity and the branch are not saved.
     const other = last(
       pay(owner, { category: "other", amount: "1", item: "m1", qty: "5" }),
@@ -850,6 +841,84 @@ describe("figures (V2-CAL)", () => {
     // Late as a material is: more than 7 days after the count, or never counted.
     expect(branchChili(built, "ศาลาแดง", "2026-09-19").stale).toBe(true);
     expect(branchChili(built, "มีนบุรี", "2026-09-11").stale).toBe(true);
+  });
+
+  it("CAL-19: raw rice is the last count plus what was bought since; nothing is taken off", () => {
+    const rice = (qty: string, date: string) =>
+      [
+        owner,
+        "pay",
+        {
+          category: "ingredient",
+          amount: "1",
+          item: "rice",
+          qty,
+          branch: "ศาลาแดง",
+        },
+        date,
+      ] as const;
+    const jotted = (
+      [
+        rice("20", "2026-09-08"),
+        [saladaeng, "materials", { "count.rice": "12.5" }, "2026-09-09"],
+        rice("5", "2026-09-10"),
+        // A count of materials only leaves the rice count where it was.
+        [saladaeng, "materials", { "count.m2": "20" }, "2026-09-11"],
+      ] as const
+    ).reduce(
+      (next, [by, kind, input, date]) =>
+        mutate(next, by, kind, input, "", date),
+      built,
+    );
+    // Never counted: what was bought, and late.
+    expect(branchRice(built, "ศาลาแดง", "2026-09-16")).toEqual({
+      qty: 0,
+      countedOn: "",
+      stale: true,
+    });
+    // 12.5 (counted 9 ก.ย.) + 5; the sales and gift boxes since take nothing.
+    expect(branchRice(jotted, "ศาลาแดง", "2026-09-16")).toEqual({
+      qty: 17.5,
+      countedOn: "2026-09-09",
+      stale: false,
+    });
+    expect(branchRice(jotted, "ศาลาแดง", "2026-09-17").stale).toBe(true);
+    expect(branchRice(jotted, "มีนบุรี", "2026-09-16").qty).toBe(0);
+  });
+
+  it("BR-08: only a branch that uses raw rice counts it, and only the Owner says which", () => {
+    const count = (d: Database, by: Actor) =>
+      last(
+        mutate(
+          d,
+          by,
+          "materials",
+          { "count.rice": "3", "count.m1": "9" },
+          "",
+          day,
+        ),
+      ).values;
+    expect(rawRiceBranches(seed.config)).toEqual(["ศาลาแดง"]);
+    expect(count(seed, saladaeng)["count.rice"]).toBe("3");
+    // มีนบุรี buys its rice cooked: the row is not in its form, so it is not saved.
+    expect(count(seed, minburi)["count.rice"]).toBeUndefined();
+    expect(() =>
+      mutate(seed, minburi, "materials", { "count.rice": "3" }, "", day),
+    ).toThrow("ยังไม่ได้ใส่ยอดนับ");
+    const set = (by: Actor, value: string) =>
+      mutate(seed, by, "config", { rawRiceBranches: value }, "", day);
+    const both = set(owner, '["ศาลาแดง","มีนบุรี"]');
+    expect(count(both, minburi)["count.rice"]).toBe("3");
+    expect(count(set(owner, "[]"), saladaeng)["count.rice"]).toBeUndefined();
+    for (const bad of [
+      '["เชียงใหม่"]',
+      '["มีนบุรี","มีนบุรี"]',
+      "มีนบุรี",
+      '"x"',
+    ])
+      expect(() => set(owner, bad)).toThrow("สาขาที่ใช้ข้าวเหนียวดิบ");
+    expect(() => set(manager, "[]")).toThrow("ไม่มีสิทธิ์");
+    expect(() => set(saladaeng, "[]")).toThrow("ไม่มีสิทธิ์");
   });
 
   it("CAL-13: a supplier's balance is its bills less what was paid to it", () => {

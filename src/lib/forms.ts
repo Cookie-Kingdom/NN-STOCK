@@ -8,6 +8,7 @@ import {
   materialList,
   payCategories,
   payrollCategory,
+  rawRiceBranches,
   salesChannels,
   stockCategories,
   type Actor,
@@ -407,9 +408,17 @@ export function fields(
         note,
       ];
     case "materials":
-      return materialList(db.config).map((m) =>
-        count(`count.${m.id}`, m.name, "ชิ้น"),
-      );
+      return [
+        ...materialList(db.config).map((m) =>
+          count(`count.${m.id}`, m.name, "ชิ้น"),
+        ),
+        // Raw rice: only for a branch that steams its own (V2-BR-08). Any other reader (the
+        // Owner looking at a branch's count) gets the field for its label.
+        ...(by.role !== "branch" ||
+        rawRiceBranches(db.config).includes(by.branch ?? "")
+          ? [number("count.rice", "ข้าวเหนียวดิบ", "กก.")]
+          : []),
+      ];
     case "packingList":
       return [
         text("invoiceNo", "เลข Invoice"),

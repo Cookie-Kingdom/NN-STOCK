@@ -17,15 +17,18 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
 import {
+  branches,
   materialList,
   mutate,
   payCategories,
+  rawRiceBranches,
   salesChannels,
   seed,
   type Values,
 } from "@/lib/store";
 
-type Section = "numbers" | "channels" | "categories" | "materials" | "header";
+type Section =
+  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
 type ListSection = "channels" | "categories" | "materials";
 type Setting = {
   key: string;
@@ -107,6 +110,7 @@ const lists: Record<
 const titles: Record<Section, string> = {
   numbers: "ตัวเลขที่เว็บใช้คิด",
   header: "ข้อมูลหัวเอกสาร",
+  rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
   channels: lists.channels.title,
   categories: lists.categories.title,
   materials: lists.materials.title,
@@ -225,7 +229,9 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
-          : [...header.map((f) => f.key), ...logoKeys]
+          : section === "rice"
+            ? ["rawRiceBranches"]
+            : [...header.map((f) => f.key), ...logoKeys]
         )
           .map((key) => [key, (draft[key] ?? "").trim()])
           .filter(([key, value]) => value !== (config[key] ?? "")),
@@ -402,6 +408,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
     );
   };
   const logo = logoOf(editing === "header" ? draft : db.config);
+  const riceAt = rawRiceBranches(editing === "rice" ? draft : db.config);
 
   return (
     // A wide screen: two columns of sections, so the forms and tables keep their width.
@@ -424,6 +431,38 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
             list("categories", (row) => !fixedCategories.includes(row.id)),
           )}
         </div>
+        {card(
+          "rice",
+          "สาขาที่นึ่งข้าวเอง นับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา · สาขาที่ไม่ได้เลือกไม่มีแถวข้าวเหนียวดิบ",
+          <div className="flex flex-wrap gap-x-6 gap-y-1 px-5 pt-1 pb-4 max-md:px-4">
+            {branches.map((branch) => (
+              <label
+                key={branch}
+                className="flex min-h-11 items-center gap-2 font-semibold"
+              >
+                <input
+                  type="checkbox"
+                  className="size-5 accent-accent"
+                  checked={riceAt.includes(branch)}
+                  disabled={editing !== "rice"}
+                  onChange={(event) =>
+                    set(
+                      "rawRiceBranches",
+                      JSON.stringify(
+                        branches.filter((b) =>
+                          b === branch
+                            ? event.target.checked
+                            : riceAt.includes(b),
+                        ),
+                      ),
+                    )
+                  }
+                />
+                สาขา{branch}
+              </label>
+            ))}
+          </div>,
+        )}
       </div>
       <div className="flex min-w-0 flex-col gap-4">
         {card(

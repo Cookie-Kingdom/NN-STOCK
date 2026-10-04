@@ -608,16 +608,20 @@ export function branchChili(db: Database, branch: string, today: string) {
       qty += num(e.values, "qty");
   return { qty, countedOn, stale: staleCount(countedOn, today) };
 }
-/** What payments bought of `item` for the branch, summed. Not a balance: for an item with no
- *  count and no use jotted (ข้าวเหนียว), nothing is ever taken from it. */
-export const branchBought = (db: Database, branch: string, item: string) =>
-  branchWalk(db, branch).reduce(
-    (sum, e) =>
-      e.kind === "pay" && e.values.item === item
-        ? sum + num(e.values, "qty")
-        : sum,
-    0,
-  );
+/** V2-CAL-19: raw sticky rice (kg) is counted only, in the materials count: the last count
+ *  plus what payments bought for the branch since. Nothing is taken off between counts (cooked
+ *  rice is not kept overnight and is not tracked). Stale as a material is. */
+export function branchRice(db: Database, branch: string, today: string) {
+  let qty = 0,
+    countedOn = "";
+  for (const e of branchWalk(db, branch))
+    if (e.kind === "materials" && typed(e.values, "count.rice")) {
+      qty = num(e.values, "count.rice");
+      countedOn = e.date;
+    } else if (e.kind === "pay" && e.values.item === "rice")
+      qty += num(e.values, "qty");
+  return { qty, countedOn, stale: staleCount(countedOn, today) };
+}
 type SupplierBalance = {
   supplier: string;
   billed: number;

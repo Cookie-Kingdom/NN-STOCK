@@ -175,7 +175,10 @@ test("a branch's copy holds its own entries and the cut-down stock lines, nothin
   expect(Object.keys(payload.config).sort()).toEqual(
     [...branchScope.configKeys].sort(),
   );
-  expect(JSON.stringify(payload)).not.toContain("ศาลาแดง");
+  // The settings name the branches that count raw rice; nothing else is of the other branch.
+  expect(JSON.stringify([payload.entries, payload.lots])).not.toContain(
+    "ศาลาแดง",
+  );
 });
 
 test("a branch pays only in its four categories, and saves only by appending", () => {
@@ -220,7 +223,11 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     { ...state.lots[1], config: { packKg: "0.12" }, values: { note: "x" } },
     state.lots[2],
   ]);
-  expect(scoped.config).toEqual({ packKg: "0.12", materialList: "[]" });
+  expect(scoped.config).toEqual({
+    packKg: "0.12",
+    materialList: "[]",
+    rawRiceBranches: '["มีนบุรี"]',
+  });
   expect(scopeDatabase(state, []).entries).toEqual([]);
 
   // manager_strip_entries

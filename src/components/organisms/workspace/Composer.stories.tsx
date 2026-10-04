@@ -205,6 +205,13 @@ export const PayBranch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
+/** นับวัสดุคงเหลือ ของศาลาแดง (สาขาที่ใช้ข้าวเหนียวดิบ): ต่อจากวัสดุมีช่อง「ข้าวเหนียวดิบ (กก.)」
+ *  ใส่ทศนิยมได้ · สาขาที่ไม่ได้ใช้ (มีนบุรี) ไม่มีช่องนี้ */
+export const MaterialsCount: Story = {
+  args: { account: "saladaeng", open: { kind: "materials" } },
+  parameters: { db: dbFor("saladaeng") },
+};
+
 /** แก้ไขการส่งไปรม: ฟอร์มเดิมพร้อมค่าที่จดไว้ บรรทัดใต้ชื่อบอกว่าแก้บันทึกของวันไหน ไม่มีปุ่ม บันทึกและจดต่อ
  *  (PO เนื้อ / PO รมควัน เปิดเป็นเอกสาร PO ดู PoDocumentDialog) */
 export const Edit: Story = {

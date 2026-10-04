@@ -23,7 +23,7 @@ language sql immutable set search_path = pg_catalog as $$ select $rules$
   "kinds": ["receive", "sale", "influencerBox", "materials", "meatCount", "pay"],
   "hiddenKeys": ["price", "invoiceAmount", "netPayable", "lines", "estimatedCost", "serviceRate", "outboundCost",
     "returnCost", "meatCost", "wasteCost"],
-  "configKeys": ["packKg", "materialList", "salesChannels", "payCategories"],
+  "configKeys": ["packKg", "materialList", "salesChannels", "payCategories", "rawRiceBranches"],
   "stockKinds": ["pay"],
   "stockKeys": ["category", "item", "qty", "branch", "targetId", "targetKind", "to.category", "to.item", "to.qty",
     "fromDate", "toDate"]

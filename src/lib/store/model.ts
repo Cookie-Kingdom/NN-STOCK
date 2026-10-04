@@ -422,6 +422,16 @@ export const ingredients = [
   { id: "chili", name: "น้ำพริก" },
   { id: "brine", name: "น้ำดอง" },
 ];
+/** The branches that steam their own sticky rice, so count the raw rice (V2-BR-08); the others
+ *  buy it cooked and have no rice row anywhere. Anything unreadable is the seed's list. */
+export const rawRiceBranches = (config: Values): string[] => {
+  for (const stored of [config.rawRiceBranches, seed.config.rawRiceBranches])
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  return [];
+};
 /** A payer that is not an advance (V2-PAY-07). */
 export const companyPayer = "บริษัท";
 export const seed: Database = {
@@ -439,6 +449,8 @@ export const seed: Database = {
     smokeRate1000: "200",
     smokeRate1500: "180",
     ...listDefaults,
+    // The old ERP's split: ศาลาแดง steams its rice, มีนบุรี buys it cooked.
+    rawRiceBranches: JSON.stringify(["ศาลาแดง"]),
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",

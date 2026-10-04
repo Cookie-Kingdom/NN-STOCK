@@ -29,7 +29,7 @@ declare
   -- is the Owner's edit of มีนบุรี's sale; mc the Owner jotted for มีนบุรี; tw is a retired kind.
   v_state constant jsonb := $state$
   {"version": 9,
-   "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","companyName":"x"},
+   "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","rawRiceBranches":"[\"มีนบุรี\"]","companyName":"x"},
    "lots": [
     {"id":"F1","poId":"PO-1","config":{},"values":{"price":"700","supplier":"Foodiva"}},
     {"id":"S1","poId":"SH-1","kind":"shipment","config":{"boxPrice":"350","packKg":"0.12"},"values":{"netPayable":"9","note":"x"}},
@@ -166,7 +166,7 @@ begin
   assert v_seen -> 'lots' = '[
     {"id":"S1","poId":"SH-1","kind":"shipment","config":{"packKg":"0.12"},"values":{"note":"x"}},
     {"id":"S2","poId":"SH-2","kind":"shipment","config":{},"values":{}}]'::jsonb, format('branch lots: %s', v_seen -> 'lots');
-  assert v_seen -> 'config' = '{"packKg":"0.12","materialList":"[]"}'::jsonb, format('branch config: %s', v_seen -> 'config');
+  assert v_seen -> 'config' = '{"packKg":"0.12","materialList":"[]","rawRiceBranches":"[\"มีนบุรี\"]"}'::jsonb, format('branch config: %s', v_seen -> 'config');
   assert v_seen ->> 'version' = '9', 'branch version';
   assert public.scope_app_state(v_state, '{}'::text[]) -> 'entries' = '[]'::jsonb, 'an account with no branch sees entries';
   perform set_config('test.uid', v_branch::text, true);

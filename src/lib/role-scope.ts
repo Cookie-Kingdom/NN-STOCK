@@ -49,7 +49,13 @@ export const branchScope: {
     "meatCost",
     "wasteCost",
   ],
-  configKeys: ["packKg", "materialList", "salesChannels", "payCategories"],
+  configKeys: [
+    "packKg",
+    "materialList",
+    "salesChannels",
+    "payCategories",
+    "rawRiceBranches",
+  ],
   stockKinds: ["pay"],
   stockKeys: [
     "category",
