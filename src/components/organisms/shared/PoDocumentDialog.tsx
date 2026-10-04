@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Caption } from "@/components/atoms/Text";
@@ -10,11 +9,15 @@ import {
   DocumentPrintButton,
   poPaperHtml,
 } from "@/components/molecules/DocumentPrintButton";
-import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
-import { FormGrid } from "@/components/molecules/FormGrid";
-import { Notice } from "@/components/molecules/Notice";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryFieldControl";
+import {
+  FieldSections,
+  FiguresPanel,
+  FormFooter,
+  SaveButton,
+  fullDay,
+} from "@/components/organisms/shared/formParts";
 import {
   purchaseOrderRows,
   smokeOrderPrintRows,
@@ -33,10 +36,7 @@ import {
   visibleNotes,
   type Values,
 } from "@/lib/store";
-
-/** The sample's form grid: as many 180px columns as fit (as in the composer). */
-const grid =
-  "my-0 grid-cols-[repeat(auto-fill,minmax(180px,1fr))] items-start gap-4";
+import { cn } from "@/lib/utils";
 
 const documentTitle = {
   purchase: "Purchase Order",
@@ -44,10 +44,11 @@ const documentTitle = {
 };
 
 /**
- * A PO เนื้อ or a PO รมควัน as a document: the form on the left, the PO paper it makes on the
- * right (stacked below lg), updated as the user types. 「พิมพ์ / ดาวน์โหลด PDF」 works before
- * saving (the next number, marked ฉบับร่าง); 「บันทึก」 saves through `mutate` like the
- * composer, after which the badge says บันทึกแล้ว and the paper carries the real number. With
+ * A PO เนื้อ or a PO รมควัน as a document: the sectioned form on the left, the PO paper it
+ * makes on the right (stacked below lg), updated as the user types. 「พิมพ์ / ดาวน์โหลด PDF」
+ * works before saving (the next number, marked ฉบับร่าง); 「บันทึก」 saves through `mutate`
+ * like the composer, after which the status in the subtitle (a dot and a word) says
+ * บันทึกแล้ว and the paper carries the real number. With
  * `entryId` it opens that saved note (view, edit, reprint). Mount to open, unmount to close.
  */
 export function PoDocumentDialog({
@@ -121,6 +122,14 @@ export function PoDocumentDialog({
       : smokeOrderPrintRows(db, lot || undefined, note);
   const logo = useLogoSrc(rows.find(([key]) => key === "โลโก้")?.[1]);
   const title = documentTitle[kind];
+  const row = (label: string) =>
+    rows.find(([key]) => key === label)?.[1] || "—";
+  const core = shown.filter((f) => f.core);
+  const [dot, status] = clean
+    ? ["bg-success", "บันทึกแล้ว"]
+    : saved
+      ? ["bg-warning", "แก้ไขยังไม่บันทึก"]
+      : ["bg-border-strong", "ฉบับร่าง"];
 
   const save = async () => {
     setError("");
@@ -149,21 +158,18 @@ export function PoDocumentDialog({
 
   return (
     <Dialog
-      className="w-320"
+      size="xl"
       onClose={onClose}
-      title={
+      title={titles[kind]}
+      subtitle={
         <>
-          {titles[kind]} {number}
+          {number}
+          {date && ` · ${fullDay(date)}`} ·{" "}
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className={cn("size-2 rounded-full", dot)} />
+            {status}
+          </span>
         </>
-      }
-      meta={
-        clean ? (
-          <Badge tone="success">บันทึกแล้ว</Badge>
-        ) : saved ? (
-          <Badge tone="warning">แก้ไขยังไม่บันทึก</Badge>
-        ) : (
-          <Badge>ฉบับร่าง</Badge>
-        )
       }
     >
       <form
@@ -177,47 +183,66 @@ export function PoDocumentDialog({
       >
         {/* Below lg the form and its paper stack in one scroll area: two nested scrollers
             in a fixed-height grid each shrink to a sliver on a phone. */}
-        <div className="min-h-0 flex-auto overflow-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] lg:overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-border p-6.5 max-md:p-4 lg:overflow-auto lg:border-r lg:border-b-0">
-            <Notice className="my-0">
-              เอกสาร PO ในส่วน Preview จะเปลี่ยนตามข้อมูลที่กรอกทันที ·
-              พิมพ์ได้ก่อนบันทึก
-            </Notice>
-            <FormGrid className={grid}>
-              <FormField label="วันที่">
-                <Input
-                  type="date"
-                  max={today}
-                  value={date}
-                  onChange={(event) => {
-                    setDate(event.target.value);
-                    setDirty(true);
-                  }}
-                />
-              </FormField>
-              {shown.map((f, index) => (
+        <div className="min-h-0 flex-auto overflow-auto lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,0.95fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
+          <div className="flex flex-col gap-5 border-b border-border p-6.5 max-md:p-4 lg:overflow-auto lg:border-r lg:border-b-0">
+            <FieldSections
+              shown={shown}
+              when={
+                <FormField label="วันที่">
+                  <Input
+                    type="date"
+                    max={today}
+                    value={date}
+                    onChange={(event) => {
+                      setDate(event.target.value);
+                      setDirty(true);
+                    }}
+                  />
+                </FormField>
+              }
+              render={(f, first) => (
                 <EntryFieldControl
                   key={f.key}
                   field={f}
-                  autoFocus={index === 0 && !saved}
+                  autoFocus={first && !saved}
                   values={values}
                   set={set}
                   onFile={() => {}}
                   onFileError={setError}
                 />
-              ))}
-            </FormGrid>
-            {kind === "smokeOrder" && !values.serviceRate && rate && (
-              <Caption>
-                ราคาค่ารมตามน้ำหนัก ฿{rate} / กก. (จาก Settings)
-              </Caption>
-            )}
-            <FormError error={error} className="my-0" />
+              )}
+            />
+            <FiguresPanel
+              className="rounded-lg border border-border p-4"
+              figures={{
+                rows: [
+                  { label: "จำนวน", value: row("จำนวน") },
+                  { label: "ราคา / กก.", value: row("ราคา / กก.") },
+                  {
+                    label: "ยอดรวมก่อน VAT",
+                    value: row("ยอดรวมก่อน VAT"),
+                    rule: true,
+                  },
+                ],
+                note:
+                  kind === "smokeOrder" && !values.serviceRate && rate
+                    ? "ราคาค่ารมคิดตามขั้นน้ำหนักใน Settings"
+                    : "",
+              }}
+            />
           </div>
           <section
             aria-label="Preview เอกสาร PO"
-            className="bg-bg p-6.5 max-md:p-3 lg:overflow-auto max-md:[&_.po-paper]:p-5"
+            className="flex flex-col gap-3 bg-bg p-6.5 max-md:p-3 lg:overflow-auto max-md:[&_.po-paper]:p-5"
           >
+            <div>
+              <h3 className="m-0 text-label text-text-secondary">Preview</h3>
+              <Caption className="block">
+                {clean
+                  ? "พิมพ์จากข้อมูลที่บันทึกแล้ว"
+                  : "เปลี่ยนตามข้อมูลที่กรอกทันที · พิมพ์ได้ก่อนบันทึก เลขที่เอกสารอาจเปลี่ยนเมื่อบันทึก"}
+              </Caption>
+            </div>
             <style>{PO_CSS}</style>
             <div
               // Escaped by poPaperHtml: the same markup the print popup writes.
@@ -233,12 +258,12 @@ export function PoDocumentDialog({
             />
           </section>
         </div>
-        <footer className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border bg-bg px-6.5 py-4 max-md:px-4 max-md:py-3">
-          <Caption className="mr-auto max-md:hidden">
-            {clean
-              ? "พิมพ์จากข้อมูลที่บันทึกแล้ว"
-              : "พิมพ์ได้โดยไม่ต้องบันทึก · เลขที่เอกสารอาจเปลี่ยนเมื่อบันทึก"}
-          </Caption>
+        <FormFooter
+          missing={
+            core.length ? core.filter((f) => !values[f.key]).length : undefined
+          }
+          error={error}
+        >
           <Button variant="link" className="min-h-11 px-2" onClick={onClose}>
             {clean ? "ปิด" : "ยกเลิก"}
           </Button>
@@ -250,10 +275,8 @@ export function PoDocumentDialog({
             draft={!clean}
             label="พิมพ์ / ดาวน์โหลด PDF"
           />
-          <Button type="submit" variant="primary" disabled={saving || clean}>
-            บันทึก
-          </Button>
-        </footer>
+          <SaveButton saving={saving} disabled={clean} />
+        </FormFooter>
       </form>
     </Dialog>
   );
