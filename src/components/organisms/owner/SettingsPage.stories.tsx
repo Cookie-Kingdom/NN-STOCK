@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { within } from "storybook/test";
 import { Caption } from "@/components/atoms/Text";
 import {
   WithWorkspace,
@@ -37,8 +38,22 @@ type Story = StoryObj<typeof meta>;
 
 /** กด「แก้ไข」ของส่วนใดส่วนหนึ่งเพื่อแก้ แล้ว「บันทึก」ส่วนนั้น (เปิดได้ทีละส่วน)
  *  ค่าที่เว็บไม่รับ เช่น ตัวเลขติดลบหรือชื่อว่าง ขึ้นข้อความสีแดงข้างปุ่ม
- *  เพิ่มช่องทางขายแล้วบรรทัดล่างสุดมีช่องยอดขายของช่องทางนั้นเพิ่ม */
+ *  เพิ่มช่องทางขายแล้วบรรทัดล่างสุดมีช่องยอดขายของช่องทางนั้นเพิ่ม ·
+ *  「สาขาที่ใช้ข้าวเหนียวดิบ」: ช่องติ๊กต่อสาขา (ตั้งต้นศาลาแดง) กด「แก้ไข」จึงติ๊กได้ ·
+ *  「รายชื่อวัสดุ」มีคอลัมน์ SKU (เว็บออกให้ แก้ไม่ได้ แถวที่เพิ่งเพิ่มเป็น「ออกเมื่อบันทึก」) ·
+ *  「รายการสินค้า (SKU)」: ทุก SKU กับชื่อ วัสดุอ่านอย่างเดียว รายการในบัญชีซื้อแก้ชื่อได้
+ *  ชื่อซ้ำหรือชื่อว่าง เว็บไม่รับ */
 export const Default: Story = {};
+
+/** แก้ชื่อรายการในบัญชีซื้อ: กด「แก้ไข」ของ「รายการสินค้า (SKU)」แถววัสดุไม่มีช่องพิมพ์ */
+export const RenameSku: Story = {
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      within(
+        await canvas.findByRole("region", { name: "รายการสินค้า (SKU)" }),
+      ).getByRole("button", { name: /แก้ไข/ }),
+    ),
+};
 
 /** จอ 390px */
 export const Phone: Story = { ...phone };

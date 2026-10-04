@@ -205,6 +205,13 @@ export const PayBranch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
+/** นับวัสดุคงเหลือ ของศาลาแดง (สาขาที่ใช้ข้าวเหนียวดิบ): ต่อจากวัสดุมีช่อง「ข้าวเหนียวดิบ (กก.)」
+ *  ใส่ทศนิยมได้ · สาขาที่ไม่ได้ใช้ (มีนบุรี) ไม่มีช่องนี้ */
+export const MaterialsCount: Story = {
+  args: { account: "saladaeng", open: { kind: "materials" } },
+  parameters: { db: dbFor("saladaeng") },
+};
+
 /** แก้ไขการส่งไปรม: ฟอร์มเดิมพร้อมค่าที่จดไว้ บรรทัดใต้ชื่อบอกว่าแก้บันทึกของวันไหน ไม่มีปุ่ม บันทึกและจดต่อ
  *  (PO เนื้อ / PO รมควัน เปิดเป็นเอกสาร PO ดู PoDocumentDialog) */
 export const Edit: Story = {
@@ -216,7 +223,8 @@ export const Edit: Story = {
 };
 
 /** บันทึกค่าใช้จ่าย (Accounting, บันทึกยาว lg): ประเภทสินค้า รายการ ผู้ขาย Project พิมพ์ใหม่หรือเลือกจากที่เคยจด ·
- *  พิมพ์ 「กระดาษ A4」 เห็น Item No. เดิม พิมพ์ชื่อใหม่เห็น 「ใหม่: ITM-…」 ทั้งใต้ช่องและในแถบขวา ·
+ *  ช่องรายการเลือกได้จากทุกรายการที่มี SKU รวมวัสดุ · พิมพ์ 「กระดาษ A4」 เห็น SKU เดิม พิมพ์ 「ถุงซีลเนื้อ」
+ *  เห็น SKU ของวัสดุ (SKU-0003) พิมพ์ชื่อใหม่เห็น 「ใหม่: SKU-…」 ทั้งใต้ช่องและในแถบขวา ·
  *  เลือก ใช้งานโปรเจกต์ แล้วช่อง Project ขึ้นมา (ซื้อเข้าบริษัทส่วนกลาง ไม่มีช่องนี้) ·
  *  ที่มาเริ่มที่ 「โอนจ่ายตรง」 ไม่มี 「เงินสดย่อย」 */
 export const Expense: Story = {
@@ -231,6 +239,18 @@ export const Expense: Story = {
         amount: "1250",
         status: "pending",
       },
+    },
+  },
+  parameters: { db: dbFor("manager") },
+};
+
+/** ค่าใช้จ่ายของวัสดุ: ชื่อตรงกับวัสดุใน Settings ได้ SKU ของวัสดุนั้น (SKU-0003 · เดิม) ไม่ขยับสต๊อก */
+export const ExpenseOfMaterial: Story = {
+  args: {
+    account: "manager",
+    open: {
+      kind: "expense",
+      values: { itemType: "วัสดุบรรจุภัณฑ์", item: "ถุงซีลเนื้อ", qty: "500" },
     },
   },
   parameters: { db: dbFor("manager") },

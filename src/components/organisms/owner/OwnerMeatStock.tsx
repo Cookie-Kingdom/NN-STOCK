@@ -9,20 +9,20 @@ import {
 } from "@/components/organisms/branch/BranchStock";
 import { HeldCell, StatusCells } from "@/components/organisms/owner/OwnerStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { qty } from "@/lib/format";
 import {
-  branchBought,
   branchChili,
   branchMeat,
+  branchRice,
   branches,
   lotInfo,
   poInfo,
   purchaseLots,
+  rawRiceBranches,
   shipments,
 } from "@/lib/store";
 
 /** Stock as the Owner and the Account Manager see it: the meat from the seller to each
- *  branch (V2-CAL-07, 08, 10), then the sticky rice and the chili of each branch.
+ *  branch (V2-CAL-07, 08, 10), then the raw sticky rice and the chili of each branch.
  *  Read-only: the branch admins count on their own Inventory page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
@@ -32,13 +32,16 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const smoked = shipments(db)
     .map((lot) => lotInfo(db, lot.id))
     .filter((info) => info.backKg > 0);
-  // Sticky rice has no count and no use jotted: what was bought so far, not a balance.
-  const rice = branches.map((branch) => branchBought(db, branch, "rice"));
   const places = branches.map((branch) => `สาขา${branch}`);
+  // Raw rice: only the branches that steam their own (Settings); the others get a dash.
+  const rice = Object.fromEntries(
+    rawRiceBranches(db.config)
+      .filter((branch) => branches.includes(branch))
+      .map((branch) => [`สาขา${branch}`, branchRice(db, branch, today)]),
+  );
   const chili = Object.fromEntries(
     branches.map((branch) => [`สาขา${branch}`, branchChili(db, branch, today)]),
   );
-  const sum = (figures: number[]) => figures.reduce((a, b) => a + b, 0);
   return (
     <div className="flex flex-col gap-4">
       <DayCard
@@ -93,18 +96,16 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           columns={["สินค้า", ...places, "รวม", "สถานะ"]}
           right={[...places, "รวม"]}
         >
-          <tr>
-            <Cell className="font-semibold">ข้าวเหนียว</Cell>
-            {rice.map((n, i) => (
-              <Cell key={branches[i]} right>
-                {qty(n)}
-              </Cell>
-            ))}
-            <Cell right>{qty(sum(rice))}</Cell>
-            <Cell className="text-text-secondary">
-              ซื้อเข้าสะสม · ยังไม่มียอดนับ
-            </Cell>
-          </tr>
+          {/* No branch steams its own: no row, rather than a red "หมด" of nothing. */}
+          {Object.keys(rice).length > 0 && (
+            <tr>
+              <Cell className="font-semibold">ข้าวเหนียวดิบ (กก.)</Cell>
+              {places.map((place) => (
+                <HeldCell key={place} held={rice[place]} today={today} />
+              ))}
+              <StatusCells at={rice} places={places} />
+            </tr>
+          )}
           <tr>
             <Cell className="font-semibold">น้ำพริก (หลอด)</Cell>
             {places.map((place) => (
@@ -116,9 +117,10 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
       </DayCard>
       <Caption>
         หน้านี้ดูได้อย่างเดียว แอดมินสาขาเป็นคนนับจากหน้าของสาขา ·
-        ข้าวเหนียวเป็นยอดที่ซื้อเข้าสาขาสะสม ยังไม่มีการนับและการตัดยอด
-        จึงไม่ใช่ยอดคงเหลือ · น้ำพริก: ช่องสีเหลือง = ยังไม่เคยนับ
-        หรือไม่ได้นับเกิน 7 วัน · ช่องสีแดง = ไม่เหลือ
+        ข้าวเหนียวดิบ: ยอดนับล่าสุด บวกที่ซื้อเข้าสาขาหลังจากนั้น
+        เว็บไม่ตัดยอดเอง · 「—」 = สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (ตั้งที่
+        Settings) · ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ·
+        ช่องสีแดง = ไม่เหลือ
       </Caption>
     </div>
   );

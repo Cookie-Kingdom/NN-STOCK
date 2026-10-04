@@ -25,6 +25,7 @@ import {
   dispatchLines,
   editBlock,
   isNoteKind,
+  skuName,
   titles,
   voidBlock,
   type Entry,
@@ -179,6 +180,9 @@ function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
                 />,
               ],
             ];
+          // A ledger item: the name its SKU goes by now.
+          if (e.kind === "expense" && f.key === "item")
+            return [[label, skuName(db, v.sku, value)]];
           return [[label, fieldText(db, f, value)]];
         }),
         ...addedKeys

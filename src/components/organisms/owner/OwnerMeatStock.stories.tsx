@@ -7,8 +7,20 @@ import {
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
+import { accountById } from "@/lib/accounts";
+import { today } from "@/lib/format";
+import { mutate } from "@/lib/store";
 import { emptyDb } from "../../../../.storybook/fixtures";
 import { OwnerMeatStock } from "./OwnerMeatStock";
+
+const riceCountedDb = mutate(
+  sampleDb,
+  accountById("saladaeng")!,
+  "materials",
+  { "count.rice": "12.5" },
+  "",
+  today(),
+);
 
 const Stock = ({ account }: { account: AccountId }) => (
   <WithWorkspace account={account}>
@@ -30,9 +42,10 @@ type Story = StoryObj<typeof meta>;
 /** Owner: สองกล่องเรียงลงมา ·「เนื้อ (กก.)」: เนื้อที่ฝากไว้ที่ร้านขายเนื้อ สต๊อกกลางของแต่ละ Lot
  *  และเนื้อของแต่ละสาขาพร้อมสถานะการนับ (เขียว = นับแล้ววันนี้ เหลือง = วันนี้ยังไม่ได้นับ) ·
  *  「ข้าวเหนียวและน้ำพริก」: สินค้า · สาขาศาลาแดง · สาขามีนบุรี · รวม · สถานะ ตัวเลขอย่างเดียว ·
- *  ข้าวเหนียวเป็นยอดซื้อเข้าสะสม ไม่ใช่ยอดคงเหลือ (สถานะบอกไว้) ·「น้ำพริก (หลอด)」: ใต้ตัวเลขของ
- *  แต่ละสาขาบอกยอดนับล่าสุด (นับวันนี้ / นับ <วันที่> / นับ <วันที่> · เกิน 7 วัน / ยังไม่เคยนับ)
- *  ไม่ได้นับเกิน 7 วันเป็นสีเหลืองเหมือนวัสดุ · ดูได้อย่างเดียว ไม่มีปุ่ม */
+ *  「ข้าวเหนียวดิบ (กก.)」กับ「น้ำพริก (หลอด)」: ใต้ตัวเลขของแต่ละสาขาบอกยอดนับล่าสุด
+ *  (นับวันนี้ / นับ <วันที่> / นับ <วันที่> · เกิน 7 วัน / ยังไม่เคยนับ) ไม่ได้นับเกิน 7 วันเป็นสีเหลือง
+ *  ไม่เหลือเป็นสีแดงเหมือนวัสดุ · สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (มีนบุรี) เป็น「—」·
+ *  ดูได้อย่างเดียว ไม่มีปุ่ม */
 export const Owner: Story = {};
 
 /** Account Manager: เห็นเหมือน Owner */
@@ -41,8 +54,11 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** ฐานข้อมูลเปล่า: กล่องเนื้อมีแต่แถวของสองสาขา · ข้าวเหนียว 0 · น้ำพริก「หมด」 */
+/** ฐานข้อมูลเปล่า: กล่องเนื้อมีแต่แถวของสองสาขา · ข้าวเหนียวดิบและน้ำพริก「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
+
+/** ศาลาแดงนับข้าวเหนียวดิบแล้ววันนี้ (12.5 กก.): ช่องของศาลาแดงบอก「นับวันนี้」สถานะ「พร้อมใช้」 */
+export const RawRiceCounted: Story = { parameters: { db: riceCountedDb } };
 
 /** จอ 390px: แต่ละตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
 export const Phone: Story = { ...phone };

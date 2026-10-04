@@ -33,6 +33,7 @@ type Story = StoryObj<typeof meta>;
  *  ใต้ตัวเลขของแต่ละสาขาบอกยอดนับล่าสุด (นับวันนี้ / นับ <วันที่> / นับ <วันที่> · เกิน 7 วัน /
  *  ยังไม่เคยนับ) · ช่องที่ยังไม่ได้นับเป็นสีเหลือง ช่องที่ไม่เหลือเป็นสีแดง · หน่วย (ชิ้น) บอกครั้งเดียวใต้ตาราง ·
  *  สถานะของแถว: หมด / ยังไม่ได้นับ: สาขา… / พร้อมใช้ · ดูได้อย่างเดียว ไม่มีปุ่มจดและช่องนับ ·
+ *  SKU คือเลขที่เว็บออกให้วัสดุ (SKU-0001…) วัสดุที่ยังไม่มี SKU เป็น「—」จนกว่าจะบันทึกรายชื่อวัสดุอีกครั้ง ·
  *  เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock (OwnerMeatStock) */
 export const Owner: Story = {};
 
@@ -42,8 +43,8 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** กรอง: เลือก「สาขาศาลาแดง」เหลือคอลัมน์ของสาขานั้นคอลัมน์เดียว (ไม่มี รวม) แล้วค้นหา「m1」
- *  เหลือ M1 กับ M10 ตัวนับบอกจำนวนแถวที่แสดง */
+/** กรอง: เลือก「สาขาศาลาแดง」เหลือคอลัมน์ของสาขานั้นคอลัมน์เดียว (ไม่มี รวม) แล้วค้นหา「sku-000」
+ *  เหลือ SKU-0001 ถึง SKU-0009 ตัวนับบอกจำนวนแถวที่แสดง */
 export const Filtered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -54,8 +55,9 @@ export const Filtered: Story = {
     await expect(
       canvas.getAllByRole("columnheader").map((th) => th.textContent),
     ).toEqual(["SKU", "สินค้า", "สาขาศาลาแดง", "สถานะ"]);
-    await userEvent.type(canvas.getByLabelText("ค้นหา"), "m1");
+    await userEvent.type(canvas.getByLabelText("ค้นหา"), "sku-000");
     const rows = canvas.getAllByRole("row").slice(1);
+    await expect(rows).toHaveLength(9);
     await expect(
       canvas.getByText(new RegExp(`^แสดง ${rows.length} จาก`)),
     ).toBeVisible();

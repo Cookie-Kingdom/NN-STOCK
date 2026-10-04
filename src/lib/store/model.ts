@@ -348,7 +348,14 @@ export const isEditOverlay = (
   (e.role === "owner" || (!!target && canChange(e, target)));
 /* Settings kept as JSON lists in `config` (Settings page). */
 type Channel = { key: string; name: string; gp: number };
-type Material = { id: string; name: string; perBox: number | null };
+/** `id` is what entries name (`count.<id>`, a payment's `item`) and never changes; `sku` is the
+ *  code people read, issued by `mutate` when the list is saved ("" until then). */
+type Material = {
+  id: string;
+  sku: string;
+  name: string;
+  perBox: number | null;
+};
 type PayCategory = { id: string; name: string };
 const listDefaults = {
   salesChannels: JSON.stringify([
@@ -356,16 +363,21 @@ const listDefaults = {
   ]),
   // The ten materials of the ERP before v2, in its order.
   materialList: JSON.stringify([
-    { id: "m1", name: "กล่องพิมพ์ลาย", perBox: "1" },
-    { id: "m2", name: "กระดาษรอง", perBox: "" },
-    { id: "m3", name: "ถุงซีลเนื้อ", perBox: "1" },
-    { id: "m4", name: "ถุงซีลข้าว", perBox: "" },
-    { id: "m5", name: "ถุงหิ้วกระดาษ", perBox: "" },
-    { id: "m6", name: "สติกเกอร์โลโก้", perBox: "1" },
-    { id: "m7", name: "การ์ด / สติกเกอร์วิธีอุ่น", perBox: "" },
-    { id: "m8", name: "ถ้วยพริก", perBox: "" },
-    { id: "m9", name: "สติกเกอร์พริก", perBox: "" },
-    { id: "m10", name: "สติกเกอร์ข้าวเหนียว", perBox: "" },
+    { id: "m1", sku: "SKU-0001", name: "กล่องพิมพ์ลาย", perBox: "1" },
+    { id: "m2", sku: "SKU-0002", name: "กระดาษรอง", perBox: "" },
+    { id: "m3", sku: "SKU-0003", name: "ถุงซีลเนื้อ", perBox: "1" },
+    { id: "m4", sku: "SKU-0004", name: "ถุงซีลข้าว", perBox: "" },
+    { id: "m5", sku: "SKU-0005", name: "ถุงหิ้วกระดาษ", perBox: "" },
+    { id: "m6", sku: "SKU-0006", name: "สติกเกอร์โลโก้", perBox: "1" },
+    {
+      id: "m7",
+      sku: "SKU-0007",
+      name: "การ์ด / สติกเกอร์วิธีอุ่น",
+      perBox: "",
+    },
+    { id: "m8", sku: "SKU-0008", name: "ถ้วยพริก", perBox: "" },
+    { id: "m9", sku: "SKU-0009", name: "สติกเกอร์พริก", perBox: "" },
+    { id: "m10", sku: "SKU-0010", name: "สติกเกอร์ข้าวเหนียว", perBox: "" },
   ]),
   payCategories: JSON.stringify([
     { id: "meat", name: "เนื้อ" },
@@ -399,6 +411,7 @@ export const salesChannels = (config: Values): Channel[] =>
 export const materialList = (config: Values): Material[] =>
   list(config, "materialList").map((m) => ({
     id: m.id,
+    sku: m.sku ?? "",
     name: m.name,
     perBox: Number(m.perBox) || null,
   }));
@@ -422,6 +435,16 @@ export const ingredients = [
   { id: "chili", name: "น้ำพริก" },
   { id: "brine", name: "น้ำดอง" },
 ];
+/** The branches that steam their own sticky rice, so count the raw rice (V2-BR-08); the others
+ *  buy it cooked and have no rice row anywhere. Anything unreadable is the seed's list. */
+export const rawRiceBranches = (config: Values): string[] => {
+  for (const stored of [config.rawRiceBranches, seed.config.rawRiceBranches])
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  return [];
+};
 /** A payer that is not an advance (V2-PAY-07). */
 export const companyPayer = "บริษัท";
 export const seed: Database = {
@@ -439,6 +462,8 @@ export const seed: Database = {
     smokeRate1000: "200",
     smokeRate1500: "180",
     ...listDefaults,
+    // The old ERP's split: ศาลาแดง steams its rice, มีนบุรี buys it cooked.
+    rawRiceBranches: JSON.stringify(["ศาลาแดง"]),
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",

@@ -214,7 +214,7 @@ export function sampleData(endDate: string): Database {
     payer: "น้องฝน",
   });
   // The purchase ledger's hand-jotted rows (Accounting): every status and source, an item
-  // bought twice (one Item No.), a project's and the office's.
+  // bought twice (one SKU), a project's and the office's.
   add(manager, "expense", 20, "16:00", {
     source: "advance",
     reference: "RC-6701",

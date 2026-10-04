@@ -17,8 +17,10 @@ import {
   branchChili,
   branchMaterial,
   branchMeat,
+  branchRice,
   materialList,
   mutate,
+  rawRiceBranches,
   titles,
   type Values,
 } from "@/lib/store";
@@ -118,9 +120,10 @@ function Counted({
   );
 }
 
-/** One branch's materials and chili: what is left, when each was last counted (yellow when
- *  never, or more than 7 days ago), and an input per material. 「บันทึกยอดนับ」 saves one
- *  `materials` note dated today that holds only the rows typed (V2-BR-03). */
+/** One branch's materials, raw rice (a branch that steams its own, V2-BR-08) and chili: what
+ *  is left, when each was last counted (yellow when never, or more than 7 days ago), and an
+ *  input per material and for the rice. 「บันทึกยอดนับ」 saves one `materials` note dated today
+ *  that holds only the rows typed (V2-BR-03). */
 export function MaterialCount({
   ws,
   branch,
@@ -137,6 +140,22 @@ export function MaterialCount({
   const [counts, setCounts] = useState<Values>({});
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const chili = branchChili(db, branch, today);
+  const rows = [
+    ...materialList(db.config).map((m) => ({
+      key: `count.${m.id}`,
+      name: m.name,
+      s: branchMaterial(db, branch, m.id, today),
+    })),
+    ...(rawRiceBranches(db.config).includes(branch)
+      ? [
+          {
+            key: "count.rice",
+            name: "ข้าวเหนียวดิบ (กก.)",
+            s: branchRice(db, branch, today),
+          },
+        ]
+      : []),
+  ];
   const save = async () => {
     setError("");
     const typed = Object.fromEntries(
@@ -168,30 +187,26 @@ export function MaterialCount({
           columns={["รายการ", "คงเหลือ", "นับล่าสุด", "นับได้"]}
           right={["คงเหลือ", "นับได้"]}
         >
-          {materialList(db.config).map((m) => {
-            const s = branchMaterial(db, branch, m.id, today);
-            const key = `count.${m.id}`;
-            return (
-              <tr key={m.id}>
-                <Cell className="md:whitespace-nowrap">{m.name}</Cell>
-                <Left n={s.qty} />
-                <Counted s={s} today={today} />
-                <Cell right className="py-1.5">
-                  {/* Text, not number: `mutate` words the refusal of a bad figure. */}
-                  <Input
-                    inputMode="decimal"
-                    aria-label={`นับ ${m.name}`}
-                    className="mt-0 ml-auto min-h-10 w-24 text-right max-md:w-20"
-                    value={counts[key] ?? ""}
-                    onChange={(event) => {
-                      setError("");
-                      setCounts({ ...counts, [key]: event.target.value });
-                    }}
-                  />
-                </Cell>
-              </tr>
-            );
-          })}
+          {rows.map(({ key, name, s }) => (
+            <tr key={key}>
+              <Cell className="md:whitespace-nowrap">{name}</Cell>
+              <Left n={s.qty} />
+              <Counted s={s} today={today} />
+              <Cell right className="py-1.5">
+                {/* Text, not number: `mutate` words the refusal of a bad figure. */}
+                <Input
+                  inputMode="decimal"
+                  aria-label={`นับ ${name}`}
+                  className="mt-0 ml-auto min-h-10 w-24 text-right max-md:w-20"
+                  value={counts[key] ?? ""}
+                  onChange={(event) => {
+                    setError("");
+                    setCounts({ ...counts, [key]: event.target.value });
+                  }}
+                />
+              </Cell>
+            </tr>
+          ))}
           <tr>
             <Cell className="md:whitespace-nowrap">น้ำพริก (หลอด)</Cell>
             <Left n={chili.qty} />

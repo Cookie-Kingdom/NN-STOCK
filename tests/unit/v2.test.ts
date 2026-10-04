@@ -2,26 +2,29 @@ import { describe, expect, it } from "vitest";
 import {
   advances,
   boxCost,
-  branchBought,
   branchChili,
   branchMaterial,
   branchMeat,
+  branchRice,
   entries,
   giftBoxes,
-  itemNoFor,
   kindsForPage,
   ledgerRows,
   ledgerSummary,
   liveEntries,
   lotInfo,
+  materialList,
   monthPl,
   mutate,
   poInfo,
   purchaseLots,
+  rawRiceBranches,
   saleMoney,
   salesChannels,
   seed,
   shipments,
+  skuCatalogue,
+  skuFor,
   supplierBalances,
   todoOpens,
   todos,
@@ -30,7 +33,9 @@ import {
   type Actor,
   type Database,
   type NoteKind,
+  type Values,
 } from "@/lib/store";
+import { fields } from "@/lib/forms";
 import { sampleData } from "@/lib/store/demo";
 
 // Smoke checks of the domain on the approved sample. The figures do not depend on the date.
@@ -237,16 +242,6 @@ describe("mutate", () => {
     });
     expect(last(paid)).toMatchObject({ role: "owner", branch: "มีนบุรี" });
     expect(branchMaterial(paid, "มีนบุรี", "m1", day).qty).toBe(before + 50);
-    // ข้าวเหนียว has no balance: only what was bought for the branch, summed.
-    const rice = { category: "ingredient", amount: "1", item: "rice" };
-    const bought = [
-      { ...rice, qty: "20", branch: "มีนบุรี" },
-      { ...rice, qty: "5", branch: "มีนบุรี" },
-      { ...rice, qty: "9", branch: "ศาลาแดง" },
-    ].reduce((next, input) => mutate(next, owner, "pay", input, "", day), db);
-    expect(branchBought(bought, "มีนบุรี", "rice")).toBe(
-      branchBought(db, "มีนบุรี", "rice") + 25,
-    );
     // Not a stock category: the item, the quantity and the branch are not saved.
     const other = last(
       pay(owner, { category: "other", amount: "1", item: "m1", qty: "5" }),
@@ -852,6 +847,84 @@ describe("figures (V2-CAL)", () => {
     expect(branchChili(built, "มีนบุรี", "2026-09-11").stale).toBe(true);
   });
 
+  it("CAL-19: raw rice is the last count plus what was bought since; nothing is taken off", () => {
+    const rice = (qty: string, date: string) =>
+      [
+        owner,
+        "pay",
+        {
+          category: "ingredient",
+          amount: "1",
+          item: "rice",
+          qty,
+          branch: "ศาลาแดง",
+        },
+        date,
+      ] as const;
+    const jotted = (
+      [
+        rice("20", "2026-09-08"),
+        [saladaeng, "materials", { "count.rice": "12.5" }, "2026-09-09"],
+        rice("5", "2026-09-10"),
+        // A count of materials only leaves the rice count where it was.
+        [saladaeng, "materials", { "count.m2": "20" }, "2026-09-11"],
+      ] as const
+    ).reduce(
+      (next, [by, kind, input, date]) =>
+        mutate(next, by, kind, input, "", date),
+      built,
+    );
+    // Never counted: what was bought, and late.
+    expect(branchRice(built, "ศาลาแดง", "2026-09-16")).toEqual({
+      qty: 0,
+      countedOn: "",
+      stale: true,
+    });
+    // 12.5 (counted 9 ก.ย.) + 5; the sales and gift boxes since take nothing.
+    expect(branchRice(jotted, "ศาลาแดง", "2026-09-16")).toEqual({
+      qty: 17.5,
+      countedOn: "2026-09-09",
+      stale: false,
+    });
+    expect(branchRice(jotted, "ศาลาแดง", "2026-09-17").stale).toBe(true);
+    expect(branchRice(jotted, "มีนบุรี", "2026-09-16").qty).toBe(0);
+  });
+
+  it("BR-08: only a branch that uses raw rice counts it, and only the Owner says which", () => {
+    const count = (d: Database, by: Actor) =>
+      last(
+        mutate(
+          d,
+          by,
+          "materials",
+          { "count.rice": "3", "count.m1": "9" },
+          "",
+          day,
+        ),
+      ).values;
+    expect(rawRiceBranches(seed.config)).toEqual(["ศาลาแดง"]);
+    expect(count(seed, saladaeng)["count.rice"]).toBe("3");
+    // มีนบุรี buys its rice cooked: the row is not in its form, so it is not saved.
+    expect(count(seed, minburi)["count.rice"]).toBeUndefined();
+    expect(() =>
+      mutate(seed, minburi, "materials", { "count.rice": "3" }, "", day),
+    ).toThrow("ยังไม่ได้ใส่ยอดนับ");
+    const set = (by: Actor, value: string) =>
+      mutate(seed, by, "config", { rawRiceBranches: value }, "", day);
+    const both = set(owner, '["ศาลาแดง","มีนบุรี"]');
+    expect(count(both, minburi)["count.rice"]).toBe("3");
+    expect(count(set(owner, "[]"), saladaeng)["count.rice"]).toBeUndefined();
+    for (const bad of [
+      '["เชียงใหม่"]',
+      '["มีนบุรี","มีนบุรี"]',
+      "มีนบุรี",
+      '"x"',
+    ])
+      expect(() => set(owner, bad)).toThrow("สาขาที่ใช้ข้าวเหนียวดิบ");
+    expect(() => set(manager, "[]")).toThrow("ไม่มีสิทธิ์");
+    expect(() => set(saladaeng, "[]")).toThrow("ไม่มีสิทธิ์");
+  });
+
   it("CAL-13: a supplier's balance is its bills less what was paid to it", () => {
     expect(supplierBalances(built)).toEqual([
       { supplier: "Foodiva", billed: 50000, paid: 20000, left: 30000 },
@@ -875,50 +948,171 @@ describe("figures (V2-CAL)", () => {
   });
 });
 
-describe("ledger: Item No.", () => {
+describe("SKU: materials and ledger items", () => {
   const jot = (d: Database, item: string, by: Actor = manager) =>
     mutate(d, by, "expense", { item, amount: "10" }, "", day);
-  const no = (d: Database) => last(d).values.itemNo;
+  const sku = (d: Database) => last(d).values.sku;
+  const config = (d: Database, input: Values, by: Actor = owner) =>
+    mutate(d, by, "config", input, "", day);
+  const edit = (d: Database, id: string, values: Values) =>
+    mutate(
+      d,
+      manager,
+      "entryEdit",
+      { targetId: id, values: JSON.stringify(values) },
+      "",
+      day,
+    );
+  const skuOf = (d: Database, id: string) =>
+    entries(d, "expense").find((e) => e.id === id)!.values.sku;
+  const name = (d: Database, code: string) =>
+    skuCatalogue(d).find((item) => item.sku === code)?.name;
 
-  it("issues ITM-0001 up, and reuses the number of the same name (trimmed, any case)", () => {
+  it("the seed's materials are SKU-0001 to SKU-0010, and a new ledger item is the next", () => {
+    expect(materialList(seed.config).map((m) => m.sku)).toEqual(
+      Array.from(
+        { length: 10 },
+        (_, i) => `SKU-${String(i + 1).padStart(4, "0")}`,
+      ),
+    );
     let d = jot(seed, "กระดาษ A4");
-    expect(no(d)).toBe("ITM-0001");
+    expect(sku(d)).toBe("SKU-0011");
     d = jot(d, "ปากกา", owner);
-    expect(no(d)).toBe("ITM-0002");
+    expect(sku(d)).toBe("SKU-0012");
+    // The same name, trimmed, any case: the same item.
     d = jot(d, "  กระดาษ a4 ");
-    expect(no(d)).toBe("ITM-0001");
-    expect(itemNoFor(d, "ยางลบ")).toEqual({ no: "ITM-0003", isNew: true });
+    expect(sku(d)).toBe("SKU-0011");
+    expect(skuFor(d, "ยางลบ")).toEqual({ sku: "SKU-0013", isNew: true });
+    expect(skuFor(d, " ")).toEqual({ sku: "", isNew: false });
   });
 
-  it("never gives a deleted entry's number again, and an edit to a new name gets a new one", () => {
+  it("an expense named as a material carries the material's SKU and moves no stock", () => {
+    const before = branchMaterial(seed, "ศาลาแดง", "m3", day);
+    const d = mutate(
+      seed,
+      manager,
+      "expense",
+      { item: " ถุงซีลเนื้อ", qty: "500", amount: "900" },
+      "",
+      day,
+    );
+    expect(sku(d)).toBe("SKU-0003");
+    expect(skuFor(d, "ถุงซีลเนื้อ")).toEqual({ sku: "SKU-0003", isNew: false });
+    expect(branchMaterial(d, "ศาลาแดง", "m3", day)).toEqual(before);
+    // The form offers every item, the materials included, each under its SKU.
+    expect(
+      fields("expense", d, manager).find((f) => f.key === "item")!.options,
+    ).toContainEqual({ value: "ถุงซีลเนื้อ", label: "SKU-0003" });
+  });
+
+  it("never gives a number twice: not a deleted entry's, an edited-away one's or a removed material's", () => {
     let d = jot(seed, "กระดาษ A4");
     d = jot(d, "ปากกา");
     d = mutate(d, owner, "void", { targetId: last(d).id }, "", day);
     d = jot(d, "ยางลบ");
-    expect(no(d)).toBe("ITM-0003");
+    expect(sku(d)).toBe("SKU-0013");
+    // The deleted item is no longer in the catalogue: its name is a new item.
+    expect(skuFor(d, "ปากกา")).toEqual({ sku: "SKU-0014", isNew: true });
     const id = last(d).id;
-    d = mutate(
-      d,
-      manager,
-      "entryEdit",
-      { targetId: id, values: JSON.stringify({ item: "ยางลบ", qty: "2" }) },
-      "",
-      day,
-    );
-    expect(entries(d, "expense").find((e) => e.id === id)!.values.itemNo).toBe(
-      "ITM-0003",
-    );
-    d = mutate(
-      d,
-      manager,
-      "entryEdit",
-      { targetId: id, values: JSON.stringify({ item: "คลิปหนีบ" }) },
-      "",
-      day,
-    );
-    expect(entries(d, "expense").find((e) => e.id === id)!.values.itemNo).toBe(
-      "ITM-0004",
-    );
+    // An edit that keeps the name keeps the SKU; a new name gets a new one; a name that
+    // exists gets that item's.
+    d = edit(d, id, { item: "ยางลบ", qty: "2" });
+    expect(skuOf(d, id)).toBe("SKU-0013");
+    d = edit(d, id, { item: "คลิปหนีบ" });
+    expect(skuOf(d, id)).toBe("SKU-0014");
+    d = edit(d, id, { item: "กระดาษ a4" });
+    expect(skuOf(d, id)).toBe("SKU-0011");
+    expect(skuFor(d, "ลวดเย็บ").sku).toBe("SKU-0015");
+    // A material added in Settings takes the next number, whatever the save sends; one
+    // removed keeps its number out of use.
+    const rows = JSON.parse(d.config.materialList);
+    d = config(d, {
+      materialList: JSON.stringify([
+        ...rows,
+        { id: "mx", sku: "SKU-0001", name: "เชือก", perBox: "" },
+        { id: "my", name: "เทป", perBox: "" },
+      ]),
+    });
+    expect(materialList(d.config).slice(-3)).toMatchObject([
+      { id: "m10", sku: "SKU-0010" },
+      { id: "mx", sku: "SKU-0015" },
+      { id: "my", sku: "SKU-0016" },
+    ]);
+    d = config(d, { materialList: JSON.stringify(rows) });
+    expect(jot(d, "ลวดเย็บ").entries.at(-1)!.values.sku).toBe("SKU-0017");
+  });
+
+  it("a rename keeps the SKU: a material in its list, a ledger item in skuNames", () => {
+    let d = jot(seed, "กระดาษ A4");
+    const id = last(d).id;
+    const rows: Values[] = JSON.parse(d.config.materialList);
+    d = config(d, {
+      materialList: JSON.stringify(
+        rows.map((row) =>
+          row.id === "m3" ? { ...row, name: "ถุงซีล", sku: "" } : row,
+        ),
+      ),
+    });
+    expect(materialList(d.config)[2]).toMatchObject({
+      id: "m3",
+      sku: "SKU-0003",
+      name: "ถุงซีล",
+    });
+    d = config(d, {
+      skuNames: JSON.stringify([{ sku: "SKU-0011", name: " A4 80 แกรม " }]),
+    });
+    expect(name(d, "SKU-0011")).toBe("A4 80 แกรม");
+    // The old row shows the new name; its entry keeps what was typed.
+    expect(ledgerRows(d).find((row) => row.id === id)).toMatchObject({
+      item: "A4 80 แกรม",
+      sku: "SKU-0011",
+    });
+    // The new name is that item; the old name is now a new one.
+    expect(sku(jot(d, "a4 80 แกรม"))).toBe("SKU-0011");
+    expect(sku(jot(d, "กระดาษ A4"))).toBe("SKU-0012");
+    // An edit that leaves the item as typed keeps its SKU.
+    expect(skuOf(edit(d, id, { qty: "3" }), id)).toBe("SKU-0011");
+  });
+
+  it("refuses a name used twice in the catalogue, an empty one, and a rename by anyone but the Owner", () => {
+    const d = jot(jot(seed, "กระดาษ A4"), "ปากกา");
+    const rename = (to: string, by?: Actor) =>
+      config(
+        d,
+        { skuNames: JSON.stringify([{ sku: "SKU-0011", name: to }]) },
+        by,
+      );
+    expect(() => rename("ปากกา")).toThrow("ซ้ำกัน");
+    // A material's name is taken too, in any case.
+    expect(() => rename("ถุงซีลเนื้อ")).toThrow("ซ้ำกัน");
+    expect(() => rename(" ")).toThrow("ยังไม่ได้ใส่ชื่อ");
+    expect(() => config(d, { skuNames: "x" })).toThrow("อ่านรายการไม่ได้");
+    expect(() => rename("A4", manager)).toThrow("ไม่มีสิทธิ์");
+    // A material named as a ledger item is refused the same way.
+    const rows: Values[] = JSON.parse(d.config.materialList);
+    expect(() =>
+      config(d, {
+        materialList: JSON.stringify([
+          ...rows,
+          { id: "mz", name: "ปากกา", perBox: "" },
+        ]),
+      }),
+    ).toThrow("ซ้ำกัน");
+  });
+
+  it("a materials list stored before SKUs has none until it is saved again", () => {
+    const old: Database = {
+      ...seed,
+      config: {
+        ...seed.config,
+        materialList: JSON.stringify([
+          { id: "m1", name: "กล่อง", perBox: "1" },
+        ]),
+      },
+    };
+    expect(materialList(old.config)[0].sku).toBe("");
+    const saved = config(old, { materialList: old.config.materialList });
+    expect(materialList(saved.config)[0].sku).toBe("SKU-0001");
   });
 
   it("is jotted by the Owner and the Manager only", () => {

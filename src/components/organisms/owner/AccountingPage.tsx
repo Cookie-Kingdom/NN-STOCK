@@ -78,7 +78,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       (!source || (source === "po") === (row.source === "po")) &&
       (!project || projectOf(row) === project) &&
       (!word ||
-        [row.item, row.detail, row.vendor, row.reference, row.itemNo].some(
+        [row.item, row.detail, row.vendor, row.reference, row.sku].some(
           (text) => text.toLowerCase().includes(word),
         )),
   );
@@ -104,7 +104,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
     const item = row.item ? (
       <>
         <span className="block">{row.item}</span>
-        {row.itemNo && <Caption as="span">{row.itemNo}</Caption>}
+        {row.sku && <Caption as="span">{row.sku}</Caption>}
       </>
     ) : (
       <MissingMark />
@@ -238,7 +238,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           type="search"
           variant="filter"
           aria-label="ค้นหา"
-          placeholder="ค้นหารายการ ผู้ขาย เลข PO หรือ Item No."
+          placeholder="ค้นหารายการ ผู้ขาย เลข PO หรือ SKU"
           className="min-w-64 flex-1 max-md:basis-full"
           value={search}
           onChange={(event) => setSearch(event.target.value)}

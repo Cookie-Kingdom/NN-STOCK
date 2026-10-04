@@ -1,6 +1,6 @@
 /** The Accounting page's purchase ledger (V2-LED-01): every PO เนื้อ and PO รมควัน as a row
  *  worked out from the log, plus the `expense` notes jotted by hand. Nothing here is stored. */
-import { type Database, type Entry, type Values } from "./model";
+import { materialList, type Database, type Entry, type Values } from "./model";
 import {
   byDateAt,
   entries,
@@ -48,8 +48,9 @@ export type LedgerRow = {
   entry?: Entry;
   reference: string;
   itemType: string;
+  /** The name the item goes by now (`skuCatalogue`), not always the one typed. */
   item: string;
-  itemNo: string;
+  sku: string;
   detail: string;
   vendor: string;
   purpose: keyof typeof ledgerPurposes;
@@ -67,36 +68,86 @@ const numberOr = (v: Values, key: string) =>
 /** An item name as matched: trimmed, case-insensitive. */
 const norm = (name = "") => name.trim().toLowerCase();
 
-/** Every item already in the ledger (hand-jotted rows), one per Item No., oldest first. */
-export function ledgerItems(db: Database) {
-  const seen = new Map<string, string>();
-  for (const e of entries(db, "expense"))
-    if (e.values.itemNo && !seen.has(e.values.itemNo))
-      seen.set(e.values.itemNo, e.values.item);
-  return [...seen].map(([itemNo, name]) => ({ itemNo, name }));
+/* SKU (V2-LED-03): one sequence, `SKU-0001` up, for the materials of Settings and the items of
+ * hand-jotted ledger rows. Nothing else has one (no meat, rice, chili or PO row). */
+const skuNumber = (sku = "") => Number(/^SKU-(\d+)$/.exec(sku)?.[1] ?? 0);
+const skuText = (n: number) => `SKU-${String(n).padStart(4, "0")}`;
+/** The Owner's renames of ledger items (Settings 「รายการสินค้า (SKU)」): `[{ sku, name }]`. */
+function skuNames(config: Values): Map<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(config.skuNames || "[]");
+    if (Array.isArray(parsed))
+      return new Map(
+        parsed.map((row) => [String(row?.sku), String(row?.name ?? "").trim()]),
+      );
+  } catch {}
+  return new Map();
 }
-/** The next Item No.: one past the highest ever issued, deleted entries and edits included,
- *  so a number is never given twice. */
-function nextItemNo(db: Database) {
-  let max = 0;
-  for (const e of db.entries)
-    for (const value of [e.values.itemNo, e.values["to.itemNo"]]) {
-      const match = /^ITM-(\d+)$/.exec(value ?? "");
-      if (match) max = Math.max(max, Number(match[1]));
-    }
-  return `ITM-${String(max + 1).padStart(4, "0")}`;
+/** Every item with a SKU and the name it goes by: the materials (named in Settings), then the
+ *  items of the live `expense` notes, oldest first, each under the Owner's rename if it has
+ *  one, else the name first typed. A rename shows on every row of the SKU, old ones included. */
+export function skuCatalogue(db: Database) {
+  const items = new Map<
+    string,
+    { sku: string; name: string; material: boolean }
+  >();
+  for (const m of materialList(db.config))
+    if (m.sku) items.set(m.sku, { sku: m.sku, name: m.name, material: true });
+  const renamed = skuNames(db.config);
+  for (const { values: v } of entries(db, "expense"))
+    if (v.sku && !items.has(v.sku))
+      items.set(v.sku, {
+        sku: v.sku,
+        name: renamed.get(v.sku) ?? (v.item ?? "").trim(),
+        material: false,
+      });
+  return [...items.values()];
 }
-/** The Item No. an `expense` note of item `name` gets: the one it already had (`kept`, an edit
- *  that kept the name), the one of the same item in the ledger, or the next one (`isNew`). */
-export function itemNoFor(db: Database, name: string, kept: Values = {}) {
+/** The name `sku` goes by now, else `typed` (a row with no SKU).
+ *  ponytail: builds the catalogue per call; pass a Map around if a long ledger gets slow. */
+export const skuName = (db: Database, sku: string | undefined, typed = "") =>
+  (sku && skuCatalogue(db).find((item) => item.sku === sku)?.name) || typed;
+/** The next SKU: one past the highest ever issued, in the materials (the lists of earlier
+ *  saves included) and in every entry of the log, deleted and edited-away ones too, so a
+ *  number is never given twice. The ones after it: `skuAfter`. */
+export function nextSku(db: Database) {
+  const issued = [
+    ...materialList(db.config).map((m) => m.sku),
+    ...db.entries.flatMap((e) => [
+      e.values.sku,
+      e.values["to.sku"],
+      e.values["from.sku"],
+      ...(e.kind === "config" && e.values.materialList
+        ? materialList(e.values).map((m) => m.sku)
+        : []),
+    ]),
+  ];
+  return skuText(Math.max(0, ...issued.map(skuNumber)) + 1);
+}
+export const skuAfter = (sku: string) => skuText(skuNumber(sku) + 1);
+/** The SKU an `expense` note of item `name` gets: the one it already had (`kept`, an edit that
+ *  kept the name), the one of the item in the catalogue that goes by that name (a material
+ *  included), or the next one (`isNew`). */
+export function skuFor(db: Database, name: string, kept: Values = {}) {
   const key = norm(name);
-  if (!key) return { no: "", isNew: false };
-  if (kept.itemNo && norm(kept.item) === key)
-    return { no: kept.itemNo, isNew: false };
-  const same = ledgerItems(db).find((item) => norm(item.name) === key);
+  if (!key) return { sku: "", isNew: false };
+  if (kept.sku && norm(kept.item) === key)
+    return { sku: kept.sku, isNew: false };
+  const same = skuCatalogue(db).find((item) => norm(item.name) === key);
   return same
-    ? { no: same.itemNo, isNew: false }
-    : { no: nextItemNo(db), isNew: true };
+    ? { sku: same.sku, isNew: false }
+    : { sku: nextSku(db), isNew: true };
+}
+/** Why the catalogue of `db` cannot stand, or "": every item has a name, and no two share one. */
+export function skuNameError(db: Database) {
+  const items = skuCatalogue(db);
+  const names = items.map((item) => norm(item.name));
+  const twice = items.find((_, at) => names.indexOf(names[at]) !== at);
+  return names.some((name) => !name)
+    ? "รายการสินค้า (SKU): มีแถวที่ยังไม่ได้ใส่ชื่อ"
+    : twice
+      ? `รายการสินค้า (SKU): ชื่อ「${twice.name}」ซ้ำกัน`
+      : "";
 }
 /** `first`, then every value typed under `key` on an `expense` note, once each. */
 export const ledgerChoices = (
@@ -141,7 +192,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
     reference,
     itemType: "วัตถุดิบ",
     item,
-    itemNo: "",
+    sku: "",
     detail,
     vendor,
     purpose: "project",
@@ -218,6 +269,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
     row.paid = paid;
     row.status = row.poAmount && paid >= row.poAmount ? "paid" : "pending";
   }
+  const names = new Map(skuCatalogue(db).map((item) => [item.sku, item.name]));
   for (const e of entries(db, "expense")) {
     const v = e.values;
     rows.push({
@@ -228,8 +280,8 @@ export function ledgerRows(db: Database): LedgerRow[] {
       entry: e,
       reference: v.reference ?? "",
       itemType: v.itemType ?? "",
-      item: v.item ?? "",
-      itemNo: v.itemNo ?? "",
+      item: names.get(v.sku) ?? v.item ?? "",
+      sku: v.sku ?? "",
       detail: v.detail ?? "",
       vendor: v.vendor ?? "",
       purpose: v.purpose === "project" ? "project" : "company",
