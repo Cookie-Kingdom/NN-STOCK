@@ -499,14 +499,17 @@ export function fields(
   }
 }
 /** The storage folder a file of a `kind` note goes to (attachment-store.ts): the kind, but a
- *  payroll receipt goes to `payroll` (Owner only) and a Foodiva invoice to `foodivaConfirm`
- *  (a folder the storage policies already take, so no SQL change). */
+ *  payroll receipt goes to `payroll` (Owner only), a Foodiva invoice to `foodivaConfirm` and
+ *  a ledger expense's document to `purchase` (folders the storage policies already take, so
+ *  no SQL change: a folder they do not list is refused with a 400). */
 export const attachmentFolder = (kind: NoteKind, values: Values) =>
   kind === "pay" && values.category === payrollCategory
     ? "payroll"
     : kind === "meatInvoice"
       ? "foodivaConfirm"
-      : kind;
+      : kind === "expense"
+        ? "purchase"
+        : kind;
 /** What a new form of `kind` starts with; every other field starts empty. With `config`, a
  *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
 export function defaults(kind: NoteKind, config?: Values): Values {
