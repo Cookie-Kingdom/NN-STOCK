@@ -1,0 +1,14 @@
+# A .graphifyignore replaces .gitignore for graphify, so the git-ignored paths are repeated here.
+.impeccable/
+artifacts/
+.local/
+.next/
+out/
+build/
+coverage/
+storybook-static/
+supabase/.temp/
+.claude/worktrees/
+next-env.d.ts
+CLAUDE.md
+*.tsbuildinfo
