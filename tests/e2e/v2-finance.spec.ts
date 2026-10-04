@@ -4,7 +4,9 @@ import {
   fill,
   form,
   jot,
+  jotButtons,
   openPage,
+  popup,
   region,
   rows,
   save,
@@ -124,17 +126,16 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   const lineBefore = await line(page, /^กำไรจากการดำเนินงาน/).allInnerTexts();
   expect(profitBefore).toMatch(/฿[\d,]+/);
 
+  // A gift box is the branch's to jot: the Owner's Inventory has no button for it.
+  await openPage(page, "Inventory");
+  await expect(jotButtons(page)).toHaveCount(0);
+  await signInAs(page, "minburi");
   await openPage(page, "Inventory");
   await jot(page, "กล่องแจก");
-  await fill(
-    page,
-    [/^สาขา/, "มีนบุรี"],
-    [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"],
-    [/^กล่องที่แจก/, "4"],
-  );
+  await fill(page, [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"], [/^กล่องที่แจก/, "4"]);
   await save(page);
   await expect(toast(page, "จดแล้ว: กล่องแจก")).toBeVisible();
-  await openPage(page, "Overview");
+  await signInAs(page, "owner");
 
   // The sample's complete PO รมควัน: (140,000 + 24,000 + 6,000 of its round trip) ÷ 104 กก.
   // × 0.12 + ฿25 a box.
@@ -203,12 +204,22 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
     "30",
   );
 
-  // The Owner jots a branch's sale with both channels.
+  // The sale is the branch's to jot: to the Owner its yellow pill is a status, not a button.
   await openPage(page, "Daily Log");
-  await page
+  const pill = page
     .locator(`[data-date="${today}"]`)
-    .getByRole("button", { name: "ศาลาแดง · ยังไม่ได้จดยอดขาย" })
-    .click();
+    .getByText("ศาลาแดง · ยังไม่ได้จดยอดขาย");
+  await expect(pill).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /ยังไม่ได้จดยอดขาย/ }),
+  ).toHaveCount(0);
+  await pill.click();
+  await expect(popup(page)).toHaveCount(0);
+
+  // The branch jots its sale with both channels: its form has the new field.
+  await signInAs(page, "saladaeng");
+  await openPage(page, "Inventory");
+  await jot(page, "ยอดขาย");
   await expect(form(page).getByLabel(/^ยอดขาย Grab/)).toBeVisible();
   await fill(
     page,
@@ -217,21 +228,17 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
     [/^ยอดขาย Grab/, "700"],
   );
   await save(page);
+  await openPage(page, "Daily Log");
+  await expect(rows(page, "sale")).toContainText("+฿4,200");
+
+  await signInAs(page, "owner");
+  await openPage(page, "Daily Log");
   await expect(rows(page, "sale")).toContainText("+฿4,200");
   await openPage(page, "Finance");
   await expect(line(page, /^ยอดขาย/).first()).toHaveText("฿4,200");
   await expect(line(page, /^GP LINE MAN 10%/).first()).toHaveText("−฿350");
   await expect(line(page, /^GP Grab 30%/).first()).toHaveText("−฿210");
   await expect(figure(page, "GP")).toHaveText("−฿560");
-
-  // The branch's own form has the field too.
-  await signInAs(page, "saladaeng");
-  await page
-    .locator(`[data-date="${bangkokDate(-1)}"]`)
-    .getByRole("button", { name: "ยังไม่ได้จดยอดขาย" })
-    .click();
-  await expect(form(page).getByLabel(/^ยอดขาย Grab/)).toBeVisible();
-  await form(page).getByRole("button", { name: "ยกเลิก" }).click();
 
   // V2-ACC-01: the new channel's money is as hidden from the Manager as LINE MAN's.
   await signInAs(page, "manager");
