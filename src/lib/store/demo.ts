@@ -216,7 +216,7 @@ export function sampleData(endDate: string): Database {
   // The purchase ledger's hand-jotted rows (Accounting): every status and source, an item
   // bought twice (one Item No.), a project's and the office's.
   add(manager, "expense", 20, "16:00", {
-    source: "petty",
+    source: "advance",
     reference: "RC-6701",
     itemType: "อื่นๆ",
     item: "กระดาษ A4",
@@ -248,7 +248,7 @@ export function sampleData(endDate: string): Database {
     status: "pending",
   });
   add(manager, "expense", 4, "15:10", {
-    source: "petty",
+    source: "advance",
     itemType: "อื่นๆ",
     item: "กระดาษ a4 ",
     vendor: "ร้านเครื่องเขียนสีลม",

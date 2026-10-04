@@ -8,11 +8,14 @@ import { cn } from "@/lib/utils";
 export function Stat({
   label,
   value,
+  note,
   className,
   ...props
 }: Omit<ComponentProps<"div">, "children"> & {
   label: ReactNode;
   value: ReactNode;
+  /** A quiet line under the figure: what it counts, or how it moved. */
+  note?: ReactNode;
 }) {
   return (
     <div
@@ -26,6 +29,11 @@ export function Stat({
       <strong className="mt-2.5 block text-num-lg [overflow-wrap:anywhere] tabular-nums max-md:text-num-md">
         {value}
       </strong>
+      {note && (
+        <small className="mt-1.5 block text-caption text-text-secondary">
+          {note}
+        </small>
+      )}
     </div>
   );
 }
