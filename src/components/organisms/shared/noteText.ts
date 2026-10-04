@@ -16,6 +16,7 @@ import {
   poLines,
   saleMoney,
   salesChannels,
+  skuName,
   type Actor,
   type Database,
   type Entry,
@@ -80,7 +81,7 @@ const addedLabels: Record<string, string> = {
   subLot: "เลขที่รอบสโมค",
   postSmokeKg: "น้ำหนักผลิตรวม (กก.)",
   packCount: "จำนวนกล่องรมควัน",
-  itemNo: "Item No.",
+  sku: "SKU",
 };
 export const addedKeys = Object.keys(addedLabels);
 export const fieldLabel = (list: Field[], key: string) =>
@@ -184,7 +185,8 @@ export function noteLine(db: Database, e: Entry): string {
     case "expense":
       return join(
         v.itemType,
-        v.item && (v.itemNo ? `${v.item} (${v.itemNo})` : v.item),
+        // The name the item goes by now: a rename shows on old rows.
+        v.item && (v.sku ? `${skuName(db, v.sku, v.item)} (${v.sku})` : v.item),
         v.vendor,
         v.reference,
       );

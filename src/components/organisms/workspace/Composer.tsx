@@ -40,7 +40,8 @@ import {
   defaultRound,
   dispatchLines,
   isRoundKind,
-  itemNoFor,
+  skuFor,
+  skuName,
   kindInfo,
   missingKeys,
   missingText,
@@ -242,6 +243,8 @@ function NoteForm({
         ...draft.values,
       };
     const v = { ...target.values };
+    // A ledger item opens under the name it goes by now (the Owner may have renamed it).
+    if (kind === "expense") v.item = skuName(db, v.sku, v.item);
     // A dispatch saved with one PO เนื้อ (poLotId) opens as one line.
     if (kind === "dispatch" && !v.poLines && v.poLotId)
       v.poLines = JSON.stringify(dispatchLines(v));
@@ -266,11 +269,11 @@ function NoteForm({
   const shown = fields(kind, db, by, lotId)
     .filter((f) => !f.when || f.when(values))
     .map((f) => {
-      // A ledger item: the Item No. the name typed gets (V2-LED-03).
+      // A ledger item: the SKU the name typed gets (V2-LED-03).
       if (kind !== "expense" || f.key !== "item" || !values.item?.trim())
         return f;
-      const no = itemNoFor(db, values.item, target?.values);
-      return { ...f, hint: no.isNew ? `ใหม่: ${no.no}` : `Item No. ${no.no}` };
+      const { sku, isNew } = skuFor(db, values.item, target?.values);
+      return { ...f, hint: isNew ? `ใหม่: ${sku}` : sku };
     });
   const set = (key: string, value: string) => {
     typed.current.add(key);
@@ -595,17 +598,17 @@ function noteFigures(
     };
   }
   if (kind === "expense") {
-    const no = itemNoFor(db, v.item ?? "", target?.values);
+    const { sku, isNew } = skuFor(db, v.item ?? "", target?.values);
     const amount = Number(v.amount) || 0;
     // As the ledger reads a row: a status typed, else paid once it has an amount.
     const status = (v.status ||
       (amount ? "paid" : "pending")) as keyof typeof ledgerStatuses;
     return {
       rows: [
-        { label: "Item No.", value: no.no || "—" },
+        { label: "SKU", value: sku || "—" },
         {
           label: "รายการนี้",
-          value: !no.no ? "—" : no.isNew ? "ใหม่" : "เดิม",
+          value: !sku ? "—" : isNew ? "ใหม่" : "เดิม",
         },
         { label: "สถานะ", value: ledgerStatuses[status] ?? "—", rule: true },
         {
@@ -614,7 +617,7 @@ function noteFigures(
           tone: status === "pending" && amount ? "warning" : undefined,
         },
       ],
-      note: no.no ? "" : "พิมพ์ชื่อรายการเพื่อดู Item No.",
+      note: sku ? "" : "พิมพ์ชื่อรายการเพื่อดู SKU",
     };
   }
   if (kind === "pay") {

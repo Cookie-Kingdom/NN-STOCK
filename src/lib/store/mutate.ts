@@ -18,6 +18,7 @@ import {
   oncePerLotKinds,
   titles,
   lotMovableKinds,
+  materialList,
   pack,
   payCategories,
   payrollCategory,
@@ -41,7 +42,7 @@ import {
   shipments,
   smokeServiceRate,
 } from "./derived";
-import { itemNoFor } from "./ledger";
+import { nextSku, skuAfter, skuFor, skuNameError } from "./ledger";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
 const badNumber = "เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข";
@@ -199,14 +200,14 @@ function noteValues(
   if (kind === "smokeOrder")
     v.orderNumber =
       input.orderNumber || nextNumberPreview(db, "smokeOrder", date)!;
-  // V2-LED-03: a ledger item keeps the Item No. of the same name, a new name gets the next one.
+  // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one.
   if (kind === "expense") {
     // Rendered as a link: nothing but a web address (no `javascript:`).
     assert(
       !v.link || /^https?:\/\/\S+$/i.test(v.link),
       "ลิงก์เอกสารต้องขึ้นต้นด้วย http:// หรือ https://",
     );
-    v.itemNo = itemNoFor(db, v.item, kept).no;
+    v.sku = skuFor(db, v.item, kept).sku;
   }
   if (kind === "dispatch" || kind === "return")
     v.transferNumber =
@@ -312,6 +313,14 @@ function checkConfig(v: Values) {
         new Set(list).size === list.length,
       "สาขาที่ใช้ข้าวเหนียวดิบ: อ่านรายการไม่ได้",
     );
+  }
+  if (v.skuNames !== undefined) {
+    let rows: unknown;
+    try {
+      rows = JSON.parse(v.skuNames);
+    } catch {}
+    // The names themselves are checked over the whole catalogue (skuNameError).
+    assert(Array.isArray(rows), "รายการสินค้า (SKU): อ่านรายการไม่ได้");
   }
   for (const [key, { label, id }] of Object.entries(settingLists)) {
     if (v[key] === undefined) continue;
@@ -494,7 +503,27 @@ export function mutate(
     // config entry of the append-only log. Left out, the merge below keeps it.
     if (v.logoData === db.config.logoData) delete v.logoData;
     checkConfig(v);
+    if (v.materialList !== undefined) {
+      // V2-LED-03: a material keeps its SKU (whatever is sent), a new one gets the next.
+      const had = new Map(materialList(db.config).map((m) => [m.id, m.sku]));
+      let sku = nextSku(db);
+      const rows: Values[] = JSON.parse(v.materialList);
+      v.materialList = JSON.stringify(
+        rows.map((row) => {
+          const kept = had.get(row.id);
+          if (kept) return { ...row, sku: kept };
+          const issued = sku;
+          sku = skuAfter(sku);
+          return { ...row, sku: issued };
+        }),
+      );
+    }
     next.config = { ...db.config, ...v };
+    // One name, one SKU: over the materials and the ledger items, renames included.
+    if (v.materialList !== undefined || v.skuNames !== undefined) {
+      const error = skuNameError(next);
+      assert(!error, error);
+    }
     entry = { kind, role: "owner", lotId: "", branch: "", date, values: v };
   } else {
     assert(isNoteKind(kind), "รายการชนิดนี้เลิกใช้แล้ว");

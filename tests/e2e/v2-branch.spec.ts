@@ -104,7 +104,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "สถานะ",
   ]);
   const boxes = table
-    .getByRole("row", { name: /^M1 กล่องพิมพ์ลาย/ })
+    .getByRole("row", { name: /^SKU-0001 กล่องพิมพ์ลาย/ })
     .getByRole("cell");
   // A material is never in the central stock.
   await expect(boxes.nth(2)).toHaveText("—");
@@ -144,9 +144,10 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await expect(boxes.nth(2)).toHaveText("50ยังไม่เคยนับ");
   await expect(boxes.nth(3)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
   await expect(table.getByRole("row")).toHaveCount(11);
-  await page.getByLabel("ค้นหา").fill("m1");
-  await expect(table.getByRole("row")).toHaveCount(3);
-  await expect(table).toContainText("แสดง 2 จาก 10 รายการ");
+  // The search takes the SKU the web issued (a material's own id is never shown).
+  await page.getByLabel("ค้นหา").fill("sku-0001");
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table).toContainText("แสดง 1 จาก 10 รายการ");
   await expect(table.getByRole("button")).toHaveCount(0);
   await expect(table.getByRole("textbox")).toHaveCount(0);
 

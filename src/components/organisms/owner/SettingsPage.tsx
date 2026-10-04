@@ -5,6 +5,7 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
+import { Caption, Muted } from "@/components/atoms/Text";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
@@ -24,11 +25,19 @@ import {
   rawRiceBranches,
   salesChannels,
   seed,
+  skuCatalogue,
+  type Database,
   type Values,
 } from "@/lib/store";
 
 type Section =
-  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
+  | "numbers"
+  | "channels"
+  | "categories"
+  | "rice"
+  | "materials"
+  | "skus"
+  | "header";
 type ListSection = "channels" | "categories" | "materials";
 type Setting = {
   key: string;
@@ -111,6 +120,7 @@ const titles: Record<Section, string> = {
   numbers: "ตัวเลขที่เว็บใช้คิด",
   header: "ข้อมูลหัวเอกสาร",
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
+  skus: "รายการสินค้า (SKU)",
   channels: lists.channels.title,
   categories: lists.categories.title,
   materials: lists.materials.title,
@@ -128,6 +138,21 @@ const rowsOf = (config: Values, section: ListSection): Values[] =>
           perBox: m.perBox === null ? "" : String(m.perBox),
         }))
       : payCategories(config);
+/** Every SKU and its name, as the rows of 「รายการสินค้า (SKU)」: `material` is "1" on a
+ *  material (named in รายชื่อวัสดุ, read-only here). */
+const skuRows = (db: Database): Values[] =>
+  skuCatalogue(db).map(({ sku, name, material }) => ({
+    sku,
+    name,
+    material: material ? "1" : "",
+  }));
+/** The names of the ledger items among `rows`: what `skuNames` holds. */
+const ledgerNames = (rows: Values[]) =>
+  JSON.stringify(
+    rows
+      .filter((row) => !row.material)
+      .map(({ sku, name }) => ({ sku, name: name.trim() })),
+  );
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -178,6 +203,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       const now = rowsOf(config, section);
       setRows(add ? addRow(section, now) : now);
     }
+    if (section === "skus") setRows(skuRows(latestDatabase()));
     setEditing(section);
     setError("");
     setMessage("");
@@ -220,12 +246,23 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
     // Only what this section changed is sent, so a setting saved meanwhile elsewhere stands.
     let input: Values;
     if (isList(section)) {
-      const typed = rows.map((row) => ({ ...row, name: row.name.trim() }));
+      const typed: Values[] = rows.map((row) => ({
+        ...row,
+        name: row.name.trim(),
+      }));
       input =
-        JSON.stringify(typed) === JSON.stringify(rowsOf(config, section))
+        JSON.stringify(typed) === JSON.stringify(rowsOf(config, section)) &&
+        // A list stored before SKUs: saving it as it is issues them (mutate).
+        !(section === "materials" && typed.some((row) => !row.sku))
           ? {}
           : { [lists[section].key]: JSON.stringify(typed) };
-    } else
+    } else if (section === "skus")
+      // Only the ledger items' names: a material's is in รายชื่อวัสดุ.
+      input =
+        ledgerNames(rows) === ledgerNames(skuRows(latestDatabase()))
+          ? {}
+          : { skuNames: ledgerNames(rows) };
+    else
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
@@ -317,6 +354,8 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
   const list = (section: ListSection, removable: (row: Values) => boolean) => {
     const { id, name, extra, add } = lists[section];
     const open = editing === section;
+    // A material's SKU: issued by the web when the list is saved, never typed.
+    const sku = section === "materials";
     return (
       <>
         {section === "categories" && !open ? (
@@ -328,6 +367,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         ) : (
           <StockTable
             columns={[
+              ...(sku ? ["SKU"] : []),
               name,
               ...(extra ? [extra.label] : []),
               ...(open ? [""] : []),
@@ -336,6 +376,13 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           >
             {(open ? rows : rowsOf(db.config, section)).map((row, index) => (
               <tr key={row[id]}>
+                {sku && (
+                  <Cell className="font-mono whitespace-nowrap text-accent">
+                    {row.sku || (
+                      <Muted as="span">{open ? "ออกเมื่อบันทึก" : "—"}</Muted>
+                    )}
+                  </Cell>
+                )}
                 {open ? (
                   <>
                     <Cell className="py-1.5">
@@ -407,6 +454,50 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       </>
     );
   };
+  /** Every SKU with its name: a ledger item's is typed here, a material's is read-only. */
+  const skuList = () => {
+    const open = editing === "skus";
+    const shown = open ? rows : skuRows(db);
+    return (
+      <StockTable columns={["SKU", "ชื่อรายการ", "ประเภท"]}>
+        {shown.map((row, index) => (
+          <tr key={row.sku}>
+            <Cell className="font-mono whitespace-nowrap text-accent">
+              {row.sku}
+            </Cell>
+            {open && !row.material ? (
+              <Cell className="py-1.5">
+                <Input
+                  aria-label={`ชื่อรายการ ${row.sku}`}
+                  className="mt-0 min-h-10 min-w-28"
+                  value={row.name}
+                  onChange={(event) =>
+                    setRow(index, "name", event.target.value)
+                  }
+                />
+              </Cell>
+            ) : (
+              <Cell>{row.name}</Cell>
+            )}
+            <Cell>
+              <Caption as="span">
+                {row.material
+                  ? "วัสดุ · แก้ชื่อที่ รายชื่อวัสดุ"
+                  : "รายการในบัญชีซื้อ"}
+              </Caption>
+            </Cell>
+          </tr>
+        ))}
+        {shown.length === 0 && (
+          <tr>
+            <Cell colSpan={3} className="py-6 text-center text-text-secondary">
+              ยังไม่มีรายการที่มี SKU
+            </Cell>
+          </tr>
+        )}
+      </StockTable>
+    );
+  };
   const logo = logoOf(editing === "header" ? draft : db.config);
   const riceAt = rawRiceBranches(editing === "rice" ? draft : db.config);
 
@@ -467,8 +558,13 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       <div className="flex min-w-0 flex-col gap-4">
         {card(
           "materials",
-          '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ',
+          '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ · SKU เว็บออกให้ตอนบันทึก แก้ชื่อแล้ว SKU เดิม',
           list("materials", () => true),
+        )}
+        {card(
+          "skus",
+          "SKU ออกโดยเว็บ เลขเดียวต่อหนึ่งรายการ ไม่ใช้ซ้ำ · รายการในบัญชีซื้อได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่ แก้ชื่อที่นี่แล้วแถวเดิมในบัญชีซื้อเปลี่ยนตาม SKU เดิม",
+          skuList(),
         )}
         {card(
           "header",

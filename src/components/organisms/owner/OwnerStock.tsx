@@ -85,7 +85,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
   const [search, setSearch] = useState("");
   const [where, setWhere] = useState("");
   const rows = materialList(db.config).map((m) => ({
-    sku: m.id.toUpperCase(),
+    id: m.id,
+    // "" until the materials list is saved again (a list stored before SKUs).
+    sku: m.sku,
     name: m.name,
     at: Object.fromEntries(
       branches.map((branch): [string, Held] => [
@@ -151,9 +153,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
       >
         <StockTable columns={columns} right={[...places, "รวม"]}>
           {shown.map((row) => (
-            <tr key={row.sku}>
+            <tr key={row.id}>
               <Cell className="font-mono whitespace-nowrap text-accent">
-                {row.sku}
+                {row.sku || <Muted as="span">—</Muted>}
               </Cell>
               <Cell className="font-semibold md:whitespace-nowrap">
                 {row.name}

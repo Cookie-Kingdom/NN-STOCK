@@ -21,7 +21,7 @@ import { entries, liveEntries, poInfo, purchaseLots } from "./store/derived";
 import {
   defaultLedgerTypes,
   ledgerChoices,
-  ledgerItems,
+  skuCatalogue,
   ledgerPurposes,
   ledgerSources,
   ledgerStatuses,
@@ -461,9 +461,10 @@ export function fields(
         ),
         core(
           text("item", "รายการ", {
-            options: ledgerItems(db).map((item) => ({
+            // Every item with a SKU, the materials included: picking one links its SKU.
+            options: skuCatalogue(db).map((item) => ({
               value: item.name,
-              label: item.itemNo,
+              label: item.sku,
             })),
           }),
         ),
