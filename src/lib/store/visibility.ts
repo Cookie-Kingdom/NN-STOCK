@@ -9,6 +9,7 @@ import {
   missingKeys,
   payCategories,
   payrollCategory,
+  rawRiceBranches,
   rentCategory,
   titles,
   voidableKinds,
@@ -18,8 +19,10 @@ import {
   type NoteKind,
 } from "./model";
 import {
+  branchChili,
   branchMaterial,
   branchMeat,
+  branchRice,
   byDateAt,
   hasSale,
   isVoided,
@@ -180,12 +183,18 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
         text: `${lead}นับเนื้อวันนี้`,
         ...(own && { kind: "meatCount" as const }),
       });
-    const stale = materialList(db.config).filter(
-      (m) => branchMaterial(db, branch, m.id, today).stale,
-    ).length;
+    // Every material, the chili, and the raw rice of a branch that steams its own.
+    const stale = [
+      ...materialList(db.config).map(
+        (m) => branchMaterial(db, branch, m.id, today).stale,
+      ),
+      branchChili(db, branch, today).stale,
+      rawRiceBranches(db.config).includes(branch) &&
+        branchRice(db, branch, today).stale,
+    ].filter(Boolean).length;
     if (stale)
       list.push({
-        text: `${lead}วัสดุ ${stale} รายการไม่ได้นับเกิน 7 วัน`,
+        text: `${lead}วัสดุและวัตถุดิบ ${stale} รายการไม่ได้นับเกิน 7 วัน`,
         page: "stock",
       });
   }

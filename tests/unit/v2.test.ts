@@ -407,7 +407,7 @@ it("todos: what each account still has to jot", () => {
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
       "มีนบุรี: นับเนื้อวันนี้",
-      "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "มีนบุรี: วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
       "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
@@ -428,9 +428,47 @@ it("todos: what each account still has to jot", () => {
   expect(texts(minburi)).toEqual(
     expect.arrayContaining([
       "นับเนื้อวันนี้",
-      "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
     ]),
   );
+  // On an empty database nothing is counted: the 10 materials and the chili, plus the raw rice
+  // of the branch that steams its own (V2-BR-08). A count takes its line out of the number.
+  const late = (from: Database, by: Actor) =>
+    todos(from, by, day)
+      .map((todo) => todo.text)
+      .filter((text) => text.includes("ไม่ได้นับเกิน 7 วัน"));
+  expect(late(seed, saladaeng)).toEqual([
+    "วัสดุและวัตถุดิบ 12 รายการไม่ได้นับเกิน 7 วัน",
+  ]);
+  expect(late(seed, minburi)).toEqual([
+    "วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+  ]);
+  expect(late(seed, manager)).toEqual([
+    "ศาลาแดง: วัสดุและวัตถุดิบ 12 รายการไม่ได้นับเกิน 7 วัน",
+    "มีนบุรี: วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+  ]);
+  const riceCounted = mutate(
+    seed,
+    saladaeng,
+    "materials",
+    { "count.rice": "3" },
+    "",
+    day,
+  );
+  const chiliCounted = mutate(
+    riceCounted,
+    saladaeng,
+    "sale",
+    { chiliCount: "5" },
+    "",
+    day,
+  );
+  expect(late(riceCounted, saladaeng)).toEqual([
+    "วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+  ]);
+  expect(late(chiliCounted, saladaeng)).toEqual([
+    "วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
+  ]);
   expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
   // A branch's line opens its form; for the Owner the same line is a status and opens nothing.
   const line = (by: Actor, text: string) =>
