@@ -133,18 +133,8 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "ยังไม่ได้นับ: สาขาศาลาแดง, สาขามีนบุรี",
   );
   await expect(boxes.nth(6)).toHaveAttribute("data-tone", "warning");
-  // The filter by place leaves that place's column only; the page writes nothing.
-  await page.getByLabel("อยู่ที่").selectOption("สาขามีนบุรี");
-  await expect(table.getByRole("columnheader")).toHaveText([
-    "SKU",
-    "สินค้า",
-    "สาขามีนบุรี",
-    "สถานะ",
-  ]);
-  await expect(boxes.nth(2)).toHaveText("50ยังไม่เคยนับ");
-  await expect(boxes.nth(3)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
   await expect(table.getByRole("row")).toHaveCount(11);
-  // The search takes the SKU the web issued (a material's own id is never shown).
+  // The page writes nothing. The search takes the SKU the web issued (a material's own id is never shown).
   await page.getByLabel("ค้นหา").fill("sku-0001");
   await expect(table.getByRole("row")).toHaveCount(2);
   await expect(table).toContainText("แสดง 1 จาก 10 รายการ");

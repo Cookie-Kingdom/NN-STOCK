@@ -43,18 +43,10 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** กรอง: เลือก「สาขาศาลาแดง」เหลือคอลัมน์ของสาขานั้นคอลัมน์เดียว (ไม่มี รวม) แล้วค้นหา「sku-000」
- *  เหลือ SKU-0001 ถึง SKU-0009 ตัวนับบอกจำนวนแถวที่แสดง */
+/** ค้นหา「sku-000」เหลือ SKU-0001 ถึง SKU-0009 ตัวนับบอกจำนวนแถวที่แสดง */
 export const Filtered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.selectOptions(
-      canvas.getByLabelText("อยู่ที่"),
-      "สาขาศาลาแดง",
-    );
-    await expect(
-      canvas.getAllByRole("columnheader").map((th) => th.textContent),
-    ).toEqual(["SKU", "สินค้า", "สาขาศาลาแดง", "สถานะ"]);
     await userEvent.type(canvas.getByLabelText("ค้นหา"), "sku-000");
     const rows = canvas.getAllByRole("row").slice(1);
     await expect(rows).toHaveLength(9);
@@ -78,7 +70,7 @@ export const NoMatch: Story = {
 /** ฐานข้อมูลเปล่า: ทุกแถว「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
 
-/** จอ 390px: ช่องค้นหาและตัวกรองขึ้นบรรทัดใหม่ ตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
+/** จอ 390px: ตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
 export const Phone: Story = { ...phone };
 
 /** จอ 1920px: ตารางเต็มความกว้างของหน้า */
