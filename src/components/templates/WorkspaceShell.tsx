@@ -30,7 +30,7 @@ export function WorkspaceShell({
     (kind) => ws.account.role === "branch" || kind !== "materials",
   );
   return (
-    <div className="grid min-h-dvh grid-cols-[224px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
+    <div className="grid min-h-dvh grid-cols-[256px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />
       <main className="mx-auto flex w-full max-w-[1120px] min-w-0 flex-col gap-6 px-8 pt-7 pb-16 max-md:gap-4 max-md:px-4 max-md:pt-5 max-md:pb-24">
         <PageHeading

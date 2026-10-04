@@ -24,7 +24,7 @@ function sections(ids: Tab[]) {
   return runs;
 }
 
-/** The workspace's frame. From md up a 224px column: brand, the account's pages (Daily Log, Lots,
+/** The workspace's frame. From md up a 256px column: brand, the account's pages (Daily Log, Lots,
  *  Inventory and Finance under the "Nerdnuea x LINE MAN" section, `pages[].group`: a page-sized header that
  *  expands and collapses, its pages indented behind a guide line), then the bell, the theme
  *  switch, the account and sign-out. Below md it is a top bar (brand, bell,
@@ -102,12 +102,12 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
               )}
             >
               <Store size={18} aria-hidden className="flex-none" />
-              <span className="min-w-0 flex-1">{group}</span>
+              <span className="min-w-0 flex-1 whitespace-nowrap">{group}</span>
               <ChevronDown
                 size={16}
                 aria-hidden
                 className={cn(
-                  "flex-none transition-transform duration-(--motion-base) ease-(--ease-standard)",
+                  "-ml-1 flex-none transition-transform duration-(--motion-base) ease-(--ease-standard)",
                   folded && "-rotate-90",
                 )}
               />
