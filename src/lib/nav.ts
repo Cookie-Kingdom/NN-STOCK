@@ -17,6 +17,9 @@ export type Tab =
 /** The sidebar section that holds Daily Log, Lots, Inventory and Finance. */
 export const shopGroup = shopProject;
 
+/** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
+export const shopGroupSlug = "nn-x-lm";
+
 /** Every page: its name (English, V2-ACC-09), the line under it, its icon and, for a page
  *  that sits in a sidebar section, that section's heading. */
 export const pages: Record<
@@ -81,3 +84,14 @@ export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
           "accounting",
           "settings",
         ];
+
+/** A page's address under an account's route: the menu name in lowercase with dashes, behind
+ *  the section's slug when the page sits in it (`/owner/nn-x-lm/daily-log`, `/owner/settings`). */
+export const pagePath = (account: Pick<Account, "path">, tab: Tab) =>
+  `${account.path}${pages[tab].group ? `/${shopGroupSlug}` : ""}/${pages[tab].label.toLowerCase().replaceAll(" ", "-")}`;
+
+/** The page of the account at `pathname`, if it is one of its pages. */
+export const tabAt = (
+  account: Pick<Account, "path" | "role" | "hidesSales">,
+  pathname: string,
+) => navFor(account).find((tab) => pagePath(account, tab) === pathname);

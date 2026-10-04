@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { pagePath } from "@/lib/nav";
 
 export default function OwnerIndex() {
-  redirect("/owner/overview");
+  redirect(pagePath({ path: "/owner" }, "overview"));
 }

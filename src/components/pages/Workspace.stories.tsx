@@ -16,14 +16,14 @@ const meta = {
   parameters: {
     db: sampleDb,
     layout: "fullscreen",
-    nextjs: { navigation: { segments: ["log"] } },
+    nextjs: { navigation: { pathname: "/owner/nn-x-lm/daily-log" } },
   },
 } satisfies Meta<typeof Workspace>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner ที่หน้า Daily Log · หน้าที่แสดงมาจาก URL (`/owner/log`) ใน Storybook จึงอยู่หน้าเดิม
+/** Owner ที่หน้า Daily Log · หน้าที่แสดงมาจาก URL (`/owner/nn-x-lm/daily-log`) ใน Storybook จึงอยู่หน้าเดิม
  *  การกดเมนูเห็นได้ใน Actions */
 export const Owner: Story = {};
 
@@ -32,7 +32,7 @@ export const Manager: Story = {
   args: { account: accountById("manager")! },
   parameters: {
     db: dbFor("manager"),
-    nextjs: { navigation: { segments: ["overview"] } },
+    nextjs: { navigation: { pathname: "/owner/overview" } },
   },
 };
 

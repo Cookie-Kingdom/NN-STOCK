@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 import { NotificationPopover } from "@/components/organisms/workspace/NotificationPopover";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { navFor, pages, type Tab } from "@/lib/nav";
+import { navFor, pagePath, pages, type Tab } from "@/lib/nav";
 import { signOut } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
    * route is static and renders nothing, so warming all of them up front is cheap and keeps
    * the URL from lagging behind the pressed page. */
   useEffect(() => {
-    for (const id of navFor(account)) router.prefetch(`${account.path}/${id}`);
+    for (const id of navFor(account)) router.prefetch(pagePath(account, id));
   }, [account, router]);
 
   return (
