@@ -295,8 +295,9 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       <Panel flush className="overflow-hidden">
         <div className="overflow-x-auto">
           <table
-            // The ledger's grid: a line between columns, and the row under the pointer.
-            className="w-full border-collapse [&_tbody_tr:hover]:bg-surface-sunken [&_td]:border-r [&_td:last-child]:border-r-0 [&_th]:border-r [&_th:last-child]:border-r-0"
+            // The ledger's grid: a line between columns, and the row under the pointer;
+            // narrower cells than the other tables, so more of its columns fit.
+            className="[&_th]:px-3[&_tbody_tr:hover]:bg-surface-sunken w-full border-collapse [&_td]:border-r [&_td]:px-3 [&_td:last-child]:border-r-0 [&_th]:border-r [&_th:last-child]:border-r-0"
             aria-label="บัญชีรายการซื้อ"
           >
             <thead>
