@@ -1,0 +1,49 @@
+import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import {
+  WithWorkspace,
+  dbFor,
+  phone,
+  wide,
+  sampleDb,
+} from "@/components/organisms/workspace/storyWorkspace";
+import type { AccountId } from "@/lib/accounts";
+import { emptyDb } from "../../../../.storybook/fixtures";
+import { OwnerMeatStock } from "./OwnerMeatStock";
+
+const Stock = ({ account }: { account: AccountId }) => (
+  <WithWorkspace account={account}>
+    {(ws) => <OwnerMeatStock ws={ws} />}
+  </WithWorkspace>
+);
+
+const meta = {
+  title: "Organisms/Owner/OwnerMeatStock",
+  component: Stock,
+  args: { account: "owner" },
+  argTypes: { account: { control: false } },
+  parameters: { db: sampleDb },
+} satisfies Meta<typeof Stock>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** Owner: สองกล่องเรียงลงมา ·「เนื้อ (กก.)」: เนื้อที่ฝากไว้ที่ร้านขายเนื้อ สต๊อกกลางของแต่ละ Lot
+ *  และเนื้อของแต่ละสาขาพร้อมสถานะการนับ (เขียว = นับแล้ววันนี้ เหลือง = วันนี้ยังไม่ได้นับ) ·
+ *  「ข้าวเหนียวและน้ำพริก」: สินค้า · สาขาศาลาแดง · สาขามีนบุรี · รวม · สถานะ ตัวเลขอย่างเดียว ·
+ *  ข้าวเหนียวเป็นยอดซื้อเข้าสะสม ไม่ใช่ยอดคงเหลือ (สถานะบอกไว้) · ดูได้อย่างเดียว ไม่มีปุ่ม */
+export const Owner: Story = {};
+
+/** Account Manager: เห็นเหมือน Owner */
+export const Manager: Story = {
+  args: { account: "manager" },
+  parameters: { db: dbFor("manager") },
+};
+
+/** ฐานข้อมูลเปล่า: กล่องเนื้อมีแต่แถวของสองสาขา · ข้าวเหนียว 0 · น้ำพริก「หมด」 */
+export const Empty: Story = { parameters: { db: emptyDb } };
+
+/** จอ 390px: แต่ละตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
+export const Phone: Story = { ...phone };
+
+/** จอ 1920px: สองกล่องเรียงลงมา เต็มความกว้างของหน้า ไม่วางเคียงกัน */
+export const Wide: Story = { ...wide };

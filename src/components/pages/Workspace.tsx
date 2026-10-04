@@ -5,6 +5,7 @@ import { BranchStock } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
 import { LotsPage } from "@/components/organisms/owner/LotsPage";
 import { OverviewPage } from "@/components/organisms/owner/OverviewPage";
+import { OwnerMeatStock } from "@/components/organisms/owner/OwnerMeatStock";
 import { OwnerStock } from "@/components/organisms/owner/OwnerStock";
 import { SettingsPage } from "@/components/organisms/owner/SettingsPage";
 import { DailyLog } from "@/components/organisms/shared/DailyLog";
@@ -20,6 +21,7 @@ export function Workspace({ account }: { account: Account }) {
     overview: OverviewPage,
     log: DailyLog,
     lots: LotsPage,
+    meatStock: OwnerMeatStock,
     stock: account.role === "branch" ? BranchStock : OwnerStock,
     finance: FinancePage,
     accounting: AccountingPage,
