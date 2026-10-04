@@ -50,8 +50,16 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await start(page, "seed");
   await signInAs(page, "manager");
   await openPage(page, "Inventory");
-  const minburi = region(page, "วัสดุและน้ำพริก สาขามีนบุรี");
-  await expect(stockRow(minburi, "กล่องพิมพ์ลาย").nth(1)).toHaveText("0");
+  // The one Inventory table: SKU · สินค้า · ประเภท · คงเหลือ · อยู่ที่ · สถานะ.
+  const boxesAt = (branch: string) =>
+    region(page, "สินค้าคงคลัง")
+      .getByRole("row", { name: /^M1 กล่องพิมพ์ลาย/ })
+      .filter({ hasText: `สาขา${branch}` })
+      .getByRole("cell");
+  const minburi = boxesAt("มีนบุรี");
+  await expect(minburi.nth(3)).toHaveText("0");
+  await expect(minburi.nth(5)).toHaveText("หมด");
+  await expect(minburi.nth(5)).toHaveAttribute("data-tone", "danger");
   await openPage(page, "Daily Log");
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -64,10 +72,22 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   );
   await save(page);
   await openPage(page, "Inventory");
-  await expect(stockRow(minburi, "กล่องพิมพ์ลาย").nth(1)).toHaveText("50");
-  await expect(
-    stockRow(region(page, "วัสดุและน้ำพริก สาขาศาลาแดง"), "กล่องพิมพ์ลาย").nth(1),
-  ).toHaveText("0");
+  await expect(minburi.nth(3)).toHaveText("50");
+  await expect(minburi.nth(4)).toHaveText("สาขามีนบุรี");
+  // Bought, never counted: yellow.
+  await expect(minburi.nth(5)).toHaveText("ยังไม่เคยนับ");
+  await expect(minburi.nth(5)).toHaveAttribute("data-tone", "warning");
+  await expect(boxesAt("ศาลาแดง").nth(3)).toHaveText("0");
+  // The filter by where it is leaves that branch's rows only; the page writes nothing.
+  const table = region(page, "สินค้าคงคลัง");
+  await page.getByLabel("อยู่ที่").selectOption("สาขามีนบุรี");
+  await expect(boxesAt("ศาลาแดง")).toHaveCount(0);
+  await expect(table.getByRole("row")).toHaveCount(13);
+  await page.getByLabel("ค้นหา").fill("m1");
+  await expect(table.getByRole("row")).toHaveCount(3);
+  await expect(table).toContainText("แสดง 2 จาก 24 รายการ");
+  await expect(table.getByRole("button")).toHaveCount(0);
+  await expect(table.getByRole("textbox")).toHaveCount(0);
 
   // The branch has it with nothing to press, and never sees what it cost.
   await signInAs(page, "minburi");
@@ -97,9 +117,9 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 
   await signInAs(page, "saladaeng");
   await openPage(page, "Inventory");
-  await expect(stockRow(region(page, "วัสดุ"), "กล่องพิมพ์ลาย").nth(1)).toHaveText(
-    "0",
-  );
+  await expect(
+    stockRow(region(page, "วัสดุ"), "กล่องพิมพ์ลาย").nth(1),
+  ).toHaveText("0");
 });
 
 test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are in Finance once, under อื่น ๆ and การตลาด", async ({
