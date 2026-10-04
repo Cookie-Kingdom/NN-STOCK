@@ -1,4 +1,5 @@
 import {
+  Beef,
   BookText,
   ClipboardList,
   Factory,
@@ -12,9 +13,16 @@ import type { Account } from "./accounts";
 import { shopProject } from "./store/ledger";
 
 export type Tab =
-  "overview" | "log" | "lots" | "stock" | "finance" | "accounting" | "settings";
+  | "overview"
+  | "log"
+  | "lots"
+  | "meatStock"
+  | "stock"
+  | "finance"
+  | "accounting"
+  | "settings";
 
-/** The sidebar section that holds Daily Log, Lots, Inventory and Finance. */
+/** The sidebar section that holds Daily Log, Lots, Stock, Inventory and Finance. */
 export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
@@ -43,6 +51,13 @@ export const pages: Record<
     icon: Factory,
     group: shopGroup,
   },
+  // The Owner's and the Manager's only. The key `stock` is the Inventory page below.
+  meatStock: {
+    label: "Stock",
+    description: "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือ",
+    icon: Beef,
+    group: shopGroup,
+  },
   stock: {
     label: "Inventory",
     description: "เนื้อ วัสดุ และน้ำพริกคงเหลือ",
@@ -68,17 +83,18 @@ export const pages: Record<
   },
 };
 
-/** The pages an account has, in menu order: the Owner all seven, the Account Manager five
+/** The pages an account has, in menu order: the Owner all eight, the Account Manager six
  *  (no Overview, no Settings), a branch two. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
     ? ["log", "stock"]
     : account.hidesSales
-      ? ["log", "lots", "stock", "finance", "accounting"]
+      ? ["log", "lots", "meatStock", "stock", "finance", "accounting"]
       : [
           "overview",
           "log",
           "lots",
+          "meatStock",
           "stock",
           "finance",
           "accounting",

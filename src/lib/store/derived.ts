@@ -606,6 +606,16 @@ export function branchChili(db: Database, branch: string) {
       qty += num(e.values, "qty");
   return { qty, countedOn };
 }
+/** What payments bought of `item` for the branch, summed. Not a balance: for an item with no
+ *  count and no use jotted (ข้าวเหนียว), nothing is ever taken from it. */
+export const branchBought = (db: Database, branch: string, item: string) =>
+  branchWalk(db, branch).reduce(
+    (sum, e) =>
+      e.kind === "pay" && e.values.item === item
+        ? sum + num(e.values, "qty")
+        : sum,
+    0,
+  );
 type SupplierBalance = {
   supplier: string;
   billed: number;

@@ -5,6 +5,7 @@ import {
   fill,
   form,
   jot,
+  jotButtons,
   openPage,
   pageButtons,
   popupTitle,
@@ -49,15 +50,41 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
+  // Stock: the meat, then the sticky rice and the chili; nothing to press.
+  await openPage(page, "Stock");
+  const meat = region(page, "เนื้อ (กก.)");
+  await expect(meat.getByRole("columnheader")).toHaveText([
+    "อยู่ที่ไหน",
+    "รายการ",
+    "คงเหลือ",
+    "การนับ",
+  ]);
+  await expect(
+    meat.getByRole("row", { name: /^สาขามีนบุรี/ }).getByRole("cell"),
+  ).toHaveText(["สาขามีนบุรี", "เนื้อพร้อมขาย", "0", "วันนี้ยังไม่ได้นับ"]);
+  const rice = region(page, "ข้าวเหนียวและน้ำพริก");
+  await expect(rice.getByRole("columnheader")).toHaveText([
+    "สินค้า",
+    "สาขาศาลาแดง",
+    "สาขามีนบุรี",
+    "รวม",
+    "สถานะ",
+  ]);
+  // Sticky rice is what was bought so far, not a balance; chili has nothing left.
+  await expect(
+    rice.getByRole("row", { name: /^ข้าวเหนียว/ }).getByRole("cell"),
+  ).toHaveText(["ข้าวเหนียว", "0", "0", "0", "ซื้อเข้าสะสม · ยังไม่มียอดนับ"]);
+  await expect(
+    rice.getByRole("row", { name: /^น้ำพริก/ }).getByRole("cell"),
+  ).toHaveText(["น้ำพริก", "0", "0", "0", "หมด"]);
+  await expect(jotButtons(page)).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
+  // Inventory: the materials, a row per material and a column per place.
   await openPage(page, "Inventory");
-  // The one Inventory table, a row per item and a column per place (nothing is held at
-  // the seller, so no column for it): SKU · สินค้า · ประเภท · คลังกลาง · สาขาศาลาแดง ·
-  // สาขามีนบุรี · รวม · สถานะ.
-  const table = region(page, "สินค้าคงคลัง");
+  const table = region(page, "วัสดุ");
   await expect(table.getByRole("columnheader")).toHaveText([
     "SKU",
     "สินค้า",
-    "ประเภท",
     "คลังกลาง",
     "สาขาศาลาแดง",
     "สาขามีนบุรี",
@@ -68,11 +95,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     .getByRole("row", { name: /^M1 กล่องพิมพ์ลาย/ })
     .getByRole("cell");
   // A material is never in the central stock.
-  await expect(boxes.nth(3)).toHaveText("—");
-  await expect(boxes.nth(5)).toHaveText("0ยังไม่เคยนับ");
-  await expect(boxes.nth(5)).toHaveAttribute("data-tone", "danger");
-  await expect(boxes.nth(7)).toHaveText("หมด");
-  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "danger");
+  await expect(boxes.nth(2)).toHaveText("—");
+  await expect(boxes.nth(4)).toHaveText("0ยังไม่เคยนับ");
+  await expect(boxes.nth(4)).toHaveAttribute("data-tone", "danger");
+  await expect(boxes.nth(6)).toHaveText("หมด");
+  await expect(boxes.nth(6)).toHaveAttribute("data-tone", "danger");
   await openPage(page, "Daily Log");
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -85,30 +112,29 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   );
   await save(page);
   await openPage(page, "Inventory");
-  await expect(boxes.nth(4)).toHaveText("0ยังไม่เคยนับ");
+  await expect(boxes.nth(3)).toHaveText("0ยังไม่เคยนับ");
   // Bought, never counted: yellow, and the cell says why.
-  await expect(boxes.nth(5)).toHaveText("50ยังไม่เคยนับ");
-  await expect(boxes.nth(5)).toHaveAttribute("data-tone", "warning");
-  await expect(boxes.nth(6)).toHaveText("50");
-  await expect(boxes.nth(7)).toHaveText(
+  await expect(boxes.nth(4)).toHaveText("50ยังไม่เคยนับ");
+  await expect(boxes.nth(4)).toHaveAttribute("data-tone", "warning");
+  await expect(boxes.nth(5)).toHaveText("50");
+  await expect(boxes.nth(6)).toHaveText(
     "ยังไม่ได้นับ: สาขาศาลาแดง, สาขามีนบุรี",
   );
-  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "warning");
+  await expect(boxes.nth(6)).toHaveAttribute("data-tone", "warning");
   // The filter by place leaves that place's column only; the page writes nothing.
   await page.getByLabel("อยู่ที่").selectOption("สาขามีนบุรี");
   await expect(table.getByRole("columnheader")).toHaveText([
     "SKU",
     "สินค้า",
-    "ประเภท",
     "สาขามีนบุรี",
     "สถานะ",
   ]);
-  await expect(boxes.nth(3)).toHaveText("50ยังไม่เคยนับ");
-  await expect(boxes.nth(4)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
-  await expect(table.getByRole("row")).toHaveCount(13);
+  await expect(boxes.nth(2)).toHaveText("50ยังไม่เคยนับ");
+  await expect(boxes.nth(3)).toHaveText("ยังไม่ได้นับ: สาขามีนบุรี");
+  await expect(table.getByRole("row")).toHaveCount(11);
   await page.getByLabel("ค้นหา").fill("m1");
   await expect(table.getByRole("row")).toHaveCount(3);
-  await expect(table).toContainText("แสดง 2 จาก 12 รายการ");
+  await expect(table).toContainText("แสดง 2 จาก 10 รายการ");
   await expect(table.getByRole("button")).toHaveCount(0);
   await expect(table.getByRole("textbox")).toHaveCount(0);
 

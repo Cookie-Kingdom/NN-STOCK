@@ -22,12 +22,13 @@ const pagesOf = {
     "Overview",
     "Daily Log",
     "Lots",
+    "Stock",
     "Inventory",
     "Finance",
     "Accounting",
     "Settings",
   ],
-  manager: ["Daily Log", "Lots", "Inventory", "Finance", "Accounting"],
+  manager: ["Daily Log", "Lots", "Stock", "Inventory", "Finance", "Accounting"],
   saladaeng: ["Daily Log", "Inventory"],
   minburi: ["Daily Log", "Inventory"],
 } as const;
@@ -38,7 +39,7 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 7 pages, Manager 5, Branch 2, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 8 pages, Manager 6, Branch 2, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");

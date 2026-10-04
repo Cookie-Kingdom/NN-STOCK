@@ -28,10 +28,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner: ตารางเดียว แถวละรายการ คอลัมน์ละที่: SKU · สินค้า · ประเภท · ร้านขายเนื้อ · คลังกลาง ·
- *  สาขาศาลาแดง · สาขามีนบุรี · รวม · สถานะ · ที่ที่รายการนั้นอยู่ไม่ได้เป็น「—」·
+/** Owner: ตารางวัสดุ แถวละรายการ คอลัมน์ละที่: SKU · สินค้า · คลังกลาง · สาขาศาลาแดง ·
+ *  สาขามีนบุรี · รวม · สถานะ (คลังกลางเป็น「—」ทุกแถว ยังไม่มีคลังกลางของวัสดุ) ·
  *  ช่องของสาขาที่ยังไม่ได้นับเป็นสีเหลืองพร้อมเหตุผล ช่องที่ไม่เหลือเป็นสีแดง ·
- *  สถานะของแถว: หมด / ยังไม่ได้นับ: สาขา… / พร้อมใช้ · ดูได้อย่างเดียว ไม่มีปุ่มจดและช่องนับ */
+ *  สถานะของแถว: หมด / ยังไม่ได้นับ: สาขา… / พร้อมใช้ · ดูได้อย่างเดียว ไม่มีปุ่มจดและช่องนับ ·
+ *  เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock (OwnerMeatStock) */
 export const Owner: Story = {};
 
 /** Account Manager: เห็นเหมือน Owner */
@@ -40,8 +41,8 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** กรอง: เลือก「สาขาศาลาแดง」กับประเภท「วัสดุ」เหลือคอลัมน์ของสาขานั้นคอลัมน์เดียว (ไม่มี รวม)
- *  และเฉพาะแถววัสดุ ตัวนับบอกจำนวนแถวที่แสดง */
+/** กรอง: เลือก「สาขาศาลาแดง」เหลือคอลัมน์ของสาขานั้นคอลัมน์เดียว (ไม่มี รวม) แล้วค้นหา「m1」
+ *  เหลือ M1 กับ M10 ตัวนับบอกจำนวนแถวที่แสดง */
 export const Filtered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -49,12 +50,11 @@ export const Filtered: Story = {
       canvas.getByLabelText("อยู่ที่"),
       "สาขาศาลาแดง",
     );
-    await userEvent.selectOptions(canvas.getByLabelText("ประเภท"), "วัสดุ");
     await expect(
       canvas.getAllByRole("columnheader").map((th) => th.textContent),
-    ).toEqual(["SKU", "สินค้า", "ประเภท", "สาขาศาลาแดง", "สถานะ"]);
+    ).toEqual(["SKU", "สินค้า", "สาขาศาลาแดง", "สถานะ"]);
+    await userEvent.type(canvas.getByLabelText("ค้นหา"), "m1");
     const rows = canvas.getAllByRole("row").slice(1);
-    for (const row of rows) await expect(row).toHaveTextContent("วัสดุ");
     await expect(
       canvas.getByText(new RegExp(`^แสดง ${rows.length} จาก`)),
     ).toBeVisible();
@@ -72,7 +72,7 @@ export const NoMatch: Story = {
   },
 };
 
-/** ฐานข้อมูลเปล่า: ไม่มีคอลัมน์ ร้านขายเนื้อ · มีแต่แถวของสาขา ทุกแถว「หมด」 */
+/** ฐานข้อมูลเปล่า: ทุกแถว「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
 
 /** จอ 390px: ช่องค้นหาและตัวกรองขึ้นบรรทัดใหม่ ตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
