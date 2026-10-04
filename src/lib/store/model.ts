@@ -354,14 +354,18 @@ const listDefaults = {
   salesChannels: JSON.stringify([
     { key: "lineMan", name: "LINE MAN", gp: "10" },
   ]),
+  // The ten materials of the ERP before v2, in its order.
   materialList: JSON.stringify([
-    { id: "m1", name: "กล่องใหม่", perBox: "1" },
-    { id: "m2", name: "กล่องเก่า", perBox: "" },
-    { id: "m3", name: "ฟรอยข้าวเหนียว", perBox: "1" },
-    { id: "m4", name: "ถุงซีลเนื้อ", perBox: "1" },
+    { id: "m1", name: "กล่องพิมพ์ลาย", perBox: "1" },
+    { id: "m2", name: "กระดาษรอง", perBox: "" },
+    { id: "m3", name: "ถุงซีลเนื้อ", perBox: "1" },
+    { id: "m4", name: "ถุงซีลข้าว", perBox: "" },
     { id: "m5", name: "ถุงหิ้วกระดาษ", perBox: "" },
     { id: "m6", name: "สติกเกอร์โลโก้", perBox: "1" },
-    { id: "m7", name: "ถ้วยพริก", perBox: "" },
+    { id: "m7", name: "การ์ด / สติกเกอร์วิธีอุ่น", perBox: "" },
+    { id: "m8", name: "ถ้วยพริก", perBox: "" },
+    { id: "m9", name: "สติกเกอร์พริก", perBox: "" },
+    { id: "m10", name: "สติกเกอร์ข้าวเหนียว", perBox: "" },
   ]),
   payCategories: JSON.stringify([
     { id: "meat", name: "เนื้อ" },
