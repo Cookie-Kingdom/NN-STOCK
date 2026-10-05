@@ -76,6 +76,7 @@ export {
   smokeServiceRate,
   nextNumberPreview,
   branchMeat,
+  type CountVariance,
   branchMaterial,
   branchChili,
   branchRice,

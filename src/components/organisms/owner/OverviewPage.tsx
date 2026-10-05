@@ -32,15 +32,20 @@ import {
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
-import { FigureCard, FigureTable, Num, PlTable, figureGrid } from "./PlTable";
+import {
+  FigureCard,
+  FigureTable,
+  Num,
+  PlTable,
+  figureGrid,
+  percent,
+  share,
+} from "./PlTable";
 import { RevenueChart } from "./RevenueChart";
 
 const hint = "mt-1 block text-caption font-normal text-text-secondary";
-const percent = (x: number) =>
-  `${x.toLocaleString("th-TH", { maximumFractionDigits: Math.abs(x) < 10 ? 1 : 0 })}%`;
-/** `part` of `whole` as a percentage; nothing when there is no whole. */
-const share = (part: number, whole: number) =>
-  whole ? percent((part / whole) * 100) : "";
+/** Baht to the satang, as a per-box figure is printed: "฿181.00", "−฿4.50". */
+const perBox = (x: number) => `${x < 0 ? "−" : ""}฿${fmt(Math.abs(x))}`;
 
 /** How a figure moved against the like-for-like span before it: green up, red down, and
  *  never the colour alone (an arrow and a word). `versus` names that span. */
@@ -228,6 +233,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
   const scale = Math.max(now.sales, now.sales - now.profit, 1);
   const channels = salesChannels(db.config);
   const cost = boxCost(db);
+  const price = n(db.config, "boxPrice");
   const gifts = giftBoxes(db, key);
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";
@@ -286,7 +292,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
         <Stat
           label="กล่องที่ขาย"
           value={`${qty(now.boxes)} กล่อง`}
-          note={`รายได้เฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
+          note={`รายได้ต่อกล่อง ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · รายได้เฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
         />
         <Stat
           label="ต้นทุนต่อกล่อง"
@@ -295,9 +301,17 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               {cost ? `฿${fmt(cost.total)}` : "—"}
               <small className={hint}>
                 {cost
-                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} · ขาย ${baht(n(db.config, "boxPrice"))} · จาก ${lotLabel(db, cost.lotId)}`
+                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} · ขาย ${baht(price)} · จาก ${lotLabel(db, cost.lotId)}`
                   : "ยังไม่มี Lot ที่จดครบ"}
               </small>
+              {/* Not a profit line of the P&L (V2-CAL-06): the box price less its cost,
+                  before the channel's GP and every expense. */}
+              {cost && price > 0 && (
+                <small className={hint}>
+                  กำไรต่อกล่อง {perBox(price - cost.total)} ก่อนหัก GP
+                  และค่าใช้จ่าย · ต้นทุน {share(cost.total, price)} ของราคาขาย
+                </small>
+              )}
             </>
           }
         />

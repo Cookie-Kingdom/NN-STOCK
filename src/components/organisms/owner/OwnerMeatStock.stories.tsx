@@ -10,7 +10,7 @@ import type { AccountId } from "@/lib/accounts";
 import { accountById } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { mutate } from "@/lib/store";
-import { emptyDb } from "../../../../.storybook/fixtures";
+import { countedDb, emptyDb } from "../../../../.storybook/fixtures";
 import { OwnerMeatStock } from "./OwnerMeatStock";
 
 const riceCountedDb = mutate(
@@ -59,6 +59,24 @@ export const Empty: Story = { parameters: { db: emptyDb } };
 
 /** ศาลาแดงนับข้าวเหนียวดิบแล้ววันนี้ (12.5 กก.): ช่องของศาลาแดงบอก「นับวันนี้」สถานะ「พร้อมใช้」 */
 export const RawRiceCounted: Story = { parameters: { db: riceCountedDb } };
+
+/** ส่วนต่างตอนนับล่าสุด (นับได้ − ควรเหลือ) เป็นตัวเลขธรรมดา สีตัวหนังสือปกติ ไม่ใช่คำเตือน ·
+ *  มีตั้งแต่การนับครั้งที่สอง (ครั้งแรกไม่มียอดจริงให้เทียบ) ·
+ *  เนื้อ: คอลัมน์「ส่วนต่างตอนนับล่าสุด」ศาลาแดง (นับสองครั้ง)「−2 กก.」ใต้ตัวเลข
+ *  「ควรเหลือ 10 · นับได้ 8 · นับ <วันที่>」มีนบุรี (นับครั้งเดียว) ข้อความสีเทา「นับครั้งแรก」·
+ *  น้ำพริก: ในช่องของศาลาแดง「ส่วนต่าง −2 หลอด」「ควรเหลือ 47 · นับได้ 45」มีนบุรี「ส่วนต่าง 0 หลอด」
+ *  「ควรเหลือ 20 · นับได้ 20」· ข้าวเหนียวดิบไม่มีส่วนต่าง (เว็บไม่ตัดยอดเอง) */
+export const Variance: Story = { parameters: { db: countedDb(today()) } };
+
+/** ยังไม่เคยนับเลย: คอลัมน์「ส่วนต่างตอนนับล่าสุด」ของสาขาบอก「ยังไม่เคยนับ」ไม่ใช่ 0 ·
+ *  ช่องน้ำพริกไม่มีบรรทัดส่วนต่าง */
+export const VarianceNeverCounted: Story = { parameters: { db: emptyDb } };
+
+/** ส่วนต่างบนจอ 390px: หัวคอลัมน์「ส่วนต่างตอนนับล่าสุด」ตัดบรรทัดได้ หน้าไม่เลื่อนข้าง */
+export const VariancePhone: Story = {
+  ...phone,
+  parameters: { ...phone.parameters, ...Variance.parameters },
+};
 
 /** จอ 390px: แต่ละตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
 export const Phone: Story = { ...phone };

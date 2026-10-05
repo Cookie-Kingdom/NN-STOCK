@@ -37,6 +37,18 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   // Nothing is jotted before this month: there is no month to step back to, nor one ahead.
   for (const name of ["เดือนก่อนหน้า", "เดือนถัดไป"])
     await expect(page.getByRole("button", { name })).toBeDisabled();
+  // No box sold and no Lot jotted through: no figure per box is made up.
+  const figures = region(page, "ตัวเลขของเดือน");
+  await expect(figures).toContainText(
+    "รายได้ต่อกล่อง — · รายได้เฉลี่ย ฿0 ต่อวัน",
+  );
+  await expect(figures).not.toContainText("กำไรต่อกล่อง");
+  const pl = region(page, "P&L รายเดือน");
+  /** A P&L line's cells after its name: the month, its share of the sales, the month before. */
+  const line = (name: RegExp, table = pl) =>
+    table.getByRole("row", { name }).locator("td:not(:first-child)");
+  await expect(line(/^ยอดขาย/)).toHaveText(["—", "—", "—"]);
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText(["—", "—", "—"]);
 
   await signInAs(page, "saladaeng");
   await openPage(page, "Stock");
@@ -62,9 +74,24 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await page.keyboard.press("ArrowRight");
   await expect(revenue.getByRole("status")).toContainText("฿3,500");
 
-  const figures = region(page, "ตัวเลขของเดือน");
   await expect(figures).toContainText("฿3,150"); // after LINE MAN's 10% GP
   await expect(figures).toContainText("10 กล่อง");
+  // ฿3,500 over its 10 boxes, and over the days of the month gone by.
+  const perDay = Math.round(3500 / +today.slice(8)).toLocaleString("en-US");
+  await expect(figures).toContainText(
+    `รายได้ต่อกล่อง ฿350.00 · รายได้เฉลี่ย ฿${perDay} ต่อวัน`,
+  );
+  // Still no Lot jotted through: no cost per box, so no profit per box either.
+  await expect(figures).not.toContainText("กำไรต่อกล่อง");
+  // The P&L: each line beside its share of the month's sales, signed as the line is.
+  await expect(pl).toContainText(
+    "นับตามเดือนที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+  );
+  await expect(pl.getByRole("columnheader").nth(2)).toHaveText("% ของยอดขาย");
+  await expect(line(/^ยอดขาย/)).toHaveText(["฿3,500", "100%", "—"]);
+  await expect(line(/^GP LINE MAN 10%/)).toHaveText(["−฿350", "−10%", "—"]);
+  await expect(line(/^ขนส่ง/)).toHaveText(["—", "—", "—"]);
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText(["฿3,150", "90%", "—"]);
   const project = region(page, "รายได้แต่ละ Project").getByRole("row", {
     name: /^Nerdnuea x LINE MAN/,
   });
@@ -85,11 +112,23 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   ).toBeVisible();
   await expect(revenue.locator("strong")).toHaveText("฿3,500");
   await expect(region(page, "ตัวเลขของปี")).toContainText("฿3,150");
-  await expect(
-    region(page, "P&L รายปี").getByRole("row", {
-      name: /^กำไรจากการดำเนินงาน/,
-    }),
-  ).toContainText("฿3,150");
+  const yearPl = region(page, "P&L รายปี");
+  await expect(yearPl).toContainText(
+    "นับตามปีที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+  );
+  await expect(yearPl.getByRole("columnheader").nth(2)).toHaveText(
+    "% ของยอดขาย",
+  );
+  await expect(line(/^GP LINE MAN 10%/, yearPl)).toHaveText([
+    "−฿350",
+    "−10%",
+    "—",
+  ]);
+  await expect(line(/^กำไรจากการดำเนินงาน/, yearPl)).toHaveText([
+    "฿3,150",
+    "90%",
+    "—",
+  ]);
   await expect(page.getByRole("button", { name: "ปีถัดไป" })).toBeDisabled();
 
   // The project's own Overview, under its heading: the same view of the one project, with its
@@ -103,7 +142,10 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿3,150");
   await expect(region(page, "รายได้แต่ละ Project")).toHaveCount(0);
   await expect(region(page, "รายได้แยกสาขา")).toContainText("฿3,500 100%");
-  await expect(region(page, "P&L รายเดือน")).toBeVisible();
+  await expect(region(page, "ตัวเลขของเดือน")).toContainText(
+    "รายได้ต่อกล่อง ฿350.00",
+  );
+  await expect(line(/^GP LINE MAN 10%/)).toHaveText(["−฿350", "−10%", "—"]);
 });
 
 test("Finance: money out of pocket is an expense when it is paid, and money out of the shop when it is paid back", async ({
@@ -182,7 +224,16 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await signInAs(page, "manager");
   await openPage(page, "Finance");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
-  await expect(region(page, "จ่ายเงินแยกหมวด")).toContainText("−฿500");
+  const paid = region(page, "จ่ายเงินแยกหมวด");
+  await expect(paid).toContainText("−฿500");
+  // The categories alone: no share of the sales (it would give them away), no P&L caption.
+  await expect(paid.getByRole("columnheader")).toHaveCount(3);
+  await expect(paid).toContainText("นับตามเดือนที่จ่ายเงิน");
+  for (const text of ["% ของยอดขาย", "ยื่นภาษี"])
+    await expect(page.getByRole("main")).not.toContainText(text);
+  await expect(
+    paid.getByRole("row", { name: /^รวมที่จ่าย/ }).getByRole("cell"),
+  ).toHaveCount(3);
   for (const name of ["เงินของเดือน", "เงินที่พนักงานสำรองจ่าย"])
     await expect(region(page, name)).toHaveCount(0);
   await expect(rows(page, "pay")).toHaveCount(2);

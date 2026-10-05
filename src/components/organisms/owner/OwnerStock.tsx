@@ -78,7 +78,12 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                 {row.name}
               </Cell>
               {places.map((place) => (
-                <HeldCell key={place} held={row.at[place]} today={today} />
+                <HeldCell
+                  key={place}
+                  held={row.at[place]}
+                  today={today}
+                  varianceUnit="ชิ้น"
+                />
               ))}
               <StatusCells at={row.at} places={places} />
             </tr>
@@ -99,7 +104,10 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         หน้านี้ดูได้อย่างเดียว แอดมินสาขาเป็นคนนับจากหน้าของสาขา ·
         วัสดุนับเป็นชิ้น · ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ·
         ช่องสีแดง = ไม่เหลือ · วัสดุยังไม่มีคลังกลาง ซื้อแล้วเข้าสาขาทันที ·
-        เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock
+        ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด
+        (ควรเหลือคือยอดที่เว็บคิดไว้ก่อนนับ)
+        เริ่มมีส่วนต่างตั้งแต่การนับครั้งที่สอง · เนื้อ ข้าวเหนียว
+        และน้ำพริกอยู่ที่หน้า Stock
       </Caption>
     </div>
   );

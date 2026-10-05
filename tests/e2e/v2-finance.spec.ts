@@ -33,7 +33,8 @@ const monthAt = (offset: number) => {
   };
 };
 const [thisMonth, lastMonth, monthBefore] = [0, -1, -2].map(monthAt);
-/** The cells of a P&L line after its name: the month, then the month before. */
+/** The cells of a line after its name: the month, then the month before; in the full P&L
+ *  (not in 「จ่ายเงินแยกหมวด」) the month's share of its sales stands between them. */
 const line = (page: Page, name: RegExp, table = "P&L รายเดือน") =>
   region(page, table)
     .getByRole("row", { name })
@@ -83,17 +84,23 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
   ]);
   await openPage(page, "Overview", true);
   const pl = region(page, "P&L รายเดือน");
-  await expect(pl).toContainText("นับตามเดือนที่จ่ายเงิน");
+  await expect(pl).toContainText(
+    "นับตามเดือนที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+  );
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
     thisMonth.name,
+    "% ของยอดขาย",
     lastMonth.name,
   ]);
-  await expect(line(page, /^อื่น ๆ/)).toHaveText(["—", "−฿1,000"]);
-  await expect(line(page, /^ขนส่ง/)).toHaveText(["−฿500", "—"]);
+  // Nothing sold: a share of no sales is a dash, never 0% or a division by nothing.
+  await expect(line(page, /^ยอดขาย/)).toHaveText(["—", "—", "—"]);
+  await expect(line(page, /^อื่น ๆ/)).toHaveText(["—", "—", "−฿1,000"]);
+  await expect(line(page, /^ขนส่ง/)).toHaveText(["−฿500", "—", "—"]);
   // The stove is in neither month's profit; it is the line under it.
   await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText([
     "−฿500",
+    "—",
     "−฿1,000",
   ]);
   await expect(pl.getByRole("row").nth(-2)).toContainText(
@@ -103,6 +110,7 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
     "อุปกรณ์/ลงทุน (แยกบรรทัด)",
     "−฿12,900",
     "—",
+    "—",
   ]);
   await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText("−฿500");
 
@@ -111,11 +119,12 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
     lastMonth.name,
+    "% ของยอดขาย",
     monthBefore.name,
   ]);
-  await expect(line(page, /^อื่น ๆ/)).toHaveText(["−฿1,000", "—"]);
-  await expect(line(page, /^ขนส่ง/)).toHaveText(["—", "—"]);
-  await expect(line(page, /^อุปกรณ์\/ลงทุน/)).toHaveText(["—", "—"]);
+  await expect(line(page, /^อื่น ๆ/)).toHaveText(["−฿1,000", "—", "—"]);
+  await expect(line(page, /^ขนส่ง/)).toHaveText(["—", "—", "—"]);
+  await expect(line(page, /^อุปกรณ์\/ลงทุน/)).toHaveText(["—", "—", "—"]);
   await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText("−฿1,000");
 });
 
@@ -175,14 +184,14 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await expect(reminder).toBeVisible();
   await page.keyboard.press("Escape");
   const rent = line(page, /^ค่าเช่า\/น้ำไฟ/);
-  await expect(rent).toHaveText(["ยังไม่ได้จด", "—"]);
+  await expect(rent).toHaveText(["ยังไม่ได้จด", "—", "—"]);
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
 
   // Nothing is filled in from the month before: last month's rent leaves this month yellow.
   await openPage(page, "Finance");
   await pay(page, "ค่าเช่า/น้ำไฟ", "18000", lastMonth.lastDay);
   await openPage(page, "Overview");
-  await expect(rent).toHaveText(["ยังไม่ได้จด", "−฿18,000"]);
+  await expect(rent).toHaveText(["ยังไม่ได้จด", "—", "−฿18,000"]);
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
 
   // The reminder opens the payment form on that category.
@@ -195,7 +204,7 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await fill(page, [/^ยอด \(บาท\)/, "20500"]);
   await save(page);
   await expect(reminder).toHaveCount(0);
-  await expect(rent).toHaveText(["−฿20,500", "−฿18,000"]);
+  await expect(rent).toHaveText(["−฿20,500", "—", "−฿18,000"]);
   await expect(rent.first()).not.toHaveAttribute("data-tone", "warning");
   await openPage(page, "Finance");
   await expect(line(page, /^ค่าเช่า\/น้ำไฟ/, "จ่ายเงินแยกหมวด")).toHaveText([
@@ -254,9 +263,20 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   await openPage(page, "Daily Log");
   await expect(rows(page, "sale")).toContainText("+฿4,200");
   await openPage(page, "Overview", true);
-  await expect(line(page, /^ยอดขาย/).first()).toHaveText("฿4,200");
-  await expect(line(page, /^GP LINE MAN 10%/).first()).toHaveText("−฿350");
-  await expect(line(page, /^GP Grab 30%/).first()).toHaveText("−฿210");
+  // Each line beside its share of the month's sales, signed as the line is: 350 and 210 of
+  // 4,200; nothing was sold last month.
+  await expect(line(page, /^ยอดขาย/)).toHaveText(["฿4,200", "100%", "—"]);
+  await expect(line(page, /^GP LINE MAN 10%/)).toHaveText([
+    "−฿350",
+    "−8.3%",
+    "—",
+  ]);
+  await expect(line(page, /^GP Grab 30%/)).toHaveText(["−฿210", "−5%", "—"]);
+  await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText([
+    "฿3,640",
+    "87%",
+    "—",
+  ]);
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("GP ฿560");
 
   // V2-ACC-01: the new channel's money is as hidden from the Manager as LINE MAN's.

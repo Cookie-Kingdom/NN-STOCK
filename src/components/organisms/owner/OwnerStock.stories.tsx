@@ -8,7 +8,8 @@ import {
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
-import { emptyDb } from "../../../../.storybook/fixtures";
+import { today } from "@/lib/format";
+import { countedDb, emptyDb } from "../../../../.storybook/fixtures";
 import { OwnerStock } from "./OwnerStock";
 
 const Stock = ({ account }: { account: AccountId }) => (
@@ -69,6 +70,12 @@ export const NoMatch: Story = {
 
 /** ฐานข้อมูลเปล่า: ทุกแถว「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
+
+/** ส่วนต่างตอนนับล่าสุด (นับได้ − ควรเหลือ) ในช่องของสาขา ใต้วันที่นับ เป็นตัวเลขธรรมดา ไม่ใช่คำเตือน ·
+ *  มีตั้งแต่การนับครั้งที่สอง · ศาลาแดง แถวแรก「ส่วนต่าง 0 ชิ้น」「ควรเหลือ 100 · นับได้ 100」
+ *  แถวที่สอง「ส่วนต่าง −3 ชิ้น」「ควรเหลือ 50 · นับได้ 47」แถวที่สามนับครั้งเดียว (30) ไม่มีบรรทัดส่วนต่าง ·
+ *  แถวอื่นและมีนบุรียังไม่เคยนับ ไม่มีบรรทัดส่วนต่าง */
+export const Variance: Story = { parameters: { db: countedDb(today()) } };
 
 /** จอ 390px: ตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */
 export const Phone: Story = { ...phone };
