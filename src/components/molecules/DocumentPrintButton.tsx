@@ -106,7 +106,7 @@ export function DocumentPrintButton({
     }
     popup.document.open();
     popup.document.write(
-      `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escape(number)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap"><style>${isPurchaseOrder ? PO_PAGE_CSS : SHEET_CSS}</style></head><body>${isPurchaseOrder ? poPaperHtml({ title, number, rows, logo, draft }) : sheetHtml}<button type="button" class="print-button">ดาวน์โหลด / พิมพ์ PDF</button></body></html>`,
+      `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escape(number)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap"><style>${isPurchaseOrder ? PO_PAGE_CSS : SHEET_CSS}</style></head><body>${isPurchaseOrder ? poPaperHtml({ title, number, rows, logo, draft }) : sheetHtml}<button type="button" class="print-button">ดาวน์โหลด / พิมพ์ PDF</button></body></html>`,
     );
     popup.document.close();
     popup.document
