@@ -54,7 +54,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
       </div>
       <nav
         aria-label="หน้า"
-        className="flex flex-col gap-0.5 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:flex-row max-md:gap-0 max-md:border-t max-md:border-border max-md:bg-surface max-md:pb-[env(safe-area-inset-bottom)]"
+        className="flex flex-col gap-0.5 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-20 max-md:flex-row max-md:gap-0 max-md:overflow-x-auto max-md:border-t max-md:border-border max-md:bg-surface max-md:pb-[env(safe-area-inset-bottom)]"
       >
         {sections(navFor(account)).map(({ group, ids: own }, i, all) => {
           const pageButton = (id: Tab) => {
@@ -65,11 +65,21 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
                 type="button"
                 key={id}
                 aria-current={selected ? "page" : undefined}
+                // A phone's tab bar scrolls sideways once the pages outgrow it: the open one in view.
+                ref={
+                  selected
+                    ? (el) =>
+                        el?.scrollIntoView({
+                          block: "nearest",
+                          inline: "nearest",
+                        })
+                    : undefined
+                }
                 onClick={() => setTab(id)}
                 className={cn(
                   /* the first page after a section steps away from it */
                   !group && all[i - 1]?.group && id === own[0] && "md:mt-3",
-                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-left text-label -outline-offset-2 transition-colors duration-(--motion-fast) ease-(--ease-standard) max-md:min-h-14 max-md:min-w-17 max-md:flex-1 max-md:flex-col max-md:justify-center max-md:gap-0.5 max-md:rounded-none max-md:px-0.5 max-md:text-caption max-md:font-medium",
                   selected
                     ? "bg-accent text-accent-fg max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]"
                     : "text-text-secondary hover:bg-bg hover:text-text-primary",

@@ -52,8 +52,10 @@ export const pageButtons = (page: Page) =>
   nav(page).locator("button:not([aria-expanded])");
 
 /** Opens a page by its (English) name and waits for its heading. */
-export async function openPage(page: Page, name: string) {
-  await nav(page).getByRole("button", { name, exact: true }).click();
+export async function openPage(page: Page, name: string, project = false) {
+  // The Owner has two pages named Overview: the shop's, then (`project`) the project's.
+  const buttons = nav(page).getByRole("button", { name, exact: true });
+  await (project ? buttons.last() : buttons.first()).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
 }
 

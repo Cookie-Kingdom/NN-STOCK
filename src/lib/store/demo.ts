@@ -205,6 +205,14 @@ export function sampleData(endDate: string): Database {
     detail: "ค่าเช่าครัว",
     payer: company,
   });
+  // Out of pocket and paid back; yesterday's is still owed (V2-PAY-07).
+  add(manager, "pay", 8, "10:10", {
+    category: "transport",
+    amount: 300,
+    detail: "ค่าส่งกล่อง",
+    payer: "น้องฝน",
+  });
+  add(owner, "reimburse", 6, "18:00", { payer: "น้องฝน", amount: 300 });
   add(saladaeng, "pay", 1, "08:20", {
     category: "ingredient",
     amount: 1200,

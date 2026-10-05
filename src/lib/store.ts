@@ -57,6 +57,7 @@ export {
   saleMoney,
   monthPl,
   plBetween,
+  cashBetween,
   lotInfo,
   boxCost,
   poInfo,

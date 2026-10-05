@@ -20,6 +20,8 @@ import {
 const pagesOf = {
   owner: [
     "Overview",
+    // The project's own, under its heading.
+    "Overview",
     "Daily Log",
     "Lots",
     "Stock",
@@ -39,7 +41,7 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 8 pages, Manager 6, Branch 2, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 9 pages, Manager 6, Branch 2, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");
@@ -48,16 +50,22 @@ test("1 · V2-ACC-09 Owner has 8 pages, Manager 6, Branch 2, all named in Englis
     await expect(pageButtons(page)).toHaveText([...pagesOf[account]]);
     // The home page: Overview for the Owner, Daily Log for everyone else.
     await expect(h1(page)).toHaveText(pagesOf[account][0]);
-    for (const name of pagesOf[account]) {
-      await openPage(page, name);
-      await expect(
-        nav(page).getByRole("button", { name, exact: true }),
-      ).toHaveAttribute("aria-current", "page");
+    for (const [index, name] of pagesOf[account].entries()) {
+      // By its place: the Owner's two Overviews share a name.
+      await pageButtons(page).nth(index).click();
+      await expect(h1(page)).toHaveText(name);
+      await expect(pageButtons(page).nth(index)).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
     }
   }
+  await signInAs(page, "owner");
+  await openPage(page, "Overview", true);
+  await expect(page).toHaveURL(/\/owner\/nn-x-lm\/overview$/);
   // A page the account does not have is not reachable by its address either.
   await signInAs(page, "manager");
-  for (const tab of ["overview", "settings"]) {
+  for (const tab of ["overview", "nn-x-lm/overview", "settings"]) {
     await page.goto(`/owner/${tab}`);
     await expect(h1(page)).toHaveText("Daily Log");
   }

@@ -5,7 +5,7 @@ import {
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import { seed } from "@/lib/store";
-import { OverviewPage } from "./OverviewPage";
+import { OverviewPage, ProjectOverviewPage } from "./OverviewPage";
 
 const Overview = () => (
   <WithWorkspace>{(ws) => <OverviewPage ws={ws} />}</WithWorkspace>
@@ -30,3 +30,11 @@ export const Empty: Story = { parameters: { db: seed } };
 
 /** จอ 390px: คอลัมน์เดียว */
 export const Phone: Story = { ...phone };
+
+/** Overview ของ Project (ใต้หัวข้อ Project ในเมนู): หน้าเดียวกัน มีชื่อ Project ที่รายได้รวม
+ *  ไม่มีตารางแต่ละ Project */
+export const Project: Story = {
+  render: () => (
+    <WithWorkspace>{(ws) => <ProjectOverviewPage ws={ws} />}</WithWorkspace>
+  ),
+};

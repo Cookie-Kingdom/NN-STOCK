@@ -4,7 +4,10 @@ import { AccountingPage } from "@/components/organisms/owner/AccountingPage";
 import { BranchStock } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
 import { LotsPage } from "@/components/organisms/owner/LotsPage";
-import { OverviewPage } from "@/components/organisms/owner/OverviewPage";
+import {
+  OverviewPage,
+  ProjectOverviewPage,
+} from "@/components/organisms/owner/OverviewPage";
 import { OwnerMeatStock } from "@/components/organisms/owner/OwnerMeatStock";
 import { OwnerStock } from "@/components/organisms/owner/OwnerStock";
 import { SettingsPage } from "@/components/organisms/owner/SettingsPage";
@@ -19,6 +22,7 @@ export function Workspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
   const Page = {
     overview: OverviewPage,
+    projectOverview: ProjectOverviewPage,
     log: DailyLog,
     lots: LotsPage,
     meatStock: OwnerMeatStock,

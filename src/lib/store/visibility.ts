@@ -61,9 +61,18 @@ export function visibleEntries(db: Database, by: Actor): Entry[] {
   if (by.role === "owner") {
     if (!by.hidesSales) return db.entries;
     const byId = new Map(db.entries.map((e) => [e.id, e]));
-    return db.entries.filter(
-      (e) => !managerHidden(e, byId.get(e.values.targetId)),
-    );
+    // Paying a person back is the Owner's (`kindsFor`): the server sends it, no page of the
+    // Manager's lists it, nor a change about one or the undo of such a change.
+    const repay = (e?: Entry) => e?.kind === "reimburse";
+    return db.entries.filter((e) => {
+      const target = byId.get(e.values.targetId);
+      return !(
+        managerHidden(e, target) ||
+        repay(e) ||
+        repay(target) ||
+        repay(target && byId.get(target.values.targetId))
+      );
+    });
   }
   const seen = new Set<string>();
   for (const e of db.entries)

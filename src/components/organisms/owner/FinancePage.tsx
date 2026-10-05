@@ -1,138 +1,212 @@
 "use client";
 
-import { useState } from "react";
-import { Input } from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { Panel } from "@/components/atoms/Panel";
+import { Stat } from "@/components/atoms/Stat";
 import { Muted } from "@/components/atoms/Text";
-import { TableFilter } from "@/components/molecules/TableFilter";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht } from "@/lib/format";
-import { advances, supplierBalances, visibleNotes } from "@/lib/store";
-import { shopProject } from "@/lib/store/ledger";
+import {
+  advances,
+  cashBetween,
+  supplierBalances,
+  visibleNotes,
+} from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { Revenue } from "./OverviewPage";
-import { FigureCard, FigureTable, Num, PlTable, cardGrid } from "./PlTable";
+import { usePeriod } from "./OverviewPage";
+import {
+  FigureCard,
+  FigureTable,
+  Num,
+  PlTable,
+  cardGrid,
+  figureGrid,
+} from "./PlTable";
 
-/** Money of the project. The Owner sees its revenue as the Overview shows the shop's (by
- *  month or by year, down to the P&L), then what is still unpaid per supplier, what each
- *  person paid out of pocket (V2-PAY-07) and the latest payments. The Account Manager sees
- *  the payments of one month by category, without payroll, and the supplier balances. */
+const sumOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+/** The project's money as it really moved, by month or by year: what was paid in each
+ *  category, what is still unpaid per supplier and the latest payments. The Owner also sees
+ *  whose pocket the money left (V2-PAY-08), what each person paid out of pocket and is still
+ *  owed (V2-PAY-07), and pays them back from here. The Account Manager sees no payroll and
+ *  none of that. The revenue is the project's Overview. */
 export function FinancePage({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
-  const thisMonth = today.slice(0, 7);
-  const [typed, setTyped] = useState(thisMonth);
-  // A browser with no month picker shows a text box: anything else typed is this month.
-  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(typed) ? typed : thisMonth;
+  const owner = !account.hidesSales;
+  const { key, span, control } = usePeriod(db, today);
+  const cash = cashBetween(db, key, `${key}~`);
   const balances = supplierBalances(db);
   const advanced = advances(db);
-  const pays = visibleNotes(db, account)
-    .filter((e) => e.kind === "pay")
+  const unpaid = sumOf(balances.map((x) => Math.max(x.left, 0)));
+  const owed = sumOf(advanced.map((x) => Math.max(x.left, 0)));
+  const latest = visibleNotes(db, account)
+    .filter((e) => e.kind === "pay" || e.kind === "reimburse")
     .slice(0, 12);
-
-  const unpaid = (
-    <FigureCard
-      title="ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย"
-      note="ยอดของใบทั้งหมด ลบ เงินที่จ่ายแล้ว"
-    >
-      {balances.length ? (
-        <FigureTable>
-          <thead>
-            <tr>
-              <th className={th}>ผู้ขาย</th>
-              {["ยอดของใบ", "จ่ายแล้ว", "คงเหลือ"].map((name) => (
-                <th key={name} className={cn(th, "text-right")}>
-                  {name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {balances.map((x) => (
-              <tr key={x.supplier}>
-                <td className={td}>{x.supplier}</td>
-                <Num>{baht(x.billed)}</Num>
-                <Num>{baht(x.paid)}</Num>
-                {x.left > 0 ? (
-                  <Num tone="warning">{baht(x.left)}</Num>
-                ) : (
-                  <Num tone="ok">จ่ายครบแล้ว</Num>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </FigureTable>
-      ) : (
-        <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-          ยังไม่มีใบจากผู้ขาย
-        </Muted>
-      )}
-    </FigureCard>
-  );
-  const latest = (
-    <FigureCard title="จ่ายเงินล่าสุด" note={`${pays.length} รายการ`}>
-      {pays.length ? (
-        pays.map((e) => <NoteRow key={e.id} entry={e} ws={ws} dated />)
-      ) : (
-        <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-          ยังไม่มีบันทึกจ่ายเงิน
-        </Muted>
-      )}
-    </FigureCard>
-  );
-
-  if (!account.hidesSales)
-    return (
-      <Revenue ws={ws} project={shopProject}>
-        <div className={cardGrid}>
-          <div className="flex min-w-0 flex-col gap-4">
-            {unpaid}
-            <FigureCard
-              title="เงินที่พนักงานสำรองจ่าย"
-              note="รวมตามช่องผู้จ่าย"
-            >
-              <FigureTable>
-                <tbody>
-                  {advanced.map((x) => (
-                    <tr key={x.payer}>
-                      <td className={td}>{x.payer}</td>
-                      <Num>{baht(x.amount)}</Num>
-                    </tr>
-                  ))}
-                  {!advanced.length && (
-                    <tr>
-                      <td className={cn(td, "text-text-secondary")}>ไม่มี</td>
-                    </tr>
-                  )}
-                </tbody>
-              </FigureTable>
-            </FigureCard>
-          </div>
-          {latest}
-        </div>
-      </Revenue>
-    );
+  // Money out, red and with its minus; nothing out is a plain zero.
+  const out = (x: number) =>
+    x ? <span className="text-danger">{baht(-x)}</span> : baht(0);
 
   return (
-    // A wide screen: the latest payments are a third column beside the tables.
-    <div className="flex flex-col gap-4 min-[1700px]:grid min-[1700px]:grid-cols-3 min-[1700px]:items-start">
-      <TableFilter
-        label="เดือน"
-        className="self-start min-[1700px]:col-span-full min-[1700px]:justify-self-start"
-      >
-        <Input
-          type="month"
-          variant="filter"
-          value={typed}
-          max={thisMonth}
-          onChange={(event) => setTyped(event.target.value)}
-        />
-      </TableFilter>
-      <div className={cn(cardGrid, "min-[1700px]:col-span-2")}>
-        <PlTable db={db} month={month} />
-        {unpaid}
+    <div className="flex flex-col gap-4">
+      {control}
+      {owner && (
+        <Panel
+          className={cn(figureGrid, "lg:grid-cols-3")}
+          aria-label={`เงินของ${span}`}
+        >
+          <Stat
+            label="จ่ายเงินทั้งหมด"
+            value={out(cash.paid)}
+            note="ค่าใช้จ่ายของช่วง รวมอุปกรณ์/ลงทุน"
+          />
+          <Stat label="บริษัทจ่ายเอง" value={out(cash.company)} />
+          <Stat
+            label="พนักงานสำรองจ่าย"
+            value={baht(cash.advanced)}
+            note="นับเป็นค่าใช้จ่ายแล้ว เงินยังไม่ออกจากร้าน"
+          />
+          <Stat
+            label="คืนเงินพนักงาน"
+            value={out(cash.repaid)}
+            note="ไม่นับเป็นค่าใช้จ่ายซ้ำ"
+          />
+          <Stat
+            label="เงินออกจากร้านจริง"
+            value={out(cash.out)}
+            note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
+          />
+          <Stat
+            label="ค้างจ่าย ณ วันนี้"
+            value={
+              <span className={cn(unpaid + owed > 0 && "text-warning")}>
+                {baht(unpaid + owed)}
+              </span>
+            }
+            note={`ผู้ขาย ${baht(unpaid)} · พนักงาน ${baht(owed)}`}
+          />
+        </Panel>
+      )}
+      <div className={cardGrid}>
+        <PlTable db={db} month={key} payroll={owner} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <FigureCard
+            title="ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย"
+            note="ยอดของใบทั้งหมด ลบ เงินที่จ่ายแล้ว · ถึงวันนี้"
+          >
+            {balances.length ? (
+              <FigureTable>
+                <thead>
+                  <tr>
+                    <th className={th}>ผู้ขาย</th>
+                    {["ยอดของใบ", "จ่ายแล้ว", "คงเหลือ"].map((name) => (
+                      <th key={name} className={cn(th, "text-right")}>
+                        {name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {balances.map((x) => (
+                    <tr key={x.supplier}>
+                      <td className={td}>{x.supplier}</td>
+                      <Num>{baht(x.billed)}</Num>
+                      <Num>{baht(x.paid)}</Num>
+                      {x.left > 0 ? (
+                        <Num tone="warning">{baht(x.left)}</Num>
+                      ) : (
+                        <Num tone="ok">จ่ายครบแล้ว</Num>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </FigureTable>
+            ) : (
+              <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                ยังไม่มีใบจากผู้ขาย
+              </Muted>
+            )}
+          </FigureCard>
+          {owner && (
+            <FigureCard
+              title="เงินที่พนักงานสำรองจ่าย"
+              note="สำรองจ่าย ลบ คืนแล้ว · ถึงวันนี้"
+            >
+              {advanced.length ? (
+                <FigureTable>
+                  <thead>
+                    <tr>
+                      <th className={th}>ผู้จ่าย</th>
+                      {["สำรองจ่าย", "คืนแล้ว", "ค้างคืน"].map((name) => (
+                        <th key={name} className={cn(th, "text-right")}>
+                          {name}
+                        </th>
+                      ))}
+                      <th className={th}>
+                        <span className="sr-only">คืนเงิน</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {advanced.map((x) => (
+                      <tr key={x.payer}>
+                        <td className={cn(td, "whitespace-nowrap")}>
+                          {x.payer}
+                        </td>
+                        <Num>{baht(x.advanced)}</Num>
+                        <Num>{baht(x.repaid)}</Num>
+                        {x.left > 0 ? (
+                          <Num tone="warning">{baht(x.left)}</Num>
+                        ) : x.left < 0 ? (
+                          <Num tone="warning">คืนเกิน {baht(-x.left)}</Num>
+                        ) : (
+                          <Num tone="ok">คืนครบแล้ว</Num>
+                        )}
+                        <td className={cn(td, "text-right")}>
+                          {x.left > 0 && (
+                            <Button
+                              variant="text"
+                              aria-label={`คืนเงิน ${x.payer}`}
+                              onClick={() =>
+                                ws.jot({
+                                  kind: "reimburse",
+                                  values: {
+                                    payer: x.payer,
+                                    amount: String(x.left),
+                                  },
+                                })
+                              }
+                            >
+                              คืนเงิน
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </FigureTable>
+              ) : (
+                <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                  ไม่มี
+                </Muted>
+              )}
+            </FigureCard>
+          )}
+        </div>
       </div>
-      {latest}
+      <FigureCard
+        title="จ่ายเงินล่าสุด"
+        note={`${latest.length} รายการ · ทุกช่วง`}
+      >
+        {latest.length ? (
+          latest.map((e) => <NoteRow key={e.id} entry={e} ws={ws} dated />)
+        ) : (
+          <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+            ยังไม่มีบันทึกจ่ายเงิน
+          </Muted>
+        )}
+      </FigureCard>
     </div>
   );
 }

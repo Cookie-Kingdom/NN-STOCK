@@ -207,7 +207,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   await expect(rows(page, "pay")).toHaveCount(0);
 
   await signInAs(page, "owner");
-  await openPage(page, "Finance");
+  await openPage(page, "Overview", true);
   const pl = region(page, "P&L รายเดือน");
   const line = (name: RegExp) =>
     pl.getByRole("row", { name }).getByRole("cell").nth(1);
@@ -218,9 +218,14 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   // ฿230 out in all: each counted once. 3,500 − 10% GP − 230.
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿2,920");
   await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText("฿2,920");
+  // Finance: ฿230 paid in all, ฿150 of it out of น้องฝน's pocket and still owed to her.
+  await openPage(page, "Finance");
+  await expect(region(page, "เงินของเดือน")).toContainText("−฿230");
   await expect(
-    region(page, "เงินที่พนักงานสำรองจ่าย").getByRole("row").getByRole("cell"),
-  ).toHaveText(["น้องฝน", "฿150"]);
+    region(page, "เงินที่พนักงานสำรองจ่าย")
+      .getByRole("row", { name: /^น้องฝน/ })
+      .getByRole("cell"),
+  ).toHaveText(["น้องฝน", "฿150", "฿0", "฿150", "คืนเงิน"]);
   await expect(region(page, "จ่ายเงินล่าสุด")).toContainText(
     "ยังไม่มีบันทึกจ่ายเงิน",
   );

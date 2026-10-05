@@ -1,6 +1,7 @@
 import {
   Beef,
   BookText,
+  ChartColumn,
   ClipboardList,
   Factory,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import { shopProject } from "./store/ledger";
 
 export type Tab =
   | "overview"
+  | "projectOverview"
   | "log"
   | "lots"
   | "meatStock"
@@ -22,7 +24,8 @@ export type Tab =
   | "accounting"
   | "settings";
 
-/** The sidebar section that holds Daily Log, Lots, Stock, Inventory and Finance. */
+/** The sidebar section that holds the project's Overview, Daily Log, Lots, Stock, Inventory
+ *  and Finance. */
 export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
@@ -38,6 +41,13 @@ export const pages: Record<
     label: "Overview",
     description: "Revenue ของร้าน รวมทุก Project",
     icon: LayoutDashboard,
+  },
+  // The same name as the shop's, under the project's heading: /owner/nn-x-lm/overview.
+  projectOverview: {
+    label: "Overview",
+    description: `Revenue ของ ${shopProject}`,
+    icon: ChartColumn,
+    group: shopGroup,
   },
   log: {
     label: "Daily Log",
@@ -66,7 +76,7 @@ export const pages: Record<
   },
   finance: {
     label: "Finance",
-    description: "จ่ายเงิน และยอดคงเหลือต่อผู้ขาย",
+    description: "เงินที่จ่ายจริง ยอดค้างจ่ายผู้ขาย และเงินที่ต้องคืนพนักงาน",
     icon: Wallet,
     group: shopGroup,
   },
@@ -90,8 +100,8 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
     ? "วัสดุคงเหลือของแต่ละสาขา"
     : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner all eight, the Account Manager six
- *  (no Overview, no Settings), a branch two. */
+/** The pages an account has, in menu order: the Owner all nine, the Account Manager six
+ *  (no Overview of the shop or of the project, no Settings), a branch two. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
     ? ["log", "stock"]
@@ -99,6 +109,7 @@ export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
       ? ["log", "lots", "meatStock", "stock", "finance", "accounting"]
       : [
           "overview",
+          "projectOverview",
           "log",
           "lots",
           "meatStock",

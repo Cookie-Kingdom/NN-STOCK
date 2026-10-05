@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -28,6 +28,7 @@ import {
   payCategories,
   plBetween,
   salesChannels,
+  type Database,
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
@@ -108,26 +109,13 @@ function Bars({
   );
 }
 
-/** Revenue by month or by year: the total against the like-for-like span before it, a bar per
- *  day (or per month), the figures of the period, how the revenue becomes the operating
- *  profit, the branches and the sales channels, then the P&L and `children`. Without
- *  `project` it is the shop's, with a row per project; with it, that project's alone. */
-export function Revenue({
-  ws,
-  project,
-  children,
-}: {
-  ws: Workspace;
-  project?: string;
-  children?: ReactNode;
-}) {
-  const { db, account, today } = ws;
+/** The period a page shows, a month or a year, and the control that picks it: month or year,
+ *  then back and forward, never before the first live entry nor past today's. Opens on this
+ *  month. */
+export function usePeriod(db: Database, today: string) {
   const [view, setView] = useState<"month" | "year">("month");
   const [month, setMonth] = useState(today.slice(0, 7));
   const [year, setYear] = useState(today.slice(0, 4));
-  // The Account Manager sees no sales (V2-ACC-01); no page of theirs renders this.
-  if (account.hidesSales) return null;
-
   const key = view === "month" ? month : year;
   const step = (by: number) =>
     view === "month"
@@ -139,6 +127,62 @@ export function Revenue({
   );
   const current = key === today.slice(0, key.length);
   const period = revenuePeriod(key, today);
+  const span = view === "month" ? "เดือน" : "ปี";
+  return {
+    view,
+    key,
+    /** เดือน or ปี. */
+    span,
+    /** The period that holds today. */
+    current,
+    period,
+    control: (
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedChoice
+          label="ช่วงเวลา"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "month", label: "เดือน" },
+            { value: "year", label: "ปี" },
+          ]}
+        />
+        <div className="inline-flex items-center rounded-md border border-border bg-surface max-md:flex-1 max-md:justify-between">
+          <IconButton
+            label={`${span}ก่อนหน้า`}
+            icon={<ChevronLeft />}
+            disabled={shiftKey(key, -1) < first.slice(0, key.length)}
+            onClick={() => step(-1)}
+          />
+          <output
+            aria-live="polite"
+            className="min-w-38 text-center text-body-sm font-medium"
+          >
+            {period.name}
+          </output>
+          <IconButton
+            label={`${span}ถัดไป`}
+            icon={<ChevronRight />}
+            disabled={current}
+            onClick={() => step(1)}
+          />
+        </div>
+      </div>
+    ),
+  };
+}
+
+/** Revenue by month or by year: the total against the like-for-like span before it, a bar per
+ *  day (or per month), the figures of the period, how the revenue becomes the operating
+ *  profit, the branches and the sales channels, then the P&L. Without `project` it is the
+ *  shop's, with a row per project; with it, that project's alone. Both read the entry log
+ *  through `plBetween`, so they cannot disagree. */
+export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
+  const { db, account, today } = ws;
+  const { view, key, span, current, period, control } = usePeriod(db, today);
+  // The Account Manager sees no sales (V2-ACC-01); no page of theirs renders this.
+  if (account.hidesSales) return null;
+
   const now = monthPl(db, key);
   const before = plBetween(db, period.before.from, period.before.to);
   /* ponytail: a bar reads the whole log once (twice with its mark): 62 passes for a month.
@@ -185,7 +229,6 @@ export function Revenue({
   const channels = salesChannels(db.config);
   const cost = boxCost(db);
   const gifts = giftBoxes(db, key);
-  const span = view === "month" ? "เดือน" : "ปี";
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";
   const track = "relative h-5.5";
@@ -194,37 +237,7 @@ export function Revenue({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <SegmentedChoice
-          label="ช่วงเวลา"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "month", label: "เดือน" },
-            { value: "year", label: "ปี" },
-          ]}
-        />
-        <div className="inline-flex items-center rounded-md border border-border bg-surface max-md:flex-1 max-md:justify-between">
-          <IconButton
-            label={`${span}ก่อนหน้า`}
-            icon={<ChevronLeft />}
-            disabled={shiftKey(key, -1) < first.slice(0, key.length)}
-            onClick={() => step(-1)}
-          />
-          <output
-            aria-live="polite"
-            className="min-w-38 text-center text-body-sm font-medium"
-          >
-            {period.name}
-          </output>
-          <IconButton
-            label={`${span}ถัดไป`}
-            icon={<ChevronRight />}
-            disabled={current}
-            onClick={() => step(1)}
-          />
-        </div>
-      </div>
+      {control}
 
       <Panel aria-label="รายได้รวม">
         <h2 className="m-0 text-label text-text-secondary">
@@ -442,10 +455,14 @@ export function Revenue({
       </div>
 
       <PlTable db={db} month={key} full />
-      {children}
     </div>
   );
 }
 
 /** The Owner's home: the shop's revenue over every project. */
 export const OverviewPage = ({ ws }: { ws: Workspace }) => <Revenue ws={ws} />;
+
+/** The project's own Overview, under its heading in the menu. */
+export const ProjectOverviewPage = ({ ws }: { ws: Workspace }) => (
+  <Revenue ws={ws} project={shopProject} />
+);

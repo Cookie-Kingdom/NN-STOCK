@@ -78,16 +78,18 @@ const Money = ({ x }: { x: number }) => (
 /** The month (or the year: `month` is then `YYYY`) and the one before it, side by side
  *  (V2-CAL-02). `full` (the Owner): sales, GP
  *  per channel, every category, the operating profit, then อุปกรณ์/ลงทุน on its own line.
- *  Without it (the Account Manager): the categories only, never payroll, and what they add
- *  up to. ค่าเช่า/น้ำไฟ with nothing jotted in the month is yellow (V2-PAY-04). */
+ *  Without it: the categories only and what they add up to, with payroll for the Owner
+ *  (`payroll`), never for the Account Manager. ค่าเช่า/น้ำไฟ with nothing jotted in the month is yellow (V2-PAY-04). */
 export function PlTable({
   db,
   month,
   full = false,
+  payroll = full,
 }: {
   db: Database;
   month: string;
   full?: boolean;
+  payroll?: boolean;
 }) {
   const months = [month, shiftKey(month, -1)];
   const span = month.length === 4 ? "ปี" : "เดือน";
@@ -98,7 +100,7 @@ export function PlTable({
   // Also a category that Settings no longer lists but a payment still carries.
   const ids = [
     ...new Set([...Object.keys(a.byCategory), ...Object.keys(b.byCategory)]),
-  ].filter((id) => id !== capexCategory && (full || id !== payrollCategory));
+  ].filter((id) => id !== capexCategory && (payroll || id !== payrollCategory));
   const of = (pl: typeof a, id: string) => pl.byCategory[id] ?? 0;
   const paid = (pl: typeof a) => ids.reduce((all, id) => all + of(pl, id), 0);
   const line = (name: string, x: number, y: number, total = false) => (
