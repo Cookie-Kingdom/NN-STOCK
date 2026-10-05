@@ -54,6 +54,8 @@ const cost = ["ผู้ขาย", "ซื้อล่าสุด", "จำน
 /** The company's columns after `what`: a row is one purchase, and ends with its 「แก้ไข」 and
  *  「ลบ」, as on Accounting. */
 const purchase = ["วันที่ซื้อ", "จำนวนซื้อ", "มูลค่า", "แก้ไข"];
+/** The one ประเภทสินค้า the company's page tracks. */
+const assetType = "สินทรัพย์";
 const all = { value: "", label: "ทั้งหมด" };
 /** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
 const late = "ยังไม่ได้นับ";
@@ -87,8 +89,8 @@ type Row = ProjectAsset & {
  *  beside the figures, and the branch admins count on their own Inventory page; the central
  *  warehouse is never counted. The meat, the sticky rice and the chili are on the Stock page
  *  (`OwnerMeatStock`).
- *  `company`: the central company's Inventory instead, what Accounting bought with
- *  ใช้เพื่องาน「บริษัทส่วนกลาง」: a row per purchase, newest first (the ledger's rows, not
+ *  `company`: the central company's Assets Management instead, what Accounting bought with
+ *  ใช้เพื่องาน「บริษัทส่วนกลาง」 and ประเภทสินค้า「สินทรัพย์」, nothing else: a row per purchase, newest first (the ledger's rows, not
  *  grouped), each with the 「แก้ไข」 and 「ลบ」 of Accounting. It has no warehouse, so no
  *  place columns, no สถานะ or ที่เก็บ filter and no transfer. */
 export function OwnerStock({
@@ -109,7 +111,12 @@ export function OwnerStock({
   const bought = new Map<string, Omit<Row, "held">>();
   if (company)
     for (const row of ledgerRows(db))
-      if (row.entry && row.purpose === "company" && row.status !== "cancelled")
+      if (
+        row.entry &&
+        row.purpose === "company" &&
+        row.itemType.trim() === assetType &&
+        row.status !== "cancelled"
+      )
         bought.set(row.id, {
           key: row.id,
           sku: row.sku,
@@ -208,7 +215,7 @@ export function OwnerStock({
   const sum = (list: { paid: number }[]) =>
     list.reduce((a, row) => a + row.paid, 0);
   const columns = company
-    ? [...what, ...purchase]
+    ? [...what.filter((column) => column !== "ประเภท"), ...purchase]
     : [...what, ...where, ...cost];
   // A phone keeps the name and where it is; the company's, with no places, what it cost.
   const wideOnly = company
@@ -230,7 +237,11 @@ export function OwnerStock({
         <Stat
           label={company ? "จำนวนรายการ" : "สินทรัพย์"}
           value={`${qty(bought.size)} รายการ`}
-          note={`${qty(new Set([...bought.values()].map((row) => row.type)).size)} ประเภท`}
+          note={
+            company
+              ? undefined
+              : `${qty(new Set([...bought.values()].map((row) => row.type)).size)} ประเภท`
+          }
         />
         {!company && (
           // The page's jot button (the shell draws none here): a tile of the row, so it is
@@ -261,16 +272,16 @@ export function OwnerStock({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <TableFilter label="ประเภท">
-          <Select
-            variant="filter"
-            value={type}
-            onChange={setType}
-            options={[all, ...types.map((value) => ({ value }))]}
-          />
-        </TableFilter>
         {!company && (
           <>
+            <TableFilter label="ประเภท">
+              <Select
+                variant="filter"
+                value={type}
+                onChange={setType}
+                options={[all, ...types.map((value) => ({ value }))]}
+              />
+            </TableFilter>
             <TableFilter label="สถานะ">
               <Select
                 variant="filter"
@@ -347,9 +358,11 @@ export function OwnerStock({
                 <Cell className="font-semibold md:min-w-32">
                   {row.item || none}
                 </Cell>
-                <Cell className={cn("whitespace-nowrap", wide("ประเภท"))}>
-                  {row.type}
-                </Cell>
+                {!company && (
+                  <Cell className={cn("whitespace-nowrap", wide("ประเภท"))}>
+                    {row.type}
+                  </Cell>
+                )}
                 <Cell className="min-w-24 max-md:hidden">
                   {row.detail || none}
                 </Cell>
@@ -450,7 +463,7 @@ export function OwnerStock({
               >
                 {rows.length
                   ? "ไม่พบรายการที่ตรงกับที่ค้นหา"
-                  : `ยังไม่มีของที่ซื้อเข้า${owner} · จดที่หน้า Accounting เลือกใช้เพื่องาน「${owner}」`}
+                  : `ยังไม่มีสินทรัพย์ของ${owner} · จดที่หน้า Accounting เลือกใช้เพื่องาน「${owner}」และประเภทสินค้า「${assetType}」`}
               </Cell>
             </tr>
           )}
@@ -458,14 +471,14 @@ export function OwnerStock({
       </DayCard>
       <Caption>
         {company
-          ? `ของที่ซื้อจากหน้า Accounting โดยเลือกใช้เพื่องาน「${owner}」 แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน ไม่รวมที่ยกเลิก`
+          ? `ของที่ซื้อจากหน้า Accounting โดยเลือกใช้เพื่องาน「${owner}」และประเภทสินค้า「${assetType}」 แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน ไม่รวมที่ยกเลิก`
           : "แถวละรายการ: วัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting รวมทุกครั้งที่ซื้อ · คลังกลาง = ซื้อเข้า − จัดสรรออก ไม่มีการนับ · ระหว่างส่ง = ส่งแล้ว รอสาขากดยืนยันรับ · รวม นับของระหว่างส่งด้วย · ตัวเลขสีแดง = ติดลบ · ยอดวัสดุของสาขาคือยอดที่แอดมินสาขานับ (ชิ้น) ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"}
       </Caption>
     </div>
   );
 }
 
-/** The central company's Inventory (`/owner/inventory`). */
+/** The central company's Assets Management (`/owner/assets-management`). */
 export const CompanyStock = ({ ws }: { ws: Workspace }) => (
   <OwnerStock ws={ws} company />
 );

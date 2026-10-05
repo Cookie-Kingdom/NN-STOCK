@@ -30,7 +30,7 @@ const pagesOf = {
     "Finance",
     "Accounting",
     // The central company's, outside the project's section.
-    "Inventory",
+    "Assets Management",
     "Settings",
   ],
   manager: [
@@ -40,7 +40,7 @@ const pagesOf = {
     "Inventory",
     "Finance",
     "Accounting",
-    "Inventory",
+    "Assets Management",
   ],
   saladaeng: ["Daily Log", "Stock", "Inventory"],
   minburi: ["Daily Log", "Stock", "Inventory"],
