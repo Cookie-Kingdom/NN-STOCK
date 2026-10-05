@@ -338,6 +338,8 @@ export type ProjectAsset = {
   /** What was paid for it so far. */
   paid: number;
   times: number;
+  /** The note of the latest purchase. */
+  entry: Entry;
 };
 
 /** What `project` owns (Inventory), or with `null` what the central company does: the
@@ -376,6 +378,7 @@ export function projectAssets(
       qty: null,
       paid: 0,
       times: 0,
+      entry: row.entry,
     };
     items.set(key, asset);
     if (row.qty !== null) asset.qty = (asset.qty ?? 0) + row.qty;

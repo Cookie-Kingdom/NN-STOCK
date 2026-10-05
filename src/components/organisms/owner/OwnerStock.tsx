@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
+import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
@@ -19,11 +20,13 @@ import {
   type Held,
 } from "@/components/organisms/branch/BranchStock";
 import { td, tf } from "@/components/organisms/shared/tableCell";
+import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
 import {
   branchMaterial,
   branches,
+  editBlock,
   ledgerPurposes,
   materialList,
   placeLabel,
@@ -32,6 +35,8 @@ import {
   shopProject,
   stockLines,
   titles,
+  voidBlock,
+  type Entry,
   type ProjectAsset,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -45,6 +50,8 @@ const transit = "ระหว่างส่ง";
 const what = ["SKU", "รายการ", "ประเภท", "รายละเอียด / สเปก"];
 const where = [...heads, transit, "รวม", "สถานะ"];
 const cost = ["ผู้ขาย", "ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
+/** The company's last column: 「แก้ไข」 and 「ลบ」 of the row's purchase, as on Accounting. */
+const change = "แก้ไข";
 const all = { value: "", label: "ทั้งหมด" };
 /** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
 const late = "ยังไม่ได้นับ";
@@ -60,7 +67,9 @@ const Transit = ({ n }: { n: number }) => (
 /** A row of the table: what was bought under its SKU (`times` 0: never), its ประเภทสินค้า,
  *  for a material of Settings what each branch counted (`at`), and what it holds at every
  *  place and on its way (`held`, by the column's name). */
-type Row = ProjectAsset & {
+type Row = Omit<ProjectAsset, "entry"> & {
+  /** None for a material never bought. */
+  entry?: Entry;
   type: string;
   at?: Record<string, Held>;
   held: Record<string, number>;
@@ -78,7 +87,8 @@ type Row = ProjectAsset & {
  *  (`OwnerMeatStock`).
  *  `company`: the central company's Inventory instead, what Accounting bought with
  *  ใช้เพื่องาน「บริษัทส่วนกลาง」: it has no warehouse, so no place columns, no สถานะ or ที่เก็บ
- *  filter and no transfer. */
+ *  filter and no transfer; no ผู้ขาย column either, and a last one with 「แก้ไข」 and 「ลบ」
+ *  of the row's latest purchase, as on Accounting. */
 export function OwnerStock({
   ws,
   company,
@@ -86,7 +96,8 @@ export function OwnerStock({
   ws: Workspace;
   company?: boolean;
 }) {
-  const { db, today } = ws;
+  const { db, account, today } = ws;
+  const { remove } = useEntryActions(ws);
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
@@ -179,10 +190,12 @@ export function OwnerStock({
   );
   const sum = (list: { paid: number }[]) =>
     list.reduce((a, row) => a + row.paid, 0);
-  const columns = [...what, ...(company ? [] : where), ...cost];
+  const columns = company
+    ? [...what, ...cost.slice(1), change]
+    : [...what, ...where, ...cost];
   // A phone keeps the name and where it is; the company's, with no places, what it cost.
   const wideOnly = company
-    ? ["SKU", "รายละเอียด / สเปก", "ผู้ขาย", "จำนวนซื้อ"]
+    ? ["SKU", "รายละเอียด / สเปก", "จำนวนซื้อ"]
     : ["SKU", "ประเภท", "รายละเอียด / สเปก", ...cost];
   const wide = (column: string) => wideOnly.includes(column) && "max-md:hidden";
 
@@ -369,9 +382,11 @@ export function OwnerStock({
                     )}
                   </>
                 )}
-                <Cell className={cn("min-w-24", wide("ผู้ขาย"))}>
-                  {row.vendor || none}
-                </Cell>
+                {!company && (
+                  <Cell className="min-w-24 max-md:hidden">
+                    {row.vendor || none}
+                  </Cell>
+                )}
                 <Cell className={cn("whitespace-nowrap", wide("ซื้อล่าสุด"))}>
                   {row.times ? dateLabel(row.lastDate) : none}
                   {row.times > 1 && (
@@ -386,6 +401,27 @@ export function OwnerStock({
                 <Cell right className={cn(wide("มูลค่า"))}>
                   {row.times ? baht(row.paid) : none}
                 </Cell>
+                {company && row.entry && (
+                  <Cell className="px-2 whitespace-nowrap">
+                    <span className="flex gap-1">
+                      {!editBlock(db, row.entry, account) && (
+                        <IconButton
+                          label="แก้ไข"
+                          icon={<Pencil size={16} />}
+                          onClick={() => ws.edit(row.entry!.id)}
+                        />
+                      )}
+                      {!voidBlock(db, row.entry, account) && (
+                        <IconButton
+                          label="ลบ"
+                          icon={<Trash2 size={16} />}
+                          className="text-danger"
+                          onClick={() => remove(row.entry!)}
+                        />
+                      )}
+                    </span>
+                  </Cell>
+                )}
               </tr>
             );
           })}
