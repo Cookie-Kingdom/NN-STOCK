@@ -378,7 +378,7 @@ export function fields(
           ),
         }),
         ...more(
-          number("fullAmount", "ยอดเต็มของใบนี้", "บาท", {
+          number("fullAmount", "ยอดเต็มจำนวน", "บาท", {
             hint: "ใส่เมื่อจ่ายบางส่วนหรือมัดจำ",
           }),
           file("ใบเสร็จ"),
