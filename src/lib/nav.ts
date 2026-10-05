@@ -36,7 +36,7 @@ export const pages: Record<
 > = {
   overview: {
     label: "Overview",
-    description: "สรุปของเดือน และสิ่งที่ยังไม่ได้จด",
+    description: "Revenue ของร้าน รวมทุก Project",
     icon: LayoutDashboard,
   },
   log: {

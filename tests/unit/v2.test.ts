@@ -15,6 +15,7 @@ import {
   lotInfo,
   materialList,
   monthPl,
+  plBetween,
   mutate,
   poInfo,
   purchaseLots,
@@ -794,6 +795,14 @@ describe("figures (V2-CAL)", () => {
       profit: -300,
       capex: 0,
     });
+    // A year is a prefix as a month is; a span of days counts its two ends.
+    expect(monthPl(built, "2026").opex).toBe(23550);
+    expect(plBetween(built, sale.date, sale.date)).toMatchObject({
+      sales: 1500,
+      boxes: Number(sale.values.boxes || 0),
+      byBranch: { [sale.branch]: 1500 },
+    });
+    expect(plBetween(built, "2026-09", "2026-08~").sales).toBe(0);
     // V2-PAY-07: out of pocket, over payments and the sale's expense; the company is no advance.
     expect(advances(built)).toEqual([{ payer: "น้องฝน", amount: 400 }]);
   });

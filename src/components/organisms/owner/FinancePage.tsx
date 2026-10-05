@@ -10,6 +10,7 @@ import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht } from "@/lib/format";
+import { periodName } from "@/lib/period";
 import {
   advances,
   monthPl,
@@ -18,7 +19,7 @@ import {
   visibleNotes,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { FigureCard, FigureTable, monthName, Num, PlTable } from "./PlTable";
+import { FigureCard, FigureTable, Num, PlTable } from "./PlTable";
 
 export const figureGrid =
   "grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4 max-md:grid-cols-2 max-md:gap-3";
@@ -64,7 +65,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
           aria-label="ตัวเลขของเดือน"
         >
           <Stat
-            label={`ยอดขาย ${monthName(month)}`}
+            label={`ยอดขาย ${periodName(month)}`}
             value={<span className="text-success">+{baht(pl.sales)}</span>}
           />
           <Stat

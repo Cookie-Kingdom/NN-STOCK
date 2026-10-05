@@ -166,34 +166,63 @@ export function outflows(db: Database): Outflow[] {
   }
   return out;
 }
-type MonthPl = {
+type Pl = {
   sales: number;
   gp: number;
+  /** Boxes sold. */
+  boxes: number;
+  /** Sales per channel key and per branch. */
+  byChannel: Record<string, number>;
+  byBranch: Record<string, number>;
   byCategory: Record<string, number>;
   opex: number;
   profit: number;
   capex: number;
 };
-/** V2-CAL-02: one month (`YYYY-MM`, by entry date). อุปกรณ์/ลงทุน stays out of the profit. */
-export function monthPl(db: Database, month: string): MonthPl {
+/** V2-CAL-02 over the entries dated `from`..`to`, both ends included. อุปกรณ์/ลงทุน stays out
+ *  of the profit. The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
+ *  with `~` behind it a `to` that takes in every date under it. */
+export function plBetween(db: Database, from: string, to: string): Pl {
+  const within = (date: string) => date >= from && date <= to;
   let sales = 0,
-    gp = 0;
+    gp = 0,
+    boxes = 0;
+  const byChannel: Record<string, number> = {};
+  const byBranch: Record<string, number> = {};
+  const channels = salesChannels(db.config);
   for (const sale of entries(db, "sale"))
-    if (sale.date.startsWith(month)) {
+    if (within(sale.date)) {
       const money = saleMoney(db.config, sale);
       sales += money.sales;
       gp += money.gp;
+      boxes += num(sale.values, "boxes");
+      byBranch[sale.branch] = (byBranch[sale.branch] ?? 0) + money.sales;
+      for (const c of channels)
+        byChannel[c.key] = (byChannel[c.key] ?? 0) + num(sale.values, c.key);
     }
   const byCategory: Record<string, number> = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, 0]),
   );
   for (const o of outflows(db))
-    if (o.date.startsWith(month))
+    if (within(o.date))
       byCategory[o.category] = (byCategory[o.category] ?? 0) + o.amount;
   const capex = byCategory[capexCategory] ?? 0;
   const opex = Object.values(byCategory).reduce((a, b) => a + b, 0) - capex;
-  return { sales, gp, byCategory, opex, profit: sales - gp - opex, capex };
+  return {
+    sales,
+    gp,
+    boxes,
+    byChannel,
+    byBranch,
+    byCategory,
+    opex,
+    profit: sales - gp - opex,
+    capex,
+  };
 }
+/** V2-CAL-02: one month (`YYYY-MM`, by entry date); a year (`YYYY`) or a day works the same. */
+export const monthPl = (db: Database, month: string) =>
+  plBetween(db, month, `${month}~`);
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };
 /** Lines stored as JSON `[{ poLotId, kg }]`; `kg` "" reads as 0. Anything unreadable is no line. */
