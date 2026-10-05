@@ -12,6 +12,7 @@ import {
   kindsForPage,
   ledgerRows,
   ledgerSummary,
+  projectAssets,
   liveEntries,
   lotInfo,
   materialList,
@@ -1444,5 +1445,48 @@ describe("ledger: summary", () => {
     expect(() =>
       mutate(seed, owner, "expense", { item: "x", source: "petty" }, "", day),
     ).toThrow();
+  });
+});
+
+describe("Inventory: what the project owns", () => {
+  it("lists what the ledger bought for the project, an item once, by type", () => {
+    const buy = (d: Database, values: Record<string, string>) =>
+      mutate(
+        d,
+        owner,
+        "expense",
+        { purpose: "project", project: "Nerdnuea x LINE MAN", ...values },
+        "",
+        "2026-01-05",
+      );
+    let d = buy(seed, {
+      itemType: "สินทรัพย์",
+      item: "ตู้เย็น",
+      amount: "9000",
+    });
+    d = buy(d, {
+      itemType: "วัสดุบรรจุภัณฑ์",
+      item: "กล่องพิมพ์ลาย",
+      qty: "50",
+      amount: "500",
+    });
+    d = buy(d, {
+      itemType: "วัสดุบรรจุภัณฑ์",
+      item: "กล่องพิมพ์ลาย",
+      qty: "30",
+      amount: "300",
+    });
+    // Not the project's: the office's, another project's, a cancelled one.
+    d = buy(d, { itemType: "สินทรัพย์", item: "โต๊ะ", purpose: "company" });
+    d = buy(d, { itemType: "สินทรัพย์", item: "ป้าย", project: "งานอื่น" });
+    d = buy(d, { itemType: "สินทรัพย์", item: "พัดลม", status: "cancelled" });
+    expect(projectAssets(d)).toMatchObject([
+      {
+        type: "วัสดุบรรจุภัณฑ์",
+        // The material of Settings: its SKU.
+        rows: [{ sku: "SKU-0001", qty: 80, paid: 800, times: 2 }],
+      },
+      { type: "สินทรัพย์", rows: [{ item: "ตู้เย็น", qty: null, paid: 9000 }] },
+    ]);
   });
 });

@@ -111,5 +111,7 @@ export {
   ledgerChoices,
   ledgerRows,
   ledgerSummary,
+  projectAssets,
+  type ProjectAsset,
 } from "./store/ledger";
 export { mutate } from "./store/mutate";

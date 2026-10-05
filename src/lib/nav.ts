@@ -71,7 +71,7 @@ export const pages: Record<
   },
   stock: {
     label: "Inventory",
-    description: "วัสดุคงเหลือของแต่ละสาขา",
+    description: "สินทรัพย์ของ Project และวัสดุคงเหลือของแต่ละสาขา",
     icon: Package,
     group: shopGroup,
   },
