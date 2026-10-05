@@ -338,32 +338,21 @@ export type ProjectAsset = {
   /** What was paid for it so far. */
   paid: number;
   times: number;
-  /** The note of the latest purchase. */
-  entry: Entry;
 };
 
-/** What `project` owns (Inventory), or with `null` what the central company does: the
- *  hand-jotted rows of the ledger bought for it, a row per item (its SKU), in a group per
- *  ประเภทสินค้า, the suggested types first. A cancelled
+/** What `project` owns (Inventory): the hand-jotted rows of the ledger bought for it, a row
+ *  per item (its SKU), in a group per ประเภทสินค้า, the suggested types first. A cancelled
  *  row is left out; the PO rows are the meat, which is on the Stock page.
  *  ponytail: what was bought, not what is left: nothing takes an item out again (used up,
  *  sold, broken). Needs a note of its own when the shop wants a balance. */
-export function projectAssets(
-  db: Database,
-  project: string | null = shopProject,
-) {
+export function projectAssets(db: Database, project = shopProject) {
   const groups = new Map<string, Map<string, ProjectAsset>>(
     defaultLedgerTypes.map((type) => [type, new Map()]),
   );
   // Newest first: the first row of an item is its latest purchase.
   for (const row of ledgerRows(db)) {
     if (!row.entry || row.status === "cancelled") continue;
-    if (
-      project === null
-        ? row.purpose !== "company"
-        : row.purpose !== "project" || row.project.trim() !== project
-    )
-      continue;
+    if (row.purpose !== "project" || row.project.trim() !== project) continue;
     const type = row.itemType.trim();
     const items = groups.get(type) ?? new Map<string, ProjectAsset>();
     groups.set(type, items);
@@ -378,7 +367,6 @@ export function projectAssets(
       qty: null,
       paid: 0,
       times: 0,
-      entry: row.entry,
     };
     items.set(key, asset);
     if (row.qty !== null) asset.qty = (asset.qty ?? 0) + row.qty;

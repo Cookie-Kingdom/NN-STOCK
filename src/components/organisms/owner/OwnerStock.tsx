@@ -28,6 +28,7 @@ import {
   branches,
   editBlock,
   ledgerPurposes,
+  ledgerRows,
   materialList,
   placeLabel,
   places,
@@ -50,8 +51,9 @@ const transit = "ระหว่างส่ง";
 const what = ["SKU", "รายการ", "ประเภท", "รายละเอียด / สเปก"];
 const where = [...heads, transit, "รวม", "สถานะ"];
 const cost = ["ผู้ขาย", "ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
-/** The company's last column: 「แก้ไข」 and 「ลบ」 of the row's purchase, as on Accounting. */
-const change = "แก้ไข";
+/** The company's columns after `what`: a row is one purchase, and ends with its 「แก้ไข」 and
+ *  「ลบ」, as on Accounting. */
+const purchase = ["วันที่ซื้อ", "จำนวนซื้อ", "มูลค่า", "แก้ไข"];
 const all = { value: "", label: "ทั้งหมด" };
 /** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
 const late = "ยังไม่ได้นับ";
@@ -67,8 +69,8 @@ const Transit = ({ n }: { n: number }) => (
 /** A row of the table: what was bought under its SKU (`times` 0: never), its ประเภทสินค้า,
  *  for a material of Settings what each branch counted (`at`), and what it holds at every
  *  place and on its way (`held`, by the column's name). */
-type Row = Omit<ProjectAsset, "entry"> & {
-  /** None for a material never bought. */
+type Row = ProjectAsset & {
+  /** The company's: the purchase the row is. */
   entry?: Entry;
   type: string;
   at?: Record<string, Held>;
@@ -86,9 +88,9 @@ type Row = Omit<ProjectAsset, "entry"> & {
  *  warehouse is never counted. The meat, the sticky rice and the chili are on the Stock page
  *  (`OwnerMeatStock`).
  *  `company`: the central company's Inventory instead, what Accounting bought with
- *  ใช้เพื่องาน「บริษัทส่วนกลาง」: it has no warehouse, so no place columns, no สถานะ or ที่เก็บ
- *  filter and no transfer; no ผู้ขาย column either, and a last one with 「แก้ไข」 and 「ลบ」
- *  of the row's latest purchase, as on Accounting. */
+ *  ใช้เพื่องาน「บริษัทส่วนกลาง」: a row per purchase, newest first (the ledger's rows, not
+ *  grouped), each with the 「แก้ไข」 and 「ลบ」 of Accounting. It has no warehouse, so no
+ *  place columns, no สถานะ or ที่เก็บ filter and no transfer. */
 export function OwnerStock({
   ws,
   company,
@@ -104,9 +106,24 @@ export function OwnerStock({
   const [place, setPlace] = useState("");
   const owner = company ? ledgerPurposes.company : shopProject;
   const lines = new Map(stockLines(db, today).map((line) => [line.sku, line]));
-  const assets = projectAssets(db, company ? null : shopProject);
   const bought = new Map<string, Omit<Row, "held">>();
-  for (const group of assets)
+  if (company)
+    for (const row of ledgerRows(db))
+      if (row.entry && row.purpose === "company" && row.status !== "cancelled")
+        bought.set(row.id, {
+          key: row.id,
+          sku: row.sku,
+          item: row.item,
+          detail: row.detail,
+          vendor: row.vendor,
+          lastDate: row.date,
+          qty: row.qty,
+          paid: row.paid ?? 0,
+          times: 1,
+          type: row.itemType.trim() || "ไม่ระบุประเภท",
+          entry: row.entry,
+        });
+  for (const group of company ? [] : projectAssets(db))
     for (const asset of group.rows) {
       const row = bought.get(asset.key);
       // One row per item: bought under a second ประเภท, it adds to the first.
@@ -191,11 +208,11 @@ export function OwnerStock({
   const sum = (list: { paid: number }[]) =>
     list.reduce((a, row) => a + row.paid, 0);
   const columns = company
-    ? [...what, ...cost.slice(1), change]
+    ? [...what, ...purchase]
     : [...what, ...where, ...cost];
   // A phone keeps the name and where it is; the company's, with no places, what it cost.
   const wideOnly = company
-    ? ["SKU", "รายละเอียด / สเปก", "จำนวนซื้อ"]
+    ? ["SKU", "ประเภท", "รายละเอียด / สเปก", "จำนวนซื้อ"]
     : ["SKU", "ประเภท", "รายละเอียด / สเปก", ...cost];
   const wide = (column: string) => wideOnly.includes(column) && "max-md:hidden";
 
@@ -213,7 +230,7 @@ export function OwnerStock({
         <Stat
           label={company ? "จำนวนรายการ" : "สินทรัพย์"}
           value={`${qty(bought.size)} รายการ`}
-          note={`${qty(assets.length)} ประเภท`}
+          note={`${qty(new Set([...bought.values()].map((row) => row.type)).size)} ประเภท`}
         />
         {!company && (
           // The page's jot button (the shell draws none here): a tile of the row, so it is
@@ -441,7 +458,7 @@ export function OwnerStock({
       </DayCard>
       <Caption>
         {company
-          ? `ของที่ซื้อจากหน้า Accounting โดยเลือกใช้เพื่องาน「${owner}」 รายการเดียวกันรวมทุกครั้งที่ซื้อ ไม่รวมที่ยกเลิก`
+          ? `ของที่ซื้อจากหน้า Accounting โดยเลือกใช้เพื่องาน「${owner}」 แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน ไม่รวมที่ยกเลิก`
           : "แถวละรายการ: วัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting รวมทุกครั้งที่ซื้อ · คลังกลาง = ซื้อเข้า − จัดสรรออก ไม่มีการนับ · ระหว่างส่ง = ส่งแล้ว รอสาขากดยืนยันรับ · รวม นับของระหว่างส่งด้วย · ตัวเลขสีแดง = ติดลบ · ยอดวัสดุของสาขาคือยอดที่แอดมินสาขานับ (ชิ้น) ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"}
       </Caption>
     </div>
