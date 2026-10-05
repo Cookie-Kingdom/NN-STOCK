@@ -9,8 +9,8 @@ const iconButtonVariants = cva(
       size: {
         /** `.icon-button`: 44px touch target */
         md: "min-h-11 min-w-11",
-        /** `.sidebar-account .icon-button`: 34px, muted */
-        sm: "min-h-8.5 min-w-8.5 text-text-secondary",
+        /** `.sidebar-account .icon-button`: 34px, muted; 44px under a finger */
+        sm: "min-h-8.5 min-w-8.5 text-text-secondary pointer-coarse:min-h-11 pointer-coarse:min-w-11",
       },
     },
     defaultVariants: { size: "md" },
