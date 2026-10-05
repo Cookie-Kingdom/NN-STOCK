@@ -11,7 +11,7 @@ import { timeOf } from "@/components/organisms/shared/noteText";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { qty as fmt, thaiDay } from "@/lib/format";
+import { dateLabel, qty as fmt, thaiDay } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branchChili,
@@ -20,9 +20,13 @@ import {
   branchRice,
   materialList,
   mutate,
+  pendingTransfers,
+  placeLabel,
   rawRiceBranches,
+  stockLines,
   titles,
   type CountVariance,
+  type Entry,
   type Values,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -210,15 +214,21 @@ export function StatusCell({
   );
 }
 
-/** A row's total and status over `places`. */
+/** A row's total and status over `places`. `extra` is what the row holds where nothing is
+ *  counted (the central warehouse, in transit): in the total, never late. */
 export function StatusCells({
   at,
   places,
+  extra = 0,
 }: {
   at: Record<string, Held>;
   places: string[];
+  extra?: number;
 }) {
-  const total = places.reduce((sum, place) => sum + (at[place]?.qty ?? 0), 0);
+  const total = places.reduce(
+    (sum, place) => sum + (at[place]?.qty ?? 0),
+    extra,
+  );
   const late = places.filter((place) => at[place]?.stale);
   return (
     <>
@@ -264,8 +274,8 @@ function CountTable({
   const [counts, setCounts] = useState<Values>({});
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const columns = [
-    ...(sku ? ["SKU"] : []),
-    "สินค้า",
+    // Inventory names its rows as the Owner's does; the Stock page keeps "สินค้า".
+    ...(sku ? ["SKU", "รายการ"] : ["สินค้า"]),
     "คงเหลือ",
     "สถานะ",
     "นับได้",
@@ -458,12 +468,86 @@ export function BranchMeatStock({ ws }: { ws: Workspace }) {
   );
 }
 
-/** A branch's Inventory, what `OwnerStock` is to the Owner: its materials, a row per material
- *  with a search, and the count inputs the Owner's has not. */
+/** The transfers sent to a branch with "สาขาต้องกดยืนยันรับ" that it has yet to confirm, a row
+ *  each. 「ยืนยันรับ」 saves a `transferReceive` dated today for the whole transfer: from then
+ *  on the quantity is in the branch's stock. */
+function PendingTransfers({ ws, rows }: { ws: Workspace; rows: Entry[] }) {
+  const { account, today } = ws;
+  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const receive = async ({ id, values: v }: Entry) => {
+    setError("");
+    const next = await run(() =>
+      mutate(
+        latestDatabase(),
+        account,
+        "transferReceive",
+        { transferId: id },
+        "",
+        today,
+      ),
+    );
+    if (next)
+      ws.setToast(
+        `จดแล้ว: ${titles.transferReceive} · ${v.itemName} ${fmt(Number(v.qty))}`,
+      );
+  };
+  return (
+    <DayCard
+      aria-label="รอยืนยันรับสินค้า"
+      title="รอยืนยันรับสินค้า"
+      tone="warning"
+      className="[&_:is(td,th)+:is(td,th)]:border-l"
+      aside={<Caption>{rows.length} รายการ</Caption>}
+    >
+      {/* A phone keeps the name, the quantity and the button. */}
+      <StockTable
+        columns={["วันที่", "รายการ", "จำนวน", "จากคลัง", "ยืนยัน"]}
+        right={["จำนวน", "ยืนยัน"]}
+        wideOnly={["วันที่", "จากคลัง"]}
+      >
+        {rows.map((e) => (
+          <tr key={e.id}>
+            <Cell className="whitespace-nowrap max-md:hidden">
+              {dateLabel(e.date)}
+            </Cell>
+            <Cell className="font-semibold">
+              {e.values.itemName}
+              <span className="block font-mono text-caption font-normal text-accent">
+                {e.values.sku}
+              </span>
+            </Cell>
+            <Cell right>{fmt(Number(e.values.qty))}</Cell>
+            <Cell className="whitespace-nowrap max-md:hidden">
+              {placeLabel(e.values.from)}
+            </Cell>
+            <Cell right className="py-1.5">
+              <Button
+                variant="primary"
+                aria-label={`ยืนยันรับ ${e.values.itemName}`}
+                disabled={saving}
+                onClick={() => receive(e)}
+              >
+                ยืนยันรับ
+              </Button>
+            </Cell>
+          </tr>
+        ))}
+      </StockTable>
+      <FormError error={error} className="mx-5 my-3 max-md:mx-4" />
+    </DayCard>
+  );
+}
+
+/** A branch's Inventory, what `OwnerStock` is to the Owner: the transfers waiting for it to
+ *  confirm (`PendingTransfers`, only while there are any), its materials, a row per material
+ *  with the count inputs the Owner's has not, and, read-only, whatever else it holds: every
+ *  SKU that is not a Settings material and whose balance at the branch is not zero. One
+ *  search over the two tables. */
 export function BranchStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const branch = ws.account.branch ?? "";
   const [search, setSearch] = useState("");
+  const pending = pendingTransfers(db, branch);
   const rows = materialList(db.config).map((m) => ({
     id: m.id,
     // "" until the materials list is saved again (a list stored before SKUs).
@@ -479,6 +563,14 @@ export function BranchStock({ ws }: { ws: Workspace }) {
       row.name.toLowerCase().includes(word) ||
       row.sku.toLowerCase().includes(word),
   );
+  const others = stockLines(db, today).filter(
+    (line) =>
+      !line.materialId &&
+      (line.at[branch] ?? 0) !== 0 &&
+      (!word ||
+        line.name.toLowerCase().includes(word) ||
+        line.sku.toLowerCase().includes(word)),
+  );
   return (
     <div className="flex flex-col gap-4">
       <Input
@@ -490,6 +582,7 @@ export function BranchStock({ ws }: { ws: Workspace }) {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
+      {pending.length > 0 && <PendingTransfers ws={ws} rows={pending} />}
       <CountTable
         ws={ws}
         title="วัสดุ"
@@ -501,9 +594,37 @@ export function BranchStock({ ws }: { ws: Workspace }) {
           </Caption>
         }
       />
+      {others.length > 0 && (
+        <DayCard
+          aria-label="สินทรัพย์อื่นของสาขา"
+          title="สินทรัพย์อื่นของสาขา"
+          className="[&_:is(td,th)+:is(td,th)]:border-l"
+          aside={<Caption>{others.length} รายการ</Caption>}
+        >
+          <StockTable
+            columns={["SKU", "รายการ", "คงเหลือ"]}
+            right={["คงเหลือ"]}
+          >
+            {others.map((line) => (
+              <tr key={line.sku}>
+                <Cell className="font-mono whitespace-nowrap text-accent">
+                  {line.sku}
+                </Cell>
+                <Cell className="font-semibold">
+                  {line.name || <Muted as="span">—</Muted>}
+                </Cell>
+                <Left n={line.at[branch]} />
+              </tr>
+            ))}
+          </StockTable>
+        </DayCard>
+      )}
       <Caption>
         ใส่เฉพาะรายการที่นับ ยอดที่นับล่าสุดคือยอดจริง · วัสดุนับเป็นชิ้น ·{" "}
-        {legend} · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock
+        {legend} · รอยืนยันรับสินค้า = ของที่ส่งมาให้สาขา
+        กด「ยืนยันรับ」แล้วจึงเข้ายอดของสาขา · สินทรัพย์อื่นของสาขา =
+        ของที่ซื้อเข้าหรือจัดสรรมาให้สาขา ไม่ต้องนับ ตัวเลขสีแดง = ติดลบ · เนื้อ
+        ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock
       </Caption>
     </div>
   );

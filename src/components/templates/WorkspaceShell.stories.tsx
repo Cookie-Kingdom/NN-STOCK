@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, within } from "storybook/test";
 import { DailyLog } from "@/components/organisms/shared/DailyLog";
 import {
   WithWorkspace,
@@ -52,12 +53,28 @@ export const Manager: Story = {
 
 /** หน้า Stock ของสาขา: ปุ่มจด 5 ปุ่ม (ยอดขาย รับเนื้อเข้าสาขา นับเนื้อคงเหลือ กล่องแจก จ่ายเงิน)
  *  เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · หน้า Inventory ของสาขามี 2 ปุ่ม (จ่ายเงิน นับวัสดุคงเหลือ) ·
- *  ของ Owner และ Account Manager ไม่มีปุ่ม */
+ *  หน้า Stock ของ Owner และ Account Manager ไม่มีปุ่ม หน้า Inventory ของสองบัญชีนี้มีปุ่มเดียว (InventoryButton) */
 export const StockButtons: Story = {
   args: { account: "saladaeng" },
   parameters: {
     db: dbFor("saladaeng"),
     nextjs: { navigation: { pathname: "/branch/nn-x-lm/stock" } },
+  },
+};
+
+/** หน้า Inventory ของ Owner (Account Manager เหมือนกัน): หัวหน้ามีปุ่ม「จัดสรรสินค้า」ปุ่มเดียว
+ *  กดแล้วเปิดกล่องจด (รายการ จากคลัง ไปคลัง จำนวน การรับของ หมายเหตุ) */
+export const InventoryButton: Story = {
+  parameters: {
+    nextjs: { navigation: { pathname: "/owner/nn-x-lm/inventory" } },
+  },
+  play: async ({ canvasElement }) => {
+    const buttons = within(
+      within(canvasElement).getByRole("group", { name: "จดบันทึก" }),
+    ).getAllByRole("button");
+    await expect(buttons.map((button) => button.textContent)).toEqual([
+      "จัดสรรสินค้า",
+    ]);
   },
 };
 

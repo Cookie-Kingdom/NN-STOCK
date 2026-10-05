@@ -143,7 +143,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
 
   // A gift box is the branch's to jot: the Owner's Inventory has no button for it.
   await openPage(page, "Inventory");
-  await expect(jotButtons(page)).toHaveCount(0);
+  await expect(jotButtons(page)).toHaveText(["จัดสรรสินค้า"]);
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
   await jot(page, "กล่องแจก");
