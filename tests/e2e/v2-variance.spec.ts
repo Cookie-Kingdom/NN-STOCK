@@ -179,8 +179,8 @@ test("chili and a material: no difference after one count, and after the second 
   await expect(chili.nth(1)).toHaveText(`47นับ ${thaiDay(-2)}`);
   await expect(variances(page)).toHaveCount(0);
   await openPage(page, "Inventory");
-  const boxes = cells(region(page, "วัสดุ"), /^SKU-0001 กล่องพิมพ์ลาย/);
-  await expect(boxes.nth(3)).toHaveText(`70นับ ${thaiDay(-3)}`);
+  const boxes = cells(region(page, "รายการทั้งหมด"), /^SKU-0001 กล่องพิมพ์ลาย/);
+  await expect(boxes.nth(5)).toHaveText(`70นับ ${thaiDay(-3)}`);
   await expect(variances(page)).toHaveCount(0);
 
   // The second count of each. The chili: 47 less the 2 tubes of the sale it is counted on.
@@ -219,10 +219,10 @@ test("chili and a material: no difference after one count, and after the second 
       cells(region(page, "เนื้อ (กก.)"), /^สาขาศาลาแดง/).last(),
     ).toHaveText("ยังไม่เคยนับ");
     await openPage(page, "Inventory");
-    await expect(boxes.nth(3)).toHaveText(
+    await expect(boxes.nth(5)).toHaveText(
       "62นับวันนี้ส่วนต่าง −3 ชิ้นควรเหลือ 65 · นับได้ 62",
     );
-    await expect(boxes.nth(3).locator("[data-variance]")).toHaveAttribute(
+    await expect(boxes.nth(5).locator("[data-variance]")).toHaveAttribute(
       "data-variance",
       "−3",
     );

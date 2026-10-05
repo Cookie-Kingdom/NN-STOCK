@@ -15,7 +15,7 @@ import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
 import { TableFilter } from "@/components/molecules/TableFilter";
-import { td, th } from "@/components/organisms/shared/tableCell";
+import { td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
@@ -335,23 +335,16 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             </tbody>
             {rows.length > 0 && (
               <tfoot>
-                <tr className="bg-surface-sunken font-semibold">
-                  <td
-                    colSpan={columns.length + 1}
-                    className={cn(td, "border-t border-b-0")}
-                  >
+                <tr>
+                  <td colSpan={columns.length + 1} className={cn(td, tf)}>
                     รวม {counted.length} รายการ
                     {counted.length < rows.length && (
                       <Caption as="span"> (ไม่รวมที่ยกเลิก)</Caption>
                     )}
                   </td>
-                  <Num className="border-t border-b-0">
-                    {baht(total("poAmount"))}
-                  </Num>
-                  <Num className="border-t border-b-0">
-                    {baht(total("paid"))}
-                  </Num>
-                  <td colSpan={3} className={cn(td, "border-t border-b-0")} />
+                  <Num className={tf}>{baht(total("poAmount"))}</Num>
+                  <Num className={tf}>{baht(total("paid"))}</Num>
+                  <td colSpan={3} className={cn(td, tf)} />
                 </tr>
               </tfoot>
             )}

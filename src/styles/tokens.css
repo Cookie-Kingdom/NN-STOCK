@@ -122,6 +122,8 @@
   --color-bg: var(--gray-50);
   --color-surface: var(--gray-0);
   --color-surface-sunken: var(--gray-100);
+  /* A table's head and foot: two steps off the body, so they read apart from the rows. */
+  --color-surface-head: var(--gray-200);
   --color-border: var(--gray-200);
   --color-border-strong: var(--gray-300);
   --color-text-primary: var(--gray-900);
@@ -277,6 +279,7 @@
   --color-bg: var(--charcoal-900);
   --color-surface: var(--charcoal-850);
   --color-surface-sunken: var(--charcoal-950);
+  --color-surface-head: var(--charcoal-800);
   --color-border: var(--charcoal-700);
   --color-border-strong: var(--charcoal-500);
   --color-text-primary: var(--charcoal-50);

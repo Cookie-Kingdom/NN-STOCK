@@ -33,8 +33,10 @@ export function WorkspaceShell({
           title={page.label}
           description={descriptionFor(ws.account, ws.tab)}
           action={
-            // Lots draws its own jot buttons on the page; Overview, Daily Log and Settings have none.
+            // Lots and the Owner's Inventory draw their own jot buttons on the page; Overview,
+            // Daily Log and Settings have none.
             ws.tab !== "lots" &&
+            !(ws.tab === "stock" && ws.account.role !== "branch") &&
             kinds.length > 0 && (
               <div
                 role="group"

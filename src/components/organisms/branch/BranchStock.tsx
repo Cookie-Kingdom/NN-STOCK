@@ -66,6 +66,7 @@ export function StockTable({
   right = [],
   wideOnly = [],
   wrap = [],
+  foot,
   children,
 }: {
   columns: string[];
@@ -73,6 +74,8 @@ export function StockTable({
   wideOnly?: string[];
   /** Columns whose long header may break, so it does not set the column's width. */
   wrap?: string[];
+  /** The total row(s), in a `tfoot`. */
+  foot?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -96,6 +99,7 @@ export function StockTable({
           </tr>
         </thead>
         <tbody>{children}</tbody>
+        {foot && <tfoot>{foot}</tfoot>}
       </table>
     </div>
   );
@@ -220,10 +224,13 @@ export function StatusCells({
   at,
   places,
   extra = 0,
+  className,
 }: {
   at: Record<string, Held>;
   places: string[];
   extra?: number;
+  /** Of the status cell. */
+  className?: string;
 }) {
   const total = places.reduce(
     (sum, place) => sum + (at[place]?.qty ?? 0),
@@ -238,6 +245,7 @@ export function StatusCells({
       <StatusCell
         total={total}
         late={late.length ? `ยังไม่ได้นับ: ${late.join(", ")}` : undefined}
+        className={className}
       />
     </>
   );

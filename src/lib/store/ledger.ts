@@ -27,7 +27,7 @@ export const ledgerSources = {
 } as const;
 export type LedgerSource = keyof typeof ledgerSources;
 export const ledgerPurposes = {
-  company: "ซื้อเข้าบริษัทส่วนกลาง",
+  company: "บริษัทส่วนกลาง",
   project: "ใช้งานโปรเจกต์",
 } as const;
 export const ledgerStatuses = {

@@ -199,7 +199,7 @@ test("V2-LED-05 V2-LED-07 the Owner and the Manager jot, edit and delete an expe
   await expect(ink.nth(3)).toHaveText("สินทรัพย์");
   await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0011");
   await expect(ink.nth(6)).toHaveText("ร้านกอไก่");
-  await expect(ink.nth(7)).toHaveText("ซื้อเข้าบริษัทส่วนกลาง");
+  await expect(ink.nth(7)).toHaveText("บริษัทส่วนกลาง");
   await expect(ink.nth(8)).toHaveText("ส่วนกลาง");
   await expect(ink.nth(9)).toHaveText("2");
   await expect(ink.nth(10)).toHaveText("—");

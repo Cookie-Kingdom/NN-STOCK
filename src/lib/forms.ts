@@ -511,7 +511,7 @@ export function fields(
         }),
         number("qty", "จำนวนซื้อ"),
         select("purpose", "ใช้เพื่องาน", ledgerPurposes),
-        // ซื้อเข้าบริษัทส่วนกลาง has no project: the field is not shown, and not saved.
+        // บริษัทส่วนกลาง has no project: the field is not shown, and not saved.
         text("project", "Project", {
           when: (values) => values.purpose === "project",
           options: choices(ledgerChoices(db, "project", [shopProject])),
