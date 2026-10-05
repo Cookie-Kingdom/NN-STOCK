@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advances,
   boxCost,
+  cashBetween,
   branchChili,
   branchMaterial,
   branchMeat,
@@ -498,7 +499,10 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   ]);
   for (const by of [owner, manager]) {
     expect(kindsForPage(by, "stock")).toEqual([]);
-    expect(kindsForPage(by, "finance")).toEqual(["pay"]);
+    // Paying a person back is the Owner's alone (V2-PAY-07).
+    expect(kindsForPage(by, "finance")).toEqual(
+      by === owner ? ["pay", "reimburse"] : ["pay"],
+    );
     expect(kindsForPage(by, "accounting")).toEqual(["expense"]);
     expect(kindsForPage(by, "lots")).toHaveLength(11);
   }
@@ -629,7 +633,10 @@ it("visibleEntries and visibleNotes: what each account sees of the log", () => {
   expect(ids(manager)).toContain(transportVoid);
   expect(forManager).toHaveLength(
     db.entries.filter(
-      (e) => e.kind !== "sale" && e.values.category !== "payroll",
+      (e) =>
+        e.kind !== "sale" &&
+        e.kind !== "reimburse" &&
+        e.values.category !== "payroll",
     ).length + 1,
   );
   // V2-ACC-05..07: a branch sees what is stamped with it and the changes to that, nothing else.
@@ -804,7 +811,54 @@ describe("figures (V2-CAL)", () => {
     });
     expect(plBetween(built, "2026-09", "2026-08~").sales).toBe(0);
     // V2-PAY-07: out of pocket, over payments and the sale's expense; the company is no advance.
-    expect(advances(built)).toEqual([{ payer: "น้องฝน", amount: 400 }]);
+    expect(advances(built)).toEqual([
+      { payer: "น้องฝน", advanced: 400, repaid: 0, left: 400 },
+    ]);
+  });
+
+  it("PAY-08: paying a person back is money out of the shop, not an expense again", () => {
+    // September: ฿28,250 paid in all, ฿100 of it out of น้องฝน's pocket (the sale's expense).
+    const before = cashBetween(built, "2026-09", "2026-09~");
+    expect(before).toEqual({
+      paid: 28250,
+      company: 28150,
+      advanced: 100,
+      repaid: 0,
+      out: 28150,
+    });
+    const repaid = mutate(
+      built,
+      owner,
+      "reimburse",
+      { payer: "น้องฝน", amount: "150" },
+      "",
+      "2026-09-20",
+    );
+    expect(advances(repaid)).toEqual([
+      { payer: "น้องฝน", advanced: 400, repaid: 150, left: 250 },
+    ]);
+    expect(cashBetween(repaid, "2026-09", "2026-09~")).toEqual({
+      ...before,
+      repaid: 150,
+      out: 28300,
+    });
+    // The P&L counted the expense when she paid: it does not move.
+    expect(monthPl(repaid, "2026-09")).toEqual(monthPl(built, "2026-09"));
+    expect(cashBetween(repaid, "2026-08", "2026-08~").repaid).toBe(0);
+    // The Owner's alone: the Account Manager neither jots it nor sees it.
+    expect(() =>
+      mutate(
+        built,
+        manager,
+        "reimburse",
+        { payer: "น้องฝน", amount: "1" },
+        "",
+        "2026-09-20",
+      ),
+    ).toThrow("บัญชีนี้ไม่มีสิทธิ์จดรายการนี้");
+    expect(visibleEntries(repaid, manager).map((e) => e.kind)).not.toContain(
+      "reimburse",
+    );
   });
 
   it("CAL-03..06, 08: a Lot's yield, meat cost, cost per box and central stock", () => {

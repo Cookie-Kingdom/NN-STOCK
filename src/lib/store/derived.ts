@@ -699,13 +699,51 @@ export function supplierBalances(db: Database): SupplierBalance[] {
       left: billed - paid,
     }));
 }
-/** V2-PAY-07: what each person paid out of pocket, over every money-out line. */
+/** A money-out line a person paid out of pocket, not the company (V2-PAY-07). */
+const isAdvance = (o: Outflow) => !!o.payer && o.payer !== companyPayer;
+/** V2-PAY-07: per person, what they paid out of pocket over every money-out line, what the
+ *  shop paid back (`reimburse`) and what it still owes them. */
 export function advances(db: Database) {
-  const by = new Map<string, number>();
+  const by = new Map<string, { advanced: number; repaid: number }>();
+  const of = (payer: string) => {
+    if (!by.has(payer)) by.set(payer, { advanced: 0, repaid: 0 });
+    return by.get(payer)!;
+  };
   for (const o of outflows(db))
-    if (o.payer && o.payer !== companyPayer)
-      by.set(o.payer, (by.get(o.payer) ?? 0) + o.amount);
-  return [...by].map(([payer, amount]) => ({ payer, amount }));
+    if (isAdvance(o)) of(o.payer).advanced += o.amount;
+  for (const e of entries(db, "reimburse"))
+    if (e.values.payer) of(e.values.payer).repaid += num(e.values, "amount");
+  return [...by].map(([payer, x]) => ({
+    payer,
+    ...x,
+    left: x.advanced - x.repaid,
+  }));
+}
+/** V2-PAY-08: the money of the entries dated `from`..`to` (text bounds, as `plBetween`), by
+ *  whose pocket it left. `paid` is every money-out line, the expense the P&L counts (capex
+ *  with it): `company` of it left the shop then, `advanced` left a person's pocket. `repaid`
+ *  is what the shop paid people back in the span: no expense, it was one when they paid.
+ *  `out` is what really left the shop: `company` + `repaid`. */
+export function cashBetween(db: Database, from: string, to: string) {
+  const within = (date: string) => date >= from && date <= to;
+  let company = 0,
+    advanced = 0;
+  for (const o of outflows(db))
+    if (within(o.date)) {
+      if (isAdvance(o)) advanced += o.amount;
+      else company += o.amount;
+    }
+  const repaid = sum(
+    entries(db, "reimburse").filter((e) => within(e.date)),
+    "amount",
+  );
+  return {
+    paid: company + advanced,
+    company,
+    advanced,
+    repaid,
+    out: company + repaid,
+  };
 }
 /** V2-CAL-14: the month's gift boxes and roughly what they cost; never part of the P&L. */
 export function giftBoxes(db: Database, month: string) {

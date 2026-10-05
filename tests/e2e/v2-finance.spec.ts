@@ -75,6 +75,13 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
   await pay(page, "ขนส่ง", "500");
   await pay(page, "อุปกรณ์/ลงทุน", "12900");
 
+  // The P&L is on the project's Overview; Finance lists what was paid.
+  await expect(region(page, "P&L รายเดือน")).toHaveCount(0);
+  await expect(line(page, /^รวมที่จ่าย/, "จ่ายเงินแยกหมวด")).toHaveText([
+    "−฿500",
+    "−฿1,000",
+  ]);
+  await openPage(page, "Overview", true);
   const pl = region(page, "P&L รายเดือน");
   await expect(pl).toContainText("นับตามเดือนที่จ่ายเงิน");
   await expect(pl.getByRole("columnheader")).toHaveText([
@@ -146,7 +153,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   await expect(profit).toHaveText(profitBefore);
   await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText(lineBefore);
   await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
-  await openPage(page, "Finance");
+  await openPage(page, "Overview", true);
   await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText(profitBefore);
   await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
 });
@@ -188,7 +195,10 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await expect(rent).toHaveText(["−฿20,500", "−฿18,000"]);
   await expect(rent.first()).not.toHaveAttribute("data-tone", "warning");
   await openPage(page, "Finance");
-  await expect(rent).toHaveText(["−฿20,500", "−฿18,000"]);
+  await expect(line(page, /^ค่าเช่า\/น้ำไฟ/, "จ่ายเงินแยกหมวด")).toHaveText([
+    "−฿20,500",
+    "−฿18,000",
+  ]);
 });
 
 test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of the sale form, with its own GP", async ({
@@ -240,7 +250,7 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   await signInAs(page, "owner");
   await openPage(page, "Daily Log");
   await expect(rows(page, "sale")).toContainText("+฿4,200");
-  await openPage(page, "Finance");
+  await openPage(page, "Overview", true);
   await expect(line(page, /^ยอดขาย/).first()).toHaveText("฿4,200");
   await expect(line(page, /^GP LINE MAN 10%/).first()).toHaveText("−฿350");
   await expect(line(page, /^GP Grab 30%/).first()).toHaveText("−฿210");

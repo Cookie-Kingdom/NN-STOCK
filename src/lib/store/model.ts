@@ -57,6 +57,7 @@ const entryKinds = [
   "meatCount",
   "smoked",
   "meatInvoice",
+  "reimburse",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
@@ -72,6 +73,7 @@ export const noteKinds = [
   "return",
   "smokingInvoice",
   "pay",
+  "reimburse",
   "packingList",
   "foodivaReturnReceive",
   "sale",
@@ -122,6 +124,7 @@ export const kindInfo: Record<
   return: { group: "lot", lot: "batch" },
   smokingInvoice: { group: "lot", lot: "batch" },
   pay: { group: "money" },
+  reimburse: { group: "money" },
   packingList: { group: "extra", lot: "batch" },
   foodivaReturnReceive: { group: "extra", lot: "batch" },
   sale: { group: "branch" },
@@ -150,18 +153,22 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   ],
   // A branch's Inventory: every kind it jots. The Owner's and the Manager's has none.
   stock: ["sale", "pay", "receive", "meatCount", "influencerBox", "materials"],
-  finance: ["pay"],
+  finance: ["pay", "reimburse"],
   // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
   accounting: ["expense"],
 };
 /** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments (never an
  *  `expense`: the ledger is the Owner's and the Account Manager's), the Owner and the Account
- *  Manager everything but a branch's kinds. `mutate` refuses the rest. */
+ *  Manager everything but a branch's kinds. Paying a person back is the Owner's alone: only
+ *  the Owner sees what each one is owed (V2-PAY-07). `mutate` refuses the rest.
+ *  ponytail: save_app_state does not refuse a `reimburse` from the Manager; it gives no more
+ *  than a `pay` naming a payer already does. Add it to manager_hidden() if that changes. */
 export const kindsFor = (by: Actor): NoteKind[] =>
   noteKinds.filter((kind) =>
     by.role === "branch"
       ? kindInfo[kind].group === "branch" || kind === "pay"
-      : kindInfo[kind].group !== "branch",
+      : kindInfo[kind].group !== "branch" &&
+        !(by.hidesSales && kind === "reimburse"),
   );
 /** The kinds the picker of `page` offers `by`, in the page's order. Overview, Daily Log,
  *  Settings and any other page: none. */
@@ -235,6 +242,7 @@ export const titles: Record<EntryKind, string> = {
   return: "ส่งกลับ",
   smokingInvoice: "บันทึก Invoice Chef House",
   pay: "จ่ายเงิน",
+  reimburse: "คืนเงินพนักงาน",
   packingList: "Packing List",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
   ownerWasteReceive: "รับ Waste",

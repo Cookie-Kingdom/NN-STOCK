@@ -17,7 +17,13 @@ import {
   type Values,
 } from "./store/model";
 import { dateLabel } from "./format";
-import { entries, liveEntries, poInfo, purchaseLots } from "./store/derived";
+import {
+  advances,
+  entries,
+  liveEntries,
+  poInfo,
+  purchaseLots,
+} from "./store/derived";
 import {
   defaultLedgerTypes,
   ledgerChoices,
@@ -364,6 +370,21 @@ export function fields(
         ),
       ];
     }
+    case "reimburse":
+      return [
+        core({
+          key: "payer",
+          label: "คืนให้ใคร",
+          type: "select",
+          // Whoever paid out of pocket, with what is still owed to each.
+          options: advances(db).map((x) => ({
+            value: x.payer,
+            label: `${x.payer} · ค้างคืน ${x.left.toLocaleString("th-TH")} บาท`,
+          })),
+        }),
+        core(number("amount", "ยอดที่คืน", "บาท")),
+        ...more(file("หลักฐานการโอน"), note),
+      ];
     case "sale":
       return [
         core(count("boxes", "กล่องมาตรฐาน", "กล่อง")),

@@ -182,6 +182,8 @@ export function noteLine(db: Database, e: Entry): string {
         has("fullAmount") && `ยอดเต็ม ${baht(Number(v.fullAmount))}`,
       );
     }
+    case "reimburse":
+      return join(has("payer") && `คืนให้ ${v.payer}`);
     case "expense":
       return join(
         v.itemType,
@@ -269,7 +271,7 @@ export function noteAmount(
       : null;
   if (e.kind === "smokingInvoice" || e.kind === "meatInvoice")
     return has("netPayable") ? { text: baht(Number(v.netPayable)) } : null;
-  if (e.kind === "pay" || e.kind === "expense")
+  if (e.kind === "pay" || e.kind === "reimburse" || e.kind === "expense")
     return has("amount")
       ? { text: `−${baht(Number(v.amount))}`, tone: "out" }
       : null;
