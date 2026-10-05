@@ -158,3 +158,8 @@ export function PlTable({
     </FigureCard>
   );
 }
+
+export const figureGrid =
+  "grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4 max-md:grid-cols-2 max-md:gap-3";
+export const cardGrid =
+  "grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4";

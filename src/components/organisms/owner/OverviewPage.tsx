@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -31,8 +31,7 @@ import {
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
-import { figureGrid } from "./FinancePage";
-import { FigureCard, FigureTable, Num, PlTable } from "./PlTable";
+import { FigureCard, FigureTable, Num, PlTable, figureGrid } from "./PlTable";
 import { RevenueChart } from "./RevenueChart";
 
 const hint = "mt-1 block text-caption font-normal text-text-secondary";
@@ -109,16 +108,24 @@ function Bars({
   );
 }
 
-/** The Owner's home: the shop's revenue over every project, by month or by year. The total
- *  against the like-for-like span before it, a bar per day (or per month), the figures of the
- *  period, each project, how the revenue becomes the operating profit, the branches and the
- *  sales channels, then the P&L and everything not jotted yet. */
-export function OverviewPage({ ws }: { ws: Workspace }) {
+/** Revenue by month or by year: the total against the like-for-like span before it, a bar per
+ *  day (or per month), the figures of the period, how the revenue becomes the operating
+ *  profit, the branches and the sales channels, then the P&L and `children`. Without
+ *  `project` it is the shop's, with a row per project; with it, that project's alone. */
+export function Revenue({
+  ws,
+  project,
+  children,
+}: {
+  ws: Workspace;
+  project?: string;
+  children?: ReactNode;
+}) {
   const { db, account, today } = ws;
   const [view, setView] = useState<"month" | "year">("month");
   const [month, setMonth] = useState(today.slice(0, 7));
   const [year, setYear] = useState(today.slice(0, 4));
-  // The Account Manager has no Overview (V2-ACC-01); the workspace never sends it here.
+  // The Account Manager sees no sales (V2-ACC-01); no page of theirs renders this.
   if (account.hidesSales) return null;
 
   const key = view === "month" ? month : year;
@@ -220,7 +227,10 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
       </div>
 
       <Panel aria-label="รายได้รวม">
-        <h2 className="m-0 text-label text-text-secondary">{period.title}</h2>
+        <h2 className="m-0 text-label text-text-secondary">
+          {period.title}
+          {project && ` · ${project}`}
+        </h2>
         <div className="mt-1.5 mb-5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1.5">
           <strong className="text-[2.5rem] leading-12 font-semibold max-md:text-[2rem] max-md:leading-10">
             {baht(now.sales)}
@@ -294,52 +304,59 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
       </Panel>
 
       {/* ponytail: the shop has one project, and every sale and payment is its own. Split
-          the figures per project (a row and a bar colour each) when a second one is stored. */}
-      <FigureCard title="รายได้แต่ละ Project" note={period.name}>
-        <FigureTable>
-          <thead>
-            <tr>
-              <th className={th}>Project</th>
-              <th className={cn(th, "text-right")}>รายได้</th>
-              <th className={cn(th, "text-right max-md:hidden")}>
-                เทียบช่วงก่อน
-              </th>
-              <th className={cn(th, "text-right max-md:hidden")}>กล่อง</th>
-              <th className={cn(th, "text-right")}>กำไร</th>
-              <th className={cn(th, "text-right max-md:hidden")}>อัตรากำไร</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className={td}>
-                <span className="flex items-center gap-2.5">
-                  <i className="size-3 shrink-0 rounded-[3px] bg-accent" />
-                  <span>
-                    <strong className="block font-semibold">
-                      {shopProject}
-                    </strong>
-                    <Caption>{channels.map((c) => c.name).join(" · ")}</Caption>
+          the figures per project (a row and a bar colour each, and `project` as a filter)
+          when a second one is stored. */}
+      {!project && (
+        <FigureCard title="รายได้แต่ละ Project" note={period.name}>
+          <FigureTable>
+            <thead>
+              <tr>
+                <th className={th}>Project</th>
+                <th className={cn(th, "text-right")}>รายได้</th>
+                <th className={cn(th, "text-right max-md:hidden")}>
+                  เทียบช่วงก่อน
+                </th>
+                <th className={cn(th, "text-right max-md:hidden")}>กล่อง</th>
+                <th className={cn(th, "text-right")}>กำไร</th>
+                <th className={cn(th, "text-right max-md:hidden")}>
+                  อัตรากำไร
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className={td}>
+                  <span className="flex items-center gap-2.5">
+                    <i className="size-3 shrink-0 rounded-[3px] bg-accent" />
+                    <span>
+                      <strong className="block font-semibold">
+                        {shopProject}
+                      </strong>
+                      <Caption>
+                        {channels.map((c) => c.name).join(" · ")}
+                      </Caption>
+                    </span>
                   </span>
-                </span>
-              </td>
-              <Num className="font-semibold">{baht(now.sales)}</Num>
-              <Num className="max-md:hidden">
-                <Delta now={now.sales} before={before.sales} />
-                {!now.sales && !before.sales && "—"}
-              </Num>
-              <Num className="max-md:hidden">{qty(now.boxes)}</Num>
-              <Num
-                tone={now.profit < 0 ? "out" : now.profit ? "in" : undefined}
-              >
-                {baht(now.profit)}
-              </Num>
-              <Num className="max-md:hidden">
-                {share(now.profit, now.sales) || "—"}
-              </Num>
-            </tr>
-          </tbody>
-        </FigureTable>
-      </FigureCard>
+                </td>
+                <Num className="font-semibold">{baht(now.sales)}</Num>
+                <Num className="max-md:hidden">
+                  <Delta now={now.sales} before={before.sales} />
+                  {!now.sales && !before.sales && "—"}
+                </Num>
+                <Num className="max-md:hidden">{qty(now.boxes)}</Num>
+                <Num
+                  tone={now.profit < 0 ? "out" : now.profit ? "in" : undefined}
+                >
+                  {baht(now.profit)}
+                </Num>
+                <Num className="max-md:hidden">
+                  {share(now.profit, now.sales) || "—"}
+                </Num>
+              </tr>
+            </tbody>
+          </FigureTable>
+        </FigureCard>
+      )}
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <FigureCard title="จากรายได้ถึงกำไร" note={period.name}>
@@ -425,6 +442,10 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
       </div>
 
       <PlTable db={db} month={key} full />
+      {children}
     </div>
   );
 }
+
+/** The Owner's home: the shop's revenue over every project. */
+export const OverviewPage = ({ ws }: { ws: Workspace }) => <Revenue ws={ws} />;
