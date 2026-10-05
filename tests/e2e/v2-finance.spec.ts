@@ -157,10 +157,17 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
 }) => {
   await start(page, "seed");
   await signInAs(page, "owner");
-  const reminder = region(page, "ยังไม่ได้จด").getByRole("button", {
+  // The Overview shows revenue only: the reminder is in the bell.
+  await expect(region(page, "ยังไม่ได้จด")).toHaveCount(0);
+  const bell = page
+    .getByRole("button", { name: /^ยังไม่ได้จด \d+ อย่าง$/ })
+    .filter({ visible: true });
+  const reminder = region(page, "การแจ้งเตือน").getByRole("button", {
     name: `ค่าเช่า/น้ำไฟ ของ${thisMonth.name}`,
   });
+  await bell.click();
   await expect(reminder).toBeVisible();
+  await page.keyboard.press("Escape");
   const rent = line(page, /^ค่าเช่า\/น้ำไฟ/);
   await expect(rent).toHaveText(["ยังไม่ได้จด", "—"]);
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
@@ -171,9 +178,9 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await openPage(page, "Overview");
   await expect(rent).toHaveText(["ยังไม่ได้จด", "−฿18,000"]);
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
-  await expect(reminder).toBeVisible();
 
   // The reminder opens the payment form on that category.
+  await bell.click();
   await reminder.click();
   await expect(form(page).getByLabel(/^หมวด/)).toHaveValue("rent");
   await fill(page, [/^ยอด \(บาท\)/, "20500"]);
