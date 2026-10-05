@@ -64,35 +64,35 @@
   --green-700: #15803d;
   --green-950: #052e16;
 
-  /* Warm-graphite neutrals — the dark theme's own ramp. The slate ramp above is
+  /* Charcoal neutrals — the dark theme's own ramp. The slate ramp above is
    * blue-cast, which flattened it against the blue accent and made dark mode read
-   * as one murky sheet; these are hue-neutral-warm instead. `-850` sits between
-   * 800 and 900 on purpose: dark mode needs one more surface step than light mode,
-   * because elevation there is carried by lightness rather than by shadow. The
-   * light theme never references these. */
-  --graphite-50: #f7f4f1;
-  --graphite-200: #bfb8b1;
-  --graphite-400: #9e958d;
-  --graphite-500: #6c655d;
-  --graphite-700: #423e3a;
-  --graphite-800: #252220;
-  --graphite-850: #1b1917;
-  --graphite-900: #12100f;
-  --graphite-950: #0c0b0a;
+   * as one murky sheet; these carry no hue at all, so the accent and the state
+   * colours are the only colour on the page. `-850` sits between 800 and 900 on
+   * purpose: dark mode needs one more surface step than light mode, because
+   * elevation there is carried by lightness rather than by shadow. The light
+   * theme never references these. */
+  --charcoal-50: #ececec;
+  --charcoal-200: #a8a8a8;
+  --charcoal-500: #707070;
+  --charcoal-700: #333333;
+  --charcoal-800: #292929;
+  --charcoal-850: #1e1e1e;
+  --charcoal-900: #161616;
+  --charcoal-950: #101010;
 
   /* Dark-theme state hues, and the chip fill each one sits on. Named rather than
    * numbered because they are one theme's set, not a ramp — the light theme keeps
-   * using the 500/600 steps above. Every pair here clears 4.5:1 on graphite, which
+   * using the 500/600 steps above. Every pair here clears 4.5:1 on charcoal, which
    * the plain 300/500 steps did not: blue-500 on gray-800 measured 3.98:1. */
-  --azure: #4d9eff;
-  --azure-lift: #85bdff;
-  --azure-deep: #132133;
-  --coral: #ff7b6b;
-  --coral-deep: #2a1512;
-  --honey: #f2b24c;
-  --honey-deep: #2a1f0e;
-  --jade: #5bd98a;
-  --jade-deep: #122419;
+  --azure: #5aa2ff;
+  --azure-lift: #8cbdff;
+  --azure-deep: #172a45;
+  --coral: #f47c70;
+  --coral-deep: #331a18;
+  --honey: #e5b04f;
+  --honey-deep: #30260f;
+  --jade: #58c98a;
+  --jade-deep: #14291d;
 
   /* Motion. Theme-independent, so they sit with the primitives, but unlike the
    * primitives components DO reference these: `duration-(--motion-base)`,
@@ -266,25 +266,27 @@
  * Dark mode does NOT reuse the slate ramp. Borrowing the light theme's greys is
  * what made the old dark theme look flat and murky: slate is blue-cast, so every
  * surface sat in the same hue as the accent, and the 900/800/700 steps were too
- * close together to read as elevation. It runs on the graphite ramp instead, with
- * its own state hues. The candidates that lost, and every measured contrast ratio,
- * are archived at `C:\Web Documents\NN-Stock\Design\dark-mode-palettes.html`.
+ * close together to read as elevation. It runs on the charcoal ramp instead, with
+ * its own state hues. The candidates that lost (a warm graphite among them, used
+ * for a while), and every measured contrast ratio, are archived in
+ * `C:\Web Documents\NN-Stock\Design\`: `dark-mode-palettes.html` and
+ * `dark-mode-palettes-round-2.html`.
  * ------------------------------------------------------------------------ */
 
 .dark {
-  --color-bg: var(--graphite-900);
-  --color-surface: var(--graphite-850);
-  --color-surface-sunken: var(--graphite-950);
-  --color-border: var(--graphite-700);
-  --color-border-strong: var(--graphite-500);
-  --color-text-primary: var(--graphite-50);
-  --color-text-secondary: var(--graphite-200);
-  --color-text-inverse: var(--graphite-900);
+  --color-bg: var(--charcoal-900);
+  --color-surface: var(--charcoal-850);
+  --color-surface-sunken: var(--charcoal-950);
+  --color-border: var(--charcoal-700);
+  --color-border-strong: var(--charcoal-500);
+  --color-text-primary: var(--charcoal-50);
+  --color-text-secondary: var(--charcoal-200);
+  --color-text-inverse: var(--charcoal-900);
 
   --color-accent: var(--azure);
   --color-accent-hover: var(--azure-lift);
   --color-accent-subtle: var(--azure-deep);
-  --color-accent-fg: var(--graphite-950);
+  --color-accent-fg: var(--charcoal-950);
 
   --color-danger: var(--coral);
   --color-danger-subtle: var(--coral-deep);
@@ -295,21 +297,21 @@
 
   --color-focus-ring: var(--azure-lift);
 
-  --color-background: var(--graphite-900);
-  --color-foreground: var(--graphite-50);
-  --color-card: var(--graphite-850);
-  --color-card-foreground: var(--graphite-50);
-  --color-popover: var(--graphite-800);
-  --color-popover-foreground: var(--graphite-50);
+  --color-background: var(--charcoal-900);
+  --color-foreground: var(--charcoal-50);
+  --color-card: var(--charcoal-850);
+  --color-card-foreground: var(--charcoal-50);
+  --color-popover: var(--charcoal-800);
+  --color-popover-foreground: var(--charcoal-50);
   --color-primary: var(--azure);
-  --color-primary-foreground: var(--graphite-950);
-  --color-secondary: var(--graphite-800);
-  --color-secondary-foreground: var(--graphite-50);
-  --color-muted: var(--graphite-800);
-  --color-muted-foreground: var(--graphite-200);
+  --color-primary-foreground: var(--charcoal-950);
+  --color-secondary: var(--charcoal-800);
+  --color-secondary-foreground: var(--charcoal-50);
+  --color-muted: var(--charcoal-800);
+  --color-muted-foreground: var(--charcoal-200);
   --color-destructive: var(--coral);
-  --color-destructive-foreground: var(--graphite-950);
-  --color-input: var(--graphite-500);
+  --color-destructive-foreground: var(--charcoal-950);
+  --color-input: var(--charcoal-500);
   --color-ring: var(--azure-lift);
 }
 

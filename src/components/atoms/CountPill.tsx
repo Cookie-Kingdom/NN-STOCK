@@ -17,7 +17,7 @@ const countPillVariants = cva("rounded-full font-bold tabular-nums", {
 
 /**
  * Count of things not recorded yet, in red so it stands out. It uses the `destructive`
- * pair (light: red-600 on white, 4.8:1; dark: coral on graphite-950), whose text colour is
+ * pair (light: red-600 on white, 4.8:1; dark: coral on charcoal-950), whose text colour is
  * made for that fill, and the number still carries the meaning. `menu` sits at the end of a sidebar nav item, `overlay` on the
  * corner of a (relatively positioned) icon button. Render it only when the count is above
  * zero; a pill reading 0 is noise.
