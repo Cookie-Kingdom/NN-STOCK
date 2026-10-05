@@ -246,6 +246,7 @@ export function sampleData(endDate: string): Database {
     amount: 3200,
     link: "https://example.com/inv-pk-2209",
   });
+
   add(manager, "expense", 6, "10:30", {
     source: "advance",
     itemType: "สินทรัพย์",
@@ -274,6 +275,57 @@ export function sampleData(endDate: string): Database {
     qty: 5,
     amount: 900,
     status: "cancelled",
+  });
+  /* The project's stock (Inventory): a Settings material bought into the central warehouse, an
+   * asset there and one bought straight into ศาลาแดง; then three transfers to ศาลาแดง: one in
+   * at once (its count two days ago took it in), one it confirmed, one it has yet to. */
+  const project = { purpose: "project", project: "Nerdnuea x LINE MAN" };
+  add(manager, "expense", 12, "14:20", {
+    ...project,
+    reference: "INV-PK-2231",
+    itemType: "วัสดุบรรจุภัณฑ์",
+    item: "ถุงหิ้วกระดาษ",
+    vendor: "แพ็คดี",
+    qty: 2000,
+    amount: 7000,
+  });
+  add(owner, "expense", 11, "13:00", {
+    ...project,
+    itemType: "สินทรัพย์",
+    item: "ตู้เย็น",
+    detail: "2 ประตู 14 คิว",
+    vendor: "โฮมโปร",
+    qty: 2,
+    amount: 25800,
+  });
+  add(manager, "expense", 10, "15:40", {
+    ...project,
+    itemType: "สินทรัพย์",
+    item: "เครื่องซีลสูญญากาศ",
+    vendor: "ไทยสเกล",
+    qty: 1,
+    amount: 6900,
+    warehouse: saladaeng,
+  });
+  add(manager, "transfer", 8, "09:20", {
+    item: "ถุงหิ้วกระดาษ",
+    to: saladaeng,
+    qty: 500,
+  });
+  add(owner, "transfer", 5, "10:00", {
+    item: "ตู้เย็น",
+    to: saladaeng,
+    qty: 1,
+    receive: "confirm",
+  });
+  add(saladaeng, "transferReceive", 4, "09:15", {
+    transferId: db.entries.at(-1)!.id,
+  });
+  add(manager, "transfer", 1, "16:30", {
+    item: "ถุงสูญญากาศ",
+    to: saladaeng,
+    qty: 300,
+    receive: "confirm",
   });
   add(manager, "smokeOrder", 1, "09:00", { rawKg: 50 });
   add(minburi, "meatCount", 1, "08:00", { kg: 22 });

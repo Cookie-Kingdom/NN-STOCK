@@ -3,6 +3,7 @@
 import {
   canChange,
   capexCategory,
+  centralPlace,
   changeKinds,
   companyPayer,
   coreLotKinds,
@@ -14,6 +15,7 @@ import {
   materialList,
   payCategories,
   salesChannels,
+  shopProject,
   type Database,
   type Entry,
   type EntryKind,
@@ -618,21 +620,93 @@ const varianceAt = (
 /** A count is late when there is none, or the last one is more than 7 days before `today`. */
 const staleCount = (countedOn: string, today: string) =>
   !countedOn || Date.parse(today) - Date.parse(countedOn) > 7 * 86400000;
-/** V2-CAL-11 / V2-BR-03: the last count, plus what payments bought for the branch since, less
- *  the boxes sold and given × `perBox`. Stale = never counted, or more than 7 days ago. */
+/** The live receipt of a `transfer` sent with "confirm": the destination branch's own. */
+const receiptOf = (db: Database, transfer: Entry) =>
+  entries(db, "transferReceive", undefined, transfer.values.to).find(
+    (e) => e.values.transferId === transfer.id,
+  );
+const awaitsReceipt = (e: Entry) =>
+  e.values.to !== centralPlace && e.values.receive === "confirm";
+/** The `transfer` entries still waiting for `branch` to confirm, oldest first. */
+export const pendingTransfers = (db: Database, branch: string) =>
+  entries(db, "transfer")
+    .filter(
+      (e) => e.values.to === branch && awaitsReceipt(e) && !receiptOf(db, e),
+    )
+    .sort(byDateAt);
+/** One SKU's quantity into (+) or out of (−) a place: "central" or a branch name. */
+type StockMove = {
+  sku: string;
+  place: string;
+  qty: number;
+  date: string;
+  at: string;
+};
+/** Every move of SKU stock in the log: what an `expense` of the shop project bought goes into
+ *  its warehouse (the central one unless it names a branch; a cancelled row buys nothing), and
+ *  a `transfer` leaves `from` on its date and arrives at `to`, at once or, sent with "confirm",
+ *  when the branch's receipt says so. Until then it is in `transit`, in neither place. Only a
+ *  SKU with a typed quantity moves. Nothing is refused: a balance may go below zero.
+ *  ponytail: walks the expenses and transfers per call; cache per log (as entryIndex) if a
+ *  long one gets slow. */
+export function stockMoves(db: Database) {
+  const moves: StockMove[] = [];
+  const transit: Entry[] = [];
+  const move = (v: Values, place: string, sign: number, on: Entry) => {
+    if (place)
+      moves.push({
+        sku: v.sku,
+        place,
+        qty: sign * num(v, "qty"),
+        date: on.date,
+        at: on.at,
+      });
+  };
+  for (const e of entries(db, "expense")) {
+    const v = e.values;
+    if (
+      v.sku &&
+      typed(v, "qty") &&
+      v.purpose === "project" &&
+      (v.project ?? "").trim() === shopProject &&
+      v.status !== "cancelled"
+    )
+      move(v, v.warehouse || centralPlace, 1, e);
+  }
+  for (const e of entries(db, "transfer")) {
+    const v = e.values;
+    if (!v.sku || !typed(v, "qty")) continue;
+    move(v, v.from, -1, e);
+    const arrived = awaitsReceipt(e) ? receiptOf(db, e) : e;
+    if (arrived) move(v, v.to, 1, arrived);
+    else transit.push(e);
+  }
+  return { moves, transit };
+}
+/** V2-CAL-11 / V2-BR-03: the last count, plus what payments bought for the branch since and
+ *  what the warehouses moved in or out of it (`stockMoves`), less the boxes sold and given ×
+ *  `perBox`. Stale = never counted, or more than 7 days ago. */
 export function branchMaterial(
   db: Database,
   branch: string,
   materialId: string,
   today: string,
 ) {
-  const perBox =
-    materialList(db.config).find((m) => m.id === materialId)?.perBox ?? 0;
+  const material = materialList(db.config).find((m) => m.id === materialId);
+  const perBox = material?.perBox ?? 0;
+  const moved = material?.sku
+    ? stockMoves(db).moves.filter(
+        (m) => m.sku === material.sku && m.place === branch,
+      )
+    : [];
   let qty = 0,
     countedOn = "",
     variance: CountVariance | undefined;
-  for (const e of branchWalk(db, branch))
-    if (e.kind === "materials" && typed(e.values, `count.${materialId}`)) {
+  for (const e of moved.length
+    ? [...branchWalk(db, branch), ...moved].sort(byDateAt)
+    : branchWalk(db, branch))
+    if (!("kind" in e)) qty += e.qty;
+    else if (e.kind === "materials" && typed(e.values, `count.${materialId}`)) {
       const now = num(e.values, `count.${materialId}`);
       variance = countedOn ? varianceAt(qty, now, e.date) : undefined;
       qty = now;

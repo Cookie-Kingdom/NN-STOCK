@@ -13,6 +13,7 @@ import {
   missingKeys,
   missingText,
   payCategories,
+  placeLabel,
   poLines,
   saleMoney,
   salesChannels,
@@ -192,6 +193,22 @@ export function noteLine(db: Database, e: Entry): string {
         v.vendor,
         v.reference,
       );
+    case "transfer":
+      return join(
+        skuName(db, v.sku, v.itemName),
+        has("qty") && n("qty"),
+        has("from") &&
+          has("to") &&
+          `${placeLabel(v.from)} → ${placeLabel(v.to)}`,
+        v.receive === "confirm" && "สาขาต้องกดยืนยันรับ",
+      );
+    case "transferReceive": {
+      const sent = entries(db, "transfer").find((t) => t.id === v.transferId);
+      return join(
+        sent && skuName(db, sent.values.sku, sent.values.itemName),
+        sent?.values.qty && qty(Number(sent.values.qty)),
+      );
+    }
     case "smoke":
       return join(has("wasteKg") && `Waste ${n("wasteKg")} กก.`, v.note);
     case "packingList":

@@ -159,9 +159,10 @@ test("3 · V2-ACC-02 Manager pays in 9 categories, none of them payroll", async 
 }) => {
   await start(page, "seed");
   await signInAs(page, "manager");
-  // V2-ACC-04: nothing for a branch (a branch jots its own notes); Daily Log is for looking.
+  // V2-ACC-04: nothing for a branch (a branch jots its own notes), only the move between
+  // the warehouses; Daily Log is for looking.
   await openPage(page, "Inventory");
-  await expect(jotButtons(page)).toHaveCount(0);
+  await expect(jotButtons(page)).toHaveText(["จัดสรรสินค้า"]);
   await expect(page.getByRole("button", { name: /นับเนื้อ/ })).toHaveCount(0);
   await openPage(page, "Daily Log");
   await expect(jotButtons(page)).toHaveCount(0);
@@ -280,8 +281,10 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
   page,
 }) => {
   await start(page, "sample");
+  // 「ยืนยันรับ」 alone is back since the central warehouse: a branch confirms a transfer sent
+  // to it (`transferReceive`). The retired accepts stay out.
   const retired =
-    /ปิดวัน|ปิดยอด|ปลดล็อก|ล็อก|ปิด Lot|ยืนยันรับ|ยืนยันปิด|ตรวจยอด|จับคู่|อนุมัติ/;
+    /ปิดวัน|ปิดยอด|ปลดล็อก|ล็อก|ปิด Lot|ยืนยันรับ PO|ยืนยันรับที่|ยืนยันรับวัสดุ|ยืนยันปิด|ตรวจยอด|จับคู่|อนุมัติ/;
   for (const account of accounts) {
     await signInAs(page, account);
     for (const name of pagesOf[account]) {

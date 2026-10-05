@@ -101,7 +101,7 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
     : tab === "meatStock"
       ? "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือของสาขา"
       : tab === "stock"
-        ? "วัสดุคงเหลือของสาขา"
+        ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
 /** The pages an account has, in menu order: the Owner all nine, the Account Manager six

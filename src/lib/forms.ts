@@ -8,6 +8,8 @@ import {
   materialList,
   payCategories,
   payrollCategory,
+  placeLabel,
+  places,
   rawRiceBranches,
   salesChannels,
   stockCategories,
@@ -52,6 +54,8 @@ export type Field = {
     | "poLines";
   /** A select's choices (a `poLines` field's POs); on a text field, suggestions (a `<datalist>`). */
   options?: { value: string; label: string }[];
+  /** A text field that takes only one of its `options` (searched, not added to). */
+  strict?: boolean;
   /** Left empty it is saved, listed in `values.missing` and shown yellow. */
   core?: boolean;
   /** Rendered in the form's last section, always open. */
@@ -135,6 +139,18 @@ const known = (db: Database, first: string[], ...keys: [NoteKind, string][]) =>
     ]),
   ].map((value) => ({ value, label: value }));
 const isStock = (values: Values) => stockCategories.includes(values.category);
+/** A place to keep stock in: the central warehouse or a branch. */
+const placeField = (
+  key: string,
+  label: string,
+  extra?: Partial<Field>,
+): Field => ({
+  key,
+  label,
+  type: "select",
+  options: places.map((value) => ({ value, label: placeLabel(value) })),
+  ...extra,
+});
 /** A `poLines` field: the live POs เนื้อ to pick from, each with what its seller still holds. */
 const poLinesField = (
   db: Database,
@@ -500,6 +516,10 @@ export function fields(
           when: (values) => values.purpose === "project",
           options: choices(ledgerChoices(db, "project", [shopProject])),
         }),
+        // Where what was bought is kept; none typed (an old row) is the central warehouse.
+        placeField("warehouse", "เข้าคลัง", {
+          when: (values) => values.purpose === "project",
+        }),
         number("amount", "ยอดจ่ายจริง", "บาท"),
         select("status", "สถานะ", ledgerStatuses),
         file("เอกสารแนบ"),
@@ -509,6 +529,53 @@ export function fields(
         ),
       ];
     }
+    case "transfer":
+      return [
+        core(
+          text("item", "รายการ", {
+            // Searched by name or SKU; only an item of the catalogue stands (`mutate` checks).
+            strict: true,
+            options: skuCatalogue(db).map((item) => ({
+              value: item.name,
+              label: item.sku,
+            })),
+          }),
+        ),
+        core(placeField("from", "จากคลัง")),
+        core(placeField("to", "ไปคลัง")),
+        core(number("qty", "จำนวน")),
+        {
+          // What goes to the central warehouse is there at once.
+          key: "receive",
+          label: "การรับของ",
+          type: "select",
+          when: (values) => branches.includes(values.to),
+          options: [
+            { value: "now", label: "เข้าสาขาทันที" },
+            { value: "confirm", label: "สาขาต้องกดยืนยันรับ" },
+          ],
+        },
+        note,
+      ];
+    case "transferReceive":
+      return [
+        {
+          key: "transferId",
+          label: "รายการจัดสรร",
+          type: "select",
+          // Every transfer sent to the branch (to any, for another reader), so a saved
+          // receipt still reads; `mutate` takes only one still waiting.
+          options: entries(db, "transfer")
+            .filter((e) => by.role !== "branch" || e.values.to === by.branch)
+            .map((e) => ({
+              value: e.id,
+              label: [e.values.itemName, e.values.qty, dateLabel(e.date)]
+                .filter(Boolean)
+                .join(" · "),
+            })),
+        },
+        note,
+      ];
     case "foodivaReturnReceive":
       return [
         number("receivedKg", "น้ำหนักรับจริง", "กก."),
@@ -536,7 +603,9 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "purchase") return { supplier: "Foodiva" };
   if (kind === "smokeOrder") return { smoker: "Chef House" };
-  if (kind === "expense") return { source: "transfer", purpose: "company" };
+  if (kind === "expense")
+    return { source: "transfer", purpose: "company", warehouse: "central" };
+  if (kind === "transfer") return { from: "central", receive: "now" };
   if (kind === "dispatch")
     return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };
   if (kind === "return")

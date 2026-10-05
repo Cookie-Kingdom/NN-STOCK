@@ -19,6 +19,7 @@ import {
   monthPl,
   plBetween,
   mutate,
+  pendingTransfers,
   poInfo,
   purchaseLots,
   rawRiceBranches,
@@ -28,6 +29,7 @@ import {
   shipments,
   skuCatalogue,
   skuFor,
+  stockLines,
   supplierBalances,
   todoOpens,
   todos,
@@ -40,6 +42,7 @@ import {
 } from "@/lib/store";
 import { fields } from "@/lib/forms";
 import { stripForManager } from "@/lib/manager-scope";
+import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
 
 // Smoke checks of the domain on the approved sample. The figures do not depend on the date.
@@ -510,10 +513,12 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
     "influencerBox",
     "pay",
   ]);
+  // The receipt of a transfer is on no page's buttons.
   expect(kindsForPage(saladaeng, "stock")).toEqual(["pay", "materials"]);
   for (const by of [owner, manager]) {
     expect(kindsForPage(by, "meatStock")).toEqual([]);
-    expect(kindsForPage(by, "stock")).toEqual([]);
+    // Inventory: stock moves between the warehouses.
+    expect(kindsForPage(by, "stock")).toEqual(["transfer"]);
     // Paying a person back is the Owner's alone (V2-PAY-07).
     expect(kindsForPage(by, "finance")).toEqual(
       by === owner ? ["pay", "reimburse"] : ["pay"],
@@ -1488,5 +1493,313 @@ describe("Inventory: what the project owns", () => {
       },
       { type: "สินทรัพย์", rows: [{ item: "ตู้เย็น", qty: null, paid: 9000 }] },
     ]);
+  });
+});
+
+describe("central warehouse: stock per place", () => {
+  const buy = (d: Database, values: Values, date = "2026-09-01") =>
+    mutate(
+      d,
+      owner,
+      "expense",
+      { purpose: "project", project: "Nerdnuea x LINE MAN", ...values },
+      "",
+      date,
+    );
+  const send = (d: Database, values: Values, date = "2026-09-02") =>
+    mutate(d, manager, "transfer", { from: "central", ...values }, "", date);
+  const receive = (d: Database, by: Actor, transferId: string) =>
+    mutate(d, by, "transferReceive", { transferId }, "", "2026-09-04");
+  const edit = (d: Database, id: string, values: Values) =>
+    mutate(
+      d,
+      owner,
+      "entryEdit",
+      { targetId: id, values: JSON.stringify(values) },
+      "",
+      day,
+    );
+  const line = (d: Database, sku: string) =>
+    stockLines(d, day).find((row) => row.sku === sku)!;
+  // The first item bought on the seed: the ten materials hold SKU-0001 to SKU-0010.
+  const fridge = "SKU-0011";
+
+  it("an expense of the project goes into its warehouse, the central one unless it names a branch", () => {
+    let d = buy(seed, { item: "ตู้เย็น", qty: "3" });
+    expect(last(d).branch).toBe("");
+    d = buy(d, { item: "ตู้เย็น", qty: "2", warehouse: "มีนบุรี" });
+    // Stamped with the branch, so its stock line reaches that branch's copy.
+    expect(last(d).branch).toBe("มีนบุรี");
+    // Not stock: the office's, another project's, a cancelled one, one with no quantity.
+    d = buy(d, { item: "ตู้เย็น", qty: "9", purpose: "company" });
+    expect(last(d).values.warehouse).toBeUndefined();
+    d = buy(d, { item: "ตู้เย็น", qty: "9", project: "งานอื่น" });
+    d = buy(d, { item: "ตู้เย็น", qty: "9", status: "cancelled" });
+    d = buy(d, { item: "ตู้เย็น" });
+    expect(line(d, fridge)).toEqual({
+      sku: fridge,
+      name: "ตู้เย็น",
+      materialId: "",
+      at: { central: 3, ศาลาแดง: 0, มีนบุรี: 2 },
+      inTransit: 0,
+    });
+    // Every Settings material is a line, bought or not.
+    expect(stockLines(seed, day)).toHaveLength(10);
+    expect(line(seed, "SKU-0001")).toMatchObject({
+      name: "กล่องพิมพ์ลาย",
+      materialId: "m1",
+      at: { central: 0, ศาลาแดง: 0, มีนบุรี: 0 },
+    });
+  });
+
+  it("an edited, cancelled or deleted expense moves the balance with it", () => {
+    let d = buy(seed, { item: "ตู้เย็น", qty: "3" });
+    const id = last(d).id;
+    d = edit(d, id, { qty: "5" });
+    expect(line(d, fridge).at.central).toBe(5);
+    // Into a branch it goes by a transfer: the entry's branch is fixed when it is saved.
+    expect(() => edit(d, id, { warehouse: "มีนบุรี" })).toThrow(
+      "แก้เป็นคลังของสาขาอื่นไม่ได้",
+    );
+    // A cancelled one bought nothing: no line is left of it.
+    expect(line(edit(d, id, { status: "cancelled" }), fridge)).toBeUndefined();
+    d = mutate(d, owner, "void", { targetId: id }, "", day);
+    // Nothing names the SKU any more.
+    expect(line(d, fridge)).toBeUndefined();
+    // One bought into a branch may be edited back to the central warehouse.
+    d = buy(seed, { item: "ตู้เย็น", qty: "2", warehouse: "มีนบุรี" });
+    d = edit(d, last(d).id, { warehouse: "central" });
+    expect(line(d, fridge).at).toMatchObject({ central: 2, มีนบุรี: 0 });
+  });
+
+  it("a transfer arrives at once, or when the branch confirms; a balance may go below zero", () => {
+    let d = buy(seed, { item: "ตู้เย็น", qty: "3" });
+    d = send(d, { item: "ตู้เย็น", to: "ศาลาแดง", qty: "1" });
+    expect(last(d)).toMatchObject({
+      role: "owner",
+      branch: "",
+      values: {
+        item: "ตู้เย็น",
+        itemName: "ตู้เย็น",
+        sku: fridge,
+        from: "central",
+        to: "ศาลาแดง",
+      },
+    });
+    expect(line(d, fridge).at).toEqual({ central: 2, ศาลาแดง: 1, มีนบุรี: 0 });
+    // Over-allocated, and waiting for the branch: in neither place.
+    d = send(d, {
+      item: "ตู้เย็น",
+      to: "มีนบุรี",
+      qty: "4",
+      receive: "confirm",
+    });
+    const sent = last(d).id;
+    expect(line(d, fridge)).toMatchObject({
+      at: { central: -2, ศาลาแดง: 1, มีนบุรี: 0 },
+      inTransit: 4,
+    });
+    expect(pendingTransfers(d, "มีนบุรี").map((e) => e.id)).toEqual([sent]);
+    expect(pendingTransfers(d, "ศาลาแดง")).toEqual([]);
+    // Only the branch it was sent to confirms it, all of it, once.
+    expect(() => receive(d, saladaeng, sent)).toThrow(
+      "ไม่พบรายการจัดสรรที่รอสาขานี้ยืนยันรับ",
+    );
+    expect(() => receive(d, owner, sent)).toThrow(
+      "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้",
+    );
+    const got = receive(d, minburi, sent);
+    expect(last(got)).toMatchObject({ role: "branch", branch: "มีนบุรี" });
+    expect(line(got, fridge)).toMatchObject({
+      at: { central: -2, ศาลาแดง: 1, มีนบุรี: 4 },
+      inTransit: 0,
+    });
+    expect(pendingTransfers(got, "มีนบุรี")).toEqual([]);
+    expect(() => receive(got, minburi, sent)).toThrow("รายการนี้ยืนยันรับแล้ว");
+    // The receipt is the branch's to delete: the transfer waits again.
+    const receipt = { targetId: last(got).id };
+    expect(() => mutate(got, owner, "void", receipt, "", day)).toThrow(
+      "บันทึกของสาขา · สาขาเป็นคนแก้",
+    );
+    expect(() => mutate(got, minburi, "entryEdit", receipt, "", day)).toThrow(
+      "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้",
+    );
+    const back = mutate(got, minburi, "void", receipt, "", day);
+    expect(line(back, fridge)).toMatchObject({
+      at: { มีนบุรี: 0 },
+      inTransit: 4,
+    });
+    expect(pendingTransfers(back, "มีนบุรี").map((e) => e.id)).toEqual([sent]);
+    // Branch to branch, and back to the central warehouse (there at once, whatever is asked).
+    d = send(got, {
+      item: "ตู้เย็น",
+      from: "ศาลาแดง",
+      to: "มีนบุรี",
+      qty: "1",
+    });
+    d = send(d, {
+      item: "ตู้เย็น",
+      from: "มีนบุรี",
+      to: "central",
+      qty: "2",
+      receive: "confirm",
+    });
+    expect(last(d).values.receive).toBeUndefined();
+    expect(line(d, fridge)).toMatchObject({
+      at: { central: 0, ศาลาแดง: 0, มีนบุรี: 3 },
+      inTransit: 0,
+    });
+    // The Owner and the Account Manager edit and delete one; it holds nothing the Manager may not see.
+    expect(visibleNotes(d, manager).map((e) => e.id)).toContain(last(d).id);
+    expect(line(edit(d, last(d).id, { qty: "3" }), fridge).at.central).toBe(1);
+    const gone = mutate(d, manager, "void", { targetId: last(d).id }, "", day);
+    expect(line(gone, fridge).at).toMatchObject({ central: -2, มีนบุรี: 5 });
+  });
+
+  it("a material's count takes in the transfers before it, and later ones move it", () => {
+    const count = (d: Database, n: string, date: string) =>
+      mutate(d, saladaeng, "materials", { "count.m1": n }, "", date);
+    // The material's name: its SKU.
+    let d = buy(seed, { item: "กล่องพิมพ์ลาย", qty: "100" });
+    expect(last(d).values.sku).toBe("SKU-0001");
+    d = count(d, "10", "2026-09-01");
+    d = send(
+      d,
+      { item: "กล่องพิมพ์ลาย", to: "ศาลาแดง", qty: "40" },
+      "2026-09-02",
+    );
+    const m1 = (x: Database) => branchMaterial(x, "ศาลาแดง", "m1", day);
+    expect(m1(d).qty).toBe(50);
+    d = count(d, "45", "2026-09-03");
+    expect(m1(d)).toMatchObject({
+      qty: 45,
+      variance: { expected: 50, counted: 45, diff: -5 },
+    });
+    d = send(
+      d,
+      { item: "กล่องพิมพ์ลาย", from: "ศาลาแดง", to: "central", qty: "5" },
+      "2026-09-04",
+    );
+    d = buy(
+      d,
+      { item: "กล่องพิมพ์ลาย", qty: "20", warehouse: "ศาลาแดง" },
+      "2026-09-05",
+    );
+    // Sent with "confirm": not in the branch until it says so.
+    d = send(
+      d,
+      { item: "กล่องพิมพ์ลาย", to: "ศาลาแดง", qty: "7", receive: "confirm" },
+      "2026-09-05",
+    );
+    expect(m1(d).qty).toBe(60);
+    expect(line(d, "SKU-0001")).toMatchObject({
+      materialId: "m1",
+      at: { central: 58, ศาลาแดง: 60, มีนบุรี: 0 },
+      inTransit: 7,
+    });
+    expect(branchMaterial(d, "มีนบุรี", "m1", day).qty).toBe(0);
+  });
+
+  it("mutate refuses a place or an item that is not there, the same place twice, and the wrong account", () => {
+    const d = buy(seed, { item: "ตู้เย็น", qty: "3" });
+    const refused: [Values, string][] = [
+      [{ item: "โต๊ะ", to: "มีนบุรี" }, "ไม่พบรายการนี้"],
+      [
+        { item: "ตู้เย็น", from: "ลาดพร้าว", to: "มีนบุรี" },
+        "ไม่พบคลังต้นทางที่เลือก",
+      ],
+      [{ item: "ตู้เย็น", to: "ลาดพร้าว" }, "ไม่พบคลังปลายทางที่เลือก"],
+      [
+        { item: "ตู้เย็น", to: "central" },
+        "คลังต้นทางและปลายทางเป็นที่เดียวกันไม่ได้",
+      ],
+      [{ item: "ตู้เย็น", to: "มีนบุรี", qty: "x" }, "จำนวน"],
+    ];
+    for (const [values, message] of refused)
+      expect(() => send(d, values), JSON.stringify(values)).toThrow(message);
+    expect(() =>
+      mutate(
+        d,
+        minburi,
+        "transfer",
+        { item: "ตู้เย็น", to: "มีนบุรี" },
+        "",
+        day,
+      ),
+    ).toThrow("บัญชีนี้ไม่มีสิทธิ์จดรายการนี้");
+    // An empty core field is saved and listed, and moves nothing.
+    const empty = mutate(d, owner, "transfer", {}, "", day);
+    expect(last(empty).values.missing).toBe("item,from,to,qty");
+    // Matched as a ledger item is: outer spaces and case aside.
+    expect(
+      last(send(d, { item: " ตู้เย็น ", to: "มีนบุรี" })).values,
+    ).toMatchObject({ item: "ตู้เย็น", sku: fridge });
+    // An edit that changes the item takes its SKU and name along; a rename does not stop one.
+    let other = buy(d, { item: "เก้าอี้", qty: "1" });
+    other = send(other, { item: "ตู้เย็น", to: "มีนบุรี", qty: "1" });
+    const moved = last(other).id;
+    other = edit(other, moved, { item: "เก้าอี้" });
+    expect(entries(other, "transfer")[0].values).toMatchObject({
+      item: "เก้าอี้",
+      itemName: "เก้าอี้",
+      sku: "SKU-0012",
+    });
+    other = mutate(
+      other,
+      owner,
+      "config",
+      { skuNames: JSON.stringify([{ sku: "SKU-0012", name: "เก้าอี้พับ" }]) },
+      "",
+      day,
+    );
+    other = edit(other, moved, { qty: "2" });
+    expect(entries(other, "transfer")[0].values).toMatchObject({
+      itemName: "เก้าอี้พับ",
+      sku: "SKU-0012",
+      qty: "2",
+    });
+    expect(() => edit(other, moved, { item: "ไม่มี" })).toThrow(
+      "ไม่พบรายการนี้",
+    );
+    expect(stockLines(empty, day)).toEqual(stockLines(d, day));
+    // One that came in at once has nothing to confirm; nor has one that is not there.
+    const now = send(d, { item: "ตู้เย็น", to: "มีนบุรี", qty: "1" });
+    for (const transferId of [last(now).id, "nope", ""])
+      expect(() => receive(now, minburi, transferId)).toThrow(
+        "ไม่พบรายการจัดสรรที่รอสาขานี้ยืนยันรับ",
+      );
+  });
+
+  it("a branch's copy works out its own stock and names what it was sent", () => {
+    let d = buy(seed, { item: "ตู้เย็น", qty: "3", amount: "9000" });
+    d = buy(d, {
+      item: "เก้าอี้",
+      qty: "4",
+      warehouse: "มีนบุรี",
+      amount: "800",
+    });
+    d = send(d, { item: "ตู้เย็น", to: "มีนบุรี", qty: "1" });
+    d = send(d, {
+      item: "ตู้เย็น",
+      to: "มีนบุรี",
+      qty: "2",
+      receive: "confirm",
+    });
+    d = send(d, { item: "ตู้เย็น", to: "ศาลาแดง", qty: "1" });
+    const copy = scopeDatabase(d, ["มีนบุรี"]);
+    expect(JSON.stringify(copy)).not.toMatch(/9000|800|ศาลาแดง/);
+    const own = (x: Database) =>
+      stockLines(x, day)
+        .filter((row) => !row.materialId)
+        .map((row) => [row.name, row.at["มีนบุรี"], row.inTransit]);
+    expect(own(copy)).toEqual([
+      ["เก้าอี้", 4, 0],
+      ["ตู้เย็น", 1, 2],
+    ]);
+    expect(own(d).sort()).toEqual(own(copy).sort());
+    expect(pendingTransfers(copy, "มีนบุรี")).toHaveLength(1);
+    // Its receipt is checked on its copy.
+    const got = receive(copy, minburi, pendingTransfers(copy, "มีนบุรี")[0].id);
+    expect(line(got, fridge).at["มีนบุรี"]).toBe(3);
   });
 });

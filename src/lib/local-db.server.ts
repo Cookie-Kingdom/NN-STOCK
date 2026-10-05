@@ -75,6 +75,7 @@ const branchKinds: EntryKind[] = [
   "materials",
   "meatCount",
   "pay",
+  "transferReceive",
   "entryEdit",
   "void",
 ];
@@ -247,6 +248,26 @@ export function appendState(
     const target = log.entries.find(
       (other) => other?.id === entry.values.targetId,
     );
+    // A receipt names a live transfer sent to this branch (as saved, or as an edit put it).
+    const sent = log.entries.find(
+      (other) => other?.id === entry.values.transferId,
+    );
+    if (
+      entry.kind === "transferReceive" &&
+      !(
+        sent?.kind === "transfer" &&
+        sent.role !== "branch" &&
+        !isVoided(log, sent.id) &&
+        (sent.values?.to === entry.branch ||
+          log.entries.some(
+            (other) =>
+              other?.kind === "entryEdit" &&
+              other.values?.targetId === sent.id &&
+              other.values["to.to"] === entry.branch,
+          ))
+      )
+    )
+      fail("Transfer is not one sent to this branch");
     // editBlock in store/visibility.ts: a branch edits a live entry of its own branch.
     if (entry.kind === "entryEdit") {
       if (!(

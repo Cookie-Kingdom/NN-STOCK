@@ -18,18 +18,23 @@ import { cn } from "@/lib/utils";
  * ones that hold the typed text, shown strong in each. `onChange` gets the text, typed
  * or picked. To pick from a fixed list only, use `Select`.
  *
+ * `strict`: still typed and searched, but only an option stands. On blur, text that is an
+ * option's `value` (case and outer spaces aside) becomes that value; any other is cleared.
+ *
  * Keyboard: arrows move, Enter picks the highlighted suggestion, Escape closes the list.
  */
 export function Combobox({
   options,
   value,
   onChange,
+  strict,
   className,
   ...props
 }: Omit<ComponentProps<"input">, "value" | "onChange"> & {
   options: Option[];
   value: string;
   onChange: (value: string) => void;
+  strict?: boolean;
 }) {
   const id = useId();
   const control = useRef<HTMLInputElement>(null);
@@ -75,7 +80,14 @@ export function Combobox({
         }}
         // Not on focus: a Dialog focuses its first field as it opens.
         onClick={() => setList(list ?? { active: -1, narrow: false })}
-        onBlur={() => setList(null)}
+        onBlur={() => {
+          setList(null);
+          if (!strict) return;
+          const match =
+            options.find((o) => o.value.trim().toLowerCase() === text)?.value ??
+            "";
+          if (match !== value) onChange(match);
+        }}
         onKeyDown={(event) => {
           const { key } = event;
           if (key === "ArrowDown" || key === "ArrowUp") {

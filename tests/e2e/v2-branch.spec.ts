@@ -105,22 +105,24 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   const table = region(page, "วัสดุ");
   await expect(table.getByRole("columnheader")).toHaveText([
     "SKU",
-    "สินค้า",
+    "รายการ",
     "คลังกลาง",
     "สาขาศาลาแดง",
     "สาขามีนบุรี",
+    "ระหว่างส่ง",
     "รวม",
     "สถานะ",
   ]);
   const boxes = table
     .getByRole("row", { name: /^SKU-0001 กล่องพิมพ์ลาย/ })
     .getByRole("cell");
-  // A material is never in the central stock.
-  await expect(boxes.nth(2)).toHaveText("—");
+  // Nothing was bought into the central warehouse, and nothing is on its way.
+  await expect(boxes.nth(2)).toHaveText("0");
   await expect(boxes.nth(4)).toHaveText("0ยังไม่เคยนับ");
   await expect(boxes.nth(4)).toHaveAttribute("data-tone", "danger");
-  await expect(boxes.nth(6)).toHaveText("หมด");
-  await expect(boxes.nth(6)).toHaveAttribute("data-tone", "danger");
+  await expect(boxes.nth(5)).toHaveText("—");
+  await expect(boxes.nth(7)).toHaveText("หมด");
+  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "danger");
   await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -137,11 +139,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   // Bought, never counted: yellow, and the cell says why.
   await expect(boxes.nth(4)).toHaveText("50ยังไม่เคยนับ");
   await expect(boxes.nth(4)).toHaveAttribute("data-tone", "warning");
-  await expect(boxes.nth(5)).toHaveText("50");
-  await expect(boxes.nth(6)).toHaveText(
+  await expect(boxes.nth(6)).toHaveText("50");
+  await expect(boxes.nth(7)).toHaveText(
     "ยังไม่ได้นับ: สาขาศาลาแดง, สาขามีนบุรี",
   );
-  await expect(boxes.nth(6)).toHaveAttribute("data-tone", "warning");
+  await expect(boxes.nth(7)).toHaveAttribute("data-tone", "warning");
   await expect(table.getByRole("row")).toHaveCount(11);
   // The page writes nothing. The search takes the SKU the web issued (a material's own id is never shown).
   await page.getByLabel("ค้นหา").fill("sku-0001");
@@ -181,7 +183,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   const own = region(page, "วัสดุ");
   await expect(own.getByRole("columnheader")).toHaveText([
     "SKU",
-    "สินค้า",
+    "รายการ",
     "คงเหลือ",
     "สถานะ",
     "นับได้",
@@ -623,7 +625,7 @@ test.describe("phone, 390px wide", () => {
     const card = region(page, "วัสดุ");
     // A phone keeps the name, the figure and the input: no SKU, no status.
     await expect(card.getByRole("columnheader")).toHaveText([
-      "สินค้า",
+      "รายการ",
       "คงเหลือ",
       "นับได้",
     ]);

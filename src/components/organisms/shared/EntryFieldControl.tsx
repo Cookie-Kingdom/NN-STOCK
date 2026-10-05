@@ -114,7 +114,12 @@ export function EntryFieldControl({
           rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
         />
       ) : f.options ? (
-        <Combobox {...input} onChange={pick} options={options} />
+        <Combobox
+          {...input}
+          onChange={pick}
+          options={options}
+          strict={f.strict}
+        />
       ) : (
         <Input {...input} onChange={onChange} />
       )}

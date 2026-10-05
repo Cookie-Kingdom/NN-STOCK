@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { Composer } from "@/components/organisms/workspace/Composer";
 import {
   WithWorkspace,
@@ -66,10 +67,45 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Inventory ของมีนบุรี: ตารางวัสดุหน้าตาเดียวกับของ Owner (SKU, สินค้า, คงเหลือพร้อมยอดนับล่าสุด,
+/** Inventory ของมีนบุรี: ตารางวัสดุหน้าตาเดียวกับของ Owner (SKU, รายการ, คงเหลือพร้อมยอดนับล่าสุด,
  *  สถานะ) เพิ่มช่อง「นับได้」· ช่องสีแดง = ไม่เหลือ สีเหลือง = ไม่ได้นับเกิน 7 วัน ·
- *  ใส่ยอดแล้วกด「บันทึกยอดนับ」· ช่องค้นหาใช้ชื่อหรือ SKU */
+ *  ใส่ยอดแล้วกด「บันทึกยอดนับ」· ช่องค้นหาใช้ชื่อหรือ SKU ·
+ *  ไม่มีของรอยืนยันรับและไม่มีสินทรัพย์อื่น จึงไม่มีสองกล่องนั้น */
 export const NotCounted: Story = {};
+
+/** Inventory ของศาลาแดง: บนสุดคือกล่องสีเหลือง「รอยืนยันรับสินค้า」แถวละรายการที่ส่งมาแบบ
+ *  「สาขาต้องกดยืนยันรับ」(วันที่ · รายการพร้อม SKU · จำนวน · จากคลัง · ปุ่ม「ยืนยันรับ」):
+ *  ถุงสูญญากาศ 300 จากคลังกลาง · ใต้ตารางวัสดุคือ「สินทรัพย์อื่นของสาขา」ดูได้อย่างเดียว
+ *  (SKU · รายการ · คงเหลือ): ของที่ไม่ใช่วัสดุใน Settings และสาขามียอดไม่เป็น 0:
+ *  เครื่องซีลสูญญากาศ 1 (ซื้อเข้าสาขาโดยตรง) ตู้เย็น 1 (ยืนยันรับแล้ว) ติดลบเป็นสีแดง · ช่องค้นหากรองตารางนี้ด้วย */
+export const PendingReceipt: Story = {
+  args: { account: "saladaeng" },
+  parameters: { db: dbFor("saladaeng") },
+};
+
+/** กด「ยืนยันรับ」: กล่องรอยืนยันรับหายไป (ไม่มีรายการค้างแล้ว) ถุงสูญญากาศขึ้นใน
+ *  「สินทรัพย์อื่นของสาขา」300 และมีข้อความ「จดแล้ว: ยืนยันรับสินค้า」(ข้อความแจ้งอยู่ที่ WorkspaceShell) */
+export const ConfirmReceipt: Story = {
+  ...PendingReceipt,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const others = () =>
+      within(canvas.getByRole("region", { name: "สินทรัพย์อื่นของสาขา" }));
+    await expect(others().queryByText("ถุงสูญญากาศ")).toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "ยืนยันรับ ถุงสูญญากาศ" }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("region", { name: "รอยืนยันรับสินค้า" }),
+      ).toBeNull(),
+    );
+    const cells = within(
+      others().getByRole("row", { name: /ถุงสูญญากาศ/ }),
+    ).getAllByRole("cell");
+    await expect(cells.at(-1)).toHaveTextContent("300");
+  },
+};
 
 /** Inventory ของศาลาแดง: นับวัสดุครบแล้ววันนี้ ใต้ตัวเลขเป็น「นับวันนี้」สถานะ「พร้อมใช้」 */
 export const CountedToday: Story = {
@@ -99,8 +135,11 @@ export const StockNeverCounted: Story = {
   parameters: { db: dbFor("saladaeng", seed) },
 };
 
-/** จอ 390px: ตารางเหลือ สินค้า คงเหลือ นับได้ (ไม่มี SKU และสถานะ) */
+/** จอ 390px: ตารางเหลือ รายการ คงเหลือ นับได้ (ไม่มี SKU และสถานะ) */
 export const Phone: Story = { ...phone };
+
+/** จอ 390px ของศาลาแดง: กล่องรอยืนยันรับเหลือ รายการ จำนวน และปุ่ม「ยืนยันรับ」สูง 44px */
+export const PhonePendingReceipt: Story = { ...PendingReceipt, ...phone };
 
 /** จอ 390px หน้า Stock */
 export const StockPhone: Story = { ...phone, args: { page: "stock" } };

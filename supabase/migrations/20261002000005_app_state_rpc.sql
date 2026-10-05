@@ -11,7 +11,7 @@
 --   in the log stay.
 -- * append_entries: a branch sends only its new entries. Its kinds are the v2 ones; a payment
 --   stays in the branch's four categories; an edit names a live note of the branch and only a
---   `receive` changes Lot.
+--   `receive` changes Lot; a `transferReceive` names a live transfer sent to the branch.
 --
 -- JS ports for the local SQLite mode: loadState / saveState / appendState in
 -- src/lib/local-db.server.ts. Keep them in step.
@@ -175,7 +175,7 @@ begin
   -- V2-ACC-07: a branch's notes, and the changes to its own entries.
   if exists (select 1 from jsonb_array_elements(p_entries) n
     where not coalesce(n ->> 'kind' = any (array['receive', 'sale', 'influencerBox', 'materials', 'meatCount',
-      'pay', 'entryEdit', 'void']), false)
+      'pay', 'transferReceive', 'entryEdit', 'void']), false)
   ) then raise exception 'Entry kind is not allowed for this account' using errcode = '42501'; end if;
   if exists (select 1 from jsonb_array_elements(p_entries) n
     where coalesce(n ->> 'id', '') = ''
@@ -200,6 +200,17 @@ begin
     if coalesce(case e ->> 'kind' when 'pay' then e -> 'values' ->> 'category'
         when 'entryEdit' then e -> 'values' ->> 'to.category' end, '') <> all (categories) then
       raise exception 'Payment category is not allowed for this account' using errcode = '42501'; end if;
+    -- A receipt names (`transferId`) a live transfer sent to this branch, as saved or as an edit put it.
+    target := null;
+    select x into target from jsonb_array_elements(old_entries || added) x
+      where x ->> 'id' = e -> 'values' ->> 'transferId' limit 1;
+    if e ->> 'kind' = 'transferReceive' and not coalesce(target ->> 'kind' = 'transfer'
+        and target ->> 'role' is distinct from 'branch' and not public.entry_voided(old_entries || added, target)
+        and (coalesce(target -> 'values' ->> 'to' = e ->> 'branch', false)
+          or exists (select 1 from jsonb_array_elements(old_entries || added) x
+            where x ->> 'kind' = 'entryEdit' and x -> 'values' ->> 'targetId' = target ->> 'id'
+              and x -> 'values' ->> 'to.to' = e ->> 'branch')), false) then
+      raise exception 'Transfer is not one sent to this branch' using errcode = '42501'; end if;
     target := null;
     select x into target from jsonb_array_elements(old_entries || added) x
       where x ->> 'id' = e -> 'values' ->> 'targetId' limit 1;

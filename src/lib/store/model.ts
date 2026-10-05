@@ -58,6 +58,8 @@ const entryKinds = [
   "smoked",
   "meatInvoice",
   "reimburse",
+  "transfer",
+  "transferReceive",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
@@ -81,7 +83,9 @@ export const noteKinds = [
   "meatCount",
   "influencerBox",
   "materials",
+  "transferReceive",
   "expense",
+  "transfer",
 ] as const;
 export type NoteKind = (typeof noteKinds)[number];
 export const isNoteKind = (kind: EntryKind): kind is NoteKind =>
@@ -132,7 +136,9 @@ export const kindInfo: Record<
   meatCount: { group: "branch" },
   influencerBox: { group: "branch" },
   materials: { group: "branch" },
+  transferReceive: { group: "branch" },
   expense: { group: "ledger" },
+  transfer: { group: "ledger" },
 };
 /** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker:
  *  Daily Log is for looking), each with its kinds in the order its buttons stand. */
@@ -177,9 +183,11 @@ export const kindsFor = (by: Actor): NoteKind[] =>
 /** The kinds the picker of `page` offers `by`, in the page's order. Overview, Daily Log,
  *  Settings and any other page: none. */
 export const kindsForPage = (by: Actor, page: string): NoteKind[] => {
-  // The Owner's `pay` is jotted from Finance, not from the Stock and Inventory it only looks at.
-  if ((page === "stock" || page === "meatStock") && by.role !== "branch")
-    return [];
+  // The Owner's `pay` is jotted from Finance, not from the Stock and Inventory it only looks
+  // at; on Inventory it moves stock between the warehouses. A branch's receipt of a transfer
+  // (`transferReceive`) is on no page's buttons: the pending transfer has its own.
+  if (page === "meatStock" && by.role !== "branch") return [];
+  if (page === "stock" && by.role !== "branch") return ["transfer"];
   const may = kindsFor(by);
   return (pageNoteKinds[page as NotePage] ?? []).filter((kind) =>
     may.includes(kind),
@@ -231,6 +239,15 @@ export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
     e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
   }`;
 export const branches = ["ศาลาแดง", "มีนบุรี"];
+/** Where stock is kept (a "place"): the central warehouse, or a branch by its name. */
+export const centralPlace = "central";
+export const places = [centralPlace, ...branches];
+/** Label of a place: "คลังกลาง" or `สาขา${branch}`. */
+export const placeLabel = (place: string) =>
+  place === centralPlace ? "คลังกลาง" : `สาขา${place}`;
+/** The project every PO belongs to: the sidebar section of the shop's pages (nav.ts). What an
+ *  `expense` buys for it is its stock (stockMoves). */
+export const shopProject = "Nerdnuea x LINE MAN";
 /** Kinds jotted on a PO รมควัน. Sent with `lotId === ""` they open a new one. */
 export const batchKinds: EntryKind[] = noteKinds.filter(
   (kind) => kindInfo[kind].lot === "batch",
@@ -256,6 +273,8 @@ export const titles: Record<EntryKind, string> = {
   meatCount: "นับเนื้อคงเหลือ",
   influencerBox: "กล่องแจก",
   materials: "นับวัสดุคงเหลือ",
+  transfer: "จัดสรรสินค้า",
+  transferReceive: "ยืนยันรับสินค้า",
   config: "บันทึกการตั้งค่า",
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
@@ -295,10 +314,10 @@ export const titles: Record<EntryKind, string> = {
   steakTransfer: "steakTransfer",
 };
 /** Kinds whose values can be corrected after they were saved (V2-PG-03): every note but the
- *  material count, which is saved again from the Stock page, each round kept. The edit is an
- *  `entryEdit` laid over the entry. */
+ *  material count, which is saved again from the Stock page, each round kept, and a transfer's
+ *  receipt, which is deleted instead. The edit is an `entryEdit` laid over the entry. */
 export const editableKinds: EntryKind[] = noteKinds.filter(
-  (kind) => kind !== "materials",
+  (kind) => kind !== "materials" && kind !== "transferReceive",
 );
 /** Kinds a `void` may name: all but the settings (saved again from their page). A delete
  *  included: that puts the entry back. */

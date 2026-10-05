@@ -24,8 +24,12 @@ import {
  *                gets its own name or an empty list, never the other branch's (V2-BR-08).
  *  - stockKinds  kinds of the Owner / Account Manager stamped with the branch that reach it for
  *                stock only: visibleEntries() never lists them.
- *  - stockKeys   the only value keys those keep: what was bought, how many, and what an edit or
- *                a delete of the line needs to apply.
+ *  - stockKeys   the only value keys those keep: what was bought, how many, into which
+ *                warehouse, and what an edit or a delete of the line needs to apply. Never an
+ *                amount, a vendor or a document.
+ *  - wholeKinds  kinds of the Owner / Account Manager sent whole (they hold no money) when
+ *                `from` or `to` names the branch, as saved or as an edit put it (`to.from`,
+ *                `to.to`): a transfer out of or into its stock.
  *
  * `entryEdit` and `void` are never listed: one is sent when the entry it names (`targetId`) is
  * sent, cut the same way, and so is a void naming one of those (an undone edit, a restored
@@ -36,8 +40,17 @@ export const branchScope: {
   configKeys: string[];
   stockKinds: EntryKind[];
   stockKeys: string[];
+  wholeKinds: EntryKind[];
 } = {
-  kinds: ["receive", "sale", "influencerBox", "materials", "meatCount", "pay"],
+  kinds: [
+    "receive",
+    "sale",
+    "influencerBox",
+    "materials",
+    "meatCount",
+    "pay",
+    "transferReceive",
+  ],
   hiddenKeys: [
     "price",
     "invoiceAmount",
@@ -57,20 +70,31 @@ export const branchScope: {
     "payCategories",
     "rawRiceBranches",
   ],
-  stockKinds: ["pay"],
+  stockKinds: ["pay", "expense"],
   stockKeys: [
     "category",
     "item",
     "qty",
     "branch",
+    "sku",
+    "warehouse",
+    "purpose",
+    "project",
+    "status",
     "targetId",
     "targetKind",
     "to.category",
     "to.item",
     "to.qty",
+    "to.sku",
+    "to.warehouse",
+    "to.purpose",
+    "to.project",
+    "to.status",
     "fromDate",
     "toDate",
   ],
+  wholeKinds: ["transfer"],
 };
 
 const isObject = (values: unknown): values is Values =>
@@ -111,7 +135,19 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
   const rule = branchScope;
   const all = db.entries ?? [];
   const targetId = (e: Entry) => e?.values?.targetId;
-  // Entry id → sent whole (an own entry) or cut down to `stockKeys` (a stock line).
+  const own = (...places: (string | undefined)[]) =>
+    places.some((place) => branches.includes(place!));
+  // The entries an edit moved to (or from) one of the branches.
+  const moved = new Set(
+    all
+      .filter(
+        (e) =>
+          e?.kind === "entryEdit" &&
+          own(e.values?.["to.from"], e.values?.["to.to"]),
+      )
+      .map(targetId),
+  );
+  // Entry id → sent whole (an own entry, a transfer) or cut down to `stockKeys` (a stock line).
   const direct = new Map<string, boolean>();
   for (const e of all)
     if (branches.includes(e?.branch)) {
@@ -119,7 +155,12 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
         direct.set(e.id, true);
       else if (e.role !== "branch" && rule.stockKinds.includes(e.kind))
         direct.set(e.id, false);
-    }
+    } else if (
+      e?.role !== "branch" &&
+      rule.wholeKinds.includes(e?.kind) &&
+      (own(e.values?.from, e.values?.to) || moved.has(e.id))
+    )
+      direct.set(e.id, true);
   // An edit or a delete naming one of those, whoever made it, cut like its target.
   const follow = new Map<string, boolean>();
   for (const e of all)
