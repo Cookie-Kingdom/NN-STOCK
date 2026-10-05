@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  choices,
   fill,
   form,
   jot,
@@ -37,7 +38,7 @@ const pagesOf = {
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
 const optionsOf = (page: Page, label: RegExp) =>
-  form(page).getByLabel(label).locator("option").allInnerTexts();
+  choices(form(page).getByLabel(label));
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 

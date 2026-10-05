@@ -154,7 +154,10 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await expect(owed).toHaveText(["น้องฝน", "฿400", "฿0", "฿400", "คืนเงิน"]);
   await page.getByRole("button", { name: "คืนเงิน น้องฝน" }).click();
   await expect(popupTitle(page)).toHaveText("คืนเงินพนักงาน");
-  await expect(form(page).getByLabel(/^คืนให้ใคร/)).toHaveValue("น้องฝน");
+  await expect(form(page).getByLabel(/^คืนให้ใคร/)).toHaveAttribute(
+    "data-value",
+    "น้องฝน",
+  );
   await expect(form(page).getByLabel(/^ยอดที่คืน/)).toHaveValue("400");
   await fill(page, [/^ยอดที่คืน/, "250"]);
   await save(page);

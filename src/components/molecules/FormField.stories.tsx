@@ -68,10 +68,11 @@ export const FormGrid: Story = {
         <Input type="date" />
       </FormField>
       <FormField label="สาขา">
-        <Select>
-          <option>ศาลาแดง</option>
-          <option>มีนบุรี</option>
-        </Select>
+        <Select
+          value="ศาลาแดง"
+          onChange={() => {}}
+          options={[{ value: "ศาลาแดง" }, { value: "มีนบุรี" }]}
+        />
       </FormField>
       <FormField as="div" label="น้ำหนักต่อแพ็ก" hint="กรอกทีละแพ็ก">
         <div className="flex gap-2">
@@ -107,14 +108,18 @@ export const Group: Story = {
     <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
       <FormField as="div" label="สาขาและรอบส่ง">
         <div className="flex gap-2">
-          <Select aria-label="สาขา">
-            <option>ศาลาแดง</option>
-            <option>มีนบุรี</option>
-          </Select>
-          <Select aria-label="รอบส่ง">
-            <option>รอบเช้า</option>
-            <option>รอบบ่าย</option>
-          </Select>
+          <Select
+            aria-label="สาขา"
+            value="ศาลาแดง"
+            onChange={() => {}}
+            options={[{ value: "ศาลาแดง" }, { value: "มีนบุรี" }]}
+          />
+          <Select
+            aria-label="รอบส่ง"
+            value="รอบเช้า"
+            onChange={() => {}}
+            options={[{ value: "รอบเช้า" }, { value: "รอบบ่าย" }]}
+          />
         </div>
       </FormField>
       <FormField

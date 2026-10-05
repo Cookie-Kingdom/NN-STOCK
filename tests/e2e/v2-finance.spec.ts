@@ -188,7 +188,10 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   // The reminder opens the payment form on that category.
   await bell.click();
   await reminder.click();
-  await expect(form(page).getByLabel(/^หมวด/)).toHaveValue("rent");
+  await expect(form(page).getByLabel(/^หมวด/)).toHaveAttribute(
+    "data-value",
+    "rent",
+  );
   await fill(page, [/^ยอด \(บาท\)/, "20500"]);
   await save(page);
   await expect(reminder).toHaveCount(0);
