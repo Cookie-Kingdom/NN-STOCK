@@ -70,6 +70,12 @@ export const FigureTable = (props: ComponentProps<"table">) => (
   </div>
 );
 
+export const percent = (x: number) =>
+  `${x.toLocaleString("th-TH", { maximumFractionDigits: Math.abs(x) < 10 ? 1 : 0 })}%`;
+/** `part` of `whole` as a percentage; nothing when there is no whole. */
+export const share = (part: number, whole: number) =>
+  whole ? percent((part / whole) * 100) : "";
+
 /** Green in, red out, a dash for nothing. */
 const Money = ({ x }: { x: number }) => (
   <Num tone={x > 0 ? "in" : x < 0 ? "out" : undefined}>{x ? baht(x) : "—"}</Num>
@@ -103,27 +109,48 @@ export function PlTable({
   ].filter((id) => id !== capexCategory && (payroll || id !== payrollCategory));
   const of = (pl: typeof a, id: string) => pl.byCategory[id] ?? 0;
   const paid = (pl: typeof a) => ids.reduce((all, id) => all + of(pl, id), 0);
+  /* This period's line as a share of this period's sales, signed like the figure beside it.
+   * `full` only: beside the categories alone it would give the sales away (V2-ACC-01).
+   * Hidden on a phone, as the secondary columns of the other figure tables are. */
+  const ofSales = (x: number) =>
+    full && (
+      <Num className="max-md:hidden">
+        {x && a.sales
+          ? `${x < 0 ? "−" : ""}${share(Math.abs(x), a.sales)}`
+          : "—"}
+      </Num>
+    );
   const line = (name: string, x: number, y: number, total = false) => (
     <tr key={name} className={cn(total && "bg-surface-sunken font-semibold")}>
       <td className={td}>{name}</td>
       <Money x={x} />
+      {ofSales(x)}
       <Money x={y} />
     </tr>
   );
   return (
     <FigureCard
       title={full ? `P&L ราย${span}` : "จ่ายเงินแยกหมวด"}
-      note={`นับตาม${span}ที่จ่ายเงิน`}
+      note={
+        full
+          ? `นับตาม${span}ที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี`
+          : `นับตาม${span}ที่จ่ายเงิน`
+      }
     >
       <FigureTable>
         <thead>
           <tr>
             <th className={th}>รายการ</th>
-            {months.map((m) => (
+            {months.map((m, i) => [
               <th key={m} className={cn(th, "text-right")}>
                 {periodName(m)}
-              </th>
-            ))}
+              </th>,
+              full && !i && (
+                <th key="share" className={cn(th, "text-right max-md:hidden")}>
+                  % ของยอดขาย
+                </th>
+              ),
+            ])}
           </tr>
         </thead>
         <tbody>
@@ -141,6 +168,7 @@ export function PlTable({
               <tr key={id}>
                 <td className={td}>{names[id] ?? id}</td>
                 <Num tone="warning">{missingText}</Num>
+                {ofSales(0)}
                 <Money x={-of(b, id)} />
               </tr>
             ) : (

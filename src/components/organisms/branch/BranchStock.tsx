@@ -22,6 +22,7 @@ import {
   mutate,
   rawRiceBranches,
   titles,
+  type CountVariance,
   type Values,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -60,11 +61,14 @@ export function StockTable({
   columns,
   right = [],
   wideOnly = [],
+  wrap = [],
   children,
 }: {
   columns: string[];
   right?: string[];
   wideOnly?: string[];
+  /** Columns whose long header may break, so it does not set the column's width. */
+  wrap?: string[];
   children: ReactNode;
 }) {
   return (
@@ -79,6 +83,7 @@ export function StockTable({
                   th,
                   right.includes(column) && "text-right",
                   wideOnly.includes(column) && "max-md:hidden",
+                  wrap.includes(column) && "whitespace-normal",
                 )}
               >
                 {column}
@@ -100,11 +105,65 @@ export const Left = ({ n }: { n: number }) => (
 );
 
 /** What is left at one place and its last count (`branchMaterial`, `branchChili`). */
-export type Held = { qty: number; countedOn: string; stale: boolean };
+export type Held = {
+  qty: number;
+  countedOn: string;
+  stale: boolean;
+  variance?: CountVariance;
+};
+
+/** "+3", "−2.5", "0": a difference to two decimals, as `fmt` rounds. */
+const signed = (x: number) => {
+  const r = Math.round(x * 100) / 100;
+  return r === 0 ? "0" : `${r < 0 ? "−" : "+"}${fmt(Math.abs(r))}`;
+};
+
+/** `fmt` with the minus sign `signed` writes (U+2212), so both lines of a `Variance` agree. */
+const minus = (x: number) => fmt(x).replace("-", "−");
+
+/** The latest count against what the web expected just before it: the signed difference,
+ *  and under it the two figures it comes from. A plain figure in the text colour, never a
+ *  warning (V2-RUL-05). `label` is for a cell that holds other figures: it names the
+ *  difference and leaves the date to the cell; without it the count's date is said here. */
+export function Variance({
+  variance,
+  unit,
+  label,
+}: {
+  variance: CountVariance;
+  unit: string;
+  label?: boolean;
+}) {
+  return (
+    <span data-variance={signed(variance.diff)} className="text-text-primary">
+      {label && "ส่วนต่าง "}
+      {signed(variance.diff)} {unit}
+      {/* May wrap in a narrow table, but only between its parts, so it never sets the
+          column's width. */}
+      <span className="block text-caption font-normal whitespace-normal text-text-secondary">
+        <span className="whitespace-nowrap">{`ควรเหลือ ${minus(variance.expected)} ·`}</span>{" "}
+        <span className="whitespace-nowrap">{`นับได้ ${minus(variance.counted)}${label ? "" : " ·"}`}</span>
+        {!label && " "}
+        {!label && (
+          <span className="whitespace-nowrap">{`นับ ${thaiDay(variance.date)}`}</span>
+        )}
+      </span>
+    </span>
+  );
+}
 
 /** One place's cell of a row: the figure, and under it the last count. Red with nothing
- *  left, yellow with a late count; no cell at all (a dash) where the item cannot be. */
-export function HeldCell({ held, today }: { held?: Held; today: string }) {
+ *  left, yellow with a late count; no cell at all (a dash) where the item cannot be.
+ *  `varianceUnit` (the Owner's pages only) adds the last count's `Variance` in that unit. */
+export function HeldCell({
+  held,
+  today,
+  varianceUnit,
+}: {
+  held?: Held;
+  today: string;
+  varianceUnit?: string;
+}) {
   if (!held)
     return (
       <Cell right>
@@ -122,6 +181,11 @@ export function HeldCell({ held, today }: { held?: Held; today: string }) {
             ? "นับวันนี้"
             : `นับ ${thaiDay(countedOn)}${stale ? " · เกิน 7 วัน" : ""}`}
       </span>
+      {varianceUnit && held.variance && (
+        <span className="mt-1 block text-caption font-normal">
+          <Variance variance={held.variance} unit={varianceUnit} label />
+        </span>
+      )}
     </Cell>
   );
 }

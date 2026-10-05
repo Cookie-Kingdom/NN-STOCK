@@ -65,10 +65,17 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "รายการ",
     "คงเหลือ",
     "การนับ",
+    "ส่วนต่างตอนนับล่าสุด",
   ]);
   await expect(
     meat.getByRole("row", { name: /^สาขามีนบุรี/ }).getByRole("cell"),
-  ).toHaveText(["สาขามีนบุรี", "เนื้อพร้อมขาย", "0", "วันนี้ยังไม่ได้นับ"]);
+  ).toHaveText([
+    "สาขามีนบุรี",
+    "เนื้อพร้อมขาย",
+    "0",
+    "วันนี้ยังไม่ได้นับ",
+    "ยังไม่เคยนับ",
+  ]);
   const rice = region(page, "ข้าวเหนียวและน้ำพริก");
   await expect(rice.getByRole("columnheader")).toHaveText([
     "สินค้า",

@@ -38,6 +38,7 @@ import {
   type Values,
 } from "@/lib/store";
 import { fields } from "@/lib/forms";
+import { stripForManager } from "@/lib/manager-scope";
 import { sampleData } from "@/lib/store/demo";
 
 // Smoke checks of the domain on the approved sample. The figures do not depend on the date.
@@ -1002,6 +1003,135 @@ describe("figures (V2-CAL)", () => {
     });
     expect(branchRice(jotted, "ศาลาแดง", "2026-09-17").stale).toBe(true);
     expect(branchRice(jotted, "มีนบุรี", "2026-09-16").qty).toBe(0);
+  });
+
+  it("variance: the latest count against what the walk expected just before it", () => {
+    const jotted = (
+      d: Database,
+      kind: Parameters<typeof mutate>[2],
+      values: Values,
+      date: string,
+    ) => mutate(d, saladaeng, kind, values, "", date);
+    const meat = (d: Database) =>
+      branchMeat(d, "ศาลาแดง", "2026-09-13").variance;
+    // A first count has nothing true before it: no variance, as a line never counted.
+    expect(meat(built)).toBeUndefined();
+    expect(branchMeat(built, "มีนบุรี", "2026-09-13").variance).toBeUndefined();
+    // A backdated count before the receipt gives the later count its start: 5 + 10.
+    const two = jotted(built, "meatCount", { kg: "5" }, "2026-09-06");
+    expect(meat(two)).toEqual({
+      expected: 15,
+      counted: 8,
+      diff: -7,
+      date: "2026-09-08",
+    });
+    // An edited count is read as edited.
+    const count = entries(built, "meatCount", undefined, "ศาลาแดง").at(-1)!;
+    expect(
+      meat(
+        jotted(
+          two,
+          "entryEdit",
+          { targetId: count.id, values: JSON.stringify({ kg: "15" }) },
+          "2026-09-13",
+        ),
+      ),
+    ).toMatchObject({ expected: 15, counted: 15, diff: 0 });
+    // Deleting the earlier of the two leaves a first count again; deleting the later one
+    // leaves the earlier, which is a first count too.
+    expect(
+      meat(jotted(two, "void", { targetId: last(two).id }, "2026-09-13")),
+    ).toBeUndefined();
+    expect(
+      meat(jotted(two, "void", { targetId: count.id }, "2026-09-13")),
+    ).toBeUndefined();
+
+    // A material: a backdated count the day before the last one, then deleted again.
+    const m1 = (d: Database) =>
+      branchMaterial(d, "ศาลาแดง", "m1", "2026-09-16").variance;
+    expect(m1(built)).toBeUndefined();
+    const earlier = jotted(
+      built,
+      "materials",
+      { "count.m1": "60" },
+      "2026-09-08",
+    );
+    expect(m1(earlier)).toMatchObject({ expected: 60, counted: 50, diff: -10 });
+    expect(
+      m1(jotted(earlier, "void", { targetId: last(earlier).id }, "2026-09-16")),
+    ).toBeUndefined();
+    // A second count: 50 − 10 − 5 − 2 + 100 expected.
+    expect(
+      m1(jotted(built, "materials", { "count.m1": "130" }, "2026-09-14")),
+    ).toEqual({ expected: 133, counted: 130, diff: -3, date: "2026-09-14" });
+    expect(
+      branchMaterial(built, "ศาลาแดง", "m3", "2026-09-16").variance,
+    ).toBeUndefined();
+
+    // Chili: counted at the end of a sale form, so that sale's own tubes come off first:
+    // 40 − 3 + 10 − 2.
+    expect(
+      branchChili(built, "ศาลาแดง", "2026-09-14").variance,
+    ).toBeUndefined();
+    expect(
+      branchChili(
+        jotted(
+          built,
+          "sale",
+          { chiliAddons: "2", chiliCount: "40" },
+          "2026-09-14",
+        ),
+        "ศาลาแดง",
+        "2026-09-14",
+      ).variance,
+    ).toEqual({ expected: 45, counted: 40, diff: -5, date: "2026-09-14" });
+    // Raw rice has none: the web takes nothing off it, so there is no expected figure.
+    expect(branchRice(built, "ศาลาแดง", "2026-09-16")).not.toHaveProperty(
+      "variance",
+    );
+  });
+
+  it("variance: the Account Manager's copy, without the sale money, gives the Owner's figures", () => {
+    // A second count of each line, so each has a variance; the chili's is on a sale with money.
+    let d = mutate(
+      built,
+      saladaeng,
+      "meatCount",
+      { kg: "9" },
+      "",
+      "2026-09-14",
+    );
+    d = mutate(
+      d,
+      saladaeng,
+      "sale",
+      { boxes: "6", chiliAddons: "2", chiliCount: "40", lineMan: "2100" },
+      "",
+      "2026-09-14",
+    );
+    d = mutate(
+      d,
+      saladaeng,
+      "materials",
+      { "count.m1": "120" },
+      "",
+      "2026-09-15",
+    );
+    const copy = stripForManager(d);
+    expect(JSON.stringify(d.entries)).toContain('"2100"');
+    expect(JSON.stringify(copy.entries)).not.toContain('"2100"');
+    const figures = (x: Database) => ({
+      meat: branchMeat(x, "ศาลาแดง", "2026-09-16"),
+      chili: branchChili(x, "ศาลาแดง", "2026-09-16"),
+      boxes: branchMaterial(x, "ศาลาแดง", "m1", "2026-09-16"),
+    });
+    const { meat, chili, boxes } = figures(d);
+    // 8 + 5 − (10 × 0.12 + 0.3) − 1 − 2 × 0.12; 40 − 3 + 10 − 2; 50 − 10 − 5 − 2 + 100 − 6.
+    expect(meat.variance).toMatchObject({ counted: 9 });
+    expect(meat.variance!.expected).toBeCloseTo(10.26);
+    expect(chili.variance).toMatchObject({ expected: 45, counted: 40 });
+    expect(boxes.variance).toMatchObject({ expected: 127, counted: 120 });
+    expect(figures(copy)).toEqual({ meat, chili, boxes });
   });
 
   it("BR-08: only a branch that uses raw rice counts it, and only the Owner says which", () => {

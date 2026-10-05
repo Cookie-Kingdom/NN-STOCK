@@ -588,15 +588,33 @@ const branchWalk = (db: Database, branch: string) =>
 /** V2-CAL-10 / V2-BR-02: the last count is the truth; receipts add to it, sales and gifts take from it. */
 export function branchMeat(db: Database, branch: string, today: string) {
   let kg = 0,
-    counted: Entry | undefined;
+    counted: Entry | undefined,
+    variance: CountVariance | undefined;
   for (const e of branchWalk(db, branch))
     if (e.kind === "meatCount" && typed(e.values, "kg")) {
-      kg = num(e.values, "kg");
+      const now = num(e.values, "kg");
+      variance = counted && varianceAt(kg, now, e.date);
+      kg = now;
       counted = e;
     } else if (e.kind === "receive") kg += num(e.values, "kg");
     else kg -= meatUsedKg(db.config, e);
-  return { kg, counted, countedToday: counted?.date === today };
+  return { kg, counted, countedToday: counted?.date === today, variance };
 }
+/** The latest count of a stock line against the walk just before it: what the web expected
+ *  to be left (the count before it, plus what came in, less what was used), what was
+ *  counted, and `diff` = counted − expected. Only a count with a live count before it has
+ *  one: a first count has nothing true to start from, so the web invents no figure. */
+export type CountVariance = {
+  expected: number;
+  counted: number;
+  diff: number;
+  date: string;
+};
+const varianceAt = (
+  expected: number,
+  counted: number,
+  date: string,
+): CountVariance => ({ expected, counted, diff: counted - expected, date });
 /** A count is late when there is none, or the last one is more than 7 days before `today`. */
 const staleCount = (countedOn: string, today: string) =>
   !countedOn || Date.parse(today) - Date.parse(countedOn) > 7 * 86400000;
@@ -611,31 +629,40 @@ export function branchMaterial(
   const perBox =
     materialList(db.config).find((m) => m.id === materialId)?.perBox ?? 0;
   let qty = 0,
-    countedOn = "";
+    countedOn = "",
+    variance: CountVariance | undefined;
   for (const e of branchWalk(db, branch))
     if (e.kind === "materials" && typed(e.values, `count.${materialId}`)) {
-      qty = num(e.values, `count.${materialId}`);
+      const now = num(e.values, `count.${materialId}`);
+      variance = countedOn ? varianceAt(qty, now, e.date) : undefined;
+      qty = now;
       countedOn = e.date;
     } else if (e.kind === "pay" && e.values.item === materialId)
       qty += num(e.values, "qty");
     else if (e.kind === "sale" || e.kind === "influencerBox")
       qty -= num(e.values, "boxes") * perBox;
-  return { qty, countedOn, stale: staleCount(countedOn, today) };
+  return { qty, countedOn, stale: staleCount(countedOn, today), variance };
 }
 /** V2-CAL-12: chili is counted in the sale form only; payments add, sales and gifts take.
  *  Stale as a material is. */
 export function branchChili(db: Database, branch: string, today: string) {
   let qty = 0,
-    countedOn = "";
+    countedOn = "",
+    variance: CountVariance | undefined;
   for (const e of branchWalk(db, branch))
     if (e.kind === "sale" && typed(e.values, "chiliCount")) {
-      qty = num(e.values, "chiliCount");
+      // The count is the end of that day's sale form: its own tubes were sold before it.
+      const now = num(e.values, "chiliCount");
+      variance = countedOn
+        ? varianceAt(qty - num(e.values, "chiliAddons"), now, e.date)
+        : undefined;
+      qty = now;
       countedOn = e.date;
     } else if (e.kind === "sale" || e.kind === "influencerBox")
       qty -= num(e.values, "chiliAddons");
     else if (e.kind === "pay" && e.values.item === "chili")
       qty += num(e.values, "qty");
-  return { qty, countedOn, stale: staleCount(countedOn, today) };
+  return { qty, countedOn, stale: staleCount(countedOn, today), variance };
 }
 /** V2-CAL-19: raw sticky rice (kg) is counted only, in the materials count: the last count
  *  plus what payments bought for the branch since. Nothing is taken off between counts (cooked

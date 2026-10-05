@@ -1,6 +1,6 @@
 "use client";
 
-import { Caption } from "@/components/atoms/Text";
+import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import {
   Cell,
@@ -8,6 +8,7 @@ import {
   Left,
   StatusCells,
   StockTable,
+  Variance,
 } from "@/components/organisms/branch/BranchStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import {
@@ -51,8 +52,15 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
         aside={<Caption>ตั้งแต่ร้านขายเนื้อจนถึงสาขา</Caption>}
       >
         <StockTable
-          columns={["อยู่ที่ไหน", "รายการ", "คงเหลือ", "การนับ"]}
-          right={["คงเหลือ"]}
+          columns={[
+            "อยู่ที่ไหน",
+            "รายการ",
+            "คงเหลือ",
+            "การนับ",
+            "ส่วนต่างตอนนับล่าสุด",
+          ]}
+          right={["คงเหลือ", "ส่วนต่างตอนนับล่าสุด"]}
+          wrap={["ส่วนต่างตอนนับล่าสุด"]}
         >
           {held.map(({ lot, kg }) => (
             <tr key={lot.id}>
@@ -62,6 +70,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
               </Cell>
               <Left n={kg} />
               <Cell />
+              <Cell />
             </tr>
           ))}
           {smoked.map((info) => (
@@ -69,6 +78,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
               <Cell>สต๊อกกลาง</Cell>
               <Cell>{info.lot.poId}</Cell>
               <Left n={info.centralKg} />
+              <Cell />
               <Cell />
             </tr>
           ))}
@@ -81,6 +91,15 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
                 <Left n={meat.kg} />
                 <Cell tone={meat.countedToday ? "success" : "warning"}>
                   {meat.countedToday ? "นับแล้ววันนี้" : "วันนี้ยังไม่ได้นับ"}
+                </Cell>
+                <Cell right>
+                  {meat.variance ? (
+                    <Variance variance={meat.variance} unit="กก." />
+                  ) : (
+                    <Muted as="span" className="font-normal">
+                      {meat.counted ? "นับครั้งแรก" : "ยังไม่เคยนับ"}
+                    </Muted>
+                  )}
                 </Cell>
               </tr>
             );
@@ -110,7 +129,12 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           <tr>
             <Cell className="font-semibold">น้ำพริก (หลอด)</Cell>
             {places.map((place) => (
-              <HeldCell key={place} held={chili[place]} today={today} />
+              <HeldCell
+                key={place}
+                held={chili[place]}
+                today={today}
+                varianceUnit="หลอด"
+              />
             ))}
             <StatusCells at={chili} places={places} />
           </tr>
@@ -121,7 +145,10 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
         ข้าวเหนียวดิบ: ยอดนับล่าสุด บวกที่ซื้อเข้าสาขาหลังจากนั้น
         เว็บไม่ตัดยอดเอง · 「—」 = สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (ตั้งที่
         Settings) · ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ·
-        ช่องสีแดง = ไม่เหลือ
+        ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด
+        (ควรเหลือคือยอดที่เว็บคิดไว้ก่อนนับ)
+        เริ่มมีส่วนต่างตั้งแต่การนับครั้งที่สอง ·
+        ข้าวเหนียวดิบไม่มีส่วนต่างเพราะเว็บไม่ตัดยอดเอง
       </Caption>
     </div>
   );
