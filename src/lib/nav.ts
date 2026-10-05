@@ -89,10 +89,10 @@ export const pages: Record<
     description: "รายการซื้อทั้งหมดของร้าน",
     icon: BookText,
   },
-  // The same name as the project's, outside the section: /owner/inventory.
+  // Outside the section: /owner/assets-management.
   companyStock: {
-    label: "Inventory",
-    description: "สินทรัพย์ที่ซื้อเข้าบริษัทส่วนกลาง",
+    label: "Assets Management",
+    description: "สินทรัพย์ของบริษัทส่วนกลาง",
     icon: Building2,
   },
   settings: {

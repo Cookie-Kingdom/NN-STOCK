@@ -118,10 +118,10 @@ export const TransferButton: Story = {
   },
 };
 
-/** Inventory ของบริษัทส่วนกลาง (/owner/inventory): ของที่ซื้อจาก Accounting โดยเลือกใช้เพื่องาน
- *  「บริษัทส่วนกลาง」 ตารางเดียว แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน: SKU · รายการ · ประเภท · รายละเอียด / สเปก · วันที่ซื้อ ·
- *  จำนวนซื้อ · มูลค่า · แก้ไข (ปุ่มแก้ไขและลบของบันทึกนั้น เหมือนหน้า Accounting) · ไม่มีคอลัมน์ที่เก็บ ไม่มีปุ่มจัดสรร ตัวกรองมีแค่ประเภท · กระดาษ A4 ซื้อสองครั้งเป็นสองแถว
- *  รวมเครื่องชั่งดิจิทัลเป็น 3 แถว */
+/** Assets Management ของบริษัทส่วนกลาง (/owner/assets-management): ของที่ซื้อจาก Accounting โดยเลือกใช้เพื่องาน
+ *  「บริษัทส่วนกลาง」 และประเภทสินค้า「สินทรัพย์」เท่านั้น ตารางเดียว แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน: SKU · รายการ ·
+ *  รายละเอียด / สเปก · วันที่ซื้อ · จำนวนซื้อ · มูลค่า · แก้ไข (ปุ่มแก้ไขและลบของบันทึกนั้น เหมือนหน้า Accounting) ·
+ *  ไม่มีคอลัมน์ที่เก็บ ไม่มีปุ่มจัดสรร ไม่มีตัวกรอง มีแค่ช่องค้นหา · กระดาษ A4 (ประเภท อื่นๆ) ไม่อยู่ในตาราง เหลือเครื่องชั่งดิจิทัล 1 แถว */
 export const Company: Story = {
   render: ({ account }) => (
     <WithWorkspace account={account}>
@@ -130,9 +130,9 @@ export const Company: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("รวม 3 รายการ")).toBeVisible();
+    await expect(canvas.getByText("รวม 1 รายการ")).toBeVisible();
     await expect(canvas.getAllByRole("button", { name: "แก้ไข" })).toHaveLength(
-      3,
+      1,
     );
   },
 };
