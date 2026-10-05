@@ -107,7 +107,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         type="search"
         variant="filter"
         aria-label="ค้นหา"
-        placeholder="ค้นหาสินค้า หรือ SKU"
+        placeholder="ค้นหารายการ หรือ SKU"
         className="min-h-11"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
