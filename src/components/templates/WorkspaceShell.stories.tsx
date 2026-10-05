@@ -50,13 +50,14 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** หน้า Inventory ของสาขา: ปุ่มจดของสาขา 6 ปุ่ม (ยอดขาย จ่ายเงิน รับเนื้อเข้าสาขา นับเนื้อคงเหลือ
- *  กล่องแจก นับวัสดุคงเหลือ) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · ของ Owner และ Account Manager ไม่มีปุ่ม */
+/** หน้า Stock ของสาขา: ปุ่มจด 5 ปุ่ม (ยอดขาย รับเนื้อเข้าสาขา นับเนื้อคงเหลือ กล่องแจก จ่ายเงิน)
+ *  เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · หน้า Inventory ของสาขามี 2 ปุ่ม (จ่ายเงิน นับวัสดุคงเหลือ) ·
+ *  ของ Owner และ Account Manager ไม่มีปุ่ม */
 export const StockButtons: Story = {
   args: { account: "saladaeng" },
   parameters: {
     db: dbFor("saladaeng"),
-    nextjs: { navigation: { pathname: "/branch/nn-x-lm/inventory" } },
+    nextjs: { navigation: { pathname: "/branch/nn-x-lm/stock" } },
   },
 };
 
@@ -71,7 +72,7 @@ export const Branch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** จอ 390px หน้า Inventory: ปุ่มขึ้นบรรทัดใหม่ แต่ละปุ่มสูง 44px */
+/** จอ 390px หน้า Stock ของสาขา: ปุ่มขึ้นบรรทัดใหม่ แต่ละปุ่มสูง 44px */
 export const PhoneStock: Story = { ...StockButtons, ...phone };
 
 /** จอ 390px: แถบบน แท็บล่าง เนื้อหาคอลัมน์เดียว */

@@ -61,7 +61,7 @@ export const pages: Record<
     icon: Factory,
     group: shopGroup,
   },
-  // The Owner's and the Manager's only. The key `stock` is the Inventory page below.
+  // The key `stock` is the Inventory page below.
   meatStock: {
     label: "Stock",
     description: "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือ",
@@ -70,7 +70,7 @@ export const pages: Record<
   },
   stock: {
     label: "Inventory",
-    description: "เนื้อ วัสดุ และน้ำพริกคงเหลือ",
+    description: "วัสดุคงเหลือของแต่ละสาขา",
     icon: Package,
     group: shopGroup,
   },
@@ -93,18 +93,21 @@ export const pages: Record<
   },
 };
 
-/** The line under a page's name. The Owner's and the Manager's Inventory holds the materials
- *  only (their meat and chili are on Stock); a branch's holds all three. */
+/** The line under a page's name. A branch's Stock and Inventory hold its own branch only. */
 export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
-  tab === "stock" && account.role !== "branch"
-    ? "วัสดุคงเหลือของแต่ละสาขา"
-    : pages[tab].description;
+  account.role !== "branch"
+    ? pages[tab].description
+    : tab === "meatStock"
+      ? "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือของสาขา"
+      : tab === "stock"
+        ? "วัสดุคงเหลือของสาขา"
+        : pages[tab].description;
 
 /** The pages an account has, in menu order: the Owner all nine, the Account Manager six
- *  (no Overview of the shop or of the project, no Settings), a branch two. */
+ *  (no Overview of the shop or of the project, no Settings), a branch three. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
-    ? ["log", "stock"]
+    ? ["log", "meatStock", "stock"]
     : account.hidesSales
       ? ["log", "lots", "meatStock", "stock", "finance", "accounting"]
       : [

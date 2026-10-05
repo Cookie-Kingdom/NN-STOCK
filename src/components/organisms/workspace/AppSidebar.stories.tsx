@@ -31,7 +31,7 @@ export const Manager: Story = {
   parameters: { db: dbFor("manager") },
 };
 
-/** สาขา: สองหน้า (Daily Log, Inventory) ใต้หัวข้อ "Nerdnuea x LINE MAN" */
+/** สาขา: สามหน้า (Daily Log, Stock, Inventory) ใต้หัวข้อ "Nerdnuea x LINE MAN" */
 export const Branch: Story = {
   args: { account: "saladaeng" },
   parameters: { db: dbFor("saladaeng") },

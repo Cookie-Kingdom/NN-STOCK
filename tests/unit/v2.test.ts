@@ -489,15 +489,17 @@ it("todos: what each account still has to jot", () => {
 });
 
 it("kindsForPage: the jot buttons of each page, per account", () => {
-  expect(kindsForPage(saladaeng, "stock")).toEqual([
+  // A branch: its Stock and its Inventory, with `pay` on both (it has no Finance).
+  expect(kindsForPage(saladaeng, "meatStock")).toEqual([
     "sale",
-    "pay",
     "receive",
     "meatCount",
     "influencerBox",
-    "materials",
+    "pay",
   ]);
+  expect(kindsForPage(saladaeng, "stock")).toEqual(["pay", "materials"]);
   for (const by of [owner, manager]) {
+    expect(kindsForPage(by, "meatStock")).toEqual([]);
     expect(kindsForPage(by, "stock")).toEqual([]);
     // Paying a person back is the Owner's alone (V2-PAY-07).
     expect(kindsForPage(by, "finance")).toEqual(

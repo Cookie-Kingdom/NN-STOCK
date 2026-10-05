@@ -9,14 +9,25 @@ import {
 import { accountById, type AccountId } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import { materialList, mutate, seed } from "@/lib/store";
-import { BranchStock } from "./BranchStock";
+import { BranchMeatStock, BranchStock } from "./BranchStock";
 
 /** The page and the composer, as the shell has them: 「นับเนื้อคงเหลือ」 opens its dialog over the page. */
-const Stock = ({ account }: { account: AccountId }) => (
+const Stock = ({
+  account,
+  page = "inventory",
+}: {
+  account: AccountId;
+  /** Stock (เนื้อ ข้าวเหนียว น้ำพริก) or Inventory (วัสดุ). */
+  page?: "stock" | "inventory";
+}) => (
   <WithWorkspace account={account}>
     {(ws) => (
       <>
-        <BranchStock ws={ws} />
+        {page === "stock" ? (
+          <BranchMeatStock ws={ws} />
+        ) : (
+          <BranchStock ws={ws} />
+        )}
         <Composer ws={ws} />
       </>
     )}
@@ -48,35 +59,48 @@ const meta = {
   // 「นับเนื้อ」 opens a modal <dialog>: one per story would stack on a Docs page.
   tags: ["!autodocs"],
   args: { account: "minburi" },
-  argTypes: { account: { control: false } },
+  argTypes: { account: { control: false }, page: { control: false } },
   parameters: { db: dbFor("minburi") },
 } satisfies Meta<typeof Stock>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** มีนบุรี: วันนี้ยังไม่ได้นับเนื้อ กล่องเนื้อเป็นสีเหลือง · วัสดุที่ไม่ได้นับเกิน 7 วันเป็นสีเหลือง
- *  ใส่ยอดในช่อง「นับได้」แล้วกด「บันทึกยอดนับ」แถวนั้นเป็นสีเขียว · น้ำพริกนับในฟอร์มยอดขาย ·
- *  มีนบุรีซื้อข้าวสุก จึงไม่มีแถว「ข้าวเหนียวดิบ (กก.)」(ตั้งที่ Settings ว่าสาขาไหนใช้ข้าวเหนียวดิบ) */
+/** Inventory ของมีนบุรี: ตารางวัสดุหน้าตาเดียวกับของ Owner (SKU, สินค้า, คงเหลือพร้อมยอดนับล่าสุด,
+ *  สถานะ) เพิ่มช่อง「นับได้」· ช่องสีแดง = ไม่เหลือ สีเหลือง = ไม่ได้นับเกิน 7 วัน ·
+ *  ใส่ยอดแล้วกด「บันทึกยอดนับ」· ช่องค้นหาใช้ชื่อหรือ SKU */
 export const NotCounted: Story = {};
 
-/** ศาลาแดง: นับเนื้อและวัสดุครบแล้ววันนี้ กล่องเนื้อและช่องนับล่าสุดเป็นสีเขียว ·
- *  ศาลาแดงนึ่งข้าวเอง มีแถว「ข้าวเหนียวดิบ (กก.)」ต่อจากวัสดุ นับเป็นทศนิยมได้ (12.5) */
+/** Inventory ของศาลาแดง: นับวัสดุครบแล้ววันนี้ ใต้ตัวเลขเป็น「นับวันนี้」สถานะ「พร้อมใช้」 */
 export const CountedToday: Story = {
   args: { account: "saladaeng" },
   parameters: { db: dbFor("saladaeng", countedDb) },
 };
 
-/** ยังไม่มีบันทึกเลย: ทุกรายการยังไม่เคยนับ */
+/** ยังไม่มีบันทึกเลย: ทุกรายการ 0 ยังไม่เคยนับ สถานะ「หมด」 */
 export const NeverCounted: Story = {
   parameters: { db: dbFor("minburi", seed) },
 };
 
-/** ศาลาแดง ยังไม่เคยนับ: แถว「ข้าวเหนียวดิบ (กก.)」เป็นสีเหลือง「ยังไม่เคยนับ」เหมือนวัสดุ */
-export const RawRiceNeverCounted: Story = {
-  args: { account: "saladaeng" },
+/** Stock ของมีนบุรี: กล่องเนื้อเป็นสีเหลืองจนกว่าจะนับวันนี้ · มีนบุรีซื้อข้าวสุก ตารางจึงมีแต่น้ำพริก
+ *  (นับในฟอร์มยอดขาย) ไม่มีปุ่ม「บันทึกยอดนับ」 */
+export const StockNotCounted: Story = { args: { page: "stock" } };
+
+/** Stock ของศาลาแดง: นับเนื้อแล้ววันนี้ กล่องเนื้อเป็นสีเขียว · ศาลาแดงนึ่งข้าวเอง
+ *  มีแถว「ข้าวเหนียวดิบ (กก.)」นับเป็นทศนิยมได้ (12.5) */
+export const StockCountedToday: Story = {
+  args: { account: "saladaeng", page: "stock" },
+  parameters: { db: dbFor("saladaeng", countedDb) },
+};
+
+/** Stock ของศาลาแดง ยังไม่เคยนับ: ข้าวเหนียวดิบและน้ำพริก 0 สถานะ「หมด」 */
+export const StockNeverCounted: Story = {
+  args: { account: "saladaeng", page: "stock" },
   parameters: { db: dbFor("saladaeng", seed) },
 };
 
-/** จอ 390px */
+/** จอ 390px: ตารางเหลือ สินค้า คงเหลือ นับได้ (ไม่มี SKU และสถานะ) */
 export const Phone: Story = { ...phone };
+
+/** จอ 390px หน้า Stock */
+export const StockPhone: Story = { ...phone, args: { page: "stock" } };

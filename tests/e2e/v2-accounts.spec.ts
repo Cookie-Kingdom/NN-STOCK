@@ -31,8 +31,8 @@ const pagesOf = {
     "Settings",
   ],
   manager: ["Daily Log", "Lots", "Stock", "Inventory", "Finance", "Accounting"],
-  saladaeng: ["Daily Log", "Inventory"],
-  minburi: ["Daily Log", "Inventory"],
+  saladaeng: ["Daily Log", "Stock", "Inventory"],
+  minburi: ["Daily Log", "Stock", "Inventory"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
@@ -87,7 +87,7 @@ test("2 · V2-ACC-01 Manager finds no sale, payroll or P&L on any page, and the 
   // A branch jots today's sale and the Owner a payroll payment: both must stay out of the
   // Manager's reach.
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
   await fill(page, [/^กล่องมาตรฐาน/, "22"], [/^ยอดขาย LINE MAN/, "7654"]);
   await save(page);
@@ -204,17 +204,19 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
 }) => {
   await start(page, "sample");
   await signInAs(page, "saladaeng");
-  // Daily Log is for looking: a branch jots everything from its Inventory.
+  // Daily Log is for looking: a branch jots from its Stock and its Inventory, a payment
+  // from either (it has no Finance).
   await expect(jotButtons(page)).toHaveCount(0);
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await expect(jotButtons(page)).toHaveText([
     "ยอดขาย",
-    "จ่ายเงิน",
     "รับเนื้อเข้าสาขา",
     "นับเนื้อคงเหลือ",
     "กล่องแจก",
-    "นับวัสดุคงเหลือ",
+    "จ่ายเงิน",
   ]);
+  await openPage(page, "Inventory");
+  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน", "นับวัสดุคงเหลือ"]);
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
     "เลือกหมวด",
@@ -304,7 +306,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
           .first();
         await branchNote.getByRole("button").first().click();
         await expect(branchNote.getByRole("button")).toHaveText(
-          pagesOf[account].length === 2 ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
+          pagesOf[account].length === 3 ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
         );
         await expect(jotButtons(page)).toHaveCount(0);
       }

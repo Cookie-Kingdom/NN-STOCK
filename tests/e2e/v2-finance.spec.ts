@@ -136,7 +136,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   await openPage(page, "Inventory");
   await expect(jotButtons(page)).toHaveCount(0);
   await signInAs(page, "minburi");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "กล่องแจก");
   await fill(page, [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"], [/^กล่องที่แจก/, "4"]);
   await save(page);
@@ -234,7 +234,7 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
 
   // The branch jots its sale with both channels: its form has the new field.
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
   await expect(form(page).getByLabel(/^ยอดขาย Grab/)).toBeVisible();
   await fill(

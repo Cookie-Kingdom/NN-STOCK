@@ -1,7 +1,10 @@
 "use client";
 
 import { AccountingPage } from "@/components/organisms/owner/AccountingPage";
-import { BranchStock } from "@/components/organisms/branch/BranchStock";
+import {
+  BranchMeatStock,
+  BranchStock,
+} from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
 import { LotsPage } from "@/components/organisms/owner/LotsPage";
 import {
@@ -17,16 +20,18 @@ import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import type { Account } from "@/lib/accounts";
 
 /** The one workspace of every account: the shell, and the page of the tab in view. Which
- *  tabs an account has is `navFor` (nav.ts); a branch's Inventory is its own view. */
+ *  tabs an account has is `navFor` (nav.ts); a branch's Stock and
+ *  Inventory are its own views, with the count inputs. */
 export function Workspace({ account }: { account: Account }) {
   const ws = useWorkspace(account);
+  const branch = account.role === "branch";
   const Page = {
     overview: OverviewPage,
     projectOverview: ProjectOverviewPage,
     log: DailyLog,
     lots: LotsPage,
-    meatStock: OwnerMeatStock,
-    stock: account.role === "branch" ? BranchStock : OwnerStock,
+    meatStock: branch ? BranchMeatStock : OwnerMeatStock,
+    stock: branch ? BranchStock : OwnerStock,
     finance: FinancePage,
     accounting: AccountingPage,
     settings: SettingsPage,
