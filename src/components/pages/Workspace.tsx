@@ -12,7 +12,10 @@ import {
   ProjectOverviewPage,
 } from "@/components/organisms/owner/OverviewPage";
 import { OwnerMeatStock } from "@/components/organisms/owner/OwnerMeatStock";
-import { OwnerStock } from "@/components/organisms/owner/OwnerStock";
+import {
+  CompanyStock,
+  OwnerStock,
+} from "@/components/organisms/owner/OwnerStock";
 import { SettingsPage } from "@/components/organisms/owner/SettingsPage";
 import { DailyLog } from "@/components/organisms/shared/DailyLog";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
@@ -34,6 +37,7 @@ export function Workspace({ account }: { account: Account }) {
     stock: branch ? BranchStock : OwnerStock,
     finance: FinancePage,
     accounting: AccountingPage,
+    companyStock: CompanyStock,
     settings: SettingsPage,
   }[ws.tab];
   return (

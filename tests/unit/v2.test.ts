@@ -1496,6 +1496,23 @@ describe("Inventory: what the project owns", () => {
   });
 });
 
+it("Inventory of the central company: what the ledger bought with no project", () => {
+  const buy = (d: Database, values: Record<string, string>) =>
+    mutate(d, owner, "expense", values, "", "2026-01-05");
+  let d = buy(seed, { purpose: "company", item: "โต๊ะ", amount: "1200" });
+  d = buy(d, { purpose: "company", item: "โต๊ะ", amount: "800" });
+  d = buy(d, { purpose: "company", item: "เก้าอี้", status: "cancelled" });
+  d = buy(d, {
+    purpose: "project",
+    project: "Nerdnuea x LINE MAN",
+    item: "ตู้เย็น",
+  });
+  expect(projectAssets(d, null)).toMatchObject([
+    { rows: [{ item: "โต๊ะ", paid: 2000, times: 2 }] },
+  ]);
+  expect(projectAssets(d, null)[0].rows).toHaveLength(1);
+});
+
 describe("central warehouse: stock per place", () => {
   const buy = (d: Database, values: Values, date = "2026-09-01") =>
     mutate(

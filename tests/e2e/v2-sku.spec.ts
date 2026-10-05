@@ -157,7 +157,7 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
 
   // Inventory lists it under its SKU, and an expense naming it takes that SKU.
   await openPage(page, "Inventory");
-  const stock = region(page, "วัสดุ");
+  const stock = region(page, "รายการทั้งหมด");
   await expect(
     stock.getByRole("row", { name: /^SKU-0011 เทปปิดกล่อง/ }),
   ).toBeVisible();
