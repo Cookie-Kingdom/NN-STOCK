@@ -759,7 +759,7 @@ type SupplierBalance = {
   left: number;
 };
 /** V2-CAL-13: per supplier, the bills (a PO เนื้อ's Invoice Foodiva, a PO รมควัน's Chef House invoice, a payment's
- *  "ยอดเต็มของใบนี้") less the payments naming it. Only suppliers with a bill are listed. */
+ *  "ยอดเต็มจำนวน") less the payments naming it. Only suppliers with a bill are listed. */
 export function supplierBalances(db: Database): SupplierBalance[] {
   const all = new Map<string, { billed: number; paid: number; on: boolean }>();
   const of = (supplier: string) => {
