@@ -97,11 +97,10 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
     "−฿12,900",
     "—",
   ]);
-  await expect(figure(page, "จ่ายเงิน (ดำเนินงาน)")).toHaveText("−฿500");
   await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText("−฿500");
 
   // Last month, read as its own month.
-  await page.getByLabel(/^เดือน/).fill(lastMonth.id);
+  await page.getByRole("button", { name: "เดือนก่อนหน้า" }).click();
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
     lastMonth.name,
@@ -245,7 +244,7 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   await expect(line(page, /^ยอดขาย/).first()).toHaveText("฿4,200");
   await expect(line(page, /^GP LINE MAN 10%/).first()).toHaveText("−฿350");
   await expect(line(page, /^GP Grab 30%/).first()).toHaveText("−฿210");
-  await expect(figure(page, "GP")).toHaveText("−฿560");
+  await expect(region(page, "ตัวเลขของเดือน")).toContainText("GP ฿560");
 
   // V2-ACC-01: the new channel's money is as hidden from the Manager as LINE MAN's.
   await signInAs(page, "manager");

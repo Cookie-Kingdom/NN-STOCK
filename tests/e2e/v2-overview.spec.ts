@@ -10,7 +10,8 @@ import {
   start,
 } from "./helpers";
 
-/* The Overview as the shop's revenue: the total of the period, by month or by year. */
+/* The Overview as the shop's revenue, and Finance as the project's: the total of the period,
+ * by month or by year. */
 
 const today = bangkokDate();
 const thai = (date: string, options: Intl.DateTimeFormatOptions) =>
@@ -21,7 +22,7 @@ const thai = (date: string, options: Intl.DateTimeFormatOptions) =>
 const monthName = thai(today, { month: "long", year: "numeric" });
 const yearName = `ปี ${+today.slice(0, 4) + 543}`;
 
-test("Overview: a branch's sale is the shop's revenue of the month and of the year", async ({
+test("Overview and Finance: a branch's sale is the revenue of the month and of the year", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -86,4 +87,31 @@ test("Overview: a branch's sale is the shop's revenue of the month and of the ye
     }),
   ).toContainText("฿3,150");
   await expect(page.getByRole("button", { name: "ปีถัดไป" })).toBeDisabled();
+
+  // Finance is the same view of the one project: its name on the total, no table of
+  // projects, and the page's own cards after the P&L. It opens on the month.
+  await openPage(page, "Finance");
+  await expect(revenue.getByRole("heading")).toContainText(
+    "Nerdnuea x LINE MAN",
+  );
+  await expect(revenue.locator("strong")).toHaveText("฿3,500");
+  await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿3,150");
+  await expect(region(page, "รายได้แต่ละ Project")).toHaveCount(0);
+  await expect(region(page, "รายได้แยกสาขา")).toContainText("฿3,500 100%");
+  for (const name of [
+    "P&L รายเดือน",
+    "ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย",
+    "เงินที่พนักงานสำรองจ่าย",
+    "จ่ายเงินล่าสุด",
+  ])
+    await expect(region(page, name)).toBeVisible();
+  await page.getByRole("radio", { name: "ปี" }).click();
+  await expect(region(page, "P&L รายปี")).toBeVisible();
+
+  // The Account Manager's Finance has no revenue: a month of payments, as before.
+  await signInAs(page, "manager");
+  await openPage(page, "Finance");
+  await expect(revenue).toHaveCount(0);
+  await expect(page.getByLabel(/^เดือน/)).toBeVisible();
+  await expect(region(page, "จ่ายเงินล่าสุด")).toBeVisible();
 });

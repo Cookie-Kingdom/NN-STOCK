@@ -31,7 +31,7 @@ import {
   type LedgerStatus,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { figureGrid } from "./FinancePage";
+import { figureGrid } from "./PlTable";
 import { Num } from "./PlTable";
 
 const statusTone: Record<LedgerStatus, "warning" | "success" | "danger"> = {
