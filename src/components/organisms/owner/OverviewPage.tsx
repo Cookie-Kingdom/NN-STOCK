@@ -14,7 +14,6 @@ import { Caption } from "@/components/atoms/Text";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { lotLabel } from "@/components/organisms/shared/noteText";
 import { td, th } from "@/components/organisms/shared/tableCell";
-import { TodoBox } from "@/components/organisms/workspace/TodoBox";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, fmt, qty } from "@/lib/format";
 import { revenuePeriod, shiftKey } from "@/lib/period";
@@ -32,7 +31,7 @@ import {
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
-import { cardGrid, figureGrid } from "./FinancePage";
+import { figureGrid } from "./FinancePage";
 import { FigureCard, FigureTable, Num, PlTable } from "./PlTable";
 import { RevenueChart } from "./RevenueChart";
 
@@ -425,13 +424,7 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
         </div>
       </div>
 
-      {/* A wide screen: the P&L keeps its figures near their labels, the to-do list gets the rest. */}
-      <div
-        className={cn(cardGrid, "2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]")}
-      >
-        <PlTable db={db} month={key} full />
-        <TodoBox ws={ws} />
-      </div>
+      <PlTable db={db} month={key} full />
     </div>
   );
 }
