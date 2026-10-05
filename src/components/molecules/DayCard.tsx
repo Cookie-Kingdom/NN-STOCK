@@ -2,8 +2,9 @@ import type { ComponentProps, ReactNode } from "react";
 import { Panel } from "@/components/atoms/Panel";
 import { cn } from "@/lib/utils";
 
-/** One day of the Daily Log: a card with the date at its head, the day's status pills at the
- *  right (`aside`) and the day's rows under it. `tone="warning"` tints the head yellow: a
+/** One day of the Daily Log, and the frame of every titled table: a card with the date (or
+ *  the table's name) at its head, on the fill of a table's head and foot (`tableCell`), the
+ *  day's status pills at the right (`aside`) and the day's rows under it. `tone="warning"` tints the head yellow: a
  *  note of that day is not jotted yet. The tone is also `data-tone`, for the tests. */
 export function DayCard({
   title,
@@ -31,8 +32,10 @@ export function DayCard({
     >
       <div
         className={cn(
-          "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border px-5 py-3 last:border-b-0 max-md:px-4",
-          warning && "border-warning/40 bg-warning-subtle",
+          "flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b px-5 py-3 last:border-b-0 max-md:px-4",
+          warning
+            ? "border-warning/40 bg-warning-subtle"
+            : "border-border-strong bg-surface-head",
         )}
       >
         <h3
