@@ -42,7 +42,8 @@ export const pages: Record<
     description: "Revenue ของร้าน รวมทุก Project",
     icon: LayoutDashboard,
   },
-  // The same name as the shop's, under the project's heading: /owner/nn-x-lm/overview.
+  // The same name as the shop's, under the project's heading: /owner/nn-x-lm/overview. A
+  // phone's bar holds the shop's only; this one is in its menu, under the heading.
   projectOverview: {
     label: "Overview",
     description: `Revenue ของ ${shopProject}`,
@@ -121,6 +122,19 @@ export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
           "accounting",
           "settings",
         ];
+
+/** The pages in a phone's bottom bar. An account with five pages or fewer: all of them, as
+ *  tabs. With more: these four, beside a fifth button, "เมนู", that lists every page. */
+export const barFor = (
+  account: Pick<Account, "role" | "hidesSales">,
+): Tab[] => {
+  const all = navFor(account);
+  return all.length <= 5
+    ? all
+    : account.hidesSales
+      ? ["log", "lots", "finance", "accounting"]
+      : ["overview", "log", "lots", "finance"];
+};
 
 /** A page's address under an account's route: the menu name in lowercase with dashes, behind
  *  the section's slug when the page sits in it (`/owner/nn-x-lm/daily-log`, `/owner/settings`). */
