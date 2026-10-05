@@ -4,10 +4,11 @@ import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import {
   Cell,
+  HeldCell,
   Left,
+  StatusCells,
   StockTable,
 } from "@/components/organisms/branch/BranchStock";
-import { HeldCell, StatusCells } from "@/components/organisms/owner/OwnerStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import {
   branchChili,
@@ -23,7 +24,7 @@ import {
 
 /** Stock as the Owner and the Account Manager see it: the meat from the seller to each
  *  branch (V2-CAL-07, 08, 10), then the raw sticky rice and the chili of each branch.
- *  Read-only: the branch admins count on their own Inventory page. */
+ *  Read-only: the branch admins count on their own Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const held = purchaseLots(db)

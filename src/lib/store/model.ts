@@ -136,7 +136,8 @@ export const kindInfo: Record<
 };
 /** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker:
  *  Daily Log is for looking), each with its kinds in the order its buttons stand. */
-export type NotePage = "lots" | "stock" | "finance" | "accounting";
+export type NotePage =
+  "lots" | "meatStock" | "stock" | "finance" | "accounting";
 const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   lots: [
     "purchase",
@@ -151,8 +152,11 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
     "packingList",
     "foodivaReturnReceive",
   ],
-  // A branch's Inventory: every kind it jots. The Owner's and the Manager's has none.
-  stock: ["sale", "pay", "receive", "meatCount", "influencerBox", "materials"],
+  // A branch's Stock and Inventory, between them every kind it jots: what moves its meat and
+  // chili, and what moves its materials. It has no Finance, so `pay` stands on both. The
+  // Owner's and the Manager's two pages have none.
+  meatStock: ["sale", "receive", "meatCount", "influencerBox", "pay"],
+  stock: ["pay", "materials"],
   finance: ["pay", "reimburse"],
   // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
   accounting: ["expense"],
@@ -173,8 +177,9 @@ export const kindsFor = (by: Actor): NoteKind[] =>
 /** The kinds the picker of `page` offers `by`, in the page's order. Overview, Daily Log,
  *  Settings and any other page: none. */
 export const kindsForPage = (by: Actor, page: string): NoteKind[] => {
-  // The Owner's `pay` is jotted from Finance, not from the Inventory it only looks at.
-  if (page === "stock" && by.role !== "branch") return [];
+  // The Owner's `pay` is jotted from Finance, not from the Stock and Inventory it only looks at.
+  if ((page === "stock" || page === "meatStock") && by.role !== "branch")
+    return [];
   const may = kindsFor(by);
   return (pageNoteKinds[page as NotePage] ?? []).filter((kind) =>
     may.includes(kind),

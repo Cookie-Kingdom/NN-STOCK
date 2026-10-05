@@ -39,7 +39,7 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
     await expect(page.getByRole("button", { name })).toBeDisabled();
 
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
   await fill(page, [/^กล่องมาตรฐาน/, "10"], [/^ยอดขาย LINE MAN/, "3500"]);
   await save(page);

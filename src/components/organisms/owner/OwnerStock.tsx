@@ -4,66 +4,15 @@ import { useState } from "react";
 import { Input } from "@/components/atoms/Input";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
-import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
+import {
+  Cell,
+  HeldCell,
+  StatusCells,
+  StockTable,
+  type Held,
+} from "@/components/organisms/branch/BranchStock";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { qty as fmt, thaiDay } from "@/lib/format";
 import { branchMaterial, branches, materialList } from "@/lib/store";
-
-/** What is left at one place and its last count (`branchMaterial`, `branchChili`). */
-export type Held = { qty: number; countedOn: string; stale: boolean };
-
-/** One place's cell of a row: the figure, and under it the last count. Red with nothing
- *  left, yellow with a late count; no cell at all (a dash) where the item cannot be. */
-export function HeldCell({ held, today }: { held?: Held; today: string }) {
-  if (!held)
-    return (
-      <Cell right>
-        <Muted as="span">—</Muted>
-      </Cell>
-    );
-  const { qty, countedOn, stale } = held;
-  return (
-    <Cell right tone={qty <= 0 ? "danger" : stale ? "warning" : undefined}>
-      {fmt(qty)}
-      <span className="block text-caption font-normal">
-        {!countedOn
-          ? "ยังไม่เคยนับ"
-          : countedOn === today
-            ? "นับวันนี้"
-            : `นับ ${thaiDay(countedOn)}${stale ? " · เกิน 7 วัน" : ""}`}
-      </span>
-    </Cell>
-  );
-}
-
-/** A row's total and status over `places`: out, a late count somewhere, or ready. */
-export function StatusCells({
-  at,
-  places,
-}: {
-  at: Record<string, Held>;
-  places: string[];
-}) {
-  const total = places.reduce((sum, place) => sum + (at[place]?.qty ?? 0), 0);
-  const late = places.filter((place) => at[place]?.stale);
-  return (
-    <>
-      <Cell right tone={total < 0 ? "danger" : undefined}>
-        {fmt(total)}
-      </Cell>
-      <Cell
-        tone={total <= 0 ? "danger" : late.length ? "warning" : "success"}
-        className="whitespace-nowrap"
-      >
-        {total <= 0
-          ? "หมด"
-          : late.length
-            ? `ยังไม่ได้นับ: ${late.join(", ")}`
-            : "พร้อมใช้"}
-      </Cell>
-    </>
-  );
-}
 
 /** Materials have no central stock yet: its column is a dash on every row. */
 const central = "คลังกลาง";

@@ -173,7 +173,7 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   await expect(form(page)).toBeVisible();
 });
 
-test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and goes on the branch's Inventory, and Stock has a dash for the others", async ({
+test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and goes on the branch's Stock, and the Owner's has a dash for the others", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -208,29 +208,31 @@ test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and
 
   // ศาลาแดง has no row to count, and is told nothing of the other branch.
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await expect(
-    region(page, "วัสดุ").getByRole("row", { name: /^กล่องพิมพ์ลาย/ }),
+    region(page, "น้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
   ).toBeVisible();
   await expect(
-    region(page, "วัสดุ").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
+    page.getByRole("main").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
   ).toHaveCount(0);
   const copy = (await (await page.request.get("/api/local-db")).json()).payload;
   expect(copy.config.rawRiceBranches).toBe("[]");
 
   // มีนบุรี has it, and counts it.
   await signInAs(page, "minburi");
-  await openPage(page, "Inventory");
-  const own = region(page, "วัสดุ");
-  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(2)).toHaveText(
-    "ยังไม่เคยนับ",
+  await openPage(page, "Stock");
+  const own = region(page, "ข้าวเหนียวและน้ำพริก");
+  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(1)).toHaveText(
+    "0ยังไม่เคยนับ",
   );
   await own
     .getByRole("textbox", { name: "นับ ข้าวเหนียวดิบ (กก.)" })
     .fill("7.5");
   await own.getByRole("button", { name: "บันทึกยอดนับ" }).click();
   await expect(toast(page, "จดแล้ว: นับวัสดุคงเหลือ · 1 รายการ")).toBeVisible();
-  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(1)).toHaveText("7.5");
+  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(1)).toHaveText(
+    "7.5นับวันนี้",
+  );
 
   // The Owner's Stock has the count under มีนบุรี, and still a dash under ศาลาแดง.
   await signInAs(page, "owner");
@@ -238,7 +240,7 @@ test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and
   await expect(riceRow.nth(1)).toHaveText("—");
   await expect(riceRow.nth(2)).toHaveText("7.5นับวันนี้");
   await expect(riceRow.nth(3)).toHaveText("7.5");
-  // No branch ticked: no raw rice row at all, on Stock or on the branch's Inventory.
+  // No branch ticked: no raw rice row at all, on the Owner's Stock or on the branch's.
   await openPage(page, "Settings");
   await edit(rice);
   await rice.getByLabel("สาขามีนบุรี").uncheck();
@@ -252,11 +254,11 @@ test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and
     region(page, "ข้าวเหนียวและน้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
   ).toBeVisible();
   await signInAs(page, "minburi");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await expect(
-    region(page, "วัสดุ").getByRole("row", { name: /^กล่องพิมพ์ลาย/ }),
+    region(page, "น้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
   ).toBeVisible();
   await expect(
-    region(page, "วัสดุ").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
+    page.getByRole("main").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
   ).toHaveCount(0);
 });

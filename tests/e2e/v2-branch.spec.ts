@@ -24,18 +24,20 @@ const year = today.slice(0, 4);
 /** A day's card in Daily Log. */
 const day = (page: Page, offset = 0) =>
   page.locator(`[data-date="${bangkokDate(offset)}"]`);
-/** A row of a stock table, by the item it starts with. */
+/** A row of a stock table, by the item it starts with (behind its SKU, in a table with one). */
 const stockRow = (card: Locator, item: string) =>
-  card.getByRole("row", { name: new RegExp(`^${item}`) }).getByRole("cell");
+  card
+    .getByRole("row", { name: new RegExp(`^(SKU-\\d+ )?${item}`) })
+    .getByRole("cell");
 /** The lines of the 「ยังไม่ได้จด」 box that start with `text`. */
 const todoLines = (page: Page, text: string) =>
   region(page, "ยังไม่ได้จด")
     .locator("strong")
     .filter({ hasText: new RegExp(`^${text}`) });
-/** Opens the sale form from the branch's Inventory, as a branch does, on the day `offset`
+/** Opens the sale form from the branch's Stock, as a branch does, on the day `offset`
  *  days from today: an earlier day is typed in the form's date. */
 const jotSaleOf = async (page: Page, offset = 0) => {
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
   if (offset) await fill(page, [/^วันที่$/, bangkokDate(offset)]);
   await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(
@@ -144,11 +146,46 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   // The branch has it with nothing to press, and never sees what it cost.
   await signInAs(page, "minburi");
   await expect(rows(page, "pay")).toHaveCount(0);
+  // Its Stock: the meat, then the chili. มีนบุรี buys its rice cooked: no raw rice to count,
+  // so nothing to type in the table and no button under it.
+  await openPage(page, "Stock");
+  await expect(region(page, "เนื้อคงเหลือ")).toContainText(
+    "เนื้อคงเหลือ 0 กก.",
+  );
+  const chili = region(page, "น้ำพริก");
+  await expect(chili.getByRole("columnheader")).toHaveText([
+    "สินค้า",
+    "คงเหลือ",
+    "สถานะ",
+    "นับได้",
+  ]);
+  await expect(stockRow(chili, "น้ำพริก")).toHaveText([
+    "น้ำพริก (หลอด)",
+    "0ยังไม่เคยนับ",
+    "หมด",
+    "นับในฟอร์มยอดขาย",
+  ]);
+  await expect(
+    page.getByRole("main").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
+  ).toHaveCount(0);
+  await expect(chili.getByRole("button")).toHaveCount(0);
+  // Its Inventory: the materials, in the Owner's columns with one to type the count in.
   await openPage(page, "Inventory");
   const own = region(page, "วัสดุ");
-  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(1)).toHaveText("50");
-  // มีนบุรี buys its rice cooked: no raw rice to count.
-  await expect(own.getByRole("row", { name: /ข้าวเหนียวดิบ/ })).toHaveCount(0);
+  await expect(own.getByRole("columnheader")).toHaveText([
+    "SKU",
+    "สินค้า",
+    "คงเหลือ",
+    "สถานะ",
+    "นับได้",
+  ]);
+  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(0)).toHaveText("SKU-0001");
+  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(2)).toHaveText(
+    "50ยังไม่เคยนับ",
+  );
+  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(3)).toHaveText(
+    "ยังไม่ได้นับ",
+  );
   // (The page's own 「รับเนื้อเข้าสาขา」 is for meat.)
   await expect(own.getByRole("button", { name: /รับ/ })).toHaveCount(0);
   const sent = await (await page.request.get("/api/local-db")).json();
@@ -165,13 +202,15 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^จำนวน/, "20"],
   );
   await save(page);
-  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(1)).toHaveText("70");
+  await expect(stockRow(own, "กล่องพิมพ์ลาย").nth(2)).toHaveText(
+    "70ยังไม่เคยนับ",
+  );
 
   await signInAs(page, "saladaeng");
   await openPage(page, "Inventory");
   await expect(
-    stockRow(region(page, "วัสดุ"), "กล่องพิมพ์ลาย").nth(1),
-  ).toHaveText("0");
+    stockRow(region(page, "วัสดุ"), "กล่องพิมพ์ลาย").nth(2),
+  ).toHaveText("0ยังไม่เคยนับ");
 });
 
 test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are in Finance once, under อื่น ๆ and การตลาด", async ({
@@ -192,7 +231,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
     [/^ผู้จ่ายเงิน/, "น้องฝน"],
   );
   await save(page);
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "กล่องแจก");
   await fill(
     page,
@@ -268,7 +307,7 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await expect(todoLines(page, "ยอดขาย")).toHaveCount(5);
 });
 
-test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not turn the day yellow in Daily Log", async ({
+test("12 · V2-BR-02 meat not counted today is yellow in Stock and does not turn the day yellow in Daily Log", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -282,14 +321,14 @@ test("12 · V2-BR-02 meat not counted today is yellow in Inventory and does not 
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
   await expect(todoLines(page, "นับเนื้อวันนี้")).toBeVisible();
   await expect(region(page, "ยังไม่ได้จด").getByRole("button")).toHaveCount(0);
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toHaveAttribute("data-tone", "warning");
   await expect(meat).toContainText("วันนี้ยังไม่ได้นับ");
   await openPage(page, "Daily Log");
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
 
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await meat.getByRole("button", { name: "นับเนื้อคงเหลือ" }).click();
   await fill(page, [/^เนื้อคงเหลือที่นับได้/, "12.5"]);
   await save(page);
@@ -317,41 +356,63 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   }
   const card = region(page, "วัสดุ");
   const stale = stockRow(card, "กล่องพิมพ์ลาย");
-  await expect(stale.nth(1)).toHaveText("100");
+  await expect(stale.nth(2)).toHaveText(/^100นับ .+ · เกิน 7 วัน$/);
   await expect(stale.nth(2)).toHaveAttribute("data-tone", "warning");
-  await expect(stale.nth(2)).toContainText("เกิน 7 วัน");
+  await expect(stale.nth(3)).toHaveText("ยังไม่ได้นับ");
+  await expect(stale.nth(3)).toHaveAttribute("data-tone", "warning");
   // Seven days is not yet "more than 7".
-  await expect(stockRow(card, "กระดาษรอง").nth(2)).toHaveAttribute(
-    "data-tone",
-    "success",
-  );
-  await expect(stockRow(card, "ถ้วยพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
-  // The other nine materials, the raw rice (ศาลาแดง steams its own) and the chili: never
-  // counted, yellow as a material is.
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(11);
-  await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveText("ยังไม่เคยนับ");
-  await expect(stockRow(card, "น้ำพริก").nth(2)).toHaveAttribute(
-    "data-tone",
-    "warning",
-  );
+  const fresh = stockRow(card, "กระดาษรอง");
+  await expect(fresh.nth(2)).toHaveText(/^40นับ (?!.*เกิน 7 วัน)/);
+  await expect(fresh.nth(2)).not.toHaveAttribute("data-tone");
+  await expect(fresh.nth(3)).toHaveText("พร้อมใช้");
+  await expect(fresh.nth(3)).toHaveAttribute("data-tone", "success");
+  // The other eight were never counted and hold nothing: red in both cells, as on the
+  // Owner's Inventory.
+  await expect(stockRow(card, "ถ้วยพริก").nth(2)).toHaveText("0ยังไม่เคยนับ");
+  await expect(stockRow(card, "ถ้วยพริก").nth(3)).toHaveText("หมด");
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(2);
+  await expect(card.locator('td[data-tone="danger"]')).toHaveCount(16);
+  // The search takes a name or a SKU, as the Owner's does.
+  await page.getByLabel("ค้นหา").fill("sku-0001");
+  await expect(card.getByRole("row")).toHaveCount(2);
+  await expect(card).toContainText("แสดง 1 จาก 10 รายการ");
+  await page.getByLabel("ค้นหา").fill("ไม่มีของนี้");
+  await expect(card).toContainText("ไม่พบรายการที่ตรงกับที่ค้นหา");
+  await page.getByLabel("ค้นหา").fill("");
 
   await card.getByRole("textbox", { name: "นับ กล่องพิมพ์ลาย" }).fill("95");
   await card.getByRole("button", { name: "บันทึกยอดนับ" }).click();
   await expect(toast(page, "จดแล้ว: นับวัสดุคงเหลือ · 1 รายการ")).toBeVisible();
-  await expect(stale.nth(1)).toHaveText("95");
-  await expect(stale.nth(2)).toHaveAttribute("data-tone", "success");
-  await expect(stale.nth(2)).toHaveText("วันนี้");
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(10);
-  // The raw rice is counted in the same table, in kg.
-  const rice = stockRow(card, "ข้าวเหนียวดิบ");
-  await expect(rice.nth(2)).toHaveText("ยังไม่เคยนับ");
-  await card
+  await expect(stale.nth(2)).toHaveText("95นับวันนี้");
+  await expect(stale.nth(2)).not.toHaveAttribute("data-tone");
+  await expect(stale.nth(3)).toHaveText("พร้อมใช้");
+  await expect(stale.nth(3)).toHaveAttribute("data-tone", "success");
+  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(0);
+
+  // The raw rice (ศาลาแดง steams its own) and the chili are on Stock, as the Owner's are.
+  await expect(
+    card.getByRole("row", { name: /ข้าวเหนียวดิบ|น้ำพริก \(หลอด\)/ }),
+  ).toHaveCount(0);
+  await openPage(page, "Stock");
+  const raw = region(page, "ข้าวเหนียวและน้ำพริก");
+  const rice = stockRow(raw, "ข้าวเหนียวดิบ");
+  await expect(rice.nth(1)).toHaveText("0ยังไม่เคยนับ");
+  await expect(rice.nth(1)).toHaveAttribute("data-tone", "danger");
+  await expect(stockRow(raw, "น้ำพริก")).toHaveText([
+    "น้ำพริก (หลอด)",
+    "0ยังไม่เคยนับ",
+    "หมด",
+    "นับในฟอร์มยอดขาย",
+  ]);
+  // The raw rice is counted in kg, in the table it stands in.
+  await raw
     .getByRole("textbox", { name: "นับ ข้าวเหนียวดิบ (กก.)" })
     .fill("12.5");
-  await card.getByRole("button", { name: "บันทึกยอดนับ" }).click();
-  await expect(rice.nth(1)).toHaveText("12.5");
+  await raw.getByRole("button", { name: "บันทึกยอดนับ" }).click();
+  await expect(toast(page, "จดแล้ว: นับวัสดุคงเหลือ · 1 รายการ")).toBeVisible();
+  await expect(rice.nth(1)).toHaveText("12.5นับวันนี้");
+  await expect(rice.nth(2)).toHaveText("พร้อมใช้");
   await expect(rice.nth(2)).toHaveAttribute("data-tone", "success");
-  await expect(card.locator('td[data-tone="warning"]')).toHaveCount(9);
 });
 
 test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจริง left empty saves with no yellow, and the meat drops by boxes × kg per box", async ({
@@ -359,7 +420,7 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await jot(page, "นับเนื้อคงเหลือ");
   await fill(page, [/^เนื้อคงเหลือที่นับได้/, "10"]);
   await save(page);
@@ -381,7 +442,7 @@ test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจร�
   await expect(region(page, "ยังไม่ได้จด")).not.toContainText("ช่อง");
   // 10 − 10 กล่อง × 0.12 กก.
   await expect(meat).toContainText("8.8 กก.");
-  await openPage(page, "Inventory");
+  await openPage(page, "Stock");
   await expect(region(page, "เนื้อคงเหลือ")).toContainText(
     "เนื้อคงเหลือ 8.8 กก.",
   );
@@ -505,7 +566,11 @@ test.describe("phone, 390px wide", () => {
             document.documentElement.clientWidth,
         ),
       ).toBeLessThanOrEqual(0);
-    await expect(pageButtons(page)).toHaveText(["Daily Log", "Inventory"]);
+    await expect(pageButtons(page)).toHaveText([
+      "Daily Log",
+      "Stock",
+      "Inventory",
+    ]);
     await fits();
 
     await jotSaleOf(page);
@@ -519,7 +584,7 @@ test.describe("phone, 390px wide", () => {
       "+฿6,100",
     );
 
-    await openPage(page, "Inventory");
+    await openPage(page, "Stock");
     await fits();
     const meat = region(page, "เนื้อคงเหลือ");
     await expect(meat).toHaveAttribute("data-tone", "warning");
@@ -527,13 +592,23 @@ test.describe("phone, 390px wide", () => {
     await fill(page, [/^เนื้อคงเหลือที่นับได้/, "9.4"]);
     await save(page);
     await expect(meat).toHaveAttribute("data-tone", "success");
+    await fits();
+
+    await openPage(page, "Inventory");
+    await fits();
     const card = region(page, "วัสดุ");
+    // A phone keeps the name, the figure and the input: no SKU, no status.
+    await expect(card.getByRole("columnheader")).toHaveText([
+      "สินค้า",
+      "คงเหลือ",
+      "นับได้",
+    ]);
     const boxes = stockRow(card, "กล่องพิมพ์ลาย");
-    await expect(boxes.nth(2)).toHaveAttribute("data-tone", "warning");
+    await expect(boxes.nth(1)).toHaveAttribute("data-tone", "danger");
     await card.getByRole("textbox", { name: "นับ กล่องพิมพ์ลาย" }).fill("380");
     await card.getByRole("button", { name: "บันทึกยอดนับ" }).click();
-    await expect(boxes.nth(2)).toHaveAttribute("data-tone", "success");
-    await expect(boxes.nth(1)).toHaveText("380");
+    await expect(boxes.nth(1)).toHaveText("380นับวันนี้");
+    await expect(boxes.nth(1)).not.toHaveAttribute("data-tone");
     await fits();
   });
 });
