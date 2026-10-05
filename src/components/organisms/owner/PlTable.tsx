@@ -2,17 +2,16 @@ import type { ComponentProps, ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { td, th } from "@/components/organisms/shared/tableCell";
-import { baht, thaiDay } from "@/lib/format";
+import { baht } from "@/lib/format";
+import { periodName, shiftKey } from "@/lib/period";
 import {
   capexCategory,
-  entries,
   missingText,
   monthPl,
   payCategories,
   payrollCategory,
   rentCategory,
   salesChannels,
-  sum,
   type Database,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -71,20 +70,13 @@ export const FigureTable = (props: ComponentProps<"table">) => (
   </div>
 );
 
-/** `YYYY-MM` as "ตุลาคม 2569". */
-export const monthName = (month: string) =>
-  thaiDay(`${month}-01`, { month: "long", year: "numeric" });
-const monthBefore = (month: string) =>
-  new Date(Date.UTC(+month.slice(0, 4), +month.slice(5) - 2, 1))
-    .toISOString()
-    .slice(0, 7);
-
 /** Green in, red out, a dash for nothing. */
 const Money = ({ x }: { x: number }) => (
   <Num tone={x > 0 ? "in" : x < 0 ? "out" : undefined}>{x ? baht(x) : "—"}</Num>
 );
 
-/** The month and the one before it, side by side (V2-CAL-02). `full` (the Owner): sales, GP
+/** The month (or the year: `month` is then `YYYY`) and the one before it, side by side
+ *  (V2-CAL-02). `full` (the Owner): sales, GP
  *  per channel, every category, the operating profit, then อุปกรณ์/ลงทุน on its own line.
  *  Without it (the Account Manager): the categories only, never payroll, and what they add
  *  up to. ค่าเช่า/น้ำไฟ with nothing jotted in the month is yellow (V2-PAY-04). */
@@ -97,7 +89,8 @@ export function PlTable({
   month: string;
   full?: boolean;
 }) {
-  const months = [month, monthBefore(month)];
+  const months = [month, shiftKey(month, -1)];
+  const span = month.length === 4 ? "ปี" : "เดือน";
   const [a, b] = months.map((m) => monthPl(db, m));
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
@@ -117,8 +110,8 @@ export function PlTable({
   );
   return (
     <FigureCard
-      title={full ? "P&L รายเดือน" : "จ่ายเงินแยกหมวด"}
-      note="นับตามเดือนที่จ่ายเงิน"
+      title={full ? `P&L ราย${span}` : "จ่ายเงินแยกหมวด"}
+      note={`นับตาม${span}ที่จ่ายเงิน`}
     >
       <FigureTable>
         <thead>
@@ -126,7 +119,7 @@ export function PlTable({
             <th className={th}>รายการ</th>
             {months.map((m) => (
               <th key={m} className={cn(th, "text-right")}>
-                {monthName(m)}
+                {periodName(m)}
               </th>
             ))}
           </tr>
@@ -134,18 +127,13 @@ export function PlTable({
         <tbody>
           {full && line("ยอดขาย", a.sales, b.sales)}
           {full &&
-            salesChannels(db.config).map((c) => {
-              const [x, y] = months.map(
-                (m) =>
-                  (sum(
-                    entries(db, "sale").filter((e) => e.date.startsWith(m)),
-                    c.key,
-                  ) *
-                    c.gp) /
-                  100,
-              );
-              return line(`GP ${c.name} ${c.gp}%`, -x, -y);
-            })}
+            salesChannels(db.config).map((c) =>
+              line(
+                `GP ${c.name} ${c.gp}%`,
+                (-(a.byChannel[c.key] ?? 0) * c.gp) / 100,
+                (-(b.byChannel[c.key] ?? 0) * c.gp) / 100,
+              ),
+            )}
           {ids.map((id) =>
             id === rentCategory && !of(a, id) ? (
               <tr key={id}>
