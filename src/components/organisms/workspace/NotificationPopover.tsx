@@ -54,8 +54,9 @@ export function NotificationPopover({ ws }: { ws: Workspace }) {
             ปิด
           </Button>
         </div>
+        {/* The list is never taller than the window: a phone on its side still shows the head. */}
         {list.length ? (
-          <div className="mt-2.75 grid max-h-97.5 gap-1.75 overflow-auto">
+          <div className="mt-2.75 grid max-h-[min(24.375rem,100dvh_-_16rem)] gap-1.75 overflow-auto">
             {list.map((todo, index) =>
               todoOpens(todo) ? (
                 <AlertListItem

@@ -11,7 +11,7 @@ export function FileInput({ className, ...props }: ComponentProps<"input">) {
     <input
       type="file"
       className={cn(
-        "max-w-full text-caption file:mr-2.5 file:cursor-pointer file:rounded-sm file:border file:border-border-strong file:bg-surface file:px-2.5 file:py-2 file:font-semibold file:text-accent file:transition-colors file:duration-(--motion-fast) file:ease-(--ease-standard) hover:file:bg-bg",
+        "max-w-full text-caption file:mr-2.5 file:cursor-pointer file:rounded-sm file:border file:border-border-strong file:bg-surface file:px-2.5 file:py-2 file:font-semibold file:text-accent file:transition-colors file:duration-(--motion-fast) file:ease-(--ease-standard) hover:file:bg-bg pointer-coarse:file:py-3",
         className,
       )}
       {...props}

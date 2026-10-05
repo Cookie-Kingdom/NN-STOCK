@@ -249,7 +249,7 @@ export function RevenueChart({
         </div>
       </div>
       <details className="group mt-2">
-        <summary className="inline-flex min-h-8 cursor-pointer list-none items-center rounded-sm text-body-sm font-medium text-accent outline-focus-ring focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex min-h-8 cursor-pointer list-none items-center rounded-sm text-body-sm font-medium text-accent outline-focus-ring focus-visible:outline-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
           <span className="group-open:hidden">ดูเป็นตาราง</span>
           <span className="hidden group-open:inline">ซ่อนตาราง</span>
         </summary>

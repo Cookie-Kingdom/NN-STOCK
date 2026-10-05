@@ -29,12 +29,12 @@ const buttonVariants = cva(
       size: {
         /** `.primary` / `.secondary` default: 44px */
         md: "min-h-11 px-4 py-2.5",
-        /** `.inline-table-action .primary|.secondary`: 36px */
-        sm: "min-h-9 px-3 py-2",
+        /** `.inline-table-action .primary|.secondary`: 36px, 44px under a finger */
+        sm: "min-h-9 px-3 py-2 pointer-coarse:min-h-11",
         /** `.next-action .primary`: 48px */
         lg: "min-h-12 px-4 py-2.5",
-        /** no box — for table / text / link variants */
-        inline: "",
+        /** no box — for table / text / link variants; still 44px tall under a finger */
+        inline: "pointer-coarse:min-h-11 pointer-coarse:min-w-11",
       },
     },
   },

@@ -174,7 +174,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
                   href={e!.values.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-body-sm text-accent underline-offset-4 hover:underline"
+                  className="inline-flex items-center text-body-sm text-accent underline-offset-4 hover:underline pointer-coarse:min-h-11"
                 >
                   เปิดลิงก์
                 </a>

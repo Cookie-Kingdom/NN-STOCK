@@ -40,7 +40,7 @@ export function SegmentedChoice<T extends string>({
             aria-checked={checked}
             onClick={() => !checked && onChange(option.value)}
             className={cn(
-              "min-h-10 cursor-pointer rounded-sm px-3.5 py-2 text-body-sm font-medium transition-colors duration-(--motion-fast) ease-(--ease-standard) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+              "min-h-10 cursor-pointer rounded-sm px-3.5 py-2 text-body-sm font-medium transition-colors duration-(--motion-fast) ease-(--ease-standard) outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring pointer-coarse:min-h-11 pointer-coarse:min-w-11",
               checked
                 ? "bg-surface text-accent shadow-sm"
                 : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",

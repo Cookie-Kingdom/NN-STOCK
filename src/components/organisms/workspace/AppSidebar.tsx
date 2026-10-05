@@ -41,7 +41,7 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
   }, [account, router]);
 
   return (
-    <aside className="sticky top-0 z-10 flex h-dvh flex-col gap-6 border-r border-border bg-surface px-3 py-6 max-md:h-auto max-md:flex-row max-md:items-center max-md:gap-1 max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-2">
+    <aside className="sticky top-0 z-10 flex h-dvh flex-col gap-6 border-r border-border bg-surface px-3 py-6 max-md:h-auto max-md:flex-row max-md:items-center max-md:gap-1 max-md:border-r-0 max-md:border-b max-md:px-4 max-md:py-2 md:overflow-y-auto">
       <div className="px-2 max-md:mr-auto max-md:min-w-0 max-md:px-0">
         <AppBrand
           compact
