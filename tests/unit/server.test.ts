@@ -286,7 +286,9 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     loadState(db, minburi)
       .payload.entries.map((e) => e.id)
       .join(),
-  ).toBe("s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,a1,a2,a3,a4,e1,e2,v1,v2,v3");
+  ).toBe(
+    "s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6",
+  );
 
   // save_app_state, as the Account Manager, from the copy it loads
   const saves: [Partial<Entry>, string][] = tagged(sqlTest, "saves");
@@ -318,7 +320,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .slice(state.entries.length)
       .map((e) => e.id)
       .join(),
-  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n3");
+  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,n1,n3,n4");
 });
 
 test("a branch appends only its own branch's kinds, the centre writes none of its notes, and what the centre buys for it reaches it alone", () => {

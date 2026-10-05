@@ -1,12 +1,22 @@
 /** The Accounting page's purchase ledger (V2-LED-01): every PO เนื้อ and PO รมควัน as a row
  *  worked out from the log, plus the `expense` notes jotted by hand. Nothing here is stored. */
-import { materialList, type Database, type Entry, type Values } from "./model";
 import {
+  branches,
+  materialList,
+  places,
+  shopProject,
+  type Database,
+  type Entry,
+  type Values,
+} from "./model";
+import {
+  branchMaterial,
   byDateAt,
   entries,
   invoiceOf,
   purchaseLots,
   shipments,
+  stockMoves,
 } from "./derived";
 
 export const ledgerSources = {
@@ -32,8 +42,7 @@ export const defaultLedgerTypes = [
   "สินทรัพย์",
   "อื่นๆ",
 ];
-/** The project every PO belongs to: the sidebar section of the shop's pages (nav.ts). */
-export const shopProject = "Nerdnuea x LINE MAN";
+export { shopProject };
 
 export type LedgerRow = {
   /** The PO's lot id, or the `expense` entry's id. */
@@ -85,7 +94,9 @@ function skuNames(config: Values): Map<string, string> {
 }
 /** Every item with a SKU and the name it goes by: the materials (named in Settings), then the
  *  items of the live `expense` notes, oldest first, each under the Owner's rename if it has
- *  one, else the name first typed. A rename shows on every row of the SKU, old ones included. */
+ *  one, else the name first typed. A rename shows on every row of the SKU, old ones included.
+ *  Last, a SKU only a `transfer` names, under the name stamped on it (`itemName`): a branch's
+ *  copy holds no expense of the item sent to it. */
 export function skuCatalogue(db: Database) {
   const items = new Map<
     string,
@@ -99,6 +110,13 @@ export function skuCatalogue(db: Database) {
       items.set(v.sku, {
         sku: v.sku,
         name: renamed.get(v.sku) ?? (v.item ?? "").trim(),
+        material: false,
+      });
+  for (const { values: v } of entries(db, "transfer"))
+    if (v.sku && !items.has(v.sku))
+      items.set(v.sku, {
+        sku: v.sku,
+        name: renamed.get(v.sku) ?? v.itemName ?? "",
         material: false,
       });
   return [...items.values()];
@@ -125,6 +143,16 @@ export function nextSku(db: Database) {
   return skuText(Math.max(0, ...issued.map(skuNumber)) + 1);
 }
 export const skuAfter = (sku: string) => skuText(skuNumber(sku) + 1);
+/** The catalogue item a `transfer` of `name` moves: the one it already had (`kept`, an edit
+ *  that kept the name, renamed since or not), else the one that goes by that name. */
+export function skuItem(db: Database, name: string, kept: Values = {}) {
+  const key = norm(name);
+  return skuCatalogue(db).find((item) =>
+    kept.sku && norm(kept.item) === key
+      ? item.sku === kept.sku
+      : norm(item.name) === key,
+  );
+}
 /** The SKU an `expense` note of item `name` gets: the one it already had (`kept`, an edit that
  *  kept the name), the one of the item in the catalogue that goes by that name (a material
  *  included), or the next one (`isNew`). */
@@ -348,6 +376,54 @@ export function projectAssets(db: Database, project = shopProject) {
   return [...groups]
     .filter(([, items]) => items.size)
     .map(([type, items]) => ({ type, rows: [...items.values()] }));
+}
+
+export type StockLine = {
+  sku: string;
+  name: string;
+  /** The Settings material's id when the SKU is one, else "". */
+  materialId: string;
+  /** Balance per place: "central" and every branch name. */
+  at: Record<string, number>;
+  /** Sent with "confirm" and not yet received. */
+  inTransit: number;
+};
+/** The stock of every SKU that an expense of the shop project or a transfer ever moved, plus
+ *  every Settings material with a SKU: what came in less what went out, per place
+ *  (`stockMoves`); a material's figure at a branch is `branchMaterial`'s (its count is the
+ *  truth). A balance may be negative. On a branch's copy only its own branch's figure is true:
+ *  it holds nothing of the other places. */
+export function stockLines(db: Database, today: string): StockLine[] {
+  const names = new Map(skuCatalogue(db).map((item) => [item.sku, item.name]));
+  const lines = new Map<string, StockLine>();
+  const line = (sku: string, materialId = "") => {
+    const made = lines.get(sku) ?? {
+      sku,
+      name: names.get(sku) ?? "",
+      materialId,
+      at: Object.fromEntries(places.map((place) => [place, 0])),
+      inTransit: 0,
+    };
+    lines.set(sku, made);
+    return made;
+  };
+  for (const m of materialList(db.config)) if (m.sku) line(m.sku, m.id);
+  const { moves, transit } = stockMoves(db);
+  for (const move of moves) {
+    const at = line(move.sku).at;
+    at[move.place] = (at[move.place] ?? 0) + move.qty;
+  }
+  for (const e of transit) line(e.values.sku).inTransit += Number(e.values.qty);
+  for (const made of lines.values())
+    if (made.materialId)
+      for (const branch of branches)
+        made.at[branch] = branchMaterial(
+          db,
+          branch,
+          made.materialId,
+          today,
+        ).qty;
+  return [...lines.values()];
 }
 
 /** The Accounting page's two figures, from the rows: what the POs still waiting for payment

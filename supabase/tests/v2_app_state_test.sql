@@ -1,9 +1,11 @@
 -- Migrations 20261002000004 and 20261002000005 (v2 note-taking): what a branch and the Account Manager receive, and
 -- what each may write.
 --   * scope_app_state: a branch gets its own entries, every Lot รมควัน and the stock lines of what
---     was bought for it, cut down; nothing of another branch, no PO เนื้อ, no cost.
+--     was bought for it (a payment, an expense into its warehouse), cut down, and the transfers
+--     out of or into its stock; nothing of another branch, no PO เนื้อ, no cost.
 --   * manager_strip_entries / load_app_state: no sale money, payroll payments as stubs.
---   * append_entries: the v2 branch kinds, the four payment categories, changes to its own notes.
+--   * append_entries: the v2 branch kinds, the four payment categories, changes to its own notes,
+--     the receipt of a transfer sent to it.
 --   * save_app_state: the Account Manager writes no sale, no payroll payment, no change about
 --     one and no settings; its save keeps the stored sale money and payroll amounts. Neither it
 --     nor the Owner writes a branch's notes: no new one, no change to one, no undo of a change.
@@ -27,6 +29,9 @@ declare
   -- ov deletes r0; pw is a payroll payment, pe an edit of it, pv its delete; ps is what the Account
   -- Manager bought for มีนบุรี, pse an edit of that and psv the undo; pd is bought for ศาลาแดง; oe
   -- is the Owner's edit of มีนบุรี's sale; mc the Owner jotted for มีนบุรี; tw is a retired kind.
+  -- xe is an expense bought into มีนบุรี's warehouse and xee an edit of it, xc one into the central
+  -- warehouse; t1 is a transfer to มีนบุรี, t2 one to ศาลาแดง, t3 one whose edit t3e names มีนบุรี, t4
+  -- one out of มีนบุรี that tv deleted.
   v_state constant jsonb := $state$
   {"version": 9,
    "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","rawRiceBranches":"[\"ศาลาแดง\",\"มีนบุรี\"]","companyName":"x"},
@@ -53,6 +58,15 @@ declare
     {"id":"mc","kind":"meatCount","role":"branch","actor":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"kg":"5"}},
     {"id":"po","kind":"purchase","role":"owner","lotId":"F1","branch":"","date":"2026-09-01","values":{"price":"700","orderedKg":"10"}},
     {"id":"tw","kind":"thaw","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"kg":"1"}},
+    {"id":"xe","kind":"expense","role":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"item":"ตู้เย็น","sku":"SKU-0011","qty":"2","warehouse":"มีนบุรี","purpose":"project","project":"Nerdnuea x LINE MAN","amount":"9000","vendor":"x","reference":"R1"}},
+    {"id":"xee","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"xe","targetKind":"expense","from.qty":"2","to.qty":"3","from.amount":"9000","to.amount":"9500"}},
+    {"id":"xc","kind":"expense","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"item":"โต๊ะ","sku":"SKU-0012","qty":"4","warehouse":"central","purpose":"project","project":"Nerdnuea x LINE MAN","amount":"800"}},
+    {"id":"t1","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"มีนบุรี","qty":"1","receive":"confirm"}},
+    {"id":"t2","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"ศาลาแดง","qty":"1","receive":"confirm"}},
+    {"id":"t3","kind":"transfer","role":"owner","actor":"manager","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"","qty":"1","missing":"to"}},
+    {"id":"t3e","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t3","targetKind":"transfer","from.to":"","to.to":"มีนบุรี","to.receive":"confirm","to.missing":""}},
+    {"id":"t4","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0011","itemName":"ตู้เย็น","from":"มีนบุรี","to":"central","qty":"1"}},
+    {"id":"tv","kind":"void","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t4","targetKind":"transfer"}},
     {"id":"cf","kind":"config","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"boxPrice":"350"}}
   ]}
   $state$;
@@ -69,7 +83,14 @@ declare
     ["psv", {"targetId":"pse","targetKind":"entryEdit"}],
     ["pb", {"category":"ingredient","amount":"120","item":"rice","qty":"20","payer":"A","fullAmount":"150"}],
     ["oe", {"targetId":"s1","targetKind":"sale","from.lineMan":"700","to.lineMan":"650","to.sales.grab":"40","to.boxes":"3"}],
-    ["mc", {"kg":"5"}]
+    ["mc", {"kg":"5"}],
+    ["xe", {"item":"ตู้เย็น","sku":"SKU-0011","qty":"2","warehouse":"มีนบุรี","purpose":"project","project":"Nerdnuea x LINE MAN"}],
+    ["xee", {"targetId":"xe","targetKind":"expense","to.qty":"3"}],
+    ["t1", {"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"มีนบุรี","qty":"1","receive":"confirm"}],
+    ["t3", {"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"","qty":"1","missing":"to"}],
+    ["t3e", {"targetId":"t3","targetKind":"transfer","from.to":"","to.to":"มีนบุรี","to.receive":"confirm","to.missing":""}],
+    ["t4", {"sku":"SKU-0011","itemName":"ตู้เย็น","from":"มีนบุรี","to":"central","qty":"1"}],
+    ["tv", {"targetId":"t4","targetKind":"transfer"}]
   ]
   $branch$;
   -- id -> values: the entries the Account Manager receives changed; every other one is whole.
@@ -119,7 +140,16 @@ declare
     ["x", "void", "", {"targetId": "v2"}, "An undo cannot be undone"],
     ["v3", "void", "", {"targetId": "e1"}, ""],
     ["x", "void", "", {"targetId": "v3"}, "An undo cannot be undone"],
-    ["v4", "void", "", {"targetId": "tw"}, ""]
+    ["v4", "void", "", {"targetId": "tw"}, ""],
+    ["a5", "transferReceive", "", {"transferId": "t1"}, ""],
+    ["a6", "transferReceive", "", {"transferId": "t3"}, ""],
+    ["x", "transferReceive", "", {"transferId": "t2"}, "Transfer is not one sent to this branch"],
+    ["x", "transferReceive", "", {"transferId": "t4"}, "Transfer is not one sent to this branch"],
+    ["x", "transferReceive", "", {"transferId": "xe"}, "Transfer is not one sent to this branch"],
+    ["x", "transferReceive", "", {"transferId": "nope"}, "Transfer is not one sent to this branch"],
+    ["x", "entryEdit", "", {"targetId": "a5"}, "Edit target is not an entry of this branch"],
+    ["x", "entryEdit", "", {"targetId": "t1", "to.qty": "9"}, "Edit target is not an entry of this branch"],
+    ["x", "void", "", {"targetId": "t1"}, "Void target is not an entry of this branch"]
   ]
   $appends$;
   -- [entry, error]: appended one by one by the Account Manager to the copy it loaded.
@@ -139,7 +169,9 @@ declare
     [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "r1", "targetKind": "receive", "to.kg": "4"}}, "Only a branch account writes a branch's notes"],
     [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "mc", "targetKind": "meatCount"}}, "Only a branch account writes a branch's notes"],
     [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "ov", "targetKind": "void"}}, "Only a branch account writes a branch's notes"],
-    [{"id": "n3", "kind": "void", "role": "owner", "values": {"targetId": "ps", "targetKind": "pay"}}, ""]
+    [{"id": "n3", "kind": "void", "role": "owner", "values": {"targetId": "ps", "targetKind": "pay"}}, ""],
+    [{"id": "n4", "kind": "transfer", "role": "owner", "values": {"sku": "SKU-0012", "itemName": "โต๊ะ", "from": "central", "to": "มีนบุรี", "qty": "1", "receive": "now"}}, ""],
+    [{"id": "x", "kind": "transferReceive", "role": "branch", "branch": "มีนบุรี", "values": {"transferId": "n4"}}, "Only a branch account writes a branch's notes"]
   ]
   $saves$;
 begin
@@ -233,7 +265,7 @@ begin
   assert v_err = 'Only an owner can change lots', format('branch lot change: got %s', v_err);
   select l.payload into v_seen from public.load_app_state() l;
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    = 's1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,a1,a2,a3,a4,e1,e2,v1,v2,v3', format('branch load after its appends: %s', v_seen -> 'entries');
+    = 's1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6', format('branch load after its appends: %s', v_seen -> 'entries');
 
   -- save_app_state, as the Account Manager, from the copy it loads.
   perform set_config('test.uid', v_mgr::text, true);
@@ -274,7 +306,7 @@ begin
   assert v_seen -> 'entries' -> 0 = v_state -> 'entries' -> 0 and v_seen -> 'entries' -> 6 = v_state -> 'entries' -> 6
     and v_seen -> 'entries' -> 14 = v_state -> 'entries' -> 14, 'a manager save changed sale money or a payroll payment';
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,n1,n3', 'the log is not what was appended';
+    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,n1,n3,n4', 'the log is not what was appended';
   v_err := '';
   begin
     perform public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries') || '[

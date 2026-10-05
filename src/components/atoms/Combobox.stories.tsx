@@ -45,6 +45,12 @@ export const Chosen: Story = {
   args: { value: "Chef House" },
 };
 
+/** `strict`: only a suggestion stands. Type "foodiva " and leave the field: it becomes
+ *  "Foodiva"; type a name that is not listed and leave: the field is cleared. */
+export const Strict: Story = {
+  args: { strict: true, placeholder: "ค้นหาแล้วเลือกผู้ขาย" },
+};
+
 /** A suggestion with a `label` of its own (a SKU): shown beside the text, and typing it
  *  finds the row (try "0012"). */
 export const WithLabels: Story = {

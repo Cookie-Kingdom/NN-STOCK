@@ -244,7 +244,8 @@ function NoteForm({
       };
     const v = { ...target.values };
     // A ledger item opens under the name it goes by now (the Owner may have renamed it).
-    if (kind === "expense") v.item = skuName(db, v.sku, v.item);
+    if (kind === "expense" || kind === "transfer")
+      v.item = skuName(db, v.sku, v.item);
     // A dispatch saved with one PO เนื้อ (poLotId) opens as one line.
     if (kind === "dispatch" && !v.poLines && v.poLotId)
       v.poLines = JSON.stringify(dispatchLines(v));

@@ -8,7 +8,9 @@
 --   deletes naming any of those. Nothing of another branch. hiddenKeys are stripped from the
 --   branch's own entries and the Lots, so `fullAmount` is not one: a branch types it on its own
 --   payment (V2-ACC-07). The Owner's never reaches a branch, stockKeys being the only keys a
---   stock line keeps. Of `rawRiceBranches` it gets its own branch's name or an empty list: whether
+--   stock line keeps. The same way it gets what an `expense` bought straight into its warehouse
+--   (what, how many, never the amount or the vendor), and, whole, every `transfer` out of or into
+--   its stock (wholeKinds: no money in one) with its own receipts. Of `rawRiceBranches` it gets its own branch's name or an empty list: whether
 --   it counts raw rice, not whether the other branch does (V2-BR-08).
 -- * The Account Manager (manager_*) gets a copy with no sale money (also under a `sales.`
 --   channel key) and every payroll payment as a stub: its category and what it names, no
@@ -21,13 +23,15 @@
 create or replace function public.app_state_scope_rules() returns jsonb
 language sql immutable set search_path = pg_catalog as $$ select $rules$
 {
-  "kinds": ["receive", "sale", "influencerBox", "materials", "meatCount", "pay"],
+  "kinds": ["receive", "sale", "influencerBox", "materials", "meatCount", "pay", "transferReceive"],
   "hiddenKeys": ["price", "invoiceAmount", "netPayable", "lines", "estimatedCost", "serviceRate", "outboundCost",
     "returnCost", "meatCost", "wasteCost"],
   "configKeys": ["packKg", "materialList", "salesChannels", "payCategories", "rawRiceBranches"],
-  "stockKinds": ["pay"],
-  "stockKeys": ["category", "item", "qty", "branch", "targetId", "targetKind", "to.category", "to.item", "to.qty",
-    "fromDate", "toDate"]
+  "stockKinds": ["pay", "expense"],
+  "stockKeys": ["category", "item", "qty", "branch", "sku", "warehouse", "purpose", "project", "status", "targetId",
+    "targetKind", "to.category", "to.item", "to.qty", "to.sku", "to.warehouse", "to.purpose", "to.project",
+    "to.status", "fromDate", "toDate"],
+  "wholeKinds": ["transfer"]
 }
 $rules$::jsonb $$;
 
@@ -91,6 +95,7 @@ declare
   config_keys text[] := array(select jsonb_array_elements_text(rule -> 'configKeys'));
   stock_kinds text[] := array(select jsonb_array_elements_text(rule -> 'stockKinds'));
   stock_keys text[] := array(select jsonb_array_elements_text(rule -> 'stockKeys'));
+  whole_kinds text[] := array(select jsonb_array_elements_text(rule -> 'wholeKinds'));
   scoped_lots jsonb; scoped_entries jsonb; scoped_config jsonb; rice text;
 begin
   p_branches := coalesce(p_branches, '{}'::text[]);
@@ -103,7 +108,8 @@ begin
   from jsonb_array_elements(all_lots) with ordinality t(l, ord)
   where coalesce(l ->> 'kind' = 'shipment', false);
 
-  -- Own entries (hiddenKeys stripped) and stock lines (stockKeys only), then every edit or delete
+  -- Own entries (hiddenKeys stripped), stock lines (stockKeys only) and the transfers whose `from`
+  -- or `to` names the branch, as saved or as an edit put it (whole), then every edit or delete
   -- naming one, cut like its target, then a delete naming one of those (an undone edit, a
   -- restored delete; no chain is longer, see entry_voided).
   with log as (
@@ -113,6 +119,16 @@ begin
     select e, ord, branch_role as own from log
     where coalesce(e ->> 'branch' = any (p_branches), false)
       and case when branch_role then e ->> 'kind' = any (kinds) else e ->> 'kind' = any (stock_kinds) end
+    union all
+    select e, ord, true from log
+    where not coalesce(e ->> 'branch' = any (p_branches), false)
+      and not branch_role and coalesce(e ->> 'kind' = any (whole_kinds), false)
+      and (coalesce(e -> 'values' ->> 'from' = any (p_branches), false)
+        or coalesce(e -> 'values' ->> 'to' = any (p_branches), false)
+        or exists (select 1 from log x where x.e ->> 'kind' = 'entryEdit'
+          and x.e -> 'values' ->> 'targetId' = log.e ->> 'id'
+          and (coalesce(x.e -> 'values' ->> 'to.from' = any (p_branches), false)
+            or coalesce(x.e -> 'values' ->> 'to.to' = any (p_branches), false))))
   ), follow as (
     select l.e, l.ord, d.own from log l
     join direct d on d.e ->> 'id' = l.e -> 'values' ->> 'targetId'

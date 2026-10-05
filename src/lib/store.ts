@@ -24,6 +24,9 @@ export {
   oncePerLotKinds,
   entryBy,
   branches,
+  centralPlace,
+  places,
+  placeLabel,
   titles,
   editableKinds,
   voidableKinds,
@@ -78,6 +81,7 @@ export {
   branchMeat,
   type CountVariance,
   branchMaterial,
+  pendingTransfers,
   branchChili,
   branchRice,
   supplierBalances,
@@ -113,5 +117,7 @@ export {
   ledgerSummary,
   projectAssets,
   type ProjectAsset,
+  stockLines,
+  type StockLine,
 } from "./store/ledger";
 export { mutate } from "./store/mutate";

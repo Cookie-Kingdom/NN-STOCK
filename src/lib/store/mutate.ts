@@ -36,13 +36,14 @@ import {
   defaultRound,
   entries,
   nextNumberPreview,
+  pendingTransfers,
   poInfo,
   poLines,
   purchaseLots,
   shipments,
   smokeServiceRate,
 } from "./derived";
-import { nextSku, skuAfter, skuFor, skuNameError } from "./ledger";
+import { nextSku, skuAfter, skuFor, skuItem, skuNameError } from "./ledger";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
 const badNumber = "เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข";
@@ -102,6 +103,9 @@ const selectError: Record<string, string> = {
   category: "เลือกหมวด",
   item: "เลือกรายการ",
   branch: "เลือกสาขา",
+  from: "ไม่พบคลังต้นทางที่เลือก",
+  to: "ไม่พบคลังปลายทางที่เลือก",
+  transferId: "ไม่พบรายการจัดสรรที่รอสาขานี้ยืนยันรับ",
 };
 /** A note's values as saved: one pass over the kind's fields for `by` (on `lotId`). A field
  *  whose `when` is false is dropped; a typed number, date, time or choice must be one; an
@@ -208,6 +212,18 @@ function noteValues(
       "ลิงก์เอกสารต้องขึ้นต้นด้วย http:// หรือ https://",
     );
     v.sku = skuFor(db, v.item, kept).sku;
+  }
+  if (kind === "transfer") {
+    assert(
+      !v.from || v.from !== v.to,
+      "คลังต้นทางและปลายทางเป็นที่เดียวกันไม่ได้",
+    );
+    // Only an item of the catalogue moves, under the name it goes by now. `itemName`: a
+    // branch's copy has no catalogue to look an item up in.
+    const item = skuItem(db, v.item, kept);
+    assert(!v.item || item, "ไม่พบรายการนี้ · เลือกจากรายการที่มีอยู่");
+    v.item = v.itemName = item?.name ?? "";
+    v.sku = item?.sku ?? "";
   }
   if (kind === "dispatch" || kind === "return")
     v.transferNumber =
@@ -456,6 +472,13 @@ export function mutate(
         !values[key] || values[key] === target.branch,
         "แก้สาขาไม่ได้ · ลบแล้วจดใหม่",
       );
+    // So is the branch an expense bought into: from there it moves by a `transfer`.
+    assert(
+      note !== "expense" ||
+        !branches.includes(values.warehouse) ||
+        values.warehouse === target.branch,
+      "แก้เป็นคลังของสาขาอื่นไม่ได้ · ใช้ จัดสรรสินค้า หรือลบแล้วจดใหม่",
+    );
     // A payroll payment is hidden from the Account Manager by its category: it stays one.
     assert(
       (values.category === payrollCategory) ===
@@ -539,6 +562,19 @@ export function mutate(
       assert(v.branch || !v.qty, "เลือกสาขา");
       branch = v.branch ?? "";
     }
+    // What is bought straight into a branch is stamped with it: its stock line reaches it.
+    if (kind === "expense" && branches.includes(v.warehouse))
+      branch = v.warehouse;
+    // A receipt is all of one transfer still waiting for this branch, once.
+    if (kind === "transferReceive")
+      assert(
+        pendingTransfers(db, own).some((e) => e.id === v.transferId),
+        entries(db, "transferReceive", undefined, own).some(
+          (e) => e.values.transferId === v.transferId,
+        )
+          ? "รายการนี้ยืนยันรับแล้ว"
+          : selectError.transferId,
+      );
     const day = date.slice(2).replaceAll("-", "");
     if (kind === "purchase") {
       // V2-PO-01: a PO opens its own lot, `F<yymmdd>-NNN` with the next `PO-YYYY-NNNN`.
