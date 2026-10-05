@@ -51,21 +51,25 @@ export function useDropdown(
       const gap = 6;
       const below = height - box.bottom - gap - 12;
       const above = box.top - gap - 12;
-      el.style.maxHeight = "";
+      // scrollHeight is the whole list whatever its max-height: lifting the max-height to
+      // measure would throw the list's own scroll back to the top.
       const up = below < Math.min(el.scrollHeight, 220) && above > below;
       el.style.minWidth = `${box.width}px`;
       el.style.maxHeight = `${Math.max(Math.min(up ? above : below, 336), 96)}px`;
       el.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - el.offsetWidth - 8))}px`;
       el.style.top = up ? "auto" : `${box.bottom + gap}px`;
       el.style.bottom = up ? `${window.innerHeight - box.top + gap}px` : "auto";
-      el.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
     };
     place();
+    // Once per render (the active row moved), never on a scroll: the list's own scroll is
+    // caught below too, and would be pulled back to the active row.
+    el.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
+    const onScroll = (event: Event) => event.target !== el && place();
     window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   });
   return list;

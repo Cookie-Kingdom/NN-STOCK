@@ -29,7 +29,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Owner: ตารางวัสดุ แถวละรายการ คอลัมน์ละที่: SKU · สินค้า · คลังกลาง · สาขาศาลาแดง ·
+/** Owner: บนสุดคือสินทรัพย์ที่ซื้อเข้า Project จากหน้า Accounting: มูลค่ารวมและจำนวนรายการ แล้วตารางละ
+ *  ประเภทสินค้า (SKU · รายการ · รายละเอียด / สเปก · ผู้ขาย · ซื้อล่าสุด · จำนวนซื้อ · มูลค่า) รายการเดียวกัน
+ *  ที่ซื้อหลายครั้งรวมเป็นแถวเดียว · รายการที่ยกเลิกและที่ซื้อเข้าส่วนกลางไม่ขึ้น ·
+ *  ถัดมาคือตารางวัสดุ แถวละรายการ คอลัมน์ละที่: SKU · สินค้า · คลังกลาง · สาขาศาลาแดง ·
  *  สาขามีนบุรี · รวม · สถานะ (คลังกลางเป็น「—」ทุกแถว ยังไม่มีคลังกลางของวัสดุ) ·
  *  ใต้ตัวเลขของแต่ละสาขาบอกยอดนับล่าสุด (นับวันนี้ / นับ <วันที่> / นับ <วันที่> · เกิน 7 วัน /
  *  ยังไม่เคยนับ) · ช่องที่ยังไม่ได้นับเป็นสีเหลือง ช่องที่ไม่เหลือเป็นสีแดง · หน่วย (ชิ้น) บอกครั้งเดียวใต้ตาราง ·
@@ -49,7 +52,9 @@ export const Filtered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("ค้นหา"), "sku-000");
-    const rows = canvas.getAllByRole("row").slice(1);
+    const rows = within(canvas.getByRole("region", { name: "วัสดุ" }))
+      .getAllByRole("row")
+      .slice(1);
     await expect(rows).toHaveLength(9);
     await expect(
       canvas.getByText(new RegExp(`^แสดง ${rows.length} จาก`)),
