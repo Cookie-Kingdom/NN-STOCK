@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Thai } from "next/font/google";
+import { Noto_Sans_Thai_Looped } from "next/font/google";
 import "./globals.css";
 import { themeInitScript } from "@/lib/theme";
 
-const notoSansThai = Noto_Sans_Thai({
-  variable: "--font-noto-sans-thai",
+const notoSansThaiLooped = Noto_Sans_Thai_Looped({
+  variable: "--font-noto-sans-thai-looped",
   subsets: ["thai", "latin"],
   weight: ["400", "500", "600"],
   display: "swap",
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="th"
-      className={`${notoSansThai.variable} h-full antialiased`}
+      className={`${notoSansThaiLooped.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

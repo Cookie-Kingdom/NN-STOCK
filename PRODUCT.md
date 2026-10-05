@@ -33,7 +33,7 @@ A note-taking app for the accounts and stock of a meat supply chain. Accounts jo
 
 ## Brand Commitments
 
-- Token system in `src/styles/tokens.css`: slate neutrals, blue accent, a warm-graphite dark theme; Noto Sans Thai.
+- Token system in `src/styles/tokens.css`: slate neutrals, blue accent, a warm-graphite dark theme; Noto Sans Thai Looped.
 - State colours are business rules: green is money in, red is money out, amber is a warning.
 
 ## Evidence on Hand

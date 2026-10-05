@@ -6,7 +6,7 @@ import type { NextConfig } from "next";
 // - connect-src: the Supabase project (REST, auth, storage) and its realtime websocket,
 //   taken from the env so a local or branch project works too.
 // - img/object/frame blob: + data: attachments are previewed as Blob URLs (and inherit this CSP).
-// - fonts.googleapis/gstatic: the DocumentPrintButton popup loads Noto Sans Thai.
+// - fonts.googleapis/gstatic: the DocumentPrintButton popup loads Noto Sans Thai Looped.
 const supabase = new URL(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://supabase.co",
 );
