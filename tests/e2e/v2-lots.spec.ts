@@ -1,11 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   bangkokDate,
+  choices,
   confirmDelete,
   fill,
   form,
   jot,
   openPage,
+  pick,
   popup,
   popupTitle,
   region,
@@ -146,11 +148,11 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   });
   await expect(saveButton).toBeDisabled();
   await form(page).getByRole("button", { name: "เพิ่ม PO เนื้อ" }).click();
-  await expect(line(page).locator("option")).toHaveText([
+  expect(await choices(line(page))).toEqual([
     "เลือก PO เนื้อ",
     `${PO} · เหลือ 100 กก.`,
   ]);
-  await line(page).selectOption({ index: 1 });
+  await pick(line(page), 1);
   await expect(form(page).getByLabel("กก. บรรทัด 1")).toHaveValue("60");
   await expect(saveButton).toBeEnabled();
   await save(page);
@@ -195,7 +197,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await expect(link).toContainText("ยังไม่ผูก PO เนื้อ · กดเพื่อผูก");
   await link.click();
   await expect(popupTitle(page)).toHaveText("แก้ไข: ส่งไปรมควัน");
-  await line(page).selectOption({ label: `${PO2} · เหลือ 100 กก.` });
+  await pick(line(page), `${PO2} · เหลือ 100 กก.`);
   await save(page);
   await expect(toast(page, "แก้แล้ว: ส่งไปรมควัน")).toBeVisible();
 
@@ -234,14 +236,10 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   await savePo(page);
   await left(5);
   await dispatch(page, lot);
-  await expect(
-    form(page)
-      .getByLabel(/^PO รมควัน/)
-      .locator("option:checked"),
-  ).toHaveText(SO);
+  await expect(form(page).getByLabel(/^PO รมควัน/)).toHaveText(SO);
   await expect(form(page).getByLabel(/^น้ำหนักที่ส่ง/)).toHaveValue("200");
   await form(page).getByRole("button", { name: "เพิ่ม PO เนื้อ" }).click();
-  await line(page).selectOption({ index: 1 });
+  await pick(line(page), 1);
   await save(page);
   await left(4, "รับที่ Chef House", "หลังรมควัน", "ส่งกลับ");
   await tile(lot, /^รับที่ Chef House/).click();

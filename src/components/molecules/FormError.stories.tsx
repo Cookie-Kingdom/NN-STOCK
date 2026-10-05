@@ -42,10 +42,11 @@ export const InForm: Story = {
   render: () => (
     <form className="grid gap-4">
       <FormField label="สาขา">
-        <Select>
-          <option>ศาลาแดง</option>
-          <option>มีนบุรี</option>
-        </Select>
+        <Select
+          value="ศาลาแดง"
+          onChange={() => {}}
+          options={[{ value: "ศาลาแดง" }, { value: "มีนบุรี" }]}
+        />
       </FormField>
       <FormField label="น้ำหนักรับเข้า (กก.)">
         <Input type="number" step="0.01" defaultValue="0" />

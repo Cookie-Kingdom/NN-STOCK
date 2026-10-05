@@ -1,12 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   bangkokDate,
+  choices,
   confirmDelete,
   fill,
   form,
   jot,
   nav,
   openPage,
+  pick,
   popupTitle,
   region,
   save,
@@ -348,33 +350,33 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await search.fill("");
 
   // Project: the names in the ledger, and ส่วนกลาง for a row with none.
-  await expect(project.getByRole("option")).toHaveText([
+  expect(await choices(project)).toEqual([
     "ทั้งหมด",
     "งานอีเวนต์",
     "ส่วนกลาง",
     "Nerdnuea x LINE MAN",
   ]);
-  await project.selectOption("งานอีเวนต์");
+  await pick(project, "งานอีเวนต์");
   await expect(ledgerRows(page)).toHaveCount(1);
   await expect(ledgerRows(page)).toContainText("ถุงซีลเนื้อ");
-  await project.selectOption("ส่วนกลาง");
+  await pick(project, "ส่วนกลาง");
   await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์"]);
-  await project.selectOption("Nerdnuea x LINE MAN");
+  await pick(project, "Nerdnuea x LINE MAN");
   await expect(ledgerRows(page)).toContainText([PO1]);
-  await project.selectOption("ทั้งหมด");
+  await pick(project, "ทั้งหมด");
 
-  await status.selectOption("จ่ายแล้ว");
+  await pick(status, "จ่ายแล้ว");
   await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์"]);
-  await status.selectOption("รอจ่ายเงิน");
+  await pick(status, "รอจ่ายเงิน");
   await expect(ledgerRows(page)).toHaveCount(2);
   // Together: still to pay, and jotted by hand.
-  await source.selectOption("บันทึกเอง");
+  await pick(source, "บันทึกเอง");
   await expect(ledgerRows(page)).toContainText(["ถุงซีลเนื้อ"]);
-  await status.selectOption("ทั้งหมด");
+  await pick(status, "ทั้งหมด");
   await expect(ledgerRows(page)).toHaveCount(2);
-  await source.selectOption("ดึงจากระบบ PO");
+  await pick(source, "ดึงจากระบบ PO");
   await expect(ledgerRows(page)).toContainText([PO1]);
-  await source.selectOption("ทั้งหมด");
+  await pick(source, "ทั้งหมด");
   await expect(ledgerRows(page)).toHaveCount(3);
 
   // PO รอจ่าย: the count of the card, and both filters in one press; a second press clears them.
@@ -385,13 +387,13 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await expect(waiting).toHaveAttribute("aria-pressed", "false");
   await waiting.click();
   await expect(waiting).toHaveAttribute("aria-pressed", "true");
-  await expect(source).toHaveValue("po");
-  await expect(status).toHaveValue("pending");
+  await expect(source).toHaveAttribute("data-value", "po");
+  await expect(status).toHaveAttribute("data-value", "pending");
   await expect(ledgerRows(page)).toContainText([PO1]);
   await expect(shown(page)).toHaveText("แสดง 1 จาก 3 รายการ");
   await waiting.click();
   await expect(waiting).toHaveAttribute("aria-pressed", "false");
-  await expect(source).toHaveValue("");
-  await expect(status).toHaveValue("");
+  await expect(source).toHaveAttribute("data-value", "");
+  await expect(status).toHaveAttribute("data-value", "");
   await expect(ledgerRows(page)).toHaveCount(3);
 });

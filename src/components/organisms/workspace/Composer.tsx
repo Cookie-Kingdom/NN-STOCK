@@ -384,27 +384,29 @@ function NoteForm({
                     >
                       <Select
                         value={lotId}
-                        onChange={(event) => pickLot(event.target.value)}
-                      >
-                        {/* An edit moves a note to another lot; it never clears one. */}
-                        {info.lot === "optional" && !target?.lotId && (
-                          <option value="">ไม่ระบุ PO รมควัน</option>
-                        )}
-                        {info.lot !== "optional" && !lots.length && (
-                          <option value="">
-                            ยังไม่มี{" "}
-                            {info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
-                          </option>
-                        )}
-                        {lotId && !lots.some((lot) => lot.id === lotId) && (
-                          <option value={lotId}>{lotLabel(db, lotId)}</option>
-                        )}
-                        {lots.map((lot) => (
-                          <option key={lot.id} value={lot.id}>
-                            {lot.poId}
-                          </option>
-                        ))}
-                      </Select>
+                        onChange={pickLot}
+                        options={[
+                          // An edit moves a note to another lot; it never clears one.
+                          ...(info.lot === "optional" && !target?.lotId
+                            ? [{ value: "", label: "ไม่ระบุ PO รมควัน" }]
+                            : []),
+                          ...(info.lot !== "optional" && !lots.length
+                            ? [
+                                {
+                                  value: "",
+                                  label: `ยังไม่มี ${info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}`,
+                                },
+                              ]
+                            : []),
+                          ...(lotId && !lots.some((lot) => lot.id === lotId)
+                            ? [{ value: lotId, label: lotLabel(db, lotId) }]
+                            : []),
+                          ...lots.map((lot) => ({
+                            value: lot.id,
+                            label: lot.poId,
+                          })),
+                        ]}
+                      />
                     </FormField>
                   )}
                 </>
@@ -717,24 +719,21 @@ function PoLinesControl({
               aria-label={`PO เนื้อ บรรทัด ${index + 1}`}
               value={row.poLotId}
               className={cn(!row.poLotId && empty)}
-              onChange={(event) => pick(index, event.target.value)}
-            >
-              <option value="">เลือก PO เนื้อ</option>
-              {row.poLotId && !pos.some((lot) => lot.id === row.poLotId) && (
-                <option value={row.poLotId}>{lotLabel(db, row.poLotId)}</option>
-              )}
-              {pos
-                .filter(
-                  (lot) =>
-                    lot.id === row.poLotId ||
-                    !rows.some((other) => other.poLotId === lot.id),
-                )
-                .map((lot) => (
-                  <option key={lot.id} value={lot.id}>
-                    {label(lot.id)}
-                  </option>
-                ))}
-            </Select>
+              onChange={(value) => pick(index, value)}
+              options={[
+                { value: "", label: "เลือก PO เนื้อ" },
+                ...(row.poLotId && !pos.some((lot) => lot.id === row.poLotId)
+                  ? [{ value: row.poLotId, label: lotLabel(db, row.poLotId) }]
+                  : []),
+                ...pos
+                  .filter(
+                    (lot) =>
+                      lot.id === row.poLotId ||
+                      !rows.some((other) => other.poLotId === lot.id),
+                  )
+                  .map((lot) => ({ value: lot.id, label: label(lot.id) })),
+              ]}
+            />
             <Input
               aria-label={`กก. บรรทัด ${index + 1}`}
               inputMode="decimal"
