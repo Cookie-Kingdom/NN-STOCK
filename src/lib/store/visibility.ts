@@ -145,7 +145,7 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
   return "";
 }
 /** One thing that is yellow, and what selecting it opens: a form (`kind`, with the date, lot
- *  or category to start from), the edit of an entry (`editId`) or the Inventory page. One
+ *  or category to start from), the edit of an entry (`editId`) or the Stock or Inventory page. One
  *  with none of the three opens nothing (`todoOpens`): a branch's note the Owner only watches. */
 export type Todo = {
   text: string;
@@ -156,7 +156,7 @@ export type Todo = {
   dispatchId?: string;
   category?: string;
   editId?: string;
-  page?: "stock";
+  page?: "stock" | "meatStock";
 };
 export const todoOpens = (todo: Todo) =>
   !!(todo.kind || todo.editId || todo.page);
@@ -192,20 +192,28 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
         text: `${lead}นับเนื้อวันนี้`,
         ...(own && { kind: "meatCount" as const }),
       });
-    // Every material, the chili, and the raw rice of a branch that steams its own.
-    const stale = [
-      ...materialList(db.config).map(
+    // A line per page that holds them: the materials (Inventory), then the chili and the
+    // raw rice of a branch that steams its own (Stock).
+    const late = (name: string, page: Todo["page"], stale: boolean[]) => {
+      const n = stale.filter(Boolean).length;
+      if (n)
+        list.push({
+          text: `${lead}${name} ${n} รายการไม่ได้นับเกิน 7 วัน`,
+          page,
+        });
+    };
+    late(
+      "วัสดุ",
+      "stock",
+      materialList(db.config).map(
         (m) => branchMaterial(db, branch, m.id, today).stale,
       ),
+    );
+    late("วัตถุดิบ", "meatStock", [
       branchChili(db, branch, today).stale,
       rawRiceBranches(db.config).includes(branch) &&
         branchRice(db, branch, today).stale,
-    ].filter(Boolean).length;
-    if (stale)
-      list.push({
-        text: `${lead}วัสดุและวัตถุดิบ ${stale} รายการไม่ได้นับเกิน 7 วัน`,
-        page: "stock",
-      });
+    ]);
   }
   if (!own) {
     // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).

@@ -102,7 +102,7 @@ export function useWorkspace(account: Account) {
     setDeleting,
     /** Everything yellow for this account: the todo box and the bell list it. */
     todos: list,
-    /** What selecting a todo does: the form it names, the edit of its entry, or the Inventory page. */
+    /** What selecting a todo does: the form it names, the edit of its entry, or the Stock or Inventory page. */
     openTodo: (todo: Todo) => {
       if (todo.page) setTab(todo.page);
       else if (todo.editId) jot({ editId: todo.editId });
