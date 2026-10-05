@@ -22,10 +22,12 @@ const meta = {
           />
         </FormField>
         <FormField label="สาขาปลายทาง">
-          <Select variant="form" defaultValue="ศาลาแดง">
-            <option>ศาลาแดง</option>
-            <option>มีนบุรี</option>
-          </Select>
+          <Select
+            variant="form"
+            value="ศาลาแดง"
+            onChange={() => {}}
+            options={[{ value: "ศาลาแดง" }, { value: "มีนบุรี" }]}
+          />
         </FormField>
         <FormField label="ผู้รับของ">
           <Input variant="form" type="text" defaultValue="คุณสมชาย" />

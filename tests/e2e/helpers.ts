@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /* The v2 suite: each spec walks the checklist of Spec v2 section 11 (its item number and rule
  * id are in the test title) the way a user does: jot through the composer, read the page.
@@ -92,15 +92,46 @@ export async function confirmDelete(page: Page) {
     .click();
 }
 
-/** Fills the open form: `[label, value]` pairs in order; a `<select>` takes the option's
+/** The rows of the dropdown that is open: one list at a time, in the top layer. */
+const dropdownRows = (page: Page) =>
+  page.getByRole("listbox").getByRole("option");
+
+/** Opens a dropdown and presses the row of this text, or the row at this place. */
+export async function pick(control: Locator, row: string | number) {
+  await control.click();
+  const rows = dropdownRows(control.page());
+  await (
+    typeof row === "number"
+      ? rows.nth(row)
+      : rows.filter({ hasText: new RegExp(`^${escapeRegExp(row)}$`) })
+  ).click();
+  await expect(rows).toHaveCount(0);
+}
+
+/** The rows a dropdown offers, in order: opens it, reads them, closes it. */
+export async function choices(control: Locator) {
+  await control.click();
+  const texts = await dropdownRows(control.page()).allInnerTexts();
+  await control.press("Escape");
+  return texts;
+}
+
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Fills the open form: `[label, value]` pairs in order; a dropdown takes the row's
  *  text. A label's text runs on into its unit, its hint or its options, so each is matched
  *  from its start (`/^ยอด \(บาท\)/`). */
 export async function fill(page: Page, ...pairs: [RegExp, string][]) {
   for (const [label, value] of pairs) {
     const control = form(page).getByLabel(label).filter({ visible: true });
-    if ((await control.evaluate((el) => el.tagName)) === "SELECT")
-      await control.selectOption({ label: value });
-    else await control.fill(value);
+    if ((await control.evaluate((el) => el.tagName)) === "BUTTON")
+      await pick(control, value);
+    else {
+      await control.fill(value);
+      // A field with suggestions: its list would lie over the next control.
+      await control.blur();
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { Combobox } from "@/components/atoms/Combobox";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Caption } from "@/components/atoms/Text";
@@ -30,7 +30,6 @@ export function EntryFieldControl({
   onFileError: (message: string) => void;
   autoFocus?: boolean;
 }) {
-  const listId = useId();
   const value = values[f.key] ?? "";
   const label = (
     <>
@@ -64,68 +63,60 @@ export function EntryFieldControl({
     "data-autofocus": autoFocus || undefined,
     value,
     className: cn(f.core && !value && "border-warning/60 bg-warning-subtle"),
-    onChange: (event: { target: { value: string } }) =>
-      set(f.key, event.target.value),
   };
+  const onChange = (event: { target: { value: string } }) =>
+    set(f.key, event.target.value);
+  const pick = (next: string) => set(f.key, next);
   const options = f.options ?? [];
+  // A number is typed as text: `mutate` says why it refuses one, the browser would not.
+  const input = {
+    ...control,
+    type: f.type === "date" || f.type === "tel" ? f.type : "text",
+    inputMode:
+      f.type === "number"
+        ? f.integer
+          ? ("numeric" as const)
+          : ("decimal" as const)
+        : undefined,
+    autoComplete: "off",
+  };
   return (
     <FormField label={label} hint={f.hint} wide={f.type === "textarea"}>
       {f.type === "select" ? (
-        <Select {...control}>
-          {!options.some((o) => o.value === "") && (
-            <option value="">{f.core ? `เลือก${f.label}` : "เลือก"}</option>
-          )}
-          {/* A choice the entry already has stands, even when it is no longer offered. */}
-          {value && !options.some((o) => o.value === value) && (
-            <option value={value}>{value}</option>
-          )}
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
+        <Select
+          {...control}
+          onChange={pick}
+          options={[
+            ...(options.some((o) => o.value === "")
+              ? []
+              : [{ value: "", label: f.core ? `เลือก${f.label}` : "เลือก" }]),
+            // A choice the entry already has stands, even when it is no longer offered.
+            ...(value && !options.some((o) => o.value === value)
+              ? [{ value }]
+              : []),
+            ...options,
+          ]}
+        />
       ) : f.type === "time" ? (
-        <Select {...control}>
-          <option value="">เลือกเวลา</option>
-          {timeOptions(value).map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </Select>
+        <Select
+          {...control}
+          onChange={pick}
+          options={[
+            { value: "", label: "เลือกเวลา" },
+            ...timeOptions(value).map((o) => ({ value: o })),
+          ]}
+        />
       ) : f.type === "textarea" ? (
         <Textarea
           {...control}
+          onChange={onChange}
           compact={f.key === "note"}
           rows={f.key === "packs" ? 5 : f.key === "note" ? 1 : 3}
         />
+      ) : f.options ? (
+        <Combobox {...input} onChange={pick} options={options} />
       ) : (
-        <>
-          {/* A number is typed as text: `mutate` says why it refuses one, the browser would not. */}
-          <Input
-            {...control}
-            type={f.type === "date" || f.type === "tel" ? f.type : "text"}
-            inputMode={
-              f.type === "number"
-                ? f.integer
-                  ? "numeric"
-                  : "decimal"
-                : undefined
-            }
-            autoComplete="off"
-            list={f.options ? listId : undefined}
-          />
-          {f.options && (
-            <datalist id={listId}>
-              {options.map((o) => (
-                <option
-                  key={o.value}
-                  value={o.value}
-                  label={o.label !== o.value ? o.label : undefined}
-                />
-              ))}
-            </datalist>
-          )}
-        </>
+        <Input {...input} onChange={onChange} />
       )}
     </FormField>
   );

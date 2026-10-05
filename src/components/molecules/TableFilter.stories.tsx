@@ -11,11 +11,16 @@ const meta = {
   args: {
     label: "สาขา",
     children: (
-      <Select variant="filter" defaultValue="ศาลาแดง">
-        <option>ทั้งหมด</option>
-        <option>ศาลาแดง</option>
-        <option>มีนบุรี</option>
-      </Select>
+      <Select
+        variant="filter"
+        value="ศาลาแดง"
+        onChange={() => {}}
+        options={[
+          { value: "ทั้งหมด" },
+          { value: "ศาลาแดง" },
+          { value: "มีนบุรี" },
+        ]}
+      />
     ),
   },
 } satisfies Meta<typeof TableFilter>;
@@ -52,19 +57,29 @@ export const InRow: Story = {
   render: () => (
     <div className="flex flex-wrap items-end gap-3">
       <TableFilter label="สาขา">
-        <Select variant="filter">
-          <option>ทั้งหมด</option>
-          <option>ศาลาแดง</option>
-          <option>มีนบุรี</option>
-        </Select>
+        <Select
+          variant="filter"
+          value="ทั้งหมด"
+          onChange={() => {}}
+          options={[
+            { value: "ทั้งหมด" },
+            { value: "ศาลาแดง" },
+            { value: "มีนบุรี" },
+          ]}
+        />
       </TableFilter>
       <TableFilter label="สถานะล็อต">
-        <Select variant="filter">
-          <option>ทั้งหมด</option>
-          <option>รอรับเข้า</option>
-          <option>กำลังรมควัน</option>
-          <option>ปิดล็อตแล้ว</option>
-        </Select>
+        <Select
+          variant="filter"
+          value="ทั้งหมด"
+          onChange={() => {}}
+          options={[
+            { value: "ทั้งหมด" },
+            { value: "รอรับเข้า" },
+            { value: "กำลังรมควัน" },
+            { value: "ปิดล็อตแล้ว" },
+          ]}
+        />
       </TableFilter>
       <TableFilter label="ค้นหา">
         <Input variant="filter" placeholder="เลขล็อต / PO" />

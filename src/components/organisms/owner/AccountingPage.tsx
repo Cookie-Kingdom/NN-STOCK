@@ -247,38 +247,38 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           <Select
             variant="filter"
             value={project}
-            onChange={(event) => setProject(event.target.value)}
-          >
-            <option value="">ทั้งหมด</option>
-            {projects.map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </Select>
+            onChange={setProject}
+            options={[
+              { value: "", label: "ทั้งหมด" },
+              ...projects.map((name) => ({ value: name })),
+            ]}
+          />
         </TableFilter>
         <TableFilter label="สถานะ">
           <Select
             variant="filter"
             value={status}
-            onChange={(event) => setStatus(event.target.value)}
-          >
-            <option value="">ทั้งหมด</option>
-            {Object.entries(ledgerStatuses).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
+            onChange={setStatus}
+            options={[
+              { value: "", label: "ทั้งหมด" },
+              ...Object.entries(ledgerStatuses).map(([value, label]) => ({
+                value,
+                label,
+              })),
+            ]}
+          />
         </TableFilter>
         <TableFilter label="ที่มา">
           <Select
             variant="filter"
             value={source}
-            onChange={(event) => setSource(event.target.value)}
-          >
-            <option value="">ทั้งหมด</option>
-            <option value="po">{ledgerSources.po}</option>
-            <option value="manual">บันทึกเอง</option>
-          </Select>
+            onChange={setSource}
+            options={[
+              { value: "", label: "ทั้งหมด" },
+              { value: "po", label: ledgerSources.po },
+              { value: "manual", label: "บันทึกเอง" },
+            ]}
+          />
         </TableFilter>
         <Button
           size="sm"
