@@ -111,9 +111,12 @@
  * ------------------------------------------------------------------------ */
 
 @theme {
-  /* Families. Noto Sans Thai carries Latin acceptably, so one stack covers both
-   * (ADR-009 — every user-facing string is Thai). */
-  --font-sans: var(--font-noto-sans-thai), "Inter", system-ui, sans-serif;
+  /* Families. Noto Sans Thai Looped: the looped Thai letterforms read more easily at
+   * the small sizes of a table. It carries Latin acceptably, so one stack covers both
+   * (ADR-009 — every user-facing string is Thai). Loaded in app/layout.tsx and
+   * .storybook/preview.tsx; the font before it is noted in the vault, Design/Fonts.md. */
+  --font-sans:
+    var(--font-noto-sans-thai-looped), "Inter", system-ui, sans-serif;
 
   /* Surfaces and text */
   --color-bg: var(--gray-50);
