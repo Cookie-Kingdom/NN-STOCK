@@ -344,7 +344,20 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
-  await openPage(page, "Inventory");
+  // The bell has a line per page: the chili and the raw rice open Stock, the materials
+  // Inventory.
+  const bell = page
+    .getByRole("button", { name: /^ยังไม่ได้จด \d+ อย่าง$/ })
+    .filter({ visible: true });
+  const late = (text: string) =>
+    region(page, "การแจ้งเตือน").getByRole("button", { name: text });
+  const heading = page.getByRole("heading", { level: 1 });
+  await bell.click();
+  await late("วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน").click();
+  await expect(heading).toHaveText("Stock");
+  await bell.click();
+  await late("วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน").click();
+  await expect(heading).toHaveText("Inventory");
   // One counted 8 days ago, one 7 days ago.
   for (const [offset, item, count] of [
     [-8, /^กล่องพิมพ์ลาย/, "100"],
@@ -413,6 +426,10 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   await expect(rice.nth(1)).toHaveText("12.5นับวันนี้");
   await expect(rice.nth(2)).toHaveText("พร้อมใช้");
   await expect(rice.nth(2)).toHaveAttribute("data-tone", "success");
+  // What is left to count: the chili alone, and the eight materials never counted.
+  await bell.click();
+  await expect(late("วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน")).toBeVisible();
+  await expect(late("วัสดุ 8 รายการไม่ได้นับเกิน 7 วัน")).toBeVisible();
 });
 
 test("14 · V2-CAL-09 a sale with เนื้อที่ใช้ไปจริง left empty saves with no yellow, and the meat drops by boxes × kg per box", async ({

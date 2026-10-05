@@ -409,7 +409,7 @@ it("todos: what each account still has to jot", () => {
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
       "มีนบุรี: นับเนื้อวันนี้",
-      "มีนบุรี: วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
       "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
@@ -430,25 +430,35 @@ it("todos: what each account still has to jot", () => {
   expect(texts(minburi)).toEqual(
     expect.arrayContaining([
       "นับเนื้อวันนี้",
-      "วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
     ]),
   );
-  // On an empty database nothing is counted: the 10 materials and the chili, plus the raw rice
-  // of the branch that steams its own (V2-BR-08). A count takes its line out of the number.
+  // On an empty database nothing is counted: the 10 materials (a line that opens Inventory),
+  // and the chili plus the raw rice of the branch that steams its own (V2-BR-08; a line that
+  // opens Stock). A count takes its item out of the number, and the last one the line.
   const late = (from: Database, by: Actor) =>
     todos(from, by, day)
       .map((todo) => todo.text)
       .filter((text) => text.includes("ไม่ได้นับเกิน 7 วัน"));
   expect(late(seed, saladaeng)).toEqual([
-    "วัสดุและวัตถุดิบ 12 รายการไม่ได้นับเกิน 7 วัน",
+    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(seed, minburi)).toEqual([
-    "วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(seed, manager)).toEqual([
-    "ศาลาแดง: วัสดุและวัตถุดิบ 12 รายการไม่ได้นับเกิน 7 วัน",
-    "มีนบุรี: วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+    "ศาลาแดง: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "ศาลาแดง: วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน",
+    "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "มีนบุรี: วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
+  expect(
+    todos(seed, saladaeng, day)
+      .filter((todo) => todo.page)
+      .map((todo) => todo.page),
+  ).toEqual(["stock", "meatStock"]);
   const riceCounted = mutate(
     seed,
     saladaeng,
@@ -466,10 +476,11 @@ it("todos: what each account still has to jot", () => {
     day,
   );
   expect(late(riceCounted, saladaeng)).toEqual([
-    "วัสดุและวัตถุดิบ 11 รายการไม่ได้นับเกิน 7 วัน",
+    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(chiliCounted, saladaeng)).toEqual([
-    "วัสดุและวัตถุดิบ 10 รายการไม่ได้นับเกิน 7 วัน",
+    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
   // A branch's line opens its form; for the Owner the same line is a status and opens nothing.
