@@ -118,32 +118,6 @@ export const TransferButton: Story = {
   },
 };
 
-/** Assets Management ของบริษัทส่วนกลาง (/owner/assets-management): ของที่ซื้อจาก Accounting โดยเลือกใช้เพื่องาน
- *  「บริษัทส่วนกลาง」 และประเภทสินค้า「สินทรัพย์」เท่านั้น ตารางเดียว แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน: SKU · รายการ ·
- *  รายละเอียด / สเปก · วันที่ซื้อ · จำนวนซื้อ · มูลค่า · แก้ไข (ปุ่มแก้ไขและลบของบันทึกนั้น เหมือนหน้า Accounting) ·
- *  ไม่มีคอลัมน์ที่เก็บ ไม่มีปุ่มจัดสรร ไม่มีตัวกรอง มีแค่ช่องค้นหา · กระดาษ A4 (ประเภท อื่นๆ) ไม่อยู่ในตาราง เหลือเครื่องชั่งดิจิทัล 1 แถว */
-export const Company: Story = {
-  render: ({ account }) => (
-    <WithWorkspace account={account}>
-      {(ws) => <OwnerStock ws={ws} company />}
-    </WithWorkspace>
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByText("รวม 1 รายการ")).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "แก้ไข" })).toHaveLength(
-      1,
-    );
-  },
-};
-
-/** บริษัทส่วนกลางยังไม่มีของ: แถวเดียวบอกให้จดที่หน้า Accounting */
-export const CompanyEmpty: Story = {
-  ...Company,
-  play: undefined,
-  parameters: { db: emptyDb },
-};
-
 /** ฐานข้อมูลเปล่า: ทุกแถว「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
 
