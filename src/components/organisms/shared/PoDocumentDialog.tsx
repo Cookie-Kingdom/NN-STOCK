@@ -128,7 +128,7 @@ export function PoDocumentDialog({
   const [dot, status] = clean
     ? ["bg-success", "บันทึกแล้ว"]
     : saved
-      ? ["bg-warning", "แก้ไขยังไม่บันทึก"]
+      ? ["bg-warning", "ยังไม่ได้บันทึกการแก้ไข"]
       : ["bg-border-strong", "ฉบับร่าง"];
 
   const save = async () => {
@@ -226,7 +226,7 @@ export function PoDocumentDialog({
                 ],
                 note:
                   kind === "smokeOrder" && !values.serviceRate && rate
-                    ? "ราคาค่ารมคิดตามขั้นน้ำหนักใน Settings"
+                    ? "ค่ารมต่อ กก. คิดตามขั้นน้ำหนักใน Settings"
                     : "",
               }}
             />
@@ -239,8 +239,8 @@ export function PoDocumentDialog({
               <h3 className="m-0 text-label text-text-secondary">Preview</h3>
               <Caption className="block">
                 {clean
-                  ? "พิมพ์จากข้อมูลที่บันทึกแล้ว"
-                  : "เปลี่ยนตามข้อมูลที่กรอกทันที · พิมพ์ได้ก่อนบันทึก เลขที่เอกสารอาจเปลี่ยนเมื่อบันทึก"}
+                  ? "เอกสารตามข้อมูลที่บันทึกแล้ว"
+                  : "ตัวอย่างเปลี่ยนตามข้อมูลที่กรอก พิมพ์ก่อนบันทึกได้ แต่เลขที่เอกสารอาจเปลี่ยนเมื่อบันทึก"}
               </Caption>
             </div>
             <style>{PO_CSS}</style>

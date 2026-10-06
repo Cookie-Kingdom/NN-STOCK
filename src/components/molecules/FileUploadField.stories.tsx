@@ -37,7 +37,7 @@ const state = pick<Partial<Props>>("สถานะ", {
   จำกัดขนาด: {
     label: "รูปเนื้อรมควันก่อนส่ง",
     maxBytes: 2 * 1024 * 1024,
-    oversizeMessage: "รูปใหญ่เกิน 2 MB เว็บไม่รับ",
+    oversizeMessage: "รูปใหญ่เกิน 2 MB กรุณาเลือกรูปที่เล็กกว่านี้",
     hint: "รองรับ JPG หรือ PNG ไม่เกิน 2 MB",
   },
 });

@@ -85,7 +85,7 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await expect(figures).not.toContainText("กำไรต่อกล่อง");
   // The P&L: each line beside its share of the month's sales, signed as the line is.
   await expect(pl).toContainText(
-    "นับตามเดือนที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+    "ยอดตามเดือนที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
   );
   await expect(pl.getByRole("columnheader").nth(2)).toHaveText("% ของยอดขาย");
   await expect(line(/^ยอดขาย/)).toHaveText(["฿3,500", "100%", "—"]);
@@ -114,7 +114,7 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await expect(region(page, "ตัวเลขของปี")).toContainText("฿3,150");
   const yearPl = region(page, "P&L รายปี");
   await expect(yearPl).toContainText(
-    "นับตามปีที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+    "ยอดตามปีที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
   );
   await expect(yearPl.getByRole("columnheader").nth(2)).toHaveText(
     "% ของยอดขาย",
@@ -179,14 +179,14 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
           .filter({ hasText: new RegExp(`^${label}$`) }),
       })
       .locator("strong");
-  await expect(money("จ่ายเงินทั้งหมด")).toHaveText("−฿500");
+  await expect(money("ยอดจ่ายทั้งหมด")).toHaveText("−฿500");
   await expect(money("บริษัทจ่ายเอง")).toHaveText("−฿100");
   await expect(money("พนักงานสำรองจ่าย")).toHaveText("฿400");
-  await expect(money("คืนเงินพนักงาน")).toHaveText("฿0");
+  await expect(money("เงินคืนพนักงาน")).toHaveText("฿0");
   await expect(money("เงินออกจากร้านจริง")).toHaveText("−฿100");
-  await expect(money("ค้างจ่าย ณ วันนี้")).toHaveText("฿400");
+  await expect(money("ยอดค้างจ่ายถึงวันนี้")).toHaveText("฿400");
   await expect(
-    region(page, "จ่ายเงินแยกหมวด").getByRole("row", { name: /^รวมที่จ่าย/ }),
+    region(page, "ยอดจ่ายแยกหมวด").getByRole("row", { name: /^รวมยอดจ่าย/ }),
   ).toContainText("−฿500");
 
   // Pay her back ฿250 of the ฿400: the form opens on her, with what is owed.
@@ -196,7 +196,7 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await expect(owed).toHaveText(["น้องฝน", "฿400", "฿0", "฿400", "คืนเงิน"]);
   await page.getByRole("button", { name: "คืนเงิน น้องฝน" }).click();
   await expect(popupTitle(page)).toHaveText("คืนเงินพนักงาน");
-  await expect(form(page).getByLabel(/^คืนให้ใคร/)).toHaveAttribute(
+  await expect(form(page).getByLabel(/^ผู้รับเงินคืน/)).toHaveAttribute(
     "data-value",
     "น้องฝน",
   );
@@ -207,10 +207,10 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await expect(rows(page, "reimburse")).toContainText("คืนให้ น้องฝน");
   await expect(rows(page, "reimburse")).toContainText("−฿250");
   // ฿250 more left the shop; what was paid for things is the same ฿500.
-  await expect(money("คืนเงินพนักงาน")).toHaveText("−฿250");
+  await expect(money("เงินคืนพนักงาน")).toHaveText("−฿250");
   await expect(money("เงินออกจากร้านจริง")).toHaveText("−฿350");
-  await expect(money("จ่ายเงินทั้งหมด")).toHaveText("−฿500");
-  await expect(money("ค้างจ่าย ณ วันนี้")).toHaveText("฿150");
+  await expect(money("ยอดจ่ายทั้งหมด")).toHaveText("−฿500");
+  await expect(money("ยอดค้างจ่ายถึงวันนี้")).toHaveText("฿150");
   await page.getByRole("radio", { name: "ปี" }).click();
   await expect(money("เงินออกจากร้านจริง", "ปี")).toHaveText("−฿350");
 
@@ -224,22 +224,22 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await signInAs(page, "manager");
   await openPage(page, "Finance");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
-  const paid = region(page, "จ่ายเงินแยกหมวด");
+  const paid = region(page, "ยอดจ่ายแยกหมวด");
   await expect(paid).toContainText("−฿500");
   // The categories alone: no share of the sales (it would give them away), no P&L caption.
   await expect(paid.getByRole("columnheader")).toHaveCount(3);
-  await expect(paid).toContainText("นับตามเดือนที่จ่ายเงิน");
+  await expect(paid).toContainText("ยอดตามเดือนที่จ่ายเงิน");
   for (const text of ["% ของยอดขาย", "ยื่นภาษี"])
     await expect(page.getByRole("main")).not.toContainText(text);
   await expect(
-    paid.getByRole("row", { name: /^รวมที่จ่าย/ }).getByRole("cell"),
+    paid.getByRole("row", { name: /^รวมยอดจ่าย/ }).getByRole("cell"),
   ).toHaveCount(3);
   for (const name of ["เงินของเดือน", "เงินที่พนักงานสำรองจ่าย"])
     await expect(region(page, name)).toHaveCount(0);
   await expect(rows(page, "pay")).toHaveCount(2);
   await expect(rows(page, "reimburse")).toHaveCount(0);
   await page.getByRole("radio", { name: "ปี" }).click();
-  await expect(region(page, "จ่ายเงินแยกหมวด")).toContainText("−฿500");
+  await expect(region(page, "ยอดจ่ายแยกหมวด")).toContainText("−฿500");
   await openPage(page, "Daily Log");
   await expect(page.locator("body")).not.toContainText("คืนให้");
 });

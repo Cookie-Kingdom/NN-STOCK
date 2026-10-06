@@ -57,18 +57,18 @@ export function FinancePage({ ws }: { ws: Workspace }) {
           aria-label={`เงินของ${span}`}
         >
           <Stat
-            label="จ่ายเงินทั้งหมด"
+            label="ยอดจ่ายทั้งหมด"
             value={out(cash.paid)}
-            note="ค่าใช้จ่ายของช่วง รวมอุปกรณ์/ลงทุน"
+            note={`ค่าใช้จ่ายทั้ง${span} รวมหมวดอุปกรณ์/ลงทุน`}
           />
           <Stat label="บริษัทจ่ายเอง" value={out(cash.company)} />
           <Stat
             label="พนักงานสำรองจ่าย"
             value={baht(cash.advanced)}
-            note="นับเป็นค่าใช้จ่ายแล้ว เงินยังไม่ออกจากร้าน"
+            note="เป็นค่าใช้จ่ายแล้ว แต่เงินยังไม่ออกจากร้าน"
           />
           <Stat
-            label="คืนเงินพนักงาน"
+            label="เงินคืนพนักงาน"
             value={out(cash.repaid)}
             note="ไม่นับเป็นค่าใช้จ่ายซ้ำ"
           />
@@ -78,7 +78,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
             note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
           />
           <Stat
-            label="ค้างจ่าย ณ วันนี้"
+            label="ยอดค้างจ่ายถึงวันนี้"
             value={
               <span className={cn(unpaid + owed > 0 && "text-warning")}>
                 {baht(unpaid + owed)}
@@ -92,15 +92,15 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         <PlTable db={db} month={key} payroll={owner} />
         <div className="flex min-w-0 flex-col gap-4">
           <FigureCard
-            title="ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย"
-            note="ยอดของใบทั้งหมด ลบ เงินที่จ่ายแล้ว · ถึงวันนี้"
+            title="ยอดค้างจ่ายแยกผู้ขาย"
+            note="ยอดตามใบทั้งหมดหักเงินที่จ่ายแล้ว นับถึงวันนี้"
           >
             {balances.length ? (
               <FigureTable>
                 <thead>
                   <tr>
                     <th className={th}>ผู้ขาย</th>
-                    {["ยอดของใบ", "จ่ายแล้ว", "คงเหลือ"].map((name) => (
+                    {["ยอดตามใบ", "จ่ายแล้ว", "ค้างจ่าย"].map((name) => (
                       <th key={name} className={cn(th, "text-right")}>
                         {name}
                       </th>
@@ -131,7 +131,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
           {owner && (
             <FigureCard
               title="เงินที่พนักงานสำรองจ่าย"
-              note="สำรองจ่าย ลบ คืนแล้ว · ถึงวันนี้"
+              note="ยอดสำรองจ่ายหักยอดที่คืนแล้ว นับถึงวันนี้"
             >
               {advanced.length ? (
                 <FigureTable>
@@ -188,7 +188,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
                 </FigureTable>
               ) : (
                 <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-                  ไม่มี
+                  ยังไม่มีเงินที่พนักงานสำรองจ่าย
                 </Muted>
               )}
             </FigureCard>
@@ -196,14 +196,14 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         </div>
       </div>
       <FigureCard
-        title="จ่ายเงินล่าสุด"
-        note={`${latest.length} รายการ · ทุกช่วง`}
+        title="รายการจ่ายเงินล่าสุด"
+        note={`${latest.length} รายการ จากทุกช่วงเวลา`}
       >
         {latest.length ? (
           latest.map((e) => <NoteRow key={e.id} entry={e} ws={ws} dated />)
         ) : (
           <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-            ยังไม่มีบันทึกจ่ายเงิน
+            ยังไม่มีรายการจ่ายเงิน
           </Muted>
         )}
       </FigureCard>

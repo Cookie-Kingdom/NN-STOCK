@@ -49,7 +49,7 @@ export function EntryFieldControl({
         hint={f.hint}
         accept={f.accept}
         maxBytes={MAX_ATTACHMENT_BYTES}
-        oversizeMessage="ไฟล์ใหญ่เกิน 2 MB เว็บไม่รับ"
+        oversizeMessage="ไฟล์ใหญ่เกิน 2 MB กรุณาเลือกไฟล์ที่เล็กกว่านี้"
         onError={onFileError}
         onFile={(file) => onFile(f.key, file)}
         fileName={value}

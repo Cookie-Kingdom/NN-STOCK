@@ -484,7 +484,7 @@ export function capacityWarning(
 ) {
   const left = remainingKg(db, lotId, exceptId);
   return kg > left + 0.005
-    ? `เกินน้ำหนักของ PO รมควัน ${fmtKg(kg - left)} กก. (เหลือ ${fmtKg(Math.max(0, left))} กก.) · บันทึกได้`
+    ? `เกินน้ำหนักของ PO รมควัน ${fmtKg(kg - left)} กก. (เหลือ ${fmtKg(Math.max(0, left))} กก.) แต่ยังบันทึกได้`
     : "";
 }
 const fmtKg = (x: number) =>

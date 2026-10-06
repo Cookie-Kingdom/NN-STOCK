@@ -108,13 +108,13 @@ const lists: Record<
     key: "materialList",
     id: "id",
     name: "วัสดุ",
-    extra: { key: "perBox", label: "ใช้ต่อกล่อง" },
+    extra: { key: "perBox", label: "จำนวนที่ใช้ต่อกล่อง" },
     add: "เพิ่มวัสดุ",
     prefix: "m",
   },
 };
 const titles: Record<Section, string> = {
-  numbers: "ตัวเลขที่เว็บใช้คิด",
+  numbers: "ตัวเลขสำหรับคำนวณ",
   header: "ข้อมูลหัวเอกสาร",
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
   channels: lists.channels.title,
@@ -212,7 +212,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         logoData: "",
         logoName: file.name,
       }));
-      setMessage("เลือกโลโก้แล้ว · กดบันทึกเพื่อใช้กับเอกสาร");
+      setMessage("เลือกโลโก้แล้ว กดบันทึกเพื่อใช้กับเอกสาร");
     } catch (caught) {
       setMessage("");
       setError(
@@ -361,7 +361,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
                 {sku && (
                   <Cell className="font-mono whitespace-nowrap text-accent">
                     {row.sku || (
-                      <Muted as="span">{open ? "ออกเมื่อบันทึก" : "—"}</Muted>
+                      <Muted as="span">{open ? "รอบันทึก" : "—"}</Muted>
                     )}
                   </Cell>
                 )}
@@ -447,24 +447,24 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       <div className="flex min-w-0 flex-col gap-4">
         {card(
           "numbers",
-          "แก้แล้วตัวเลขในหน้าอื่นเปลี่ยนตาม",
+          "ตัวเลขในหน้าอื่นจะเปลี่ยนตามค่าที่แก้ในนี้",
           plain("numbers", numbers),
         )}
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
           {card(
             "channels",
-            "เพิ่มช่องทางแล้วฟอร์มยอดขายมีช่องยอดเงินเพิ่ม · ช่องทางแรกลบไม่ได้ · ลบช่องทางแล้ว ยอดที่เคยจดในช่องทางนั้นไม่ถูกนับ",
+            "ช่องทางที่เพิ่มจะมีช่องยอดเงินในฟอร์มยอดขาย ช่องทางแรกลบไม่ได้ และยอดที่เคยจดในช่องทางที่ลบแล้วจะไม่ถูกนับ",
             list("channels", (row) => row.key !== "lineMan"),
           )}
           {card(
             "categories",
-            `${payCategories(db.config).length} หมวด · หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้ ลบไม่ได้`,
+            `ทั้งหมด ${payCategories(db.config).length} หมวด หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้แต่ลบไม่ได้`,
             list("categories", (row) => !fixedCategories.includes(row.id)),
           )}
         </div>
         {card(
           "rice",
-          "สาขาที่นึ่งข้าวเอง นับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา · สาขาที่ไม่ได้เลือกไม่มีแถวข้าวเหนียวดิบ",
+          "สาขาที่นึ่งข้าวเองจะนับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา ส่วนสาขาที่ไม่ได้เลือกจะไม่มีแถวข้าวเหนียวดิบ",
           <div className="flex flex-wrap gap-x-6 gap-y-1 px-5 pt-1 pb-4 max-md:px-4">
             {branches.map((branch) => (
               <label
@@ -498,7 +498,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       <div className="flex min-w-0 flex-col gap-4">
         {card(
           "materials",
-          '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ · SKU เว็บออกให้ตอนบันทึก แก้ชื่อแล้ว SKU เดิม',
+          'ช่อง "จำนวนที่ใช้ต่อกล่อง" เว้นว่างได้ รายการที่เว้นว่างจะไม่มียอดประมาณการใช้ระหว่างรอบนับ SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
           list("materials", () => true),
         )}
         <DayCard
@@ -515,9 +515,10 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           }
         >
           <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
-            SKU ออกโดยเว็บ เลขเดียวต่อหนึ่งรายการ ไม่ใช้ซ้ำ ·
-            รายการในบัญชีซื้อได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่
-            แก้ชื่อในรายการแล้วแถวเดิมในบัญชีซื้อเปลี่ยนตาม SKU เดิม
+            SKU ออกให้อัตโนมัติ หนึ่งรายการมีเลขเดียวและไม่ใช้ซ้ำ รายการจากหน้า
+            Accounting จะได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่
+            เมื่อแก้ชื่อในรายการ แถวเดิมในหน้า Accounting จะเปลี่ยนชื่อตาม ส่วน
+            SKU ยังเป็นเลขเดิม
           </p>
           <dl className={grid}>
             <div>
@@ -526,7 +527,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
             </div>
             <div>
               <dt className="text-label text-text-secondary">
-                รายการในบัญชีซื้อ
+                รายการจากหน้า Accounting
               </dt>
               <dd className="m-0 font-semibold">
                 {skus.length - materialSkus} รายการ
@@ -536,7 +537,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         </DayCard>
         {card(
           "header",
-          "ใช้กับ PO ซื้อเนื้อ, PO รมควัน, Packing List, ใบขนส่ง",
+          "หัวเอกสารของ PO เนื้อ, PO รมควัน, Packing List และใบขนส่ง",
           plain(
             "header",
             header,

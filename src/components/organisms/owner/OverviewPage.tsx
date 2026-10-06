@@ -65,7 +65,7 @@ function Delta({
   if (!before)
     return now ? (
       <span className={cn(chip, "bg-surface-sunken text-text-secondary")}>
-        เริ่มในช่วงนี้
+        ช่วงก่อนไม่มีรายได้
       </span>
     ) : null;
   const change = ((now - before) / before) * 100;
@@ -222,7 +222,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
     ...paid
       .slice(0, 4)
       .map(([id, x]): [string, number] => [names[id] ?? id, x]),
-    ["ค่าใช้จ่ายอื่น", rest],
+    ["หมวดอื่น ๆ", rest],
   ];
   // Each step starts where the one above it ended.
   const steps = lines
@@ -274,7 +274,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
 
       <Panel className={figureGrid} aria-label={`ตัวเลขของ${span}`}>
         <Stat
-          label="หลังหัก GP ช่องทางขาย"
+          label="รายได้หลังหัก GP ช่องทางขาย"
           value={baht(now.sales - now.gp)}
           note={`GP ${baht(now.gp)}`}
         />
@@ -287,7 +287,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
           }
           note={
             now.sales
-              ? `คิดเป็น ${share(now.profit, now.sales)} ของรายได้`
+              ? `${share(now.profit, now.sales)} ของรายได้`
               : "ยังไม่มีรายได้"
           }
         />
@@ -303,7 +303,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               {cost ? `฿${fmt(cost.total)}` : "—"}
               <small className={hint}>
                 {cost
-                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} · ขาย ${baht(price)} · จาก ${lotLabel(db, cost.lotId)}`
+                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} คิดจาก ${lotLabel(db, cost.lotId)} ราคาขายกล่องละ ${baht(price)}`
                   : "ยังไม่มี Lot ที่จดครบ"}
               </small>
               {/* Not a profit line of the P&L (V2-CAL-06): the box price less its cost,
@@ -311,7 +311,8 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               {cost && price > 0 && (
                 <small className={hint}>
                   กำไรต่อกล่อง {perBox(price - cost.total)} ก่อนหัก GP
-                  และค่าใช้จ่าย · ต้นทุน {share(cost.total, price)} ของราคาขาย
+                  และค่าใช้จ่าย ต้นทุนเท่ากับ {share(cost.total, price)}{" "}
+                  ของราคาขาย
                 </small>
               )}
             </>
@@ -323,9 +324,8 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
             <>
               {qty(gifts.boxes)} กล่อง
               <small className={hint}>
-                {gifts.value !== null &&
-                  `มูลค่าต้นทุนประมาณ ${baht(gifts.value)} · `}
-                ไม่บวกเข้า P&L
+                {gifts.value !== null && `ต้นทุนประมาณ ${baht(gifts.value)} `}
+                ไม่นับใน P&L
               </small>
             </>
           }
@@ -476,7 +476,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
                       {
                         name: legacySale.name,
                         value: now.byChannel[legacySale.key],
-                        note: "ยอดจากไฟล์เดิม · หัก GP มาแล้ว ไม่หักซ้ำ",
+                        note: "ยอดจากไฟล์เดิมที่หัก GP มาแล้ว จึงไม่หักซ้ำ",
                       },
                     ]
                   : []),

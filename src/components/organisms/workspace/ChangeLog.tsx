@@ -127,7 +127,8 @@ export function ChangeLog({ ws }: { ws: Workspace }) {
     <Panel aria-label="ประวัติการแก้ไขและลบ">
       <h2 className="m-0 text-h3">ประวัติการแก้ไขและลบ</h2>
       <Caption className="mb-1 block">
-        ทุกการแก้ไขและลบเก็บไว้ที่นี่ · กดย้อนกลับเพื่อคืนค่าเดิมหรือกู้คืนที่ลบ
+        การแก้ไขและการลบทุกครั้งอยู่ในรายการนี้ กด &quot;ย้อนกลับ&quot;
+        เพื่อคืนค่าเดิมหรือกู้คืนรายการที่ลบ
       </Caption>
       {changes.length ? (
         (all ? changes : changes.slice(0, newest)).map((change) => {

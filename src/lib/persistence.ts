@@ -55,7 +55,7 @@ function normalize(
   const entries = parsed.entries.filter(wellFormed);
   if (entries.length !== parsed.entries.length)
     reportError(
-      `พบรายการที่ข้อมูลไม่สมบูรณ์ ${parsed.entries.length - entries.length} รายการ ระบบซ่อนไว้ก่อน กรุณาแจ้งผู้ดูแลระบบ`,
+      `มี ${parsed.entries.length - entries.length} รายการที่ข้อมูลไม่ครบ จึงซ่อนไว้ก่อน กรุณาแจ้งผู้ดูแลระบบ`,
     );
   return {
     version: 9,
@@ -81,7 +81,7 @@ function adopt(payload: StoredDatabase, rev: number) {
   // quietly showing an empty system that refuses every save.
   if (payload?.version !== 9)
     reportError(
-      "ข้อมูลบนเซิร์ฟเวอร์เป็นเวอร์ชันที่แอปนี้ไม่รองรับ ระบบจะแสดงข้อมูลว่างและบันทึกไม่ได้ กรุณาแจ้งผู้ดูแลระบบ",
+      "ข้อมูลบนเซิร์ฟเวอร์เป็นเวอร์ชันที่แอปนี้ไม่รองรับ ตอนนี้จึงเห็นข้อมูลว่างและบันทึกไม่ได้ กรุณาแจ้งผู้ดูแลระบบ",
     );
   cached = normalize(payload, seed);
   /* A pre-v9 payload reads as empty but is not history to build on: with nothing stored, the
@@ -209,19 +209,21 @@ async function loadDatabase(background = false): Promise<boolean> {
   if (background && (pendingWrites || writeCount !== writesBefore))
     return false;
   if (error) {
-    reportError(`โหลดข้อมูลไม่สำเร็จ · ${error.message}`);
+    reportError(`โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่ (${error.message})`);
     return false;
   }
   if (!data) {
     // Only the Owner / Account Manager create the row: save_app_state refuses a branch.
     if (appendOnly) {
-      reportError("ยังไม่มีข้อมูลในระบบ กรุณาให้ Owner เข้าสู่ระบบก่อน");
+      reportError("ยังไม่มีข้อมูลของร้าน กรุณาให้ Owner เข้าสู่ระบบก่อน");
       return false;
     }
     const created = await saveRow(seed, null);
     const row = created.data;
     if (created.error) {
-      reportError(`สร้างข้อมูลเริ่มต้นไม่สำเร็จ · ${created.error.message}`);
+      reportError(
+        `สร้างข้อมูลเริ่มต้นไม่สำเร็จ กรุณาลองใหม่ (${created.error.message})`,
+      );
       return false;
     }
     // The save no longer echoes the payload; what the server holds is what we just sent.
@@ -351,7 +353,7 @@ function writeDatabase(
     )
   )
     reportError(
-      "ไฟล์แนบยังไม่ได้อัปโหลด ระบบบันทึกรายการโดยไม่มีไฟล์ กรุณาแนบไฟล์ใหม่",
+      "ไฟล์แนบยังไม่ได้อัปโหลด รายการนี้จึงบันทึกโดยไม่มีไฟล์ กรุณาแนบไฟล์ใหม่",
     );
   const strip = (entry: Entry, index: number): Entry => ({
     ...entry,
@@ -409,7 +411,7 @@ function writeDatabase(
             return "failed" as const;
           }
           reportError(
-            `บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว · ${error.message}`,
+            `บันทึกไม่สำเร็จ โหลดข้อมูลล่าสุดแล้ว กรุณาตรวจสอบแล้วบันทึกอีกครั้ง (${error.message})`,
           );
           return "failed" as const;
         }
@@ -420,7 +422,7 @@ function writeDatabase(
           notify();
         }
         reportError(
-          `บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ · ${error.message}`,
+          `บันทึกไม่สำเร็จ ยังไม่ได้บันทึกรายการนี้ กรุณาลองใหม่ (${error.message})`,
         );
         return "failed" as const;
       }

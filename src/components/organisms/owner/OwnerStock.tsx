@@ -44,7 +44,7 @@ const transit = "ระหว่างส่ง";
 // What it is, where it is, what it cost.
 const what = ["SKU", "รายการ", "ประเภท", "รายละเอียด / สเปก"];
 const where = [...heads, transit, "รวม", "สถานะ"];
-const cost = ["ผู้ขาย", "ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
+const cost = ["ผู้ขาย", "วันที่ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
 const all = { value: "", label: "ทั้งหมด" };
 /** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
 const late = "ยังไม่ได้นับ";
@@ -178,9 +178,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
     <div className="flex flex-col gap-4">
       <Panel className={figureGrid} aria-label="สรุปสินทรัพย์ของ Project">
         <Stat
-          label={`มูลค่าที่ซื้อเข้า ${shopProject}`}
+          label={`มูลค่าของที่ซื้อเข้า ${shopProject}`}
           value={baht(sum([...bought.values()]))}
-          note="ยอดจ่ายจริงจากหน้า Accounting · ไม่รวมที่ยกเลิก"
+          note="ยอดจ่ายจริงจากหน้า Accounting ไม่รวมรายการที่ยกเลิก"
         />
         <Stat
           label="สินทรัพย์"
@@ -247,7 +247,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         className="md:[&_:is(td,th)]:px-2 [&_:is(td,th)+:is(td,th)]:border-l"
         aside={
           <Caption aria-live="polite">
-            แสดง {shown.length} จาก {rows.length} รายการ
+            {shown.length} จาก {rows.length} รายการ
           </Caption>
         }
       >
@@ -341,7 +341,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                 <Cell className="min-w-24 max-md:hidden">
                   {row.vendor || none}
                 </Cell>
-                <Cell className={cn("whitespace-nowrap", wide("ซื้อล่าสุด"))}>
+                <Cell
+                  className={cn("whitespace-nowrap", wide("วันที่ซื้อล่าสุด"))}
+                >
                   {row.times ? dateLabel(row.lastDate) : none}
                   {row.times > 1 && (
                     <span className="block text-caption text-text-secondary">
@@ -365,8 +367,8 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                 className="py-8 text-center text-text-secondary"
               >
                 {rows.length
-                  ? "ไม่พบรายการที่ตรงกับที่ค้นหา"
-                  : `ยังไม่มีของที่ซื้อเข้า${shopProject} · จดที่หน้า Accounting เลือกค่าใช้จ่ายของ「${shopProject}」`}
+                  ? "ไม่พบรายการที่ค้นหา"
+                  : `ยังไม่มีของที่ซื้อเข้า${shopProject} ของที่จดในหน้า Accounting โดยเลือกค่าใช้จ่ายของ "${shopProject}" จะอยู่ในตารางนี้`}
               </Cell>
             </tr>
           )}
@@ -379,7 +381,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
       </DayCard>
       <Caption>
         {
-          "แถวละรายการ: วัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting รวมทุกครั้งที่ซื้อ · คลังกลาง = ซื้อเข้า − จัดสรรออก ไม่มีการนับ · ระหว่างส่ง = ส่งแล้ว รอสาขากดยืนยันรับ · รวม นับของระหว่างส่งด้วย · ตัวเลขสีแดง = ติดลบ · ยอดวัสดุของสาขาคือยอดที่แอดมินสาขานับ (ชิ้น) ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
+          "หนึ่งแถวคือหนึ่งรายการ ทั้งวัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting โดยรวมทุกครั้งที่ซื้อไว้ในแถวเดียว ยอดคลังกลางคือยอดซื้อเข้าลบยอดที่จัดสรรออก และไม่มีการนับ ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย ตัวเลขสีแดงคือยอดติดลบ ยอดวัสดุของสาขาคือยอดที่ผู้ดูแลสาขานับ (ชิ้น) ช่องสีเหลืองคือวัสดุที่ยังไม่เคยนับหรือไม่ได้นับเกิน 7 วัน ช่องสีแดงคือวัสดุที่ไม่เหลือ ส่วนต่างคือยอดที่นับได้ลบยอดที่ควรเหลือของการนับครั้งล่าสุด เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
         }
       </Caption>
     </div>

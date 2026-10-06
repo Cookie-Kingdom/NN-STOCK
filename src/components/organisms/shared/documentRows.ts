@@ -119,7 +119,7 @@ export function packingListRows(
     ["PO รมควัน", lot.poId],
     ["เลข Invoice", v.invoiceNo || "—"],
     ["สินค้า", v.product || "—"],
-    ["CODE สินค้า", v.code || "—"],
+    ["รหัสสินค้า", v.code || "—"],
     ["กล่องรับเข้า", v.boxCount ? `${v.boxCount} กล่อง` : "—"],
     ["น้ำหนักส่งรวม", kg(v.slicedNetKg)],
     ["Inv. Weight", kg(v.invWeightKg)],

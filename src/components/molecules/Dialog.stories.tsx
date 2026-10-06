@@ -67,7 +67,8 @@ export const Confirm: Story = {
     <Dialog {...args}>
       <div className="flex flex-col gap-4 px-6.5 pt-3 pb-6 max-md:px-4 max-md:pb-4">
         <p id="confirm-text" className="m-0 text-body-sm text-text-secondary">
-          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม · ยังดูได้ใน ประวัติการแก้ไขและลบ
+          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม
+          บันทึกที่ลบยังดูได้ในประวัติการแก้ไขและลบ
         </p>
         <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
           <Button data-autofocus onClick={args.onClose}>

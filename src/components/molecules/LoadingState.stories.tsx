@@ -25,7 +25,7 @@ export const Panel: Story = {
 /** Whole-page wait (session check, first paint). Edit `message` in Controls. */
 export const Screen: StoryObj<typeof LoadingScreen> = {
   argTypes: { message: { control: "text" } },
-  args: { message: "กำลังตรวจสอบสิทธิ์การใช้งาน…" },
+  args: { message: "กำลังตรวจสอบบัญชี…" },
   render: (args) => <LoadingScreen {...args} />,
 };
 

@@ -91,7 +91,7 @@ export function AttachmentButton({
       const file = await withTimeout(load(name || "", data, storageKey));
       if (!file)
         throw new Error(
-          "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
+          "ไม่พบไฟล์แนบนี้ เพราะอัปโหลดไม่สำเร็จ กรุณาแนบไฟล์ใหม่",
         );
       saveFile(file.blob, name || file.name || "invoice");
     } catch (error) {
@@ -118,7 +118,7 @@ export function AttachmentButton({
       const file = await withTimeout(load(name || "", data, storageKey));
       if (!file)
         throw new Error(
-          "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
+          "ไม่พบไฟล์แนบนี้ เพราะอัปโหลดไม่สำเร็จ กรุณาแนบไฟล์ใหม่",
         );
       const type = file.blob.type.split(";")[0].trim().toLowerCase();
       if (!viewableTypes.includes(type)) {

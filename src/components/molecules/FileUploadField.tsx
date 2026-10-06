@@ -15,7 +15,7 @@ type FileUploadFieldProps = {
   accept?: string;
   /** Files larger than this are rejected: the input is cleared and `onFile` is not called. */
   maxBytes?: number;
-  /** Message shown on oversize. Defaults to "ไฟล์ใหญ่เกิน N MB เว็บไม่รับ". */
+  /** Message shown on oversize. Defaults to "ไฟล์ใหญ่เกิน N MB กรุณาเลือกไฟล์ที่เล็กกว่านี้". */
   oversizeMessage?: string;
   /** Selected file, or `null` when the selection is cleared. Callers do any FileReader work. */
   onFile?: (file: File | null) => void;
@@ -86,7 +86,7 @@ export function FileUploadField({
             ) {
               const message =
                 oversizeMessage ??
-                `ไฟล์ใหญ่เกิน ${megabytes(maxBytes)} MB เว็บไม่รับ`;
+                `ไฟล์ใหญ่เกิน ${megabytes(maxBytes)} MB กรุณาเลือกไฟล์ที่เล็กกว่านี้`;
               event.currentTarget.value = "";
               setError(message);
               onError?.(message);

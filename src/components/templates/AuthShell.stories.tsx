@@ -41,7 +41,7 @@ export const SignIn: Story = {
   },
   args: {
     title: "เข้าสู่ระบบ",
-    description: "ยืนยันตัวตนและสิทธิ์ผ่าน Supabase",
+    description: "ใช้อีเมลและรหัสผ่านที่ Owner ออกให้",
     footnote: "ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์",
     children: <Fields />,
   },

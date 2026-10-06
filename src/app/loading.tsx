@@ -4,5 +4,5 @@ import { LoadingScreen } from "@/components/molecules/LoadingState";
  * Without it the browser holds the previous page — or a blank one — with nothing
  * saying the app is working. */
 export default function Loading() {
-  return <LoadingScreen message="กำลังเปิดระบบ…" />;
+  return <LoadingScreen message="กำลังโหลด…" />;
 }

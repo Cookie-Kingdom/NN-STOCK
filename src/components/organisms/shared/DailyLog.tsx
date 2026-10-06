@@ -139,7 +139,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
               }
             />
             <ReadRow
-              label="นับล่าสุด"
+              label="วันที่นับล่าสุด"
               value={
                 meat.counted
                   ? `${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)}`

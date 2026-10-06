@@ -79,7 +79,7 @@ export const fieldsOf = (db: Database, kind: EntryKind, by: Actor): Field[] =>
 
 /** Values `mutate` adds itself: no form field carries their label. */
 const addedLabels: Record<string, string> = {
-  orderNumber: "เลขที่ใบสั่งรมควัน",
+  orderNumber: "เลขที่ PO รมควัน",
   estimatedCost: "ค่ารมโดยประมาณ (บาท)",
   transferNumber: "เลขที่ใบขนส่ง",
   subLot: "เลขที่รอบสโมค",
@@ -112,7 +112,7 @@ export function fieldText(db: Database, f: Field | undefined, value: string) {
 export function noteTags(db: Database, e: Entry, by: Actor): string[] {
   const list = fieldsOf(db, e.kind, by);
   return [
-    ...(isUnlinked(db, e) ? ["ยังไม่ผูก PO เนื้อ"] : []),
+    ...(isUnlinked(db, e) ? ["ยังไม่ได้เลือก PO เนื้อ"] : []),
     ...missingKeys(e.values).map(
       (key) => `${missingText}: ${fieldLabel(list, key)}`,
     ),
@@ -136,7 +136,7 @@ export function noteLine(db: Database, e: Entry): string {
   // A round step: its dispatch round, by its transfer number.
   const round =
     has("dispatchId") &&
-    `รอบ ${entries(db, "dispatch").find((d) => d.id === v.dispatchId)?.values.transferNumber ?? "ที่ถูกลบ"}`;
+    `รอบ ${entries(db, "dispatch").find((d) => d.id === v.dispatchId)?.values.transferNumber ?? "ที่ลบไปแล้ว"}`;
   switch (e.kind) {
     case "purchase":
       return join(
@@ -183,7 +183,7 @@ export function noteLine(db: Database, e: Entry): string {
           v.category,
         v.detail,
         v.employee,
-        item && has("qty") ? `${item} ${n("qty")} เข้า${e.branch}` : item,
+        item && has("qty") ? `${item} ${n("qty")} เข้าสาขา${e.branch}` : item,
         v.supplier,
         has("payer") && `จ่ายโดย ${v.payer}`,
         has("fullAmount") && `ยอดเต็ม ${baht(Number(v.fullAmount))}`,
@@ -206,7 +206,7 @@ export function noteLine(db: Database, e: Entry): string {
         has("from") &&
           has("to") &&
           `${placeLabel(v.from)} → ${placeLabel(v.to)}`,
-        v.receive === "confirm" && "สาขาต้องกดยืนยันรับ",
+        v.receive === "confirm" && "รอสาขายืนยันรับ",
       );
     case "transferReceive": {
       const sent = entries(db, "transfer").find((t) => t.id === v.transferId);

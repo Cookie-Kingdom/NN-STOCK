@@ -26,7 +26,7 @@ export function AccountGate({
 
   // Checking is not the same as refused: only the refusal (which redirects to
   // sign-in) renders nothing.
-  if (!ready) return <LoadingScreen message="กำลังตรวจสอบสิทธิ์การใช้งาน…" />;
+  if (!ready) return <LoadingScreen message="กำลังตรวจสอบบัญชี…" />;
   if (!permitted) return null;
   return <>{children(permitted)}</>;
 }

@@ -37,7 +37,7 @@ const accounts: Account[] = [
     role: "owner",
     hidesSales: true,
     name: "Account Manager",
-    title: "ผู้จัดการบัญชี · ทำงานแทนเจ้าของ",
+    title: "ผู้จัดการบัญชี (ทำงานแทนเจ้าของ)",
     summary: "จด PO เนื้อ, PO รมควัน, จ่ายเงิน และสต๊อกแทนเจ้าของ",
     path: "/owner",
     homeTab: "log",

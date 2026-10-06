@@ -22,7 +22,7 @@ export function Skeleton({ className }: { className?: string }) {
  * screen. The shape is fixed height, so nothing jumps when the real rows land.
  */
 export function LoadingPanel({
-  message = "กำลังโหลดข้อมูลจากระบบ…",
+  message = "กำลังโหลดข้อมูล…",
   rows = 5,
 }: {
   message?: string;

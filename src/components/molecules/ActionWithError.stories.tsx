@@ -32,8 +32,7 @@ const state = pick<Partial<Props>>("สถานะ", {
         ดาวน์โหลด
       </Button>
     ),
-    error:
-      "ไม่พบไฟล์แนบในระบบ: ไฟล์นี้อัปโหลดไม่สำเร็จ กรุณาให้ผู้ส่งแนบไฟล์ใหม่",
+    error: "ไม่พบไฟล์แนบนี้ เพราะอัปโหลดไม่สำเร็จ กรุณาแนบไฟล์ใหม่",
     errorClassName: "max-w-64 text-right whitespace-normal",
   },
 });

@@ -93,7 +93,7 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
     [/^น้ำหนักเนื้อ/, "50"],
     [/^ราคา \/ กก\./, "700"],
   );
-  await createPo(page, "PO รมควัน", [/^น้ำหนักที่ซื้อบริการรม/, "100"]);
+  await createPo(page, "PO รมควัน", [/^น้ำหนักที่สั่งรมควัน/, "100"]);
 
   await openPage(page, "Accounting");
   await expect(ledger(page).getByRole("columnheader")).toHaveText([

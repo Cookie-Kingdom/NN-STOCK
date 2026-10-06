@@ -24,12 +24,12 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** กดแล้วเปิดเอกสารในหน้าต่างใหม่ (อนุญาต Pop-up ก่อน) มีปุ่ม「ดาวน์โหลด / พิมพ์ PDF」ซึ่งไม่ติดไปในกระดาษ
+/** กดแล้วเปิดเอกสารในหน้าต่างใหม่ (อนุญาต Pop-up ก่อน) มีปุ่ม「พิมพ์ / ดาวน์โหลด PDF」ซึ่งไม่ติดไปในกระดาษ
  *  หัวเอกสาร (ชื่อบริษัท ที่อยู่ ผู้ติดต่อ เบอร์ เลขผู้เสียภาษี โลโก้) มาจาก Settings
- *  PO ซื้อเนื้อ พิมพ์เป็นกระดาษ PO มีราคาและยอดรวม */
+ *  PO เนื้อ พิมพ์เป็นกระดาษ PO มีราคาและยอดรวม */
 export const PurchaseOrder: Story = {
   args: {
-    label: "PO ซื้อเนื้อ",
+    label: "PO เนื้อ",
     title: "Purchase Order",
     number: po.poId,
     rows: purchaseOrderRows(db, first("purchase", po.id)),

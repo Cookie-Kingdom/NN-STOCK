@@ -104,7 +104,7 @@ test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and i
   await save(page);
 
   await openPage(page, "Settings");
-  await expect(skus).toContainText("รายการในบัญชีซื้อ1 รายการ");
+  await expect(skus).toContainText("รายการจากหน้า Accounting1 รายการ");
   await openList();
   // Eleven items: ten rows, and the eleventh behind ดูเพิ่มเติม.
   await expect(list.getByRole("row")).toHaveCount(11);
@@ -158,9 +158,7 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   ).toHaveText(["SKU-0010", "สติกเกอร์ข้าวเหนียว", "—"]);
   await materials.getByRole("button", { name: "เพิ่มวัสดุ" }).click();
   // No number until the save, and none to type.
-  await expect(materials.getByRole("row").last()).toContainText(
-    "ออกเมื่อบันทึก",
-  );
+  await expect(materials.getByRole("row").last()).toContainText("รอบันทึก");
   await materials
     .getByRole("textbox", { name: "วัสดุ 11" })
     .fill("เทปปิดกล่อง");
