@@ -47,10 +47,10 @@ const columns = [
   "รายการ",
   "รายละเอียด / สเปก",
   "ผู้ขาย / ร้านค้า",
-  "ใช้เพื่องาน",
+  "ค่าใช้จ่ายของ",
   "Project",
 ];
-const figures = ["จำนวนซื้อ", "ยอดตาม PO (กันงบไว้)", "ยอดจ่ายจริง"];
+const figures = ["จำนวนซื้อ", "ยอดตาม PO (งบที่กันไว้)", "ยอดจ่ายจริง"];
 const none = <Muted as="span">—</Muted>;
 const isWebLink = (value = "") => /^https?:\/\/\S+$/i.test(value);
 const central = "ส่วนกลาง";
@@ -96,7 +96,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
 
   if (!all.length)
     return (
-      <EmptyState text="ยังไม่มีรายการซื้อ · PO เนื้อ และ PO รมควัน ขึ้นที่นี่เอง ค่าใช้จ่ายอื่นกด บันทึกค่าใช้จ่าย" />
+      <EmptyState text="ยังไม่มีรายการซื้อ PO เนื้อและ PO รมควันจากหน้า Lots จะอยู่ที่นี่ ส่วนค่าใช้จ่ายอื่นจดได้จากปุ่ม “บันทึกค่าใช้จ่าย”" />
     );
 
   const cell = (row: LedgerRow) => {
@@ -114,7 +114,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       <tr key={row.id} data-source={row.source}>
         <td className={cn(td, "whitespace-nowrap")}>{dateLabel(row.date)}</td>
         <td className={cn(td, "whitespace-nowrap")}>
-          {row.source ? ledgerSources[row.source] : none}
+          {row.sourceLabel || none}
         </td>
         <td className={cn(td, "whitespace-nowrap")}>
           {row.lotId ? (
@@ -212,8 +212,8 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   return (
     <div className="flex flex-col gap-4">
       <Notice className="my-0 text-body-sm">
-        PO เนื้อ และ PO รมควัน ที่จดในหน้า Lots ขึ้นที่นี่เองเป็นรายการรอจ่าย ·
-        ยอดจ่ายจริงมาจากบันทึกจ่ายเงินให้ผู้ขาย
+        PO เนื้อและ PO รมควันจากหน้า Lots อยู่ในตารางนี้เป็นรายการรอจ่าย
+        ยอดจ่ายจริงคิดจากรายการจ่ายเงินให้ผู้ขาย
       </Notice>
       <Panel className={figureGrid} aria-label="สรุปรายการซื้อ">
         <Stat
@@ -222,13 +222,13 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           note={`${summary.waiting} รายการที่ยังรอจ่าย`}
         />
         <Stat
-          label="จ่ายจริงเดือนนี้"
+          label="ยอดจ่ายจริงเดือนนี้"
           value={baht(summary.paid)}
           note={
             change === null
-              ? "— จากเดือนก่อน"
+              ? "เดือนก่อนไม่มียอดจ่าย"
               : change
-                ? `${change > 0 ? "เพิ่มขึ้น" : "ลดลง"} ${qty(Math.round(Math.abs(change) * 10) / 10)}% จากเดือนก่อน`
+                ? `${change > 0 ? "มากกว่า" : "น้อยกว่า"}เดือนก่อน ${qty(Math.round(Math.abs(change) * 10) / 10)}%`
                 : "เท่ากับเดือนก่อน"
           }
         />
@@ -276,7 +276,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             options={[
               { value: "", label: "ทั้งหมด" },
               { value: "po", label: ledgerSources.po },
-              { value: "manual", label: "บันทึกเอง" },
+              { value: "manual", label: "ค่าใช้จ่ายอื่น" },
             ]}
           />
         </TableFilter>
@@ -352,7 +352,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         </div>
       </Panel>
       <Caption aria-live="polite">
-        แสดง {rows.length} จาก {all.length} รายการ
+        {rows.length} จาก {all.length} รายการ
       </Caption>
     </div>
   );
