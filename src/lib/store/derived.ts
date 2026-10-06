@@ -15,6 +15,7 @@ import {
   materialList,
   payCategories,
   salesChannels,
+  legacySale,
   shopProject,
   type Database,
   type Entry,
@@ -127,9 +128,10 @@ export const byDateAt = (
   a: { date: string; at: string },
   b: { date: string; at: string },
 ) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at);
-/** V2-CAL-01: a sale's money in over every channel, and the GP the channels take from it. */
+/** V2-CAL-01: a sale's money in over every channel, and the GP the channels take from it.
+ *  Money from the old books (`legacySale`) is already after GP: counted whole, GP 0. */
 export function saleMoney(config: Values, sale: Entry) {
-  let sales = 0,
+  let sales = num(sale.values, legacySale.key),
     gp = 0;
   for (const channel of salesChannels(config)) {
     sales += num(sale.values, channel.key);
@@ -173,7 +175,8 @@ type Pl = {
   gp: number;
   /** Boxes sold. */
   boxes: number;
-  /** Sales per channel key and per branch. */
+  /** Sales per channel key (`legacySale.key` too, when there is some) and per branch ("": a
+   *  sale with no branch, `noBranch`). */
   byChannel: Record<string, number>;
   byBranch: Record<string, number>;
   byCategory: Record<string, number>;
@@ -201,6 +204,10 @@ export function plBetween(db: Database, from: string, to: string): Pl {
       byBranch[sale.branch] = (byBranch[sale.branch] ?? 0) + money.sales;
       for (const c of channels)
         byChannel[c.key] = (byChannel[c.key] ?? 0) + num(sale.values, c.key);
+      // Listed only when there is some: `legacySale` is not a channel of Settings.
+      const legacy = num(sale.values, legacySale.key);
+      if (legacy)
+        byChannel[legacySale.key] = (byChannel[legacySale.key] ?? 0) + legacy;
     }
   const byCategory: Record<string, number> = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, 0]),

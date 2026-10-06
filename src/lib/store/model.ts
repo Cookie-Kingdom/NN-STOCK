@@ -439,6 +439,15 @@ export const salesChannels = (config: Values): Channel[] =>
     name: c.name,
     gp: Number(c.gp) || 0,
   }));
+/** V2-CAL-01: the money of a sale brought in from the shop's old books, already after the
+ *  channel's GP: counted in the sales, GP 0. Not a channel of Settings (`checkConfig` refuses
+ *  the key) and not a field of the sale form: nobody jots it, only imported entries carry it. */
+export const legacySale = {
+  key: "sales.legacy",
+  name: "ยอดเดิม (หลัง GP แล้ว)",
+};
+/** A sale the old books give no branch for is stored with `branch: ""` and reads as this. */
+export const noBranch = "ไม่ระบุสาขา";
 /** `perBox`: pieces one box uses, what a sale takes off the shelf between counts; null = not estimated. */
 export const materialList = (config: Values): Material[] =>
   list(config, "materialList").map((m) => ({

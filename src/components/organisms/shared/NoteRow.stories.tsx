@@ -7,7 +7,9 @@ import {
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
-import { visibleNotes } from "@/lib/store";
+import { legacySale, visibleNotes } from "@/lib/store";
+import { today } from "@/lib/format";
+import { legacyDb } from "../../../../.storybook/fixtures";
 import { NoteRow } from "./NoteRow";
 
 /** The newest note of each kind the account sees, plus every yellow one. */
@@ -69,3 +71,22 @@ export const Dated: Story = { args: { dated: true } };
 
 /** จอ 390px: ยอดอยู่ขวา ข้อความตัดบรรทัดได้ */
 export const Phone: Story = { ...phone };
+
+/** ยอดขายที่นำเข้าจากไฟล์เดิม: ยอดอยู่ใต้ 「ยอดเดิม (หลัง GP แล้ว)」 ไม่ขึ้นว่ายังไม่ได้จดยอด
+ *  LINE MAN · แถวที่ไฟล์เดิมไม่บอกสาขา บรรทัดรองเขียน 「ไม่ระบุสาขา」 */
+export const LegacySale: Story = {
+  parameters: { db: legacyDb(today()) },
+  render: () => (
+    <WithWorkspace account="owner">
+      {(ws) => (
+        <Panel flush className="max-w-170 overflow-hidden">
+          {visibleNotes(ws.db, ws.account)
+            .filter((e) => e.values[legacySale.key])
+            .map((e) => (
+              <NoteRow key={e.id} entry={e} ws={ws} />
+            ))}
+        </Panel>
+      )}
+    </WithWorkspace>
+  ),
+};
