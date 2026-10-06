@@ -58,10 +58,6 @@ const central = "ส่วนกลาง";
 /** A row's Project as the table and the Project filter name it. */
 const projectOf = (row: LedgerRow) =>
   row.purpose === "project" ? row.project : central;
-/** A row's ที่มา as the filter names it: a row worked out from the log by its source. */
-const sourceOf = (row: LedgerRow) =>
-  row.source === "po" || row.source === "finance" ? row.source : "manual";
-
 /** The shop's purchase ledger: every PO เนื้อ and PO รมควัน (worked out from the PO, its
  *  invoice and the payments to its supplier), every other money-out line of Finance (view
  *  only, as a PO row) and every expense jotted by hand, newest first,
@@ -80,7 +76,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const rows = all.filter(
     (row) =>
       (!status || row.status === status) &&
-      (!source || sourceOf(row) === source) &&
+      (!source || row.origin === source) &&
       (!project || projectOf(row) === project) &&
       (!word ||
         [row.item, row.detail, row.vendor, row.reference, row.sku].some(
@@ -120,7 +116,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
     );
     const Purpose = row.purpose === "project" ? FolderKanban : Building2;
     return (
-      <tr key={row.id} data-source={row.source}>
+      <tr key={row.id} data-source={row.origin}>
         <td className={cn(td, "whitespace-nowrap")}>{dateLabel(row.date)}</td>
         <td className={cn(td, "whitespace-nowrap")}>
           {row.sourceLabel || none}
@@ -168,7 +164,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <Button variant="table" onClick={() => ws.showLot(row.lotId!)}>
               เปิด PO
             </Button>
-          ) : row.source === "finance" ? (
+          ) : row.origin === "finance" ? (
             <Button variant="table" onClick={() => ws.setTab("finance")}>
               เปิด Finance
             </Button>
@@ -290,7 +286,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             options={[
               { value: "", label: "ทั้งหมด" },
               { value: "po", label: ledgerSources.po },
-              { value: "finance", label: ledgerSources.finance },
+              { value: "finance", label: "Finance · จ่ายเงิน" },
               { value: "manual", label: "ค่าใช้จ่ายอื่น" },
             ]}
           />

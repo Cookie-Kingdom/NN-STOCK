@@ -43,7 +43,7 @@ import {
   type NoteKind,
   type Values,
 } from "@/lib/store";
-import { fields } from "@/lib/forms";
+import { defaults, fields } from "@/lib/forms";
 import { stripForManager } from "@/lib/manager-scope";
 import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
@@ -1472,11 +1472,11 @@ describe("ledger: PO rows", () => {
 
 describe("ledger: Finance rows (V2-LED-18)", () => {
   const finance = (d: Database) =>
-    ledgerRows(d).filter((row) => row.source === "finance");
+    ledgerRows(d).filter((row) => row.origin === "finance");
   /** What the PO rows and the Finance rows say was paid, against the money out. */
   const paid = (d: Database) =>
     ledgerRows(d)
-      .filter((row) => row.source === "po" || row.source === "finance")
+      .filter((row) => row.origin !== "manual")
       .reduce((a, row) => a + row.paid!, 0);
   const out = (d: Database) => outflows(d).reduce((a, o) => a + o.amount, 0);
   const pay = (d: Database, values: Record<string, string>, by = owner) =>
@@ -1524,7 +1524,7 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
       status: "paid",
     });
     expect(finance(d)).toMatchObject([
-      { paid: 20, item: "ค่าเช่า/น้ำไฟ", detail: "ค่าไฟ", purpose: "company" },
+      { paid: 20, item: "ค่าเช่า/น้ำไฟ", detail: "ค่าไฟ", purpose: "project" },
       { paid: 50, vendor: "ร้านอื่น", detail: "" },
       { paid: 300, vendor: "Foodiva", itemType: "เนื้อ" },
     ]);
@@ -1566,7 +1566,7 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
       other: "อื่นๆ",
       consult: "ค่าที่ปรึกษา",
     });
-    // The hand-jotted form suggests them; it does not offer the Finance source.
+    // The hand-jotted form suggests them; it does not offer the PO source.
     const form = fields("expense", seed, owner);
     expect(
       form.find((f) => f.key === "itemType")!.options!.map((o) => o.value),
@@ -1574,6 +1574,40 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
     expect(
       form.find((f) => f.key === "source")!.options!.map((o) => o.value),
     ).toEqual(["advance", "transfer", "credit"]);
+  });
+
+  it("reads the pay note's source, เงินโอน when it has none, always the project's", () => {
+    // The pay form offers the expense form's sources, starts at เงินโอน, and none is fine.
+    const source = (kind: "pay" | "expense") =>
+      fields(kind, seed, owner).find((f) => f.key === "source");
+    expect(source("pay")).toEqual(source("expense"));
+    expect(defaults("pay")).toEqual({ source: "transfer" });
+    let d = pay(seed, { category: "rent", amount: "1", source: "credit" });
+    expect(d.entries.at(-1)!.values.missing).toBeUndefined();
+    d = pay(
+      d,
+      { category: "other", amount: "2", source: "advance" },
+      saladaeng,
+    );
+    d = pay(d, { category: "rent", amount: "3" });
+    expect(d.entries.at(-1)!.values).toMatchObject({ source: "" });
+    expect(d.entries.at(-1)!.values.missing).toBeUndefined();
+    d = mutate(d, saladaeng, "sale", { boxes: "1", expense: "4" }, "", day);
+    expect(
+      finance(d).map((row) => [row.paid, row.source, row.sourceLabel]),
+    ).toEqual([
+      [4, "transfer", "เงินโอน"],
+      [3, "transfer", "เงินโอน"],
+      [2, "advance", "พนักงานสำรองจ่าย"],
+      [1, "credit", "บัตรเครดิต"],
+    ]);
+    expect(
+      finance(d).every(
+        (row) =>
+          row.purpose === "project" && row.project === "Nerdnuea x LINE MAN",
+      ),
+    ).toBe(true);
+    expect(() => pay(seed, { category: "rent", source: "po" })).toThrow();
   });
 
   it("stays out of Inventory", () => {

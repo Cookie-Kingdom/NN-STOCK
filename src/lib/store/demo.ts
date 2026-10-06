@@ -131,6 +131,7 @@ export function sampleData(endDate: string): Database {
     amount: 5000,
     detail: "ยิงโฆษณา",
     payer: company,
+    source: "credit",
   });
   add(manager, "pay", 10, "13:40", {
     category: "smoke",
@@ -211,6 +212,7 @@ export function sampleData(endDate: string): Database {
     amount: 300,
     detail: "ค่าส่งกล่อง",
     payer: "น้องฝน",
+    source: "advance",
   });
   add(owner, "reimburse", 6, "18:00", { payer: "น้องฝน", amount: 300 });
   add(saladaeng, "pay", 1, "08:20", {

@@ -25,12 +25,15 @@ import {
   stockMoves,
 } from "./derived";
 
-export const ledgerSources = {
-  po: "PO เนื้อ / รมควัน",
-  finance: "Finance · จ่ายเงิน",
+/** The sources a note is jotted with: the `expense` and the `pay` forms offer the same ones. */
+export const jotSources = {
   advance: "พนักงานสำรองจ่าย",
   transfer: "เงินโอน",
   credit: "บัตรเครดิต",
+} as const;
+export const ledgerSources = {
+  po: "PO เนื้อ / รมควัน",
+  ...jotSources,
 } as const;
 export type LedgerSource = keyof typeof ledgerSources;
 export const ledgerPurposes = {
@@ -65,7 +68,11 @@ export type LedgerRow = {
   id: string;
   date: string;
   at: string;
-  /** "" on a hand-jotted row with no source, or one no longer offered (the retired `petty`). */
+  /** Where the row is from: a PO, a money-out line of Finance (view only, V2-LED-18), or an
+   *  `expense` note jotted by hand. */
+  origin: "po" | "finance" | "manual";
+  /** "" on a hand-jotted row with no source, or one no longer offered (the retired `petty`).
+   *  A Finance row: the `pay` note's source, เงินโอน when it has none. */
   source: LedgerSource | "";
   /** The source as the table names it: a PO row by its kind (PO เนื้อ, PO รมควัน). */
   sourceLabel: string;
@@ -234,6 +241,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
     id: lotId,
     date: e.date,
     at: e.at,
+    origin: "po",
     source: "po",
     sourceLabel,
     lotId,
@@ -330,14 +338,18 @@ export function ledgerRows(db: Database): LedgerRow[] {
     // Under half a satang: nothing is left (float dust of the subtraction).
     if (Math.abs(left) < 0.005) continue;
     const category = categories.get(o.category) ?? o.category;
-    // A branch's money (its own note, or a payment into its stock) is the shop project's.
-    const shop = !!o.branch || !pay;
+    // A `pay` note with no source (an old one), a sale's expense, a shipping fee: เงินโอน.
+    const source =
+      pay && v.source in jotSources
+        ? (v.source as keyof typeof jotSources)
+        : "transfer";
     rows.push({
       id: e.id,
       date: e.date,
       at: e.at,
-      source: "finance",
-      sourceLabel: ledgerSources.finance,
+      origin: "finance",
+      source,
+      sourceLabel: jotSources[source],
       reference: "",
       itemType: categoryTypes[o.category] ?? category,
       // Payroll: the employee. A stock payment: what was bought. Else the category.
@@ -356,8 +368,9 @@ export function ledgerRows(db: Database): LedgerRow[] {
         .filter(Boolean)
         .join(" · "),
       vendor: v.supplier ?? "",
-      purpose: shop ? "project" : "company",
-      project: shop ? shopProject : "",
+      // Finance is the shop project's book: every line of it is the project's.
+      purpose: "project",
+      project: shopProject,
       qty: pay ? numberOr(v, "qty") : null,
       unit: "",
       poAmount: null,
@@ -375,6 +388,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
       id: e.id,
       date: e.date,
       at: e.at,
+      origin: "manual",
       source: v.source in ledgerSources ? (v.source as LedgerSource) : "",
       sourceLabel:
         v.source in ledgerSources
@@ -427,7 +441,7 @@ export function projectAssets(db: Database, project = shopProject) {
   );
   // Newest first: the first row of an item is its latest purchase.
   for (const row of ledgerRows(db)) {
-    if (!row.entry || row.status === "cancelled") continue;
+    if (row.origin !== "manual" || row.status === "cancelled") continue;
     if (row.purpose !== "project" || row.project.trim() !== project) continue;
     const type = row.itemType.trim();
     const items = groups.get(type) ?? new Map<string, ProjectAsset>();
@@ -507,7 +521,7 @@ export function stockLines(db: Database, today: string): StockLine[] {
  *  A cancelled row holds no money. */
 export function ledgerSummary(rows: LedgerRow[], month: string) {
   const waiting = rows.filter(
-    (row) => row.source === "po" && row.status === "pending",
+    (row) => row.origin === "po" && row.status === "pending",
   );
   const before = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5) - 2, 1))
     .toISOString()
