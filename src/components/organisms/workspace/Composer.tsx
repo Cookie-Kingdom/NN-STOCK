@@ -620,7 +620,7 @@ function noteFigures(
           tone: status === "pending" && amount ? "warning" : undefined,
         },
       ],
-      note: sku ? "" : "พิมพ์ชื่อรายการเพื่อดู SKU",
+      note: sku ? "" : "SKU จะขึ้นเมื่อพิมพ์ชื่อรายการ",
     };
   }
   if (kind === "pay") {

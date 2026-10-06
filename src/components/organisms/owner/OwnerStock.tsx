@@ -364,7 +364,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
               >
                 {rows.length
                   ? "ไม่พบรายการที่ตรงกับที่ค้นหา"
-                  : `ยังไม่มีของที่ซื้อเข้า${shopProject} · จดที่หน้า Accounting เลือกใช้เพื่องาน「${shopProject}」`}
+                  : `ยังไม่มีของที่ซื้อเข้า${shopProject} · จดที่หน้า Accounting เลือกค่าใช้จ่ายของ「${shopProject}」`}
               </Cell>
             </tr>
           )}

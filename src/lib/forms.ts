@@ -510,21 +510,21 @@ export function fields(
           options: choices(ledgerChoices(db, "vendor")),
         }),
         number("qty", "จำนวนซื้อ"),
-        select("purpose", "ใช้เพื่องาน", ledgerPurposes),
+        select("purpose", "ค่าใช้จ่ายของ", ledgerPurposes),
         // บริษัทส่วนกลาง has no project: the field is not shown, and not saved.
         text("project", "Project", {
           when: (values) => values.purpose === "project",
           options: choices(ledgerChoices(db, "project", [shopProject])),
         }),
         // Where what was bought is kept; none typed (an old row) is the central warehouse.
-        placeField("warehouse", "เข้าคลัง", {
+        placeField("warehouse", "คลัง", {
           when: (values) => values.purpose === "project",
         }),
         number("amount", "ยอดจ่ายจริง", "บาท"),
         select("status", "สถานะ", ledgerStatuses),
         file("เอกสารแนบ"),
         ...more(
-          text("link", "ลิงก์เอกสาร", { hint: "ขึ้นต้นด้วย https://" }),
+          text("link", "ลิงก์เอกสาร", { hint: "ลิงก์ที่ขึ้นต้นด้วย https://" }),
           note,
         ),
       ];

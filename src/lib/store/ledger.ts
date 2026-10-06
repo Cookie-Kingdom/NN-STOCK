@@ -20,18 +20,18 @@ import {
 } from "./derived";
 
 export const ledgerSources = {
-  po: "ดึงจากระบบ PO",
+  po: "PO เนื้อ / รมควัน",
   advance: "พนักงานสำรองจ่าย",
-  transfer: "โอนจ่ายตรง",
+  transfer: "เงินโอน",
   credit: "บัตรเครดิต",
 } as const;
 export type LedgerSource = keyof typeof ledgerSources;
 export const ledgerPurposes = {
   company: "บริษัทส่วนกลาง",
-  project: "ใช้งานโปรเจกต์",
+  project: "โปรเจกต์",
 } as const;
 export const ledgerStatuses = {
-  pending: "รอจ่ายเงิน",
+  pending: "รอจ่าย",
   paid: "จ่ายแล้ว",
   cancelled: "ยกเลิก",
 } as const;
@@ -51,6 +51,8 @@ export type LedgerRow = {
   at: string;
   /** "" on a hand-jotted row with no source, or one no longer offered (the retired `petty`). */
   source: LedgerSource | "";
+  /** The source as the table names it: a PO row by its kind (PO เนื้อ, PO รมควัน). */
+  sourceLabel: string;
   /** A PO row: its lot (the link to the Lots page). */
   lotId?: string;
   /** A hand-jotted row: its entry (edit, delete, attachment). */
@@ -211,11 +213,13 @@ export function ledgerRows(db: Database): LedgerRow[] {
     vendor: string,
     qty: number | null,
     amount: number | null,
+    sourceLabel: string,
   ): LedgerRow => ({
     id: lotId,
     date: e.date,
     at: e.at,
     source: "po",
+    sourceLabel,
     lotId,
     reference,
     itemType: "วัตถุดิบ",
@@ -253,6 +257,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
         v.supplier,
         numberOr(v, "orderedKg"),
         amount,
+        "PO เนื้อ",
       ),
     );
   }
@@ -277,6 +282,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
         v.smoker || "Chef House",
         numberOr(v, "rawKg"),
         amount,
+        "PO รมควัน",
       ),
     );
   }
@@ -305,6 +311,10 @@ export function ledgerRows(db: Database): LedgerRow[] {
       date: e.date,
       at: e.at,
       source: v.source in ledgerSources ? (v.source as LedgerSource) : "",
+      sourceLabel:
+        v.source in ledgerSources
+          ? ledgerSources[v.source as LedgerSource]
+          : "",
       entry: e,
       reference: v.reference ?? "",
       itemType: v.itemType ?? "",
