@@ -5,6 +5,8 @@ import {
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
 import { seed } from "@/lib/store";
+import { today } from "@/lib/format";
+import { legacyDb } from "../../../../.storybook/fixtures";
 import { OverviewPage, ProjectOverviewPage } from "./OverviewPage";
 
 const Overview = () => (
@@ -30,6 +32,11 @@ export const Owner: Story = {};
 /** ยังไม่มีบันทึก: กราฟว่าง ย้อนเดือนไม่ได้ ต้นทุนต่อกล่องยังไม่มี Lot ที่จดครบ
  *  (ไม่มีบรรทัดกำไรต่อกล่อง) · ไม่มีกล่องที่ขาย: รายได้ต่อกล่องเป็น — */
 export const Empty: Story = { parameters: { db: seed } };
+
+/** ยอดขายที่นำเข้าจากไฟล์เดิม (หลัง GP แล้ว): นับในรายได้ ไม่หัก GP ซ้ำ
+ *  · รายได้แยกสาขา มีแถว 「ไม่ระบุสาขา」 เมื่อมียอดที่ไฟล์เดิมไม่บอกสาขา
+ *  · รายได้แยกช่องทางขาย มีแถว 「ยอดเดิม (หลัง GP แล้ว)」 */
+export const LegacySales: Story = { parameters: { db: legacyDb(today()) } };
 
 /** จอ 390px: คอลัมน์เดียว */
 export const Phone: Story = { ...phone };

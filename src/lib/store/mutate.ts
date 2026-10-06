@@ -15,6 +15,7 @@ import {
   isRoundKind,
   kindInfo,
   kindsFor,
+  legacySale,
   oncePerLotKinds,
   titles,
   lotMovableKinds,
@@ -22,6 +23,7 @@ import {
   pack,
   payCategories,
   payrollCategory,
+  salesChannels,
   seed,
   type Actor,
   type Database,
@@ -172,6 +174,13 @@ function noteValues(
       ]);
     if (f.core && !value) missing.push(f.key);
     v[f.key] = value;
+  }
+  // V2-CAL-01: money from the old books is no form field, so nobody jots it; an edit keeps
+  // it, and it stands for the channel money the form asks for.
+  if (kind === "sale" && kept[legacySale.key]) {
+    v[legacySale.key] = kept[legacySale.key];
+    const at = missing.indexOf(salesChannels(db.config)[0].key);
+    if (at >= 0) missing.splice(at, 1);
   }
   if (isRoundKind(kind))
     assert(
@@ -362,7 +371,9 @@ function checkConfig(v: Values) {
       // Sale money is hidden from the Account Manager by its key (isSaleMoneyKey).
       assert(
         ids[0] === "lineMan" &&
-          ids.slice(1).every((k) => String(k).startsWith("sales.")),
+          ids.slice(1).every((k) => String(k).startsWith("sales.")) &&
+          // Not a channel: its money would be counted twice (saleMoney).
+          !ids.includes(legacySale.key),
         broken,
       );
       const none = rows.find((row) => empty(row, "gp"));

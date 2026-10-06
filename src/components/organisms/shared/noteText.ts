@@ -9,9 +9,11 @@ import {
   ingredients,
   isNoteKind,
   isUnlinkedDispatch,
+  legacySale,
   materialList,
   missingKeys,
   missingText,
+  noBranch,
   payCategories,
   placeLabel,
   poLines,
@@ -49,9 +51,10 @@ export const jottedAt = (at: string) =>
     timeZone: "Asia/Bangkok",
   });
 
-/** Who jotted an entry, a branch with its name: "ผู้ดูแลสาขา ศาลาแดง". */
+/** Who jotted an entry, a branch with its name: "ผู้ดูแลสาขา ศาลาแดง". A sale from the old
+ *  books with no branch says so. */
 export const entryWho = (e: Entry) =>
-  `${entryBy(e)}${e.role === "branch" ? ` ${e.branch}` : ""}`;
+  `${entryBy(e)}${e.role === "branch" ? ` ${e.branch || noBranch}` : ""}`;
 
 /** A dispatch whose meat is not fully linked to live POs เนื้อ: what turns its PO รมควัน
  *  yellow (V2-LOT-03). */
@@ -83,6 +86,7 @@ const addedLabels: Record<string, string> = {
   postSmokeKg: "น้ำหนักผลิตรวม (กก.)",
   packCount: "จำนวนกล่องรมควัน",
   sku: "SKU",
+  [legacySale.key]: `${legacySale.name} (บาท)`,
 };
 export const addedKeys = Object.keys(addedLabels);
 export const fieldLabel = (list: Field[], key: string) =>
@@ -115,11 +119,13 @@ export function noteTags(db: Database, e: Entry, by: Actor): string[] {
   ];
 }
 
-/** The muted line under a row: its PO or Lot number, and its branch unless a branch reads it. */
+/** The muted line under a row: its PO or Lot number, and its branch unless a branch reads it
+ *  (a branch's note with none: `noBranch`). */
 export const noteSub = (db: Database, e: Entry, by: Actor) =>
   join(
     e.lotId && lotLabel(db, e.lotId),
-    e.branch && by.role !== "branch" && `สาขา${e.branch}`,
+    by.role !== "branch" &&
+      (e.branch ? `สาขา${e.branch}` : e.role === "branch" && noBranch),
   );
 
 /** One line of what was jotted, after the title. */
@@ -234,6 +240,8 @@ export function noteLine(db: Database, e: Entry): string {
     case "sale":
       return join(
         has("boxes") && `${n("boxes")} กล่อง`,
+        has(legacySale.key) &&
+          `${legacySale.name} ${baht(Number(v[legacySale.key]))}`,
         has("chiliAddons") && `น้ำพริก ${n("chiliAddons")} หลอด`,
         has("wasteKg") && `เนื้อเสีย ${n("wasteKg")} กก.`,
         has("expense") && `ค่าใช้จ่ายสาขา ${baht(Number(v.expense))}`,
@@ -293,7 +301,8 @@ export function noteAmount(
       ? { text: `−${baht(Number(v.amount))}`, tone: "out" }
       : null;
   if (e.kind === "sale")
-    return salesChannels(db.config).some((channel) => has(channel.key))
+    return has(legacySale.key) ||
+      salesChannels(db.config).some((channel) => has(channel.key))
       ? { text: `+${baht(saleMoney(db.config, e).sales)}`, tone: "in" }
       : null;
   if (e.kind === "influencerBox")

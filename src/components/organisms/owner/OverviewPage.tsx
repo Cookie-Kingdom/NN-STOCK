@@ -27,6 +27,8 @@ import {
   n,
   payCategories,
   plBetween,
+  legacySale,
+  noBranch,
   salesChannels,
   type Database,
 } from "@/lib/store";
@@ -440,9 +442,16 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
           <FigureCard title="รายได้แยกสาขา">
             <Bars
               total={now.sales}
-              rows={branches
-                .map((name) => ({ name, value: now.byBranch[name] ?? 0 }))
-                .sort((a, b) => b.value - a.value)}
+              rows={[
+                ...branches.map((name) => ({
+                  name,
+                  value: now.byBranch[name] ?? 0,
+                })),
+                // Sales from the old books that name no branch, when there are some.
+                ...(now.byBranch[""]
+                  ? [{ name: noBranch, value: now.byBranch[""] }]
+                  : []),
+              ].sort((a, b) => b.value - a.value)}
             />
           </FigureCard>
           <FigureCard
@@ -451,8 +460,8 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
           >
             <Bars
               total={now.sales}
-              rows={channels
-                .map((c) => {
+              rows={[
+                ...channels.map((c) => {
                   const value = now.byChannel[c.key] ?? 0;
                   return {
                     name: c.name,
@@ -461,8 +470,17 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
                       ? `GP ${c.gp}% = ${baht((-value * c.gp) / 100)} · เหลือ ${baht(value * (1 - c.gp / 100))}`
                       : "ไม่มี GP",
                   };
-                })
-                .sort((a, b) => b.value - a.value)}
+                }),
+                ...(now.byChannel[legacySale.key]
+                  ? [
+                      {
+                        name: legacySale.name,
+                        value: now.byChannel[legacySale.key],
+                        note: "ยอดจากไฟล์เดิม · หัก GP มาแล้ว ไม่หักซ้ำ",
+                      },
+                    ]
+                  : []),
+              ].sort((a, b) => b.value - a.value)}
             />
           </FigureCard>
         </div>

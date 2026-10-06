@@ -2,6 +2,7 @@
 // (stock, cost, yield) is what the app would show.
 import { accountById } from "@/lib/accounts";
 import {
+  legacySale,
   materialList,
   mutate,
   seed,
@@ -17,6 +18,34 @@ export const day = "2026-09-09";
 
 /** The approved sample: three Lots, two POs, 35 days of both branches. */
 export const demoDb: Database = sampleData(day);
+
+/** The sample plus two sales brought in from the shop's old books, both on `on`: one with
+ *  no branch, one of ศาลาแดง, their money already after GP (`legacySale`). Nobody jots such a
+ *  sale, so `mutate` makes none: the two entries are laid in by hand, as the import does. */
+export function legacyDb(on = day): Database {
+  const sample = sampleData(on);
+  return {
+    ...sample,
+    entries: [
+      ...sample.entries,
+      ...["", "ศาลาแดง"].map((branch, i) => ({
+        id: `legacy-sale-${i}`,
+        at: `${on}T15:0${i}:00.000Z`,
+        kind: "sale" as const,
+        role: "branch" as const,
+        lotId: "",
+        branch,
+        date: on,
+        values: {
+          boxes: branch ? "" : "120",
+          [legacySale.key]: branch ? "180000" : "46640",
+          note: "นำเข้าจากไฟล์เดิม · ยอดหลัง GP แล้ว",
+          ...(branch && { missing: "boxes" }),
+        },
+      })),
+    ],
+  };
+}
 
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);

@@ -10,6 +10,7 @@ import {
   entries,
   giftBoxes,
   kindsForPage,
+  legacySale,
   ledgerRows,
   ledgerSummary,
   projectAssets,
@@ -37,6 +38,7 @@ import {
   visibleNotes,
   type Actor,
   type Database,
+  type Entry,
   type NoteKind,
   type Values,
 } from "@/lib/store";
@@ -374,6 +376,10 @@ describe("mutate", () => {
     expect(() =>
       mutate(db, owner, "config", { boxPrice: "x" }, "", day),
     ).toThrow("ราคากล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป");
+    // The key of the old books' money is no channel's.
+    expect(() =>
+      channels({ key: legacySale.key, name: "Grab", gp: "0" }),
+    ).toThrow("ช่องทางขาย: อ่านรายการไม่ได้");
     expect(
       salesChannels(channels({ key: "sales.a", name: "Grab", gp: "0" }).config),
     ).toHaveLength(2);
@@ -796,6 +802,57 @@ describe("figures (V2-CAL)", () => {
 
   it("CAL-01: GP is each channel's sales × its GP %", () => {
     expect(saleMoney(built.config, sale)).toEqual({ sales: 1500, gp: 250 });
+  });
+
+  it("CAL-01: money from the old books counts in the sales with no GP, with or without a branch", () => {
+    // Nobody jots one (the form has no such field): laid in as the import does.
+    const old = (id: string, branch: string, money: string): Entry => ({
+      id,
+      at: "2026-08-01T10:00:00.000Z",
+      kind: "sale",
+      role: "branch",
+      lotId: "",
+      branch,
+      date: "2026-08-01",
+      values: { boxes: "2", [legacySale.key]: money },
+    });
+    const none = old("old-none", "", "900");
+    const own = old("old-own", "ศาลาแดง", "100");
+    const withOld = { ...built, entries: [...built.entries, none, own] };
+    expect(saleMoney(built.config, none)).toEqual({ sales: 900, gp: 0 });
+    expect(monthPl(withOld, "2026-08")).toMatchObject({
+      sales: 1000,
+      gp: 0,
+      boxes: 4,
+      byBranch: { "": 900, ศาลาแดง: 100 },
+      byChannel: { [legacySale.key]: 1000 },
+    });
+    // The form's `sales.legacy` is dropped from a new note; a branch's edit keeps the money
+    // and does not list the channel's as missing.
+    const jotted = mutate(
+      built,
+      saladaeng,
+      "sale",
+      { boxes: "1", [legacySale.key]: "5" },
+      "",
+      "2026-08-02",
+    );
+    expect(last(jotted).values[legacySale.key]).toBeUndefined();
+    const edited = mutate(
+      withOld,
+      saladaeng,
+      "entryEdit",
+      { targetId: own.id, values: JSON.stringify({ boxes: "3" }) },
+      "",
+      "2026-08-02",
+    );
+    expect(
+      entries(edited, "sale").find((e) => e.id === own.id)?.values,
+    ).toMatchObject({
+      boxes: "3",
+      [legacySale.key]: "100",
+    });
+    expect(last(edited).values["to.missing"]).toBeUndefined();
   });
 
   it("CAL-02: a month's P&L counts payments by their date, capex apart", () => {

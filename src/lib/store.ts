@@ -36,6 +36,8 @@ export {
   missingText,
   unpack,
   salesChannels,
+  legacySale,
+  noBranch,
   materialList,
   rawRiceBranches,
   payCategories,
