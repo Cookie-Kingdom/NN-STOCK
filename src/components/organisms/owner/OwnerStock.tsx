@@ -9,6 +9,7 @@ import { Select } from "@/components/atoms/Select";
 import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
+import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import {
   Cell,
@@ -165,6 +166,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
           text.toLowerCase().includes(word),
         )),
   );
+  const { limit, more } = useShowMore([type, status, place, word].join("|"));
   const sum = (list: { paid: number }[]) =>
     list.reduce((a, row) => a + row.paid, 0);
   const columns = [...what, ...where, ...cost];
@@ -276,7 +278,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
             )
           }
         >
-          {shown.map((row) => {
+          {shown.slice(0, limit).map((row) => {
             const line = lines.get(row.sku);
             return (
               <tr key={row.key}>
@@ -369,6 +371,11 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
             </tr>
           )}
         </StockTable>
+        <ShowMore
+          shown={Math.min(limit, shown.length)}
+          total={shown.length}
+          onMore={more}
+        />
       </DayCard>
       <Caption>
         {

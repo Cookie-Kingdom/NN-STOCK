@@ -87,31 +87,53 @@ test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and i
   await signInAs(page, "owner");
   await openPage(page, "Settings");
   const skus = region(page, "รายการสินค้า (SKU)");
-  // Before any expense: the ten materials.
-  await expect(skus.getByRole("row")).toHaveCount(11);
+  const list = page.getByRole("dialog", { name: "รายการสินค้า (SKU)" });
+  const openList = () =>
+    skus.getByRole("button", { name: "เปิดรายการ" }).click();
+  // Before any expense: the ten materials, all on the popup's first ten rows.
+  await expect(skus).toContainText("วัสดุ10 รายการ");
+  await openList();
+  await expect(list.getByRole("row")).toHaveCount(11);
+  await expect(list.getByRole("button", { name: /^ดูเพิ่มเติม/ })).toHaveCount(
+    0,
+  );
+  await list.getByRole("button", { name: "ยกเลิก" }).click();
 
   await openPage(page, "Accounting");
   await typeItem(page, "หมึกพิมพ์");
   await save(page);
 
   await openPage(page, "Settings");
-  await expect(
-    skus.getByRole("row", { name: /^SKU-0011/ }).getByRole("cell"),
-  ).toHaveText(["SKU-0011", "หมึกพิมพ์", "รายการในบัญชีซื้อ"]);
-  await edit(skus);
+  await expect(skus).toContainText("รายการในบัญชีซื้อ1 รายการ");
+  await openList();
+  // Eleven items: ten rows, and the eleventh behind ดูเพิ่มเติม.
+  await expect(list.getByRole("row")).toHaveCount(11);
+  await list.getByRole("button", { name: "ดูเพิ่มเติม (เหลือ 1)" }).click();
+  await expect(list.getByRole("row")).toHaveCount(12);
+  // The search, by SKU or by name.
+  await list.getByRole("searchbox").fill("sku-0011");
+  await expect(list.getByRole("row")).toHaveCount(2);
+  await list.getByRole("searchbox").fill("");
+  await list.getByRole("button", { name: /^ดูเพิ่มเติม/ }).click();
   // A material's name is read here and typed in รายชื่อวัสดุ: only the ledger item has a box.
-  await expect(skus.getByRole("textbox")).toHaveCount(1);
-  const name = skus.getByRole("textbox", { name: "ชื่อรายการ SKU-0011" });
+  await expect(list.getByRole("textbox")).toHaveCount(1);
+  const name = list.getByRole("textbox", { name: "ชื่อรายการ SKU-0011" });
+  const saveList = () =>
+    list.getByRole("button", { name: "บันทึก", exact: true }).click();
   // A name another item goes by, a material included, is refused.
   await name.fill("กล่องพิมพ์ลาย");
-  await saveSection(skus);
-  await expect(skus).toContainText("ซ้ำกัน");
+  await saveList();
+  await expect(list).toContainText("ซ้ำกัน");
   await name.fill("หมึกพิมพ์ดำ");
-  await saveSection(skus);
+  await saveList();
   await expect(toast(page, "บันทึกแล้ว: รายการสินค้า (SKU)")).toBeVisible();
+  await expect(list).toHaveCount(0);
+  await openList();
+  await list.getByRole("searchbox").fill("หมึก");
   await expect(
-    skus.getByRole("row", { name: /^SKU-0011/ }).getByRole("cell"),
-  ).toHaveText(["SKU-0011", "หมึกพิมพ์ดำ", "รายการในบัญชีซื้อ"]);
+    list.getByRole("row", { name: /^SKU-0011/ }).getByRole("textbox"),
+  ).toHaveValue("หมึกพิมพ์ดำ");
+  await list.getByRole("button", { name: "ยกเลิก" }).click();
 
   // The row jotted under the old name, and the form: the new name, the same SKU.
   await openPage(page, "Accounting");
