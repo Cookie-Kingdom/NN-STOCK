@@ -372,7 +372,7 @@ function RoundCard({
               {qty(round.smokedKg)} กก.
               {round.boxes > 0 && ` · ${qty(round.boxes)} กล่อง`}
               <span>
-                เสีย {qty(round.wasteKg)} กก.
+                Waste {qty(round.wasteKg)} กก.
                 {round.wastePct !== null && ` (${qty(round.wastePct)}%)`}
               </span>
             </>
