@@ -58,9 +58,13 @@ const central = "ส่วนกลาง";
 /** A row's Project as the table and the Project filter name it. */
 const projectOf = (row: LedgerRow) =>
   row.purpose === "project" ? row.project : central;
+/** A row's ที่มา as the filter names it: a row worked out from the log by its source. */
+const sourceOf = (row: LedgerRow) =>
+  row.source === "po" || row.source === "finance" ? row.source : "manual";
 
 /** The shop's purchase ledger: every PO เนื้อ and PO รมควัน (worked out from the PO, its
- *  invoice and the payments to its supplier) and every expense jotted by hand, newest first,
+ *  invoice and the payments to its supplier), every other money-out line of Finance (view
+ *  only, as a PO row) and every expense jotted by hand, newest first,
  *  under the two figures worked out from it (what the POs still to pay hold, what was paid
  *  this month), with a search, a filter by project, status and source, and the totals of
  *  what is shown. */
@@ -76,7 +80,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const rows = all.filter(
     (row) =>
       (!status || row.status === status) &&
-      (!source || (source === "po") === (row.source === "po")) &&
+      (!source || sourceOf(row) === source) &&
       (!project || projectOf(row) === project) &&
       (!word ||
         [row.item, row.detail, row.vendor, row.reference, row.sku].some(
@@ -164,6 +168,10 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <Button variant="table" onClick={() => ws.showLot(row.lotId!)}>
               เปิด PO
             </Button>
+          ) : row.source === "finance" ? (
+            <Button variant="table" onClick={() => ws.setTab("finance")}>
+              เปิด Finance
+            </Button>
           ) : e?.values.attachment || isWebLink(e?.values.link) ? (
             <div className="flex flex-col items-start gap-1">
               {e?.values.attachment && (
@@ -218,7 +226,8 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
     <div className="flex flex-col gap-4">
       <Notice className="my-0 text-body-sm">
         PO เนื้อและ PO รมควันจากหน้า Lots อยู่ในตารางนี้เป็นรายการรอจ่าย
-        ยอดจ่ายจริงคิดจากรายการจ่ายเงินให้ผู้ขาย
+        ยอดจ่ายจริงคิดจากรายการจ่ายเงินให้ผู้ขาย รายการจ่ายเงินอื่นจากหน้า
+        Finance ขึ้นเองเป็นแถวจ่ายแล้ว
       </Notice>
       <Panel className={figureGrid} aria-label="สรุปรายการซื้อ">
         <Stat
@@ -281,6 +290,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             options={[
               { value: "", label: "ทั้งหมด" },
               { value: "po", label: ledgerSources.po },
+              { value: "finance", label: ledgerSources.finance },
               { value: "manual", label: "ค่าใช้จ่ายอื่น" },
             ]}
           />

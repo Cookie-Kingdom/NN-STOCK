@@ -1,9 +1,13 @@
-/** The Accounting page's purchase ledger (V2-LED-01): every PO เนื้อ and PO รมควัน as a row
- *  worked out from the log, plus the `expense` notes jotted by hand. Nothing here is stored. */
+/** The Accounting page's purchase ledger (V2-LED-01): every PO เนื้อ and PO รมควัน and every
+ *  money-out line of Finance (V2-LED-18) as a row worked out from the log, plus the `expense`
+ *  notes jotted by hand. Nothing here is stored. */
 import {
   branches,
+  ingredients,
   materialList,
+  payCategories,
   places,
+  seed,
   shopProject,
   type Database,
   type Entry,
@@ -14,6 +18,8 @@ import {
   byDateAt,
   entries,
   invoiceOf,
+  liveEntries,
+  outflows,
   purchaseLots,
   shipments,
   stockMoves,
@@ -21,6 +27,7 @@ import {
 
 export const ledgerSources = {
   po: "PO เนื้อ / รมควัน",
+  finance: "Finance · จ่ายเงิน",
   advance: "พนักงานสำรองจ่าย",
   transfer: "เงินโอน",
   credit: "บัตรเครดิต",
@@ -36,16 +43,25 @@ export const ledgerStatuses = {
   cancelled: "ยกเลิก",
 } as const;
 export type LedgerStatus = keyof typeof ledgerStatuses;
+/** The ประเภทสินค้า of a Finance row whose pay category the ledger already has a type for;
+ *  any other category goes by its own name (V2-LED-18). */
+const categoryTypes: Record<string, string> = {
+  packaging: "วัสดุบรรจุภัณฑ์",
+  ingredient: "วัตถุดิบ",
+  capex: "สินทรัพย์",
+  other: "อื่นๆ",
+};
+/** The suggested types: those four, then the other pay categories of the seed. */
 export const defaultLedgerTypes = [
-  "วัสดุบรรจุภัณฑ์",
-  "วัตถุดิบ",
-  "สินทรัพย์",
-  "อื่นๆ",
+  ...Object.values(categoryTypes),
+  ...payCategories(seed.config)
+    .filter((c) => !categoryTypes[c.id])
+    .map((c) => c.name),
 ];
 export { shopProject };
 
 export type LedgerRow = {
-  /** The PO's lot id, or the `expense` entry's id. */
+  /** The PO's lot id, else the id of the entry the row is of (an `expense`, a Finance line). */
   id: string;
   date: string;
   at: string;
@@ -55,7 +71,7 @@ export type LedgerRow = {
   sourceLabel: string;
   /** A PO row: its lot (the link to the Lots page). */
   lotId?: string;
-  /** A hand-jotted row: its entry (edit, delete, attachment). */
+  /** A hand-jotted row: its entry (edit, delete, attachment). A Finance row has none. */
   entry?: Entry;
   reference: string;
   itemType: string;
@@ -286,23 +302,72 @@ export function ledgerRows(db: Database): LedgerRow[] {
       ),
     );
   }
-  /* ponytail: a `pay` note names a supplier, not a PO. A supplier's payments are spread over
-   * its POs oldest first, each PO filled up to its amount before the next; what is left over
-   * (a bill with no PO) is on no row. */
-  const paidBy = new Map<string, number>();
-  for (const e of entries(db, "pay"))
-    if (e.values.supplier)
-      paidBy.set(
-        e.values.supplier,
-        (paidBy.get(e.values.supplier) ?? 0) + Number(e.values.amount || 0),
-      );
-  for (const row of rows.toSorted(byDateAt)) {
-    const left = paidBy.get(row.vendor) ?? 0;
-    const paid = Math.min(left, row.poAmount ?? 0);
-    paidBy.set(row.vendor, left - paid);
-    row.paid = paid;
-    row.status = row.poAmount && paid >= row.poAmount ? "paid" : "pending";
+  /* A `pay` note names a supplier, not a PO: a supplier's payments, oldest first, fill its
+   * POs oldest first, each up to its amount. What the POs did not take of a payment, and
+   * every other money-out line of Finance (`outflows`), is a row of its own, so the rows'
+   * ยอดจ่ายจริง add up to the money out, none of it twice (V2-LED-18). */
+  const pos = rows.toSorted(byDateAt);
+  const byId = new Map(liveEntries(db).map((e) => [e.id, e]));
+  const categories = new Map(
+    payCategories(db.config).map((c) => [c.id, c.name]),
+  );
+  const bought = [...materialList(db.config), ...ingredients];
+  const lines = outflows(db)
+    .map((o) => ({ o, e: byId.get(o.entryId)! }))
+    .sort((a, b) => byDateAt(a.e, b.e));
+  for (const { o, e } of lines) {
+    const v = e.values;
+    const pay = e.kind === "pay";
+    let left = o.amount;
+    if (pay && v.supplier)
+      for (const row of pos) {
+        if (row.vendor !== v.supplier) continue;
+        const paid = row.paid ?? 0;
+        const part = Math.max(0, Math.min(left, (row.poAmount ?? 0) - paid));
+        row.paid = paid + part;
+        left -= part;
+      }
+    // Under half a satang: nothing is left (float dust of the subtraction).
+    if (Math.abs(left) < 0.005) continue;
+    const category = categories.get(o.category) ?? o.category;
+    // A branch's money (its own note, or a payment into its stock) is the shop project's.
+    const shop = !!o.branch || !pay;
+    rows.push({
+      id: e.id,
+      date: e.date,
+      at: e.at,
+      source: "finance",
+      sourceLabel: ledgerSources.finance,
+      reference: "",
+      itemType: categoryTypes[o.category] ?? category,
+      // Payroll: the employee. A stock payment: what was bought. Else the category.
+      item: pay
+        ? v.employee || bought.find((m) => m.id === v.item)?.name || category
+        : e.kind === "sale"
+          ? "ค่าใช้จ่ายสาขา"
+          : "ค่าส่งกล่องแจก",
+      sku: "",
+      detail: [
+        pay ? v.detail : v.influencer,
+        o.branch,
+        left !== o.amount &&
+          `ส่วนที่ PO ไม่ได้ตัด จากยอดจ่าย ${o.amount.toLocaleString("en-US")} บาท`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      vendor: v.supplier ?? "",
+      purpose: shop ? "project" : "company",
+      project: shop ? shopProject : "",
+      qty: pay ? numberOr(v, "qty") : null,
+      unit: "",
+      poAmount: null,
+      paid: left,
+      status: "paid",
+    });
   }
+  for (const row of pos)
+    row.status =
+      row.poAmount && (row.paid ?? 0) >= row.poAmount ? "paid" : "pending";
   const names = new Map(skuCatalogue(db).map((item) => [item.sku, item.name]));
   for (const e of entries(db, "expense")) {
     const v = e.values;
@@ -350,7 +415,8 @@ export type ProjectAsset = {
   times: number;
 };
 
-/** What `project` owns (Inventory): the hand-jotted rows of the ledger bought for it, a row
+/** What `project` owns (Inventory): the hand-jotted rows of the ledger bought for it (no PO
+ *  row, no Finance row), a row
  *  per item (its SKU), in a group per ประเภทสินค้า, the suggested types first. A cancelled
  *  row is left out; the PO rows are the meat, which is on the Stock page.
  *  ponytail: what was bought, not what is left: nothing takes an item out again (used up,

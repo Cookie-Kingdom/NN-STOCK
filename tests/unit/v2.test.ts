@@ -18,6 +18,7 @@ import {
   lotInfo,
   materialList,
   monthPl,
+  payCategories,
   plBetween,
   mutate,
   pendingTransfers,
@@ -46,6 +47,7 @@ import { fields } from "@/lib/forms";
 import { stripForManager } from "@/lib/manager-scope";
 import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
+import { outflows } from "@/lib/store/derived";
 
 // Smoke checks of the domain on the approved sample. The figures do not depend on the date.
 const day = "2026-09-09";
@@ -1465,6 +1467,139 @@ describe("ledger: PO rows", () => {
     const purchase = entries(db, "purchase", po1.id)[0];
     const d = mutate(db, owner, "void", { targetId: purchase.id }, "", day);
     expect(ledgerRows(d).some((row) => row.lotId === po1.id)).toBe(false);
+  });
+});
+
+describe("ledger: Finance rows (V2-LED-18)", () => {
+  const finance = (d: Database) =>
+    ledgerRows(d).filter((row) => row.source === "finance");
+  /** What the PO rows and the Finance rows say was paid, against the money out. */
+  const paid = (d: Database) =>
+    ledgerRows(d)
+      .filter((row) => row.source === "po" || row.source === "finance")
+      .reduce((a, row) => a + row.paid!, 0);
+  const out = (d: Database) => outflows(d).reduce((a, o) => a + o.amount, 0);
+  const pay = (d: Database, values: Record<string, string>, by = owner) =>
+    mutate(d, by, "pay", values, "", day);
+
+  it("puts every money-out line on a row, none of it twice", () => {
+    expect(finance(db).length).toBeGreaterThan(0);
+    expect(paid(db)).toBe(out(db));
+    expect(
+      finance(db).every((row) => !row.entry && row.status === "paid"),
+    ).toBe(true);
+    // A branch's payment and a gift box's shipping fee are the shop project's.
+    const d = mutate(
+      pay(db, { category: "other", amount: "40" }, saladaeng),
+      saladaeng,
+      "influencerBox",
+      { influencer: "ช่อง ก", boxes: "1", shippingFee: "60" },
+      "",
+      day,
+    );
+    expect(paid(d)).toBe(out(d));
+    expect(finance(d).slice(0, 2)).toMatchObject([
+      { item: "ค่าส่งกล่องแจก", itemType: "การตลาด", paid: 60 },
+      { itemType: "อื่นๆ", paid: 40, purpose: "project", detail: "ศาลาแดง" },
+    ]);
+  });
+
+  it("fills the supplier's POs first: only what they did not take is a row", () => {
+    let d = mutate(
+      seed,
+      owner,
+      "purchase",
+      { supplier: "Foodiva", orderedKg: "10", price: "100" },
+      "",
+      day,
+    );
+    d = pay(d, { category: "meat", amount: "600", supplier: "Foodiva" });
+    expect(finance(d)).toEqual([]);
+    d = pay(d, { category: "meat", amount: "700", supplier: "Foodiva" });
+    // A supplier with no PO, and no supplier at all: the whole payment.
+    d = pay(d, { category: "meat", amount: "50", supplier: "ร้านอื่น" });
+    d = pay(d, { category: "rent", amount: "20", detail: "ค่าไฟ" });
+    expect(ledgerRows(d).find((row) => row.source === "po")).toMatchObject({
+      paid: 1000,
+      status: "paid",
+    });
+    expect(finance(d)).toMatchObject([
+      { paid: 20, item: "ค่าเช่า/น้ำไฟ", detail: "ค่าไฟ", purpose: "company" },
+      { paid: 50, vendor: "ร้านอื่น", detail: "" },
+      { paid: 300, vendor: "Foodiva", itemType: "เนื้อ" },
+    ]);
+    expect(finance(d)[2].detail).toContain("700");
+    expect(paid(d)).toBe(out(d));
+    expect(ledgerSummary(ledgerRows(d), day.slice(0, 7))).toEqual({
+      reserved: 0,
+      waiting: 0,
+      paid: 1370,
+      paidBefore: 0,
+    });
+  });
+
+  it("names the type after the pay category", () => {
+    const custom = { id: "consult", name: "ค่าที่ปรึกษา" };
+    const d0 = {
+      ...seed,
+      config: {
+        ...seed.config,
+        payCategories: JSON.stringify([...payCategories(seed.config), custom]),
+      },
+    };
+    const types = Object.fromEntries(
+      payCategories(d0.config).map((c) => [
+        c.id,
+        finance(pay(d0, { category: c.id, amount: "1" }))[0].itemType,
+      ]),
+    );
+    expect(types).toEqual({
+      meat: "เนื้อ",
+      smoke: "ค่ารม",
+      packaging: "วัสดุบรรจุภัณฑ์",
+      ingredient: "วัตถุดิบ",
+      payroll: "ค่าแรง",
+      rent: "ค่าเช่า/น้ำไฟ",
+      transport: "ขนส่ง",
+      marketing: "การตลาด",
+      capex: "สินทรัพย์",
+      other: "อื่นๆ",
+      consult: "ค่าที่ปรึกษา",
+    });
+    // The hand-jotted form suggests them; it does not offer the Finance source.
+    const form = fields("expense", seed, owner);
+    expect(
+      form.find((f) => f.key === "itemType")!.options!.map((o) => o.value),
+    ).toEqual(expect.arrayContaining(["อื่นๆ", "ค่าแรง", "การตลาด"]));
+    expect(
+      form.find((f) => f.key === "source")!.options!.map((o) => o.value),
+    ).toEqual(["advance", "transfer", "credit"]);
+  });
+
+  it("stays out of Inventory", () => {
+    const d = pay(seed, {
+      category: "packaging",
+      amount: "500",
+      item: "m1",
+      qty: "10",
+      branch: "ศาลาแดง",
+    });
+    expect(finance(d)).toMatchObject([
+      { item: "กล่องพิมพ์ลาย", qty: 10, project: "Nerdnuea x LINE MAN" },
+    ]);
+    expect(projectAssets(d)).toEqual([]);
+  });
+
+  it("shows a payroll payment to the Owner, not to the Manager", () => {
+    const payroll = (d: Database) =>
+      finance(d).filter((row) => row.itemType === "ค่าแรง");
+    expect(payroll(db).map((row) => row.item)).toEqual(
+      expect.arrayContaining(["พี่เอ", "น้องฝน", "น้องบีม"]),
+    );
+    const copy = stripForManager(db);
+    expect(payroll(copy)).toEqual([]);
+    expect(finance(copy)).toHaveLength(finance(db).length - payroll(db).length);
+    expect(finance(copy).every((row) => row.item && row.paid)).toBe(true);
   });
 });
 
