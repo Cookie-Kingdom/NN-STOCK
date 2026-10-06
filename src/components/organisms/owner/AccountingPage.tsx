@@ -14,6 +14,7 @@ import { Caption, Muted } from "@/components/atoms/Text";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
+import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
@@ -81,6 +82,10 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         [row.item, row.detail, row.vendor, row.reference, row.sku].some(
           (text) => text.toLowerCase().includes(word),
         )),
+  );
+  // A long ledger draws its first rows; the totals below still count every row found.
+  const { limit, more } = useShowMore(
+    [status, source, project, word].join("|"),
   );
   const projects = [...new Set(all.map(projectOf).filter(Boolean))];
   const summary = ledgerSummary(all, today.slice(0, 7));
@@ -321,7 +326,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map(cell)}
+              {rows.slice(0, limit).map(cell)}
               {!rows.length && (
                 <tr>
                   <td
@@ -350,6 +355,11 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             )}
           </table>
         </div>
+        <ShowMore
+          shown={Math.min(limit, rows.length)}
+          total={rows.length}
+          onMore={more}
+        />
       </Panel>
       <Caption aria-live="polite">
         {rows.length} จาก {all.length} รายการ

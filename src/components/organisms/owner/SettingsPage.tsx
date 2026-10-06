@@ -5,7 +5,7 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
-import { Caption, Muted } from "@/components/atoms/Text";
+import { Muted } from "@/components/atoms/Text";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
@@ -13,6 +13,7 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { SectionAction } from "@/components/molecules/SectionAction";
 import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
+import { SkuDialog, skuTitle } from "./SkuDialog";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
@@ -26,24 +27,19 @@ import {
   salesChannels,
   seed,
   skuCatalogue,
-  type Database,
   type Values,
 } from "@/lib/store";
 
 type Section =
-  | "numbers"
-  | "channels"
-  | "categories"
-  | "rice"
-  | "materials"
-  | "skus"
-  | "header";
+  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
 type ListSection = "channels" | "categories" | "materials";
 type Setting = {
   key: string;
   label: string;
   unit?: string;
   wide?: boolean;
+  /** Starts a row: the first field of a party's block. */
+  row?: boolean;
   /** An address: several lines. */
   lines?: boolean;
 };
@@ -57,15 +53,16 @@ const numbers: Setting[] = [
   { key: "smokeRate1000", label: "ค่ารมต่อกก. ตั้งแต่ 1,000 กก.", unit: "บาท" },
   { key: "smokeRate1500", label: "ค่ารมต่อกก. ตั้งแต่ 1,500 กก.", unit: "บาท" },
 ];
+/** In the order a PO prints them: the buyer, then each seller. */
 const header: Setting[] = [
   { key: "companyName", label: "ชื่อบริษัท" },
+  { key: "companyAddress", label: "ที่อยู่", wide: true },
   { key: "attention", label: "ผู้ติดต่อ" },
   { key: "companyPhone", label: "เบอร์ติดต่อ" },
   { key: "taxId", label: "เลขผู้เสียภาษี" },
-  { key: "companyAddress", label: "ที่อยู่", wide: true },
-  { key: "foodivaContact", label: "ผู้รับออเดอร์ Foodiva" },
-  { key: "chefHouseContact", label: "ผู้รับออเดอร์ Chef House" },
+  { key: "foodivaContact", label: "ผู้รับออเดอร์ Foodiva", row: true },
   { key: "foodivaAddress", label: "ที่อยู่ Foodiva", wide: true, lines: true },
+  { key: "chefHouseContact", label: "ผู้รับออเดอร์ Chef House", row: true },
   {
     key: "chefHouseAddress",
     label: "ที่อยู่ Chef House",
@@ -120,7 +117,6 @@ const titles: Record<Section, string> = {
   numbers: "ตัวเลขที่เว็บใช้คิด",
   header: "ข้อมูลหัวเอกสาร",
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
-  skus: "รายการสินค้า (SKU)",
   channels: lists.channels.title,
   categories: lists.categories.title,
   materials: lists.materials.title,
@@ -138,21 +134,6 @@ const rowsOf = (config: Values, section: ListSection): Values[] =>
           perBox: m.perBox === null ? "" : String(m.perBox),
         }))
       : payCategories(config);
-/** Every SKU and its name, as the rows of 「รายการสินค้า (SKU)」: `material` is "1" on a
- *  material (named in รายชื่อวัสดุ, read-only here). */
-const skuRows = (db: Database): Values[] =>
-  skuCatalogue(db).map(({ sku, name, material }) => ({
-    sku,
-    name,
-    material: material ? "1" : "",
-  }));
-/** The names of the ledger items among `rows`: what `skuNames` holds. */
-const ledgerNames = (rows: Values[]) =>
-  JSON.stringify(
-    rows
-      .filter((row) => !row.material)
-      .map(({ sku, name }) => ({ sku, name: name.trim() })),
-  );
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -193,6 +174,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
   const [draft, setDraft] = useState<Values>({});
   const [rows, setRows] = useState<Values[]>([]);
   const [message, setMessage] = useState("");
+  const [skusOpen, setSkusOpen] = useState(false);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
 
   /** Opens a section on the settings as they stand; `add` starts a list on a new row. */
@@ -203,7 +185,6 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       const now = rowsOf(config, section);
       setRows(add ? addRow(section, now) : now);
     }
-    if (section === "skus") setRows(skuRows(latestDatabase()));
     setEditing(section);
     setError("");
     setMessage("");
@@ -256,13 +237,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         !(section === "materials" && typed.some((row) => !row.sku))
           ? {}
           : { [lists[section].key]: JSON.stringify(typed) };
-    } else if (section === "skus")
-      // Only the ledger items' names: a material's is in รายชื่อวัสดุ.
-      input =
-        ledgerNames(rows) === ledgerNames(skuRows(latestDatabase()))
-          ? {}
-          : { skuNames: ledgerNames(rows) };
-    else
+    } else
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
@@ -307,14 +282,17 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       {children}
     </DayCard>
   );
-  /** Plain settings: read as a list of figures, edited as a form. */
-  const plain = (section: Section, list: Setting[], more?: ReactNode) =>
+  /** Plain settings: read as a list of figures, edited as a form. `first` goes above them
+   *  (the logo, at the top of a document). */
+  const plain = (section: Section, list: Setting[], first?: ReactNode) =>
     editing === section ? (
       <FormGrid className={grid}>
+        {first}
         {list.map((f) => (
           <FormField
             key={f.key}
             wide={f.wide}
+            className={f.row ? "col-start-1" : undefined}
             label={f.unit ? `${f.label} (${f.unit})` : f.label}
           >
             {f.lines ? (
@@ -333,12 +311,17 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
             )}
           </FormField>
         ))}
-        {more}
       </FormGrid>
     ) : (
       <dl className={grid}>
+        {first}
         {list.map((f) => (
-          <div key={f.key} className={f.wide ? "col-span-full" : undefined}>
+          <div
+            key={f.key}
+            className={
+              f.wide ? "col-span-full" : f.row ? "col-start-1" : undefined
+            }
+          >
             <dt className="text-label text-text-secondary">{f.label}</dt>
             <dd className="m-0 font-semibold [overflow-wrap:anywhere] whitespace-pre-line">
               {db.config[f.key]
@@ -347,7 +330,6 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
             </dd>
           </div>
         ))}
-        {more}
       </dl>
     );
   /** A list: its rows as a table, with inputs, 「ลบ」 and one more row while it is open. */
@@ -454,50 +436,8 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       </>
     );
   };
-  /** Every SKU with its name: a ledger item's is typed here, a material's is read-only. */
-  const skuList = () => {
-    const open = editing === "skus";
-    const shown = open ? rows : skuRows(db);
-    return (
-      <StockTable columns={["SKU", "ชื่อรายการ", "ประเภท"]}>
-        {shown.map((row, index) => (
-          <tr key={row.sku}>
-            <Cell className="font-mono whitespace-nowrap text-accent">
-              {row.sku}
-            </Cell>
-            {open && !row.material ? (
-              <Cell className="py-1.5">
-                <Input
-                  aria-label={`ชื่อรายการ ${row.sku}`}
-                  className="mt-0 min-h-10 min-w-28"
-                  value={row.name}
-                  onChange={(event) =>
-                    setRow(index, "name", event.target.value)
-                  }
-                />
-              </Cell>
-            ) : (
-              <Cell>{row.name}</Cell>
-            )}
-            <Cell>
-              <Caption as="span">
-                {row.material
-                  ? "วัสดุ · แก้ชื่อที่ รายชื่อวัสดุ"
-                  : "รายการในบัญชีซื้อ"}
-              </Caption>
-            </Cell>
-          </tr>
-        ))}
-        {shown.length === 0 && (
-          <tr>
-            <Cell colSpan={3} className="py-6 text-center text-text-secondary">
-              ยังไม่มีรายการที่มี SKU
-            </Cell>
-          </tr>
-        )}
-      </StockTable>
-    );
-  };
+  const skus = skuCatalogue(db);
+  const materialSkus = skus.filter((item) => item.material).length;
   const logo = logoOf(editing === "header" ? draft : db.config);
   const riceAt = rawRiceBranches(editing === "rice" ? draft : db.config);
 
@@ -561,11 +501,39 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           '"ใช้ต่อกล่อง" เว้นว่างได้ รายการที่ว่าง เว็บไม่ประมาณการใช้ระหว่างรอบนับ · SKU เว็บออกให้ตอนบันทึก แก้ชื่อแล้ว SKU เดิม',
           list("materials", () => true),
         )}
-        {card(
-          "skus",
-          "SKU ออกโดยเว็บ เลขเดียวต่อหนึ่งรายการ ไม่ใช้ซ้ำ · รายการในบัญชีซื้อได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่ แก้ชื่อที่นี่แล้วแถวเดิมในบัญชีซื้อเปลี่ยนตาม SKU เดิม",
-          skuList(),
-        )}
+        <DayCard
+          aria-label={skuTitle}
+          title={skuTitle}
+          aside={
+            <Button
+              size="sm"
+              className="border-text-primary text-text-primary"
+              onClick={() => setSkusOpen(true)}
+            >
+              เปิดรายการ
+            </Button>
+          }
+        >
+          <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
+            SKU ออกโดยเว็บ เลขเดียวต่อหนึ่งรายการ ไม่ใช้ซ้ำ ·
+            รายการในบัญชีซื้อได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่
+            แก้ชื่อในรายการแล้วแถวเดิมในบัญชีซื้อเปลี่ยนตาม SKU เดิม
+          </p>
+          <dl className={grid}>
+            <div>
+              <dt className="text-label text-text-secondary">วัสดุ</dt>
+              <dd className="m-0 font-semibold">{materialSkus} รายการ</dd>
+            </div>
+            <div>
+              <dt className="text-label text-text-secondary">
+                รายการในบัญชีซื้อ
+              </dt>
+              <dd className="m-0 font-semibold">
+                {skus.length - materialSkus} รายการ
+              </dd>
+            </div>
+          </dl>
+        </DayCard>
         {card(
           "header",
           "ใช้กับ PO ซื้อเนื้อ, PO รมควัน, Packing List, ใบขนส่ง",
@@ -597,6 +565,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           ),
         )}
       </div>
+      {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
     </div>
   );
 }
