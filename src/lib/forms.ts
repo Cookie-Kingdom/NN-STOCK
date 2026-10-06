@@ -483,9 +483,11 @@ export function fields(
           label,
         })),
       });
-      // A PO row is worked out from its PO: a hand-jotted row is one of the others.
+      // A PO row and a Finance row are worked out from the log: a hand-jotted row is one of the others.
       const sources = Object.fromEntries(
-        Object.entries(ledgerSources).filter(([key]) => key !== "po"),
+        Object.entries(ledgerSources).filter(
+          ([key]) => key !== "po" && key !== "finance",
+        ),
       );
       return [
         select("source", "ที่มา / ประเภทบิล", sources),
