@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
-import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
@@ -20,15 +19,11 @@ import {
   type Held,
 } from "@/components/organisms/branch/BranchStock";
 import { td, tf } from "@/components/organisms/shared/tableCell";
-import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
 import {
   branchMaterial,
   branches,
-  editBlock,
-  ledgerPurposes,
-  ledgerRows,
   materialList,
   placeLabel,
   places,
@@ -36,8 +31,6 @@ import {
   shopProject,
   stockLines,
   titles,
-  voidBlock,
-  type Entry,
   type ProjectAsset,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -51,11 +44,6 @@ const transit = "ระหว่างส่ง";
 const what = ["SKU", "รายการ", "ประเภท", "รายละเอียด / สเปก"];
 const where = [...heads, transit, "รวม", "สถานะ"];
 const cost = ["ผู้ขาย", "ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
-/** The company's columns after `what`: a row is one purchase, and ends with its 「แก้ไข」 and
- *  「ลบ」, as on Accounting. */
-const purchase = ["วันที่ซื้อ", "จำนวนซื้อ", "มูลค่า", "แก้ไข"];
-/** The one ประเภทสินค้า the company's page tracks. */
-const assetType = "สินทรัพย์";
 const all = { value: "", label: "ทั้งหมด" };
 /** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
 const late = "ยังไม่ได้นับ";
@@ -72,8 +60,6 @@ const Transit = ({ n }: { n: number }) => (
  *  for a material of Settings what each branch counted (`at`), and what it holds at every
  *  place and on its way (`held`, by the column's name). */
 type Row = ProjectAsset & {
-  /** The company's: the purchase the row is. */
-  entry?: Entry;
   type: string;
   at?: Record<string, Held>;
   held: Record<string, number>;
@@ -88,49 +74,16 @@ type Row = ProjectAsset & {
  *  purchase is jotted on Accounting, a move between places with 「จัดสรรสินค้า」 (`transfer`)
  *  beside the figures, and the branch admins count on their own Inventory page; the central
  *  warehouse is never counted. The meat, the sticky rice and the chili are on the Stock page
- *  (`OwnerMeatStock`).
- *  `company`: the central company's Assets Management instead, what Accounting bought with
- *  ใช้เพื่องาน「บริษัทส่วนกลาง」 and ประเภทสินค้า「สินทรัพย์」, nothing else: a row per purchase, newest first (the ledger's rows, not
- *  grouped), each with the 「แก้ไข」 and 「ลบ」 of Accounting. It has no warehouse, so no
- *  place columns, no สถานะ or ที่เก็บ filter and no transfer. */
-export function OwnerStock({
-  ws,
-  company,
-}: {
-  ws: Workspace;
-  company?: boolean;
-}) {
-  const { db, account, today } = ws;
-  const { remove } = useEntryActions(ws);
+ *  (`OwnerMeatStock`). */
+export function OwnerStock({ ws }: { ws: Workspace }) {
+  const { db, today } = ws;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [place, setPlace] = useState("");
-  const owner = company ? ledgerPurposes.company : shopProject;
   const lines = new Map(stockLines(db, today).map((line) => [line.sku, line]));
   const bought = new Map<string, Omit<Row, "held">>();
-  if (company)
-    for (const row of ledgerRows(db))
-      if (
-        row.entry &&
-        row.purpose === "company" &&
-        row.itemType.trim() === assetType &&
-        row.status !== "cancelled"
-      )
-        bought.set(row.id, {
-          key: row.id,
-          sku: row.sku,
-          item: row.item,
-          detail: row.detail,
-          vendor: row.vendor,
-          lastDate: row.date,
-          qty: row.qty,
-          paid: row.paid ?? 0,
-          times: 1,
-          type: row.itemType.trim() || "ไม่ระบุประเภท",
-          entry: row.entry,
-        });
-  for (const group of company ? [] : projectAssets(db))
+  for (const group of projectAssets(db))
     for (const asset of group.rows) {
       const row = bought.get(asset.key);
       // One row per item: bought under a second ประเภท, it adds to the first.
@@ -144,7 +97,7 @@ export function OwnerStock({
           type: group.type || "ไม่ระบุประเภท",
         });
     }
-  const materials = company ? [] : materialList(db.config);
+  const materials = materialList(db.config);
   const rows: Row[] = [
     ...materials.map((m) => ({
       // "" until the materials list is saved again (a list stored before SKUs): nothing was
@@ -214,53 +167,40 @@ export function OwnerStock({
   );
   const sum = (list: { paid: number }[]) =>
     list.reduce((a, row) => a + row.paid, 0);
-  const columns = company
-    ? [...what.filter((column) => column !== "ประเภท"), ...purchase]
-    : [...what, ...where, ...cost];
-  // A phone keeps the name and where it is; the company's, with no places, what it cost.
-  const wideOnly = company
-    ? ["SKU", "ประเภท", "รายละเอียด / สเปก", "จำนวนซื้อ"]
-    : ["SKU", "ประเภท", "รายละเอียด / สเปก", ...cost];
+  const columns = [...what, ...where, ...cost];
+  // A phone keeps the name and where it is.
+  const wideOnly = ["SKU", "ประเภท", "รายละเอียด / สเปก", ...cost];
   const wide = (column: string) => wideOnly.includes(column) && "max-md:hidden";
 
   return (
     <div className="flex flex-col gap-4">
-      <Panel
-        className={figureGrid}
-        aria-label={`สรุปสินทรัพย์ของ${company ? owner : " Project"}`}
-      >
+      <Panel className={figureGrid} aria-label="สรุปสินทรัพย์ของ Project">
         <Stat
-          label={`มูลค่าที่ซื้อเข้า ${owner}`}
+          label={`มูลค่าที่ซื้อเข้า ${shopProject}`}
           value={baht(sum([...bought.values()]))}
           note="ยอดจ่ายจริงจากหน้า Accounting · ไม่รวมที่ยกเลิก"
         />
         <Stat
-          label={company ? "จำนวนรายการ" : "สินทรัพย์"}
+          label="สินทรัพย์"
           value={`${qty(bought.size)} รายการ`}
-          note={
-            company
-              ? undefined
-              : `${qty(new Set([...bought.values()].map((row) => row.type)).size)} ประเภท`
-          }
+          note={`${qty(new Set([...bought.values()].map((row) => row.type)).size)} ประเภท`}
         />
-        {!company && (
-          // The page's jot button (the shell draws none here): a tile of the row, so it is
-          // as easy to find as the figures.
-          <div
-            role="group"
-            aria-label="จดบันทึก"
-            className="grid max-md:col-span-2"
+        {/* The page's jot button (the shell draws none here): a tile of the row, so it is
+            as easy to find as the figures. */}
+        <div
+          role="group"
+          aria-label="จดบันทึก"
+          className="grid max-md:col-span-2"
+        >
+          <Button
+            variant="primary"
+            icon={<Plus />}
+            className="h-full"
+            onClick={() => ws.jot({ kind: "transfer" })}
           >
-            <Button
-              variant="primary"
-              icon={<Plus />}
-              className="h-full"
-              onClick={() => ws.jot({ kind: "transfer" })}
-            >
-              {titles.transfer}
-            </Button>
-          </div>
-        )}
+            {titles.transfer}
+          </Button>
+        </div>
       </Panel>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <Input
@@ -272,38 +212,31 @@ export function OwnerStock({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        {!company && (
-          <>
-            <TableFilter label="ประเภท">
-              <Select
-                variant="filter"
-                value={type}
-                onChange={setType}
-                options={[all, ...types.map((value) => ({ value }))]}
-              />
-            </TableFilter>
-            <TableFilter label="สถานะ">
-              <Select
-                variant="filter"
-                value={status}
-                onChange={setStatus}
-                options={[all, ...statuses.map((value) => ({ value }))]}
-              />
-            </TableFilter>
-            {/* The rows that hold something there (a balance that is not zero). */}
-            <TableFilter label="ที่เก็บ">
-              <Select
-                variant="filter"
-                value={place}
-                onChange={setPlace}
-                options={[
-                  all,
-                  ...[...heads, transit].map((value) => ({ value })),
-                ]}
-              />
-            </TableFilter>
-          </>
-        )}
+        <TableFilter label="ประเภท">
+          <Select
+            variant="filter"
+            value={type}
+            onChange={setType}
+            options={[all, ...types.map((value) => ({ value }))]}
+          />
+        </TableFilter>
+        <TableFilter label="สถานะ">
+          <Select
+            variant="filter"
+            value={status}
+            onChange={setStatus}
+            options={[all, ...statuses.map((value) => ({ value }))]}
+          />
+        </TableFilter>
+        {/* The rows that hold something there (a balance that is not zero). */}
+        <TableFilter label="ที่เก็บ">
+          <Select
+            variant="filter"
+            value={place}
+            onChange={setPlace}
+            options={[all, ...[...heads, transit].map((value) => ({ value }))]}
+          />
+        </TableFilter>
       </div>
       <DayCard
         aria-label="รายการทั้งหมด"
@@ -358,65 +291,54 @@ export function OwnerStock({
                 <Cell className="font-semibold md:min-w-32">
                   {row.item || none}
                 </Cell>
-                {!company && (
-                  <Cell className={cn("whitespace-nowrap", wide("ประเภท"))}>
-                    {row.type}
-                  </Cell>
-                )}
+                <Cell className={cn("whitespace-nowrap", wide("ประเภท"))}>
+                  {row.type}
+                </Cell>
                 <Cell className="min-w-24 max-md:hidden">
                   {row.detail || none}
                 </Cell>
-                {!company && (
+                {line ? <Left n={row.held[heads[0]]} /> : blank}
+                {counted.map((name) =>
+                  // A material: what the branch counted. Anything else: its balance.
+                  row.at ? (
+                    <HeldCell
+                      key={name}
+                      held={row.at[name]}
+                      today={today}
+                      varianceUnit="ชิ้น"
+                    />
+                  ) : line ? (
+                    <Left key={name} n={row.held[name]} />
+                  ) : (
+                    <Cell key={name} right>
+                      {none}
+                    </Cell>
+                  ),
+                )}
+                <Transit n={row.held[transit]} />
+                {row.at ? (
+                  <StatusCells
+                    at={row.at}
+                    places={counted}
+                    extra={row.held[heads[0]] + row.held[transit]}
+                    // Its long line may break: the table has fourteen columns.
+                    className="md:min-w-24 md:whitespace-normal"
+                  />
+                ) : (
                   <>
-                    {line ? <Left n={row.held[heads[0]]} /> : blank}
-                    {counted.map((name) =>
-                      // A material: what the branch counted. Anything else: its balance.
-                      row.at ? (
-                        <HeldCell
-                          key={name}
-                          held={row.at[name]}
-                          today={today}
-                          varianceUnit="ชิ้น"
-                        />
-                      ) : line ? (
-                        <Left key={name} n={row.held[name]} />
-                      ) : (
-                        <Cell key={name} right>
-                          {none}
-                        </Cell>
-                      ),
-                    )}
-                    <Transit n={row.held[transit]} />
-                    {row.at ? (
-                      <StatusCells
-                        at={row.at}
-                        places={counted}
-                        extra={row.held[heads[0]] + row.held[transit]}
-                        // Its long line may break: the table has fourteen columns.
-                        className="md:min-w-24 md:whitespace-normal"
+                    {line ? (
+                      <Left
+                        n={Object.values(row.held).reduce((a, n) => a + n, 0)}
                       />
                     ) : (
-                      <>
-                        {line ? (
-                          <Left
-                            n={Object.values(row.held).reduce(
-                              (a, n) => a + n,
-                              0,
-                            )}
-                          />
-                        ) : (
-                          blank
-                        )}
-                        <Cell>{none}</Cell>
-                      </>
+                      blank
                     )}
+                    <Cell>{none}</Cell>
                   </>
                 )}
-                {!company && (
-                  <Cell className="min-w-24 max-md:hidden">
-                    {row.vendor || none}
-                  </Cell>
-                )}
+                <Cell className="min-w-24 max-md:hidden">
+                  {row.vendor || none}
+                </Cell>
                 <Cell className={cn("whitespace-nowrap", wide("ซื้อล่าสุด"))}>
                   {row.times ? dateLabel(row.lastDate) : none}
                   {row.times > 1 && (
@@ -431,27 +353,6 @@ export function OwnerStock({
                 <Cell right className={cn(wide("มูลค่า"))}>
                   {row.times ? baht(row.paid) : none}
                 </Cell>
-                {company && row.entry && (
-                  <Cell className="px-2 whitespace-nowrap">
-                    <span className="flex gap-1">
-                      {!editBlock(db, row.entry, account) && (
-                        <IconButton
-                          label="แก้ไข"
-                          icon={<Pencil size={16} />}
-                          onClick={() => ws.edit(row.entry!.id)}
-                        />
-                      )}
-                      {!voidBlock(db, row.entry, account) && (
-                        <IconButton
-                          label="ลบ"
-                          icon={<Trash2 size={16} />}
-                          className="text-danger"
-                          onClick={() => remove(row.entry!)}
-                        />
-                      )}
-                    </span>
-                  </Cell>
-                )}
               </tr>
             );
           })}
@@ -463,22 +364,17 @@ export function OwnerStock({
               >
                 {rows.length
                   ? "ไม่พบรายการที่ตรงกับที่ค้นหา"
-                  : `ยังไม่มีสินทรัพย์ของ${owner} · จดที่หน้า Accounting เลือกใช้เพื่องาน「${owner}」และประเภทสินค้า「${assetType}」`}
+                  : `ยังไม่มีของที่ซื้อเข้า${shopProject} · จดที่หน้า Accounting เลือกใช้เพื่องาน「${shopProject}」`}
               </Cell>
             </tr>
           )}
         </StockTable>
       </DayCard>
       <Caption>
-        {company
-          ? `ของที่ซื้อจากหน้า Accounting โดยเลือกใช้เพื่องาน「${owner}」และประเภทสินค้า「${assetType}」 แถวละครั้งที่ซื้อ ใหม่สุดอยู่บน ไม่รวมที่ยกเลิก`
-          : "แถวละรายการ: วัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting รวมทุกครั้งที่ซื้อ · คลังกลาง = ซื้อเข้า − จัดสรรออก ไม่มีการนับ · ระหว่างส่ง = ส่งแล้ว รอสาขากดยืนยันรับ · รวม นับของระหว่างส่งด้วย · ตัวเลขสีแดง = ติดลบ · ยอดวัสดุของสาขาคือยอดที่แอดมินสาขานับ (ชิ้น) ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"}
+        {
+          "แถวละรายการ: วัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting รวมทุกครั้งที่ซื้อ · คลังกลาง = ซื้อเข้า − จัดสรรออก ไม่มีการนับ · ระหว่างส่ง = ส่งแล้ว รอสาขากดยืนยันรับ · รวม นับของระหว่างส่งด้วย · ตัวเลขสีแดง = ติดลบ · ยอดวัสดุของสาขาคือยอดที่แอดมินสาขานับ (ชิ้น) ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน ช่องสีแดง = ไม่เหลือ · ส่วนต่าง = นับได้ − ควรเหลือ ของการนับครั้งล่าสุด · เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
+        }
       </Caption>
     </div>
   );
 }
-
-/** The central company's Assets Management (`/owner/assets-management`). */
-export const CompanyStock = ({ ws }: { ws: Workspace }) => (
-  <OwnerStock ws={ws} company />
-);

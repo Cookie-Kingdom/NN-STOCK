@@ -1,7 +1,6 @@
 import {
   Beef,
   BookText,
-  Building2,
   ChartColumn,
   ClipboardList,
   Factory,
@@ -23,7 +22,6 @@ export type Tab =
   | "stock"
   | "finance"
   | "accounting"
-  | "companyStock"
   | "settings";
 
 /** The sidebar section that holds the project's Overview, Daily Log, Lots, Stock, Inventory
@@ -89,12 +87,6 @@ export const pages: Record<
     description: "รายการซื้อทั้งหมดของร้าน",
     icon: BookText,
   },
-  // Outside the section: /owner/assets-management.
-  companyStock: {
-    label: "Assets Management",
-    description: "สินทรัพย์ของบริษัทส่วนกลาง",
-    icon: Building2,
-  },
   settings: {
     label: "Settings",
     description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
@@ -112,21 +104,13 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner all ten, the Account Manager seven
+/** The pages an account has, in menu order: the Owner all nine, the Account Manager six
  *  (no Overview of the shop or of the project, no Settings), a branch three. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
     ? ["log", "meatStock", "stock"]
     : account.hidesSales
-      ? [
-          "log",
-          "lots",
-          "meatStock",
-          "stock",
-          "finance",
-          "accounting",
-          "companyStock",
-        ]
+      ? ["log", "lots", "meatStock", "stock", "finance", "accounting"]
       : [
           "overview",
           "projectOverview",
@@ -136,7 +120,6 @@ export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
           "stock",
           "finance",
           "accounting",
-          "companyStock",
           "settings",
         ];
 
