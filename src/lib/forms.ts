@@ -31,7 +31,7 @@ import {
   ledgerChoices,
   skuCatalogue,
   ledgerPurposes,
-  ledgerSources,
+  jotSources,
   ledgerStatuses,
   shopProject,
 } from "./store/ledger";
@@ -103,6 +103,16 @@ const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
 const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
 const weightReason = text("reason", "เหตุผลเมื่อน้ำหนักต่าง");
+/** How a note jotted by hand was paid: the same field on the `expense` and the `pay` forms. */
+const sourceField: Field = {
+  key: "source",
+  label: "ที่มา / ประเภทบิล",
+  type: "select",
+  options: Object.entries(jotSources).map(([value, label]) => ({
+    value,
+    label,
+  })),
+};
 const once = "เว็บนับเป็นจ่ายเงินให้แล้ว ไม่จด จ่ายเงิน ซ้ำ";
 /** The truck and its driver, on both legs. */
 const truck: Field[] = [
@@ -377,6 +387,7 @@ export function fields(
             ["sale", "payer"],
           ),
         }),
+        sourceField,
         ...more(
           number("fullAmount", "ยอดเต็มจำนวน", "บาท", {
             hint: "ใส่เมื่อจ่ายบางส่วนหรือมัดจำ",
@@ -483,14 +494,9 @@ export function fields(
           label,
         })),
       });
-      // A PO row and a Finance row are worked out from the log: a hand-jotted row is one of the others.
-      const sources = Object.fromEntries(
-        Object.entries(ledgerSources).filter(
-          ([key]) => key !== "po" && key !== "finance",
-        ),
-      );
       return [
-        select("source", "ที่มา / ประเภทบิล", sources),
+        // A PO row is worked out from the log: a hand-jotted row is one of the others.
+        sourceField,
         text("reference", "เลขที่อ้างอิง (PO / ใบเสร็จ)"),
         // Typed: a new category or project is simply a new name (ledgerChoices lists it next time).
         core(
@@ -605,6 +611,7 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "purchase") return { supplier: "Foodiva" };
   if (kind === "smokeOrder") return { smoker: "Chef House" };
+  if (kind === "pay") return { source: "transfer" };
   if (kind === "expense")
     return { source: "transfer", purpose: "company", warehouse: "central" };
   if (kind === "transfer") return { from: "central", receive: "now" };
