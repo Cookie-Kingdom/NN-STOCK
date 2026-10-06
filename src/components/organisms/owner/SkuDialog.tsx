@@ -71,7 +71,7 @@ export function SkuDialog({
     <Dialog
       size="md"
       title={skuTitle}
-      subtitle={`${items.length} รายการ · SKU ออกโดยเว็บ แก้ได้เฉพาะชื่อ`}
+      subtitle={`ทั้งหมด ${items.length} รายการ แก้ได้เฉพาะชื่อ ส่วน SKU ออกให้อัตโนมัติ`}
       onClose={onClose}
     >
       <div className="border-b border-border px-6.5 py-3 max-md:px-4">
@@ -111,8 +111,8 @@ export function SkuDialog({
               <Cell>
                 <Caption as="span">
                   {item.material
-                    ? "วัสดุ · แก้ชื่อที่ รายชื่อวัสดุ"
-                    : "รายการในบัญชีซื้อ"}
+                    ? 'วัสดุ (แก้ชื่อได้ที่ "รายชื่อวัสดุ")'
+                    : "รายการจากหน้า Accounting"}
                 </Caption>
               </Cell>
             </tr>
@@ -124,7 +124,7 @@ export function SkuDialog({
                 className="py-6 text-center text-text-secondary"
               >
                 {items.length
-                  ? "ไม่มีรายการที่ตรงกับคำค้น"
+                  ? "ไม่พบรายการที่ค้นหา"
                   : "ยังไม่มีรายการที่มี SKU"}
               </Cell>
             </tr>

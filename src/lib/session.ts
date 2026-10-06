@@ -99,7 +99,7 @@ async function refreshSession() {
     return publish({
       ready: true,
       account: null,
-      error: "ไม่พบสิทธิ์ผู้ใช้งาน กรุณาติดต่อ Owner",
+      error: "บัญชีนี้ยังไม่ได้ตั้งสิทธิ์ใช้งาน กรุณาติดต่อ Owner",
     });
 
   let locationName: string | undefined;

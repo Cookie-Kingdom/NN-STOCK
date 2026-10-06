@@ -34,7 +34,7 @@ export function SignIn() {
   return (
     <AuthShell
       title="เข้าสู่ระบบ"
-      description="ยืนยันตัวตนและสิทธิ์ผ่าน Supabase"
+      description="ใช้อีเมลและรหัสผ่านที่ Owner ออกให้"
       footnote="ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์"
     >
       <form className="mt-5.5 mb-3.5 grid gap-3.5" onSubmit={submit}>
@@ -60,11 +60,7 @@ export function SignIn() {
           disabled={busy || !ready}
           icon={busy || !ready ? <Spinner /> : undefined}
         >
-          {busy
-            ? "กำลังดำเนินการ…"
-            : !ready
-              ? "กำลังเตรียมระบบ…"
-              : "เข้าสู่ระบบ"}
+          {busy ? "กำลังเข้าสู่ระบบ…" : !ready ? "กำลังโหลด…" : "เข้าสู่ระบบ"}
         </Button>
       </form>
     </AuthShell>

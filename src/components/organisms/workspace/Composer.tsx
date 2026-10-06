@@ -156,7 +156,8 @@ function ConfirmDelete({ ws, entry }: { ws: Workspace; entry: Entry }) {
           ))}
         </dl>
         <p id={textId} className="m-0 text-body-sm text-text-secondary">
-          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม · ยังดูได้ใน ประวัติการแก้ไขและลบ
+          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม
+          บันทึกที่ลบยังดูได้ในประวัติการแก้ไขและลบ
         </p>
         <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
           <Button data-autofocus onClick={close}>
@@ -178,7 +179,7 @@ function ConfirmDelete({ ws, entry }: { ws: Workspace; entry: Entry }) {
 }
 
 /** The form of every note kind. `md` and one column for a short note; `lg` with the
- *  「เว็บคิดให้」 rail for a kind the web works figures out for (and, without a rail, for a
+ *  「ตัวเลขสรุป」 rail for a kind the web works figures out for (and, without a rail, for a
  *  long note). */
 function NoteForm({
   ws,
@@ -448,7 +449,7 @@ function NoteForm({
           missing={
             core.length ? core.filter((f) => !values[f.key]).length : undefined
           }
-          blocked={gap && `บันทึกไม่ได้ · ${gap}`}
+          blocked={gap && `บันทึกไม่ได้ เพราะ${gap}`}
           error={error}
         >
           <Button
@@ -504,7 +505,7 @@ function lineCheck(values: Values) {
   return { total, target, gap };
 }
 
-/** 「เว็บคิดให้」 for a note, worked out from what is typed so far; `null` for a kind with
+/** 「ตัวเลขสรุป」 for a note, worked out from what is typed so far; `null` for a kind with
  *  nothing to work out (it gets no rail). */
 function noteFigures(
   kind: NoteKind,
@@ -521,10 +522,10 @@ function noteFigures(
     const room = lotId ? remainingKg(db, lotId, target?.id) : null;
     return {
       rows: [
-        { label: "รวมบรรทัด PO เนื้อ", value: kgText(lines.total) },
-        { label: "ต้องส่ง", value: kg ? kgText(kg) : "—" },
+        { label: "น้ำหนักรวมจาก PO เนื้อ", value: kgText(lines.total) },
+        { label: "น้ำหนักที่ส่ง", value: kg ? kgText(kg) : "—" },
         {
-          label: "ขาด / เกิน",
+          label: "ส่วนต่าง",
           value: lines.gap || "ครบ",
           tone: lines.gap ? "warning" : "success",
         },
@@ -534,7 +535,7 @@ function noteFigures(
           rule: true,
         },
         {
-          label: "เหลือหลังส่งรอบนี้",
+          label: "คงเหลือหลังส่งรอบนี้",
           value: room === null ? "—" : kgText(room - kg),
           tone: room !== null && room - kg < 0 ? "warning" : undefined,
         },
@@ -548,17 +549,18 @@ function noteFigures(
     const round = lotId
       ? roundsOf(db, lotId).find((r) => r.dispatch.id === v.dispatchId)
       : undefined;
-    if (!round) return { rows: [], note: "เลือกรอบส่งไปรมควันเพื่อดูตัวเลข" };
+    if (!round)
+      return { rows: [], note: "ตัวเลขจะขึ้นเมื่อเลือกรอบส่งไปรมควัน" };
     if (kind === "cmReceive") {
       const got = typed("receivedKg") ? Number(v.receivedKg) : null;
       const diff = got === null ? 0 : got - round.sentKg;
       const same = Math.abs(diff) < 0.005;
       return {
         rows: [
-          { label: "ส่งรอบนี้", value: kgText(round.sentKg) },
-          { label: "รับจริง", value: got === null ? "—" : kgText(got) },
+          { label: "น้ำหนักที่ส่งรอบนี้", value: kgText(round.sentKg) },
+          { label: "น้ำหนักรับจริง", value: got === null ? "—" : kgText(got) },
           {
-            label: "ต่างจากที่ส่ง",
+            label: "ส่วนต่างจากที่ส่ง",
             value:
               got === null
                 ? "—"
@@ -578,11 +580,13 @@ function noteFigures(
     return {
       rows: [
         {
-          label: round.received ? "Chef House รับ" : "ส่งรอบนี้",
+          label: round.received
+            ? "น้ำหนักที่ Chef House รับ"
+            : "น้ำหนักที่ส่งรอบนี้",
           value: kgText(base),
         },
         {
-          label: "หลังรมควัน",
+          label: "น้ำหนักหลังรมควัน",
           value: smoked === null ? "—" : kgText(smoked),
         },
         {
@@ -625,9 +629,9 @@ function noteFigures(
   }
   if (kind === "pay") {
     const amount = Number(v.amount) || 0;
-    const rows: Figure[] = [{ label: "จ่ายครั้งนี้", value: baht(amount) }];
+    const rows: Figure[] = [{ label: "ยอดจ่ายครั้งนี้", value: baht(amount) }];
     if (!v.supplier)
-      return { rows, note: "ใส่ผู้ขายเพื่อดูยอดค้างจ่ายก่อนและหลังจ่าย" };
+      return { rows, note: "ยอดค้างจ่ายก่อนและหลังจ่ายจะขึ้นเมื่อใส่ผู้ขาย" };
     const balance = supplierBalances(db).find((b) => b.supplier === v.supplier);
     // An edit: the saved balance already counts this payment (and its bill), so take the
     // saved one back out before laying what is typed over it.
@@ -642,12 +646,12 @@ function noteFigures(
       rows: [
         ...rows,
         {
-          label: `ค้างจ่าย ${v.supplier} ก่อนจ่าย`,
+          label: `ยอดค้างจ่าย ${v.supplier} ก่อนจ่าย`,
           value: baht(before),
           rule: true,
         },
         {
-          label: "หลังจ่าย",
+          label: "ยอดค้างจ่ายหลังจ่าย",
           value: baht(after),
           tone: after > 0 ? "warning" : "success",
         },
@@ -679,7 +683,7 @@ function PoLinesControl({
     set(f.key, next.length ? JSON.stringify(next) : "");
   const pos = purchaseLots(db).reverse();
   const label = (id: string) =>
-    `${lotLabel(db, id)} · เหลือ ${qty(poInfo(db, id, exceptId).heldKg)} กก.`;
+    `${lotLabel(db, id)} · ฝากไว้ ${qty(poInfo(db, id, exceptId).heldKg)} กก.`;
   const pick = (index: number, poLotId: string) => {
     const kg = poLotId
       ? kgValue(

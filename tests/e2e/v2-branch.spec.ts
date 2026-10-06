@@ -61,7 +61,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await openPage(page, "Stock");
   const meat = region(page, "เนื้อ (กก.)");
   await expect(meat.getByRole("columnheader")).toHaveText([
-    "อยู่ที่ไหน",
+    "ที่เก็บ",
     "รายการ",
     "คงเหลือ",
     "การนับ",
@@ -115,7 +115,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     "รวม",
     "สถานะ",
     "ผู้ขาย",
-    "ซื้อล่าสุด",
+    "วันที่ซื้อล่าสุด",
     "จำนวนซื้อ",
     "มูลค่า",
   ]);
@@ -137,7 +137,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^ยอด \(บาท\)/, "500"],
     [/^รายการที่ซื้อ/, "กล่องพิมพ์ลาย"],
     [/^จำนวน/, "50"],
-    [/^เข้าสาขาไหน/, "มีนบุรี"],
+    [/^สาขา/, "มีนบุรี"],
   );
   await save(page);
   await openPage(page, "Inventory");
@@ -154,7 +154,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   // The page writes nothing. The search takes the SKU the web issued (a material's own id is never shown).
   await page.getByLabel("ค้นหา").fill("sku-0001");
   await expect(table.getByRole("row")).toHaveCount(3);
-  await expect(table).toContainText("แสดง 1 จาก 10 รายการ");
+  await expect(table).toContainText("1 จาก 10 รายการ");
   await expect(table.getByRole("button")).toHaveCount(0);
   await expect(table.getByRole("textbox")).toHaveCount(0);
 
@@ -236,14 +236,14 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   await jotSaleOf(page);
   await expect(form(page).getByLabel(/^ค่าใช้จ่ายสาขา/)).toBeVisible();
   await expect(form(page)).toContainText(
-    "เว็บนับเป็นจ่ายเงินให้แล้ว ไม่จด จ่ายเงิน ซ้ำ",
+    "นับเป็นรายการจ่ายเงินแล้ว ไม่ต้องจดจ่ายเงินซ้ำ",
   );
   await fill(
     page,
     [/^กล่องมาตรฐาน/, "10"],
     [/^ยอดขาย LINE MAN/, "3500"],
     [/^ค่าใช้จ่ายสาขา/, "150"],
-    [/^ผู้จ่ายเงิน/, "น้องฝน"],
+    [/^ผู้จ่าย/, "น้องฝน"],
   );
   await save(page);
   await openPage(page, "Stock");
@@ -280,8 +280,8 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
       .getByRole("row", { name: /^น้องฝน/ })
       .getByRole("cell"),
   ).toHaveText(["น้องฝน", "฿150", "฿0", "฿150", "คืนเงิน"]);
-  await expect(region(page, "จ่ายเงินล่าสุด")).toContainText(
-    "ยังไม่มีบันทึกจ่ายเงิน",
+  await expect(region(page, "รายการจ่ายเงินล่าสุด")).toContainText(
+    "ยังไม่มีรายการจ่ายเงิน",
   );
 });
 
@@ -368,7 +368,7 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
     region(page, "การแจ้งเตือน").getByRole("button", { name: text });
   const heading = page.getByRole("heading", { level: 1 });
   await bell.click();
-  await late("วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน").click();
+  await late("ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน").click();
   await expect(heading).toHaveText("Stock");
   await bell.click();
   await late("วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน").click();
@@ -403,9 +403,9 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   // The search takes a name or a SKU, as the Owner's does.
   await page.getByLabel("ค้นหา").fill("sku-0001");
   await expect(card.getByRole("row")).toHaveCount(2);
-  await expect(card).toContainText("แสดง 1 จาก 10 รายการ");
+  await expect(card).toContainText("1 จาก 10 รายการ");
   await page.getByLabel("ค้นหา").fill("ไม่มีของนี้");
-  await expect(card).toContainText("ไม่พบรายการที่ตรงกับที่ค้นหา");
+  await expect(card).toContainText("ไม่พบรายการที่ค้นหา");
   await page.getByLabel("ค้นหา").fill("");
 
   await card.getByRole("textbox", { name: "นับ กล่องพิมพ์ลาย" }).fill("95");
@@ -443,7 +443,9 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
   await expect(rice.nth(2)).toHaveAttribute("data-tone", "success");
   // What is left to count: the chili alone, and the eight materials never counted.
   await bell.click();
-  await expect(late("วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน")).toBeVisible();
+  await expect(
+    late("ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน"),
+  ).toBeVisible();
   await expect(late("วัสดุ 8 รายการไม่ได้นับเกิน 7 วัน")).toBeVisible();
 });
 
@@ -555,7 +557,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
 
   // A payment of 20 days ago: edit it, delete it, and bring it back from the change log.
   await openPage(page, "Finance");
-  const foodiva = region(page, "ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย")
+  const foodiva = region(page, "ยอดค้างจ่ายแยกผู้ขาย")
     .getByRole("row", { name: /^Foodiva/ })
     .getByRole("cell");
   await expect(foodiva.nth(2)).toHaveText("฿70,000");

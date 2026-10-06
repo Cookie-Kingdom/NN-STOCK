@@ -117,7 +117,7 @@ test("2 · V2-ACC-01 Manager finds no sale, payroll or P&L on any page, and the 
     if (name === "Lots")
       await expect(page.locator("[data-lot]")).toHaveCount(5);
     if (name === "Finance")
-      await expect(region(page, "จ่ายเงินแยกหมวด")).toBeVisible();
+      await expect(region(page, "ยอดจ่ายแยกหมวด")).toBeVisible();
     // 「Nerdnuea x LINE MAN」 is the shop's name (the menu's section, a ledger Project), not a sale.
     const text = await page.locator("body").innerText();
     expect(text.replaceAll("Nerdnuea x LINE MAN", ""), name).not.toMatch(
@@ -195,7 +195,7 @@ test("3 · V2-ACC-02 Manager pays in 9 categories, none of them payroll", async 
   await expect(rows(page, "pay")).toContainText("−฿20,500");
   await openPage(page, "Finance");
   await expect(
-    region(page, "จ่ายเงินแยกหมวด").getByRole("row", {
+    region(page, "ยอดจ่ายแยกหมวด").getByRole("row", {
       name: /ค่าเช่า\/น้ำไฟ/,
     }),
   ).toContainText("−฿20,500");
@@ -230,7 +230,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   // A stock category asks what and how many, never which branch: it is the account's own.
   await fill(page, [/^หมวด/, "วัตถุดิบ"]);
   await expect(form(page).getByLabel(/^จำนวน/)).toBeVisible();
-  await expect(form(page).getByLabel(/^เข้าสาขาไหน/)).toHaveCount(0);
+  await expect(form(page).getByLabel(/^สาขา/)).toHaveCount(0);
   await fill(
     page,
     [/^หมวด/, "ขนส่ง"],

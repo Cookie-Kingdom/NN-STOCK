@@ -12,7 +12,7 @@ export function StatusTile({
   label,
   value,
   onJot,
-  jotText = `${missingText} · กดเพื่อจด`,
+  jotText = `${missingText} กดเพื่อจด`,
   className,
 }: {
   label: ReactNode;

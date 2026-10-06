@@ -1,5 +1,5 @@
 // What the note form (Composer) and the PO document share: fields laid out in named
-// sections, the 「เว็บคิดให้」 figures, and the footer that counts what is still not jotted.
+// sections, the 「ตัวเลขสรุป」 figures, and the footer that counts what is still not jotted.
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
@@ -127,7 +127,7 @@ export type Figure = {
 };
 export type Figures = { rows: Figure[]; note?: string };
 
-/** 「เว็บคิดให้」: the figures the web works out from what is typed, as label / value rows. */
+/** 「ตัวเลขสรุป」: the figures the web works out from what is typed, as label / value rows. */
 export function FiguresPanel({
   figures,
   className,
@@ -136,8 +136,8 @@ export function FiguresPanel({
   className?: string;
 }) {
   return (
-    <aside aria-label="เว็บคิดให้" className={cn("bg-bg", className)}>
-      <h3 className="m-0 text-label text-text-secondary">เว็บคิดให้</h3>
+    <aside aria-label="ตัวเลขสรุป" className={cn("bg-bg", className)}>
+      <h3 className="m-0 text-label text-text-secondary">ตัวเลขสรุป</h3>
       <dl aria-live="polite" className="m-0 mt-3 flex flex-col gap-2.5">
         {figures.rows.map((row) => (
           <div
@@ -209,7 +209,7 @@ export function FormFooter({
               </span>
               <span className="text-text-secondary">
                 {" "}
-                · บันทึกได้ เติมทีหลังได้
+                บันทึกก่อนแล้วเติมทีหลังได้
               </span>
             </>
           ) : missing === 0 ? (

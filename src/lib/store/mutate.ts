@@ -48,7 +48,7 @@ import {
 import { nextSku, skuAfter, skuFor, skuItem, skuNameError } from "./ledger";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
-const badNumber = "เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข";
+const badNumber = "ใส่เป็นตัวเลข 0 ขึ้นไป";
 function assert(ok: unknown, message: string): asserts ok {
   if (!ok) throw new Error(message);
 }
@@ -65,7 +65,7 @@ const isDay = (value: string) =>
  *  (Bangkok). Every month and stock walk compares these as strings. */
 function checkDay(value: string | undefined): asserts value {
   assert(value && isDay(value) && value >= "2020-01-01", "เลือกวันที่");
-  assert(value <= today(), "วันที่อยู่ในอนาคต เว็บไม่รับ");
+  assert(value <= today(), "วันที่อยู่ในอนาคต เลือกวันนี้หรือวันก่อนหน้า");
 }
 /** A `poLines` field as saved: JSON `[{ poLotId, kg }]`, "" for no line. A PO must be one the
  *  field offers (or one the edited entry already had) and is picked once; a kg is a number or
@@ -185,7 +185,7 @@ function noteValues(
   if (isRoundKind(kind))
     assert(
       v.dispatchId,
-      "ยังไม่มีรอบส่งไปรมควันใน PO รมควันนี้ · จด ส่งไปรมควัน ก่อน",
+      'PO รมควันนี้ยังไม่มีรอบส่งไปรมควัน ให้จด "ส่งไปรมควัน" ก่อน',
     );
   if (kind === "dispatch") {
     // A dispatchKg left empty is the lines' kg added up.
@@ -198,7 +198,7 @@ function noteValues(
     assert(rows.length, "เลือก PO เนื้อที่ส่งไปรม");
     assert(
       rows.every((row) => row.kg !== ""),
-      "ใส่ กก. ของ PO เนื้อทุกบรรทัด",
+      "ใส่น้ำหนัก (กก.) ของ PO เนื้อให้ครบทุกบรรทัด",
     );
     const total = linesKg(v.poLines);
     assert(
@@ -230,7 +230,7 @@ function noteValues(
     // Only an item of the catalogue moves, under the name it goes by now. `itemName`: a
     // branch's copy has no catalogue to look an item up in.
     const item = skuItem(db, v.item, kept);
-    assert(!v.item || item, "ไม่พบรายการนี้ · เลือกจากรายการที่มีอยู่");
+    assert(!v.item || item, "ไม่พบรายการนี้ ให้เลือกจากรายการที่มีอยู่");
     v.item = v.itemName = item?.name ?? "";
     v.sku = item?.sku ?? "";
   }
@@ -268,7 +268,7 @@ function onceOnLot(db: Database, kind: EntryKind, lotId: string) {
   if (oncePerLotKinds.includes(kind))
     assert(
       !entries(db, kind, lotId).length,
-      `PO นี้มี ${titles[kind].replace("บันทึก ", "")} แล้ว · แก้ไขรายการเดิมแทน`,
+      `PO นี้มี ${titles[kind].replace("บันทึก ", "")} แล้ว ให้แก้ไขรายการเดิมแทน`,
     );
 }
 /** Lot values never cached on a PO: bulky, or the entry's own bookkeeping. */
@@ -380,7 +380,7 @@ function checkConfig(v: Values) {
       assert(!none, `${label}: ยังไม่ได้ใส่ GP % ของ「${none?.name}」`);
       numbers("gp", "GP % ");
     }
-    if (key === "materialList") numbers("perBox", "ใช้ต่อกล่อง");
+    if (key === "materialList") numbers("perBox", "จำนวนที่ใช้ต่อกล่อง");
     // The seed's ten categories are fixed: the rules hang on their ids.
     if (key === "payCategories")
       assert(
@@ -402,7 +402,10 @@ export function mutate(
   // A branch account's branch is its own, never taken from the input (V2-ACC-08).
   const own = by.role === "branch" ? (by.branch ?? "") : "";
   if (by.role === "branch")
-    assert(branches.includes(own), "ไม่พบสาขาของบัญชีนี้");
+    assert(
+      branches.includes(own),
+      "บัญชีนี้ยังไม่ได้ผูกกับสาขา กรุณาติดต่อ Owner",
+    );
   const reason: Values = input.reason?.trim()
     ? { reason: input.reason.trim() }
     : {};
@@ -412,7 +415,7 @@ export function mutate(
   if (kind === "void") {
     // A delete. Of an edit it undoes that; of a delete it puts the entry back.
     const target = db.entries.find((e) => e.id === input.targetId);
-    assert(target, "ไม่พบรายการ");
+    assert(target, "ไม่พบรายการที่จะลบหรือย้อนกลับ");
     const block = voidBlock(db, target, by);
     assert(!block, block);
     // The entry this is about: the target itself, or the one its edit or delete names.
@@ -457,7 +460,7 @@ export function mutate(
     if (toLotId !== target.lotId) {
       assert(
         lotMovableKinds.includes(target.kind),
-        "ย้าย PO ของรายการนี้ไม่ได้",
+        "รายการนี้ย้ายไป PO อื่นไม่ได้",
       );
       lotOf(db, note, toLotId);
       onceOnLot(db, note, toLotId);
@@ -481,20 +484,20 @@ export function mutate(
     for (const key of editLockedKeys)
       assert(
         !values[key] || values[key] === target.branch,
-        "แก้สาขาไม่ได้ · ลบแล้วจดใหม่",
+        "แก้สาขาไม่ได้ ให้ลบแล้วจดใหม่",
       );
     // So is the branch an expense bought into: from there it moves by a `transfer`.
     assert(
       note !== "expense" ||
         !branches.includes(values.warehouse) ||
         values.warehouse === target.branch,
-      "แก้เป็นคลังของสาขาอื่นไม่ได้ · ใช้ จัดสรรสินค้า หรือลบแล้วจดใหม่",
+      'แก้เป็นคลังของสาขาอื่นไม่ได้ ให้ใช้ "จัดสรรสินค้า" หรือลบแล้วจดใหม่',
     );
     // A payroll payment is hidden from the Account Manager by its category: it stays one.
     assert(
       (values.category === payrollCategory) ===
         (target.values.category === payrollCategory),
-      "แก้หมวดค่าแรงไม่ได้ · ลบแล้วจดใหม่",
+      "แก้หมวดค่าแรงไม่ได้ ให้ลบแล้วจดใหม่",
     );
     // The overlay merges, so a value no longer saved (a field its `when` now hides, a
     // `missing` list that was filled) is cleared, not left as it was.

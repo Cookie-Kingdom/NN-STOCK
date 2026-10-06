@@ -106,11 +106,11 @@ describe("mutate", () => {
 
   it("refuses a negative number, a future date and what an account may not jot", () => {
     expect(() => pay(owner, { category: "other", amount: "-5" })).toThrow(
-      "ยอด: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข",
+      "ยอด: ใส่เป็นตัวเลข 0 ขึ้นไป",
     );
     expect(() =>
       pay(owner, { category: "other", amount: "5" }, "2999-01-01"),
-    ).toThrow("วันที่อยู่ในอนาคต เว็บไม่รับ");
+    ).toThrow("วันที่อยู่ในอนาคต เลือกวันนี้หรือวันก่อนหน้า");
     const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
     expect(() =>
       mutate(db, manager, "sale", { branch: "ศาลาแดง", boxes: "1" }, "", day),
@@ -127,7 +127,7 @@ describe("mutate", () => {
     // V2-RUL-01: what is not a plain number, and a day that is not on the calendar.
     for (const amount of ["abc", "1e3", "0x10", "1,000"])
       expect(() => pay(owner, { category: "other", amount })).toThrow(
-        "เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข",
+        "ใส่เป็นตัวเลข 0 ขึ้นไป",
       );
     for (const date of ["", "2026-02-31", "09/09/2026", "2019-12-31"])
       expect(() =>
@@ -209,10 +209,10 @@ describe("mutate", () => {
     );
     const capex = pays.find((e) => e.values.category === "capex")!;
     expect(() => edit(owner, capex.id, '{"category":"payroll"}')).toThrow(
-      "แก้หมวดค่าแรงไม่ได้ · ลบแล้วจดใหม่",
+      "แก้หมวดค่าแรงไม่ได้ ให้ลบแล้วจดใหม่",
     );
     expect(() => edit(owner, payroll.id, '{"category":"other"}')).toThrow(
-      "แก้หมวดค่าแรงไม่ได้ · ลบแล้วจดใหม่",
+      "แก้หมวดค่าแรงไม่ได้ ให้ลบแล้วจดใหม่",
     );
   });
 
@@ -323,7 +323,7 @@ describe("mutate", () => {
     ).toThrow();
     // A branch's note is the branch's to change: the Owner and the Account Manager neither
     // edit nor delete it, nor undo a change of it.
-    const branchOnly = "บันทึกของสาขา · สาขาเป็นคนแก้";
+    const branchOnly = "บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้";
     for (const by of [owner, manager]) {
       expect(() =>
         mutate(
@@ -455,17 +455,17 @@ it("todos: what each account still has to jot", () => {
       .filter((text) => text.includes("ไม่ได้นับเกิน 7 วัน"));
   expect(late(seed, saladaeng)).toEqual([
     "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน",
+    "ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(seed, minburi)).toEqual([
     "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
+    "ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(seed, manager)).toEqual([
     "ศาลาแดง: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "ศาลาแดง: วัตถุดิบ 2 รายการไม่ได้นับเกิน 7 วัน",
+    "ศาลาแดง: ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน",
     "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "มีนบุรี: วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
+    "มีนบุรี: ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(
     todos(seed, saladaeng, day)
@@ -490,7 +490,7 @@ it("todos: what each account still has to jot", () => {
   );
   expect(late(riceCounted, saladaeng)).toEqual([
     "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "วัตถุดิบ 1 รายการไม่ได้นับเกิน 7 วัน",
+    "ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
   expect(late(chiliCounted, saladaeng)).toEqual([
     "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
@@ -579,7 +579,7 @@ it("edit, undo, delete and put back: one kind of each group", () => {
     expect(now(back), kind).toBe(target.values[key]);
     // An undo is not undone, and a deleted entry is not edited.
     expect(() => undo(back)).toThrow(
-      "รายการนี้ย้อนกลับไม่ได้ · แก้ไขหรือลบใหม่แทน",
+      "รายการนี้ย้อนกลับไม่ได้ ให้แก้ไขหรือลบใหม่แทน",
     );
     expect(() =>
       mutate(
@@ -644,7 +644,7 @@ it("visibleEntries and visibleNotes: what each account sees of the log", () => {
   };
   expect(() =>
     mutate(changed, owner, "void", { targetId: saleEdit }, "", day),
-  ).toThrow("บันทึกของสาขา · สาขาเป็นคนแก้");
+  ).toThrow("บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้");
   changed = mutate(changed, owner, "void", { targetId: payroll.id }, "", day);
   const payrollVoid = last(changed).id;
   changed = mutate(changed, owner, "void", { targetId: transport.id }, "", day);
@@ -1811,7 +1811,7 @@ describe("central warehouse: stock per place", () => {
     // The receipt is the branch's to delete: the transfer waits again.
     const receipt = { targetId: last(got).id };
     expect(() => mutate(got, owner, "void", receipt, "", day)).toThrow(
-      "บันทึกของสาขา · สาขาเป็นคนแก้",
+      "บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้",
     );
     expect(() => mutate(got, minburi, "entryEdit", receipt, "", day)).toThrow(
       "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้",

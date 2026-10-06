@@ -106,7 +106,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     return (
       <div className="flex flex-col gap-4">
         {actions}
-        <EmptyState text="ยังไม่มี PO รมควัน และ PO เนื้อ · กดปุ่มด้านบนเพื่อสร้าง" />
+        <EmptyState text="ยังไม่มี PO รมควันและ PO เนื้อ สร้างได้จากปุ่มด้านบน" />
       </div>
     );
 
@@ -381,7 +381,7 @@ function RoundCard({
         {step(
           "return",
           <>
-            {qty(round.returnKg)} กก. · ค่าส่ง {baht(round.shippingFee)}
+            {qty(round.returnKg)} กก. · ค่าขนส่ง {baht(round.shippingFee)}
           </>,
         )}
       </div>
@@ -499,9 +499,9 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
       </div>
       {info.unlinked && (
         <StatusTile
-          label="เนื้อจาก PO ไหน"
+          label="PO เนื้อที่ใช้"
           onJot={() => ws.edit(info.unlinked!.id)}
-          jotText="ยังไม่ผูก PO เนื้อ · กดเพื่อผูก"
+          jotText="ยังไม่ได้เลือก PO เนื้อ"
         />
       )}
       <h3 className={section}>รอบส่ง ({info.rounds.length})</h3>
@@ -519,12 +519,14 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           ))}
         </ol>
       ) : (
-        <Small>ยังไม่ได้ส่งเนื้อไปรม · กด「+ ส่งไปรมควัน (รอบใหม่)」</Small>
+        <Small>
+          {'ยังไม่มีรอบส่ง เพิ่มได้จากปุ่ม "+ ส่งไปรมควัน (รอบใหม่)"'}
+        </Small>
       )}
-      <h3 className={section}>รวมทั้ง PO</h3>
+      <h3 className={section}>สรุปทั้ง PO</h3>
       <dl className={facts}>
-        <Fact label="รับที่ Chef House">{qty(info.receivedKg)} กก.</Fact>
-        <Fact label="หลังรมควัน">
+        <Fact label="น้ำหนักรับที่ Chef House">{qty(info.receivedKg)} กก.</Fact>
+        <Fact label="น้ำหนักหลังรมควัน">
           {qty(info.backKg)} กก. <Small>{qty(info.boxes)} กล่องรมควัน</Small>
         </Fact>
         <Fact label="Waste">
@@ -552,7 +554,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             </>
           )}
         </Fact>
-        <Fact label="สต๊อกกลางคงเหลือ">
+        <Fact label="คลังกลางคงเหลือ">
           <Kg value={info.centralKg} />
         </Fact>
       </dl>
@@ -574,7 +576,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
         {documents.length ? (
           documents
         ) : (
-          <Small>มีเมื่อจด PO รมควัน, Packing List หรือ ส่งไปรม</Small>
+          <Small>จะขึ้นเมื่อมี PO รมควัน, Packing List หรือรอบส่ง</Small>
         )}
       </Documents>
     </>
@@ -624,11 +626,11 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
             ? baht(terms.meatKg * terms.price)
             : unknown}
         </Fact>
-        <Fact label="ส่งไปรมแล้ว">{qty(info.sentKg)} กก.</Fact>
-        <Fact label="ฝากไว้ที่ร้านขายเนื้อ">
+        <Fact label="น้ำหนักที่ส่งไปรมแล้ว">{qty(info.sentKg)} กก.</Fact>
+        <Fact label="เนื้อที่ฝากไว้กับผู้ขาย">
           <Kg value={info.heldKg} />
         </Fact>
-        <Fact label="PO รมควัน ที่ใช้เนื้อนี้">
+        <Fact label="PO รมควันที่ใช้เนื้อนี้">
           {info.lotIds.map((id) => lotLabel(db, id)).join(", ") || (
             <Small>ยังไม่มี</Small>
           )}
@@ -685,7 +687,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
       {purchase && (
         <Documents>
           <DocumentPrintButton
-            label="PO ซื้อเนื้อ"
+            label="PO เนื้อ"
             title="Purchase Order"
             number={po.poId}
             rows={purchaseOrderRows(db, purchase)}

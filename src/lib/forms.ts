@@ -102,8 +102,8 @@ const core = (field: Field): Field => ({ ...field, core: true });
 const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
 const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
-const weightReason = text("reason", "เหตุผลเมื่อน้ำหนักต่าง");
-const once = "เว็บนับเป็นจ่ายเงินให้แล้ว ไม่จด จ่ายเงิน ซ้ำ";
+const weightReason = text("reason", "สาเหตุที่น้ำหนักไม่ตรง");
+const once = "นับเป็นรายการจ่ายเงินแล้ว ไม่ต้องจดจ่ายเงินซ้ำ";
 /** The truck and its driver, on both legs. */
 const truck: Field[] = [
   text("vehicleType", "ประเภทรถ"),
@@ -197,12 +197,12 @@ export function fields(
   switch (kind) {
     case "purchase": {
       // Left empty, the PO document prints the buyer from Settings (V2-PO-03).
-      const fromSettings = { hint: "เว้นว่างใช้ค่าจาก Settings" };
+      const fromSettings = { hint: "ถ้าเว้นว่าง จะใช้ค่าจาก Settings" };
       return [
         core(text("supplier", "ผู้ขาย")),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
         number("wasteKg", "น้ำหนัก Waste", "กก.", {
-          hint: "ไม่ส่งไปรม · เว็บเตือนจนกว่าจะจด รับ Waste",
+          hint: 'ส่วนที่ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับ Waste"',
         }),
         core(number("price", "ราคา / กก.", "บาท")),
         ...more(
@@ -226,7 +226,7 @@ export function fields(
     }
     case "meatInvoice": {
       // The real goods may differ from the PO: what is typed here wins (poTerms).
-      const fromPo = { hint: "เว้นว่างใช้ค่าจาก PO" };
+      const fromPo = { hint: "ถ้าเว้นว่าง จะใช้ค่าตาม PO" };
       return [
         core(text("invoiceNumber", "เลข Invoice")),
         core(number("netPayable", "ยอด Invoice", "บาท")),
@@ -249,10 +249,10 @@ export function fields(
     case "smokeOrder": {
       const rate = (key: string) => `฿${kg(Number(db.config[key]) || 0)}`;
       return [
-        core(number("rawKg", "น้ำหนักที่ซื้อบริการรม", "กก.")),
+        core(number("rawKg", "น้ำหนักที่สั่งรมควัน", "กก.")),
         ...more(
           number("serviceRate", "ราคาค่ารม / กก.", "บาท", {
-            hint: `เว้นว่าง เว็บคิดตามน้ำหนัก: ต่ำกว่า 1,000 กก. ${rate("smokeRate")} · ตั้งแต่ 1,000 กก. ${rate("smokeRate1000")} · ตั้งแต่ 1,500 กก. ${rate("smokeRate1500")}`,
+            hint: `ถ้าเว้นว่าง ค่ารมคิดตามน้ำหนัก: ต่ำกว่า 1,000 กก. ${rate("smokeRate")} · ตั้งแต่ 1,000 กก. ${rate("smokeRate1000")} · ตั้งแต่ 1,500 กก. ${rate("smokeRate1500")}`,
           }),
           text("smoker", "โรงรม"),
           date("requestedSmokeDate", "วันที่ขอรม"),
@@ -265,13 +265,13 @@ export function fields(
       return [
         core(number("dispatchKg", "น้ำหนักที่ส่ง", "กก.")),
         // Required: mutate refuses lines that do not add up to dispatchKg (V2-LOT-03).
-        poLinesField(db, "poLines", "เนื้อจาก PO ไหน", {
-          hint: "เลือกได้หลาย PO · รวมกันต้องเท่าน้ำหนักที่ส่ง",
+        poLinesField(db, "poLines", "PO เนื้อที่ใช้", {
+          hint: "เลือกได้หลาย PO น้ำหนักรวมต้องเท่ากับน้ำหนักที่ส่ง",
         }),
         ...more(
           text("origin", "ต้นทาง"),
           text("destination", "ปลายทาง"),
-          time("pickupTime", "เวลา"),
+          time("pickupTime", "เวลารถรับ"),
           ...truck,
           note,
         ),
@@ -279,7 +279,7 @@ export function fields(
     case "cmReceive":
       return [
         roundField(db, lotId),
-        core(number("receivedKg", "น้ำหนักรับรวม", "กก.")),
+        core(number("receivedKg", "น้ำหนักรับจริง", "กก.")),
         time("arrival", "เวลาที่รถมาถึง"),
         weightReason,
         note,
@@ -296,7 +296,7 @@ export function fields(
         roundField(db, lotId),
         core(number("returnKg", "น้ำหนักส่งกลับ", "กก.")),
         number("shippingFee", "ค่าขนส่งไป-กลับ", "บาท", {
-          hint: "ต่อรอบ รวมขาไปและขากลับ · ตั้งต้นจาก Settings",
+          hint: "ต่อรอบ รวมขาไปและขากลับ ค่าเริ่มต้นมาจาก Settings",
         }),
         time("returnTime", "เวลารถรับ"),
         ...more(
@@ -350,12 +350,12 @@ export function fields(
         },
         number("qty", "จำนวน", undefined, {
           when: isStock,
-          hint: "ใส่จำนวนแล้วยอดเข้าสต๊อกของสาขาทันที",
+          hint: "จำนวนที่ใส่จะเข้าสต๊อกของสาขาทันที",
         }),
         {
           // A branch account pays into its own stock.
           key: "branch",
-          label: "เข้าสาขาไหน",
+          label: "สาขา",
           type: "select",
           when: (values) => isStock(values) && by.role !== "branch",
           options: branches.map((value) => ({ value, label: value })),
@@ -369,7 +369,7 @@ export function fields(
             ["pay", "supplier"],
           ),
         }),
-        text("payer", "ผู้จ่าย / สำรองจ่าย", {
+        text("payer", "ผู้จ่าย / ผู้สำรองจ่าย", {
           options: known(
             db,
             [companyPayer],
@@ -378,8 +378,8 @@ export function fields(
           ),
         }),
         ...more(
-          number("fullAmount", "ยอดเต็มจำนวน", "บาท", {
-            hint: "ใส่เมื่อจ่ายบางส่วนหรือมัดจำ",
+          number("fullAmount", "ยอดเต็ม", "บาท", {
+            hint: "สำหรับการจ่ายบางส่วนหรือมัดจำ",
           }),
           file("ใบเสร็จ"),
           note,
@@ -390,7 +390,7 @@ export function fields(
       return [
         core({
           key: "payer",
-          label: "คืนให้ใคร",
+          label: "ผู้รับเงินคืน",
           type: "select",
           // Whoever paid out of pocket, with what is still owed to each.
           options: advances(db).map((x) => ({
@@ -404,11 +404,11 @@ export function fields(
     case "sale":
       return [
         core(count("boxes", "กล่องมาตรฐาน", "กล่อง")),
-        count("chiliAddons", "น้ำพริกหลอดจำหน่ายแยก", "หลอด"),
-        count("chiliCount", "นับน้ำพริกจริงปลายวัน", "หลอด"),
-        text("chiliRemark", "หมายเหตุเมื่อน้ำพริกไม่ตรง"),
+        count("chiliAddons", "น้ำพริกหลอดที่ขายแยก", "หลอด"),
+        count("chiliCount", "น้ำพริกที่นับได้ปลายวัน", "หลอด"),
+        text("chiliRemark", "สาเหตุที่น้ำพริกไม่ตรง"),
         number("soldKg", "เนื้อที่ใช้ไปจริง", "กก.", {
-          hint: "เว้นว่างได้ เว็บคิดจากจำนวนกล่อง",
+          hint: "ถ้าเว้นว่าง จะคิดจากจำนวนกล่อง",
         }),
         number("wasteKg", "เนื้อที่เสียไป", "กก."),
         number("riceWasteKg", "ข้าวที่เสียไป", "กก."),
@@ -424,8 +424,8 @@ export function fields(
           ),
         ),
         number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),
-        text("payer", "ผู้จ่ายเงิน / สำรองจ่าย"),
-        text("reason", "เหตุผลเมื่อมีของเสีย"),
+        text("payer", "ผู้จ่าย / ผู้สำรองจ่าย"),
+        text("reason", "สาเหตุที่มีของเสีย"),
         note,
       ];
     case "receive":
@@ -460,7 +460,7 @@ export function fields(
       return [
         text("invoiceNo", "เลข Invoice"),
         text("product", "รายการสินค้า"),
-        text("code", "CODE สินค้า"),
+        text("code", "รหัสสินค้า"),
         count("boxCount", "จำนวนกล่องรับเข้า"),
         number("slicedNetKg", "น้ำหนักส่งรวม", "กก."),
         number("invWeightKg", "Inv. Weight", "กก."),
@@ -543,8 +543,8 @@ export function fields(
             })),
           }),
         ),
-        core(placeField("from", "จากคลัง")),
-        core(placeField("to", "ไปคลัง")),
+        core(placeField("from", "คลังต้นทาง")),
+        core(placeField("to", "คลังปลายทาง")),
         core(number("qty", "จำนวน")),
         {
           // What goes to the central warehouse is there at once.
@@ -553,8 +553,8 @@ export function fields(
           type: "select",
           when: (values) => branches.includes(values.to),
           options: [
-            { value: "now", label: "เข้าสาขาทันที" },
-            { value: "confirm", label: "สาขาต้องกดยืนยันรับ" },
+            { value: "now", label: "เข้าสต๊อกสาขาทันที" },
+            { value: "confirm", label: "รอสาขายืนยันรับ" },
           ],
         },
         note,

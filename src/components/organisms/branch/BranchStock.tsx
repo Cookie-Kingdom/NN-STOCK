@@ -364,7 +364,7 @@ function CountTable({
                 colSpan={columns.length}
                 className="py-8 text-center text-text-secondary"
               >
-                ไม่พบรายการที่ตรงกับที่ค้นหา
+                ไม่พบรายการที่ค้นหา
               </Cell>
             </tr>
           )}
@@ -386,7 +386,7 @@ function CountTable({
 }
 
 const legend =
-  "ช่องสีเหลือง = ยังไม่เคยนับ หรือไม่ได้นับเกิน 7 วัน · ช่องสีแดง = ไม่เหลือ";
+  "ช่องสีเหลืองคือยังไม่เคยนับหรือไม่ได้นับเกิน 7 วัน ช่องสีแดงคือไม่เหลือ";
 
 /** A branch's Stock, what `OwnerMeatStock` is to the Owner: its meat (yellow until it is
  *  counted today, V2-BR-02), then its raw rice (a branch that steams its own, V2-BR-08) and
@@ -433,11 +433,9 @@ export function BranchMeatStock({ ws }: { ws: Workspace }) {
           </Badge>
         </div>
         <Caption>
-          นับล่าสุด{" "}
           {meat.counted
-            ? `${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)} ได้ ${fmt(Number(meat.counted.values.kg))} กก.`
-            : "ยังไม่เคยนับ"}{" "}
-          · หลังจากนั้นเว็บบวกเนื้อที่รับเข้า และหักเนื้อที่ใช้กับที่เสีย
+            ? `นับล่าสุด ${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)} ได้ ${fmt(Number(meat.counted.values.kg))} กก. หลังจากนั้นบวกเนื้อที่รับเข้า และหักเนื้อที่ใช้กับที่เสีย`
+            : "ยังไม่เคยนับ ยอดนี้คิดจากเนื้อที่รับเข้า หักเนื้อที่ใช้กับที่เสีย"}
         </Caption>
         <Button
           className="self-start"
@@ -469,8 +467,8 @@ export function BranchMeatStock({ ws }: { ws: Workspace }) {
       />
       <Caption>
         {steams &&
-          "ข้าวเหนียวดิบ: ยอดนับล่าสุด บวกที่ซื้อเข้าสาขาหลังจากนั้น เว็บไม่ตัดยอดเอง · "}
-        น้ำพริกนับในฟอร์มยอดขาย · {legend} · วัสดุอยู่ที่หน้า Inventory
+          "ยอดข้าวเหนียวดิบคือยอดนับล่าสุดบวกที่ซื้อเข้าสาขาหลังจากนั้น และไม่ถูกตัดยอดอัตโนมัติ "}
+        น้ำพริกนับในฟอร์มยอดขาย {legend} วัสดุอยู่ที่หน้า Inventory
       </Caption>
     </div>
   );
@@ -509,9 +507,9 @@ function PendingTransfers({ ws, rows }: { ws: Workspace; rows: Entry[] }) {
     >
       {/* A phone keeps the name, the quantity and the button. */}
       <StockTable
-        columns={["วันที่", "รายการ", "จำนวน", "จากคลัง", "ยืนยัน"]}
+        columns={["วันที่", "รายการ", "จำนวน", "คลังต้นทาง", "ยืนยัน"]}
         right={["จำนวน", "ยืนยัน"]}
-        wideOnly={["วันที่", "จากคลัง"]}
+        wideOnly={["วันที่", "คลังต้นทาง"]}
       >
         {rows.map((e) => (
           <tr key={e.id}>
@@ -598,7 +596,7 @@ export function BranchStock({ ws }: { ws: Workspace }) {
         rows={shown}
         aside={
           <Caption aria-live="polite">
-            แสดง {shown.length} จาก {rows.length} รายการ
+            {shown.length} จาก {rows.length} รายการ
           </Caption>
         }
       />
@@ -627,13 +625,24 @@ export function BranchStock({ ws }: { ws: Workspace }) {
           </StockTable>
         </DayCard>
       )}
-      <Caption>
-        ใส่เฉพาะรายการที่นับ ยอดที่นับล่าสุดคือยอดจริง · วัสดุนับเป็นชิ้น ·{" "}
-        {legend} · รอยืนยันรับสินค้า = ของที่ส่งมาให้สาขา
-        กด「ยืนยันรับ」แล้วจึงเข้ายอดของสาขา · สินทรัพย์อื่นของสาขา =
-        ของที่ซื้อเข้าหรือจัดสรรมาให้สาขา ไม่ต้องนับ ตัวเลขสีแดง = ติดลบ · เนื้อ
-        ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock
-      </Caption>
+      {/* A line per subject, close together: one note, not four. */}
+      <div className="flex flex-col gap-1">
+        <Caption>
+          ใส่เฉพาะรายการที่นับ ยอดที่นับล่าสุดคือยอดจริง วัสดุนับเป็นชิ้น{" "}
+          {legend}
+        </Caption>
+        <Caption>
+          {
+            '"รอยืนยันรับสินค้า" คือของที่ส่งมาให้สาขา จะเข้ายอดของสาขาเมื่อกด "ยืนยันรับ"'
+          }
+        </Caption>
+        <Caption>
+          {
+            '"สินทรัพย์อื่นของสาขา" คือของที่ซื้อเข้าหรือจัดสรรมาให้สาขา ไม่ต้องนับ ตัวเลขสีแดงคือยอดติดลบ'
+          }
+        </Caption>
+        <Caption>เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock</Caption>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { FormField } from "./FormField";
 const meta = {
   title: "Molecules/FormError",
   component: FormError,
-  args: { error: "น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข" },
+  args: { error: "น้ำหนักที่รับ: ใส่เป็นตัวเลข 0 ขึ้นไป" },
   decorators: [
     (Story) => (
       <div className="max-w-md">
@@ -23,7 +23,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const error = pick("error", {
-  สั้น: "น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข",
+  สั้น: "น้ำหนักที่รับ: ใส่เป็นตัวเลข 0 ขึ้นไป",
   ยาว: "บันทึกไม่สำเร็จ: ข้อมูลบนเซิร์ฟเวอร์เปลี่ยนไประหว่างที่เปิดฟอร์มนี้ เว็บโหลดข้อมูลล่าสุดมาแล้ว ดูรายการของสาขาศาลาแดงอีกครั้ง แล้วจดใหม่",
   ไม่มี: null,
 });
@@ -51,7 +51,7 @@ export const InForm: Story = {
       <FormField label="น้ำหนักรับเข้า (กก.)">
         <Input type="number" step="0.01" defaultValue="0" />
       </FormField>
-      <FormError error="น้ำหนักที่รับ: เว็บไม่รับตัวเลขติดลบหรือค่าที่ไม่ใช่ตัวเลข" />
+      <FormError error="น้ำหนักที่รับ: ใส่เป็นตัวเลข 0 ขึ้นไป" />
       <div className="flex flex-wrap gap-2">
         <Button variant="primary">บันทึก</Button>
         <Button variant="secondary">ยกเลิก</Button>

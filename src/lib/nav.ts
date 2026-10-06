@@ -39,7 +39,7 @@ export const pages: Record<
 > = {
   overview: {
     label: "Overview",
-    description: "Revenue ของร้าน รวมทุก Project",
+    description: "Revenue ของร้าน รวมทุกโปรเจกต์",
     icon: LayoutDashboard,
   },
   // The same name as the shop's, under the project's heading: /owner/nn-x-lm/overview. A
@@ -71,7 +71,7 @@ export const pages: Record<
   },
   stock: {
     label: "Inventory",
-    description: "สินทรัพย์ของ Project และวัสดุคงเหลือของแต่ละสาขา",
+    description: "สินทรัพย์ของโปรเจกต์ และวัสดุคงเหลือของแต่ละสาขา",
     icon: Package,
     group: shopGroup,
   },
@@ -89,7 +89,7 @@ export const pages: Record<
   },
   settings: {
     label: "Settings",
-    description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
+    description: "ค่าที่ใช้คำนวณ และข้อมูลหัวเอกสาร",
     icon: Settings,
   },
 };

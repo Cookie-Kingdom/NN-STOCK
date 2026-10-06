@@ -36,13 +36,9 @@ function openStore(): Promise<IDBDatabase> {
       request.result.createObjectStore(storeName, { keyPath: "id" });
     request.onsuccess = () => resolve(request.result);
     request.onerror = () =>
-      reject(request.error || new Error("ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้"));
+      reject(request.error || new Error("เปิดที่เก็บไฟล์ไม่สำเร็จ"));
     request.onblocked = () =>
-      reject(
-        new Error(
-          "ไม่สามารถเปิดพื้นที่เก็บไฟล์ได้ กรุณาปิดแท็บอื่นแล้วลองใหม่",
-        ),
-      );
+      reject(new Error("เปิดที่เก็บไฟล์ไม่สำเร็จ กรุณาปิดแท็บอื่นแล้วลองใหม่"));
   });
 }
 
@@ -57,7 +53,7 @@ async function putLocal(record: StoredAttachment) {
     };
     transaction.onerror = () => {
       database.close();
-      reject(transaction.error || new Error("ไม่สามารถเก็บไฟล์ Invoice ได้"));
+      reject(transaction.error || new Error("เก็บไฟล์แนบไม่สำเร็จ"));
     };
   });
 }
@@ -70,7 +66,7 @@ async function getLocal(id: string): Promise<StoredAttachment | undefined> {
     request.onsuccess = () =>
       resolve(request.result as StoredAttachment | undefined);
     request.onerror = () =>
-      reject(request.error || new Error("ไม่สามารถเปิดไฟล์ Invoice ได้"));
+      reject(request.error || new Error("เปิดไฟล์แนบไม่สำเร็จ"));
     transaction.oncomplete = () => database.close();
   });
 }
@@ -126,7 +122,7 @@ export async function saveAttachment(
 export const logoAccept = "image/png,image/jpeg,image/webp";
 export async function saveLogo(file: File): Promise<string> {
   if (!/\.(png|jpe?g|webp)$/i.test(file.name))
-    throw new Error("เว็บรับโลโก้เป็นไฟล์ PNG, JPG หรือ WebP");
+    throw new Error("โลโก้ต้องเป็นไฟล์ PNG, JPG หรือ WebP");
   return saveAttachment(file, "branding");
 }
 

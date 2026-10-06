@@ -205,7 +205,7 @@ export function RevenueChart({
             >
               <b className="mb-1 text-body-sm font-semibold">{active.title}</b>
               {active.value === null ? (
-                <span className="text-text-secondary">ยังไม่ถึงวันนี้</span>
+                <span className="text-text-secondary">ยังไม่ถึง</span>
               ) : (
                 <>
                   <span className="flex justify-between gap-4">

@@ -34,7 +34,7 @@ const monthAt = (offset: number) => {
 };
 const [thisMonth, lastMonth, monthBefore] = [0, -1, -2].map(monthAt);
 /** The cells of a line after its name: the month, then the month before; in the full P&L
- *  (not in 「จ่ายเงินแยกหมวด」) the month's share of its sales stands between them. */
+ *  (not in 「ยอดจ่ายแยกหมวด」) the month's share of its sales stands between them. */
 const line = (page: Page, name: RegExp, table = "P&L รายเดือน") =>
   region(page, table)
     .getByRole("row", { name })
@@ -78,14 +78,14 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
 
   // The P&L is on the project's Overview; Finance lists what was paid.
   await expect(region(page, "P&L รายเดือน")).toHaveCount(0);
-  await expect(line(page, /^รวมที่จ่าย/, "จ่ายเงินแยกหมวด")).toHaveText([
+  await expect(line(page, /^รวมยอดจ่าย/, "ยอดจ่ายแยกหมวด")).toHaveText([
     "−฿500",
     "−฿1,000",
   ]);
   await openPage(page, "Overview", true);
   const pl = region(page, "P&L รายเดือน");
   await expect(pl).toContainText(
-    "นับตามเดือนที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี",
+    "ยอดตามเดือนที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
   );
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
@@ -107,7 +107,7 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
     "กำไรจากการดำเนินงาน",
   );
   await expect(pl.getByRole("row").last().getByRole("cell")).toHaveText([
-    "อุปกรณ์/ลงทุน (แยกบรรทัด)",
+    "อุปกรณ์/ลงทุน (ไม่รวมในยอดข้างบน)",
     "−฿12,900",
     "—",
     "—",
@@ -135,7 +135,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   await signInAs(page, "owner");
   const gifts = figure(page, "กล่องแจกเดือนนี้");
   const profit = figure(page, "กำไรจากการดำเนินงาน");
-  await expect(gifts).toContainText("ไม่บวกเข้า P&L");
+  await expect(gifts).toContainText("ไม่นับใน P&L");
   const before = Number((await gifts.innerText()).match(/^([\d,]+) กล่อง/)![1]);
   const profitBefore = await profit.innerText();
   const lineBefore = await line(page, /^กำไรจากการดำเนินงาน/).allInnerTexts();
@@ -157,7 +157,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   const value = Math.round((before + 4) * ((170000 / 104) * 0.12 + 25));
   await expect(gifts).toContainText(`${before + 4} กล่อง`);
   await expect(gifts).toContainText(
-    `มูลค่าต้นทุนประมาณ ฿${value.toLocaleString("en-US")}`,
+    `ต้นทุนประมาณ ฿${value.toLocaleString("en-US")}`,
   );
   await expect(profit).toHaveText(profitBefore);
   await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText(lineBefore);
@@ -207,7 +207,7 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await expect(rent).toHaveText(["−฿20,500", "—", "−฿18,000"]);
   await expect(rent.first()).not.toHaveAttribute("data-tone", "warning");
   await openPage(page, "Finance");
-  await expect(line(page, /^ค่าเช่า\/น้ำไฟ/, "จ่ายเงินแยกหมวด")).toHaveText([
+  await expect(line(page, /^ค่าเช่า\/น้ำไฟ/, "ยอดจ่ายแยกหมวด")).toHaveText([
     "−฿20,500",
     "−฿18,000",
   ]);

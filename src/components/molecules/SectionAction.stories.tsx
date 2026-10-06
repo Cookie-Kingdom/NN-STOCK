@@ -52,7 +52,7 @@ export const Default: StoryObj<Args> = {
   },
   render: ({ state, ...args }) => (
     <DayCard
-      title="ตัวเลขที่เว็บใช้คิด"
+      title="ตัวเลขสำหรับคำนวณ"
       aside={
         <SectionAction {...args} section="prices" editing={editing[state]} />
       }

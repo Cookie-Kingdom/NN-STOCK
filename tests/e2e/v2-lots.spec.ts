@@ -50,7 +50,7 @@ const purchase = async (page: Page, kg: string, price: string) => {
 };
 const smokeOrder = async (page: Page, kg: string) => {
   await create(page, "PO รมควัน");
-  await fill(page, [/^น้ำหนักที่ซื้อบริการรม/, kg]);
+  await fill(page, [/^น้ำหนักที่สั่งรมควัน/, kg]);
 };
 /** Opens a new round of the PO รมควัน in view. */
 const dispatch = async (page: Page, lot: Locator) => {
@@ -66,7 +66,7 @@ const finish = async (
   v: { received: string; smoked: string; boxes: string; fee: string },
 ) => {
   await tile(lot, /^รับที่ Chef House/).click();
-  await fill(page, [/^น้ำหนักรับรวม/, v.received]);
+  await fill(page, [/^น้ำหนักรับจริง/, v.received]);
   await save(page);
   await tile(lot, /^หลังรมควัน/).click();
   await fill(
@@ -91,7 +91,7 @@ test("5 · V2-PO-02 V2-LOT-04 a PO รมควัน is jotted before any PO �
   await start(page, "seed");
   await signInAs(page, "manager");
   await openPage(page, "Lots");
-  await expect(page.getByText(/ยังไม่มี PO รมควัน และ PO เนื้อ/)).toBeVisible();
+  await expect(page.getByText(/ยังไม่มี PO รมควันและ PO เนื้อ/)).toBeVisible();
 
   // No PO เนื้อ exists yet: the PO รมควัน is its own document, with the number it will get.
   await smokeOrder(page, "100");
@@ -114,13 +114,13 @@ test("5 · V2-PO-02 V2-LOT-04 a PO รมควัน is jotted before any PO �
   await listed(page, PO).click();
   const po = region(page, PO);
   await expect(fact(po, "มูลค่า")).toHaveText("฿105,000");
-  await expect(fact(po, "ส่งไปรมแล้ว")).toHaveText("0 กก.");
-  await expect(fact(po, "PO รมควัน ที่ใช้เนื้อนี้")).toHaveText("ยังไม่มี");
+  await expect(fact(po, "น้ำหนักที่ส่งไปรมแล้ว")).toHaveText("0 กก.");
+  await expect(fact(po, "PO รมควันที่ใช้เนื้อนี้")).toHaveText("ยังไม่มี");
   // The PO รมควัน is as it was: the PO เนื้อ did not join it by itself.
   await expect(lacks(page, SO)).toHaveText("5");
   await openPage(page, "Finance");
-  await expect(region(page, "จ่ายเงินล่าสุด")).toContainText(
-    "ยังไม่มีบันทึกจ่ายเงิน",
+  await expect(region(page, "รายการจ่ายเงินล่าสุด")).toContainText(
+    "ยังไม่มีรายการจ่ายเงิน",
   );
 });
 
@@ -140,7 +140,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await dispatch(page, lot);
   await expect(form(page).getByLabel(/^น้ำหนักที่ส่ง/)).toHaveValue("60");
   await expect(form(page).locator("footer")).toContainText(
-    "บันทึกไม่ได้ · ยังไม่ได้เลือก PO เนื้อ",
+    "บันทึกไม่ได้ เพราะยังไม่ได้เลือก PO เนื้อ",
   );
   const saveButton = form(page).getByRole("button", {
     name: "บันทึก",
@@ -150,7 +150,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await form(page).getByRole("button", { name: "เพิ่ม PO เนื้อ" }).click();
   expect(await choices(line(page))).toEqual([
     "เลือก PO เนื้อ",
-    `${PO} · เหลือ 100 กก.`,
+    `${PO} · ฝากไว้ 100 กก.`,
   ]);
   await pick(line(page), 1);
   await expect(form(page).getByLabel("กก. บรรทัด 1")).toHaveValue("60");
@@ -186,18 +186,18 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   for (const label of ["ค่าเนื้อ", "ต้นทุนต่อ กก.", "ต้นทุนต่อกล่อง"])
     await expect(fact(lot, label)).toHaveText("ยังคิดไม่ได้");
   await expect(rows(page, "dispatch")).toHaveAttribute("data-tone", "warning");
-  await expect(rows(page, "dispatch")).toContainText("ยังไม่ผูก PO เนื้อ");
+  await expect(rows(page, "dispatch")).toContainText("ยังไม่ได้เลือก PO เนื้อ");
 
   // Linking is an edit of that round.
   const PO2 = `PO-${year}-0002`;
   await purchase(page, "100", "400");
   await savePo(page);
   await listed(page, SO).click();
-  const link = tile(lot, /^เนื้อจาก PO ไหน/);
-  await expect(link).toContainText("ยังไม่ผูก PO เนื้อ · กดเพื่อผูก");
+  const link = tile(lot, /^PO เนื้อที่ใช้/);
+  await expect(link).toContainText("ยังไม่ได้เลือก PO เนื้อ");
   await link.click();
   await expect(popupTitle(page)).toHaveText("แก้ไข: ส่งไปรมควัน");
-  await pick(line(page), `${PO2} · เหลือ 100 กก.`);
+  await pick(line(page), `${PO2} · ฝากไว้ 100 กก.`);
   await save(page);
   await expect(toast(page, "แก้แล้ว: ส่งไปรมควัน")).toBeVisible();
 
@@ -213,7 +213,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿157.00");
   // The ฿350 box less that cost, and the cost as a share of the price (157 ÷ 350).
   await expect(region(page, "ตัวเลขของเดือน")).toContainText(
-    "กำไรต่อกล่อง ฿193.00 ก่อนหัก GP และค่าใช้จ่าย · ต้นทุน 45% ของราคาขาย",
+    "กำไรต่อกล่อง ฿193.00 ก่อนหัก GP และค่าใช้จ่าย ต้นทุนเท่ากับ 45% ของราคาขาย",
   );
 });
 
@@ -247,7 +247,7 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   await save(page);
   await left(4, "รับที่ Chef House", "หลังรมควัน", "ส่งกลับ");
   await tile(lot, /^รับที่ Chef House/).click();
-  await fill(page, [/^น้ำหนักรับรวม/, "200"]);
+  await fill(page, [/^น้ำหนักรับจริง/, "200"]);
   await save(page);
   await left(3, "หลังรมควัน", "ส่งกลับ");
   await tile(lot, /^หลังรมควัน/).click();
@@ -307,7 +307,7 @@ test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what 
   await start(page, "seed");
   await signInAs(page, "owner");
   await openPage(page, "Finance");
-  const balances = region(page, "ยอดคงเหลือที่ยังไม่ได้จ่าย ต่อผู้ขาย");
+  const balances = region(page, "ยอดค้างจ่ายแยกผู้ขาย");
   await expect(balances).toContainText("ยังไม่มีใบจากผู้ขาย");
   const foodiva = balances.getByRole("row", { name: /^Foodiva/ });
 

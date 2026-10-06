@@ -158,7 +158,7 @@ function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
               [
                 label,
                 isUnlinked(db, e) ? (
-                  <MissingMark key="none">ยังไม่ผูก</MissingMark>
+                  <MissingMark key="none">ยังไม่ได้เลือก</MissingMark>
                 ) : (
                   linesText(db, dispatchLines(v))
                 ),

@@ -25,7 +25,7 @@ const headKeys = ["ลูกค้า", "ที่อยู่", "Attention", "�
 const poTitles = ["Purchase Order", "Smoke Service Purchase Order"];
 
 const status = (draft?: boolean) =>
-  `สถานะ: ${draft ? "ฉบับร่าง ยังไม่บันทึก" : "บันทึกในระบบ"}`;
+  `สถานะ: ${draft ? "ฉบับร่าง (ยังไม่ได้บันทึก)" : "บันทึกแล้ว"}`;
 
 /** The PO paper's markup (`PO_CSS` styles it), shared by the print popup and the on-screen
  *  preview of `PoDocumentDialog`. `draft`: not saved yet, so it says ฉบับร่าง. */
@@ -50,7 +50,7 @@ export function poPaperHtml({
   return (
     `<article class="po-paper"><div class="po-paper-heading"><div class="po-brand-block">${logo ? `<img class="po-logo" src="${escape(logo)}" alt="โลโก้">` : ""}<div><h3>${isSmoke ? "SMOKING SERVICE PO" : "PURCHASE ORDER"}</h3></div></div><div class="po-number"><span>เลขที่เอกสาร${draft ? " · ฉบับร่าง" : ""}</span><strong>${escape(number)}</strong></div></div>` +
     `<div class="po-party-grid"><section><span>ผู้ซื้อ / Buyer</span><strong>${f("ลูกค้า")}</strong><p>${f("ที่อยู่")}</p><p>Attention: ${f("Attention")}</p><p>โทร. ${f("โทร.")}</p><p>Tax ID: ${f("Tax ID")}</p></section><section><span>${isSmoke ? "ผู้ให้บริการ / Service provider" : "ผู้ขาย / Supplier"}</span><strong>${f("Supplier")}</strong><p>ผู้รับออเดอร์: ${f("ผู้รับออเดอร์")}</p><p>ที่อยู่: ${f("ที่อยู่ผู้ให้บริการ")}</p>${isSmoke ? `<p>บริการรมควันเนื้อตามคำสั่งซื้อ</p><p>อ้างอิง Packing List: ${f("Packing List")}</p>` : ""}</section></div>` +
-    `<div class="po-meta-grid"><div><span>วันที่ออก PO</span><strong>${escape(dateLabel(field("วันที่ PO")))}</strong></div><div><span>${isSmoke ? "คาดว่าจะเสร็จ" : "กำหนดชำระ"}</span><strong>${isSmoke ? escape(dateLabel(field("กำหนดเสร็จ"))) : "ตามข้อตกลง"}</strong></div><div><span>${isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย"}</span><strong>${f(isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย")}</strong></div></div>` +
+    `<div class="po-meta-grid"><div><span>วันที่ออก PO</span><strong>${escape(dateLabel(field("วันที่ PO")))}</strong></div><div><span>${isSmoke ? "กำหนดเสร็จ" : "กำหนดชำระ"}</span><strong>${isSmoke ? escape(dateLabel(field("กำหนดเสร็จ"))) : "ตามข้อตกลง"}</strong></div><div><span>${isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย"}</span><strong>${f(isSmoke ? "เลขที่การส่ง" : "อ้างอิงผู้ขาย")}</strong></div></div>` +
     `<table class="po-item-table"><thead><tr><th>รายการ</th><th>รายละเอียด</th><th>จำนวน</th><th>ราคา / กก.</th><th>รวม</th></tr></thead><tbody><tr><td>${f("สินค้า")}</td><td>${f("ขนาดบรรจุ")}</td><td>${f("จำนวน")}</td><td>${f("ราคา / กก.")}</td><td>${f("ยอดรวมก่อน VAT")}</td></tr>` +
     // A PO เนื้อ's waste is on the paper so the seller sends it; it is never charged.
     (waste !== "—"
@@ -106,7 +106,7 @@ export function DocumentPrintButton({
     }
     popup.document.open();
     popup.document.write(
-      `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escape(number)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap"><style>${isPurchaseOrder ? PO_PAGE_CSS : SHEET_CSS}</style></head><body>${isPurchaseOrder ? poPaperHtml({ title, number, rows, logo, draft }) : sheetHtml}<button type="button" class="print-button">ดาวน์โหลด / พิมพ์ PDF</button></body></html>`,
+      `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${escape(number)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap"><style>${isPurchaseOrder ? PO_PAGE_CSS : SHEET_CSS}</style></head><body>${isPurchaseOrder ? poPaperHtml({ title, number, rows, logo, draft }) : sheetHtml}<button type="button" class="print-button">พิมพ์ / ดาวน์โหลด PDF</button></body></html>`,
     );
     popup.document.close();
     popup.document

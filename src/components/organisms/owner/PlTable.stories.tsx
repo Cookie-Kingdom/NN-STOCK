@@ -29,7 +29,7 @@ export const NoSales: Story = { args: { db: seed } };
 /** จอ 390px: ไม่มีคอลัมน์「% ของยอดขาย」 */
 export const Phone: Story = { ...phone };
 
-/** Account Manager: เฉพาะหมวดจ่ายเงินที่เห็นได้ จบที่「รวมที่จ่าย」
+/** Account Manager: เฉพาะหมวดจ่ายเงินที่เห็นได้ จบที่「รวมยอดจ่าย」
  *  ไม่มีคอลัมน์ % และไม่มีหมายเหตุงบ: คิดย้อนเป็นยอดขายไม่ได้ */
 export const Manager: Story = {
   args: { db: dbFor("manager"), full: false },

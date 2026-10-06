@@ -105,7 +105,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
 
   if (!all.length)
     return (
-      <EmptyState text="ยังไม่มีรายการซื้อ PO เนื้อและ PO รมควันจากหน้า Lots จะอยู่ที่นี่ ส่วนค่าใช้จ่ายอื่นจดได้จากปุ่ม “บันทึกค่าใช้จ่าย”" />
+      <EmptyState text='ยังไม่มีรายการซื้อ PO เนื้อและ PO รมควันจากหน้า Lots จะอยู่ที่นี่ ส่วนค่าใช้จ่ายอื่นจดได้จากปุ่ม "บันทึกค่าใช้จ่าย"' />
     );
 
   const cell = (row: LedgerRow) => {

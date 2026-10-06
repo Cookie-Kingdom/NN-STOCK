@@ -94,7 +94,7 @@ export function visibleNotes(db: Database, by: Actor): Entry[] {
 }
 /** A branch's note (whoever jotted it) is the branch's to change, not the Owner's or the
  *  Account Manager's. */
-const branchOnly = "บันทึกของสาขา · สาขาเป็นคนแก้";
+const branchOnly = "บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้";
 /** Why `by` may not edit `target` ("" when it may): the Owner edits any note but a branch's,
  *  the Account Manager those but a payroll payment, a branch its own branch's. */
 export function editBlock(db: Database, target: Entry, by: Actor) {
@@ -136,7 +136,7 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
     : target.role;
   if (by.role === "owner" && noteRole === "branch") return branchOnly;
   if (target.kind === "void" && (!about || changeKinds.includes(about.kind)))
-    return "รายการนี้ย้อนกลับไม่ได้ · แก้ไขหรือลบใหม่แทน";
+    return "รายการนี้ย้อนกลับไม่ได้ ให้แก้ไขหรือลบใหม่แทน";
   if (
     target.kind === "entryEdit" &&
     entryEdits(db, target.values.targetId).at(-1)?.id !== target.id
@@ -209,7 +209,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
         (m) => branchMaterial(db, branch, m.id, today).stale,
       ),
     );
-    late("วัตถุดิบ", "meatStock", [
+    late("ข้าวเหนียวและน้ำพริก", "meatStock", [
       branchChili(db, branch, today).stale,
       rawRiceBranches(db.config).includes(branch) &&
         branchRice(db, branch, today).stale,

@@ -33,7 +33,7 @@ export const Default: Story = {
 export const NoAction: Story = {
   args: {
     title: "Settings",
-    description: "ค่าที่เว็บใช้คิด และข้อมูลหัวเอกสาร",
+    description: "ค่าที่ใช้คำนวณ และข้อมูลหัวเอกสาร",
     action: undefined,
   },
 };

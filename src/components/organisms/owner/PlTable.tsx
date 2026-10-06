@@ -130,11 +130,11 @@ export function PlTable({
   );
   return (
     <FigureCard
-      title={full ? `P&L ราย${span}` : "จ่ายเงินแยกหมวด"}
+      title={full ? `P&L ราย${span}` : "ยอดจ่ายแยกหมวด"}
       note={
         full
-          ? `นับตาม${span}ที่จ่ายเงิน · ตัวเลขประมาณเพื่อใช้บริหาร ไม่ใช่งบสำหรับยื่นภาษี`
-          : `นับตาม${span}ที่จ่ายเงิน`
+          ? `ยอดตาม${span}ที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี`
+          : `ยอดตาม${span}ที่จ่ายเงิน`
       }
     >
       <FigureTable>
@@ -177,9 +177,9 @@ export function PlTable({
           )}
           {full
             ? line("กำไรจากการดำเนินงาน", a.profit, b.profit, true)
-            : line("รวมที่จ่าย", -paid(a), -paid(b), true)}
+            : line("รวมยอดจ่าย", -paid(a), -paid(b), true)}
           {line(
-            `${names[capexCategory] ?? capexCategory} (แยกบรรทัด)`,
+            `${names[capexCategory] ?? capexCategory} (ไม่รวมในยอดข้างบน)`,
             -a.capex,
             -b.capex,
           )}
