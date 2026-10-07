@@ -169,9 +169,11 @@ const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
 /** Spec section 7: everything yellow for an account, as one list for the Overview box, the
  *  Daily Log box and the bell. A branch lists its own branch; the Owner and the Account
- *  Manager both, each line led by the branch name. */
+ *  Manager both, each line led by the branch name. A lot flagged `old` (Old Lots) and the
+ *  notes on it raise none. */
 export function todos(db: Database, by: Actor, today: string): Todo[] {
   const list: Todo[] = [];
+  const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
   const own = by.role === "branch";
   for (const branch of own ? [by.branch ?? ""] : branches) {
     const lead = own ? "" : `${branch}: `;
@@ -218,6 +220,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
   if (!own) {
     // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).
     for (const lot of shipments(db).reverse()) {
+      if (lot.old) continue;
       const info = lotInfo(db, lot.id);
       const lotTodo = (kind: NoteKind) =>
         list.push({
@@ -238,6 +241,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
     }
     // A PO เนื้อ: its waste to receive, and its invoice once meat was sent from it.
     for (const lot of purchaseLots(db).reverse()) {
+      if (lot.old) continue;
       const po = poInfo(db, lot.id);
       if (po.wastePending)
         list.push({
@@ -266,7 +270,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
   }
   for (const e of visibleNotes(db, by)) {
     const missing = missingKeys(e.values).length;
-    if (missing)
+    if (missing && !old.has(e.lotId))
       list.push({
         text: `${titles[e.kind]} ${shortDate(e.date)}: ยังไม่ได้จด ${missing} ช่อง`,
         // A note this account may not edit (a branch's, for the Owner) is a status line.

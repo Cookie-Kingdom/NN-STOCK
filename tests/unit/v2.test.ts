@@ -2062,4 +2062,28 @@ describe("Old Lots", () => {
       values: { note: "จากไฟล์เดิม" },
     });
   });
+
+  it("an old PO raises no to-do", () => {
+    // A PO เนื้อ with no weight and no price, a PO รมควัน with no round.
+    let d = mutate(seed, owner, "purchase", { supplier: "Foodiva" }, "", day);
+    d = mutate(d, owner, "smokeOrder", { rawKg: "60" }, "", day);
+    const about = (from: Database) =>
+      todos(from, owner, day)
+        .filter((todo) => todo.lotId || todo.editId)
+        .map((todo) => todo.text);
+    expect(about(d)).toEqual(
+      expect.arrayContaining([
+        `${shipments(d)[0].poId}: ยังไม่ได้จด ส่งไปรมควัน`,
+        expect.stringMatching(/^PO เนื้อ .*: ยังไม่ได้จด 2 ช่อง$/),
+      ]),
+    );
+    const flagged: Database = {
+      ...d,
+      lots: d.lots.map((lot) => ({ ...lot, old: true })),
+    };
+    expect(about(flagged)).toEqual([]);
+    expect(todos(flagged, owner, day)).toHaveLength(
+      todos(d, owner, day).length - about(d).length,
+    );
+  });
 });
