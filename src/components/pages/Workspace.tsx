@@ -6,7 +6,7 @@ import {
   BranchStock,
 } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
-import { LotsPage } from "@/components/organisms/owner/LotsPage";
+import { LotsPage, OldLotsPage } from "@/components/organisms/owner/LotsPage";
 import {
   OverviewPage,
   ProjectOverviewPage,
@@ -33,6 +33,7 @@ export function Workspace({ account }: { account: Account }) {
     meatStock: branch ? BranchMeatStock : OwnerMeatStock,
     stock: branch ? BranchStock : OwnerStock,
     finance: FinancePage,
+    oldLots: OldLotsPage,
     accounting: AccountingPage,
     settings: SettingsPage,
   }[ws.tab];

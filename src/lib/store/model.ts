@@ -219,6 +219,8 @@ export type Lot = {
   config: Values;
   /** "shipment" = one PO รมควัน; absent = a PO เนื้อ. */
   kind?: "shipment";
+  /** Carried over from the shop's old workbook: listed on Old Lots, not Lots. */
+  old?: true;
 };
 export type Database = {
   version: 9;
