@@ -133,3 +133,14 @@ export const invoiceOverrideDb: Database = (() => {
   );
   return db;
 })();
+
+/** The sample with its first PO รมควัน and first PO เนื้อ carried over from the old workbook. */
+export const oldLotsDb: Database = (() => {
+  const old = [shipments(sampleDb)[0].id, purchaseLots(sampleDb)[0].id];
+  return {
+    ...sampleDb,
+    lots: sampleDb.lots.map((lot) =>
+      old.includes(lot.id) ? { ...lot, old: true as const } : lot,
+    ),
+  };
+})();

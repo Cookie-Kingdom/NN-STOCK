@@ -49,7 +49,7 @@ export function useWorkspace(account: Account) {
   const [draft, setDraft] = useState<(Draft & { seq: number }) | null>(null);
   const [toast, show] = useState<ToastState>({ id: 0, message: "" });
   const [deleting, setDeleting] = useState<Entry | null>(null);
-  // The PO the Lots page opens on when another page links to it (`showLot`).
+  // The PO the Lots (or Old Lots) page opens on when another page links to it (`showLot`).
   const [focusLot, setFocusLot] = useState("");
   const say = (next: Omit<ToastState, "id">) =>
     show((last) => ({ ...next, id: last.id + 1 }));
@@ -82,9 +82,11 @@ export function useWorkspace(account: Account) {
     tab,
     setTab,
     focusLot,
-    /** Goes to the Lots page with the PO (or Lot) `lotId` picked. */
+    /** Goes to the Lots page (Old Lots, for an old one) with the PO (or Lot) `lotId` picked. */
     showLot: (lotId: string) => {
-      setTab("lots");
+      setTab(
+        db.lots.some((lot) => lot.id === lotId && lot.old) ? "oldLots" : "lots",
+      );
       setFocusLot(lotId);
     },
     toast,

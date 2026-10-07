@@ -72,20 +72,29 @@ type Props = { ws: Workspace; can: (kind: NoteKind) => boolean };
 /** Every PO รมควัน and PO เนื้อ in a list at the left (a row under 1000px), the one picked at
  *  the right. Every form of the page is a button where it belongs: the two POs at the top, a
  *  round and the Chef House invoice on a PO รมควัน, each round's three steps in its card, the
- *  waste and the Foodiva invoice on a PO เนื้อ. */
-export function LotsPage({ ws }: { ws: Workspace }) {
+ *  waste and the Foodiva invoice on a PO เนื้อ. `old`: the Old Lots page, the POs flagged
+ *  `old` (carried over from the old workbook) and no button that opens a new one. Without
+ *  it: every other PO. */
+export function LotsPage({
+  ws,
+  old = false,
+}: {
+  ws: Workspace;
+  old?: boolean;
+}) {
   const { db, account } = ws;
   const [picked, setPicked] = useState(ws.focusLot);
   const kinds = kindsForPage(account, "lots");
   const can = (kind: NoteKind) => kinds.includes(kind);
   // Newest first.
-  const lots = shipments(db).toReversed();
-  const pos = purchaseLots(db).toReversed();
+  const mine = (lot: Lot) => !lot.old === !old;
+  const lots = shipments(db).filter(mine).toReversed();
+  const pos = purchaseLots(db).filter(mine).toReversed();
   // Nothing picked, or the one picked was deleted: the newest PO รมควัน.
   const lot =
     [...lots, ...pos].find((item) => item.id === picked) ?? lots[0] ?? pos[0];
 
-  const actions = (can("purchase") || can("smokeOrder")) && (
+  const actions = !old && (can("purchase") || can("smokeOrder")) && (
     <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
       {can("purchase") && (
         <Button variant="primary" onClick={() => ws.jot({ kind: "purchase" })}>
@@ -106,7 +115,13 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     return (
       <div className="flex flex-col gap-4">
         {actions}
-        <EmptyState text="ยังไม่มี PO รมควันและ PO เนื้อ สร้างได้จากปุ่มด้านบน" />
+        <EmptyState
+          text={
+            old
+              ? "ยังไม่มี PO จากไฟล์เดิม"
+              : "ยังไม่มี PO รมควันและ PO เนื้อ สร้างได้จากปุ่มด้านบน"
+          }
+        />
       </div>
     );
 
@@ -221,6 +236,11 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     </div>
   );
 }
+
+/** Old Lots: the POs carried over from the old workbook, to fill in what is missing. */
+export const OldLotsPage = ({ ws }: { ws: Workspace }) => (
+  <LotsPage ws={ws} old />
+);
 
 const title = "flex flex-wrap items-center gap-x-3 gap-y-2";
 const facts =

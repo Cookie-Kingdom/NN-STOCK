@@ -1,4 +1,5 @@
 import {
+  Archive,
   Beef,
   BookText,
   ChartColumn,
@@ -21,11 +22,12 @@ export type Tab =
   | "meatStock"
   | "stock"
   | "finance"
+  | "oldLots"
   | "accounting"
   | "settings";
 
-/** The sidebar section that holds the project's Overview, Daily Log, Lots, Stock, Inventory
- *  and Finance. */
+/** The sidebar section that holds the project's Overview, Daily Log, Lots, Stock, Inventory,
+ *  Finance and Old Lots. */
 export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
@@ -81,6 +83,13 @@ export const pages: Record<
     icon: Wallet,
     group: shopGroup,
   },
+  // Lots, for the POs flagged `old` (model.ts).
+  oldLots: {
+    label: "Old Lots",
+    description: "PO จากไฟล์เดิมที่จดไม่ครบ",
+    icon: Archive,
+    group: shopGroup,
+  },
   // Shop-wide, outside the section: every purchase, of the project or not.
   accounting: {
     label: "Accounting",
@@ -104,13 +113,21 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner all nine, the Account Manager six
+/** The pages an account has, in menu order: the Owner all ten, the Account Manager seven
  *  (no Overview of the shop or of the project, no Settings), a branch three. */
 export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
   account.role === "branch"
     ? ["log", "meatStock", "stock"]
     : account.hidesSales
-      ? ["log", "lots", "meatStock", "stock", "finance", "accounting"]
+      ? [
+          "log",
+          "lots",
+          "meatStock",
+          "stock",
+          "finance",
+          "oldLots",
+          "accounting",
+        ]
       : [
           "overview",
           "projectOverview",
@@ -119,6 +136,7 @@ export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
           "meatStock",
           "stock",
           "finance",
+          "oldLots",
           "accounting",
           "settings",
         ];

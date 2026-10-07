@@ -44,6 +44,7 @@ import {
   type Values,
 } from "@/lib/store";
 import { defaults, fields } from "@/lib/forms";
+import { navFor } from "@/lib/nav";
 import { stripForManager } from "@/lib/manager-scope";
 import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
@@ -2027,5 +2028,38 @@ describe("central warehouse: stock per place", () => {
     // Its receipt is checked on its copy.
     const got = receive(copy, minburi, pendingTransfers(copy, "มีนบุรี")[0].id);
     expect(line(got, fridge).at["มีนบุรี"]).toBe(3);
+  });
+});
+
+describe("Old Lots", () => {
+  it("is in the menu right after Finance, for the Owner and the Account Manager only", () => {
+    for (const by of [owner, manager]) {
+      const nav = navFor(by);
+      expect(nav[nav.indexOf("finance") + 1]).toBe("oldLots");
+    }
+    expect(navFor(saladaeng)).not.toContain("oldLots");
+  });
+
+  it("a note on an old PO leaves it old", () => {
+    const po = purchaseLots(db)[0];
+    const flagged: Database = {
+      ...db,
+      lots: db.lots.map((lot) =>
+        lot.id === po.id ? { ...lot, old: true } : lot,
+      ),
+    };
+    const target = entries(flagged, "purchase", po.id).at(-1)!;
+    const next = mutate(
+      flagged,
+      owner,
+      "entryEdit",
+      { targetId: target.id, values: JSON.stringify({ note: "จากไฟล์เดิม" }) },
+      "",
+      day,
+    );
+    expect(next.lots.find((lot) => lot.id === po.id)).toMatchObject({
+      old: true,
+      values: { note: "จากไฟล์เดิม" },
+    });
   });
 });

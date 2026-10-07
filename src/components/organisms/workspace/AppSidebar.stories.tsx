@@ -41,13 +41,13 @@ const openMenu: Story["play"] = async ({ canvas, userEvent }) => {
   await userEvent.click(canvas.getByRole("button", { name: "เมนู" }));
 };
 
-/** จอ 390px, Owner (เก้าหน้า): แถบบน (ชื่อบัญชี กระดิ่ง ธีม ออกจากระบบ) และแถบติดขอบล่างที่มีสี่แท็บ (Overview, Daily Log, Lots, Finance) กับปุ่ม "เมนู" · ไม่เลื่อนซ้ายขวา */
+/** จอ 390px, Owner (สิบหน้า): แถบบน (ชื่อบัญชี กระดิ่ง ธีม ออกจากระบบ) และแถบติดขอบล่างที่มีสี่แท็บ (Overview, Daily Log, Lots, Finance) กับปุ่ม "เมนู" · ไม่เลื่อนซ้ายขวา */
 export const Phone: Story = { ...phone };
 
 /** กด "เมนู": แผ่นขึ้นจากเหนือแถบล่าง มีทุกหน้าเรียงเหมือนแถบเมนูของจอกว้าง · หน้าใต้หัวข้อ "Nerdnuea x LINE MAN" เรียงสองคอลัมน์หลังเส้นนำทาง (Overview สองหน้าจึงแยกกันออก) · ปิดด้วย Escape กดพื้นหลัง หรือกด "เมนู" อีกครั้ง */
 export const PhoneMenu: Story = { ...phone, play: openMenu };
 
-/** จอ 390px, Account Manager (หกหน้า): สี่แท็บ (Daily Log, Lots, Finance, Accounting) กับปุ่ม "เมนู" */
+/** จอ 390px, Account Manager (เจ็ดหน้า): สี่แท็บ (Daily Log, Lots, Finance, Accounting) กับปุ่ม "เมนู" */
 export const PhoneManager: Story = {
   ...phone,
   args: { account: "manager" },
