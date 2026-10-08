@@ -50,6 +50,7 @@ export function NoteRow({
 }) {
   const [open, setOpen] = useState(false);
   const { db, account } = ws;
+  const { remove } = useEntryActions(ws);
   const tags = noteTags(db, e, account);
   const amount = noteAmount(db, e);
   const sub = noteSub(db, e, account);
@@ -107,56 +108,34 @@ export function NoteRow({
         </span>
       </button>
       {open && (
-        <NoteDetail
-          entry={e}
-          ws={ws}
-          className="px-5 pt-1 pb-5 max-md:px-4 md:pl-19"
-        />
+        <div className="flex animate-fade-in flex-col gap-3 px-5 pt-1 pb-5 max-md:px-4 md:pl-19">
+          <NoteValues entry={e} ws={ws} />
+          <p className="text-caption text-text-secondary">
+            จดโดย {entryWho(e)} · {jottedAt(e.at)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {!editBlock(db, e, account) && (
+              <Button
+                size="sm"
+                className="max-md:min-h-11"
+                onClick={() => ws.edit(e.id)}
+              >
+                แก้ไข
+              </Button>
+            )}
+            {!voidBlock(db, e, account) && (
+              <Button
+                size="sm"
+                variant="danger"
+                className="max-md:min-h-11"
+                onClick={() => remove(e)}
+              >
+                ลบ
+              </Button>
+            )}
+          </div>
+        </div>
       )}
-    </div>
-  );
-}
-
-/** What an opened note shows: every value, who jotted it and when, and 「แก้ไข」 and 「ลบ」
- *  for an account that may change it. */
-export function NoteDetail({
-  entry: e,
-  ws,
-  className,
-}: {
-  entry: Entry;
-  ws: Workspace;
-  className?: string;
-}) {
-  const { db, account } = ws;
-  const { remove } = useEntryActions(ws);
-  return (
-    <div className={cn("flex animate-fade-in flex-col gap-3", className)}>
-      <NoteValues entry={e} ws={ws} />
-      <p className="text-caption text-text-secondary">
-        จดโดย {entryWho(e)} · {jottedAt(e.at)}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {!editBlock(db, e, account) && (
-          <Button
-            size="sm"
-            className="max-md:min-h-11"
-            onClick={() => ws.edit(e.id)}
-          >
-            แก้ไข
-          </Button>
-        )}
-        {!voidBlock(db, e, account) && (
-          <Button
-            size="sm"
-            variant="danger"
-            className="max-md:min-h-11"
-            onClick={() => remove(e)}
-          >
-            ลบ
-          </Button>
-        )}
-      </div>
     </div>
   );
 }
