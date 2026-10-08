@@ -65,7 +65,8 @@ export function FigureCard({
   );
 }
 export const FigureTable = (props: ComponentProps<"table">) => (
-  <div className="overflow-x-auto">
+  // relative: an sr-only column head scrolls with the table, not the page.
+  <div className="relative overflow-x-auto">
     <table className="w-full border-collapse" {...props} />
   </div>
 );

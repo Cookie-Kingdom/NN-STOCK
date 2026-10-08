@@ -562,11 +562,13 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     .getByRole("cell");
   await expect(foodiva.nth(2)).toHaveText("฿70,000");
   const deposit = rows(page, "pay").filter({ hasText: "มัดจำค่าเนื้อ" });
-  await press(deposit, "แก้ไข");
+  // A table row: its two buttons are at its end, with nothing to open first.
+  await deposit.getByRole("button", { name: "แก้ไข", exact: true }).click();
   await fill(page, [/^ยอด \(บาท\)/, "60000"]);
   await save(page);
   await expect(foodiva.nth(2)).toHaveText("฿60,000");
-  await press(deposit, "ลบ");
+  await deposit.getByRole("button", { name: "ลบ", exact: true }).click();
+  await confirmDelete(page);
   await expect(deposit).toHaveCount(0);
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
