@@ -47,11 +47,9 @@ export function WorkspaceShell({
                   <Button
                     key={kind}
                     icon={<Plus />}
-                    // A branch's Stock is where it jots its day: its buttons stand out.
+                    // A branch jots its day from its Stock and Inventory: its buttons stand out.
                     variant={
-                      ws.tab === "meatStock" && ws.account.role === "branch"
-                        ? "primary"
-                        : undefined
+                      ws.account.role === "branch" ? "primary" : undefined
                     }
                     // Not while the seed stands in for the server payload: a form would read it.
                     disabled={!ws.loaded}
