@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, userEvent, within } from "storybook/test";
 import {
   WithWorkspace,
   dbFor,
@@ -27,7 +28,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Owner: การ์ดสองใบ 「งบที่กันไว้จาก PO」 (ยอดของ PO ที่ยังรอจ่าย) และ 「ยอดจ่ายจริงเดือนนี้」
- *  (เทียบเดือนก่อน) คิดจากตารางเสมอ · ค้นหา กรอง Project สถานะ ที่มา และปุ่ม 「PO รอจ่าย (n)」
+ *  (เทียบเดือนก่อน) คิดจากตารางเสมอ · ค้นหา · แถวตัวกรองใต้หัวตาราง คอลัมน์ละช่อง (เลือกจากค่าที่มี
+ *  พิมพ์คำ หรือพิมพ์ยอดขั้นต่ำ) และปุ่ม 「PO รอจ่าย (n)」
  *  ที่ตั้ง ที่มา = PO กับ สถานะ = รอจ่าย ในคลิกเดียว (กดซ้ำเพื่อล้าง) ·
  *  PO เนื้อ และ PO รมควัน ขึ้นเองเป็น 「PO เนื้อ」 กับ 「PO รมควัน」 (ยอดจ่ายจริงจากจ่ายเงินให้ผู้ขาย
  *  ตัดใบเก่าก่อน: PO รมควันแรกจ่ายแล้ว PO เนื้อแรกจ่ายไปครึ่งหนึ่งจึงรอจ่าย) ·
@@ -40,6 +42,19 @@ type Story = StoryObj<typeof meta>;
  *  กดเลข PO เพื่อไปหน้า Lots ที่ PO นั้น · แถวล่างคือยอดรวม ไม่รวมที่ยกเลิก
  *  ใต้ตารางบอก 「แสดง n จาก m รายการ」 */
 export const Owner: Story = {};
+
+/** กด 「PO รอจ่าย」 แล้วพิมพ์ยอดขั้นต่ำใต้ 「ยอดตาม PO」: ตัวกรองทั้งสามใช้ร่วมกัน ยอดรวมและ
+ *  「n จาก m รายการ」 ตามแถวที่เหลือ · มีปุ่ม 「ล้างตัวกรอง」 ข้างช่องค้นหา */
+export const Filtered: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: /^PO รอจ่าย/ }));
+    await userEvent.type(canvas.getByLabelText(/^กรอง ยอดตาม PO/), "1");
+    await expect(
+      canvas.getByRole("button", { name: "ล้างตัวกรอง" }),
+    ).toBeVisible();
+  },
+};
 
 /** Account Manager: ตารางเดียวกัน แก้ไขและลบแถวที่จดเองได้ · ไม่มีแถวค่าแรงจาก Finance */
 export const Manager: Story = {
