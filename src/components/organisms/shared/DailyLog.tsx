@@ -92,8 +92,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
   const meat = own ? branchMeat(db, account.branch ?? "", today) : null;
 
   return (
-    // A wide screen: the change log is a third column, so a day's rows stay a readable length.
-    <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4 min-[1700px]:grid-cols-[minmax(0,1fr)_320px_380px]">
+    <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4">
       <div className="flex min-w-0 flex-col gap-4">
         <SegmentedChoice
           label="กรองบันทึก"
@@ -149,7 +148,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
           </Panel>
         )}
       </aside>
-      <div className="col-span-full min-w-0 min-[1700px]:col-auto">
+      <div className="col-span-full flex min-w-0 flex-col">
         <ChangeLog ws={ws} />
       </div>
     </div>

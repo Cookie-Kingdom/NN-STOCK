@@ -44,13 +44,13 @@ export const Branch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** มีการแก้ไขและลบ: ประวัติด้านล่างบอกค่าก่อนและหลัง กด「ย้อนกลับ」ได้ */
+/** มีการแก้ไขและลบ: ปุ่ม「ประวัติการแก้ไขและลบ」ท้ายหน้าเปิดประวัติ บอกค่าก่อนและหลัง กด「ย้อนกลับ」ได้ */
 export const WithChanges: Story = { parameters: { db: changedDb } };
 
 /** จอ 390px: คอลัมน์เดียว กล่องยังไม่ได้จดอยู่ใต้รายการ */
 export const Phone: Story = { ...phone };
 
-/** จอ 1920px: ประวัติการแก้ไขเป็นคอลัมน์ที่สาม */
+/** จอ 1920px: สองคอลัมน์เหมือนจอปกติ */
 export const Wide: Story = {
   ...wide,
   parameters: { ...wide.parameters, db: changedDb },

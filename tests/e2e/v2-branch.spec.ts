@@ -495,6 +495,10 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await start(page, "sample");
   await signInAs(page, "saladaeng");
   const changes = region(page, "ประวัติการแก้ไขและลบ");
+  // Closed until asked for, and closed again each time the page is opened.
+  const openChanges = () =>
+    page.getByRole("button", { name: /^ประวัติการแก้ไขและลบ \(/ }).click();
+  await openChanges();
   await expect(changes).toContainText("ยังไม่มีการแก้ไขหรือลบ");
 
   // The sale of three days ago has no money typed: edit it, then take the edit back.
@@ -572,6 +576,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(deposit).toHaveCount(0);
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
+  await openChanges();
   // By its text, not its place: the restore becomes the newest row of the log.
   const removal = changes
     .locator("[data-entry]")
