@@ -1,6 +1,6 @@
 # NN-STOCK (meat-shop)
 
-Meat supply-chain and stock app (Thai UI) for the Owner, the Account Manager and the branches. Next.js 16, Supabase, pnpm.
+Meat supply-chain and stock app (Thai UI) for the Owner and the branches. Next.js 16, Supabase, pnpm.
 
 ```bash
 pnpm install

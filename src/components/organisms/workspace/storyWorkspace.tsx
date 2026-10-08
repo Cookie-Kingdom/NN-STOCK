@@ -3,7 +3,6 @@
 import { useEffect, type ReactNode } from "react";
 import { accountById, type AccountId } from "@/lib/accounts";
 import { today } from "@/lib/format";
-import { stripForManager } from "@/lib/manager-scope";
 import { scopeDatabase } from "@/lib/role-scope";
 import { liveEntries, mutate, type Database } from "@/lib/store";
 import { sampleData } from "@/lib/store/demo";
@@ -12,15 +11,13 @@ import { useWorkspace, type Draft, type Workspace } from "./useWorkspace";
 /** The approved sample, ending today: the Daily Log lists the last days before today. */
 export const sampleDb = sampleData(today());
 
-/** `db` as the server hands it to an account: whole for the Owner, without sale money and
- *  payroll for the Account Manager, only its own entries for a branch. */
+/** `db` as the server hands it to an account: whole for the Owner, only its own entries for
+ *  a branch. */
 export function dbFor(id: AccountId, db: Database = sampleDb): Database {
   const account = accountById(id)!;
   return account.role === "branch"
     ? scopeDatabase(db, [account.branch ?? ""])
-    : account.hidesSales
-      ? stripForManager(db)
-      : db;
+    : db;
 }
 
 const owner = accountById("owner")!;

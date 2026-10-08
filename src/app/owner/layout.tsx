@@ -7,7 +7,7 @@ import { AccountGate } from "@/components/AccountGate";
  * switching between /owner/[...path] routes. */
 export default function OwnerLayout({ children }: LayoutProps<"/owner">) {
   return (
-    <AccountGate allow={["owner", "manager"]}>
+    <AccountGate allow={["owner"]}>
       {(account) => (
         <>
           <Workspace account={account} />

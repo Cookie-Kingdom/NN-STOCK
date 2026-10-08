@@ -4,7 +4,6 @@ import {
   databaseLoaded,
   latestDatabase,
   saveDatabase,
-  setSaveActor,
   setSaveAppendOnly,
 } from "@/lib/persistence";
 import {
@@ -23,8 +22,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/browser", () => ({
   createClient: () => ({
-    /* Reads go through load_app_state / app_state_revision (the server strips sale money for
-     * the Account Manager); `maybeSingle` stands for the one app_state row they read. */
+    /* Reads go through load_app_state / app_state_revision (the server scopes a branch's
+     * copy); `maybeSingle` stands for the one app_state row they read. */
     rpc: async (name: string, args?: unknown) => {
       if (name === "load_app_state") {
         const result = await mocks.maybeSingle();
@@ -233,35 +232,6 @@ test("a non-owner save sends only its new entries and changed lots to append_ent
     "save_app_state",
     expect.objectContaining({ p_expected_revision: 8 }),
   );
-});
-
-test("the Account Manager's new entries are stamped with its actor, older ones are not", async () => {
-  const old = { ...entry({ boxes: "2" }), role: "owner" as const };
-  await signInWithRow({
-    revision: 4,
-    payload: { version: 9, lots: [], entries: [old], config: seed.config },
-  });
-  mocks.rpc.mockResolvedValue({ data: [{ revision: 5 }], error: null });
-  const added = { ...entry({ boxes: "1" }), role: "owner" as const };
-  setSaveActor("manager");
-  try {
-    await saveDatabase({
-      ...latestDatabase(),
-      entries: [...latestDatabase().entries, added],
-    });
-  } finally {
-    setSaveActor(undefined);
-  }
-  expect(latestDatabase().entries.map((e) => e.actor)).toEqual([
-    undefined,
-    "manager",
-  ]);
-  expect(mocks.rpc).toHaveBeenLastCalledWith("save_app_state", {
-    p_payload: expect.objectContaining({
-      entries: [old, { ...added, actor: "manager" }],
-    }),
-    p_expected_revision: 4,
-  });
 });
 
 test("a failed save reloads from the server and reports the error", async () => {

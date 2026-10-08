@@ -116,7 +116,7 @@ export async function saveAttachment(
 }
 
 /** The company logo goes to `branding/<uuid>/<file name>` (migration
- * 20261002000003_attachments_storage.sql: owner and manager write, every active
+ * 20261002000003_attachments_storage.sql: the Owner writes, every active
  * account reads) and config keeps only the key. As a data URL it was copied into
  * the payload with every config save and every new PO. Raster images only. */
 export const logoAccept = "image/png,image/jpeg,image/webp";

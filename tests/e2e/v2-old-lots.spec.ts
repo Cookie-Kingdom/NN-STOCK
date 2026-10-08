@@ -118,10 +118,7 @@ test("a flagged PO is on Old Lots only, raises no to-do, and is filled in there"
   await openPage(page, "Lots");
   await expect(listed(page, PO1)).toHaveCount(0);
 
-  // The Account Manager has the page; a branch does not.
-  await signInAs(page, "manager");
-  await openPage(page, "Old Lots");
-  await expect(page.locator("[data-lot]")).toHaveCount(2);
+  // A branch does not have the page.
   await signInAs(page, "saladaeng");
   await expect(nav(page).getByRole("button", { name: "Old Lots" })).toHaveCount(
     0,

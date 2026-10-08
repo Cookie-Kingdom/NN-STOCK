@@ -11,7 +11,6 @@ import {
 } from "./model";
 import { mutate } from "./mutate";
 const owner: Actor = { role: "owner" };
-const manager: Actor = { role: "owner", hidesSales: true };
 /** 35 days that end on `endDate` (today at most: `mutate` takes no future date). Three POs
  *  รมควัน: one complete (one round, its invoice), one with a first round received at Chef
  *  House only, one bought with nothing sent yet. PO เนื้อ 1 has its invoice and its waste
@@ -43,14 +42,13 @@ export function sampleData(endDate: string): Database {
       lotId,
       date,
     );
-    // When the sample says it was jotted, and by whom (persistence stamps the Account Manager).
+    // When the sample says it was jotted.
     const entry = db.entries.at(-1)!;
     entry.at = new Date(`${date}T${time}:00+07:00`).toISOString();
-    if (by === manager) entry.actor = "manager";
     return entry.lotId;
   };
   const [saladaeng, minburi] = branches;
-  const po1 = add(manager, "purchase", 24, "10:05", {
+  const po1 = add(owner, "purchase", 24, "10:05", {
     supplier: "Foodiva",
     orderedKg: 200,
     wasteKg: 20,
@@ -58,9 +56,9 @@ export function sampleData(endDate: string): Database {
   });
   const lines = (...rows: [string, number][]) =>
     JSON.stringify(rows.map(([poLotId, kg]) => ({ poLotId, kg: String(kg) })));
-  const lot1 = add(manager, "smokeOrder", 23, "09:30", { rawKg: 200 });
+  const lot1 = add(owner, "smokeOrder", 23, "09:30", { rawKg: 200 });
   add(
-    manager,
+    owner,
     "dispatch",
     22,
     "08:10",
@@ -68,7 +66,7 @@ export function sampleData(endDate: string): Database {
     lot1,
   );
   add(
-    manager,
+    owner,
     "meatInvoice",
     21,
     "10:00",
@@ -76,20 +74,20 @@ export function sampleData(endDate: string): Database {
     po1,
   );
   add(owner, "ownerWasteReceive", 21, "15:00", { receiver: "Owner" }, po1);
-  add(manager, "pay", 22, "08:40", {
+  add(owner, "pay", 22, "08:40", {
     category: "transport",
     amount: 3500,
     detail: "รถห้องเย็นไปเชียงใหม่",
     payer: company,
   });
-  add(manager, "pay", 20, "14:00", {
+  add(owner, "pay", 20, "14:00", {
     category: "meat",
     amount: 70000,
     detail: "มัดจำค่าเนื้อ",
     supplier: "Foodiva",
     payer: company,
   });
-  add(manager, "pay", 18, "11:20", {
+  add(owner, "pay", 18, "11:20", {
     category: "packaging",
     amount: 103750,
     detail: "มัดจำกล่องล็อตใหม่",
@@ -100,24 +98,17 @@ export function sampleData(endDate: string): Database {
     payer: company,
     fullAmount: 149400,
   });
-  add(manager, "cmReceive", 21, "13:15", { receivedKg: 199.2 }, lot1);
+  add(owner, "cmReceive", 21, "13:15", { receivedKg: 199.2 }, lot1);
   add(owner, "pay", 16, "15:30", {
     category: "capex",
     amount: 12900,
     detail: "เตาอุ่นอาหาร 1 เครื่อง",
     payer: company,
   });
-  add(manager, "smoked", 16, "18:00", { smokedKg: 104, boxes: 18 }, lot1);
+  add(owner, "smoked", 16, "18:00", { smokedKg: 104, boxes: 18 }, lot1);
+  add(owner, "return", 15, "16:45", { returnKg: 104, plate: "3ขค 1180" }, lot1);
   add(
-    manager,
-    "return",
-    15,
-    "16:45",
-    { returnKg: 104, plate: "3ขค 1180" },
-    lot1,
-  );
-  add(
-    manager,
+    owner,
     "smokingInvoice",
     14,
     "10:00",
@@ -133,31 +124,31 @@ export function sampleData(endDate: string): Database {
     payer: company,
     source: "credit",
   });
-  add(manager, "pay", 10, "13:40", {
+  add(owner, "pay", 10, "13:40", {
     category: "smoke",
     amount: 24000,
     detail: "ค่ารม PO รมควันแรก",
     supplier: "Chef House",
     payer: company,
   });
-  add(manager, "purchase", 9, "10:20", {
+  add(owner, "purchase", 9, "10:20", {
     supplier: "Foodiva",
     orderedKg: 150,
     wasteKg: 15,
     price: 700,
   });
   const po2 = db.entries.at(-1)!.lotId;
-  const lot2 = add(manager, "smokeOrder", 8, "09:10", { rawKg: 300 });
+  const lot2 = add(owner, "smokeOrder", 8, "09:10", { rawKg: 300 });
   add(
-    manager,
+    owner,
     "dispatch",
     7,
     "08:00",
     { dispatchKg: 100, poLines: lines([po2, 100]) },
     lot2,
   );
-  add(manager, "cmReceive", 6, "13:00", { receivedKg: 99.5 }, lot2);
-  add(manager, "pay", 6, "10:30", {
+  add(owner, "cmReceive", 6, "13:00", { receivedKg: 99.5 }, lot2);
+  add(owner, "pay", 6, "10:30", {
     category: "ingredient",
     amount: 2400,
     detail: "น้ำพริกหลอด",
@@ -200,14 +191,14 @@ export function sampleData(endDate: string): Database {
       employee,
       payer: company,
     });
-  add(manager, "pay", 30, "09:00", {
+  add(owner, "pay", 30, "09:00", {
     category: "rent",
     amount: 20500,
     detail: "ค่าเช่าครัว",
     payer: company,
   });
   // Out of pocket and paid back; yesterday's is still owed (V2-PAY-07).
-  add(manager, "pay", 8, "10:10", {
+  add(owner, "pay", 8, "10:10", {
     category: "transport",
     amount: 300,
     detail: "ค่าส่งกล่อง",
@@ -225,7 +216,7 @@ export function sampleData(endDate: string): Database {
   });
   // The purchase ledger's hand-jotted rows (Accounting): every status and source, an item
   // bought twice (one SKU), a project's and the office's.
-  add(manager, "expense", 20, "16:00", {
+  add(owner, "expense", 20, "16:00", {
     source: "advance",
     reference: "RC-6701",
     itemType: "อื่นๆ",
@@ -249,7 +240,7 @@ export function sampleData(endDate: string): Database {
     link: "https://example.com/inv-pk-2209",
   });
 
-  add(manager, "expense", 6, "10:30", {
+  add(owner, "expense", 6, "10:30", {
     source: "advance",
     itemType: "สินทรัพย์",
     item: "เครื่องชั่งดิจิทัล",
@@ -258,7 +249,7 @@ export function sampleData(endDate: string): Database {
     qty: 1,
     status: "pending",
   });
-  add(manager, "expense", 4, "15:10", {
+  add(owner, "expense", 4, "15:10", {
     source: "advance",
     itemType: "อื่นๆ",
     item: "กระดาษ a4 ",
@@ -282,7 +273,7 @@ export function sampleData(endDate: string): Database {
    * asset there and one bought straight into ศาลาแดง; then three transfers to ศาลาแดง: one in
    * at once (its count two days ago took it in), one it confirmed, one it has yet to. */
   const project = { purpose: "project", project: "Nerdnuea x LINE MAN" };
-  add(manager, "expense", 12, "14:20", {
+  add(owner, "expense", 12, "14:20", {
     ...project,
     reference: "INV-PK-2231",
     itemType: "วัสดุบรรจุภัณฑ์",
@@ -300,7 +291,7 @@ export function sampleData(endDate: string): Database {
     qty: 2,
     amount: 25800,
   });
-  add(manager, "expense", 10, "15:40", {
+  add(owner, "expense", 10, "15:40", {
     ...project,
     itemType: "สินทรัพย์",
     item: "เครื่องซีลสูญญากาศ",
@@ -309,7 +300,7 @@ export function sampleData(endDate: string): Database {
     amount: 6900,
     warehouse: saladaeng,
   });
-  add(manager, "transfer", 8, "09:20", {
+  add(owner, "transfer", 8, "09:20", {
     item: "ถุงหิ้วกระดาษ",
     to: saladaeng,
     qty: 500,
@@ -323,13 +314,13 @@ export function sampleData(endDate: string): Database {
   add(saladaeng, "transferReceive", 4, "09:15", {
     transferId: db.entries.at(-1)!.id,
   });
-  add(manager, "transfer", 1, "16:30", {
+  add(owner, "transfer", 1, "16:30", {
     item: "ถุงสูญญากาศ",
     to: saladaeng,
     qty: 300,
     receive: "confirm",
   });
-  add(manager, "smokeOrder", 1, "09:00", { rawKg: 50 });
+  add(owner, "smokeOrder", 1, "09:00", { rawKg: 50 });
   add(minburi, "meatCount", 1, "08:00", { kg: 22 });
   add(saladaeng, "meatCount", 0, "08:30", { kg: 17.9 });
   for (let d = 35; d >= 1; d--)

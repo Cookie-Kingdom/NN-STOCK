@@ -52,11 +52,11 @@ const press = async (row: Locator, name: "แก้ไข" | "ลบ") => {
   if (name === "ลบ") await confirmDelete(row.page());
 };
 
-test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stock at once, jotted by the Manager or by the branch", async ({
+test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stock at once, jotted by the Owner or by the branch", async ({
   page,
 }) => {
   await start(page, "seed");
-  await signInAs(page, "manager");
+  await signInAs(page, "owner");
   // Stock: the meat, then the raw sticky rice and the chili; nothing to press.
   await openPage(page, "Stock");
   const meat = region(page, "เนื้อ (กก.)");

@@ -46,7 +46,6 @@ import {
 } from "@/lib/store";
 import { defaults, fields } from "@/lib/forms";
 import { navFor } from "@/lib/nav";
-import { stripForManager } from "@/lib/manager-scope";
 import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
 import { outflows } from "@/lib/store/derived";
@@ -55,7 +54,6 @@ import { outflows } from "@/lib/store/derived";
 const day = "2026-09-09";
 const db = sampleData(day);
 const owner: Actor = { role: "owner" };
-const manager: Actor = { role: "owner", hidesSales: true };
 const saladaeng: Actor = { role: "branch", branch: "ศาลาแดง" };
 const minburi: Actor = { role: "branch", branch: "มีนบุรี" };
 const last = (d: Database) => d.entries.at(-1)!;
@@ -115,11 +113,8 @@ describe("mutate", () => {
     ).toThrow("วันที่อยู่ในอนาคต เลือกวันนี้หรือวันก่อนหน้า");
     const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
     expect(() =>
-      mutate(db, manager, "sale", { branch: "ศาลาแดง", boxes: "1" }, "", day),
+      mutate(db, owner, "sale", { branch: "ศาลาแดง", boxes: "1" }, "", day),
     ).toThrow(forbidden);
-    expect(() => pay(manager, { category: "payroll", amount: "1" })).toThrow(
-      forbidden,
-    );
     expect(() => pay(saladaeng, { category: "meat", amount: "1" })).toThrow(
       forbidden,
     );
@@ -145,7 +140,7 @@ describe("mutate", () => {
     const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
     const jot = (by: Actor, kind: NoteKind, values: Record<string, string>) =>
       last(mutate(db, by, kind, values, "", day));
-    // V2-ACC-02: payroll is the Owner's alone.
+    // V2-ACC-02: the Owner pays payroll.
     expect(
       jot(owner, "pay", { category: "payroll", amount: "1", employee: "x" })
         .values,
@@ -158,18 +153,14 @@ describe("mutate", () => {
       ["influencerBox", { influencer: "x", boxes: "1" }],
       ["materials", { "count.m1": "1" }],
     ] as const) {
-      for (const by of [owner, manager])
-        expect(() => jot(by, kind, { ...values, branch: "มีนบุรี" })).toThrow(
-          forbidden,
-        );
+      expect(() => jot(owner, kind, { ...values, branch: "มีนบุรี" })).toThrow(
+        forbidden,
+      );
       expect(jot(minburi, kind, values)).toMatchObject({
         role: "branch",
         branch: "มีนบุรี",
       });
     }
-    expect(() =>
-      mutate(db, manager, "config", { boxPrice: "1" }, "", day),
-    ).toThrow(forbidden);
     // V2-ACC-07, 08: a branch pays in four categories, into its own branch; nothing of the centre.
     for (const category of ["ingredient", "packaging", "transport", "other"])
       expect(
@@ -189,26 +180,19 @@ describe("mutate", () => {
     expect(() =>
       mutate(db, saladaeng, "config", { boxPrice: "1" }, "", day),
     ).toThrow(forbidden);
-    // Changes: the Account Manager none about payroll, a branch none of the centre's.
+    // Changes: a branch none of the centre's.
     const pays = entries(db, "pay");
     const payroll = pays.find((e) => e.values.category === "payroll")!;
     const transport = pays.find((e) => e.values.category === "transport")!;
     const edit = (by: Actor, targetId: string, values = '{"amount":"9"}') =>
       mutate(db, by, "entryEdit", { targetId, values }, "", day);
-    expect(() => edit(manager, payroll.id)).toThrow(
-      "แก้ไขได้เฉพาะรายการของบัญชีนี้",
-    );
     expect(() => edit(saladaeng, transport.id)).toThrow(
       "แก้ไขได้เฉพาะรายการของบัญชีนี้",
     );
     expect(() =>
       mutate(db, saladaeng, "void", { targetId: transport.id }, "", day),
     ).toThrow("ลบได้เฉพาะรายการของบัญชีนี้");
-    // Checked as the account that jotted it: the Manager's form has no payroll, the Owner's
-    // has, and still no payment moves into or out of it.
-    expect(() => edit(owner, transport.id, '{"category":"payroll"}')).toThrow(
-      forbidden,
-    );
+    // No payment moves into or out of payroll.
     const capex = pays.find((e) => e.values.category === "capex")!;
     expect(() => edit(owner, capex.id, '{"category":"payroll"}')).toThrow(
       "แก้หมวดค่าแรงไม่ได้ ให้ลบแล้วจดใหม่",
@@ -246,7 +230,7 @@ describe("mutate", () => {
 
   it("a payment with a quantity goes into the branch's stock", () => {
     const before = branchMaterial(db, "มีนบุรี", "m1", day).qty;
-    const paid = pay(manager, {
+    const paid = pay(owner, {
       category: "packaging",
       amount: "100",
       item: "m1",
@@ -316,35 +300,30 @@ describe("mutate", () => {
       day,
     );
     expect(branchMeat(back, "ศาลาแดง", day).kg).toBe(before);
-    // Another branch's entry, and the Account Manager on a sale.
+    // Another branch's entry.
     expect(() =>
       mutate(db, minburi, "void", { targetId: count.id }, "", day),
     ).toThrow();
-    expect(() =>
-      mutate(db, manager, "void", { targetId: sale.id }, "", day),
-    ).toThrow();
-    // A branch's note is the branch's to change: the Owner and the Account Manager neither
-    // edit nor delete it, nor undo a change of it.
+    // A branch's note is the branch's to change: the Owner neither edits nor deletes it, nor
+    // undoes a change of it.
     const branchOnly = "บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้";
-    for (const by of [owner, manager]) {
-      expect(() =>
-        mutate(
-          db,
-          by,
-          "entryEdit",
-          { targetId: count.id, values: '{"kg":"1"}' },
-          "",
-          day,
-        ),
-      ).toThrow(branchOnly);
-      expect(() =>
-        mutate(db, by, "void", { targetId: count.id }, "", day),
-      ).toThrow(branchOnly);
-      // The branch's delete of the count: not theirs to undo.
-      expect(() =>
-        mutate(deleted, by, "void", { targetId: last(deleted).id }, "", day),
-      ).toThrow(branchOnly);
-    }
+    expect(() =>
+      mutate(
+        db,
+        owner,
+        "entryEdit",
+        { targetId: count.id, values: '{"kg":"1"}' },
+        "",
+        day,
+      ),
+    ).toThrow(branchOnly);
+    expect(() =>
+      mutate(db, owner, "void", { targetId: count.id }, "", day),
+    ).toThrow(branchOnly);
+    // The branch's delete of the count: not the Owner's to undo.
+    expect(() =>
+      mutate(deleted, owner, "void", { targetId: last(deleted).id }, "", day),
+    ).toThrow(branchOnly);
     expect(() =>
       mutate(edited, owner, "void", { targetId: last(edited).id }, "", day),
     ).toThrow(branchOnly);
@@ -431,14 +410,6 @@ it("todos: what each account still has to jot", () => {
   );
   // V2-PAY-04: the sample's rent is dated the month before.
   expect(texts(owner)).toContain("ค่าเช่า/น้ำไฟ ของกันยายน 2569");
-  expect(texts(manager).join()).not.toContain("ยอดขาย");
-  expect(texts(manager)).toEqual(
-    expect.arrayContaining([
-      "มีนบุรี: นับเนื้อวันนี้",
-      "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด ส่งกลับ",
-      "ค่าเช่า/น้ำไฟ ของกันยายน 2569",
-    ]),
-  );
   const branch = texts(saladaeng);
   expect(branch).toContain("ยอดขาย วันนี้");
   expect(branch.join()).not.toMatch(/SO-|PO-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
@@ -463,7 +434,7 @@ it("todos: what each account still has to jot", () => {
     "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
     "ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
   ]);
-  expect(late(seed, manager)).toEqual([
+  expect(late(seed, owner)).toEqual([
     "ศาลาแดง: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
     "ศาลาแดง: ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน",
     "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
@@ -525,27 +496,22 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   ]);
   // The receipt of a transfer is on no page's buttons.
   expect(kindsForPage(saladaeng, "stock")).toEqual(["pay", "materials"]);
-  for (const by of [owner, manager]) {
-    expect(kindsForPage(by, "meatStock")).toEqual([]);
-    // Inventory: stock moves between the warehouses.
-    expect(kindsForPage(by, "stock")).toEqual(["transfer"]);
-    // Paying a person back is the Owner's alone (V2-PAY-07).
-    expect(kindsForPage(by, "finance")).toEqual(
-      by === owner ? ["pay", "reimburse"] : ["pay"],
-    );
-    expect(kindsForPage(by, "accounting")).toEqual(["expense"]);
-    expect(kindsForPage(by, "lots")).toHaveLength(11);
-  }
+  expect(kindsForPage(owner, "meatStock")).toEqual([]);
+  // Inventory: stock moves between the warehouses.
+  expect(kindsForPage(owner, "stock")).toEqual(["transfer"]);
+  expect(kindsForPage(owner, "finance")).toEqual(["pay", "reimburse"]);
+  expect(kindsForPage(owner, "accounting")).toEqual(["expense"]);
+  expect(kindsForPage(owner, "lots")).toHaveLength(11);
   // Daily Log is for looking: no account jots from it.
-  for (const by of [owner, manager, saladaeng])
+  for (const by of [owner, saladaeng])
     expect(kindsForPage(by, "log")).toEqual([]);
 });
 
 it("edit, undo, delete and put back: one kind of each group", () => {
   const cases: [NoteKind, string, string, Actor][] = [
     ["smoked", "smokedKg", "100", owner], // Lot
-    ["pay", "amount", "999", manager], // เงิน
-    ["cmReceive", "receivedKg", "198", manager], // จดเพิ่มได้
+    ["pay", "amount", "999", owner], // เงิน
+    ["cmReceive", "receivedKg", "198", owner], // จดเพิ่มได้
     ["receive", "kg", "41", saladaeng], // สาขา
   ];
   for (const [kind, key, value, by] of cases) {
@@ -648,27 +614,11 @@ it("visibleEntries and visibleNotes: what each account sees of the log", () => {
     mutate(changed, owner, "void", { targetId: saleEdit }, "", day),
   ).toThrow("บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้");
   changed = mutate(changed, owner, "void", { targetId: payroll.id }, "", day);
-  const payrollVoid = last(changed).id;
   changed = mutate(changed, owner, "void", { targetId: transport.id }, "", day);
   const transportVoid = last(changed).id;
   const ids = (by: Actor) => visibleEntries(changed, by).map((e) => e.id);
 
   expect(visibleEntries(changed, owner)).toBe(changed.entries);
-  // V2-ACC-01: no sale, no payroll payment, no change about either.
-  const forManager = visibleEntries(changed, manager);
-  expect(forManager.some((e) => e.kind === "sale")).toBe(false);
-  expect(forManager.some((e) => e.values.category === "payroll")).toBe(false);
-  expect(ids(manager)).not.toContain(saleEdit);
-  expect(ids(manager)).not.toContain(payrollVoid);
-  expect(ids(manager)).toContain(transportVoid);
-  expect(forManager).toHaveLength(
-    db.entries.filter(
-      (e) =>
-        e.kind !== "sale" &&
-        e.kind !== "reimburse" &&
-        e.values.category !== "payroll",
-    ).length + 1,
-  );
   // V2-ACC-05..07: a branch sees what is stamped with it and the changes to that, nothing else.
   for (const [by, other] of [
     [saladaeng, "มีนบุรี"],
@@ -694,10 +644,7 @@ it("visibleEntries and visibleNotes: what each account sees of the log", () => {
   expect(visibleNotes(changed, owner).map((e) => e.id)).not.toContain(
     payroll.id,
   );
-  expect(visibleNotes(changed, manager).some((e) => e.kind === "sale")).toBe(
-    false,
-  );
-  // What the Account Manager paid for the branch (stock only) is not in the branch's log.
+  // What the Owner paid for the branch (stock only) is not in the branch's log.
   expect(notes.filter((e) => e.kind === "pay")).toHaveLength(1);
 });
 
@@ -926,20 +873,6 @@ describe("figures (V2-CAL)", () => {
     // The P&L counted the expense when she paid: it does not move.
     expect(monthPl(repaid, "2026-09")).toEqual(monthPl(built, "2026-09"));
     expect(cashBetween(repaid, "2026-08", "2026-08~").repaid).toBe(0);
-    // The Owner's alone: the Account Manager neither jots it nor sees it.
-    expect(() =>
-      mutate(
-        built,
-        manager,
-        "reimburse",
-        { payer: "น้องฝน", amount: "1" },
-        "",
-        "2026-09-20",
-      ),
-    ).toThrow("บัญชีนี้ไม่มีสิทธิ์จดรายการนี้");
-    expect(visibleEntries(repaid, manager).map((e) => e.kind)).not.toContain(
-      "reimburse",
-    );
   });
 
   it("CAL-03..06, 08: a Lot's yield, meat cost, cost per box and central stock", () => {
@@ -1158,49 +1091,6 @@ describe("figures (V2-CAL)", () => {
     );
   });
 
-  it("variance: the Account Manager's copy, without the sale money, gives the Owner's figures", () => {
-    // A second count of each line, so each has a variance; the chili's is on a sale with money.
-    let d = mutate(
-      built,
-      saladaeng,
-      "meatCount",
-      { kg: "9" },
-      "",
-      "2026-09-14",
-    );
-    d = mutate(
-      d,
-      saladaeng,
-      "sale",
-      { boxes: "6", chiliAddons: "2", chiliCount: "40", lineMan: "2100" },
-      "",
-      "2026-09-14",
-    );
-    d = mutate(
-      d,
-      saladaeng,
-      "materials",
-      { "count.m1": "120" },
-      "",
-      "2026-09-15",
-    );
-    const copy = stripForManager(d);
-    expect(JSON.stringify(d.entries)).toContain('"2100"');
-    expect(JSON.stringify(copy.entries)).not.toContain('"2100"');
-    const figures = (x: Database) => ({
-      meat: branchMeat(x, "ศาลาแดง", "2026-09-16"),
-      chili: branchChili(x, "ศาลาแดง", "2026-09-16"),
-      boxes: branchMaterial(x, "ศาลาแดง", "m1", "2026-09-16"),
-    });
-    const { meat, chili, boxes } = figures(d);
-    // 8 + 5 − (10 × 0.12 + 0.3) − 1 − 2 × 0.12; 40 − 3 + 10 − 2; 50 − 10 − 5 − 2 + 100 − 6.
-    expect(meat.variance).toMatchObject({ counted: 9 });
-    expect(meat.variance!.expected).toBeCloseTo(10.26);
-    expect(chili.variance).toMatchObject({ expected: 45, counted: 40 });
-    expect(boxes.variance).toMatchObject({ expected: 127, counted: 120 });
-    expect(figures(copy)).toEqual({ meat, chili, boxes });
-  });
-
   it("BR-08: only a branch that uses raw rice counts it, and only the Owner says which", () => {
     const count = (d: Database, by: Actor) =>
       last(
@@ -1232,7 +1122,6 @@ describe("figures (V2-CAL)", () => {
       '"x"',
     ])
       expect(() => set(owner, bad)).toThrow("สาขาที่ใช้ข้าวเหนียวดิบ");
-    expect(() => set(manager, "[]")).toThrow("ไม่มีสิทธิ์");
     expect(() => set(saladaeng, "[]")).toThrow("ไม่มีสิทธิ์");
   });
 
@@ -1260,7 +1149,7 @@ describe("figures (V2-CAL)", () => {
 });
 
 describe("SKU: materials and ledger items", () => {
-  const jot = (d: Database, item: string, by: Actor = manager) =>
+  const jot = (d: Database, item: string, by: Actor = owner) =>
     mutate(d, by, "expense", { item, amount: "10" }, "", day);
   const sku = (d: Database) => last(d).values.sku;
   const config = (d: Database, input: Values, by: Actor = owner) =>
@@ -1268,7 +1157,7 @@ describe("SKU: materials and ledger items", () => {
   const edit = (d: Database, id: string, values: Values) =>
     mutate(
       d,
-      manager,
+      owner,
       "entryEdit",
       { targetId: id, values: JSON.stringify(values) },
       "",
@@ -1301,7 +1190,7 @@ describe("SKU: materials and ledger items", () => {
     const before = branchMaterial(seed, "ศาลาแดง", "m3", day);
     const d = mutate(
       seed,
-      manager,
+      owner,
       "expense",
       { item: " ถุงซีลเนื้อ", qty: "500", amount: "900" },
       "",
@@ -1312,7 +1201,7 @@ describe("SKU: materials and ledger items", () => {
     expect(branchMaterial(d, "ศาลาแดง", "m3", day)).toEqual(before);
     // The form offers every item, the materials included, each under its SKU.
     expect(
-      fields("expense", d, manager).find((f) => f.key === "item")!.options,
+      fields("expense", d, owner).find((f) => f.key === "item")!.options,
     ).toContainEqual({ value: "ถุงซีลเนื้อ", label: "SKU-0003" });
   });
 
@@ -1398,7 +1287,6 @@ describe("SKU: materials and ledger items", () => {
     expect(() => rename("ถุงซีลเนื้อ")).toThrow("ซ้ำกัน");
     expect(() => rename(" ")).toThrow("ยังไม่ได้ใส่ชื่อ");
     expect(() => config(d, { skuNames: "x" })).toThrow("อ่านรายการไม่ได้");
-    expect(() => rename("A4", manager)).toThrow("ไม่มีสิทธิ์");
     // A material named as a ledger item is refused the same way.
     const rows: Values[] = JSON.parse(d.config.materialList);
     expect(() =>
@@ -1426,7 +1314,7 @@ describe("SKU: materials and ledger items", () => {
     expect(materialList(saved.config)[0].sku).toBe("SKU-0001");
   });
 
-  it("is jotted by the Owner and the Manager only", () => {
+  it("is jotted by the Owner only", () => {
     expect(() => jot(seed, "กระดาษ", saladaeng)).toThrow();
   });
 });
@@ -1630,18 +1518,6 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
     ]);
     expect(projectAssets(d)).toEqual([]);
   });
-
-  it("shows a payroll payment to the Owner, not to the Manager", () => {
-    const payroll = (d: Database) =>
-      finance(d).filter((row) => row.itemType === "ค่าแรง");
-    expect(payroll(db).map((row) => row.item)).toEqual(
-      expect.arrayContaining(["พี่เอ", "น้องฝน", "น้องบีม"]),
-    );
-    const copy = stripForManager(db);
-    expect(payroll(copy)).toEqual([]);
-    expect(finance(copy)).toHaveLength(finance(db).length - payroll(db).length);
-    expect(finance(copy).every((row) => row.item && row.paid)).toBe(true);
-  });
 });
 
 describe("ledger: summary", () => {
@@ -1740,7 +1616,7 @@ describe("central warehouse: stock per place", () => {
       date,
     );
   const send = (d: Database, values: Values, date = "2026-09-02") =>
-    mutate(d, manager, "transfer", { from: "central", ...values }, "", date);
+    mutate(d, owner, "transfer", { from: "central", ...values }, "", date);
   const receive = (d: Database, by: Actor, transferId: string) =>
     mutate(d, by, "transferReceive", { transferId }, "", "2026-09-04");
   const edit = (d: Database, id: string, values: Values) =>
@@ -1882,10 +1758,9 @@ describe("central warehouse: stock per place", () => {
       at: { central: 0, ศาลาแดง: 0, มีนบุรี: 3 },
       inTransit: 0,
     });
-    // The Owner and the Account Manager edit and delete one; it holds nothing the Manager may not see.
-    expect(visibleNotes(d, manager).map((e) => e.id)).toContain(last(d).id);
+    // The Owner edits and deletes one.
     expect(line(edit(d, last(d).id, { qty: "3" }), fridge).at.central).toBe(1);
-    const gone = mutate(d, manager, "void", { targetId: last(d).id }, "", day);
+    const gone = mutate(d, owner, "void", { targetId: last(d).id }, "", day);
     expect(line(gone, fridge).at).toMatchObject({ central: -2, มีนบุรี: 5 });
   });
 
@@ -2038,11 +1913,9 @@ describe("central warehouse: stock per place", () => {
 });
 
 describe("Old Lots", () => {
-  it("is in the menu right after Finance, for the Owner and the Account Manager only", () => {
-    for (const by of [owner, manager]) {
-      const nav = navFor(by);
-      expect(nav[nav.indexOf("finance") + 1]).toBe("oldLots");
-    }
+  it("is in the menu right after Finance, for the Owner only", () => {
+    const nav = navFor(owner);
+    expect(nav[nav.indexOf("finance") + 1]).toBe("oldLots");
     expect(navFor(saladaeng)).not.toContain("oldLots");
   });
 

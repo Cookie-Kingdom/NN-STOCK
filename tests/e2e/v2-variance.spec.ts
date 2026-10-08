@@ -13,8 +13,8 @@ import {
   toast,
 } from "./helpers";
 
-/* The difference at the latest count (นับได้ − ควรเหลือ) on the Owner's and the Account
- * Manager's Stock and Inventory: from the second count on, and never on a branch's pages. */
+/* The difference at the latest count (นับได้ − ควรเหลือ) on the Owner's Stock and
+ * Inventory: from the second count on, and never on a branch's pages. */
 
 /** A date as a stock cell prints it: "2 ต.ค.". */
 const thaiDay = (offset = 0) =>
@@ -58,7 +58,7 @@ const branchSeesNone = async (page: Page) => {
   }
 };
 
-test("meat: the second count shows นับได้ − ควรเหลือ to the Owner and the Manager, a deleted count takes it away, and a count that agrees shows 0", async ({
+test("meat: the second count shows นับได้ − ควรเหลือ to the Owner, a deleted count takes it away, and a count that agrees shows 0", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -98,17 +98,15 @@ test("meat: the second count shows นับได้ − ควรเหลื�
     "นับแล้ววันนี้",
     `−2 กก.ควรเหลือ 12 · นับได้ 10 · นับ ${thaiDay()}`,
   ];
-  for (const account of ["owner", "manager"] as const) {
-    await signInAs(page, account);
-    await openPage(page, "Stock");
-    await expect(own).toHaveText(short);
-    await expect(own.last().locator("[data-variance]")).toHaveAttribute(
-      "data-variance",
-      "−2",
-    );
-    await expect(cells(meat, /^สาขามีนบุรี/).last()).toHaveText("ยังไม่เคยนับ");
-    await expect(variances(page)).toHaveCount(1);
-  }
+  await signInAs(page, "owner");
+  await openPage(page, "Stock");
+  await expect(own).toHaveText(short);
+  await expect(own.last().locator("[data-variance]")).toHaveAttribute(
+    "data-variance",
+    "−2",
+  );
+  await expect(cells(meat, /^สาขามีนบุรี/).last()).toHaveText("ยังไม่เคยนับ");
+  await expect(variances(page)).toHaveCount(1);
 
   // That count deleted: the one before it is a first count again.
   await signInAs(page, "saladaeng");
@@ -145,7 +143,7 @@ test("meat: the second count shows นับได้ − ควรเหลื�
   }
 });
 
-test("chili and a material: no difference after one count, and after the second the Owner and the Manager see it and the branch does not", async ({
+test("chili and a material: no difference after one count, and after the second the Owner sees it and the branch does not", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -201,31 +199,28 @@ test("chili and a material: no difference after one count, and after the second 
   await expect(toast(page, "จดแล้ว: นับวัสดุคงเหลือ · 1 รายการ")).toBeVisible();
   await branchSeesNone(page);
 
-  // The Manager's copy has no sale money, and the same figures.
-  for (const account of ["owner", "manager"] as const) {
-    await signInAs(page, account);
-    await openPage(page, "Stock");
-    await expect(chili.nth(1)).toHaveText(
-      "43นับวันนี้ส่วนต่าง −2 หลอดควรเหลือ 45 · นับได้ 43",
-    );
-    await expect(chili.nth(1).locator("[data-variance]")).toHaveAttribute(
-      "data-variance",
-      "−2",
-    );
-    // มีนบุรี never counted, the raw rice has no difference, the meat was never counted.
-    await expect(chili.nth(2)).toHaveText("0ยังไม่เคยนับ");
-    await expect(variances(page)).toHaveCount(1);
-    await expect(
-      cells(region(page, "เนื้อ (กก.)"), /^สาขาศาลาแดง/).last(),
-    ).toHaveText("ยังไม่เคยนับ");
-    await openPage(page, "Inventory");
-    await expect(boxes.nth(5)).toHaveText(
-      "62นับวันนี้ส่วนต่าง −3 ชิ้นควรเหลือ 65 · นับได้ 62",
-    );
-    await expect(boxes.nth(5).locator("[data-variance]")).toHaveAttribute(
-      "data-variance",
-      "−3",
-    );
-    await expect(variances(page)).toHaveCount(1);
-  }
+  await signInAs(page, "owner");
+  await openPage(page, "Stock");
+  await expect(chili.nth(1)).toHaveText(
+    "43นับวันนี้ส่วนต่าง −2 หลอดควรเหลือ 45 · นับได้ 43",
+  );
+  await expect(chili.nth(1).locator("[data-variance]")).toHaveAttribute(
+    "data-variance",
+    "−2",
+  );
+  // มีนบุรี never counted, the raw rice has no difference, the meat was never counted.
+  await expect(chili.nth(2)).toHaveText("0ยังไม่เคยนับ");
+  await expect(variances(page)).toHaveCount(1);
+  await expect(
+    cells(region(page, "เนื้อ (กก.)"), /^สาขาศาลาแดง/).last(),
+  ).toHaveText("ยังไม่เคยนับ");
+  await openPage(page, "Inventory");
+  await expect(boxes.nth(5)).toHaveText(
+    "62นับวันนี้ส่วนต่าง −3 ชิ้นควรเหลือ 65 · นับได้ 62",
+  );
+  await expect(boxes.nth(5).locator("[data-variance]")).toHaveAttribute(
+    "data-variance",
+    "−3",
+  );
+  await expect(variances(page)).toHaveCount(1);
 });

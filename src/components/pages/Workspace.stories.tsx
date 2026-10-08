@@ -27,15 +27,6 @@ type Story = StoryObj<typeof meta>;
  *  การกดเมนูเห็นได้ใน Actions */
 export const Owner: Story = {};
 
-/** Account Manager: เปิด `/owner/overview` ก็ได้หน้าแรกของตัวเอง (Daily Log) */
-export const Manager: Story = {
-  args: { account: accountById("manager")! },
-  parameters: {
-    db: dbFor("manager"),
-    nextjs: { navigation: { pathname: "/owner/overview" } },
-  },
-};
-
 /** สาขาศาลาแดง */
 export const Branch: Story = {
   args: { account: accountById("saladaeng")! },

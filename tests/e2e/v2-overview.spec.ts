@@ -219,27 +219,4 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("−฿500");
   await openPage(page, "Overview");
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("−฿500");
-
-  // The Account Manager: the payments by category, nothing about who is owed, no paying back.
-  await signInAs(page, "manager");
-  await openPage(page, "Finance");
-  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
-  const paid = region(page, "ยอดจ่ายแยกหมวด");
-  await expect(paid).toContainText("−฿500");
-  // The categories alone: no share of the sales (it would give them away), no P&L caption.
-  await expect(paid.getByRole("columnheader")).toHaveCount(3);
-  await expect(paid).toContainText("ยอดตามเดือนที่จ่ายเงิน");
-  for (const text of ["% ของยอดขาย", "ยื่นภาษี"])
-    await expect(page.getByRole("main")).not.toContainText(text);
-  await expect(
-    paid.getByRole("row", { name: /^รวมยอดจ่าย/ }).getByRole("cell"),
-  ).toHaveCount(3);
-  for (const name of ["เงินของเดือน", "เงินที่พนักงานสำรองจ่าย"])
-    await expect(region(page, name)).toHaveCount(0);
-  await expect(rows(page, "pay")).toHaveCount(2);
-  await expect(rows(page, "reimburse")).toHaveCount(0);
-  await page.getByRole("radio", { name: "ปี" }).click();
-  await expect(region(page, "ยอดจ่ายแยกหมวด")).toContainText("−฿500");
-  await openPage(page, "Daily Log");
-  await expect(page.locator("body")).not.toContainText("คืนให้");
 });

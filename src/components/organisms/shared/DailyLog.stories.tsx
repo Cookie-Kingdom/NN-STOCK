@@ -32,12 +32,6 @@ type Story = StoryObj<typeof meta>;
  *  · ตัวกรอง ทั้งหมด / ยังไม่ได้จด / Lot / เงิน / สาขา */
 export const Owner: Story = {};
 
-/** Account Manager: ไม่มีป้ายยอดขาย ไม่มีวันสีเหลือง ไม่มีแถวยอดขายและค่าแรง */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
-
 /** สาขา: ป้ายของสาขาตัวเอง ตัวกรองเหลือสองตัว และกล่องเนื้อคงเหลือ · สาขาจดจากหน้า Inventory */
 export const Branch: Story = {
   args: { account: "saladaeng" },

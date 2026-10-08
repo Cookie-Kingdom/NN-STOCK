@@ -78,12 +78,6 @@ export const StatusOnly: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
-/** Account Manager: ไม่มีรายการยอดขาย */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
-
 /** สาขา: เฉพาะของสาขาตัวเอง ไม่มีชื่อสาขานำหน้า */
 export const Branch: Story = {
   args: { account: "saladaeng" },

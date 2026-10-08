@@ -66,8 +66,7 @@ type Row = ProjectAsset & {
   held: Record<string, number>;
 };
 
-/** Inventory as the Owner and the Account Manager see it: everything the project owns and
- *  where it is, in one table with a row per item (its SKU). A material of Settings holds
+/** Inventory as the Owner sees it: everything the project owns and where it is, in one table with a row per item (its SKU). A material of Settings holds
  *  what the branches counted; anything else Accounting bought for the project
  *  (`projectAssets`), from a printed box to a fridge, its SKU's balance at every place
  *  (`stockLines`); a material that was also bought is one row with both. A search and the

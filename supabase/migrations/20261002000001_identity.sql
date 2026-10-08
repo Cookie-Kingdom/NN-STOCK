@@ -3,9 +3,10 @@
 -- Squashed 02-10-2026 from the first 41 migrations: files 1-5 build the database those 41
 -- built, and nothing else. There are no seed rows.
 --
--- L3_CM_OPERATOR and L4_SUPPLIER are retired (Foodiva and Chef House are partners, not users);
--- an enum value cannot be dropped, and L4_SUPPLIER is still the placeholder role of a new
--- profile.
+-- L3_CM_OPERATOR and L4_SUPPLIER are retired (Foodiva and Chef House are partners, not users),
+-- and so is L1_MANAGER (the Account Manager account): an enum value cannot be dropped, prod still
+-- holds an L1_MANAGER profile, and L4_SUPPLIER is still the placeholder role of a new profile.
+-- No RPC or policy lets a retired role in (files 2-5).
 
 create type user_role as enum ('L1_OWNER', 'L2_BRANCH_ADMIN', 'L3_CM_OPERATOR', 'L4_SUPPLIER', 'L1_MANAGER');
 create type location_kind as enum ('CENTRAL', 'CHEF_HOUSE', 'BRANCH', 'SUPPLIER_STORAGE', 'STEAK_PRODUCTION');
@@ -73,5 +74,5 @@ end; $$;
 revoke all on function private.handle_new_user() from public, anon, authenticated;
 comment on function private.handle_new_user() is
   'New auth users get an inactive L4_SUPPLIER profile: a placeholder only (L3/L4 are retired, 0032). '
-  'An owner assigns L1_OWNER / L1_MANAGER / L2_BRANCH_ADMIN and activates it.';
+  'An owner assigns L1_OWNER / L2_BRANCH_ADMIN and activates it.';
 create trigger on_auth_user_created after insert on auth.users for each row execute function private.handle_new_user();

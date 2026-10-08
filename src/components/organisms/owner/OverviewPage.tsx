@@ -185,10 +185,8 @@ export function usePeriod(db: Database, today: string) {
  *  shop's, with a row per project; with it, that project's alone. Both read the entry log
  *  through `plBetween`, so they cannot disagree. */
 export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
-  const { db, account, today } = ws;
+  const { db, today } = ws;
   const { view, key, span, current, period, control } = usePeriod(db, today);
-  // The Account Manager sees no sales (V2-ACC-01); no page of theirs renders this.
-  if (account.hidesSales) return null;
 
   const now = monthPl(db, key);
   const before = plBetween(db, period.before.from, period.before.to);

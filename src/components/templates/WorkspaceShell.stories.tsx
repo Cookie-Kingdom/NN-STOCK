@@ -44,15 +44,9 @@ export const Owner: Story = {};
 /** กล่องจดเปิดอยู่เหนือหน้า */
 export const Composing: Story = { args: { open: { kind: "pay" } } };
 
-/** Account Manager */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
-
 /** หน้า Stock ของสาขา: ปุ่มจด 5 ปุ่ม (ยอดขาย รับเนื้อเข้าสาขา นับเนื้อคงเหลือ กล่องแจก จ่ายเงิน)
  *  เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · หน้า Inventory ของสาขามี 2 ปุ่ม (จ่ายเงิน นับวัสดุคงเหลือ) ·
- *  หน้า Stock ของ Owner และ Account Manager ไม่มีปุ่ม หน้า Inventory ของสองบัญชีนี้มีปุ่มในหน้าเอง (InventoryNoButtons) */
+ *  หน้า Stock ของ Owner ไม่มีปุ่ม หน้า Inventory ของ Owner มีปุ่มในหน้าเอง (InventoryNoButtons) */
 export const StockButtons: Story = {
   args: { account: "saladaeng" },
   parameters: {
@@ -61,7 +55,7 @@ export const StockButtons: Story = {
   },
 };
 
-/** หน้า Inventory ของ Owner (Account Manager เหมือนกัน): หัวหน้าไม่มีปุ่ม ปุ่ม「จัดสรรสินค้า」อยู่ในหน้าเอง
+/** หน้า Inventory ของ Owner:หัวหน้าไม่มีปุ่ม ปุ่ม「จัดสรรสินค้า」อยู่ในหน้าเอง
  *  ในแถวการ์ดตัวเลข (Organisms/Owner/OwnerStock → TransferButton) */
 export const InventoryNoButtons: Story = {
   parameters: {

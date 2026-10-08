@@ -149,8 +149,8 @@ function withTimeout<
 }
 function readRow(): Promise<RowResult> {
   if (!supabase) return localRequest();
-  /* load_app_state, not a select on app_state: the server strips sale money from the Account
-   * Manager's copy, which has no direct read on the table. */
+  /* load_app_state, not a select on app_state: a branch gets its role-scoped copy and has no
+   * direct read on the table. */
   return withTimeout(
     supabase.rpc("load_app_state").then(({ data, error }) => ({
       data: (data as AppStateRow[] | null)?.[0] ?? null,
@@ -213,7 +213,7 @@ async function loadDatabase(background = false): Promise<boolean> {
     return false;
   }
   if (!data) {
-    // Only the Owner / Account Manager create the row: save_app_state refuses a branch.
+    // Only the Owner creates the row: save_app_state refuses a branch.
     if (appendOnly) {
       reportError("ยังไม่มีข้อมูลของร้าน กรุณาให้ Owner เข้าสู่ระบบก่อน");
       return false;
@@ -311,15 +311,9 @@ export function saveDatabase(db: Database): Promise<boolean> {
 export function saveDatabaseOrConflict(db: Database) {
   return writeDatabase(db, true);
 }
-let actor: Entry["actor"];
-/** session.ts sets this from the signed-in account; each entry saved after that carries it. */
-export function setSaveActor(next: Entry["actor"]) {
-  actor = next;
-}
 /* A branch loads only its role-scoped copy (load_app_state), so it cannot send the whole payload
  * back: its saves go to append_entries with just the new entries (lots must be empty, and
- * save_app_state refuses a branch). The Owner and the Account Manager
- * keep save_app_state. */
+ * save_app_state refuses a branch). The Owner keeps save_app_state. */
 let appendOnly = false;
 /** session.ts sets this from the signed-in account's role: true for a branch account. */
 export function setSaveAppendOnly(next: boolean) {
@@ -355,10 +349,8 @@ function writeDatabase(
     reportError(
       "ไฟล์แนบยังไม่ได้อัปโหลด รายการนี้จึงบันทึกโดยไม่มีไฟล์ กรุณาแนบไฟล์ใหม่",
     );
-  const strip = (entry: Entry, index: number): Entry => ({
+  const strip = (entry: Entry): Entry => ({
     ...entry,
-    // Entries appended since the load are this account's: stamp the Account Manager's.
-    ...(actor && continues && index >= stored!.count ? { actor } : {}),
     values: Object.fromEntries(
       Object.entries(entry.values).filter(([key]) => key !== "attachmentData"),
     ),

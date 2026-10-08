@@ -10,10 +10,8 @@ import {
   replaceState,
   saveState,
 } from "@/lib/local-db.server";
-import { stripForManager } from "@/lib/manager-scope";
 import { branchScope, scopeDatabase } from "@/lib/role-scope";
 import {
-  isSaleMoneyKey,
   mutate,
   type Database,
   type Entry,
@@ -26,7 +24,6 @@ import { sampleData } from "@/lib/store/demo";
  * (20261002000004, 20261002000005): the same state and cases as supabase/tests/v2_app_state_test.sql, read from
  * that file by their dollar-quote tags. */
 const owner = accountById("owner")!;
-const manager = accountById("manager")!;
 const saladaeng = accountById("saladaeng")!;
 const minburi = accountById("minburi")!;
 const stored = (payload: Database) => {
@@ -37,7 +34,6 @@ const stored = (payload: Database) => {
 const tagged = (file: string, tag: string) =>
   JSON.parse(readFileSync(file, "utf8").split(`$${tag}$`)[1]);
 const sqlTest = "supabase/tests/v2_app_state_test.sql";
-const unprefixed = (key: string) => key.replace(/^(to|from)\./, "");
 
 test("branchScope equals the rule JSON in the migration", () => {
   expect(branchScope).toEqual(
@@ -45,114 +41,11 @@ test("branchScope equals the rule JSON in the migration", () => {
   );
 });
 
-test("the Account Manager's copy has no sale money and no payroll amount, name or payer", () => {
+test("the Owner's copy is whole, and nobody signed out gets one", () => {
   const sample = sampleData(today());
   const db = stored(sample);
-  const { payload } = loadState(db, manager);
-  // Every entry stays in its place, so the manager's whole-payload save lines up.
-  expect(payload.entries.map((e) => e.id)).toEqual(
-    sample.entries.map((e) => e.id),
-  );
-  expect(
-    payload.entries
-      .flatMap((e) => Object.keys(e.values))
-      .filter((key) => isSaleMoneyKey(unprefixed(key))),
-  ).toEqual([]);
-  const payroll = payload.entries.filter(
-    (e) => e.values.category === "payroll",
-  );
-  expect(payroll).toHaveLength(3);
-  for (const e of payroll) expect(e.values).toEqual({ category: "payroll" });
-  expect(JSON.stringify(payload)).not.toContain("พี่เอ");
-  // The sales themselves stay (boxes and chili move the branch stock it works out).
-  expect(payload.entries.filter((e) => e.kind === "sale")).toHaveLength(
-    sample.entries.filter((e) => e.kind === "sale").length,
-  );
   expect(loadState(db, owner).payload).toEqual(sample);
   expect(() => loadState(db, null)).toThrow("Authentication required");
-});
-
-test("the Account Manager saves no sale, payroll payment or settings, and a normal save keeps the stored sale money", () => {
-  const sample = sampleData(today());
-  const db = stored(sample);
-  const { payload, revision } = loadState(db, manager);
-  // What persistence does to the manager's new entries.
-  const stamp = (next: Database): Database => ({
-    ...next,
-    entries: next.entries.map((e, index) =>
-      index < payload.entries.length ? e : { ...e, actor: "manager" },
-    ),
-  });
-  // mutate() refuses these, so a tampered client builds them by hand.
-  const forged = (kind: EntryKind, values: Values, over: Partial<Entry> = {}) =>
-    stamp({
-      ...payload,
-      entries: [
-        ...payload.entries,
-        {
-          id: crypto.randomUUID(),
-          kind,
-          role: "owner",
-          lotId: "",
-          branch: "",
-          date: today(),
-          at: "",
-          values,
-          ...over,
-        },
-      ],
-    });
-  const payrollId = payload.entries.find(
-    (e) => e.values.category === "payroll",
-  )!.id;
-  const saleId = payload.entries.find((e) => e.kind === "sale")!.id;
-  for (const next of [
-    forged(
-      "sale",
-      { boxes: "1", lineMan: "350" },
-      { role: "branch", branch: "ศาลาแดง" },
-    ),
-    forged("pay", { category: "payroll", amount: "1", employee: "x" }),
-    forged("void", { targetId: payrollId }),
-    forged("void", { targetId: saleId }),
-    forged("entryEdit", { targetId: saleId, "to.boxes": "1" }),
-  ])
-    expect(() => saveState(db, manager, next, revision)).toThrow(
-      "Entry kind is not allowed for this account",
-    );
-  for (const next of [
-    forged("config", { boxPrice: "400" }),
-    { ...payload, config: { ...payload.config, boxPrice: "400" } },
-  ])
-    expect(() => saveState(db, manager, next, revision)).toThrow(
-      "Only the Owner changes settings",
-    );
-  // A stored sale the manager's copy changed is refused; one it only lacks money on is put back.
-  const tampered = structuredClone(payload);
-  tampered.entries.find((e) => e.id === saleId)!.values.boxes = "999";
-  expect(() => saveState(db, manager, tampered, revision)).toThrow(
-    "Existing history cannot be changed",
-  );
-  expect(readState(db).payload).toEqual(sample);
-
-  const next = stamp(
-    mutate(
-      payload,
-      manager,
-      "pay",
-      { category: "rent", amount: "100" },
-      "",
-      today(),
-    ),
-  );
-  const saved = saveState(db, manager, next, revision).payload;
-  expect(saved.entries.slice(0, sample.entries.length)).toEqual(sample.entries);
-  expect(saved.entries.at(-1)).toMatchObject({
-    kind: "pay",
-    actor: "manager",
-    values: { category: "rent", amount: "100" },
-  });
-  expect(saved.config).toEqual(sample.config);
 });
 
 test("a branch's copy holds its own entries and the cut-down stock lines, nothing else", () => {
@@ -161,7 +54,7 @@ test("a branch's copy holds its own entries and the cut-down stock lines, nothin
   expect(payload.entries.filter((e) => e.role === "branch")).toEqual(
     sample.entries.filter((e) => e.role === "branch" && e.branch === "มีนบุรี"),
   );
-  // What the Account Manager bought for it: what and how many, no amount, payer or detail.
+  // What the Owner bought for it: what and how many, no amount, payer or detail.
   expect(
     payload.entries.filter((e) => e.role !== "branch").map((e) => e.values),
   ).toEqual([
@@ -243,12 +136,6 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
   ).not.toHaveProperty("rawRiceBranches");
   expect(scopeDatabase(state, []).entries).toEqual([]);
 
-  // manager_strip_entries
-  const managerSees: Record<string, Values> = tagged(sqlTest, "manager");
-  expect(stripForManager(state).entries).toEqual(
-    state.entries.map((e) => withValues(e.id, managerSees[e.id] ?? e.values)),
-  );
-
   const db = stored(state);
   expect(loadState(db, minburi).payload).toEqual(scoped);
   const errorOf = (save: () => unknown) => {
@@ -290,29 +177,6 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     "s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6",
   );
 
-  // save_app_state, as the Account Manager, from the copy it loads
-  const saves: [Partial<Entry>, string][] = tagged(sqlTest, "saves");
-  for (const [entry, error] of saves) {
-    const { payload, revision } = loadState(db, manager);
-    const added = {
-      lotId: "",
-      branch: "",
-      date: "2026-09-10",
-      ...entry,
-      actor: "manager",
-    } as Entry;
-    expect(
-      errorOf(() =>
-        saveState(
-          db,
-          manager,
-          { ...payload, entries: [...payload.entries, added] },
-          revision,
-        ),
-      ),
-      JSON.stringify(entry),
-    ).toBe(error);
-  }
   const log = readState(db).payload.entries;
   expect(log.slice(0, state.entries.length)).toEqual(state.entries);
   expect(
@@ -320,7 +184,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .slice(state.entries.length)
       .map((e) => e.id)
       .join(),
-  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,n1,n3,n4");
+  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6");
 });
 
 test("a branch appends only its own branch's kinds, the centre writes none of its notes, and what the centre buys for it reaches it alone", () => {
@@ -367,10 +231,10 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
   ).toThrow("State changed on another device. Reload and try again.");
   expect(readState(db).revision).toBe(revision);
 
-  // A branch's notes are the branch's: the Owner and the Account Manager jot none, change none
-  // and undo no change to one, whatever a tampered client stamps on the entry.
-  const copy = loadState(db, manager);
-  const full = loadState(db, owner).payload;
+  // A branch's notes are the branch's: the Owner jots none, changes none and undoes
+  // no change to one, whatever a tampered client stamps on the entry.
+  const copy = loadState(db, owner);
+  const full = copy.payload;
   const noteId = full.entries.find((e) => e.role === "branch")!.id;
   const change = (kind: EntryKind, targetId: string, id?: string) =>
     entry({
@@ -380,26 +244,19 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
       values: { targetId },
       ...(id ? { id } : {}),
     });
-  const centre: [typeof owner, Entry[]][] = [
-    [owner, [entry({ branch: "มีนบุรี" })]],
-    [owner, [entry({ branch: "มีนบุรี", actor: "owner" })]],
-    [owner, [change("entryEdit", noteId)]],
-    [owner, [change("void", noteId)]],
-    [manager, [entry({ branch: "มีนบุรี", actor: "manager" })]],
+  const centre: Entry[][] = [
+    [entry({ branch: "มีนบุรี" })],
+    [entry({ branch: "มีนบุรี", actor: "owner" })],
+    [change("entryEdit", noteId)],
+    [change("void", noteId)],
   ];
-  for (const [account, added] of centre)
+  for (const added of centre)
     expect(
       () =>
         saveState(
           db,
-          account,
-          {
-            ...(account === owner ? full : copy.payload),
-            entries: [
-              ...(account === owner ? full : copy.payload).entries,
-              ...added,
-            ],
-          },
+          owner,
+          { ...full, entries: [...full.entries, ...added] },
           copy.revision,
         ),
       JSON.stringify(added),
@@ -422,10 +279,10 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
   ).toThrow("Only a branch account writes a branch's notes");
   expect(readState(db).revision).toBe(revision);
 
-  // V2-PAY-05: the Account Manager still buys for มีนบุรี.
+  // V2-PAY-05: the Owner still buys for มีนบุรี.
   const next = mutate(
-    copy.payload,
-    manager,
+    full,
+    owner,
     "pay",
     {
       category: "packaging",
@@ -438,10 +295,7 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
     "",
     today(),
   );
-  next.entries = next.entries.map((e, index) =>
-    index < copy.payload.entries.length ? e : { ...e, actor: "manager" },
-  );
-  saveState(db, manager, next, copy.revision);
+  saveState(db, owner, next, copy.revision);
   const added = (account: typeof minburi) =>
     loadState(db, account)
       .payload.entries.slice(-1)

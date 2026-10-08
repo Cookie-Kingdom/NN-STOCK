@@ -6,7 +6,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
  * Run it only with `pnpm test:e2e:local` (local SQLite, its own port): every test resets the
  * one app_state row, so it never runs against Supabase. */
 
-type AccountKey = "owner" | "manager" | "saladaeng" | "minburi";
+type AccountKey = "owner" | "saladaeng" | "minburi";
 
 /** A Bangkok business date, `offset` days from today (the app's `today()`). */
 export function bangkokDate(offset = 0) {

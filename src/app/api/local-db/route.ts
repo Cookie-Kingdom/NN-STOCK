@@ -24,9 +24,8 @@ const open = () =>
 const signedIn = async () =>
   accountById((await cookies()).get(LOCAL_ACCOUNT_COOKIE)?.value);
 
-/** Like load_app_state: the Account Manager's copy has no sale money and no payroll payment in
- * it (src/lib/manager-scope.ts), a branch gets its role-scoped copy (src/lib/role-scope.ts);
- * no, an unknown or a retired account is refused. */
+/** Like load_app_state: a branch gets its role-scoped copy (src/lib/role-scope.ts); no, an
+ * unknown or a retired account is refused. */
 export async function GET() {
   if (!enabled) return new Response(null, { status: 404 });
   const { db, loadState } = await open();

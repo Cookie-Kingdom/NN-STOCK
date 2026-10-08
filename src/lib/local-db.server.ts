@@ -3,14 +3,12 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { isDeepStrictEqual } from "node:util";
 import type { Account } from "./accounts";
-import { restoreForManager, stripForManager } from "./manager-scope";
 import { scopeDatabase } from "./role-scope";
 import {
   branchCategories,
   canChange,
   changeKinds,
   isVoided,
-  managerHidden,
   seed,
   voidableKinds,
   type Database,
@@ -42,8 +40,8 @@ export function readState(db: DatabaseSync): AppStateRow {
   return { payload: JSON.parse(row.payload), revision: row.revision };
 }
 
-/** Like load_app_state (20261002000005_app_state_rpc.sql): the Owner reads everything, the Account Manager a copy
- * without sale money and with payroll payments as stubs, a branch its role-scoped copy. */
+/** Like load_app_state (20261002000005_app_state_rpc.sql): the Owner reads everything,
+ * a branch its role-scoped copy. */
 export function loadState(
   db: DatabaseSync,
   account: Account | null,
@@ -51,9 +49,7 @@ export function loadState(
   // A missing, unknown or retired (e.g. old `chef`) cookie maps to null: never the full state.
   if (!account) fail("Authentication required");
   const row = readState(db);
-  if (account!.role === "owner" && !account!.hidesSales) return row;
-  if (account!.role === "owner")
-    return { ...row, payload: stripForManager(row.payload) };
+  if (account!.role === "owner") return row;
   return {
     ...row,
     payload: scopeDatabase(
@@ -102,7 +98,7 @@ export function saveState(
     fail("Branch accounts save through append_entries");
   if (Buffer.byteLength(JSON.stringify(input) ?? "") > MAX_PAYLOAD_BYTES)
     fail("Payload too large");
-  let payload = input as Database;
+  const payload = input as Database;
   if (
     !payload ||
     typeof payload !== "object" ||
@@ -114,9 +110,6 @@ export function saveState(
   )
     fail("Invalid application state");
   const { payload: old, revision } = readState(db);
-  // The Account Manager saves from its stripped copy (GET strips it): put the rest back.
-  const manager = !!account!.hidesSales;
-  if (manager) payload = restoreForManager(old, payload);
   if (expectedRevision == null || expectedRevision !== revision)
     fail("State changed on another device. Reload and try again.");
   if (payload.entries.length < old.entries.length)
@@ -128,34 +121,17 @@ export function saveState(
   )
     fail("Existing history cannot be changed");
   const byId = new Map(payload.entries.map((entry) => [entry?.id, entry]));
-  // managerHidden reads `values`: a malformed entry has none.
-  const hidden = (entry: Entry, target?: Entry) =>
-    managerHidden(
-      { ...entry, values: entry.values ?? {} },
-      target && { ...target, values: target.values ?? {} },
-    );
-  // The Account Manager stamps every new entry; the Owner stamps "owner" on an entry it jotted
-  // for someone else (an old partner step; a branch's note is refused below).
+  // The Owner stamps "owner" on an entry it jotted for someone else (an old partner step; a
+  // branch's note is refused below).
   for (const entry of payload.entries.slice(old.entries.length)) {
-    const actorOk = manager
-      ? entry?.actor === "manager"
-      : entry?.actor === undefined ||
-        (entry.actor === "owner" &&
-          ["foodiva", "cm", "branch"].includes(entry.role));
+    const actorOk =
+      entry?.actor === undefined ||
+      (entry.actor === "owner" &&
+        ["foodiva", "cm", "branch"].includes(entry.role));
     if (!actorOk) fail("Entry actor does not match signed-in account");
     // The entry a change names, and for an undo the entry that one names.
     const target = byId.get(entry?.values?.targetId);
     const about = target && byId.get(target.values?.targetId);
-    if (manager) {
-      if (!["owner", "foodiva", "cm", "branch"].includes(entry.role))
-        fail("Entry role does not match signed-in account");
-      if (entry.kind === "config") fail("Only the Owner changes settings");
-      /* V2-ACC-01, V2-ACC-02: no sale, no payroll payment, no change about one. A delete does
-       * not carry its target's category, so the entry it names is looked up, and for an undo
-       * the entry that one names (voidBlock in store/visibility.ts). */
-      if (hidden(entry, target) || (target && hidden(target, about)))
-        fail("Entry kind is not allowed for this account");
-    }
     // A branch's notes are the branch's to write (appendState): no new entry with role "branch",
     // no edit or delete of one whoever jotted it, and no undo of a change to one.
     if (
@@ -165,8 +141,6 @@ export function saveState(
     )
       fail("Only a branch account writes a branch's notes");
   }
-  if (manager && !isDeepStrictEqual(payload.config, old.config))
-    fail("Only the Owner changes settings");
   return replaceState(db, payload);
 }
 

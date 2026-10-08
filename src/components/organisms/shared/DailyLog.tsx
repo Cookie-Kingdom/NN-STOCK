@@ -40,12 +40,8 @@ export function DailyLog({ ws }: { ws: Workspace }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [days, setDays] = useState(7);
   const own = account.role === "branch";
-  // The branches whose daily sale this account watches: the Account Manager sees no sale.
-  const saleBranches = own
-    ? [account.branch ?? ""]
-    : account.hidesSales
-      ? []
-      : branches;
+  // The branches whose daily sale this account watches.
+  const saleBranches = own ? [account.branch ?? ""] : branches;
   const notes = useMemo(() => visibleNotes(db, account), [db, account]);
   const shown = notes.filter((e) => {
     if (filter === "all") return true;
