@@ -15,11 +15,11 @@ import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
-import { TableFilter } from "@/components/molecules/TableFilter";
 import { td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
+import { periodName } from "@/lib/period";
 import {
   editBlock,
   ledgerPurposes,
@@ -40,44 +40,109 @@ const statusTone: Record<LedgerStatus, "warning" | "success" | "danger"> = {
   paid: "success",
   cancelled: "danger",
 };
-const columns = [
-  "วันที่",
-  "ที่มา / ประเภทบิล",
-  "เลขที่อ้างอิง (PO / ใบเสร็จ)",
-  "ประเภทสินค้า",
-  "รายการ",
-  "รายละเอียด / สเปก",
-  "ผู้ขาย / ร้านค้า",
-  "ค่าใช้จ่ายของ",
-  "Project",
-];
-const figures = ["จำนวนซื้อ", "ยอดตาม PO (งบที่กันไว้)", "ยอดจ่ายจริง"];
 const none = <Muted as="span">—</Muted>;
 const isWebLink = (value = "") => /^https?:\/\/\S+$/i.test(value);
 const central = "ส่วนกลาง";
 /** A row's Project as the table and the Project filter name it. */
 const projectOf = (row: LedgerRow) =>
   row.purpose === "project" ? row.project : central;
+const hasFile = (row: LedgerRow) =>
+  !!(row.entry ?? row.payNote)?.values.attachment ||
+  isWebLink(row.entry?.values.link);
+/** A column of the table, but the last (แก้ไข / ลบ): its head, and how its filter reads a
+ *  row. `pick` offers what the ledger holds (a row may answer to more than one choice),
+ *  `text` finds the typed words in it, `min` keeps a figure of the typed number or more. */
+type Column = { name: string; label?: (value: string) => string } & (
+  | { filter: "pick"; values: (row: LedgerRow) => string[] }
+  | { filter: "text"; text: (row: LedgerRow) => string }
+  | { filter: "min"; figure: (row: LedgerRow) => number | null }
+);
+const sourceColumn = "ที่มา / ประเภทบิล";
+const statusColumn = "สถานะ";
+const columns: Column[] = [
+  {
+    name: "วันที่",
+    filter: "pick",
+    values: (row) => [row.date.slice(0, 7)],
+    label: periodName,
+  },
+  {
+    name: sourceColumn,
+    filter: "pick",
+    // A PO row is also found under the two kinds of PO together (the PO รอจ่าย button).
+    values: (row) =>
+      row.origin === "po"
+        ? [ledgerSources.po, row.sourceLabel]
+        : [row.sourceLabel],
+  },
+  {
+    name: "เลขที่อ้างอิง (PO / ใบเสร็จ)",
+    filter: "text",
+    text: (row) => row.reference,
+  },
+  { name: "ประเภทสินค้า", filter: "pick", values: (row) => [row.itemType] },
+  { name: "รายการ", filter: "text", text: (row) => `${row.item} ${row.sku}` },
+  { name: "รายละเอียด / สเปก", filter: "text", text: (row) => row.detail },
+  { name: "ผู้ขาย / ร้านค้า", filter: "pick", values: (row) => [row.vendor] },
+  {
+    name: "ค่าใช้จ่ายของ",
+    filter: "pick",
+    values: (row) => [ledgerPurposes[row.purpose]],
+  },
+  { name: "Project", filter: "pick", values: (row) => [projectOf(row)] },
+  { name: "จำนวนซื้อ", filter: "min", figure: (row) => row.qty },
+  {
+    name: "ยอดตาม PO (งบที่กันไว้)",
+    filter: "min",
+    figure: (row) => row.poAmount,
+  },
+  { name: "ยอดจ่ายจริง", filter: "min", figure: (row) => row.paid },
+  {
+    name: statusColumn,
+    filter: "pick",
+    values: (row) => [ledgerStatuses[row.status]],
+  },
+  {
+    name: "เอกสารแนบ",
+    filter: "pick",
+    values: (row) => [hasFile(row) ? "มีไฟล์" : "ยังไม่มี"],
+  },
+];
+/** The columns left of ยอดตาม PO: what the total row's label spans. */
+const beforeTotals = columns.findIndex((c) => c.name.startsWith("ยอดตาม PO"));
+/** Whether `row` passes what was picked or typed in `column`'s filter; all pass an empty one,
+ *  and a minimum that is not a number. */
+function passes(column: Column, row: LedgerRow, typed: string) {
+  if (!typed) return true;
+  if (column.filter === "pick") return column.values(row).includes(typed);
+  if (column.filter === "text")
+    return column.text(row).toLowerCase().includes(typed.toLowerCase());
+  const min = Number(typed.replace(/,/g, ""));
+  const figure = column.figure(row);
+  return Number.isNaN(min) || (figure !== null && figure >= min);
+}
+/* A cell of the filter row: the head's fill, and narrow enough to keep the column's width. */
+const filterCell =
+  "border-b border-border-strong bg-surface-head py-1.5 align-middle";
 /** The shop's purchase ledger: every PO เนื้อ and PO รมควัน (worked out from the PO, its
  *  invoice and the payments to its supplier), every other money-out line of Finance (view
  *  only, as a PO row) and every expense jotted by hand, newest first,
  *  under the two figures worked out from it (what the POs still to pay hold, what was paid
- *  this month), with a search, a filter by project, status and source, and the totals of
+ *  this month), with a search, a filter under the head of every column, and the totals of
  *  what is shown. */
 export function AccountingPage({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
   const { remove } = useEntryActions(ws);
-  const [status, setStatus] = useState("");
-  const [source, setSource] = useState("");
-  const [project, setProject] = useState("");
+  /** What each column's filter holds, by the column's name. */
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const all = ledgerRows(db);
   const word = search.trim().toLowerCase();
   const rows = all.filter(
     (row) =>
-      (!status || row.status === status) &&
-      (!source || row.origin === source) &&
-      (!project || projectOf(row) === project) &&
+      columns.every((column) =>
+        passes(column, row, (filters[column.name] ?? "").trim()),
+      ) &&
       (!word ||
         [row.item, row.detail, row.vendor, row.reference, row.sku].some(
           (text) => text.toLowerCase().includes(word),
@@ -85,15 +150,17 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   );
   // A long ledger draws its first rows; the totals below still count every row found.
   const { limit, more } = useShowMore(
-    [status, source, project, word].join("|"),
+    [word, ...columns.map((column) => filters[column.name] ?? "")].join("|"),
   );
-  const projects = [...new Set(all.map(projectOf).filter(Boolean))];
   const summary = ledgerSummary(all, today.slice(0, 7));
   const change = summary.paidBefore
     ? ((summary.paid - summary.paidBefore) / summary.paidBefore) * 100
     : null;
   // The quick filter: the POs still to pay, in one click; a second click clears it.
-  const poPending = source === "po" && status === "pending";
+  const poPending =
+    filters[sourceColumn] === ledgerSources.po &&
+    filters[statusColumn] === ledgerStatuses.pending;
+  const filtered = !!search || Object.values(filters).some(Boolean);
   // A cancelled row holds no money.
   const counted = rows.filter((row) => row.status !== "cancelled");
   const total = (key: "poAmount" | "paid") =>
@@ -106,6 +173,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
 
   const cell = (row: LedgerRow) => {
     const e = row.entry;
+    const pay = row.payNote;
     const item = row.item ? (
       <>
         <span className="block">{row.item}</span>
@@ -164,9 +232,18 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <Button variant="table" onClick={() => ws.showLot(row.lotId!)}>
               เปิด PO
             </Button>
-          ) : row.origin === "finance" ? (
-            <Button variant="table" onClick={() => ws.setTab("finance")}>
-              เปิด Finance
+          ) : pay?.values.attachment ? (
+            <AttachmentButton
+              action="view"
+              label="เปิดเอกสาร"
+              name={pay.values.attachment}
+              data={pay.values.attachmentData}
+              storageKey={pay.values.attachmentStorageKey}
+            />
+          ) : pay && !editBlock(db, pay, account) ? (
+            // The file field is on the note's own form.
+            <Button variant="table" onClick={() => ws.edit(pay.id)}>
+              แนบเอกสาร
             </Button>
           ) : e?.values.attachment || isWebLink(e?.values.link) ? (
             <div className="flex flex-col items-start gap-1">
@@ -253,55 +330,32 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <TableFilter label="Project">
-          <Select
-            variant="filter"
-            value={project}
-            onChange={setProject}
-            options={[
-              { value: "", label: "ทั้งหมด" },
-              ...projects.map((name) => ({ value: name })),
-            ]}
-          />
-        </TableFilter>
-        <TableFilter label="สถานะ">
-          <Select
-            variant="filter"
-            value={status}
-            onChange={setStatus}
-            options={[
-              { value: "", label: "ทั้งหมด" },
-              ...Object.entries(ledgerStatuses).map(([value, label]) => ({
-                value,
-                label,
-              })),
-            ]}
-          />
-        </TableFilter>
-        <TableFilter label="ที่มา">
-          <Select
-            variant="filter"
-            value={source}
-            onChange={setSource}
-            options={[
-              { value: "", label: "ทั้งหมด" },
-              { value: "po", label: ledgerSources.po },
-              { value: "finance", label: "Finance · จ่ายเงิน" },
-              { value: "manual", label: "ค่าใช้จ่ายอื่น" },
-            ]}
-          />
-        </TableFilter>
         <Button
           size="sm"
           aria-pressed={poPending}
           className="min-h-10 aria-pressed:border-accent aria-pressed:text-accent"
           onClick={() => {
-            setSource(poPending ? "" : "po");
-            setStatus(poPending ? "" : "pending");
+            setFilters({
+              ...filters,
+              [sourceColumn]: poPending ? "" : ledgerSources.po,
+              [statusColumn]: poPending ? "" : ledgerStatuses.pending,
+            });
           }}
         >
           PO รอจ่าย ({summary.waiting})
         </Button>
+        {filtered && (
+          <Button
+            size="sm"
+            className="min-h-10"
+            onClick={() => {
+              setFilters({});
+              setSearch("");
+            }}
+          >
+            ล้างตัวกรอง
+          </Button>
+        )}
       </div>
       <Panel flush className="overflow-hidden">
         {/* relative: the sr-only head of the last column scrolls with the table, not the page. */}
@@ -314,21 +368,63 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           >
             <thead>
               <tr>
-                {columns.map((name) => (
-                  <th key={name} className={th}>
-                    {name}
+                {columns.map((column) => (
+                  <th
+                    key={column.name}
+                    className={cn(th, column.filter === "min" && "text-right")}
+                  >
+                    {column.name}
                   </th>
                 ))}
-                {figures.map((name) => (
-                  <th key={name} className={cn(th, "text-right")}>
-                    {name}
-                  </th>
-                ))}
-                <th className={th}>สถานะ</th>
-                <th className={th}>เอกสารแนบ</th>
                 <th className={th}>
                   <span className="sr-only">แก้ไข / ลบ</span>
                 </th>
+              </tr>
+              {/* td, not th: a filter is no heading of its column. */}
+              <tr>
+                {columns.map((column) => {
+                  const control = {
+                    variant: "filter" as const,
+                    "aria-label": `กรอง ${column.name}`,
+                    value: filters[column.name] ?? "",
+                  };
+                  const set = (value: string) =>
+                    setFilters({ ...filters, [column.name]: value });
+                  return (
+                    <td key={column.name} className={filterCell}>
+                      {column.filter === "pick" ? (
+                        <Select
+                          {...control}
+                          className="w-full min-w-24"
+                          onChange={set}
+                          options={[
+                            { value: "", label: "ทั้งหมด" },
+                            ...[...new Set(all.flatMap(column.values))]
+                              .filter(Boolean)
+                              .map((value) => ({
+                                value,
+                                label: column.label?.(value),
+                              })),
+                          ]}
+                        />
+                      ) : (
+                        <Input
+                          {...control}
+                          className={cn(
+                            "w-full min-w-20",
+                            column.filter === "min" && "text-right",
+                          )}
+                          placeholder={column.filter === "min" ? "≥" : "ค้นหา"}
+                          inputMode={
+                            column.filter === "min" ? "decimal" : undefined
+                          }
+                          onChange={(event) => set(event.target.value)}
+                        />
+                      )}
+                    </td>
+                  );
+                })}
+                <td className={filterCell} />
               </tr>
             </thead>
             <tbody>
@@ -336,7 +432,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               {!rows.length && (
                 <tr>
                   <td
-                    colSpan={columns.length + figures.length + 3}
+                    colSpan={columns.length + 1}
                     className={cn(td, "text-text-secondary")}
                   >
                     ไม่มีรายการตามตัวกรอง
@@ -347,7 +443,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             {rows.length > 0 && (
               <tfoot>
                 <tr>
-                  <td colSpan={columns.length + 1} className={cn(td, tf)}>
+                  <td colSpan={beforeTotals} className={cn(td, tf)}>
                     รวม {counted.length} รายการ
                     {counted.length < rows.length && (
                       <Caption as="span"> (ไม่รวมที่ยกเลิก)</Caption>

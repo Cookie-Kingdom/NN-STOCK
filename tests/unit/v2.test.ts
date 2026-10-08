@@ -1490,6 +1490,11 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
     expect(
       finance(db).every((row) => !row.entry && row.status === "paid"),
     ).toBe(true);
+    // Only a row of a `pay` note carries it (its attached file).
+    expect(finance(db).some((row) => row.payNote)).toBe(true);
+    expect(
+      finance(db).every((row) => (row.payNote?.kind ?? "pay") === "pay"),
+    ).toBe(true);
     // A branch's payment and a gift box's shipping fee are the shop project's.
     const d = mutate(
       pay(db, { category: "other", amount: "40" }, saladaeng),

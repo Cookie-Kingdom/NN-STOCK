@@ -323,9 +323,10 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   );
   await expect(shown(page)).toHaveText("3 จาก 3 รายการ");
   const search = page.getByLabel("ค้นหา");
-  const project = page.getByLabel(/^Project/);
-  const status = page.getByLabel(/^สถานะ/);
-  const source = page.getByLabel(/^ที่มา/);
+  const project = page.getByLabel("กรอง Project");
+  const status = page.getByLabel("กรอง สถานะ");
+  const source = page.getByLabel("กรอง ที่มา / ประเภทบิล");
+  const itemType = page.getByLabel("กรอง ประเภทสินค้า");
 
   // The search: the item, the detail, the seller, the reference and the SKU, in any case.
   for (const [word, found] of [
@@ -372,11 +373,12 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์"]);
   await pick(status, "รอจ่าย");
   await expect(ledgerRows(page)).toHaveCount(2);
-  // Together: still to pay, and jotted by hand.
-  await pick(source, "ค่าใช้จ่ายอื่น");
+  // Together: still to pay, and a packaging material.
+  await pick(itemType, "วัสดุบรรจุภัณฑ์");
   await expect(ledgerRows(page)).toContainText(["ถุงซีลเนื้อ"]);
   await pick(status, "ทั้งหมด");
-  await expect(ledgerRows(page)).toHaveCount(2);
+  await expect(ledgerRows(page)).toHaveCount(1);
+  await pick(itemType, "ทั้งหมด");
   await pick(source, "PO เนื้อ / รมควัน");
   await expect(ledgerRows(page)).toContainText([PO1]);
   await pick(source, "ทั้งหมด");
@@ -390,8 +392,8 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await expect(waiting).toHaveAttribute("aria-pressed", "false");
   await waiting.click();
   await expect(waiting).toHaveAttribute("aria-pressed", "true");
-  await expect(source).toHaveAttribute("data-value", "po");
-  await expect(status).toHaveAttribute("data-value", "pending");
+  await expect(source).toHaveAttribute("data-value", "PO เนื้อ / รมควัน");
+  await expect(status).toHaveAttribute("data-value", "รอจ่าย");
   await expect(ledgerRows(page)).toContainText([PO1]);
   await expect(shown(page)).toHaveText("1 จาก 3 รายการ");
   await waiting.click();

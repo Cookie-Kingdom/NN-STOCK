@@ -80,6 +80,8 @@ export type LedgerRow = {
   lotId?: string;
   /** A hand-jotted row: its entry (edit, delete, attachment). A Finance row has none. */
   entry?: Entry;
+  /** A Finance row of a `pay` note: that note (its attached file; the row stays view only). */
+  payNote?: Entry;
   reference: string;
   itemType: string;
   /** The name the item goes by now (`skuCatalogue`), not always the one typed. */
@@ -350,6 +352,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
       origin: "finance",
       source,
       sourceLabel: jotSources[source],
+      payNote: pay ? e : undefined,
       reference: "",
       itemType: categoryTypes[o.category] ?? category,
       // Payroll: the employee. A stock payment: what was bought. Else the category.
