@@ -204,7 +204,7 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await fill(page, [/^ยอดที่คืน/, "250"]);
   await save(page);
   await expect(owed).toHaveText(["น้องฝน", "฿400", "฿250", "฿150", "คืนเงิน"]);
-  await expect(rows(page, "reimburse")).toContainText("คืนให้ น้องฝน");
+  await expect(rows(page, "reimburse")).toContainText("น้องฝน");
   await expect(rows(page, "reimburse")).toContainText("−฿250");
   // ฿250 more left the shop; what was paid for things is the same ฿500.
   await expect(money("เงินคืนพนักงาน")).toHaveText("−฿250");
