@@ -8,7 +8,11 @@ import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Caption } from "@/components/atoms/Text";
 import { Dialog } from "@/components/molecules/Dialog";
-import { FormField } from "@/components/molecules/FormField";
+import {
+  FieldHint,
+  FormField,
+  fieldClassName,
+} from "@/components/molecules/FormField";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryFieldControl";
 import {
   FieldSections,
@@ -267,8 +271,17 @@ function NoteForm({
   /** Storage keys of files already uploaded, so a second attempt does not upload again. */
   const uploaded = useRef<Record<string, string>>({});
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  /* Gift boxes are jotted for several people at once, one note each (V2-BR-04). An edit is
+   * of one note, so it keeps the plain form. */
+  const multi = kind === "influencerBox" && !target;
+  const [people, setPeople] = useState<Values[]>([{}]);
+  const typedPeople = people.filter((row) =>
+    Object.values(row).some((value) => value.trim()),
+  );
+  /** What each note saved lays over the form's shared values: one per person typed. */
+  const notes = multi && typedPeople.length ? typedPeople : [{}];
 
-  const shown = fields(kind, db, by, lotId)
+  const visible = fields(kind, db, by, lotId)
     .filter((f) => !f.when || f.when(values))
     .map((f) => {
       // A ledger item: the SKU the name typed gets (V2-LED-03).
@@ -277,6 +290,10 @@ function NoteForm({
       const { sku, isNew } = skuFor(db, values.item, target?.values);
       return { ...f, hint: isNew ? `ใหม่: ${sku}` : sku };
     });
+  // The people's rows stand where the name field was.
+  const shown = multi
+    ? visible.filter((f) => f.key === "influencer" || !giftKeys.includes(f.key))
+    : visible;
   const set = (key: string, value: string) => {
     typed.current.add(key);
     setValues((last) => ({ ...last, [key]: value }));
@@ -290,9 +307,11 @@ function NoteForm({
 
   // A dispatch whose PO เนื้อ lines do not add up cannot be saved; the footer says why.
   const gap = kind === "dispatch" ? lineCheck(values).gap : "";
-  const figures = noteFigures(kind, db, lotId, values, target);
+  const figures = multi
+    ? giftFigures(typedPeople)
+    : noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
-  const core = shown.filter((f) => f.core);
+  const core = visible.filter((f) => f.core);
 
   const save = async (again: boolean) => {
     setError("");
@@ -320,17 +339,21 @@ function NoteForm({
             "",
             today,
           )
-        : mutate(latest, account, kind, input, lotId, date);
+        : notes.reduce(
+            (to, row) =>
+              mutate(to, account, kind, { ...input, ...row }, lotId, date),
+            latest,
+          );
     });
     if (!next) return;
     const saved = target
-      ? visibleNotes(next, account).find((e) => e.id === target.id)
-      : next.entries.at(-1);
-    const missing = saved ? missingKeys(saved.values).length : 0;
+      ? visibleNotes(next, account).filter((e) => e.id === target.id)
+      : next.entries.slice(-notes.length);
+    const missing = saved.reduce((a, e) => a + missingKeys(e.values).length, 0);
     ws.setToast(
-      `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,
+      `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${notes.length > 1 ? ` ${notes.length} รายการ` : ""}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,
     );
-    if (again) ws.jot({ kind, lotId: saved?.lotId });
+    if (again) ws.jot({ kind, lotId: saved.at(-1)?.lotId });
     else ws.closeDraft();
   };
 
@@ -423,6 +446,13 @@ function NoteForm({
                     set={set}
                     exceptId={target?.id}
                   />
+                ) : multi && f.key === "influencer" ? (
+                  <GiftRowsControl
+                    key={f.key}
+                    fields={visible.filter((x) => giftKeys.includes(x.key))}
+                    rows={people}
+                    write={setPeople}
+                  />
                 ) : (
                   <EntryFieldControl
                     key={f.key}
@@ -447,7 +477,14 @@ function NoteForm({
         <FormFooter
           stack={size === "md"}
           missing={
-            core.length ? core.filter((f) => !values[f.key]).length : undefined
+            core.length
+              ? notes.reduce(
+                  (a, row) =>
+                    a +
+                    core.filter((f) => !(row[f.key] ?? values[f.key])).length,
+                  0,
+                )
+              : undefined
           }
           blocked={gap && `บันทึกไม่ได้ เพราะ${gap}`}
           error={error}
@@ -468,6 +505,116 @@ function NoteForm({
         </FormFooter>
       </form>
     </Dialog>
+  );
+}
+
+/** What a gift-box form takes per person; its other fields are shared by every note. */
+const giftKeys = ["influencer", "boxes", "chiliAddons", "shippingFee"];
+
+/** 「ตัวเลขสรุป」 of a gift-box form: the people typed so far and what they get in all. */
+function giftFigures(rows: Values[]): Figures {
+  const total = (key: string) =>
+    rows.reduce((a, row) => a + (Number(row[key]) || 0), 0);
+  return {
+    rows: [
+      { label: "จำนวนคน", value: `${qty(rows.length)} คน` },
+      { label: "กล่องที่แจก", value: `${qty(total("boxes"))} กล่อง` },
+      { label: "น้ำพริก", value: `${qty(total("chiliAddons"))} หลอด` },
+      { label: "ค่าส่ง", value: baht(total("shippingFee")), rule: true },
+    ],
+  };
+}
+
+/** A gift-box form's people: rows of [name | boxes | chili | shipping fee | remove], the
+ *  name on its own line below md. A row left wholly empty is not saved. */
+function GiftRowsControl({
+  fields: rowFields,
+  rows,
+  write,
+}: {
+  fields: Field[];
+  rows: Values[];
+  write: (next: Values[]) => void;
+}) {
+  const hint = rowFields.find((f) => f.hint);
+  return (
+    <div className="col-span-full flex flex-col gap-3">
+      {rows.map((row, index) => (
+        <div
+          key={index}
+          role="group"
+          aria-label={`คนที่ ${index + 1}`}
+          className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-2 border-border max-md:not-first:border-t max-md:not-first:pt-3 md:grid-cols-[minmax(0,1fr)_repeat(3,5.5rem)_auto]"
+        >
+          {rowFields.map((f) => {
+            const value = row[f.key] ?? "";
+            const name = f.key === "influencer";
+            return (
+              <label
+                key={f.key}
+                className={fieldClassName(
+                  false,
+                  name ? "max-md:col-span-3" : "max-md:order-last",
+                )}
+              >
+                {/* From md up the first row's labels head the columns. */}
+                <span className={cn(index > 0 && "md:sr-only")}>
+                  {f.label}
+                  {f.unit && (
+                    <Caption as="span" className="font-normal">
+                      {" "}
+                      ({f.unit})
+                    </Caption>
+                  )}
+                </span>
+                <Input
+                  autoFocus={name}
+                  data-autofocus={(name && index === 0) || undefined}
+                  inputMode={
+                    f.type === "number"
+                      ? f.integer
+                        ? "numeric"
+                        : "decimal"
+                      : undefined
+                  }
+                  autoComplete="off"
+                  value={value}
+                  className={cn(
+                    !name && "text-right tabular-nums",
+                    f.core && !value && "border-warning/60 bg-warning-subtle",
+                  )}
+                  onChange={(event) =>
+                    write(
+                      rows.map((r, i) =>
+                        i === index ? { ...r, [f.key]: event.target.value } : r,
+                      ),
+                    )
+                  }
+                />
+              </label>
+            );
+          })}
+          <IconButton
+            label={`ลบคนที่ ${index + 1}`}
+            icon={<X size={18} />}
+            disabled={rows.length === 1}
+            onClick={() => write(rows.filter((_, i) => i !== index))}
+          />
+        </div>
+      ))}
+      <Button
+        icon={<Plus />}
+        className="w-fit"
+        onClick={() => write([...rows, {}])}
+      >
+        เพิ่มอีกคน
+      </Button>
+      {hint && (
+        <FieldHint>
+          {hint.label}: {hint.hint}
+        </FieldHint>
+      )}
+    </div>
   );
 }
 
