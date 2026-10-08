@@ -206,6 +206,36 @@ export const PayBranch: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
+/** กล่องแจก: จดได้หลายคนในฟอร์มเดียว แถวละคน ปุ่ม「เพิ่มอีกคน」เพิ่มแถว แถวที่ว่างทั้งแถวไม่ถูก
+ *  บันทึก · บันทึกแล้วได้บันทึกแยกคนละรายการ (การแก้ไขยังเป็นฟอร์มของคนเดียว) */
+export const GiftBoxes: Story = {
+  args: { account: "saladaeng", open: { kind: "influencerBox" } },
+  parameters: { db: dbFor("saladaeng") },
+  play: async ({ canvas, userEvent }) => {
+    const people = [
+      ["@kinkubnong", "2", "60"],
+      ["@eatwithme", "1", ""],
+      ["@foodie.bkk", "1", "45"],
+    ];
+    for (const [index, [name, boxes, fee]] of people.entries()) {
+      if (index)
+        await userEvent.click(
+          canvas.getByRole("button", { name: "เพิ่มอีกคน" }),
+        );
+      await userEvent.type(
+        canvas.getAllByLabelText(/^ชื่ออินฟลูเอนเซอร์/)[index],
+        name,
+      );
+      await userEvent.type(
+        canvas.getAllByLabelText(/^กล่องที่แจก/)[index],
+        boxes,
+      );
+      if (fee)
+        await userEvent.type(canvas.getAllByLabelText(/^ค่าส่ง/)[index], fee);
+    }
+  },
+};
+
 /** นับวัสดุคงเหลือ ของศาลาแดง (สาขาที่ใช้ข้าวเหนียวดิบ): ต่อจากวัสดุมีช่อง「ข้าวเหนียวดิบ (กก.)」
  *  ใส่ทศนิยมได้ · สาขาที่ไม่ได้ใช้ (มีนบุรี) ไม่มีช่องนี้ */
 export const MaterialsCount: Story = {
