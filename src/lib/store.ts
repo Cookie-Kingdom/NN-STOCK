@@ -66,6 +66,7 @@ export {
   lotInfo,
   boxCost,
   poInfo,
+  meatStock,
   type PoLine,
   poLines,
   dispatchLines,

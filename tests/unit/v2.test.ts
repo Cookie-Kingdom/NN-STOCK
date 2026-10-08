@@ -17,6 +17,7 @@ import {
   liveEntries,
   lotInfo,
   materialList,
+  meatStock,
   monthPl,
   payCategories,
   plBetween,
@@ -2084,6 +2085,77 @@ describe("Old Lots", () => {
     expect(about(flagged)).toEqual([]);
     expect(todos(flagged, owner, day)).toHaveLength(
       todos(d, owner, day).length - about(d).length,
+    );
+  });
+
+  it("an old lot holds no stock, and keeps its own figures", () => {
+    // Twice the same: a PO เนื้อ of 100 kg, 60 sent, 30 back, 10 received by the branch.
+    let d = seed;
+    const jot = (
+      by: Actor,
+      kind: NoteKind,
+      values: Record<string, string>,
+      lotId = "",
+    ) => {
+      d = mutate(d, by, kind, values, lotId, day);
+      return d.entries.at(-1)!.lotId;
+    };
+    const chain = () => {
+      const po = jot(owner, "purchase", { orderedKg: "100", price: "500" });
+      const lot = jot(owner, "smokeOrder", { rawKg: "60" });
+      jot(owner, "dispatch", { dispatchKg: "60", poLotId: po }, lot);
+      jot(owner, "smoked", { smokedKg: "30", boxes: "10" }, lot);
+      jot(owner, "smokingInvoice", { netPayable: "6000" }, lot);
+      jot(saladaeng, "receive", { kg: "10" }, lot);
+      return [po, lot];
+    };
+    const old = chain();
+    const [po, lot] = chain();
+    const ids = (from: Database) => {
+      const { held, central } = meatStock(from);
+      return [
+        ...held.map((row) => row.lot.id),
+        ...central.map((i) => i.lot.id),
+      ];
+    };
+    expect(ids(d)).toEqual([old[0], po, old[1], lot]);
+    expect(branchMeat(d, "ศาลาแดง", day).kg).toBe(20);
+
+    const flagged: Database = {
+      ...d,
+      lots: d.lots.map((each) =>
+        old.includes(each.id) ? { ...each, old: true } : each,
+      ),
+    };
+    // The Stock page: only the new PO เนื้อ (40 kg at the seller) and PO รมควัน (20 kg).
+    const stock = meatStock(flagged);
+    expect(stock.held.map((row) => [row.lot.id, row.kg])).toEqual([[po, 40]]);
+    expect(stock.central.map((info) => [info.lot.id, info.centralKg])).toEqual([
+      [lot, 20],
+    ]);
+    // A receipt of the old lot adds nothing to the branch; the scoped copy says the same.
+    expect(branchMeat(flagged, "ศาลาแดง", day).kg).toBe(10);
+    expect(
+      branchMeat(scopeDatabase(flagged, ["ศาลาแดง"]), "ศาลาแดง", day).kg,
+    ).toBe(10);
+    // Old Lots, cost and money read the same figures as before.
+    for (const id of old) {
+      expect(poInfo(flagged, id)).toEqual(poInfo(d, id));
+      expect(lotInfo(flagged, id)).toEqual({
+        ...lotInfo(d, id),
+        lot: flagged.lots.find((each) => each.id === id),
+      });
+    }
+    expect(lotInfo(flagged, old[1])).toMatchObject({
+      backKg: 30,
+      centralKg: 20,
+      costPerKg: 1200,
+    });
+    expect(poInfo(flagged, old[0]).heldKg).toBe(40);
+    expect(boxCost(flagged)).toEqual(boxCost(d));
+    expect(supplierBalances(flagged)).toEqual(supplierBalances(d));
+    expect(monthPl(flagged, day.slice(0, 7))).toEqual(
+      monthPl(d, day.slice(0, 7)),
     );
   });
 });

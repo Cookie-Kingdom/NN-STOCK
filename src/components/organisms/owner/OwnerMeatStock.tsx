@@ -16,24 +16,17 @@ import {
   branchMeat,
   branchRice,
   branches,
-  lotInfo,
-  poInfo,
-  purchaseLots,
+  meatStock,
   rawRiceBranches,
-  shipments,
 } from "@/lib/store";
 
 /** Stock as the Owner and the Account Manager see it: the meat from the seller to each
- *  branch (V2-CAL-07, 08, 10), then the raw sticky rice and the chili of each branch.
+ *  branch (V2-CAL-07, 08, 10; an old lot holds none, `meatStock`), then the raw sticky rice
+ *  and the chili of each branch.
  *  Read-only: the branch admins count on their own Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
-  const held = purchaseLots(db)
-    .map((lot) => ({ lot, kg: poInfo(db, lot.id).heldKg }))
-    .filter((po) => po.kg > 0);
-  const smoked = shipments(db)
-    .map((lot) => lotInfo(db, lot.id))
-    .filter((info) => info.backKg > 0);
+  const { held, central: smoked } = meatStock(db);
   const places = branches.map((branch) => `สาขา${branch}`);
   // Raw rice: only the branches that steam their own (Settings); the others get a dash.
   const rice = Object.fromEntries(
@@ -143,6 +136,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
       <Caption className="flex flex-col gap-1">
         {[
           "หน้านี้ดูได้อย่างเดียว ผู้ดูแลสาขาเป็นคนนับจากหน้า Stock ของสาขา",
+          "PO จากไฟล์เดิม (Old Lots) ไม่นับเป็นสต๊อก",
           "ข้าวเหนียวดิบ = ยอดนับล่าสุด + ยอดที่ซื้อเข้าสาขาหลังจากนั้น ไม่มีการตัดยอดอัตโนมัติ จึงไม่มีส่วนต่าง",
           '"—" = สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (กำหนดใน Settings)',
           "ช่องสีเหลืองคือยังไม่เคยนับหรือไม่ได้นับเกิน 7 วัน ช่องสีแดงคือไม่เหลือ",

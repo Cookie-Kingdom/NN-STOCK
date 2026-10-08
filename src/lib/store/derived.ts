@@ -532,6 +532,23 @@ export function poInfo(db: Database, poLotId: string, exceptId?: string) {
     invoice: entries(db, "meatInvoice", poLotId).at(-1),
   };
 }
+/** The meat lines of the Stock page before the branches: what each PO เนื้อ still holds at
+ *  the seller (V2-CAL-07) and what each PO รมควัน holds in the central warehouse (V2-CAL-08),
+ *  only those with some. A lot carried over from the old workbook (`old`) holds no stock:
+ *  backdated stock is never the true one, so stock starts from what is jotted from now on.
+ *  Its own page (Old Lots), cost and money still read `poInfo` / `lotInfo`. */
+export function meatStock(db: Database) {
+  return {
+    held: purchaseLots(db)
+      .filter((lot) => !lot.old)
+      .map((lot) => ({ lot, kg: poInfo(db, lot.id).heldKg }))
+      .filter((po) => po.kg > 0),
+    central: shipments(db)
+      .filter((lot) => !lot.old)
+      .map((lot) => lotInfo(db, lot.id))
+      .filter((info) => info.backKg > 0),
+  };
+}
 /** The kg a dispatch form prefills for a PO เนื้อ just added to its lines: what that PO still
  *  holds (without the dispatch being edited, `exceptId`), capped by what the other lines still
  *  leave of `targetKg` (the typed dispatchKg). With no target: all it holds. Never below 0.
@@ -594,8 +611,10 @@ const branchWalk = (db: Database, branch: string) =>
   liveEntries(db)
     .filter((e) => e.branch === branch)
     .sort(byDateAt);
-/** V2-CAL-10 / V2-BR-02: the last count is the truth; receipts add to it, sales and gifts take from it. */
+/** V2-CAL-10 / V2-BR-02: the last count is the truth; receipts add to it, sales and gifts take
+ *  from it. A receipt of an old lot adds nothing: that lot holds no stock (`meatStock`). */
 export function branchMeat(db: Database, branch: string, today: string) {
+  const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
   let kg = 0,
     counted: Entry | undefined,
     variance: CountVariance | undefined;
@@ -605,7 +624,8 @@ export function branchMeat(db: Database, branch: string, today: string) {
       variance = counted && varianceAt(kg, now, e.date);
       kg = now;
       counted = e;
-    } else if (e.kind === "receive") kg += num(e.values, "kg");
+    } else if (e.kind === "receive")
+      kg += old.has(e.lotId) ? 0 : num(e.values, "kg");
     else kg -= meatUsedKg(db.config, e);
   return { kg, counted, countedToday: counted?.date === today, variance };
 }
