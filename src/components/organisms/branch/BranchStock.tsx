@@ -438,6 +438,7 @@ export function BranchMeatStock({ ws }: { ws: Workspace }) {
             : "ยังไม่เคยนับ ยอดนี้คิดจากเนื้อที่รับเข้า หักเนื้อที่ใช้กับที่เสีย"}
         </Caption>
         <Button
+          variant="primary"
           className="self-start"
           onClick={() => ws.jot({ kind: "meatCount" })}
         >
