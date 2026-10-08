@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
@@ -13,9 +14,9 @@ import {
   isUnlinked,
   jottedAt,
   linesText,
+  lotLabel,
   noteAmount,
   noteLine,
-  noteSub,
   noteTags,
   timeOf,
 } from "@/components/organisms/shared/noteText";
@@ -25,6 +26,7 @@ import {
   dispatchLines,
   editBlock,
   isNoteKind,
+  noBranch,
   skuName,
   titles,
   voidBlock,
@@ -33,10 +35,11 @@ import {
 import { thaiDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** One note as a row: when it was jotted, its title and one-line summary, the muted line
- *  under it (PO, Lot, branch), its yellow tags and the amount at the right. Pressing it opens
- *  every value of the note, with 「แก้ไข」 and 「ลบ」 for an account that may change it. A
- *  row with a tag has a yellow left edge. `entry` is a live note with its edits laid over
+/** One note as a row. First line: when it was jotted, its title, its branch as a pill (not for
+ *  a branch, which reads its own), its PO or Lot, and the amount at the right. Second line:
+ *  the one-line summary, cut where the row ends, then its yellow tags. Pressing it opens every
+ *  value of the note, with 「แก้ไข」 and 「ลบ」 for an account that may change it. A row with a
+ *  tag is yellow. `entry` is a live note with its edits laid over
  *  (`visibleNotes`, `entries`). */
 export function NoteRow({
   entry: e,
@@ -53,7 +56,10 @@ export function NoteRow({
   const { remove } = useEntryActions(ws);
   const tags = noteTags(db, e, account);
   const amount = noteAmount(db, e);
-  const sub = noteSub(db, e, account);
+  const line = noteLine(db, e);
+  const branch =
+    account.role !== "branch" &&
+    (e.branch ? `สาขา${e.branch}` : e.role === "branch" && noBranch);
   const flagged = tags.length > 0;
   return (
     <div
@@ -61,17 +67,15 @@ export function NoteRow({
       data-kind={e.kind}
       data-tone={flagged ? "warning" : undefined}
       className={cn(
-        "border-b border-l-3 border-border border-l-transparent last:border-b-0",
-        flagged
-          ? "border-l-warning bg-warning-subtle"
-          : open && "bg-surface-sunken",
+        "border-b border-border last:border-b-0",
+        flagged ? "bg-warning-subtle" : open && "bg-surface-sunken",
       )}
     >
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="group grid w-full cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto] items-baseline gap-3 py-3 pr-5 pl-4.25 text-left -outline-offset-2 max-md:gap-2 max-md:pr-4 max-md:pl-3.25"
+        className="group grid w-full cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto] items-baseline gap-x-3 px-5 py-3.5 text-left -outline-offset-2 max-md:gap-x-2 max-md:px-4"
       >
         <span className="text-caption text-text-secondary">
           {dated && (
@@ -79,14 +83,22 @@ export function NoteRow({
           )}
           {timeOf(e.at)}
         </span>
-        <span className="min-w-0 [overflow-wrap:anywhere]">
-          <strong className="mr-2 font-semibold transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
-            {titles[e.kind]}
-          </strong>
-          <span className="text-text-secondary">{noteLine(db, e)}</span>
-          {sub && (
-            <span className="block text-caption text-text-secondary">
-              {sub}
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <strong className="font-semibold transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
+              {titles[e.kind]}
+            </strong>
+            {branch && <Badge className="py-0 font-medium">{branch}</Badge>}
+            {e.lotId && (
+              <span className="text-caption text-text-secondary">
+                {lotLabel(db, e.lotId)}
+              </span>
+            )}
+          </span>
+          {line && (
+            // The whole line is in the opened note: here it is cut, not wrapped.
+            <span className="mt-0.5 block truncate text-body-sm text-text-secondary">
+              {line}
             </span>
           )}
           {flagged && (

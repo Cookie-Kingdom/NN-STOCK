@@ -11,6 +11,7 @@ import {
   signInAs,
   start,
   toast,
+  openDays,
 } from "./helpers";
 
 /* The difference at the latest count (นับได้ − ควรเหลือ) on the Owner's Stock and
@@ -117,6 +118,7 @@ test("meat: the second count shows นับได้ − ควรเหลื�
   await counted.getByRole("button", { name: "ลบ", exact: true }).click();
   await confirmDelete(page);
   await expect(toast(page, "ลบแล้ว: นับเนื้อคงเหลือ")).toBeVisible();
+  await openDays(page);
   await expect(rows(page, "meatCount")).toHaveCount(1);
   await signInAs(page, "owner");
   await openPage(page, "Stock");

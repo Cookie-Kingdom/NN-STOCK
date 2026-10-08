@@ -153,6 +153,20 @@ export async function savePo(page: Page) {
 export const toast = (page: Page, message: string | RegExp) =>
   page.locator("main").getByRole("status").filter({ hasText: message });
 
+/** Daily Log: draws every line of the 「ยังไม่ได้จด」 box (it starts with its first seven). */
+export const allTodos = async (page: Page) => {
+  const more = region(page, "ยังไม่ได้จด").getByRole("button", {
+    name: /^ดูเพิ่มเติม/,
+  });
+  while (await more.count()) await more.click();
+};
+
+/** Daily Log: opens every day that is closed (only today starts open), so its rows are there. */
+export const openDays = async (page: Page) => {
+  const closed = page.locator('[data-date] h3 button[aria-expanded="false"]');
+  while (await closed.count()) await closed.first().click();
+};
+
 /** The rows of one kind (`data-kind`) on the page: Daily Log, a Lot, Finance. */
 export const rows = (page: Page, kind: string) =>
   page.locator(`[data-entry][data-kind="${kind}"]`);

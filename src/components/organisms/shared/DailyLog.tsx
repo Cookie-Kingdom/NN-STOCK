@@ -1,19 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight, History } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Panel } from "@/components/atoms/Panel";
 import { ReadRow } from "@/components/atoms/ReadRow";
 import { DayCard } from "@/components/molecules/DayCard";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import { noteTags, timeOf } from "@/components/organisms/shared/noteText";
-import { ChangeLog } from "@/components/organisms/workspace/ChangeLog";
+import {
+  ChangeLog,
+  changesOf,
+} from "@/components/organisms/workspace/ChangeLog";
 import { TodoBox } from "@/components/organisms/workspace/TodoBox";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { qty, thaiDay } from "@/lib/format";
+import { baht, qty, thaiDay } from "@/lib/format";
 import {
   branchMeat,
   branches,
@@ -21,7 +26,9 @@ import {
   isNoteKind,
   kindInfo,
   missingText,
+  saleMoney,
   visibleNotes,
+  type Entry,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +37,100 @@ type Filter = "all" | "missing" | "lot" | "money" | "branch";
 const dayBack = (today: string, back: number) =>
   new Date(Date.parse(today) - back * 86400000).toISOString().slice(0, 10);
 
+/** Rows of a day drawn before 「ดูเพิ่มเติม」. */
+const dayRows = 7;
+
+/** One day: its head, and under it its notes once opened, `dayRows` at first. Closed, the head
+ *  says how many notes the day has and the money in and out of them, in place of the rows. */
+function Day({
+  rows,
+  ws,
+  startOpen,
+  title,
+  aside,
+  ...card
+}: {
+  rows: Entry[];
+  ws: Workspace;
+  startOpen: boolean;
+  title: string;
+  aside: ReactNode;
+  tone: "ok" | "warning";
+  "data-date": string;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  const { limit, more } = useShowMore("", dayRows);
+  const { config } = ws.db;
+  // The same money a row shows at its right (`noteAmount`): a sale in, a payment out.
+  const moneyIn = rows
+    .filter((e) => e.kind === "sale")
+    .reduce((sum, e) => sum + saleMoney(config, e).sales, 0);
+  const moneyOut = rows
+    .filter((e) => ["pay", "reimburse", "expense"].includes(e.kind))
+    .reduce((sum, e) => sum + (Number(e.values.amount) || 0), 0);
+  return (
+    <DayCard
+      {...card}
+      title={
+        rows.length ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="flex cursor-pointer items-center gap-1.5 text-left"
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn(
+                "size-4 shrink-0 transition-transform duration-(--motion-fast) ease-(--ease-standard)",
+                open && "rotate-90",
+              )}
+            />
+            {title}
+          </button>
+        ) : (
+          title
+        )
+      }
+      aside={
+        <>
+          {!open && rows.length > 0 && (
+            <span className="mr-1.5 flex flex-wrap items-center gap-x-3 text-body-sm font-semibold">
+              <span className="font-normal text-text-secondary">
+                {rows.length} บันทึก
+              </span>
+              {moneyIn > 0 && (
+                <span className="text-success">+{baht(moneyIn)}</span>
+              )}
+              {moneyOut > 0 && (
+                <span className="text-danger">−{baht(moneyOut)}</span>
+              )}
+            </span>
+          )}
+          {aside}
+        </>
+      }
+    >
+      {open && (
+        <>
+          {rows.slice(0, limit).map((e) => (
+            <NoteRow key={e.id} entry={e} ws={ws} />
+          ))}
+          <ShowMore
+            shown={Math.min(limit, rows.length)}
+            total={rows.length}
+            onMore={more}
+          />
+        </>
+      )}
+    </DayCard>
+  );
+}
+
 /** Every note the account sees, one card per day, newest day first: the last 7 days, and 7
- *  more with each press of 「ดูย้อนหลังอีก 7 วัน」. A page for looking: nothing here opens a
+ *  more with each press of 「ดูย้อนหลังอีก 7 วัน」. Today is open; an earlier day is closed
+ *  until its head is pressed, unless a filter is on (then every day with a match is open). A
+ *  page for looking: nothing here opens a
  *  new note, only a row its edit or delete. A day's head says per branch whether its sale is
  *  jotted; a day with one missing is yellow. Beside the days: everything not jotted yet (a
  *  status list), and for a branch its meat. */
@@ -39,6 +138,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
   const [filter, setFilter] = useState<Filter>("all");
   const [days, setDays] = useState(7);
+  const [log, setLog] = useState(false);
   const own = account.role === "branch";
   // The branches whose daily sale this account watches.
   const saleBranches = own ? [account.branch ?? ""] : branches;
@@ -57,8 +157,12 @@ export function DailyLog({ ws }: { ws: Workspace }) {
     // A day with nothing jotted is listed only for what is missing on it.
     if (!rows.length && (filter !== "all" || !unsold.length)) return null;
     return (
-      <DayCard
-        key={date}
+      <Day
+        // A filter starts the days over: open or closed as the new filter says.
+        key={`${date}|${filter}`}
+        rows={rows}
+        ws={ws}
+        startOpen={!back || filter !== "all"}
         data-date={date}
         tone={unsold.length ? "warning" : "ok"}
         title={`${thaiDay(date, { weekday: "long", day: "numeric", month: "short" })}${back ? "" : " · วันนี้"}`}
@@ -78,11 +182,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
             );
           })
         }
-      >
-        {rows.map((e) => (
-          <NoteRow key={e.id} entry={e} ws={ws} />
-        ))}
-      </DayCard>
+      />
     );
   });
   const meat = own ? branchMeat(db, account.branch ?? "", today) : null;
@@ -112,13 +212,27 @@ export function DailyLog({ ws }: { ws: Workspace }) {
         ) : (
           <EmptyState text="ไม่มีบันทึกในช่วงนี้" />
         )}
-        <Button
-          size="sm"
-          className="self-center max-md:min-h-11"
-          onClick={() => setDays(days + 7)}
-        >
-          ดูย้อนหลังอีก 7 วัน
-        </Button>
+        {/* The foot of the list: more days at the left, the log of changes at the right. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Button
+            size="sm"
+            icon={<ChevronDown />}
+            className="max-md:min-h-11"
+            onClick={() => setDays(days + 7)}
+          >
+            ดูย้อนหลังอีก 7 วัน
+          </Button>
+          <Button
+            variant="link"
+            aria-expanded={log}
+            icon={<History />}
+            className="text-body-sm max-md:min-h-11"
+            onClick={() => setLog(!log)}
+          >
+            ประวัติการแก้ไขและลบ ({changesOf(db, account).length})
+          </Button>
+        </div>
+        {log && <ChangeLog ws={ws} />}
       </div>
       <aside className="flex min-w-0 flex-col gap-4">
         <TodoBox ws={ws} statusOnly />
@@ -144,9 +258,6 @@ export function DailyLog({ ws }: { ws: Workspace }) {
           </Panel>
         )}
       </aside>
-      <div className="col-span-full flex min-w-0 flex-col">
-        <ChangeLog ws={ws} />
-      </div>
     </div>
   );
 }

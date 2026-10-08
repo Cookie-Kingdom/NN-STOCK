@@ -114,41 +114,23 @@ function EditDiff({ change, ws }: { change: Entry; ws: Workspace }) {
   ));
 }
 
+/** The edits and deletes the account may see, newest first. */
+export const changesOf = (db: Database, account: Workspace["account"]) =>
+  visibleEntries(db, account)
+    .filter((e) => changeKinds.includes(e.kind))
+    .reverse();
+
 /** Every edit and delete the account may see, newest first, each with what it changed and a
  *  one-press 「ย้อนกลับ」: of an edit it brings the old values back, of a delete the entry.
- *  Closed it is one button with the count, so it takes no room on the page until asked for. */
+ *  The Daily Log draws it only once asked for (its button says `changesOf(...).length`). */
 export function ChangeLog({ ws }: { ws: Workspace }) {
-  const [open, setOpen] = useState(false);
   const [all, setAll] = useState(false);
   const { db, account } = ws;
   const { undo } = useEntryActions(ws);
-  const changes = visibleEntries(db, account)
-    .filter((e) => changeKinds.includes(e.kind))
-    .reverse();
-  if (!open)
-    return (
-      <Button
-        size="sm"
-        aria-expanded={false}
-        className="self-center max-md:min-h-11"
-        onClick={() => setOpen(true)}
-      >
-        ประวัติการแก้ไขและลบ ({changes.length})
-      </Button>
-    );
+  const changes = changesOf(db, account);
   return (
     <Panel aria-label="ประวัติการแก้ไขและลบ">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="m-0 text-h3">ประวัติการแก้ไขและลบ</h2>
-        <Button
-          size="sm"
-          aria-expanded
-          className="max-md:min-h-11"
-          onClick={() => setOpen(false)}
-        >
-          ซ่อน
-        </Button>
-      </div>
+      <h2 className="m-0 text-h3">ประวัติการแก้ไขและลบ</h2>
       <Caption className="mb-1 block">
         การแก้ไขและการลบทุกครั้งอยู่ในรายการนี้ กด &quot;ย้อนกลับ&quot;
         เพื่อคืนค่าเดิมหรือกู้คืนรายการที่ลบ
