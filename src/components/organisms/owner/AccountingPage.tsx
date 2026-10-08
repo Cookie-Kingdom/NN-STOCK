@@ -47,7 +47,8 @@ const central = "ส่วนกลาง";
 const projectOf = (row: LedgerRow) =>
   row.purpose === "project" ? row.project : central;
 const hasFile = (row: LedgerRow) =>
-  !!row.entry?.values.attachment || isWebLink(row.entry?.values.link);
+  !!(row.entry ?? row.payNote)?.values.attachment ||
+  isWebLink(row.entry?.values.link);
 /** A column of the table, but the last (แก้ไข / ลบ): its head, and how its filter reads a
  *  row. `pick` offers what the ledger holds (a row may answer to more than one choice),
  *  `text` finds the typed words in it, `min` keeps a figure of the typed number or more. */
@@ -172,6 +173,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
 
   const cell = (row: LedgerRow) => {
     const e = row.entry;
+    const pay = row.payNote;
     const item = row.item ? (
       <>
         <span className="block">{row.item}</span>
@@ -230,9 +232,18 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <Button variant="table" onClick={() => ws.showLot(row.lotId!)}>
               เปิด PO
             </Button>
-          ) : row.origin === "finance" ? (
-            <Button variant="table" onClick={() => ws.setTab("finance")}>
-              เปิด Finance
+          ) : pay?.values.attachment ? (
+            <AttachmentButton
+              action="view"
+              label="เปิดเอกสาร"
+              name={pay.values.attachment}
+              data={pay.values.attachmentData}
+              storageKey={pay.values.attachmentStorageKey}
+            />
+          ) : pay && !editBlock(db, pay, account) ? (
+            // The file field is on the note's own form.
+            <Button variant="table" onClick={() => ws.edit(pay.id)}>
+              แนบเอกสาร
             </Button>
           ) : e?.values.attachment || isWebLink(e?.values.link) ? (
             <div className="flex flex-col items-start gap-1">
