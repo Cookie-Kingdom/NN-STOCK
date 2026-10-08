@@ -1,13 +1,21 @@
+"use client";
+
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/atoms/Button";
 import { Caption } from "@/components/atoms/Text";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
+import { useShowMore } from "@/components/molecules/ShowMore";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { missingText, todoOpens } from "@/lib/store";
 
 const box = "flex flex-col gap-3 rounded-lg border p-5 max-md:p-4";
+/** Lines of the Daily Log's box drawn before 「ดูเพิ่มเติม」: a long box outgrew the days beside it. */
+const shownFirst = 7;
 
 /** Everything the account has not jotted yet, as one yellow list: pressing a line opens its
  *  form (or the edit, or the Stock or Inventory page); a line that opens nothing is plain. Green and
- *  「จดครบแล้ว」 when there is nothing. `statusOnly` (Daily Log) lists them all plain. */
+ *  「จดครบแล้ว」 when there is nothing. `statusOnly` (Daily Log) lists them plain, and only the
+ *  first `shownFirst`: the head still counts them all, 「ดูเพิ่มเติม」 draws the next ones. */
 export function TodoBox({
   ws,
   statusOnly = false,
@@ -16,6 +24,8 @@ export function TodoBox({
   statusOnly?: boolean;
 }) {
   const list = ws.todos;
+  const { limit, more } = useShowMore("", shownFirst);
+  const shown = statusOnly ? list.slice(0, limit) : list;
   if (!list.length)
     return (
       <section
@@ -41,7 +51,7 @@ export function TodoBox({
       </div>
       {/* One column in a narrow box (beside the Daily Log), more where the box is wide. */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-1.5">
-        {list.map((todo, index) =>
+        {shown.map((todo, index) =>
           statusOnly || !todoOpens(todo) ? (
             <AlertListItem
               key={`${todo.text}-${index}`}
@@ -59,6 +69,16 @@ export function TodoBox({
           ),
         )}
       </div>
+      {shown.length < list.length && (
+        <Button
+          size="sm"
+          icon={<ChevronDown />}
+          className="self-center max-md:min-h-11"
+          onClick={more}
+        >
+          ดูเพิ่มเติม (เหลือ {list.length - shown.length})
+        </Button>
+      )}
     </section>
   );
 }

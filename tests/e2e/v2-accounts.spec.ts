@@ -12,6 +12,7 @@ import {
   save,
   signInAs,
   start,
+  openDays,
 } from "./helpers";
 
 /* Spec v2 section 11, items 1–4 and 19: who sees which page, and what each account may jot. */
@@ -117,6 +118,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   );
   // Its own log holds its two payments, not the ones the centre made.
   await page.getByRole("button", { name: "ดูย้อนหลังอีก 7 วัน" }).click();
+  await openDays(page);
   await expect(rows(page, "pay")).toHaveCount(2);
 
   await signInAs(page, "minburi");
@@ -124,6 +126,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
     await openPage(page, name);
     if (name === "Daily Log")
       await page.getByRole("button", { name: "ดูย้อนหลังอีก 7 วัน" }).click();
+    await openDays(page);
     await expect(page.locator("[data-entry], td").first()).toBeVisible();
     expect(await page.locator("body").innerText(), name).not.toMatch(
       /ศาลาแดง|วินส่งของทดสอบ|Foodiva|กำไร|P&L|GP/,
@@ -176,6 +179,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
       // An open note offers 「แก้ไข」 and 「ลบ」 only, and to the Owner a
       // branch's note offers neither.
       if (name === "Daily Log") {
+        await openDays(page);
         const branchNote = page
           .locator(
             '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="meatCount"], [data-kind="influencerBox"], [data-kind="materials"])',

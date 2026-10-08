@@ -15,6 +15,8 @@ import {
   signInAs,
   start,
   toast,
+  openDays,
+  allTodos,
 } from "./helpers";
 
 /* Spec v2 section 11, items 8, 10–14 and 20: a branch's day, its stock, and changing notes. */
@@ -291,6 +293,7 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await start(page, "seed");
   await signInAs(page, "saladaeng");
   const todo = region(page, "ยังไม่ได้จด");
+  await allTodos(page);
   for (const offset of [0, -1, -6])
     await expect(day(page, offset)).toHaveAttribute("data-tone", "warning");
   await expect(todoLines(page, "ยอดขาย")).toHaveCount(7);
@@ -299,7 +302,9 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await expect(day(page).getByRole("button", { name: /ยอดขาย/ })).toHaveCount(
     0,
   );
-  await expect(todo.getByRole("button")).toHaveCount(0);
+  await expect(
+    todo.getByRole("button", { name: /^(?!ดูเพิ่มเติม)/ }),
+  ).toHaveCount(0);
 
   await jotSaleOf(page);
   await fill(page, [/^กล่องมาตรฐาน/, "24"], [/^ยอดขาย LINE MAN/, "8200"]);
@@ -335,7 +340,11 @@ test("12 · V2-BR-02 meat not counted today is yellow in Stock and does not turn
   await openPage(page, "Daily Log");
   await expect(day(page)).toHaveAttribute("data-tone", "ok");
   await expect(todoLines(page, "นับเนื้อวันนี้")).toBeVisible();
-  await expect(region(page, "ยังไม่ได้จด").getByRole("button")).toHaveCount(0);
+  await expect(
+    region(page, "ยังไม่ได้จด").getByRole("button", {
+      name: /^(?!ดูเพิ่มเติม)/,
+    }),
+  ).toHaveCount(0);
   await openPage(page, "Stock");
   const meat = region(page, "เนื้อคงเหลือ");
   await expect(meat).toHaveAttribute("data-tone", "warning");
@@ -499,6 +508,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   const openChanges = () =>
     page.getByRole("button", { name: /^ประวัติการแก้ไขและลบ \(/ }).click();
   await openChanges();
+  await openDays(page);
   await expect(changes).toContainText("ยังไม่มีการแก้ไขหรือลบ");
 
   // The sale of three days ago has no money typed: edit it, then take the edit back.
@@ -577,6 +587,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
   await openChanges();
+  await openDays(page);
   // By its text, not its place: the restore becomes the newest row of the log.
   const removal = changes
     .locator("[data-entry]")
