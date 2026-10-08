@@ -6,7 +6,7 @@ import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 import type { Database } from "@/lib/supabase/types";
-import { setSaveActor, setSaveAppendOnly } from "@/lib/persistence";
+import { setSaveAppendOnly } from "@/lib/persistence";
 
 type Profile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
@@ -26,7 +26,6 @@ let state = initialState;
 
 function publish(next: SessionState) {
   state = next;
-  setSaveActor(next.account?.id === "manager" ? "manager" : undefined);
   setSaveAppendOnly(!!next.account && next.account.role !== "owner");
   listeners.forEach((listener) => listener());
 }
@@ -36,19 +35,18 @@ function accountForProfile(
   locationName?: string,
 ): Account | null {
   if (!profile.is_active) return null;
-  /* Any other role (the old L3/L4 partner profiles) has no account: generic inactive message.
+  /* Any other role (the retired L1_MANAGER and L3/L4 partner profiles) has no account: generic
+   * inactive message.
    * So has a branch admin with no user_locations row: the server gives it no branch and would
    * refuse every save, so it must not open as ศาลาแดง. */
   const id: AccountId | null =
     profile.role === "L1_OWNER"
       ? "owner"
-      : profile.role === "L1_MANAGER"
-        ? "manager"
-        : profile.role !== "L2_BRANCH_ADMIN" || !locationName
-          ? null
-          : locationName?.includes("มีนบุรี")
-            ? "minburi"
-            : "saladaeng";
+      : profile.role !== "L2_BRANCH_ADMIN" || !locationName
+        ? null
+        : locationName?.includes("มีนบุรี")
+          ? "minburi"
+          : "saladaeng";
   const base = accountById(id);
   return base ? { ...base, name: profile.display_name || base.name } : null;
 }
@@ -140,7 +138,7 @@ export async function signIn(email: string, password: string) {
     const account = accountById(id);
     if (!account)
       return localAuthError(
-        "โหมด local: ใช้อีเมล owner@local.test, manager@, saladaeng@ หรือ minburi@local.test",
+        "โหมด local: ใช้อีเมล owner@local.test, saladaeng@ หรือ minburi@local.test",
       );
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };

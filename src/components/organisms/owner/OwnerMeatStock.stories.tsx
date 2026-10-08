@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
   WithWorkspace,
-  dbFor,
   phone,
   wide,
   sampleDb,
@@ -47,12 +46,6 @@ type Story = StoryObj<typeof meta>;
  *  ไม่เหลือเป็นสีแดงเหมือนวัสดุ · สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (มีนบุรี) เป็น「—」·
  *  ดูได้อย่างเดียว ไม่มีปุ่ม */
 export const Owner: Story = {};
-
-/** Account Manager: เห็นเหมือน Owner */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
 
 /** ฐานข้อมูลเปล่า: กล่องเนื้อมีแต่แถวของสองสาขา · ข้าวเหนียวดิบและน้ำพริก「หมด」 */
 export const Empty: Story = { parameters: { db: emptyDb } };

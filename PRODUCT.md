@@ -9,7 +9,6 @@ web
 ## Users
 
 - **Owner** (`/owner`): runs the shop, sees everything including sales, payroll and profit. Opens the app to check how the shop is doing and to jot the steps of the partners (the meat supplier and the smoker).
-- **Account Manager** (`/owner`, `hidesSales`): keeps the books; never sees sales, payroll, P&L, Overview or Settings.
 - **Branch accounts** (`/branch`: ศาลาแดง, มีนบุรี): jot the day's sales, receipts and counts, mostly on a phone.
 
 Foodiva (meat supplier) and Chef House (smoker) are partners, not users.

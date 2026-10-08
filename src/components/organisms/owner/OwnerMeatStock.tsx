@@ -20,8 +20,7 @@ import {
   rawRiceBranches,
 } from "@/lib/store";
 
-/** Stock as the Owner and the Account Manager see it: the meat from the seller to each
- *  branch (V2-CAL-07, 08, 10; an old lot holds none, `meatStock`), then the raw sticky rice
+/** Stock as the Owner sees it: the meat from the seller to each branch (V2-CAL-07, 08, 10; an old lot holds none, `meatStock`), then the raw sticky rice
  *  and the chili of each branch.
  *  Read-only: the branch admins count on their own Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {

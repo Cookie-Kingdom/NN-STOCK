@@ -278,18 +278,4 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
     "—",
   ]);
   await expect(region(page, "ตัวเลขของเดือน")).toContainText("GP ฿560");
-
-  // V2-ACC-01: the new channel's money is as hidden from the Manager as LINE MAN's.
-  await signInAs(page, "manager");
-  const sent = await (await page.request.get("/api/local-db")).json();
-  const sales: { values: Record<string, string> }[] =
-    sent.payload.entries.filter((e: { kind: string }) => e.kind === "sale");
-  expect(sales).toHaveLength(1);
-  expect(sales[0].values.boxes).toBe("12");
-  expect(
-    Object.keys(sales[0].values).filter(
-      (key) => key === "lineMan" || key.startsWith("sales."),
-    ),
-  ).toEqual([]);
-  expect(JSON.stringify(sent.payload.entries)).not.toMatch(/"(3500|700)"/);
 });

@@ -8,7 +8,6 @@ import {
   materialList,
   missingKeys,
   payCategories,
-  payrollCategory,
   rawRiceBranches,
   rentCategory,
   titles,
@@ -33,47 +32,13 @@ import {
   purchaseLots,
   shipments,
 } from "./derived";
-/** A sale's money in: what the Account Manager must not see. A channel added in Settings
- *  keeps its money under a `sales.` key. */
-const saleMoneyKeys = ["revenue", "lineMan", "menuTotal"];
-export const isSaleMoneyKey = (key: string) =>
-  saleMoneyKeys.includes(key) || key.startsWith("sales.");
-/** What the Account Manager neither receives nor writes: a sale, a payroll payment, and any
- *  change about one (`target`: the entry a change names). manager_hidden() states the same rule. */
-export function managerHidden(e: Entry, target?: Entry): boolean {
-  return (
-    e.kind === "sale" ||
-    [
-      e.values.category,
-      e.values["to.category"],
-      e.values["from.category"],
-    ].includes(payrollCategory) ||
-    e.values.targetKind === "sale" ||
-    (target ? managerHidden(target) : false)
-  );
-}
 /** The part of the raw log an account sees, changes included (the change log reads it). The
- *  Owner: everything. The Account Manager: all but `managerHidden`. A branch: the entries
- *  stamped with it, plus every change to one of them and every undo of such a change, whoever
- *  made it. A change comes after what it names in the log, so one pass in log order follows
- *  the chain. The Owner's payments for a branch reach it for stock only and are never listed. */
+ *  Owner: everything. A branch: the entries stamped with it, plus every change to one of them
+ *  and every undo of such a change, whoever made it. A change comes after what it names in the
+ *  log, so one pass in log order follows the chain. The Owner's payments for a branch reach it
+ *  for stock only and are never listed. */
 export function visibleEntries(db: Database, by: Actor): Entry[] {
-  if (by.role === "owner") {
-    if (!by.hidesSales) return db.entries;
-    const byId = new Map(db.entries.map((e) => [e.id, e]));
-    // Paying a person back is the Owner's (`kindsFor`): the server sends it, no page of the
-    // Manager's lists it, nor a change about one or the undo of such a change.
-    const repay = (e?: Entry) => e?.kind === "reimburse";
-    return db.entries.filter((e) => {
-      const target = byId.get(e.values.targetId);
-      return !(
-        managerHidden(e, target) ||
-        repay(e) ||
-        repay(target) ||
-        repay(target && byId.get(target.values.targetId))
-      );
-    });
-  }
+  if (by.role === "owner") return db.entries;
   const seen = new Set<string>();
   for (const e of db.entries)
     if (
@@ -92,17 +57,15 @@ export function visibleNotes(db: Database, by: Actor): Entry[] {
     .sort(byDateAt)
     .reverse();
 }
-/** A branch's note (whoever jotted it) is the branch's to change, not the Owner's or the
- *  Account Manager's. */
+/** A branch's note (whoever jotted it) is the branch's to change, not the Owner's. */
 const branchOnly = "บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้";
 /** Why `by` may not edit `target` ("" when it may): the Owner edits any note but a branch's,
- *  the Account Manager those but a payroll payment, a branch its own branch's. */
+ *  a branch its own branch's. */
 export function editBlock(db: Database, target: Entry, by: Actor) {
   if (!editableKinds.includes(target.kind))
     return "รายการชนิดนี้แก้ไขย้อนหลังไม่ได้";
   if (isVoided(db, target.id)) return "รายการนี้ถูกลบแล้ว";
-  if (!canChange(by, target) || (by.hidesSales && managerHidden(target)))
-    return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
+  if (!canChange(by, target)) return "แก้ไขได้เฉพาะรายการของบัญชีนี้";
   if (by.role === "owner" && target.role === "branch") return branchOnly;
   return "";
 }
@@ -128,8 +91,7 @@ export function voidBlock(db: Database, target: Entry, by: Actor) {
       ? "รายการนี้ย้อนกลับแล้ว"
       : "รายการนี้ถูกลบแล้ว";
   const about = db.entries.find((e) => e.id === target.values.targetId);
-  if (!canChange(by, target) || (by.hidesSales && managerHidden(target, about)))
-    return "ลบได้เฉพาะรายการของบัญชีนี้";
+  if (!canChange(by, target)) return "ลบได้เฉพาะรายการของบัญชีนี้";
   // A change (an edit, a delete) is judged by the note it is about.
   const noteRole = changeKinds.includes(target.kind)
     ? (about?.role ?? target.values.targetRole)
@@ -168,27 +130,25 @@ const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
 const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
 /** Spec section 7: everything yellow for an account, as one list for the Overview box, the
- *  Daily Log box and the bell. A branch lists its own branch; the Owner and the Account
- *  Manager both, each line led by the branch name. A lot flagged `old` (Old Lots) and the
- *  notes on it raise none. */
+ *  Daily Log box and the bell. A branch lists its own branch; the Owner both, each
+ *  line led by the branch name. A lot flagged `old` (Old Lots) and the notes on it raise none. */
 export function todos(db: Database, by: Actor, today: string): Todo[] {
   const list: Todo[] = [];
   const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
   const own = by.role === "branch";
   for (const branch of own ? [by.branch ?? ""] : branches) {
     const lead = own ? "" : `${branch}: `;
-    if (!by.hidesSales)
-      for (let back = 0; back < 7; back++) {
-        const date = new Date(Date.parse(today) - back * 86400000)
-          .toISOString()
-          .slice(0, 10);
-        // Only the branch jots its sale and its count: for the others the line is a status.
-        if (!hasSale(db, branch, date))
-          list.push({
-            text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
-            ...(own && { kind: "sale" as const, date }),
-          });
-      }
+    for (let back = 0; back < 7; back++) {
+      const date = new Date(Date.parse(today) - back * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      // Only the branch jots its sale and its count: for the Owner the line is a status.
+      if (!hasSale(db, branch, date))
+        list.push({
+          text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
+          ...(own && { kind: "sale" as const, date }),
+        });
+    }
     if (!branchMeat(db, branch, today).countedToday)
       list.push({
         text: `${lead}นับเนื้อวันนี้`,

@@ -4,11 +4,11 @@
 -- payroll receipt, which goes to `payroll`, and a logo, which goes to `branding`.
 --
 --   folder                           written by              read by
---   purchase, pay, smokingInvoice,   Owner, Account Manager  Owner, Account Manager, the uploader
+--   purchase, pay, smokingInvoice,   Owner                   Owner, the uploader
 --   packingList, the retired kinds
---   pay                              also a branch           Owner, Account Manager, the uploader
+--   pay                              also a branch           Owner, the uploader
 --   payroll                          Owner                   Owner
---   branding                         Owner, Account Manager  every active profile
+--   branding                         Owner                   every active profile
 --
 -- Permissive policies are OR'd. No UPDATE / DELETE policy: a file is never overwritten or
 -- removed, a new logo is a new object.
@@ -42,7 +42,6 @@ begin
         select 1 from public.profiles p
          where p.id = (select auth.uid()) and p.is_active
            and (p.role::text = 'L1_OWNER'
-             or (p.role::text = 'L1_MANAGER' and (storage.foldername(objects.name))[1] is distinct from 'payroll')
              or objects.owner_id = (select auth.uid())::text)
       )
     )
@@ -53,7 +52,7 @@ begin
       and exists (
         select 1 from public.profiles p
          where p.id = (select auth.uid()) and p.is_active
-           and ((p.role::text in ('L1_OWNER', 'L1_MANAGER') and (storage.foldername(objects.name))[1] in
+           and ((p.role::text = 'L1_OWNER' and (storage.foldername(objects.name))[1] in
                ('purchase', 'pay', 'foodivaConfirm', 'packingList', 'smokingInvoice', 'invoicePayment', 'meatPayment', 'legacy'))
              or (p.role::text = 'L1_OWNER' and (storage.foldername(objects.name))[1] = 'payroll')
              or (p.role::text = 'L2_BRANCH_ADMIN' and (storage.foldername(objects.name))[1] = 'pay'))
@@ -80,7 +79,7 @@ begin
       and exists (
         select 1 from public.profiles p
          where p.id = (select auth.uid()) and p.is_active
-           and p.role::text in ('L1_OWNER', 'L1_MANAGER')
+           and p.role::text = 'L1_OWNER'
       )
     )
   $p$;

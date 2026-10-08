@@ -1,23 +1,20 @@
--- Migrations 20261002000004 and 20261002000005 (v2 note-taking): what a branch and the Account Manager receive, and
--- what each may write.
+-- Migrations 20261002000004 and 20261002000005 (v2 note-taking): what a branch receives, and
+-- what it and the Owner may write.
 --   * scope_app_state: a branch gets its own entries, every Lot รมควัน and the stock lines of what
 --     was bought for it (a payment, an expense into its warehouse), cut down, and the transfers
 --     out of or into its stock; nothing of another branch, no PO เนื้อ, no cost.
---   * manager_strip_entries / load_app_state: no sale money, payroll payments as stubs.
 --   * append_entries: the v2 branch kinds, the four payment categories, changes to its own notes,
 --     the receipt of a transfer sent to it.
---   * save_app_state: the Account Manager writes no sale, no payroll payment, no change about
---     one and no settings; its save keeps the stored sale money and payroll amounts. Neither it
---     nor the Owner writes a branch's notes: no new one, no change to one, no undo of a change.
+--   * save_app_state: the Owner writes no branch's notes: no new one, no change to one, no undo
+--     of a change.
 --   * Nobody but the Owner selects app_state directly.
--- tests/unit/server.test.ts runs the JS ports (src/lib/role-scope.ts, manager-scope.ts,
--- local-db.server.ts) on the same state and cases, read from this file by their dollar-quote tags.
+-- tests/unit/server.test.ts runs the JS ports (src/lib/role-scope.ts, local-db.server.ts) on the
+-- same state and cases, read from this file by their dollar-quote tags.
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/v2_app_state_test.sql
 
 do $$
 declare
   v_owner  uuid := gen_random_uuid();
-  v_mgr    uuid := gen_random_uuid();
   v_branch uuid := gen_random_uuid();
   v_loc    uuid;
   v_rev    bigint := 1;
@@ -26,8 +23,8 @@ declare
   v_case   jsonb;
   v_seen   jsonb;
   v_want   jsonb;
-  -- ov deletes r0; pw is a payroll payment, pe an edit of it, pv its delete; ps is what the Account
-  -- Manager bought for มีนบุรี, pse an edit of that and psv the undo; pd is bought for ศาลาแดง; oe
+  -- ov deletes r0; pw is a payroll payment, pe an edit of it, pv its delete; ps is what the Owner
+  -- bought for มีนบุรี, pse an edit of that and psv the undo; pd is bought for ศาลาแดง; oe
   -- is the Owner's edit of มีนบุรี's sale; mc the Owner jotted for มีนบุรี; tw is a retired kind.
   -- xe is an expense bought into มีนบุรี's warehouse and xee an edit of it, xc one into the central
   -- warehouse; t1 is a transfer to มีนบุรี, t2 one to ศาลาแดง, t3 one whose edit t3e names มีนบุรี, t4
@@ -49,7 +46,7 @@ declare
     {"id":"pw","kind":"pay","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"category":"payroll","amount":"25000","employee":"A","payer":"บริษัท"}},
     {"id":"pe","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"pw","targetKind":"pay","targetRole":"owner","targetBranch":"","from.category":"payroll","from.amount":"25000","to.amount":"26000"}},
     {"id":"pv","kind":"void","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"pw","targetKind":"pay"}},
-    {"id":"ps","kind":"pay","role":"owner","actor":"manager","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"category":"packaging","amount":"100","item":"m1","qty":"60","branch":"มีนบุรี","supplier":"x","fullAmount":"200","payer":"บริษัท"}},
+    {"id":"ps","kind":"pay","role":"owner","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"category":"packaging","amount":"100","item":"m1","qty":"60","branch":"มีนบุรี","supplier":"x","fullAmount":"200","payer":"บริษัท"}},
     {"id":"pse","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"ps","targetKind":"pay","from.qty":"60","to.qty":"50","from.amount":"100","to.amount":"90"}},
     {"id":"psv","kind":"void","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"pse","targetKind":"entryEdit","reason":"x"}},
     {"id":"pd","kind":"pay","role":"owner","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"category":"ingredient","amount":"9","item":"chili","qty":"7","branch":"ศาลาแดง"}},
@@ -63,7 +60,7 @@ declare
     {"id":"xc","kind":"expense","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"item":"โต๊ะ","sku":"SKU-0012","qty":"4","warehouse":"central","purpose":"project","project":"Nerdnuea x LINE MAN","amount":"800"}},
     {"id":"t1","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"มีนบุรี","qty":"1","receive":"confirm"}},
     {"id":"t2","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"ศาลาแดง","qty":"1","receive":"confirm"}},
-    {"id":"t3","kind":"transfer","role":"owner","actor":"manager","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"","qty":"1","missing":"to"}},
+    {"id":"t3","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"","qty":"1","missing":"to"}},
     {"id":"t3e","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t3","targetKind":"transfer","from.to":"","to.to":"มีนบุรี","to.receive":"confirm","to.missing":""}},
     {"id":"t4","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0011","itemName":"ตู้เย็น","from":"มีนบุรี","to":"central","qty":"1"}},
     {"id":"tv","kind":"void","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t4","targetKind":"transfer"}},
@@ -93,16 +90,6 @@ declare
     ["tv", {"targetId":"t4","targetKind":"transfer"}]
   ]
   $branch$;
-  -- id -> values: the entries the Account Manager receives changed; every other one is whole.
-  v_manager_sees constant jsonb := $manager$
-  {
-    "s1": {"boxes":"2","meatCost":"9"},
-    "s2": {"boxes":"1"},
-    "pw": {"category":"payroll"},
-    "pe": {"targetId":"pw","targetKind":"pay","targetRole":"owner","targetBranch":"","from.category":"payroll"},
-    "oe": {"targetId":"s1","targetKind":"sale","to.meatCost":"8","to.boxes":"3"}
-  }
-  $manager$;
   -- [id, kind, lotId, values, error]: appended one by one as มีนบุรี dated 2026-09-10; '' is accepted.
   v_appends constant jsonb := $appends$
   [
@@ -152,41 +139,18 @@ declare
     ["x", "void", "", {"targetId": "t1"}, "Void target is not an entry of this branch"]
   ]
   $appends$;
-  -- [entry, error]: appended one by one by the Account Manager to the copy it loaded.
-  v_saves constant jsonb := $saves$
-  [
-    [{"id": "n1", "kind": "pay", "role": "owner", "values": {"category": "rent", "amount": "1"}}, ""],
-    [{"id": "x", "kind": "sale", "role": "branch", "branch": "มีนบุรี", "values": {"boxes": "1"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "pay", "role": "owner", "values": {"category": "payroll", "amount": "1"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "n1", "targetKind": "pay", "to.category": "payroll"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "s1", "targetKind": "sale", "to.boxes": "3"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "s1", "to.boxes": "3"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "pw", "targetKind": "pay"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "pv", "targetKind": "void"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "oe", "targetKind": "entryEdit"}}, "Entry kind is not allowed for this account"],
-    [{"id": "x", "kind": "config", "role": "owner", "values": {"boxPrice": "1"}}, "Only the Owner changes settings"],
-    [{"id": "x", "kind": "meatCount", "role": "branch", "branch": "มีนบุรี", "values": {"kg": "2"}}, "Only a branch account writes a branch's notes"],
-    [{"id": "x", "kind": "entryEdit", "role": "owner", "values": {"targetId": "r1", "targetKind": "receive", "to.kg": "4"}}, "Only a branch account writes a branch's notes"],
-    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "mc", "targetKind": "meatCount"}}, "Only a branch account writes a branch's notes"],
-    [{"id": "x", "kind": "void", "role": "owner", "values": {"targetId": "ov", "targetKind": "void"}}, "Only a branch account writes a branch's notes"],
-    [{"id": "n3", "kind": "void", "role": "owner", "values": {"targetId": "ps", "targetKind": "pay"}}, ""],
-    [{"id": "n4", "kind": "transfer", "role": "owner", "values": {"sku": "SKU-0012", "itemName": "โต๊ะ", "from": "central", "to": "มีนบุรี", "qty": "1", "receive": "now"}}, ""],
-    [{"id": "x", "kind": "transferReceive", "role": "branch", "branch": "มีนบุรี", "values": {"transferId": "n4"}}, "Only a branch account writes a branch's notes"]
-  ]
-  $saves$;
 begin
   create or replace function auth.uid() returns uuid language sql stable
     as $f$ select nullif(current_setting('test.uid', true), '')::uuid $f$;
   insert into auth.users (id, email) values (v_owner, 'owner@example.invalid'),
-    (v_mgr, 'manager@example.invalid'), (v_branch, 'minburi@example.invalid');
+    (v_branch, 'minburi@example.invalid');
   insert into profiles (id, display_name, role, is_active) values
-    (v_owner, 'owner', 'L1_OWNER', true), (v_mgr, 'manager', 'L1_MANAGER', true),
-    (v_branch, 'minburi', 'L2_BRANCH_ADMIN', true)
+    (v_owner, 'owner', 'L1_OWNER', true), (v_branch, 'minburi', 'L2_BRANCH_ADMIN', true)
     on conflict (id) do update set role = excluded.role, is_active = true;
   insert into locations (code, name_th, kind) values ('MB-TEST', 'สาขามีนบุรี', 'BRANCH') returning id into v_loc;
   insert into user_locations (profile_id, location_id) values (v_branch, v_loc);
-  -- The log as both accounts left it: written straight to the table, since no one account's
-  -- save holds entries of both the Owner and the Account Manager.
+  -- The log as the accounts left it: written straight to the table, since no Owner save adds a
+  -- branch's notes.
   insert into public.app_state (singleton, payload, revision, updated_by) values (true, v_state, v_rev, v_owner);
 
   -- scope_app_state: only what the branch may see, cut down.
@@ -210,27 +174,8 @@ begin
   perform set_config('test.uid', v_branch::text, true);
   assert (select l.payload from public.load_app_state() l) = v_seen, 'branch load is not its scoped copy';
 
-  -- manager_strip_entries: no sale money, payroll as stubs, everything else whole.
-  select jsonb_agg(jsonb_set(o, '{values}', coalesce(v_manager_sees -> (o ->> 'id'), o -> 'values')) order by ord) into v_want
-    from jsonb_array_elements(v_state -> 'entries') with ordinality t(o, ord);
-  v_seen := public.manager_strip_entries(v_state -> 'entries');
-  assert v_seen = v_want, format('manager entries: %s', v_seen);
-  perform set_config('test.uid', v_mgr::text, true);
-  select l.payload into v_seen from public.load_app_state() l;
-  assert v_seen = jsonb_set(v_state, '{entries}', v_want), 'manager load is not its stripped copy';
-  assert v_seen::text !~ '"(to\.|from\.)?(revenue|lineMan|menuTotal|sales\.[^"]*)"', format('manager load leaks sale money: %s', v_seen);
-  assert v_seen::text !~ '25000|26000|"employee"', format('manager load leaks payroll: %s', v_seen);
   perform set_config('test.uid', v_owner::text, true);
   assert (select l.payload from public.load_app_state() l) = v_state, 'owner load changed';
-
-  -- manager_hidden: managerHidden in store/visibility.ts.
-  assert public.manager_hidden('{"kind":"sale"}', null) and public.manager_hidden('{"kind":"pay","values":{"category":"payroll"}}', null)
-    and public.manager_hidden('{"kind":"entryEdit","values":{"from.category":"payroll"}}', null)
-    and public.manager_hidden('{"kind":"void","values":{"targetKind":"sale"}}', null)
-    and public.manager_hidden('{"kind":"void","values":{}}', '{"kind":"pay","values":{"category":"payroll"}}'), 'manager_hidden misses one';
-  assert not public.manager_hidden('{"kind":"pay","values":{"category":"rent"}}', null)
-    and not public.manager_hidden('{"kind":"void","values":{}}', '{"kind":"pay","values":{"category":"rent"}}')
-    and not public.manager_hidden(null, null), 'manager_hidden hides too much';
 
   -- append_entries, as มีนบุรี.
   perform set_config('test.uid', v_branch::text, true);
@@ -267,46 +212,17 @@ begin
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
     = 's1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6', format('branch load after its appends: %s', v_seen -> 'entries');
 
-  -- save_app_state, as the Account Manager, from the copy it loads.
-  perform set_config('test.uid', v_mgr::text, true);
-  for v_case in select x from jsonb_array_elements(v_saves) with ordinality t(x, ord) order by ord loop
-    select l.payload into v_seen from public.load_app_state() l;
-    v_err := '';
-    begin
-      select s.revision into v_rev from public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries')
-        || jsonb_build_array('{"lotId":"","branch":"","date":"2026-09-10"}'::jsonb || (v_case -> 0) || '{"actor":"manager"}'::jsonb)), v_rev) s;
-    exception when others then v_err := sqlerrm;
-    end;
-    assert v_err = v_case ->> 1, format('manager save %s: got %s', v_case, v_err);
-  end loop;
+  -- save_app_state, as the Owner. Stored history is not to change.
+  perform set_config('test.uid', v_owner::text, true);
   select l.payload into v_seen from public.load_app_state() l;
-  -- Settings are the Owner's, and stored history is not the manager's to change.
-  v_err := '';
-  begin
-    perform public.save_app_state(jsonb_set(v_seen, '{config,boxPrice}', '"1"'), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Only the Owner changes settings', format('manager config: got %s', v_err);
+  assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
+    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6', 'the log is not what was appended';
   v_err := '';
   begin
     perform public.save_app_state(jsonb_set(v_seen, '{entries,0,values,boxes}', '"9"'), v_rev);
   exception when others then v_err := sqlerrm;
   end;
-  assert v_err = 'Existing history cannot be changed', format('manager history: got %s', v_err);
-  v_err := '';
-  begin
-    perform public.save_app_state(jsonb_set(v_seen, '{entries,6,values,category}', '"rent"'), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Existing history cannot be changed', format('manager payroll stub: got %s', v_err);
-
-  -- The manager's saves kept what its copy did not hold.
-  perform set_config('test.uid', v_owner::text, true);
-  select l.payload into v_seen from public.load_app_state() l;
-  assert v_seen -> 'entries' -> 0 = v_state -> 'entries' -> 0 and v_seen -> 'entries' -> 6 = v_state -> 'entries' -> 6
-    and v_seen -> 'entries' -> 14 = v_state -> 'entries' -> 14, 'a manager save changed sale money or a payroll payment';
-  assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,n1,n3,n4', 'the log is not what was appended';
+  assert v_err = 'Existing history cannot be changed', format('owner history: got %s', v_err);
   v_err := '';
   begin
     perform public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries') || '[
@@ -315,13 +231,15 @@ begin
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('owner actor on its own entry: got %s', v_err);
   -- A branch's notes are the branch's: the Owner jots none (stamped "owner" or not), changes none
-  -- and undoes no change to one (oe is its old edit of s1).
+  -- and undoes no change to one (oe is its old edit of s1, ov its old delete of r0).
   foreach v_case in array array[
     '{"kind":"sale","role":"branch","actor":"owner","branch":"ศาลาแดง","values":{"boxes":"1","lineMan":"350"}}',
     '{"kind":"receive","role":"branch","branch":"ศาลาแดง","values":{"kg":"1"}}',
+    '{"kind":"transferReceive","role":"branch","branch":"มีนบุรี","values":{"transferId":"t1"}}',
     '{"kind":"entryEdit","role":"owner","values":{"targetId":"s1","targetKind":"sale","to.boxes":"3"}}',
     '{"kind":"void","role":"owner","values":{"targetId":"mc","targetKind":"meatCount"}}',
-    '{"kind":"void","role":"owner","values":{"targetId":"oe","targetKind":"entryEdit"}}']::jsonb[] loop
+    '{"kind":"void","role":"owner","values":{"targetId":"oe","targetKind":"entryEdit"}}',
+    '{"kind":"void","role":"owner","values":{"targetId":"ov","targetKind":"void"}}']::jsonb[] loop
     v_err := '';
     begin
       perform public.save_app_state(jsonb_set(v_seen, '{entries}', (v_seen -> 'entries')
@@ -339,19 +257,12 @@ begin
   set local role authenticated;
   select count(*) into v_n from public.app_state;
   assert v_n = 1, 'owner lost its direct read on app_state';
-  perform set_config('test.uid', v_mgr::text, true);
-  select count(*) into v_n from public.app_state;
-  assert v_n = 0, 'manager can select app_state directly';
   perform set_config('test.uid', v_branch::text, true);
   select count(*) into v_n from public.app_state;
   assert v_n = 0, 'branch can select app_state directly';
   reset role;
 
-  assert not has_function_privilege('authenticated', 'public.scope_app_state(jsonb, text[])', 'execute')
-    and not has_function_privilege('authenticated', 'public.manager_hidden(jsonb, jsonb)', 'execute')
-    and not has_function_privilege('authenticated', 'public.manager_strip_values(jsonb)', 'execute')
-    and not has_function_privilege('authenticated', 'public.manager_strip_entries(jsonb)', 'execute')
-    and not has_function_privilege('authenticated', 'public.manager_restore_entries(jsonb, jsonb)', 'execute'), 'a helper is callable';
+  assert not has_function_privilege('authenticated', 'public.scope_app_state(jsonb, text[])', 'execute'), 'a helper is callable';
   assert not has_function_privilege('anon', 'public.append_entries(bigint, jsonb, jsonb)', 'execute')
     and not has_function_privilege('anon', 'public.save_app_state(jsonb, bigint)', 'execute')
     and not has_function_privilege('anon', 'public.load_app_state()', 'execute'), 'anon can call an RPC';
@@ -361,7 +272,10 @@ begin
   assert to_regprocedure('public.strip_sale_money(jsonb)') is null and to_regprocedure('public.strip_sale_money_entries(jsonb)') is null
     and to_regprocedure('public.restore_sale_money(jsonb, jsonb, jsonb)') is null
     and to_regprocedure('public.current_sale_money(jsonb, text)') is null and to_regprocedure('public.sale_money_number(text)') is null
-    and to_regprocedure('public.branch_day_closed(jsonb, text, text)') is null, 'a dropped helper is still there';
+    and to_regprocedure('public.branch_day_closed(jsonb, text, text)') is null
+    and to_regprocedure('public.manager_hidden(jsonb, jsonb)') is null and to_regprocedure('public.manager_strip_values(jsonb)') is null
+    and to_regprocedure('public.manager_strip_entries(jsonb)') is null
+    and to_regprocedure('public.manager_restore_entries(jsonb, jsonb)') is null, 'a dropped helper is still there';
 
   raise exception 'V2_APP_STATE_TEST_PASSED';
 end $$;

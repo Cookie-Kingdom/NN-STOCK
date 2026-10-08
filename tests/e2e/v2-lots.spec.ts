@@ -89,7 +89,7 @@ test("5 · V2-PO-02 V2-LOT-04 a PO รมควัน is jotted before any PO �
   page,
 }) => {
   await start(page, "seed");
-  await signInAs(page, "manager");
+  await signInAs(page, "owner");
   await openPage(page, "Lots");
   await expect(page.getByText(/ยังไม่มี PO รมควันและ PO เนื้อ/)).toBeVisible();
 

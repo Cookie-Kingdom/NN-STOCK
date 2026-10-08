@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import {
   WithWorkspace,
-  dbFor,
   phone,
   wide,
   sampleDb,
@@ -34,13 +33,6 @@ type Story = StoryObj<typeof meta>;
  *  12 รายการ เป็นตาราง (วันที่ หมวด รายการ ผู้ขาย / ผู้รับ ที่มา / ประเภทบิล ยอดจ่าย เอกสารแนบ
  *  และปุ่มแก้ไข / ลบท้ายแถว) · Revenue อยู่ที่หน้า Overview ของ Project */
 export const Owner: Story = {};
-
-/** Account Manager: ไม่มีตัวเลขหกช่อง ไม่มีค่าแรงในตาราง ไม่มีเงินที่พนักงานสำรองจ่าย
- *  ไม่เห็นบันทึกคืนเงินพนักงาน */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
 
 /** ยังไม่มีบันทึก: ตัวเลขเป็นศูนย์ ค่าเช่า/น้ำไฟของเดือนเป็นสีเหลือง
  *  รายการจ่ายเงินล่าสุดเป็น "ยังไม่มีรายการจ่ายเงิน" */

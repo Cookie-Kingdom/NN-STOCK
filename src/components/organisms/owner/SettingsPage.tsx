@@ -92,7 +92,7 @@ const lists: Record<
     name: "ช่องทาง",
     extra: { key: "gp", label: "GP %" },
     add: "เพิ่มช่องทาง",
-    // Sale money is hidden from the Account Manager by this prefix.
+    // An added channel keeps its money under this prefix (checkConfig).
     prefix: "sales.",
   },
   categories: {

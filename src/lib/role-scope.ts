@@ -7,8 +7,7 @@ import {
 } from "./store";
 
 /* What a branch account receives from load_app_state: its own entries, the Lots it may receive
- * from, and the stock lines of what the Owner or the Account Manager bought for it (V2-ACC-06,
- * V2-ACC-07). Nothing of another branch, no cost, no central stock.
+ * from, and the stock lines of what the Owner bought for it (V2-ACC-06, V2-ACC-07). Nothing of another branch, no cost, no central stock.
  *
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
  * 20261002000004_app_state_scope.sql, and tests/unit/server.test.ts checks the two are equal, so
@@ -22,12 +21,12 @@ import {
  *  - configKeys  the settings kept, in `config` and in every lot's config. normalize() fills the
  *                rest from the seed, which no branch screen reads. Of `rawRiceBranches` a branch
  *                gets its own name or an empty list, never the other branch's (V2-BR-08).
- *  - stockKinds  kinds of the Owner / Account Manager stamped with the branch that reach it for
- *                stock only: visibleEntries() never lists them.
+ *  - stockKinds  kinds of the Owner stamped with the branch that reach it for stock only:
+ *                visibleEntries() never lists them.
  *  - stockKeys   the only value keys those keep: what was bought, how many, into which
  *                warehouse, and what an edit or a delete of the line needs to apply. Never an
  *                amount, a vendor or a document.
- *  - wholeKinds  kinds of the Owner / Account Manager sent whole (they hold no money) when
+ *  - wholeKinds  kinds of the Owner sent whole (they hold no money) when
  *                `from` or `to` names the branch, as saved or as an edit put it (`to.from`,
  *                `to.to`): a transfer out of or into its stock.
  *

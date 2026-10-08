@@ -180,11 +180,11 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
   await expect(page.getByRole("main")).toContainText(PO1);
 });
 
-test("V2-LED-05 V2-LED-07 the Owner and the Manager jot, edit and delete an expense, and no branch receives one", async ({
+test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no branch receives one", async ({
   page,
 }) => {
   await start(page, "seed");
-  await signInAs(page, "manager");
+  await signInAs(page, "owner");
   await openPage(page, "Accounting");
   await expense(
     page,
@@ -224,7 +224,7 @@ test("V2-LED-05 V2-LED-07 the Owner and the Manager jot, edit and delete an expe
   // The edit kept the item, so its SKU.
   await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0011");
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿650");
-  // The Manager deletes one of its own: the row and its money are gone.
+  // A deleted one: the row and its money are gone.
   await expense(
     page,
     [/^ประเภทสินค้า/, "อื่นๆ"],
@@ -236,9 +236,7 @@ test("V2-LED-05 V2-LED-07 the Owner and the Manager jot, edit and delete an expe
   await expect(ledgerRows(page)).toHaveCount(1);
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿650");
 
-  // The Owner's: one still to pay (no amount), one cancelled, which holds no money.
-  await signInAs(page, "owner");
-  await openPage(page, "Accounting");
+  // One still to pay (no amount), one cancelled, which holds no money.
   await expense(
     page,
     [/^ประเภทสินค้า/, "อื่นๆ"],
@@ -269,7 +267,7 @@ test("V2-LED-05 V2-LED-07 the Owner and the Manager jot, edit and delete an expe
     page.getByRole("button", { name: "PO รอจ่าย (0)" }),
   ).toBeVisible();
 
-  // The Owner edits and deletes the Manager's row.
+  // The first row, edited again and deleted.
   await press(ink, "แก้ไข");
   await fill(page, [/^สถานะ/, "รอจ่าย"]);
   await save(page);

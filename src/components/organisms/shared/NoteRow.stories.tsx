@@ -54,12 +54,6 @@ type Story = StoryObj<typeof meta>;
  *  - แถวของสาขา (ยอดขาย นับเนื้อ ฯลฯ) ไม่มีปุ่ม 「แก้ไข」 「ลบ」: สาขาเป็นคนแก้ */
 export const Owner: Story = {};
 
-/** Account Manager: ไม่มียอดขาย และไม่มีจ่ายเงินหมวดค่าแรง */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
-
 /** สาขา: เห็นเฉพาะบันทึกของสาขาตัวเอง บรรทัดรองไม่บอกชื่อสาขา */
 export const Branch: Story = {
   args: { account: "saladaeng" },

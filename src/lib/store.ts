@@ -93,8 +93,6 @@ export {
   hasSale,
 } from "./store/derived";
 export {
-  isSaleMoneyKey,
-  managerHidden,
   visibleEntries,
   visibleNotes,
   editBlock,

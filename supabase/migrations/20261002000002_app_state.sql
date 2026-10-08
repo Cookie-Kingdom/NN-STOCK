@@ -1,7 +1,7 @@
 -- The whole app state: one JSON payload in a singleton row, with a revision for optimistic
 -- concurrency. No client writes the table: every save is save_app_state or append_entries
--- (file 5). Only the Owner may select it directly; the Account Manager and a branch read
--- their own copy through load_app_state.
+-- (file 5). Only the Owner may select it directly; a branch reads its own copy through
+-- load_app_state.
 
 create table public.app_state (
   singleton boolean primary key default true check (singleton), payload jsonb not null,

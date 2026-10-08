@@ -1,8 +1,7 @@
 -- Failure-case test: save_app_state refuses branch accounts and mismatched actors / roles.
--- M1: Foodiva / Chef House work is typed by the Owner (actor "owner") or the
--- Account Manager (actor "manager"); L3 / L4 accounts are refused even when re-activated.
--- v2: the Account Manager changes no settings; neither it nor the Owner jots a branch's note
--- (role "branch").
+-- M1: Foodiva / Chef House work is typed by the Owner (actor "owner"); L3 / L4 accounts and the
+-- retired Account Manager (L1_MANAGER) are refused even when active.
+-- v2: the Owner jots no branch's note (role "branch").
 -- Run:  psql "$DATABASE_URL" -f supabase/tests/save_app_state_guard_test.sql
 
 do $$
@@ -17,10 +16,7 @@ declare
   v_uid    uuid;
   v_err    text;
   lot1     constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{}}';
-  lot1b    constant jsonb := '{"id":"L1","poId":"P1","config":{},"values":{"receivedKg":"1"}}';
-  v_s      constant jsonb := '{"id":"S260907-001-a1b2","poId":"SH-2026-0001","kind":"shipment","config":{},"values":{"receivedKg":"5"}}';
   v_e12    constant text := '{"id":"e1","kind":"pay","role":"owner"},{"id":"e2","kind":"packingList","role":"foodiva","actor":"owner"}';
-  v_log    constant text := v_e12 || ',{"id":"e2b","kind":"cmReceive","role":"cm","actor":"manager","lotId":"S260907-001-a1b2","values":{"receivedKg":"5"}},{"id":"e2c","kind":"dispatch","role":"foodiva","actor":"manager","lotId":"S260907-001-a1b2","values":{"trip":"1"}}';
 begin
   -- The harness auth.uid() always returns null; let each step pick the signed-in user.
   create or replace function auth.uid() returns uuid language sql stable
@@ -72,8 +68,8 @@ begin
   end;
   assert v_err = 'Only a branch account writes a branch''s notes', format('owner as branch: got %s', v_err);
 
-  -- L3 / L4 are retired: refused up front even when active (this test re-activated them).
-  foreach v_uid in array array[v_cm, v_food] loop
+  -- L3 / L4 and L1_MANAGER are retired: refused up front even when active (this test activated them).
+  foreach v_uid in array array[v_cm, v_food, v_mgr] loop
     perform set_config('test.uid', v_uid::text, true);
     v_err := null;
     begin perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
@@ -90,58 +86,12 @@ begin
     assert v_err = 'Account is not active', format('retired append: got %s', v_err);
   end loop;
 
-  -- M1 / no stage (SRV-01): the Account Manager opens a batch and records Chef House's weigh-in
-  -- and Foodiva's truck on it, stamped "manager"; stamped "owner" it is refused.
-  perform set_config('test.uid', v_mgr::text, true);
-  v_err := null;
-  begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || replace(v_log, '"manager"', '"owner"') || ']')::jsonb), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Entry actor does not match signed-in account', format('manager as owner: got %s', v_err);
-  select s.revision into v_rev from public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-    'config', '{}'::jsonb, 'entries', ('[' || v_log || ']')::jsonb), v_rev) s;
-  assert (select payload -> 'entries' -> 3 ->> 'kind' from public.app_state) = 'dispatch', 'manager dispatch not saved';
-
-  -- Account Manager (L1_MANAGER) runs the business as the Owner: it adds lots and appends owner /
-  -- foodiva / cm entries (always stamped "manager"). It changes no settings and jots no branch's
-  -- note.
-  v_err := null;
-  begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"branch","branch":"มีนบุรี"}]')::jsonb), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Entry actor does not match signed-in account', format('manager as branch: got %s', v_err);
-  v_err := null;
-  begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"nobody","actor":"manager"}]')::jsonb), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Entry role does not match signed-in account', format('manager with an unknown role: got %s', v_err);
-  v_err := null;
-  begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{"boxPrice":"350"}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","role":"owner","actor":"manager"}]')::jsonb), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Only the Owner changes settings', format('manager changes config: got %s', v_err);
-  v_err := null;
-  begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e3","kind":"receive","role":"branch","branch":"มีนบุรี","actor":"manager"}]')::jsonb), v_rev);
-  exception when others then v_err := sqlerrm;
-  end;
-  assert v_err = 'Only a branch account writes a branch''s notes', format('manager jots a branch note: got %s', v_err);
-
-  -- The Owner may not claim to be the manager.
+  -- No new entry carries the retired "manager" stamp.
   perform set_config('test.uid', v_owner::text, true);
   v_err := null;
   begin
-    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1b, v_s),
-      'config', '{}'::jsonb, 'entries', ('[' || v_log || ',{"id":"e4","role":"owner","actor":"manager"}]')::jsonb), v_rev);
+    perform public.save_app_state(jsonb_build_object('version', 9, 'lots', jsonb_build_array(lot1),
+      'config', '{}'::jsonb, 'entries', ('[' || v_e12 || ',{"id":"e4","role":"owner","actor":"manager"}]')::jsonb), v_rev);
   exception when others then v_err := sqlerrm;
   end;
   assert v_err = 'Entry actor does not match signed-in account', format('owner as manager: got %s', v_err);

@@ -160,7 +160,7 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   ],
   // A branch's Stock and Inventory, between them every kind it jots: what moves its meat and
   // chili, and what moves its materials. It has no Finance, so `pay` stands on both. The
-  // Owner's and the Manager's two pages have none.
+  // Owner's two pages have none.
   meatStock: ["sale", "receive", "meatCount", "influencerBox", "pay"],
   stock: ["pay", "materials"],
   finance: ["pay", "reimburse"],
@@ -168,17 +168,13 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   accounting: ["expense"],
 };
 /** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments (never an
- *  `expense`: the ledger is the Owner's and the Account Manager's), the Owner and the Account
- *  Manager everything but a branch's kinds. Paying a person back is the Owner's alone: only
- *  the Owner sees what each one is owed (V2-PAY-07). `mutate` refuses the rest.
- *  ponytail: save_app_state does not refuse a `reimburse` from the Manager; it gives no more
- *  than a `pay` naming a payer already does. Add it to manager_hidden() if that changes. */
+ *  `expense`: the ledger is the Owner's), the Owner everything but a branch's kinds. `mutate`
+ *  refuses the rest. */
 export const kindsFor = (by: Actor): NoteKind[] =>
   noteKinds.filter((kind) =>
     by.role === "branch"
       ? kindInfo[kind].group === "branch" || kind === "pay"
-      : kindInfo[kind].group !== "branch" &&
-        !(by.hidesSales && kind === "reimburse"),
+      : kindInfo[kind].group !== "branch",
   );
 /** The kinds the picker of `page` offers `by`, in the page's order. Overview, Daily Log,
  *  Settings and any other page: none. */
@@ -193,8 +189,8 @@ export const kindsForPage = (by: Actor, page: string): NoteKind[] => {
     may.includes(kind),
   );
 };
-/** Who is acting: an `Account` is one. `hidesSales` is the Account Manager. */
-export type Actor = { role: ActingRole; branch?: string; hidesSales?: boolean };
+/** Who is acting: an `Account` is one. */
+export type Actor = { role: ActingRole; branch?: string };
 export type Entry = {
   id: string;
   kind: EntryKind;
@@ -204,11 +200,9 @@ export type Entry = {
   date: string;
   at: string;
   values: Values;
-  /** "manager": the Account Manager wrote it, stamped at save by persistence and checked by
-   *  save_app_state. "owner": the Owner jotted a branch kind for the branch, on old entries
-   *  only (no account jots for a branch now). Absent: the role's own account (for "owner",
-   *  the Owner). */
-  actor?: "manager" | "owner";
+  /** "owner": the Owner jotted a branch kind for the branch, on old entries only (no account
+   *  jots for a branch now). Absent: the role's own account. */
+  actor?: "owner";
 };
 export type Lot = {
   id: string;
@@ -234,10 +228,10 @@ const roleName = {
   cm: "Chef House",
   branch: "ผู้ดูแลสาขา",
 };
-/** Who wrote an entry, for the log: the Account Manager is told apart from the Owner, and an
- *  entry jotted for someone else says so ("Owner · แทน ผู้ดูแลสาขา"). Both actors act as "owner". */
+/** Who wrote an entry, for the log: an entry jotted for someone else says so
+ *  ("Owner · แทน ผู้ดูแลสาขา"). */
 export const entryBy = (e: Pick<Entry, "role" | "actor">) =>
-  `${e.actor === "manager" ? "Account Manager" : roleName[e.actor ?? e.role]}${
+  `${roleName[e.actor ?? e.role]}${
     e.actor && e.role !== "owner" ? ` · แทน ${roleName[e.role]}` : ""
   }`;
 export const branches = ["ศาลาแดง", "มีนบุรี"];
@@ -362,8 +356,7 @@ export const unpack = (prefix: string, values: Values): Values =>
 /** Whose change (edit, delete, undo) of an entry counts when the log is read: the Owner's of
  *  any, a branch's only of one stamped with its own branch. `entries()` ignores the rest, and
  *  so does append_entries. A new change is refused by `editBlock` / `voidBlock`, which are
- *  stricter: the Owner no longer changes a branch's note, but its old changes still apply.
- *  What the Account Manager may not touch is `managerHidden`. */
+ *  stricter: the Owner no longer changes a branch's note, but its old changes still apply. */
 export const canChange = (
   by: { role: Role; branch?: string },
   target: Pick<Entry, "role" | "branch">,

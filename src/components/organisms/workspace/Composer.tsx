@@ -205,7 +205,7 @@ function NoteForm({
     ? account
     : target.role === "branch" && !target.actor
       ? { role: "branch", branch: target.branch }
-      : { role: "owner", hidesSales: target.actor === "manager" };
+      : { role: "owner" };
   // Newest first. A PO kind goes on a PO เนื้อ, the other lot kinds on a PO รมควัน.
   // A branch's receipt lists no old lot: one holds no stock, so its receipt adds none.
   const lots = (
@@ -325,7 +325,7 @@ function NoteForm({
       for (const [key, file] of Object.entries(files.current)) {
         input[key] = file.name;
         delete input[`${key}Data`];
-        // A payroll receipt goes to its own folder: the Account Manager cannot read it.
+        // A payroll receipt goes to its own folder.
         input[`${key}StorageKey`] = uploaded.current[key] ??=
           await saveAttachment(file, attachmentFolder(kind, input));
       }

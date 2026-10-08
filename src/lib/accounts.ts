@@ -1,16 +1,14 @@
-import { Beef, Briefcase, Building2, Store } from "lucide-react";
+import { Beef, Building2, Store } from "lucide-react";
 import type { ActingRole } from "@/lib/store";
 import type { Tab } from "@/lib/nav";
 
-export type AccountId = "owner" | "manager" | "saladaeng" | "minburi";
+export type AccountId = "owner" | "saladaeng" | "minburi";
 
 export type Account = {
   id: AccountId;
   role: ActingRole;
   /** Set only for branch accounts — the branch whose data this account may touch. */
   branch?: string;
-  /** No sale, payroll, P&L, Overview or Settings (Account Manager, V2-ACC-01). */
-  hidesSales?: boolean;
   name: string;
   title: string;
   summary: string;
@@ -29,19 +27,6 @@ const accounts: Account[] = [
     path: "/owner",
     homeTab: "overview",
     icon: Building2,
-  },
-  {
-    /* The main note-taker of the central side: it writes as role "owner" (persistence stamps
-     * `actor: "manager"`). Everything the Owner does except sales, payroll, P&L and Settings. */
-    id: "manager",
-    role: "owner",
-    hidesSales: true,
-    name: "Account Manager",
-    title: "ผู้จัดการบัญชี (ทำงานแทนเจ้าของ)",
-    summary: "จด PO เนื้อ, PO รมควัน, จ่ายเงิน และสต๊อกแทนเจ้าของ",
-    path: "/owner",
-    homeTab: "log",
-    icon: Briefcase,
   },
   {
     id: "saladaeng",

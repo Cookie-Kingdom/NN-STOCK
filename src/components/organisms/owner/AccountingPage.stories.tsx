@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, within } from "storybook/test";
 import {
   WithWorkspace,
-  dbFor,
   phone,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
@@ -54,12 +53,6 @@ export const Filtered: Story = {
       canvas.getByRole("button", { name: "ล้างตัวกรอง" }),
     ).toBeVisible();
   },
-};
-
-/** Account Manager: ตารางเดียวกัน แก้ไขและลบแถวที่จดเองได้ · ไม่มีแถวค่าแรงจาก Finance */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
 };
 
 /** ยังไม่มี PO และไม่มีค่าใช้จ่าย */

@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, within } from "storybook/test";
 import {
   WithWorkspace,
-  dbFor,
   phone,
   wide,
   sampleDb,
@@ -42,12 +41,6 @@ type Story = StoryObj<typeof meta>;
  *  ท้ายตาราง: จำนวนแถวที่แสดงและมูลค่ารวมของแถวที่แสดง · แถบชื่อตาราง หัวและท้ายตารางพื้นเข้มกว่าแถวข้อมูล ·
  *  เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock (OwnerMeatStock) */
 export const Owner: Story = {};
-
-/** Account Manager: เห็นเหมือน Owner */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
-};
 
 /** ค้นหา「sku-000」เหลือ SKU-0001 ถึง SKU-0009 ตัวนับบอกจำนวนแถวที่แสดง */
 export const Filtered: Story = {

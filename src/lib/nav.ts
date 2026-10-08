@@ -113,45 +113,28 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner all ten, the Account Manager seven
- *  (no Overview of the shop or of the project, no Settings), a branch three. */
-export const navFor = (account: Pick<Account, "role" | "hidesSales">): Tab[] =>
+/** The pages an account has, in menu order: the Owner all ten, a branch three. */
+export const navFor = (account: Pick<Account, "role">): Tab[] =>
   account.role === "branch"
     ? ["log", "meatStock", "stock"]
-    : account.hidesSales
-      ? [
-          "log",
-          "lots",
-          "meatStock",
-          "stock",
-          "finance",
-          "oldLots",
-          "accounting",
-        ]
-      : [
-          "overview",
-          "projectOverview",
-          "log",
-          "lots",
-          "meatStock",
-          "stock",
-          "finance",
-          "oldLots",
-          "accounting",
-          "settings",
-        ];
+    : [
+        "overview",
+        "projectOverview",
+        "log",
+        "lots",
+        "meatStock",
+        "stock",
+        "finance",
+        "oldLots",
+        "accounting",
+        "settings",
+      ];
 
 /** The pages in a phone's bottom bar. An account with five pages or fewer: all of them, as
  *  tabs. With more: these four, beside a fifth button, "เมนู", that lists every page. */
-export const barFor = (
-  account: Pick<Account, "role" | "hidesSales">,
-): Tab[] => {
+export const barFor = (account: Pick<Account, "role">): Tab[] => {
   const all = navFor(account);
-  return all.length <= 5
-    ? all
-    : account.hidesSales
-      ? ["log", "lots", "finance", "accounting"]
-      : ["overview", "log", "lots", "finance"];
+  return all.length <= 5 ? all : ["overview", "log", "lots", "finance"];
 };
 
 /** A page's address under an account's route: the menu name in lowercase with dashes, behind
@@ -161,6 +144,6 @@ export const pagePath = (account: Pick<Account, "path">, tab: Tab) =>
 
 /** The page of the account at `pathname`, if it is one of its pages. */
 export const tabAt = (
-  account: Pick<Account, "path" | "role" | "hidesSales">,
+  account: Pick<Account, "path" | "role">,
   pathname: string,
 ) => navFor(account).find((tab) => pagePath(account, tab) === pathname);

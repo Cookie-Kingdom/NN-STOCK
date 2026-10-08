@@ -368,7 +368,7 @@ function checkConfig(v: Values) {
       assert(!row, `${label}: ${what}ของ「${row?.name}」${figure}`);
     };
     if (key === "salesChannels") {
-      // Sale money is hidden from the Account Manager by its key (isSaleMoneyKey).
+      // A channel added in Settings keeps its money under a `sales.` key.
       assert(
         ids[0] === "lineMan" &&
           ids.slice(1).every((k) => String(k).startsWith("sales.")) &&
@@ -470,7 +470,7 @@ export function mutate(
     const recorder: Actor =
       target.role === "branch" && !target.actor
         ? { role: "branch", branch: target.branch }
-        : { role: "owner", hidesSales: target.actor === "manager" };
+        : { role: "owner" };
     const values = noteValues(
       db,
       recorder,
@@ -493,7 +493,7 @@ export function mutate(
         values.warehouse === target.branch,
       'แก้เป็นคลังของสาขาอื่นไม่ได้ ให้ใช้ "จัดสรรสินค้า" หรือลบแล้วจดใหม่',
     );
-    // A payroll payment is hidden from the Account Manager by its category: it stays one.
+    // A payroll payment keeps its receipt in its own folder (Composer): it stays one.
     assert(
       (values.category === payrollCategory) ===
         (target.values.category === payrollCategory),
@@ -534,7 +534,7 @@ export function mutate(
       },
     };
   } else if (kind === "config") {
-    assert(by.role === "owner" && !by.hidesSales, forbidden);
+    assert(by.role === "owner", forbidden);
     const v = { ...input };
     // An unchanged legacy logo (a data URL, up to ~1.4 MB) would be copied into every
     // config entry of the append-only log. Left out, the merge below keeps it.

@@ -327,11 +327,9 @@ export function fields(
         ),
       ];
     case "pay": {
-      // Owner: every category. Account Manager: all but payroll. Branch: its four (V2-ACC).
-      const categories = payCategories(db.config).filter((c) =>
-        by.role === "branch"
-          ? branchCategories.includes(c.id)
-          : !(by.hidesSales && c.id === payrollCategory),
+      // Owner: every category. Branch: its four (V2-ACC).
+      const categories = payCategories(db.config).filter(
+        (c) => by.role !== "branch" || branchCategories.includes(c.id),
       );
       return [
         core({

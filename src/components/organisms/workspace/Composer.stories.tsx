@@ -260,7 +260,6 @@ export const Edit: Story = {
  *  ที่มาเริ่มที่ 「เงินโอน」 ไม่มี 「เงินสดย่อย」 */
 export const Expense: Story = {
   args: {
-    account: "manager",
     open: {
       kind: "expense",
       values: {
@@ -272,31 +271,26 @@ export const Expense: Story = {
       },
     },
   },
-  parameters: { db: dbFor("manager") },
 };
 
 /** ค่าใช้จ่ายของวัสดุ: ชื่อตรงกับวัสดุใน Settings ได้ SKU ของวัสดุนั้น (SKU-0003 · เดิม) ไม่ขยับสต๊อก */
 export const ExpenseOfMaterial: Story = {
   args: {
-    account: "manager",
     open: {
       kind: "expense",
       values: { itemType: "วัสดุบรรจุภัณฑ์", item: "ถุงซีลเนื้อ", qty: "500" },
     },
   },
-  parameters: { db: dbFor("manager") },
 };
 
 /** บันทึกไม่ผ่าน: ยอดที่ไม่ใช่ตัวเลข กดบันทึกแล้วข้อความที่เว็บไม่รับอยู่เหนือแถบปุ่ม เห็นเสมอไม่ต้องเลื่อนหา */
 export const SaveError: Story = {
   args: {
-    account: "manager",
     open: {
       kind: "expense",
       values: { ...Expense.args?.open?.values, amount: "1,250 บาท" },
     },
   },
-  parameters: { db: dbFor("manager") },
   play: async ({ canvas, userEvent }) =>
     userEvent.click(await canvas.findByRole("button", { name: "บันทึก" })),
 };

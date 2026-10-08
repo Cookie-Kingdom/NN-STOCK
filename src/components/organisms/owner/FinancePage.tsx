@@ -46,14 +46,12 @@ const none = <Muted as="span">—</Muted>;
 
 /** The project's money as it really moved, by month or by year: what was paid in each
  *  category, what is still unpaid per supplier and the latest payments, a table with
- *  「แก้ไข」 and 「ลบ」 at the end of each row. The Owner also sees
- *  whose pocket the money left (V2-PAY-08), what each person paid out of pocket and is still
- *  owed (V2-PAY-07), and pays them back from here. The Account Manager sees no payroll and
- *  none of that. The revenue is the project's Overview. */
+ *  「แก้ไข」 and 「ลบ」 at the end of each row, whose pocket the money left
+ *  (V2-PAY-08), what each person paid out of pocket and is still owed (V2-PAY-07), and the
+ *  button that pays them back. The revenue is the project's Overview. */
 export function FinancePage({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
   const { remove } = useEntryActions(ws);
-  const owner = !account.hidesSales;
   const { key, span, control } = usePeriod(db, today);
   const cash = cashBetween(db, key, `${key}~`);
   const balances = supplierBalances(db);
@@ -147,45 +145,43 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   return (
     <div className="flex flex-col gap-4">
       {control}
-      {owner && (
-        <Panel
-          className={cn(figureGrid, "lg:grid-cols-3")}
-          aria-label={`เงินของ${span}`}
-        >
-          <Stat
-            label="ยอดจ่ายทั้งหมด"
-            value={out(cash.paid)}
-            note={`ค่าใช้จ่ายทั้ง${span} รวมหมวดอุปกรณ์/ลงทุน`}
-          />
-          <Stat label="บริษัทจ่ายเอง" value={out(cash.company)} />
-          <Stat
-            label="พนักงานสำรองจ่าย"
-            value={baht(cash.advanced)}
-            note="เป็นค่าใช้จ่ายแล้ว แต่เงินยังไม่ออกจากร้าน"
-          />
-          <Stat
-            label="เงินคืนพนักงาน"
-            value={out(cash.repaid)}
-            note="ไม่นับเป็นค่าใช้จ่ายซ้ำ"
-          />
-          <Stat
-            label="เงินออกจากร้านจริง"
-            value={out(cash.out)}
-            note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
-          />
-          <Stat
-            label="ยอดค้างจ่ายถึงวันนี้"
-            value={
-              <span className={cn(unpaid + owed > 0 && "text-warning")}>
-                {baht(unpaid + owed)}
-              </span>
-            }
-            note={`ผู้ขาย ${baht(unpaid)} · พนักงาน ${baht(owed)}`}
-          />
-        </Panel>
-      )}
+      <Panel
+        className={cn(figureGrid, "lg:grid-cols-3")}
+        aria-label={`เงินของ${span}`}
+      >
+        <Stat
+          label="ยอดจ่ายทั้งหมด"
+          value={out(cash.paid)}
+          note={`ค่าใช้จ่ายทั้ง${span} รวมหมวดอุปกรณ์/ลงทุน`}
+        />
+        <Stat label="บริษัทจ่ายเอง" value={out(cash.company)} />
+        <Stat
+          label="พนักงานสำรองจ่าย"
+          value={baht(cash.advanced)}
+          note="เป็นค่าใช้จ่ายแล้ว แต่เงินยังไม่ออกจากร้าน"
+        />
+        <Stat
+          label="เงินคืนพนักงาน"
+          value={out(cash.repaid)}
+          note="ไม่นับเป็นค่าใช้จ่ายซ้ำ"
+        />
+        <Stat
+          label="เงินออกจากร้านจริง"
+          value={out(cash.out)}
+          note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
+        />
+        <Stat
+          label="ยอดค้างจ่ายถึงวันนี้"
+          value={
+            <span className={cn(unpaid + owed > 0 && "text-warning")}>
+              {baht(unpaid + owed)}
+            </span>
+          }
+          note={`ผู้ขาย ${baht(unpaid)} · พนักงาน ${baht(owed)}`}
+        />
+      </Panel>
       <div className={cardGrid}>
-        <PlTable db={db} month={key} payroll={owner} />
+        <PlTable db={db} month={key} />
         <div className="flex min-w-0 flex-col gap-4">
           <FigureCard
             title="ยอดค้างจ่ายแยกผู้ขาย"
@@ -224,71 +220,67 @@ export function FinancePage({ ws }: { ws: Workspace }) {
               </Muted>
             )}
           </FigureCard>
-          {owner && (
-            <FigureCard
-              title="เงินที่พนักงานสำรองจ่าย"
-              note="ยอดสำรองจ่ายหักยอดที่คืนแล้ว นับถึงวันนี้"
-            >
-              {advanced.length ? (
-                <FigureTable>
-                  <thead>
-                    <tr>
-                      <th className={th}>ผู้จ่าย</th>
-                      {["สำรองจ่าย", "คืนแล้ว", "ค้างคืน"].map((name) => (
-                        <th key={name} className={cn(th, "text-right")}>
-                          {name}
-                        </th>
-                      ))}
-                      <th className={th}>
-                        <span className="sr-only">คืนเงิน</span>
+          <FigureCard
+            title="เงินที่พนักงานสำรองจ่าย"
+            note="ยอดสำรองจ่ายหักยอดที่คืนแล้ว นับถึงวันนี้"
+          >
+            {advanced.length ? (
+              <FigureTable>
+                <thead>
+                  <tr>
+                    <th className={th}>ผู้จ่าย</th>
+                    {["สำรองจ่าย", "คืนแล้ว", "ค้างคืน"].map((name) => (
+                      <th key={name} className={cn(th, "text-right")}>
+                        {name}
                       </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {advanced.map((x) => (
-                      <tr key={x.payer}>
-                        <td className={cn(td, "whitespace-nowrap")}>
-                          {x.payer}
-                        </td>
-                        <Num>{baht(x.advanced)}</Num>
-                        <Num>{baht(x.repaid)}</Num>
-                        {x.left > 0 ? (
-                          <Num tone="warning">{baht(x.left)}</Num>
-                        ) : x.left < 0 ? (
-                          <Num tone="warning">คืนเกิน {baht(-x.left)}</Num>
-                        ) : (
-                          <Num tone="ok">คืนครบแล้ว</Num>
-                        )}
-                        <td className={cn(td, "text-right")}>
-                          {x.left > 0 && (
-                            <Button
-                              variant="text"
-                              aria-label={`คืนเงิน ${x.payer}`}
-                              onClick={() =>
-                                ws.jot({
-                                  kind: "reimburse",
-                                  values: {
-                                    payer: x.payer,
-                                    amount: String(x.left),
-                                  },
-                                })
-                              }
-                            >
-                              คืนเงิน
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
                     ))}
-                  </tbody>
-                </FigureTable>
-              ) : (
-                <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-                  ยังไม่มีเงินที่พนักงานสำรองจ่าย
-                </Muted>
-              )}
-            </FigureCard>
-          )}
+                    <th className={th}>
+                      <span className="sr-only">คืนเงิน</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {advanced.map((x) => (
+                    <tr key={x.payer}>
+                      <td className={cn(td, "whitespace-nowrap")}>{x.payer}</td>
+                      <Num>{baht(x.advanced)}</Num>
+                      <Num>{baht(x.repaid)}</Num>
+                      {x.left > 0 ? (
+                        <Num tone="warning">{baht(x.left)}</Num>
+                      ) : x.left < 0 ? (
+                        <Num tone="warning">คืนเกิน {baht(-x.left)}</Num>
+                      ) : (
+                        <Num tone="ok">คืนครบแล้ว</Num>
+                      )}
+                      <td className={cn(td, "text-right")}>
+                        {x.left > 0 && (
+                          <Button
+                            variant="text"
+                            aria-label={`คืนเงิน ${x.payer}`}
+                            onClick={() =>
+                              ws.jot({
+                                kind: "reimburse",
+                                values: {
+                                  payer: x.payer,
+                                  amount: String(x.left),
+                                },
+                              })
+                            }
+                          >
+                            คืนเงิน
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </FigureTable>
+            ) : (
+              <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                ยังไม่มีเงินที่พนักงานสำรองจ่าย
+              </Muted>
+            )}
+          </FigureCard>
         </div>
       </div>
       <FigureCard

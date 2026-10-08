@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import {
   WithWorkspace,
-  dbFor,
   phone,
   wide,
   sampleDb,
@@ -126,13 +125,6 @@ export const InvoiceOverride: Story = {
  *  (อนุญาต Pop-up ก่อน) หัวเอกสารมาจาก Settings */
 export const Documents: Story = {
   parameters: { db: documentsDb },
-  play: pick(/SO-\d+-0001/),
-};
-
-/** Account Manager: เห็นต้นทุนและปุ่มจดเหมือน Owner */
-export const Manager: Story = {
-  args: { account: "manager" },
-  parameters: { db: dbFor("manager") },
   play: pick(/SO-\d+-0001/),
 };
 
