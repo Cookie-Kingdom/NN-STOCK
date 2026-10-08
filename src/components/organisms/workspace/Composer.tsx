@@ -207,8 +207,13 @@ function NoteForm({
       ? { role: "branch", branch: target.branch }
       : { role: "owner", hidesSales: target.actor === "manager" };
   // Newest first. A PO kind goes on a PO เนื้อ, the other lot kinds on a PO รมควัน.
+  // A branch's receipt lists no old lot: one holds no stock, so its receipt adds none.
   const lots = (
-    info.lot === "po" ? purchaseLots(db) : info.lot ? shipments(db) : []
+    info.lot === "po"
+      ? purchaseLots(db)
+      : info.lot
+        ? shipments(db).filter((lot) => info.lot !== "optional" || !lot.old)
+        : []
   ).reverse();
   const [lotId, setLotId] = useState(
     () =>
