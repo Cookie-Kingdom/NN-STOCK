@@ -30,7 +30,7 @@ const meta = {
     label: "กราฟแท่งรายได้ต่อวัน",
     unit: "วันที่",
     bars: days,
-    name: "รายได้",
+    name: "รายได้รวม",
     markName: "วันเดียวกันของกันยายน 2569",
     markAs: "tick",
   },
@@ -57,6 +57,20 @@ export const Year: Story = {
     bars: months,
     markName: "กำไรจากการดำเนินงาน",
     markAs: "line",
+  },
+};
+
+/** มีรายได้อื่นบางวัน: ส่วนบนของแท่งเป็นสีอ่อน มีชื่อในคำอธิบายสี ในกล่องตัวเลขของแท่งนั้น
+ *  (รายได้รวม ยอดขาย รายได้อื่น) และเป็นคอลัมน์ในตาราง · วันที่ไม่มีเป็นแท่งสีเดียวเหมือนเดิม */
+export const OtherIncome: Story = {
+  args: {
+    baseName: "ยอดขาย",
+    partName: "รายได้อื่น",
+    bars: days.map((bar, i) =>
+      bar.value !== null && [5, 14, 17].includes(i)
+        ? { ...bar, value: bar.value + 9000, part: 9000 }
+        : bar,
+    ),
   },
 };
 

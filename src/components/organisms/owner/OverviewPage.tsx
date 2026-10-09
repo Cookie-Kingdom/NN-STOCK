@@ -181,29 +181,40 @@ export function usePeriod(db: Database, today: string) {
 
 /** Revenue by month or by year: the total against the like-for-like span before it, a bar per
  *  day (or per month), the figures of the period, how the revenue becomes the operating
- *  profit, the branches and the sales channels, then the P&L. Without `project` it is the
- *  shop's, with a row per project; with it, that project's alone. Both read the entry log
- *  through `plBetween`, so they cannot disagree. */
+ *  profit, the branches, the sales channels and the other income, then the P&L. One
+ *  vocabulary all the way down: รายได้รวม is ยอดขาย (the branches' sales) and รายได้อื่น
+ *  (V2-PAY-09) together; a figure per box, per branch or per channel is of ยอดขาย alone and
+ *  says so. Without `project` it is the shop's, with a row per project and one for the
+ *  company's own other income; with it, that project's alone, the company's left out. Both
+ *  read the entry log through `plBetween`, so they cannot disagree. */
 export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
   const { db, today } = ws;
   const { view, key, span, current, period, control } = usePeriod(db, today);
 
-  const now = monthPl(db, key);
-  const before = plBetween(db, period.before.from, period.before.to);
+  const now = monthPl(db, key, project);
+  const before = plBetween(db, period.before.from, period.before.to, project);
+  // The shop's page: the project's own figures, and what is left is the company's.
+  const own = project ? now : monthPl(db, key, shopProject);
+  const ownBefore = project
+    ? before
+    : plBetween(db, period.before.from, period.before.to, shopProject);
+  const central = now.otherIncome - own.otherIncome;
+  const centralBefore = before.otherIncome - ownBefore.otherIncome;
   /* ponytail: a bar reads the whole log once (twice with its mark): 62 passes for a month.
    * One pass that buckets by date if a long log makes the page slow. */
   const bars = period.buckets.map((bucket) => {
-    const pl = bucket.future ? null : monthPl(db, bucket.key);
+    const pl = bucket.future ? null : monthPl(db, bucket.key, project);
     return {
       label: bucket.label,
       title: bucket.title,
-      value: pl && pl.sales,
+      value: pl && pl.income,
+      part: pl && pl.otherIncome,
       mark: !pl
         ? null
         : view === "year"
           ? pl.profit
           : bucket.before
-            ? monthPl(db, bucket.before).sales
+            ? monthPl(db, bucket.before, project).income
             : null,
     };
   });
@@ -222,15 +233,15 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
       .map(([id, x]): [string, number] => [names[id] ?? id, x]),
     ["หมวดอื่น ๆ", rest],
   ];
-  // Each step starts where the one above it ended.
+  // Each step starts where the one above it ended, the first at the whole revenue.
   const steps = lines
     .filter(([, amount]) => amount)
     .map(([name, amount], i, all) => ({
       name,
       amount,
-      left: now.sales - all.slice(0, i + 1).reduce((a, [, x]) => a + x, 0),
+      left: now.income - all.slice(0, i + 1).reduce((a, [, x]) => a + x, 0),
     }));
-  const scale = Math.max(now.sales, now.sales - now.profit, 1);
+  const scale = Math.max(now.income, now.income - now.profit, 1);
   const channels = salesChannels(db.config);
   const cost = boxCost(db);
   const price = n(db.config, "boxPrice");
@@ -250,17 +261,30 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
           {period.title}
           {project && ` · ${project}`}
         </h2>
-        <div className="mt-1.5 mb-5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1.5">
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1.5">
           <strong className="text-[2.5rem] leading-12 font-semibold max-md:text-[2rem] max-md:leading-10">
-            {baht(now.sales)}
+            {baht(now.income)}
           </strong>
-          <Delta now={now.sales} before={before.sales} versus={period.versus} />
+          <Delta
+            now={now.income}
+            before={before.income}
+            versus={period.versus}
+          />
         </div>
+        {/* Only when the total is more than the sales: otherwise it would say it twice. */}
+        {!!now.otherIncome && (
+          <p className="m-0 mt-1 text-body-sm text-text-secondary">
+            ยอดขาย {baht(now.sales)} · รายได้อื่น {baht(now.otherIncome)}
+          </p>
+        )}
+        <div className="mt-5" />
         <RevenueChart
-          label={`กราฟแท่ง${period.title} รวม ${baht(now.sales)} · กดลูกศรซ้ายขวาเพื่ออ่านทีละ${view === "month" ? "วัน" : "เดือน"}`}
+          label={`กราฟแท่ง${period.title} รวม ${baht(now.income)} · กดลูกศรซ้ายขวาเพื่ออ่านทีละ${view === "month" ? "วัน" : "เดือน"}`}
           unit={view === "month" ? "วันที่" : "เดือน"}
           bars={bars}
-          name="รายได้"
+          name="รายได้รวม"
+          baseName="ยอดขาย"
+          partName="รายได้อื่น"
           markName={
             view === "month"
               ? `วันเดียวกันของ${period.prevName}`
@@ -273,7 +297,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
       <Panel className={figureGrid} aria-label={`ตัวเลขของ${span}`}>
         <Stat
           label="รายได้หลังหัก GP ช่องทางขาย"
-          value={baht(now.sales - now.gp)}
+          value={baht(now.income - now.gp)}
           note={`GP ${baht(now.gp)}`}
         />
         <Stat
@@ -284,15 +308,15 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
             </span>
           }
           note={
-            now.sales
-              ? `${share(now.profit, now.sales)} ของรายได้`
+            now.income
+              ? `${share(now.profit, now.income)} ของรายได้รวม`
               : "ยังไม่มีรายได้"
           }
         />
         <Stat
           label="กล่องที่ขาย"
           value={`${qty(now.boxes)} กล่อง`}
-          note={`รายได้ต่อกล่อง ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · รายได้เฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
+          note={`ยอดขายต่อกล่อง ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ยอดขายเฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
         />
         <Stat
           label="ต้นทุนต่อกล่อง"
@@ -330,16 +354,17 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
         />
       </Panel>
 
-      {/* ponytail: the shop has one project, and every sale and payment is its own. Split
-          the figures per project (a row and a bar colour each, and `project` as a filter)
-          when a second one is stored. */}
+      {/* ponytail: the shop has one project, and every sale and payment is its own; only
+          other income can be the company's (ส่วนกลาง), so the two rows add up to the figure
+          at the top. Split the figures per project (a row and a bar colour each) when a
+          second one is stored. */}
       {!project && (
         <FigureCard title="รายได้แต่ละ Project" note={period.name}>
           <FigureTable>
             <thead>
               <tr>
                 <th className={th}>Project</th>
-                <th className={cn(th, "text-right")}>รายได้</th>
+                <th className={cn(th, "text-right")}>รายได้รวม</th>
                 <th className={cn(th, "text-right max-md:hidden")}>
                   เทียบช่วงก่อน
                 </th>
@@ -365,21 +390,47 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
                     </span>
                   </span>
                 </td>
-                <Num className="font-semibold">{baht(now.sales)}</Num>
+                <Num className="font-semibold">{baht(own.income)}</Num>
                 <Num className="max-md:hidden">
-                  <Delta now={now.sales} before={before.sales} />
-                  {!now.sales && !before.sales && "—"}
+                  <Delta now={own.income} before={ownBefore.income} />
+                  {!own.income && !ownBefore.income && "—"}
                 </Num>
-                <Num className="max-md:hidden">{qty(now.boxes)}</Num>
+                <Num className="max-md:hidden">{qty(own.boxes)}</Num>
                 <Num
-                  tone={now.profit < 0 ? "out" : now.profit ? "in" : undefined}
+                  tone={own.profit < 0 ? "out" : own.profit ? "in" : undefined}
                 >
-                  {baht(now.profit)}
+                  {baht(own.profit)}
                 </Num>
                 <Num className="max-md:hidden">
-                  {share(now.profit, now.sales) || "—"}
+                  {share(own.profit, own.income) || "—"}
                 </Num>
               </tr>
+              {/* The company's other income has no boxes and no expense of its own on this
+                  page: all of it is profit, so a margin would say nothing. */}
+              {(central || centralBefore) !== 0 && (
+                <tr>
+                  <td className={td}>
+                    <span className="flex items-center gap-2.5">
+                      <i className="size-3 shrink-0 rounded-[3px] bg-border-strong" />
+                      <span>
+                        <strong className="block font-semibold">
+                          ส่วนกลาง
+                        </strong>
+                        <Caption>รายได้อื่นที่ไม่ผูกกับ Project</Caption>
+                      </span>
+                    </span>
+                  </td>
+                  <Num className="font-semibold">{baht(central)}</Num>
+                  <Num className="max-md:hidden">
+                    <Delta now={central} before={centralBefore} />
+                  </Num>
+                  <Num className="max-md:hidden">—</Num>
+                  <Num tone={central < 0 ? "out" : central ? "in" : undefined}>
+                    {baht(central)}
+                  </Num>
+                  <Num className="max-md:hidden">—</Num>
+                </tr>
+              )}
             </tbody>
           </FigureTable>
         </FigureCard>
@@ -388,7 +439,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <FigureCard title="จากรายได้ถึงกำไร" note={period.name}>
           <div className={fall}>
-            <span className="font-semibold">รายได้</span>
+            <span className="font-semibold">ยอดขาย</span>
             <div className={track}>
               <div
                 className={cn(bar, "left-0 bg-success")}
@@ -396,6 +447,28 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               />
             </div>
             <span className="text-right font-semibold">{baht(now.sales)}</span>
+            {/* Starts where the sales end: the pair reads as the whole revenue, which the
+                deductions under it step down from. */}
+            {!!now.otherIncome && (
+              <>
+                <span className="font-semibold">รายได้อื่น</span>
+                <div className={track}>
+                  <div
+                    className={cn(bar, "bg-success")}
+                    style={{
+                      left: `${(now.sales / scale) * 100}%`,
+                      width: `${(Math.max(now.otherIncome, 0) / scale) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-right font-semibold whitespace-nowrap">
+                  {baht(now.otherIncome)}{" "}
+                  <Caption as="span">
+                    {share(now.otherIncome, now.income)}
+                  </Caption>
+                </span>
+              </>
+            )}
             {steps.map(({ name, amount, left }) => (
               <div key={name} className="contents">
                 <span>{name}</span>
@@ -410,7 +483,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
                 </div>
                 <span className="text-right whitespace-nowrap">
                   {baht(-amount)}{" "}
-                  <Caption as="span">{share(amount, now.sales)}</Caption>
+                  <Caption as="span">{share(amount, now.income)}</Caption>
                 </span>
               </div>
             ))}
@@ -437,7 +510,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
           </div>
         </FigureCard>
         <div className="grid gap-4">
-          <FigureCard title="รายได้แยกสาขา">
+          <FigureCard title="ยอดขายแยกสาขา">
             <Bars
               total={now.sales}
               rows={[
@@ -453,7 +526,7 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
             />
           </FigureCard>
           <FigureCard
-            title="รายได้แยกช่องทางขาย"
+            title="ยอดขายแยกช่องทางขาย"
             note="GP คือส่วนที่ช่องทางหักไป"
           >
             <Bars
@@ -481,10 +554,26 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               ].sort((a, b) => b.value - a.value)}
             />
           </FigureCard>
+          {!!now.otherIncome && (
+            <FigureCard
+              title="รายได้อื่นแยกรายการ"
+              note="นับเมื่อได้รับเงินแล้ว"
+            >
+              <Bars
+                total={now.otherIncome}
+                rows={Object.entries(now.byIncome)
+                  .map(([item, value]) => ({
+                    name: item || "ไม่ระบุรายการ",
+                    value,
+                  }))
+                  .sort((a, b) => b.value - a.value)}
+              />
+            </FigureCard>
+          )}
         </div>
       </div>
 
-      <PlTable db={db} month={key} full />
+      <PlTable db={db} month={key} full project={project} />
     </div>
   );
 }

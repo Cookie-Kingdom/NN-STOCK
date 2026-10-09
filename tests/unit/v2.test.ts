@@ -2516,6 +2516,30 @@ describe("income (V2-PAY-09)", () => {
     });
   });
 
+  it("a project's cash counts only the money in jotted for it, sales receipts too", () => {
+    const mine = { purpose: "project", project: shopProject };
+    let d = income({ item: "ดอกเบี้ยรับ", amount: "40" });
+    d = income({ item: "x", amount: "500", ...mine }, d);
+    d = income(
+      { item: "x", amount: "7", purpose: "project", project: "อื่น" },
+      d,
+    );
+    d = income(
+      { incomeType: "sales", channel: "lineMan", amount: "600", ...mine },
+      d,
+    );
+    d = income({ incomeType: "sales", channel: "lineMan", amount: "90" }, d);
+    d = mutate(d, owner, "pay", { amount: "30" }, "", day);
+    expect(cashBetween(d, ...span)).toMatchObject({ received: 1237, out: 30 });
+    expect(cashBetween(d, ...span, shopProject)).toMatchObject({
+      salesReceived: 600,
+      otherReceived: 500,
+      received: 1100,
+      out: 30,
+      net: 1070,
+    });
+  });
+
   it("is a money-in row of the ledger, apart from what was paid", () => {
     let d = mutate(
       sold,

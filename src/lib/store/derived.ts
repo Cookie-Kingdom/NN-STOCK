@@ -973,8 +973,14 @@ export function advances(db: Database) {
  *  `out` is what really left the shop: `company` + `repaid`. Money in is the `income` notes
  *  received in the span (V2-PAY-09), never the sales as jotted: `salesReceived` is what the
  *  channels paid, `otherReceived` the other income, `received` both, and `net` is
- *  `received − out`. */
-export function cashBetween(db: Database, from: string, to: string) {
+ *  `received − out`. With `project`, only the money in jotted for that project, as `plBetween`
+ *  reads it; the money out is the shop project's either way. */
+export function cashBetween(
+  db: Database,
+  from: string,
+  to: string,
+  project?: string,
+) {
   const within = (date: string) => date >= from && date <= to;
   let company = 0,
     advanced = 0;
@@ -990,7 +996,12 @@ export function cashBetween(db: Database, from: string, to: string) {
   let salesReceived = 0,
     otherReceived = 0;
   for (const i of inflows(db))
-    if (i.received && within(i.date)) {
+    if (
+      i.received &&
+      within(i.date) &&
+      (project === undefined ||
+        (i.purpose === "project" && i.project === project))
+    ) {
       if (i.type === "sales") salesReceived += i.amount;
       else otherReceived += i.amount;
     }
