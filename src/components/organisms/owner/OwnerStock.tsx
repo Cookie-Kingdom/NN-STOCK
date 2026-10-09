@@ -13,17 +13,14 @@ import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import {
   Cell,
-  HeldCell,
   Left,
-  StatusCells,
   StockTable,
-  type Held,
 } from "@/components/organisms/branch/BranchStock";
 import { td, tf } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
 import {
-  branchMaterial,
+  branchItem,
   branches,
   materialList,
   placeLabel,
@@ -32,24 +29,24 @@ import {
   shopProject,
   stockLines,
   titles,
+  type Material,
   type ProjectAsset,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { SheetCells, SheetStatus, WasteWeekCard } from "./OwnerMeatStock";
 import { figureGrid } from "./PlTable";
 
 /** A column per place: the central warehouse, then the branches. */
 const heads = places.map(placeLabel);
-const counted = branches.map(placeLabel);
 const transit = "ระหว่างส่ง";
 // What it is, where it is, what it cost.
 const what = ["SKU", "รายการ", "ประเภท", "รายละเอียด / สเปก"];
 const where = [...heads, transit, "รวม", "สถานะ"];
 const cost = ["ผู้ขาย", "วันที่ซื้อล่าสุด", "จำนวนซื้อ", "มูลค่า"];
 const all = { value: "", label: "ทั้งหมด" };
-/** The สถานะ filter: what `StatusCells` says of a material, and a balance below zero. */
-const late = "ยังไม่ได้นับ";
+/** The สถานะ filter: whether a material is left anywhere, and a balance below zero. */
 const negative = "ติดลบ";
-const statuses = ["พร้อมใช้", late, "หมด", negative];
+const statuses = ["พร้อมใช้", "หมด", negative];
 const none = <Muted as="span">—</Muted>;
 const blank = <Cell right>{none}</Cell>;
 /** What was sent and waits for the branch to confirm: a dash with nothing on its way. */
@@ -58,22 +55,24 @@ const Transit = ({ n }: { n: number }) => (
 );
 
 /** A row of the table: what was bought under its SKU (`times` 0: never), its ประเภทสินค้า,
- *  for a material of Settings what each branch counted (`at`), and what it holds at every
- *  place and on its way (`held`, by the column's name). */
+ *  for a row of the material list the `material` (a branch's cell is then its daily sheet's),
+ *  and what it holds at every place and on its way (`held`, by the column's name). */
 type Row = ProjectAsset & {
   type: string;
-  at?: Record<string, Held>;
+  material?: Material;
   held: Record<string, number>;
 };
 
-/** Inventory as the Owner sees it: everything the project owns and where it is, in one table with a row per item (its SKU). A material of Settings holds
- *  what the branches counted; anything else Accounting bought for the project
+/** Inventory as the Owner sees it: everything the project owns and where it is, in one table with a row per item (its SKU). A row of the material list holds
+ *  at a branch what its daily sheet says is left, with today's waste (V2-CAL-10), the day's
+ *  status of each branch at the table's head and the waste of the last 7 days under it;
+ *  anything else Accounting bought for the project
  *  (`projectAssets`), from a printed box to a fridge, its SKU's balance at every place
  *  (`stockLines`); a material that was also bought is one row with both. A search and the
  *  ประเภท, สถานะ and ที่เก็บ filters over it, the totals of the rows shown at its foot. A
  *  purchase is jotted on Accounting, a move between places with 「จัดสรรสินค้า」 (`transfer`)
- *  beside the figures, and the branch admins count on their own Inventory page; the central
- *  warehouse is never counted. The meat, the sticky rice and the chili are on the Stock page
+ *  beside the figures, and a branch saves its sheet on its own Inventory page: the Owner only
+ *  reads it. The meat, the sticky rice and the chili are on the Stock page
  *  (`OwnerMeatStock`). */
 export function OwnerStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
@@ -97,7 +96,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
           type: group.type || "ไม่ระบุประเภท",
         });
     }
-  const materials = materialList(db.config);
+  const materials = materialList(db);
   const rows: Row[] = [
     ...materials.map((m) => ({
       // "" until the materials list is saved again (a list stored before SKUs): nothing was
@@ -114,12 +113,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         type: "วัสดุ",
       }),
       item: m.name,
-      at: Object.fromEntries(
-        branches.map((branch): [string, Held] => [
-          placeLabel(branch),
-          branchMaterial(db, branch, m.id, today),
-        ]),
-      ),
+      material: m,
     })),
     ...[...bought.values()].filter(
       (row) => !row.sku || materials.every((m) => m.sku !== row.sku),
@@ -133,23 +127,20 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         ...Object.fromEntries(
           places.map((p) => [
             placeLabel(p),
-            row.at?.[placeLabel(p)]?.qty ?? line?.at[p] ?? 0,
+            row.material && branches.includes(p)
+              ? branchItem(db, p, row.material.id, today).remaining
+              : (line?.at[p] ?? 0),
           ]),
         ),
         [transit]: line?.inTransit ?? 0,
       },
     };
   });
-  /** What `StatusCells` shows of a material; "" for anything else. */
-  const statusOf = (row: Row) => {
-    if (!row.at) return "";
-    const total = Object.values(row.held).reduce((a, n) => a + n, 0);
-    return total <= 0
-      ? "หมด"
-      : counted.some((name) => row.at?.[name]?.stale)
-        ? late
-        : "พร้อมใช้";
-  };
+  const totalOf = (row: Row) =>
+    Object.values(row.held).reduce((a, n) => a + n, 0);
+  /** A material's status; "" for anything else. */
+  const statusOf = (row: Row) =>
+    !row.material ? "" : totalOf(row) <= 0 ? "หมด" : "พร้อมใช้";
   const types = [...new Set(rows.map((row) => row.type))];
   const word = search.trim().toLowerCase();
   const shown = rows.filter(
@@ -245,9 +236,12 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         // Up to fourteen columns: tighter cells, and a light rule between them.
         className="md:[&_:is(td,th)]:px-2 [&_:is(td,th)+:is(td,th)]:border-l"
         aside={
-          <Caption aria-live="polite">
-            {shown.length} จาก {rows.length} รายการ
-          </Caption>
+          <>
+            <SheetStatus db={db} sheet="materials" today={today} />
+            <Caption aria-live="polite">
+              {shown.length} จาก {rows.length} รายการ
+            </Caption>
+          </>
         }
       >
         <StockTable
@@ -299,41 +293,39 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
                   {row.detail || none}
                 </Cell>
                 {line ? <Left n={row.held[heads[0]]} /> : blank}
-                {counted.map((name) =>
-                  // A material: what the branch counted. Anything else: its balance.
-                  row.at ? (
-                    <HeldCell
-                      key={name}
-                      held={row.at[name]}
+                {branches.map((branch) =>
+                  // A material: the branch's daily sheet. Anything else: its balance.
+                  row.material ? (
+                    <SheetCells
+                      key={branch}
+                      db={db}
+                      branch={branch}
+                      item={row.material}
                       today={today}
-                      varianceUnit="ชิ้น"
+                      stacked
                     />
                   ) : line ? (
-                    <Left key={name} n={row.held[name]} />
+                    <Left key={branch} n={row.held[placeLabel(branch)]} />
                   ) : (
-                    <Cell key={name} right>
+                    <Cell key={branch} right>
                       {none}
                     </Cell>
                   ),
                 )}
                 <Transit n={row.held[transit]} />
-                {row.at ? (
-                  <StatusCells
-                    at={row.at}
-                    places={counted}
-                    extra={row.held[heads[0]] + row.held[transit]}
-                    // Its long line may break: the table has fourteen columns.
-                    className="md:min-w-24 md:whitespace-normal"
-                  />
+                {row.material ? (
+                  <>
+                    <Left n={totalOf(row)} />
+                    <Cell
+                      tone={totalOf(row) <= 0 ? "danger" : "success"}
+                      className="whitespace-nowrap"
+                    >
+                      {statusOf(row)}
+                    </Cell>
+                  </>
                 ) : (
                   <>
-                    {line ? (
-                      <Left
-                        n={Object.values(row.held).reduce((a, n) => a + n, 0)}
-                      />
-                    ) : (
-                      blank
-                    )}
+                    {line ? <Left n={totalOf(row)} /> : blank}
                     <Cell>{none}</Cell>
                   </>
                 )}
@@ -378,9 +370,10 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
           onMore={more}
         />
       </DayCard>
+      <WasteWeekCard db={db} sheet="materials" today={today} />
       <Caption>
         {
-          "หนึ่งแถวคือหนึ่งรายการ ทั้งวัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting โดยรวมทุกครั้งที่ซื้อไว้ในแถวเดียว ยอดคลังกลางคือยอดซื้อเข้าลบยอดที่จัดสรรออก และไม่มีการนับ ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย ตัวเลขสีแดงคือยอดติดลบ ยอดวัสดุของสาขาคือยอดที่ผู้ดูแลสาขานับ (ชิ้น) ช่องสีเหลืองคือวัสดุที่ยังไม่เคยนับหรือไม่ได้นับเกิน 7 วัน ช่องสีแดงคือวัสดุที่ไม่เหลือ ส่วนต่างคือยอดที่นับได้ลบยอดที่ควรเหลือของการนับครั้งล่าสุด เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
+          "หนึ่งแถวคือหนึ่งรายการ ทั้งวัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting โดยรวมทุกครั้งที่ซื้อไว้ในแถวเดียว ยอดคลังกลางคือยอดซื้อเข้าลบยอดที่จัดสรรออก ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย ตัวเลขสีแดงคือยอดติดลบ ยอดวัสดุของสาขาคือคงเหลือตามใบสต๊อกรายวันที่ผู้ดูแลสาขาบันทึก (ยอดยกมา + รับเข้า − ใช้ไป) ตามหน่วยของวัสดุนั้น ใต้ตัวเลขคือ Waste ของวันนี้และสาเหตุ วันที่ยังไม่บันทึกจะเป็นยอดล่าสุดที่ยกมา หน้านี้ดูได้อย่างเดียว เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
         }
       </Caption>
     </div>

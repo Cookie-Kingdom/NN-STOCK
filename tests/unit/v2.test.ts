@@ -3,10 +3,7 @@ import {
   advances,
   boxCost,
   cashBetween,
-  branchChili,
-  branchMaterial,
-  branchMeat,
-  branchRice,
+  branchItem,
   entries,
   giftBoxes,
   kindsForPage,
@@ -29,7 +26,9 @@ import {
   saleMoney,
   salesChannels,
   seed,
+  sheetNote,
   shipments,
+  sheetItems,
   skuCatalogue,
   skuFor,
   stockLines,
@@ -38,6 +37,7 @@ import {
   todos,
   visibleEntries,
   visibleNotes,
+  wasteWeek,
   type Actor,
   type Database,
   type Entry,
@@ -149,9 +149,10 @@ describe("mutate", () => {
     for (const [kind, values] of [
       ["sale", { boxes: "1", lineMan: "350" }],
       ["receive", { kg: "1" }],
-      ["meatCount", { kg: "1" }],
       ["influencerBox", { influencer: "x", boxes: "1" }],
-      ["materials", { "count.m1": "1" }],
+      ["daily", { sheet: "meat", "used.meat": "1" }],
+      ["opening", { sheet: "materials", "qty.m1": "1" }],
+      ["stockItem", { name: "ช้อนพลาสติก", unit: "แพ็ค" }],
     ] as const) {
       expect(() => jot(owner, kind, { ...values, branch: "มีนบุรี" })).toThrow(
         forbidden,
@@ -161,6 +162,11 @@ describe("mutate", () => {
         branch: "มีนบุรี",
       });
     }
+    // The counts are retired: nobody jots one any more.
+    for (const kind of ["meatCount", "materials"] as const)
+      expect(() => mutate(db, minburi, kind, { kg: "1" }, "", day)).toThrow(
+        "รายการชนิดนี้เลิกใช้แล้ว",
+      );
     // V2-ACC-07, 08: a branch pays in four categories, into its own branch; nothing of the centre.
     for (const category of ["ingredient", "packaging", "transport", "other"])
       expect(
@@ -218,8 +224,8 @@ describe("mutate", () => {
       mutate(
         db,
         saladaeng,
-        "meatCount",
-        { kg: "5", branch: "มีนบุรี" },
+        "daily",
+        { sheet: "meat", "used.meat": "5", branch: "มีนบุรี" },
         "",
         day,
       ),
@@ -229,7 +235,7 @@ describe("mutate", () => {
   });
 
   it("a payment with a quantity goes into the branch's stock", () => {
-    const before = branchMaterial(db, "มีนบุรี", "m1", day).qty;
+    const before = branchItem(db, "มีนบุรี", "m1", day);
     const paid = pay(owner, {
       category: "packaging",
       amount: "100",
@@ -238,7 +244,11 @@ describe("mutate", () => {
       branch: "มีนบุรี",
     });
     expect(last(paid)).toMatchObject({ role: "owner", branch: "มีนบุรี" });
-    expect(branchMaterial(paid, "มีนบุรี", "m1", day).qty).toBe(before + 50);
+    expect(branchItem(paid, "มีนบุรี", "m1", day)).toMatchObject({
+      opening: before.opening,
+      autoReceived: 50,
+      remaining: before.remaining + 50,
+    });
     // Not a stock category: the item, the quantity and the branch are not saved.
     const other = last(
       pay(owner, { category: "other", amount: "1", item: "m1", qty: "5" }),
@@ -249,8 +259,9 @@ describe("mutate", () => {
 
   it("edits, deletes and undoes", () => {
     // The sample's sale with no money typed: the edit fills it and clears `missing`.
-    const sale = visibleNotes(db, owner).find((e) => e.values.missing)!;
-    expect(sale.kind).toBe("sale");
+    const sale = visibleNotes(db, owner).find(
+      (e) => e.kind === "sale" && e.values.missing,
+    )!;
     const edited = mutate(
       db,
       saladaeng,
@@ -280,8 +291,10 @@ describe("mutate", () => {
     );
     expect(live(undone)?.values.missing).toBe("lineMan");
 
-    const before = branchMeat(db, "ศาลาแดง", day).kg;
-    const count = entries(db, "meatCount", undefined, "ศาลาแดง").at(-1)!;
+    // A daily sheet deleted gives back what it used; put back, it takes it again.
+    const meat = (d: Database) => branchItem(d, "ศาลาแดง", "meat", day).opening;
+    const before = meat(db);
+    const count = sheetNote(db, "daily", "ศาลาแดง", "meat", "2026-09-08")!;
     const deleted = mutate(
       db,
       saladaeng,
@@ -290,7 +303,10 @@ describe("mutate", () => {
       "",
       day,
     );
-    expect(branchMeat(deleted, "ศาลาแดง", day).kg).not.toBe(before);
+    expect(meat(deleted)).toBeCloseTo(
+      before + Number(count.values["used.meat"]),
+      10,
+    );
     const back = mutate(
       deleted,
       saladaeng,
@@ -299,7 +315,7 @@ describe("mutate", () => {
       "",
       day,
     );
-    expect(branchMeat(back, "ศาลาแดง", day).kg).toBe(before);
+    expect(meat(back)).toBe(before);
     // Another branch's entry.
     expect(() =>
       mutate(db, minburi, "void", { targetId: count.id }, "", day),
@@ -312,7 +328,7 @@ describe("mutate", () => {
         db,
         owner,
         "entryEdit",
-        { targetId: count.id, values: '{"kg":"1"}' },
+        { targetId: count.id, values: '{"used.meat":"1"}' },
         "",
         day,
       ),
@@ -320,7 +336,7 @@ describe("mutate", () => {
     expect(() =>
       mutate(db, owner, "void", { targetId: count.id }, "", day),
     ).toThrow(branchOnly);
-    // The branch's delete of the count: not the Owner's to undo.
+    // The branch's delete of the sheet: not the Owner's to undo.
     expect(() =>
       mutate(deleted, owner, "void", { targetId: last(deleted).id }, "", day),
     ).toThrow(branchOnly);
@@ -402,8 +418,8 @@ it("todos: what each account still has to jot", () => {
   expect(texts(owner)).toEqual(
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
-      "มีนบุรี: นับเนื้อวันนี้",
-      "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
+      "มีนบุรี: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
       "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
@@ -415,59 +431,49 @@ it("todos: what each account still has to jot", () => {
   expect(branch.join()).not.toMatch(/SO-|PO-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
   expect(texts(minburi)).toEqual(
     expect.arrayContaining([
-      "นับเนื้อวันนี้",
-      "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
+      "ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
+      "ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
+      // Its sheet of the day before has a waste with no reason.
+      "ใบสต๊อกรายวัน 8 ก.ย.: ยังไม่ได้จด 1 ช่อง",
     ]),
   );
-  // On an empty database nothing is counted: the 10 materials (a line that opens Inventory),
-  // and the chili plus the raw rice of the branch that steams its own (V2-BR-08; a line that
-  // opens Stock). A count takes its item out of the number, and the last one the line.
-  const late = (from: Database, by: Actor) =>
-    todos(from, by, day)
-      .map((todo) => todo.text)
-      .filter((text) => text.includes("ไม่ได้นับเกิน 7 วัน"));
-  expect(late(seed, saladaeng)).toEqual([
-    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน",
+  // A line per sheet not saved today, each opening the page that holds it; saving a sheet
+  // takes its line away. Nothing is "not counted" any more.
+  const unsaved = (from: Database, by: Actor) =>
+    todos(from, by, day).filter((todo) =>
+      todo.text.endsWith("วันนี้ยังไม่ได้บันทึก"),
+    );
+  expect(unsaved(seed, saladaeng).map((todo) => todo.page)).toEqual([
+    "meatStock",
+    "stock",
   ]);
-  expect(late(seed, minburi)).toEqual([
-    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
+  expect(unsaved(seed, owner).map((todo) => todo.text)).toEqual([
+    "ศาลาแดง: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
+    "ศาลาแดง: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
+    "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
+    "มีนบุรี: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
   ]);
-  expect(late(seed, owner)).toEqual([
-    "ศาลาแดง: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "ศาลาแดง: ข้าวเหนียวและน้ำพริก 2 รายการไม่ได้นับเกิน 7 วัน",
-    "มีนบุรี: วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "มีนบุรี: ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
-  ]);
-  expect(
-    todos(seed, saladaeng, day)
-      .filter((todo) => todo.page)
-      .map((todo) => todo.page),
-  ).toEqual(["stock", "meatStock"]);
-  const riceCounted = mutate(
+  const meatSaved = mutate(
     seed,
     saladaeng,
-    "materials",
-    { "count.rice": "3" },
+    "daily",
+    { sheet: "meat", reporter: "ฝน" },
     "",
     day,
   );
-  const chiliCounted = mutate(
-    riceCounted,
-    saladaeng,
-    "sale",
-    { chiliCount: "5" },
-    "",
-    day,
+  expect(unsaved(meatSaved, saladaeng).map((todo) => todo.page)).toEqual([
+    "stock",
+  ]);
+  expect(unsaved(meatSaved, minburi)).toHaveLength(2);
+  expect(todos(seed, owner, day).some((todo) => /นับ/.test(todo.text))).toBe(
+    false,
   );
-  expect(late(riceCounted, saladaeng)).toEqual([
-    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-    "ข้าวเหนียวและน้ำพริก 1 รายการไม่ได้นับเกิน 7 วัน",
-  ]);
-  expect(late(chiliCounted, saladaeng)).toEqual([
-    "วัสดุ 10 รายการไม่ได้นับเกิน 7 วัน",
-  ]);
+  // A sheet with something not jotted opens its page for the branch, nothing for the Owner.
+  expect(
+    todos(db, minburi, day).find((todo) =>
+      todo.text.startsWith("ใบสต๊อกรายวัน 8 ก.ย."),
+    ),
+  ).toMatchObject({ page: "meatStock" });
   expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
   // A branch's line opens its form; for the Owner the same line is a status and opens nothing.
   const line = (by: Actor, text: string) =>
@@ -477,7 +483,9 @@ it("todos: what each account still has to jot", () => {
     date: day,
   });
   expect(todoOpens(line(owner, "ศาลาแดง: ยอดขาย วันนี้"))).toBe(false);
-  expect(todoOpens(line(owner, "มีนบุรี: นับเนื้อวันนี้"))).toBe(false);
+  expect(
+    line(owner, "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก").page,
+  ).toBe("meatStock");
   expect(
     todos(db, owner, day)
       .filter((todo) => todo.text.endsWith("ยังไม่ได้จด 1 ช่อง"))
@@ -490,12 +498,12 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   expect(kindsForPage(saladaeng, "meatStock")).toEqual([
     "sale",
     "receive",
-    "meatCount",
     "influencerBox",
     "pay",
   ]);
-  // The receipt of a transfer is on no page's buttons.
-  expect(kindsForPage(saladaeng, "stock")).toEqual(["pay", "materials"]);
+  // The receipt of a transfer is on no page's buttons; nor are the daily sheet, the opening
+  // stock and a list item, which the sheet on the page saves.
+  expect(kindsForPage(saladaeng, "stock")).toEqual(["pay"]);
   expect(kindsForPage(owner, "meatStock")).toEqual([]);
   // Inventory: stock moves between the warehouses.
   expect(kindsForPage(owner, "stock")).toEqual(["transfer"]);
@@ -701,25 +709,47 @@ describe("figures (V2-CAL)", () => {
     lot,
   );
   jot(saladaeng, "receive", "2026-09-07", { kg: "10" }, lot);
-  jot(saladaeng, "meatCount", "2026-09-08", { kg: "8" });
+  jot(saladaeng, "opening", "2026-09-08", {
+    sheet: "meat",
+    "qty.meat": "8",
+    "qty.chili": "50",
+  });
   jot(saladaeng, "receive", "2026-09-09", { kg: "5" });
-  jot(saladaeng, "materials", "2026-09-09", {
-    "count.m1": "50",
-    "count.m2": "20",
+  jot(saladaeng, "opening", "2026-09-09", {
+    sheet: "materials",
+    "qty.m1": "50",
+    "qty.m2": "20",
   });
   const sale = jot(saladaeng, "sale", "2026-09-10", {
     boxes: "10",
     chiliAddons: "4",
-    wasteKg: "0.3",
     lineMan: "1000",
     "sales.grab": "500",
     expense: "100",
     payer: "น้องฝน",
   });
-  jot(saladaeng, "sale", "2026-09-11", {
-    boxes: "5",
-    soldKg: "1",
-    chiliCount: "40",
+  const sheet10 = jot(saladaeng, "daily", "2026-09-10", {
+    sheet: "meat",
+    "used.meat": "1.5",
+    "waste.meat": "0.3",
+    "reason.meat": "ตกพื้น",
+    "used.chili": "4",
+    reporter: "ฝน",
+  });
+  jot(saladaeng, "daily", "2026-09-10", {
+    sheet: "materials",
+    "used.m1": "10",
+    "received.m2": "5",
+    "used.m2": "3",
+    reporter: "ฝน",
+  });
+  jot(saladaeng, "sale", "2026-09-11", { boxes: "5" });
+  const sheet11 = jot(saladaeng, "daily", "2026-09-11", {
+    sheet: "meat",
+    "used.meat": "1",
+    "used.chili": "2",
+    "waste.chili": "2",
+    reporter: "ฝน",
   });
   jot(saladaeng, "influencerBox", "2026-09-12", {
     influencer: "@x",
@@ -918,203 +948,351 @@ describe("figures (V2-CAL)", () => {
     });
   });
 
-  it("CAL-09, 10: branch meat is the last count, plus receipts, less what was used and wasted", () => {
-    const at = (today: string) => branchMeat(built, "ศาลาแดง", today);
-    // 8 + 5 − (10 × 0.12 + 0.3) − 1 (typed) − 2 × 0.12
-    expect(at("2026-09-13").kg).toBeCloseTo(10.26, 10);
-    expect(at("2026-09-13").countedToday).toBe(false);
-    expect(at("2026-09-08").countedToday).toBe(true);
-    expect(branchMeat(built, "มีนบุรี", "2026-09-13")).toMatchObject({
-      kg: 0,
-      counted: undefined,
+  const item = (id: string, date: string, from = built) =>
+    branchItem(from, "ศาลาแดง", id, date);
+
+  it("CAL-10: remaining = opening + auto received + typed received − used, and waste is part of used", () => {
+    // Before any opening an item starts from 0; a receipt comes in by itself.
+    expect(item("meat", "2026-09-07")).toEqual({
+      opening: 0,
+      autoReceived: 10,
+      received: 0,
+      used: 0,
+      waste: 0,
+      reason: "",
+      remaining: 10,
+      saved: false,
+    });
+    // The opening of the 8th sets 8 (whatever was there), the 9th takes in 5.
+    expect(item("meat", "2026-09-09")).toMatchObject({
+      opening: 8,
+      autoReceived: 5,
+      remaining: 13,
+    });
+    // 13 − 1.5 used: the 0.3 wasted is in the 1.5, not taken off again.
+    expect(item("meat", "2026-09-10")).toEqual({
+      opening: 13,
+      autoReceived: 0,
+      received: 0,
+      used: 1.5,
+      waste: 0.3,
+      reason: "ตกพื้น",
+      remaining: 11.5,
+      saved: true,
+    });
+    // The next day opens with what the day before left.
+    expect(item("meat", "2026-09-11")).toMatchObject({
+      opening: 11.5,
+      used: 1,
+      remaining: 10.5,
+    });
+    expect(item("meat", "2026-09-13")).toMatchObject({
+      opening: 10.5,
+      remaining: 10.5,
+      saved: false,
+    });
+    // Typed on the sheet: 20 + 5 received − 3 used.
+    expect(item("m2", "2026-09-10")).toMatchObject({
+      opening: 20,
+      received: 5,
+      used: 3,
+      remaining: 22,
+      saved: true,
+    });
+    expect(branchItem(built, "มีนบุรี", "meat", "2026-09-13")).toMatchObject({
+      opening: 0,
+      remaining: 0,
+      saved: false,
     });
   });
 
-  it("CAL-11: a material is the last count, plus what was bought, less boxes × per box", () => {
-    const m1 = (today: string) => branchMaterial(built, "ศาลาแดง", "m1", today);
-    // 50 − 10 − 5 − 2 + 100
-    expect(m1("2026-09-16")).toEqual({
-      qty: 133,
-      countedOn: "2026-09-09",
-      stale: false,
+  it("CAL-10: a payment with a quantity comes in by itself, the Owner's and the branch's own", () => {
+    // 50 − 10 used, then the 100 the Owner bought for the branch on the 12th.
+    expect(item("m1", "2026-09-12")).toMatchObject({
+      opening: 40,
+      autoReceived: 100,
+      remaining: 140,
+      saved: false,
     });
-    // V2-BR-03: the eighth day is yellow.
-    expect(m1("2026-09-17").stale).toBe(true);
-    // No "per box": only counts and purchases move it.
-    expect(branchMaterial(built, "ศาลาแดง", "m2", "2026-09-16").qty).toBe(20);
-    expect(branchMaterial(built, "ศาลาแดง", "m3", "2026-09-16")).toEqual({
-      qty: -17,
-      countedOn: "",
-      stale: true,
+    expect(item("m1", "2026-09-13").opening).toBe(140);
+    // 50 − 4 − 2, then the 10 tubes the branch bought on the 13th.
+    expect(item("chili", "2026-09-13")).toMatchObject({
+      opening: 44,
+      autoReceived: 10,
+      remaining: 54,
     });
-    expect(branchMaterial(built, "มีนบุรี", "m1", "2026-09-16").qty).toBe(0);
+    expect(branchItem(built, "มีนบุรี", "m1", "2026-09-13").remaining).toBe(0);
   });
 
-  it("CAL-12: chili is the count in the sale form, plus what was bought, less sold and given", () => {
-    // 40 (counted 11 ก.ย.) − 3 + 10
-    expect(branchChili(built, "ศาลาแดง", "2026-09-18")).toEqual({
-      qty: 47,
-      countedOn: "2026-09-11",
-      stale: false,
-    });
-    // Late as a material is: more than 7 days after the count, or never counted.
-    expect(branchChili(built, "ศาลาแดง", "2026-09-19").stale).toBe(true);
-    expect(branchChili(built, "มีนบุรี", "2026-09-11").stale).toBe(true);
-  });
-
-  it("CAL-19: raw rice is the last count plus what was bought since; nothing is taken off", () => {
-    const rice = (qty: string, date: string) =>
+  it("CAL-10: a sale and a gift box take nothing off the stock", () => {
+    const more = (
       [
-        owner,
-        "pay",
-        {
-          category: "ingredient",
-          amount: "1",
-          item: "rice",
-          qty,
-          branch: "ศาลาแดง",
-        },
-        date,
-      ] as const;
-    const jotted = (
-      [
-        rice("20", "2026-09-08"),
-        [saladaeng, "materials", { "count.rice": "12.5" }, "2026-09-09"],
-        rice("5", "2026-09-10"),
-        // A count of materials only leaves the rice count where it was.
-        [saladaeng, "materials", { "count.m2": "20" }, "2026-09-11"],
+        ["sale", { boxes: "30", chiliAddons: "9", lineMan: "1" }],
+        ["influencerBox", { influencer: "@y", boxes: "8", chiliAddons: "8" }],
       ] as const
     ).reduce(
-      (next, [by, kind, input, date]) =>
-        mutate(next, by, kind, input, "", date),
+      (next, [kind, values]) =>
+        mutate(next, saladaeng, kind, values, "", "2026-09-12"),
       built,
     );
-    // Never counted: what was bought, and late.
-    expect(branchRice(built, "ศาลาแดง", "2026-09-16")).toEqual({
-      qty: 0,
-      countedOn: "",
-      stale: true,
-    });
-    // 12.5 (counted 9 ก.ย.) + 5; the sales and gift boxes since take nothing.
-    expect(branchRice(jotted, "ศาลาแดง", "2026-09-16")).toEqual({
-      qty: 17.5,
-      countedOn: "2026-09-09",
-      stale: false,
-    });
-    expect(branchRice(jotted, "ศาลาแดง", "2026-09-17").stale).toBe(true);
-    expect(branchRice(jotted, "มีนบุรี", "2026-09-16").qty).toBe(0);
+    for (const id of ["meat", "chili", "m1", "m2"])
+      expect(item(id, "2026-09-13", more)).toEqual(item(id, "2026-09-13"));
+    // The sale form no longer asks for what the sheet holds.
+    expect(fields("sale", built, saladaeng).map((f) => f.key)).toEqual([
+      "boxes",
+      "chiliAddons",
+      "lineMan",
+      "sales.grab",
+      "expense",
+      "payer",
+      "note",
+    ]);
   });
 
-  it("variance: the latest count against what the walk expected just before it", () => {
-    const jotted = (
-      d: Database,
-      kind: Parameters<typeof mutate>[2],
-      values: Values,
-      date: string,
-    ) => mutate(d, saladaeng, kind, values, "", date);
-    const meat = (d: Database) =>
-      branchMeat(d, "ศาลาแดง", "2026-09-13").variance;
-    // A first count has nothing true before it: no variance, as a line never counted.
-    expect(meat(built)).toBeUndefined();
-    expect(branchMeat(built, "มีนบุรี", "2026-09-13").variance).toBeUndefined();
-    // A backdated count before the receipt gives the later count its start: 5 + 10.
-    const two = jotted(built, "meatCount", { kg: "5" }, "2026-09-06");
-    expect(meat(two)).toEqual({
-      expected: 15,
-      counted: 8,
-      diff: -7,
-      date: "2026-09-08",
-    });
-    // An edited count is read as edited.
-    const count = entries(built, "meatCount", undefined, "ศาลาแดง").at(-1)!;
+  it("CAL-10: saving a day again changes that day, it does not take stock twice", () => {
+    // The sheet finds the day's note and edits it.
+    expect(sheetNote(built, "daily", "ศาลาแดง", "meat", "2026-09-10")?.id).toBe(
+      sheet10.id,
+    );
     expect(
-      meat(
-        jotted(
-          two,
-          "entryEdit",
-          { targetId: count.id, values: JSON.stringify({ kg: "15" }) },
-          "2026-09-13",
-        ),
+      sheetNote(built, "daily", "ศาลาแดง", "materials", "2026-09-11"),
+    ).toBeUndefined();
+    expect(
+      sheetNote(built, "daily", "มีนบุรี", "meat", "2026-09-10"),
+    ).toBeUndefined();
+    const again = mutate(
+      built,
+      saladaeng,
+      "entryEdit",
+      { targetId: sheet10.id, values: JSON.stringify({ "used.meat": "2" }) },
+      "",
+      "2026-09-10",
+    );
+    expect(item("meat", "2026-09-10", again)).toMatchObject({
+      used: 2,
+      waste: 0.3,
+      remaining: 11,
+    });
+    expect(item("meat", "2026-09-11", again).opening).toBe(11);
+    // The change stays in the log, and its undo puts the day back.
+    expect(last(again)).toMatchObject({
+      kind: "entryEdit",
+      values: { "from.used.meat": "1.5", "to.used.meat": "2" },
+    });
+    const undone = mutate(
+      again,
+      saladaeng,
+      "void",
+      { targetId: last(again).id },
+      "",
+      "2026-09-10",
+    );
+    expect(item("meat", "2026-09-10", undone).remaining).toBe(11.5);
+    // A second note of the same day is not refused: the later one is the day's.
+    const twice = mutate(
+      built,
+      saladaeng,
+      "daily",
+      { sheet: "meat", "used.meat": "3", reporter: "ฝน" },
+      "",
+      "2026-09-10",
+    );
+    expect(item("meat", "2026-09-10", twice)).toMatchObject({
+      used: 3,
+      waste: 0,
+      remaining: 10,
+    });
+    expect(sheetNote(twice, "daily", "ศาลาแดง", "meat", "2026-09-10")?.id).toBe(
+      last(twice).id,
+    );
+  });
+
+  it("CAL-10: an opening sets the balance before its day's sheet, a later one sets it again, and each is in the log", () => {
+    const set = (from: Database, date: string, qty: string) =>
+      mutate(
+        from,
+        saladaeng,
+        "opening",
+        { sheet: "meat", "qty.meat": qty },
+        "",
+        date,
+      );
+    // Jotted after the day's sheet, it still applies first: 20 − 1.5.
+    const same = set(built, "2026-09-10", "20");
+    expect(item("meat", "2026-09-10", same)).toMatchObject({
+      opening: 20,
+      used: 1.5,
+      remaining: 18.5,
+    });
+    expect(item("meat", "2026-09-11", same).opening).toBe(18.5);
+    // A row it leaves empty is not set.
+    expect(item("chili", "2026-09-10", same).opening).toBe(50);
+    // A later one resets the balance from its date; the days before read as they did.
+    const later = set(same, "2026-09-12", "4");
+    expect(item("meat", "2026-09-11", later).remaining).toBe(17.5);
+    expect(item("meat", "2026-09-12", later)).toMatchObject({
+      opening: 4,
+      remaining: 4,
+    });
+    // The branch changes its opening: an edit, kept in the log.
+    const opened = sheetNote(same, "opening", "ศาลาแดง", "meat", "2026-09-10")!;
+    const changed = mutate(
+      same,
+      saladaeng,
+      "entryEdit",
+      { targetId: opened.id, values: JSON.stringify({ "qty.meat": "25" }) },
+      "",
+      "2026-09-10",
+    );
+    expect(item("meat", "2026-09-10", changed).opening).toBe(25);
+    expect(last(changed).values).toMatchObject({
+      targetKind: "opening",
+      "from.qty.meat": "20",
+      "to.qty.meat": "25",
+    });
+    // The Owner sees it and changes none of it.
+    expect(visibleNotes(changed, owner).map((e) => e.id)).toContain(opened.id);
+    expect(() =>
+      mutate(
+        same,
+        owner,
+        "entryEdit",
+        { targetId: opened.id, values: '{"qty.meat":"1"}' },
+        "",
+        "2026-09-10",
       ),
-    ).toMatchObject({ expected: 15, counted: 15, diff: 0 });
-    // Deleting the earlier of the two leaves a first count again; deleting the later one
-    // leaves the earlier, which is a first count too.
-    expect(
-      meat(jotted(two, "void", { targetId: last(two).id }, "2026-09-13")),
-    ).toBeUndefined();
-    expect(
-      meat(jotted(two, "void", { targetId: count.id }, "2026-09-13")),
-    ).toBeUndefined();
-
-    // A material: a backdated count the day before the last one, then deleted again.
-    const m1 = (d: Database) =>
-      branchMaterial(d, "ศาลาแดง", "m1", "2026-09-16").variance;
-    expect(m1(built)).toBeUndefined();
-    const earlier = jotted(
-      built,
-      "materials",
-      { "count.m1": "60" },
-      "2026-09-08",
-    );
-    expect(m1(earlier)).toMatchObject({ expected: 60, counted: 50, diff: -10 });
-    expect(
-      m1(jotted(earlier, "void", { targetId: last(earlier).id }, "2026-09-16")),
-    ).toBeUndefined();
-    // A second count: 50 − 10 − 5 − 2 + 100 expected.
-    expect(
-      m1(jotted(built, "materials", { "count.m1": "130" }, "2026-09-14")),
-    ).toEqual({ expected: 133, counted: 130, diff: -3, date: "2026-09-14" });
-    expect(
-      branchMaterial(built, "ศาลาแดง", "m3", "2026-09-16").variance,
-    ).toBeUndefined();
-
-    // Chili: counted at the end of a sale form, so that sale's own tubes come off first:
-    // 40 − 3 + 10 − 2.
-    expect(
-      branchChili(built, "ศาลาแดง", "2026-09-14").variance,
-    ).toBeUndefined();
-    expect(
-      branchChili(
-        jotted(
-          built,
-          "sale",
-          { chiliAddons: "2", chiliCount: "40" },
-          "2026-09-14",
-        ),
-        "ศาลาแดง",
-        "2026-09-14",
-      ).variance,
-    ).toEqual({ expected: 45, counted: 40, diff: -5, date: "2026-09-14" });
-    // Raw rice has none: the web takes nothing off it, so there is no expected figure.
-    expect(branchRice(built, "ศาลาแดง", "2026-09-16")).not.toHaveProperty(
-      "variance",
-    );
+    ).toThrow("บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้");
+    expect(() =>
+      mutate(built, saladaeng, "opening", { "qty.meat": "1" }, "", day),
+    ).toThrow("เลือกใบสต๊อก");
   });
 
-  it("BR-08: only a branch that uses raw rice counts it, and only the Owner says which", () => {
-    const count = (d: Database, by: Actor) =>
+  it("RUL-05: a sheet refuses nothing: a waste with no reason and an empty reporter are listed as missing, and remaining may go below zero", () => {
+    expect(sheet10.values.missing).toBeUndefined();
+    expect(sheet11.values.missing).toBe("reason.chili");
+    const bare = mutate(
+      built,
+      saladaeng,
+      "daily",
+      { sheet: "meat", "used.meat": "99", "waste.meat": "0" },
+      "",
+      "2026-09-13",
+    );
+    expect(last(bare).values.missing).toBe("reporter");
+    expect(item("meat", "2026-09-13", bare).remaining).toBe(-88.5);
+    expect(() =>
+      mutate(built, saladaeng, "daily", { "used.meat": "1" }, "", day),
+    ).toThrow("เลือกใบสต๊อก");
+    expect(() =>
+      mutate(
+        built,
+        saladaeng,
+        "daily",
+        { sheet: "meat", "used.meat": "-1" },
+        "",
+        day,
+      ),
+    ).toThrow("ใส่เป็นตัวเลข 0 ขึ้นไป");
+  });
+
+  it("the Overview's waste: a branch's 7 days, per item with dates and reasons, and the days with a saved sheet", () => {
+    expect(wasteWeek(built, "ศาลาแดง", "2026-09-13")).toEqual({
+      saved: { meat: 2, materials: 1 },
+      items: [
+        {
+          id: "meat",
+          sku: "",
+          name: "เนื้อ",
+          unit: "กก.",
+          total: 0.3,
+          days: [{ date: "2026-09-10", waste: 0.3, reason: "ตกพื้น" }],
+        },
+        {
+          id: "chili",
+          sku: "",
+          name: "น้ำพริก",
+          unit: "หลอด",
+          total: 2,
+          days: [{ date: "2026-09-11", waste: 2, reason: "" }],
+        },
+      ],
+    });
+    // The 7 days end on the date: the 10th and 11th are out of the week of the 18th.
+    expect(wasteWeek(built, "ศาลาแดง", "2026-09-18")).toEqual({
+      saved: { meat: 0, materials: 0 },
+      items: [],
+    });
+    expect(wasteWeek(built, "มีนบุรี", "2026-09-13").items).toEqual([]);
+    // A material's waste, newest day first.
+    const more = (
+      [
+        ["2026-09-12", "4", "เปียกน้ำ"],
+        ["2026-09-13", "1", "ขาด"],
+      ] as const
+    ).reduce(
+      (next, [date, waste, reason]) =>
+        mutate(
+          next,
+          saladaeng,
+          "daily",
+          { sheet: "materials", "waste.m4": waste, "reason.m4": reason },
+          "",
+          date,
+        ),
+      built,
+    );
+    expect(wasteWeek(more, "ศาลาแดง", "2026-09-13")).toMatchObject({
+      saved: { meat: 2, materials: 3 },
+      items: [
+        {},
+        {},
+        {
+          id: "m4",
+          name: "ถุงกระดาษ",
+          unit: "ถุง",
+          total: 5,
+          days: [
+            { date: "2026-09-13", waste: 1, reason: "ขาด" },
+            { date: "2026-09-12", waste: 4, reason: "เปียกน้ำ" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("BR-08: only a branch that uses raw rice has it on its sheet, and only the Owner says which", () => {
+    const saved = (d: Database, by: Actor) =>
       last(
         mutate(
           d,
           by,
-          "materials",
-          { "count.rice": "3", "count.m1": "9" },
+          "daily",
+          { sheet: "meat", "used.rice": "3", "used.meat": "1" },
           "",
           day,
         ),
       ).values;
     expect(rawRiceBranches(seed.config)).toEqual(["ศาลาแดง"]);
-    expect(count(seed, saladaeng)["count.rice"]).toBe("3");
-    // มีนบุรี buys its rice cooked: the row is not in its form, so it is not saved.
-    expect(count(seed, minburi)["count.rice"]).toBeUndefined();
-    expect(() =>
-      mutate(seed, minburi, "materials", { "count.rice": "3" }, "", day),
-    ).toThrow("ยังไม่ได้ใส่ยอดนับ");
+    expect(sheetItems(seed, "meat", "ศาลาแดง").map((row) => row.id)).toEqual([
+      "meat",
+      "rice",
+      "chili",
+    ]);
+    expect(sheetItems(seed, "meat", "มีนบุรี").map((row) => row.id)).toEqual([
+      "meat",
+      "chili",
+    ]);
+    // Any other reader (the Owner looking at a branch's sheet) gets the row.
+    expect(sheetItems(seed, "meat")).toHaveLength(3);
+    expect(sheetItems(seed, "materials")).toEqual(materialList(seed));
+    expect(saved(seed, saladaeng)["used.rice"]).toBe("3");
+    // มีนบุรี buys its rice cooked: the row is not on its sheet, so it is not saved.
+    expect(saved(seed, minburi)["used.rice"]).toBeUndefined();
     const set = (by: Actor, value: string) =>
       mutate(seed, by, "config", { rawRiceBranches: value }, "", day);
     const both = set(owner, '["ศาลาแดง","มีนบุรี"]');
-    expect(count(both, minburi)["count.rice"]).toBe("3");
-    expect(count(set(owner, "[]"), saladaeng)["count.rice"]).toBeUndefined();
+    expect(saved(both, minburi)["used.rice"]).toBe("3");
+    expect(saved(set(owner, "[]"), saladaeng)["used.rice"]).toBeUndefined();
     for (const bad of [
       '["เชียงใหม่"]',
       '["มีนบุรี","มีนบุรี"]',
@@ -1168,41 +1346,54 @@ describe("SKU: materials and ledger items", () => {
   const name = (d: Database, code: string) =>
     skuCatalogue(d).find((item) => item.sku === code)?.name;
 
-  it("the seed's materials are SKU-0001 to SKU-0010, and a new ledger item is the next", () => {
-    expect(materialList(seed.config).map((m) => m.sku)).toEqual(
+  it("the seed's materials are SKU-0001 to SKU-0023, each with its unit, and a new ledger item is the next", () => {
+    expect(materialList(seed).map((m) => m.sku)).toEqual(
       Array.from(
-        { length: 10 },
+        { length: 23 },
         (_, i) => `SKU-${String(i + 1).padStart(4, "0")}`,
       ),
     );
+    expect(materialList(seed)[0]).toEqual({
+      id: "m1",
+      sku: "SKU-0001",
+      name: "กล่องบรรจุ",
+      unit: "กล่อง",
+    });
+    expect(materialList(seed).at(-1)).toMatchObject({
+      name: "ถุงหิ้วพลาสติกใส 12x20",
+      unit: "ห่อ",
+    });
     let d = jot(seed, "กระดาษ A4");
-    expect(sku(d)).toBe("SKU-0011");
+    expect(sku(d)).toBe("SKU-0024");
     d = jot(d, "ปากกา", owner);
-    expect(sku(d)).toBe("SKU-0012");
+    expect(sku(d)).toBe("SKU-0025");
     // The same name, trimmed, any case: the same item.
     d = jot(d, "  กระดาษ a4 ");
-    expect(sku(d)).toBe("SKU-0011");
-    expect(skuFor(d, "ยางลบ")).toEqual({ sku: "SKU-0013", isNew: true });
+    expect(sku(d)).toBe("SKU-0024");
+    expect(skuFor(d, "ยางลบ")).toEqual({ sku: "SKU-0026", isNew: true });
     expect(skuFor(d, " ")).toEqual({ sku: "", isNew: false });
   });
 
   it("an expense named as a material carries the material's SKU and moves no stock", () => {
-    const before = branchMaterial(seed, "ศาลาแดง", "m3", day);
+    const before = branchItem(seed, "ศาลาแดง", "m3", day);
     const d = mutate(
       seed,
       owner,
       "expense",
-      { item: " ถุงซีลเนื้อ", qty: "500", amount: "900" },
+      { item: " ซองข้าวเหนียว", qty: "500", amount: "900" },
       "",
       day,
     );
     expect(sku(d)).toBe("SKU-0003");
-    expect(skuFor(d, "ถุงซีลเนื้อ")).toEqual({ sku: "SKU-0003", isNew: false });
-    expect(branchMaterial(d, "ศาลาแดง", "m3", day)).toEqual(before);
+    expect(skuFor(d, "ซองข้าวเหนียว")).toEqual({
+      sku: "SKU-0003",
+      isNew: false,
+    });
+    expect(branchItem(d, "ศาลาแดง", "m3", day)).toEqual(before);
     // The form offers every item, the materials included, each under its SKU.
     expect(
       fields("expense", d, owner).find((f) => f.key === "item")!.options,
-    ).toContainEqual({ value: "ถุงซีลเนื้อ", label: "SKU-0003" });
+    ).toContainEqual({ value: "ซองข้าวเหนียว", label: "SKU-0003" });
   });
 
   it("never gives a number twice: not a deleted entry's, an edited-away one's or a removed material's", () => {
@@ -1210,19 +1401,19 @@ describe("SKU: materials and ledger items", () => {
     d = jot(d, "ปากกา");
     d = mutate(d, owner, "void", { targetId: last(d).id }, "", day);
     d = jot(d, "ยางลบ");
-    expect(sku(d)).toBe("SKU-0013");
+    expect(sku(d)).toBe("SKU-0026");
     // The deleted item is no longer in the catalogue: its name is a new item.
-    expect(skuFor(d, "ปากกา")).toEqual({ sku: "SKU-0014", isNew: true });
+    expect(skuFor(d, "ปากกา")).toEqual({ sku: "SKU-0027", isNew: true });
     const id = last(d).id;
     // An edit that keeps the name keeps the SKU; a new name gets a new one; a name that
     // exists gets that item's.
     d = edit(d, id, { item: "ยางลบ", qty: "2" });
-    expect(skuOf(d, id)).toBe("SKU-0013");
+    expect(skuOf(d, id)).toBe("SKU-0026");
     d = edit(d, id, { item: "คลิปหนีบ" });
-    expect(skuOf(d, id)).toBe("SKU-0014");
+    expect(skuOf(d, id)).toBe("SKU-0027");
     d = edit(d, id, { item: "กระดาษ a4" });
-    expect(skuOf(d, id)).toBe("SKU-0011");
-    expect(skuFor(d, "ลวดเย็บ").sku).toBe("SKU-0015");
+    expect(skuOf(d, id)).toBe("SKU-0024");
+    expect(skuFor(d, "ลวดเย็บ").sku).toBe("SKU-0028");
     // A material added in Settings takes the next number, whatever the save sends; one
     // removed keeps its number out of use.
     const rows = JSON.parse(d.config.materialList);
@@ -1233,13 +1424,13 @@ describe("SKU: materials and ledger items", () => {
         { id: "my", name: "เทป", perBox: "" },
       ]),
     });
-    expect(materialList(d.config).slice(-3)).toMatchObject([
-      { id: "m10", sku: "SKU-0010" },
-      { id: "mx", sku: "SKU-0015" },
-      { id: "my", sku: "SKU-0016" },
+    expect(materialList(d).slice(-3)).toMatchObject([
+      { id: "m23", sku: "SKU-0023" },
+      { id: "mx", sku: "SKU-0028" },
+      { id: "my", sku: "SKU-0029" },
     ]);
     d = config(d, { materialList: JSON.stringify(rows) });
-    expect(jot(d, "ลวดเย็บ").entries.at(-1)!.values.sku).toBe("SKU-0017");
+    expect(jot(d, "ลวดเย็บ").entries.at(-1)!.values.sku).toBe("SKU-0030");
   });
 
   it("a rename keeps the SKU: a material in its list, a ledger item in skuNames", () => {
@@ -1249,29 +1440,29 @@ describe("SKU: materials and ledger items", () => {
     d = config(d, {
       materialList: JSON.stringify(
         rows.map((row) =>
-          row.id === "m3" ? { ...row, name: "ถุงซีล", sku: "" } : row,
+          row.id === "m3" ? { ...row, name: "ซองข้าว", sku: "" } : row,
         ),
       ),
     });
-    expect(materialList(d.config)[2]).toMatchObject({
+    expect(materialList(d)[2]).toMatchObject({
       id: "m3",
       sku: "SKU-0003",
-      name: "ถุงซีล",
+      name: "ซองข้าว",
     });
     d = config(d, {
-      skuNames: JSON.stringify([{ sku: "SKU-0011", name: " A4 80 แกรม " }]),
+      skuNames: JSON.stringify([{ sku: "SKU-0024", name: " A4 80 แกรม " }]),
     });
-    expect(name(d, "SKU-0011")).toBe("A4 80 แกรม");
+    expect(name(d, "SKU-0024")).toBe("A4 80 แกรม");
     // The old row shows the new name; its entry keeps what was typed.
     expect(ledgerRows(d).find((row) => row.id === id)).toMatchObject({
       item: "A4 80 แกรม",
-      sku: "SKU-0011",
+      sku: "SKU-0024",
     });
     // The new name is that item; the old name is now a new one.
-    expect(sku(jot(d, "a4 80 แกรม"))).toBe("SKU-0011");
-    expect(sku(jot(d, "กระดาษ A4"))).toBe("SKU-0012");
+    expect(sku(jot(d, "a4 80 แกรม"))).toBe("SKU-0024");
+    expect(sku(jot(d, "กระดาษ A4"))).toBe("SKU-0025");
     // An edit that leaves the item as typed keeps its SKU.
-    expect(skuOf(edit(d, id, { qty: "3" }), id)).toBe("SKU-0011");
+    expect(skuOf(edit(d, id, { qty: "3" }), id)).toBe("SKU-0024");
   });
 
   it("refuses a name used twice in the catalogue, an empty one, and a rename by anyone but the Owner", () => {
@@ -1279,12 +1470,12 @@ describe("SKU: materials and ledger items", () => {
     const rename = (to: string, by?: Actor) =>
       config(
         d,
-        { skuNames: JSON.stringify([{ sku: "SKU-0011", name: to }]) },
+        { skuNames: JSON.stringify([{ sku: "SKU-0024", name: to }]) },
         by,
       );
     expect(() => rename("ปากกา")).toThrow("ซ้ำกัน");
     // A material's name is taken too, in any case.
-    expect(() => rename("ถุงซีลเนื้อ")).toThrow("ซ้ำกัน");
+    expect(() => rename("ซองข้าวเหนียว")).toThrow("ซ้ำกัน");
     expect(() => rename(" ")).toThrow("ยังไม่ได้ใส่ชื่อ");
     expect(() => config(d, { skuNames: "x" })).toThrow("อ่านรายการไม่ได้");
     // A material named as a ledger item is refused the same way.
@@ -1309,13 +1500,139 @@ describe("SKU: materials and ledger items", () => {
         ]),
       },
     };
-    expect(materialList(old.config)[0].sku).toBe("");
+    expect(materialList(old)[0].sku).toBe("");
     const saved = config(old, { materialList: old.config.materialList });
-    expect(materialList(saved.config)[0].sku).toBe("SKU-0001");
+    expect(materialList(saved)[0].sku).toBe("SKU-0001");
   });
 
   it("is jotted by the Owner only", () => {
     expect(() => jot(seed, "กระดาษ", saladaeng)).toThrow();
+  });
+
+  it("a branch adds a row to the material list, with its unit and the next SKU, and renames one", () => {
+    const item = (d: Database, by: Actor, values: Values) =>
+      mutate(d, by, "stockItem", values, "", day);
+    const added = item(seed, saladaeng, {
+      name: " ช้อนพลาสติก ",
+      unit: "แพ็ค",
+    });
+    const row = materialList(added).at(-1)!;
+    expect(row).toEqual({
+      id: last(added).values.id,
+      sku: "SKU-0024",
+      name: "ช้อนพลาสติก",
+      unit: "แพ็ค",
+    });
+    expect(row.id).toBeTruthy();
+    expect(materialList(added)).toHaveLength(24);
+    // One sequence with the ledger items, and the row is a line of the stock and of a sheet.
+    expect(sku(jot(added, "กระดาษ A4"))).toBe("SKU-0025");
+    expect(stockLines(added, day).at(-1)).toMatchObject({
+      sku: "SKU-0024",
+      materialId: row.id,
+    });
+    expect(fields("daily", added, minburi).map((f) => f.key)).toContain(
+      `used.${row.id}`,
+    );
+    // The other branch renames it and changes its unit: the list is one for both.
+    const renamed = item(added, minburi, {
+      id: row.id,
+      name: "ช้อน",
+      unit: "กล่อง",
+    });
+    expect(materialList(renamed).at(-1)).toEqual({
+      ...row,
+      name: "ช้อน",
+      unit: "กล่อง",
+    });
+    expect(materialList(renamed)).toHaveLength(24);
+    // A seeded row too; a unit left empty stays as it was.
+    const first = item(renamed, saladaeng, { id: "m1", name: "กล่องอาหาร" });
+    expect(materialList(first)[0]).toEqual({
+      id: "m1",
+      sku: "SKU-0001",
+      name: "กล่องอาหาร",
+      unit: "กล่อง",
+    });
+    // Refused as a Settings row is: no name, a name twice, a row that is not there.
+    expect(() => item(added, minburi, { name: " " })).toThrow(
+      "รายชื่อวัสดุ: มีแถวที่ยังไม่ได้ใส่ชื่อ",
+    );
+    expect(() => item(added, minburi, { name: "ช้อนพลาสติก" })).toThrow(
+      "รายชื่อวัสดุ: ชื่อ「ช้อนพลาสติก」ซ้ำกัน",
+    );
+    expect(() => item(added, minburi, { id: "m1", name: "ซองเนื้อ" })).toThrow(
+      "ซ้ำกัน",
+    );
+    expect(() =>
+      item(jot(added, "กระดาษ A4"), minburi, { name: "กระดาษ a4" }),
+    ).toThrow("ซ้ำกัน");
+    expect(() => item(added, minburi, { id: "nope", name: "x" })).toThrow(
+      "ไม่พบรายการนี้ในรายชื่อวัสดุ",
+    );
+    expect(() => item(seed, owner, { name: "x" })).toThrow(
+      "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้",
+    );
+    // Its own branch deletes the note: the row is gone, its number is not given again.
+    const gone = mutate(
+      added,
+      saladaeng,
+      "void",
+      { targetId: last(added).id },
+      "",
+      day,
+    );
+    expect(materialList(gone)).toHaveLength(23);
+    expect(last(item(gone, saladaeng, { name: "ตะเกียบ" })).values.sku).toBe(
+      "SKU-0025",
+    );
+  });
+
+  it("a Settings save is the material list from then on, and later rows of a branch go on top of it", () => {
+    const item = (d: Database, by: Actor, values: Values) =>
+      mutate(d, by, "stockItem", values, "", day);
+    let d = item(seed, saladaeng, { name: "ช้อน", unit: "แพ็ค" });
+    const id = last(d).values.id;
+    d = item(d, minburi, { id: "m2", name: "ซองเนื้อใหญ่" });
+    // The Owner saves the list it sees, less a row, with the branch's row renamed.
+    d = config(d, {
+      materialList: JSON.stringify(
+        materialList(d)
+          .filter((m) => m.id !== "m3")
+          .map((m) => (m.id === id ? { ...m, name: "ช้อนส้อม" } : m)),
+      ),
+    });
+    expect(materialList(d)).toHaveLength(23);
+    expect(materialList(d).map((m) => m.id)).not.toContain("m3");
+    expect(materialList(d).find((m) => m.id === id)).toEqual({
+      id,
+      sku: "SKU-0024",
+      name: "ช้อนส้อม",
+      unit: "แพ็ค",
+    });
+    expect(materialList(d)[1].name).toBe("ซองเนื้อใหญ่");
+    // A row jotted after the save applies again.
+    d = item(d, minburi, { id, name: "ช้อนไม้" });
+    d = item(d, minburi, { name: "หลอด", unit: "ห่อ" });
+    expect(materialList(d).slice(-2)).toMatchObject([
+      { id, name: "ช้อนไม้", sku: "SKU-0024" },
+      { name: "หลอด", unit: "ห่อ", sku: "SKU-0025" },
+    ]);
+    // A branch's copy holds the same list.
+    expect(materialList(scopeDatabase(d, ["ศาลาแดง"]))).toEqual(
+      materialList(d),
+    );
+  });
+
+  it("a branch's copy never issues a SKU the Owner's ledger already gave", () => {
+    // SKU-0024 is a ledger item of the office's, which no branch receives.
+    const d = jot(seed, "กระดาษ A4");
+    const copy = scopeDatabase(d, ["มีนบุรี"]);
+    expect(JSON.stringify(copy.entries)).not.toContain("SKU-0024");
+    expect(
+      last(mutate(copy, minburi, "stockItem", { name: "หลอด" }, "", day)).values
+        .sku,
+    ).toBe("SKU-0025");
   });
 });
 
@@ -1514,7 +1831,7 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
       branch: "ศาลาแดง",
     });
     expect(finance(d)).toMatchObject([
-      { item: "กล่องพิมพ์ลาย", qty: 10, project: "Nerdnuea x LINE MAN" },
+      { item: "กล่องบรรจุ", qty: 10, project: "Nerdnuea x LINE MAN" },
     ]);
     expect(projectAssets(d)).toEqual([]);
   });
@@ -1580,13 +1897,13 @@ describe("Inventory: what the project owns", () => {
     });
     d = buy(d, {
       itemType: "วัสดุบรรจุภัณฑ์",
-      item: "กล่องพิมพ์ลาย",
+      item: "กล่องบรรจุ",
       qty: "50",
       amount: "500",
     });
     d = buy(d, {
       itemType: "วัสดุบรรจุภัณฑ์",
-      item: "กล่องพิมพ์ลาย",
+      item: "กล่องบรรจุ",
       qty: "30",
       amount: "300",
     });
@@ -1630,8 +1947,8 @@ describe("central warehouse: stock per place", () => {
     );
   const line = (d: Database, sku: string) =>
     stockLines(d, day).find((row) => row.sku === sku)!;
-  // The first item bought on the seed: the ten materials hold SKU-0001 to SKU-0010.
-  const fridge = "SKU-0011";
+  // The first item bought on the seed: the materials hold SKU-0001 to SKU-0023.
+  const fridge = "SKU-0024";
 
   it("an expense of the project goes into its warehouse, the central one unless it names a branch", () => {
     let d = buy(seed, { item: "ตู้เย็น", qty: "3" });
@@ -1653,9 +1970,9 @@ describe("central warehouse: stock per place", () => {
       inTransit: 0,
     });
     // Every Settings material is a line, bought or not.
-    expect(stockLines(seed, day)).toHaveLength(10);
+    expect(stockLines(seed, day)).toHaveLength(23);
     expect(line(seed, "SKU-0001")).toMatchObject({
-      name: "กล่องพิมพ์ลาย",
+      name: "กล่องบรรจุ",
       materialId: "m1",
       at: { central: 0, ศาลาแดง: 0, มีนบุรี: 0 },
     });
@@ -1764,48 +2081,73 @@ describe("central warehouse: stock per place", () => {
     expect(line(gone, fridge).at).toMatchObject({ central: -2, มีนบุรี: 5 });
   });
 
-  it("a material's count takes in the transfers before it, and later ones move it", () => {
-    const count = (d: Database, n: string, date: string) =>
-      mutate(d, saladaeng, "materials", { "count.m1": n }, "", date);
+  it("a material's transfers come in by themselves on its sheet, a waiting one on the day the branch confirms", () => {
+    const m1 = (x: Database, date = day) =>
+      branchItem(x, "ศาลาแดง", "m1", date);
     // The material's name: its SKU.
-    let d = buy(seed, { item: "กล่องพิมพ์ลาย", qty: "100" });
+    let d = buy(seed, { item: "กล่องบรรจุ", qty: "100" });
     expect(last(d).values.sku).toBe("SKU-0001");
-    d = count(d, "10", "2026-09-01");
-    d = send(
+    d = mutate(
       d,
-      { item: "กล่องพิมพ์ลาย", to: "ศาลาแดง", qty: "40" },
-      "2026-09-02",
+      saladaeng,
+      "opening",
+      { sheet: "materials", "qty.m1": "10" },
+      "",
+      "2026-09-01",
     );
-    const m1 = (x: Database) => branchMaterial(x, "ศาลาแดง", "m1", day);
-    expect(m1(d).qty).toBe(50);
-    d = count(d, "45", "2026-09-03");
-    expect(m1(d)).toMatchObject({
-      qty: 45,
-      variance: { expected: 50, counted: 45, diff: -5 },
+    d = send(d, { item: "กล่องบรรจุ", to: "ศาลาแดง", qty: "40" }, "2026-09-02");
+    expect(m1(d, "2026-09-02")).toMatchObject({
+      opening: 10,
+      autoReceived: 40,
+      remaining: 50,
     });
+    d = mutate(
+      d,
+      saladaeng,
+      "daily",
+      { sheet: "materials", "used.m1": "5", reporter: "ฝน" },
+      "",
+      "2026-09-03",
+    );
+    expect(m1(d).remaining).toBe(45);
+    // Sent back to the central warehouse: out of the branch that day.
     d = send(
       d,
-      { item: "กล่องพิมพ์ลาย", from: "ศาลาแดง", to: "central", qty: "5" },
+      { item: "กล่องบรรจุ", from: "ศาลาแดง", to: "central", qty: "5" },
       "2026-09-04",
     );
+    expect(m1(d, "2026-09-04")).toMatchObject({
+      opening: 45,
+      autoReceived: -5,
+      remaining: 40,
+    });
     d = buy(
       d,
-      { item: "กล่องพิมพ์ลาย", qty: "20", warehouse: "ศาลาแดง" },
+      { item: "กล่องบรรจุ", qty: "20", warehouse: "ศาลาแดง" },
       "2026-09-05",
     );
     // Sent with "confirm": not in the branch until it says so.
     d = send(
       d,
-      { item: "กล่องพิมพ์ลาย", to: "ศาลาแดง", qty: "7", receive: "confirm" },
+      { item: "กล่องบรรจุ", to: "ศาลาแดง", qty: "7", receive: "confirm" },
       "2026-09-05",
     );
-    expect(m1(d).qty).toBe(60);
+    expect(m1(d, "2026-09-05").autoReceived).toBe(20);
+    expect(m1(d).remaining).toBe(60);
     expect(line(d, "SKU-0001")).toMatchObject({
       materialId: "m1",
       at: { central: 58, ศาลาแดง: 60, มีนบุรี: 0 },
       inTransit: 7,
     });
-    expect(branchMaterial(d, "มีนบุรี", "m1", day).qty).toBe(0);
+    // Confirmed (the receipt is dated the 4th): it comes in on the receipt's day.
+    const got = receive(d, saladaeng, pendingTransfers(d, "ศาลาแดง")[0].id);
+    expect(m1(got, "2026-09-04").autoReceived).toBe(2);
+    expect(m1(got).remaining).toBe(67);
+    expect(line(got, "SKU-0001")).toMatchObject({
+      at: { ศาลาแดง: 67 },
+      inTransit: 0,
+    });
+    expect(branchItem(d, "มีนบุรี", "m1", day).remaining).toBe(0);
   });
 
   it("mutate refuses a place or an item that is not there, the same place twice, and the wrong account", () => {
@@ -1850,20 +2192,20 @@ describe("central warehouse: stock per place", () => {
     expect(entries(other, "transfer")[0].values).toMatchObject({
       item: "เก้าอี้",
       itemName: "เก้าอี้",
-      sku: "SKU-0012",
+      sku: "SKU-0025",
     });
     other = mutate(
       other,
       owner,
       "config",
-      { skuNames: JSON.stringify([{ sku: "SKU-0012", name: "เก้าอี้พับ" }]) },
+      { skuNames: JSON.stringify([{ sku: "SKU-0025", name: "เก้าอี้พับ" }]) },
       "",
       day,
     );
     other = edit(other, moved, { qty: "2" });
     expect(entries(other, "transfer")[0].values).toMatchObject({
       itemName: "เก้าอี้พับ",
-      sku: "SKU-0012",
+      sku: "SKU-0025",
       qty: "2",
     });
     expect(() => edit(other, moved, { item: "ไม่มี" })).toThrow(
@@ -1997,7 +2339,9 @@ describe("Old Lots", () => {
       ];
     };
     expect(ids(d)).toEqual([old[0], po, old[1], lot]);
-    expect(branchMeat(d, "ศาลาแดง", day).kg).toBe(20);
+    const meat = (from: Database) =>
+      branchItem(from, "ศาลาแดง", "meat", day).remaining;
+    expect(meat(d)).toBe(20);
 
     const flagged: Database = {
       ...d,
@@ -2012,10 +2356,8 @@ describe("Old Lots", () => {
       [lot, 20],
     ]);
     // A receipt of the old lot adds nothing to the branch; the scoped copy says the same.
-    expect(branchMeat(flagged, "ศาลาแดง", day).kg).toBe(10);
-    expect(
-      branchMeat(scopeDatabase(flagged, ["ศาลาแดง"]), "ศาลาแดง", day).kg,
-    ).toBe(10);
+    expect(meat(flagged)).toBe(10);
+    expect(meat(scopeDatabase(flagged, ["ศาลาแดง"]))).toBe(10);
     // Old Lots, cost and money read the same figures as before.
     for (const id of old) {
       expect(poInfo(flagged, id)).toEqual(poInfo(d, id));

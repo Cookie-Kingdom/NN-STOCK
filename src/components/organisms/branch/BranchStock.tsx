@@ -1,35 +1,26 @@
 "use client";
 
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FormError } from "@/components/molecules/FormError";
-import { timeOf } from "@/components/organisms/shared/noteText";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { dateLabel, qty as fmt, thaiDay } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  branchChili,
-  branchMaterial,
-  branchMeat,
-  branchRice,
-  materialList,
   mutate,
   pendingTransfers,
   placeLabel,
-  rawRiceBranches,
   stockLines,
   titles,
-  type CountVariance,
   type Entry,
-  type Values,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { DailySheet } from "./DailySheet";
 
 const tones = {
   warning: "bg-warning-subtle font-medium text-warning",
@@ -37,7 +28,7 @@ const tones = {
   danger: "bg-danger-subtle font-medium text-danger",
 };
 
-/** A table cell. `tone` fills it (yellow not counted, green counted, red below zero) and is
+/** A table cell. `tone` fills it (yellow late, green ready, red below zero) and is
  *  also `data-tone`, for the tests; `right` is a figure. */
 export function Cell({
   tone,
@@ -112,66 +103,12 @@ export const Left = ({ n }: { n: number }) => (
   </Cell>
 );
 
-/** What is left at one place and its last count (`branchMaterial`, `branchChili`). */
-export type Held = {
-  qty: number;
-  countedOn: string;
-  stale: boolean;
-  variance?: CountVariance;
-};
-
-/** "+3", "−2.5", "0": a difference to two decimals, as `fmt` rounds. */
-const signed = (x: number) => {
-  const r = Math.round(x * 100) / 100;
-  return r === 0 ? "0" : `${r < 0 ? "−" : "+"}${fmt(Math.abs(r))}`;
-};
-
-/** `fmt` with the minus sign `signed` writes (U+2212), so both lines of a `Variance` agree. */
-const minus = (x: number) => fmt(x).replace("-", "−");
-
-/** The latest count against what the web expected just before it: the signed difference,
- *  and under it the two figures it comes from. A plain figure in the text colour, never a
- *  warning (V2-RUL-05). `label` is for a cell that holds other figures: it names the
- *  difference and leaves the date to the cell; without it the count's date is said here. */
-export function Variance({
-  variance,
-  unit,
-  label,
-}: {
-  variance: CountVariance;
-  unit: string;
-  label?: boolean;
-}) {
-  return (
-    <span data-variance={signed(variance.diff)} className="text-text-primary">
-      {label && "ส่วนต่าง "}
-      {signed(variance.diff)} {unit}
-      {/* May wrap in a narrow table, but only between its parts, so it never sets the
-          column's width. */}
-      <span className="block text-caption font-normal whitespace-normal text-text-secondary">
-        <span className="whitespace-nowrap">{`ควรเหลือ ${minus(variance.expected)} ·`}</span>{" "}
-        <span className="whitespace-nowrap">{`นับได้ ${minus(variance.counted)}${label ? "" : " ·"}`}</span>
-        {!label && " "}
-        {!label && (
-          <span className="whitespace-nowrap">{`นับ ${thaiDay(variance.date)}`}</span>
-        )}
-      </span>
-    </span>
-  );
-}
+/** What is left at one place and its last count. */
+export type Held = { qty: number; countedOn: string; stale: boolean };
 
 /** One place's cell of a row: the figure, and under it the last count. Red with nothing
- *  left, yellow with a late count; no cell at all (a dash) where the item cannot be.
- *  `varianceUnit` (the Owner's pages only) adds the last count's `Variance` in that unit. */
-export function HeldCell({
-  held,
-  today,
-  varianceUnit,
-}: {
-  held?: Held;
-  today: string;
-  varianceUnit?: string;
-}) {
+ *  left, yellow with a late count; no cell at all (a dash) where the item cannot be. */
+export function HeldCell({ held, today }: { held?: Held; today: string }) {
   if (!held)
     return (
       <Cell right>
@@ -189,11 +126,6 @@ export function HeldCell({
             ? "นับวันนี้"
             : `นับ ${thaiDay(countedOn)}${stale ? " · เกิน 7 วัน" : ""}`}
       </span>
-      {varianceUnit && held.variance && (
-        <span className="mt-1 block text-caption font-normal">
-          <Variance variance={held.variance} unit={varianceUnit} label />
-        </span>
-      )}
     </Cell>
   );
 }
@@ -251,226 +183,13 @@ export function StatusCells({
   );
 }
 
-/** A row of a branch's count table. `count` is the key its count is saved under in the
- *  `materials` note; a row without one (the chili) is counted in the sale form. */
-type CountRow = {
-  id: string;
-  sku?: string;
-  name: string;
-  held: Held;
-  count?: string;
-};
-
-/** A branch's own table of what is left, in the columns of the Owner's (the figure with the
- *  last count under it, the status), plus an input per row. 「บันทึกยอดนับ」 saves one
- *  `materials` note dated today that holds only the rows typed (V2-BR-03). */
-function CountTable({
-  ws,
-  title,
-  rows,
-  sku,
-  aside,
-}: {
-  ws: Workspace;
-  title: string;
-  rows: CountRow[];
-  /** A leading SKU column (the materials). */
-  sku?: boolean;
-  aside?: ReactNode;
-}) {
-  const { account, today } = ws;
-  const [counts, setCounts] = useState<Values>({});
-  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const columns = [
-    // Inventory names its rows as the Owner's does; the Stock page keeps "สินค้า".
-    ...(sku ? ["SKU", "รายการ"] : ["สินค้า"]),
-    "คงเหลือ",
-    "สถานะ",
-    "นับได้",
-  ];
-  const save = async () => {
-    setError("");
-    const typed = Object.fromEntries(
-      Object.entries(counts).filter(([, value]) => value.trim()),
-    );
-    const next = await run(() =>
-      mutate(latestDatabase(), account, "materials", typed, "", today),
-    );
-    if (!next) return;
-    setCounts({});
-    ws.setToast(
-      `จดแล้ว: ${titles.materials} · ${Object.keys(typed).length} รายการ`,
-    );
-  };
-  return (
-    <DayCard
-      aria-label={title}
-      title={title}
-      // A light rule between the columns.
-      className="[&_:is(td,th)+:is(td,th)]:border-l"
-      aside={aside}
-    >
-      <form
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          save();
-        }}
-      >
-        {/* A phone keeps the name, the figure (its fill says the status) and the input. */}
-        <StockTable
-          columns={columns}
-          right={["คงเหลือ", "นับได้"]}
-          wideOnly={["SKU", "สถานะ"]}
-        >
-          {rows.map(({ id, sku: code, name, held, count }) => (
-            <tr key={id}>
-              {sku && (
-                <Cell className="font-mono whitespace-nowrap text-accent max-md:hidden">
-                  {code || <Muted as="span">—</Muted>}
-                </Cell>
-              )}
-              <Cell className="font-semibold md:whitespace-nowrap">{name}</Cell>
-              <HeldCell held={held} today={today} />
-              <StatusCell
-                total={held.qty}
-                late={held.stale ? "ยังไม่ได้นับ" : undefined}
-                className="max-md:hidden"
-              />
-              {count ? (
-                <Cell right className="py-1.5">
-                  {/* Text, not number: `mutate` words the refusal of a bad figure. */}
-                  <Input
-                    inputMode="decimal"
-                    aria-label={`นับ ${name}`}
-                    className="mt-0 ml-auto min-h-10 w-24 text-right max-md:w-20"
-                    value={counts[count] ?? ""}
-                    onChange={(event) => {
-                      setError("");
-                      setCounts({ ...counts, [count]: event.target.value });
-                    }}
-                  />
-                </Cell>
-              ) : (
-                <Cell right className="font-normal text-text-secondary">
-                  นับในฟอร์มยอดขาย
-                </Cell>
-              )}
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <Cell
-                colSpan={columns.length}
-                className="py-8 text-center text-text-secondary"
-              >
-                ไม่พบรายการที่ค้นหา
-              </Cell>
-            </tr>
-          )}
-        </StockTable>
-        {/* Only the chili: nothing to type here. */}
-        {rows.some((row) => row.count) && (
-          <>
-            <FormError error={error} className="mx-5 mt-3 mb-0 max-md:mx-4" />
-            <div className="flex justify-center px-5 pt-3 pb-4">
-              <Button type="submit" variant="primary" disabled={saving}>
-                บันทึกยอดนับ
-              </Button>
-            </div>
-          </>
-        )}
-      </form>
-    </DayCard>
-  );
-}
-
-const legend =
-  "ช่องสีเหลืองคือยังไม่เคยนับหรือไม่ได้นับเกิน 7 วัน ช่องสีแดงคือไม่เหลือ";
-
-/** A branch's Stock, what `OwnerMeatStock` is to the Owner: its meat (yellow until it is
- *  counted today, V2-BR-02), then its raw rice (a branch that steams its own, V2-BR-08) and
- *  its chili. */
+/** A branch's Stock: the daily sheet of its meat, its raw rice (a branch that steams its
+ *  own, V2-BR-08) and its chili. */
 export function BranchMeatStock({ ws }: { ws: Workspace }) {
-  const { db, today } = ws;
-  const branch = ws.account.branch ?? "";
-  const meat = branchMeat(db, branch, today);
-  const done = meat.countedToday;
-  const steams = rawRiceBranches(db.config).includes(branch);
   return (
     <div className="flex flex-col gap-4">
-      <section
-        aria-label="เนื้อคงเหลือ"
-        data-tone={done ? "success" : "warning"}
-        className={cn(
-          "flex flex-col gap-3 rounded-lg border p-5 max-md:p-4",
-          done
-            ? "border-success/30 bg-success-subtle"
-            : "border-warning/40 bg-warning-subtle",
-        )}
-      >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h2
-            className={cn(
-              "m-0 text-h2",
-              meat.kg < 0
-                ? "text-danger"
-                : done
-                  ? "text-success"
-                  : "text-warning",
-            )}
-          >
-            เนื้อคงเหลือ {fmt(meat.kg)} กก.
-          </h2>
-          <Badge
-            tone={done ? "success" : "warning"}
-            className={cn(
-              "border",
-              done ? "border-success/30" : "border-warning/40",
-            )}
-          >
-            {done ? "นับแล้ววันนี้" : "วันนี้ยังไม่ได้นับ"}
-          </Badge>
-        </div>
-        <Caption>
-          {meat.counted
-            ? `นับล่าสุด ${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)} ได้ ${fmt(Number(meat.counted.values.kg))} กก. หลังจากนั้นบวกเนื้อที่รับเข้า และหักเนื้อที่ใช้กับที่เสีย`
-            : "ยังไม่เคยนับ ยอดนี้คิดจากเนื้อที่รับเข้า หักเนื้อที่ใช้กับที่เสีย"}
-        </Caption>
-        <Button
-          variant="primary"
-          className="self-start"
-          onClick={() => ws.jot({ kind: "meatCount" })}
-        >
-          นับเนื้อคงเหลือ
-        </Button>
-      </section>
-      <CountTable
-        ws={ws}
-        title={steams ? "ข้าวเหนียวและน้ำพริก" : "น้ำพริก"}
-        rows={[
-          ...(steams
-            ? [
-                {
-                  id: "rice",
-                  name: "ข้าวเหนียวดิบ (กก.)",
-                  held: branchRice(db, branch, today),
-                  count: "count.rice",
-                },
-              ]
-            : []),
-          {
-            id: "chili",
-            name: "น้ำพริก (หลอด)",
-            held: branchChili(db, branch, today),
-          },
-        ]}
-      />
-      <Caption>
-        {steams &&
-          "ยอดข้าวเหนียวดิบคือยอดนับล่าสุดบวกที่ซื้อเข้าสาขาหลังจากนั้น และไม่ถูกตัดยอดอัตโนมัติ "}
-        น้ำพริกนับในฟอร์มยอดขาย {legend} วัสดุอยู่ที่หน้า Inventory
-      </Caption>
+      <DailySheet ws={ws} sheet="meat" />
+      <Caption>วัสดุอยู่ที่หน้า Inventory</Caption>
     </div>
   );
 }
@@ -545,31 +264,16 @@ function PendingTransfers({ ws, rows }: { ws: Workspace; rows: Entry[] }) {
   );
 }
 
-/** A branch's Inventory, what `OwnerStock` is to the Owner: the transfers waiting for it to
- *  confirm (`PendingTransfers`, only while there are any), its materials, a row per material
- *  with the count inputs the Owner's has not, and, read-only, whatever else it holds: every
- *  SKU that is not a Settings material and whose balance at the branch is not zero. One
- *  search over the two tables. */
+/** A branch's Inventory: the transfers waiting for it to confirm (`PendingTransfers`, only
+ *  while there are any), the daily sheet of its materials and, read-only, whatever else it
+ *  holds: every SKU that is not a material of the list and whose balance at the branch is not
+ *  zero. One search over the sheet's rows and that table. */
 export function BranchStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const branch = ws.account.branch ?? "";
   const [search, setSearch] = useState("");
   const pending = pendingTransfers(db, branch);
-  const rows = materialList(db.config).map((m) => ({
-    id: m.id,
-    // "" until the materials list is saved again (a list stored before SKUs).
-    sku: m.sku,
-    name: m.name,
-    held: branchMaterial(db, branch, m.id, today),
-    count: `count.${m.id}`,
-  }));
   const word = search.trim().toLowerCase();
-  const shown = rows.filter(
-    (row) =>
-      !word ||
-      row.name.toLowerCase().includes(word) ||
-      row.sku.toLowerCase().includes(word),
-  );
   const others = stockLines(db, today).filter(
     (line) =>
       !line.materialId &&
@@ -590,17 +294,7 @@ export function BranchStock({ ws }: { ws: Workspace }) {
         onChange={(event) => setSearch(event.target.value)}
       />
       {pending.length > 0 && <PendingTransfers ws={ws} rows={pending} />}
-      <CountTable
-        ws={ws}
-        title="วัสดุ"
-        sku
-        rows={shown}
-        aside={
-          <Caption aria-live="polite">
-            {shown.length} จาก {rows.length} รายการ
-          </Caption>
-        }
-      />
+      <DailySheet ws={ws} sheet="materials" word={word} />
       {others.length > 0 && (
         <DayCard
           aria-label="สินทรัพย์อื่นของสาขา"
@@ -629,17 +323,13 @@ export function BranchStock({ ws }: { ws: Workspace }) {
       {/* A line per subject, close together: one note, not four. */}
       <div className="flex flex-col gap-1">
         <Caption>
-          ใส่เฉพาะรายการที่นับ ยอดที่นับล่าสุดคือยอดจริง วัสดุนับเป็นชิ้น{" "}
-          {legend}
-        </Caption>
-        <Caption>
           {
             '"รอยืนยันรับสินค้า" คือของที่ส่งมาให้สาขา จะเข้ายอดของสาขาเมื่อกด "ยืนยันรับ"'
           }
         </Caption>
         <Caption>
           {
-            '"สินทรัพย์อื่นของสาขา" คือของที่ซื้อเข้าหรือจัดสรรมาให้สาขา ไม่ต้องนับ ตัวเลขสีแดงคือยอดติดลบ'
+            '"สินทรัพย์อื่นของสาขา" คือของที่ซื้อเข้าหรือจัดสรรมาให้สาขา ไม่อยู่ในใบสต๊อกรายวัน ตัวเลขสีแดงคือยอดติดลบ'
           }
         </Caption>
         <Caption>เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock</Caption>

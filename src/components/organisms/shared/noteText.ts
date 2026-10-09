@@ -19,6 +19,8 @@ import {
   poLines,
   saleMoney,
   salesChannels,
+  sheetItems,
+  sheets,
   skuName,
   type Actor,
   type Database,
@@ -175,7 +177,7 @@ export function noteLine(db: Database, e: Entry): string {
     case "smokingInvoice":
       return join(has("invoiceNumber") && `Invoice ${v.invoiceNumber}`);
     case "pay": {
-      const item = [...materialList(db.config), ...ingredients].find(
+      const item = [...materialList(db), ...ingredients].find(
         (m) => m.id === v.item,
       )?.name;
       return join(
@@ -253,6 +255,37 @@ export function noteLine(db: Database, e: Entry): string {
         v.influencer,
         has("shippingFee") && `ค่าส่ง ${baht(Number(v.shippingFee))}`,
       );
+    /* A day's sheet: each row with a figure, in its unit. A sheet never named reads as both
+     * (an item id is of one sheet only). */
+    case "daily":
+    case "opening": {
+      const rows = sheets
+        .filter((sheet) => !v.sheet || v.sheet === sheet)
+        .flatMap((sheet) => sheetItems(db, sheet))
+        .map((item) => {
+          const figure = (key: string, label: string) =>
+            has(`${key}.${item.id}`) &&
+            `${label} ${n(`${key}.${item.id}`)} ${item.unit}`;
+          const reason = v[`reason.${item.id}`];
+          const said = [
+            figure("qty", "ตั้งต้น"),
+            figure("received", "รับเพิ่ม"),
+            figure("used", "ใช้ไป"),
+            Number(v[`waste.${item.id}`]) > 0 &&
+              `${figure("waste", "Waste")}${reason ? ` (${reason})` : ""}`,
+          ].filter(Boolean);
+          return said.length > 0 && `${item.name} ${said.join(" / ")}`;
+        });
+      return join(
+        v.sheet === "meat" ? "Stock" : v.sheet === "materials" && "Inventory",
+        ...rows,
+        has("reporter") && `ผู้บันทึก ${v.reporter}`,
+        v.note,
+      );
+    }
+    case "stockItem":
+      return join(v.name, has("unit") && `หน่วย ${v.unit}`);
+    // Retired with the daily sheet (old entries still read).
     case "materials":
       return `${Object.keys(v).filter((key) => key.startsWith("count.") && has(key)).length} รายการ`;
     case "cmReceive":

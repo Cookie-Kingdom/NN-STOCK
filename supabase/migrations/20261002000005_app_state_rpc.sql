@@ -140,8 +140,8 @@ begin
   ) then raise exception 'Entry branch does not match signed-in account' using errcode = '42501'; end if;
   -- V2-ACC-07: a branch's notes, and the changes to its own entries.
   if exists (select 1 from jsonb_array_elements(p_entries) n
-    where not coalesce(n ->> 'kind' = any (array['receive', 'sale', 'influencerBox', 'materials', 'meatCount',
-      'pay', 'transferReceive', 'entryEdit', 'void']), false)
+    where not coalesce(n ->> 'kind' = any (array['receive', 'sale', 'influencerBox', 'pay', 'transferReceive',
+      'daily', 'opening', 'stockItem', 'entryEdit', 'void']), false)
   ) then raise exception 'Entry kind is not allowed for this account' using errcode = '42501'; end if;
   if exists (select 1 from jsonb_array_elements(p_entries) n
     where coalesce(n ->> 'id', '') = ''
@@ -183,7 +183,7 @@ begin
     -- editBlock in store/visibility.ts: a branch edits a live note of its own branch.
     if e ->> 'kind' = 'entryEdit' then
       if not coalesce(target ->> 'role' = 'branch' and target ->> 'branch' = e ->> 'branch'
-          and target ->> 'kind' in ('receive', 'sale', 'influencerBox', 'meatCount', 'pay'), false) then
+          and target ->> 'kind' in ('receive', 'sale', 'influencerBox', 'pay', 'daily', 'opening'), false) then
         raise exception 'Edit target is not an entry of this branch' using errcode = '42501'; end if;
       if public.entry_voided(old_entries || added, target) then
         raise exception 'Entry is already deleted' using errcode = '42501'; end if;
