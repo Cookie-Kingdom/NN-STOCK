@@ -116,16 +116,38 @@ export async function choices(control: Locator) {
   return texts;
 }
 
+/** The date of the open form, as a label for `fill` and `getByLabel`. It is a DatePicker,
+ *  so its label runs on into the day it holds ("วันที่ 9 ต.ค. 2569"); a field such as
+ *  「วันที่ Invoice」 is not matched. Its value is its `data-value` (`YYYY-MM-DD`). */
+export const theDate = /^วันที่\s*(\d|เลือก)/;
+
+/** Picks `day` (`YYYY-MM-DD`) in a DatePicker: steps its calendar to the month, presses
+ *  the day. */
+async function pickDay(control: Locator, day: string) {
+  const page = control.page();
+  const from = (await control.getAttribute("data-value")) || bangkokDate();
+  await control.click();
+  const step = page.getByRole("button", {
+    name: day < from ? "เดือนก่อนหน้า" : "เดือนถัดไป",
+  });
+  const cell = page.locator(`button[data-date="${day}"]`);
+  while (!(await cell.count())) await step.click();
+  await cell.click();
+  await expect(cell).toHaveCount(0);
+}
+
 const escapeRegExp = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Fills the open form: `[label, value]` pairs in order; a dropdown takes the row's
- *  text. A label's text runs on into its unit, its hint or its options, so each is matched
+ *  text, a date its `YYYY-MM-DD`. A label's text runs on into its unit, its hint or its options, so each is matched
  *  from its start (`/^ยอด \(บาท\)/`). */
 export async function fill(page: Page, ...pairs: [RegExp, string][]) {
   for (const [label, value] of pairs) {
     const control = form(page).getByLabel(label).filter({ visible: true });
-    if ((await control.evaluate((el) => el.tagName)) === "BUTTON")
+    if ((await control.getAttribute("aria-haspopup")) === "dialog")
+      await pickDay(control, value);
+    else if ((await control.evaluate((el) => el.tagName)) === "BUTTON")
       await pick(control, value);
     else {
       await control.fill(value);

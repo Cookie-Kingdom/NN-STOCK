@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { pick } from "../../../.storybook/pick";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -65,7 +66,7 @@ export const FormGrid: Story = {
   render: () => (
     <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
       <FormField label="วันที่รับ">
-        <Input type="date" />
+        <DatePicker value="2026-10-09" onChange={() => {}} title="วันที่รับ" />
       </FormField>
       <FormField label="สาขา">
         <Select
