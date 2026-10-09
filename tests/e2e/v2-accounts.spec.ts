@@ -22,17 +22,17 @@ const pagesOf = {
     "Overview",
     // The project's own, under its heading.
     "Overview",
-    "Daily Log",
     "Lots",
     "Stock",
     "Inventory",
+    "Daily Log",
     "Finance",
     "Old Lots",
     "Accounting",
     "Settings",
   ],
-  saladaeng: ["Daily Log", "Stock", "Inventory"],
-  minburi: ["Daily Log", "Stock", "Inventory"],
+  saladaeng: ["Stock", "Inventory", "Daily Log"],
+  minburi: ["Stock", "Inventory", "Daily Log"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
@@ -49,7 +49,9 @@ test("1 · V2-ACC-09 Owner has 10 pages, Branch 3, all named in English", async 
     await signInAs(page, account);
     await expect(pageButtons(page)).toHaveText([...pagesOf[account]]);
     // The home page: Overview for the Owner, Daily Log for everyone else.
-    await expect(h1(page)).toHaveText(pagesOf[account][0]);
+    await expect(h1(page)).toHaveText(
+      account === "owner" ? "Overview" : "Daily Log",
+    );
     for (const [index, name] of pagesOf[account].entries()) {
       // By its place: the Owner's two Overviews share a name.
       await pageButtons(page).nth(index).click();
