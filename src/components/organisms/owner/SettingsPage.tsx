@@ -27,6 +27,7 @@ import {
   salesChannels,
   seed,
   skuCatalogue,
+  type Database,
   type Values,
 } from "@/lib/store";
 
@@ -108,7 +109,7 @@ const lists: Record<
     key: "materialList",
     id: "id",
     name: "วัสดุ",
-    extra: { key: "perBox", label: "จำนวนที่ใช้ต่อกล่อง" },
+    extra: { key: "unit", label: "หน่วยนับ" },
     add: "เพิ่มวัสดุ",
     prefix: "m",
   },
@@ -124,16 +125,14 @@ const titles: Record<Section, string> = {
 const isList = (section: Section): section is ListSection => section in lists;
 /** The ten categories the rules hang on: renamed, never removed. */
 const fixedCategories = payCategories(seed.config).map((c) => c.id);
-/** A list as its rows are stored: every value a string. */
-const rowsOf = (config: Values, section: ListSection): Values[] =>
+/** A list as its rows are stored: every value a string. The materials are the list in use
+ *  (`materialList(db)`): the rows a branch added on its sheet are in it. */
+const rowsOf = (db: Database, section: ListSection): Values[] =>
   section === "channels"
-    ? salesChannels(config).map((c) => ({ ...c, gp: String(c.gp) }))
+    ? salesChannels(db.config).map((c) => ({ ...c, gp: String(c.gp) }))
     : section === "materials"
-      ? materialList(config).map((m) => ({
-          ...m,
-          perBox: m.perBox === null ? "" : String(m.perBox),
-        }))
-      : payCategories(config);
+      ? materialList(db)
+      : payCategories(db.config);
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -182,7 +181,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
     const config = latestDatabase().config;
     setDraft({ ...config });
     if (isList(section)) {
-      const now = rowsOf(config, section);
+      const now = rowsOf(latestDatabase(), section);
       setRows(add ? addRow(section, now) : now);
     }
     setEditing(section);
@@ -223,7 +222,8 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
   const save = async () => {
     const section = editing;
     if (!section) return;
-    const config = latestDatabase().config;
+    const latest = latestDatabase();
+    const config = latest.config;
     // Only what this section changed is sent, so a setting saved meanwhile elsewhere stands.
     let input: Values;
     if (isList(section)) {
@@ -232,7 +232,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         name: row.name.trim(),
       }));
       input =
-        JSON.stringify(typed) === JSON.stringify(rowsOf(config, section)) &&
+        JSON.stringify(typed) === JSON.stringify(rowsOf(latest, section)) &&
         // A list stored before SKUs: saving it as it is issues them (mutate).
         !(section === "materials" && typed.some((row) => !row.sku))
           ? {}
@@ -356,7 +356,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
             ]}
             right={extra ? [extra.label] : []}
           >
-            {(open ? rows : rowsOf(db.config, section)).map((row, index) => (
+            {(open ? rows : rowsOf(db, section)).map((row, index) => (
               <tr key={row[id]}>
                 {sku && (
                   <Cell className="font-mono whitespace-nowrap text-accent">
@@ -382,7 +382,8 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
                     {extra && (
                       <Cell right className="py-1.5">
                         <Input
-                          inputMode="decimal"
+                          // A material's unit is a word; the other figure is a number.
+                          inputMode={sku ? undefined : "decimal"}
                           aria-label={`${extra.label} ${row.name}`}
                           className="mt-0 ml-auto min-h-10 w-20 text-right"
                           value={row[extra.key]}
@@ -498,7 +499,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
       <div className="flex min-w-0 flex-col gap-4">
         {card(
           "materials",
-          'ช่อง "จำนวนที่ใช้ต่อกล่อง" เว้นว่างได้ รายการที่เว้นว่างจะไม่มียอดประมาณการใช้ระหว่างรอบนับ SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
+          'รายการของใบสต๊อกรายวันหน้า Inventory ของสาขา รวมรายการที่สาขาเพิ่มเอง "หน่วยนับ" คือหน่วยของตัวเลขในใบสต๊อก เว้นว่างจะเป็น "ชิ้น" SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
           list("materials", () => true),
         )}
         <DayCard

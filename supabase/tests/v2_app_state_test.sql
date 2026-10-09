@@ -2,9 +2,11 @@
 -- what it and the Owner may write.
 --   * scope_app_state: a branch gets its own entries, every Lot รมควัน and the stock lines of what
 --     was bought for it (a payment, an expense into its warehouse), cut down, and the transfers
---     out of or into its stock; nothing of another branch, no PO เนื้อ, no cost.
---   * append_entries: the v2 branch kinds, the four payment categories, changes to its own notes,
---     the receipt of a transfer sent to it.
+--     out of or into its stock; nothing of another branch, no PO เนื้อ, no cost. Its daily sheets
+--     and opening stock are its own; every branch's `stockItem` (the one material list) reaches it.
+--   * append_entries: the v2 branch kinds (the daily sheet, the opening stock and a list item
+--     among them; no count any more), the four payment categories, changes to its own notes, the
+--     receipt of a transfer sent to it.
 --   * save_app_state: the Owner writes no branch's notes: no new one, no change to one, no undo
 --     of a change.
 --   * Nobody but the Owner selects app_state directly.
@@ -28,7 +30,8 @@ declare
   -- is the Owner's edit of มีนบุรี's sale; mc the Owner jotted for มีนบุรี; tw is a retired kind.
   -- xe is an expense bought into มีนบุรี's warehouse and xee an edit of it, xc one into the central
   -- warehouse; t1 is a transfer to มีนบุรี, t2 one to ศาลาแดง, t3 one whose edit t3e names มีนบุรี, t4
-  -- one out of มีนบุรี that tv deleted.
+  -- one out of มีนบุรี that tv deleted. d1 and op1 are มีนบุรี's daily sheet and opening stock, d2 and
+  -- op2 ศาลาแดง's; si is a row ศาลาแดง added to the material list and siv its delete of it.
   v_state constant jsonb := $state$
   {"version": 9,
    "config": {"boxPrice":"350","packKg":"0.12","packCost":"25","materialList":"[]","rawRiceBranches":"[\"ศาลาแดง\",\"มีนบุรี\"]","companyName":"x"},
@@ -64,6 +67,12 @@ declare
     {"id":"t3e","kind":"entryEdit","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t3","targetKind":"transfer","from.to":"","to.to":"มีนบุรี","to.receive":"confirm","to.missing":""}},
     {"id":"t4","kind":"transfer","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"sku":"SKU-0011","itemName":"ตู้เย็น","from":"มีนบุรี","to":"central","qty":"1"}},
     {"id":"tv","kind":"void","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"targetId":"t4","targetKind":"transfer"}},
+    {"id":"d1","kind":"daily","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"sheet":"meat","used.meat":"3","waste.meat":"1","reason.meat":"x","reporter":"A"}},
+    {"id":"d2","kind":"daily","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"sheet":"meat","used.meat":"2","reporter":"B"}},
+    {"id":"op1","kind":"opening","role":"branch","lotId":"","branch":"มีนบุรี","date":"2026-09-01","values":{"sheet":"meat","qty.meat":"10"}},
+    {"id":"op2","kind":"opening","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"sheet":"meat","qty.meat":"8"}},
+    {"id":"si","kind":"stockItem","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"id":"n1","name":"ถุงดำ","unit":"ถุง","sku":"SKU-0013"}},
+    {"id":"siv","kind":"void","role":"branch","lotId":"","branch":"ศาลาแดง","date":"2026-09-01","values":{"targetId":"si","targetKind":"stockItem"}},
     {"id":"cf","kind":"config","role":"owner","lotId":"","branch":"","date":"2026-09-01","values":{"boxPrice":"350"}}
   ]}
   $state$;
@@ -87,7 +96,11 @@ declare
     ["t3", {"sku":"SKU-0012","itemName":"โต๊ะ","from":"central","to":"","qty":"1","missing":"to"}],
     ["t3e", {"targetId":"t3","targetKind":"transfer","from.to":"","to.to":"มีนบุรี","to.receive":"confirm","to.missing":""}],
     ["t4", {"sku":"SKU-0011","itemName":"ตู้เย็น","from":"มีนบุรี","to":"central","qty":"1"}],
-    ["tv", {"targetId":"t4","targetKind":"transfer"}]
+    ["tv", {"targetId":"t4","targetKind":"transfer"}],
+    ["d1", {"sheet":"meat","used.meat":"3","waste.meat":"1","reason.meat":"x","reporter":"A"}],
+    ["op1", {"sheet":"meat","qty.meat":"10"}],
+    ["si", {"id":"n1","name":"ถุงดำ","unit":"ถุง","sku":"SKU-0013"}],
+    ["siv", {"targetId":"si","targetKind":"stockItem"}]
   ]
   $branch$;
   -- [id, kind, lotId, values, error]: appended one by one as มีนบุรี dated 2026-09-10; '' is accepted.
@@ -97,7 +110,9 @@ declare
     ["a2", "pay", "", {"category": "", "amount": "5", "missing": "category"}, ""],
     ["x", "pay", "", {"category": "meat", "amount": "5"}, "Payment category is not allowed for this account"],
     ["x", "pay", "", {"category": "payroll", "amount": "5"}, "Payment category is not allowed for this account"],
-    ["a3", "meatCount", "", {"kg": "4"}, ""],
+    ["a3", "daily", "", {"sheet": "meat", "used.meat": "4", "reporter": "A"}, ""],
+    ["x", "meatCount", "", {"kg": "4"}, "Entry kind is not allowed for this account"],
+    ["x", "materials", "", {"count.m1": "4"}, "Entry kind is not allowed for this account"],
     ["a4", "receive", "S1", {"kg": "2"}, ""],
     ["x", "receive", "S9", {"kg": "2"}, "Entry lot does not exist"],
     ["x", "thaw", "", {"kg": "1"}, "Entry kind is not allowed for this account"],
@@ -136,7 +151,18 @@ declare
     ["x", "transferReceive", "", {"transferId": "nope"}, "Transfer is not one sent to this branch"],
     ["x", "entryEdit", "", {"targetId": "a5"}, "Edit target is not an entry of this branch"],
     ["x", "entryEdit", "", {"targetId": "t1", "to.qty": "9"}, "Edit target is not an entry of this branch"],
-    ["x", "void", "", {"targetId": "t1"}, "Void target is not an entry of this branch"]
+    ["x", "void", "", {"targetId": "t1"}, "Void target is not an entry of this branch"],
+    ["a7", "daily", "", {"sheet": "meat", "used.meat": "1", "reporter": "A"}, ""],
+    ["a8", "opening", "", {"sheet": "materials", "qty.m1": "5"}, ""],
+    ["a9", "stockItem", "", {"id": "n2", "name": "ถุงซีล", "unit": "ถุง", "sku": "SKU-0014"}, ""],
+    ["e3", "entryEdit", "", {"targetId": "a3", "targetKind": "daily", "to.used.meat": "5"}, ""],
+    ["e4", "entryEdit", "", {"targetId": "op1", "targetKind": "opening", "to.qty.meat": "12"}, ""],
+    ["x", "entryEdit", "", {"targetId": "d2", "to.used.meat": "9"}, "Edit target is not an entry of this branch"],
+    ["x", "entryEdit", "", {"targetId": "op2", "to.qty.meat": "9"}, "Edit target is not an entry of this branch"],
+    ["x", "entryEdit", "", {"targetId": "a9", "to.name": "x"}, "Edit target is not an entry of this branch"],
+    ["x", "entryEdit", "", {"targetId": "mc", "to.kg": "9"}, "Edit target is not an entry of this branch"],
+    ["x", "void", "", {"targetId": "d2"}, "Void target is not an entry of this branch"],
+    ["x", "void", "", {"targetId": "si"}, "Void target is not an entry of this branch"]
   ]
   $appends$;
 begin
@@ -164,8 +190,13 @@ begin
     {"id":"S2","poId":"SH-2","kind":"shipment","config":{},"values":{}}]'::jsonb, format('branch lots: %s', v_seen -> 'lots');
   assert v_seen -> 'config' = '{"packKg":"0.12","materialList":"[]","rawRiceBranches":"[\"มีนบุรี\"]"}'::jsonb, format('branch config: %s', v_seen -> 'config');
   assert v_seen ->> 'version' = '9', 'branch version';
-  -- Of the branches that count raw rice it is told its own alone (above), so nothing names the other.
-  assert v_seen::text not like '%ศาลาแดง%', 'the branch copy names the other branch';
+  -- Of the branches that count raw rice it is told its own alone (above), so nothing names the other
+  -- but its rows of the shared material list (si, and siv, its delete of one).
+  assert (select string_agg(e::text, '') from jsonb_array_elements(v_seen -> 'entries') e
+      where e ->> 'id' not in ('si', 'siv')) || (v_seen -> 'lots')::text || (v_seen -> 'config')::text
+    not like '%ศาลาแดง%', 'the branch copy names the other branch';
+  assert not exists (select 1 from jsonb_array_elements(v_seen -> 'entries') e where e ->> 'id' in ('d2', 'op2')),
+    'the branch copy holds the other branch''s sheet';
   assert public.scope_app_state(v_state, array['ศาลาแดง']) -> 'config' ->> 'rawRiceBranches' = '["ศาลาแดง"]', 'the other branch''s own flag';
   assert public.scope_app_state(v_state, '{}'::text[]) -> 'config' ->> 'rawRiceBranches' = '[]', 'no branch, no flag';
   assert not public.scope_app_state(jsonb_set(v_state, '{config,rawRiceBranches}', '"x"'), array['มีนบุรี']) -> 'config' ? 'rawRiceBranches',
@@ -196,8 +227,8 @@ begin
     '[{"date":"2999-01-01"}, "Entry date is invalid or after today"]']::jsonb[] loop
     v_err := '';
     begin
-      perform public.append_entries(v_rev, jsonb_build_array('{"id":"z1","kind":"meatCount","role":"branch","lotId":"",
-        "branch":"มีนบุรี","date":"2026-09-10","values":{"kg":"1"}}'::jsonb || (v_case -> 0)));
+      perform public.append_entries(v_rev, jsonb_build_array('{"id":"z1","kind":"daily","role":"branch","lotId":"",
+        "branch":"มีนบุรี","date":"2026-09-10","values":{"sheet":"meat"}}'::jsonb || (v_case -> 0)));
     exception when others then v_err := sqlerrm;
     end;
     assert v_err = v_case ->> 1, format('append %s: got %s', v_case, v_err);
@@ -210,13 +241,13 @@ begin
   assert v_err = 'Only an owner can change lots', format('branch lot change: got %s', v_err);
   select l.payload into v_seen from public.load_app_state() l;
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    = 's1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6', format('branch load after its appends: %s', v_seen -> 'entries');
+    = 's1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,d1,op1,si,siv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6,a7,a8,a9,e3,e4', format('branch load after its appends: %s', v_seen -> 'entries');
 
   -- save_app_state, as the Owner. Stored history is not to change.
   perform set_config('test.uid', v_owner::text, true);
   select l.payload into v_seen from public.load_app_state() l;
   assert (select string_agg(e ->> 'id', ',' order by ord) from jsonb_array_elements(v_seen -> 'entries') with ordinality t(e, ord))
-    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6', 'the log is not what was appended';
+    like '%,cf,a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,a7,a8,a9,e3,e4', 'the log is not what was appended';
   v_err := '';
   begin
     perform public.save_app_state(jsonb_set(v_seen, '{entries,0,values,boxes}', '"9"'), v_rev);
@@ -236,6 +267,11 @@ begin
     '{"kind":"sale","role":"branch","actor":"owner","branch":"ศาลาแดง","values":{"boxes":"1","lineMan":"350"}}',
     '{"kind":"receive","role":"branch","branch":"ศาลาแดง","values":{"kg":"1"}}',
     '{"kind":"transferReceive","role":"branch","branch":"มีนบุรี","values":{"transferId":"t1"}}',
+    '{"kind":"daily","role":"branch","branch":"มีนบุรี","values":{"sheet":"meat","used.meat":"1"}}',
+    '{"kind":"opening","role":"branch","branch":"มีนบุรี","values":{"sheet":"meat","qty.meat":"1"}}',
+    '{"kind":"stockItem","role":"branch","branch":"มีนบุรี","values":{"id":"n3","name":"x"}}',
+    '{"kind":"entryEdit","role":"owner","values":{"targetId":"d1","targetKind":"daily","to.used.meat":"9"}}',
+    '{"kind":"void","role":"owner","values":{"targetId":"si","targetKind":"stockItem"}}',
     '{"kind":"entryEdit","role":"owner","values":{"targetId":"s1","targetKind":"sale","to.boxes":"3"}}',
     '{"kind":"void","role":"owner","values":{"targetId":"mc","targetKind":"meatCount"}}',
     '{"kind":"void","role":"owner","values":{"targetId":"oe","targetKind":"entryEdit"}}',

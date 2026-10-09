@@ -15,7 +15,9 @@ const owner: Actor = { role: "owner" };
  *  รมควัน: one complete (one round, its invoice), one with a first round received at Chef
  *  House only, one bought with nothing sent yet. PO เนื้อ 1 has its invoice and its waste
  *  received; PO เนื้อ 2 still waits for its waste and its invoice. A sale day left out and a
- *  sale with no money typed show the yellow. */
+ *  sale with no money typed show the yellow. Each branch set its opening stock ten days ago
+ *  and saved its daily sheets since (some with waste, one waste with no reason, one day
+ *  skipped); today's are not saved yet. */
 export function sampleData(endDate: string): Database {
   let db = structuredClone(seed);
   const add = (
@@ -164,22 +166,69 @@ export function sampleData(endDate: string): Database {
     chiliAddons: 6,
     shippingFee: 180,
   });
-  const counts = (...qty: number[]) =>
-    Object.fromEntries(qty.map((n, index) => [`count.m${index + 1}`, n]));
-  add(
-    saladaeng,
-    "materials",
-    2,
-    "21:30",
-    counts(5480, 60, 900, 1200, 240, 2100, 300),
-  );
-  add(
-    minburi,
-    "materials",
-    9,
-    "21:40",
-    counts(380, 150, 420, 600, 90, 800, 110),
-  );
+  /* The daily sheets (V2-CAL-10): the opening stock of both sheets ten days ago, then a sheet
+   * a day. `figures` is a row per item: [id, used, waste?, reason?, received?]. */
+  const opening = (qty: Record<string, number>) =>
+    Object.fromEntries(Object.entries(qty).map(([id, n]) => [`qty.${id}`, n]));
+  const sheet = (
+    figures: [string, number, number?, string?, number?][],
+  ): Record<string, string | number> =>
+    Object.fromEntries(
+      figures.flatMap(([id, used, waste, reason, received]) =>
+        Object.entries({ used, waste, reason, received })
+          .filter(([, value]) => value !== undefined)
+          .map(([figure, value]) => [`${figure}.${id}`, value!]),
+      ),
+    );
+  add(saladaeng, "opening", 10, "08:00", {
+    sheet: "meat",
+    ...opening({ meat: 24, rice: 30, chili: 120 }),
+  });
+  add(saladaeng, "opening", 10, "08:05", {
+    sheet: "materials",
+    ...opening({ m1: 5480, m2: 900, m3: 1200, m4: 240, m6: 300, m9: 12 }),
+  });
+  add(minburi, "opening", 10, "08:10", {
+    sheet: "meat",
+    ...opening({ meat: 40, chili: 60 }),
+  });
+  add(minburi, "opening", 10, "08:15", {
+    sheet: "materials",
+    ...opening({ m1: 380, m2: 420, m3: 600, m4: 90, m6: 110, m9: 8 }),
+  });
+  for (let d = 9; d >= 1; d--)
+    for (const [bi, branch] of branches.entries()) {
+      // A day one branch forgot its sheets.
+      if (branch === minburi && d === 2) continue;
+      const boxes = 20 + ((d * 37 + bi * 11) % 16);
+      const reporter = bi ? "พี่เอ" : "น้องฝน";
+      add(branch, "daily", d, bi ? "21:35" : "21:20", {
+        sheet: "meat",
+        reporter,
+        ...sheet([
+          // ศาลาแดง: a waste with its reason. มีนบุรี: one with none (yellow).
+          branch === saladaeng && d === 1
+            ? ["meat", (boxes * 12 + 30) / 100, 0.3, "เนื้อตกพื้น"]
+            : ["meat", (boxes * 12) / 100],
+          ...(branch === saladaeng ? [["rice", 2] as [string, number]] : []),
+          branch === minburi && d === 1 ? ["chili", 6, 2] : ["chili", 4],
+        ]),
+      });
+      add(branch, "daily", d, bi ? "21:40" : "21:25", {
+        sheet: "materials",
+        reporter,
+        ...sheet([
+          ["m1", boxes],
+          ["m2", boxes],
+          ["m3", boxes],
+          branch === saladaeng && d === 4
+            ? ["m4", 14, 4, "ถุงเปียกน้ำ"]
+            : ["m4", 10],
+          // Bought by hand that day, typed on the sheet.
+          d === 5 ? ["m6", 12, undefined, undefined, 50] : ["m6", 12],
+        ]),
+      });
+    }
   for (const [index, [employee, amount]] of [
     ["พี่เอ", 25000],
     ["น้องฝน", 18000],
@@ -271,13 +320,13 @@ export function sampleData(endDate: string): Database {
   });
   /* The project's stock (Inventory): a Settings material bought into the central warehouse, an
    * asset there and one bought straight into ศาลาแดง; then three transfers to ศาลาแดง: one in
-   * at once (its count two days ago took it in), one it confirmed, one it has yet to. */
+   * at once (auto received on its sheet that day), one it confirmed, one it has yet to. */
   const project = { purpose: "project", project: "Nerdnuea x LINE MAN" };
   add(owner, "expense", 12, "14:20", {
     ...project,
     reference: "INV-PK-2231",
     itemType: "วัสดุบรรจุภัณฑ์",
-    item: "ถุงหิ้วกระดาษ",
+    item: "ถุงกระดาษ",
     vendor: "แพ็คดี",
     qty: 2000,
     amount: 7000,
@@ -301,7 +350,7 @@ export function sampleData(endDate: string): Database {
     warehouse: saladaeng,
   });
   add(owner, "transfer", 8, "09:20", {
-    item: "ถุงหิ้วกระดาษ",
+    item: "ถุงกระดาษ",
     to: saladaeng,
     qty: 500,
   });
@@ -321,8 +370,6 @@ export function sampleData(endDate: string): Database {
     receive: "confirm",
   });
   add(owner, "smokeOrder", 1, "09:00", { rawKg: 50 });
-  add(minburi, "meatCount", 1, "08:00", { kg: 22 });
-  add(saladaeng, "meatCount", 0, "08:30", { kg: 17.9 });
   for (let d = 35; d >= 1; d--)
     for (const [bi, branch] of branches.entries()) {
       // A day one branch forgot: its day shows yellow.
@@ -337,14 +384,7 @@ export function sampleData(endDate: string): Database {
       // A core field left empty.
       if (branch === saladaeng && d === 3) delete values.lineMan;
       if (branch === saladaeng && d === 1)
-        Object.assign(values, {
-          chiliCount: 42,
-          wasteKg: 0.3,
-          reason: "เนื้อตกพื้น",
-          expense: 150,
-          payer: "น้องฝน",
-        });
-      if (branch === minburi && d === 1) values.chiliCount = 185;
+        Object.assign(values, { expense: 150, payer: "น้องฝน" });
       add(branch, "sale", d, bi ? "21:25" : "21:10", values);
     }
   return db;

@@ -3,8 +3,8 @@
  *  notes jotted by hand. Nothing here is stored. */
 import {
   branches,
+  configMaterials,
   ingredients,
-  materialList,
   payCategories,
   places,
   seed,
@@ -14,11 +14,12 @@ import {
   type Values,
 } from "./model";
 import {
-  branchMaterial,
+  branchItem,
   byDateAt,
   entries,
   invoiceOf,
   liveEntries,
+  materialList,
   outflows,
   purchaseLots,
   shipments,
@@ -129,7 +130,7 @@ export function skuCatalogue(db: Database) {
     string,
     { sku: string; name: string; material: boolean }
   >();
-  for (const m of materialList(db.config))
+  for (const m of materialList(db))
     if (m.sku) items.set(m.sku, { sku: m.sku, name: m.name, material: true });
   const renamed = skuNames(db.config);
   for (const { values: v } of entries(db, "expense"))
@@ -152,23 +153,28 @@ export function skuCatalogue(db: Database) {
  *  ponytail: builds the catalogue per call; pass a Map around if a long ledger gets slow. */
 export const skuName = (db: Database, sku: string | undefined, typed = "") =>
   (sku && skuCatalogue(db).find((item) => item.sku === sku)?.name) || typed;
-/** The next SKU: one past the highest ever issued, in the materials (the lists of earlier
- *  saves included) and in every entry of the log, deleted and edited-away ones too, so a
- *  number is never given twice. The ones after it: `skuAfter`. */
-export function nextSku(db: Database) {
+/** The highest SKU ever issued: in the materials (the lists of earlier saves included), in
+ *  every entry of the log (a branch's `stockItem` too), deleted and edited-away ones as well,
+ *  and the one the Owner's last save knew of (`config.skuHigh`: a branch's copy holds no ledger
+ *  item that never reached it). */
+export function skuHigh(db: Database) {
   const issued = [
-    ...materialList(db.config).map((m) => m.sku),
+    db.config.skuHigh,
+    ...configMaterials(db.config).map((m) => m.sku),
     ...db.entries.flatMap((e) => [
       e.values.sku,
       e.values["to.sku"],
       e.values["from.sku"],
       ...(e.kind === "config" && e.values.materialList
-        ? materialList(e.values).map((m) => m.sku)
+        ? configMaterials(e.values).map((m) => m.sku)
         : []),
     ]),
   ];
-  return skuText(Math.max(0, ...issued.map(skuNumber)) + 1);
+  return skuText(Math.max(0, ...issued.map(skuNumber)));
 }
+/** The next SKU: one past the highest, so a number is never given twice. The ones after it:
+ *  `skuAfter`. */
+export const nextSku = (db: Database) => skuAfter(skuHigh(db));
 export const skuAfter = (sku: string) => skuText(skuNumber(sku) + 1);
 /** The catalogue item a `transfer` of `name` moves: the one it already had (`kept`, an edit
  *  that kept the name, renamed since or not), else the one that goes by that name. */
@@ -321,7 +327,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
   const categories = new Map(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
-  const bought = [...materialList(db.config), ...ingredients];
+  const bought = [...materialList(db), ...ingredients];
   const lines = outflows(db)
     .map((o) => ({ o, e: byId.get(o.entryId)! }))
     .sort((a, b) => byDateAt(a.e, b.e));
@@ -483,8 +489,8 @@ export type StockLine = {
 };
 /** The stock of every SKU that an expense of the shop project or a transfer ever moved, plus
  *  every Settings material with a SKU: what came in less what went out, per place
- *  (`stockMoves`); a material's figure at a branch is `branchMaterial`'s (its count is the
- *  truth). A balance may be negative. On a branch's copy only its own branch's figure is true:
+ *  (`stockMoves`); a material's figure at a branch is what its daily sheet leaves on `today`
+ *  (`branchItem`). A balance may be negative. On a branch's copy only its own branch's figure is true:
  *  it holds nothing of the other places. */
 export function stockLines(db: Database, today: string): StockLine[] {
   const names = new Map(skuCatalogue(db).map((item) => [item.sku, item.name]));
@@ -500,7 +506,7 @@ export function stockLines(db: Database, today: string): StockLine[] {
     lines.set(sku, made);
     return made;
   };
-  for (const m of materialList(db.config)) if (m.sku) line(m.sku, m.id);
+  for (const m of materialList(db)) if (m.sku) line(m.sku, m.id);
   const { moves, transit } = stockMoves(db);
   for (const move of moves) {
     const at = line(move.sku).at;
@@ -510,12 +516,12 @@ export function stockLines(db: Database, today: string): StockLine[] {
   for (const made of lines.values())
     if (made.materialId)
       for (const branch of branches)
-        made.at[branch] = branchMaterial(
+        made.at[branch] = branchItem(
           db,
           branch,
           made.materialId,
           today,
-        ).qty;
+        ).remaining;
   return [...lines.values()];
 }
 

@@ -11,7 +11,9 @@
 --   stock line keeps. The same way it gets what an `expense` bought straight into its warehouse
 --   (what, how many, never the amount or the vendor), and, whole, every `transfer` out of or into
 --   its stock (wholeKinds: no money in one) with its own receipts. Of `rawRiceBranches` it gets its own branch's name or an empty list: whether
---   it counts raw rice, not whether the other branch does (V2-BR-08).
+--   it counts raw rice, not whether the other branch does (V2-BR-08). Its daily sheets and opening
+--   stock (`daily`, `opening`) are its own; every branch's `stockItem` reaches every branch account
+--   whole (sharedKinds): both read one material list.
 --
 -- JS port for the local SQLite mode: src/lib/role-scope.ts (tests/unit/server.test.ts reads the
 -- rule JSON below). Keep them in step.
@@ -20,15 +22,18 @@
 create or replace function public.app_state_scope_rules() returns jsonb
 language sql immutable set search_path = pg_catalog as $$ select $rules$
 {
-  "kinds": ["receive", "sale", "influencerBox", "materials", "meatCount", "pay", "transferReceive"],
+  "kinds": ["receive", "sale", "influencerBox", "materials", "meatCount", "pay", "transferReceive", "daily",
+    "opening"],
   "hiddenKeys": ["price", "invoiceAmount", "netPayable", "lines", "estimatedCost", "serviceRate", "outboundCost",
     "returnCost", "meatCost", "wasteCost"],
-  "configKeys": ["packKg", "materialList", "salesChannels", "payCategories", "rawRiceBranches"],
+  "configKeys": ["packKg", "materialList", "materialListAfter", "skuHigh", "salesChannels", "payCategories",
+    "rawRiceBranches"],
   "stockKinds": ["pay", "expense"],
   "stockKeys": ["category", "item", "qty", "branch", "sku", "warehouse", "purpose", "project", "status", "targetId",
     "targetKind", "to.category", "to.item", "to.qty", "to.sku", "to.warehouse", "to.purpose", "to.project",
     "to.status", "fromDate", "toDate"],
-  "wholeKinds": ["transfer"]
+  "wholeKinds": ["transfer"],
+  "sharedKinds": ["stockItem"]
 }
 $rules$::jsonb $$;
 
@@ -93,6 +98,7 @@ declare
   stock_kinds text[] := array(select jsonb_array_elements_text(rule -> 'stockKinds'));
   stock_keys text[] := array(select jsonb_array_elements_text(rule -> 'stockKeys'));
   whole_kinds text[] := array(select jsonb_array_elements_text(rule -> 'wholeKinds'));
+  shared_kinds text[] := array(select jsonb_array_elements_text(rule -> 'sharedKinds'));
   scoped_lots jsonb; scoped_entries jsonb; scoped_config jsonb; rice text;
 begin
   p_branches := coalesce(p_branches, '{}'::text[]);
@@ -113,7 +119,11 @@ begin
     select e, ord, e ->> 'role' is not distinct from 'branch' as branch_role
     from jsonb_array_elements(all_entries) with ordinality t(e, ord)
   ), direct as (
-    select e, ord, branch_role as own from log
+    -- Any branch's row of the shared material list, for an account that has a branch.
+    select e, ord, true as own from log
+    where branch_role and coalesce(e ->> 'kind' = any (shared_kinds), false) and cardinality(p_branches) > 0
+    union all
+    select e, ord, branch_role from log
     where coalesce(e ->> 'branch' = any (p_branches), false)
       and case when branch_role then e ->> 'kind' = any (kinds) else e ->> 'kind' = any (stock_kinds) end
     union all

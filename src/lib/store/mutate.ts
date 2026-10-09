@@ -19,7 +19,6 @@ import {
   oncePerLotKinds,
   titles,
   lotMovableKinds,
-  materialList,
   pack,
   payCategories,
   payrollCategory,
@@ -37,6 +36,7 @@ import {
   decimal,
   defaultRound,
   entries,
+  materialList,
   nextNumberPreview,
   pendingTransfers,
   poInfo,
@@ -45,7 +45,14 @@ import {
   shipments,
   smokeServiceRate,
 } from "./derived";
-import { nextSku, skuAfter, skuFor, skuItem, skuNameError } from "./ledger";
+import {
+  nextSku,
+  skuAfter,
+  skuFor,
+  skuHigh,
+  skuItem,
+  skuNameError,
+} from "./ledger";
 import { editBlock, voidBlock } from "./visibility";
 const forbidden = "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้";
 const badNumber = "ใส่เป็นตัวเลข 0 ขึ้นไป";
@@ -206,9 +213,15 @@ function noteValues(
       `น้ำหนักจาก PO เนื้อรวม ${kgText(total)} กก. ไม่เท่าน้ำหนักที่ส่ง ${kgText(Number(v.dispatchKg))} กก.`,
     );
   }
+  // A waste with no reason is saved, its reason listed as not jotted yet (V2-RUL-05).
+  if (kind === "daily")
+    for (const key of Object.keys(v))
+      if (key.startsWith("waste.") && Number(v[key]) > 0) {
+        const reason = key.replace("waste.", "reason.");
+        if (!v[reason]) missing.push(reason);
+      }
+  if (kind === "daily" || kind === "opening") assert(v.sheet, "เลือกใบสต๊อก");
   if (missing.length) v.missing = missing.join(",");
-  if (kind === "materials")
-    assert(Object.values(v).some(Boolean), "ยังไม่ได้ใส่ยอดนับ");
   // The numbers the web issues itself; an edit keeps the one it has.
   if (kind === "smokeOrder")
     v.orderNumber =
@@ -380,7 +393,6 @@ function checkConfig(v: Values) {
       assert(!none, `${label}: ยังไม่ได้ใส่ GP % ของ「${none?.name}」`);
       numbers("gp", "GP % ");
     }
-    if (key === "materialList") numbers("perBox", "จำนวนที่ใช้ต่อกล่อง");
     // The seed's ten categories are fixed: the rules hang on their ids.
     if (key === "payCategories")
       assert(
@@ -542,7 +554,7 @@ export function mutate(
     checkConfig(v);
     if (v.materialList !== undefined) {
       // V2-LED-03: a material keeps its SKU (whatever is sent), a new one gets the next.
-      const had = new Map(materialList(db.config).map((m) => [m.id, m.sku]));
+      const had = new Map(materialList(db).map((m) => [m.id, m.sku]));
       let sku = nextSku(db);
       const rows: Values[] = JSON.parse(v.materialList);
       v.materialList = JSON.stringify(
@@ -554,6 +566,10 @@ export function mutate(
           return { ...row, sku: issued };
         }),
       );
+      // The list saved is the list from now on: the branches' `stockItem` notes so far are
+      // in it (or were taken out of it), so only later ones are laid over it.
+      v.materialListAfter =
+        db.entries.findLast((e) => e.kind === "stockItem")?.id ?? "";
     }
     next.config = { ...db.config, ...v };
     // One name, one SKU: over the materials and the ledger items, renames included.
@@ -570,6 +586,21 @@ export function mutate(
     if (kind !== "purchase" && kind !== "smokeOrder")
       lotId = lotOf(db, kind, lotId);
     const v = noteValues(db, by, kind, input, date, lotId);
+    if (kind === "stockItem") {
+      // One row of the material list, checked as a Settings save of the whole list is: an
+      // id of the list, a name, no name twice. A new row gets an id and the next SKU.
+      const list = materialList(db);
+      const had = list.find((m) => m.id === v.id);
+      assert(!v.id || had, "ไม่พบรายการนี้ในรายชื่อวัสดุ");
+      v.id ||= newId();
+      v.sku = had?.sku || nextSku(db);
+      checkConfig({
+        materialList: JSON.stringify([
+          ...list.filter((m) => m.id !== v.id),
+          { id: v.id, name: v.name },
+        ]),
+      });
+    }
     let branch = own;
     if (by.role === "owner" && kind === "pay") {
       // V2-PAY-05: a payment that buys stock is stamped with the branch the stock goes to.
@@ -620,6 +651,16 @@ export function mutate(
     entry = { kind, role: by.role, lotId, branch, date, values: v };
   }
   next.entries.push({ id: newId(), at: new Date().toISOString(), ...entry });
+  // One name, one SKU, over the ledger items too (those this account holds).
+  if (kind === "stockItem") {
+    const error = skuNameError(next);
+    assert(!error, error);
+  }
+  /* A branch holds no ledger item of the Owner's that never reached it, so it cannot tell the
+   * highest SKU from its log alone: the Owner's saves keep it in the settings a branch
+   * receives, and `nextSku` reads it. */
+  if (by.role === "owner" && skuHigh(next) !== next.config.skuHigh)
+    next.config.skuHigh = skuHigh(next);
   if (touched.size)
     next.lots = next.lots.map((lot) =>
       touched.has(lot.id) ? recached(next, lot) : lot,

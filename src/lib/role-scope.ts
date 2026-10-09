@@ -29,6 +29,9 @@ import {
  *  - wholeKinds  kinds of the Owner sent whole (they hold no money) when
  *                `from` or `to` names the branch, as saved or as an edit put it (`to.from`,
  *                `to.to`): a transfer out of or into its stock.
+ *  - sharedKinds kinds of any branch sent whole to every branch account: a `stockItem`, a row
+ *                of the one material list both branches read (so a copy names the other
+ *                branch on those entries, and nowhere else).
  *
  * `entryEdit` and `void` are never listed: one is sent when the entry it names (`targetId`) is
  * sent, cut the same way, and so is a void naming one of those (an undone edit, a restored
@@ -40,6 +43,7 @@ export const branchScope: {
   stockKinds: EntryKind[];
   stockKeys: string[];
   wholeKinds: EntryKind[];
+  sharedKinds: EntryKind[];
 } = {
   kinds: [
     "receive",
@@ -49,6 +53,8 @@ export const branchScope: {
     "meatCount",
     "pay",
     "transferReceive",
+    "daily",
+    "opening",
   ],
   hiddenKeys: [
     "price",
@@ -65,6 +71,8 @@ export const branchScope: {
   configKeys: [
     "packKg",
     "materialList",
+    "materialListAfter",
+    "skuHigh",
     "salesChannels",
     "payCategories",
     "rawRiceBranches",
@@ -94,6 +102,7 @@ export const branchScope: {
     "toDate",
   ],
   wholeKinds: ["transfer"],
+  sharedKinds: ["stockItem"],
 };
 
 const isObject = (values: unknown): values is Values =>
@@ -149,7 +158,9 @@ export function scopeDatabase(db: Database, branches: string[] = []): Database {
   // Entry id → sent whole (an own entry, a transfer) or cut down to `stockKeys` (a stock line).
   const direct = new Map<string, boolean>();
   for (const e of all)
-    if (branches.includes(e?.branch)) {
+    if (e?.role === "branch" && rule.sharedKinds.includes(e.kind)) {
+      if (branches.length) direct.set(e.id, true);
+    } else if (branches.includes(e?.branch)) {
       if (e.role === "branch" && rule.kinds.includes(e.kind))
         direct.set(e.id, true);
       else if (e.role !== "branch" && rule.stockKinds.includes(e.kind))

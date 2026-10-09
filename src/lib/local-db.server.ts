@@ -68,20 +68,23 @@ const branchKinds: EntryKind[] = [
   "receive",
   "sale",
   "influencerBox",
-  "materials",
-  "meatCount",
   "pay",
   "transferReceive",
+  "daily",
+  "opening",
+  "stockItem",
   "entryEdit",
   "void",
 ];
-/** Kinds of its own a branch may edit: its notes less the material count (editableKinds). */
+/** Kinds of its own a branch may edit: its notes less a list item and a transfer's receipt
+ *  (editableKinds). */
 const branchEditable: EntryKind[] = [
   "receive",
   "sale",
   "influencerBox",
-  "meatCount",
   "pay",
+  "daily",
+  "opening",
 ];
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 

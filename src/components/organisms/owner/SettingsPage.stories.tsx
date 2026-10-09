@@ -7,7 +7,10 @@ import {
   wide,
   sampleDb,
 } from "@/components/organisms/workspace/storyWorkspace";
+import { accountById } from "@/lib/accounts";
 import { fields } from "@/lib/forms";
+import { today } from "@/lib/format";
+import { mutate } from "@/lib/store";
 import { SettingsPage } from "./SettingsPage";
 
 /** The page, and under it what the sale form now asks for: a channel added above shows here. */
@@ -40,9 +43,35 @@ type Story = StoryObj<typeof meta>;
  *  ค่าที่เว็บไม่รับ เช่น ตัวเลขติดลบหรือชื่อว่าง ขึ้นข้อความสีแดงข้างปุ่ม
  *  เพิ่มช่องทางขายแล้วบรรทัดล่างสุดมีช่องยอดขายของช่องทางนั้นเพิ่ม ·
  *  「สาขาที่ใช้ข้าวเหนียวดิบ」: ช่องติ๊กต่อสาขา (ตั้งต้นศาลาแดง) กด「แก้ไข」จึงติ๊กได้ ·
- *  「รายชื่อวัสดุ」มีคอลัมน์ SKU (เว็บออกให้ แก้ไม่ได้ แถวที่เพิ่งเพิ่มเป็น「รอบันทึก」) ·
+ *  「รายชื่อวัสดุ」มีคอลัมน์ SKU (เว็บออกให้ แก้ไม่ได้ แถวที่เพิ่งเพิ่มเป็น「รอบันทึก」) วัสดุ และ
+ *  「หน่วยนับ」(กล่อง ซอง ถุง …) กด「แก้ไข」แล้วพิมพ์หน่วยได้ทีละแถว ·
  *  「รายการสินค้า (SKU)」: จำนวนรายการ กด「เปิดรายการ」เพื่อดูและแก้ชื่อใน popup (SkuDialog) */
 export const Default: Story = {};
+
+/** สาขาเพิ่มรายการในใบสต๊อกของตัวเอง (ถุงซิปล็อก · ห่อ): ขึ้นเป็นแถวสุดท้ายของ「รายชื่อวัสดุ」
+ *  พร้อม SKU และหน่วยนับ */
+export const BranchAddedMaterial: Story = {
+  parameters: {
+    db: mutate(
+      sampleDb,
+      accountById("saladaeng")!,
+      "stockItem",
+      { id: "", name: "ถุงซิปล็อก", unit: "ห่อ" },
+      "",
+      today(),
+    ),
+  },
+};
+
+/** กด「แก้ไข」ของ「รายชื่อวัสดุ」: แต่ละแถวมีช่องชื่อและช่อง「หน่วยนับ」 */
+export const EditMaterials: Story = {
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      within(
+        await canvas.findByRole("region", { name: "รายชื่อวัสดุ" }),
+      ).getByRole("button", { name: "แก้ไข" }),
+    ),
+};
 
 /** กด「เปิดรายการ」ของ「รายการสินค้า (SKU)」: popup ค้นหาและแก้ชื่อ */
 export const OpenSkus: Story = {
