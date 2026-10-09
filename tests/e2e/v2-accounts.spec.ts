@@ -90,7 +90,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   await openPage(page, "Stock");
   await expect(jotButtons(page)).toHaveText(["รับเนื้อเข้าสาขา", "จ่ายเงิน"]);
   await openPage(page, "Inventory");
-  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน", "นับวัสดุคงเหลือ"]);
+  await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
     "เลือกหมวด",
@@ -180,7 +180,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
         await openDays(page);
         const branchNote = page
           .locator(
-            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="meatCount"], [data-kind="influencerBox"], [data-kind="materials"])',
+            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"], [data-kind="opening"])',
           )
           .first();
         await branchNote.getByRole("button").first().click();

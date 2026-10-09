@@ -8,13 +8,16 @@ import {
   popup,
   region,
   save,
+  setOpening,
+  sheetCell,
+  sheetView,
   signInAs,
   start,
   toast,
 } from "./helpers";
 
 /* Spec v2 V2-LED-03, V2-LED-04 and V2-BR-08: the SKU the web issues (the expense form, the
- * Settings lists), and the Settings choice of the branches that count raw rice. */
+ * Settings lists), and the Settings choice of the branches that hold raw rice. */
 
 /** The ledger rows of the Accounting page. */
 const ledgerRows = (page: Page) =>
@@ -40,44 +43,44 @@ test("V2-LED-03 an expense's item gets a SKU: a new name the next number, a know
   await signInAs(page, "owner");
   await openPage(page, "Accounting");
 
-  // The ten materials hold SKU-0001…0010: a new name is the eleventh.
+  // The 23 materials hold SKU-0001…0023: a new name is the next.
   await typeItem(page, "หมึกพิมพ์");
-  await expect(popup(page).getByText("ใหม่: SKU-0011")).toBeVisible();
+  await expect(popup(page).getByText("ใหม่: SKU-0024")).toBeVisible();
   await save(page);
-  await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์SKU-0011"]);
+  await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์SKU-0024"]);
 
   // The same name again, whatever the spaces around it: the same SKU, and not a new one.
   await typeItem(page, "  หมึกพิมพ์ ");
-  await expect(popup(page).getByText("SKU-0011").first()).toBeVisible();
+  await expect(popup(page).getByText("SKU-0024").first()).toBeVisible();
   await expect(popup(page)).not.toContainText("ใหม่: ");
-  await expect(popup(page)).not.toContainText("SKU-0012");
+  await expect(popup(page)).not.toContainText("SKU-0025");
   await save(page);
   await expect(ledgerRows(page)).toContainText([
-    "หมึกพิมพ์SKU-0011",
-    "หมึกพิมพ์SKU-0011",
+    "หมึกพิมพ์SKU-0024",
+    "หมึกพิมพ์SKU-0024",
   ]);
 
   // A material's name: the material's SKU.
-  await typeItem(page, "ถุงซีลเนื้อ");
-  await expect(popup(page).getByText("SKU-0003").first()).toBeVisible();
+  await typeItem(page, "ซองเนื้อ");
+  await expect(popup(page).getByText("SKU-0002").first()).toBeVisible();
   await expect(popup(page)).not.toContainText("ใหม่: ");
   await save(page);
-  await expect(ledgerRows(page).first()).toContainText("ถุงซีลเนื้อSKU-0003");
+  await expect(ledgerRows(page).first()).toContainText("ซองเนื้อSKU-0002");
 
   // The only note of an item is deleted: its number is not given to the next new name, nor
   // again to the same name.
   await typeItem(page, "เครื่องซีล");
-  await expect(popup(page).getByText("ใหม่: SKU-0012")).toBeVisible();
+  await expect(popup(page).getByText("ใหม่: SKU-0025")).toBeVisible();
   await save(page);
   const sealer = ledgerRows(page).filter({ hasText: "เครื่องซีล" });
-  await expect(sealer).toContainText("SKU-0012");
+  await expect(sealer).toContainText("SKU-0025");
   await sealer.getByRole("button", { name: "ลบ", exact: true }).click();
   await confirmDelete(page);
   await expect(sealer).toHaveCount(0);
   await typeItem(page, "เครื่องซีล");
-  await expect(popup(page).getByText("ใหม่: SKU-0013")).toBeVisible();
+  await expect(popup(page).getByText("ใหม่: SKU-0026")).toBeVisible();
   await save(page);
-  await expect(ledgerRows(page).first()).toContainText("เครื่องซีลSKU-0013");
+  await expect(ledgerRows(page).first()).toContainText("เครื่องซีลSKU-0026");
 });
 
 test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and its old row goes by the new name", async ({
@@ -90,13 +93,13 @@ test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and i
   const list = page.getByRole("dialog", { name: "รายการสินค้า (SKU)" });
   const openList = () =>
     skus.getByRole("button", { name: "เปิดรายการ" }).click();
-  // Before any expense: the ten materials, all on the popup's first ten rows.
-  await expect(skus).toContainText("วัสดุ10 รายการ");
+  // Before any expense: the 23 materials, the popup's first ten rows and the rest behind ดูเพิ่มเติม.
+  await expect(skus).toContainText("วัสดุ23 รายการ");
   await openList();
   await expect(list.getByRole("row")).toHaveCount(11);
-  await expect(list.getByRole("button", { name: /^ดูเพิ่มเติม/ })).toHaveCount(
-    0,
-  );
+  await expect(
+    list.getByRole("button", { name: /^ดูเพิ่มเติม/ }),
+  ).toBeVisible();
   await list.getByRole("button", { name: "ยกเลิก" }).click();
 
   await openPage(page, "Accounting");
@@ -106,22 +109,20 @@ test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and i
   await openPage(page, "Settings");
   await expect(skus).toContainText("รายการจากหน้า Accounting1 รายการ");
   await openList();
-  // Eleven items: ten rows, and the eleventh behind ดูเพิ่มเติม.
   await expect(list.getByRole("row")).toHaveCount(11);
-  await list.getByRole("button", { name: "ดูเพิ่มเติม (เหลือ 1)" }).click();
-  await expect(list.getByRole("row")).toHaveCount(12);
   // The search, by SKU or by name.
-  await list.getByRole("searchbox").fill("sku-0011");
+  await list.getByRole("searchbox").fill("sku-0024");
   await expect(list.getByRole("row")).toHaveCount(2);
   await list.getByRole("searchbox").fill("");
-  await list.getByRole("button", { name: /^ดูเพิ่มเติม/ }).click();
+  const more = list.getByRole("button", { name: /^ดูเพิ่มเติม/ });
+  while (await more.count()) await more.click();
   // A material's name is read here and typed in รายชื่อวัสดุ: only the ledger item has a box.
   await expect(list.getByRole("textbox")).toHaveCount(1);
-  const name = list.getByRole("textbox", { name: "ชื่อรายการ SKU-0011" });
+  const name = list.getByRole("textbox", { name: "ชื่อรายการ SKU-0024" });
   const saveList = () =>
     list.getByRole("button", { name: "บันทึก", exact: true }).click();
   // A name another item goes by, a material included, is refused.
-  await name.fill("กล่องพิมพ์ลาย");
+  await name.fill("กล่องบรรจุ");
   await saveList();
   await expect(list).toContainText("ซ้ำกัน");
   await name.fill("หมึกพิมพ์ดำ");
@@ -131,19 +132,19 @@ test("V2-LED-03 V2-LED-04 a ledger item renamed in Settings keeps its SKU, and i
   await openList();
   await list.getByRole("searchbox").fill("หมึก");
   await expect(
-    list.getByRole("row", { name: /^SKU-0011/ }).getByRole("textbox"),
+    list.getByRole("row", { name: /^SKU-0024/ }).getByRole("textbox"),
   ).toHaveValue("หมึกพิมพ์ดำ");
   await list.getByRole("button", { name: "ยกเลิก" }).click();
 
   // The row jotted under the old name, and the form: the new name, the same SKU.
   await openPage(page, "Accounting");
-  await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์ดำSKU-0011"]);
+  await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์ดำSKU-0024"]);
   await typeItem(page, "หมึกพิมพ์ดำ");
-  await expect(popup(page).getByText("SKU-0011").first()).toBeVisible();
+  await expect(popup(page).getByText("SKU-0024").first()).toBeVisible();
   await expect(popup(page)).not.toContainText("ใหม่: ");
   // The old name is a new item now.
   await fill(page, [/^รายการ/, "หมึกพิมพ์"]);
-  await expect(popup(page).getByText("ใหม่: SKU-0012")).toBeVisible();
+  await expect(popup(page).getByText("ใหม่: SKU-0025")).toBeVisible();
 });
 
 test("V2-LED-03 a material added in Settings gets the next SKU when the list is saved", async ({
@@ -154,13 +155,13 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   await openPage(page, "Settings");
   const materials = region(page, "รายชื่อวัสดุ");
   await expect(
-    materials.getByRole("row", { name: /^SKU-0010/ }).getByRole("cell"),
-  ).toHaveText(["SKU-0010", "สติกเกอร์ข้าวเหนียว", "—"]);
+    materials.getByRole("row", { name: /^SKU-0023/ }).getByRole("cell"),
+  ).toHaveText(["SKU-0023", "ถุงหิ้วพลาสติกใส 12x20", "ห่อ"]);
   await materials.getByRole("button", { name: "เพิ่มวัสดุ" }).click();
   // No number until the save, and none to type.
   await expect(materials.getByRole("row").last()).toContainText("รอบันทึก");
   await materials
-    .getByRole("textbox", { name: "วัสดุ 11" })
+    .getByRole("textbox", { name: "วัสดุ 24" })
     .fill("เทปปิดกล่อง");
   // A rename keeps the SKU.
   await materials
@@ -169,8 +170,8 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   await saveSection(materials);
   await expect(toast(page, "บันทึกแล้ว: รายชื่อวัสดุ")).toBeVisible();
   await expect(
-    materials.getByRole("row", { name: /^SKU-0011/ }).getByRole("cell"),
-  ).toHaveText(["SKU-0011", "เทปปิดกล่อง", "—"]);
+    materials.getByRole("row", { name: /^SKU-0024/ }).getByRole("cell"),
+  ).toHaveText(["SKU-0024", "เทปปิดกล่อง", /.*/]);
   await expect(materials.getByRole("row", { name: /^SKU-0001/ })).toContainText(
     "กล่องพิมพ์ลายใหม่",
   );
@@ -178,22 +179,26 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   // Inventory lists it under its SKU, and an expense naming it takes that SKU.
   await openPage(page, "Inventory");
   const stock = region(page, "รายการทั้งหมด");
+  // The table draws its first rows: the search brings these two up.
+  const search = page.getByRole("main").getByRole("searchbox");
+  await search.fill("เทปปิดกล่อง");
   await expect(
-    stock.getByRole("row", { name: /^SKU-0011 เทปปิดกล่อง/ }),
+    stock.getByRole("row", { name: /^SKU-0024 เทปปิดกล่อง/ }),
   ).toBeVisible();
+  await search.fill("กล่องพิมพ์ลายใหม่");
   await expect(
     stock.getByRole("row", { name: /^SKU-0001 กล่องพิมพ์ลายใหม่/ }),
   ).toBeVisible();
   await openPage(page, "Accounting");
   await typeItem(page, "เทปปิดกล่อง");
-  await expect(popup(page).getByText("SKU-0011").first()).toBeVisible();
+  await expect(popup(page).getByText("SKU-0024").first()).toBeVisible();
   await expect(popup(page)).not.toContainText("ใหม่: ");
   await fill(page, [/^รายการ/, "ของใหม่"]);
-  await expect(popup(page).getByText("ใหม่: SKU-0012")).toBeVisible();
+  await expect(popup(page).getByText("ใหม่: SKU-0025")).toBeVisible();
   await expect(form(page)).toBeVisible();
 });
 
-test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and goes on the branch's Stock, and the Owner's has a dash for the others", async ({
+test("V2-BR-08 the branches ticked in Settings hold raw rice: the row comes and goes on the branch's Stock sheet, and the Owner's has a dash for the others", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -213,53 +218,39 @@ test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and
   ).toBeVisible();
   await expect(rice.getByLabel("สาขามีนบุรี")).toBeChecked();
   await expect(rice.getByLabel("สาขาศาลาแดง")).not.toBeChecked();
+  // The Owner's Stock: a dash under ศาลาแดง, and มีนบุรี has no opening stock yet.
   await openPage(page, "Stock");
-  const riceRow = stockRow(
-    region(page, "ข้าวเหนียวและน้ำพริก"),
-    "ข้าวเหนียวดิบ",
-  );
+  const riceRow = stockRow(region(page, "สต๊อกของสาขา"), "ข้าวเหนียวดิบ");
   await expect(riceRow).toHaveText([
-    "ข้าวเหนียวดิบ (กก.)",
+    "ข้าวเหนียวดิบ",
     "—",
-    "0ยังไม่เคยนับ",
-    "0",
-    "หมด",
+    "—",
+    "ยังไม่มีสต๊อกตั้งต้น",
+    "—",
   ]);
 
-  // ศาลาแดง has no row to count, and is told nothing of the other branch.
+  // ศาลาแดง has no row for it, and is told nothing of the other branch.
   await signInAs(page, "saladaeng");
   await openPage(page, "Stock");
-  await expect(
-    region(page, "น้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("main").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
-  ).toHaveCount(0);
+  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
+  await expect(sheetCell(page, "ของตั้งต้น", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "ของตั้งต้น", "ข้าวเหนียวดิบ")).toHaveCount(0);
   const copy = (await (await page.request.get("/api/local-db")).json()).payload;
   expect(copy.config.rawRiceBranches).toBe("[]");
 
-  // มีนบุรี has it, and counts it.
+  // มีนบุรี has it, and sets its opening stock.
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
-  const own = region(page, "ข้าวเหนียวและน้ำพริก");
-  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(1)).toHaveText(
-    "0ยังไม่เคยนับ",
-  );
-  await own
-    .getByRole("textbox", { name: "นับ ข้าวเหนียวดิบ (กก.)" })
-    .fill("7.5");
-  await own.getByRole("button", { name: "บันทึกยอดนับ" }).click();
-  await expect(toast(page, "จดแล้ว: นับวัสดุคงเหลือ · 1 รายการ")).toBeVisible();
-  await expect(stockRow(own, "ข้าวเหนียวดิบ").nth(1)).toHaveText(
-    "7.5นับวันนี้",
+  await setOpening(page, ["ข้าวเหนียวดิบ", "7.5"]);
+  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveText(
+    "7.5 กก.",
   );
 
-  // The Owner's Stock has the count under มีนบุรี, and still a dash under ศาลาแดง.
+  // The Owner's Stock has it under มีนบุรี, and still a dash under ศาลาแดง.
   await signInAs(page, "owner");
   await openPage(page, "Stock");
   await expect(riceRow.nth(1)).toHaveText("—");
-  await expect(riceRow.nth(2)).toHaveText("7.5นับวันนี้");
-  await expect(riceRow.nth(3)).toHaveText("7.5");
+  await expect(riceRow.nth(3)).toContainText("7.5 กก.");
   // No branch ticked: no raw rice row at all, on the Owner's Stock or on the branch's.
   await openPage(page, "Settings");
   await edit(rice);
@@ -271,14 +262,10 @@ test("V2-BR-08 the branches ticked in Settings count raw rice: the row comes and
   await openPage(page, "Stock");
   await expect(riceRow).toHaveCount(0);
   await expect(
-    region(page, "ข้าวเหนียวและน้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
+    region(page, "สต๊อกของสาขา").getByRole("row", { name: /^น้ำพริก/ }),
   ).toBeVisible();
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
-  await expect(
-    region(page, "น้ำพริก").getByRole("row", { name: /^น้ำพริก/ }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("main").getByRole("row", { name: /ข้าวเหนียวดิบ/ }),
-  ).toHaveCount(0);
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
 });
