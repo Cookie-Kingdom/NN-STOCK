@@ -1,16 +1,8 @@
 import { useEffect } from "react";
 import type { Preview } from "@storybook/nextjs-vite";
-import { Noto_Sans_Thai_Looped } from "next/font/google";
 import "../src/app/globals.css";
+import { notoSansThaiLooped } from "../src/app/font";
 import { setMockDatabase } from "./mocks/persistence";
-
-// Same font setup as src/app/layout.tsx; the tokens read --font-noto-sans-thai-looped off <html>.
-const notoSansThaiLooped = Noto_Sans_Thai_Looped({
-  variable: "--font-noto-sans-thai-looped",
-  subsets: ["thai", "latin"],
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
 
 const preview: Preview = {
   tags: ["autodocs"],
