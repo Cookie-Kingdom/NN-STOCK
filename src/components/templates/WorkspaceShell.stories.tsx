@@ -44,14 +44,23 @@ export const Owner: Story = {};
 /** กล่องจดเปิดอยู่เหนือหน้า */
 export const Composing: Story = { args: { open: { kind: "pay" } } };
 
-/** หน้า Stock ของสาขา: ปุ่มจด 5 ปุ่ม (ยอดขาย รับเนื้อเข้าสาขา นับเนื้อคงเหลือ กล่องแจก จ่ายเงิน)
- *  เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ · หน้า Inventory ของสาขามี 2 ปุ่ม (จ่ายเงิน นับวัสดุคงเหลือ) ·
+/** หน้า Stock ของสาขา: ปุ่มจด 2 ปุ่ม (รับเนื้อเข้าสาขา จ่ายเงิน) เรียงต่อกันและขึ้นบรรทัดใหม่เมื่อไม่พอ ·
+ *  ยอดขายและกล่องแจกจดที่หน้า Sales (SalesButtons) · หน้า Inventory ของสาขามีปุ่ม จ่ายเงิน ·
  *  หน้า Stock ของ Owner ไม่มีปุ่ม หน้า Inventory ของ Owner มีปุ่มในหน้าเอง (InventoryNoButtons) */
 export const StockButtons: Story = {
   args: { account: "saladaeng" },
   parameters: {
     db: dbFor("saladaeng"),
     nextjs: { navigation: { pathname: "/branch/nn-x-lm/stock" } },
+  },
+};
+
+/** หน้า Sales ของสาขา: ปุ่มจด 2 ปุ่ม (ยอดขาย กล่องแจก) · Owner ไม่มีหน้านี้ */
+export const SalesButtons: Story = {
+  args: { account: "saladaeng" },
+  parameters: {
+    db: dbFor("saladaeng"),
+    nextjs: { navigation: { pathname: "/branch/nn-x-lm/sales" } },
   },
 };
 
@@ -76,6 +85,9 @@ export const Branch: Story = {
 
 /** จอ 390px หน้า Stock ของสาขา: ปุ่มขึ้นบรรทัดใหม่ แต่ละปุ่มสูง 44px */
 export const PhoneStock: Story = { ...StockButtons, ...phone };
+
+/** จอ 390px หน้า Sales ของสาขา: แท็บล่างสี่แท็บ ปุ่มจดสองปุ่ม */
+export const PhoneSales: Story = { ...SalesButtons, ...phone };
 
 /** จอ 390px: แถบบน แท็บล่าง เนื้อหาคอลัมน์เดียว */
 export const Phone: Story = { ...phone };

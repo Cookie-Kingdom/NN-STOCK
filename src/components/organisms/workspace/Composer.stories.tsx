@@ -194,7 +194,7 @@ export const CmReceive: Story = {
   parameters: { db: poDb(true) },
 };
 
-/** สาขาจดยอดขายของตัวเอง (จากปุ่มบนหน้า Stock): ไม่มีช่องสาขา สาขาคือบัญชีที่เข้าใช้ */
+/** สาขาจดยอดขายของตัวเอง (จากปุ่มบนหน้า Sales): ไม่มีช่องสาขา สาขาคือบัญชีที่เข้าใช้ */
 export const SaleBranch: Story = {
   args: { account: "minburi", open: { kind: "sale" } },
   parameters: { db: dbFor("minburi") },

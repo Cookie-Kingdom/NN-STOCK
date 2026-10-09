@@ -30,13 +30,13 @@ const variances = (page: Page) =>
 /** The cells of a row, by what it starts with. */
 const cells = (card: Locator, name: RegExp) =>
   card.getByRole("row", { name }).getByRole("cell");
-/** A sale jotted from the branch's Stock, on the day `offset` days from today. */
+/** A sale jotted from the branch's Sales, on the day `offset` days from today. */
 const sale = async (
   page: Page,
   offset: number,
   ...pairs: [RegExp, string][]
 ) => {
-  await openPage(page, "Stock");
+  await openPage(page, "Sales");
   await jot(page, "ยอดขาย");
   await fill(page, [theDate, bangkokDate(offset)], ...pairs);
   await save(page);

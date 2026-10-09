@@ -37,10 +37,10 @@ const todoLines = (page: Page, text: string) =>
   region(page, "ยังไม่ได้จด")
     .locator("strong")
     .filter({ hasText: new RegExp(`^${text}`) });
-/** Opens the sale form from the branch's Stock, as a branch does, on the day `offset`
+/** Opens the sale form from the branch's Sales, as a branch does, on the day `offset`
  *  days from today: an earlier day is typed in the form's date. */
 const jotSaleOf = async (page: Page, offset = 0) => {
-  await openPage(page, "Stock");
+  await openPage(page, "Sales");
   await jot(page, "ยอดขาย");
   if (offset) await fill(page, [theDate, bangkokDate(offset)]);
   await expect(form(page).getByLabel(theDate)).toHaveAttribute(
@@ -251,7 +251,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
     [/^ผู้จ่าย/, "น้องฝน"],
   );
   await save(page);
-  await openPage(page, "Stock");
+  await openPage(page, "Sales");
   await jot(page, "กล่องแจก");
   await fill(
     page,
@@ -627,6 +627,7 @@ test.describe("phone, 390px wide", () => {
     await expect(pageButtons(page)).toHaveText([
       "Stock",
       "Inventory",
+      "Sales",
       "Daily Log",
     ]);
     await fits();

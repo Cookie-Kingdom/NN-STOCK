@@ -494,13 +494,13 @@ it("todos: what each account still has to jot", () => {
 });
 
 it("kindsForPage: the jot buttons of each page, per account", () => {
-  // A branch: its Stock and its Inventory, with `pay` on both (it has no Finance).
-  expect(kindsForPage(saladaeng, "meatStock")).toEqual([
-    "sale",
-    "receive",
-    "influencerBox",
-    "pay",
-  ]);
+  // A branch: its Stock and its Inventory, with `pay` on both (it has no Finance), and its
+  // Sales, the Owner's of which offers nothing.
+  expect(kindsForPage(saladaeng, "meatStock")).toEqual(["receive", "pay"]);
+  expect(kindsForPage(saladaeng, "sales")).toEqual(["sale", "influencerBox"]);
+  expect(kindsForPage(owner, "sales")).toEqual([]);
+  expect(navFor(saladaeng)).toEqual(["meatStock", "stock", "sales", "log"]);
+  expect(navFor(owner)).not.toContain("sales");
   // The receipt of a transfer is on no page's buttons; nor are the daily sheet, the opening
   // stock and a list item, which the sheet on the page saves.
   expect(kindsForPage(saladaeng, "stock")).toEqual(["pay"]);

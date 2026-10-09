@@ -105,6 +105,16 @@ const unsigned = {
   },
 };
 const stock = { page: "stock" } as const;
+/** Today saved, at 390px. */
+const phoneSaved = {
+  ...saved,
+  ...phone,
+  parameters: { ...saved.parameters, ...phone.parameters },
+};
+const unlock = async ({ canvasElement }: { canvasElement: HTMLElement }) =>
+  userEvent.click(
+    await within(canvasElement).findByRole("button", { name: "แก้ไขบันทึก" }),
+  );
 const openingView = async ({ canvasElement }: { canvasElement: HTMLElement }) =>
   userEvent.click(
     await within(canvasElement).findByRole("radio", {
@@ -126,7 +136,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Inventory ของมีนบุรี ตั้งสต๊อกเริ่มต้นแล้ว วันนี้ยังไม่บันทึก: ป้าย「ยังไม่บันทึกวันนี้」·
- *  แถวละรายการ: ยกมา (ยอดคงเหลือของเมื่อวาน) ช่อง รับเพิ่ม ใช้ไป Waste / ทิ้ง และคงเหลือที่คิดให้ทันที ·
+ *  รายการสินค้าเป็นตาราง มีเส้นแบ่งคอลัมน์และเส้นแบ่งแถว หัวตาราง สินค้า / ยกมา · รับเพิ่ม · ใช้ไป ·
+ *  Waste / ทิ้ง · คงเหลือ (คิดให้ทันที) · ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」·
  *  พิมพ์แล้วป้ายเป็น「ยังไม่บันทึก」· กด「บันทึกการใช้วันนี้」บันทึกได้แม้เว้นว่าง ·
  *  ช่องค้นหาซ่อนแถว แต่บันทึกครบทุกรายการ */
 export const TodayNotSaved: Story = {};
@@ -136,22 +147,42 @@ export const NoOpening: Story = {
   parameters: { db: dbFor("minburi", seed) },
 };
 
-/** Inventory ของศาลาแดง บันทึกวันนี้แล้ว: ป้าย「บันทึกวันนี้แล้ว」ช่องมีค่าที่บันทึกไว้
- *  แถบล่างบอก「แก้ไขวันเดิม ไม่ตัดสต๊อกซ้ำ」บันทึกอีกครั้งเป็นการแก้ไขบันทึกเดิม ·
- *  ถุงกระดาษมี Waste 4 จึงมีช่อง「สาเหตุ waste」(ถุงเปียกน้ำ) · ถุงซีลพิมพ์รับเพิ่มเอง 50 ·
+/** Inventory ของศาลาแดง บันทึกวันนี้แล้ว จึงเปิดมาล็อก: ป้าย「บันทึกวันนี้แล้ว」ตัวเลข ผู้บันทึก
+ *  และหมายเหตุเป็นข้อความ พิมพ์ไม่ได้ · ปุ่มล่างเป็น「แก้ไขบันทึก」·
+ *  ถุงกระดาษมี Waste 4 พร้อมสาเหตุ (ถุงเปียกน้ำ) ในช่อง Waste · ถุงซีลรับเพิ่มเอง 50 ·
+ *  「เพิ่มสินค้า」และ「แก้ชื่อ / หน่วย」ยังกดได้ · เปลี่ยนวันที่เป็นวันที่ยังไม่บันทึก ช่องเปิดให้พิมพ์ ·
  *  ด้านบนมีกล่อง「รอยืนยันรับสินค้า」ด้านล่างมี「สินทรัพย์อื่นของสาขา」 */
 export const TodaySaved: Story = { ...saved };
 
-/** พิมพ์ Waste มากกว่า 0: ช่อง「สาเหตุ waste」ขึ้นมาใต้แถว ยังไม่พิมพ์สาเหตุเป็น「ยังไม่ได้จด」
- *  (บันทึกได้) · คงเหลือไม่ถูกหักด้วย Waste ซ้ำ */
+/** กด「แก้ไขบันทึก」: ช่องกลับมาพิมพ์ได้ พร้อมค่าที่บันทึกไว้ · ปุ่มล่างเป็น「ยกเลิก」
+ *  (กลับไปล็อกด้วยค่าที่บันทึกไว้) กับ「บันทึกการใช้วันนี้」(แก้ไขบันทึกเดิม ไม่ตัดสต๊อกซ้ำ แล้วล็อกอีกครั้ง) */
+export const UnlockedForEdit: Story = { ...saved, play: unlock };
+
+/** พิมพ์แล้วกด「บันทึกการใช้วันนี้」: บันทึกสำเร็จแล้วล็อกทันที ตัวเลขเป็นข้อความ
+ *  ปุ่มล่างเป็น「แก้ไขบันทึก」 */
+export const LockedAfterSave: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const used = (await canvas.findAllByLabelText(/^ใช้ไป/))[0];
+    await userEvent.type(used, "2");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "บันทึกการใช้วันนี้" }),
+    );
+    await expect(
+      await canvas.findByRole("button", { name: "แก้ไขบันทึก" }),
+    ).toBeEnabled();
+    await expect(canvas.queryAllByLabelText(/^ใช้ไป/)).toHaveLength(0);
+  },
+};
+
+/** พิมพ์ Waste มากกว่า 0: ช่อง「สาเหตุ waste」ขึ้นมาในช่อง Waste ของแถวนั้น ยังไม่พิมพ์สาเหตุเป็น
+ *  「ยังไม่ได้จด」(บันทึกได้) · คงเหลือไม่ถูกหักด้วย Waste ซ้ำ */
 export const WasteReason: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const row = within(
-      (await canvas.findAllByRole("listitem")).find((li) =>
-        within(li).queryByText(/^ยกมา/),
-      )!,
-    );
+    // The sheet's first row under its head.
+    const sheet = await canvas.findByRole("region", { name: "ใบสต๊อกรายวัน" });
+    const row = within(within(sheet).getAllByRole("row")[1]);
     const left = row.getByLabelText(/^คงเหลือ/).textContent;
     await userEvent.type(row.getByLabelText(/^Waste/), "2");
     await expect(row.getByLabelText(/^สาเหตุ waste/)).toBeVisible();
@@ -199,9 +230,24 @@ export const ConfirmReceipt: Story = {
   },
 };
 
-/** 「ตั้งสต๊อกเริ่มต้น」: วันที่เริ่มนับ และช่องจำนวนต่อรายการ มีค่าที่ตั้งไว้ ·
- *  บันทึกอีกครั้งเป็นการแก้ยอดตั้งต้นเดิม (แก้วันที่ได้) แล้วกลับไปใบสต๊อกรายวัน */
+/** 「ตั้งสต๊อกเริ่มต้น」ที่บันทึกแล้ว เปิดมาล็อก: ตาราง สินค้า · ยอดตั้งต้น เป็นข้อความ วันที่เริ่มนับพิมพ์ไม่ได้
+ *  ปุ่มล่างเป็น「แก้ไขบันทึก」 */
 export const OpeningView: Story = { play: openingView };
+
+/** 「ตั้งสต๊อกเริ่มต้น」กด「แก้ไขบันทึก」: ช่องจำนวนและวันที่กลับมาพิมพ์ได้ มี「ยกเลิก」·
+ *  บันทึกอีกครั้งเป็นการแก้ยอดตั้งต้นเดิม (แก้วันที่ได้) แล้วกลับไปใบสต๊อกรายวัน */
+export const OpeningUnlocked: Story = {
+  play: async (context) => {
+    await openingView(context);
+    await unlock(context);
+  },
+};
+
+/** 「ตั้งสต๊อกเริ่มต้น」ยังไม่เคยบันทึก: ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」 */
+export const OpeningNotSaved: Story = {
+  parameters: { db: dbFor("minburi", seed) },
+  play: openingView,
+};
 
 /** กด「เพิ่มสินค้า」: 「เพิ่มรายการสินค้า」ชื่อสินค้า และหน่วยนับ (พิมพ์เองหรือเลือกจากรายการ) ·
  *  ชื่อว่างหรือซ้ำ ข้อความที่เว็บไม่รับอยู่ข้างปุ่ม */
@@ -256,16 +302,16 @@ export const StockMissingReporter: Story = {
 /** Stock「ตั้งสต๊อกเริ่มต้น」 */
 export const StockOpeningView: Story = { args: stock, play: openingView };
 
-/** จอ 390px: แต่ละรายการซ้อนเป็นชื่อกับยกมา ช่องกรอกสามช่องเรียงกัน แล้วคงเหลือ · ปุ่มบันทึกเต็มความกว้าง */
+/** จอ 390px ยังไม่บันทึก: ตารางเดิม เลื่อนซ้ายขวาในการ์ดเพื่อดูคอลัมน์ที่เหลือ (หน้าไม่เลื่อน) ·
+ *  ปุ่มบันทึกเต็มความกว้าง */
 export const Phone: Story = { ...phone };
 
-/** จอ 390px ของศาลาแดง บันทึกวันนี้แล้ว: กล่องรอยืนยันรับเหลือ รายการ จำนวน และปุ่ม「ยืนยันรับ」·
- *  แถวที่มี Waste มีช่องสาเหตุเต็มความกว้าง */
-export const PhonePendingReceipt: Story = {
-  ...saved,
-  ...phone,
-  parameters: { ...saved.parameters, ...phone.parameters },
-};
+/** จอ 390px กด「แก้ไขบันทึก」แล้ว: 「ยกเลิก」กับ「บันทึกการใช้วันนี้」อยู่แถวเดียวกัน */
+export const PhoneUnlockedForEdit: Story = { ...phoneSaved, play: unlock };
+
+/** จอ 390px ของศาลาแดง บันทึกวันนี้แล้ว (ล็อก): กล่องรอยืนยันรับเหลือ รายการ จำนวน และปุ่ม「ยืนยันรับ」·
+ *  ตารางเป็นข้อความ แถวที่มี Waste มีสาเหตุใต้ตัวเลข · ปุ่ม「แก้ไขบันทึก」เต็มความกว้าง */
+export const PhonePendingReceipt: Story = { ...phoneSaved };
 
 /** จอ 390px หน้า Stock */
 export const StockPhone: Story = { ...phone, args: stock };
