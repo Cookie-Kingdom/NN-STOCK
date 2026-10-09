@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
@@ -401,11 +402,11 @@ function NoteForm({
               when={
                 <>
                   <FormField label="วันที่">
-                    <Input
-                      type="date"
+                    <DatePicker
+                      title="วันที่"
                       max={today}
                       value={date}
-                      onChange={(event) => setDate(event.target.value)}
+                      onChange={setDate}
                     />
                   </FormField>
                   {info.lot && (

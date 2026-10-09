@@ -1,13 +1,15 @@
 "use client";
 
 import { Combobox } from "@/components/atoms/Combobox";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Caption } from "@/components/atoms/Text";
 import { Textarea } from "@/components/atoms/Textarea";
+import { TimePicker } from "@/components/atoms/TimePicker";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormField } from "@/components/molecules/FormField";
-import { timeOptions, type Field } from "@/lib/forms";
+import type { Field } from "@/lib/forms";
 import type { Values } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +73,7 @@ export function EntryFieldControl({
   // A number is typed as text: `mutate` says why it refuses one, the browser would not.
   const input = {
     ...control,
-    type: f.type === "date" || f.type === "tel" ? f.type : "text",
+    type: f.type === "tel" ? "tel" : "text",
     inputMode:
       f.type === "number"
         ? f.integer
@@ -98,14 +100,9 @@ export function EntryFieldControl({
           ]}
         />
       ) : f.type === "time" ? (
-        <Select
-          {...control}
-          onChange={pick}
-          options={[
-            { value: "", label: "เลือกเวลา" },
-            ...timeOptions(value).map((o) => ({ value: o })),
-          ]}
-        />
+        <TimePicker {...control} onChange={pick} title={f.label} clearable />
+      ) : f.type === "date" ? (
+        <DatePicker {...control} onChange={pick} title={f.label} clearable />
       ) : f.type === "textarea" ? (
         <Textarea
           {...control}

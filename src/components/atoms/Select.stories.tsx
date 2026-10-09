@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { timeOptions } from "@/lib/forms";
 import { Select } from "./Select";
 
 const meta = {
@@ -54,10 +53,12 @@ export const Chosen: Story = {
  *  the window it opens upwards. */
 export const LongList: Story = {
   args: {
-    value: "14:30",
+    value: "14:00",
     options: [
       { value: "", label: "เลือกเวลา" },
-      ...timeOptions().map((value) => ({ value })),
+      ...Array.from({ length: 24 }, (_, hour) => ({
+        value: `${String(hour).padStart(2, "0")}:00`,
+      })),
     ],
   },
 };

@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { pick } from "../../../.storybook/pick";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { TableFilter } from "./TableFilter";
@@ -38,7 +39,9 @@ const state = pick<Partial<Props>>("ตัวกรอง", {
   },
   วันที่: {
     label: "วันที่ผลิต",
-    children: <Input variant="filter" type="date" defaultValue="2026-09-15" />,
+    children: (
+      <DatePicker variant="filter" value="2026-09-15" onChange={() => {}} />
+    ),
   },
 });
 

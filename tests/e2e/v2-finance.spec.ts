@@ -12,6 +12,7 @@ import {
   save,
   signInAs,
   start,
+  theDate,
   toast,
 } from "./helpers";
 
@@ -58,7 +59,7 @@ const pay = async (
   await jot(page, "จ่ายเงิน");
   await fill(
     page,
-    [/^วันที่$/, date],
+    [theDate, date],
     [/^หมวด/, category],
     [/^ยอด \(บาท\)/, amount],
   );
