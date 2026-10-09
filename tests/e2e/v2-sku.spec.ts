@@ -18,7 +18,7 @@ import {
 
 /** The ledger rows of the Accounting page. */
 const ledgerRows = (page: Page) =>
-  page.getByRole("table", { name: "บัญชีรายการซื้อ" }).locator("tbody tr");
+  page.getByRole("table", { name: "บัญชีรายรับรายจ่าย" }).locator("tbody tr");
 /** Opens the expense form from the Accounting page and types the item's name. */
 const typeItem = async (page: Page, name: string) => {
   await jot(page, "บันทึกค่าใช้จ่าย");

@@ -91,7 +91,7 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
     thisMonth.name,
-    "% ของยอดขาย",
+    "% ของรายได้รวม",
     lastMonth.name,
   ]);
   // Nothing sold: a share of no sales is a dash, never 0% or a division by nothing.
@@ -120,7 +120,7 @@ test("15 · V2-CAL-02 the P&L counts a payment in the month it is dated, and อ
   await expect(pl.getByRole("columnheader")).toHaveText([
     "รายการ",
     lastMonth.name,
-    "% ของยอดขาย",
+    "% ของรายได้รวม",
     monthBefore.name,
   ]);
   await expect(line(page, /^อื่น ๆ/)).toHaveText(["−฿1,000", "—", "—"]);
@@ -141,6 +141,17 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   const profitBefore = await profit.innerText();
   const lineBefore = await line(page, /^กำไรจากการดำเนินงาน/).allInnerTexts();
   expect(profitBefore).toMatch(/฿[\d,]+/);
+  // The project's own Overview leaves out the company's other income (the sample's ฿412.35 of
+  // interest, five days ago): its profit is that much under the shop's while both are this month's.
+  await openPage(page, "Overview", true);
+  await expect(page).toHaveURL(/\/owner\/nn-x-lm\/overview$/);
+  const ownBefore = await profit.innerText();
+  const baht = (text: string) => Number(text.replace(/[฿,]/g, ""));
+  const interest =
+    bangkokDate(-5).slice(0, 7) === today.slice(0, 7) ? 412.35 : 0;
+  expect(
+    Math.abs(baht(profitBefore) - baht(ownBefore) - interest),
+  ).toBeLessThan(1);
 
   // A gift box is the branch's to jot: the Owner's Inventory has no button for it.
   await openPage(page, "Inventory");
@@ -164,7 +175,7 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   await expect(line(page, /^กำไรจากการดำเนินงาน/)).toHaveText(lineBefore);
   await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
   await openPage(page, "Overview", true);
-  await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText(profitBefore);
+  await expect(figure(page, "กำไรจากการดำเนินงาน")).toHaveText(ownBefore);
   await expect(region(page, "P&L รายเดือน")).not.toContainText("กล่องแจก");
 });
 

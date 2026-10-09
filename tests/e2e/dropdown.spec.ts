@@ -103,7 +103,7 @@ test("a field with suggestions lists them, narrows as text is typed, and keeps t
   await pick(form(page).getByLabel(/^สถานะ/), "จ่ายแล้ว");
   await save(page);
   const row = page
-    .getByRole("table", { name: "บัญชีรายการซื้อ" })
+    .getByRole("table", { name: "บัญชีรายรับรายจ่าย" })
     .locator("tbody tr")
     .filter({ hasText: "ทดสอบ dropdown" });
   await expect(row).toContainText("ของใหม่ไม่เคยจด");
