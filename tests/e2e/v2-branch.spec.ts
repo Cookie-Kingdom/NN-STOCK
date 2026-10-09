@@ -476,6 +476,8 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     .getByRole("row", { name: /^Foodiva/ })
     .getByRole("cell");
   await expect(foodiva.nth(2)).toHaveText("฿70,000");
+  // The list holds the latest 12: with the money in left out, a payment this old is among them.
+  await page.getByRole("radio", { name: "รายจ่าย", exact: true }).click();
   const deposit = rows(page, "pay").filter({ hasText: "มัดจำค่าเนื้อ" });
   // A table row: its two buttons are at its end, with nothing to open first.
   await deposit.getByRole("button", { name: "แก้ไข", exact: true }).click();
