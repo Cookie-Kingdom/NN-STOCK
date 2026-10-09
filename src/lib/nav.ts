@@ -88,7 +88,8 @@ export const pages: Record<
   },
   finance: {
     label: "Finance",
-    description: "เงินที่จ่ายจริง ยอดค้างจ่ายผู้ขาย และเงินที่ต้องคืนพนักงาน",
+    description:
+      "เงินเข้า–ออกจริงของโปรเจกต์ ยอดค้างรับ ยอดค้างจ่าย และเงินที่ต้องคืนพนักงาน",
     icon: Wallet,
     group: shopGroup,
   },
@@ -102,7 +103,7 @@ export const pages: Record<
   // Shop-wide, outside the section: every purchase, of the project or not.
   accounting: {
     label: "Accounting",
-    description: "รายการซื้อทั้งหมดของร้าน",
+    description: "รายรับและรายจ่ายทั้งหมดของร้าน",
     icon: BookText,
   },
   settings: {

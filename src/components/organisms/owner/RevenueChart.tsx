@@ -13,7 +13,15 @@ export type ChartBar = {
   value: number | null;
   /** The figure the bar is read against, when there is one. */
   mark: number | null;
+  /** The share of `value` that is drawn as a second tone at the top of the bar (other income
+   *  over the sales), when the chart is given a `partName`. */
+  part?: number | null;
 };
+
+/** The second tone of a bar: the accent thinned over the surface, opaque so the grid lines do
+ *  not show through it. */
+const partTone =
+  "bg-[color-mix(in_oklab,var(--color-accent)_45%,var(--color-surface))]";
 
 /** The step of an axis of about four lines over `range`: 1, 2, 2.5 or 5 times a power of ten. */
 function niceStep(range: number) {
@@ -24,7 +32,10 @@ function niceStep(range: number) {
 
 /** Bars of baht over a period, each read against a mark on the same axis: a tick across the
  *  bar (`markAs="tick"`: the same day of the month before) or a line over the bars
- *  (`markAs="line"`: the profit, which may go below zero). Pointing at a bar, or the arrow
+ *  (`markAs="line"`: the profit, which may go below zero). With `partName`, the `part` of a
+ *  bar is its top, in a lighter tone, and the legend, the read-out and the table name both
+ *  halves (never the tone alone); a chart with no part anywhere is drawn as without it.
+ *  Pointing at a bar, or the arrow
  *  keys while the chart has focus, shows its figures; the table under it holds them all. */
 export function RevenueChart({
   label,
@@ -33,6 +44,8 @@ export function RevenueChart({
   name,
   markName,
   markAs,
+  baseName,
+  partName,
 }: {
   /** What the chart shows, for a screen reader. */
   label: string;
@@ -42,6 +55,9 @@ export function RevenueChart({
   name: string;
   markName: string;
   markAs: "tick" | "line";
+  /** What a bar is without its `part` (ยอดขาย) and what the part is (รายได้อื่น). */
+  baseName?: string;
+  partName?: string;
 }) {
   const [at, setAt] = useState(-1);
   const all = bars.flatMap((bar) => [bar.value ?? 0, bar.mark ?? 0]);
@@ -61,6 +77,11 @@ export function RevenueChart({
     .filter(
       (point): point is { mark: number; i: number } => point.mark !== null,
     );
+  const part = (bar: ChartBar) =>
+    partName && bar.value && bar.part && bar.part > 0
+      ? Math.min(bar.part, bar.value)
+      : 0;
+  const split = bars.some(part);
   const active = bars[at];
   const last = bars.findLastIndex((bar) => bar.value !== null);
   const plot = "h-60 md:h-72";
@@ -69,8 +90,14 @@ export function RevenueChart({
       <div className="mb-3 flex flex-wrap gap-x-4.5 gap-y-1 text-caption text-text-secondary">
         <span className="inline-flex items-center gap-1.5">
           <i className="size-2.5 rounded-[3px] bg-accent" />
-          {name}
+          {(split && baseName) || name}
         </span>
+        {split && (
+          <span className="inline-flex items-center gap-1.5">
+            <i className={cn("size-2.5 rounded-[3px]", partTone)} />
+            {partName}
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5">
           <i
             className={cn(
@@ -149,6 +176,18 @@ export function RevenueChart({
                     }}
                   />
                 )}
+                {!!part(bar) && (
+                  <i
+                    className={cn(
+                      "absolute left-1/2 w-[64%] max-w-8.5 min-w-[3px] -translate-x-1/2 rounded-t-sm border-b border-surface transition-[height,bottom] duration-(--motion-slow) ease-(--ease-enter)",
+                      partTone,
+                    )}
+                    style={{
+                      bottom: `${y(bar.value! - part(bar))}%`,
+                      height: `${y(bar.value!) - y(bar.value! - part(bar))}%`,
+                    }}
+                  />
+                )}
                 {markAs === "tick" && !!bar.mark && (
                   <i
                     className="absolute left-1/2 h-0.5 w-[82%] max-w-10.5 min-w-1.5 -translate-x-1/2 rounded-full bg-text-primary"
@@ -212,6 +251,20 @@ export function RevenueChart({
                     <span className="text-text-secondary">{name}</span>
                     <b className="font-medium">{baht(active.value)}</b>
                   </span>
+                  {!!part(active) && (
+                    <>
+                      <span className="flex justify-between gap-4">
+                        <span className="text-text-secondary">
+                          {baseName ?? name}
+                        </span>
+                        <span>{baht(active.value - part(active))}</span>
+                      </span>
+                      <span className="flex justify-between gap-4">
+                        <span className="text-text-secondary">{partName}</span>
+                        <span>{baht(part(active))}</span>
+                      </span>
+                    </>
+                  )}
                   {active.mark !== null && (
                     <span className="flex justify-between gap-4">
                       <span className="text-text-secondary">{markName}</span>
@@ -259,6 +312,7 @@ export function RevenueChart({
               <tr>
                 <th className={th}>{unit}</th>
                 <th className={cn(th, "text-right")}>{name}</th>
+                {split && <th className={cn(th, "text-right")}>{partName}</th>}
                 <th className={cn(th, "text-right")}>{markName}</th>
               </tr>
             </thead>
@@ -269,6 +323,7 @@ export function RevenueChart({
                     <tr key={i}>
                       <td className={td}>{bar.title}</td>
                       <Num>{baht(bar.value)}</Num>
+                      {split && <Num>{part(bar) ? baht(part(bar)) : "—"}</Num>}
                       <Num>{bar.mark === null ? "—" : baht(bar.mark)}</Num>
                     </tr>
                   ),

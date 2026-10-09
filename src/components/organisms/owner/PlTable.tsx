@@ -82,22 +82,26 @@ const Money = ({ x }: { x: number }) => (
 );
 
 /** The month (or the year: `month` is then `YYYY`) and the one before it, side by side
- *  (V2-CAL-02). `full` (the Owner): sales, GP
- *  per channel, every category, the operating profit, then อุปกรณ์/ลงทุน on its own line.
- *  Without it: the categories only and what they add up to. ค่าเช่า/น้ำไฟ with nothing jotted
+ *  (V2-CAL-02). `full` (the Owner): sales, GP per channel, other income when either period
+ *  has some, every category, the operating profit (`sales − GP + other income − opex`), then
+ *  อุปกรณ์/ลงทุน on its own line; each line also as a share of the period's whole revenue
+ *  (sales and other income). With `project`, only that project's other income counts, as on
+ *  its Overview. Without `full`: the categories only and what they add up to. ค่าเช่า/น้ำไฟ with nothing jotted
  *  in the month is yellow (V2-PAY-04). */
 export function PlTable({
   db,
   month,
   full = false,
+  project,
 }: {
   db: Database;
   month: string;
   full?: boolean;
+  project?: string;
 }) {
   const months = [month, shiftKey(month, -1)];
   const span = month.length === 4 ? "ปี" : "เดือน";
-  const [a, b] = months.map((m) => monthPl(db, m));
+  const [a, b] = months.map((m) => monthPl(db, m, project));
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
@@ -107,14 +111,14 @@ export function PlTable({
   ].filter((id) => id !== capexCategory);
   const of = (pl: typeof a, id: string) => pl.byCategory[id] ?? 0;
   const paid = (pl: typeof a) => ids.reduce((all, id) => all + of(pl, id), 0);
-  /* This period's line as a share of this period's sales, signed like the figure beside it.
-   * `full` only: the categories alone are listed without the sales.
+  /* This period's line as a share of this period's revenue, signed like the figure beside it.
+   * `full` only: the categories alone are listed without the revenue.
    * Hidden on a phone, as the secondary columns of the other figure tables are. */
-  const ofSales = (x: number) =>
+  const ofIncome = (x: number) =>
     full && (
       <Num className="max-md:hidden">
-        {x && a.sales
-          ? `${x < 0 ? "−" : ""}${share(Math.abs(x), a.sales)}`
+        {x && a.income
+          ? `${x < 0 ? "−" : ""}${share(Math.abs(x), a.income)}`
           : "—"}
       </Num>
     );
@@ -122,7 +126,7 @@ export function PlTable({
     <tr key={name} className={cn(total && "bg-surface-sunken font-semibold")}>
       <td className={td}>{name}</td>
       <Money x={x} />
-      {ofSales(x)}
+      {ofIncome(x)}
       <Money x={y} />
     </tr>
   );
@@ -145,7 +149,7 @@ export function PlTable({
               </th>,
               full && !i && (
                 <th key="share" className={cn(th, "text-right max-md:hidden")}>
-                  % ของยอดขาย
+                  % ของรายได้รวม
                 </th>
               ),
             ])}
@@ -161,12 +165,15 @@ export function PlTable({
                 (-(b.byChannel[c.key] ?? 0) * c.gp) / 100,
               ),
             )}
+          {full &&
+            (a.otherIncome || b.otherIncome) !== 0 &&
+            line("รายได้อื่น", a.otherIncome, b.otherIncome)}
           {ids.map((id) =>
             id === rentCategory && !of(a, id) ? (
               <tr key={id}>
                 <td className={td}>{names[id] ?? id}</td>
                 <Num tone="warning">{missingText}</Num>
-                {ofSales(0)}
+                {ofIncome(0)}
                 <Money x={-of(b, id)} />
               </tr>
             ) : (

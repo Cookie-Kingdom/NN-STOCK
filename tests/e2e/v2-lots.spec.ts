@@ -119,8 +119,8 @@ test("5 · V2-PO-02 V2-LOT-04 a PO รมควัน is jotted before any PO �
   // The PO รมควัน is as it was: the PO เนื้อ did not join it by itself.
   await expect(lacks(page, SO)).toHaveText("5");
   await openPage(page, "Finance");
-  await expect(region(page, "รายการจ่ายเงินล่าสุด")).toContainText(
-    "ยังไม่มีรายการจ่ายเงิน",
+  await expect(region(page, "รายการเงินเข้า–ออกล่าสุด")).toContainText(
+    "ยังไม่มีรายการเงินเข้า–ออก",
   );
 });
 

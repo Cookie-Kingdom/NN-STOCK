@@ -221,20 +221,22 @@ function noteValues(
         if (!v[reason]) missing.push(reason);
       }
   if (kind === "daily" || kind === "opening") assert(v.sheet, "เลือกใบสต๊อก");
+  // A sales receipt goes by its channel (ledgerRows): its item may stay empty.
+  if (kind === "income" && v.channel && missing.includes("item"))
+    missing.splice(missing.indexOf("item"), 1);
   if (missing.length) v.missing = missing.join(",");
   // The numbers the web issues itself; an edit keeps the one it has.
   if (kind === "smokeOrder")
     v.orderNumber =
       input.orderNumber || nextNumberPreview(db, "smokeOrder", date)!;
-  // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one.
-  if (kind === "expense") {
-    // Rendered as a link: nothing but a web address (no `javascript:`).
+  // Rendered as a link: nothing but a web address (no `javascript:`).
+  if (kind === "expense" || kind === "income")
     assert(
       !v.link || /^https?:\/\/\S+$/i.test(v.link),
       "ลิงก์เอกสารต้องขึ้นต้นด้วย http:// หรือ https://",
     );
-    v.sku = skuFor(db, v.item, kept).sku;
-  }
+  // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one.
+  if (kind === "expense") v.sku = skuFor(db, v.item, kept).sku;
   if (kind === "transfer") {
     assert(
       !v.from || v.from !== v.to,

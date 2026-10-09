@@ -1,12 +1,15 @@
 /** The Accounting page's purchase ledger (V2-LED-01): every PO เนื้อ and PO รมควัน and every
  *  money-out line of Finance (V2-LED-18) as a row worked out from the log, plus the `expense`
- *  notes jotted by hand. Nothing here is stored. */
+ *  notes jotted by hand and, as money in, the `income` notes (V2-LED-19). Nothing here is
+ *  stored. */
 import {
   branches,
   configMaterials,
+  incomeTypes,
   ingredients,
   payCategories,
   places,
+  salesChannels,
   seed,
   shopProject,
   type Database,
@@ -47,6 +50,12 @@ export const ledgerStatuses = {
   cancelled: "ยกเลิก",
 } as const;
 export type LedgerStatus = keyof typeof ledgerStatuses;
+/** The same three statuses as an `income` note names them. */
+export const incomeStatuses: Record<LedgerStatus, string> = {
+  pending: "รอรับ",
+  paid: "รับแล้ว",
+  cancelled: "ยกเลิก",
+};
 /** The ประเภทสินค้า of a Finance row whose pay category the ledger already has a type for;
  *  any other category goes by its own name (V2-LED-18). */
 const categoryTypes: Record<string, string> = {
@@ -70,8 +79,11 @@ export type LedgerRow = {
   date: string;
   at: string;
   /** Where the row is from: a PO, a money-out line of Finance (view only, V2-LED-18), or an
-   *  `expense` note jotted by hand. */
+   *  `expense` or `income` note jotted by hand. */
   origin: "po" | "finance" | "manual";
+  /** Money in (an `income` note: `paid` is what was received, `vendor` who paid it) or out
+   *  (every other row). */
+  direction: "in" | "out";
   /** "" on a hand-jotted row with no source, or one no longer offered (the retired `petty`).
    *  A Finance row: the `pay` note's source, เงินโอน when it has none. */
   source: LedgerSource | "";
@@ -98,6 +110,8 @@ export type LedgerRow = {
   poAmount: number | null;
   paid: number | null;
   status: LedgerStatus;
+  /** The status as the table names it: `ledgerStatuses` out, `incomeStatuses` in. */
+  statusLabel: string;
 };
 
 const numberOr = (v: Values, key: string) =>
@@ -210,21 +224,23 @@ export function skuNameError(db: Database) {
       ? `รายการสินค้า (SKU): ชื่อ「${twice.name}」ซ้ำกัน`
       : "";
 }
-/** `first`, then every value typed under `key` on an `expense` note, once each. */
+/** `first`, then every value typed under `key` on a note of `kind`, once each. */
 export const ledgerChoices = (
   db: Database,
   key: string,
   first: string[] = [],
+  kind: "expense" | "income" = "expense",
 ) => [
   ...new Set([
     ...first,
-    ...entries(db, "expense")
+    ...entries(db, kind)
       .map((e) => e.values[key]?.trim())
       .filter(Boolean),
   ]),
 ];
 
-/** A hand-jotted row's status: the one picked, else paid once an amount is typed. */
+/** A hand-jotted row's status, money out or in: the one picked, else paid once an amount is
+ *  typed. */
 const expenseStatus = (v: Values): LedgerStatus =>
   v.status in ledgerStatuses
     ? (v.status as LedgerStatus)
@@ -234,7 +250,7 @@ const expenseStatus = (v: Values): LedgerStatus =>
 
 /** Every row of the ledger, newest first. */
 export function ledgerRows(db: Database): LedgerRow[] {
-  const rows: LedgerRow[] = [];
+  const rows: Omit<LedgerRow, "statusLabel">[] = [];
   const po = (
     lotId: string,
     e: Entry,
@@ -245,11 +261,12 @@ export function ledgerRows(db: Database): LedgerRow[] {
     qty: number | null,
     amount: number | null,
     sourceLabel: string,
-  ): LedgerRow => ({
+  ): (typeof rows)[number] => ({
     id: lotId,
     date: e.date,
     at: e.at,
     origin: "po",
+    direction: "out",
     source: "po",
     sourceLabel,
     lotId,
@@ -356,6 +373,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
       date: e.date,
       at: e.at,
       origin: "finance",
+      direction: "out",
       source,
       sourceLabel: jotSources[source],
       payNote: pay ? e : undefined,
@@ -398,6 +416,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
       date: e.date,
       at: e.at,
       origin: "manual",
+      direction: "out",
       source: v.source in ledgerSources ? (v.source as LedgerSource) : "",
       sourceLabel:
         v.source in ledgerSources
@@ -419,7 +438,47 @@ export function ledgerRows(db: Database): LedgerRow[] {
       status: expenseStatus(v),
     });
   }
-  return rows.sort(byDateAt).reverse();
+  // V2-LED-19: money in. A cancelled one is listed, like a cancelled expense.
+  const channels = new Map(
+    salesChannels(db.config).map((c) => [c.key, c.name]),
+  );
+  for (const e of entries(db, "income")) {
+    const v = e.values;
+    const sales = v.incomeType === "sales";
+    rows.push({
+      id: e.id,
+      date: e.date,
+      at: e.at,
+      origin: "manual",
+      direction: "in",
+      source: "",
+      sourceLabel: "",
+      entry: e,
+      reference: v.reference ?? "",
+      itemType: incomeTypes[sales ? "sales" : "other"],
+      // A sales receipt with no item goes by its channel.
+      item: v.item || (sales && channels.get(v.channel)) || "",
+      sku: "",
+      detail: v.detail ?? "",
+      vendor: v.customer ?? "",
+      purpose: v.purpose === "project" ? "project" : "company",
+      project: v.purpose === "project" ? (v.project ?? "") : "",
+      qty: null,
+      unit: "",
+      poAmount: null,
+      paid: numberOr(v, "amount"),
+      status: expenseStatus(v),
+    });
+  }
+  return rows
+    .sort(byDateAt)
+    .reverse()
+    .map((row) => ({
+      ...row,
+      statusLabel: (row.direction === "in" ? incomeStatuses : ledgerStatuses)[
+        row.status
+      ],
+    }));
 }
 
 export type ProjectAsset = {
@@ -439,7 +498,7 @@ export type ProjectAsset = {
 };
 
 /** What `project` owns (Inventory): the hand-jotted rows of the ledger bought for it (no PO
- *  row, no Finance row), a row
+ *  row, no Finance row, no money in), a row
  *  per item (its SKU), in a group per ประเภทสินค้า, the suggested types first. A cancelled
  *  row is left out; the PO rows are the meat, which is on the Stock page.
  *  ponytail: what was bought, not what is left: nothing takes an item out again (used up,
@@ -450,7 +509,8 @@ export function projectAssets(db: Database, project = shopProject) {
   );
   // Newest first: the first row of an item is its latest purchase.
   for (const row of ledgerRows(db)) {
-    if (row.origin !== "manual" || row.status === "cancelled") continue;
+    if (row.origin !== "manual" || row.direction === "in") continue;
+    if (row.status === "cancelled") continue;
     if (row.purpose !== "project" || row.project.trim() !== project) continue;
     const type = row.itemType.trim();
     const items = groups.get(type) ?? new Map<string, ProjectAsset>();
@@ -525,9 +585,10 @@ export function stockLines(db: Database, today: string): StockLine[] {
   return [...lines.values()];
 }
 
-/** The Accounting page's two figures, from the rows: what the POs still waiting for payment
- *  hold the budget for, and what was paid in `month` (`YYYY-MM`) and in the month before it.
- *  A cancelled row holds no money. */
+/** The Accounting page's figures, from the rows: what the POs still waiting for payment hold
+ *  the budget for, what was paid in `month` (`YYYY-MM`) and in the month before it (money out
+ *  only), what was received in the two (money in with status รับแล้ว) and the money in still
+ *  awaited (`pendingIn`, of any month). A cancelled row holds no money. */
 export function ledgerSummary(rows: LedgerRow[], month: string) {
   const waiting = rows.filter(
     (row) => row.origin === "po" && row.status === "pending",
@@ -538,14 +599,36 @@ export function ledgerSummary(rows: LedgerRow[], month: string) {
   /* ponytail: a row's money counts in the month of the row (a PO's date, an expense's date),
    * not of each `pay` note: ledgerRows spreads a supplier's payments over its POs without
    * their dates. Carry the pay dates on the row if the month has to be exact. */
+  const money = (list: LedgerRow[]) =>
+    list.reduce((a, row) => a + (row.paid ?? 0), 0);
   const paidIn = (m: string) =>
-    rows
-      .filter((row) => row.status !== "cancelled" && row.date.startsWith(m))
-      .reduce((a, row) => a + (row.paid ?? 0), 0);
+    money(
+      rows.filter(
+        (row) =>
+          row.direction === "out" &&
+          row.status !== "cancelled" &&
+          row.date.startsWith(m),
+      ),
+    );
+  const receivedIn = (m: string) =>
+    money(
+      rows.filter(
+        (row) =>
+          row.direction === "in" &&
+          row.status === "paid" &&
+          row.date.startsWith(m),
+      ),
+    );
+  const pendingIn = rows.filter(
+    (row) => row.direction === "in" && row.status === "pending",
+  );
   return {
     reserved: waiting.reduce((a, row) => a + (row.poAmount ?? 0), 0),
     waiting: waiting.length,
     paid: paidIn(month),
     paidBefore: paidIn(before),
+    received: receivedIn(month),
+    receivedBefore: receivedIn(before),
+    pendingIn: { count: pendingIn.length, amount: money(pendingIn) },
   };
 }

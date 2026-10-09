@@ -24,7 +24,7 @@ const PO1 = `PO-${year}-0001`;
 const PO2 = `PO-${year}-0002`;
 const SO = `SO-${year}-0001`;
 const ledger = (page: Page) =>
-  page.getByRole("table", { name: "บัญชีรายการซื้อ" });
+  page.getByRole("table", { name: "บัญชีรายรับรายจ่าย" });
 /** The rows of the ledger, without its head and its totals. */
 const ledgerRows = (page: Page) => ledger(page).locator("tbody tr");
 /** The cells of the ledger row holding `text`. */
@@ -32,11 +32,16 @@ const cells = (page: Page, text: string) =>
   ledgerRows(page).filter({ hasText: text }).getByRole("cell");
 /** A card above the ledger, by its label: its figure, then its note. */
 const card = (page: Page, label: string) =>
-  region(page, "สรุปรายการซื้อ")
+  region(page, /^สรุป(เดือนนี้|รายการที่ยังรอ)$/)
     .locator("div")
     .filter({
       has: page.locator("small").filter({ hasText: new RegExp(`^${label}$`) }),
-    });
+    })
+    // The grid of the cards holds the label too: the card is the innermost.
+    .last();
+/** The ledger's money total with no money in: what was received, what was paid, the net. */
+const money = (out: number) =>
+  `รวมรับ฿0รวมจ่าย฿${out.toLocaleString("en-US")}สุทธิ${out ? "−" : ""}฿${out.toLocaleString("en-US")}`;
 const shown = (page: Page) => page.getByText(/^\d+ จาก \d+ รายการ$/);
 const createPo = async (
   page: Page,
@@ -78,7 +83,7 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
   await start(page, "seed");
   await signInAs(page, "owner");
   await openPage(page, "Accounting");
-  await expect(page.getByText(/^ยังไม่มีรายการซื้อ/)).toBeVisible();
+  await expect(page.getByText(/^ยังไม่มีรายการ PO เนื้อ/)).toBeVisible();
 
   await openPage(page, "Lots");
   await createPo(
@@ -98,17 +103,18 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
   await openPage(page, "Accounting");
   await expect(ledger(page).getByRole("columnheader")).toHaveText([
     "วันที่",
+    "รายรับ / รายจ่าย",
     "ที่มา / ประเภทบิล",
     "เลขที่อ้างอิง (PO / ใบเสร็จ)",
     "ประเภทสินค้า",
     "รายการ",
     "รายละเอียด / สเปก",
-    "ผู้ขาย / ร้านค้า",
-    "ค่าใช้จ่ายของ",
+    "ผู้ขาย / รับจาก",
+    "รายการของ",
     "Project",
     "จำนวนซื้อ",
     "ยอดตาม PO (งบที่กันไว้)",
-    "ยอดจ่ายจริง",
+    "ยอดรับ / จ่ายจริง",
     "สถานะ",
     "เอกสารแนบ",
     "แก้ไข / ลบ",
@@ -116,28 +122,29 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
   // Nobody jotted these rows: each is worked out from its PO, and has nothing to edit.
   await expect(ledgerRows(page)).toHaveCount(3);
   const first = cells(page, PO1);
-  await expect(first.nth(1)).toHaveText("PO เนื้อ");
-  await expect(first.nth(2)).toHaveText(PO1);
-  await expect(first.nth(3)).toHaveText("วัตถุดิบ");
-  await expect(first.nth(6)).toHaveText("Foodiva");
-  await expect(first.nth(7)).toHaveText("โปรเจกต์");
-  await expect(first.nth(8)).toHaveText("Nerdnuea x LINE MAN");
-  await expect(first.nth(9)).toHaveText("100 กก.");
-  await expect(first.nth(10)).toHaveText("฿70,000");
-  await expect(first.nth(11)).toHaveText("฿0");
-  await expect(first.nth(12)).toHaveText("รอจ่าย");
-  await expect(first.nth(13)).toHaveText("เปิด PO");
-  await expect(first.nth(14).getByRole("button")).toHaveCount(0);
+  await expect(first.nth(1)).toHaveText("รายจ่าย");
+  await expect(first.nth(2)).toHaveText("PO เนื้อ");
+  await expect(first.nth(3)).toHaveText(PO1);
+  await expect(first.nth(4)).toHaveText("วัตถุดิบ");
+  await expect(first.nth(7)).toHaveText("Foodiva");
+  await expect(first.nth(8)).toHaveText("โปรเจกต์");
+  await expect(first.nth(9)).toHaveText("Nerdnuea x LINE MAN");
+  await expect(first.nth(10)).toHaveText("100 กก.");
+  await expect(first.nth(11)).toHaveText("฿70,000");
+  await expect(first.nth(12)).toHaveText("฿0");
+  await expect(first.nth(13)).toHaveText("รอจ่าย");
+  await expect(first.nth(14)).toHaveText("เปิด PO");
+  await expect(first.nth(15).getByRole("button")).toHaveCount(0);
   const second = cells(page, PO2);
-  await expect(second.nth(10)).toHaveText("฿35,000");
+  await expect(second.nth(11)).toHaveText("฿35,000");
   // The PO รมควัน holds its estimate: 100 kg at the rate under 1,000 kg, ฿220.
   const smoke = cells(page, SO);
-  await expect(smoke.nth(1)).toHaveText("PO รมควัน");
-  await expect(smoke.nth(4)).toHaveText("ค่ารมควัน");
-  await expect(smoke.nth(6)).toHaveText("Chef House");
-  await expect(smoke.nth(9)).toHaveText("100 กก.");
-  await expect(smoke.nth(10)).toHaveText("฿22,000");
-  await expect(smoke.nth(12)).toHaveText("รอจ่าย");
+  await expect(smoke.nth(2)).toHaveText("PO รมควัน");
+  await expect(smoke.nth(5)).toHaveText("ค่ารมควัน");
+  await expect(smoke.nth(7)).toHaveText("Chef House");
+  await expect(smoke.nth(10)).toHaveText("100 กก.");
+  await expect(smoke.nth(11)).toHaveText("฿22,000");
+  await expect(smoke.nth(13)).toHaveText("รอจ่าย");
   // The cards: every PO still to pay, at its whole amount; nothing paid this month.
   await expect(card(page, "งบที่กันไว้จาก PO")).toContainText("฿127,000");
   await expect(card(page, "งบที่กันไว้จาก PO")).toContainText(
@@ -151,31 +158,36 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
     page.getByRole("button", { name: "PO รอจ่าย (3)" }),
   ).toBeVisible();
   const totals = ledger(page).locator("tfoot").getByRole("cell");
-  await expect(totals).toHaveText(["รวม 3 รายการ", "฿127,000", "฿0", ""]);
+  await expect(totals).toHaveText(["รวม 3 รายการ", "฿127,000", money(0), ""]);
 
   // A payment names the seller, not a PO: ฿80,000 fills the older PO, the rest is on the next.
   await payFoodiva(page, "80000");
-  await expect(first.nth(11)).toHaveText("฿70,000");
-  await expect(first.nth(12)).toHaveText("จ่ายแล้ว");
-  await expect(second.nth(11)).toHaveText("฿10,000");
-  await expect(second.nth(12)).toHaveText("รอจ่าย");
-  await expect(smoke.nth(11)).toHaveText("฿0");
+  await expect(first.nth(12)).toHaveText("฿70,000");
+  await expect(first.nth(13)).toHaveText("จ่ายแล้ว");
+  await expect(second.nth(12)).toHaveText("฿10,000");
+  await expect(second.nth(13)).toHaveText("รอจ่าย");
+  await expect(smoke.nth(12)).toHaveText("฿0");
   await expect(card(page, "งบที่กันไว้จาก PO")).toContainText("฿57,000");
   await expect(card(page, "งบที่กันไว้จาก PO")).toContainText(
     "2 รายการที่ยังรอจ่าย",
   );
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿80,000");
-  await expect(totals).toHaveText(["รวม 3 รายการ", "฿127,000", "฿80,000", ""]);
+  await expect(totals).toHaveText([
+    "รวม 3 รายการ",
+    "฿127,000",
+    money(80000),
+    "",
+  ]);
   // Paid in full: the second PO is จ่ายแล้ว too.
   await payFoodiva(page, "25000");
-  await expect(second.nth(11)).toHaveText("฿35,000");
-  await expect(second.nth(12)).toHaveText("จ่ายแล้ว");
+  await expect(second.nth(12)).toHaveText("฿35,000");
+  await expect(second.nth(13)).toHaveText("จ่ายแล้ว");
   await expect(
     page.getByRole("button", { name: "PO รอจ่าย (1)" }),
   ).toBeVisible();
 
   // The PO's number leads to the PO in Lots.
-  await first.nth(2).getByRole("button", { name: PO1 }).click();
+  await first.nth(3).getByRole("button", { name: PO1 }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Lots");
   await expect(page.getByRole("main")).toContainText(PO1);
 });
@@ -197,17 +209,17 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
   );
   const ink = cells(page, "หมึกพิมพ์");
   // With no status picked, a row with an amount is paid.
-  await expect(ink.nth(1)).toHaveText("เงินโอน");
-  await expect(ink.nth(2)).toHaveText("RC-77");
-  await expect(ink.nth(3)).toHaveText("สินทรัพย์");
-  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0024");
-  await expect(ink.nth(6)).toHaveText("ร้านกอไก่");
-  await expect(ink.nth(7)).toHaveText("บริษัทส่วนกลาง");
-  await expect(ink.nth(8)).toHaveText("ส่วนกลาง");
-  await expect(ink.nth(9)).toHaveText("2");
-  await expect(ink.nth(10)).toHaveText("—");
-  await expect(ink.nth(11)).toHaveText("฿500");
-  await expect(ink.nth(12)).toHaveText("จ่ายแล้ว");
+  await expect(ink.nth(2)).toHaveText("เงินโอน");
+  await expect(ink.nth(3)).toHaveText("RC-77");
+  await expect(ink.nth(4)).toHaveText("สินทรัพย์");
+  await expect(ink.nth(5)).toHaveText("หมึกพิมพ์SKU-0024");
+  await expect(ink.nth(7)).toHaveText("ร้านกอไก่");
+  await expect(ink.nth(8)).toHaveText("บริษัทส่วนกลาง");
+  await expect(ink.nth(9)).toHaveText("ส่วนกลาง");
+  await expect(ink.nth(10)).toHaveText("2");
+  await expect(ink.nth(11)).toHaveText("—");
+  await expect(ink.nth(12)).toHaveText("฿500");
+  await expect(ink.nth(13)).toHaveText("จ่ายแล้ว");
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿500");
   // A hand-jotted row holds no PO budget.
   await expect(card(page, "งบที่กันไว้จาก PO")).toContainText("฿0");
@@ -220,9 +232,9 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
   await expect(form(page).getByLabel(/^รายการ/)).toHaveValue("หมึกพิมพ์");
   await fill(page, [/^ยอดจ่ายจริง/, "650"]);
   await save(page);
-  await expect(ink.nth(11)).toHaveText("฿650");
+  await expect(ink.nth(12)).toHaveText("฿650");
   // The edit kept the item, so its SKU.
-  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0024");
+  await expect(ink.nth(5)).toHaveText("หมึกพิมพ์SKU-0024");
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿650");
   // A deleted one: the row and its money are gone.
   await expense(
@@ -251,15 +263,15 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
     [/^ยอดจ่ายจริง/, "900"],
     [/^สถานะ/, "ยกเลิก"],
   );
-  await expect(cells(page, "ค่าโดเมน").nth(8)).toHaveText("งานอีเวนต์");
-  await expect(cells(page, "ค่าโดเมน").nth(11)).toHaveText("—");
-  await expect(cells(page, "ค่าโดเมน").nth(12)).toHaveText("รอจ่าย");
-  await expect(cells(page, "ป้ายไวนิล").nth(12)).toHaveText("ยกเลิก");
+  await expect(cells(page, "ค่าโดเมน").nth(9)).toHaveText("งานอีเวนต์");
+  await expect(cells(page, "ค่าโดเมน").nth(12)).toHaveText("—");
+  await expect(cells(page, "ค่าโดเมน").nth(13)).toHaveText("รอจ่าย");
+  await expect(cells(page, "ป้ายไวนิล").nth(13)).toHaveText("ยกเลิก");
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿650");
   await expect(ledger(page).locator("tfoot").getByRole("cell")).toHaveText([
     "รวม 2 รายการ (ไม่รวมที่ยกเลิก)",
     "฿0",
-    "฿650",
+    money(650),
     "",
   ]);
   // Only a PO waits for the PO shortcut.
@@ -271,7 +283,7 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
   await press(ink, "แก้ไข");
   await fill(page, [/^สถานะ/, "รอจ่าย"]);
   await save(page);
-  await expect(ink.nth(12)).toHaveText("รอจ่าย");
+  await expect(ink.nth(13)).toHaveText("รอจ่าย");
   await press(ink, "ลบ");
   await expect(ledgerRows(page)).toHaveCount(2);
   await expect(ledger(page)).not.toContainText("หมึกพิมพ์");

@@ -506,11 +506,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
           aria-label={skuTitle}
           title={skuTitle}
           aside={
-            <Button
-              size="sm"
-              className="border-text-primary text-text-primary"
-              onClick={() => setSkusOpen(true)}
-            >
+            <Button size="sm" onClick={() => setSkusOpen(true)}>
               เปิดรายการ
             </Button>
           }

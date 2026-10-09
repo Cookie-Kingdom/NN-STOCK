@@ -10,7 +10,7 @@ import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
 import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { descriptionFor, pages } from "@/lib/nav";
-import { kindsForPage, titles } from "@/lib/store";
+import { kindsForPage, shopProject, titles } from "@/lib/store";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
  *  beside one column holding the page's head with a button per note kind of the page, and
@@ -47,13 +47,23 @@ export function WorkspaceShell({
                   <Button
                     key={kind}
                     icon={<Plus />}
-                    // A branch jots its day from its Stock and Inventory: its buttons stand out.
-                    variant={
-                      ws.account.role === "branch" ? "primary" : undefined
-                    }
+                    variant="primary"
                     // Not while the seed stands in for the server payload: a form would read it.
                     disabled={!ws.loaded}
-                    onClick={() => ws.jot({ kind })}
+                    onClick={() =>
+                      ws.jot(
+                        // Finance is the project's money: its income opens as the project's.
+                        kind === "income" && ws.tab === "finance"
+                          ? {
+                              kind,
+                              values: {
+                                purpose: "project",
+                                project: shopProject,
+                              },
+                            }
+                          : { kind },
+                      )
+                    }
                   >
                     {titles[kind]}
                   </Button>

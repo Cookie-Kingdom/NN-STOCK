@@ -213,8 +213,8 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
       .getByRole("row", { name: /^น้องฝน/ })
       .getByRole("cell"),
   ).toHaveText(["น้องฝน", "฿150", "฿0", "฿150", "คืนเงิน"]);
-  await expect(region(page, "รายการจ่ายเงินล่าสุด")).toContainText(
-    "ยังไม่มีรายการจ่ายเงิน",
+  await expect(region(page, "รายการเงินเข้า–ออกล่าสุด")).toContainText(
+    "ยังไม่มีรายการเงินเข้า–ออก",
   );
 });
 
