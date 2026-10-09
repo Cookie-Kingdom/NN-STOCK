@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Caption } from "@/components/atoms/Text";
 import { Dialog } from "@/components/molecules/Dialog";
 import {
@@ -189,12 +189,12 @@ export function PoDocumentDialog({
               shown={shown}
               when={
                 <FormField label="วันที่">
-                  <Input
-                    type="date"
+                  <DatePicker
+                    title="วันที่"
                     max={today}
                     value={date}
-                    onChange={(event) => {
-                      setDate(event.target.value);
+                    onChange={(next) => {
+                      setDate(next);
                       setDirty(true);
                     }}
                   />

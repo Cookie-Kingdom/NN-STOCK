@@ -1,11 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  allTodos,
   bangkokDate,
   confirmDelete,
   fill,
   form,
   jot,
   jotButtons,
+  openDays,
   openPage,
   pageButtons,
   popupTitle,
@@ -14,9 +16,8 @@ import {
   save,
   signInAs,
   start,
+  theDate,
   toast,
-  openDays,
-  allTodos,
 } from "./helpers";
 
 /* Spec v2 section 11, items 8, 10–14 and 20: a branch's day, its stock, and changing notes. */
@@ -41,8 +42,10 @@ const todoLines = (page: Page, text: string) =>
 const jotSaleOf = async (page: Page, offset = 0) => {
   await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
-  if (offset) await fill(page, [/^วันที่$/, bangkokDate(offset)]);
-  await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(
+  if (offset) await fill(page, [theDate, bangkokDate(offset)]);
+  await expect(form(page).getByLabel(theDate)).toHaveAttribute(
+    "data-value",
+
     bangkokDate(offset),
   );
 };
@@ -388,7 +391,7 @@ test("13 · V2-BR-03 a material not counted for 8 days is yellow, and counting i
     [-7, /^กระดาษรอง/, "40"],
   ] as const) {
     await jot(page, "นับวัสดุคงเหลือ");
-    await fill(page, [/^วันที่$/, bangkokDate(offset)], [item, count]);
+    await fill(page, [theDate, bangkokDate(offset)], [item, count]);
     await save(page);
   }
   const card = region(page, "วัสดุ");
@@ -557,7 +560,10 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     .locator("xpath=following-sibling::dd");
   await expect(yieldOf).toHaveText("52%");
   await press(lot.locator('[data-kind="smoked"]'), "แก้ไข");
-  await expect(form(page).getByLabel(/^วันที่$/)).toHaveValue(bangkokDate(-16));
+  await expect(form(page).getByLabel(theDate)).toHaveAttribute(
+    "data-value",
+    bangkokDate(-16),
+  );
   await fill(page, [/^น้ำหนักหลังรมควัน/, "100"]);
   await save(page);
   await expect(yieldOf).toHaveText("50%");

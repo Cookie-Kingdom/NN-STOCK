@@ -4,14 +4,15 @@ import {
   confirmDelete,
   fill,
   jot,
+  openDays,
   openPage,
   region,
   rows,
   save,
   signInAs,
   start,
+  theDate,
   toast,
-  openDays,
 } from "./helpers";
 
 /* The difference at the latest count (นับได้ − ควรเหลือ) on the Owner's Stock and
@@ -37,7 +38,7 @@ const sale = async (
 ) => {
   await openPage(page, "Stock");
   await jot(page, "ยอดขาย");
-  await fill(page, [/^วันที่$/, bangkokDate(offset)], ...pairs);
+  await fill(page, [theDate, bangkokDate(offset)], ...pairs);
   await save(page);
 };
 const countMeat = async (page: Page, offset: number, kg: string) => {
@@ -45,7 +46,7 @@ const countMeat = async (page: Page, offset: number, kg: string) => {
   await jot(page, "นับเนื้อคงเหลือ");
   await fill(
     page,
-    [/^วันที่$/, bangkokDate(offset)],
+    [theDate, bangkokDate(offset)],
     [/^เนื้อคงเหลือที่นับได้/, kg],
   );
   await save(page);
@@ -66,7 +67,7 @@ test("meat: the second count shows นับได้ − ควรเหลื�
   await signInAs(page, "saladaeng");
   await countMeat(page, -2, "10");
   await jot(page, "รับเนื้อเข้าสาขา");
-  await fill(page, [/^วันที่$/, bangkokDate(-1)], [/^น้ำหนักรับเข้าสาขา/, "5"]);
+  await fill(page, [theDate, bangkokDate(-1)], [/^น้ำหนักรับเข้าสาขา/, "5"]);
   await save(page);
   await sale(page, -1, [/^กล่องมาตรฐาน/, "25"], [/^ยอดขาย LINE MAN/, "8750"]);
 
@@ -152,7 +153,7 @@ test("chili and a material: no difference after one count, and after the second 
   await signInAs(page, "saladaeng");
   await openPage(page, "Inventory");
   await jot(page, "นับวัสดุคงเหลือ");
-  await fill(page, [/^วันที่$/, bangkokDate(-3)], [/^กล่องพิมพ์ลาย/, "100"]);
+  await fill(page, [theDate, bangkokDate(-3)], [/^กล่องพิมพ์ลาย/, "100"]);
   await save(page);
   // The chili is counted at the end of a sale form.
   await sale(

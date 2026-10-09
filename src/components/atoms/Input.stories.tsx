@@ -14,14 +14,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
- *  - `variant`: form (default), table (a table cell, e.g. "12.50"), or filter (e.g.
- *    `type="date"` in a filter bar)
+ *  - `variant`: form (default), table (a table cell, e.g. "12.50"), or filter (a search
+ *    box in a filter bar)
  *  - `type="number"`: ตัวเลขทั่วไป: ไม่มีปุ่มเพิ่ม/ลด และเลื่อนเมาส์แล้วค่าไม่เปลี่ยน
  *  - `spinner`: ใช้ปุ่มเพิ่ม/ลดของเบราว์เซอร์ (with `type="number"`)
  *  - `disabled`: cannot be typed in */
 export const Default: Story = {
   argTypes: {
-    type: { control: "inline-radio", options: ["text", "number", "date"] },
+    type: { control: "inline-radio", options: ["text", "number", "tel"] },
     spinner: { control: "boolean" },
     disabled: { control: "boolean" },
     defaultValue: { control: "text" },

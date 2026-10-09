@@ -122,19 +122,6 @@ const truck: Field[] = [
   text("driverName", "ชื่อคนขับ"),
   { key: "driverPhone", label: "เบอร์คนขับ", type: "tel" },
 ];
-/** Every half hour of the day. Every `time` field picks from this grid rather than
- *  taking a typed HH:mm — every time this app records lands on one. */
-const timeSlots = Array.from({ length: 48 }, (_, index) => {
-  const hour = String(Math.floor(index / 2)).padStart(2, "0");
-  return `${hour}:${index % 2 ? "30" : "00"}`;
-});
-/** The grid, plus whatever off-grid time an older entry already holds, so reopening
- *  its form never silently drops it. */
-export function timeOptions(current?: string) {
-  return current && !timeSlots.includes(current)
-    ? [...timeSlots, current].sort()
-    : timeSlots;
-}
 const kg = (x: number) =>
   x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 /** What was typed before under `key` of `kind`, as suggestions after the `first` ones. */

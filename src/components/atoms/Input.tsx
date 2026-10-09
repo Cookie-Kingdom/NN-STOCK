@@ -33,7 +33,8 @@ const noSpinner =
   "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 /**
- * Single-line control for text, numbers and dates. `variant` says where it lives:
+ * Single-line control for text and numbers (a date is a `DatePicker`, a time a
+ * `TimePicker`). `variant` says where it lives:
  * `form` inside a FormField, `table` in an editable table cell (right-aligned,
  * tabular), `filter` in a filter bar. All three stay 16px on mobile so iOS does not
  * zoom the page when the field takes focus.
