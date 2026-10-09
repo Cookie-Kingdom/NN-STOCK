@@ -200,7 +200,7 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
   await expect(ink.nth(1)).toHaveText("เงินโอน");
   await expect(ink.nth(2)).toHaveText("RC-77");
   await expect(ink.nth(3)).toHaveText("สินทรัพย์");
-  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0011");
+  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0024");
   await expect(ink.nth(6)).toHaveText("ร้านกอไก่");
   await expect(ink.nth(7)).toHaveText("บริษัทส่วนกลาง");
   await expect(ink.nth(8)).toHaveText("ส่วนกลาง");
@@ -222,7 +222,7 @@ test("V2-LED-05 V2-LED-07 the Owner jots, edits and deletes an expense, and no b
   await save(page);
   await expect(ink.nth(11)).toHaveText("฿650");
   // The edit kept the item, so its SKU.
-  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0011");
+  await expect(ink.nth(4)).toHaveText("หมึกพิมพ์SKU-0024");
   await expect(card(page, "ยอดจ่ายจริงเดือนนี้")).toContainText("฿650");
   // A deleted one: the row and its money are gone.
   await expense(
@@ -314,7 +314,7 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await expense(
     page,
     [/^ประเภทสินค้า/, "วัสดุบรรจุภัณฑ์"],
-    [/^รายการ/, "ถุงซีลเนื้อ"],
+    [/^รายการ/, "ซองข้าวเหนียว"],
     [/^รายละเอียด/, "ขนาด 8x12"],
     [/^ค่าใช้จ่ายของ/, "โปรเจกต์"],
     [/^Project/, "งานอีเวนต์"],
@@ -329,14 +329,14 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   // The search: the item, the detail, the seller, the reference and the SKU, in any case.
   for (const [word, found] of [
     ["หมึก", "หมึกพิมพ์"],
-    ["8X12", "ถุงซีลเนื้อ"],
+    ["8X12", "ซองข้าวเหนียว"],
     ["กอไก่", "หมึกพิมพ์"],
     ["foodiva", PO1],
     ["rc-77", "หมึกพิมพ์"],
     [PO1.toLowerCase(), PO1],
-    ["sku-0011", "หมึกพิมพ์"],
+    ["sku-0024", "หมึกพิมพ์"],
     // A material's SKU, on the row that named the material.
-    ["SKU-0003", "ถุงซีลเนื้อ"],
+    ["SKU-0003", "ซองข้าวเหนียว"],
   ]) {
     await search.fill(word);
     await expect(ledgerRows(page), word).toHaveCount(1);
@@ -360,7 +360,7 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   ]);
   await pick(project, "งานอีเวนต์");
   await expect(ledgerRows(page)).toHaveCount(1);
-  await expect(ledgerRows(page)).toContainText("ถุงซีลเนื้อ");
+  await expect(ledgerRows(page)).toContainText("ซองข้าวเหนียว");
   await pick(project, "ส่วนกลาง");
   await expect(ledgerRows(page)).toContainText(["หมึกพิมพ์"]);
   await pick(project, "Nerdnuea x LINE MAN");
@@ -373,7 +373,7 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await expect(ledgerRows(page)).toHaveCount(2);
   // Together: still to pay, and a packaging material.
   await pick(itemType, "วัสดุบรรจุภัณฑ์");
-  await expect(ledgerRows(page)).toContainText(["ถุงซีลเนื้อ"]);
+  await expect(ledgerRows(page)).toContainText(["ซองข้าวเหนียว"]);
   await pick(status, "ทั้งหมด");
   await expect(ledgerRows(page)).toHaveCount(1);
   await pick(itemType, "ทั้งหมด");
