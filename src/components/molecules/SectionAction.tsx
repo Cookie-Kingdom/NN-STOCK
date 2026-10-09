@@ -61,7 +61,6 @@ export function SectionAction<Section extends string>({
       ) : (
         <Button
           size="sm"
-          className="border-text-primary text-text-primary"
           disabled={editing !== null}
           onClick={() => onStartEdit(section)}
         >

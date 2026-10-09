@@ -10,9 +10,9 @@ const buttonVariants = cva(
         /** `.primary` */
         primary:
           "gap-2 rounded-md border border-accent bg-accent text-body font-medium text-accent-fg hover:bg-accent-hover disabled:hover:bg-accent",
-        /** `.secondary` */
+        /** `.secondary`: a blue tint, not the surface's white, which the page swallowed. */
         secondary:
-          "gap-2 rounded-md border border-border bg-surface text-body font-medium text-text-primary hover:bg-bg disabled:hover:bg-surface",
+          "gap-2 rounded-md border border-accent/25 bg-accent-subtle text-body font-medium text-accent hover:bg-accent/15 disabled:hover:bg-accent-subtle",
         /** `.danger-button` */
         danger:
           "gap-2 rounded-md border border-danger/30 bg-danger-subtle text-body font-medium text-danger hover:bg-danger/10",

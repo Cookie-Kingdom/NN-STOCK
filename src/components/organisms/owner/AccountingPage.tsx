@@ -333,7 +333,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         <Button
           size="sm"
           aria-pressed={poPending}
-          className="min-h-10 aria-pressed:border-accent aria-pressed:text-accent"
+          className="min-h-10 aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-fg"
           onClick={() => {
             setFilters({
               ...filters,
