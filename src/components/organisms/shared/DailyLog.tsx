@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
-import { noteTags, timeOf } from "@/components/organisms/shared/noteText";
+import { noteTags } from "@/components/organisms/shared/noteText";
 import {
   ChangeLog,
   changesOf,
@@ -20,7 +20,7 @@ import { TodoBox } from "@/components/organisms/workspace/TodoBox";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, qty, thaiDay } from "@/lib/format";
 import {
-  branchMeat,
+  branchItem,
   branches,
   hasSale,
   isNoteKind,
@@ -133,7 +133,7 @@ function Day({
  *  page for looking: nothing here opens a
  *  new note, only a row its edit or delete. A day's head says per branch whether its sale is
  *  jotted; a day with one missing is yellow. Beside the days: everything not jotted yet (a
- *  status list), and for a branch its meat. */
+ *  status list), and for a branch its meat as its daily sheet reads (`branchItem`). */
 export function DailyLog({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
   const [filter, setFilter] = useState<Filter>("all");
@@ -185,7 +185,7 @@ export function DailyLog({ ws }: { ws: Workspace }) {
       />
     );
   });
-  const meat = own ? branchMeat(db, account.branch ?? "", today) : null;
+  const meat = own ? branchItem(db, account.branch ?? "", "meat", today) : null;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4">
@@ -242,18 +242,14 @@ export function DailyLog({ ws }: { ws: Workspace }) {
             <ReadRow
               label="ตอนนี้"
               value={
-                <span className={cn(meat.kg < 0 && "text-danger")}>
-                  {qty(meat.kg)} กก.
+                <span className={cn(meat.remaining < 0 && "text-danger")}>
+                  {qty(meat.remaining)} กก.
                 </span>
               }
             />
             <ReadRow
-              label="วันที่นับล่าสุด"
-              value={
-                meat.counted
-                  ? `${thaiDay(meat.counted.date)} ${timeOf(meat.counted.at)}`
-                  : "—"
-              }
+              label="ใบสต๊อกวันนี้"
+              value={meat.saved ? "บันทึกแล้ว" : "ยังไม่บันทึกวันนี้"}
             />
           </Panel>
         )}

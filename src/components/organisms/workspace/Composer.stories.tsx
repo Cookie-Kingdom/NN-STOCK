@@ -150,10 +150,10 @@ export const PayEdit: Story = {
   },
 };
 
-/** บันทึกสั้น (md, คอลัมน์เดียว ไม่มีแถบ 「ตัวเลขสรุป」): สาขานับเนื้อคงเหลือ ·
+/** บันทึกสั้น (md, คอลัมน์เดียว ไม่มีแถบ 「ตัวเลขสรุป」): สาขารับเนื้อเข้าสาขา ·
  *  ช่องหลักว่างเป็นสีเหลือง ท้าย popup นับว่า ยังไม่ได้จด 1 ช่อง พิมพ์แล้วเปลี่ยนเป็น จดครบแล้ว */
 export const ShortNote: Story = {
-  args: { account: "saladaeng", open: { kind: "meatCount" } },
+  args: { account: "saladaeng", open: { kind: "receive" } },
   parameters: { db: dbFor("saladaeng") },
 };
 
@@ -234,13 +234,6 @@ export const GiftBoxes: Story = {
         await userEvent.type(canvas.getAllByLabelText(/^ค่าส่ง/)[index], fee);
     }
   },
-};
-
-/** นับวัสดุคงเหลือ ของศาลาแดง (สาขาที่ใช้ข้าวเหนียวดิบ): ต่อจากวัสดุมีช่อง「ข้าวเหนียวดิบ (กก.)」
- *  ใส่ทศนิยมได้ · สาขาที่ไม่ได้ใช้ (มีนบุรี) ไม่มีช่องนี้ */
-export const MaterialsCount: Story = {
-  args: { account: "saladaeng", open: { kind: "materials" } },
-  parameters: { db: dbFor("saladaeng") },
 };
 
 /** แก้ไขการส่งไปรม: ฟอร์มเดิมพร้อมค่าที่จดไว้ บรรทัดใต้ชื่อบอกว่าแก้บันทึกของวันไหน ไม่มีปุ่ม บันทึกและจดต่อ

@@ -50,69 +50,95 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
-/** Counts against what the web expected, on a new system: stock came in two days before
- *  `on`, was counted the day before and again on `on` (a variance needs a count before it).
- *  ศาลาแดง: meat −2 กก., chili −2 หลอด, the first material 0, the second −3 ชิ้น, the third
- *  counted once (no variance), the rest never counted. มีนบุรี: meat counted once
- *  (「นับครั้งแรก」), chili 0, no material ever counted. */
-export function countedDb(on = day): Database {
+/** Daily sheets on a new system: both branches set the opening of both sheets two days
+ *  before `on` and saved the sheets of the day before; nothing is saved on `on` yet.
+ *  ศาลาแดง: 10 กก. of meat received on `on` (เข้าเอง), a meat waste and a material waste with
+ *  their reasons. มีนบุรี: a chili waste with no reason and no reporter (ยังไม่ได้จด). */
+export function sheetsDb(on = day): Database {
   const back = (days: number) =>
     new Date(Date.parse(on) - days * 86400000).toISOString().slice(0, 10);
-  const owner = accountById("owner")!;
   const saladaeng = accountById("saladaeng")!;
   const minburi = accountById("minburi")!;
-  const [first, second, third] = materialList(seed.config);
-  const bought = (
-    item: string,
-    qty: string,
-    branch = "ศาลาแดง",
-  ): [Actor, NoteKind, Values, string] => [
-    owner,
-    "pay",
-    {
-      category: item === "chili" ? "ingredient" : "packaging",
-      amount: "1",
-      item,
-      qty,
-      branch,
-    },
-    back(2),
-  ];
+  const [first, second] = materialList(seed);
   const notes: [Actor, NoteKind, Values, string][] = [
-    [saladaeng, "receive", { kg: "10" }, back(2)],
-    [minburi, "receive", { kg: "6" }, back(2)],
-    bought("chili", "50"),
-    bought("chili", "20", "มีนบุรี"),
-    bought(first.id, "100"),
-    bought(second.id, "50"),
-    // The first counts.
-    [saladaeng, "meatCount", { kg: "10" }, back(1)],
-    [saladaeng, "sale", { boxes: "0", chiliCount: "50" }, back(1)],
-    [minburi, "sale", { boxes: "0", chiliCount: "20" }, back(1)],
     [
       saladaeng,
-      "materials",
-      { [`count.${first.id}`]: "100", [`count.${second.id}`]: "50" },
+      "opening",
+      { sheet: "meat", "qty.meat": "24", "qty.rice": "30", "qty.chili": "120" },
+      back(2),
+    ],
+    [
+      saladaeng,
+      "opening",
+      {
+        sheet: "materials",
+        [`qty.${first.id}`]: "500",
+        [`qty.${second.id}`]: "300",
+      },
+      back(2),
+    ],
+    [
+      minburi,
+      "opening",
+      { sheet: "meat", "qty.meat": "40", "qty.chili": "60" },
+      back(2),
+    ],
+    [
+      minburi,
+      "opening",
+      { sheet: "materials", [`qty.${first.id}`]: "380" },
+      back(2),
+    ],
+    [
+      saladaeng,
+      "daily",
+      {
+        sheet: "meat",
+        "used.meat": "3.3",
+        "waste.meat": "0.3",
+        "reason.meat": "เนื้อตกพื้น",
+        "used.rice": "2",
+        "used.chili": "4",
+        reporter: "น้องฝน",
+      },
       back(1),
     ],
-    // The second, and the first of มีนบุรี's meat and of the third material.
-    [saladaeng, "meatCount", { kg: "8" }, on],
-    [minburi, "meatCount", { kg: "6" }, on],
-    [saladaeng, "sale", { boxes: "0", chiliAddons: "3", chiliCount: "45" }, on],
-    [minburi, "sale", { boxes: "0", chiliCount: "20" }, on],
     [
       saladaeng,
-      "materials",
+      "daily",
       {
-        [`count.${first.id}`]: "100",
-        [`count.${second.id}`]: "47",
-        [`count.${third.id}`]: "30",
+        sheet: "materials",
+        [`used.${first.id}`]: "28",
+        [`used.${second.id}`]: "32",
+        [`waste.${second.id}`]: "4",
+        [`reason.${second.id}`]: "ซองชำรุด",
+        reporter: "น้องฝน",
       },
-      on,
+      back(1),
     ],
+    [
+      minburi,
+      "daily",
+      {
+        sheet: "meat",
+        "used.meat": "2.4",
+        "used.chili": "6",
+        "waste.chili": "2",
+      },
+      back(1),
+    ],
+    [
+      minburi,
+      "daily",
+      { sheet: "materials", [`used.${first.id}`]: "20", reporter: "พี่เอ" },
+      back(1),
+    ],
+    [saladaeng, "receive", { kg: "10" }, on],
   ];
   return notes.reduce(
     (db, [by, kind, values, date]) => mutate(db, by, kind, values, "", date),
     emptyDb,
   );
 }
+/** The name the Owner's stock stories still import: rename there, then drop this. */
+export const countedDb = sheetsDb;

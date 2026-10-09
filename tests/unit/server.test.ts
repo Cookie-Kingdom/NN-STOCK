@@ -123,7 +123,16 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     materialList: "[]",
     rawRiceBranches: '["มีนบุรี"]',
   });
-  expect(JSON.stringify(scoped)).not.toContain("ศาลาแดง");
+  // Nothing names the other branch but its rows of the shared material list (si, siv).
+  const shared = ["si", "siv"];
+  expect(
+    JSON.stringify({
+      ...scoped,
+      entries: scoped.entries.filter((e) => !shared.includes(e.id)),
+    }),
+  ).not.toContain("ศาลาแดง");
+  expect(scoped.entries.map((e) => e.id)).not.toContain("d2");
+  expect(scoped.entries.map((e) => e.id)).not.toContain("op2");
   expect(scopeDatabase(state, ["ศาลาแดง"]).config.rawRiceBranches).toBe(
     '["ศาลาแดง"]',
   );
@@ -174,7 +183,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .payload.entries.map((e) => e.id)
       .join(),
   ).toBe(
-    "s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6",
+    "s1,r1,r0,ov,m0,ps,pse,psv,pb,oe,mc,xe,xee,t1,t3,t3e,t4,tv,d1,op1,si,siv,a1,a2,a3,a4,e1,e2,v1,v2,v3,a5,a6,a7,a8,a9,e3,e4",
   );
 
   const log = readState(db).payload.entries;
@@ -184,7 +193,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
       .slice(state.entries.length)
       .map((e) => e.id)
       .join(),
-  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6");
+  ).toBe("a1,a2,a3,a4,e1,e2,v1,v2,v3,v4,a5,a6,a7,a8,a9,e3,e4");
 });
 
 test("a branch appends only its own branch's kinds, the centre writes none of its notes, and what the centre buys for it reaches it alone", () => {
@@ -192,13 +201,13 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
   const { revision } = loadState(db, saladaeng);
   const entry = (over: Partial<Entry>): Entry => ({
     id: crypto.randomUUID(),
-    kind: "meatCount",
+    kind: "daily",
     role: "branch",
     lotId: "",
     branch: "ศาลาแดง",
     date: today(),
     at: "",
-    values: { kg: "5" },
+    values: { sheet: "meat", "used.meat": "5" },
     ...over,
   });
   const refused: [Partial<Entry>, string][] = [
@@ -208,6 +217,9 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
     [{ kind: "purchase" }, "Entry kind is not allowed for this account"],
     [{ kind: "config" }, "Entry kind is not allowed for this account"],
     [{ kind: "closeDay" }, "Entry kind is not allowed for this account"],
+    // The counts are retired: a branch's stock is its daily sheet.
+    [{ kind: "meatCount" }, "Entry kind is not allowed for this account"],
+    [{ kind: "materials" }, "Entry kind is not allowed for this account"],
     [{ lotId: "nope" }, "Entry lot does not exist"],
     [{ date: "2999-01-01" }, "Entry date is invalid or after today"],
   ];
@@ -246,6 +258,8 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
     });
   const centre: Entry[][] = [
     [entry({ branch: "มีนบุรี" })],
+    [entry({ kind: "opening", branch: "มีนบุรี" })],
+    [entry({ kind: "stockItem", branch: "มีนบุรี" })],
     [entry({ branch: "มีนบุรี", actor: "owner" })],
     [change("entryEdit", noteId)],
     [change("void", noteId)],

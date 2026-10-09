@@ -60,10 +60,14 @@ const entryKinds = [
   "reimburse",
   "transfer",
   "transferReceive",
+  "daily",
+  "opening",
+  "stockItem",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
- *  `prepare` and `smoke` are retired: `smoked` holds the weight after smoking. */
+ *  `prepare` and `smoke` are retired: `smoked` holds the weight after smoking. So are the
+ *  counts (`meatCount`, `materials`): a branch's stock is its daily sheet (`daily`). */
 export const noteKinds = [
   "purchase",
   "meatInvoice",
@@ -80,10 +84,11 @@ export const noteKinds = [
   "foodivaReturnReceive",
   "sale",
   "receive",
-  "meatCount",
   "influencerBox",
-  "materials",
   "transferReceive",
+  "daily",
+  "opening",
+  "stockItem",
   "expense",
   "transfer",
 ] as const;
@@ -133,10 +138,11 @@ export const kindInfo: Record<
   foodivaReturnReceive: { group: "extra", lot: "batch" },
   sale: { group: "branch" },
   receive: { group: "branch", lot: "optional" },
-  meatCount: { group: "branch" },
   influencerBox: { group: "branch" },
-  materials: { group: "branch" },
   transferReceive: { group: "branch" },
+  daily: { group: "branch" },
+  opening: { group: "branch" },
+  stockItem: { group: "branch" },
   expense: { group: "ledger" },
   transfer: { group: "ledger" },
 };
@@ -158,11 +164,11 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
     "packingList",
     "foodivaReturnReceive",
   ],
-  // A branch's Stock and Inventory, between them every kind it jots: what moves its meat and
-  // chili, and what moves its materials. It has no Finance, so `pay` stands on both. The
-  // Owner's two pages have none.
-  meatStock: ["sale", "receive", "meatCount", "influencerBox", "pay"],
-  stock: ["pay", "materials"],
+  // A branch's Stock and Inventory. It has no Finance, so `pay` stands on both. The Owner's
+  // two pages have none. The daily sheet, the opening stock and a list item (`daily`,
+  // `opening`, `stockItem`) are saved by the sheet on the page, like `transferReceive`.
+  meatStock: ["sale", "receive", "influencerBox", "pay"],
+  stock: ["pay"],
   finance: ["pay", "reimburse"],
   // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
   accounting: ["expense"],
@@ -266,15 +272,18 @@ export const titles: Record<EntryKind, string> = {
   ownerWasteReceive: "รับ Waste",
   sale: "ยอดขาย",
   receive: "รับเนื้อเข้าสาขา",
-  meatCount: "นับเนื้อคงเหลือ",
   influencerBox: "กล่องแจก",
-  materials: "นับวัสดุคงเหลือ",
   transfer: "จัดสรรสินค้า",
   transferReceive: "ยืนยันรับสินค้า",
+  daily: "ใบสต๊อกรายวัน",
+  opening: "ตั้งสต๊อกเริ่มต้น",
+  stockItem: "รายการสินค้า",
   config: "บันทึกการตั้งค่า",
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
   // Retired.
+  meatCount: "นับเนื้อคงเหลือ",
+  materials: "นับวัสดุคงเหลือ",
   central: "รับกลับเข้าสต๊อกกลาง",
   prepare: "น้ำหนักก่อนสโมค",
   smoke: "สโมค",
@@ -309,11 +318,11 @@ export const titles: Record<EntryKind, string> = {
   // No title ever: the log showed the raw kind for it, and still does.
   steakTransfer: "steakTransfer",
 };
-/** Kinds whose values can be corrected after they were saved (V2-PG-03): every note but the
- *  material count, which is saved again from the Stock page, each round kept, and a transfer's
- *  receipt, which is deleted instead. The edit is an `entryEdit` laid over the entry. */
+/** Kinds whose values can be corrected after they were saved (V2-PG-03): every note but a
+ *  list item, which is saved again (a `stockItem` naming its id), and a transfer's receipt,
+ *  which is deleted instead. The edit is an `entryEdit` laid over the entry. */
 export const editableKinds: EntryKind[] = noteKinds.filter(
-  (kind) => kind !== "materials" && kind !== "transferReceive",
+  (kind) => kind !== "stockItem" && kind !== "transferReceive",
 );
 /** Kinds a `void` may name: all but the settings (saved again from their page). A delete
  *  included: that puts the entry back. */
@@ -375,37 +384,53 @@ export const isEditOverlay = (
   (e.role === "owner" || (!!target && canChange(e, target)));
 /* Settings kept as JSON lists in `config` (Settings page). */
 type Channel = { key: string; name: string; gp: number };
-/** `id` is what entries name (`count.<id>`, a payment's `item`) and never changes; `sku` is the
- *  code people read, issued by `mutate` when the list is saved ("" until then). */
-type Material = {
+/** `id` is what entries name (`used.<id>`, a payment's `item`) and never changes; `sku` is the
+ *  code people read, issued by `mutate` when the list is saved ("" until then); `unit` is what
+ *  the item is counted in. */
+export type Material = {
   id: string;
   sku: string;
   name: string;
-  perBox: number | null;
+  unit: string;
 };
 type PayCategory = { id: string; name: string };
 const listDefaults = {
   salesChannels: JSON.stringify([
     { key: "lineMan", name: "LINE MAN", gp: "10" },
   ]),
-  // The ten materials of the ERP before v2, in its order.
-  materialList: JSON.stringify([
-    { id: "m1", sku: "SKU-0001", name: "กล่องพิมพ์ลาย", perBox: "1" },
-    { id: "m2", sku: "SKU-0002", name: "กระดาษรอง", perBox: "" },
-    { id: "m3", sku: "SKU-0003", name: "ถุงซีลเนื้อ", perBox: "1" },
-    { id: "m4", sku: "SKU-0004", name: "ถุงซีลข้าว", perBox: "" },
-    { id: "m5", sku: "SKU-0005", name: "ถุงหิ้วกระดาษ", perBox: "" },
-    { id: "m6", sku: "SKU-0006", name: "สติกเกอร์โลโก้", perBox: "1" },
-    {
-      id: "m7",
-      sku: "SKU-0007",
-      name: "การ์ด / สติกเกอร์วิธีอุ่น",
-      perBox: "",
-    },
-    { id: "m8", sku: "SKU-0008", name: "ถ้วยพริก", perBox: "" },
-    { id: "m9", sku: "SKU-0009", name: "สติกเกอร์พริก", perBox: "" },
-    { id: "m10", sku: "SKU-0010", name: "สติกเกอร์ข้าวเหนียว", perBox: "" },
-  ]),
+  // The shop's daily stock sheet, in its order: name, unit.
+  materialList: JSON.stringify(
+    [
+      ["กล่องบรรจุ", "กล่อง"],
+      ["ซองเนื้อ", "ซอง"],
+      ["ซองข้าวเหนียว", "ซอง"],
+      ["ถุงกระดาษ", "ถุง"],
+      ["น้ำพริกถุง (1kg)", "ถุง"],
+      ["ถ้วยกระดาษ", "ถ้วย"],
+      ["น้ำพริกพร้อมใช้ (ถ้วย)", "ถ้วย"],
+      ["กระดาษรองกล่อง", "แพ็ค"],
+      ["ถุงมือดำ", "กล่อง"],
+      ["ทิชชู", "ห่อ"],
+      ["ถุงซีล", "ถุง"],
+      ["หมวกคลุมผม", "ชิ้น"],
+      ["ถุงดำ", "ถุง"],
+      ["เกลือ", "กล่อง"],
+      ["น้ำยาล้างจาน", "แกลลอน"],
+      ["สติ๊กเกอร์วิธีอุ่น", "แผ่น"],
+      ["สติ๊กเกอร์น้ำพริก", "แผ่น"],
+      ["สติ๊กเกอร์แถบยาว", "แผ่น"],
+      ["กระดาษความร้อน", "ม้วน"],
+      ["ถ่าน AA", "ก้อน"],
+      ["ถ่าน AAA", "ก้อน"],
+      ["หน้ากากอนามัย", "กล่อง"],
+      ["ถุงหิ้วพลาสติกใส 12x20", "ห่อ"],
+    ].map(([name, unit], index) => ({
+      id: `m${index + 1}`,
+      sku: `SKU-${String(index + 1).padStart(4, "0")}`,
+      name,
+      unit,
+    })),
+  ),
   payCategories: JSON.stringify([
     { id: "meat", name: "เนื้อ" },
     { id: "smoke", name: "ค่ารม" },
@@ -443,13 +468,15 @@ export const legacySale = {
 };
 /** A sale the old books give no branch for is stored with `branch: ""` and reads as this. */
 export const noBranch = "ไม่ระบุสาขา";
-/** `perBox`: pieces one box uses, what a sale takes off the shelf between counts; null = not estimated. */
-export const materialList = (config: Values): Material[] =>
+/** The material list as Settings last saved it. The list in use is `materialList(db)`
+ *  (derived.ts): this one with the branches' `stockItem` notes since laid over. A row saved
+ *  before units has none: it reads as ชิ้น, what a count was in. */
+export const configMaterials = (config: Values): Material[] =>
   list(config, "materialList").map((m) => ({
     id: m.id,
     sku: m.sku ?? "",
     name: m.name,
-    perBox: Number(m.perBox) || null,
+    unit: m.unit || "ชิ้น",
   }));
 export const payCategories = (config: Values): PayCategory[] =>
   list(config, "payCategories").map(({ id, name }) => ({ id, name }));
@@ -471,7 +498,11 @@ export const ingredients = [
   { id: "chili", name: "น้ำพริก" },
   { id: "brine", name: "น้ำดอง" },
 ];
-/** The branches that steam their own sticky rice, so count the raw rice (V2-BR-08); the others
+/** A branch's two daily sheets: its Stock page (meat, raw rice, chili) and its Inventory page
+ *  (the material list). */
+export const sheets = ["meat", "materials"] as const;
+export type Sheet = (typeof sheets)[number];
+/** The branches that steam their own sticky rice, so keep raw rice on their sheet (V2-BR-08); the others
  *  buy it cooked and have no rice row anywhere. Anything unreadable is the seed's list. */
 export const rawRiceBranches = (config: Values): string[] => {
   for (const stored of [config.rawRiceBranches, seed.config.rawRiceBranches])
@@ -500,6 +531,9 @@ export const seed: Database = {
     ...listDefaults,
     // The old ERP's split: ศาลาแดง steams its rice, มีนบุรี buys it cooked.
     rawRiceBranches: JSON.stringify(["ศาลาแดง"]),
+    /* The last `stockItem` entry the saved materialList already holds ("" = none): only the
+     * ones after it are laid over the list (materialList in derived.ts). */
+    materialListAfter: "",
     companyName: "บริษัท เนิร์ดเนื้อ จำกัด",
     companyAddress: "",
     attention: "",

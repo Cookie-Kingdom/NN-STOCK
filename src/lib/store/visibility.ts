@@ -5,23 +5,19 @@ import {
   changeKinds,
   editableKinds,
   isEditOverlay,
-  materialList,
   missingKeys,
   payCategories,
-  rawRiceBranches,
   rentCategory,
+  sheets,
   titles,
   voidableKinds,
   type Actor,
   type Database,
   type Entry,
   type NoteKind,
+  type Sheet,
 } from "./model";
 import {
-  branchChili,
-  branchMaterial,
-  branchMeat,
-  branchRice,
   byDateAt,
   hasSale,
   isVoided,
@@ -30,6 +26,7 @@ import {
   outflows,
   poInfo,
   purchaseLots,
+  sheetNote,
   shipments,
 } from "./derived";
 /** The part of the raw log an account sees, changes included (the change log reads it). The
@@ -120,6 +117,11 @@ export type Todo = {
   editId?: string;
   page?: "stock" | "meatStock";
 };
+/** The page that holds each daily sheet, by the name the menu gives it. */
+const sheetPages = {
+  meat: { page: "meatStock", label: "Stock" },
+  materials: { page: "stock", label: "Inventory" },
+} as const;
 export const todoOpens = (todo: Todo) =>
   !!(todo.kind || todo.editId || todo.page);
 const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
@@ -142,40 +144,20 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
       const date = new Date(Date.parse(today) - back * 86400000)
         .toISOString()
         .slice(0, 10);
-      // Only the branch jots its sale and its count: for the Owner the line is a status.
+      // Only the branch jots its sale and its sheets: for the Owner the line is a status.
       if (!hasSale(db, branch, date))
         list.push({
           text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
           ...(own && { kind: "sale" as const, date }),
         });
     }
-    if (!branchMeat(db, branch, today).countedToday)
-      list.push({
-        text: `${lead}นับเนื้อวันนี้`,
-        ...(own && { kind: "meatCount" as const }),
-      });
-    // A line per page that holds them: the materials (Inventory), then the chili and the
-    // raw rice of a branch that steams its own (Stock).
-    const late = (name: string, page: Todo["page"], stale: boolean[]) => {
-      const n = stale.filter(Boolean).length;
-      if (n)
+    // A line per sheet not saved today, which opens the page that holds it.
+    for (const sheet of sheets)
+      if (!sheetNote(db, "daily", branch, sheet, today))
         list.push({
-          text: `${lead}${name} ${n} รายการไม่ได้นับเกิน 7 วัน`,
-          page,
+          text: `${lead}${titles.daily} ${sheetPages[sheet].label} วันนี้ยังไม่ได้บันทึก`,
+          page: sheetPages[sheet].page,
         });
-    };
-    late(
-      "วัสดุ",
-      "stock",
-      materialList(db.config).map(
-        (m) => branchMaterial(db, branch, m.id, today).stale,
-      ),
-    );
-    late("ข้าวเหนียวและน้ำพริก", "meatStock", [
-      branchChili(db, branch, today).stale,
-      rawRiceBranches(db.config).includes(branch) &&
-        branchRice(db, branch, today).stale,
-    ]);
   }
   if (!own) {
     // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).
@@ -233,8 +215,12 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
     if (missing && !old.has(e.lotId))
       list.push({
         text: `${titles[e.kind]} ${shortDate(e.date)}: ยังไม่ได้จด ${missing} ช่อง`,
-        // A note this account may not edit (a branch's, for the Owner) is a status line.
-        ...(!editBlock(db, e, by) && { editId: e.id }),
+        // A note this account may not edit (a branch's, for the Owner) is a status line; a
+        // sheet is saved again from its page.
+        ...(!editBlock(db, e, by) &&
+          (e.kind === "daily" || e.kind === "opening"
+            ? { page: sheetPages[e.values.sheet as Sheet]?.page }
+            : { editId: e.id })),
       });
   }
   return list;

@@ -5,13 +5,12 @@ import {
   branches,
   companyPayer,
   ingredients,
-  materialList,
   payCategories,
   payrollCategory,
   placeLabel,
   places,
-  rawRiceBranches,
   salesChannels,
+  sheets,
   stockCategories,
   type Actor,
   type Database,
@@ -23,8 +22,10 @@ import {
   advances,
   entries,
   liveEntries,
+  materialList,
   poInfo,
   purchaseLots,
+  sheetItems,
 } from "./store/derived";
 import {
   defaultLedgerTypes,
@@ -161,6 +162,36 @@ const placeField = (
   options: places.map((value) => ({ value, label: placeLabel(value) })),
   ...extra,
 });
+/** Which sheet a `daily` or an `opening` note is of: the Stock page's or the Inventory page's. */
+const sheetField: Field = {
+  key: "sheet",
+  label: "ใบสต๊อก",
+  type: "select",
+  options: [
+    { value: "meat", label: "Stock" },
+    { value: "materials", label: "Inventory" },
+  ],
+};
+/** One field per `figures` entry (`<figure>.<item id>`) for every row of both sheets, each
+ *  saved only on its own sheet. A branch reads its own rows (no raw rice unless it steams its
+ *  own, V2-BR-08); any other reader gets every row, for its label. */
+const sheetFields = (
+  db: Database,
+  by: Actor,
+  figures: [figure: string, label: string, type?: "text"][],
+): Field[] =>
+  sheets.flatMap((sheet) =>
+    sheetItems(db, sheet, by.role === "branch" ? by.branch : undefined).flatMap(
+      (item) =>
+        figures.map(([figure, label, type]): Field => {
+          const field = { when: (values: Values) => values.sheet === sheet };
+          const name = `${item.name} · ${label}`;
+          return type
+            ? text(`${figure}.${item.id}`, name, field)
+            : number(`${figure}.${item.id}`, name, item.unit, field);
+        }),
+    ),
+  );
 /** A `poLines` field: the live POs เนื้อ to pick from, each with what its seller still holds. */
 const poLinesField = (
   db: Database,
@@ -350,7 +381,7 @@ export function fields(
           when: isStock,
           options: [
             { value: "", label: "ไม่ระบุ" },
-            ...[...materialList(db.config), ...ingredients].map((m) => ({
+            ...[...materialList(db), ...ingredients].map((m) => ({
               value: m.id,
               label: m.name,
             })),
@@ -414,13 +445,6 @@ export function fields(
       return [
         core(count("boxes", "กล่องมาตรฐาน", "กล่อง")),
         count("chiliAddons", "น้ำพริกหลอดที่ขายแยก", "หลอด"),
-        count("chiliCount", "น้ำพริกที่นับได้ปลายวัน", "หลอด"),
-        text("chiliRemark", "สาเหตุที่น้ำพริกไม่ตรง"),
-        number("soldKg", "เนื้อที่ใช้ไปจริง", "กก.", {
-          hint: "ถ้าเว้นว่าง จะคิดจากจำนวนกล่อง",
-        }),
-        number("wasteKg", "เนื้อที่เสียไป", "กก."),
-        number("riceWasteKg", "ข้าวที่เสียไป", "กก."),
         // One money field per sales channel in Settings; only the first is core.
         ...salesChannels(db.config).map((channel, index) =>
           number(
@@ -434,7 +458,6 @@ export function fields(
         ),
         number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),
         text("payer", "ผู้จ่าย / ผู้สำรองจ่าย"),
-        text("reason", "สาเหตุที่มีของเสีย"),
         note,
       ];
     case "receive":
@@ -443,8 +466,6 @@ export function fields(
         weightReason,
         note,
       ];
-    case "meatCount":
-      return [core(number("kg", "เนื้อคงเหลือที่นับได้", "กก.")), note];
     case "influencerBox":
       return [
         core(text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง")),
@@ -453,17 +474,33 @@ export function fields(
         number("shippingFee", "ค่าส่ง", "บาท", { hint: once }),
         note,
       ];
-    case "materials":
+    /* A day's sheet (V2-CAL-10): per row what the branch took in by hand, what it used and,
+     * of that, what was waste, with the reason (`mutate` lists a waste with none as missing). */
+    case "daily":
       return [
-        ...materialList(db.config).map((m) =>
-          count(`count.${m.id}`, m.name, "ชิ้น"),
-        ),
-        // Raw rice: only for a branch that steams its own (V2-BR-08). Any other reader (the
-        // Owner looking at a branch's count) gets the field for its label.
-        ...(by.role !== "branch" ||
-        rawRiceBranches(db.config).includes(by.branch ?? "")
-          ? [number("count.rice", "ข้าวเหนียวดิบ", "กก.")]
-          : []),
+        sheetField,
+        ...sheetFields(db, by, [
+          ["received", "รับเข้า"],
+          ["used", "ใช้ไป"],
+          ["waste", "Waste"],
+          ["reason", "สาเหตุ Waste", "text"],
+        ]),
+        core(text("reporter", "ผู้บันทึก")),
+        note,
+      ];
+    // What the rows hold at the start of the note's date; a row left empty is not set.
+    case "opening":
+      return [
+        sheetField,
+        ...sheetFields(db, by, [["qty", "สต๊อกเริ่มต้น"]]),
+        note,
+      ];
+    // One row of the material list: `id` empty adds it, an id of the list changes that row.
+    case "stockItem":
+      return [
+        text("id", "รหัสรายการ"),
+        text("name", "ชื่อรายการ"),
+        text("unit", "หน่วย"),
       ];
     case "packingList":
       return [

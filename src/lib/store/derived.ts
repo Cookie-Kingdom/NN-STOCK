@@ -12,7 +12,11 @@ import {
   roundKinds,
   type RoundKind,
   isEditOverlay,
-  materialList,
+  configMaterials,
+  rawRiceBranches,
+  sheets,
+  type Material,
+  type Sheet,
   payCategories,
   salesChannels,
   legacySale,
@@ -596,57 +600,6 @@ export function nextNumberPreview(
   return null;
 }
 
-/** V2-CAL-09: the meat a sale or a gift box takes: the kg typed, else boxes × kg per box, plus waste. */
-function meatUsedKg(config: Values, e: Entry) {
-  const byBox = num(e.values, "boxes") * num(config, "packKg");
-  if (e.kind === "influencerBox") return byBox;
-  if (e.kind !== "sale") return 0;
-  return (
-    (typed(e.values, "soldKg") ? num(e.values, "soldKg") : byBox) +
-    num(e.values, "wasteKg")
-  );
-}
-/** One branch's live entries in the order a stock walk reads them. */
-const branchWalk = (db: Database, branch: string) =>
-  liveEntries(db)
-    .filter((e) => e.branch === branch)
-    .sort(byDateAt);
-/** V2-CAL-10 / V2-BR-02: the last count is the truth; receipts add to it, sales and gifts take
- *  from it. A receipt of an old lot adds nothing: that lot holds no stock (`meatStock`). */
-export function branchMeat(db: Database, branch: string, today: string) {
-  const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
-  let kg = 0,
-    counted: Entry | undefined,
-    variance: CountVariance | undefined;
-  for (const e of branchWalk(db, branch))
-    if (e.kind === "meatCount" && typed(e.values, "kg")) {
-      const now = num(e.values, "kg");
-      variance = counted && varianceAt(kg, now, e.date);
-      kg = now;
-      counted = e;
-    } else if (e.kind === "receive")
-      kg += old.has(e.lotId) ? 0 : num(e.values, "kg");
-    else kg -= meatUsedKg(db.config, e);
-  return { kg, counted, countedToday: counted?.date === today, variance };
-}
-/** The latest count of a stock line against the walk just before it: what the web expected
- *  to be left (the count before it, plus what came in, less what was used), what was
- *  counted, and `diff` = counted − expected. Only a count with a live count before it has
- *  one: a first count has nothing true to start from, so the web invents no figure. */
-export type CountVariance = {
-  expected: number;
-  counted: number;
-  diff: number;
-  date: string;
-};
-const varianceAt = (
-  expected: number,
-  counted: number,
-  date: string,
-): CountVariance => ({ expected, counted, diff: counted - expected, date });
-/** A count is late when there is none, or the last one is more than 7 days before `today`. */
-const staleCount = (countedOn: string, today: string) =>
-  !countedOn || Date.parse(today) - Date.parse(countedOn) > 7 * 86400000;
 /** The live receipt of a `transfer` sent with "confirm": the destination branch's own. */
 const receiptOf = (db: Database, transfer: Entry) =>
   entries(db, "transferReceive", undefined, transfer.values.to).find(
@@ -710,74 +663,178 @@ export function stockMoves(db: Database) {
   }
   return { moves, transit };
 }
-/** V2-CAL-11 / V2-BR-03: the last count, plus what payments bought for the branch since and
- *  what the warehouses moved in or out of it (`stockMoves`), less the boxes sold and given ×
- *  `perBox`. Stale = never counted, or more than 7 days ago. */
-export function branchMaterial(
+/** The material list in use: the one Settings last saved (`configMaterials`) with the
+ *  branches' live `stockItem` notes since then laid over it in log order. One naming an id of
+ *  the list renames that row or changes its unit; any other adds a row. A Settings save holds
+ *  the list as it stood then (`materialListAfter` names the last note in it), so only later
+ *  notes apply. Both branches read one list: each receives every `stockItem` note.
+ *  ponytail: walks the log per call; cache per log (as entryIndex) if a long one gets slow. */
+export function materialList(db: Database): Material[] {
+  const list = configMaterials(db.config);
+  const notes = db.entries.filter((e) => e.kind === "stockItem");
+  const from = notes.findIndex((e) => e.id === db.config.materialListAfter) + 1;
+  for (const { id, values: v } of notes.slice(from)) {
+    if (isVoided(db, id)) continue;
+    const row = list.find((m) => m.id === v.id);
+    if (row) Object.assign(row, { name: v.name, unit: v.unit || row.unit });
+    else
+      list.push({
+        id: v.id,
+        sku: v.sku ?? "",
+        name: v.name,
+        unit: v.unit || "ชิ้น",
+      });
+  }
+  return list;
+}
+/** The ids of the Stock page's sheet; every other id is a material's (the Inventory page's). */
+const meatSheetIds = ["meat", "rice", "chili"];
+export const sheetOf = (itemId: string): Sheet =>
+  meatSheetIds.includes(itemId) ? "meat" : "materials";
+/** The rows of a daily sheet, each with its unit: the meat, the raw rice of a branch that
+ *  steams its own (V2-BR-08; with no `branch`, any reader's, the row is there) and the chili,
+ *  or the material list. `rice` and `chili` are the ids a payment's `item` names. */
+export function sheetItems(
+  db: Database,
+  sheet: Sheet,
+  branch?: string,
+): Material[] {
+  if (sheet === "materials") return materialList(db);
+  const rice = !branch || rawRiceBranches(db.config).includes(branch);
+  return [
+    { id: "meat", sku: "", name: "เนื้อ", unit: "กก." },
+    ...(rice
+      ? [{ id: "rice", sku: "", name: "ข้าวเหนียวดิบ", unit: "กก." }]
+      : []),
+    { id: "chili", sku: "", name: "น้ำพริก", unit: "หลอด" },
+  ];
+}
+/** The live `daily` or `opening` note of `branch` for `sheet` on `date`: the one a sheet saved
+ *  again for that day edits (the latest, should a day hold two). */
+export const sheetNote = (
+  db: Database,
+  kind: "daily" | "opening",
+  branch: string,
+  sheet: Sheet,
+  date: string,
+) =>
+  entries(db, kind, undefined, branch, date).findLast(
+    (e) => e.values.sheet === sheet,
+  );
+/** What a branch's `kind` notes of `sheet` say, per date. Two notes of one day read as one,
+ *  the later winning for the keys it holds. */
+function sheetDays(
+  db: Database,
+  kind: "daily" | "opening",
+  branch: string,
+  sheet: Sheet,
+) {
+  const days = new Map<string, Values>();
+  for (const e of entries(db, kind, undefined, branch))
+    if (e.values.sheet === sheet)
+      days.set(e.date, { ...days.get(e.date), ...e.values });
+  return days;
+}
+/** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
+ *  `remaining = opening + autoReceived + received − used`.
+ *  - `opening`: the balance at the start of the day: the day before's remaining carried
+ *    forward, or what an `opening` note of this day sets (it applies before anything else of
+ *    its date). Before any opening an item starts from 0.
+ *  - `autoReceived`: what came in by itself that day: the meat a `receive` took in (not from
+ *    an old lot, which holds no stock), a payment's `item` + `qty` stamped with the branch, and
+ *    what the warehouses moved in or out of it (`stockMoves`: a transfer waiting for the
+ *    branch counts on the day it confirmed).
+ *  - `received`, `used`, `waste`, `reason`: what the day's `daily` note says. Waste is part of
+ *    `used`, never taken off again; nothing else takes stock (no sale, no gift box).
+ *  - `saved`: whether the day has a `daily` note of the item's sheet.
+ *  Nothing is refused: `remaining` may go below zero.
+ *  ponytail: walks the branch's notes per call; cache per log (as entryIndex) if a long one
+ *  gets slow. */
+export function branchItem(
   db: Database,
   branch: string,
-  materialId: string,
-  today: string,
+  itemId: string,
+  date: string,
 ) {
-  const material = materialList(db.config).find((m) => m.id === materialId);
-  const perBox = material?.perBox ?? 0;
-  const moved = material?.sku
-    ? stockMoves(db).moves.filter(
-        (m) => m.sku === material.sku && m.place === branch,
-      )
-    : [];
-  let qty = 0,
-    countedOn = "",
-    variance: CountVariance | undefined;
-  for (const e of moved.length
-    ? [...branchWalk(db, branch), ...moved].sort(byDateAt)
-    : branchWalk(db, branch))
-    if (!("kind" in e)) qty += e.qty;
-    else if (e.kind === "materials" && typed(e.values, `count.${materialId}`)) {
-      const now = num(e.values, `count.${materialId}`);
-      variance = countedOn ? varianceAt(qty, now, e.date) : undefined;
-      qty = now;
-      countedOn = e.date;
-    } else if (e.kind === "pay" && e.values.item === materialId)
-      qty += num(e.values, "qty");
-    else if (e.kind === "sale" || e.kind === "influencerBox")
-      qty -= num(e.values, "boxes") * perBox;
-  return { qty, countedOn, stale: staleCount(countedOn, today), variance };
+  const sheet = sheetOf(itemId);
+  const key = (figure: string) => `${figure}.${itemId}`;
+  const auto = new Map<string, number>();
+  const add = (day: string, qty: number) =>
+    auto.set(day, (auto.get(day) ?? 0) + qty);
+  if (itemId === "meat") {
+    const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
+    for (const e of entries(db, "receive", undefined, branch))
+      if (!old.has(e.lotId)) add(e.date, num(e.values, "kg"));
+  }
+  for (const e of entries(db, "pay", undefined, branch))
+    if (e.values.item === itemId) add(e.date, num(e.values, "qty"));
+  const sku =
+    sheet === "materials" && materialList(db).find((m) => m.id === itemId)?.sku;
+  if (sku)
+    for (const move of stockMoves(db).moves)
+      if (move.sku === sku && move.place === branch) add(move.date, move.qty);
+  const daily = sheetDays(db, "daily", branch, sheet);
+  const openings = sheetDays(db, "opening", branch, sheet);
+  const days = new Set([...auto.keys(), ...daily.keys(), ...openings.keys()]);
+  let opening = 0;
+  for (const day of [...days].sort()) {
+    if (day > date) break;
+    const set = openings.get(day);
+    if (set && typed(set, key("qty"))) opening = num(set, key("qty"));
+    if (day === date) break;
+    const before = daily.get(day) ?? {};
+    opening +=
+      (auto.get(day) ?? 0) +
+      num(before, key("received")) -
+      num(before, key("used"));
+  }
+  const now = daily.get(date);
+  const autoReceived = auto.get(date) ?? 0;
+  const received = num(now ?? {}, key("received"));
+  const used = num(now ?? {}, key("used"));
+  return {
+    opening,
+    autoReceived,
+    received,
+    used,
+    waste: num(now ?? {}, key("waste")),
+    reason: now?.[key("reason")] ?? "",
+    remaining: opening + autoReceived + received - used,
+    saved: !!now,
+  };
 }
-/** V2-CAL-12: chili is counted in the sale form only; payments add, sales and gifts take.
- *  Stale as a material is. */
-export function branchChili(db: Database, branch: string, today: string) {
-  let qty = 0,
-    countedOn = "",
-    variance: CountVariance | undefined;
-  for (const e of branchWalk(db, branch))
-    if (e.kind === "sale" && typed(e.values, "chiliCount")) {
-      // The count is the end of that day's sale form: its own tubes were sold before it.
-      const now = num(e.values, "chiliCount");
-      variance = countedOn
-        ? varianceAt(qty - num(e.values, "chiliAddons"), now, e.date)
-        : undefined;
-      qty = now;
-      countedOn = e.date;
-    } else if (e.kind === "sale" || e.kind === "influencerBox")
-      qty -= num(e.values, "chiliAddons");
-    else if (e.kind === "pay" && e.values.item === "chili")
-      qty += num(e.values, "qty");
-  return { qty, countedOn, stale: staleCount(countedOn, today), variance };
-}
-/** V2-CAL-19: raw sticky rice (kg) is counted only, in the materials count: the last count
- *  plus what payments bought for the branch since. Nothing is taken off between counts (cooked
- *  rice is not kept overnight and is not tracked). Stale as a material is. */
-export function branchRice(db: Database, branch: string, today: string) {
-  let qty = 0,
-    countedOn = "";
-  for (const e of branchWalk(db, branch))
-    if (e.kind === "materials" && typed(e.values, "count.rice")) {
-      qty = num(e.values, "count.rice");
-      countedOn = e.date;
-    } else if (e.kind === "pay" && e.values.item === "rice")
-      qty += num(e.values, "qty");
-  return { qty, countedOn, stale: staleCount(countedOn, today) };
+/** For the Owner's Overview: a branch's waste over the 7 days ending on `date`. `saved`: how
+ *  many of those days have a saved sheet, per sheet. `items`: every item with some waste, its
+ *  total and each day's figure with its reason, newest first. */
+export function wasteWeek(db: Database, branch: string, date: string) {
+  const saved = { meat: 0, materials: 0 };
+  const items: (Material & {
+    total: number;
+    days: { date: string; waste: number; reason: string }[];
+  })[] = [];
+  for (const sheet of sheets) {
+    const daily = sheetDays(db, "daily", branch, sheet);
+    const week = Array.from({ length: 7 }, (_, back) =>
+      new Date(Date.parse(date) - back * 86400000).toISOString().slice(0, 10),
+    ).filter((day) => daily.has(day));
+    saved[sheet] = week.length;
+    for (const item of sheetItems(db, sheet, branch)) {
+      const days = week
+        .map((day) => ({
+          date: day,
+          waste: num(daily.get(day)!, `waste.${item.id}`),
+          reason: daily.get(day)![`reason.${item.id}`] ?? "",
+        }))
+        .filter((line) => line.waste > 0);
+      if (days.length)
+        items.push({
+          ...item,
+          total: days.reduce((a, line) => a + line.waste, 0),
+          days,
+        });
+    }
+  }
+  return { saved, items };
 }
 type SupplierBalance = {
   supplier: string;
