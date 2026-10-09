@@ -31,8 +31,8 @@ const pagesOf = {
     "Accounting",
     "Settings",
   ],
-  saladaeng: ["Stock", "Inventory", "Daily Log"],
-  minburi: ["Stock", "Inventory", "Daily Log"],
+  saladaeng: ["Stock", "Inventory", "Sales", "Daily Log"],
+  minburi: ["Stock", "Inventory", "Sales", "Daily Log"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
@@ -41,7 +41,7 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 10 pages, Branch 3, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 10 pages, Branch 4, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");
@@ -83,16 +83,12 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   await start(page, "sample");
   await signInAs(page, "saladaeng");
   // Daily Log is for looking: a branch jots from its Stock and its Inventory, a payment
-  // from either (it has no Finance).
+  // from either (it has no Finance), and its sale and gift boxes from its Sales.
   await expect(jotButtons(page)).toHaveCount(0);
+  await openPage(page, "Sales");
+  await expect(jotButtons(page)).toHaveText(["ยอดขาย", "กล่องแจก"]);
   await openPage(page, "Stock");
-  await expect(jotButtons(page)).toHaveText([
-    "ยอดขาย",
-    "รับเนื้อเข้าสาขา",
-    "นับเนื้อคงเหลือ",
-    "กล่องแจก",
-    "จ่ายเงิน",
-  ]);
+  await expect(jotButtons(page)).toHaveText(["รับเนื้อเข้าสาขา", "จ่ายเงิน"]);
   await openPage(page, "Inventory");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน", "นับวัสดุคงเหลือ"]);
   await jot(page, "จ่ายเงิน");
@@ -189,7 +185,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
           .first();
         await branchNote.getByRole("button").first().click();
         await expect(branchNote.getByRole("button")).toHaveText(
-          pagesOf[account].length === 3 ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
+          account !== "owner" ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
         );
         await expect(jotButtons(page)).toHaveCount(0);
       }

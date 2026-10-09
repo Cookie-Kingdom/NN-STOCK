@@ -7,6 +7,7 @@ import {
   Factory,
   LayoutDashboard,
   Package,
+  Receipt,
   Settings,
   Wallet,
   type LucideIcon,
@@ -21,6 +22,7 @@ export type Tab =
   | "lots"
   | "meatStock"
   | "stock"
+  | "sales"
   | "finance"
   | "oldLots"
   | "accounting"
@@ -77,6 +79,13 @@ export const pages: Record<
     icon: Package,
     group: shopGroup,
   },
+  // A branch's only: where it jots its sale and its gift boxes, and reads them back.
+  sales: {
+    label: "Sales",
+    description: "ยอดขายและกล่องแจกของสาขา",
+    icon: Receipt,
+    group: shopGroup,
+  },
   finance: {
     label: "Finance",
     description: "เงินที่จ่ายจริง ยอดค้างจ่ายผู้ขาย และเงินที่ต้องคืนพนักงาน",
@@ -113,10 +122,11 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner all ten, a branch three. */
+/** The pages an account has, in menu order: the Owner ten, a branch four (Sales is a
+ *  branch's only). */
 export const navFor = (account: Pick<Account, "role">): Tab[] =>
   account.role === "branch"
-    ? ["meatStock", "stock", "log"]
+    ? ["meatStock", "stock", "sales", "log"]
     : [
         "overview",
         "projectOverview",

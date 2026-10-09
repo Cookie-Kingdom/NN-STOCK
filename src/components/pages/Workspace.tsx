@@ -1,6 +1,7 @@
 "use client";
 
 import { AccountingPage } from "@/components/organisms/owner/AccountingPage";
+import { BranchSales } from "@/components/organisms/branch/BranchSales";
 import {
   BranchMeatStock,
   BranchStock,
@@ -32,6 +33,8 @@ export function Workspace({ account }: { account: Account }) {
     lots: LotsPage,
     meatStock: branch ? BranchMeatStock : OwnerMeatStock,
     stock: branch ? BranchStock : OwnerStock,
+    // A branch's only (`navFor`).
+    sales: BranchSales,
     finance: FinancePage,
     oldLots: OldLotsPage,
     accounting: AccountingPage,

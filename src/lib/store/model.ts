@@ -149,7 +149,7 @@ export const kindInfo: Record<
 /** The pages a note is jotted from (`Tab` in lib/nav.ts, minus the ones with no picker:
  *  Daily Log is for looking), each with its kinds in the order its buttons stand. */
 export type NotePage =
-  "lots" | "meatStock" | "stock" | "finance" | "accounting";
+  "lots" | "meatStock" | "stock" | "sales" | "finance" | "accounting";
 const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   lots: [
     "purchase",
@@ -167,8 +167,10 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   // A branch's Stock and Inventory. It has no Finance, so `pay` stands on both. The Owner's
   // two pages have none. The daily sheet, the opening stock and a list item (`daily`,
   // `opening`, `stockItem`) are saved by the sheet on the page, like `transferReceive`.
-  meatStock: ["sale", "receive", "influencerBox", "pay"],
+  meatStock: ["receive", "pay"],
   stock: ["pay"],
+  // A branch's Sales (the Owner has no such page, and may jot neither).
+  sales: ["sale", "influencerBox"],
   finance: ["pay", "reimburse"],
   // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
   accounting: ["expense"],
