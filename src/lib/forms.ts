@@ -4,6 +4,7 @@ import {
   branchCategories,
   branches,
   companyPayer,
+  incomeTypes,
   ingredients,
   payCategories,
   payrollCategory,
@@ -34,6 +35,7 @@ import {
   ledgerPurposes,
   jotSources,
   ledgerStatuses,
+  incomeStatuses,
   shopProject,
 } from "./store/ledger";
 export type Field = {
@@ -114,6 +116,32 @@ const sourceField: Field = {
     label,
   })),
 };
+/** A select over a table of labels, and a text field's suggestions: the ledger's two forms. */
+const select = (
+  key: string,
+  label: string,
+  labels: Record<string, string>,
+  extra?: Partial<Field>,
+): Field => ({
+  key,
+  label,
+  type: "select",
+  options: Object.entries(labels).map(([value, label]) => ({ value, label })),
+  ...extra,
+});
+const choices = (list: string[]) =>
+  list.map((value) => ({ value, label: value }));
+const linkField = text("link", "ลิงก์เอกสาร", {
+  hint: "ลิงก์ที่ขึ้นต้นด้วย https://",
+});
+/** The items an `income` note suggests before any was typed. */
+const incomeItems = [
+  "ค่าสปอนเซอร์",
+  "ขายเศษเนื้อ / ของเหลือ",
+  "เงินคืนจากผู้ขาย",
+  "ดอกเบี้ยรับ",
+  "อื่นๆ",
+];
 const once = "นับเป็นรายการจ่ายเงินแล้ว ไม่ต้องจดจ่ายเงินซ้ำ";
 /** The truck and its driver, on both legs. */
 const truck: Field[] = [
@@ -500,22 +528,7 @@ export function fields(
         file("ไฟล์ Packing List"),
         note,
       ];
-    case "expense": {
-      const choices = (list: string[]) =>
-        list.map((value) => ({ value, label: value }));
-      const select = (
-        key: string,
-        label: string,
-        labels: Record<string, string>,
-      ): Field => ({
-        key,
-        label,
-        type: "select",
-        options: Object.entries(labels).map(([value, label]) => ({
-          value,
-          label,
-        })),
-      });
+    case "expense":
       return [
         // A PO row is worked out from the log: a hand-jotted row is one of the others.
         sourceField,
@@ -553,12 +566,48 @@ export function fields(
         number("amount", "ยอดจ่ายจริง", "บาท"),
         select("status", "สถานะ", ledgerStatuses),
         file("เอกสารแนบ"),
-        ...more(
-          text("link", "ลิงก์เอกสาร", { hint: "ลิงก์ที่ขึ้นต้นด้วย https://" }),
-          note,
-        ),
+        ...more(linkField, note),
       ];
-    }
+    /* Money in (V2-PAY-09). รับเงินค่าขาย is the cash a channel paid for sales the branches
+     * already jotted: it names the channel, and is never revenue again. */
+    case "income":
+      return [
+        select("incomeType", "ประเภทรายรับ", incomeTypes),
+        select(
+          "channel",
+          "ช่องทางขาย",
+          Object.fromEntries(
+            salesChannels(db.config).map((c) => [c.key, c.name]),
+          ),
+          { when: (values) => values.incomeType === "sales" },
+        ),
+        // Core, but a sales receipt naming its channel may leave it empty (`mutate`).
+        core(
+          text("item", "รายการ", {
+            options: choices(ledgerChoices(db, "item", incomeItems, "income")),
+          }),
+        ),
+        text("detail", "รายละเอียด"),
+        text("customer", "รับจาก", {
+          options: choices(ledgerChoices(db, "customer", [], "income")),
+        }),
+        text("reference", "เลขที่อ้างอิง"),
+        select("purpose", "รายรับของ", ledgerPurposes),
+        // The projects of both ledger forms: an income is often for one that has expenses.
+        text("project", "Project", {
+          when: (values) => values.purpose === "project",
+          options: choices([
+            ...new Set([
+              ...ledgerChoices(db, "project", [shopProject]),
+              ...ledgerChoices(db, "project", [], "income"),
+            ]),
+          ]),
+        }),
+        core(number("amount", "ยอดรับจริง", "บาท")),
+        select("status", "สถานะ", incomeStatuses),
+        file("เอกสารแนบ"),
+        ...more(linkField, note),
+      ];
     case "transfer":
       return [
         core(
@@ -618,14 +667,14 @@ export function fields(
 }
 /** The storage folder a file of a `kind` note goes to (attachment-store.ts): the kind, but a
  *  payroll receipt goes to `payroll` (Owner only), a Foodiva invoice to `foodivaConfirm` and
- *  a ledger expense's document to `purchase` (folders the storage policies already take, so
+ *  a ledger expense's or income's document to `purchase` (folders the storage policies already take, so
  *  no SQL change: a folder they do not list is refused with a 400). */
 export const attachmentFolder = (kind: NoteKind, values: Values) =>
   kind === "pay" && values.category === payrollCategory
     ? "payroll"
     : kind === "meatInvoice"
       ? "foodivaConfirm"
-      : kind === "expense"
+      : kind === "expense" || kind === "income"
         ? "purchase"
         : kind;
 /** What a new form of `kind` starts with; every other field starts empty. With `config`, a
@@ -636,6 +685,7 @@ export function defaults(kind: NoteKind, config?: Values): Values {
   if (kind === "pay") return { source: "transfer" };
   if (kind === "expense")
     return { source: "transfer", purpose: "company", warehouse: "central" };
+  if (kind === "income") return { incomeType: "other", purpose: "company" };
   if (kind === "transfer") return { from: "central", receive: "now" };
   if (kind === "dispatch")
     return { origin: "กรุงเทพฯ", destination: "เชียงใหม่" };

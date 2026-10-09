@@ -6,6 +6,8 @@ import {
   dispatchLines,
   entries,
   entryBy,
+  incomeStatuses,
+  incomeTypes,
   ingredients,
   isNoteKind,
   isUnlinkedDispatch,
@@ -193,6 +195,16 @@ export function noteLine(db: Database, e: Entry): string {
     }
     case "reimburse":
       return join(has("payer") && `คืนให้ ${v.payer}`);
+    case "income":
+      return join(
+        incomeTypes[v.incomeType === "sales" ? "sales" : "other"],
+        salesChannels(db.config).find((c) => c.key === v.channel)?.name,
+        v.item,
+        has("customer") && `รับจาก ${v.customer}`,
+        // รับแล้ว goes without saying: the amount at the right is in hand.
+        v.status !== "paid" &&
+          incomeStatuses[v.status as keyof typeof incomeStatuses],
+      );
     case "expense":
       return join(
         v.itemType,
@@ -332,6 +344,10 @@ export function noteAmount(
   if (e.kind === "pay" || e.kind === "reimburse" || e.kind === "expense")
     return has("amount")
       ? { text: `−${baht(Number(v.amount))}`, tone: "out" }
+      : null;
+  if (e.kind === "income")
+    return has("amount")
+      ? { text: `+${baht(Number(v.amount))}`, tone: "in" }
       : null;
   if (e.kind === "sale")
     return has(legacySale.key) ||

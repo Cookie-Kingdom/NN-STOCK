@@ -369,6 +369,50 @@ export function sampleData(endDate: string): Database {
     qty: 300,
     receive: "confirm",
   });
+  /* Money in (V2-PAY-09): other income of the project, one of the office and one still
+   * awaited; and LINE MAN's weekly payouts, each a week's sales after GP. The last week is
+   * not paid out yet: that is what the channel still owes. */
+  add(owner, "income", 18, "11:30", {
+    ...project,
+    item: "ค่าสปอนเซอร์",
+    detail: "โลโก้บนกล่อง รอบเดือนนี้",
+    customer: "น้ำดื่มตราช้างเผือก",
+    reference: "INV-SP-0091",
+    amount: 30000,
+  });
+  add(owner, "income", 9, "17:15", {
+    ...project,
+    item: "ขายเศษเนื้อ / ของเหลือ",
+    customer: "ร้านข้าวต้มเจ๊หมวย",
+    amount: 1850,
+  });
+  add(owner, "income", 5, "09:05", {
+    item: "ดอกเบี้ยรับ",
+    customer: "ธนาคาร",
+    amount: 412.35,
+  });
+  add(owner, "income", 2, "14:40", {
+    ...project,
+    item: "เงินคืนจากผู้ขาย",
+    detail: "คืนค่าถุงที่ส่งผิดขนาด",
+    customer: "แพ็คดี",
+    amount: 2400,
+    status: "pending",
+  });
+  for (const [daysAgo, amount] of [
+    [27, 114810.3],
+    [20, 121370.4],
+    [13, 118476.9],
+    [6, 115259.4],
+  ])
+    add(owner, "income", daysAgo, "10:00", {
+      ...project,
+      incomeType: "sales",
+      channel: "lineMan",
+      customer: "LINE MAN",
+      reference: `LM-PAYOUT-${daysAgo}`,
+      amount,
+    });
   add(owner, "smokeOrder", 1, "09:00", { rawKg: 50 });
   for (let d = 35; d >= 1; d--)
     for (const [bi, branch] of branches.entries()) {

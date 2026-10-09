@@ -20,6 +20,7 @@ import {
   payCategories,
   salesChannels,
   legacySale,
+  type incomeTypes,
   shopProject,
   type Database,
   type Entry,
@@ -174,9 +175,46 @@ export function outflows(db: Database): Outflow[] {
   }
   return out;
 }
+type Inflow = {
+  date: string;
+  type: keyof typeof incomeTypes;
+  item: string;
+  /** A sales receipt's channel key; "" when it names none, and on any other income. */
+  channel: string;
+  purpose: "company" | "project";
+  project: string;
+  amount: number;
+  /** In hand (status รับแล้ว); false while it is still awaited (รอรับ). */
+  received: boolean;
+  entryId: string;
+};
+/** V2-PAY-09: every money-in line of the `income` notes: one with an amount typed that is not
+ *  cancelled. The only reader of income, as `outflows` is of money out; a branch's sales are
+ *  `saleMoney`. A status never picked is รับแล้ว (an amount is typed), as the ledger reads it. */
+export function inflows(db: Database): Inflow[] {
+  return entries(db, "income")
+    .filter((e) => e.values.status !== "cancelled" && typed(e.values, "amount"))
+    .map(({ id, date, values: v }) => ({
+      date,
+      type: v.incomeType === "sales" ? "sales" : "other",
+      item: v.item ?? "",
+      channel: v.incomeType === "sales" ? (v.channel ?? "") : "",
+      purpose: v.purpose === "project" ? "project" : "company",
+      project: v.purpose === "project" ? (v.project ?? "") : "",
+      amount: num(v, "amount"),
+      received: v.status !== "pending",
+      entryId: id,
+    }));
+}
 type Pl = {
   sales: number;
   gp: number;
+  /** Other income received (V2-PAY-09), and the same money per `item` ("": none typed). A
+   *  sales receipt is never in it: its sale already is in `sales`. */
+  otherIncome: number;
+  byIncome: Record<string, number>;
+  /** All revenue: `sales + otherIncome`. */
+  income: number;
   /** Boxes sold. */
   boxes: number;
   /** Sales per channel key (`legacySale.key` too, when there is some) and per branch ("": a
@@ -188,10 +226,18 @@ type Pl = {
   profit: number;
   capex: number;
 };
-/** V2-CAL-02 over the entries dated `from`..`to`, both ends included. อุปกรณ์/ลงทุน stays out
- *  of the profit. The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
+/** V2-CAL-02 over the entries dated `from`..`to`, both ends included:
+ *  `profit = sales − gp + otherIncome − opex`. อุปกรณ์/ลงทุน stays out of the profit. Other
+ *  income counts once received, on its note's date; with `project`, only what was jotted for
+ *  that project (none of บริษัทส่วนกลาง). The sales and the money out are the shop project's
+ *  either way. The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
  *  with `~` behind it a `to` that takes in every date under it. */
-export function plBetween(db: Database, from: string, to: string): Pl {
+export function plBetween(
+  db: Database,
+  from: string,
+  to: string,
+  project?: string,
+): Pl {
   const within = (date: string) => date >= from && date <= to;
   let sales = 0,
     gp = 0,
@@ -221,21 +267,37 @@ export function plBetween(db: Database, from: string, to: string): Pl {
       byCategory[o.category] = (byCategory[o.category] ?? 0) + o.amount;
   const capex = byCategory[capexCategory] ?? 0;
   const opex = Object.values(byCategory).reduce((a, b) => a + b, 0) - capex;
+  let otherIncome = 0;
+  const byIncome: Record<string, number> = {};
+  for (const i of inflows(db))
+    if (
+      i.type === "other" &&
+      i.received &&
+      within(i.date) &&
+      (project === undefined ||
+        (i.purpose === "project" && i.project === project))
+    ) {
+      otherIncome += i.amount;
+      byIncome[i.item] = (byIncome[i.item] ?? 0) + i.amount;
+    }
   return {
     sales,
     gp,
+    otherIncome,
+    byIncome,
+    income: sales + otherIncome,
     boxes,
     byChannel,
     byBranch,
     byCategory,
     opex,
-    profit: sales - gp - opex,
+    profit: sales - gp + otherIncome - opex,
     capex,
   };
 }
 /** V2-CAL-02: one month (`YYYY-MM`, by entry date); a year (`YYYY`) or a day works the same. */
-export const monthPl = (db: Database, month: string) =>
-  plBetween(db, month, `${month}~`);
+export const monthPl = (db: Database, month: string, project?: string) =>
+  plBetween(db, month, `${month}~`, project);
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };
 /** Lines stored as JSON `[{ poLotId, kg }]`; `kg` "" reads as 0. Anything unreadable is no line. */
@@ -908,7 +970,10 @@ export function advances(db: Database) {
  *  whose pocket it left. `paid` is every money-out line, the expense the P&L counts (capex
  *  with it): `company` of it left the shop then, `advanced` left a person's pocket. `repaid`
  *  is what the shop paid people back in the span: no expense, it was one when they paid.
- *  `out` is what really left the shop: `company` + `repaid`. */
+ *  `out` is what really left the shop: `company` + `repaid`. Money in is the `income` notes
+ *  received in the span (V2-PAY-09), never the sales as jotted: `salesReceived` is what the
+ *  channels paid, `otherReceived` the other income, `received` both, and `net` is
+ *  `received − out`. */
 export function cashBetween(db: Database, from: string, to: string) {
   const within = (date: string) => date >= from && date <= to;
   let company = 0,
@@ -922,12 +987,68 @@ export function cashBetween(db: Database, from: string, to: string) {
     entries(db, "reimburse").filter((e) => within(e.date)),
     "amount",
   );
+  let salesReceived = 0,
+    otherReceived = 0;
+  for (const i of inflows(db))
+    if (i.received && within(i.date)) {
+      if (i.type === "sales") salesReceived += i.amount;
+      else otherReceived += i.amount;
+    }
+  const received = salesReceived + otherReceived;
+  const out = company + repaid;
   return {
     paid: company + advanced,
     company,
     advanced,
     repaid,
-    out: company + repaid,
+    out,
+    salesReceived,
+    otherReceived,
+    received,
+    net: received - out,
+  };
+}
+/** V2-CAL-25: what the sales channels still owe, and the income still awaited. `channels`: a
+ *  row per channel of Settings: `sold` is every sale jotted for it, after its GP (money from
+ *  the old books, `legacySale`, was settled there: left out); `received` the sales receipts
+ *  in hand that name it; `left` the difference; `jotted` whether any receipt names it, awaited
+ *  ones included (a channel nobody jots receipts for owes all it ever sold). A receipt naming
+ *  no channel, or one no longer in Settings, makes a last row with key "". `pending`: the
+ *  `income` notes of either type still รอรับ. */
+export function receivables(db: Database) {
+  const settings = salesChannels(db.config);
+  const keys = new Set(settings.map((c) => c.key));
+  const all = inflows(db);
+  const sales = entries(db, "sale");
+  const row = (key: string, name: string, gp: number) => {
+    const receipts = all.filter(
+      (i) =>
+        i.type === "sales" && (keys.has(i.channel) ? i.channel : "") === key,
+    );
+    const sold = key
+      ? sales.reduce((a, e) => a + num(e.values, key) * (1 - gp / 100), 0)
+      : 0;
+    const received = receipts
+      .filter((i) => i.received)
+      .reduce((a, i) => a + i.amount, 0);
+    return {
+      key,
+      name,
+      sold,
+      received,
+      left: sold - received,
+      jotted: receipts.length > 0,
+    };
+  };
+  const channels = settings.map((c) => row(c.key, c.name, c.gp));
+  const none = row("", "ไม่ระบุช่องทาง", 0);
+  const waiting = all.filter((i) => !i.received);
+  return {
+    channels: none.jotted ? [...channels, none] : channels,
+    pending: {
+      count: waiting.length,
+      amount: waiting.reduce((a, i) => a + i.amount, 0),
+    },
   };
 }
 /** V2-CAL-14: the month's gift boxes and roughly what they cost; never part of the P&L. */

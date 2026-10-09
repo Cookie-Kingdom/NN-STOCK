@@ -11,6 +11,8 @@ import {
   ledgerRows,
   ledgerSummary,
   projectAssets,
+  receivables,
+  shopProject,
   liveEntries,
   lotInfo,
   materialList,
@@ -507,8 +509,12 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   expect(kindsForPage(owner, "meatStock")).toEqual([]);
   // Inventory: stock moves between the warehouses.
   expect(kindsForPage(owner, "stock")).toEqual(["transfer"]);
-  expect(kindsForPage(owner, "finance")).toEqual(["pay", "reimburse"]);
-  expect(kindsForPage(owner, "accounting")).toEqual(["expense"]);
+  expect(kindsForPage(owner, "finance")).toEqual([
+    "pay",
+    "reimburse",
+    "income",
+  ]);
+  expect(kindsForPage(owner, "accounting")).toEqual(["expense", "income"]);
   expect(kindsForPage(owner, "lots")).toHaveLength(11);
   // Daily Log is for looking: no account jots from it.
   for (const by of [owner, saladaeng])
@@ -883,6 +889,10 @@ describe("figures (V2-CAL)", () => {
       advanced: 100,
       repaid: 0,
       out: 28150,
+      salesReceived: 0,
+      otherReceived: 0,
+      received: 0,
+      net: -28150,
     });
     const repaid = mutate(
       built,
@@ -899,6 +909,7 @@ describe("figures (V2-CAL)", () => {
       ...before,
       repaid: 150,
       out: 28300,
+      net: -28300,
     });
     // The P&L counted the expense when she paid: it does not move.
     expect(monthPl(repaid, "2026-09")).toEqual(monthPl(built, "2026-09"));
@@ -1747,6 +1758,9 @@ describe("ledger: Finance rows (V2-LED-18)", () => {
       waiting: 0,
       paid: 1370,
       paidBefore: 0,
+      received: 0,
+      receivedBefore: 0,
+      pendingIn: { count: 0, amount: 0 },
     });
   });
 
@@ -1860,6 +1874,9 @@ describe("ledger: summary", () => {
       waiting: 0,
       paid: 100,
       paidBefore: 50,
+      received: 0,
+      receivedBefore: 0,
+      pendingIn: { count: 0, amount: 0 },
     });
   });
 
@@ -2377,5 +2394,177 @@ describe("Old Lots", () => {
     expect(monthPl(flagged, day.slice(0, 7))).toEqual(
       monthPl(d, day.slice(0, 7)),
     );
+  });
+});
+
+describe("income (V2-PAY-09)", () => {
+  const month = "2026-09";
+  const span = [month, `${month}~`] as const;
+  // LINE MAN takes 10%: of the ฿1,000 sold it owes ฿900.
+  const sold = mutate(seed, saladaeng, "sale", { lineMan: "1000" }, "", day);
+  const income = (values: Values, d = sold, date = day) =>
+    mutate(d, owner, "income", values, "", date);
+  const lineMan = (d: Database) =>
+    receivables(d).channels.find((c) => c.key === "lineMan")!;
+
+  it("is the Owner's: a branch may not jot it, and never receives it", () => {
+    expect(() =>
+      mutate(sold, saladaeng, "income", { amount: "1" }, "", day),
+    ).toThrow("บัญชีนี้ไม่มีสิทธิ์จดรายการนี้");
+    const d = income({ item: "ค่าสปอนเซอร์", amount: "500" });
+    expect(scopeDatabase(d, ["ศาลาแดง"]).entries.map((e) => e.kind)).toEqual([
+      "sale",
+    ]);
+  });
+
+  it("other income raises the revenue and the profit, not the sales", () => {
+    const before = monthPl(sold, month);
+    const d = income({ item: "ค่าสปอนเซอร์", amount: "500" });
+    expect(monthPl(d, month)).toEqual({
+      ...before,
+      otherIncome: 500,
+      byIncome: { ค่าสปอนเซอร์: 500 },
+      income: 1500,
+      profit: before.profit + 500,
+    });
+    expect(cashBetween(d, ...span)).toMatchObject({
+      salesReceived: 0,
+      otherReceived: 500,
+      received: 500,
+      net: 500,
+    });
+  });
+
+  it("a sales receipt is cash, not revenue again, and lowers what its channel owes", () => {
+    expect(lineMan(sold)).toEqual({
+      key: "lineMan",
+      name: "LINE MAN",
+      sold: 900,
+      received: 0,
+      left: 900,
+      jotted: false,
+    });
+    const d = income({
+      incomeType: "sales",
+      channel: "lineMan",
+      amount: "600",
+    });
+    // Its channel stands for the item: nothing is left to jot.
+    expect(last(d).values.missing).toBeUndefined();
+    expect(monthPl(d, month)).toEqual(monthPl(sold, month));
+    expect(cashBetween(d, ...span)).toMatchObject({
+      salesReceived: 600,
+      otherReceived: 0,
+      received: 600,
+    });
+    expect(lineMan(d)).toMatchObject({
+      received: 600,
+      left: 300,
+      jotted: true,
+    });
+    expect(receivables(d).channels).toHaveLength(1);
+    // One naming no channel has a row of its own.
+    const loose = income({ incomeType: "sales", amount: "50" }, d);
+    expect(last(loose).values.missing).toBe("item");
+    expect(receivables(loose).channels[1]).toEqual({
+      key: "",
+      name: "ไม่ระบุช่องทาง",
+      sold: 0,
+      received: 50,
+      left: -50,
+      jotted: true,
+    });
+  });
+
+  it("a pending one is only awaited, a cancelled one counts nowhere", () => {
+    let d = income({ item: "x", amount: "70", status: "pending" });
+    d = income(
+      {
+        incomeType: "sales",
+        channel: "lineMan",
+        amount: "30",
+        status: "pending",
+      },
+      d,
+    );
+    d = income({ item: "y", amount: "999", status: "cancelled" }, d);
+    // No amount typed: saved, listed as missing, and no money yet.
+    d = income({ item: "z" }, d);
+    expect(last(d).values.missing).toBe("amount");
+    expect(monthPl(d, month)).toEqual(monthPl(sold, month));
+    expect(cashBetween(d, ...span)).toEqual(cashBetween(sold, ...span));
+    expect(receivables(d).pending).toEqual({ count: 2, amount: 100 });
+    expect(lineMan(d)).toMatchObject({ received: 0, left: 900, jotted: true });
+  });
+
+  it("a project's P&L leaves out the office's income", () => {
+    let d = income({ item: "ดอกเบี้ยรับ", amount: "40" });
+    d = income(
+      { item: "x", amount: "500", purpose: "project", project: shopProject },
+      d,
+    );
+    d = income(
+      { item: "x", amount: "7", purpose: "project", project: "อื่น" },
+      d,
+    );
+    expect(monthPl(d, month).otherIncome).toBe(547);
+    expect(monthPl(d, month, shopProject)).toMatchObject({
+      sales: 1000,
+      otherIncome: 500,
+      byIncome: { x: 500 },
+      income: 1500,
+    });
+  });
+
+  it("is a money-in row of the ledger, apart from what was paid", () => {
+    let d = mutate(
+      sold,
+      owner,
+      "expense",
+      { item: "a", amount: "80" },
+      "",
+      day,
+    );
+    d = income({ item: "ค่าสปอนเซอร์", customer: "ช้าง", amount: "500" }, d);
+    d = income({ incomeType: "sales", channel: "lineMan", amount: "600" }, d);
+    d = income({ item: "รอ", amount: "70", status: "pending" }, d);
+    d = income({ item: "เดือนก่อน", amount: "5" }, d, "2026-08-31");
+    const rows = ledgerRows(d);
+    expect(rows.filter((row) => row.direction === "in")).toMatchObject([
+      { item: "รอ", status: "pending", statusLabel: "รอรับ" },
+      { itemType: "รับเงินค่าขาย", item: "LINE MAN", paid: 600 },
+      {
+        origin: "manual",
+        itemType: "รายได้อื่น",
+        item: "ค่าสปอนเซอร์",
+        vendor: "ช้าง",
+        paid: 500,
+        statusLabel: "รับแล้ว",
+        purpose: "company",
+      },
+      { item: "เดือนก่อน" },
+    ]);
+    expect(rows.find((row) => row.item === "a")).toMatchObject({
+      direction: "out",
+      statusLabel: "จ่ายแล้ว",
+    });
+    expect(ledgerSummary(rows, month)).toMatchObject({
+      paid: 80,
+      received: 1100,
+      receivedBefore: 5,
+      pendingIn: { count: 1, amount: 70 },
+    });
+    expect(projectAssets(d)).toEqual([]);
+  });
+
+  it("the sample: LINE MAN has paid all but the last week, one income is awaited", () => {
+    const { channels, pending } = receivables(db);
+    expect(channels).toHaveLength(1);
+    expect(channels[0].jotted).toBe(true);
+    expect(channels[0].received).toBeCloseTo(469917, 0);
+    expect(channels[0].left).toBeCloseTo(103701.6, 1);
+    expect(pending).toEqual({ count: 1, amount: 2400 });
+    expect(plBetween(db, "2026", "2026~").otherIncome).toBeCloseTo(32262.35, 2);
+    expect(plBetween(db, "2026", "2026~", shopProject).otherIncome).toBe(31850);
   });
 });

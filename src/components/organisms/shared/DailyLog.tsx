@@ -62,9 +62,16 @@ function Day({
   const { limit, more } = useShowMore("", dayRows);
   const { config } = ws.db;
   // The same money a row shows at its right (`noteAmount`): a sale in, a payment out.
-  const moneyIn = rows
-    .filter((e) => e.kind === "sale")
-    .reduce((sum, e) => sum + saleMoney(config, e).sales, 0);
+  const moneyIn = rows.reduce(
+    (sum, e) =>
+      sum +
+      (e.kind === "sale"
+        ? saleMoney(config, e).sales
+        : e.kind === "income" && e.values.status !== "cancelled"
+          ? Number(e.values.amount) || 0
+          : 0),
+    0,
+  );
   const moneyOut = rows
     .filter((e) => ["pay", "reimburse", "expense"].includes(e.kind))
     .reduce((sum, e) => sum + (Number(e.values.amount) || 0), 0);

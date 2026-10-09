@@ -63,6 +63,7 @@ const entryKinds = [
   "daily",
   "opening",
   "stockItem",
+  "income",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
@@ -90,6 +91,7 @@ export const noteKinds = [
   "opening",
   "stockItem",
   "expense",
+  "income",
   "transfer",
 ] as const;
 export type NoteKind = (typeof noteKinds)[number];
@@ -134,6 +136,7 @@ export const kindInfo: Record<
   smokingInvoice: { group: "lot", lot: "batch" },
   pay: { group: "money" },
   reimburse: { group: "money" },
+  income: { group: "money" },
   packingList: { group: "extra", lot: "batch" },
   foodivaReturnReceive: { group: "extra", lot: "batch" },
   sale: { group: "branch" },
@@ -171,12 +174,12 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
   stock: ["pay"],
   // A branch's Sales (the Owner has no such page, and may jot neither).
   sales: ["sale", "influencerBox"],
-  finance: ["pay", "reimburse"],
-  // The purchase ledger's hand-jotted rows (the PO rows are worked out, never jotted).
-  accounting: ["expense"],
+  finance: ["pay", "reimburse", "income"],
+  // The ledger's hand-jotted rows (the PO rows are worked out, never jotted).
+  accounting: ["expense", "income"],
 };
 /** The kinds an account may jot (V2-ACC): a branch its own kinds and its payments (never an
- *  `expense`: the ledger is the Owner's), the Owner everything but a branch's kinds. `mutate`
+ *  `expense` or an `income`: the ledger is the Owner's), the Owner everything but a branch's kinds. `mutate`
  *  refuses the rest. */
 export const kindsFor = (by: Actor): NoteKind[] =>
   noteKinds.filter((kind) =>
@@ -269,6 +272,7 @@ export const titles: Record<EntryKind, string> = {
   smokingInvoice: "บันทึก Invoice Chef House",
   pay: "จ่ายเงิน",
   reimburse: "คืนเงินพนักงาน",
+  income: "บันทึกรายรับ",
   packingList: "Packing List",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
   ownerWasteReceive: "รับ Waste",
@@ -468,6 +472,13 @@ export const legacySale = {
   key: "sales.legacy",
   name: "ยอดเดิม (หลัง GP แล้ว)",
 };
+/** What an `income` note is (V2-PAY-09): money beyond the branches' sales, which is revenue,
+ *  or the cash a sales channel paid for sales already jotted, which is not (it would count
+ *  twice). One with no type reads as `other`. */
+export const incomeTypes = {
+  other: "รายได้อื่น",
+  sales: "รับเงินค่าขาย",
+} as const;
 /** A sale the old books give no branch for is stored with `branch: ""` and reads as this. */
 export const noBranch = "ไม่ระบุสาขา";
 /** The material list as Settings last saved it. The list in use is `materialList(db)`
