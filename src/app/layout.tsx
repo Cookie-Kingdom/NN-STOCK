@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Thai_Looped } from "next/font/google";
 import "./globals.css";
+import { notoSansThaiLooped } from "./font";
 import { themeInitScript } from "@/lib/theme";
-
-const notoSansThaiLooped = Noto_Sans_Thai_Looped({
-  variable: "--font-noto-sans-thai-looped",
-  subsets: ["thai", "latin"],
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "NerdNuea Stock — ระบบสต๊อกและต้นทุนเนื้อรมควัน",
