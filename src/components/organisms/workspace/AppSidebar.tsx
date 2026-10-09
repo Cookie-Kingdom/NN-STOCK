@@ -34,8 +34,8 @@ const idleClass = "text-text-secondary hover:bg-bg hover:text-text-primary";
 const openTabClass =
   "max-md:bg-transparent max-md:text-accent max-md:shadow-[inset_0_3px_0_var(--color-accent)]";
 
-/** The workspace's frame. From md up a 256px column: brand, the account's pages (Daily Log, Lots,
- *  Inventory and Finance under the "Nerdnuea x LINE MAN" section, `pages[].group`: a page-sized header that
+/** The workspace's frame. From md up a 256px column: brand, the account's pages (Lots, Inventory,
+ *  Daily Log and Finance under the "Nerdnuea x LINE MAN" section, `pages[].group`: a page-sized header that
  *  expands and collapses, its pages indented behind a guide line), then the bell, the theme
  *  switch, the account and sign-out. Below md it is a top bar (brand, bell,
  *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen: all of them

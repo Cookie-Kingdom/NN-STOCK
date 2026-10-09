@@ -26,8 +26,8 @@ export type Tab =
   | "accounting"
   | "settings";
 
-/** The sidebar section that holds the project's Overview, Daily Log, Lots, Stock, Inventory,
- *  Finance and Old Lots. */
+/** The sidebar section that holds the project's Overview, Lots, Stock, Inventory,
+ *  Daily Log, Finance and Old Lots. */
 export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
@@ -116,14 +116,14 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
 /** The pages an account has, in menu order: the Owner all ten, a branch three. */
 export const navFor = (account: Pick<Account, "role">): Tab[] =>
   account.role === "branch"
-    ? ["log", "meatStock", "stock"]
+    ? ["meatStock", "stock", "log"]
     : [
         "overview",
         "projectOverview",
-        "log",
         "lots",
         "meatStock",
         "stock",
+        "log",
         "finance",
         "oldLots",
         "accounting",
@@ -134,7 +134,7 @@ export const navFor = (account: Pick<Account, "role">): Tab[] =>
  *  tabs. With more: these four, beside a fifth button, "เมนู", that lists every page. */
 export const barFor = (account: Pick<Account, "role">): Tab[] => {
   const all = navFor(account);
-  return all.length <= 5 ? all : ["overview", "log", "lots", "finance"];
+  return all.length <= 5 ? all : ["overview", "lots", "log", "finance"];
 };
 
 /** A page's address under an account's route: the menu name in lowercase with dashes, behind

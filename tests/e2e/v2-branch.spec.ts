@@ -619,9 +619,9 @@ test.describe("phone, 390px wide", () => {
         ),
       ).toBeLessThanOrEqual(0);
     await expect(pageButtons(page)).toHaveText([
-      "Daily Log",
       "Stock",
       "Inventory",
+      "Daily Log",
     ]);
     await fits();
 
