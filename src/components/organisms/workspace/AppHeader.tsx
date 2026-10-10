@@ -25,7 +25,7 @@ export function AppBrand({
         <strong
           className={cn("block font-semibold", compact ? "text-h3" : "text-h2")}
         >
-          NerdNuea <span className="text-text-secondary">Stock</span>
+          NerdNuea <span className="text-text-secondary">Account</span>
         </strong>
         {compact ? (
           caption
