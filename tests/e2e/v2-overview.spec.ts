@@ -37,12 +37,6 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   // Nothing is jotted before this month: there is no month to step back to, nor one ahead.
   for (const name of ["เดือนก่อนหน้า", "เดือนถัดไป"])
     await expect(page.getByRole("button", { name })).toBeDisabled();
-  // No box sold and no Lot jotted through: no figure per box is made up.
-  const figures = region(page, "ตัวเลขของเดือน");
-  await expect(figures).toContainText(
-    "ยอดขายต่อกล่อง — · ยอดขายเฉลี่ย ฿0 ต่อวัน",
-  );
-  await expect(figures).not.toContainText("กำไรต่อกล่อง");
   const pl = region(page, "P&L รายเดือน");
   /** A P&L line's cells after its name: the month, its share of the sales, the month before. */
   const line = (name: RegExp, table = pl) =>
@@ -74,15 +68,6 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await page.keyboard.press("ArrowRight");
   await expect(revenue.getByRole("status")).toContainText("฿3,500");
 
-  await expect(figures).toContainText("฿3,150"); // after LINE MAN's 10% GP
-  await expect(figures).toContainText("10 กล่อง");
-  // ฿3,500 over its 10 boxes, and over the days of the month gone by.
-  const perDay = Math.round(3500 / +today.slice(8)).toLocaleString("en-US");
-  await expect(figures).toContainText(
-    `ยอดขายต่อกล่อง ฿350.00 · ยอดขายเฉลี่ย ฿${perDay} ต่อวัน`,
-  );
-  // Still no Lot jotted through: no cost per box, so no profit per box either.
-  await expect(figures).not.toContainText("กำไรต่อกล่อง");
   // The P&L: each line beside its share of the month's sales, signed as the line is.
   await expect(pl).toContainText(
     "ยอดตามเดือนที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
@@ -99,6 +84,8 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   });
   await expect(project).toContainText("฿3,500");
   await expect(project).toContainText("90%");
+  // The boxes sold: the fourth column of the project's row.
+  await expect(project.getByRole("cell").nth(3)).toHaveText("10");
   await expect(region(page, "ยอดขายแยกสาขา")).toContainText("฿3,500 100%");
   await expect(region(page, "ยอดขายแยกช่องทางขาย")).toContainText(
     "GP 10% = −฿350 · เหลือ ฿3,150",
@@ -113,7 +100,6 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
     page.getByRole("status").filter({ hasText: yearName }),
   ).toBeVisible();
   await expect(revenue.locator("strong")).toHaveText("฿3,500");
-  await expect(region(page, "ตัวเลขของปี")).toContainText("฿3,150");
   const yearPl = region(page, "P&L รายปี");
   await expect(yearPl).toContainText(
     "ยอดตามปีที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
@@ -141,13 +127,10 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
     "Nerdnuea x LINE MAN",
   );
   await expect(revenue.locator("strong")).toHaveText("฿3,500");
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿3,150");
   await expect(region(page, "รายได้แต่ละ Project")).toHaveCount(0);
   await expect(region(page, "ยอดขายแยกสาขา")).toContainText("฿3,500 100%");
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText(
-    "ยอดขายต่อกล่อง ฿350.00",
-  );
   await expect(line(/^GP LINE MAN 10%/)).toHaveText(["−฿350", "−10%", "—"]);
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText(["฿3,150", "90%", "—"]);
 });
 
 test("Finance: money out of pocket is an expense when it is paid, and money out of the shop when it is paid back", async ({
@@ -221,8 +204,11 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
   await expect(money("เงินออกจากร้านจริง", "ปี")).toHaveText("−฿350");
 
   // The profit counted the ฿500 when it was paid: paying back takes nothing more off it.
+  const profit = region(page, "P&L รายเดือน").getByRole("row", {
+    name: /^กำไรจากการดำเนินงาน/,
+  });
   await openPage(page, "Overview", true);
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText("−฿500");
+  await expect(profit).toContainText("−฿500");
   await openPage(page, "Overview");
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText("−฿500");
+  await expect(profit).toContainText("−฿500");
 });

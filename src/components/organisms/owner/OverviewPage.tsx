@@ -9,22 +9,17 @@ import {
 } from "lucide-react";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Panel } from "@/components/atoms/Panel";
-import { Stat } from "@/components/atoms/Stat";
 import { Caption } from "@/components/atoms/Text";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
-import { lotLabel } from "@/components/organisms/shared/noteText";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht, fmt, qty } from "@/lib/format";
+import { baht, qty } from "@/lib/format";
 import { revenuePeriod, shiftKey } from "@/lib/period";
 import {
-  boxCost,
   branches,
   capexCategory,
-  giftBoxes,
   liveEntries,
   monthPl,
-  n,
   payCategories,
   plBetween,
   legacySale,
@@ -39,15 +34,10 @@ import {
   FigureTable,
   Num,
   PlTable,
-  figureGrid,
   percent,
   share,
 } from "./PlTable";
 import { RevenueChart } from "./RevenueChart";
-
-const hint = "mt-1 block text-caption font-normal text-text-secondary";
-/** Baht to the satang, as a per-box figure is printed: "฿181.00", "−฿4.50". */
-const perBox = (x: number) => `${x < 0 ? "−" : ""}฿${fmt(Math.abs(x))}`;
 
 /** How a figure moved against the like-for-like span before it: green up, red down, and
  *  never the colour alone (an arrow and a word). `versus` names that span. */
@@ -180,16 +170,15 @@ export function usePeriod(db: Database, today: string) {
 }
 
 /** Revenue by month or by year: the total against the like-for-like span before it, a bar per
- *  day (or per month), the figures of the period, how the revenue becomes the operating
- *  profit, the branches, the sales channels and the other income, then the P&L. One
- *  vocabulary all the way down: รายได้รวม is ยอดขาย (the branches' sales) and รายได้อื่น
- *  (V2-PAY-09) together; a figure per box, per branch or per channel is of ยอดขาย alone and
- *  says so. Without `project` it is the shop's, with a row per project and one for the
- *  company's own other income; with it, that project's alone, the company's left out. Both
+ *  day (or per month), how the revenue becomes the operating profit, the branches, the sales
+ *  channels and the other income, then the P&L. One vocabulary all the way down: รายได้รวม
+ *  is ยอดขาย (the branches' sales) and รายได้อื่น (V2-PAY-09) together; a figure per branch or
+ *  per channel is of ยอดขาย alone and says so. Without `project` it is the shop's, with a
+ *  row per project and one for the company's own other income; with it, that project's alone, the company's left out. Both
  *  read the entry log through `plBetween`, so they cannot disagree. */
 export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
   const { db, today } = ws;
-  const { view, key, span, current, period, control } = usePeriod(db, today);
+  const { view, key, period, control } = usePeriod(db, today);
 
   const now = monthPl(db, key, project);
   const before = plBetween(db, period.before.from, period.before.to, project);
@@ -243,9 +232,6 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
     }));
   const scale = Math.max(now.income, now.income - now.profit, 1);
   const channels = salesChannels(db.config);
-  const cost = boxCost(db);
-  const price = n(db.config, "boxPrice");
-  const gifts = giftBoxes(db, key);
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";
   const track = "relative h-5.5";
@@ -291,66 +277,6 @@ export function Revenue({ ws, project }: { ws: Workspace; project?: string }) {
               : "กำไรจากการดำเนินงาน"
           }
           markAs={view === "month" ? "tick" : "line"}
-        />
-      </Panel>
-
-      <Panel className={figureGrid} aria-label={`ตัวเลขของ${span}`}>
-        <Stat
-          label="รายได้หลังหัก GP ช่องทางขาย"
-          value={baht(now.income - now.gp)}
-          note={`GP ${baht(now.gp)}`}
-        />
-        <Stat
-          label="กำไรจากการดำเนินงาน"
-          value={
-            <span className={now.profit < 0 ? "text-danger" : "text-success"}>
-              {baht(now.profit)}
-            </span>
-          }
-          note={
-            now.income
-              ? `${share(now.profit, now.income)} ของรายได้รวม`
-              : "ยังไม่มีรายได้"
-          }
-        />
-        <Stat
-          label="กล่องที่ขาย"
-          value={`${qty(now.boxes)} กล่อง`}
-          note={`ยอดขายต่อกล่อง ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ยอดขายเฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
-        />
-        <Stat
-          label="ต้นทุนต่อกล่อง"
-          value={
-            <>
-              {cost ? `฿${fmt(cost.total)}` : "—"}
-              <small className={hint}>
-                {cost
-                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} คิดจาก ${lotLabel(db, cost.lotId)} ราคาขายกล่องละ ${baht(price)}`
-                  : "ยังไม่มี Lot ที่จดครบ"}
-              </small>
-              {/* Not a profit line of the P&L (V2-CAL-06): the box price less its cost,
-                  before the channel's GP and every expense. */}
-              {cost && price > 0 && (
-                <small className={hint}>
-                  กำไรต่อกล่อง {perBox(price - cost.total)} ก่อนหัก GP
-                  และค่าใช้จ่าย ต้นทุนเท่ากับ {share(cost.total, price)}{" "}
-                  ของราคาขาย
-                </small>
-              )}
-            </>
-          }
-        />
-        <Stat
-          label={current ? `กล่องแจก${span}นี้` : `กล่องแจก ${period.name}`}
-          value={
-            <>
-              {qty(gifts.boxes)} กล่อง
-              <small className={hint}>
-                {gifts.value !== null && `ต้นทุนประมาณ ${baht(gifts.value)} `}
-                ไม่นับใน P&L
-              </small>
-            </>
-          }
         />
       </Panel>
 
