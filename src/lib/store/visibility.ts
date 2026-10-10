@@ -266,7 +266,7 @@ const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
 /** Spec section 7: everything yellow for an account, as one list for the bell. A branch lists its own branch; the Owner both, each
  *  line led by the branch name: the sale of each of the last 7 days the branch was open and
- *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` (Old Lots) and
+ *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` and
  *  the notes on it raise none. */
 export function todos(db: Database, by: Actor, today: string): Todo[] {
   const list: Todo[] = [];

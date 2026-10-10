@@ -2888,13 +2888,7 @@ describe("central warehouse: stock per place", () => {
   });
 });
 
-describe("Old Lots", () => {
-  it("is in the menu right after Finance, for the Owner only", () => {
-    const nav = navFor(owner);
-    expect(nav[nav.indexOf("finance") + 1]).toBe("oldLots");
-    expect(navFor(saladaeng)).not.toContain("oldLots");
-  });
-
+describe("Old lots", () => {
   it("a note on an old PO leaves it old", () => {
     const po = purchaseLots(db)[0];
     const flagged: Database = {
@@ -2992,7 +2986,7 @@ describe("Old Lots", () => {
     // A receipt of the old lot adds nothing to the branch; the scoped copy says the same.
     expect(meat(flagged)).toBe(10);
     expect(meat(scopeDatabase(flagged, ["ศาลาแดง"]))).toBe(10);
-    // Old Lots, cost and money read the same figures as before.
+    // Cost and money read the same figures as before.
     for (const id of old) {
       expect(poInfo(flagged, id)).toEqual(poInfo(d, id));
       expect(lotInfo(flagged, id)).toEqual({

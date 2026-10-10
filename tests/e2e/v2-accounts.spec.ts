@@ -29,7 +29,6 @@ const pagesOf = {
     "Inventory",
     "Daily Log",
     "Finance",
-    "Old Lots",
     // The project's own, as its Overview is.
     "Settings",
     "Accounting",
@@ -45,7 +44,7 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 11 pages, Branch 4, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 10 pages, Branch 4, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");
