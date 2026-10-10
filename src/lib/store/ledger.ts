@@ -336,7 +336,8 @@ export function ledgerRows(db: Database): LedgerRow[] {
     );
   }
   /* A `pay` note names a supplier, not a PO: a supplier's payments, oldest first, fill its
-   * POs oldest first, each up to its amount. What the POs did not take of a payment, and
+   * POs oldest first, each up to its amount. Only the POs dated up to the payment: money
+   * paid before a PO was made is not that PO's. What the POs did not take of a payment, and
    * every other money-out line of Finance (`outflows`), is a row of its own, so the rows'
    * ยอดจ่ายจริง add up to the money out, none of it twice (V2-LED-18). */
   const pos = rows.toSorted(byDateAt);
@@ -354,7 +355,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
     let left = o.amount;
     if (pay && v.supplier)
       for (const row of pos) {
-        if (row.vendor !== v.supplier) continue;
+        if (row.vendor !== v.supplier || row.date > e.date) continue;
         const paid = row.paid ?? 0;
         const part = Math.max(0, Math.min(left, (row.poAmount ?? 0) - paid));
         row.paid = paid + part;

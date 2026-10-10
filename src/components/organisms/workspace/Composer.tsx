@@ -988,9 +988,15 @@ function PoLinesControl({
   const rows = formLines(values[f.key]);
   const write = (next: Line[]) =>
     set(f.key, next.length ? JSON.stringify(next) : "");
-  const pos = purchaseLots(db).reverse();
-  const label = (id: string) =>
-    `${lotLabel(db, id)} · ฝากไว้ ${qty(poInfo(db, id, exceptId).heldKg)} กก.`;
+  const held = (id: string) => poInfo(db, id, exceptId).heldKg;
+  // A PO with nothing left is not offered, unless a line already names it.
+  const pos = purchaseLots(db)
+    .reverse()
+    .filter(
+      (lot) =>
+        held(lot.id) > 0.005 || rows.some((row) => row.poLotId === lot.id),
+    );
+  const label = (id: string) => `${lotLabel(db, id)} · ${qty(held(id))} กก.`;
   const pick = (index: number, poLotId: string) => {
     const kg = poLotId
       ? kgValue(

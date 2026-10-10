@@ -620,7 +620,8 @@ export function productCosts(db: Database) {
 }
 /** V2-CAL-07: what a PO เนื้อ holds (its meat kg, the invoice's when it gives one), what went to
  *  the smoker from it (its lines on every dispatch, without `exceptId`: the one being edited),
- *  and what the seller still holds. Waste is apart: it is never sent. `wastePending`: waste to
+ *  and what the seller still holds. Waste is part of the meat kg (bought and priced with it)
+ *  but never sent: 1000 kg with 100 of waste leaves 900 to send. `wastePending`: waste to
  *  receive and no `ownerWasteReceive` jotted yet. */
 export function poInfo(db: Database, poLotId: string, exceptId?: string) {
   const terms = poTerms(db, poLotId);
@@ -639,7 +640,7 @@ export function poInfo(db: Database, poLotId: string, exceptId?: string) {
     orderedKg: terms.meatKg,
     price: terms.price,
     sentKg,
-    heldKg: terms.meatKg - sentKg,
+    heldKg: terms.meatKg - terms.wasteKg - sentKg,
     lotIds: [...lotIds],
     wasteKg: terms.wasteKg,
     wasteReceivedKg: sum(received, "receivedKg"),

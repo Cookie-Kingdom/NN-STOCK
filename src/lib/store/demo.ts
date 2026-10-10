@@ -53,7 +53,8 @@ export function sampleData(endDate: string): Database {
   const [saladaeng, minburi] = branches;
   const po1 = add(owner, "purchase", 24, "10:05", {
     supplier: "Foodiva",
-    orderedKg: 200,
+    // 20 of the 220 are waste: the 200 left all went to the smoker.
+    orderedKg: 220,
     wasteKg: 20,
     price: 700,
   });

@@ -154,24 +154,6 @@ export function LotsPage({ ws }: { ws: Workspace }) {
           aria-label="รายการ PO รมควัน และ PO เนื้อ"
           className="flex flex-col gap-0.5 p-2 max-[1000px]:flex-row max-[1000px]:overflow-x-auto"
         >
-          {heading("PO รมควัน")}
-          {lots.map((lot) => {
-            const { yellow, remainingKg } = lotInfo(db, lot.id);
-            return item(
-              lot,
-              yellow > 0,
-              <>
-                {remainingKg < 0
-                  ? `เกิน ${qty(-remainingKg)} กก.`
-                  : `เหลือ ${qty(remainingKg)} กก.`}
-                {yellow > 0 && (
-                  <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
-                    {yellow}
-                  </CountPill>
-                )}
-              </>,
-            );
-          })}
           {heading("PO เนื้อ")}
           {pos.map((po) => {
             const empty = missingKeys(
@@ -191,6 +173,24 @@ export function LotsPage({ ws }: { ws: Workspace }) {
                     role="img"
                     aria-label="รอรับ Waste"
                   />
+                )}
+              </>,
+            );
+          })}
+          {heading("PO รมควัน")}
+          {lots.map((lot) => {
+            const { yellow, remainingKg } = lotInfo(db, lot.id);
+            return item(
+              lot,
+              yellow > 0,
+              <>
+                {remainingKg < 0
+                  ? `เกิน ${qty(-remainingKg)} กก.`
+                  : `เหลือ ${qty(remainingKg)} กก.`}
+                {yellow > 0 && (
+                  <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
+                    {yellow}
+                  </CountPill>
                 )}
               </>,
             );
@@ -490,8 +490,11 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           </Button>
         ) : (
           can("smokingInvoice") && (
+            // Yellow: the invoice is among what the heading counts as not jotted.
             <Button
               variant="secondary"
+              data-tone="warning"
+              className="border-warning/40 bg-warning-subtle text-warning hover:border-warning hover:bg-warning-subtle"
               onClick={() => ws.jot({ kind: "smokingInvoice", lotId: lot.id })}
             >
               + บันทึก Invoice Chef House
