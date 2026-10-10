@@ -1,7 +1,6 @@
 /** The fields of every note form. `mutate` validates a save with one pass over the same list,
  *  so this file imports the store's parts, never `./store` itself. */
 import {
-  boxProduct,
   branchCategories,
   branches,
   companyPayer,
@@ -112,13 +111,17 @@ const more = (...fields: Field[]): Field[] =>
  *  its products only when none has a count (`mutate`). */
 const productFields = (db: Database): Field[] =>
   products(db.config).map((product, index) =>
-    count(
-      productKey(product.id),
-      product.name,
-      product.id === boxProduct ? "กล่อง" : "ชิ้น",
-      { core: !index },
-    ),
+    count(productKey(product.id), product.name, product.unit, { core: !index }),
   );
+/** The units a 「หน่วยนับ」 field suggests (a material's, a product's): the usual ones, then
+ *  every material's own. A typed one stands too. */
+export const unitOptions = (db: Database) =>
+  [
+    ...new Set([
+      ...["ชิ้น", "กก.", "กรัม", "ถุง", "กล่อง", "แพ็ก", "ใบ", "ลิตร"],
+      ...materialList(db).map((m) => m.unit),
+    ]),
+  ].map((value) => ({ value }));
 const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
 const weightReason = text("reason", "สาเหตุที่น้ำหนักไม่ตรง");
 /** How a note jotted by hand was paid: the same field on the `expense` and the `pay` forms. */

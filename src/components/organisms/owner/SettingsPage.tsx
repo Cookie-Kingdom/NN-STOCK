@@ -553,8 +553,12 @@ export function SettingsPage({
                           .join(" · ") || "ยังไม่ตั้งส่วนประกอบ"}
                       </Muted>
                     </Cell>
-                    <Cell right>{row.price ? `${row.price} บาท` : "—"}</Cell>
-                    <Cell right>{row.cost ? `${row.cost} บาท` : "—"}</Cell>
+                    <Cell right>
+                      {row.price ? `${row.price} บาท/${row.unit}` : "—"}
+                    </Cell>
+                    <Cell right>
+                      {row.cost ? `${row.cost} บาท/${row.unit}` : "—"}
+                    </Cell>
                   </tr>
                 ))}
               </StockTable>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
+import { Combobox } from "@/components/atoms/Combobox";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Spinner } from "@/components/atoms/Spinner";
@@ -11,6 +12,7 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { unitOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   boxProduct,
@@ -18,6 +20,7 @@ import {
   materialList,
   mutate,
   productMoney,
+  productUnit,
   products,
   sheetItems,
   type Database,
@@ -30,6 +33,7 @@ export const productsTitle = "รายการสินค้า";
 export type ProductDraft = {
   id: string;
   name: string;
+  unit: string;
   price: string;
   cost: string;
   items: { id: string; qty: string }[];
@@ -51,6 +55,7 @@ export const productDrafts = (db: Database): ProductDraft[] =>
     return {
       id: product.id,
       name: product.name,
+      unit: product.unit,
       price: String(price ?? ""),
       cost: String(cost ?? ""),
       items: [...product.items].map(([id, qty]) => ({ id, qty: String(qty) })),
@@ -62,6 +67,7 @@ export const newProduct = (): ProductDraft => ({
   // ponytail: the clock as the short id; one Owner adds one product at a time.
   id: "p" + Date.now().toString(36),
   name: "",
+  unit: productUnit(""),
   price: "",
   cost: "",
   items: [],
@@ -71,9 +77,10 @@ export const newProduct = (): ProductDraft => ({
  *  (the Owner's only). A component with no quantity is not kept. */
 const stored = (list: ProductDraft[]): Values => ({
   products: JSON.stringify(
-    list.map(({ id, name, items }) => ({
+    list.map(({ id, name, unit, items }) => ({
       id,
       name: name.trim(),
+      unit: unit.trim(),
       items: items
         .map((item) => ({ id: item.id, qty: item.qty.trim() }))
         .filter((item) => item.qty),
@@ -88,7 +95,7 @@ const stored = (list: ProductDraft[]): Values => ({
   ),
 });
 
-/** One product of Settings 「รายการสินค้า」 as a popup: its name, its price, its cost beside
+/** One product of Settings 「รายการสินค้า」 as a popup: its name, its unit, its price, its cost beside
  *  the meat, and its components (a stock item and how much one piece takes). 「บันทึก」 lays
  *  it over the list as it stands now and saves that as one `config` note, only the keys it
  *  changed; 「ลบสินค้า」 takes it out once confirmed (never the standard box). What `mutate` refuses is said
@@ -121,6 +128,8 @@ export function ProductDialog({
         item.id === id ? { ...item, qty } : item,
       ),
     });
+  // The unit as typed words the popup; left empty it is the product's default.
+  const unit = draft.unit.trim() || productUnit(draft.id);
   const left = all.filter(
     (item) => !draft.items.some((used) => used.id === item.id),
   );
@@ -159,19 +168,26 @@ export function ProductDialog({
     <Dialog
       size="md"
       title={isNew ? "เพิ่มสินค้า" : `แก้ไขสินค้า: ${product.name}`}
-      subtitle="ขายหรือแจก 1 ชิ้น เว็บตัดสต๊อกของสาขาตามส่วนประกอบในนี้"
+      subtitle={`ขายหรือแจก 1 ${unit} เว็บตัดสต๊อกของสาขาตามส่วนประกอบในนี้`}
       onClose={onClose}
     >
       <div className="min-h-0 flex-auto overflow-y-auto px-6.5 max-md:px-4">
         <FormGrid>
-          <FormField wide label="ชื่อสินค้า">
+          <FormField label="ชื่อสินค้า">
             <Input
               data-autofocus
               value={draft.name}
               onChange={(event) => set({ name: event.target.value })}
             />
           </FormField>
-          <FormField label="ราคาขายต่อชิ้น (บาท)">
+          <FormField label="หน่วยนับ">
+            <Combobox
+              options={unitOptions(latestDatabase())}
+              value={draft.unit}
+              onChange={(unit) => set({ unit })}
+            />
+          </FormField>
+          <FormField label={`ราคาขายต่อ${unit} (บาท)`}>
             {/* Text, not number: `mutate` words the refusal of a bad figure. */}
             <Input
               inputMode="decimal"
@@ -180,7 +196,7 @@ export function ProductDialog({
             />
           </FormField>
           <FormField
-            label="ต้นทุนอื่นต่อชิ้น (บาท)"
+            label={`ต้นทุนอื่นต่อ${unit} (บาท)`}
             hint="ต้นทุนนอกจากเนื้อ เช่น แพ็กเกจ ส่วนต้นทุนเนื้อเว็บคิดให้จากส่วนประกอบ「เนื้อ」"
           >
             <Input
@@ -192,7 +208,7 @@ export function ProductDialog({
         </FormGrid>
         <section aria-label="ส่วนประกอบ" className="mb-4.5 flex flex-col gap-2">
           <h3 className="m-0 text-label text-text-secondary">
-            ส่วนประกอบต่อ 1 ชิ้น
+            ส่วนประกอบต่อ 1 {unit}
           </h3>
           {draft.items.length === 0 && (
             <Caption>ยังไม่ตั้งส่วนประกอบ ขายแล้วจะไม่ตัดสต๊อก</Caption>

@@ -41,7 +41,6 @@ import { baht, qty, thaiDay } from "@/lib/format";
 import { attachmentFolder, defaults, fields, type Field } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  boxProduct,
   capacityWarning,
   defaultRound,
   dispatchLines,
@@ -551,7 +550,7 @@ function giftFigures(rows: Values[], list: Product[]): Figures {
       { label: "จำนวนคน", value: `${qty(rows.length)} คน` },
       ...list.map((product) => ({
         label: list.length > 1 ? product.name : "กล่องที่แจก",
-        value: `${qty(rows.reduce((a, row) => a + productQty(product, row), 0))} ${product.id === boxProduct ? "กล่อง" : "ชิ้น"}`,
+        value: `${qty(rows.reduce((a, row) => a + productQty(product, row), 0))} ${product.unit}`,
       })),
       { label: "ค่าส่ง", value: baht(fees), rule: true },
     ],

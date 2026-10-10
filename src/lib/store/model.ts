@@ -499,9 +499,17 @@ export const gramItems = ["meat", "rice"];
  *  branch's stock (V2-CAL-10), by item id (`meat`, `rice`, `chili`, a material's): grams for
  *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
  *  not in it. */
-export type Product = { id: string; name: string; items: Map<string, number> };
+export type Product = {
+  id: string;
+  name: string;
+  unit: string;
+  items: Map<string, number>;
+};
 /** The standard box: the first product, renamed but never removed. */
 export const boxProduct = "box";
+/** The unit of a product with none typed: a row saved before units has none. */
+export const productUnit = (id: string) =>
+  id === boxProduct ? "กล่อง" : "ชิ้น";
 const itemsOf = (rows: unknown): Map<string, number> =>
   new Map(
     (Array.isArray(rows) ? rows : [])
@@ -520,12 +528,15 @@ export const products = (config: Values): Product[] => {
     ? rows.map((row) => ({
         id: String(row?.id ?? ""),
         name: String(row?.name ?? ""),
+        unit:
+          String(row?.unit ?? "").trim() || productUnit(String(row?.id ?? "")),
         items: itemsOf(row?.items),
       }))
     : [
         {
           id: boxProduct,
           name: "กล่องมาตรฐาน",
+          unit: productUnit(boxProduct),
           items: itemsOf(list(config, "boxRecipe")),
         },
       ];
@@ -542,9 +553,9 @@ export const productQty = (product: Product, values: Values) =>
  *  holds of a product since removed is not counted (as a removed sales channel's money). */
 export const pieces = (list: Product[], values: Values) =>
   list.reduce((a, product) => a + productQty(product, values), 0);
-/** The word pieces are counted in: boxes while the standard box is the only product. */
+/** The word pieces are counted in: the product's own unit while it is the only one. */
 export const pieceUnit = (list: Product[]) =>
-  list.length > 1 ? "ชิ้น" : "กล่อง";
+  list.length > 1 ? "ชิ้น" : (list[0]?.unit ?? "กล่อง");
 /** A product's selling price and its cost beside the meat, per piece (`config.productMoney`,
  *  the Owner's only); null where none is set. The box's default to the old `boxPrice` and
  *  `packCost` until it has a row. */

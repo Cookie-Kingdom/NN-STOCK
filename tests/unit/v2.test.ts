@@ -25,6 +25,7 @@ import {
   pendingTransfers,
   poInfo,
   productCosts,
+  pieceUnit,
   products,
   purchaseLots,
   rawRiceBranches,
@@ -1087,7 +1088,12 @@ describe("figures (V2-CAL)", () => {
       boxRecipe: JSON.stringify(rows.map(([id, qty]) => ({ id, qty }))),
     },
   });
-  type Row = { id: string; name: string; items?: [string, string][] };
+  type Row = {
+    id: string;
+    name: string;
+    unit?: string;
+    items?: [string, string][];
+  };
   /** `from` with 「รายการสินค้า」 saved: each product with its [item id, quantity] components. */
   const withProducts = (from: Database, rows: Row[], money?: Values[]) =>
     mutate(
@@ -1109,7 +1115,9 @@ describe("figures (V2-CAL)", () => {
   const box: Row = { id: "box", name: "กล่องมาตรฐาน" };
 
   it("CAL-10: with no product list saved it is the standard box alone, which takes nothing; tubes of an old note are taken all the same", () => {
-    expect(products(built.config)).toEqual([{ ...box, items: new Map() }]);
+    expect(products(built.config)).toEqual([
+      { ...box, unit: "กล่อง", items: new Map() },
+    ]);
     const jotted = (
       [
         ["sale", { boxes: "30", chiliAddons: "9", lineMan: "1" }],
@@ -1158,6 +1166,33 @@ describe("figures (V2-CAL)", () => {
       "attachment",
       "note",
     ]);
+  });
+
+  it("a product is counted in the unit the Owner typed, กล่อง for the standard box and ชิ้น for another with none; the sale form's field says it", () => {
+    const set = withProducts(built, [
+      box,
+      { id: "pack", name: "น้ำพริกแพ็กคู่" },
+      { id: "tube", name: "น้ำพริกหลอด", unit: " หลอด " },
+    ]);
+    expect(products(set.config).map((p) => p.unit)).toEqual([
+      "กล่อง",
+      "ชิ้น",
+      "หลอด",
+    ]);
+    expect(
+      fields("sale", set, saladaeng)
+        .slice(0, 3)
+        .map((f) => [f.key, f.unit]),
+    ).toEqual([
+      ["boxes", "กล่อง"],
+      ["product.pack", "ชิ้น"],
+      ["product.tube", "หลอด"],
+    ]);
+    // The box's unit is the Owner's too, and one product alone names every total.
+    const tubes = withProducts(built, [{ ...box, unit: "หลอด" }]);
+    expect(fields("sale", tubes, saladaeng)[0].unit).toBe("หลอด");
+    expect(pieceUnit(products(tubes.config))).toBe("หลอด");
+    expect(pieceUnit(products(set.config))).toBe("ชิ้น");
   });
 
   it("BR-13: the sale form's preview says what the typed products take of each item and what is left; an edited sale is not counted twice; a sale lacks its products only when none has a count", () => {

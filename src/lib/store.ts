@@ -51,6 +51,7 @@ export {
   productQty,
   pieces,
   pieceUnit,
+  productUnit,
   productMoney,
   gramItems,
   payCategories,

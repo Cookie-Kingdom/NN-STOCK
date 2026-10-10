@@ -38,19 +38,20 @@ export function BranchSales({ ws }: { ws: Workspace }) {
   // A branch holds its own notes only, so the day's P&L is its own sale.
   const sold = plBetween(db, today, today);
   // Pieces of every product; they are boxes while the box is the only one.
-  const boxes = pieceUnit(products(db.config)) === "กล่อง";
+  const unit = pieceUnit(products(db.config));
+  const boxes = unit === "กล่อง";
   return (
     <div className="flex flex-col gap-4">
       <Panel compact aria-label="ยอดวันนี้">
         <h2 className="m-0 text-h3">วันนี้</h2>
         <ReadRow
-          label={boxes ? "กล่องที่ขาย" : "สินค้าที่ขาย (ชิ้น)"}
+          label={boxes ? "กล่องที่ขาย" : `สินค้าที่ขาย (${unit})`}
           value={qty(sold.boxes)}
         />
         <ReadRow label="ยอดขาย" value={baht(sold.sales)} />
         {/* The helper takes a date prefix: a whole date is that one day. */}
         <ReadRow
-          label={boxes ? "กล่องแจก" : "สินค้าแจก (ชิ้น)"}
+          label={boxes ? "กล่องแจก" : `สินค้าแจก (${unit})`}
           value={qty(giftBoxes(db, today).boxes)}
         />
       </Panel>
