@@ -169,13 +169,8 @@ export async function save(page: Page) {
   await expect(form(page)).toHaveCount(0);
 }
 
-/** 「บันทึก」 on a PO document: it stays open on the saved PO, so 「ปิด」 after it. */
-export async function savePo(page: Page) {
-  await form(page).getByRole("button", { name: "บันทึก", exact: true }).click();
-  await expect(popup(page).locator("header")).toContainText("บันทึกแล้ว");
-  await form(page).getByRole("button", { name: "ปิด", exact: true }).click();
-  await expect(form(page)).toHaveCount(0);
-}
+/** 「บันทึก」 on a PO document: it closes on a save, like any form. */
+export const savePo = save;
 
 /** The message at the bottom of the screen after a save, a delete or an undo. */
 export const toast = (page: Page, message: string | RegExp) =>

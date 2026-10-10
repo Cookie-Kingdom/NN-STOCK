@@ -47,9 +47,9 @@ const documentTitle = {
  * A PO เนื้อ or a PO รมควัน as a document: the sectioned form on the left, the PO paper it
  * makes on the right (stacked below lg), updated as the user types. 「พิมพ์ / ดาวน์โหลด PDF」
  * works before saving (the next number, marked ฉบับร่าง); 「บันทึก」 saves through `mutate`
- * like the composer, after which the status in the subtitle (a dot and a word) says
- * บันทึกแล้ว and the paper carries the real number. With
- * `entryId` it opens that saved note (view, edit, reprint). Mount to open, unmount to close.
+ * like the composer and closes the dialog. With `entryId` it opens that saved note (view,
+ * edit, reprint): the status in the subtitle (a dot and a word) says บันทึกแล้ว and the paper
+ * carries the real number. Mount to open, unmount to close.
  */
 export function PoDocumentDialog({
   ws,
@@ -70,12 +70,11 @@ export function PoDocumentDialog({
   onClose: () => void;
 }) {
   const { db, account, today } = ws;
-  const [savedId, setSavedId] = useState(entryId);
-  const saved = savedId
-    ? visibleNotes(db, account).find((e) => e.id === savedId)
+  const saved = entryId
+    ? visibleNotes(db, account).find((e) => e.id === entryId)
     : undefined;
   const [values, setValues] = useState<Values>(() =>
-    saved ? { ...saved.values } : { ...defaults(kind), ...preset },
+    saved ? { ...saved.values } : { ...defaults(kind, db.config), ...preset },
   );
   const [date, setDate] = useState(saved?.date ?? presetDate ?? today);
   // Changed since the last save (or since it opened on a saved note).
@@ -151,9 +150,8 @@ export function PoDocumentDialog({
         : mutate(latestDatabase(), account, kind, values, "", date),
     );
     if (!next) return;
-    if (!saved) setSavedId(next.entries.at(-1)?.id);
-    setDirty(false);
     ws.setToast(`${saved ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}`);
+    onClose();
   };
 
   return (

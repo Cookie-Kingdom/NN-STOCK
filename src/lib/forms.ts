@@ -235,7 +235,7 @@ const sheetFields = (
         }),
     ),
   );
-/** A `poLines` field: the live POs เนื้อ to pick from, each with what its seller still holds. */
+/** A `poLines` field: the live POs เนื้อ to pick from, each with the kg its seller still holds. */
 const poLinesField = (
   db: Database,
   key: string,
@@ -248,7 +248,7 @@ const poLinesField = (
   unit: "กก.",
   options: purchaseLots(db).map((lot) => ({
     value: lot.id,
-    label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ฝากไว้ ${kg(poInfo(db, lot.id).heldKg)} กก.`,
+    label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ${kg(poInfo(db, lot.id).heldKg)} กก.`,
   })),
   ...extra,
 });
@@ -289,7 +289,7 @@ export function fields(
         core(text("supplier", "ผู้ขาย")),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
         number("wasteKg", "น้ำหนัก Waste", "กก.", {
-          hint: 'ส่วนที่ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับ Waste"',
+          hint: 'หักจากน้ำหนักเนื้อ ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับ Waste"',
         }),
         core(number("price", "ราคา / กก.", "บาท")),
         ...more(
@@ -716,7 +716,20 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 /** What a new form of `kind` starts with; every other field starts empty. With `config`, a
  *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
 export function defaults(kind: NoteKind, config?: Values): Values {
-  if (kind === "purchase") return { supplier: "Foodiva" };
+  if (kind === "purchase") {
+    // The buyer as Settings has it, there to change for this PO.
+    const buyer = {
+      customerName: config?.companyName,
+      customerAddress: config?.companyAddress,
+      attention: config?.attention,
+      phone: config?.companyPhone,
+      taxId: config?.taxId,
+    };
+    return {
+      supplier: "Foodiva",
+      ...Object.fromEntries(Object.entries(buyer).filter(([, value]) => value)),
+    } as Values;
+  }
   if (kind === "smokeOrder") return { smoker: "Chef House" };
   if (kind === "pay") return { source: "transfer" };
   if (kind === "expense")

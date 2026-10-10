@@ -96,8 +96,9 @@ describe("sample: Lots", () => {
 
   it("knows what each PO still holds", () => {
     const [po1, po2] = purchaseLots(db).map((lot) => poInfo(db, lot.id));
+    // Waste is part of the meat kg: 220 − 20 − 200 sent, 150 − 15 − 100 sent.
     expect(po1.heldKg).toBe(0);
-    expect(po2.heldKg).toBe(50);
+    expect(po2.heldKg).toBe(35);
   });
 });
 

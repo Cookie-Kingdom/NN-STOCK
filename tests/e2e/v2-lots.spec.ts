@@ -151,7 +151,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await form(page).getByRole("button", { name: "เพิ่ม PO เนื้อ" }).click();
   expect(await choices(line(page))).toEqual([
     "เลือก PO เนื้อ",
-    `${PO} · ฝากไว้ 100 กก.`,
+    `${PO} · 100 กก.`,
   ]);
   await pick(line(page), 1);
   await expect(form(page).getByLabel("กก. บรรทัด 1")).toHaveValue("60");
@@ -198,7 +198,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await expect(link).toContainText("ยังไม่ได้เลือก PO เนื้อ");
   await link.click();
   await expect(popupTitle(page)).toHaveText("แก้ไข: ส่งไปรมควัน");
-  await pick(line(page), `${PO2} · ฝากไว้ 100 กก.`);
+  await pick(line(page), `${PO2} · 100 กก.`);
   await save(page);
   await expect(toast(page, "แก้แล้ว: ส่งไปรมควัน")).toBeVisible();
 
