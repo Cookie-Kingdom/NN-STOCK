@@ -608,11 +608,14 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   // The Owner's Settings lists it with its unit.
   await signInAs(page, "owner");
   await openPage(page, "Settings", true);
+  await region(page, "รายชื่อวัสดุ")
+    .getByRole("button", { name: "เปิดรายการ" })
+    .click();
+  await popup(page).getByRole("searchbox").fill("ช้อนไม้");
   await expect(
-    region(page, "รายชื่อวัสดุ")
-      .getByRole("row", { name: /^SKU-0024/ })
-      .getByRole("cell"),
-  ).toHaveText(["SKU-0024", "ช้อนไม้", "แพ็ก"]);
+    popup(page).getByRole("textbox", { name: "ชื่อวัสดุ SKU-0024" }),
+  ).toHaveValue("ช้อนไม้");
+  await expect(popup(page).getByLabel("หน่วยนับ ช้อนไม้")).toHaveValue("แพ็ก");
 });
 
 test("20 · V2-PG-03 a note of an earlier day is edited, deleted and put back by 「เลิกทำ」: a sale, a receipt, a Lot's notes, a payment", async ({
