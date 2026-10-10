@@ -13,6 +13,7 @@ import {
   changeKinds,
   editLockedKeys,
   isNoteKind,
+  isProductKey,
   isRoundKind,
   kindInfo,
   kindsFor,
@@ -191,6 +192,14 @@ function noteValues(
   if (kind === "sale" && kept[legacySale.key]) {
     v[legacySale.key] = kept[legacySale.key];
     const at = missing.indexOf(salesChannels(db.config)[0].key);
+    if (at >= 0) missing.splice(at, 1);
+  }
+  // A sale's products are rows of one list: none is not jotted while any has a count.
+  if (
+    kind === "sale" &&
+    Object.keys(v).some((key) => isProductKey(key) && v[key])
+  ) {
+    const at = missing.findIndex(isProductKey);
     if (at >= 0) missing.splice(at, 1);
   }
   if (isRoundKind(kind))

@@ -30,6 +30,7 @@ import {
   rawRiceBranches,
   saleDue,
   saleMoney,
+  salePreview,
   salesChannels,
   seed,
   sheetNote,
@@ -1154,8 +1155,74 @@ describe("figures (V2-CAL)", () => {
       "sales.grab",
       "expense",
       "payer",
+      "attachment",
       "note",
     ]);
+  });
+
+  it("BR-13: the sale form's preview says what the typed products take of each item and what is left; an edited sale is not counted twice; a sale lacks its products only when none has a count", () => {
+    const set = withProducts(built, [
+      {
+        ...box,
+        items: [
+          ["m1", "2"],
+          ["meat", "120"],
+          ["chili", "1"],
+        ],
+      },
+      { id: "pack", name: "น้ำพริกแพ็กคู่", items: [["chili", "2"]] },
+    ]);
+    const preview = (values: Values, date: string, saved?: Entry) =>
+      salePreview(set, "ศาลาแดง", values, date, saved);
+    const left = (id: string, date: string) => item(id, date, set).remaining;
+    // Nothing typed, or a product with no component: no line.
+    expect(preview({}, "2026-09-13")).toEqual([]);
+    expect(salePreview(built, "ศาลาแดง", { boxes: "5" }, "2026-09-13")).toEqual(
+      [],
+    );
+    // 5 boxes and 3 packs: 5 × 120 g, 5 + 3 × 2 tubes, 5 × 2 of the material; sheet order.
+    const lines = preview({ boxes: "5", "product.pack": "3" }, "2026-09-13");
+    expect(lines.map((l) => [l.id, l.unit, l.take])).toEqual([
+      ["meat", "กก.", 0.6],
+      ["chili", "หลอด", 11],
+      ["m1", lines[2].unit, 10],
+    ]);
+    for (const l of lines)
+      expect(l.left).toBeCloseTo(left(l.id, "2026-09-13") - l.take);
+    // More than the branch holds is told, below zero.
+    expect(preview({ boxes: "1000" }, "2026-09-13")[2].left).toBeLessThan(0);
+    // The sale of the 10th, opened to edit: the stock already counts its 10 boxes.
+    const sold = entries(set, "sale", undefined, "ศาลาแดง").find(
+      (e) => e.date === "2026-09-10",
+    )!;
+    expect(sold.values.boxes).toBe("10");
+    const m1 = (values: Values, date: string) =>
+      preview(values, date, sold).find((l) => l.id === "m1")!.left;
+    expect(m1(sold.values, "2026-09-10")).toBe(left("m1", "2026-09-10"));
+    expect(m1({ boxes: "12" }, "2026-09-10")).toBe(
+      left("m1", "2026-09-10") - 4,
+    );
+    // Moved to the day before, where the stock does not count it yet.
+    expect(m1({ boxes: "12" }, "2026-09-09")).toBe(
+      left("m1", "2026-09-09") - 24,
+    );
+    // The packs alone: no product is missing. No count at all: the first product is.
+    const missing = (values: Values) =>
+      mutate(set, saladaeng, "sale", values, "", day).entries.at(-1)!.values
+        .missing;
+    expect(missing({ "product.pack": "3", lineMan: "1" })).toBeUndefined();
+    expect(missing({ lineMan: "1" })).toBe("boxes");
+    // A gift box still asks for the first product.
+    expect(
+      mutate(
+        set,
+        saladaeng,
+        "influencerBox",
+        { influencer: "@a", "product.pack": "1" },
+        "",
+        day,
+      ).entries.at(-1)!.values.missing,
+    ).toBe("boxes");
   });
 
   it("CAL-10: the old box recipe stands as the box's components until a product list is saved: a sale and a gift box take boxes × it, beside what the sheet says was used, and the next day opens without it", () => {

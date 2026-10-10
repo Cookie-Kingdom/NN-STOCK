@@ -61,6 +61,7 @@ import {
   purchaseLots,
   remainingKg,
   roundsOf,
+  salePreview,
   shipments,
   supplierBalances,
   titles,
@@ -300,10 +301,13 @@ function NoteForm({
       const { sku, isNew } = skuFor(db, values.item, target?.values);
       return { ...f, hint: isNew ? `ใหม่: ${sku}` : sku };
     });
-  // The people's rows stand where the name field was.
+  /** A sale's count fields, one per product: laid out as rows (`SaleRowsControl`). */
+  const counts =
+    kind === "sale" ? visible.filter((f) => isProductKey(f.key)) : [];
+  // The people's rows stand where the name field was, a sale's products where the first was.
   const shown = multi
     ? visible.filter((f) => f.key === "influencer" || !isGiftKey(f.key))
-    : visible;
+    : visible.filter((f) => !counts.includes(f) || f === counts[0]);
   const set = (key: string, value: string) => {
     typed.current.add(key);
     setValues((last) => ({ ...last, [key]: value }));
@@ -321,7 +325,15 @@ function NoteForm({
     ? giftFigures(typedPeople, products(db.config))
     : noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
-  const core = visible.filter((f) => f.core);
+  // A sale's products are not jotted only when none has a count (as `mutate` lists it).
+  const core = visible.filter(
+    (f) => f.core && !(counts.includes(f) && counts.some((x) => values[x.key])),
+  );
+  const branch = by.branch ?? target?.branch;
+  const preview =
+    counts.length && branch
+      ? salePreview(db, branch, values, date, target)
+      : [];
 
   const save = async (again: boolean) => {
     setError("");
@@ -455,6 +467,15 @@ function NoteForm({
                     values={values}
                     set={set}
                     exceptId={target?.id}
+                  />
+                ) : f === counts[0] ? (
+                  <SaleRowsControl
+                    key={f.key}
+                    fields={counts}
+                    values={values}
+                    set={set}
+                    autoFocus={first}
+                    preview={preview}
                   />
                 ) : multi && f.key === "influencer" ? (
                   <GiftRowsControl
@@ -628,6 +649,131 @@ function GiftRowsControl({
         <FieldHint>
           {hint.label}: {hint.hint}
         </FieldHint>
+      )}
+    </div>
+  );
+}
+
+/** A sale's products: rows of [product | count | remove], a product in one row only. The
+ *  note keeps a count per product (`fields`): a row removed, or moved to another product,
+ *  leaves its own empty. Under them, what the sale takes from the branch's stock and what
+ *  is left (`salePreview`): told, never refused (V2-RUL-05). */
+function SaleRowsControl({
+  fields: counts,
+  values,
+  set,
+  autoFocus,
+  preview,
+}: {
+  fields: Field[];
+  values: Values;
+  set: (key: string, value: string) => void;
+  autoFocus: boolean;
+  preview: ReturnType<typeof salePreview>;
+}) {
+  const titleId = useId();
+  /** The value key of each row's product: those the note has a count of, else the first. */
+  const [keys, setKeys] = useState(() => {
+    const held = counts.filter((f) => values[f.key]).map((f) => f.key);
+    return held.length ? held : [counts[0].key];
+  });
+  const none = !counts.some((f) => values[f.key]);
+  const grid =
+    "grid grid-cols-[minmax(0,1fr)_6rem_2.75rem_auto] gap-2 max-md:grid-cols-[minmax(0,1fr)_4.5rem_2.5rem_auto]";
+  const signed = (x: number) => `${x < 0 ? "−" : ""}${qty(Math.abs(x))}`;
+  return (
+    <div className={fieldClassName(true, "flex flex-col gap-2")}>
+      {/* The controls name themselves; these head the columns for the eye. */}
+      <div aria-hidden className={cn(grid, "-mb-2")}>
+        <span>สินค้า</span>
+        <span>จำนวน</span>
+      </div>
+      {keys.map((key, index) => {
+        const f = counts.find((x) => x.key === key)!;
+        return (
+          <div key={key} className={cn(grid, "items-end")}>
+            <Select
+              aria-label={`สินค้า บรรทัด ${index + 1}`}
+              value={key}
+              onChange={(next) => {
+                set(next, values[key] ?? "");
+                set(key, "");
+                setKeys(keys.map((k) => (k === key ? next : k)));
+              }}
+              options={counts
+                .filter((x) => x.key === key || !keys.includes(x.key))
+                .map((x) => ({ value: x.key, label: x.label }))}
+            />
+            <Input
+              aria-label={`${f.label} (${f.unit})`}
+              autoFocus={autoFocus && index === 0}
+              data-autofocus={(autoFocus && index === 0) || undefined}
+              inputMode="numeric"
+              autoComplete="off"
+              value={values[key] ?? ""}
+              className={cn(
+                "text-right tabular-nums",
+                none && "border-warning/60 bg-warning-subtle",
+              )}
+              onChange={(event) => set(key, event.target.value)}
+            />
+            <span className="pb-3 font-normal text-text-secondary">
+              {f.unit}
+            </span>
+            <IconButton
+              label={`ลบบรรทัด ${index + 1}`}
+              icon={<X size={18} />}
+              disabled={keys.length === 1}
+              onClick={() => {
+                set(key, "");
+                setKeys(keys.filter((k) => k !== key));
+              }}
+            />
+          </div>
+        );
+      })}
+      {keys.length < counts.length && (
+        <Button
+          icon={<Plus />}
+          className="mt-1 w-fit"
+          onClick={() =>
+            setKeys([...keys, counts.find((f) => !keys.includes(f.key))!.key])
+          }
+        >
+          เพิ่มรายการ
+        </Button>
+      )}
+      {preview.length > 0 && (
+        <div className="mt-1 rounded-md border border-border bg-bg px-4 py-3 font-normal">
+          <p id={titleId} className="m-0 text-label text-text-secondary">
+            สต๊อกหลังบันทึก
+          </p>
+          <ul
+            aria-labelledby={titleId}
+            aria-live="polite"
+            className="m-0 mt-2 grid list-none grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 gap-y-1.5 p-0 tabular-nums"
+          >
+            {preview.map((line) => (
+              <li
+                key={line.id}
+                className="col-span-full grid grid-cols-subgrid items-baseline"
+              >
+                <span className="[overflow-wrap:anywhere]">{line.name}</span>
+                <span className="text-right text-text-secondary">
+                  ตัด {qty(line.take)} {line.unit}
+                </span>
+                <span
+                  className={cn(
+                    "text-right font-medium",
+                    line.left < 0 && "text-danger",
+                  )}
+                >
+                  เหลือ {signed(line.left)} {line.unit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
