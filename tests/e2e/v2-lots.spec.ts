@@ -235,7 +235,7 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   await savePo(page);
   await left(5);
   await dispatch(page, lot);
-  await expect(form(page).getByLabel(/^PO รมควัน/)).toHaveText(SO);
+  await expect(form(page).getByLabel(/^PO รมควัน/)).toHaveValue(SO);
   await expect(form(page).getByLabel(/^น้ำหนักที่ส่ง/)).toHaveValue("200");
   await form(page).getByRole("button", { name: "เพิ่ม PO เนื้อ" }).click();
   await pick(line(page), 1);

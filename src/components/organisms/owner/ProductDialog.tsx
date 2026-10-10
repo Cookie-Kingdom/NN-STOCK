@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/atoms/Button";
-import { Combobox } from "@/components/atoms/Combobox";
+import { Combobox, SearchSelect } from "@/components/atoms/Combobox";
 import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Caption } from "@/components/atoms/Text";
 import { Dialog } from "@/components/molecules/Dialog";
@@ -306,11 +305,11 @@ export function ProductDialog({
             );
           })}
           {left.length > 0 && (
-            <Select
+            <SearchSelect
               aria-label="เพิ่มส่วนประกอบ"
-              className="mt-1"
-              // Never one of the options: the control reads as its own name.
-              value="เพิ่มส่วนประกอบ"
+              placeholder="ค้นหาแล้วเลือกส่วนประกอบ"
+              // Never holds a choice: a pick becomes a row above.
+              value=""
               options={left.map((item) => ({
                 value: item.id,
                 label: item.name,

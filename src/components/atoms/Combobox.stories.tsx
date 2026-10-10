@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Combobox } from "./Combobox";
+import { Combobox, SearchSelect } from "./Combobox";
 
 const meta = {
   title: "Atoms/Combobox",
@@ -61,5 +61,28 @@ export const WithLabels: Story = {
       { value: "หมึกพิมพ์", label: "SKU-0012" },
       { value: "กล่องอินฟลูเอนเซอร์", label: "SKU-0013" },
     ],
+  },
+};
+
+/** `SearchSelect`: a Select that is searched. The value is the option's id, the field reads
+ *  its label; type "ถุง" or "0012" and pick, or type junk and leave: the choice stands. */
+export const Search: Story = {
+  render: function Render() {
+    const [value, setValue] = useState("m2");
+    return (
+      <div className="w-72">
+        <SearchSelect
+          aria-label="วัสดุ"
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: "", label: "เลือกวัสดุ" },
+            { value: "m1", label: "ถุงซีลเนื้อ", hint: "SKU-0011" },
+            { value: "m2", label: "หมึกพิมพ์", hint: "SKU-0012" },
+            { value: "m3", label: "กล่องอินฟลูเอนเซอร์", hint: "SKU-0013" },
+          ]}
+        />
+      </div>
+    );
   },
 };
