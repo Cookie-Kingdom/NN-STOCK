@@ -651,7 +651,7 @@ export function poInfo(db: Database, poLotId: string, exceptId?: string) {
  *  the seller (V2-CAL-07) and what each PO รมควัน holds in the central warehouse (V2-CAL-08),
  *  only those with some. A lot carried over from the old workbook (`old`) holds no stock:
  *  backdated stock is never the true one, so stock starts from what is jotted from now on.
- *  Its own page (Old Lots), cost and money still read `poInfo` / `lotInfo`. */
+ *  Cost and money still read `poInfo` / `lotInfo`. */
 export function meatStock(db: Database) {
   return {
     held: purchaseLots(db)

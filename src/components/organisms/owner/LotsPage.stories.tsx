@@ -21,18 +21,15 @@ import { LotsPage } from "./LotsPage";
 /** The page with the composer's two openers spied on: the composer itself is the shell's. */
 const Page = ({
   account,
-  old,
   jot,
   edit,
 }: {
   account: AccountId;
-  /** The Old Lots page. */
-  old?: boolean;
   jot: Workspace["jot"];
   edit: Workspace["edit"];
 }) => (
   <WithWorkspace account={account}>
-    {(ws) => <LotsPage ws={{ ...ws, jot, edit }} old={old} />}
+    {(ws) => <LotsPage ws={{ ...ws, jot, edit }} />}
   </WithWorkspace>
 );
 
@@ -138,7 +135,7 @@ const listed = (canvasElement: HTMLElement) =>
   );
 const oldIds = oldLotsDb.lots.filter((lot) => lot.old).map((lot) => lot.id);
 
-/** Lots เมื่อมี PO จากไฟล์เดิม: PO-0001 และ SO-0001 ไม่อยู่ในรายการ ไปอยู่หน้า Old Lots */
+/** Lots เมื่อมี PO จากไฟล์เดิม: PO-0001 และ SO-0001 ไม่อยู่ในรายการ */
 export const WithoutOld: Story = {
   parameters: { db: oldLotsDb },
   play: async ({ canvasElement }) => {
@@ -147,21 +144,6 @@ export const WithoutOld: Story = {
     await expect(ids.filter((id) => oldIds.includes(id!))).toEqual([]);
   },
 };
-
-/** หน้า Old Lots: เฉพาะ PO จากไฟล์เดิม ไม่มีปุ่มสร้าง PO · ข้างใน PO แก้ไขและจดเพิ่มได้เหมือนหน้า Lots */
-export const OldLots: Story = {
-  args: { old: true },
-  parameters: { db: oldLotsDb },
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).queryByRole("button", { name: /สร้าง PO/ }),
-    ).toBeNull();
-    await expect(listed(canvasElement).sort()).toEqual(oldIds.toSorted());
-  },
-};
-
-/** หน้า Old Lots ที่ยังไม่มี PO จากไฟล์เดิม */
-export const OldLotsEmpty: Story = { args: { old: true } };
 
 /** จอ 390px: รายการ PO เป็นแถวเลื่อนแนวนอน รอบส่งเรียงลงมาทีละขั้น */
 export const Phone: Story = {

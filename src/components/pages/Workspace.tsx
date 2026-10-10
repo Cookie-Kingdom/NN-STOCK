@@ -7,7 +7,7 @@ import {
   BranchStock,
 } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
-import { LotsPage, OldLotsPage } from "@/components/organisms/owner/LotsPage";
+import { LotsPage } from "@/components/organisms/owner/LotsPage";
 import { OverviewPage } from "@/components/organisms/owner/OverviewPage";
 import { ProjectOverviewPage } from "@/components/organisms/owner/ProjectOverviewPage";
 import { OwnerMeatStock } from "@/components/organisms/owner/OwnerMeatStock";
@@ -37,7 +37,6 @@ export function Workspace({ account }: { account: Account }) {
     // A branch's only (`navFor`).
     sales: BranchSales,
     finance: FinancePage,
-    oldLots: OldLotsPage,
     accounting: AccountingPage,
     projectSettings: ProjectSettingsPage,
     settings: SettingsPage,

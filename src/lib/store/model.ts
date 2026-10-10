@@ -224,7 +224,7 @@ export type Lot = {
   config: Values;
   /** "shipment" = one PO รมควัน; absent = a PO เนื้อ. */
   kind?: "shipment";
-  /** Carried over from the shop's old workbook: listed on Old Lots, not Lots. */
+  /** Carried over from the shop's old workbook: on no page, and not counted as stock. */
   old?: true;
 };
 export type Database = {

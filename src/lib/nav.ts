@@ -1,5 +1,4 @@
 import {
-  Archive,
   Beef,
   BookText,
   ChartColumn,
@@ -25,13 +24,12 @@ export type Tab =
   | "stock"
   | "sales"
   | "finance"
-  | "oldLots"
   | "accounting"
   | "projectSettings"
   | "settings";
 
 /** The sidebar section that holds the project's Overview, Lots, Stock, Inventory,
- *  Daily Log, Finance and Old Lots. */
+ *  Daily Log and Finance. */
 export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
@@ -95,13 +93,6 @@ export const pages: Record<
     icon: Wallet,
     group: shopGroup,
   },
-  // Lots, for the POs flagged `old` (model.ts).
-  oldLots: {
-    label: "Old Lots",
-    description: "PO จากไฟล์เดิมที่จดไม่ครบ",
-    icon: Archive,
-    group: shopGroup,
-  },
   // The same name as the shop's, as the Overview is: /owner/nn-x-lm/settings.
   projectSettings: {
     label: "Settings",
@@ -146,7 +137,6 @@ export const navFor = (account: Pick<Account, "role">): Tab[] =>
         "stock",
         "log",
         "finance",
-        "oldLots",
         "projectSettings",
         "accounting",
         "settings",
