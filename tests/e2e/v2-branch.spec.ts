@@ -218,16 +218,30 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   );
 });
 
-test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once it is jotted", async ({
+test("11 · V2-PG-01 a day the branch jotted something on with no sale is yellow, and green once the sale is jotted; a day with no note asks for nothing", async ({
   page,
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
   const todo = region(page, "ยังไม่ได้จด");
+  await openPage(page, "Daily Log");
+  // Nothing jotted (the shop was closed): no day is listed and nothing is to do.
+  await expect(todo).toHaveAttribute("data-tone", "ok");
+  await expect(page.locator("[data-date]")).toHaveCount(0);
+  // A note of today that is no sale: the branch was open, so today's sale is due.
+  await openPage(page, "Sales");
+  await jot(page, "กล่องแจก");
+  await fill(
+    page,
+    [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
+    [/^กล่องที่แจก/, "2"],
+  );
+  await save(page);
+  await openPage(page, "Daily Log");
   await allTodos(page);
-  for (const offset of [0, -1, -6])
-    await expect(day(page, offset)).toHaveAttribute("data-tone", "warning");
-  await expect(todoLines(page, "ยอดขาย")).toHaveCount(7);
+  await expect(day(page)).toHaveAttribute("data-tone", "warning");
+  await expect(day(page, -1)).toHaveCount(0);
+  await expect(todoLines(page, "ยอดขาย")).toHaveCount(1);
   // Daily Log is for looking: the pill and the box's lines say it, and open nothing.
   await expect(day(page).getByText("ยังไม่ได้จดยอดขาย")).toBeVisible();
   await expect(day(page).getByRole("button", { name: /ยอดขาย/ })).toHaveCount(
@@ -246,7 +260,8 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await expect(day(page).locator('[data-kind="sale"]')).toContainText(
     "+฿8,200",
   );
-  await expect(day(page, -1)).toHaveAttribute("data-tone", "warning");
+  await expect(day(page, -1)).toHaveCount(0);
+  await expect(todo).toHaveAttribute("data-tone", "ok");
 
   // V2-RUL-04, V2-PG-02: an earlier day is jotted the same way; nothing is closed.
   await jotSaleOf(page, -1);
@@ -254,8 +269,8 @@ test("11 · V2-PG-01 a day the branch has no sale on is yellow, and green once i
   await save(page);
   await openPage(page, "Daily Log");
   await expect(day(page, -1)).toHaveAttribute("data-tone", "ok");
-  await expect(day(page, -2)).toHaveAttribute("data-tone", "warning");
-  await expect(todoLines(page, "ยอดขาย")).toHaveCount(5);
+  await expect(day(page, -2)).toHaveCount(0);
+  await expect(todoLines(page, "ยอดขาย")).toHaveCount(0);
 });
 
 test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and a sale takes no stock", async ({

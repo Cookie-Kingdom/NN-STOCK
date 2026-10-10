@@ -97,6 +97,7 @@ export {
   advances,
   giftBoxes,
   hasSale,
+  saleDue,
 } from "./store/derived";
 export {
   visibleEntries,

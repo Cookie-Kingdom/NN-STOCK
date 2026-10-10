@@ -26,6 +26,7 @@ import {
   isNoteKind,
   kindInfo,
   missingText,
+  saleDue,
   saleMoney,
   visibleNotes,
   type Entry,
@@ -139,7 +140,8 @@ function Day({
  *  until its head is pressed, unless a filter is on (then every day with a match is open). A
  *  page for looking: nothing here opens a
  *  new note, only a row its edit or delete. A day's head says per branch whether its sale is
- *  jotted; a day with one missing is yellow. Beside the days: everything not jotted yet (a
+ *  jotted, or due (the branch jotted something else that day, `saleDue`) and then the day is
+ *  yellow; a branch with no note that day gets no badge, a day with no note no card. Beside the days: everything not jotted yet (a
  *  status list), and for a branch its meat as its daily sheet reads (`branchItem`). */
 export function DailyLog({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
@@ -160,9 +162,19 @@ export function DailyLog({ ws }: { ws: Workspace }) {
   const cards = Array.from({ length: days }, (_, back) => {
     const date = dayBack(today, back);
     const rows = shown.filter((e) => e.date === date);
-    const unsold = saleBranches.filter((name) => !hasSale(db, name, date));
-    // A day with nothing jotted is listed only for what is missing on it.
-    if (!rows.length && (filter !== "all" || !unsold.length)) return null;
+    if (!rows.length) return null;
+    const due = saleBranches.filter((name) => saleDue(db, name, date));
+    // A branch with no note of its own on the day (closed) gets no badge.
+    const badges = saleBranches.flatMap((name) => {
+      const sold = hasSale(db, name, date);
+      if (!sold && !due.includes(name)) return [];
+      return (
+        <Badge key={name} tone={sold ? "success" : "warning"}>
+          {own ? "" : `${name} · `}
+          {sold ? "จดยอดขายแล้ว" : `${missingText}ยอดขาย`}
+        </Badge>
+      );
+    });
     return (
       <Day
         // A filter starts the days over: open or closed as the new filter says.
@@ -171,24 +183,9 @@ export function DailyLog({ ws }: { ws: Workspace }) {
         ws={ws}
         startOpen={!back || filter !== "all"}
         data-date={date}
-        tone={unsold.length ? "warning" : "ok"}
+        tone={due.length ? "warning" : "ok"}
         title={`${thaiDay(date, { weekday: "long", day: "numeric", month: "short" })}${back ? "" : " · วันนี้"}`}
-        aside={
-          saleBranches.length > 0 &&
-          saleBranches.map((name) => {
-            const lead = own ? "" : `${name} · `;
-            return unsold.includes(name) ? (
-              <Badge key={name} tone="warning">
-                {lead}
-                {missingText}ยอดขาย
-              </Badge>
-            ) : (
-              <Badge key={name} tone="success">
-                {lead}จดยอดขายแล้ว
-              </Badge>
-            );
-          })
-        }
+        aside={badges.length > 0 && badges}
       />
     );
   });

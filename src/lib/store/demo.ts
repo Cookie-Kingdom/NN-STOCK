@@ -14,10 +14,11 @@ const owner: Actor = { role: "owner" };
 /** 35 days that end on `endDate` (today at most: `mutate` takes no future date). Three POs
  *  รมควัน: one complete (one round, its invoice), one with a first round received at Chef
  *  House only, one bought with nothing sent yet. PO เนื้อ 1 has its invoice and its waste
- *  received; PO เนื้อ 2 still waits for its waste and its invoice. A sale day left out and a
- *  sale with no money typed show the yellow. Each branch set its opening stock ten days ago
- *  and saved its daily sheets since (some with waste, one waste with no reason, one day
- *  skipped); today's are not saved yet. */
+ *  received; PO เนื้อ 2 still waits for its waste and its invoice. ศาลาแดง has a note today
+ *  and no sale yet, and a sale with no money typed: both show the yellow. Each branch set its
+ *  opening stock ten days ago and saved its daily sheets since (some with waste, one waste
+ *  with no reason); มีนบุรี was closed two days ago (no sheet, no sale: nothing is asked of
+ *  that day); today's sheets are not saved yet. */
 export function sampleData(endDate: string): Database {
   let db = structuredClone(seed);
   const add = (
@@ -166,6 +167,11 @@ export function sampleData(endDate: string): Database {
     chiliAddons: 6,
     shippingFee: 180,
   });
+  // Today ศาลาแดง is open (this note) with no sale yet: its sale is due, the day is yellow.
+  add(saladaeng, "influencerBox", 0, "11:40", {
+    influencer: "@bkkfoodie",
+    boxes: 2,
+  });
   /* The daily sheets (V2-CAL-10): the opening stock of both sheets ten days ago, then a sheet
    * a day. `figures` is a row per item: [id, used, waste?, reason?, received?]. */
   const opening = (qty: Record<string, number>) =>
@@ -198,7 +204,7 @@ export function sampleData(endDate: string): Database {
   });
   for (let d = 9; d >= 1; d--)
     for (const [bi, branch] of branches.entries()) {
-      // A day one branch forgot its sheets.
+      // The day มีนบุรี was closed.
       if (branch === minburi && d === 2) continue;
       const boxes = 20 + ((d * 37 + bi * 11) % 16);
       const reporter = bi ? "พี่เอ" : "น้องฝน";
@@ -416,7 +422,7 @@ export function sampleData(endDate: string): Database {
   add(owner, "smokeOrder", 1, "09:00", { rawKg: 50 });
   for (let d = 35; d >= 1; d--)
     for (const [bi, branch] of branches.entries()) {
-      // A day one branch forgot: its day shows yellow.
+      // Closed that day: no note at all, so no sale is due.
       if (branch === minburi && d === 2) continue;
       const boxes = 20 + ((d * 37 + bi * 11) % 16);
       const chiliAddons = (d * 3 + bi) % 6;

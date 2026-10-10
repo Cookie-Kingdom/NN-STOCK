@@ -244,7 +244,18 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
     "30",
   );
 
-  // The sale is the branch's to jot: to the Owner its yellow pill is a status, not a button.
+  // A note of the branch today with no sale: its sale is due. It is the branch's to jot: to
+  // the Owner its yellow pill is a status, not a button.
+  await signInAs(page, "saladaeng");
+  await openPage(page, "Sales");
+  await jot(page, "กล่องแจก");
+  await fill(
+    page,
+    [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
+    [/^กล่องที่แจก/, "2"],
+  );
+  await save(page);
+  await signInAs(page, "owner");
   await openPage(page, "Daily Log");
   const pill = page
     .locator(`[data-date="${today}"]`)
