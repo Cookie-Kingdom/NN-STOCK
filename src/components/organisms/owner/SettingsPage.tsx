@@ -19,20 +19,30 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
 import {
+  boxRecipe,
   branches,
+  gramItems,
   materialList,
   mutate,
   payCategories,
   rawRiceBranches,
   salesChannels,
   seed,
+  sheetItems,
   skuCatalogue,
   type Database,
   type Values,
 } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 type Section =
-  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
+  | "numbers"
+  | "channels"
+  | "categories"
+  | "rice"
+  | "recipe"
+  | "materials"
+  | "header";
 type ListSection = "channels" | "categories" | "materials";
 type Setting = {
   key: string;
@@ -118,6 +128,7 @@ const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
   header: "ข้อมูลหัวเอกสาร",
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
+  recipe: "สูตรต่อกล่อง",
   channels: lists.channels.title,
   categories: lists.categories.title,
   materials: lists.materials.title,
@@ -133,6 +144,24 @@ const rowsOf = (db: Database, section: ListSection): Values[] =>
     : section === "materials"
       ? materialList(db)
       : payCategories(db.config);
+/** 「สูตรต่อกล่อง」 as rows: the meat, the raw rice and the chili, then every material, each
+ *  with what a box takes of it (`qty`, "" for none) in the unit it is typed in. */
+const recipeRows = (db: Database): Values[] => {
+  const recipe = boxRecipe(db.config);
+  return [...sheetItems(db, "meat"), ...materialList(db)].map((item) => ({
+    id: item.id,
+    name: item.name,
+    unit: gramItems.includes(item.id) ? "กรัม" : item.unit,
+    qty: String(recipe.get(item.id) ?? ""),
+  }));
+};
+/** Those rows as `config.boxRecipe` holds them: only the rows with a quantity. */
+const recipeOf = (rows: Values[]) =>
+  JSON.stringify(
+    rows
+      .map((row) => ({ id: row.id, qty: row.qty.trim() }))
+      .filter((row) => row.qty),
+  );
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -183,7 +212,7 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
     if (isList(section)) {
       const now = rowsOf(latestDatabase(), section);
       setRows(add ? addRow(section, now) : now);
-    }
+    } else if (section === "recipe") setRows(recipeRows(latestDatabase()));
     setEditing(section);
     setError("");
     setMessage("");
@@ -237,7 +266,12 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
         !(section === "materials" && typed.some((row) => !row.sku))
           ? {}
           : { [lists[section].key]: JSON.stringify(typed) };
-    } else
+    } else if (section === "recipe")
+      input =
+        recipeOf(rows) === recipeOf(recipeRows(latest))
+          ? {}
+          : { boxRecipe: recipeOf(rows) };
+    else
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
@@ -494,6 +528,40 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
               </label>
             ))}
           </div>,
+        )}
+        {card(
+          "recipe",
+          "ขายหรือแจก 1 กล่อง เว็บตัดสต๊อกของสาขาตามจำนวนในนี้ให้เอง แยกจาก “ใช้ไป” ที่สาขาพิมพ์ รายการที่เว้นว่างหรือเป็น 0 จะไม่ถูกตัด น้ำพริกที่ขายแยกตัดหลอดต่อหลอดเสมอ แก้สูตรแล้วยอดย้อนหลังคิดใหม่ตามสูตรล่าสุด",
+          <StockTable columns={["รายการ", "ต่อกล่อง"]} right={["ต่อกล่อง"]}>
+            {(editing === "recipe" ? rows : recipeRows(db)).map(
+              (row, index) => (
+                <tr key={row.id}>
+                  <Cell>{row.name}</Cell>
+                  <Cell right className={cn(editing === "recipe" && "py-1.5")}>
+                    <span className="flex items-center justify-end gap-2">
+                      {editing === "recipe" ? (
+                        // Text, not number: `mutate` words the refusal of a bad figure.
+                        <Input
+                          inputMode="decimal"
+                          aria-label={`ต่อกล่อง ${row.name}`}
+                          className="mt-0 min-h-10 w-20 text-right"
+                          value={row.qty}
+                          onChange={(event) =>
+                            setRow(index, "qty", event.target.value)
+                          }
+                        />
+                      ) : (
+                        <ReadOnlyValue>{row.qty || "—"}</ReadOnlyValue>
+                      )}
+                      <span className="w-12 text-left text-caption font-normal text-text-secondary">
+                        {row.unit}
+                      </span>
+                    </span>
+                  </Cell>
+                </tr>
+              ),
+            )}
+          </StockTable>,
         )}
       </div>
       <div className="flex min-w-0 flex-col gap-4">

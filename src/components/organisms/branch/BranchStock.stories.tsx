@@ -104,6 +104,38 @@ const unsigned = {
     ),
   },
 };
+/** The sample with a recipe set (เนื้อ 120 กรัม · น้ำพริก 1 หลอด · กล่องบรรจุ 1 · ซองเนื้อ 2 a
+ *  box), as ศาลาแดง receives it, and a sale of 10 boxes with 3 tubes more jotted today (the
+ *  sample gives 2 boxes away today as well). */
+const soldDb = dbFor(
+  "saladaeng",
+  mutate(
+    mutate(
+      sampleDb,
+      accountById("owner")!,
+      "config",
+      {
+        boxRecipe: JSON.stringify([
+          { id: "meat", qty: "120" },
+          { id: "chili", qty: "1" },
+          { id: "m1", qty: "1" },
+          { id: "m2", qty: "2" },
+        ]),
+      },
+      "",
+      today(),
+    ),
+    accountById("saladaeng")!,
+    "sale",
+    { boxes: "10", chiliAddons: "3", lineMan: "3500" },
+    "",
+    today(),
+  ),
+);
+const sheetOf = async (canvasElement: HTMLElement) =>
+  within(
+    await within(canvasElement).findByRole("region", { name: "ใบสต๊อกรายวัน" }),
+  );
 const stock = { page: "stock" } as const;
 /** Today saved, at 390px. */
 const phoneSaved = {
@@ -136,8 +168,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Inventory ของมีนบุรี ตั้งสต๊อกเริ่มต้นแล้ว วันนี้ยังไม่บันทึก: ป้าย「ยังไม่บันทึกวันนี้」·
- *  รายการสินค้าเป็นตาราง มีเส้นแบ่งคอลัมน์และเส้นแบ่งแถว หัวตาราง สินค้า / ยกมา · รับเพิ่ม · ใช้ไป ·
- *  Waste / ทิ้ง · คงเหลือ (คิดให้ทันที) · ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」·
+ *  รายการสินค้าเป็นตาราง มีเส้นแบ่งคอลัมน์และเส้นแบ่งแถว หัวตาราง สินค้า / ยกมา · รับเพิ่ม · ใช้ไป
+ *  (ใต้ช่องคือ「ตัดจากยอดขาย」ที่เว็บคิดให้ เมื่อวันนั้นมี) · Waste / ทิ้ง · คงเหลือ (คิดให้ทันที) · ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」·
  *  พิมพ์แล้วป้ายเป็น「ยังไม่บันทึก」· กด「บันทึกการใช้วันนี้」บันทึกได้แม้เว้นว่าง ·
  *  ช่องค้นหาซ่อนแถว แต่บันทึกครบทุกรายการ */
 export const TodayNotSaved: Story = {};
@@ -197,6 +229,48 @@ export const NegativeRemaining: Story = { ...negative };
 
 /** บันทึกโดยไม่ใส่ผู้บันทึก และมี Waste ที่ไม่มีสาเหตุ: ทั้งสองช่องขึ้น「ยังไม่ได้จด」 */
 export const MissingReporter: Story = { ...unsigned };
+
+/** ตั้งสูตรต่อกล่องแล้ว และวันนี้มียอดขายกับกล่องที่แจก: ใต้ช่อง「ใช้ไป」ของกล่องบรรจุและซองเนื้อมีบรรทัด
+ *  「ตัดจากยอดขาย」(พิมพ์ไม่ได้ เว็บคิดให้ แยกจากใช้ไปที่พิมพ์เอง) และคงเหลือถูกหักแล้ว ·
+ *  รายการที่ไม่อยู่ในสูตรไม่มีบรรทัดนี้ */
+export const SoldFromSales: Story = {
+  args: saladaeng,
+  parameters: { db: soldDb },
+  play: async ({ canvasElement }) => {
+    const sheet = await sheetOf(canvasElement);
+    // 10 boxes sold + 2 given away today, a box and two meat bags each.
+    await expect(
+      sheet.getByLabelText("ตัดจากยอดขาย กล่องบรรจุ"),
+    ).toHaveTextContent("ตัดจากยอดขาย 12");
+    await expect(
+      sheet.getByLabelText("ตัดจากยอดขาย ซองเนื้อ"),
+    ).toHaveTextContent("ตัดจากยอดขาย 24");
+    await expect(sheet.queryByLabelText("ตัดจากยอดขาย ถุงกระดาษ")).toBeNull();
+  },
+};
+
+/** Stock: เนื้อตัดตามกรัมต่อกล่อง (12 กล่อง × 120 กรัม = 1.44 กก.) น้ำพริกตัดตามสูตรและหลอดที่ขายแยก
+ *  (12 + 3 = 15 หลอด) */
+export const StockSoldFromSales: Story = {
+  args: { ...saladaeng, ...stock },
+  parameters: { db: soldDb },
+  play: async ({ canvasElement }) => {
+    const sheet = await sheetOf(canvasElement);
+    await expect(sheet.getByLabelText("ตัดจากยอดขาย เนื้อ")).toHaveTextContent(
+      "ตัดจากยอดขาย 1.44",
+    );
+    await expect(
+      sheet.getByLabelText("ตัดจากยอดขาย น้ำพริก"),
+    ).toHaveTextContent("ตัดจากยอดขาย 15");
+  },
+};
+
+/** จอ 390px มีบรรทัด「ตัดจากยอดขาย」ใต้「ใช้ไป」: ตารางกว้างเท่าเดิม ไม่มีคอลัมน์เพิ่ม */
+export const PhoneSoldFromSales: Story = {
+  ...phone,
+  args: saladaeng,
+  parameters: { ...phone.parameters, db: soldDb },
+};
 
 /** Inventory ของศาลาแดง: บนสุดคือกล่องสีเหลือง「รอยืนยันรับสินค้า」แถวละรายการที่ส่งมาแบบ
  *  「สาขาต้องกดยืนยันรับ」(วันที่ · รายการพร้อม SKU · จำนวน · คลังต้นทาง · ปุ่ม「ยืนยันรับ」) ·
