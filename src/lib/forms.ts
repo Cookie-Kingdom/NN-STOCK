@@ -466,7 +466,7 @@ export function fields(
         }),
         sourceField,
         ...more(
-          number("fullAmount", "ยอดเต็ม", "บาท", {
+          number("fullAmount", "ชำระบางส่วน", "บาท", {
             hint: "สำหรับการจ่ายบางส่วนหรือมัดจำ",
           }),
           file("ใบเสร็จ"),

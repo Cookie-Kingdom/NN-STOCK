@@ -266,7 +266,7 @@ export function noteLine(db: Database, e: Entry): string {
         item && has("qty") ? `${item} ${n("qty")} เข้าสาขา${e.branch}` : item,
         v.supplier,
         has("payer") && `จ่ายโดย ${v.payer}`,
-        has("fullAmount") && `ยอดเต็ม ${baht(Number(v.fullAmount))}`,
+        has("fullAmount") && `ชำระบางส่วน ${baht(Number(v.fullAmount))}`,
       );
     }
     case "reimburse":
