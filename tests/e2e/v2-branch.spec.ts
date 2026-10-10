@@ -475,7 +475,7 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   const component = async (item: string, qty: string) => {
     await popup(page)
       .getByRole("combobox", { name: "เพิ่มส่วนประกอบ" })
-      .click();
+      .fill(item);
     // The stock items come before the materials named after them.
     await page
       .getByRole("option", { name: new RegExp(`^${item}`) })

@@ -9,6 +9,7 @@ import { Input } from "@/components/atoms/Input";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
+import { SearchSelect } from "@/components/atoms/Combobox";
 import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
@@ -53,11 +54,13 @@ const hasFile = (row: LedgerRow) =>
 /** A column of the table, but the last (แก้ไข / ลบ): its head, and how its filter reads a
  *  row. `pick` offers what the ledger holds (a row may answer to more than one choice),
  *  `text` finds the typed words in it, `min` keeps a figure of the typed number or more. */
-type Column = { name: string; label?: (value: string) => string } & (
-  | { filter: "pick"; values: (row: LedgerRow) => string[] }
-  | { filter: "text"; text: (row: LedgerRow) => string }
-  | { filter: "min"; figure: (row: LedgerRow) => number | null }
-);
+type Column = { name: string; label?: (value: string) => string } &
+  // `search`: the choices grow with the ledger, so the filter is searched.
+  (
+    | { filter: "pick"; values: (row: LedgerRow) => string[]; search?: true }
+    | { filter: "text"; text: (row: LedgerRow) => string }
+    | { filter: "min"; figure: (row: LedgerRow) => number | null }
+  );
 /** The two ways money goes, as the table and its filters name them. */
 const directions = { in: "รายรับ", out: "รายจ่าย" } as const;
 const directionColumn = "รายรับ / รายจ่าย";
@@ -107,7 +110,12 @@ const columns: Column[] = [
   { name: "รายการ", filter: "text", text: (row) => `${row.item} ${row.sku}` },
   { name: "รายละเอียด / สเปก", filter: "text", text: (row) => row.detail },
   // Who was paid, or on a รายรับ row who paid (the income form's รับจาก).
-  { name: "ผู้ขาย / รับจาก", filter: "pick", values: (row) => [row.vendor] },
+  {
+    name: "ผู้ขาย / รับจาก",
+    filter: "pick",
+    values: (row) => [row.vendor],
+    search: true,
+  },
   {
     name: "รายการของ",
     filter: "pick",
@@ -532,10 +540,14 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
                   };
                   const set = (value: string) =>
                     setFilters({ ...filters, [column.name]: value });
+                  const Pick =
+                    column.filter === "pick" && column.search
+                      ? SearchSelect
+                      : Select;
                   return (
                     <td key={column.name} className={filterCell}>
                       {column.filter === "pick" ? (
-                        <Select
+                        <Pick
                           {...control}
                           className="w-full min-w-24"
                           onChange={set}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Combobox } from "@/components/atoms/Combobox";
+import { Combobox, SearchSelect } from "@/components/atoms/Combobox";
 import { DatePicker } from "@/components/atoms/DatePicker";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
@@ -70,6 +70,7 @@ export function EntryFieldControl({
     set(f.key, event.target.value);
   const pick = (next: string) => set(f.key, next);
   const options = f.options ?? [];
+  const Pick = f.search ? SearchSelect : Select;
   // A number is typed as text: `mutate` says why it refuses one, the browser would not.
   const input = {
     ...control,
@@ -85,7 +86,7 @@ export function EntryFieldControl({
   return (
     <FormField label={label} hint={f.hint} wide={f.type === "textarea"}>
       {f.type === "select" ? (
-        <Select
+        <Pick
           {...control}
           onChange={pick}
           options={[

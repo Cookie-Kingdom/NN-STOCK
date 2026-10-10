@@ -6,7 +6,7 @@ import { Button } from "@/components/atoms/Button";
 import { DatePicker } from "@/components/atoms/DatePicker";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
+import { SearchSelect } from "@/components/atoms/Combobox";
 import { Caption } from "@/components/atoms/Text";
 import { Dialog } from "@/components/molecules/Dialog";
 import {
@@ -428,7 +428,7 @@ function NoteForm({
                     <FormField
                       label={info.lot === "po" ? "PO เนื้อ" : "PO รมควัน"}
                     >
-                      <Select
+                      <SearchSelect
                         value={lotId}
                         onChange={pickLot}
                         options={[
@@ -691,7 +691,7 @@ function SaleRowsControl({
         const f = counts.find((x) => x.key === key)!;
         return (
           <div key={key} className={cn(grid, "items-end")}>
-            <Select
+            <SearchSelect
               aria-label={`สินค้า บรรทัด ${index + 1}`}
               value={key}
               onChange={(next) => {
@@ -1027,7 +1027,7 @@ function PoLinesControl({
             key={index}
             className="grid grid-cols-[minmax(0,1fr)_120px_auto] items-end gap-2 max-md:grid-cols-[minmax(0,1fr)_88px_auto]"
           >
-            <Select
+            <SearchSelect
               aria-label={`PO เนื้อ บรรทัด ${index + 1}`}
               value={row.poLotId}
               className={cn(!row.poLotId && empty)}

@@ -61,6 +61,8 @@ export type Field = {
   options?: { value: string; label: string }[];
   /** A text field that takes only one of its `options` (searched, not added to). */
   strict?: boolean;
+  /** A select over a list that grows: searched by typing. */
+  search?: boolean;
   /** Left empty it is saved, listed in `values.missing` and shown yellow. */
   core?: boolean;
   /** Rendered in the form's last section, always open. */
@@ -256,6 +258,7 @@ const roundField = (db: Database, lotId?: string): Field => ({
   key: "dispatchId",
   label: "รอบส่งไปรมควัน",
   type: "select",
+  search: true,
   options: [...entries(db, "dispatch", lotId)].reverse().map((e) => ({
     value: e.id,
     label: [
@@ -410,6 +413,7 @@ export function fields(
           key: "category",
           label: "หมวด",
           type: "select",
+          search: true,
           options: categories.map((c) => ({ value: c.id, label: c.name })),
         }),
         core(number("amount", "ยอด", "บาท")),
@@ -421,6 +425,7 @@ export function fields(
           key: "item",
           label: "รายการที่ซื้อ",
           type: "select",
+          search: true,
           when: isStock,
           options: [
             { value: "", label: "ไม่ระบุ" },
@@ -475,6 +480,7 @@ export function fields(
           key: "payer",
           label: "ผู้รับเงินคืน",
           type: "select",
+          search: true,
           // Whoever paid out of pocket, with what is still owed to each.
           options: advances(db).map((x) => ({
             value: x.payer,
@@ -668,6 +674,7 @@ export function fields(
           key: "transferId",
           label: "รายการจัดสรร",
           type: "select",
+          search: true,
           // Every transfer sent to the branch (to any, for another reader), so a saved
           // receipt still reads; `mutate` takes only one still waiting.
           options: entries(db, "transfer")
