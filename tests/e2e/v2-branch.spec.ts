@@ -123,7 +123,8 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await expect(boxes.nth(6)).toHaveText("ยังไม่มีสต๊อกตั้งต้น");
   await expect(boxes.nth(7)).toHaveText("—");
   await expect(boxes.nth(8)).toHaveText("0");
-  await expect(boxes.nth(9)).toHaveText("หมด");
+  // No branch set it and nothing moved it: not "หมด".
+  await expect(boxes.nth(9)).toHaveText("ยังไม่ตั้งยอด");
   await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -386,7 +387,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await noSheetAsked();
 });
 
-test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and a sale takes no stock", async ({
+test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and with no recipe set a sale takes no stock", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -432,7 +433,8 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   await expect(editSheet).toBeVisible();
   await expect(left).toHaveText("14 กก.");
 
-  // A sale is jotted from Sales, has no meat to type, and takes no stock.
+  // A sale is jotted from Sales and has no meat to type; with no 「สูตรต่อกล่อง」 in Settings
+  // (the seed) its boxes take no stock.
   await expect(jotButtons(page)).toHaveText(["รับเนื้อเข้าสาขา", "จ่ายเงิน"]);
   await jotSaleOf(page);
   await expect(form(page).getByLabel(/^เนื้อที่/)).toHaveCount(0);
