@@ -51,6 +51,8 @@ export {
   productQty,
   pieces,
   pieceUnit,
+  lastProductCode,
+  productCodeText,
   productUnit,
   productMoney,
   channelPrice,

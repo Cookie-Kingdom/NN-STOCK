@@ -680,3 +680,15 @@ export const seed: Database = {
     logoName: "",
   },
 };
+
+/** The highest รหัสสินค้า number any list saved so far held (a removed product's is never
+ *  given again): `mutate` issues the next, and a new product's popup shows it. */
+export const lastProductCode = (db: Database) =>
+  Math.max(
+    0,
+    ...[db.config, ...db.entries.map((e) => e.values)].flatMap((saved) =>
+      saved.products
+        ? products(saved).map((p) => productCodeNumber(p.code))
+        : [],
+    ),
+  );

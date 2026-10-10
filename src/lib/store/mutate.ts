@@ -9,7 +9,7 @@ import { newId } from "../id";
 import {
   batchKinds,
   boxProduct,
-  productCodeNumber,
+  lastProductCode,
   productCodeText,
   products,
   branches,
@@ -643,14 +643,7 @@ export function mutate(
       // A product keeps its code (whatever is sent); one with none gets the next, past
       // every code a list saved so far held (a removed product's is never given again).
       const had = new Map(products(db.config).map((p) => [p.id, p.code]));
-      let high = Math.max(
-        0,
-        ...[db.config, ...db.entries.map((e) => e.values)].flatMap((saved) =>
-          saved.products
-            ? products(saved).map((p) => productCodeNumber(p.code))
-            : [],
-        ),
-      );
+      let high = lastProductCode(db);
       const rows: Values[] = JSON.parse(v.products);
       v.products = JSON.stringify(
         rows.map((row) => ({
