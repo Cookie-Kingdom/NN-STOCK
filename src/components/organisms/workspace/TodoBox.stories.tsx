@@ -7,19 +7,13 @@ import { WithWorkspace, dbFor, sampleDb } from "./storyWorkspace";
 import { TodoBox } from "./TodoBox";
 
 /** The box, and the bell that lists the same things. */
-const Box = ({
-  account,
-  statusOnly,
-}: {
-  account: AccountId;
-  statusOnly?: boolean;
-}) => (
+const Box = ({ account }: { account: AccountId }) => (
   <div className="max-w-80">
     <WithWorkspace account={account}>
       {(ws) => (
         <div className="grid gap-4">
           <NotificationPopover ws={ws} />
-          <TodoBox ws={ws} statusOnly={statusOnly} />
+          <TodoBox ws={ws} />
           {ws.draft && (
             <p className="text-caption text-text-secondary">
               เปิดฟอร์ม: {JSON.stringify(ws.draft)}
@@ -59,7 +53,7 @@ const meta = {
   title: "Organisms/Workspace/TodoBox",
   component: Box,
   args: { account: "owner" },
-  argTypes: { account: { control: false }, statusOnly: { control: false } },
+  argTypes: { account: { control: false } },
   parameters: { db: sampleDb },
 } satisfies Meta<typeof Box>;
 
@@ -71,13 +65,6 @@ type Story = StoryObj<typeof meta>;
  *  กดรายการแล้วเปิดฟอร์มของรายการนั้น (บรรทัดใต้กล่องบอกว่าเปิดอะไร) · กระดิ่งด้านบนคือรายการเดียวกัน
  *  · รายการของสาขา (ยอดขาย บันทึกของสาขาที่ช่องยังว่าง) เป็นสถานะ ไม่มีลูกศร กดไม่ได้: สาขาเป็นคนจด */
 export const Owner: Story = {};
-
-/** `statusOnly` (หน้า Daily Log): ทุกรายการเป็นสถานะ กดไม่ได้ ไม่มีบรรทัด「กดที่รายการเพื่อจด」
- *  · กระดิ่งยังกดได้เหมือนเดิม */
-export const StatusOnly: Story = {
-  args: { account: "saladaeng", statusOnly: true },
-  parameters: { db: dbFor("saladaeng") },
-};
 
 /** สาขา: เฉพาะของสาขาตัวเอง ไม่มีชื่อสาขานำหน้า */
 export const Branch: Story = {

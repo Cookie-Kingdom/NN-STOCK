@@ -154,7 +154,7 @@ export function NoteRow({
 
 /** Every value of a note as a definition list. An empty core field says ยังไม่ได้จด in
  *  yellow, any other empty field is left out. A retired kind lists its raw values. */
-function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
+export function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
   const { db, account } = ws;
   const v = e.values;
   const list = fieldsOf(db, e.kind, account);

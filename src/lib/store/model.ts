@@ -347,7 +347,7 @@ export const lotMovableKinds: EntryKind[] = [
   "meatInvoice",
   "receive",
 ];
-/** Changes to other entries: the kinds the change log lists, newest first. */
+/** Changes to other entries: an edit and a delete, each a row of its own in the Daily Log. */
 export const changeKinds: EntryKind[] = ["entryEdit", "void"];
 /** V2-RUL-02: a core field left empty is saved anyway and listed in the entry's `missing`
  *  (comma-separated keys), shown as this label. */

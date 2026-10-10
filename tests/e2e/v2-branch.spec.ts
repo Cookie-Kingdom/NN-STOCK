@@ -1,14 +1,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  allTodos,
+  allRows,
   bangkokDate,
+  bell,
   confirmDelete,
   fill,
   form,
   jot,
   jotButtons,
-  openDays,
+  logRows,
+  openBell,
   openPage,
+  openRow,
   pageButtons,
   popupTitle,
   region,
@@ -28,17 +31,26 @@ import {
 
 const today = bangkokDate();
 const year = today.slice(0, 4);
-/** A day's card in Daily Log. */
-const day = (page: Page, offset = 0) =>
-  page.locator(`[data-date="${bangkokDate(offset)}"]`);
+/** Daily Log: the row of a note as it was jotted, by its kind and the day the note is about
+ *  (the cell of วันที่รายการ), `offset` days from today. */
+const jotted = (page: Page, kind: string, offset = 0) =>
+  rows(page, kind).filter({
+    has: page.getByRole("cell", {
+      name: new Date(`${bangkokDate(offset)}T00:00:00`).toLocaleDateString(
+        "th-TH",
+        { day: "numeric", month: "short", year: "numeric" },
+      ),
+      exact: true,
+    }),
+  });
 /** A row of a stock table, by the item it starts with (behind its SKU, in a table with one). */
 const stockRow = (card: Locator, item: string) =>
   card
     .getByRole("row", { name: new RegExp(`^(SKU-\\d+ )?${item}`) })
     .getByRole("cell");
-/** The lines of the 「ยังไม่ได้จด」 box that start with `text`. */
+/** The lines of the bell's list (open) that start with `text`. */
 const todoLines = (page: Page, text: string) =>
-  region(page, "ยังไม่ได้จด")
+  region(page, "การแจ้งเตือน")
     .locator("strong")
     .filter({ hasText: new RegExp(`^${text}`) });
 /** Opens the sale form from the branch's Sales, as a branch does, on the day `offset`
@@ -58,6 +70,11 @@ const press = async (row: Locator, name: "แก้ไข" | "ลบ") => {
   const head = row.getByRole("button").first();
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
   await row.getByRole("button", { name, exact: true }).click();
+  if (name === "ลบ") await confirmDelete(row.page());
+};
+/** The same on a row of the Daily Log: its buttons are in the row that opens under it. */
+const pressLog = async (row: Locator, name: "แก้ไข" | "ลบ" | "ย้อนกลับ") => {
+  await (await openRow(row)).getByRole("button", { name, exact: true }).click();
   if (name === "ลบ") await confirmDelete(row.page());
 };
 
@@ -218,16 +235,17 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   );
 });
 
-test("11 · V2-PG-01 a day the branch jotted something on with no sale is yellow, and green once the sale is jotted; a day with no note asks for nothing", async ({
+test("11 · V2-PG-01 a day the branch jotted something on with no sale is in the bell, and out of it once the sale is jotted; a day with no note asks for nothing", async ({
   page,
 }) => {
   await start(page, "seed");
   await signInAs(page, "saladaeng");
-  const todo = region(page, "ยังไม่ได้จด");
+  const nothingDue = () =>
+    expect(bell(page)).toHaveAccessibleName("ยังไม่ได้จด 0 อย่าง");
   await openPage(page, "Daily Log");
-  // Nothing jotted (the shop was closed): no day is listed and nothing is to do.
-  await expect(todo).toHaveAttribute("data-tone", "ok");
-  await expect(page.locator("[data-date]")).toHaveCount(0);
+  // Nothing jotted (the shop was closed): the log is empty and nothing is to do.
+  await nothingDue();
+  await expect(page.locator("[data-entry]")).toHaveCount(0);
   // A note of today that is no sale: the branch was open, so today's sale is due.
   await openPage(page, "Sales");
   await jot(page, "กล่องแจก");
@@ -238,39 +256,28 @@ test("11 · V2-PG-01 a day the branch jotted something on with no sale is yellow
   );
   await save(page);
   await openPage(page, "Daily Log");
-  await allTodos(page);
-  await expect(day(page)).toHaveAttribute("data-tone", "warning");
-  await expect(day(page, -1)).toHaveCount(0);
-  await expect(todoLines(page, "ยอดขาย")).toHaveCount(1);
-  // Daily Log is for looking: the pill and the box's lines say it, and open nothing.
-  await expect(day(page).getByText("ยังไม่ได้จดยอดขาย")).toBeVisible();
-  await expect(day(page).getByRole("button", { name: /ยอดขาย/ })).toHaveCount(
-    0,
-  );
-  await expect(
-    todo.getByRole("button", { name: /^(?!ดูเพิ่มเติม)/ }),
-  ).toHaveCount(0);
+  // Daily Log is for looking: the note is a row of it, and the reminder is in the bell alone:
+  // today's sale, and no earlier day's.
+  await expect(rows(page, "influencerBox")).toHaveCount(1);
+  await expect(page.getByRole("main")).not.toContainText("ยังไม่ได้จด");
+  await openBell(page);
+  await expect(todoLines(page, "ยอดขาย")).toHaveText(["ยอดขาย วันนี้"]);
+  await page.keyboard.press("Escape");
 
   await jotSaleOf(page);
   await fill(page, [/^กล่องมาตรฐาน/, "24"], [/^ยอดขาย LINE MAN/, "8200"]);
   await save(page);
   await openPage(page, "Daily Log");
-  await expect(day(page)).toHaveAttribute("data-tone", "ok");
-  await expect(day(page)).toContainText("จดยอดขายแล้ว");
-  await expect(day(page).locator('[data-kind="sale"]')).toContainText(
-    "+฿8,200",
-  );
-  await expect(day(page, -1)).toHaveCount(0);
-  await expect(todo).toHaveAttribute("data-tone", "ok");
+  await expect(jotted(page, "sale")).toContainText("+฿8,200");
+  await nothingDue();
 
   // V2-RUL-04, V2-PG-02: an earlier day is jotted the same way; nothing is closed.
   await jotSaleOf(page, -1);
   await fill(page, [/^กล่องมาตรฐาน/, "20"], [/^ยอดขาย LINE MAN/, "6900"]);
   await save(page);
   await openPage(page, "Daily Log");
-  await expect(day(page, -1)).toHaveAttribute("data-tone", "ok");
-  await expect(day(page, -2)).toHaveCount(0);
-  await expect(todoLines(page, "ยอดขาย")).toHaveCount(0);
+  await expect(jotted(page, "sale", -1)).toContainText("+฿6,900");
+  await nothingDue();
 });
 
 test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and a sale takes no stock", async ({
@@ -418,43 +425,53 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
 }) => {
   await start(page, "sample");
   await signInAs(page, "saladaeng");
-  const changes = region(page, "ประวัติการแก้ไขและลบ");
-  // Closed until asked for, and closed again each time the page is opened.
-  const openChanges = () =>
-    page.getByRole("button", { name: /^ประวัติการแก้ไขและลบ \(/ }).click();
-  await openChanges();
-  await openDays(page);
-  await expect(changes).toContainText("ยังไม่มีการแก้ไขหรือลบ");
+  // A change is a row of the log, beside the notes jotted: none yet.
+  const changes = page.locator('tr[data-entry]:not([data-action="jot"])');
+  await allRows(page);
+  await expect(logRows(page, "jot").first()).toBeVisible();
+  await expect(changes).toHaveCount(0);
 
   // The sale of three days ago has no money typed: edit it, then take the edit back.
-  const sale = day(page, -3).locator('[data-kind="sale"]');
-  await expect(sale).toHaveAttribute("data-tone", "warning");
-  await expect(sale).toContainText("ยังไม่ได้จด: ยอดขาย LINE MAN");
-  await press(sale, "แก้ไข");
+  const sale = jotted(page, "sale", -3);
+  await expect(await openRow(sale)).toContainText(
+    /ยอดขาย LINE MAN\s*ยังไม่ได้จด/,
+  );
+  await pressLog(sale, "แก้ไข");
   await expect(popupTitle(page)).toHaveText("แก้ไข: ยอดขาย");
   await fill(page, [/^ยอดขาย LINE MAN/, "7000"]);
   await save(page);
   await expect(toast(page, "แก้แล้ว: ยอดขาย")).toBeVisible();
-  await expect(sale).not.toHaveAttribute("data-tone");
-  await expect(sale).toContainText("+฿7,000");
-  const edit = changes.locator("[data-entry]").first();
-  await expect(edit).toContainText("แก้ไขรายการ · ยอดขาย");
+  // The edit is a row of its own, with the note as the edit left it; the row of the note
+  // keeps what was first jotted.
+  const edit = logRows(page, "edit");
+  await expect(edit).toContainText("ยอดขาย");
   await expect(edit).toContainText("– → 7,000 บาท");
-  await edit.getByRole("button", { name: "ย้อนกลับ" }).click();
+  await expect(edit).toContainText("+฿7,000");
+  await expect(sale).toContainText("แก้ไขภายหลัง");
+  await expect(sale).not.toContainText("฿7,000");
+  await pressLog(edit, "ย้อนกลับ");
   await expect(toast(page, /^ย้อนกลับการแก้ไขแล้ว: ยอดขาย/)).toBeVisible();
-  await expect(sale).toHaveAttribute("data-tone", "warning");
-  await expect(changes.locator("[data-entry]")).toHaveCount(2);
+  await expect(edit).toContainText("ย้อนกลับแล้ว");
+  await expect(sale).not.toContainText("แก้ไขภายหลัง");
+  const undone = logRows(page, "undo");
+  await expect(undone).toContainText("ย้อนกลับการแก้ไข");
+  await expect(undone).not.toContainText("฿7,000");
+  await expect(changes).toHaveCount(2);
 
   // The receipt of five days ago: delete it, then 「เลิกทำ」 on the toast.
-  const receipt = day(page, -5).locator('[data-kind="receive"]');
+  const receipt = jotted(page, "receive", -5);
   await expect(receipt).toContainText("20 กก.");
-  await press(receipt, "ลบ");
-  await expect(receipt).toHaveCount(0);
+  await pressLog(receipt, "ลบ");
+  // Its row stays, as what was jotted, and says the note is gone.
+  await expect(receipt).toContainText("ลบแล้ว");
+  await expect(logRows(page, "void")).toContainText("รับเนื้อเข้าสาขา");
   await toast(page, "ลบแล้ว: รับเนื้อเข้าสาขา")
     .getByRole("button", { name: "เลิกทำ" })
     .click();
   await expect(toast(page, "กู้คืนแล้ว: รับเนื้อเข้าสาขา")).toBeVisible();
   await expect(receipt).toContainText("20 กก.");
+  await expect(receipt).not.toContainText("ลบแล้ว");
+  await expect(logRows(page, "void")).toContainText("ย้อนกลับแล้ว");
 
   // The Owner: two notes of a PO รมควัน's round, of weeks ago.
   await signInAs(page, "owner");
@@ -485,7 +502,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     .click();
   await expect(weighed).toContainText("199.2 กก.");
 
-  // A payment of 20 days ago: edit it, delete it, and bring it back from the change log.
+  // A payment of 20 days ago: edit it, delete it, and bring it back from its row in the log.
   await openPage(page, "Finance");
   const foodiva = region(page, "ยอดค้างจ่ายแยกผู้ขาย")
     .getByRole("row", { name: /^Foodiva/ })
@@ -504,14 +521,12 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(deposit).toHaveCount(0);
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
-  await openChanges();
-  await openDays(page);
   // By its text, not its place: the restore becomes the newest row of the log.
-  const removal = changes
-    .locator("[data-entry]")
-    .filter({ hasText: "ลบรายการ · จ่ายเงิน" });
+  const removal = logRows(page, "void").filter({
+    has: page.getByRole("cell", { name: /^จ่ายเงิน/ }),
+  });
   await expect(removal).toHaveCount(1);
-  await removal.getByRole("button", { name: "ย้อนกลับ" }).click();
+  await pressLog(removal, "ย้อนกลับ");
   await expect(toast(page, /^กู้คืนแล้ว: จ่ายเงิน/)).toBeVisible();
   await expect(removal).toContainText("ย้อนกลับแล้ว");
   await openPage(page, "Finance");
@@ -551,10 +566,7 @@ test.describe("phone, 390px wide", () => {
     await fits();
     await openPage(page, "Daily Log");
     await fits();
-    await expect(day(page)).toHaveAttribute("data-tone", "ok");
-    await expect(day(page).locator('[data-kind="sale"]')).toContainText(
-      "+฿6,100",
-    );
+    await expect(rows(page, "sale")).toContainText("+฿6,100");
 
     await openPage(page, "Stock");
     await fits();

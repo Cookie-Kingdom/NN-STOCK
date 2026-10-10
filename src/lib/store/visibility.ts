@@ -5,15 +5,20 @@ import {
   changeKinds,
   editableKinds,
   isEditOverlay,
+  isNoteKind,
+  kindInfo,
   missingKeys,
   payCategories,
   rentCategory,
   titles,
+  unpack,
   voidableKinds,
   type Actor,
   type Database,
   type Entry,
+  type EntryKind,
   type NoteKind,
+  type Role,
   type Sheet,
 } from "./model";
 import {
@@ -27,7 +32,7 @@ import {
   purchaseLots,
   shipments,
 } from "./derived";
-/** The part of the raw log an account sees, changes included (the change log reads it). The
+/** The part of the raw log an account sees, changes included (the Daily Log reads it). The
  *  Owner: everything. A branch: the entries stamped with it, plus every change to one of them
  *  and every undo of such a change, whoever made it. A change comes after what it names in the
  *  log, so one pass in log order follows the chain. The Owner's payments for a branch reach it
@@ -43,13 +48,134 @@ export function visibleEntries(db: Database, by: Actor): Entry[] {
       seen.add(e.id);
   return db.entries.filter((e) => seen.has(e.id));
 }
-/** The notes an account's Daily Log lists: live, with their edits laid over, newest first.
+/** The notes of an account: live, with their edits laid over, newest first.
  *  Settings are not notes. */
 export function visibleNotes(db: Database, by: Actor): Entry[] {
   const seen = new Set(visibleEntries(db, by).map((e) => e.id));
   return liveEntries(db)
     .filter((e) => e.kind !== "config" && seen.has(e.id))
     .sort(byDateAt)
+    .reverse();
+}
+/** What a row of the Daily Log did: a note jotted, an edit, a delete, or the delete of a
+ *  change (`undo`: it puts a deleted note back, or an edit's old values). */
+export type LogAction = "jot" | "edit" | "void" | "undo";
+export type LogGroup = "all" | "lot" | "money" | "branch";
+export type LogRow = {
+  /** The entry that was saved: the note itself, or the change. */
+  entry: Entry;
+  action: LogAction;
+  /** จด, แก้ไข, ลบ, or what the undo did. */
+  label: string;
+  /** The note the row is about, as it read once `entry` was saved: a jot as it was jotted,
+   *  not as later edits left it. With no `values` when the log does not hold the note. */
+  note: Entry;
+  /** The Bangkok day `entry.at` falls on. */
+  day: string;
+  /** What came after: the note was deleted or edited, the change undone. */
+  later: "" | "deleted" | "edited" | "undone";
+};
+const undoLabels: Partial<Record<EntryKind, string>> = {
+  void: "กู้คืนรายการ",
+  entryEdit: "ย้อนกลับการแก้ไข",
+};
+/** The note a change names, from what the change itself carries. */
+const named = (change: Entry): Entry => ({
+  id: change.values.targetId,
+  kind: change.values.targetKind as EntryKind,
+  role: change.values.targetRole as Role,
+  lotId: change.lotId,
+  branch: change.values.targetBranch ?? "",
+  date: change.values.targetDate,
+  at: change.at,
+  values: {},
+});
+/** The Daily Log of an account: one row per entry it may see (`visibleEntries`; settings are
+ *  not notes), newest first by when it was saved (`at`), never by the day a note is about.
+ *  `group` keeps the notes of one group, and a change with the note it is about. */
+export function logRows(
+  db: Database,
+  by: Actor,
+  group: LogGroup = "all",
+): LogRow[] {
+  const seen = new Set(visibleEntries(db, by).map((e) => e.id));
+  const byId = new Map(db.entries.map((e) => [e.id, e]));
+  const edited = new Set(
+    db.entries
+      .filter((e) => e.kind === "entryEdit" && !isVoided(db, e.id))
+      .map((e) => e.values.targetId),
+  );
+  // Each note as it reads at this point of the log.
+  const now = new Map<string, Entry>();
+  const rows: LogRow[] = [];
+  for (const e of db.entries) {
+    if (e.kind === "config") continue;
+    const v = e.values;
+    let action: LogAction = "jot";
+    let label = "จด";
+    let note = e;
+    if (changeKinds.includes(e.kind)) {
+      const target = byId.get(v.targetId);
+      // An undo names the change it undoes, and that names the note.
+      const undo =
+        e.kind === "void"
+          ? undoLabels[(v.targetKind || target?.kind) as EntryKind]
+          : undefined;
+      const undone = !!undo;
+      const change = (undone && target) || e;
+      const before = now.get(change.values.targetId) ?? named(change);
+      action = undone ? "undo" : e.kind === "void" ? "void" : "edit";
+      label = undo ?? (e.kind === "void" ? "ลบ" : "แก้ไข");
+      note =
+        action === "edit"
+          ? {
+              ...before,
+              values: { ...unpack("from.", v), ...unpack("to.", v) },
+              date: v.toDate || before.date,
+              lotId: v.toLotId || before.lotId,
+            }
+          : undone && change.kind === "entryEdit"
+            ? {
+                ...before,
+                values: unpack("from.", change.values),
+                date: change.values.fromDate || before.date,
+                lotId: change.values.fromLotId || before.lotId,
+              }
+            : before;
+    }
+    now.set(note.id, note);
+    const noteGroup = isNoteKind(note.kind) ? kindInfo[note.kind].group : "";
+    if (
+      !seen.has(e.id) ||
+      // The notes jotted on a Lot beyond its core ones are Lot notes too.
+      (group !== "all" &&
+        noteGroup !== group &&
+        !(group === "lot" && noteGroup === "extra"))
+    )
+      continue;
+    rows.push({
+      entry: e,
+      action,
+      label,
+      note,
+      day: new Date(e.at).toLocaleDateString("en-CA", {
+        timeZone: "Asia/Bangkok",
+      }),
+      later:
+        action !== "jot"
+          ? isVoided(db, e.id)
+            ? "undone"
+            : ""
+          : isVoided(db, e.id)
+            ? "deleted"
+            : edited.has(e.id)
+              ? "edited"
+              : "",
+    });
+  }
+  // Stable, then reversed: of two saved in the same instant the later in the log is first.
+  return rows
+    .sort((a, b) => Date.parse(a.entry.at) - Date.parse(b.entry.at))
     .reverse();
 }
 /** A branch's note (whoever jotted it) is the branch's to change, not the Owner's. */
@@ -129,8 +255,8 @@ const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
   });
 const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
-/** Spec section 7: everything yellow for an account, as one list for the Overview box, the
- *  Daily Log box and the bell. A branch lists its own branch; the Owner both, each
+/** Spec section 7: everything yellow for an account, as one list for the Overview box
+ *  and the bell. A branch lists its own branch; the Owner both, each
  *  line led by the branch name: the sale of each of the last 7 days the branch was open and
  *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` (Old Lots) and
  *  the notes on it raise none. */

@@ -102,6 +102,10 @@ export {
 export {
   visibleEntries,
   visibleNotes,
+  type LogAction,
+  type LogGroup,
+  type LogRow,
+  logRows,
   editBlock,
   voidBlock,
   type Todo,
