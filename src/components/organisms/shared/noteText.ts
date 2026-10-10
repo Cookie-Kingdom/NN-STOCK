@@ -33,6 +33,7 @@ import {
   type Database,
   type Entry,
   type EntryKind,
+  type Values,
 } from "@/lib/store";
 
 const join = (...parts: (string | false | undefined)[]) =>
@@ -82,9 +83,14 @@ export const linesText = (
     )
     .join(", ");
 
-/** The form fields of an entry's kind, as `by` sees them; none for a retired kind. */
-export const fieldsOf = (db: Database, kind: EntryKind, by: Actor): Field[] =>
-  isNoteKind(kind) ? fields(kind, db, by) : [];
+/** The form fields of an entry's kind, as `by` sees them; none for a retired kind. `kept`: the
+ *  entry's values, which keep the field of a stopped product it holds. */
+export const fieldsOf = (
+  db: Database,
+  kind: EntryKind,
+  by: Actor,
+  kept?: Values,
+): Field[] => (isNoteKind(kind) ? fields(kind, db, by, undefined, kept) : []);
 
 /** Values `mutate` adds itself: no form field carries their label. */
 const addedLabels: Record<string, string> = {
@@ -129,7 +135,10 @@ export function editDiff(
   const values = change.values;
   const from = unpack("from.", values),
     to = unpack("to.", values);
-  const list = fieldsOf(db, values.targetKind as EntryKind, by);
+  const list = fieldsOf(db, values.targetKind as EntryKind, by, {
+    ...from,
+    ...to,
+  });
   const shown = (key: string, value = "") =>
     value
       ? fieldText(
@@ -172,7 +181,7 @@ export function editDiff(
 
 /** The yellow tags of a row: a dispatch with no PO เนื้อ, and each core field left empty. */
 export function noteTags(db: Database, e: Entry, by: Actor): string[] {
-  const list = fieldsOf(db, e.kind, by);
+  const list = fieldsOf(db, e.kind, by, e.values);
   return [
     ...(isUnlinked(db, e) ? ["ยังไม่ได้เลือก PO เนื้อ"] : []),
     ...missingKeys(e.values).map(

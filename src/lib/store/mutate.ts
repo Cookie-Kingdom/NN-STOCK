@@ -9,6 +9,9 @@ import { newId } from "../id";
 import {
   batchKinds,
   boxProduct,
+  productCodeNumber,
+  productCodeText,
+  products,
   branches,
   changeKinds,
   editLockedKeys,
@@ -150,7 +153,7 @@ function noteValues(
         { poLotId: input.poLotId, kg: input.dispatchKg ?? "" },
       ]),
     };
-  for (const f of fields(kind, db, by, lotId)) {
+  for (const f of fields(kind, db, by, lotId, kept)) {
     if (f.when && !f.when(input)) continue;
     let value = (input[f.key] ?? "").trim();
     if (value && f.type === "number") {
@@ -406,7 +409,14 @@ function checkConfig(v: Values) {
       `${label}: อ่านรายการไม่ได้`,
     );
     assert(
-      figures(rows.flatMap((row) => [row.price, row.cost])),
+      figures(
+        rows.flatMap((row) => [
+          row.price,
+          row.cost,
+          // A price per sales channel, by the channel's key.
+          ...Object.values(row.prices ?? {}),
+        ]),
+      ),
       `${label}: ราคาและต้นทุน${figure}`,
     );
   }
@@ -628,6 +638,26 @@ export function mutate(
       // in it (or were taken out of it), so only later ones are laid over it.
       v.materialListAfter =
         db.entries.findLast((e) => e.kind === "stockItem")?.id ?? "";
+    }
+    if (v.products !== undefined) {
+      // A product keeps its code (whatever is sent); one with none gets the next, past
+      // every code a list saved so far held (a removed product's is never given again).
+      const had = new Map(products(db.config).map((p) => [p.id, p.code]));
+      let high = Math.max(
+        0,
+        ...[db.config, ...db.entries.map((e) => e.values)].flatMap((saved) =>
+          saved.products
+            ? products(saved).map((p) => productCodeNumber(p.code))
+            : [],
+        ),
+      );
+      const rows: Values[] = JSON.parse(v.products);
+      v.products = JSON.stringify(
+        rows.map((row) => ({
+          ...row,
+          code: had.get(row.id) || productCodeText(++high),
+        })),
+      );
     }
     next.config = { ...db.config, ...v };
     // One name, one SKU: over the materials and the ledger items, renames included.
