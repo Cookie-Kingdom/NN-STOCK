@@ -40,6 +40,16 @@ describe("revenuePeriod", () => {
     ]);
   });
 
+  it("names the span on its own, and the whole revenue of it", () => {
+    for (const [key, range, title] of [
+      ["2026-10", "1–24 ตุลาคม 2569", "รายได้รวม 1–24 ตุลาคม 2569"],
+      ["2026-02", "กุมภาพันธ์ 2569", "รายได้รวม กุมภาพันธ์ 2569"],
+      ["2026", "ปี 2569 ถึงวันนี้", "รายได้รวมปี 2569 ถึงวันนี้"],
+      ["2025", "ปี 2568", "รายได้รวมปี 2568"],
+    ])
+      expect(revenuePeriod(key, "2026-10-24")).toMatchObject({ range, title });
+  });
+
   it("steps over a year's end", () => {
     expect(shiftKey("2026-01", -1)).toBe("2025-12");
     expect(shiftKey("2026", 1)).toBe("2027");
