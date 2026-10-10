@@ -12,6 +12,7 @@ import {
   monthPl,
   payCategories,
   plBetween,
+  pieceUnit,
   products,
   legacySale,
   noBranch,
@@ -90,8 +91,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
   const scale = Math.max(now.income, now.income - now.profit, 1);
   const channels = salesChannels(db.config);
   // Pieces of every product; they are boxes while the box is the only one.
-  const several = products(db.config).length > 1;
-  const piece = several ? "ชิ้น" : "กล่อง";
+  const piece = pieceUnit(products(db.config));
+  const several = piece !== "กล่อง";
   const gifts = giftBoxes(db, key);
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";

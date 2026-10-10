@@ -18,12 +18,12 @@ import { FormField } from "@/components/molecules/FormField";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
+import { unitOptions } from "@/lib/forms";
 import { dateLabel } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branchItem,
   entries,
-  materialList,
   mutate,
   sheetItems,
   sheetNote,
@@ -626,8 +626,6 @@ function OpeningForm({
   );
 }
 
-const units = ["ชิ้น", "กก.", "กรัม", "ถุง", "กล่อง", "แพ็ก", "ใบ", "ลิตร"];
-
 /** 「เพิ่มรายการสินค้า」 / 「แก้ไขรายการสินค้า」: one row of the material list both branches
  *  read, saved as a `stockItem` note. A name `mutate` refuses (empty, taken) is said beside
  *  the buttons. */
@@ -643,7 +641,7 @@ function ItemDialog({
   const { account, today } = ws;
   const editing = item === "new" ? undefined : item;
   const [name, setName] = useState(editing?.name ?? "");
-  const [unit, setUnit] = useState(editing?.unit ?? units[0]);
+  const [unit, setUnit] = useState(editing?.unit ?? "ชิ้น");
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const title = editing ? "แก้ไขรายการสินค้า" : "เพิ่มรายการสินค้า";
   const save = async () => {
@@ -685,12 +683,7 @@ function ItemDialog({
           </FormField>
           <FormField label="หน่วยนับ">
             <Combobox
-              options={[
-                ...new Set([
-                  ...units,
-                  ...materialList(ws.db).map((m) => m.unit),
-                ]),
-              ].map((value) => ({ value }))}
+              options={unitOptions(ws.db)}
               value={unit}
               onChange={setUnit}
             />
