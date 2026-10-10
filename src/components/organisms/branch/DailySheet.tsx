@@ -145,9 +145,9 @@ function SaveBar({
 }
 
 /** The day's sheet (V2-CAL-10): per row the balance carried forward, what the branch types
- *  (รับเพิ่ม on top of what came in by itself, ใช้ไป, and of that the Waste), under ใช้ไป what
- *  the day's sales and gift boxes took by themselves (ตัดจากยอดขาย, never typed) and what is
- *  left, live. Nothing is refused (V2-RUL-05): below zero is red, an empty reporter or a
+ *  (รับเพิ่ม on top of what came in by itself, ใช้ไป, and of that the Waste), what the day's
+ *  sales and gift boxes took by themselves (ตัดจากยอดขาย, never typed: a column of its own on
+ *  the materials sheet, a line under ใช้ไป on the meat sheet) and what is left, live. Nothing is refused (V2-RUL-05): below zero is red, an empty reporter or a
  *  Waste with no reason is saved and marked ยังไม่ได้จด. The first save of a day is a `daily`
  *  note, a later one an edit of it. A day that has its note is locked, its figures read as
  *  text, until 「แก้ไขบันทึก」: the lock follows the note, so a save and a change of date set it. */
@@ -189,6 +189,8 @@ function DailyForm({
   };
   const dirty = Object.keys(edits).length > 0;
   const day = date === today ? "วันนี้" : "วันนั้น";
+  /** Inventory's sheet says what the sales took in a column; Stock's under ใช้ไป. */
+  const soldColumn = sheet === "materials";
 
   const save = async () => {
     setError("");
@@ -295,10 +297,17 @@ function DailyForm({
             "สินค้า / ยกมา",
             "รับเพิ่ม",
             "ใช้ไป",
+            ...(soldColumn ? ["ตัดจากยอดขาย"] : []),
             "Waste / ทิ้ง",
             "คงเหลือ",
           ]}
-          right={["รับเพิ่ม", "ใช้ไป", "Waste / ทิ้ง", "คงเหลือ"]}
+          right={[
+            "รับเพิ่ม",
+            "ใช้ไป",
+            "ตัดจากยอดขาย",
+            "Waste / ทิ้ง",
+            "คงเหลือ",
+          ]}
         >
           {shown.map((item) => {
             const { id, name, unit } = item;
@@ -349,7 +358,7 @@ function DailyForm({
                   onChange={set(`used.${id}`)}
                 >
                   {/* The day's sales and gift boxes: taken already, beside what is typed. */}
-                  {info.sold !== 0 && (
+                  {!soldColumn && info.sold !== 0 && (
                     <Caption
                       aria-label={`ตัดจากยอดขาย ${name}`}
                       className="mt-1 block font-normal"
@@ -358,6 +367,11 @@ function DailyForm({
                     </Caption>
                   )}
                 </Figure>
+                {soldColumn && (
+                  <Cell right aria-label={`ตัดจากยอดขาย ${name}`}>
+                    {info.sold ? n3(info.sold) : <Muted as="span">—</Muted>}
+                  </Cell>
+                )}
                 {/* Wide enough for the reason, so typing a Waste moves no column. */}
                 <Figure
                   label="Waste / ทิ้ง"
@@ -400,7 +414,7 @@ function DailyForm({
           {shown.length === 0 && (
             <tr>
               <Cell
-                colSpan={5}
+                colSpan={soldColumn ? 6 : 5}
                 className="py-8 text-center text-text-secondary"
               >
                 ไม่พบรายการที่ค้นหา
