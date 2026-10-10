@@ -275,7 +275,7 @@ export const titles: Record<EntryKind, string> = {
   income: "บันทึกรายรับ",
   packingList: "Packing List",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
-  ownerWasteReceive: "รับ Waste",
+  ownerWasteReceive: "รับเนื้อรอรับ",
   sale: "ยอดขาย",
   receive: "รับเนื้อเข้าสาขา",
   influencerBox: "กล่องแจก",

@@ -288,8 +288,8 @@ export function fields(
       return [
         core(text("supplier", "ผู้ขาย")),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
-        number("wasteKg", "น้ำหนัก Waste", "กก.", {
-          hint: 'หักจากน้ำหนักเนื้อ ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับ Waste"',
+        number("wasteKg", "น้ำหนักเนื้อรอรับ", "กก.", {
+          hint: 'หักจากน้ำหนักเนื้อ ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับเนื้อรอรับ"',
         }),
         core(number("price", "ราคา / กก.", "บาท")),
         ...more(
@@ -318,7 +318,7 @@ export function fields(
         core(text("invoiceNumber", "เลข Invoice")),
         core(number("netPayable", "ยอด Invoice", "บาท")),
         number("orderedKg", "น้ำหนักเนื้อตาม Invoice", "กก.", fromPo),
-        number("wasteKg", "น้ำหนัก Waste ตาม Invoice", "กก.", fromPo),
+        number("wasteKg", "น้ำหนักเนื้อรอรับตาม Invoice", "กก.", fromPo),
         number("price", "ราคา / กก. ตาม Invoice", "บาท", fromPo),
         ...more(
           date("invoiceDate", "วันที่ Invoice"),
@@ -329,7 +329,7 @@ export function fields(
     }
     case "ownerWasteReceive":
       return [
-        core(number("receivedKg", "น้ำหนัก Waste ที่รับ", "กก.")),
+        core(number("receivedKg", "น้ำหนักเนื้อรอรับที่รับ", "กก.")),
         text("receiver", "ผู้รับ"),
         note,
       ];

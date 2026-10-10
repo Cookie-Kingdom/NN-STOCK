@@ -171,7 +171,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
                   <span
                     className="size-2 rounded-full bg-warning"
                     role="img"
-                    aria-label="รอรับ Waste"
+                    aria-label="เนื้อรอรับ"
                   />
                 )}
               </>,
@@ -620,7 +620,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
           {typed("orderedKg") ? `${qty(terms.meatKg)} กก.` : none}{" "}
           {byInvoice("orderedKg")}
         </Fact>
-        <Fact label="Waste">
+        <Fact label="เนื้อรอรับ">
           {qty(terms.wasteKg)} กก. {byInvoice("wasteKg")}
         </Fact>
         <Fact label="ราคา / กก.">
@@ -657,19 +657,19 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
                   })
                 }
               >
-                รับ Waste แล้ว
+                รับเนื้อรอรับแล้ว
               </Button>
             )
           }
         >
           <strong className="tabular-nums">
-            รอรับ Waste {qty(info.wasteKg)} กก.
+            เนื้อรอรับ {qty(info.wasteKg)} กก.
           </strong>
         </Notice>
       ) : (
         received && (
-          <Jotted label="Waste" onEdit={() => ws.edit(received.id)}>
-            รับ Waste แล้ว {qty(info.wasteReceivedKg)} กก. ·{" "}
+          <Jotted label="เนื้อรอรับ" onEdit={() => ws.edit(received.id)}>
+            รับเนื้อรอรับแล้ว {qty(info.wasteReceivedKg)} กก. ·{" "}
             {dateLabel(received.date)}
           </Jotted>
         )
