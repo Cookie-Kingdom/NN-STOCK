@@ -51,7 +51,9 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 /** หน้า Settings ของโปรเจกต์ (/owner/nn-x-lm/settings): ตัวเลขสำหรับคำนวณ
- *  สาขาที่ใช้ข้าวเหนียวดิบ และรายชื่อวัสดุ */
+ *  สาขาที่ใช้ข้าวเหนียวดิบ สูตรต่อกล่อง และรายชื่อวัสดุ ·
+ *  「สูตรต่อกล่อง」: แถวละรายการ (เนื้อ · ข้าวเหนียวดิบ เป็นกรัม น้ำพริกเป็นหลอด แล้ววัสดุทุกรายการ
+ *  ตามหน่วยของมัน) ยังไม่ตั้งเป็น「—」 */
 export const Project: Story = { args: { project: true } };
 
 /** สาขาเพิ่มรายการในใบสต๊อกของตัวเอง (ถุงซิปล็อก · ห่อ): ขึ้นเป็นแถวสุดท้ายของ「รายชื่อวัสดุ」
@@ -77,6 +79,41 @@ export const EditMaterials: Story = {
     userEvent.click(
       within(
         await canvas.findByRole("region", { name: "รายชื่อวัสดุ" }),
+      ).getByRole("button", { name: "แก้ไข" }),
+    ),
+};
+
+/** Settings ของโปรเจกต์ ตั้ง「สูตรต่อกล่อง」แล้ว: เนื้อ 120 กรัม น้ำพริก 1 หลอด กล่องบรรจุ 1 กล่อง ซองเนื้อ 2 ซอง
+ *  รายการอื่นเป็น「—」(ขายแล้วไม่ตัด) */
+export const Recipe: Story = {
+  args: { project: true },
+  parameters: {
+    db: mutate(
+      sampleDb,
+      accountById("owner")!,
+      "config",
+      {
+        boxRecipe: JSON.stringify([
+          { id: "meat", qty: "120" },
+          { id: "chili", qty: "1" },
+          { id: "m1", qty: "1" },
+          { id: "m2", qty: "2" },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
+/** กด「แก้ไข」ของ「สูตรต่อกล่อง」: แต่ละแถวมีช่องจำนวนต่อกล่อง พร้อมหน่วย · พิมพ์ตัวอักษรหรือ
+ *  เลขติดลบแล้วกด「บันทึก」ขึ้น「สูตรต่อกล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป」ข้างปุ่ม */
+export const EditRecipe: Story = {
+  ...Recipe,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      within(
+        await canvas.findByRole("region", { name: "สูตรต่อกล่อง" }),
       ).getByRole("button", { name: "แก้ไข" }),
     ),
 };

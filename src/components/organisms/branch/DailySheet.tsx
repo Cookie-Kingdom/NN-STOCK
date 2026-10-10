@@ -145,7 +145,8 @@ function SaveBar({
 }
 
 /** The day's sheet (V2-CAL-10): per row the balance carried forward, what the branch types
- *  (รับเพิ่ม on top of what came in by itself, ใช้ไป, and of that the Waste) and what is
+ *  (รับเพิ่ม on top of what came in by itself, ใช้ไป, and of that the Waste), under ใช้ไป what
+ *  the day's sales and gift boxes took by themselves (ตัดจากยอดขาย, never typed) and what is
  *  left, live. Nothing is refused (V2-RUL-05): below zero is red, an empty reporter or a
  *  Waste with no reason is saved and marked ยังไม่ได้จด. The first save of a day is a `daily`
  *  note, a later one an edit of it. A day that has its note is locked, its figures read as
@@ -262,7 +263,8 @@ function DailyForm({
         </Badge>
       </div>
       <Caption>
-        กรอกแค่รับเพิ่ม ใช้ไป และ waste · คงเหลือ = ยกมา + รับเพิ่ม − ใช้ไป
+        กรอกแค่รับเพิ่ม ใช้ไป และ waste · คงเหลือ = ยกมา + รับเพิ่ม − ใช้ไป −
+        ตัดจากยอดขาย
       </Caption>
       <DayCard
         aria-label="ใบสต๊อกรายวัน"
@@ -305,7 +307,8 @@ function DailyForm({
               info.opening +
               info.autoReceived +
               num(at(`received.${id}`)) -
-              num(at(`used.${id}`));
+              num(at(`used.${id}`)) -
+              info.sold;
             const reason = at(`reason.${id}`).trim();
             return (
               <tr key={id}>
@@ -344,7 +347,17 @@ function DailyForm({
                   locked={locked}
                   value={at(`used.${id}`)}
                   onChange={set(`used.${id}`)}
-                />
+                >
+                  {/* The day's sales and gift boxes: taken already, beside what is typed. */}
+                  {info.sold !== 0 && (
+                    <Caption
+                      aria-label={`ตัดจากยอดขาย ${name}`}
+                      className="mt-1 block font-normal"
+                    >
+                      ตัดจากยอดขาย {n3(info.sold)}
+                    </Caption>
+                  )}
+                </Figure>
                 {/* Wide enough for the reason, so typing a Waste moves no column. */}
                 <Figure
                   label="Waste / ทิ้ง"
@@ -397,7 +410,8 @@ function DailyForm({
         </StockTable>
         <Caption className="block px-5 py-3 max-md:px-4">
           “ใช้ไป” รวม waste แล้ว · ช่อง waste บันทึกเพื่อดูของเสียเท่านั้น
-          ไม่หักสต๊อกซ้ำ
+          ไม่หักสต๊อกซ้ำ · “ตัดจากยอดขาย” เว็บตัดให้เองจากยอดขายและกล่องที่แจก
+          ตามสูตรต่อกล่อง ไม่ต้องพิมพ์ซ้ำใน “ใช้ไป”
         </Caption>
         {locked ? (
           <div className="border-t border-border px-5 py-1 max-md:px-4">

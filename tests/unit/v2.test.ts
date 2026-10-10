@@ -997,6 +997,8 @@ describe("figures (V2-CAL)", () => {
       reason: "",
       remaining: 10,
       saved: false,
+      sold: 0,
+      set: true,
     });
     // The opening of the 8th sets 8 (whatever was there), the 9th takes in 5.
     expect(item("meat", "2026-09-09")).toMatchObject({
@@ -1014,6 +1016,8 @@ describe("figures (V2-CAL)", () => {
       reason: "ตกพื้น",
       remaining: 11.5,
       saved: true,
+      sold: 0,
+      set: true,
     });
     // The next day opens with what the day before left.
     expect(item("meat", "2026-09-11")).toMatchObject({
@@ -1050,16 +1054,28 @@ describe("figures (V2-CAL)", () => {
       saved: false,
     });
     expect(item("m1", "2026-09-13").opening).toBe(140);
-    // 50 − 4 − 2, then the 10 tubes the branch bought on the 13th.
+    // 50 − 4 − 2 used and the 4 + 3 tubes sold and given beside the boxes, then the 10 tubes
+    // the branch bought on the 13th.
     expect(item("chili", "2026-09-13")).toMatchObject({
-      opening: 44,
+      opening: 37,
       autoReceived: 10,
-      remaining: 54,
+      remaining: 47,
     });
     expect(branchItem(built, "มีนบุรี", "m1", "2026-09-13").remaining).toBe(0);
   });
 
-  it("CAL-10: a sale and a gift box take nothing off the stock", () => {
+  /** `from` with 「สูตรต่อกล่อง」 set: [item id, quantity a box] rows. */
+  const withRecipe = (from: Database, ...rows: [string, string][]) =>
+    mutate(
+      from,
+      owner,
+      "config",
+      { boxRecipe: JSON.stringify(rows.map(([id, qty]) => ({ id, qty }))) },
+      "",
+      day,
+    );
+
+  it("CAL-10: with no recipe a box takes nothing; the chili sold beside the boxes is taken all the same", () => {
     const more = (
       [
         ["sale", { boxes: "30", chiliAddons: "9", lineMan: "1" }],
@@ -1070,8 +1086,17 @@ describe("figures (V2-CAL)", () => {
         mutate(next, saladaeng, kind, values, "", "2026-09-12"),
       built,
     );
-    for (const id of ["meat", "chili", "m1", "m2"])
+    for (const id of ["meat", "m1", "m2"]) {
+      expect(item(id, "2026-09-12", more).sold).toBe(0);
       expect(item(id, "2026-09-13", more)).toEqual(item(id, "2026-09-13"));
+    }
+    // The 3 tubes of the gift box already there, then 9 + 8.
+    expect(item("chili", "2026-09-12", more).sold).toBe(20);
+    expect(item("chili", "2026-09-13", more).opening).toBe(20);
+    // A row at 0 or left empty is not in the recipe.
+    const none = withRecipe(built, ["m1", "0"], ["meat", ""]);
+    expect(item("m1", "2026-09-10", none).sold).toBe(0);
+    expect(item("meat", "2026-09-10", none).sold).toBe(0);
     // The sale form no longer asks for what the sheet holds.
     expect(fields("sale", built, saladaeng).map((f) => f.key)).toEqual([
       "boxes",
@@ -1082,6 +1107,124 @@ describe("figures (V2-CAL)", () => {
       "payer",
       "note",
     ]);
+  });
+
+  it("CAL-10: a sale and a gift box take boxes × the recipe, beside what the sheet says was used, and the next day opens without it", () => {
+    const set = withRecipe(
+      built,
+      ["m1", "2"],
+      ["meat", "120"],
+      ["rice", "80"],
+      ["chili", "1"],
+    );
+    // 10 boxes on the 10th: 50 − 10 used − 20 sold.
+    expect(item("m1", "2026-09-10", set)).toMatchObject({
+      opening: 50,
+      used: 10,
+      sold: 20,
+      remaining: 20,
+    });
+    // The 11th has a sale (5 boxes) and no materials sheet: it counts all the same.
+    expect(item("m1", "2026-09-11", set)).toMatchObject({
+      opening: 20,
+      sold: 10,
+      remaining: 10,
+      saved: false,
+    });
+    // A gift box takes as a sale does: 2 boxes, beside the 100 bought that day.
+    expect(item("m1", "2026-09-12", set)).toMatchObject({
+      opening: 10,
+      autoReceived: 100,
+      sold: 4,
+      remaining: 106,
+    });
+    expect(item("m1", "2026-09-13", set).opening).toBe(106);
+    // Meat and raw rice are typed in grams a box and taken in kg: 10 × 120 g, 10 × 80 g.
+    expect(item("meat", "2026-09-10", set)).toMatchObject({
+      opening: 13,
+      used: 1.5,
+      sold: 1.2,
+    });
+    expect(item("meat", "2026-09-10", set).remaining).toBeCloseTo(10.3);
+    expect(item("rice", "2026-09-10", set).sold).toBe(0.8);
+    // Chili: a tube a box, and the tubes sold beside them: 10 + 4, then 2 + 3.
+    expect(item("chili", "2026-09-10", set).sold).toBe(14);
+    expect(item("chili", "2026-09-12", set).sold).toBe(5);
+    // 50 − (4 + 14) − (2 + 5) − 5.
+    expect(item("chili", "2026-09-13", set).opening).toBe(20);
+    // Settings refuses a quantity that is no number, or below zero.
+    for (const qty of ["-1", "สอง"])
+      expect(() => withRecipe(built, ["m1", qty])).toThrow(
+        "สูตรต่อกล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป",
+      );
+    // A branch's copy holds the recipe: its sheet reads as the Owner's.
+    expect(item("m1", "2026-09-10", scopeDatabase(set, ["ศาลาแดง"])).sold).toBe(
+      20,
+    );
+    // An item out of the recipe is not taken.
+    expect(item("m2", "2026-09-10", set).sold).toBe(0);
+    // The other branch sold nothing.
+    expect(branchItem(set, "มีนบุรี", "m1", "2026-09-13")).toMatchObject({
+      sold: 0,
+      remaining: 0,
+    });
+  });
+
+  it("CAL-10: an edited sale takes what it now says, a deleted one nothing", () => {
+    const set = withRecipe(built, ["m1", "2"]);
+    const edited = mutate(
+      set,
+      saladaeng,
+      "entryEdit",
+      { targetId: sale.id, values: JSON.stringify({ boxes: "20" }) },
+      "",
+      day,
+    );
+    expect(item("m1", "2026-09-10", edited)).toMatchObject({
+      sold: 40,
+      remaining: 0,
+    });
+    const gone = mutate(set, saladaeng, "void", { targetId: sale.id }, "", day);
+    expect(item("m1", "2026-09-10", gone)).toMatchObject({
+      sold: 0,
+      remaining: 40,
+    });
+    expect(item("m1", "2026-09-11", gone).opening).toBe(40);
+  });
+
+  it("CAL-10: an item is set once an opening is typed for it or anything moved it", () => {
+    // No opening of the materials sheet names m3, and nothing moved it.
+    expect(item("m3", "2026-09-13")).toMatchObject({
+      set: false,
+      remaining: 0,
+    });
+    expect(branchItem(built, "มีนบุรี", "m1", "2026-09-13").set).toBe(false);
+    // Before the receipt of the 7th the meat was not there either.
+    expect(item("meat", "2026-09-06").set).toBe(false);
+    expect(item("meat", "2026-09-07").set).toBe(true);
+    // m1: nothing by the 8th, its opening on the 9th.
+    expect(item("m1", "2026-09-08").set).toBe(false);
+    expect(item("m1", "2026-09-09").set).toBe(true);
+    // An opening typed at 0 sets it; used up, it stays set (หมด, not ยังไม่ตั้งยอด).
+    const zero = mutate(
+      built,
+      saladaeng,
+      "entryEdit",
+      {
+        targetId: entries(built, "opening", undefined, "ศาลาแดง").at(-1)!.id,
+        values: JSON.stringify({ "qty.m3": "0" }),
+      },
+      "",
+      day,
+    );
+    expect(item("m3", "2026-09-13", zero)).toMatchObject({
+      set: true,
+      remaining: 0,
+    });
+    // A box sold moved it.
+    expect(
+      item("m3", "2026-09-13", withRecipe(built, ["m3", "1"])),
+    ).toMatchObject({ set: true, remaining: -17 });
   });
 
   it("CAL-10: saving a day again changes that day, it does not take stock twice", () => {

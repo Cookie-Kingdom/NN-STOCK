@@ -354,6 +354,26 @@ function checkConfig(v: Values) {
       "สาขาที่ใช้ข้าวเหนียวดิบ: อ่านรายการไม่ได้",
     );
   }
+  if (v.boxRecipe !== undefined) {
+    let rows: unknown;
+    try {
+      rows = JSON.parse(v.boxRecipe);
+    } catch {}
+    const label = "สูตรต่อกล่อง";
+    assert(
+      Array.isArray(rows) &&
+        rows.every((row) => row?.id) &&
+        new Set(rows.map((row) => row.id)).size === rows.length,
+      `${label}: อ่านรายการไม่ได้`,
+    );
+    assert(
+      // A row left empty is not in the recipe (boxRecipe).
+      (rows as Values[]).every(
+        (row) => (row.qty ?? "") === "" || amount(row.qty),
+      ),
+      `${label}: ${figure}`,
+    );
+  }
   if (v.skuNames !== undefined) {
     let rows: unknown;
     try {

@@ -13,6 +13,8 @@ import {
   type RoundKind,
   isEditOverlay,
   configMaterials,
+  boxRecipe,
+  gramItems,
   rawRiceBranches,
   sheets,
   type Material,
@@ -809,7 +811,7 @@ function sheetDays(
   return days;
 }
 /** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
- *  `remaining = opening + autoReceived + received − used`.
+ *  `remaining = opening + autoReceived + received − used − sold`.
  *  - `opening`: the balance at the start of the day: the day before's remaining carried
  *    forward, or what an `opening` note of this day sets (it applies before anything else of
  *    its date). Before any opening an item starts from 0.
@@ -818,9 +820,17 @@ function sheetDays(
  *    what the warehouses moved in or out of it (`stockMoves`: a transfer waiting for the
  *    branch counts on the day it confirmed).
  *  - `received`, `used`, `waste`, `reason`: what the day's `daily` note says. Waste is part of
- *    `used`, never taken off again; nothing else takes stock (no sale, no gift box).
+ *    `used`, never taken off again.
+ *  - `sold`: what the branch's live `sale` and `influencerBox` notes of the day took by
+ *    themselves, beside `used`: their boxes × the item's quantity a box (`boxRecipe`; grams
+ *    read as kg for `gramItems`), and for the chili their `chiliAddons` too, tube for tube,
+ *    whatever the recipe. A day with such a note and no sheet counts all the same.
  *  - `saved`: whether the day has a `daily` note of the item's sheet.
+ *  - `set`: whether the item was ever set or moved by `date`: an opening typed for it, or
+ *    something in or out. Until then its 0 is "ยังไม่ตั้งยอด", not "หมด".
  *  Nothing is refused: `remaining` may go below zero.
+ *  shortcut: the recipe is read as it stands now, so a change of it works every past day out
+ *  again; date the recipe (a list of `from` dates) when a past day's stock must stand.
  *  ponytail: walks the branch's notes per call; cache per log (as entryIndex) if a long one
  *  gets slow. */
 export function branchItem(
@@ -846,34 +856,60 @@ export function branchItem(
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
+  const perBox = boxRecipe(db.config).get(itemId) ?? 0;
+  // Divided last: 27 boxes of 120 g are 3.24 kg, not 27 × 0.12.
+  const perUnit = gramItems.includes(itemId) ? 1000 : 1;
+  const taken = new Map<string, number>();
+  for (const kind of ["sale", "influencerBox"] as const)
+    for (const e of entries(db, kind, undefined, branch)) {
+      const qty =
+        (num(e.values, "boxes") * perBox) / perUnit +
+        (itemId === "chili" ? num(e.values, "chiliAddons") : 0);
+      if (qty) taken.set(e.date, (taken.get(e.date) ?? 0) + qty);
+    }
   const daily = sheetDays(db, "daily", branch, sheet);
   const openings = sheetDays(db, "opening", branch, sheet);
-  const days = new Set([...auto.keys(), ...daily.keys(), ...openings.keys()]);
+  const days = new Set([
+    ...auto.keys(),
+    ...taken.keys(),
+    ...daily.keys(),
+    ...openings.keys(),
+  ]);
+  /** A day's own figures: in by itself, typed in, typed out, taken by the boxes. */
+  const figures = (day: string) => {
+    const noted = daily.get(day) ?? {};
+    return {
+      autoReceived: auto.get(day) ?? 0,
+      received: num(noted, key("received")),
+      used: num(noted, key("used")),
+      sold: taken.get(day) ?? 0,
+    };
+  };
   let opening = 0;
+  let set = false;
   for (const day of [...days].sort()) {
     if (day > date) break;
-    const set = openings.get(day);
-    if (set && typed(set, key("qty"))) opening = num(set, key("qty"));
+    const start = openings.get(day);
+    if (start && typed(start, key("qty"))) {
+      opening = num(start, key("qty"));
+      set = true;
+    }
+    const moved = figures(day);
+    set ||= Object.values(moved).some(Boolean);
     if (day === date) break;
-    const before = daily.get(day) ?? {};
-    opening +=
-      (auto.get(day) ?? 0) +
-      num(before, key("received")) -
-      num(before, key("used"));
+    opening += moved.autoReceived + moved.received - moved.used - moved.sold;
   }
   const now = daily.get(date);
-  const autoReceived = auto.get(date) ?? 0;
-  const received = num(now ?? {}, key("received"));
-  const used = num(now ?? {}, key("used"));
+  const today = figures(date);
   return {
     opening,
-    autoReceived,
-    received,
-    used,
+    ...today,
     waste: num(now ?? {}, key("waste")),
     reason: now?.[key("reason")] ?? "",
-    remaining: opening + autoReceived + received - used,
+    remaining:
+      opening + today.autoReceived + today.received - today.used - today.sold,
     saved: !!now,
+    set,
   };
 }
 /** For the Owner's Overview: a branch's waste over the 7 days ending on `date`. `saved`: how
