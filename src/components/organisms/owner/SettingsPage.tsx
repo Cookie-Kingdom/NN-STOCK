@@ -21,6 +21,7 @@ import {
   productsTitle,
   type ProductDraft,
 } from "./ProductDialog";
+import { MaterialsDialog, materialsTitle } from "./MaterialsDialog";
 import { SkuDialog, skuTitle } from "./SkuDialog";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -39,9 +40,8 @@ import {
   type Values,
 } from "@/lib/store";
 
-type Section =
-  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
-type ListSection = "channels" | "categories" | "materials";
+type Section = "numbers" | "channels" | "categories" | "rice" | "header";
+type ListSection = "channels" | "categories";
 type Setting = {
   key: string;
   label: string;
@@ -110,15 +110,6 @@ const lists: Record<
     add: "เพิ่มหมวด",
     prefix: "c",
   },
-  materials: {
-    title: "รายชื่อวัสดุ",
-    key: "materialList",
-    id: "id",
-    name: "วัสดุ",
-    extra: { key: "unit", label: "หน่วยนับ" },
-    add: "เพิ่มวัสดุ",
-    prefix: "m",
-  },
 };
 const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
@@ -126,19 +117,15 @@ const titles: Record<Section, string> = {
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
   channels: lists.channels.title,
   categories: lists.categories.title,
-  materials: lists.materials.title,
 };
 const isList = (section: Section): section is ListSection => section in lists;
 /** The ten categories the rules hang on: renamed, never removed. */
 const fixedCategories = payCategories(seed.config).map((c) => c.id);
-/** A list as its rows are stored: every value a string. The materials are the list in use
- *  (`materialList(db)`): the rows a branch added on its sheet are in it. */
+/** A list as its rows are stored: every value a string. */
 const rowsOf = (db: Database, section: ListSection): Values[] =>
   section === "channels"
     ? salesChannels(db.config).map((c) => ({ ...c, gp: String(c.gp) }))
-    : section === "materials"
-      ? materialList(db)
-      : payCategories(db.config);
+    : payCategories(db.config);
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -192,6 +179,7 @@ export function SettingsPage({
   const [rows, setRows] = useState<Values[]>([]);
   const [message, setMessage] = useState("");
   const [skusOpen, setSkusOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   /** The product whose popup is open. */
   const [product, setProduct] = useState<ProductDraft | null>(null);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
@@ -252,9 +240,7 @@ export function SettingsPage({
         name: row.name.trim(),
       }));
       input =
-        JSON.stringify(typed) === JSON.stringify(rowsOf(latest, section)) &&
-        // A list stored before SKUs: saving it as it is issues them (mutate).
-        !(section === "materials" && typed.some((row) => !row.sku))
+        JSON.stringify(typed) === JSON.stringify(rowsOf(latest, section))
           ? {}
           : { [lists[section].key]: JSON.stringify(typed) };
     } else
@@ -356,8 +342,6 @@ export function SettingsPage({
   const list = (section: ListSection, removable: (row: Values) => boolean) => {
     const { id, name, extra, add } = lists[section];
     const open = editing === section;
-    // A material's SKU: issued by the web when the list is saved, never typed.
-    const sku = section === "materials";
     return (
       <>
         {section === "categories" && !open ? (
@@ -369,7 +353,6 @@ export function SettingsPage({
         ) : (
           <StockTable
             columns={[
-              ...(sku ? ["SKU"] : []),
               name,
               ...(extra ? [extra.label] : []),
               ...(open ? [""] : []),
@@ -378,13 +361,6 @@ export function SettingsPage({
           >
             {(open ? rows : rowsOf(db, section)).map((row, index) => (
               <tr key={row[id]}>
-                {sku && (
-                  <Cell className="font-mono whitespace-nowrap text-accent">
-                    {row.sku || (
-                      <Muted as="span">{open ? "รอบันทึก" : "—"}</Muted>
-                    )}
-                  </Cell>
-                )}
                 {open ? (
                   <>
                     <Cell className="py-1.5">
@@ -402,8 +378,7 @@ export function SettingsPage({
                     {extra && (
                       <Cell right className="py-1.5">
                         <Input
-                          // A material's unit is a word; the other figure is a number.
-                          inputMode={sku ? undefined : "decimal"}
+                          inputMode="decimal"
                           aria-label={`${extra.label} ${row.name}`}
                           className="mt-0 ml-auto min-h-10 w-20 text-right"
                           value={row[extra.key]}
@@ -588,11 +563,34 @@ export function SettingsPage({
             </DayCard>
           </div>
           <div className="flex min-w-0 flex-col gap-4">
-            {card(
-              "materials",
-              'รายการของใบสต๊อกรายวันหน้า Inventory ของสาขา รวมรายการที่สาขาเพิ่มเอง "หน่วยนับ" คือหน่วยของตัวเลขในใบสต๊อก เว้นว่างจะเป็น "ชิ้น" SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
-              list("materials", () => true),
-            )}
+            <DayCard
+              aria-label={materialsTitle}
+              title={materialsTitle}
+              aside={
+                <Button
+                  size="sm"
+                  disabled={editing !== null}
+                  onClick={() => setMaterialsOpen(true)}
+                >
+                  เปิดรายการ
+                </Button>
+              }
+            >
+              <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
+                รายการของใบสต๊อกรายวันหน้า Inventory ของสาขา
+                รวมรายการที่สาขาเพิ่มเอง &quot;หน่วยนับ&quot;
+                คือหน่วยของตัวเลขในใบสต๊อก เว้นว่างจะเป็น &quot;ชิ้น&quot; SKU
+                ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ
+              </p>
+              <dl className={grid}>
+                <div>
+                  <dt className="text-label text-text-secondary">วัสดุ</dt>
+                  <dd className="m-0 font-semibold">
+                    {materialList(db).length} รายการ
+                  </dd>
+                </div>
+              </dl>
+            </DayCard>
           </div>
         </>
       ) : (
@@ -676,6 +674,9 @@ export function SettingsPage({
         </>
       )}
       {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
+      {materialsOpen && (
+        <MaterialsDialog ws={ws} onClose={() => setMaterialsOpen(false)} />
+      )}
       {product && (
         <ProductDialog
           ws={ws}
