@@ -90,6 +90,13 @@ const named = (change: Entry): Entry => ({
   at: change.at,
   values: {},
 });
+/** The ledger's two kinds in the filter: `kindInfo` keeps them a group of their own (`kindsFor`
+ *  reads it: the Owner jots both), the Daily Log files an expense under money and a move of
+ *  stock under the branches, so every note is in one group. */
+const ledgerGroups: Partial<Record<EntryKind, LogGroup>> = {
+  expense: "money",
+  transfer: "branch",
+};
 /** The Daily Log of an account: one row per entry it may see (`visibleEntries`; settings are
  *  not notes), newest first by when it was saved (`at`), never by the day a note is about.
  *  `group` keeps the notes of one group, and a change with the note it is about. */
@@ -144,7 +151,9 @@ export function logRows(
             : before;
     }
     now.set(note.id, note);
-    const noteGroup = isNoteKind(note.kind) ? kindInfo[note.kind].group : "";
+    const noteGroup =
+      ledgerGroups[note.kind] ??
+      (isNoteKind(note.kind) ? kindInfo[note.kind].group : "");
     if (
       !seen.has(e.id) ||
       // The notes jotted on a Lot beyond its core ones are Lot notes too.
@@ -255,8 +264,7 @@ const thaiDate = (date: string, options: Intl.DateTimeFormatOptions) =>
   });
 const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
-/** Spec section 7: everything yellow for an account, as one list for the Overview box
- *  and the bell. A branch lists its own branch; the Owner both, each
+/** Spec section 7: everything yellow for an account, as one list for the bell. A branch lists its own branch; the Owner both, each
  *  line led by the branch name: the sale of each of the last 7 days the branch was open and
  *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` (Old Lots) and
  *  the notes on it raise none. */
