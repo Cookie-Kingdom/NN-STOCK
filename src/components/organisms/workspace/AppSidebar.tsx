@@ -2,8 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, LogOut, Menu, Store } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Plus,
+  Store,
+} from "lucide-react";
+import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
+import { SavedAccounts } from "@/components/molecules/SavedAccounts";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
 import { NotificationPopover } from "@/components/organisms/workspace/NotificationPopover";
@@ -37,8 +46,10 @@ const openTabClass =
 /** The workspace's frame. From md up a 256px column: brand, the account's pages (Lots, Inventory,
  *  Daily Log and Finance under the "Nerdnuea x LINE MAN" section, `pages[].group`: a page-sized header that
  *  expands and collapses, its pages indented behind a guide line), then the bell, the theme
- *  switch, the account and sign-out. Below md it is a top bar (brand, bell,
- *  theme, sign-out) and the pages become tabs fixed to the bottom of the screen: all of them
+ *  switch, the account, "สลับบัญชี" and sign-out. "สลับบัญชี" opens the accounts saved on
+ *  this device (`SavedAccounts`) and "เพิ่มบัญชี", in a panel hung on the button the way the
+ *  bell's is. Below md it is a top bar (brand, bell,
+ *  theme, สลับบัญชี, sign-out) and the pages become tabs fixed to the bottom of the screen: all of them
  *  for a branch, four for an account with more than five (`barFor`), beside a fifth button,
  *  "เมนู". That one opens a sheet over the page, above the bar, listing every page the way
  *  the sidebar does: the section's heading as a label, its pages in two columns behind the
@@ -55,6 +66,10 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
   const menu = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const accountsId = useId();
+  const accounts = useRef<HTMLElement>(null);
+  // Two branch accounts share this route: the sidebar stays mounted through a switch.
+  useEffect(() => accounts.current?.hidePopover?.(), [account.id]);
   /* The pages are buttons, not <Link>s, so nothing prefetches them on its own. Every page
    * route is static and renders nothing, so warming all of them up front is cheap and keeps
    * the URL from lagging behind the pressed page. */
@@ -266,16 +281,43 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
               {account.title}
             </small>
           </span>
-          <IconButton
-            size="sm"
-            className="max-md:min-h-11 max-md:min-w-11"
-            label="ออกจากระบบ"
-            icon={<LogOut size={16} />}
-            onClick={async () => {
-              await signOut();
-              router.replace("/");
-            }}
-          />
+          <div className="group flex items-center max-md:gap-1">
+            <IconButton
+              size="sm"
+              className="[anchor-name:--accounts] group-has-[:popover-open]:bg-bg max-md:min-h-11 max-md:min-w-11"
+              label="สลับบัญชี"
+              popoverTarget={accountsId}
+              icon={<ArrowLeftRight size={16} />}
+            />
+            <section
+              ref={accounts}
+              id={accountsId}
+              popover="auto"
+              aria-label="สลับบัญชี"
+              className="inset-auto m-0 w-[min(300px,calc(100vw-32px))] scale-96 rounded-lg border border-border bg-surface p-2 text-text-primary opacity-0 shadow-lg transition-[opacity,scale,display,overlay] transition-discrete duration-(--motion-fast) ease-(--ease-exit) [position-anchor:--accounts] open:scale-100 open:opacity-100 open:duration-(--motion-base) open:ease-(--ease-enter) max-md:[top:anchor(bottom)] max-md:right-4 max-md:mt-2.5 max-md:origin-top-right md:[bottom:anchor(top)] md:[left:anchor(left)] md:mb-2.5 md:origin-bottom-left starting:open:scale-96 starting:open:opacity-0"
+            >
+              <div className="grid gap-2">
+                <SavedAccounts />
+                <Button
+                  className="w-full"
+                  icon={<Plus />}
+                  onClick={() => router.push("/?add")}
+                >
+                  เพิ่มบัญชี
+                </Button>
+              </div>
+            </section>
+            <IconButton
+              size="sm"
+              className="max-md:min-h-11 max-md:min-w-11"
+              label="ออกจากระบบ"
+              icon={<LogOut size={16} />}
+              onClick={async () => {
+                await signOut();
+                router.replace("/");
+              }}
+            />
+          </div>
         </div>
       </div>
     </aside>

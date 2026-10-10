@@ -234,6 +234,15 @@ async function loadDatabase(background = false): Promise<boolean> {
   return true;
 }
 
+/** Back to nothing loaded: whoever signs in next must not see this account's copy. */
+export function resetDatabase() {
+  cached = seed;
+  stored = null;
+  revision = null;
+  loaded = false;
+  notify();
+}
+
 function onAuthEvent(event: string) {
   // Deferred: Supabase warns that calling the client inside onAuthStateChange can deadlock.
   // A save in flight reloads on its own; adopting now would swap its optimistic change out
@@ -242,13 +251,7 @@ function onAuthEvent(event: string) {
     setTimeout(() => {
       if (!pendingWrites) void loadDatabase(true);
     }, 0);
-  if (event === "SIGNED_OUT") {
-    cached = seed;
-    stored = null;
-    revision = null;
-    loaded = false;
-    notify();
-  }
+  if (event === "SIGNED_OUT") resetDatabase();
 }
 if (supabase) {
   void supabase.auth.getSession().then(({ data }) => {
