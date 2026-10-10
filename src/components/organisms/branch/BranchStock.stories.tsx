@@ -237,9 +237,9 @@ export const NegativeRemaining: Story = { ...negative };
 /** บันทึกโดยไม่ใส่ผู้บันทึก และมี Waste ที่ไม่มีสาเหตุ: ทั้งสองช่องขึ้น「ยังไม่ได้จด」 */
 export const MissingReporter: Story = { ...unsigned };
 
-/** ตั้งส่วนประกอบของสินค้าแล้ว และวันนี้มียอดขายกับกล่องที่แจก: ใต้ช่อง「ใช้ไป」ของกล่องบรรจุและซองเนื้อมีบรรทัด
- *  「ตัดจากยอดขาย」(พิมพ์ไม่ได้ เว็บคิดให้ แยกจากใช้ไปที่พิมพ์เอง) และคงเหลือถูกหักแล้ว ·
- *  รายการที่ไม่เป็นส่วนประกอบของสินค้าใดไม่มีบรรทัดนี้ */
+/** ตั้งส่วนประกอบของสินค้าแล้ว และวันนี้มียอดขายกับกล่องที่แจก: คอลัมน์「ตัดจากยอดขาย」ถัดจาก「ใช้ไป」
+ *  บอกจำนวนของกล่องบรรจุและซองเนื้อ (พิมพ์ไม่ได้ เว็บคิดให้ แยกจากใช้ไปที่พิมพ์เอง) และคงเหลือถูกหักแล้ว ·
+ *  รายการที่ไม่เป็นส่วนประกอบของสินค้าใดเป็น「—」 */
 export const SoldFromSales: Story = {
   args: saladaeng,
   parameters: { db: soldDb },
@@ -248,11 +248,13 @@ export const SoldFromSales: Story = {
     // 10 boxes sold + 2 given away today, a box and two meat bags each.
     await expect(
       sheet.getByLabelText("ตัดจากยอดขาย กล่องบรรจุ"),
-    ).toHaveTextContent("ตัดจากยอดขาย 12");
+    ).toHaveTextContent("12");
     await expect(
       sheet.getByLabelText("ตัดจากยอดขาย ซองเนื้อ"),
-    ).toHaveTextContent("ตัดจากยอดขาย 24");
-    await expect(sheet.queryByLabelText("ตัดจากยอดขาย ถุงกระดาษ")).toBeNull();
+    ).toHaveTextContent("24");
+    await expect(
+      sheet.getByLabelText("ตัดจากยอดขาย ถุงกระดาษ"),
+    ).toHaveTextContent("—");
   },
 };
 
@@ -272,7 +274,7 @@ export const StockSoldFromSales: Story = {
   },
 };
 
-/** จอ 390px มีบรรทัด「ตัดจากยอดขาย」ใต้「ใช้ไป」: ตารางกว้างเท่าเดิม ไม่มีคอลัมน์เพิ่ม */
+/** จอ 390px มีคอลัมน์「ตัดจากยอดขาย」: ตารางเลื่อนซ้ายขวาในการ์ด หน้าไม่เลื่อนตาม */
 export const PhoneSoldFromSales: Story = {
   ...phone,
   args: saladaeng,
