@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import type { AccountId } from "@/lib/accounts";
+import { MockSavedAccounts } from "../../../../.storybook/mocks/session";
 import { AppSidebar } from "./AppSidebar";
 import { WithWorkspace, dbFor, phone, sampleDb } from "./storyWorkspace";
 
@@ -47,3 +48,28 @@ export const PhoneBranch: Story = {
   args: { account: "saladaeng" },
   parameters: { ...phone.parameters, db: dbFor("saladaeng") },
 };
+
+const openAccounts: Story = {
+  decorators: [
+    (Story) => (
+      <MockSavedAccounts
+        value={[
+          { id: "owner", name: "Owner" },
+          { id: "saladaeng", name: "สาขาศาลาแดง" },
+          { id: "minburi", name: "สาขามีนบุรี" },
+        ]}
+      >
+        <Story />
+      </MockSavedAccounts>
+    ),
+  ],
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "สลับบัญชี" }));
+  },
+};
+
+/** กด "สลับบัญชี" ข้างปุ่มออกจากระบบ: แผงเปิดขึ้นเหนือปุ่ม มีบัญชีที่เคยเข้าสู่ระบบบนเครื่องนี้ (บัญชีที่เปิดอยู่มีป้าย "ใช้งานอยู่" กดไม่ได้) กดบัญชีอื่นเพื่อสลับโดยไม่ต้องใส่รหัสผ่าน · "เพิ่มบัญชี" ไปหน้าเข้าสู่ระบบ (`/?add`) · ปิดด้วย Escape หรือกดข้างนอก */
+export const Accounts: Story = openAccounts;
+
+/** จอ 390px: ปุ่มอยู่บนแถบบน แผงเปิดลงใต้ปุ่ม ไม่ล้นขอบจอ */
+export const PhoneAccounts: Story = { ...phone, ...openAccounts };

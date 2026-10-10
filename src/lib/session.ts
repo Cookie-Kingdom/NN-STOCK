@@ -3,10 +3,10 @@
 import { useSyncExternalStore } from "react";
 import { accountById, type Account, type AccountId } from "@/lib/accounts";
 import { LOCAL_ACCOUNT_COOKIE, LOCAL_DB, localAccountId } from "@/lib/local-db";
-import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 import type { Database } from "@/lib/supabase/types";
-import { setSaveAppendOnly } from "@/lib/persistence";
+import { resetDatabase, setSaveAppendOnly } from "@/lib/persistence";
 
 type Profile = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
@@ -16,6 +16,15 @@ export type SessionState = {
   ready: boolean;
   account: Account | null;
   error: string;
+};
+/** An account that signed in on this device. In Supabase mode it carries that user's tokens,
+ * which is what lets `switchAccount` open it again without the password. */
+export type SavedAccount = {
+  id: AccountId;
+  name: string;
+  userId?: string;
+  access_token?: string;
+  refresh_token?: string;
 };
 
 const supabase = LOCAL_DB ? null : createClient();
@@ -29,6 +38,71 @@ function publish(next: SessionState) {
   setSaveAppendOnly(!!next.account && next.account.role !== "owner");
   listeners.forEach((listener) => listener());
 }
+
+// shortcut: one saved entry per account id, so two Supabase users of the same account overwrite each other; key by userId when an account has more than one user.
+const SAVED_KEY = "saved-accounts";
+// One array, reused as the server snapshot, for the same reason as initialState.
+const noSaved: SavedAccount[] = [];
+function readSaved(): SavedAccount[] {
+  if (typeof window === "undefined") return noSaved;
+  try {
+    const list: unknown = JSON.parse(
+      window.localStorage.getItem(SAVED_KEY) ?? "[]",
+    );
+    return Array.isArray(list)
+      ? list.filter((saved) => accountById(saved?.id))
+      : noSaved;
+  } catch {
+    return noSaved;
+  }
+}
+let saved = readSaved();
+/** Re-reads before writing: another tab may have rotated another account's tokens since. */
+function changeSaved(change: (list: SavedAccount[]) => SavedAccount[]) {
+  if (typeof window === "undefined") return;
+  saved = change(readSaved());
+  try {
+    window.localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
+  } catch {
+    // Storage is blocked or full: the list lasts until the tab closes.
+  }
+  listeners.forEach((listener) => listener());
+}
+function remember(account: SavedAccount) {
+  changeSaved((list) =>
+    list.some((a) => a.id === account.id)
+      ? list.map((a) => (a.id === account.id ? account : a))
+      : [...list, account],
+  );
+}
+const forget = (id: AccountId) =>
+  changeSaved((list) => list.filter((a) => a.id !== id));
+// Refresh tokens rotate: a saved one that is not kept current cannot open its account later.
+function keepTokens(session: Session) {
+  changeSaved((list) =>
+    list.map((a) =>
+      a.userId === session.user.id
+        ? {
+            ...a,
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }
+        : a,
+    ),
+  );
+}
+/** Before the open account is left. The proxy refreshes the auth cookies on the server with
+ * no event here, so the saved copy of its tokens can be a rotation behind. */
+async function keepOpenTokens() {
+  const { data } = await supabase!.auth.getSession();
+  if (data.session) keepTokens(data.session);
+}
+if (typeof window !== "undefined")
+  window.addEventListener("storage", (event) => {
+    if (event.key !== SAVED_KEY) return;
+    saved = readSaved();
+    listeners.forEach((listener) => listener());
+  });
 
 function accountForProfile(
   profile: Profile,
@@ -56,6 +130,7 @@ function setLocalAccount(account: Account | null) {
   document.cookie = account
     ? `${LOCAL_ACCOUNT_COOKIE}=${account.id}; path=/; SameSite=Lax`
     : `${LOCAL_ACCOUNT_COOKIE}=; path=/; max-age=0`;
+  if (account) remember({ id: account.id, name: account.name });
   publish({ ready: true, account, error: "" });
   window.dispatchEvent(
     new CustomEvent("local-auth", {
@@ -122,10 +197,22 @@ async function refreshSession() {
     account,
     error: account ? "" : "บัญชีนี้ยังไม่เปิดใช้งาน กรุณาติดต่อ Owner",
   });
+  if (!account) return;
+  // Another tab may have switched since getUser: only the tokens of the user just read are saved.
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.user.id === userData.user.id)
+    remember({
+      id: account.id,
+      name: account.name,
+      userId: userData.user.id,
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
 }
 
 void refreshSession();
-supabase?.auth.onAuthStateChange((event) => {
+supabase?.auth.onAuthStateChange((event, session) => {
+  if (session) keepTokens(session);
   // A refreshed token is the same user; nothing to re-read.
   if (event === "TOKEN_REFRESHED" && state.account) return;
   // Deferred: Supabase warns that calling the client inside this callback can deadlock.
@@ -140,14 +227,51 @@ export async function signIn(email: string, password: string) {
       return localAuthError(
         "โหมด local: ใช้อีเมล owner@local.test, saladaeng@ หรือ minburi@local.test",
       );
+    resetDatabase();
     setLocalAccount(account);
     return { data: { user: null, session: null }, error: null };
   }
+  /* Signing in over an open account replaces the client's session without revoking the old
+   * one on the server: that is "add account". The old account's cached data must go. */
+  await keepOpenTokens();
   const result = await supabase.auth.signInWithPassword({ email, password });
-  if (!result.error) await refreshSession();
+  if (!result.error) {
+    resetDatabase();
+    await refreshSession();
+  }
   return result;
 }
+/** Opens a saved account without its password. Resolves to "" or to why it could not. */
+export async function switchAccount(id: AccountId): Promise<string> {
+  if (!supabase) {
+    resetDatabase();
+    setLocalAccount(accountById(id));
+    return "";
+  }
+  await keepOpenTokens();
+  const entry = readSaved().find((a) => a.id === id);
+  /* Never signOut() on the way: any scope of it revokes the session on the server, and with
+   * it the saved refresh token of the account being left. */
+  const { error } =
+    entry?.access_token && entry.refresh_token
+      ? await supabase.auth.setSession({
+          access_token: entry.access_token,
+          refresh_token: entry.refresh_token,
+        })
+      : { error: new Error() };
+  // A network blip says nothing about the tokens: keep them for the next try.
+  if (isAuthRetryableFetchError(error))
+    return "เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่";
+  if (error) {
+    forget(id);
+    return "เซสชันของบัญชีนี้หมดอายุ กรุณาเข้าสู่ระบบใหม่";
+  }
+  resetDatabase();
+  await refreshSession();
+  return "";
+}
 export async function signOut() {
+  if (state.account) forget(state.account.id);
   if (!supabase) return setLocalAccount(null);
   await supabase.auth.signOut();
   publish({ ready: true, account: null, error: "" });
@@ -160,5 +284,15 @@ export function useSession(): SessionState {
     },
     () => state,
     () => initialState,
+  );
+}
+export function useSavedAccounts(): SavedAccount[] {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => saved,
+    () => noSaved,
   );
 }
