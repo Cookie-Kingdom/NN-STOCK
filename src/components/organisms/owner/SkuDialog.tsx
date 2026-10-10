@@ -111,7 +111,7 @@ export function SkuDialog({
               <Cell>
                 <Caption as="span">
                   {item.material
-                    ? 'วัสดุ (แก้ชื่อได้ที่ "รายชื่อวัสดุ")'
+                    ? 'วัสดุ (แก้ชื่อได้ที่ "รายชื่อวัสดุ" ในหน้า Settings ของโปรเจกต์)'
                     : "รายการจากหน้า Accounting"}
                 </Caption>
               </Cell>

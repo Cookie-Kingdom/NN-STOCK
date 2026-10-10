@@ -10,6 +10,7 @@ import {
   openPage,
   openRow,
   pageButtons,
+  region,
   rows,
   save,
   signInAs,
@@ -29,6 +30,8 @@ const pagesOf = {
     "Daily Log",
     "Finance",
     "Old Lots",
+    // The project's own, as its Overview is.
+    "Settings",
     "Accounting",
     "Settings",
   ],
@@ -42,7 +45,7 @@ const optionsOf = (page: Page, label: RegExp) =>
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
-test("1 · V2-ACC-09 Owner has 10 pages, Branch 4, all named in English", async ({
+test("1 · V2-ACC-09 Owner has 11 pages, Branch 4, all named in English", async ({
   page,
 }) => {
   await start(page, "sample");
@@ -66,6 +69,15 @@ test("1 · V2-ACC-09 Owner has 10 pages, Branch 4, all named in English", async 
   await signInAs(page, "owner");
   await openPage(page, "Overview", true);
   await expect(page).toHaveURL(/\/owner\/nn-x-lm\/overview$/);
+  // The project's settings are on its own page, the shop's on the shop's.
+  await openPage(page, "Settings", true);
+  await expect(page).toHaveURL(/\/owner\/nn-x-lm\/settings$/);
+  await expect(region(page, "ตัวเลขสำหรับคำนวณ")).toBeVisible();
+  await expect(region(page, "ช่องทางขาย")).toHaveCount(0);
+  await openPage(page, "Settings");
+  await expect(page).toHaveURL(/\/owner\/settings$/);
+  await expect(region(page, "ช่องทางขาย")).toBeVisible();
+  await expect(region(page, "ตัวเลขสำหรับคำนวณ")).toHaveCount(0);
   // A page the account does not have is not reachable by its address either.
   await signInAs(page, "minburi");
   for (const tab of ["lots", "finance", "overview", "settings"]) {
