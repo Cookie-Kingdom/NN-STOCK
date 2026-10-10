@@ -8,10 +8,8 @@ import {
 } from "@/components/organisms/branch/BranchStock";
 import { FinancePage } from "@/components/organisms/owner/FinancePage";
 import { LotsPage, OldLotsPage } from "@/components/organisms/owner/LotsPage";
-import {
-  OverviewPage,
-  ProjectOverviewPage,
-} from "@/components/organisms/owner/OverviewPage";
+import { OverviewPage } from "@/components/organisms/owner/OverviewPage";
+import { ProjectOverviewPage } from "@/components/organisms/owner/ProjectOverviewPage";
 import { OwnerMeatStock } from "@/components/organisms/owner/OwnerMeatStock";
 import { OwnerStock } from "@/components/organisms/owner/OwnerStock";
 import { SettingsPage } from "@/components/organisms/owner/SettingsPage";

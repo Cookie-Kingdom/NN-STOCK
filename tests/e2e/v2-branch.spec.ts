@@ -220,6 +220,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   for (const name of [/^เนื้อ/, /^แพ็กเกจ/, /^วัตถุดิบ/, /^ขนส่ง/, /^ค่าแรง/])
     await expect(line(name)).toHaveText("—");
   // ฿230 out in all: each counted once. 3,500 − 10% GP − 230.
+  await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿2,920");
   await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText("฿2,920");
   // Finance: ฿230 paid in all, ฿150 of it out of น้องฝน's pocket and still owed to her.
   await openPage(page, "Finance");

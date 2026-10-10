@@ -21,6 +21,7 @@ import {
   payCategories,
   plBetween,
   mutate,
+  netSalesByBranch,
   pendingTransfers,
   poInfo,
   purchaseLots,
@@ -828,6 +829,14 @@ describe("figures (V2-CAL)", () => {
       boxes: 4,
       byBranch: { "": 900, ศาลาแดง: 100 },
       byChannel: { [legacySale.key]: 1000 },
+    });
+    // After GP per branch: the old money whole, a channel's sale less its GP.
+    expect(netSalesByBranch(withOld, "2026-08", "2026-08~")).toEqual({
+      "": 900,
+      ศาลาแดง: 100,
+    });
+    expect(netSalesByBranch(built, sale.date, sale.date)).toEqual({
+      [sale.branch]: 1250,
     });
     // The form's `sales.legacy` is dropped from a new note; a branch's edit keeps the money
     // and does not list the channel's as missing.

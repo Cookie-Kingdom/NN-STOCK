@@ -41,8 +41,8 @@ import {
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "./CashFlowChart";
-import { usePeriod } from "./OverviewPage";
 import { FigureCard, FigureTable, Num, PlTable, cardGrid } from "./PlTable";
+import { usePeriod } from "./overviewParts";
 
 const sumOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const none = <Muted as="span">—</Muted>;
