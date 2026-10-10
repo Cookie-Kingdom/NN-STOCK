@@ -6,6 +6,7 @@ import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
+import { SavedAccounts } from "@/components/molecules/SavedAccounts";
 import { AuthShell } from "@/components/templates/AuthShell";
 import { signIn, useSession } from "@/lib/session";
 
@@ -14,9 +15,13 @@ export function SignIn() {
   const { ready, account, error: sessionError } = useSession();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
-    if (ready && account) router.replace(account.path);
-  }, [ready, account, router]);
+    /* "/?add" (the sidebar's เพิ่มบัญชี) keeps this page open over the account in use until a
+     * sign-in here succeeds. Read here, not in render: the server does not know the query. */
+    const adding = new URLSearchParams(window.location.search).has("add");
+    if (ready && account && (signedIn || !adding)) router.replace(account.path);
+  }, [ready, account, router, signedIn]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +35,7 @@ export function SignIn() {
     const result = await signIn(email, password);
     setBusy(false);
     if (result.error) setMessage(result.error.message);
+    else setSignedIn(true);
   }
   return (
     <AuthShell
@@ -37,6 +43,15 @@ export function SignIn() {
       description="ใช้อีเมลและรหัสผ่านที่ Owner ออกให้"
       footnote="ยังไม่มีบัญชี? ติดต่อ Owner เพื่อสร้างบัญชีและกำหนดสิทธิ์"
     >
+      <div className="mt-5.5 empty:hidden">
+        <SavedAccounts
+          heading={
+            <h2 className="m-0 text-caption font-medium text-text-secondary">
+              บัญชีที่บันทึกไว้
+            </h2>
+          }
+        />
+      </div>
       <form className="mt-5.5 mb-3.5 grid gap-3.5" onSubmit={submit}>
         <FormField label="อีเมล">
           <Input required type="email" name="email" autoComplete="email" />
