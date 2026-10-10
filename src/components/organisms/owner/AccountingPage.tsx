@@ -442,63 +442,64 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           bars={bars}
         />
       </Panel>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Input
-          type="search"
-          variant="filter"
-          aria-label="ค้นหา"
-          placeholder="ค้นหารายการ ประเภท ผู้ขาย เลขอ้างอิง หรือ SKU"
-          className="min-w-64 flex-1 max-md:basis-full"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        {/* The same state as the filter under the column's head: one filter, two controls. */}
-        <SegmentedChoice
-          label={directionColumn}
-          value={filters[directionColumn] ?? ""}
-          onChange={(value) =>
-            setFilters({ ...filters, [directionColumn]: value })
-          }
-          options={[
-            { value: "", label: "ทั้งหมด" },
-            ...Object.values(directions).map((value) => ({
-              value,
-              label: value,
-            })),
-          ]}
-        />
-        <Button
-          size="sm"
-          aria-pressed={poPending}
-          className="min-h-10 aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-fg"
-          onClick={() => {
-            setFilters({
-              ...filters,
-              // A PO is money out: รายรับ picked beside it would find nothing.
-              ...(filters[directionColumn] === directions.in && {
-                [directionColumn]: "",
-              }),
-              [sourceColumn]: poPending ? "" : ledgerSources.po,
-              [statusColumn]: poPending ? "" : ledgerStatuses.pending,
-            });
-          }}
-        >
-          PO รอจ่าย ({summary.waiting})
-        </Button>
-        {filtered && (
+      <Panel flush className="overflow-hidden">
+        {/* The strip over the table, as on Finance's list; px-3 is this table's cell inset. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-border px-3 py-3">
+          <Input
+            type="search"
+            variant="filter"
+            aria-label="ค้นหา"
+            placeholder="ค้นหารายการ ประเภท ผู้ขาย เลขอ้างอิง หรือ SKU"
+            className="min-w-64 flex-1 max-md:basis-full"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {/* The same state as the filter under the column's head: one filter, two controls. */}
+          <SegmentedChoice
+            label={directionColumn}
+            value={filters[directionColumn] ?? ""}
+            onChange={(value) =>
+              setFilters({ ...filters, [directionColumn]: value })
+            }
+            options={[
+              { value: "", label: "ทั้งหมด" },
+              ...Object.values(directions).map((value) => ({
+                value,
+                label: value,
+              })),
+            ]}
+          />
           <Button
             size="sm"
-            className="min-h-10"
+            aria-pressed={poPending}
+            className="min-h-10 aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-fg"
             onClick={() => {
-              setFilters({});
-              setSearch("");
+              setFilters({
+                ...filters,
+                // A PO is money out: รายรับ picked beside it would find nothing.
+                ...(filters[directionColumn] === directions.in && {
+                  [directionColumn]: "",
+                }),
+                [sourceColumn]: poPending ? "" : ledgerSources.po,
+                [statusColumn]: poPending ? "" : ledgerStatuses.pending,
+              });
             }}
           >
-            ล้างตัวกรอง
+            PO รอจ่าย ({summary.waiting})
           </Button>
-        )}
-      </div>
-      <Panel flush className="overflow-hidden">
+          {filtered && (
+            <Button
+              size="sm"
+              className="min-h-10"
+              onClick={() => {
+                setFilters({});
+                setSearch("");
+              }}
+            >
+              ล้างตัวกรอง
+            </Button>
+          )}
+        </div>
         {/* relative: the sr-only head of the last column scrolls with the table, not the page. */}
         <div className="relative overflow-x-auto">
           <table
