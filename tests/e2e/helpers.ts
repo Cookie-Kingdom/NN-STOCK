@@ -123,7 +123,7 @@ export const theDate = /^วันที่\s*(\d|เลือก)/;
 
 /** Picks `day` (`YYYY-MM-DD`) in a DatePicker: steps its calendar to the month, presses
  *  the day. */
-async function pickDay(control: Locator, day: string) {
+export async function pickDay(control: Locator, day: string) {
   const page = control.page();
   const from = (await control.getAttribute("data-value")) || bangkokDate();
   await control.click();
