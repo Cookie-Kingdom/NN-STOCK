@@ -1021,7 +1021,7 @@ export function cashBetween(
 }
 /** V2-CAL-25: what the sales channels still owe, and the income still awaited. `channels`: a
  *  row per channel of Settings: `sold` is every sale jotted for it, after its GP (money from
- *  the old books, `legacySale`, was settled there: left out); `received` the sales receipts
+ *  the old books, `legacySale`, is already after GP and is the last row's `sold`); `received` the sales receipts
  *  in hand that name it; `left` the difference; `jotted` whether any receipt names it, awaited
  *  ones included (a channel nobody jots receipts for owes all it ever sold). A receipt naming
  *  no channel, or one no longer in Settings, makes a last row with key "". `pending`: the
@@ -1036,9 +1036,15 @@ export function receivables(db: Database) {
       (i) =>
         i.type === "sales" && (keys.has(i.channel) ? i.channel : "") === key,
     );
-    const sold = key
-      ? sales.reduce((a, e) => a + num(e.values, key) * (1 - gp / 100), 0)
-      : 0;
+    // The last row holds the old books' sales: their receipts name no channel.
+    const sold = sales.reduce(
+      (a, e) =>
+        a +
+        (key
+          ? num(e.values, key) * (1 - gp / 100)
+          : num(e.values, legacySale.key)),
+      0,
+    );
     const received = receipts
       .filter((i) => i.received)
       .reduce((a, i) => a + i.amount, 0);

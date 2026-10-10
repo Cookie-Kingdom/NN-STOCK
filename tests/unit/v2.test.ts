@@ -2474,6 +2474,20 @@ describe("income (V2-PAY-09)", () => {
       left: -50,
       jotted: true,
     });
+    // The old books' sales, already after GP, are what that row sold.
+    const old = {
+      ...loose,
+      entries: [
+        ...loose.entries,
+        {
+          ...loose.entries.find((e) => e.kind === "sale")!,
+          id: "old",
+          values: { "sales.legacy": "50" },
+        },
+      ],
+    };
+    expect(receivables(old).channels[1]).toMatchObject({ sold: 50, left: 0 });
+    expect(lineMan(old).sold).toBe(900);
   });
 
   it("a pending one is only awaited, a cancelled one counts nowhere", () => {
