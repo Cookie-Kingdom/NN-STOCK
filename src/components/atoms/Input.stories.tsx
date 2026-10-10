@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Input } from "./Input";
 
@@ -39,4 +40,25 @@ export const Default: Story = {
   render: (args) => (
     <Input key={`${args.type}|${String(args.defaultValue)}`} {...args} />
   ),
+};
+
+/** ช่องตัวเลข (`inputMode` decimal / numeric): พิมพ์ 1000000 แล้วช่องแสดง 1,000,000
+ *  ส่วน `onChange` ยังได้ 1000000 · พิมพ์ตัวอักษรได้ตามเดิม ให้ `mutate` เป็นคนบอกว่าผิด */
+export const Figure: Story = {
+  render: function Render() {
+    const [value, setValue] = useState("1000000.5");
+    return (
+      <div className="w-72">
+        <Input
+          inputMode="decimal"
+          aria-label="ยอด (บาท)"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <p className="mt-2 text-caption text-text-secondary">
+          ค่าที่เก็บ: {value}
+        </p>
+      </div>
+    );
+  },
 };
