@@ -37,7 +37,8 @@ const sqlTest = "supabase/tests/v2_app_state_test.sql";
 
 test("branchScope equals the rule JSON in the migration", () => {
   expect(branchScope).toEqual(
-    tagged("supabase/migrations/20261002000004_app_state_scope.sql", "rules"),
+    // The file that last defined app_state_scope_rules().
+    tagged("supabase/migrations/20261010000001_scope_box_recipe.sql", "rules"),
   );
 });
 
@@ -122,6 +123,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     packKg: "0.12",
     materialList: "[]",
     rawRiceBranches: '["มีนบุรี"]',
+    boxRecipe: "[]",
   });
   // Nothing names the other branch but its rows of the shared material list (si, siv).
   const shared = ["si", "siv"];

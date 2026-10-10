@@ -9,8 +9,8 @@ import {
 /* What a branch account receives from load_app_state: its own entries, the Lots it may receive
  * from, and the stock lines of what the Owner bought for it (V2-ACC-06, V2-ACC-07). Nothing of another branch, no cost, no central stock.
  *
- * `branchScope` is the rule. The same JSON sits in app_state_scope_rules() in migration
- * 20261002000004_app_state_scope.sql, and tests/unit/server.test.ts checks the two are equal, so
+ * `branchScope` is the rule. The same JSON sits in app_state_scope_rules(), as migration
+ * 20261010000001_scope_box_recipe.sql last defined it, and tests/unit/server.test.ts checks the two are equal, so
  * change both.
  * `scopeDatabase` is the JS port of scope_app_state() there (GET /api/local-db uses it).
  *
@@ -76,6 +76,7 @@ export const branchScope: {
     "salesChannels",
     "payCategories",
     "rawRiceBranches",
+    "boxRecipe",
   ],
   stockKinds: ["pay", "expense"],
   stockKeys: [

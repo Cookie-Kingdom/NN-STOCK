@@ -449,6 +449,8 @@ const listDefaults = {
     { id: "capex", name: "อุปกรณ์/ลงทุน" },
     { id: "other", name: "อื่น ๆ" },
   ]),
+  // Nothing until the Owner sets it: a box takes no stock.
+  boxRecipe: "[]",
 };
 /** A list setting as stored; anything unreadable (or not there yet) is the default. */
 function list(config: Values, key: keyof typeof listDefaults): Values[] {
@@ -491,6 +493,18 @@ export const configMaterials = (config: Values): Material[] =>
     name: m.name,
     unit: m.unit || "ชิ้น",
   }));
+/** The items of the recipe typed in grams a box; a branch's sheet counts them in kg. */
+export const gramItems = ["meat", "rice"];
+/** 「สูตรต่อกล่อง」: what one box sold or given away takes from a branch's stock (V2-CAL-10), by
+ *  item id (`meat`, `rice`, `chili`, a material's), as Settings holds it: grams for
+ *  `gramItems`, tubes for the chili, a material's own unit. A row left empty or at 0 is not in
+ *  it: boxes take none of that item. */
+export const boxRecipe = (config: Values): Map<string, number> =>
+  new Map(
+    list(config, "boxRecipe")
+      .map((row): [string, number] => [row.id, Number(row.qty) || 0])
+      .filter(([, qty]) => qty > 0),
+  );
 export const payCategories = (config: Values): PayCategory[] =>
   list(config, "payCategories").map(({ id, name }) => ({ id, name }));
 /* The ten category ids of the seed are fixed: these rules hang on them. */
