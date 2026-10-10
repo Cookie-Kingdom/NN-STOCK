@@ -78,6 +78,16 @@ export function SignIn() {
           {busy ? "กำลังเข้าสู่ระบบ…" : !ready ? "กำลังโหลด…" : "เข้าสู่ระบบ"}
         </Button>
       </form>
+      {/* Only "/?add" still shows this page with an account open: its way back. */}
+      {account && (
+        <Button
+          variant="text"
+          className="mb-3.5 w-full"
+          onClick={() => router.replace(account.path)}
+        >
+          กลับไปที่ {account.name}
+        </Button>
+      )}
     </AuthShell>
   );
 }
