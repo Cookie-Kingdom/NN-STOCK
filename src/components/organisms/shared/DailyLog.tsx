@@ -336,7 +336,8 @@ export function DailyLog({ ws }: { ws: Workspace }) {
             <table
               aria-label="บันทึกทั้งหมด เรียงตามเวลาที่บันทึก"
               // Fixed below md: the one cell of a row is as wide as the table, and cuts its line.
-              className="w-full border-collapse max-md:table-fixed [&_td]:px-3 [&_th]:px-3"
+              // A line between the columns from md up; below md a row is one cell.
+              className="w-full border-collapse max-md:table-fixed md:[&_:is(td,th)+:is(td,th)]:border-l [&_td]:px-3 [&_th]:px-3"
             >
               <thead className="max-md:hidden">
                 <tr>
