@@ -11,7 +11,7 @@ import {
 import { mutate, titles, type Entry } from "@/lib/store";
 
 /** Delete and undo. 「ลบ」 asks first (the confirm the composer shows), and a delete is still
- *  put back by 「เลิกทำ」 on its toast or by the change log. A refusal by `mutate` is the red toast; one by the
+ *  put back by 「เลิกทำ」 on its toast or by the Daily Log. A refusal by `mutate` is the red toast; one by the
  *  server is said by persistence (`DatabaseErrorToast`). */
 export function useEntryActions(
   ws: Pick<Workspace, "account" | "setToast" | "fail" | "setDeleting">,

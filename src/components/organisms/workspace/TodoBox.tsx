@@ -1,31 +1,17 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
-import { Button } from "@/components/atoms/Button";
 import { Caption } from "@/components/atoms/Text";
 import { AlertListItem } from "@/components/molecules/AlertListItem";
-import { useShowMore } from "@/components/molecules/ShowMore";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { missingText, todoOpens } from "@/lib/store";
 
 const box = "flex flex-col gap-3 rounded-lg border p-5 max-md:p-4";
-/** Lines of the Daily Log's box drawn before 「ดูเพิ่มเติม」: a long box outgrew the days beside it. */
-const shownFirst = 7;
 
 /** Everything the account has not jotted yet, as one yellow list: pressing a line opens its
  *  form (or the edit, or the Stock or Inventory page); a line that opens nothing is plain. Green and
- *  「จดครบแล้ว」 when there is nothing. `statusOnly` (Daily Log) lists them plain, and only the
- *  first `shownFirst`: the head still counts them all, 「ดูเพิ่มเติม」 draws the next ones. */
-export function TodoBox({
-  ws,
-  statusOnly = false,
-}: {
-  ws: Workspace;
-  statusOnly?: boolean;
-}) {
+ *  「จดครบแล้ว」 when there is nothing. */
+export function TodoBox({ ws }: { ws: Workspace }) {
   const list = ws.todos;
-  const { limit, more } = useShowMore("", shownFirst);
-  const shown = statusOnly ? list.slice(0, limit) : list;
   if (!list.length)
     return (
       <section
@@ -47,18 +33,12 @@ export function TodoBox({
         <h2 className="m-0 text-h3 text-warning">
           {missingText} {list.length} อย่าง
         </h2>
-        {!statusOnly && <Caption>กดที่รายการเพื่อจด</Caption>}
+        <Caption>กดที่รายการเพื่อจด</Caption>
       </div>
-      {/* One column in a narrow box (beside the Daily Log), more where the box is wide. */}
+      {/* One column in a narrow box, more where the box is wide. */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-1.5">
-        {shown.map((todo, index) =>
-          statusOnly || !todoOpens(todo) ? (
-            <AlertListItem
-              key={`${todo.text}-${index}`}
-              title={todo.text}
-              className="min-h-11 items-center p-2.5"
-            />
-          ) : (
+        {list.map((todo, index) =>
+          todoOpens(todo) ? (
             <AlertListItem
               as="button"
               key={`${todo.text}-${index}`}
@@ -66,19 +46,15 @@ export function TodoBox({
               className="min-h-11 items-center border-warning/40 bg-surface hover:border-warning"
               onClick={() => ws.openTodo(todo)}
             />
+          ) : (
+            <AlertListItem
+              key={`${todo.text}-${index}`}
+              title={todo.text}
+              className="min-h-11 items-center p-2.5"
+            />
           ),
         )}
       </div>
-      {shown.length < list.length && (
-        <Button
-          size="sm"
-          icon={<ChevronDown />}
-          className="self-center max-md:min-h-11"
-          onClick={more}
-        >
-          ดูเพิ่มเติม (เหลือ {list.length - shown.length})
-        </Button>
-      )}
     </section>
   );
 }

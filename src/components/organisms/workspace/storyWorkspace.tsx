@@ -21,13 +21,22 @@ export function dbFor(id: AccountId, db: Database = sampleDb): Database {
 }
 
 const owner = accountById("owner")!;
-/** The sample with an edit, a delete, and a delete that was undone (the change log). The
- *  Owner's own notes: a branch's are the branch's to change. */
+/** The sample with a note jotted today for five days ago, an edit, a delete, and a delete
+ *  that was undone (the Daily Log's rows). The Owner's own notes: a branch's are the branch's
+ *  to change. */
 export const changedDb = (() => {
   const find = (db: Database, kind: string) =>
     liveEntries(db).find((e) => e.kind === kind && e.role === "owner")!;
   let db = mutate(
     sampleDb,
+    owner,
+    "pay",
+    { category: "transport", amount: "1200", detail: "ค่าส่งเนื้อ จดย้อนหลัง" },
+    "",
+    new Date(Date.parse(today()) - 5 * 86400000).toISOString().slice(0, 10),
+  );
+  db = mutate(
+    db,
     owner,
     "entryEdit",
     {

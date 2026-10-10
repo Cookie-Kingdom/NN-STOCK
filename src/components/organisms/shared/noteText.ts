@@ -24,6 +24,7 @@ import {
   sheetItems,
   sheets,
   skuName,
+  unpack,
   type Actor,
   type Database,
   type Entry,
@@ -110,6 +111,57 @@ export function fieldText(db: Database, f: Field | undefined, value: string) {
   if (f.type === "number" && Number.isFinite(Number(value)))
     return `${qty(Number(value))}${f.unit ? ` ${f.unit}` : ""}`;
   return value;
+}
+
+/** Before → after of an edit, as `[label, text]`: only the values it changed, and where it
+ *  moved the entry (its date, its lot). */
+export function editDiff(
+  db: Database,
+  change: Entry,
+  by: Actor,
+): [string, string][] {
+  const values = change.values;
+  const from = unpack("from.", values),
+    to = unpack("to.", values);
+  const list = fieldsOf(db, values.targetKind as EntryKind, by);
+  const shown = (key: string, value = "") =>
+    value
+      ? fieldText(
+          db,
+          list.find((f) => f.key === key),
+          value,
+        )
+      : "–";
+  return [
+    ...Object.keys(to)
+      // Not the bookkeeping of the entry: its `missing` list, where a file is stored.
+      .filter(
+        (key) =>
+          key !== "missing" &&
+          !key.endsWith("StorageKey") &&
+          (from[key] ?? "") !== to[key],
+      )
+      .map((key): [string, string] => [
+        fieldLabel(list, key),
+        `${shown(key, from[key])} → ${shown(key, to[key])}`,
+      ]),
+    ...(values.toDate
+      ? [
+          [
+            "วันที่",
+            `${dateLabel(values.fromDate)} → ${dateLabel(values.toDate)}`,
+          ] as [string, string],
+        ]
+      : []),
+    ...(values.toLotId
+      ? [
+          [
+            "PO รมควัน",
+            `${values.fromLotId ? lotLabel(db, values.fromLotId) : "–"} → ${lotLabel(db, values.toLotId)}`,
+          ] as [string, string],
+        ]
+      : []),
+  ];
 }
 
 /** The yellow tags of a row: a dispatch with no PO เนื้อ, and each core field left empty. */
