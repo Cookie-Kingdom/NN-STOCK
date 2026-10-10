@@ -12,6 +12,7 @@ import {
   save,
   signInAs,
   start,
+  toast,
 } from "./helpers";
 
 /* The shop's Overview as its revenue after the channels' GP, and the project's own Overview
@@ -178,6 +179,157 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
     "—",
   ]);
   await expect(page.getByRole("button", { name: "ปีถัดไป" })).toBeDisabled();
+});
+
+test("Overview: with two channels of different GP, the shop's revenue is after each GP and its rows add up to it, the project's is the whole revenue, and the two profits differ by the company's other income alone", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  // A second channel, Grab at 30% GP, beside LINE MAN's 10%.
+  await openPage(page, "Settings");
+  const channels = region(page, "ช่องทางขาย");
+  await channels.getByRole("button", { name: "เพิ่มช่องทาง" }).click();
+  const inputs = channels.getByRole("textbox");
+  await expect(inputs).toHaveCount(4);
+  await inputs.nth(2).fill("Grab");
+  await inputs.nth(3).fill("30");
+  await channels.getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(toast(page, "บันทึกแล้ว: ช่องทางขาย")).toBeVisible();
+
+  // ศาลาแดง: 3,000 − 10% and 3,000 − 30% = 4,800. มีนบุรี: 1,000 − 10% and 1,000 − 30% = 1,600.
+  // Sold ฿8,000 in all, ฿1,600 of it GP: ฿6,400 is the shop's.
+  for (const [branch, amount] of [
+    ["saladaeng", "3000"],
+    ["minburi", "1000"],
+  ] as const) {
+    await signInAs(page, branch);
+    await openPage(page, "Sales");
+    await jot(page, "ยอดขาย");
+    await fill(
+      page,
+      [/^กล่องมาตรฐาน/, "10"],
+      [/^ยอดขาย LINE MAN/, amount],
+      [/^ยอดขาย Grab/, amount],
+    );
+    await save(page);
+  }
+  // ฿1,600 paid out: the profit is 6,400 − 1,600 = 4,800, three quarters of the ฿6,400.
+  await signInAs(page, "owner");
+  await openPage(page, "Finance");
+  await jot(page, "จ่ายเงิน");
+  await fill(page, [/^หมวด/, "ขนส่ง"], [/^ยอด \(บาท\)/, "1600"]);
+  await save(page);
+
+  const main = page.getByRole("main");
+  const shop = region(page, "รายได้หลังหัก GP");
+  const revenue = region(page, "รายได้รวม");
+  const projects = region(page, "รายได้แต่ละ Project");
+  const project = projects
+    .getByRole("row", { name: /^Nerdnuea x LINE MAN/ })
+    .getByRole("cell");
+  const central = projects.getByRole("row", { name: /^ส่วนกลาง/ });
+  const byBranch = region(page, "ยอดขายแยกสาขา");
+  const shopProfit = region(page, "จากรายได้ถึงกำไร").locator("span").last();
+  const figures = region(page, "ตัวเลขของเดือน");
+  const pl = region(page, "P&L รายเดือน");
+  const line = (name: RegExp) =>
+    pl.getByRole("row", { name }).locator("td:not(:first-child)");
+  /** The shop's page holds nothing of one project's detail, and no box. */
+  const shopOnly = async () => {
+    for (const name of [
+      "ตัวเลขของเดือน",
+      "P&L รายเดือน",
+      "ยอดขายแยกช่องทางขาย",
+    ])
+      await expect(region(page, name)).toHaveCount(0);
+    await expect(projects.getByRole("columnheader")).toHaveText([
+      "Project",
+      "รายได้หลังหัก GP",
+      "เทียบช่วงก่อน",
+      "กำไร",
+      "อัตรากำไร",
+    ]);
+    // Not กล่องแจก, not ต้นทุนต่อกล่อง, not a count of boxes.
+    await expect(main).not.toContainText("กล่อง");
+  };
+
+  // The shop's Overview, with no other income: the project's row is the whole of it.
+  await openPage(page, "Overview");
+  await expect(shop.locator("strong")).toHaveText("฿6,400");
+  await expect(project.nth(1)).toHaveText("฿6,400");
+  await expect(project.nth(3)).toHaveText("฿4,800");
+  await expect(project.nth(4)).toHaveText("75%");
+  await expect(central).toHaveCount(0);
+  // Each branch after the GP of what it sold, as a share of the ฿6,400 they add up to.
+  await expect(byBranch).toContainText("หลังหัก GP ช่องทางขาย");
+  await expect(byBranch).toContainText(/ศาลาแดง\s*฿4,800 75%/);
+  await expect(byBranch).toContainText(/มีนบุรี\s*฿1,600 25%/);
+  await expect(shopProfit).toHaveText("฿4,800");
+  await shopOnly();
+
+  // The project's own Overview: the ฿8,000 sold, the GP a line of its own, the same profit.
+  await openPage(page, "Overview", true);
+  await expect(revenue.locator("strong")).toHaveText("฿8,000");
+  // The five figures of the month, in their order.
+  await expect(figures.locator("div > small:first-child")).toHaveText([
+    "รายได้หลังหัก GP ช่องทางขาย",
+    "กำไรจากการดำเนินงาน",
+    "กล่องที่ขาย",
+    "ต้นทุนต่อกล่อง",
+    "กล่องแจกเดือนนี้",
+  ]);
+  await expect(figures).toContainText("฿6,400");
+  await expect(figures).toContainText("GP ฿1,600");
+  await expect(figures).toContainText("20 กล่อง");
+  await expect(line(/^ยอดขาย/)).toHaveText(["฿8,000", "100%", "—"]);
+  await expect(line(/^GP LINE MAN 10%/)).toHaveText(["−฿400", "−5%", "—"]);
+  await expect(line(/^GP Grab 30%/)).toHaveText(["−฿1,200", "−15%", "—"]);
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText(["฿4,800", "60%", "—"]);
+  // The branches before the GP here: 6,000 and 2,000 of the ฿8,000.
+  await expect(byBranch).toContainText(/ศาลาแดง\s*฿6,000 75%/);
+  await expect(byBranch).toContainText(/มีนบุรี\s*฿2,000 25%/);
+  await expect(region(page, "ยอดขายแยกช่องทางขาย")).toContainText(
+    "GP 30% = −฿1,200 · เหลือ ฿2,800",
+  );
+
+  // ฿600 of other income that is the company's, not the project's (Finance starts the form
+  // on the project).
+  await openPage(page, "Finance");
+  await jot(page, "บันทึกรายรับ");
+  await fill(
+    page,
+    [/^รายการ/, "ดอกเบี้ยเงินฝาก"],
+    [/^รายรับของ/, "บริษัทส่วนกลาง"],
+    [/^ยอดรับจริง/, "600"],
+  );
+  await save(page);
+
+  // The shop's Overview: 8,000 − 1,600 + 600. The project's row and ส่วนกลาง add up to it.
+  await openPage(page, "Overview");
+  await expect(shop.locator("strong")).toHaveText("฿7,000");
+  await expect(shop).toContainText("ยอดขายหลังหัก GP ฿6,400 · รายได้อื่น ฿600");
+  await expect(project.nth(1)).toHaveText("฿6,400");
+  await expect(central.getByRole("cell").nth(1)).toHaveText("฿600");
+  // The project's margin is still its profit over its own ฿6,400.
+  await expect(project.nth(3)).toHaveText("฿4,800");
+  await expect(project.nth(4)).toHaveText("75%");
+  // The branches are the sales alone: still the ฿6,400.
+  await expect(byBranch).toContainText(/ศาลาแดง\s*฿4,800 75%/);
+  await expect(byBranch).toContainText(/มีนบุรี\s*฿1,600 25%/);
+  await expect(region(page, "รายได้อื่นแยกรายการ")).toContainText(
+    /ดอกเบี้ยเงินฝาก\s*฿600 100%/,
+  );
+  // The shop's profit has the ฿600: 4,800 + 600.
+  await expect(shopProfit).toHaveText("฿5,400");
+  await shopOnly();
+
+  // The project's has none of it: the same revenue and the same profit as before.
+  await openPage(page, "Overview", true);
+  await expect(revenue.locator("strong")).toHaveText("฿8,000");
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText(["฿4,800", "60%", "—"]);
+  await expect(figures).toContainText("60% ของรายได้รวม");
+  await expect(region(page, "รายได้อื่นแยกรายการ")).toHaveCount(0);
 });
 
 test("Finance: money out of pocket is an expense when it is paid, and money out of the shop when it is paid back", async ({

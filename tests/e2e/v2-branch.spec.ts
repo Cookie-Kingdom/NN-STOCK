@@ -13,6 +13,7 @@ import {
   openPage,
   openRow,
   pageButtons,
+  popup,
   popupTitle,
   region,
   rows,
@@ -278,6 +279,111 @@ test("11 · V2-PG-01 a day the branch jotted something on with no sale is in the
   await openPage(page, "Daily Log");
   await expect(jotted(page, "sale", -1)).toContainText("+฿6,900");
   await nothingDue();
+});
+
+test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itself jotted on: an older day, a closed day and a note the Owner jots for the branch raise none, and no daily sheet is asked for", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "saladaeng");
+  /** A day as a line of the bell names it, `offset` days from today. */
+  const short = (offset: number) =>
+    new Date(`${bangkokDate(offset)}T00:00:00Z`).toLocaleDateString("th-TH", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+  const giftBoxOf = async (offset: number) => {
+    await openPage(page, "Sales");
+    await jot(page, "กล่องแจก");
+    await fill(
+      page,
+      [theDate, bangkokDate(offset)],
+      [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
+      [/^กล่องที่แจก/, "2"],
+    );
+    await save(page);
+  };
+  /** The bell's list (open) asks for no daily sheet, whatever is saved. */
+  const noSheetAsked = async () => {
+    await expect(todoLines(page, "ใบสต๊อกรายวัน")).toHaveCount(0);
+    await expect(region(page, "การแจ้งเตือน")).not.toContainText(
+      "ยังไม่ได้บันทึก",
+    );
+  };
+  // The branch was open three days ago and eight days ago, and jotted no sale on either.
+  await giftBoxOf(-3);
+  await giftBoxOf(-8);
+  // Three days ago is due. Eight days ago is past the 7 days, and every other day (today
+  // too) has no note of the branch: closed, nothing to ask.
+  await openBell(page);
+  const due = `ยอดขาย ${short(-3)}`;
+  await expect(todoLines(page, "ยอดขาย")).toHaveText([due]);
+  await noSheetAsked();
+  await page.keyboard.press("Escape");
+
+  // The Owner reads the same line, led by the branch's name: a status that opens nothing.
+  await signInAs(page, "owner");
+  const anySale = "(ศาลาแดง|มีนบุรี): ยอดขาย";
+  await openBell(page);
+  await expect(todoLines(page, anySale)).toHaveText([`ศาลาแดง: ${due}`]);
+  await expect(
+    region(page, "การแจ้งเตือน").getByRole("button", { name: /ยอดขาย/ }),
+  ).toHaveCount(0);
+  await todoLines(page, anySale).click();
+  await expect(popup(page)).toHaveCount(0);
+  await noSheetAsked();
+  await page.keyboard.press("Escape");
+  // A payment the Owner jots for the other branch today is not that branch being open.
+  await openPage(page, "Finance");
+  await jot(page, "จ่ายเงิน");
+  await fill(
+    page,
+    [/^หมวด/, "แพ็กเกจ/วัสดุ"],
+    [/^ยอด \(บาท\)/, "500"],
+    [/^รายการที่ซื้อ/, "กล่องบรรจุ"],
+    [/^จำนวน/, "50"],
+    [/^สาขา/, "มีนบุรี"],
+  );
+  await save(page);
+  await openBell(page);
+  await expect(todoLines(page, anySale)).toHaveText([`ศาลาแดง: ${due}`]);
+  await page.keyboard.press("Escape");
+  // Nor to the branch itself: มีนบุรี has nothing to do.
+  await signInAs(page, "minburi");
+  await expect(bell(page)).toHaveAccessibleName("ยังไม่ได้จด 0 อย่าง");
+
+  // The branch's line opens the sale form on that day; saved, the line is gone.
+  await signInAs(page, "saladaeng");
+  await openBell(page);
+  await region(page, "การแจ้งเตือน").getByRole("button", { name: due }).click();
+  await expect(popupTitle(page)).toHaveText("ยอดขาย");
+  await expect(form(page).getByLabel(theDate)).toHaveAttribute(
+    "data-value",
+    bangkokDate(-3),
+  );
+  await fill(page, [/^กล่องมาตรฐาน/, "20"], [/^ยอดขาย LINE MAN/, "6900"]);
+  await save(page);
+  await expect(bell(page)).toHaveAccessibleName("ยังไม่ได้จด 0 อย่าง");
+
+  // An opening stock from that day on: today's sheet is there to save, and is not saved.
+  await openPage(page, "Inventory");
+  const main = page.getByRole("main");
+  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
+  await main.getByLabel(/^เริ่มนับตั้งแต่วันที่/).fill(bangkokDate(-3));
+  await sheetCell(page, "ของตั้งต้น", "กล่องบรรจุ").fill("100");
+  await main.getByRole("button", { name: "บันทึกของตั้งต้น" }).click();
+  await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
+  await expect(main).toContainText("ยังไม่บันทึกวันนี้");
+  // The bell asks neither account for the sheet, and for no sale.
+  await openBell(page);
+  await expect(todoLines(page, "ยอดขาย")).toHaveCount(0);
+  await noSheetAsked();
+  await page.keyboard.press("Escape");
+  await signInAs(page, "owner");
+  await openBell(page);
+  await expect(todoLines(page, anySale)).toHaveCount(0);
+  await noSheetAsked();
 });
 
 test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and a sale takes no stock", async ({
