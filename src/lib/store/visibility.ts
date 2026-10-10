@@ -315,7 +315,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
       const po = poInfo(db, lot.id);
       if (po.wastePending)
         list.push({
-          text: `รอรับ Waste ${lot.poId} ${po.wasteKg.toLocaleString("th-TH", { maximumFractionDigits: 2 })} กก.`,
+          text: `เนื้อรอรับ ${lot.poId} ${po.wasteKg.toLocaleString("th-TH", { maximumFractionDigits: 2 })} กก.`,
           kind: "ownerWasteReceive",
           lotId: lot.id,
         });

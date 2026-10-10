@@ -96,13 +96,13 @@ export const OverCapacity: Story = {
   play: pick(/SO-\d+-0001/),
 };
 
-/** PO เนื้อ ที่ยังรอรับ Waste: กล่องเหลือง「รอรับ Waste 15 กก.」กด「รับ Waste แล้ว」เปิดฟอร์มรับ Waste */
+/** PO เนื้อ ที่ยังมีเนื้อรอรับ: กล่องเหลือง「เนื้อรอรับ 15 กก.」กด「รับเนื้อรอรับแล้ว」เปิดฟอร์มรับเนื้อรอรับ */
 export const PurchaseOrder: Story = {
   play: async (context) => {
     const { canvasElement, args } = context;
     await pick(/PO-\d+-0002/)!(context);
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "รับ Waste แล้ว" }),
+      within(canvasElement).getByRole("button", { name: "รับเนื้อรอรับแล้ว" }),
     );
     await expect(args.jot).toHaveBeenLastCalledWith({
       kind: "ownerWasteReceive",

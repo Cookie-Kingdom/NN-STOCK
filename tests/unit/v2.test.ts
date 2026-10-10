@@ -429,7 +429,7 @@ it("todos: what each account still has to jot", () => {
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
-      "รอรับ Waste PO-2026-0002 15 กก.",
+      "เนื้อรอรับ PO-2026-0002 15 กก.",
     ]),
   );
   // V2-PAY-04: the sample's rent is dated the month before.

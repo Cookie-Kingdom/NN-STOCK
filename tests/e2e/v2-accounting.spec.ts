@@ -89,13 +89,13 @@ test("V2-LED-01 V2-LED-02 V2-LED-07 a PO is a row by itself, and what its seller
   await createPo(
     page,
     "PO เนื้อ",
-    [/^น้ำหนักเนื้อ/, "100"],
+    [/^น้ำหนักเนื้อ(?!รอรับ)/, "100"],
     [/^ราคา \/ กก\./, "700"],
   );
   await createPo(
     page,
     "PO เนื้อ",
-    [/^น้ำหนักเนื้อ/, "50"],
+    [/^น้ำหนักเนื้อ(?!รอรับ)/, "50"],
     [/^ราคา \/ กก\./, "700"],
   );
   await createPo(page, "PO รมควัน", [/^น้ำหนักที่สั่งรมควัน/, "100"]);
@@ -311,7 +311,7 @@ test("V2-LED-08 the search and the filters by Project, status and source narrow 
   await createPo(
     page,
     "PO เนื้อ",
-    [/^น้ำหนักเนื้อ/, "100"],
+    [/^น้ำหนักเนื้อ(?!รอรับ)/, "100"],
     [/^ราคา \/ กก\./, "700"],
   );
   await openPage(page, "Accounting");

@@ -47,7 +47,7 @@ const create = async (page: Page, kind: "PO เนื้อ" | "PO รมคว�
 };
 const purchase = async (page: Page, kg: string, price: string) => {
   await create(page, "PO เนื้อ");
-  await fill(page, [/^น้ำหนักเนื้อ/, kg], [/^ราคา \/ กก\./, price]);
+  await fill(page, [/^น้ำหนักเนื้อ(?!รอรับ)/, kg], [/^ราคา \/ กก\./, price]);
 };
 const smokeOrder = async (page: Page, kg: string) => {
   await create(page, "PO รมควัน");

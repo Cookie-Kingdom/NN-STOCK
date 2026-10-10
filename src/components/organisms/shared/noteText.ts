@@ -224,7 +224,7 @@ export function noteLine(db: Database, e: Entry): string {
         has("orderedKg") &&
           has("price") &&
           `${n("orderedKg")} กก. × ${n("price")} บาท`,
-        has("wasteKg") && `Waste ${n("wasteKg")} กก.`,
+        has("wasteKg") && `เนื้อรอรับ ${n("wasteKg")} กก.`,
         // Saved before Invoice Foodiva was its own note.
         has("invoiceNo") && `Invoice ${v.invoiceNo}`,
       );
@@ -232,7 +232,7 @@ export function noteLine(db: Database, e: Entry): string {
       return join(
         has("invoiceNumber") && `Invoice ${v.invoiceNumber}`,
         has("orderedKg") && `เนื้อ ${n("orderedKg")} กก.`,
-        has("wasteKg") && `Waste ${n("wasteKg")} กก.`,
+        has("wasteKg") && `เนื้อรอรับ ${n("wasteKg")} กก.`,
         has("price") && `${n("price")} บาท / กก.`,
       );
     case "smokeOrder":
