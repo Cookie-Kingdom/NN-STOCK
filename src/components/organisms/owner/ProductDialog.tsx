@@ -91,7 +91,7 @@ const stored = (list: ProductDraft[]): Values => ({
 /** One product of Settings 「รายการสินค้า」 as a popup: its name, its price, its cost beside
  *  the meat, and its components (a stock item and how much one piece takes). 「บันทึก」 lays
  *  it over the list as it stands now and saves that as one `config` note, only the keys it
- *  changed; 「ลบสินค้า」 takes it out (never the standard box). What `mutate` refuses is said
+ *  changed; 「ลบสินค้า」 takes it out once confirmed (never the standard box). What `mutate` refuses is said
  *  beside the buttons. */
 export function ProductDialog({
   ws,
@@ -104,6 +104,8 @@ export function ProductDialog({
 }) {
   const { account, today } = ws;
   const [draft, setDraft] = useState(product);
+  /** 「ลบสินค้า」 was pressed: the popup asks once before it takes the product out. */
+  const [removing, setRemoving] = useState(false);
   const [all] = useState(() => productItems(latestDatabase()));
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
   const isNew = !productDrafts(latestDatabase()).some(
@@ -250,25 +252,46 @@ export function ProductDialog({
             {error}
           </span>
         )}
-        {!isNew && product.id !== boxProduct && (
-          <Button
-            variant="link"
-            className="mr-auto min-h-11 px-2 text-danger hover:text-danger"
-            disabled={saving}
-            onClick={() => save(true)}
-          >
-            ลบสินค้า
-          </Button>
+        {removing ? (
+          <>
+            <span role="alert" className="w-full text-body-sm text-danger">
+              ลบ「{product.name}」? ยอดที่เคยจดของสินค้านี้จะไม่ถูกนับอีก
+            </span>
+            <Button disabled={saving} onClick={() => setRemoving(false)}>
+              ไม่ลบ
+            </Button>
+            <Button
+              variant="primary"
+              disabled={saving}
+              icon={saving ? <Spinner /> : undefined}
+              onClick={() => save(true)}
+            >
+              ยืนยันลบ
+            </Button>
+          </>
+        ) : (
+          <>
+            {!isNew && product.id !== boxProduct && (
+              <Button
+                variant="link"
+                className="mr-auto min-h-11 px-2 text-danger hover:text-danger"
+                disabled={saving}
+                onClick={() => setRemoving(true)}
+              >
+                ลบสินค้า
+              </Button>
+            )}
+            <Button onClick={onClose}>ยกเลิก</Button>
+            <Button
+              variant="primary"
+              disabled={saving || !!error}
+              icon={saving ? <Spinner /> : undefined}
+              onClick={() => save()}
+            >
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
+            </Button>
+          </>
         )}
-        <Button onClick={onClose}>ยกเลิก</Button>
-        <Button
-          variant="primary"
-          disabled={saving || !!error}
-          icon={saving ? <Spinner /> : undefined}
-          onClick={() => save()}
-        >
-          {saving ? "กำลังบันทึก…" : "บันทึก"}
-        </Button>
       </div>
     </Dialog>
   );
