@@ -161,8 +161,7 @@ function ConfirmDelete({ ws, entry }: { ws: Workspace; entry: Entry }) {
           ))}
         </dl>
         <p id={textId} className="m-0 text-body-sm text-text-secondary">
-          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม
-          บันทึกที่ลบยังดูได้ในประวัติการแก้ไขและลบ
+          ตัวเลขที่คิดจากบันทึกนี้จะเปลี่ยนตาม บันทึกที่ลบยังดูได้ใน Daily Log
         </p>
         <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
           <Button data-autofocus onClick={close}>
