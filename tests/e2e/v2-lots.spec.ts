@@ -350,7 +350,22 @@ test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what 
     "data-tone",
     "warning",
   );
-  await pay("30000");
+  // The rest from the PO itself: its 「จ่ายเงิน」 opens the same form with the seller and what
+  // is left, and its badge follows what was paid.
+  await openPage(page, "Lots");
+  const po = region(page, PO);
+  await expect(po).toContainText("จ่ายแล้ว ฿20,000 ค้างจ่าย ฿30,000");
+  await po.getByRole("button", { name: "จ่ายเงิน", exact: true }).click();
+  await expect(popupTitle(page)).toHaveText("จ่ายเงิน");
+  await expect(form(page).getByLabel(/^หมวด/)).toHaveValue("เนื้อ");
+  await expect(form(page).getByLabel(/^ยอด \(บาท\)/)).toHaveValue("30000");
+  await expect(form(page).getByLabel(/^ผู้ขาย/)).toHaveValue("Foodiva");
+  await save(page);
+  await expect(po).toContainText("จ่ายเงินแล้ว");
+  await expect(
+    po.getByRole("button", { name: "จ่ายเงิน", exact: true }),
+  ).toHaveCount(0);
+  await openPage(page, "Finance");
   await expect(foodiva.getByRole("cell")).toHaveText([
     "Foodiva",
     "฿50,000",

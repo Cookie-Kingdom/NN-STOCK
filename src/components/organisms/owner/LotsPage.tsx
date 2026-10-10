@@ -26,6 +26,7 @@ import {
   entries,
   invoiceOf,
   kindsForPage,
+  ledgerRows,
   lotInfo,
   missingKeys,
   missingText,
@@ -391,6 +392,43 @@ function RoundCard({
   );
 }
 
+/** Whether a PO's bill is paid, as Accounting reads it (`ledgerRows`: a seller's payments
+ *  fill its POs oldest first, so a payment may settle an older PO of the seller before this
+ *  one), and 「จ่ายเงิน」 while it is not: the `pay` form with the seller and what is left. */
+function PoPayment({ ws, lot }: { ws: Workspace; lot: Lot }) {
+  const row = ledgerRows(ws.db).find(
+    (row) => row.origin === "po" && row.id === lot.id,
+  );
+  if (!row) return null;
+  const paid = row.paid ?? 0;
+  const left = (row.poAmount ?? 0) - paid;
+  if (row.status === "paid") return <Badge tone="success">จ่ายเงินแล้ว</Badge>;
+  return (
+    <>
+      <Badge tone="warning">
+        {paid > 0
+          ? `จ่ายแล้ว ${baht(paid)} ค้างจ่าย ${baht(left)}`
+          : "ยังไม่จ่ายเงิน"}
+      </Badge>
+      <Button
+        size="sm"
+        onClick={() =>
+          ws.jot({
+            kind: "pay",
+            values: {
+              category: lot.kind === "shipment" ? "smoke" : "meat",
+              supplier: row.vendor,
+              amount: left > 0 ? String(left) : "",
+            },
+          })
+        }
+      >
+        จ่ายเงิน
+      </Button>
+    </>
+  );
+}
+
 function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
   const { db } = ws;
   const info = lotInfo(db, lot.id);
@@ -442,6 +480,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
         <Badge tone={info.complete ? "success" : "warning"}>
           {info.complete ? "จดครบแล้ว" : `${missingText} ${info.yellow} อย่าง`}
         </Badge>
+        <PoPayment ws={ws} lot={lot} />
       </div>
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-body-sm tabular-nums">
@@ -614,6 +653,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
             {missingText} {empty.length} ช่อง
           </Badge>
         )}
+        <PoPayment ws={ws} lot={po} />
       </div>
       <dl className={facts}>
         <Fact label="เนื้อ">
