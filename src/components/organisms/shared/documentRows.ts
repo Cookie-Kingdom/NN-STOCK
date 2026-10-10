@@ -55,8 +55,6 @@ export function purchaseOrderRows(db: Database, purchase: Note): DocumentRows {
     ],
     ["ขนาดบรรจุ", v.packSize || "—"],
     ["จำนวน", kg(v.orderedKg)],
-    // Recorded so the Owner waits for it; never charged (the total is meat kg × price).
-    ["Waste", v.wasteKg ? `${kg(v.wasteKg)} (ไม่คิดเงิน)` : "—"],
     ["ราคา / กก.", v.price ? `฿${fmt(Number(v.price))}` : "—"],
     [
       "ยอดรวมก่อน VAT",
