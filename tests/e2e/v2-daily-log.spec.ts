@@ -128,7 +128,7 @@ test("Daily Log: the Owner's filter puts a payment and an expense under เง�
   await signInAs(page, "owner");
   await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
-  await fill(page, [/^หมวด/, "ขนส่ง"], [/^ยอด \(บาท\)/, "400"]);
+  await fill(page, [/^หมวด/, "ขนส่ง"], [/^ยอดค้างชำระ \(บาท\)/, "400"]);
   await save(page);
   await openPage(page, "Accounting");
   await jot(page, "บันทึกค่าใช้จ่าย");

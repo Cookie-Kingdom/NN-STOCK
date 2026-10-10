@@ -147,7 +147,7 @@ const escapeRegExp = (text: string) =>
 
 /** Fills the open form: `[label, value]` pairs in order; a dropdown takes the row's
  *  text, a date its `YYYY-MM-DD`. A label's text runs on into its unit, its hint or its options, so each is matched
- *  from its start (`/^ยอด \(บาท\)/`). */
+ *  from its start (`/^ยอดค้างชำระ \(บาท\)/`). */
 export async function fill(page: Page, ...pairs: [RegExp, string][]) {
   for (const [label, value] of pairs) {
     const control = form(page).getByLabel(label).filter({ visible: true });

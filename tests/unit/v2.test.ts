@@ -116,7 +116,7 @@ describe("mutate", () => {
 
   it("refuses a negative number, a future date and what an account may not jot", () => {
     expect(() => pay(owner, { category: "other", amount: "-5" })).toThrow(
-      "ยอด: ใส่เป็นตัวเลข 0 ขึ้นไป",
+      "ยอดค้างชำระ: ใส่เป็นตัวเลข 0 ขึ้นไป",
     );
     expect(() =>
       pay(owner, { category: "other", amount: "5" }, "2999-01-01"),

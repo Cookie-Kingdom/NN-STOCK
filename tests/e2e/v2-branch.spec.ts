@@ -131,7 +131,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await fill(
     page,
     [/^หมวด/, "แพ็กเกจ/วัสดุ"],
-    [/^ยอด \(บาท\)/, "500"],
+    [/^ยอดค้างชำระ \(บาท\)/, "500"],
     [/^รายการที่ซื้อ/, "กล่องบรรจุ"],
     [/^จำนวน/, "50"],
     [/^สาขา/, "มีนบุรี"],
@@ -167,7 +167,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await fill(
     page,
     [/^หมวด/, "แพ็กเกจ/วัสดุ"],
-    [/^ยอด \(บาท\)/, "100"],
+    [/^ยอดค้างชำระ \(บาท\)/, "100"],
     [/^รายการที่ซื้อ/, "กล่องบรรจุ"],
     [/^จำนวน/, "20"],
   );
@@ -342,7 +342,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await fill(
     page,
     [/^หมวด/, "แพ็กเกจ/วัสดุ"],
-    [/^ยอด \(บาท\)/, "500"],
+    [/^ยอดค้างชำระ \(บาท\)/, "500"],
     [/^รายการที่ซื้อ/, "กล่องบรรจุ"],
     [/^จำนวน/, "50"],
     [/^สาขา/, "มีนบุรี"],
@@ -704,7 +704,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and put back by
   const deposit = rows(page, "pay").filter({ hasText: "มัดจำค่าเนื้อ" });
   // A table row: its two buttons are at its end, with nothing to open first.
   await deposit.getByRole("button", { name: "แก้ไข", exact: true }).click();
-  await fill(page, [/^ยอด \(บาท\)/, "60000"]);
+  await fill(page, [/^ยอดค้างชำระ \(บาท\)/, "60000"]);
   await save(page);
   await expect(foodiva.nth(2)).toHaveText("฿60,000");
   await deposit.getByRole("button", { name: "ลบ", exact: true }).click();
