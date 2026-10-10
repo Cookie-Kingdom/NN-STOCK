@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Combobox } from "@/components/atoms/Combobox";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Input } from "@/components/atoms/Input";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { ReadRow } from "@/components/atoms/ReadRow";
@@ -232,20 +233,19 @@ function DailyForm({
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        // Enter in the date of a locked sheet submits the form: nothing to save.
         if (!locked) save();
       }}
     >
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <FormField label="วันที่บันทึก">
-          <Input
-            type="date"
+          <DatePicker
+            title="วันที่บันทึก"
             max={today}
             className={cn(dateField, "mt-2")}
             value={date}
-            onChange={(event) => {
+            onChange={(next) => {
               reset();
-              setDate(event.target.value);
+              setDate(next);
             }}
           />
         </FormField>
@@ -517,15 +517,15 @@ function OpeningForm({
       }}
     >
       <FormField label="เริ่มนับตั้งแต่วันที่" className="self-start">
-        <Input
-          type="date"
+        <DatePicker
+          title="เริ่มนับตั้งแต่วันที่"
           max={today}
           className={cn(dateField, "mt-2")}
           disabled={locked}
           value={date}
-          onChange={(event) => {
+          onChange={(next) => {
             setError("");
-            setDate(event.target.value);
+            setDate(next);
           }}
         />
       </FormField>
