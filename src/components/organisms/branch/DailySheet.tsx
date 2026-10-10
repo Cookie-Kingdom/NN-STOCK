@@ -84,10 +84,7 @@ function Figure({
         )
       ) : (
         <Input
-          type="number"
           inputMode="decimal"
-          step="0.001"
-          min="0"
           aria-label={`${label} ${name}`}
           className="mt-0 min-w-20 text-right"
           value={value}
@@ -580,10 +577,7 @@ function OpeningForm({
                     )
                   ) : (
                     <Input
-                      type="number"
                       inputMode="decimal"
-                      step="0.001"
-                      min="0"
                       aria-label={`ของตั้งต้น ${name}`}
                       className="mt-0 w-32 text-right max-md:w-24"
                       value={at(id)}

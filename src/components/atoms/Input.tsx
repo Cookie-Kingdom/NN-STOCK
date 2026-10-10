@@ -1,4 +1,6 @@
-import type { ComponentProps } from "react";
+"use client";
+
+import { useLayoutEffect, useRef, type ComponentProps } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +34,15 @@ export type ControlVariantProps = VariantProps<typeof controlVariants>;
 const noSpinner =
   "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
+/** A plain number with its thousands apart: "1000000.5" is "1,000,000.5". Anything else
+ *  (a word, a second dot) stands as typed, for `mutate` to refuse in words. */
+export const grouped = (text: string) => {
+  const parts = /^(-?)(\d+)(\.\d*)?$/.exec(text);
+  return parts
+    ? parts[1] + parts[2].replace(/\B(?=(\d{3})+$)/g, ",") + (parts[3] ?? "")
+    : text;
+};
+
 /**
  * Single-line control for text and numbers (a date is a `DatePicker`, a time a
  * `TimePicker`). `variant` says where it lives:
@@ -42,6 +53,10 @@ const noSpinner =
  * A `type="number"` field has no spinners and ignores the wheel and the up/down
  * arrows: they used to change a figure the user had already typed, silently. Pass
  * `spinner` where the steppers are wanted.
+ *
+ * A text field of figures (`inputMode` decimal or numeric, a string `value`) shows its
+ * thousands apart as it is typed ("1,000,000"); `onChange` still reads the bare figure
+ * ("1000000") from `event.target.value`.
  */
 export function Input({
   variant,
@@ -50,6 +65,23 @@ export function Input({
   ...props
 }: ComponentProps<"input"> & ControlVariantProps & { spinner?: boolean }) {
   const mute = props.type === "number" && !spinner;
+  const { value, onChange, inputMode } = props;
+  const figure =
+    typeof value === "string" &&
+    props.type !== "number" &&
+    (inputMode === "decimal" || inputMode === "numeric");
+  /** Where the caret was in the bare figure, to put it back once the commas moved. */
+  const caret = useRef<{ el: HTMLInputElement; chars: number } | null>(null);
+  useLayoutEffect(() => {
+    const kept = caret.current;
+    caret.current = null;
+    if (!kept || document.activeElement !== kept.el) return;
+    const text = kept.el.value;
+    let at = 0;
+    for (let seen = 0; seen < kept.chars && at < text.length; at++)
+      if (text[at] !== ",") seen++;
+    kept.el.setSelectionRange(at, at);
+  });
   return (
     <input
       className={cn(controlVariants({ variant }), mute && noSpinner, className)}
@@ -63,6 +95,19 @@ export function Input({
           : undefined
       }
       {...props}
+      {...(figure && {
+        value: grouped(value),
+        onChange: (event) => {
+          const el = event.target;
+          const at = el.selectionStart ?? el.value.length;
+          caret.current = {
+            el,
+            chars: el.value.slice(0, at).replace(/,/g, "").length,
+          };
+          el.value = el.value.replace(/,/g, "");
+          onChange?.(event);
+        },
+      })}
     />
   );
 }
