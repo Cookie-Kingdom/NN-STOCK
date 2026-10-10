@@ -210,12 +210,6 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   // (24,000 + 6,000 + 3,000) ÷ 30 กก. × 0.12 กก. per box, then + ฿25 of packaging.
   await expect(fact(lot, "ต้นทุนต่อกล่อง")).toContainText("฿157.00");
   await expect(listed(page, PO2)).toContainText("ฝากไว้ 40 กก.");
-  await openPage(page, "Overview");
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿157.00");
-  // The ฿350 box less that cost, and the cost as a share of the price (157 ÷ 350).
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText(
-    "กำไรต่อกล่อง ฿193.00 ก่อนหัก GP และค่าใช้จ่าย ต้นทุนเท่ากับ 45% ของราคาขาย",
-  );
 });
 
 test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps and its invoice has no yellow, with none of the extra notes jotted", async ({
