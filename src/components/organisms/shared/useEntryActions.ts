@@ -10,8 +10,8 @@ import {
 } from "@/lib/persistence";
 import { mutate, titles, type Entry } from "@/lib/store";
 
-/** Delete and undo. 「ลบ」 asks first (the confirm the composer shows), and a delete is still
- *  put back by 「เลิกทำ」 on its toast or by the Daily Log. A refusal by `mutate` is the red toast; one by the
+/** Delete. 「ลบ」 asks first (the confirm the composer shows), and a delete is still put back
+ *  by 「เลิกทำ」 on its toast, and by nothing after that. A refusal by `mutate` is the red toast; one by the
  *  server is said by persistence (`DatabaseErrorToast`). */
 export function useEntryActions(
   ws: Pick<Workspace, "account" | "setToast" | "fail" | "setDeleting">,
@@ -40,20 +40,16 @@ export function useEntryActions(
       busy.current = false;
     }
   }
-  /** Undoes a change (an edit, or a delete: that puts the entry back), then says `done`. */
-  const undo = async (changeId: string, done: string) => {
-    if (await saveVoid(changeId)) ws.setToast(done);
-  };
   /** Deletes an entry; its toast offers the undo. */
   const confirmRemove = async (entry: Entry) => {
     const title = titles[entry.kind];
     const voidId = await saveVoid(entry.id);
     if (voidId)
-      ws.setToast(`ลบแล้ว: ${title}`, () =>
-        undo(voidId, `กู้คืนแล้ว: ${title}`),
-      );
+      ws.setToast(`ลบแล้ว: ${title}`, async () => {
+        if (await saveVoid(voidId)) ws.setToast(`กู้คืนแล้ว: ${title}`);
+      });
   };
   /** What a 「ลบ」 button calls: opens the confirm on `entry`. */
   const remove = (entry: Entry) => ws.setDeleting(entry);
-  return { remove, confirmRemove, undo };
+  return { remove, confirmRemove };
 }
