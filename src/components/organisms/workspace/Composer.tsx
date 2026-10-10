@@ -291,7 +291,7 @@ function NoteForm({
   /** What each note saved lays over the form's shared values: one per person typed. */
   const notes = multi && typedPeople.length ? typedPeople : [{}];
 
-  const visible = fields(kind, db, by, lotId)
+  const visible = fields(kind, db, by, lotId, target?.values)
     .filter((f) => !f.when || f.when(values))
     .map((f) => {
       // A ledger item: the SKU the name typed gets (V2-LED-03).

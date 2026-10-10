@@ -524,6 +524,8 @@ export function SettingsPage({
                 1 ชิ้น เว็บตัดสต๊อกของสาขาตามส่วนประกอบให้เอง แยกจาก “ใช้ไป”
                 ที่สาขาพิมพ์ แก้ส่วนประกอบแล้วยอดย้อนหลังคิดใหม่ตามล่าสุด
                 สินค้าแรกลบไม่ได้ และจำนวนที่เคยจดของสินค้าที่ลบแล้วจะไม่ถูกนับ
+                ส่วนสินค้าที่「หยุดขาย」ไม่ขึ้นในฟอร์มใหม่ แต่ยอดที่เคยจดยังนับ
+                รหัสสินค้าออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ
                 กดชื่อสินค้าเพื่อแก้ไข
               </p>
               <StockTable
@@ -542,6 +544,10 @@ export function SettingsPage({
                       >
                         {row.name}
                       </Button>
+                      <Muted as="span" className="ml-2 text-caption">
+                        {row.code || "—"}
+                      </Muted>
+                      {row.off && <Badge className="ml-2">หยุดขาย</Badge>}
                       <Muted as="span" className="block text-caption">
                         {row.items
                           .map((item) => {
@@ -555,6 +561,23 @@ export function SettingsPage({
                     </Cell>
                     <Cell right>
                       {row.price ? `${row.price} บาท/${row.unit}` : "—"}
+                      {/* Only the channels priced apart from the base price. */}
+                      {salesChannels(db.config)
+                        .filter(
+                          ({ key }) =>
+                            row.prices[key] &&
+                            (!row.price ||
+                              Number(row.prices[key]) !== Number(row.price)),
+                        )
+                        .map((channel) => (
+                          <Muted
+                            key={channel.key}
+                            as="span"
+                            className="block text-caption"
+                          >
+                            {channel.name} {row.prices[channel.key]} บาท
+                          </Muted>
+                        ))}
                     </Cell>
                     <Cell right>
                       {row.cost ? `${row.cost} บาท/${row.unit}` : "—"}

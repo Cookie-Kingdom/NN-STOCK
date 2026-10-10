@@ -498,13 +498,22 @@ export const gramItems = ["meat", "rice"];
 /** A product of 「รายการสินค้า」: `items` is what one piece sold or given away takes from a
  *  branch's stock (V2-CAL-10), by item id (`meat`, `rice`, `chili`, a material's): grams for
  *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
- *  not in it. */
+ *  not in it. `code` is the code people read, issued by `mutate` when the list is saved (""
+ *  until then). `off` (หยุดขาย): no new sale or gift is offered it; what was jotted of it still
+ *  counts everywhere, unlike a product removed. */
 export type Product = {
   id: string;
+  code: string;
   name: string;
   unit: string;
+  off: boolean;
   items: Map<string, number>;
 };
+/* รหัสสินค้า: `PRD-0001` up, a sequence of its own beside the materials' `SKU-`. */
+export const productCodeNumber = (code = "") =>
+  Number(/^PRD-(\d+)$/.exec(code)?.[1] ?? 0);
+export const productCodeText = (n: number) =>
+  `PRD-${String(n).padStart(4, "0")}`;
 /** The standard box: the first product, renamed but never removed. */
 export const boxProduct = "box";
 /** The unit of a product with none typed: a row saved before units has none. */
@@ -527,16 +536,20 @@ export const products = (config: Values): Product[] => {
   return Array.isArray(rows) && rows.length
     ? rows.map((row) => ({
         id: String(row?.id ?? ""),
+        code: String(row?.code ?? ""),
         name: String(row?.name ?? ""),
         unit:
           String(row?.unit ?? "").trim() || productUnit(String(row?.id ?? "")),
+        off: row?.off === true,
         items: itemsOf(row?.items),
       }))
     : [
         {
           id: boxProduct,
+          code: "",
           name: "กล่องมาตรฐาน",
           unit: productUnit(boxProduct),
+          off: false,
           items: itemsOf(list(config, "boxRecipe")),
         },
       ];
@@ -558,7 +571,8 @@ export const pieceUnit = (list: Product[]) =>
   list.length > 1 ? "ชิ้น" : (list[0]?.unit ?? "กล่อง");
 /** A product's selling price and its cost beside the meat, per piece (`config.productMoney`,
  *  the Owner's only); null where none is set. The box's default to the old `boxPrice` and
- *  `packCost` until it has a row. */
+ *  `packCost` until it has a row. `prices`: its price per sales channel, by the channel's
+ *  key, as typed (`channelPrice` reads one). */
 export const productMoney = (config: Values, id: string) => {
   let rows: unknown;
   try {
@@ -568,9 +582,21 @@ export const productMoney = (config: Values, id: string) => {
     ? rows.find((row) => row?.id === id)
     : undefined;
   const figure = (value = "") => (value === "" ? null : Number(value) || 0);
+  const typed: unknown = row?.prices;
+  const prices: Values =
+    typed && typeof typed === "object" ? (typed as Values) : {};
   return row || id !== boxProduct
-    ? { price: figure(row?.price), cost: figure(row?.cost) }
-    : { price: figure(config.boxPrice), cost: figure(config.packCost) };
+    ? { price: figure(row?.price), cost: figure(row?.cost), prices }
+    : {
+        price: figure(config.boxPrice),
+        cost: figure(config.packCost),
+        prices,
+      };
+};
+/** A product's price on the sales channel `key`: its own there, else its base price. */
+export const channelPrice = (config: Values, id: string, key: string) => {
+  const { price, prices } = productMoney(config, id);
+  return (prices[key] ?? "") === "" ? price : Number(prices[key]) || 0;
 };
 /** The meat in one piece of a product, in kg: its `meat` component, typed in grams. The box
  *  with none falls back to the old `packKg`. */

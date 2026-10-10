@@ -53,6 +53,7 @@ export {
   pieceUnit,
   productUnit,
   productMoney,
+  channelPrice,
   gramItems,
   payCategories,
   payrollCategory,

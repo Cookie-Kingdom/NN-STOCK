@@ -126,6 +126,85 @@ export const Products: Story = {
   },
 };
 
+const channelKey = "sales.grab";
+/** Products แล้วเพิ่มช่องทางขาย Grab · กล่องมาตรฐานตั้งราคา Grab 380 (ราคาขาย 350) ·
+ *  น้ำพริกหลอด「หยุดขาย」: มีป้ายข้างชื่อ และไม่มีช่องในฟอร์มยอดขาย (บรรทัดล่างสุด) ·
+ *  รหัสสินค้า PRD-0001 / PRD-0002 อยู่ข้างชื่อ · คอลัมน์ราคาบอกเฉพาะช่องทางที่ราคาต่างจากราคาขาย */
+export const StoppedAndChannelPrices: Story = {
+  args: { project: true },
+  parameters: {
+    db: mutate(
+      Products.parameters!.db,
+      accountById("owner")!,
+      "config",
+      {
+        salesChannels: JSON.stringify([
+          { key: "lineMan", name: "LINE MAN", gp: "10" },
+          { key: channelKey, name: "Grab", gp: "30" },
+        ]),
+        products: JSON.stringify([
+          {
+            id: "box",
+            name: "กล่องมาตรฐาน",
+            items: [
+              { id: "meat", qty: "120" },
+              { id: "chili", qty: "1" },
+            ],
+          },
+          {
+            id: "p1",
+            name: "น้ำพริกหลอด",
+            unit: "หลอด",
+            off: true,
+            items: [{ id: "chili", qty: "1" }],
+          },
+        ]),
+        productMoney: JSON.stringify([
+          {
+            id: "box",
+            price: "350",
+            cost: "25",
+            prices: { lineMan: "350", [channelKey]: "380" },
+          },
+          { id: "p1", price: "30", cost: "12" },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
+/** popup ของสินค้าที่มีรหัส: บรรทัด「รหัสสินค้า PRD-0001」(แก้ไม่ได้) และ「ราคาขายแยกตามช่องทางขาย」
+ *  ช่องละช่องทาง ช่องที่เว้นว่างขึ้นราคาขายเป็นตัวจาง */
+export const EditChannelPrices: Story = {
+  ...StoppedAndChannelPrices,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      await canvas.findByRole("button", { name: "แก้ไข กล่องมาตรฐาน" }),
+    ),
+};
+
+/** popup ของสินค้าที่หยุดขาย:「หยุดขาย」ติ๊กอยู่ เอาออกแล้วบันทึกเพื่อกลับมาขาย ·
+ *  กด「ลบสินค้า」ข้อความยืนยันบอกว่า「หยุดขาย」เก็บยอดที่เคยจดไว้ */
+export const EditStoppedProduct: Story = {
+  ...StoppedAndChannelPrices,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      await canvas.findByRole("button", { name: "แก้ไข น้ำพริกหลอด" }),
+    ),
+};
+
+/** จอ 390px: popup ราคาแยกช่องทาง */
+export const PhoneEditChannelPrices: Story = {
+  ...EditChannelPrices,
+  globals: phone.globals,
+  parameters: {
+    ...phone.parameters,
+    ...StoppedAndChannelPrices.parameters,
+  },
+};
+
 /** กดชื่อสินค้า: popup แก้ชื่อ ราคา ต้นทุนอื่น และส่วนประกอบ (แถวละรายการ จำนวนพร้อมหน่วย ปุ่ม「ลบ」)
  *  dropdown「เพิ่มส่วนประกอบ」มีเฉพาะรายการที่ยังไม่อยู่ในสินค้า · พิมพ์ตัวอักษรหรือเลขติดลบแล้วกด
  *  「บันทึก」ขึ้นข้อความสีแดงเหนือปุ่ม · กล่องมาตรฐานไม่มีปุ่ม「ลบสินค้า」 */

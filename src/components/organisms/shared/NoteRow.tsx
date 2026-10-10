@@ -159,7 +159,7 @@ export function NoteRow({
 export function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
   const { db, account } = ws;
   const v = e.values;
-  const list = fieldsOf(db, e.kind, account);
+  const list = fieldsOf(db, e.kind, account, v);
   const rows: [string, ReactNode][] = isNoteKind(e.kind)
     ? [
         ...list.flatMap((f): [string, ReactNode][] => {

@@ -106,13 +106,21 @@ const file = (label: string): Field => ({
 const core = (field: Field): Field => ({ ...field, core: true });
 const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
-/** One count field per product of 「รายการสินค้า」, in list order; only the first is core. The
- *  sale form lays them out as rows, a product picked per row (the composer), and a sale lacks
- *  its products only when none has a count (`mutate`). */
-const productFields = (db: Database): Field[] =>
-  products(db.config).map((product, index) =>
-    count(productKey(product.id), product.name, product.unit, { core: !index }),
-  );
+/** One count field per product of 「รายการสินค้า」 still on sale, in list order; only the first
+ *  is core. A stopped product (หยุดขาย) has one only on a note that holds a count of it
+ *  (`kept`). The sale form lays them out as rows, a product picked per row (the composer), and
+ *  a sale lacks its products only when none has a count (`mutate`). */
+const productFields = (db: Database, kept: Values): Field[] => {
+  const list = products(db.config);
+  const first = list.find((product) => !product.off);
+  return list
+    .filter((product) => !product.off || kept[productKey(product.id)])
+    .map((product) =>
+      count(productKey(product.id), product.name, product.unit, {
+        core: product === first,
+      }),
+    );
+};
 /** The units a 「หน่วยนับ」 field suggests (a material's, a product's): the usual ones, then
  *  every material's own. A typed one stands too. */
 export const unitOptions = (db: Database) =>
@@ -261,12 +269,14 @@ const roundField = (db: Database, lotId?: string): Field => ({
 });
 /** The fields of `kind`'s form, in order, for the account `by`. The entry date is not among
  *  them: every form has it (always set, today at most). `lotId`: the PO รมควัน a round step
- *  is jotted on, which narrows its rounds. */
+ *  is jotted on, which narrows its rounds. `kept`: the values of the note the form is of (an
+ *  edit, a saved note read), which keep its stopped products' fields. */
 export function fields(
   kind: NoteKind,
   db: Database,
   by: Actor,
   lotId?: string,
+  kept: Values = {},
 ): Field[] {
   switch (kind) {
     case "purchase": {
@@ -476,7 +486,7 @@ export function fields(
       ];
     case "sale":
       return [
-        ...productFields(db),
+        ...productFields(db, kept),
         // One money field per sales channel in Settings; only the first is core.
         ...salesChannels(db.config).map((channel, index) =>
           number(
@@ -501,7 +511,7 @@ export function fields(
     case "influencerBox":
       return [
         core(text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง")),
-        ...productFields(db),
+        ...productFields(db, kept),
         number("shippingFee", "ค่าส่ง", "บาท", { hint: once }),
         note,
       ];

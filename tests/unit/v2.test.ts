@@ -3,6 +3,7 @@ import {
   advances,
   boxCost,
   cashBetween,
+  channelPrice,
   branchItem,
   entries,
   giftBoxes,
@@ -1092,10 +1093,12 @@ describe("figures (V2-CAL)", () => {
     id: string;
     name: string;
     unit?: string;
+    code?: string;
+    off?: boolean;
     items?: [string, string][];
   };
   /** `from` with 「รายการสินค้า」 saved: each product with its [item id, quantity] components. */
-  const withProducts = (from: Database, rows: Row[], money?: Values[]) =>
+  const withProducts = (from: Database, rows: Row[], money?: object[]) =>
     mutate(
       from,
       owner,
@@ -1116,7 +1119,7 @@ describe("figures (V2-CAL)", () => {
 
   it("CAL-10: with no product list saved it is the standard box alone, which takes nothing; tubes of an old note are taken all the same", () => {
     expect(products(built.config)).toEqual([
-      { ...box, unit: "กล่อง", items: new Map() },
+      { ...box, code: "", unit: "กล่อง", off: false, items: new Map() },
     ]);
     const jotted = (
       [
@@ -1449,7 +1452,7 @@ describe("figures (V2-CAL)", () => {
   });
 
   it("Settings refuses a product list no form or figure could read", () => {
-    const refused = (rows: Row[], message: string, money?: Values[]) =>
+    const refused = (rows: Row[], message: string, money?: object[]) =>
       expect(() => withProducts(built, rows, money)).toThrow(
         `รายการสินค้า: ${message}`,
       );
@@ -1481,10 +1484,15 @@ describe("figures (V2-CAL)", () => {
         [{ ...box, items: [["m1", qty]] }],
         "จำนวนส่วนประกอบของ「กล่องมาตรฐาน」ใส่เป็นตัวเลข 0 ขึ้นไป",
       );
-    for (const price of ["-1", "x"])
+    for (const price of ["-1", "x"]) {
       refused([box], "ราคาและต้นทุนใส่เป็นตัวเลข 0 ขึ้นไป", [
         { id: "box", price, cost: "" },
       ]);
+      // A sales channel's price as well.
+      refused([box], "ราคาและต้นทุนใส่เป็นตัวเลข 0 ขึ้นไป", [
+        { id: "box", price: "350", cost: "", prices: { lineMan: price } },
+      ]);
+    }
     refused([box], "อ่านรายการไม่ได้", [
       { id: "box", price: "1", cost: "" },
       { id: "box", price: "2", cost: "" },
@@ -1493,6 +1501,115 @@ describe("figures (V2-CAL)", () => {
     expect(() =>
       mutate(built, saladaeng, "config", { products: "[]" }, "", day),
     ).toThrow();
+  });
+
+  it("a product's code is issued when the list is saved, kept through a rename and never given again", () => {
+    const codes = (db: Database) => products(db.config).map((p) => p.code);
+    expect(codes(two)).toEqual(["PRD-0001", "PRD-0002"]);
+    // A rename keeps it, whatever code is sent.
+    expect(
+      codes(
+        withProducts(two, [box, { ...tube, name: "หลอด", code: "PRD-0009" }]),
+      ),
+    ).toEqual(["PRD-0001", "PRD-0002"]);
+    // A removed product's code is not the next one's.
+    const next = withProducts(withProducts(two, [box]), [
+      box,
+      { id: "p2", name: "ข้าวเหนียว" },
+    ]);
+    expect(codes(next)).toEqual(["PRD-0001", "PRD-0003"]);
+    // A list saved before codes has none until any save of it.
+    const old: Database = {
+      ...built,
+      config: { ...built.config, products: JSON.stringify([box, tube]) },
+    };
+    expect(codes(old)).toEqual(["", ""]);
+    expect(codes(withProducts(old, [box, tube]))).toEqual([
+      "PRD-0001",
+      "PRD-0002",
+    ]);
+  });
+
+  it("a stopped product is off a new sale or gift; a note that holds it is still edited and still counted", () => {
+    const sold = mutate(
+      two,
+      saladaeng,
+      "sale",
+      { boxes: "3", "product.p1": "5", lineMan: "1" },
+      "",
+      "2026-09-14",
+    );
+    const sale = sold.entries.at(-1)!;
+    const rows = (off: string) =>
+      products(two.config).map((p) => ({
+        id: p.id,
+        name: p.name,
+        off: p.id === off,
+        items: [...p.items].map(([id, qty]): [string, string] => [
+          id,
+          String(qty),
+        ]),
+      }));
+    const stopped = withProducts(sold, rows("p1"));
+    const keys = (kind: "sale" | "influencerBox", kept?: Values) =>
+      fields(kind, stopped, saladaeng, undefined, kept).map((f) => f.key);
+    expect(keys("sale")).not.toContain("product.p1");
+    expect(keys("influencerBox")).not.toContain("product.p1");
+    // The note that holds a count of it keeps the field.
+    expect(keys("sale", sale.values)).toContain("product.p1");
+    // What was jotted still takes stock and still counts as pieces.
+    const chili = (db: Database) => item("chili", "2026-09-14", db).sold;
+    expect(chili(stopped)).toBe(8);
+    expect(plBetween(stopped, "2026-09-14", "2026-09-14").boxes).toBe(8);
+    // An edit keeps its count, or changes it.
+    const edit = (values: Values) =>
+      mutate(
+        stopped,
+        saladaeng,
+        "entryEdit",
+        { targetId: sale.id, values: JSON.stringify(values) },
+        "",
+        day,
+      );
+    expect(chili(edit({ boxes: "4" }))).toBe(9);
+    expect(chili(edit({ "product.p1": "6" }))).toBe(9);
+    // A new note takes no count of it.
+    const again = mutate(
+      stopped,
+      saladaeng,
+      "sale",
+      { boxes: "1", "product.p1": "5", lineMan: "1" },
+      "",
+      "2026-09-15",
+    );
+    expect(again.entries.at(-1)!.values["product.p1"]).toBeUndefined();
+    // The standard box stopped: the next product still on sale is the core one.
+    expect(
+      fields("influencerBox", withProducts(sold, rows("box")), saladaeng)
+        .filter((f) => f.core)
+        .map((f) => f.key),
+    ).toEqual(["influencer", "product.p1"]);
+  });
+
+  it("a product's price on a sales channel is its own there, else its base price", () => {
+    const priced = withProducts(
+      built,
+      [box],
+      [
+        {
+          id: "box",
+          price: "350",
+          cost: "25",
+          prices: { lineMan: "380", "sales.grab": "" },
+        },
+      ],
+    );
+    expect(channelPrice(priced.config, "box", "lineMan")).toBe(380);
+    expect(channelPrice(priced.config, "box", "sales.grab")).toBe(350);
+    expect(channelPrice(priced.config, "box", "sales.other")).toBe(350);
+    // A row saved before channel prices: the base price everywhere.
+    expect(channelPrice(two.config, "box", "lineMan")).toBe(400);
+    expect(channelPrice(two.config, "p9", "lineMan")).toBeNull();
   });
 
   it("a branch's copy holds the products and never their prices or costs", () => {
