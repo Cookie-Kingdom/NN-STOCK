@@ -358,7 +358,9 @@ test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what 
   await po.getByRole("button", { name: "จ่ายเงิน", exact: true }).click();
   await expect(popupTitle(page)).toHaveText("จ่ายเงิน");
   await expect(form(page).getByLabel(/^หมวด/)).toHaveValue("เนื้อ");
-  await expect(form(page).getByLabel(/^ยอดค้างชำระ \(บาท\)/)).toHaveValue("30000");
+  await expect(form(page).getByLabel(/^ยอดค้างชำระ \(บาท\)/)).toHaveValue(
+    "30000",
+  );
   await expect(form(page).getByLabel(/^ผู้ขาย/)).toHaveValue("Foodiva");
   await save(page);
   await expect(po).toContainText("จ่ายเงินแล้ว");
