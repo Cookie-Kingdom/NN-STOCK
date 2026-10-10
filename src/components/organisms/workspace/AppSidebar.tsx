@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
+import { Dialog } from "@/components/molecules/Dialog";
 import { SavedAccounts } from "@/components/molecules/SavedAccounts";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
 import { AppBrand } from "@/components/organisms/workspace/AppHeader";
@@ -48,7 +49,8 @@ const openTabClass =
  *  expands and collapses, its pages indented behind a guide line), then the bell, the theme
  *  switch, the account, "สลับบัญชี" and sign-out. "สลับบัญชี" opens the accounts saved on
  *  this device (`SavedAccounts`) and "เพิ่มบัญชี", in a panel hung on the button the way the
- *  bell's is. Below md it is a top bar (brand, bell,
+ *  bell's is. Sign-out asks first (a confirm): it sits beside "สลับบัญชี", and a slip there
+ *  would take the account off this device's saved list. Below md it is a top bar (brand, bell,
  *  theme, สลับบัญชี, sign-out) and the pages become tabs fixed to the bottom of the screen: all of them
  *  for a branch, four for an account with more than five (`barFor`), beside a fifth button,
  *  "เมนู". That one opens a sheet over the page, above the bar, listing every page the way
@@ -70,6 +72,8 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
   const accounts = useRef<HTMLElement>(null);
   // Two branch accounts share this route: the sidebar stays mounted through a switch.
   useEffect(() => accounts.current?.hidePopover?.(), [account.id]);
+  const [leaving, setLeaving] = useState(false);
+  const leavingId = useId();
   /* The pages are buttons, not <Link>s, so nothing prefetches them on its own. Every page
    * route is static and renders nothing, so warming all of them up front is cheap and keeps
    * the URL from lagging behind the pressed page. */
@@ -312,11 +316,40 @@ export function AppSidebar({ ws }: { ws: Workspace }) {
               className="max-md:min-h-11 max-md:min-w-11"
               label="ออกจากระบบ"
               icon={<LogOut size={16} />}
-              onClick={async () => {
-                await signOut();
-                router.replace("/");
-              }}
+              onClick={() => setLeaving(true)}
             />
+            {leaving && (
+              <Dialog
+                title="ออกจากระบบ?"
+                size="sm"
+                alert={{ describedBy: leavingId }}
+                onClose={() => setLeaving(false)}
+              >
+                <div className="flex flex-col gap-4 px-6.5 pt-3 pb-6 max-md:px-4 max-md:pb-4">
+                  <p
+                    id={leavingId}
+                    className="m-0 text-body-sm text-text-secondary"
+                  >
+                    {account.name} จะถูกนำออกจากบัญชีที่บันทึกไว้บนเครื่องนี้
+                    เข้าใช้ครั้งต่อไปต้องใส่รหัสผ่านใหม่
+                  </p>
+                  <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
+                    <Button data-autofocus onClick={() => setLeaving(false)}>
+                      ยกเลิก
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onClick={async () => {
+                        await signOut();
+                        router.replace("/");
+                      }}
+                    >
+                      ออกจากระบบ
+                    </Button>
+                  </div>
+                </div>
+              </Dialog>
+            )}
           </div>
         </div>
       </div>

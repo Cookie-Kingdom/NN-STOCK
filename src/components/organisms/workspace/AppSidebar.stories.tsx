@@ -73,3 +73,15 @@ export const Accounts: Story = openAccounts;
 
 /** จอ 390px: ปุ่มอยู่บนแถบบน แผงเปิดลงใต้ปุ่ม ไม่ล้นขอบจอ */
 export const PhoneAccounts: Story = { ...phone, ...openAccounts };
+
+const openSignOut: Story = {
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole("button", { name: "ออกจากระบบ" }));
+  },
+};
+
+/** กด "ออกจากระบบ": เว็บถามก่อน「ออกจากระบบ?」บอกว่าบัญชีจะถูกนำออกจากบัญชีที่บันทึกไว้บนเครื่องนี้ · เคอร์เซอร์เริ่มที่「ยกเลิก」·「ยกเลิก」หรือ Escape ปิดโดยไม่ออก · กด「ออกจากระบบ」ใน popup จึงออกจริง */
+export const SignOut: Story = openSignOut;
+
+/** จอ 390px: popup เป็นแผ่นชิดล่างจอ */
+export const PhoneSignOut: Story = { ...phone, ...openSignOut };

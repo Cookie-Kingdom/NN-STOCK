@@ -29,7 +29,11 @@ export async function start(page: Page, state: "seed" | "sample") {
 /** Signs out (when signed in) and in as `account`: local mode takes `<account>@local.test`. */
 export async function signInAs(page: Page, account: AccountKey) {
   const signOut = page.getByRole("button", { name: "ออกจากระบบ" });
-  if (await signOut.count()) await signOut.click();
+  if (await signOut.count()) {
+    await signOut.click();
+    // It asks first: the confirm's own 「ออกจากระบบ」.
+    await page.getByRole("alertdialog").getByRole("button").last().click();
+  }
   await expect(page.getByRole("heading", { name: "เข้าสู่ระบบ" })).toBeVisible({
     timeout: 30_000,
   });
