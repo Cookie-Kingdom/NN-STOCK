@@ -13,6 +13,7 @@ import {
   openPage,
   openRow,
   pageButtons,
+  pickDay,
   popup,
   popupTitle,
   region,
@@ -371,7 +372,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await openPage(page, "Inventory");
   const main = page.getByRole("main");
   await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await main.getByLabel(/^เริ่มนับตั้งแต่วันที่/).fill(bangkokDate(-3));
+  await pickDay(main.getByLabel(/^เริ่มนับตั้งแต่วันที่/), bangkokDate(-3));
   await sheetCell(page, "ของตั้งต้น", "กล่องบรรจุ").fill("100");
   await main.getByRole("button", { name: "บันทึกของตั้งต้น" }).click();
   await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
@@ -473,16 +474,16 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   const left = sheetCell(page, "คงเหลือ", "กล่องบรรจุ");
   // The opening stock, from yesterday.
   await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await main.getByLabel(/^เริ่มนับตั้งแต่วันที่/).fill(bangkokDate(-1));
+  await pickDay(main.getByLabel(/^เริ่มนับตั้งแต่วันที่/), bangkokDate(-1));
   await sheetCell(page, "ของตั้งต้น", "กล่องบรรจุ").fill("100");
   await main.getByRole("button", { name: "บันทึกของตั้งต้น" }).click();
   await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
   // Yesterday's sheet: 100 − 30.
-  await main.getByLabel(/^วันที่บันทึก/).fill(bangkokDate(-1));
+  await pickDay(main.getByLabel(/^วันที่บันทึก/), bangkokDate(-1));
   await saveSheet(page, "น้องฝน", ["ใช้ไป", "กล่องบรรจุ", "30"]);
   await expect(left).toHaveText("70 กล่อง");
   // Today opens on it, not yet saved.
-  await main.getByLabel(/^วันที่บันทึก/).fill(today);
+  await pickDay(main.getByLabel(/^วันที่บันทึก/), today);
   await expect(main).toContainText("ยังไม่บันทึกวันนี้");
   await expect(left).toHaveText("70 กล่อง");
   await expect(
@@ -520,7 +521,7 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   ]);
   // The Owner's Settings lists it with its unit.
   await signInAs(page, "owner");
-  await openPage(page, "Settings");
+  await openPage(page, "Settings", true);
   await expect(
     region(page, "รายชื่อวัสดุ")
       .getByRole("row", { name: /^SKU-0024/ })

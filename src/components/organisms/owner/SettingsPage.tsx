@@ -195,7 +195,19 @@ const logoOf = (values: Values) =>
 /** What the web reckons with and what the documents print (spec section 8), Owner only.
  *  One section is open at a time; 「บันทึก」 saves that section as its own `config` note, and
  *  a value `mutate` refuses is said beside the buttons. */
-export function SettingsPage({ ws }: { ws: Workspace }) {
+/** The project's own settings (/owner/nn-x-lm/settings): the figures, the raw rice
+ *  branches, the box recipe and the materials. The rest is the shop's (/owner/settings). */
+export const ProjectSettingsPage = ({ ws }: { ws: Workspace }) => (
+  <SettingsPage ws={ws} project />
+);
+
+export function SettingsPage({
+  ws,
+  project = false,
+}: {
+  ws: Workspace;
+  project?: boolean;
+}) {
   const { db, account, today } = ws;
   const [editing, setEditing] = useState<Section | null>(null);
   /** The open section's plain values, or its rows when it is a list. */
@@ -479,158 +491,172 @@ export function SettingsPage({ ws }: { ws: Workspace }) {
   return (
     // A wide screen: two columns of sections, so the forms and tables keep their width.
     <div className="flex flex-col gap-4 2xl:grid 2xl:grid-cols-2 2xl:items-start">
-      <div className="flex min-w-0 flex-col gap-4">
-        {card(
-          "numbers",
-          "ตัวเลขในหน้าอื่นจะเปลี่ยนตามค่าที่แก้ในนี้",
-          plain("numbers", numbers),
-        )}
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
-          {card(
-            "channels",
-            "ช่องทางที่เพิ่มจะมีช่องยอดเงินในฟอร์มยอดขาย ช่องทางแรกลบไม่ได้ และยอดที่เคยจดในช่องทางที่ลบแล้วจะไม่ถูกนับ",
-            list("channels", (row) => row.key !== "lineMan"),
-          )}
-          {card(
-            "categories",
-            `ทั้งหมด ${payCategories(db.config).length} หมวด หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้แต่ลบไม่ได้`,
-            list("categories", (row) => !fixedCategories.includes(row.id)),
-          )}
-        </div>
-        {card(
-          "rice",
-          "สาขาที่นึ่งข้าวเองจะนับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา ส่วนสาขาที่ไม่ได้เลือกจะไม่มีแถวข้าวเหนียวดิบ",
-          <div className="flex flex-wrap gap-x-6 gap-y-1 px-5 pt-1 pb-4 max-md:px-4">
-            {branches.map((branch) => (
-              <label
-                key={branch}
-                className="flex min-h-11 items-center gap-2 font-semibold"
-              >
-                <input
-                  type="checkbox"
-                  className="size-5 accent-accent"
-                  checked={riceAt.includes(branch)}
-                  disabled={editing !== "rice"}
-                  onChange={(event) =>
-                    set(
-                      "rawRiceBranches",
-                      JSON.stringify(
-                        branches.filter((b) =>
-                          b === branch
-                            ? event.target.checked
-                            : riceAt.includes(b),
-                        ),
-                      ),
-                    )
-                  }
-                />
-                สาขา{branch}
-              </label>
-            ))}
-          </div>,
-        )}
-        {card(
-          "recipe",
-          "ขายหรือแจก 1 กล่อง เว็บตัดสต๊อกของสาขาตามจำนวนในนี้ให้เอง แยกจาก “ใช้ไป” ที่สาขาพิมพ์ รายการที่เว้นว่างหรือเป็น 0 จะไม่ถูกตัด น้ำพริกที่ขายแยกตัดหลอดต่อหลอดเสมอ แก้สูตรแล้วยอดย้อนหลังคิดใหม่ตามสูตรล่าสุด",
-          <StockTable columns={["รายการ", "ต่อกล่อง"]} right={["ต่อกล่อง"]}>
-            {(editing === "recipe" ? rows : recipeRows(db)).map(
-              (row, index) => (
-                <tr key={row.id}>
-                  <Cell>{row.name}</Cell>
-                  <Cell right className={cn(editing === "recipe" && "py-1.5")}>
-                    <span className="flex items-center justify-end gap-2">
-                      {editing === "recipe" ? (
-                        // Text, not number: `mutate` words the refusal of a bad figure.
-                        <Input
-                          inputMode="decimal"
-                          aria-label={`ต่อกล่อง ${row.name}`}
-                          className="mt-0 min-h-10 w-20 text-right"
-                          value={row.qty}
-                          onChange={(event) =>
-                            setRow(index, "qty", event.target.value)
-                          }
-                        />
-                      ) : (
-                        <ReadOnlyValue>{row.qty || "—"}</ReadOnlyValue>
-                      )}
-                      <span className="w-12 text-left text-caption font-normal text-text-secondary">
-                        {row.unit}
-                      </span>
-                    </span>
-                  </Cell>
-                </tr>
+      {project ? (
+        <>
+          <div className="flex min-w-0 flex-col gap-4">
+            {card(
+              "numbers",
+              "ตัวเลขในหน้าอื่นจะเปลี่ยนตามค่าที่แก้ในนี้",
+              plain("numbers", numbers),
+            )}
+            {card(
+              "rice",
+              "สาขาที่นึ่งข้าวเองจะนับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา ส่วนสาขาที่ไม่ได้เลือกจะไม่มีแถวข้าวเหนียวดิบ",
+              <div className="flex flex-wrap gap-x-6 gap-y-1 px-5 pt-1 pb-4 max-md:px-4">
+                {branches.map((branch) => (
+                  <label
+                    key={branch}
+                    className="flex min-h-11 items-center gap-2 font-semibold"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-5 accent-accent"
+                      checked={riceAt.includes(branch)}
+                      disabled={editing !== "rice"}
+                      onChange={(event) =>
+                        set(
+                          "rawRiceBranches",
+                          JSON.stringify(
+                            branches.filter((b) =>
+                              b === branch
+                                ? event.target.checked
+                                : riceAt.includes(b),
+                            ),
+                          ),
+                        )
+                      }
+                    />
+                    สาขา{branch}
+                  </label>
+                ))}
+              </div>,
+            )}
+            {card(
+              "recipe",
+              "ขายหรือแจก 1 กล่อง เว็บตัดสต๊อกของสาขาตามจำนวนในนี้ให้เอง แยกจาก “ใช้ไป” ที่สาขาพิมพ์ รายการที่เว้นว่างหรือเป็น 0 จะไม่ถูกตัด น้ำพริกที่ขายแยกตัดหลอดต่อหลอดเสมอ แก้สูตรแล้วยอดย้อนหลังคิดใหม่ตามสูตรล่าสุด",
+              <StockTable columns={["รายการ", "ต่อกล่อง"]} right={["ต่อกล่อง"]}>
+                {(editing === "recipe" ? rows : recipeRows(db)).map(
+                  (row, index) => (
+                    <tr key={row.id}>
+                      <Cell>{row.name}</Cell>
+                      <Cell
+                        right
+                        className={cn(editing === "recipe" && "py-1.5")}
+                      >
+                        <span className="flex items-center justify-end gap-2">
+                          {editing === "recipe" ? (
+                            // Text, not number: `mutate` words the refusal of a bad figure.
+                            <Input
+                              inputMode="decimal"
+                              aria-label={`ต่อกล่อง ${row.name}`}
+                              className="mt-0 min-h-10 w-20 text-right"
+                              value={row.qty}
+                              onChange={(event) =>
+                                setRow(index, "qty", event.target.value)
+                              }
+                            />
+                          ) : (
+                            <ReadOnlyValue>{row.qty || "—"}</ReadOnlyValue>
+                          )}
+                          <span className="w-12 text-left text-caption font-normal text-text-secondary">
+                            {row.unit}
+                          </span>
+                        </span>
+                      </Cell>
+                    </tr>
+                  ),
+                )}
+              </StockTable>,
+            )}
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            {card(
+              "materials",
+              'รายการของใบสต๊อกรายวันหน้า Inventory ของสาขา รวมรายการที่สาขาเพิ่มเอง "หน่วยนับ" คือหน่วยของตัวเลขในใบสต๊อก เว้นว่างจะเป็น "ชิ้น" SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
+              list("materials", () => true),
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
+              {card(
+                "channels",
+                "ช่องทางที่เพิ่มจะมีช่องยอดเงินในฟอร์มยอดขาย ช่องทางแรกลบไม่ได้ และยอดที่เคยจดในช่องทางที่ลบแล้วจะไม่ถูกนับ",
+                list("channels", (row) => row.key !== "lineMan"),
+              )}
+              {card(
+                "categories",
+                `ทั้งหมด ${payCategories(db.config).length} หมวด หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้แต่ลบไม่ได้`,
+                list("categories", (row) => !fixedCategories.includes(row.id)),
+              )}
+            </div>
+            <DayCard
+              aria-label={skuTitle}
+              title={skuTitle}
+              aside={
+                <Button size="sm" onClick={() => setSkusOpen(true)}>
+                  เปิดรายการ
+                </Button>
+              }
+            >
+              <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
+                SKU ออกให้อัตโนมัติ หนึ่งรายการมีเลขเดียวและไม่ใช้ซ้ำ
+                รายการจากหน้า Accounting จะได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่
+                เมื่อแก้ชื่อในรายการ แถวเดิมในหน้า Accounting จะเปลี่ยนชื่อตาม
+                ส่วน SKU ยังเป็นเลขเดิม
+              </p>
+              <dl className={grid}>
+                <div>
+                  <dt className="text-label text-text-secondary">วัสดุ</dt>
+                  <dd className="m-0 font-semibold">{materialSkus} รายการ</dd>
+                </div>
+                <div>
+                  <dt className="text-label text-text-secondary">
+                    รายการจากหน้า Accounting
+                  </dt>
+                  <dd className="m-0 font-semibold">
+                    {skus.length - materialSkus} รายการ
+                  </dd>
+                </div>
+              </dl>
+            </DayCard>
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            {card(
+              "header",
+              "หัวเอกสารของ PO เนื้อ, PO รมควัน, Packing List และใบขนส่ง",
+              plain(
+                "header",
+                header,
+                editing === "header" ? (
+                  <FileUploadField
+                    wide
+                    label="โลโก้บนเอกสาร"
+                    accept={logoAccept}
+                    maxBytes={1024 * 1024}
+                    oversizeMessage="ไฟล์โลโก้ใหญ่เกิน 1 MB"
+                    onError={setError}
+                    onFile={pickLogo}
+                    preview={logo && <Logo source={logo} />}
+                    hint={draft.logoName || "PNG, JPG หรือ WebP ไม่เกิน 1 MB"}
+                  />
+                ) : (
+                  <div className="col-span-full">
+                    <dt className="text-label text-text-secondary">
+                      โลโก้บนเอกสาร
+                    </dt>
+                    <dd className="m-0 mt-1 font-semibold">
+                      {logo ? <Logo source={logo} /> : "ยังไม่มีโลโก้"}
+                    </dd>
+                  </div>
+                ),
               ),
             )}
-          </StockTable>,
-        )}
-      </div>
-      <div className="flex min-w-0 flex-col gap-4">
-        {card(
-          "materials",
-          'รายการของใบสต๊อกรายวันหน้า Inventory ของสาขา รวมรายการที่สาขาเพิ่มเอง "หน่วยนับ" คือหน่วยของตัวเลขในใบสต๊อก เว้นว่างจะเป็น "ชิ้น" SKU ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ',
-          list("materials", () => true),
-        )}
-        <DayCard
-          aria-label={skuTitle}
-          title={skuTitle}
-          aside={
-            <Button size="sm" onClick={() => setSkusOpen(true)}>
-              เปิดรายการ
-            </Button>
-          }
-        >
-          <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
-            SKU ออกให้อัตโนมัติ หนึ่งรายการมีเลขเดียวและไม่ใช้ซ้ำ รายการจากหน้า
-            Accounting จะได้ SKU ตอนจดค่าใช้จ่ายด้วยชื่อใหม่
-            เมื่อแก้ชื่อในรายการ แถวเดิมในหน้า Accounting จะเปลี่ยนชื่อตาม ส่วน
-            SKU ยังเป็นเลขเดิม
-          </p>
-          <dl className={grid}>
-            <div>
-              <dt className="text-label text-text-secondary">วัสดุ</dt>
-              <dd className="m-0 font-semibold">{materialSkus} รายการ</dd>
-            </div>
-            <div>
-              <dt className="text-label text-text-secondary">
-                รายการจากหน้า Accounting
-              </dt>
-              <dd className="m-0 font-semibold">
-                {skus.length - materialSkus} รายการ
-              </dd>
-            </div>
-          </dl>
-        </DayCard>
-        {card(
-          "header",
-          "หัวเอกสารของ PO เนื้อ, PO รมควัน, Packing List และใบขนส่ง",
-          plain(
-            "header",
-            header,
-            editing === "header" ? (
-              <FileUploadField
-                wide
-                label="โลโก้บนเอกสาร"
-                accept={logoAccept}
-                maxBytes={1024 * 1024}
-                oversizeMessage="ไฟล์โลโก้ใหญ่เกิน 1 MB"
-                onError={setError}
-                onFile={pickLogo}
-                preview={logo && <Logo source={logo} />}
-                hint={draft.logoName || "PNG, JPG หรือ WebP ไม่เกิน 1 MB"}
-              />
-            ) : (
-              <div className="col-span-full">
-                <dt className="text-label text-text-secondary">
-                  โลโก้บนเอกสาร
-                </dt>
-                <dd className="m-0 mt-1 font-semibold">
-                  {logo ? <Logo source={logo} /> : "ยังไม่มีโลโก้"}
-                </dd>
-              </div>
-            ),
-          ),
-        )}
-      </div>
+          </div>
+        </>
+      )}
       {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
     </div>
   );

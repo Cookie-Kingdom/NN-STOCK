@@ -53,9 +53,11 @@ export const pageButtons = (page: Page) =>
 
 /** Opens a page by its (English) name and waits for its heading. */
 export async function openPage(page: Page, name: string, project = false) {
-  // The Owner has two pages named Overview: the shop's, then (`project`) the project's.
+  // The Owner has two pages named Overview and two named Settings: the shop's, and
+  // (`project`) the project's. The shop's Overview is the first, its Settings the last.
   const buttons = nav(page).getByRole("button", { name, exact: true });
-  await (project ? buttons.last() : buttons.first()).click();
+  const shopFirst = name !== "Settings";
+  await (project === shopFirst ? buttons.last() : buttons.first()).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
 }
 

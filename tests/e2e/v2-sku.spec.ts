@@ -152,7 +152,7 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
 }) => {
   await start(page, "seed");
   await signInAs(page, "owner");
-  await openPage(page, "Settings");
+  await openPage(page, "Settings", true);
   const materials = region(page, "รายชื่อวัสดุ");
   await expect(
     materials.getByRole("row", { name: /^SKU-0023/ }).getByRole("cell"),
@@ -204,7 +204,7 @@ test("V2-BR-08 the branches ticked in Settings hold raw rice: the row comes and 
   await start(page, "seed");
   await signInAs(page, "owner");
   // The seed: ศาลาแดง steams its own. Now มีนบุรี does, and ศาลาแดง no longer.
-  await openPage(page, "Settings");
+  await openPage(page, "Settings", true);
   const rice = region(page, "สาขาที่ใช้ข้าวเหนียวดิบ");
   await expect(rice.getByLabel("สาขาศาลาแดง")).toBeChecked();
   await expect(rice.getByLabel("สาขามีนบุรี")).not.toBeChecked();
@@ -252,7 +252,7 @@ test("V2-BR-08 the branches ticked in Settings hold raw rice: the row comes and 
   await expect(riceRow.nth(1)).toHaveText("—");
   await expect(riceRow.nth(3)).toContainText("7.5 กก.");
   // No branch ticked: no raw rice row at all, on the Owner's Stock or on the branch's.
-  await openPage(page, "Settings");
+  await openPage(page, "Settings", true);
   await edit(rice);
   await rice.getByLabel("สาขามีนบุรี").uncheck();
   await saveSection(rice);
