@@ -455,7 +455,8 @@ export function ledgerRows(db: Database): LedgerRow[] {
       sourceLabel: "",
       entry: e,
       reference: v.reference ?? "",
-      itemType: incomeTypes[sales ? "sales" : "other"],
+      // Accounting says what the money is: a channel pays the sale less its GP.
+      itemType: sales ? "ค่าขาย (หลังหัก GP)" : incomeTypes.other,
       // A sales receipt with no item goes by its channel.
       item: v.item || (sales && channels.get(v.channel)) || "",
       sku: "",

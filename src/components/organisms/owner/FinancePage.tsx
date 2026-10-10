@@ -74,7 +74,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   const unpaid = sumOf(balances.map((x) => Math.max(x.left, 0)));
   const owed = sumOf(advanced.map((x) => Math.max(x.left, 0)));
   // Only the channels with a receipt jotted: what another one was paid is not known.
-  const known = due.channels.filter((c) => c.key && c.jotted);
+  const known = due.channels.filter((c) => (c.key || c.sold) && c.jotted);
   const unreceived = sumOf(known.map((c) => Math.max(c.left, 0)));
   /* The month against the five before it, a year as its twelve months.
    * ponytail: a bar reads the whole log once: one pass that buckets by month if a long log
@@ -350,11 +350,11 @@ export function FinancePage({ ws }: { ws: Workspace }) {
                   {due.channels.map((x) => (
                     <tr key={x.key}>
                       <td className={cn(td, "whitespace-nowrap")}>{x.name}</td>
-                      {/* Receipts that name no channel: no sale to set them against. */}
-                      <Num>{x.key ? baht(x.sold) : "—"}</Num>
+                      {/* Receipts that name no channel: only the old books' sales to set them against. */}
+                      <Num>{x.key || x.sold ? baht(x.sold) : "—"}</Num>
                       {/* No receipt jotted: what it paid before is not known, so no figure. */}
                       <Num>{x.jotted ? baht(x.received) : <MissingMark />}</Num>
-                      {!x.key ? (
+                      {!x.key && !x.sold ? (
                         <Num>—</Num>
                       ) : !x.jotted ? (
                         <Num>

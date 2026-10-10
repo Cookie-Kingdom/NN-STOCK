@@ -1064,7 +1064,8 @@ export function receivables(db: Database) {
       name,
       sold,
       received,
-      left: sold - received,
+      // To the satang: a GP share leaves float dust, and the form starts on this figure.
+      left: Math.round((sold - received) * 100) / 100,
       jotted: receipts.length > 0,
     };
   };
@@ -1072,7 +1073,7 @@ export function receivables(db: Database) {
   const none = row("", "ไม่ระบุช่องทาง", 0);
   const waiting = all.filter((i) => !i.received);
   return {
-    channels: none.jotted ? [...channels, none] : channels,
+    channels: none.jotted || none.sold ? [...channels, none] : channels,
     pending: {
       count: waiting.length,
       amount: waiting.reduce((a, i) => a + i.amount, 0),
