@@ -51,9 +51,11 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 /** หน้า Settings ของโปรเจกต์ (/owner/nn-x-lm/settings): ตัวเลขสำหรับคำนวณ
- *  สาขาที่ใช้ข้าวเหนียวดิบ สูตรต่อกล่อง และรายชื่อวัสดุ ·
- *  「สูตรต่อกล่อง」: แถวละรายการ (เนื้อ · ข้าวเหนียวดิบ เป็นกรัม น้ำพริกเป็นหลอด แล้ววัสดุทุกรายการ
- *  ตามหน่วยของมัน) ยังไม่ตั้งเป็น「—」 */
+ *  สาขาที่ใช้ข้าวเหนียวดิบ รายการสินค้า และรายชื่อวัสดุ ·
+ *  「รายการสินค้า」: แถวละสินค้า ชื่อ (กดเพื่อแก้ไข) ส่วนประกอบในบรรทัดเดียวใต้ชื่อ ราคา และ
+ *  ต้นทุนอื่น · ยังไม่เคยตั้งจะมี「กล่องมาตรฐาน」รายการเดียว「ยังไม่ตั้งส่วนประกอบ」
+ *  ราคาและต้นทุนอื่นมาจากค่าเดิม (350 / 25 บาท) · บรรทัดล่างสุดคือช่องของฟอร์มยอดขาย:
+ *  สินค้าละช่อง */
 export const Project: Story = { args: { project: true } };
 
 /** สาขาเพิ่มรายการในใบสต๊อกของตัวเอง (ถุงซิปล็อก · ห่อ): ขึ้นเป็นแถวสุดท้ายของ「รายชื่อวัสดุ」
@@ -83,9 +85,10 @@ export const EditMaterials: Story = {
     ),
 };
 
-/** Settings ของโปรเจกต์ ตั้ง「สูตรต่อกล่อง」แล้ว: เนื้อ 120 กรัม น้ำพริก 1 หลอด กล่องบรรจุ 1 กล่อง ซองเนื้อ 2 ซอง
- *  รายการอื่นเป็น「—」(ขายแล้วไม่ตัด) */
-export const Recipe: Story = {
+/** Settings ของโปรเจกต์ มีสินค้าสองรายการ: กล่องมาตรฐาน (เนื้อ 120 กรัม · น้ำพริก 1 หลอด ·
+ *  กล่องบรรจุ 1 · ซองเนื้อ 2) และน้ำพริกหลอด (น้ำพริก 1 หลอด ราคา 30 ต้นทุนอื่น 12) ·
+ *  ฟอร์มยอดขายมีช่อง「น้ำพริกหลอด」เพิ่ม */
+export const Products: Story = {
   args: { project: true },
   parameters: {
     db: mutate(
@@ -93,11 +96,22 @@ export const Recipe: Story = {
       accountById("owner")!,
       "config",
       {
-        boxRecipe: JSON.stringify([
-          { id: "meat", qty: "120" },
-          { id: "chili", qty: "1" },
-          { id: "m1", qty: "1" },
-          { id: "m2", qty: "2" },
+        products: JSON.stringify([
+          {
+            id: "box",
+            name: "กล่องมาตรฐาน",
+            items: [
+              { id: "meat", qty: "120" },
+              { id: "chili", qty: "1" },
+              { id: "m1", qty: "1" },
+              { id: "m2", qty: "2" },
+            ],
+          },
+          { id: "p1", name: "น้ำพริกหลอด", items: [{ id: "chili", qty: "1" }] },
+        ]),
+        productMoney: JSON.stringify([
+          { id: "box", price: "350", cost: "25" },
+          { id: "p1", price: "30", cost: "12" },
         ]),
       },
       "",
@@ -106,16 +120,37 @@ export const Recipe: Story = {
   },
 };
 
-/** กด「แก้ไข」ของ「สูตรต่อกล่อง」: แต่ละแถวมีช่องจำนวนต่อกล่อง พร้อมหน่วย · พิมพ์ตัวอักษรหรือ
- *  เลขติดลบแล้วกด「บันทึก」ขึ้น「สูตรต่อกล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป」ข้างปุ่ม */
-export const EditRecipe: Story = {
-  ...Recipe,
+/** กดชื่อสินค้า: popup แก้ชื่อ ราคา ต้นทุนอื่น และส่วนประกอบ (แถวละรายการ จำนวนพร้อมหน่วย ปุ่ม「ลบ」)
+ *  dropdown「เพิ่มส่วนประกอบ」มีเฉพาะรายการที่ยังไม่อยู่ในสินค้า · พิมพ์ตัวอักษรหรือเลขติดลบแล้วกด
+ *  「บันทึก」ขึ้นข้อความสีแดงเหนือปุ่ม · กล่องมาตรฐานไม่มีปุ่ม「ลบสินค้า」 */
+export const EditProduct: Story = {
+  ...Products,
   play: async ({ canvas, userEvent }) =>
     userEvent.click(
-      within(
-        await canvas.findByRole("region", { name: "สูตรต่อกล่อง" }),
-      ).getByRole("button", { name: "แก้ไข" }),
+      await canvas.findByRole("button", { name: "แก้ไข กล่องมาตรฐาน" }),
     ),
+};
+
+/** กดชื่อสินค้าที่เพิ่มเอง: มีปุ่ม「ลบสินค้า」 */
+export const EditAddedProduct: Story = {
+  ...Products,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      await canvas.findByRole("button", { name: "แก้ไข น้ำพริกหลอด" }),
+    ),
+};
+
+/** กด「เพิ่มสินค้า」: popup ว่าง ยังไม่มีส่วนประกอบ */
+export const AddProduct: Story = {
+  args: { project: true },
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(await canvas.findByRole("button", { name: "เพิ่มสินค้า" })),
+};
+
+/** จอ 390px มีสินค้าสองรายการ */
+export const PhoneProducts: Story = {
+  ...Products,
+  parameters: { ...phone.parameters, ...Products.parameters },
 };
 
 /** กด「เปิดรายการ」ของ「รายการสินค้า (SKU)」: popup ค้นหาและแก้ชื่อ */

@@ -164,7 +164,6 @@ export function sampleData(endDate: string): Database {
   add(saladaeng, "influencerBox", 3, "15:20", {
     influencer: "@kinkubnong",
     boxes: 6,
-    chiliAddons: 6,
     shippingFee: 180,
   });
   // Today ศาลาแดง is open (this note) with no sale yet: its sale is due, the day is yellow.
@@ -425,11 +424,9 @@ export function sampleData(endDate: string): Database {
       // Closed that day: no note at all, so no sale is due.
       if (branch === minburi && d === 2) continue;
       const boxes = 20 + ((d * 37 + bi * 11) % 16);
-      const chiliAddons = (d * 3 + bi) % 6;
       const values: Record<string, string | number> = {
         boxes,
-        chiliAddons,
-        lineMan: Math.round(boxes * 350 * 0.97 + chiliAddons * 30),
+        lineMan: Math.round(boxes * 350 * 0.97 + ((d * 3 + bi) % 6) * 30),
       };
       // A core field left empty.
       if (branch === saladaeng && d === 3) delete values.lineMan;

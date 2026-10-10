@@ -38,7 +38,7 @@ const sqlTest = "supabase/tests/v2_app_state_test.sql";
 test("branchScope equals the rule JSON in the migration", () => {
   expect(branchScope).toEqual(
     // The file that last defined app_state_scope_rules().
-    tagged("supabase/migrations/20261010000001_scope_box_recipe.sql", "rules"),
+    tagged("supabase/migrations/20261010000002_scope_products.sql", "rules"),
   );
 });
 
@@ -66,8 +66,10 @@ test("a branch's copy holds its own entries and the cut-down stock lines, nothin
     "shipment",
     "shipment",
   ]);
+  // Every key of the scope but `products`: the sample saved none (the seed holds none, so
+  // the old box recipe stands until one is saved).
   expect(Object.keys(payload.config).sort()).toEqual(
-    [...branchScope.configKeys].sort(),
+    branchScope.configKeys.filter((key) => key !== "products").sort(),
   );
   // Of the branches that count raw rice it is told its own alone (the sample: ศาลาแดง only).
   expect(payload.config.rawRiceBranches).toBe("[]");
@@ -124,6 +126,7 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     materialList: "[]",
     rawRiceBranches: '["มีนบุรี"]',
     boxRecipe: "[]",
+    products: '[{"id":"box","name":"กล่องมาตรฐาน","items":[]}]',
   });
   // Nothing names the other branch but its rows of the shared material list (si, siv).
   const shared = ["si", "siv"];

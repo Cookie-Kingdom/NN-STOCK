@@ -104,9 +104,9 @@ const unsigned = {
     ),
   },
 };
-/** The sample with a recipe set (เนื้อ 120 กรัม · น้ำพริก 1 หลอด · กล่องบรรจุ 1 · ซองเนื้อ 2 a
- *  box), as ศาลาแดง receives it, and a sale of 10 boxes with 3 tubes more jotted today (the
- *  sample gives 2 boxes away today as well). */
+/** The sample with two products (the box: เนื้อ 120 กรัม · น้ำพริก 1 หลอด · กล่องบรรจุ 1 ·
+ *  ซองเนื้อ 2; น้ำพริกหลอด: 1 tube), as ศาลาแดง receives it, and a sale of 10 boxes and 3 tubes
+ *  jotted today (the sample gives 2 boxes away today as well). */
 const soldDb = dbFor(
   "saladaeng",
   mutate(
@@ -115,11 +115,18 @@ const soldDb = dbFor(
       accountById("owner")!,
       "config",
       {
-        boxRecipe: JSON.stringify([
-          { id: "meat", qty: "120" },
-          { id: "chili", qty: "1" },
-          { id: "m1", qty: "1" },
-          { id: "m2", qty: "2" },
+        products: JSON.stringify([
+          {
+            id: "box",
+            name: "กล่องมาตรฐาน",
+            items: [
+              { id: "meat", qty: "120" },
+              { id: "chili", qty: "1" },
+              { id: "m1", qty: "1" },
+              { id: "m2", qty: "2" },
+            ],
+          },
+          { id: "p1", name: "น้ำพริกหลอด", items: [{ id: "chili", qty: "1" }] },
         ]),
       },
       "",
@@ -127,7 +134,7 @@ const soldDb = dbFor(
     ),
     accountById("saladaeng")!,
     "sale",
-    { boxes: "10", chiliAddons: "3", lineMan: "3500" },
+    { boxes: "10", "product.p1": "3", lineMan: "3500" },
     "",
     today(),
   ),
@@ -230,9 +237,9 @@ export const NegativeRemaining: Story = { ...negative };
 /** บันทึกโดยไม่ใส่ผู้บันทึก และมี Waste ที่ไม่มีสาเหตุ: ทั้งสองช่องขึ้น「ยังไม่ได้จด」 */
 export const MissingReporter: Story = { ...unsigned };
 
-/** ตั้งสูตรต่อกล่องแล้ว และวันนี้มียอดขายกับกล่องที่แจก: ใต้ช่อง「ใช้ไป」ของกล่องบรรจุและซองเนื้อมีบรรทัด
+/** ตั้งส่วนประกอบของสินค้าแล้ว และวันนี้มียอดขายกับกล่องที่แจก: ใต้ช่อง「ใช้ไป」ของกล่องบรรจุและซองเนื้อมีบรรทัด
  *  「ตัดจากยอดขาย」(พิมพ์ไม่ได้ เว็บคิดให้ แยกจากใช้ไปที่พิมพ์เอง) และคงเหลือถูกหักแล้ว ·
- *  รายการที่ไม่อยู่ในสูตรไม่มีบรรทัดนี้ */
+ *  รายการที่ไม่เป็นส่วนประกอบของสินค้าใดไม่มีบรรทัดนี้ */
 export const SoldFromSales: Story = {
   args: saladaeng,
   parameters: { db: soldDb },
@@ -249,7 +256,7 @@ export const SoldFromSales: Story = {
   },
 };
 
-/** Stock: เนื้อตัดตามกรัมต่อกล่อง (12 กล่อง × 120 กรัม = 1.44 กก.) น้ำพริกตัดตามสูตรและหลอดที่ขายแยก
+/** Stock: เนื้อตัดตามกรัมต่อกล่อง (12 กล่อง × 120 กรัม = 1.44 กก.) น้ำพริกตัดตามกล่องและสินค้า「น้ำพริกหลอด」
  *  (12 + 3 = 15 หลอด) */
 export const StockSoldFromSales: Story = {
   args: { ...saladaeng, ...stock },

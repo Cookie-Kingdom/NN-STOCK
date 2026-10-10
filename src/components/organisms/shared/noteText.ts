@@ -12,6 +12,10 @@ import {
   isNoteKind,
   isUnlinkedDispatch,
   legacySale,
+  pieces,
+  pieceUnit,
+  productKey,
+  products,
   materialList,
   missingKeys,
   missingText,
@@ -91,6 +95,8 @@ const addedLabels: Record<string, string> = {
   postSmokeKg: "น้ำหนักผลิตรวม (กก.)",
   packCount: "จำนวนกล่องรมควัน",
   sku: "SKU",
+  // Its field left the forms with 「รายการสินค้า」; the notes saved with it still say it.
+  chiliAddons: "น้ำพริกหลอดที่ขายแยก (หลอด)",
   [legacySale.key]: `${legacySale.name} (บาท)`,
 };
 export const addedKeys = Object.keys(addedLabels);
@@ -189,6 +195,15 @@ export function noteLine(db: Database, e: Entry): string {
   const v = e.values;
   const has = (key: string) => (v[key] ?? "") !== "";
   const n = (key: string) => qty(Number(v[key]));
+  /** A sale's or a gift's count of each product: "12 กล่อง", by name once there are several. */
+  const list = products(db.config);
+  const sold = list
+    .filter((p) => has(productKey(p.id)))
+    .map((p) =>
+      list.length > 1
+        ? `${p.name} ${n(productKey(p.id))}`
+        : `${n(productKey(p.id))} กล่อง`,
+    );
   // A round step: its dispatch round, by its transfer number.
   const round =
     has("dispatchId") &&
@@ -305,7 +320,7 @@ export function noteLine(db: Database, e: Entry): string {
       return join(v.receiver, v.note);
     case "sale":
       return join(
-        has("boxes") && `${n("boxes")} กล่อง`,
+        ...sold,
         has(legacySale.key) &&
           `${legacySale.name} ${baht(Number(v[legacySale.key]))}`,
         has("chiliAddons") && `น้ำพริก ${n("chiliAddons")} หลอด`,
@@ -317,6 +332,9 @@ export function noteLine(db: Database, e: Entry): string {
     case "influencerBox":
       return join(
         v.influencer,
+        // The box alone is the figure at the right of the row (noteAmount).
+        ...(list.length > 1 ? sold : []),
+        has("chiliAddons") && `น้ำพริก ${n("chiliAddons")} หลอด`,
         has("shippingFee") && `ค่าส่ง ${baht(Number(v.shippingFee))}`,
       );
     /* A day's sheet: each row with a figure, in its unit. A sheet never named reads as both
@@ -406,8 +424,12 @@ export function noteAmount(
       salesChannels(db.config).some((channel) => has(channel.key))
       ? { text: `+${baht(saleMoney(db.config, e).sales)}`, tone: "in" }
       : null;
-  if (e.kind === "influencerBox")
-    return has("boxes") ? { text: `${qty(Number(v.boxes))} กล่อง` } : null;
+  if (e.kind === "influencerBox") {
+    const list = products(db.config);
+    return list.some((p) => has(productKey(p.id)))
+      ? { text: `${qty(pieces(list, v))} ${pieceUnit(list)}` }
+      : null;
+  }
   const key = kgKey[e.kind];
   return key && has(key) ? { text: `${qty(Number(v[key]))} กก.` } : null;
 }

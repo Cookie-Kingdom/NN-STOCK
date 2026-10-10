@@ -47,12 +47,11 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
 
   await openPage(page, "Overview", true);
   await expect(revenue.locator("strong")).toHaveText("฿0");
-  // No box sold and no Lot jotted through: no figure per box is made up.
+  // No box sold: no figure per box is made up.
   const figures = region(page, "ตัวเลขของเดือน");
   await expect(figures).toContainText(
     "ยอดขายต่อกล่อง — · ยอดขายเฉลี่ย ฿0 ต่อวัน",
   );
-  await expect(figures).not.toContainText("กำไรต่อกล่อง");
   const pl = region(page, "P&L รายเดือน");
   /** A P&L line's cells after its name: the month, its share of the sales, the month before. */
   const line = (name: RegExp, table = pl) =>
@@ -133,8 +132,6 @@ test("Overview: a branch's sale is the revenue of the month and of the year, the
   await expect(figures).toContainText(
     `ยอดขายต่อกล่อง ฿350.00 · ยอดขายเฉลี่ย ฿${perDay} ต่อวัน`,
   );
-  // Still no Lot jotted through: no cost per box, so no profit per box either.
-  await expect(figures).not.toContainText("กำไรต่อกล่อง");
   // The P&L: each line beside its share of the month's sales, signed as the line is.
   await expect(pl).toContainText(
     "ยอดตามเดือนที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
@@ -271,12 +268,11 @@ test("Overview: with two channels of different GP, the shop's revenue is after e
   // The project's own Overview: the ฿8,000 sold, the GP a line of its own, the same profit.
   await openPage(page, "Overview", true);
   await expect(revenue.locator("strong")).toHaveText("฿8,000");
-  // The five figures of the month, in their order.
+  // The four figures of the month, in their order: no cost per box is among them.
   await expect(figures.locator("div > small:first-child")).toHaveText([
     "รายได้หลังหัก GP ช่องทางขาย",
     "กำไรจากการดำเนินงาน",
     "กล่องที่ขาย",
-    "ต้นทุนต่อกล่อง",
     "กล่องแจกเดือนนี้",
   ]);
   await expect(figures).toContainText("฿6,400");

@@ -449,7 +449,7 @@ const listDefaults = {
     { id: "capex", name: "อุปกรณ์/ลงทุน" },
     { id: "other", name: "อื่น ๆ" },
   ]),
-  // Nothing until the Owner sets it: a box takes no stock.
+  // Read only until 「รายการสินค้า」 is saved (products): the standard box's components.
   boxRecipe: "[]",
 };
 /** A list setting as stored; anything unreadable (or not there yet) is the default. */
@@ -493,18 +493,84 @@ export const configMaterials = (config: Values): Material[] =>
     name: m.name,
     unit: m.unit || "ชิ้น",
   }));
-/** The items of the recipe typed in grams a box; a branch's sheet counts them in kg. */
+/** The components typed in grams a piece; a branch's sheet counts them in kg. */
 export const gramItems = ["meat", "rice"];
-/** 「สูตรต่อกล่อง」: what one box sold or given away takes from a branch's stock (V2-CAL-10), by
- *  item id (`meat`, `rice`, `chili`, a material's), as Settings holds it: grams for
- *  `gramItems`, tubes for the chili, a material's own unit. A row left empty or at 0 is not in
- *  it: boxes take none of that item. */
-export const boxRecipe = (config: Values): Map<string, number> =>
+/** A product of 「รายการสินค้า」: `items` is what one piece sold or given away takes from a
+ *  branch's stock (V2-CAL-10), by item id (`meat`, `rice`, `chili`, a material's): grams for
+ *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
+ *  not in it. */
+export type Product = { id: string; name: string; items: Map<string, number> };
+/** The standard box: the first product, renamed but never removed. */
+export const boxProduct = "box";
+const itemsOf = (rows: unknown): Map<string, number> =>
   new Map(
-    list(config, "boxRecipe")
-      .map((row): [string, number] => [row.id, Number(row.qty) || 0])
-      .filter(([, qty]) => qty > 0),
+    (Array.isArray(rows) ? rows : [])
+      .map((row): [string, number] => [row?.id, Number(row?.qty) || 0])
+      .filter(([id, qty]) => id && qty > 0),
   );
+/** 「รายการสินค้า」 as Settings holds it (`config.products`). Before any was saved it is the
+ *  standard box alone, made of the old 「สูตรต่อกล่อง」 (`config.boxRecipe`, which nothing
+ *  writes any more). */
+export const products = (config: Values): Product[] => {
+  let rows: unknown;
+  try {
+    rows = JSON.parse(config.products ?? "");
+  } catch {}
+  return Array.isArray(rows) && rows.length
+    ? rows.map((row) => ({
+        id: String(row?.id ?? ""),
+        name: String(row?.name ?? ""),
+        items: itemsOf(row?.items),
+      }))
+    : [
+        {
+          id: boxProduct,
+          name: "กล่องมาตรฐาน",
+          items: itemsOf(list(config, "boxRecipe")),
+        },
+      ];
+};
+/** The value of a `sale` or an `influencerBox` note that holds its count of a product: the
+ *  box's stays `boxes`, where every note saved before the list has it. */
+export const productKey = (id: string) =>
+  id === boxProduct ? "boxes" : `product.${id}`;
+export const isProductKey = (key: string) =>
+  key === "boxes" || key.startsWith("product.");
+export const productQty = (product: Product, values: Values) =>
+  Number(values[productKey(product.id)]) || 0;
+/** The pieces of a `sale` or an `influencerBox` note, over every product of `list`. What it
+ *  holds of a product since removed is not counted (as a removed sales channel's money). */
+export const pieces = (list: Product[], values: Values) =>
+  list.reduce((a, product) => a + productQty(product, values), 0);
+/** The word pieces are counted in: boxes while the standard box is the only product. */
+export const pieceUnit = (list: Product[]) =>
+  list.length > 1 ? "ชิ้น" : "กล่อง";
+/** A product's selling price and its cost beside the meat, per piece (`config.productMoney`,
+ *  the Owner's only); null where none is set. The box's default to the old `boxPrice` and
+ *  `packCost` until it has a row. */
+export const productMoney = (config: Values, id: string) => {
+  let rows: unknown;
+  try {
+    rows = JSON.parse(config.productMoney ?? "");
+  } catch {}
+  const row: Values | undefined = Array.isArray(rows)
+    ? rows.find((row) => row?.id === id)
+    : undefined;
+  const figure = (value = "") => (value === "" ? null : Number(value) || 0);
+  return row || id !== boxProduct
+    ? { price: figure(row?.price), cost: figure(row?.cost) }
+    : { price: figure(config.boxPrice), cost: figure(config.packCost) };
+};
+/** The meat in one piece of a product, in kg: its `meat` component, typed in grams. The box
+ *  with none falls back to the old `packKg`. */
+export const productMeatKg = (config: Values, product: Product) => {
+  const grams = product.items.get("meat");
+  return grams
+    ? grams / 1000
+    : product.id === boxProduct
+      ? Number(config.packKg) || 0
+      : 0;
+};
 export const payCategories = (config: Values): PayCategory[] =>
   list(config, "payCategories").map(({ id, name }) => ({ id, name }));
 /* The ten category ids of the seed are fixed: these rules hang on them. */

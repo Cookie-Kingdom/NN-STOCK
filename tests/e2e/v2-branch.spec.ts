@@ -204,7 +204,7 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   await fill(
     page,
     [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
-    [/^กล่องที่แจก/, "2"],
+    [/^กล่องมาตรฐาน/, "2"],
     [/^ค่าส่ง/, "80"],
   );
   await save(page);
@@ -255,7 +255,7 @@ test("11 · V2-PG-01 a day the branch jotted something on with no sale is in the
   await fill(
     page,
     [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
-    [/^กล่องที่แจก/, "2"],
+    [/^กล่องมาตรฐาน/, "2"],
   );
   await save(page);
   await openPage(page, "Daily Log");
@@ -302,7 +302,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
       page,
       [theDate, bangkokDate(offset)],
       [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
-      [/^กล่องที่แจก/, "2"],
+      [/^กล่องมาตรฐาน/, "2"],
     );
     await save(page);
   };
@@ -388,7 +388,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await noSheetAsked();
 });
 
-test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and with no recipe set a sale takes no stock", async ({
+test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and with no component set a sale takes no stock", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -434,8 +434,8 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   await expect(editSheet).toBeVisible();
   await expect(left).toHaveText("14 กก.");
 
-  // A sale is jotted from Sales and has no meat to type; with no 「สูตรต่อกล่อง」 in Settings
-  // (the seed) its boxes take no stock.
+  // A sale is jotted from Sales and has no meat to type; the standard box has no
+  // component in Settings (the seed), so its boxes take no stock.
   await expect(jotButtons(page)).toHaveText(["รับเนื้อเข้าสาขา", "จ่ายเงิน"]);
   await jotSaleOf(page);
   await expect(form(page).getByLabel(/^เนื้อที่/)).toHaveCount(0);
@@ -462,6 +462,90 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   await expect(region(page, "Waste ย้อนหลัง 7 วัน")).toContainText("ขอบไหม้");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("spinbutton")).toHaveCount(0);
+});
+
+test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of the sale form, and a sale takes the branch's stock by each product's components", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  await openPage(page, "Settings", true);
+  const list = region(page, "รายการสินค้า");
+  /** Adds a component to the product in the popup, with what a piece takes of it. */
+  const component = async (item: string, qty: string) => {
+    await popup(page)
+      .getByRole("combobox", { name: "เพิ่มส่วนประกอบ" })
+      .click();
+    // The stock items come before the materials named after them.
+    await page
+      .getByRole("option", { name: new RegExp(`^${item}`) })
+      .first()
+      .click();
+    await popup(page).getByLabel(`จำนวน ${item}`).fill(qty);
+  };
+  const saveProduct = async () => {
+    await popup(page)
+      .getByRole("button", { name: "บันทึก", exact: true })
+      .click();
+    await expect(popup(page)).toHaveCount(0);
+  };
+  // The standard box is there from the start, with nothing set; it is never removed.
+  await expect(list).toContainText("ยังไม่ตั้งส่วนประกอบ");
+  await list.getByRole("button", { name: "แก้ไข กล่องมาตรฐาน" }).click();
+  await expect(
+    popup(page).getByRole("button", { name: "ลบสินค้า" }),
+  ).toHaveCount(0);
+  await component("เนื้อ", "120");
+  await component("น้ำพริก", "1");
+  await saveProduct();
+  await expect(list).toContainText("เนื้อ 120 กรัม · น้ำพริก 1 หลอด");
+  // A second product, of two tubes.
+  await list.getByRole("button", { name: "เพิ่มสินค้า" }).click();
+  await popup(page).getByLabel("ชื่อสินค้า").fill("น้ำพริกแพ็กคู่");
+  await popup(page)
+    .getByLabel(/^ราคาขายต่อชิ้น/)
+    .fill("55");
+  await component("น้ำพริก", "2");
+  // A quantity that is no number is refused, in words.
+  await popup(page).getByLabel("จำนวน น้ำพริก").fill("สอง");
+  await popup(page)
+    .getByRole("button", { name: "บันทึก", exact: true })
+    .click();
+  await expect(popup(page).getByRole("alert")).toHaveText(
+    "รายการสินค้า: จำนวนส่วนประกอบของ「น้ำพริกแพ็กคู่」ใส่เป็นตัวเลข 0 ขึ้นไป",
+  );
+  await popup(page).getByLabel("จำนวน น้ำพริก").fill("2");
+  await saveProduct();
+  await expect(list.getByRole("row")).toHaveCount(3);
+  await expect(list).toContainText("น้ำพริก 2 หลอด");
+  await expect(list).toContainText("55 บาท");
+
+  // The branch's sale form asks for both, and the tubes sold apart have no field of their own.
+  await signInAs(page, "saladaeng");
+  await openPage(page, "Stock");
+  await setOpening(page, ["เนื้อ", "20"], ["น้ำพริก", "50"]);
+  await jotSaleOf(page);
+  await expect(form(page).getByLabel(/^น้ำพริกหลอดที่ขายแยก/)).toHaveCount(0);
+  await fill(
+    page,
+    [/^กล่องมาตรฐาน/, "10"],
+    [/^น้ำพริกแพ็กคู่/, "3"],
+    [/^ยอดขาย LINE MAN/, "3665"],
+  );
+  await save(page);
+  await expect(rows(page, "sale")).toContainText("กล่องมาตรฐาน 10");
+  await expect(rows(page, "sale")).toContainText("น้ำพริกแพ็กคู่ 3");
+  // 10 boxes of 120 g; a tube a box and two a pack.
+  await openPage(page, "Stock");
+  const main = page.getByRole("main");
+  await expect(main.getByLabel("ตัดจากยอดขาย เนื้อ")).toHaveText(
+    "ตัดจากยอดขาย 1.2",
+  );
+  await expect(main.getByLabel("ตัดจากยอดขาย น้ำพริก")).toHaveText(
+    "ตัดจากยอดขาย 16",
+  );
+  await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toHaveText("18.8 กก.");
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toHaveText("34 หลอด");
 });
 
 test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an item a branch adds is on both branches' sheets", async ({

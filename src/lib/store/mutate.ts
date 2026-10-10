@@ -8,6 +8,7 @@ import { today } from "../format";
 import { newId } from "../id";
 import {
   batchKinds,
+  boxProduct,
   branches,
   changeKinds,
   editLockedKeys,
@@ -184,6 +185,9 @@ function noteValues(
   }
   // V2-CAL-01: money from the old books is no form field, so nobody jots it; an edit keeps
   // it, and it stands for the channel money the form asks for.
+  // Tubes sold apart had a field of their own once: an edit keeps what such a note took.
+  if ((kind === "sale" || kind === "influencerBox") && kept.chiliAddons)
+    v.chiliAddons = kept.chiliAddons;
   if (kind === "sale" && kept[legacySale.key]) {
     v[legacySale.key] = kept[legacySale.key];
     const at = missing.indexOf(salesChannels(db.config)[0].key);
@@ -354,24 +358,47 @@ function checkConfig(v: Values) {
       "สาขาที่ใช้ข้าวเหนียวดิบ: อ่านรายการไม่ได้",
     );
   }
-  if (v.boxRecipe !== undefined) {
+  const label = "รายการสินค้า";
+  const rowsOf = (value: string): Values[] | null => {
     let rows: unknown;
     try {
-      rows = JSON.parse(v.boxRecipe);
+      rows = JSON.parse(value);
     } catch {}
-    const label = "สูตรต่อกล่อง";
+    return Array.isArray(rows) && rows.every((row) => row?.id) ? rows : null;
+  };
+  const once = (ids: unknown[]) => new Set(ids).size === ids.length;
+  // A figure left empty is not set (products, productMoney).
+  const figures = (values: unknown[]) =>
+    values.every((value) => (value ?? "") === "" || amount(value));
+  if (v.products !== undefined) {
+    const rows = rowsOf(v.products);
+    const items = rows?.map((row) => rowsOf(JSON.stringify(row.items ?? [])));
     assert(
-      Array.isArray(rows) &&
-        rows.every((row) => row?.id) &&
-        new Set(rows.map((row) => row.id)).size === rows.length,
+      rows &&
+        once(rows.map((row) => row.id)) &&
+        rows.some((row) => row.id === boxProduct) &&
+        items!.every((list) => list && once(list.map((item) => item.id))),
+      `${label}: อ่านรายการไม่ได้`,
+    );
+    const names = rows.map((row) => String(row.name ?? "").trim());
+    assert(names.every(Boolean), `${label}: มีสินค้าที่ยังไม่ได้ใส่ชื่อ`);
+    const lower = names.map((name) => name.toLowerCase());
+    const twice = names.find((_, at) => lower.indexOf(lower[at]) !== at);
+    assert(twice === undefined, `${label}: ชื่อ「${twice}」ซ้ำกัน`);
+    const bad = rows.find(
+      (_, at) => !figures(items![at]!.map((item) => item.qty)),
+    );
+    assert(!bad, `${label}: จำนวนส่วนประกอบของ「${bad?.name}」${figure}`);
+  }
+  if (v.productMoney !== undefined) {
+    const rows = rowsOf(v.productMoney);
+    assert(
+      rows && once(rows.map((row) => row.id)),
       `${label}: อ่านรายการไม่ได้`,
     );
     assert(
-      // A row left empty is not in the recipe (boxRecipe).
-      (rows as Values[]).every(
-        (row) => (row.qty ?? "") === "" || amount(row.qty),
-      ),
-      `${label}: ${figure}`,
+      figures(rows.flatMap((row) => [row.price, row.cost])),
+      `${label}: ราคาและต้นทุน${figure}`,
     );
   }
   if (v.skuNames !== undefined) {

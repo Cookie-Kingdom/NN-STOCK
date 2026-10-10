@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type CSSProperties } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { DatePicker } from "@/components/atoms/DatePicker";
@@ -41,10 +41,14 @@ import { baht, qty, thaiDay } from "@/lib/format";
 import { attachmentFolder, defaults, fields, type Field } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
+  boxProduct,
   capacityWarning,
   defaultRound,
   dispatchLines,
+  isProductKey,
   isRoundKind,
+  productQty,
+  products,
   skuFor,
   skuName,
   kindInfo,
@@ -65,6 +69,7 @@ import {
   type Database,
   type Entry,
   type NoteKind,
+  type Product,
   type Values,
 } from "@/lib/store";
 import { ledgerStatuses } from "@/lib/store/ledger";
@@ -297,7 +302,7 @@ function NoteForm({
     });
   // The people's rows stand where the name field was.
   const shown = multi
-    ? visible.filter((f) => f.key === "influencer" || !giftKeys.includes(f.key))
+    ? visible.filter((f) => f.key === "influencer" || !isGiftKey(f.key))
     : visible;
   const set = (key: string, value: string) => {
     typed.current.add(key);
@@ -313,7 +318,7 @@ function NoteForm({
   // A dispatch whose PO เนื้อ lines do not add up cannot be saved; the footer says why.
   const gap = kind === "dispatch" ? lineCheck(values).gap : "";
   const figures = multi
-    ? giftFigures(typedPeople)
+    ? giftFigures(typedPeople, products(db.config))
     : noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
   const core = visible.filter((f) => f.core);
@@ -454,7 +459,7 @@ function NoteForm({
                 ) : multi && f.key === "influencer" ? (
                   <GiftRowsControl
                     key={f.key}
-                    fields={visible.filter((x) => giftKeys.includes(x.key))}
+                    fields={visible.filter((x) => isGiftKey(x.key))}
                     rows={people}
                     write={setPeople}
                   />
@@ -514,24 +519,28 @@ function NoteForm({
 }
 
 /** What a gift-box form takes per person; its other fields are shared by every note. */
-const giftKeys = ["influencer", "boxes", "chiliAddons", "shippingFee"];
+const isGiftKey = (key: string) =>
+  key === "influencer" || key === "shippingFee" || isProductKey(key);
 
 /** 「ตัวเลขสรุป」 of a gift-box form: the people typed so far and what they get in all. */
-function giftFigures(rows: Values[]): Figures {
-  const total = (key: string) =>
-    rows.reduce((a, row) => a + (Number(row[key]) || 0), 0);
+function giftFigures(rows: Values[], list: Product[]): Figures {
+  const fees = rows.reduce((a, row) => a + (Number(row.shippingFee) || 0), 0);
   return {
     rows: [
       { label: "จำนวนคน", value: `${qty(rows.length)} คน` },
-      { label: "กล่องที่แจก", value: `${qty(total("boxes"))} กล่อง` },
-      { label: "น้ำพริก", value: `${qty(total("chiliAddons"))} หลอด` },
-      { label: "ค่าส่ง", value: baht(total("shippingFee")), rule: true },
+      ...list.map((product) => ({
+        label: list.length > 1 ? product.name : "กล่องที่แจก",
+        value: `${qty(rows.reduce((a, row) => a + productQty(product, row), 0))} ${product.id === boxProduct ? "กล่อง" : "ชิ้น"}`,
+      })),
+      { label: "ค่าส่ง", value: baht(fees), rule: true },
     ],
   };
 }
 
-/** A gift-box form's people: rows of [name | boxes | chili | shipping fee | remove], the
- *  name on its own line below md. A row left wholly empty is not saved. */
+/** A gift-box form's people: rows of [name | a count per product | shipping fee | remove],
+ *  the name on its own line below md. A row left wholly empty is not saved.
+ *  shortcut: every count shares one line, so past three products the columns get narrow at
+ *  390px; wrap them when a shop lists that many. */
 function GiftRowsControl({
   fields: rowFields,
   rows,
@@ -549,7 +558,8 @@ function GiftRowsControl({
           key={index}
           role="group"
           aria-label={`คนที่ ${index + 1}`}
-          className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-end gap-2 border-border max-md:not-first:border-t max-md:not-first:pt-3 md:grid-cols-[minmax(0,1fr)_repeat(3,5.5rem)_auto]"
+          style={{ "--n": rowFields.length - 1 } as CSSProperties}
+          className="grid grid-cols-[repeat(var(--n),minmax(0,1fr))_auto] items-end gap-2 border-border max-md:not-first:border-t max-md:not-first:pt-3 md:grid-cols-[minmax(0,1fr)_repeat(var(--n),5.5rem)_auto]"
         >
           {rowFields.map((f) => {
             const value = row[f.key] ?? "";
@@ -559,7 +569,7 @@ function GiftRowsControl({
                 key={f.key}
                 className={fieldClassName(
                   false,
-                  name ? "max-md:col-span-3" : "max-md:order-last",
+                  name ? "max-md:col-[1/-2]" : "max-md:order-last",
                 )}
               >
                 {/* From md up the first row's labels head the columns. */}

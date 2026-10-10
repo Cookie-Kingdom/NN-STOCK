@@ -9,7 +9,13 @@ import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, qty, thaiDay } from "@/lib/format";
-import { giftBoxes, plBetween, visibleNotes } from "@/lib/store";
+import {
+  giftBoxes,
+  plBetween,
+  pieceUnit,
+  products,
+  visibleNotes,
+} from "@/lib/store";
 
 /** Days drawn before 「ดูเพิ่มเติม」. */
 const dayStep = 7;
@@ -31,14 +37,22 @@ export function BranchSales({ ws }: { ws: Workspace }) {
   const { limit, more } = useShowMore("", dayStep);
   // A branch holds its own notes only, so the day's P&L is its own sale.
   const sold = plBetween(db, today, today);
+  // Pieces of every product; they are boxes while the box is the only one.
+  const boxes = pieceUnit(products(db.config)) === "กล่อง";
   return (
     <div className="flex flex-col gap-4">
       <Panel compact aria-label="ยอดวันนี้">
         <h2 className="m-0 text-h3">วันนี้</h2>
-        <ReadRow label="กล่องที่ขาย" value={qty(sold.boxes)} />
+        <ReadRow
+          label={boxes ? "กล่องที่ขาย" : "สินค้าที่ขาย (ชิ้น)"}
+          value={qty(sold.boxes)}
+        />
         <ReadRow label="ยอดขาย" value={baht(sold.sales)} />
         {/* The helper takes a date prefix: a whole date is that one day. */}
-        <ReadRow label="กล่องแจก" value={qty(giftBoxes(db, today).boxes)} />
+        <ReadRow
+          label={boxes ? "กล่องแจก" : "สินค้าแจก (ชิ้น)"}
+          value={qty(giftBoxes(db, today).boxes)}
+        />
       </Panel>
       {dates.length === 0 && <EmptyState text="ยังไม่มียอดขายหรือกล่องแจก" />}
       {dates.slice(0, limit).map((date) => (

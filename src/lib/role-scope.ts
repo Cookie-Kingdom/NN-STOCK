@@ -10,7 +10,7 @@ import {
  * from, and the stock lines of what the Owner bought for it (V2-ACC-06, V2-ACC-07). Nothing of another branch, no cost, no central stock.
  *
  * `branchScope` is the rule. The same JSON sits in app_state_scope_rules(), as migration
- * 20261010000001_scope_box_recipe.sql last defined it, and tests/unit/server.test.ts checks the two are equal, so
+ * 20261010000002_scope_products.sql last defined it, and tests/unit/server.test.ts checks the two are equal, so
  * change both.
  * `scopeDatabase` is the JS port of scope_app_state() there (GET /api/local-db uses it).
  *
@@ -77,6 +77,7 @@ export const branchScope: {
     "payCategories",
     "rawRiceBranches",
     "boxRecipe",
+    "products",
   ],
   stockKinds: ["pay", "expense"],
   stockKeys: [

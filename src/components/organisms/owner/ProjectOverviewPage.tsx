@@ -3,18 +3,16 @@
 import { Panel } from "@/components/atoms/Panel";
 import { Stat } from "@/components/atoms/Stat";
 import { Caption } from "@/components/atoms/Text";
-import { lotLabel } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, fmt, qty } from "@/lib/format";
 import {
-  boxCost,
   branches,
   capexCategory,
   giftBoxes,
   monthPl,
-  n,
   payCategories,
   plBetween,
+  products,
   legacySale,
   noBranch,
   salesChannels,
@@ -91,8 +89,9 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
     }));
   const scale = Math.max(now.income, now.income - now.profit, 1);
   const channels = salesChannels(db.config);
-  const cost = boxCost(db);
-  const price = n(db.config, "boxPrice");
+  // Pieces of every product; they are boxes while the box is the only one.
+  const several = products(db.config).length > 1;
+  const piece = several ? "ชิ้น" : "กล่อง";
   const gifts = giftBoxes(db, key);
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";
@@ -162,37 +161,15 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           }
         />
         <Stat
-          label="กล่องที่ขาย"
-          value={`${qty(now.boxes)} กล่อง`}
-          note={`ยอดขายต่อกล่อง ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ยอดขายเฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
+          label={several ? "สินค้าที่ขาย" : "กล่องที่ขาย"}
+          value={`${qty(now.boxes)} ${piece}`}
+          note={`ยอดขายต่อ${piece} ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ยอดขายเฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
         />
         <Stat
-          label="ต้นทุนต่อกล่อง"
+          label={`${several ? "สินค้าแจก" : "กล่องแจก"}${current ? `${span}นี้` : ` ${period.name}`}`}
           value={
             <>
-              {cost ? `฿${fmt(cost.total)}` : "—"}
-              <small className={hint}>
-                {cost
-                  ? `เนื้อ ฿${fmt(cost.meat)} + แพ็กเกจ ${baht(cost.pack)} คิดจาก ${lotLabel(db, cost.lotId)} ราคาขายกล่องละ ${baht(price)}`
-                  : "ยังไม่มี Lot ที่จดครบ"}
-              </small>
-              {/* Not a profit line of the P&L (V2-CAL-06): the box price less its cost,
-                  before the channel's GP and every expense. */}
-              {cost && price > 0 && (
-                <small className={hint}>
-                  กำไรต่อกล่อง {perBox(price - cost.total)} ก่อนหัก GP
-                  และค่าใช้จ่าย ต้นทุนเท่ากับ {share(cost.total, price)}{" "}
-                  ของราคาขาย
-                </small>
-              )}
-            </>
-          }
-        />
-        <Stat
-          label={current ? `กล่องแจก${span}นี้` : `กล่องแจก ${period.name}`}
-          value={
-            <>
-              {qty(gifts.boxes)} กล่อง
+              {qty(gifts.boxes)} {piece}
               <small className={hint}>
                 {gifts.value !== null && `ต้นทุนประมาณ ${baht(gifts.value)} `}
                 ไม่นับใน P&L

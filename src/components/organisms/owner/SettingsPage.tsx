@@ -13,36 +13,34 @@ import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
 import { SectionAction } from "@/components/molecules/SectionAction";
 import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
+import {
+  ProductDialog,
+  newProduct,
+  productDrafts,
+  productItems,
+  productsTitle,
+  type ProductDraft,
+} from "./ProductDialog";
 import { SkuDialog, skuTitle } from "./SkuDialog";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  boxRecipe,
   branches,
-  gramItems,
   materialList,
   mutate,
   payCategories,
   rawRiceBranches,
   salesChannels,
   seed,
-  sheetItems,
   skuCatalogue,
   type Database,
   type Values,
 } from "@/lib/store";
-import { cn } from "@/lib/utils";
 
 type Section =
-  | "numbers"
-  | "channels"
-  | "categories"
-  | "rice"
-  | "recipe"
-  | "materials"
-  | "header";
+  "numbers" | "channels" | "categories" | "rice" | "materials" | "header";
 type ListSection = "channels" | "categories" | "materials";
 type Setting = {
   key: string;
@@ -56,9 +54,7 @@ type Setting = {
 };
 
 const numbers: Setting[] = [
-  { key: "boxPrice", label: "ราคากล่อง", unit: "บาท" },
   { key: "packKg", label: "น้ำหนักเนื้อต่อกล่อง", unit: "กก." },
-  { key: "packCost", label: "ต้นทุนแพ็กเกจต่อกล่อง", unit: "บาท" },
   { key: "shippingFee", label: "ค่าขนส่งไป-กลับต่อรอบ", unit: "บาท" },
   { key: "smokeRate", label: "ค่ารมต่อกก. ต่ำกว่า 1,000 กก.", unit: "บาท" },
   { key: "smokeRate1000", label: "ค่ารมต่อกก. ตั้งแต่ 1,000 กก.", unit: "บาท" },
@@ -128,7 +124,6 @@ const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
   header: "ข้อมูลหัวเอกสาร",
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
-  recipe: "สูตรต่อกล่อง",
   channels: lists.channels.title,
   categories: lists.categories.title,
   materials: lists.materials.title,
@@ -144,24 +139,6 @@ const rowsOf = (db: Database, section: ListSection): Values[] =>
     : section === "materials"
       ? materialList(db)
       : payCategories(db.config);
-/** 「สูตรต่อกล่อง」 as rows: the meat, the raw rice and the chili, then every material, each
- *  with what a box takes of it (`qty`, "" for none) in the unit it is typed in. */
-const recipeRows = (db: Database): Values[] => {
-  const recipe = boxRecipe(db.config);
-  return [...sheetItems(db, "meat"), ...materialList(db)].map((item) => ({
-    id: item.id,
-    name: item.name,
-    unit: gramItems.includes(item.id) ? "กรัม" : item.unit,
-    qty: String(recipe.get(item.id) ?? ""),
-  }));
-};
-/** Those rows as `config.boxRecipe` holds them: only the rows with a quantity. */
-const recipeOf = (rows: Values[]) =>
-  JSON.stringify(
-    rows
-      .map((row) => ({ id: row.id, qty: row.qty.trim() }))
-      .filter((row) => row.qty),
-  );
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -196,7 +173,7 @@ const logoOf = (values: Values) =>
  *  One section is open at a time; 「บันทึก」 saves that section as its own `config` note, and
  *  a value `mutate` refuses is said beside the buttons. */
 /** The project's own settings (/owner/nn-x-lm/settings): the figures, the raw rice
- *  branches, the box recipe and the materials. The rest is the shop's (/owner/settings). */
+ *  branches, the product list and the materials. The rest is the shop's (/owner/settings). */
 export const ProjectSettingsPage = ({ ws }: { ws: Workspace }) => (
   <SettingsPage ws={ws} project />
 );
@@ -215,6 +192,8 @@ export function SettingsPage({
   const [rows, setRows] = useState<Values[]>([]);
   const [message, setMessage] = useState("");
   const [skusOpen, setSkusOpen] = useState(false);
+  /** The product whose popup is open. */
+  const [product, setProduct] = useState<ProductDraft | null>(null);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
 
   /** Opens a section on the settings as they stand; `add` starts a list on a new row. */
@@ -224,7 +203,7 @@ export function SettingsPage({
     if (isList(section)) {
       const now = rowsOf(latestDatabase(), section);
       setRows(add ? addRow(section, now) : now);
-    } else if (section === "recipe") setRows(recipeRows(latestDatabase()));
+    }
     setEditing(section);
     setError("");
     setMessage("");
@@ -278,12 +257,7 @@ export function SettingsPage({
         !(section === "materials" && typed.some((row) => !row.sku))
           ? {}
           : { [lists[section].key]: JSON.stringify(typed) };
-    } else if (section === "recipe")
-      input =
-        recipeOf(rows) === recipeOf(recipeRows(latest))
-          ? {}
-          : { boxRecipe: recipeOf(rows) };
-    else
+    } else
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
@@ -483,6 +457,7 @@ export function SettingsPage({
       </>
     );
   };
+  const stockItems = productItems(db);
   const skus = skuCatalogue(db);
   const materialSkus = skus.filter((item) => item.material).length;
   const logo = logoOf(editing === "header" ? draft : db.config);
@@ -531,43 +506,59 @@ export function SettingsPage({
                 ))}
               </div>,
             )}
-            {card(
-              "recipe",
-              "ขายหรือแจก 1 กล่อง เว็บตัดสต๊อกของสาขาตามจำนวนในนี้ให้เอง แยกจาก “ใช้ไป” ที่สาขาพิมพ์ รายการที่เว้นว่างหรือเป็น 0 จะไม่ถูกตัด น้ำพริกที่ขายแยกตัดหลอดต่อหลอดเสมอ แก้สูตรแล้วยอดย้อนหลังคิดใหม่ตามสูตรล่าสุด",
-              <StockTable columns={["รายการ", "ต่อกล่อง"]} right={["ต่อกล่อง"]}>
-                {(editing === "recipe" ? rows : recipeRows(db)).map(
-                  (row, index) => (
-                    <tr key={row.id}>
-                      <Cell>{row.name}</Cell>
-                      <Cell
-                        right
-                        className={cn(editing === "recipe" && "py-1.5")}
+            <DayCard
+              aria-label={productsTitle}
+              title={productsTitle}
+              aside={
+                <Button
+                  size="sm"
+                  disabled={editing !== null}
+                  onClick={() => setProduct(newProduct())}
+                >
+                  เพิ่มสินค้า
+                </Button>
+              }
+            >
+              <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
+                สินค้าแต่ละรายการมีช่องจำนวนในฟอร์มยอดขายและกล่องแจก ขายหรือแจก
+                1 ชิ้น เว็บตัดสต๊อกของสาขาตามส่วนประกอบให้เอง แยกจาก “ใช้ไป”
+                ที่สาขาพิมพ์ แก้ส่วนประกอบแล้วยอดย้อนหลังคิดใหม่ตามล่าสุด
+                สินค้าแรกลบไม่ได้ และจำนวนที่เคยจดของสินค้าที่ลบแล้วจะไม่ถูกนับ
+                กดชื่อสินค้าเพื่อแก้ไข
+              </p>
+              <StockTable
+                columns={["สินค้า", "ราคา", "ต้นทุนอื่น"]}
+                right={["ราคา", "ต้นทุนอื่น"]}
+              >
+                {productDrafts(db).map((row) => (
+                  <tr key={row.id}>
+                    <Cell>
+                      <Button
+                        variant="link"
+                        className="min-h-11 px-0 text-left font-semibold"
+                        aria-label={`แก้ไข ${row.name}`}
+                        disabled={editing !== null}
+                        onClick={() => setProduct(row)}
                       >
-                        <span className="flex items-center justify-end gap-2">
-                          {editing === "recipe" ? (
-                            // Text, not number: `mutate` words the refusal of a bad figure.
-                            <Input
-                              inputMode="decimal"
-                              aria-label={`ต่อกล่อง ${row.name}`}
-                              className="mt-0 min-h-10 w-20 text-right"
-                              value={row.qty}
-                              onChange={(event) =>
-                                setRow(index, "qty", event.target.value)
-                              }
-                            />
-                          ) : (
-                            <ReadOnlyValue>{row.qty || "—"}</ReadOnlyValue>
-                          )}
-                          <span className="w-12 text-left text-caption font-normal text-text-secondary">
-                            {row.unit}
-                          </span>
-                        </span>
-                      </Cell>
-                    </tr>
-                  ),
-                )}
-              </StockTable>,
-            )}
+                        {row.name}
+                      </Button>
+                      <Muted as="span" className="block text-caption">
+                        {row.items
+                          .map((item) => {
+                            const known = stockItems.find(
+                              (x) => x.id === item.id,
+                            );
+                            return `${known?.name ?? item.id} ${item.qty} ${known?.unit ?? ""}`.trim();
+                          })
+                          .join(" · ") || "ยังไม่ตั้งส่วนประกอบ"}
+                      </Muted>
+                    </Cell>
+                    <Cell right>{row.price ? `${row.price} บาท` : "—"}</Cell>
+                    <Cell right>{row.cost ? `${row.cost} บาท` : "—"}</Cell>
+                  </tr>
+                ))}
+              </StockTable>
+            </DayCard>
           </div>
           <div className="flex min-w-0 flex-col gap-4">
             {card(
@@ -658,6 +649,13 @@ export function SettingsPage({
         </>
       )}
       {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
+      {product && (
+        <ProductDialog
+          ws={ws}
+          product={product}
+          onClose={() => setProduct(null)}
+        />
+      )}
     </div>
   );
 }
