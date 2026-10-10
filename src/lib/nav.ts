@@ -9,6 +9,7 @@ import {
   Package,
   Receipt,
   Settings,
+  SlidersHorizontal,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export type Tab =
   | "finance"
   | "oldLots"
   | "accounting"
+  | "projectSettings"
   | "settings";
 
 /** The sidebar section that holds the project's Overview, Lots, Stock, Inventory,
@@ -100,6 +102,14 @@ export const pages: Record<
     icon: Archive,
     group: shopGroup,
   },
+  // The same name as the shop's, as the Overview is: /owner/nn-x-lm/settings.
+  projectSettings: {
+    label: "Settings",
+    description:
+      "ค่าที่ใช้คำนวณ สาขาที่ใช้ข้าวเหนียวดิบ และรายชื่อวัสดุของโปรเจกต์",
+    icon: SlidersHorizontal,
+    group: shopGroup,
+  },
   // Shop-wide, outside the section: every purchase, of the project or not.
   accounting: {
     label: "Accounting",
@@ -108,7 +118,7 @@ export const pages: Record<
   },
   settings: {
     label: "Settings",
-    description: "ค่าที่ใช้คำนวณ และข้อมูลหัวเอกสาร",
+    description: "ช่องทางขาย หมวดจ่ายเงิน รายการสินค้า และข้อมูลหัวเอกสาร",
     icon: Settings,
   },
 };
@@ -123,7 +133,7 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner ten, a branch four (Sales is a
+/** The pages an account has, in menu order: the Owner eleven, a branch four (Sales is a
  *  branch's only). */
 export const navFor = (account: Pick<Account, "role">): Tab[] =>
   account.role === "branch"
@@ -137,6 +147,7 @@ export const navFor = (account: Pick<Account, "role">): Tab[] =>
         "log",
         "finance",
         "oldLots",
+        "projectSettings",
         "accounting",
         "settings",
       ];

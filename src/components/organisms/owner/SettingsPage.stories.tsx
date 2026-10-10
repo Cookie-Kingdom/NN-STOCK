@@ -14,11 +14,11 @@ import { mutate } from "@/lib/store";
 import { SettingsPage } from "./SettingsPage";
 
 /** The page, and under it what the sale form now asks for: a channel added above shows here. */
-const Settings = () => (
+const Settings = ({ project = false }: { project?: boolean }) => (
   <WithWorkspace account="owner">
     {(ws) => (
       <div className="flex flex-col gap-4">
-        <SettingsPage ws={ws} />
+        <SettingsPage ws={ws} project={project} />
         <Caption data-testid="sale-fields">
           ช่องของฟอร์มยอดขายตอนนี้:{" "}
           {fields("sale", ws.db, ws.account)
@@ -39,7 +39,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** กด「แก้ไข」ของส่วนใดส่วนหนึ่งเพื่อแก้ แล้ว「บันทึก」ส่วนนั้น (เปิดได้ทีละส่วน)
+/** หน้า Settings ของร้าน (/owner/settings): ช่องทางขาย หมวดจ่ายเงิน รายการสินค้า (SKU) และ
+ *  ข้อมูลหัวเอกสาร · ส่วนของโปรเจกต์อยู่ที่ story「Project」
+ *  กด「แก้ไข」ของส่วนใดส่วนหนึ่งเพื่อแก้ แล้ว「บันทึก」ส่วนนั้น (เปิดได้ทีละส่วน)
  *  ค่าที่เว็บไม่รับ เช่น ตัวเลขติดลบหรือชื่อว่าง ขึ้นข้อความสีแดงข้างปุ่ม
  *  เพิ่มช่องทางขายแล้วบรรทัดล่างสุดมีช่องยอดขายของช่องทางนั้นเพิ่ม ·
  *  「สาขาที่ใช้ข้าวเหนียวดิบ」: ช่องติ๊กต่อสาขา (ตั้งต้นศาลาแดง) กด「แก้ไข」จึงติ๊กได้ ·
@@ -48,9 +50,14 @@ type Story = StoryObj<typeof meta>;
  *  「รายการสินค้า (SKU)」: จำนวนรายการ กด「เปิดรายการ」เพื่อดูและแก้ชื่อใน popup (SkuDialog) */
 export const Default: Story = {};
 
+/** หน้า Settings ของโปรเจกต์ (/owner/nn-x-lm/settings): ตัวเลขสำหรับคำนวณ
+ *  สาขาที่ใช้ข้าวเหนียวดิบ และรายชื่อวัสดุ */
+export const Project: Story = { args: { project: true } };
+
 /** สาขาเพิ่มรายการในใบสต๊อกของตัวเอง (ถุงซิปล็อก · ห่อ): ขึ้นเป็นแถวสุดท้ายของ「รายชื่อวัสดุ」
  *  พร้อม SKU และหน่วยนับ */
 export const BranchAddedMaterial: Story = {
+  args: { project: true },
   parameters: {
     db: mutate(
       sampleDb,
@@ -65,6 +72,7 @@ export const BranchAddedMaterial: Story = {
 
 /** กด「แก้ไข」ของ「รายชื่อวัสดุ」: แต่ละแถวมีช่องชื่อและช่อง「หน่วยนับ」 */
 export const EditMaterials: Story = {
+  args: { project: true },
   play: async ({ canvas, userEvent }) =>
     userEvent.click(
       within(

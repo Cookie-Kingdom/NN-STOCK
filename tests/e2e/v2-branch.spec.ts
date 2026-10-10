@@ -519,7 +519,7 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   ]);
   // The Owner's Settings lists it with its unit.
   await signInAs(page, "owner");
-  await openPage(page, "Settings");
+  await openPage(page, "Settings", true);
   await expect(
     region(page, "รายชื่อวัสดุ")
       .getByRole("row", { name: /^SKU-0024/ })
