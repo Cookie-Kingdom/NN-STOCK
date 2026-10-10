@@ -6,6 +6,7 @@ import { accountById, type AccountId } from "@/lib/accounts";
 import { today } from "@/lib/format";
 import {
   liveEntries,
+  materialList,
   mutate,
   purchaseLots,
   seed,
@@ -110,6 +111,47 @@ const dispatchOf = (kg1: string, kg2: string): Draft => {
   };
 };
 
+/** The sample with 「รายการสินค้า」 of two products (a box of meat, a tube and two bags; a
+ *  tube sold apart), มีนบุรี's stock set today, and a sale of both jotted today. */
+const productsDb = (() => {
+  const branch = accountById("minburi")!;
+  const date = today();
+  const bag = materialList(sampleDb)[0].id;
+  const items = (...rows: [string, string][]) =>
+    rows.map(([id, qty]) => ({ id, qty }));
+  let db = mutate(
+    sampleDb,
+    accountById("owner")!,
+    "config",
+    {
+      products: JSON.stringify([
+        {
+          id: "box",
+          name: "กล่องมาตรฐาน",
+          items: items(["meat", "120"], ["chili", "1"], [bag, "2"]),
+        },
+        { id: "tube", name: "น้ำพริกหลอด", items: items(["chili", "1"]) },
+      ]),
+    },
+    "",
+    date,
+  );
+  for (const opening of [
+    { sheet: "meat", "qty.meat": "12", "qty.chili": "60" },
+    { sheet: "materials", [`qty.${bag}`]: "300" },
+  ])
+    db = mutate(db, branch, "opening", opening, "", date);
+  return mutate(
+    db,
+    branch,
+    "sale",
+    { boxes: "24", "product.tube": "6", lineMan: "8200" },
+    "",
+    date,
+  );
+})();
+const productsStory = { db: dbFor("minburi", productsDb) };
+
 const meta = {
   title: "Organisms/Workspace/Composer",
   component: Opened,
@@ -198,6 +240,47 @@ export const CmReceive: Story = {
 export const SaleBranch: Story = {
   args: { account: "minburi", open: { kind: "sale" } },
   parameters: { db: dbFor("minburi") },
+};
+
+/** ยอดขายเมื่อ「รายการสินค้า」มีหลายสินค้า: เริ่มที่บรรทัดเดียว เลือกสินค้าแรกไว้ให้ ·
+ *  「เพิ่มรายการ」เพิ่มบรรทัด (หายไปเมื่อทุกสินค้ามีบรรทัดแล้ว) สินค้าหนึ่งอยู่ได้บรรทัดเดียว ·
+ *  บรรทัดเดียวลบไม่ได้ · พิมพ์จำนวนแล้วกล่อง「สต๊อกหลังบันทึก」ขึ้นใต้บรรทัด · มีช่อง「หลักฐานยอดขาย」 */
+export const SaleProducts: Story = {
+  args: { account: "minburi", open: { kind: "sale" } },
+  parameters: productsStory,
+};
+
+/** ยอดขายหลายสินค้า: สองบรรทัด กล่อง「สต๊อกหลังบันทึก」บอกว่าตัดและเหลือเท่าไรต่อรายการ ณ วันที่ของฟอร์ม */
+export const SaleSeveral: Story = {
+  args: {
+    account: "minburi",
+    open: {
+      kind: "sale",
+      values: { boxes: "20", "product.tube": "5", lineMan: "7100" },
+    },
+  },
+  parameters: productsStory,
+};
+
+/** แก้ไขยอดขายที่จดไว้: เปิดมาบรรทัดละสินค้าที่บันทึกมีจำนวน · 「เหลือ」ไม่นับยอดขายนี้ซ้ำ
+ *  (ยังไม่แก้อะไร ตัวเลขเหลือเท่ากับในหน้า Stock) */
+export const SaleEdit: Story = {
+  args: {
+    account: "minburi",
+    open: {
+      editId: liveEntries(productsDb).findLast((e) => e.kind === "sale")!.id,
+    },
+  },
+  parameters: productsStory,
+};
+
+/** ขายเกินสต๊อก: 「เหลือ」ติดลบเป็นสีแดง บันทึกได้ตามปกติ ไม่มีคำเตือน (V2-RUL-05) */
+export const SaleBelowZero: Story = {
+  args: {
+    account: "minburi",
+    open: { kind: "sale", values: { boxes: "120", "product.tube": "40" } },
+  },
+  parameters: productsStory,
 };
 
 /** สาขา: จ่ายเงินได้เฉพาะหมวดของสาขา */
@@ -314,6 +397,13 @@ export const PhoneDispatch: Story = {
   ...DispatchShort,
   ...phone,
   parameters: { ...DispatchShort.parameters, ...phone.parameters },
+};
+
+/** จอ 390px: บรรทัดสินค้าของยอดขายและกล่อง「สต๊อกหลังบันทึก」 ไม่มีการเลื่อนแนวนอน */
+export const PhoneSale: Story = {
+  ...SaleBelowZero,
+  ...phone,
+  parameters: { ...SaleBelowZero.parameters, ...phone.parameters },
 };
 
 /** จอ 390px: ถามก่อนลบเป็น bottom sheet ชิดล่างจอ ไม่เต็มจอ ปุ่มกว้างเท่ากัน */

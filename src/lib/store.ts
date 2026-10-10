@@ -103,6 +103,8 @@ export {
   sheetOf,
   sheetNote,
   branchItem,
+  noteTakes,
+  salePreview,
   wasteWeek,
   pendingTransfers,
   supplierBalances,

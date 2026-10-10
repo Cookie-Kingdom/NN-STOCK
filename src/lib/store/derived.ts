@@ -16,7 +16,6 @@ import {
   boxProduct,
   gramItems,
   pieces,
-  productKey,
   productMeatKg,
   productMoney,
   productQty,
@@ -24,6 +23,7 @@ import {
   rawRiceBranches,
   sheets,
   type Material,
+  type Product,
   type Sheet,
   payCategories,
   salesChannels,
@@ -846,6 +846,17 @@ function sheetDays(
       days.set(e.date, { ...days.get(e.date), ...e.values });
   return days;
 }
+/** What a `sale` or an `influencerBox` note of these `values` takes of an item by itself
+ *  (V2-CAL-10): over every product, its count × the product's quantity of the item, and for
+ *  the chili the `chiliAddons` of a note saved when tubes sold apart had their own field. */
+export const noteTakes = (list: Product[], itemId: string, values: Values) =>
+  // Divided last: 27 boxes of 120 g are 3.24 kg, not 27 × 0.12.
+  list.reduce(
+    (a, p) => a + productQty(p, values) * (p.items.get(itemId) ?? 0),
+    0,
+  ) /
+    (gramItems.includes(itemId) ? 1000 : 1) +
+  (itemId === "chili" ? Number(values.chiliAddons) || 0 : 0);
 /** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
  *  `remaining = opening + autoReceived + received − used − sold`.
  *  - `opening`: the balance at the start of the day: the day before's remaining carried
@@ -893,19 +904,11 @@ export function branchItem(
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
-  /** The products holding the item: [the note value of their count, the item a piece]. */
-  const holding = products(db.config)
-    .map((p): [string, number] => [productKey(p.id), p.items.get(itemId) ?? 0])
-    .filter(([, per]) => per);
-  // Divided last: 27 boxes of 120 g are 3.24 kg, not 27 × 0.12.
-  const perUnit = gramItems.includes(itemId) ? 1000 : 1;
+  const list = products(db.config);
   const taken = new Map<string, number>();
   for (const kind of ["sale", "influencerBox"] as const)
     for (const e of entries(db, kind, undefined, branch)) {
-      const qty =
-        holding.reduce((a, [key, per]) => a + num(e.values, key) * per, 0) /
-          perUnit +
-        (itemId === "chili" ? num(e.values, "chiliAddons") : 0);
+      const qty = noteTakes(list, itemId, e.values);
       if (qty) taken.set(e.date, (taken.get(e.date) ?? 0) + qty);
     }
   const daily = sheetDays(db, "daily", branch, sheet);
@@ -952,6 +955,31 @@ export function branchItem(
     saved: !!now,
     set,
   };
+}
+/** The sale form's preview (V2-BR-13): what a sale of these `values` takes from the branch's
+ *  stock and what is left of each item on `date` once it is saved, a line per item of the
+ *  branch's sheets that the typed products hold. `saved`: the note being edited, which the
+ *  stock already counts when its date is not after `date`. */
+export function salePreview(
+  db: Database,
+  branch: string,
+  values: Values,
+  date: string,
+  saved?: Entry,
+) {
+  const list = products(db.config);
+  return sheets
+    .flatMap((sheet) => sheetItems(db, sheet, branch))
+    .flatMap((item) => {
+      const take = noteTakes(list, item.id, values);
+      if (!take) return [];
+      const own =
+        saved && saved.date <= date
+          ? noteTakes(list, item.id, saved.values)
+          : 0;
+      const left = branchItem(db, branch, item.id, date).remaining + own - take;
+      return [{ id: item.id, name: item.name, unit: item.unit, take, left }];
+    });
 }
 /** For the Owner's Overview: a branch's waste over the 7 days ending on `date`. `saved`: how
  *  many of those days have a saved sheet, per sheet. `items`: every item with some waste, its

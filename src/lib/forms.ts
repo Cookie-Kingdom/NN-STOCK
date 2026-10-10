@@ -107,7 +107,9 @@ const file = (label: string): Field => ({
 const core = (field: Field): Field => ({ ...field, core: true });
 const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
-/** One count field per product of 「รายการสินค้า」, in list order; only the first is core. */
+/** One count field per product of 「รายการสินค้า」, in list order; only the first is core. The
+ *  sale form lays them out as rows, a product picked per row (the composer), and a sale lacks
+ *  its products only when none has a count (`mutate`). */
 const productFields = (db: Database): Field[] =>
   products(db.config).map((product, index) =>
     count(
@@ -485,7 +487,7 @@ export function fields(
         ),
         number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),
         text("payer", "ผู้จ่าย / ผู้สำรองจ่าย"),
-        note,
+        ...more(file("หลักฐานยอดขาย"), note),
       ];
     case "receive":
       return [
@@ -677,9 +679,10 @@ export function fields(
   }
 }
 /** The storage folder a file of a `kind` note goes to (attachment-store.ts): the kind, but a
- *  payroll receipt goes to `payroll` (Owner only), a Foodiva invoice to `foodivaConfirm` and
- *  a ledger expense's or income's document to `purchase` (folders the storage policies already take, so
- *  no SQL change: a folder they do not list is refused with a 400). */
+ *  payroll receipt goes to `payroll` (Owner only), a Foodiva invoice to `foodivaConfirm`, a
+ *  ledger expense's or income's document to `purchase` and a sale's proof to `pay`, the one
+ *  folder a branch may write to (folders the storage policies already take, so no SQL
+ *  change: a folder they do not list is refused with a 400). */
 export const attachmentFolder = (kind: NoteKind, values: Values) =>
   kind === "pay" && values.category === payrollCategory
     ? "payroll"
@@ -687,7 +690,9 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
       ? "foodivaConfirm"
       : kind === "expense" || kind === "income"
         ? "purchase"
-        : kind;
+        : kind === "sale"
+          ? "pay"
+          : kind;
 /** What a new form of `kind` starts with; every other field starts empty. With `config`, a
  *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
 export function defaults(kind: NoteKind, config?: Values): Values {

@@ -26,6 +26,8 @@ import {
   dispatchLines,
   editBlock,
   isNoteKind,
+  isProductKey,
+  missingKeys,
   noBranch,
   skuName,
   titles,
@@ -176,8 +178,13 @@ export function NoteValues({ entry: e, ws }: { entry: Entry; ws: Workspace }) {
                 ),
               ],
             ];
+          // A product's count is not jotted only where the note lists it: a sale with
+          // another product's count lacks none.
           if (!value)
-            return f.core ? [[label, <MissingMark key="none" />]] : [];
+            return f.core &&
+              !(isProductKey(f.key) && !missingKeys(v).includes(f.key))
+              ? [[label, <MissingMark key="none" />]]
+              : [];
           if (f.type === "file")
             return [
               [

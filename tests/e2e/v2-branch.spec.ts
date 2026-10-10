@@ -526,6 +526,8 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   await setOpening(page, ["เนื้อ", "20"], ["น้ำพริก", "50"]);
   await jotSaleOf(page);
   await expect(form(page).getByLabel(/^น้ำพริกหลอดที่ขายแยก/)).toHaveCount(0);
+  // A row per product: the form opens on the box, and the second row takes the pack.
+  await form(page).getByRole("button", { name: "เพิ่มรายการ" }).click();
   await fill(
     page,
     [/^กล่องมาตรฐาน/, "10"],
