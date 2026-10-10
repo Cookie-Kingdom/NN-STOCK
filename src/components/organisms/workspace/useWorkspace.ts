@@ -102,7 +102,7 @@ export function useWorkspace(account: Account) {
     /** The note a 「ลบ」 is asking about: the composer shows its confirm. `null` closes it. */
     deleting,
     setDeleting,
-    /** Everything yellow for this account: the todo box and the bell list it. */
+    /** Everything yellow for this account: the bell lists it. */
     todos: list,
     /** What selecting a todo does: the form it names, the edit of its entry, or the Stock or Inventory page. */
     openTodo: (todo: Todo) => {
