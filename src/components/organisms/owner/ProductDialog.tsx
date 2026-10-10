@@ -16,8 +16,10 @@ import { latestDatabase } from "@/lib/persistence";
 import {
   boxProduct,
   gramItems,
+  lastProductCode,
   materialList,
   mutate,
+  productCodeText,
   productMoney,
   productUnit,
   products,
@@ -69,11 +71,12 @@ export const productDrafts = (db: Database): ProductDraft[] =>
     };
   });
 
-/** A new product, not in the list until saved. */
+/** A new product, not in the list until saved. Its code is the one `mutate` will issue
+ *  (the next after it, if another product is saved first). */
 export const newProduct = (): ProductDraft => ({
   // ponytail: the clock as the short id; one Owner adds one product at a time.
   id: "p" + Date.now().toString(36),
-  code: "",
+  code: productCodeText(lastProductCode(latestDatabase()) + 1),
   name: "",
   unit: productUnit(""),
   off: false,
