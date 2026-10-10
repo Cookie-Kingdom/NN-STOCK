@@ -118,7 +118,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   await fill(
     page,
     [/^หมวด/, "ขนส่ง"],
-    [/^ยอด \(บาท\)/, "80"],
+    [/^ยอดค้างชำระ \(บาท\)/, "80"],
     [/^รายละเอียด/, "วินส่งของทดสอบ"],
   );
   await save(page);

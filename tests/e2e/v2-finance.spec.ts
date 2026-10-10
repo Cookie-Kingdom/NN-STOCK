@@ -63,7 +63,7 @@ const pay = async (
     page,
     [theDate, date],
     [/^หมวด/, category],
-    [/^ยอด \(บาท\)/, amount],
+    [/^ยอดค้างชำระ \(บาท\)/, amount],
   );
   await save(page);
 };
@@ -229,7 +229,7 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
     "data-value",
     "rent",
   );
-  await fill(page, [/^ยอด \(บาท\)/, "20500"]);
+  await fill(page, [/^ยอดค้างชำระ \(บาท\)/, "20500"]);
   await save(page);
   await expect(reminder).toHaveCount(0);
   await expect(rent).toHaveText(["−฿20,500", "—", "−฿18,000"]);

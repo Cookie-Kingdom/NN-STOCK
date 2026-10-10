@@ -215,7 +215,7 @@ test("Overview: with two channels of different GP, the shop's revenue is after e
   await signInAs(page, "owner");
   await openPage(page, "Finance");
   await jot(page, "จ่ายเงิน");
-  await fill(page, [/^หมวด/, "ขนส่ง"], [/^ยอด \(บาท\)/, "1600"]);
+  await fill(page, [/^หมวด/, "ขนส่ง"], [/^ยอดค้างชำระ \(บาท\)/, "1600"]);
   await save(page);
 
   const main = page.getByRole("main");
@@ -349,7 +349,7 @@ test("Finance: money out of pocket is an expense when it is paid, and money out 
     await fill(
       page,
       [/^หมวด/, category],
-      [/^ยอด \(บาท\)/, amount],
+      [/^ยอดค้างชำระ \(บาท\)/, amount],
       [/^ผู้จ่าย/, payer],
     );
     await save(page);

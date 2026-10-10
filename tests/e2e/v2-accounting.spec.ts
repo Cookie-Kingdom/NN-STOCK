@@ -59,7 +59,7 @@ const payFoodiva = async (page: Page, amount: string) => {
   await fill(
     page,
     [/^หมวด/, "เนื้อ"],
-    [/^ยอด \(บาท\)/, amount],
+    [/^ยอดค้างชำระ \(บาท\)/, amount],
     [/^ผู้ขาย/, "Foodiva"],
   );
   await save(page);

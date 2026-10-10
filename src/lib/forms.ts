@@ -416,7 +416,7 @@ export function fields(
           search: true,
           options: categories.map((c) => ({ value: c.id, label: c.name })),
         }),
-        core(number("amount", "ยอด", "บาท")),
+        core(number("amount", "ยอดค้างชำระ", "บาท")),
         text("detail", "รายละเอียด"),
         text("employee", "ชื่อพนักงาน", {
           when: (values) => values.category === payrollCategory,
