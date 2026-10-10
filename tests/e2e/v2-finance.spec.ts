@@ -1,10 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   bangkokDate,
+  bell,
   fill,
   form,
   jot,
   jotButtons,
+  openBell,
   openPage,
   popup,
   region,
@@ -186,13 +188,10 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await signInAs(page, "owner");
   // The Overview shows revenue only: the reminder is in the bell.
   await expect(region(page, "ยังไม่ได้จด")).toHaveCount(0);
-  const bell = page
-    .getByRole("button", { name: /^ยังไม่ได้จด \d+ อย่าง$/ })
-    .filter({ visible: true });
   const reminder = region(page, "การแจ้งเตือน").getByRole("button", {
     name: `ค่าเช่า/น้ำไฟ ของ${thisMonth.name}`,
   });
-  await bell.click();
+  await bell(page).click();
   await expect(reminder).toBeVisible();
   await page.keyboard.press("Escape");
   const rent = line(page, /^ค่าเช่า\/น้ำไฟ/);
@@ -207,7 +206,7 @@ test("17 · V2-PAY-04 a month with no ค่าเช่า/น้ำไฟ jott
   await expect(rent.first()).toHaveAttribute("data-tone", "warning");
 
   // The reminder opens the payment form on that category.
-  await bell.click();
+  await bell(page).click();
   await reminder.click();
   await expect(form(page).getByLabel(/^หมวด/)).toHaveAttribute(
     "data-value",
@@ -245,7 +244,7 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   );
 
   // A note of the branch today with no sale: its sale is due. It is the branch's to jot: to
-  // the Owner its yellow pill is a status, not a button.
+  // the Owner its line in the bell is a status, not a button.
   await signInAs(page, "saladaeng");
   await openPage(page, "Sales");
   await jot(page, "กล่องแจก");
@@ -256,16 +255,15 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   );
   await save(page);
   await signInAs(page, "owner");
-  await openPage(page, "Daily Log");
-  const pill = page
-    .locator(`[data-date="${today}"]`)
-    .getByText("ศาลาแดง · ยังไม่ได้จดยอดขาย");
-  await expect(pill).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /ยังไม่ได้จดยอดขาย/ }),
-  ).toHaveCount(0);
-  await pill.click();
+  const reminders = await openBell(page);
+  const due = reminders.getByText("ศาลาแดง: ยอดขาย วันนี้", { exact: true });
+  await expect(due).toBeVisible();
+  await expect(reminders.getByRole("button", { name: /ยอดขาย/ })).toHaveCount(
+    0,
+  );
+  await due.click();
   await expect(popup(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   // The branch jots its sale with both channels: its form has the new field.
   await signInAs(page, "saladaeng");

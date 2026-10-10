@@ -175,23 +175,44 @@ export async function savePo(page: Page) {
 export const toast = (page: Page, message: string | RegExp) =>
   page.locator("main").getByRole("status").filter({ hasText: message });
 
-/** Daily Log: draws every line of the 「ยังไม่ได้จด」 box (it starts with its first seven). */
-export const allTodos = async (page: Page) => {
-  const more = region(page, "ยังไม่ได้จด").getByRole("button", {
-    name: /^ดูเพิ่มเติม/,
-  });
+/** The bell (the sidebar's, or the top bar's on a phone): its name counts what is not jotted
+ *  yet. The reminders are here alone; no page lists them. */
+export const bell = (page: Page) =>
+  page
+    .getByRole("button", { name: /^ยังไม่ได้จด \d+ อย่าง$/ })
+    .filter({ visible: true });
+
+/** Opens the bell and gives its list: a line per thing not jotted yet. Escape closes it. */
+export async function openBell(page: Page) {
+  await bell(page).click();
+  return region(page, "การแจ้งเตือน");
+}
+
+/** Daily Log: draws every row of the table (it starts with its first 50). */
+export const allRows = async (page: Page) => {
+  const more = page
+    .getByRole("main")
+    .getByRole("button", { name: /^ดูเพิ่มเติม/ });
   while (await more.count()) await more.click();
 };
 
-/** Daily Log: opens every day that is closed (only today starts open), so its rows are there. */
-export const openDays = async (page: Page) => {
-  const closed = page.locator('[data-date] h3 button[aria-expanded="false"]');
-  while (await closed.count()) await closed.first().click();
-};
-
-/** The rows of one kind (`data-kind`) on the page: Daily Log, a Lot, Finance. */
+/** The rows of one kind (`data-kind`) on the page: Daily Log, a Lot, Finance. In the Daily Log
+ *  these are the rows of notes jotted, each as it was first jotted: one stays after its note
+ *  is edited (「แก้ไขภายหลัง」) or deleted (「ลบแล้ว」). */
 export const rows = (page: Page, kind: string) =>
   page.locator(`[data-entry][data-kind="${kind}"]`);
+
+/** Daily Log: the rows of one action (`data-action`): `jot`, `edit`, `void` or `undo`. */
+export const logRows = (page: Page, action: string) =>
+  page.locator(`tr[data-entry][data-action="${action}"]`);
+
+/** Daily Log: presses a row open (when it is not) and gives the row under it: every value,
+ *  who saved it and when, and its 「แก้ไข」 and 「ลบ」, or the 「ย้อนกลับ」 of a change. */
+export async function openRow(row: Locator) {
+  const head = row.getByRole("button").first();
+  if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+  return row.locator("xpath=following-sibling::tr[1]");
+}
 
 /** A branch's daily stock sheet (its Stock, its Inventory): a figure's input or cell, by the
  *  column's name and the item's (「ใช้ไป เนื้อ」, 「คงเหลือ เนื้อ」, 「ของตั้งต้น เนื้อ」). */

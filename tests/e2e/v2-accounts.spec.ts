@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  allRows,
   choices,
   fill,
   form,
@@ -7,12 +8,12 @@ import {
   jotButtons,
   nav,
   openPage,
+  openRow,
   pageButtons,
   rows,
   save,
   signInAs,
   start,
-  openDays,
 } from "./helpers";
 
 /* Spec v2 section 11, items 1–4 and 19: who sees which page, and what each account may jot. */
@@ -115,16 +116,13 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
     "ขนส่ง · วินส่งของทดสอบ",
   );
   // Its own log holds its two payments, not the ones the centre made.
-  await page.getByRole("button", { name: "ดูย้อนหลังอีก 7 วัน" }).click();
-  await openDays(page);
+  await allRows(page);
   await expect(rows(page, "pay")).toHaveCount(2);
 
   await signInAs(page, "minburi");
   for (const name of pagesOf.minburi) {
     await openPage(page, name);
-    if (name === "Daily Log")
-      await page.getByRole("button", { name: "ดูย้อนหลังอีก 7 วัน" }).click();
-    await openDays(page);
+    if (name === "Daily Log") await allRows(page);
     await expect(page.locator("[data-entry], td").first()).toBeVisible();
     expect(await page.locator("body").innerText(), name).not.toMatch(
       /ศาลาแดง|วินส่งของทดสอบ|Foodiva|กำไร|P&L|GP/,
@@ -177,16 +175,14 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
       // An open note offers 「แก้ไข」 and 「ลบ」 only, and to the Owner a
       // branch's note offers neither.
       if (name === "Daily Log") {
-        await openDays(page);
         const branchNote = page
           .locator(
             '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"], [data-kind="opening"])',
           )
           .first();
-        await branchNote.getByRole("button").first().click();
-        await expect(branchNote.getByRole("button")).toHaveText(
-          account !== "owner" ? [/.+/, "แก้ไข", "ลบ"] : [/.+/],
-        );
+        await expect(
+          (await openRow(branchNote)).getByRole("button"),
+        ).toHaveText(account !== "owner" ? ["แก้ไข", "ลบ"] : []);
         await expect(jotButtons(page)).toHaveCount(0);
       }
       // The page's buttons are the v2 kinds, and nothing that closes, locks or confirms.

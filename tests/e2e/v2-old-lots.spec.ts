@@ -3,6 +3,7 @@ import {
   bangkokDate,
   fill,
   nav,
+  openBell,
   openPage,
   pageButtons,
   popupTitle,
@@ -11,7 +12,6 @@ import {
   savePo,
   signInAs,
   start,
-  allTodos,
 } from "./helpers";
 
 /* Old Lots: the POs flagged `old` (carried over from the old workbook) are on their own page,
@@ -89,12 +89,11 @@ test("a flagged PO is on Old Lots only, raises no to-do, and is filled in there"
     await expect(listed(page, number)).toBeVisible();
 
   // The to-do list names the other PO รมควัน, and nothing of a flagged PO.
-  await openPage(page, "Daily Log");
-  const todo = region(page, "ยังไม่ได้จด");
-  await allTodos(page);
+  const todo = await openBell(page);
   await expect(todo).toContainText(`${SO2}: ยังไม่ได้จด ส่งไปรมควัน`);
   await expect(todo).not.toContainText(SO1);
   await expect(todo).not.toContainText("PO เนื้อ");
+  await page.keyboard.press("Escape");
 
   await openPage(page, "Old Lots");
   await expect(page).toHaveURL(/\/owner\/nn-x-lm\/old-lots$/);

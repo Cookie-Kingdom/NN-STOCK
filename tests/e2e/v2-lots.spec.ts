@@ -6,6 +6,7 @@ import {
   fill,
   form,
   jot,
+  openBell,
   openPage,
   pick,
   popup,
@@ -281,8 +282,8 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   await expect(lot.locator("[data-entry]")).toHaveCount(core.length);
   for (const kind of core)
     await expect(lot.locator(`[data-kind="${kind}"]`)).toHaveCount(1);
-  await openPage(page, "Daily Log");
-  await expect(region(page, "ยังไม่ได้จด")).not.toContainText("SO-");
+  await expect(await openBell(page)).not.toContainText("SO-");
+  await page.keyboard.press("Escape");
 
   // An extra note, even one left empty, never colours the PO รมควัน.
   await openPage(page, "Lots");
