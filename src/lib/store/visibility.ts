@@ -8,7 +8,6 @@ import {
   missingKeys,
   payCategories,
   rentCategory,
-  sheets,
   titles,
   voidableKinds,
   type Actor,
@@ -19,14 +18,13 @@ import {
 } from "./model";
 import {
   byDateAt,
-  hasSale,
+  saleDue,
   isVoided,
   liveEntries,
   lotInfo,
   outflows,
   poInfo,
   purchaseLots,
-  sheetNote,
   shipments,
 } from "./derived";
 /** The part of the raw log an account sees, changes included (the change log reads it). The
@@ -133,7 +131,9 @@ const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
 /** Spec section 7: everything yellow for an account, as one list for the Overview box, the
  *  Daily Log box and the bell. A branch lists its own branch; the Owner both, each
- *  line led by the branch name. A lot flagged `old` (Old Lots) and the notes on it raise none. */
+ *  line led by the branch name: the sale of each of the last 7 days the branch was open and
+ *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` (Old Lots) and
+ *  the notes on it raise none. */
 export function todos(db: Database, by: Actor, today: string): Todo[] {
   const list: Todo[] = [];
   const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
@@ -144,20 +144,14 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
       const date = new Date(Date.parse(today) - back * 86400000)
         .toISOString()
         .slice(0, 10);
-      // Only the branch jots its sale and its sheets: for the Owner the line is a status.
-      if (!hasSale(db, branch, date))
+      // Only the branch jots its sale: for the Owner the line is a status. A day the branch
+      // jotted nothing on (the shop was closed) raises none, and neither does a sheet not saved.
+      if (saleDue(db, branch, date))
         list.push({
           text: `${lead}ยอดขาย ${back ? shortDate(date) : "วันนี้"}`,
           ...(own && { kind: "sale" as const, date }),
         });
     }
-    // A line per sheet not saved today, which opens the page that holds it.
-    for (const sheet of sheets)
-      if (!sheetNote(db, "daily", branch, sheet, today))
-        list.push({
-          text: `${lead}${titles.daily} ${sheetPages[sheet].label} วันนี้ยังไม่ได้บันทึก`,
-          page: sheetPages[sheet].page,
-        });
   }
   if (!own) {
     // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).

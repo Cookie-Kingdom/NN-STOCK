@@ -1080,3 +1080,10 @@ export function giftBoxes(db: Database, month: string) {
 /** V2-PG-01: a day is green once the branch has a sale on it. */
 export const hasSale = (db: Database, branch: string, date: string) =>
   entries(db, "sale", undefined, branch, date).length > 0;
+/** V2-PG-01: a sale is due for a day the branch was open and jotted none: open is any other
+ *  live note of its own on that date. A day with no note of the branch asks for nothing. */
+export const saleDue = (db: Database, branch: string, date: string) =>
+  !hasSale(db, branch, date) &&
+  liveEntries(db).some(
+    (e) => e.role === "branch" && e.branch === branch && e.date === date,
+  );

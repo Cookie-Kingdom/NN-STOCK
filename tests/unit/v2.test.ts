@@ -25,6 +25,7 @@ import {
   poInfo,
   purchaseLots,
   rawRiceBranches,
+  saleDue,
   saleMoney,
   salesChannels,
   seed,
@@ -420,8 +421,6 @@ it("todos: what each account still has to jot", () => {
   expect(texts(owner)).toEqual(
     expect.arrayContaining([
       "ศาลาแดง: ยอดขาย วันนี้",
-      "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
-      "มีนบุรี: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
       "SO-2026-0002 รอบ TR-2026-0002: ยังไม่ได้จด น้ำหนักหลังรมควัน",
       "รอรับ Waste PO-2026-0002 15 กก.",
     ]),
@@ -431,45 +430,64 @@ it("todos: what each account still has to jot", () => {
   const branch = texts(saladaeng);
   expect(branch).toContain("ยอดขาย วันนี้");
   expect(branch.join()).not.toMatch(/SO-|PO-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
-  expect(texts(minburi)).toEqual(
-    expect.arrayContaining([
-      "ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
-      "ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
-      // Its sheet of the day before has a waste with no reason.
-      "ใบสต๊อกรายวัน 8 ก.ย.: ยังไม่ได้จด 1 ช่อง",
-    ]),
+  // มีนบุรี: no note today, and closed two days before (no note at all): no sale is due. Its
+  // sheet of the day before has a waste with no reason. A sheet not saved today is no line.
+  expect(texts(minburi)).toEqual(["ใบสต๊อกรายวัน 8 ก.ย.: ยังไม่ได้จด 1 ช่อง"]);
+  expect(texts(owner).join()).not.toMatch(/มีนบุรี: ยอดขาย|ยังไม่ได้บันทึก/);
+  // A sale is due only for a day the branch jotted something else on: nothing jotted in the
+  // last 7 days is nothing to do, and the Owner's own notes are no trace of a branch.
+  const sales = (from: Database, by: Actor = saladaeng) =>
+    todos(from, by, day)
+      .map((todo) => todo.text)
+      .filter((text) => /ยอดขาย/.test(text));
+  expect(todos(seed, saladaeng, day)).toEqual([]);
+  const paid = mutate(
+    seed,
+    owner,
+    "pay",
+    { category: "ingredient", amount: "100", branch: "ศาลาแดง" },
+    "",
+    day,
   );
-  // A line per sheet not saved today, each opening the page that holds it; saving a sheet
-  // takes its line away. Nothing is "not counted" any more.
-  const unsaved = (from: Database, by: Actor) =>
-    todos(from, by, day).filter((todo) =>
-      todo.text.endsWith("วันนี้ยังไม่ได้บันทึก"),
-    );
-  expect(unsaved(seed, saladaeng).map((todo) => todo.page)).toEqual([
-    "meatStock",
-    "stock",
-  ]);
-  expect(unsaved(seed, owner).map((todo) => todo.text)).toEqual([
-    "ศาลาแดง: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
-    "ศาลาแดง: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
-    "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก",
-    "มีนบุรี: ใบสต๊อกรายวัน Inventory วันนี้ยังไม่ได้บันทึก",
-  ]);
-  const meatSaved = mutate(
+  expect(sales(paid, owner)).toEqual([]);
+  // The day's sheet saved is a trace: that day's sale is due, for the branch and the Owner,
+  // and for no other day or branch.
+  const open = mutate(
     seed,
     saladaeng,
     "daily",
     { sheet: "meat", reporter: "ฝน" },
     "",
+    "2026-09-07",
+  );
+  expect(saleDue(open, "ศาลาแดง", "2026-09-07")).toBe(true);
+  expect(saleDue(open, "ศาลาแดง", day)).toBe(false);
+  expect(saleDue(open, "มีนบุรี", "2026-09-07")).toBe(false);
+  expect(sales(open)).toEqual(["ยอดขาย 7 ก.ย."]);
+  expect(sales(open, owner)).toEqual(["ศาลาแดง: ยอดขาย 7 ก.ย."]);
+  expect(sales(open, minburi)).toEqual([]);
+  // The sale jotted, or the trace deleted, takes the line away.
+  const sold = mutate(
+    open,
+    saladaeng,
+    "sale",
+    { boxes: "20" },
+    "",
+    "2026-09-07",
+  );
+  expect(saleDue(sold, "ศาลาแดง", "2026-09-07")).toBe(false);
+  expect(sales(sold)).toEqual(["ยอดขาย 7 ก.ย.: ยังไม่ได้จด 1 ช่อง"]);
+  const closed = mutate(
+    open,
+    saladaeng,
+    "void",
+    { targetId: last(open).id },
+    "",
     day,
   );
-  expect(unsaved(meatSaved, saladaeng).map((todo) => todo.page)).toEqual([
-    "stock",
-  ]);
-  expect(unsaved(meatSaved, minburi)).toHaveLength(2);
-  expect(todos(seed, owner, day).some((todo) => /นับ/.test(todo.text))).toBe(
-    false,
-  );
+  expect(saleDue(closed, "ศาลาแดง", "2026-09-07")).toBe(false);
+  // The delete is dated today and is no note of today.
+  expect(todos(closed, saladaeng, day)).toEqual([]);
   // A sheet with something not jotted opens its page for the branch, nothing for the Owner.
   expect(
     todos(db, minburi, day).find((todo) =>
@@ -485,9 +503,6 @@ it("todos: what each account still has to jot", () => {
     date: day,
   });
   expect(todoOpens(line(owner, "ศาลาแดง: ยอดขาย วันนี้"))).toBe(false);
-  expect(
-    line(owner, "มีนบุรี: ใบสต๊อกรายวัน Stock วันนี้ยังไม่ได้บันทึก").page,
-  ).toBe("meatStock");
   expect(
     todos(db, owner, day)
       .filter((todo) => todo.text.endsWith("ยังไม่ได้จด 1 ช่อง"))
