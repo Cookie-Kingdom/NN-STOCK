@@ -227,7 +227,7 @@ export const GiftBoxes: Story = {
         name,
       );
       await userEvent.type(
-        canvas.getAllByLabelText(/^กล่องที่แจก/)[index],
+        canvas.getAllByLabelText(/^กล่องมาตรฐาน/)[index],
         boxes,
       );
       if (fee)

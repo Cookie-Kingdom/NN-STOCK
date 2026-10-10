@@ -170,7 +170,11 @@ test("16 · V2-CAL-14 gift boxes are a figure of their own and do not change the
   await signInAs(page, "minburi");
   await openPage(page, "Sales");
   await jot(page, "กล่องแจก");
-  await fill(page, [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"], [/^กล่องที่แจก/, "4"]);
+  await fill(
+    page,
+    [/^ชื่ออินฟลูเอนเซอร์/, "@nerdnuea"],
+    [/^กล่องมาตรฐาน/, "4"],
+  );
   await save(page);
   await expect(toast(page, "จดแล้ว: กล่องแจก")).toBeVisible();
   await signInAs(page, "owner");
@@ -264,7 +268,7 @@ test("18 · Q28 V2-CAL-01 a sales channel added in Settings is a money field of 
   await fill(
     page,
     [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
-    [/^กล่องที่แจก/, "2"],
+    [/^กล่องมาตรฐาน/, "2"],
   );
   await save(page);
   await signInAs(page, "owner");

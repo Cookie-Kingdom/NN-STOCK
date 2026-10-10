@@ -411,7 +411,7 @@ function DailyForm({
         <Caption className="block px-5 py-3 max-md:px-4">
           “ใช้ไป” รวม waste แล้ว · ช่อง waste บันทึกเพื่อดูของเสียเท่านั้น
           ไม่หักสต๊อกซ้ำ · “ตัดจากยอดขาย” เว็บตัดให้เองจากยอดขายและกล่องที่แจก
-          ตามสูตรต่อกล่อง ไม่ต้องพิมพ์ซ้ำใน “ใช้ไป”
+          ตามส่วนประกอบของสินค้าใน Settings ไม่ต้องพิมพ์ซ้ำใน “ใช้ไป”
         </Caption>
         {locked ? (
           <div className="border-t border-border px-5 py-1 max-md:px-4">

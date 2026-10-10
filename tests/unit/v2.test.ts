@@ -24,6 +24,8 @@ import {
   netSalesByBranch,
   pendingTransfers,
   poInfo,
+  productCosts,
+  products,
   purchaseLots,
   rawRiceBranches,
   saleDue,
@@ -744,7 +746,6 @@ describe("figures (V2-CAL)", () => {
   });
   const sale = jot(saladaeng, "sale", "2026-09-10", {
     boxes: "10",
-    chiliAddons: "4",
     lineMan: "1000",
     "sales.grab": "500",
     expense: "100",
@@ -773,10 +774,9 @@ describe("figures (V2-CAL)", () => {
     "waste.chili": "2",
     reporter: "ฝน",
   });
-  jot(saladaeng, "influencerBox", "2026-09-12", {
+  const gift = jot(saladaeng, "influencerBox", "2026-09-12", {
     influencer: "@x",
     boxes: "2",
-    chiliAddons: "3",
     shippingFee: "50",
   });
   paid("2026-09-10", { category: "rent", amount: "2000", payer: "บริษัท" });
@@ -801,7 +801,17 @@ describe("figures (V2-CAL)", () => {
     item: "chili",
     qty: "10",
   });
-  const built = d;
+  /** `from` with `chiliAddons` laid on the notes of `tubes` (by entry id) by hand: the forms
+   *  had a field for tubes sold apart once, and the notes saved then still hold it. */
+  const withTubes = (from: Database, tubes: Record<string, string>) => ({
+    ...from,
+    entries: from.entries.map((e) =>
+      tubes[e.id]
+        ? { ...e, values: { ...e.values, chiliAddons: tubes[e.id] } }
+        : e,
+    ),
+  });
+  const built = withTubes(d, { [sale.id]: "4", [gift.id]: "3" });
 
   it("CAL-01: GP is each channel's sales × its GP %", () => {
     expect(saleMoney(built.config, sale)).toEqual({ sales: 1500, gp: 250 });
@@ -1064,19 +1074,42 @@ describe("figures (V2-CAL)", () => {
     expect(branchItem(built, "มีนบุรี", "m1", "2026-09-13").remaining).toBe(0);
   });
 
-  /** `from` with 「สูตรต่อกล่อง」 set: [item id, quantity a box] rows. */
-  const withRecipe = (from: Database, ...rows: [string, string][]) =>
+  /** `from` with the old 「สูตรต่อกล่อง」 stored and no 「รายการสินค้า」 saved yet: [item id,
+   *  quantity a box] rows. Nothing writes the key any more, so it is laid in by hand. */
+  const withRecipe = (
+    from: Database,
+    ...rows: [string, string][]
+  ): Database => ({
+    ...from,
+    config: {
+      ...from.config,
+      boxRecipe: JSON.stringify(rows.map(([id, qty]) => ({ id, qty }))),
+    },
+  });
+  type Row = { id: string; name: string; items?: [string, string][] };
+  /** `from` with 「รายการสินค้า」 saved: each product with its [item id, quantity] components. */
+  const withProducts = (from: Database, rows: Row[], money?: Values[]) =>
     mutate(
       from,
       owner,
       "config",
-      { boxRecipe: JSON.stringify(rows.map(([id, qty]) => ({ id, qty }))) },
+      {
+        products: JSON.stringify(
+          rows.map(({ items = [], ...row }) => ({
+            ...row,
+            items: items.map(([id, qty]) => ({ id, qty })),
+          })),
+        ),
+        ...(money && { productMoney: JSON.stringify(money) }),
+      },
       "",
       day,
     );
+  const box: Row = { id: "box", name: "กล่องมาตรฐาน" };
 
-  it("CAL-10: with no recipe a box takes nothing; the chili sold beside the boxes is taken all the same", () => {
-    const more = (
+  it("CAL-10: with no product list saved it is the standard box alone, which takes nothing; tubes of an old note are taken all the same", () => {
+    expect(products(built.config)).toEqual([{ ...box, items: new Map() }]);
+    const jotted = (
       [
         ["sale", { boxes: "30", chiliAddons: "9", lineMan: "1" }],
         ["influencerBox", { influencer: "@y", boxes: "8", chiliAddons: "8" }],
@@ -1086,6 +1119,13 @@ describe("figures (V2-CAL)", () => {
         mutate(next, saladaeng, kind, values, "", "2026-09-12"),
       built,
     );
+    // The forms have no such field any more: a new note saves no tubes.
+    const [a, b] = jotted.entries.slice(-2);
+    expect([a.values.chiliAddons, b.values.chiliAddons]).toEqual([
+      undefined,
+      undefined,
+    ]);
+    const more = withTubes(jotted, { [a.id]: "9", [b.id]: "8" });
     for (const id of ["meat", "m1", "m2"]) {
       expect(item(id, "2026-09-12", more).sold).toBe(0);
       expect(item(id, "2026-09-13", more)).toEqual(item(id, "2026-09-13"));
@@ -1093,6 +1133,16 @@ describe("figures (V2-CAL)", () => {
     // The 3 tubes of the gift box already there, then 9 + 8.
     expect(item("chili", "2026-09-12", more).sold).toBe(20);
     expect(item("chili", "2026-09-13", more).opening).toBe(20);
+    // An edit of such a note keeps its tubes.
+    const edited = mutate(
+      more,
+      saladaeng,
+      "entryEdit",
+      { targetId: a.id, boxes: "31", lineMan: "1" },
+      "",
+      "2026-09-12",
+    );
+    expect(item("chili", "2026-09-12", edited).sold).toBe(20);
     // A row at 0 or left empty is not in the recipe.
     const none = withRecipe(built, ["m1", "0"], ["meat", ""]);
     expect(item("m1", "2026-09-10", none).sold).toBe(0);
@@ -1100,7 +1150,6 @@ describe("figures (V2-CAL)", () => {
     // The sale form no longer asks for what the sheet holds.
     expect(fields("sale", built, saladaeng).map((f) => f.key)).toEqual([
       "boxes",
-      "chiliAddons",
       "lineMan",
       "sales.grab",
       "expense",
@@ -1109,7 +1158,7 @@ describe("figures (V2-CAL)", () => {
     ]);
   });
 
-  it("CAL-10: a sale and a gift box take boxes × the recipe, beside what the sheet says was used, and the next day opens without it", () => {
+  it("CAL-10: the old box recipe stands as the box's components until a product list is saved: a sale and a gift box take boxes × it, beside what the sheet says was used, and the next day opens without it", () => {
     const set = withRecipe(
       built,
       ["m1", "2"],
@@ -1152,11 +1201,21 @@ describe("figures (V2-CAL)", () => {
     expect(item("chili", "2026-09-12", set).sold).toBe(5);
     // 50 − (4 + 14) − (2 + 5) − 5.
     expect(item("chili", "2026-09-13", set).opening).toBe(20);
-    // Settings refuses a quantity that is no number, or below zero.
-    for (const qty of ["-1", "สอง"])
-      expect(() => withRecipe(built, ["m1", qty])).toThrow(
-        "สูตรต่อกล่อง: ใส่เป็นตัวเลข 0 ขึ้นไป",
-      );
+    // The same components saved as the box of 「รายการสินค้า」 give the same sheet.
+    const saved = withProducts(built, [
+      {
+        ...box,
+        items: [
+          ["m1", "2"],
+          ["meat", "120"],
+          ["rice", "80"],
+          ["chili", "1"],
+        ],
+      },
+    ]);
+    for (const id of ["m1", "meat", "rice", "chili"])
+      for (const date of ["2026-09-10", "2026-09-12", "2026-09-13"])
+        expect(item(id, date, saved)).toEqual(item(id, date, set));
     // A branch's copy holds the recipe: its sheet reads as the Owner's.
     expect(item("m1", "2026-09-10", scopeDatabase(set, ["ศาลาแดง"])).sold).toBe(
       20,
@@ -1168,6 +1227,178 @@ describe("figures (V2-CAL)", () => {
       sold: 0,
       remaining: 0,
     });
+  });
+
+  const tube: Row = { id: "p1", name: "น้ำพริกหลอด", items: [["chili", "1"]] };
+  const two = withProducts(
+    built,
+    [
+      {
+        ...box,
+        name: "กล่องใหญ่",
+        items: [
+          ["meat", "200"],
+          ["chili", "1"],
+          ["m1", "1"],
+        ],
+      },
+      { ...tube, items: [...tube.items!, ["m2", "0.5"]] },
+    ],
+    [
+      { id: "box", price: "400", cost: "30" },
+      { id: "p1", price: "30", cost: "12" },
+    ],
+  );
+
+  it("CAL-10: each product has its own count field, and takes stock by its own components", () => {
+    expect(fields("sale", two, saladaeng).map((f) => [f.key, f.label])).toEqual(
+      expect.arrayContaining([
+        ["boxes", "กล่องใหญ่"],
+        ["product.p1", "น้ำพริกหลอด"],
+      ]),
+    );
+    // Only the first product's field is core, on the gift form as well.
+    expect(
+      fields("influencerBox", two, saladaeng)
+        .filter((f) => f.core)
+        .map((f) => f.key),
+    ).toEqual(["influencer", "boxes"]);
+    const sold = mutate(
+      two,
+      saladaeng,
+      "sale",
+      { boxes: "3", "product.p1": "5", lineMan: "1" },
+      "",
+      "2026-09-14",
+    );
+    const on = (id: string) => item(id, "2026-09-14", sold).sold;
+    // 3 boxes of 200 g; a tube a box and a tube a tube; a box each; half a bag a tube.
+    expect(on("meat")).toBeCloseTo(0.6);
+    expect(on("chili")).toBe(8);
+    expect(on("m1")).toBe(3);
+    expect(on("m2")).toBe(2.5);
+    // Pieces sold count every product.
+    expect(plBetween(sold, "2026-09-14", "2026-09-14").boxes).toBe(8);
+    // A product removed: what the notes hold of it is counted nowhere.
+    const removed = withProducts(sold, [box]);
+    expect(plBetween(removed, "2026-09-14", "2026-09-14").boxes).toBe(3);
+    expect(item("chili", "2026-09-14", removed).sold).toBe(0);
+  });
+
+  it("CAL-06: a product costs its meat at the newest PO รมควัน's cost per kg plus its own other cost", () => {
+    // Nothing saved: the box at the old settings, 0.12 kg (packKg) × 1,200 + ฿25, sold at ฿350.
+    expect(productCosts(built)).toEqual([
+      {
+        id: "box",
+        name: "กล่องมาตรฐาน",
+        price: 350,
+        meat: 144,
+        other: 25,
+        total: 169,
+        lotId: lot,
+      },
+    ]);
+    // Components with no meat among them: the box still falls back to packKg.
+    expect(
+      productCosts(withProducts(built, [{ ...box, items: [["m1", "1"]] }]))[0],
+    ).toMatchObject({ meat: 144, other: 25, total: 169 });
+    // Its own meat (200 g) and its own money; a product with no meat costs its other cost.
+    expect(productCosts(two)).toMatchObject([
+      { id: "box", price: 400, meat: 240, other: 30, total: 270 },
+      { id: "p1", price: 30, meat: 0, other: 12, total: 12, lotId: null },
+    ]);
+    // The Lots page's cost per box and boxCost stay about the box.
+    expect(lotInfo(two, lot)).toMatchObject({
+      meatPerBox: 240,
+      costPerBox: 270,
+    });
+    expect(boxCost(two)).toMatchObject({ meat: 240, pack: 30, total: 270 });
+    // A price or a cost left empty is not set: no price, and no other cost.
+    const bare = withProducts(
+      two,
+      [box, tube],
+      [{ id: "p1", price: "", cost: "" }],
+    );
+    expect(productCosts(bare)[1]).toMatchObject({
+      price: null,
+      other: 0,
+      total: 0,
+    });
+    // With no PO รมควัน to cost the meat from, a product with meat has no cost.
+    const none = withProducts(seed, [box, tube]);
+    expect(productCosts(none)).toMatchObject([
+      { id: "box", meat: null, total: null },
+      { id: "p1", meat: 0, total: 0 },
+    ]);
+  });
+
+  it("CAL-14: the gift value is each product given away at its own cost", () => {
+    const given = mutate(
+      two,
+      saladaeng,
+      "influencerBox",
+      { influencer: "@y", boxes: "1", "product.p1": "4" },
+      "",
+      "2026-09-14",
+    );
+    // The 2 boxes already given and this one at ฿270, the 4 tubes at ฿12.
+    expect(giftBoxes(given, "2026-09")).toEqual({ boxes: 7, value: 858 });
+    expect(giftBoxes(seed, "2026-09")).toEqual({ boxes: 0, value: null });
+  });
+
+  it("Settings refuses a product list no form or figure could read", () => {
+    const refused = (rows: Row[], message: string, money?: Values[]) =>
+      expect(() => withProducts(built, rows, money)).toThrow(
+        `รายการสินค้า: ${message}`,
+      );
+    // The standard box is never removed.
+    refused([tube], "อ่านรายการไม่ได้");
+    refused([box, tube, tube], "อ่านรายการไม่ได้");
+    refused(
+      [
+        {
+          ...box,
+          items: [
+            ["m1", "1"],
+            ["m1", "2"],
+          ],
+        },
+      ],
+      "อ่านรายการไม่ได้",
+    );
+    refused([box, { ...tube, name: " " }], "มีสินค้าที่ยังไม่ได้ใส่ชื่อ");
+    refused(
+      [
+        { ...box, name: "Box" },
+        { ...tube, name: "box " },
+      ],
+      "ชื่อ「box」ซ้ำกัน",
+    );
+    for (const qty of ["-1", "สอง"])
+      refused(
+        [{ ...box, items: [["m1", qty]] }],
+        "จำนวนส่วนประกอบของ「กล่องมาตรฐาน」ใส่เป็นตัวเลข 0 ขึ้นไป",
+      );
+    for (const price of ["-1", "x"])
+      refused([box], "ราคาและต้นทุนใส่เป็นตัวเลข 0 ขึ้นไป", [
+        { id: "box", price, cost: "" },
+      ]);
+    refused([box], "อ่านรายการไม่ได้", [
+      { id: "box", price: "1", cost: "" },
+      { id: "box", price: "2", cost: "" },
+    ]);
+    // A branch may not save one.
+    expect(() =>
+      mutate(built, saladaeng, "config", { products: "[]" }, "", day),
+    ).toThrow();
+  });
+
+  it("a branch's copy holds the products and never their prices or costs", () => {
+    const scoped = scopeDatabase(two, ["ศาลาแดง"]);
+    expect(scoped.config.products).toBe(two.config.products);
+    expect(scoped.config.productMoney).toBeUndefined();
+    expect(JSON.stringify(scoped.config)).not.toContain("price");
+    expect(item("m1", "2026-09-10", scoped).sold).toBe(10);
   });
 
   it("CAL-10: an edited sale takes what it now says, a deleted one nothing", () => {

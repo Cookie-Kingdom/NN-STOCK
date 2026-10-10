@@ -13,8 +13,14 @@ import {
   type RoundKind,
   isEditOverlay,
   configMaterials,
-  boxRecipe,
+  boxProduct,
   gramItems,
+  pieces,
+  productKey,
+  productMeatKg,
+  productMoney,
+  productQty,
+  products,
   rawRiceBranches,
   sheets,
   type Material,
@@ -217,7 +223,7 @@ type Pl = {
   byIncome: Record<string, number>;
   /** All revenue: `sales + otherIncome`. */
   income: number;
-  /** Boxes sold. */
+  /** Pieces sold, of every product (boxes while the box is the only one). */
   boxes: number;
   /** Sales per channel key (`legacySale.key` too, when there is some) and per branch ("": a
    *  sale with no branch, `noBranch`). */
@@ -247,12 +253,13 @@ export function plBetween(
   const byChannel: Record<string, number> = {};
   const byBranch: Record<string, number> = {};
   const channels = salesChannels(db.config);
+  const sold = products(db.config);
   for (const sale of entries(db, "sale"))
     if (within(sale.date)) {
       const money = saleMoney(db.config, sale);
       sales += money.sales;
       gp += money.gp;
-      boxes += num(sale.values, "boxes");
+      boxes += pieces(sold, sale.values);
       byBranch[sale.branch] = (byBranch[sale.branch] ?? 0) + money.sales;
       for (const c of channels)
         byChannel[c.key] = (byChannel[c.key] ?? 0) + num(sale.values, c.key);
@@ -514,8 +521,11 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     linked && backKg > 0 && fee > 0
       ? (meatCost + fee + shippingFee) / backKg
       : null;
+  const box = products(db.config).find((p) => p.id === boxProduct);
   const meatPerBox =
-    costPerKg === null ? null : costPerKg * num(db.config, "packKg");
+    costPerKg === null || !box
+      ? null
+      : costPerKg * productMeatKg(db.config, box);
   return {
     lot: db.lots.find((lot) => lot.id === lotId)!,
     capacityKg,
@@ -539,7 +549,9 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     costPerKg,
     meatPerBox,
     costPerBox:
-      meatPerBox === null ? null : meatPerBox + num(db.config, "packCost"),
+      meatPerBox === null
+        ? null
+        : meatPerBox + (productMoney(db.config, boxProduct).cost ?? 0),
   };
 }
 /** What a PO รมควัน has left to send, without the dispatch `exceptId` (the one being edited):
@@ -568,7 +580,7 @@ export function capacityWarning(
 }
 const fmtKg = (x: number) =>
   x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
-/** The cost of one box sold, from the newest PO รมควัน that has one (V2-CAL-06). */
+/** The cost of one standard box sold, from the newest PO รมควัน that has one (V2-CAL-06). */
 export function boxCost(db: Database) {
   const info = shipments(db)
     .map((lot) => lotInfo(db, lot.id))
@@ -578,9 +590,33 @@ export function boxCost(db: Database) {
     : {
         lotId: info.lot.id,
         meat: info.meatPerBox,
-        pack: num(db.config, "packCost"),
+        pack: productMoney(db.config, boxProduct).cost ?? 0,
         total: info.costPerBox!,
       };
+}
+/** V2-CAL-06 per product of 「รายการสินค้า」: its price, and the cost of one piece: its meat
+ *  (`productMeatKg`) at the cost per kg of the newest PO รมควัน that has one (`lotId`), and
+ *  its own other cost (0 while none is set). `meat` and `total` are null while a product
+ *  with meat has no such PO to cost it from. */
+export function productCosts(db: Database) {
+  const lot = shipments(db)
+    .map((lot) => lotInfo(db, lot.id))
+    .findLast((lot) => lot.costPerKg !== null);
+  return products(db.config).map((product) => {
+    const kg = productMeatKg(db.config, product);
+    const { price, cost } = productMoney(db.config, product.id);
+    const meat = !kg ? 0 : lot ? lot.costPerKg! * kg : null;
+    const other = cost ?? 0;
+    return {
+      id: product.id,
+      name: product.name,
+      price,
+      meat,
+      other,
+      total: meat === null ? null : meat + other,
+      lotId: kg && lot ? lot.lot.id : null,
+    };
+  });
 }
 /** V2-CAL-07: what a PO เนื้อ holds (its meat kg, the invoice's when it gives one), what went to
  *  the smoker from it (its lines on every dispatch, without `exceptId`: the one being edited),
@@ -822,15 +858,16 @@ function sheetDays(
  *  - `received`, `used`, `waste`, `reason`: what the day's `daily` note says. Waste is part of
  *    `used`, never taken off again.
  *  - `sold`: what the branch's live `sale` and `influencerBox` notes of the day took by
- *    themselves, beside `used`: their boxes × the item's quantity a box (`boxRecipe`; grams
- *    read as kg for `gramItems`), and for the chili their `chiliAddons` too, tube for tube,
- *    whatever the recipe. A day with such a note and no sheet counts all the same.
+ *    themselves, beside `used`: over every product (`products`), the note's count of it × the
+ *    product's quantity of the item (grams read as kg for `gramItems`), and for the chili the
+ *    `chiliAddons` of a note saved when tubes sold apart had their own field, tube for tube.
+ *    A day with such a note and no sheet counts all the same.
  *  - `saved`: whether the day has a `daily` note of the item's sheet.
  *  - `set`: whether the item was ever set or moved by `date`: an opening typed for it, or
  *    something in or out. Until then its 0 is "ยังไม่ตั้งยอด", not "หมด".
  *  Nothing is refused: `remaining` may go below zero.
- *  shortcut: the recipe is read as it stands now, so a change of it works every past day out
- *  again; date the recipe (a list of `from` dates) when a past day's stock must stand.
+ *  shortcut: the products are read as they stand now, so a change of one works every past day
+ *  out again; date the list (a list of `from` dates) when a past day's stock must stand.
  *  ponytail: walks the branch's notes per call; cache per log (as entryIndex) if a long one
  *  gets slow. */
 export function branchItem(
@@ -856,14 +893,18 @@ export function branchItem(
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
-  const perBox = boxRecipe(db.config).get(itemId) ?? 0;
+  /** The products holding the item: [the note value of their count, the item a piece]. */
+  const holding = products(db.config)
+    .map((p): [string, number] => [productKey(p.id), p.items.get(itemId) ?? 0])
+    .filter(([, per]) => per);
   // Divided last: 27 boxes of 120 g are 3.24 kg, not 27 × 0.12.
   const perUnit = gramItems.includes(itemId) ? 1000 : 1;
   const taken = new Map<string, number>();
   for (const kind of ["sale", "influencerBox"] as const)
     for (const e of entries(db, kind, undefined, branch)) {
       const qty =
-        (num(e.values, "boxes") * perBox) / perUnit +
+        holding.reduce((a, [key, per]) => a + num(e.values, key) * per, 0) /
+          perUnit +
         (itemId === "chili" ? num(e.values, "chiliAddons") : 0);
       if (qty) taken.set(e.date, (taken.get(e.date) ?? 0) + qty);
     }
@@ -1116,14 +1157,25 @@ export function receivables(db: Database) {
     },
   };
 }
-/** V2-CAL-14: the month's gift boxes and roughly what they cost; never part of the P&L. */
+/** V2-CAL-14: the month's gift pieces, of every product, and roughly what they cost (each at
+ *  its product's cost; null while one given away has none); never part of the P&L. */
 export function giftBoxes(db: Database, month: string) {
-  const boxes = sum(
-    entries(db, "influencerBox").filter((e) => e.date.startsWith(month)),
-    "boxes",
+  const gifts = entries(db, "influencerBox").filter((e) =>
+    e.date.startsWith(month),
   );
-  const cost = boxCost(db);
-  return { boxes, value: cost ? boxes * cost.total : null };
+  const list = products(db.config);
+  const costs = productCosts(db);
+  let boxes = 0;
+  let value: number | null = 0;
+  for (const [at, product] of list.entries()) {
+    const qty = gifts.reduce((a, e) => a + productQty(product, e.values), 0);
+    boxes += qty;
+    const cost = costs[at].total;
+    // The box's cost is asked for even with none given, as before the list.
+    if (cost === null && (qty || product.id === boxProduct)) value = null;
+    else if (value !== null) value += qty * (cost ?? 0);
+  }
+  return { boxes, value };
 }
 /** V2-PG-01: a day is green once the branch has a sale on it. */
 export const hasSale = (db: Database, branch: string, date: string) =>

@@ -47,7 +47,7 @@ const giftBox = async (page: Page) => {
   await fill(
     page,
     [/^ชื่ออินฟลูเอนเซอร์/, "@kinkubnong"],
-    [/^กล่องที่แจก/, "2"],
+    [/^กล่องมาตรฐาน/, "2"],
   );
   await save(page);
 };

@@ -1,6 +1,7 @@
 /** The fields of every note form. `mutate` validates a save with one pass over the same list,
  *  so this file imports the store's parts, never `./store` itself. */
 import {
+  boxProduct,
   branchCategories,
   branches,
   companyPayer,
@@ -10,6 +11,8 @@ import {
   payrollCategory,
   placeLabel,
   places,
+  productKey,
+  products,
   salesChannels,
   sheets,
   stockCategories,
@@ -104,6 +107,16 @@ const file = (label: string): Field => ({
 const core = (field: Field): Field => ({ ...field, core: true });
 const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
+/** One count field per product of 「รายการสินค้า」, in list order; only the first is core. */
+const productFields = (db: Database): Field[] =>
+  products(db.config).map((product, index) =>
+    count(
+      productKey(product.id),
+      product.name,
+      product.id === boxProduct ? "กล่อง" : "ชิ้น",
+      { core: !index },
+    ),
+  );
 const note: Field = { key: "note", label: "หมายเหตุ", type: "textarea" };
 const weightReason = text("reason", "สาเหตุที่น้ำหนักไม่ตรง");
 /** How a note jotted by hand was paid: the same field on the `expense` and the `pay` forms. */
@@ -458,8 +471,7 @@ export function fields(
       ];
     case "sale":
       return [
-        core(count("boxes", "กล่องมาตรฐาน", "กล่อง")),
-        count("chiliAddons", "น้ำพริกหลอดที่ขายแยก", "หลอด"),
+        ...productFields(db),
         // One money field per sales channel in Settings; only the first is core.
         ...salesChannels(db.config).map((channel, index) =>
           number(
@@ -484,8 +496,7 @@ export function fields(
     case "influencerBox":
       return [
         core(text("influencer", "ชื่ออินฟลูเอนเซอร์ / ช่อง")),
-        core(count("boxes", "กล่องที่แจก", "กล่อง")),
-        count("chiliAddons", "น้ำพริก", "หลอด"),
+        ...productFields(db),
         number("shippingFee", "ค่าส่ง", "บาท", { hint: once }),
         note,
       ];
