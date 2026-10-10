@@ -71,8 +71,13 @@ export function revenuePeriod(key: string, today: string) {
       });
     }
   const day = +to.slice(8);
+  /** The period as far as it has run: "1–24 ตุลาคม 2569", "ปี 2569 ถึงวันนี้". */
+  const range = year
+    ? `${name}${partial ? " ถึงวันนี้" : ""}`
+    : `${partial ? `1–${day} ` : ""}${name}`;
   return {
     name,
+    range,
     prevName,
     partial,
     /** Days of the period gone by, today included. */
@@ -84,9 +89,7 @@ export function revenuePeriod(key: string, today: string) {
       from: prev,
       to: partial ? prev + to.slice(key.length) : `${prev}~`,
     },
-    title: year
-      ? `รายได้รวม${name}${partial ? " ถึงวันนี้" : ""}`
-      : `รายได้รวม ${partial ? `1–${day} ` : ""}${name}`,
+    title: `รายได้รวม${year ? "" : " "}${range}`,
     versus: !partial
       ? `จาก${year ? "" : " "}${prevName}`
       : year

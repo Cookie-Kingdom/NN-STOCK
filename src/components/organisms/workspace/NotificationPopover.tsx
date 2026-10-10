@@ -8,8 +8,9 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { missingText, todoOpens } from "@/lib/store";
 import { useId, useRef } from "react";
 
-/** The bell: a count of everything not jotted yet (the same list as the todo box), opening
- *  that list; a line does what it does in the box. A native `popover`: the browser owns
+/** The bell: a count of everything not jotted yet, opening that list; pressing a line opens
+ *  its form (or the edit, or the Stock or Inventory page), and a line that opens nothing is
+ *  plain. A native `popover`: the browser owns
  *  open/close, Escape, click-outside and the button's expanded state; CSS anchor positioning
  *  hangs the panel on the bell. In the sidebar the bell sits at the bottom left, so the panel
  *  opens upwards from its left edge; in the phone's top bar it opens downwards and keeps to

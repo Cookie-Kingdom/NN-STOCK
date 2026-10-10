@@ -92,7 +92,7 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
   const scale = Math.max(net(now), net(now) - now.profit, 1);
   const byBranch = netSalesByBranch(db, key, `${key}~`);
   // `period.title` names the whole revenue; this page's is what is left after the GP.
-  const title = period.title.replace(/^รายได้รวม ?/, "รายได้หลังหัก GP ");
+  const title = `รายได้หลังหัก GP ${period.range}`;
   const fall =
     "grid grid-cols-[minmax(7.5em,max-content)_minmax(0,1fr)_max-content] items-center gap-x-3.5 gap-y-2.5 px-5 py-4 text-body-sm max-md:px-4";
   const track = "relative h-5.5";
