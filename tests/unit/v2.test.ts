@@ -2594,7 +2594,7 @@ describe("income (V2-PAY-09)", () => {
     const rows = ledgerRows(d);
     expect(rows.filter((row) => row.direction === "in")).toMatchObject([
       { item: "รอ", status: "pending", statusLabel: "รอรับ" },
-      { itemType: "รับเงินค่าขาย", item: "LINE MAN", paid: 600 },
+      { itemType: "ค่าขาย (หลังหัก GP)", item: "LINE MAN", paid: 600 },
       {
         origin: "manual",
         itemType: "รายได้อื่น",
