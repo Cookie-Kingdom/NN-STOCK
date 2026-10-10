@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, FolderKanban, Pencil, Trash2 } from "lucide-react";
+import {
+  Building2,
+  Download,
+  FolderKanban,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
@@ -12,6 +18,7 @@ import { Select } from "@/components/atoms/Select";
 import { SearchSelect } from "@/components/atoms/Combobox";
 import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
+import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
@@ -146,6 +153,38 @@ const columns: Column[] = [
     values: (row) => [hasFile(row) ? "มีไฟล์" : "ยังไม่มี"],
   },
 ];
+/** The rows found as an Excel sheet: the table's columns under a bold head, with SKU and หน่วย
+ *  in columns of their own; a date and a figure are cells Excel can sort and sum. */
+const sheet = (rows: LedgerRow[]) => [
+  [
+    ...columns.flatMap(({ name }) =>
+      name === "รายการ"
+        ? [name, "SKU"]
+        : name === "จำนวนซื้อ"
+          ? [name, "หน่วย"]
+          : [name],
+    ),
+  ].map((value) => ({ value, fontWeight: "bold" as const })),
+  ...rows.map((row) => [
+    { value: new Date(row.date), type: Date, format: "dd/mm/yyyy" },
+    directions[row.direction],
+    row.sourceLabel,
+    row.reference,
+    row.itemType,
+    row.item,
+    row.sku,
+    row.detail,
+    row.vendor,
+    ledgerPurposes[row.purpose],
+    projectOf(row),
+    row.qty,
+    row.unit,
+    row.poAmount,
+    row.paid,
+    row.statusLabel,
+    hasFile(row) ? "มีไฟล์" : "ยังไม่มี",
+  ]),
+];
 /** The columns left of ยอดตาม PO: what the total row's label spans. */
 const beforeTotals = columns.findIndex((c) => c.name.startsWith("ยอดตาม PO"));
 /** Whether `row` passes what was picked or typed in `column`'s filter; all pass an empty one,
@@ -175,6 +214,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   /** What each column's filter holds, by the column's name. */
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const all = ledgerRows(db);
   const word = search.trim().toLowerCase();
   const rows = all.filter(
@@ -507,6 +547,27 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               ล้างตัวกรอง
             </Button>
           )}
+          <ActionWithError error={downloadError} className="ml-auto">
+            <Button
+              size="sm"
+              className="min-h-10"
+              disabled={!rows.length}
+              onClick={async () => {
+                setDownloadError("");
+                try {
+                  // Loaded on the click: the writer stays out of the page's bundle.
+                  const { default: write } =
+                    await import("write-excel-file/browser");
+                  await write(sheet(rows)).toFile(`accounting-${today}.xlsx`);
+                } catch {
+                  setDownloadError("ดาวน์โหลดไม่สำเร็จ ลองอีกครั้ง");
+                }
+              }}
+            >
+              <Download size={16} aria-hidden />
+              Download Excel
+            </Button>
+          </ActionWithError>
         </div>
         {/* relative: the sr-only head of the last column scrolls with the table, not the page. */}
         <div className="relative overflow-x-auto">
