@@ -298,6 +298,17 @@ export function plBetween(
 /** V2-CAL-02: one month (`YYYY-MM`, by entry date); a year (`YYYY`) or a day works the same. */
 export const monthPl = (db: Database, month: string, project?: string) =>
   plBetween(db, month, `${month}~`, project);
+/** The sales after the channels' GP (`saleMoney`) per branch ("": a sale with no branch), over
+ *  the entries dated `from`..`to` as `plBetween` reads them: they add up to its `sales − gp`. */
+export function netSalesByBranch(db: Database, from: string, to: string) {
+  const net: Record<string, number> = {};
+  for (const sale of entries(db, "sale"))
+    if (sale.date >= from && sale.date <= to) {
+      const money = saleMoney(db.config, sale);
+      net[sale.branch] = (net[sale.branch] ?? 0) + money.sales - money.gp;
+    }
+  return net;
+}
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };
 /** Lines stored as JSON `[{ poLotId, kg }]`; `kg` "" reads as 0. Anything unreadable is no line. */

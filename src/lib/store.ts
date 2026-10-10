@@ -64,6 +64,7 @@ export {
   shipments,
   saleMoney,
   monthPl,
+  netSalesByBranch,
   plBetween,
   cashBetween,
   inflows,
