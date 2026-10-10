@@ -75,7 +75,7 @@ const press = async (row: Locator, name: "แก้ไข" | "ลบ") => {
   if (name === "ลบ") await confirmDelete(row.page());
 };
 /** The same on a row of the Daily Log: its buttons are in the row that opens under it. */
-const pressLog = async (row: Locator, name: "แก้ไข" | "ลบ" | "ย้อนกลับ") => {
+const pressLog = async (row: Locator, name: "แก้ไข" | "ลบ") => {
   await (await openRow(row)).getByRole("button", { name, exact: true }).click();
   if (name === "ลบ") await confirmDelete(row.page());
 };
@@ -613,7 +613,7 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   ).toHaveText(["SKU-0024", "ช้อนไม้", "แพ็ก"]);
 });
 
-test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought back: a sale, a receipt, a Lot's notes, a payment", async ({
+test("20 · V2-PG-03 a note of an earlier day is edited, deleted and put back by 「เลิกทำ」: a sale, a receipt, a Lot's notes, a payment", async ({
   page,
 }) => {
   await start(page, "sample");
@@ -624,7 +624,8 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(logRows(page, "jot").first()).toBeVisible();
   await expect(changes).toHaveCount(0);
 
-  // The sale of three days ago has no money typed: edit it, then take the edit back.
+  // The sale of three days ago has no money typed: edit it. The edit is not taken back from
+  // the log: its row has no button.
   const sale = jotted(page, "sale", -3);
   await expect(await openRow(sale)).toContainText(
     /ยอดขาย LINE MAN\s*ยังไม่ได้จด/,
@@ -642,14 +643,8 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
   await expect(edit).toContainText("+฿7,000");
   await expect(sale).toContainText("แก้ไขภายหลัง");
   await expect(sale).not.toContainText("฿7,000");
-  await pressLog(edit, "ย้อนกลับ");
-  await expect(toast(page, /^ย้อนกลับการแก้ไขแล้ว: ยอดขาย/)).toBeVisible();
-  await expect(edit).toContainText("ย้อนกลับแล้ว");
-  await expect(sale).not.toContainText("แก้ไขภายหลัง");
-  const undone = logRows(page, "undo");
-  await expect(undone).toContainText("ย้อนกลับการแก้ไข");
-  await expect(undone).not.toContainText("฿7,000");
-  await expect(changes).toHaveCount(2);
+  await expect((await openRow(edit)).getByRole("button")).toHaveCount(0);
+  await expect(changes).toHaveCount(1);
 
   // The receipt of five days ago: delete it, then 「เลิกทำ」 on the toast.
   const receipt = jotted(page, "receive", -5);
@@ -695,7 +690,8 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     .click();
   await expect(weighed).toContainText("199.2 กก.");
 
-  // A payment of 20 days ago: edit it, delete it, and bring it back from its row in the log.
+  // A payment of 20 days ago: edit it and delete it. Its delete is a row of the log, with no
+  // button that brings it back.
   await openPage(page, "Finance");
   const foodiva = region(page, "ยอดค้างจ่ายแยกผู้ขาย")
     .getByRole("row", { name: /^Foodiva/ })
@@ -719,11 +715,7 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and brought bac
     has: page.getByRole("cell", { name: /^จ่ายเงิน/ }),
   });
   await expect(removal).toHaveCount(1);
-  await pressLog(removal, "ย้อนกลับ");
-  await expect(toast(page, /^กู้คืนแล้ว: จ่ายเงิน/)).toBeVisible();
-  await expect(removal).toContainText("ย้อนกลับแล้ว");
-  await openPage(page, "Finance");
-  await expect(foodiva.nth(2)).toHaveText("฿60,000");
+  await expect((await openRow(removal)).getByRole("button")).toHaveCount(0);
 });
 
 test.describe("phone, 390px wide", () => {

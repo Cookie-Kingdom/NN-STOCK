@@ -54,8 +54,8 @@ const tones = { in: "text-success", out: "text-danger" };
 
 /** One row of the log, and under it once pressed: every value of the note as it read then,
  *  who saved it and when, and what the account may do. A note that is still there gets
- *  「แก้ไข」 and 「ลบ」 (`editBlock`, `voidBlock`), a change 「ย้อนกลับ」 (`voidBlock` of the
- *  change). From md up the row is the table's cells; below md it is one cell of two lines. */
+ *  「แก้ไข」 and 「ลบ」 (`editBlock`, `voidBlock`); a change has no button: it is not taken
+ *  back here, the note is edited again. From md up the row is the table's cells; below md it is one cell of two lines. */
 function Row({
   row,
   ws,
@@ -67,7 +67,7 @@ function Row({
 }) {
   const [open, setOpen] = useState(false);
   const { db, account } = ws;
-  const { remove, undo } = useEntryActions(ws);
+  const { remove } = useEntryActions(ws);
   const { entry: e, note, action } = row;
   const own = account.role === "branch";
   const title = titles[note.kind] || note.kind;
@@ -94,10 +94,6 @@ function Row({
     action === "jot" ? liveEntries(db).find((x) => x.id === e.id) : undefined;
   const canEdit = live && !editBlock(db, live, account);
   const canDelete = live && !voidBlock(db, live, account);
-  const canUndo = action !== "jot" && !voidBlock(db, e, account);
-  const name = [title, dateLabel(note.date), lotLabel(db, note.lotId)]
-    .filter(Boolean)
-    .join(" · ");
   const hidden = "max-md:hidden";
   return (
     <>
@@ -212,7 +208,7 @@ function Row({
                 {action === "jot" ? "จด" : row.label}โดย {entryWho(e)} ·{" "}
                 {jottedAt(e.at)}
               </Caption>
-              {(canEdit || canDelete || canUndo) && (
+              {(canEdit || canDelete) && (
                 // Not the row's press: a button here acts, it does not close the row.
                 <div
                   className="flex flex-wrap gap-2"
@@ -235,22 +231,6 @@ function Row({
                       onClick={() => live && remove(live)}
                     >
                       ลบ
-                    </Button>
-                  )}
-                  {canUndo && (
-                    <Button
-                      size="sm"
-                      className="max-md:min-h-11"
-                      onClick={() =>
-                        undo(
-                          e.id,
-                          action === "void"
-                            ? `กู้คืนแล้ว: ${name}`
-                            : `ย้อนกลับการแก้ไขแล้ว: ${name}`,
-                        )
-                      }
-                    >
-                      ย้อนกลับ
                     </Button>
                   )}
                 </div>

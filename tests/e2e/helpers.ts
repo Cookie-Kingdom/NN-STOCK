@@ -209,7 +209,7 @@ export const logRows = (page: Page, action: string) =>
   page.locator(`tr[data-entry][data-action="${action}"]`);
 
 /** Daily Log: presses a row open (when it is not) and gives the row under it: every value,
- *  who saved it and when, and its 「แก้ไข」 and 「ลบ」, or the 「ย้อนกลับ」 of a change. */
+ *  who saved it and when, and its 「แก้ไข」 and 「ลบ」 (a change has no button). */
 export async function openRow(row: Locator) {
   const head = row.getByRole("button").first();
   if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
