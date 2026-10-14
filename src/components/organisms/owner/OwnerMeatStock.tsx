@@ -309,37 +309,20 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           right={figures}
           wrap={figures}
         >
-          {sheetItems(db, "meat")
-            // Raw rice no branch steams (Settings) has no row (V2-BR-08).
-            .filter((item) =>
-              branches.some((branch) =>
-                sheetItems(db, "meat", branch).some((i) => i.id === item.id),
-              ),
-            )
-            .map((item) => (
-              <tr key={item.id}>
-                <Cell className="font-semibold">{item.name}</Cell>
-                {branches.map((branch) =>
-                  // Raw rice: only at a branch that steams its own (Settings).
-                  sheetItems(db, "meat", branch).some(
-                    (i) => i.id === item.id,
-                  ) ? (
-                    <SheetCells
-                      key={branch}
-                      db={db}
-                      branch={branch}
-                      item={item}
-                      today={today}
-                    />
-                  ) : (
-                    <Fragment key={branch}>
-                      <Cell right>{none}</Cell>
-                      <Cell right>{none}</Cell>
-                    </Fragment>
-                  ),
-                )}
-              </tr>
-            ))}
+          {sheetItems(db, "meat").map((item) => (
+            <tr key={item.id}>
+              <Cell className="font-semibold">{item.name}</Cell>
+              {branches.map((branch) => (
+                <SheetCells
+                  key={branch}
+                  db={db}
+                  branch={branch}
+                  item={item}
+                  today={today}
+                />
+              ))}
+            </tr>
+          ))}
         </StockTable>
       </DayCard>
       <WasteWeekCard db={db} sheet="meat" today={today} />
@@ -350,7 +333,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           "คงเหลือ = ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขาย ของใบสต๊อกรายวัน Waste นับรวมอยู่ในยอดใช้ไปแล้ว",
           "ตัดจากยอดขาย: เว็บตัดให้เองจากยอดขายและกล่องที่แจก ตามส่วนประกอบของสินค้าใน Settings",
           "วันนี้ยังไม่บันทึก: คงเหลือคือยอดล่าสุดที่ยกมา",
-          '"—" = สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (กำหนดใน Settings) หรือยังไม่มีตัวเลขของวันนี้',
+          '"—" = ยังไม่มีตัวเลขของวันนี้',
           "ช่องสีแดงคือยอดติดลบ",
         ].map((line) => (
           <span key={line}>{line}</span>

@@ -8,7 +8,7 @@ import {
   entryBy,
   incomeStatuses,
   incomeTypes,
-  ingredients,
+  ingredientList,
   isNoteKind,
   isUnlinkedDispatch,
   legacySale,
@@ -272,7 +272,7 @@ export function noteLine(db: Database, e: Entry): string {
     case "smokingInvoice":
       return join(has("invoiceNumber") && `Invoice ${v.invoiceNumber}`);
     case "pay": {
-      const item = [...materialList(db), ...ingredients].find(
+      const item = [...materialList(db), ...ingredientList(db.config)].find(
         (m) => m.id === v.item,
       )?.name;
       return join(

@@ -69,7 +69,7 @@ export const pages: Record<
   // The key `stock` is the Inventory page below.
   meatStock: {
     label: "Stock",
-    description: "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือ",
+    description: "เนื้อและวัตถุดิบคงเหลือ",
     icon: Beef,
     group: shopGroup,
   },
@@ -97,7 +97,7 @@ export const pages: Record<
   projectSettings: {
     label: "Settings",
     description:
-      "ค่าที่ใช้คำนวณ สาขาที่ใช้ข้าวเหนียวดิบ และรายชื่อวัสดุของโปรเจกต์",
+      "ค่าที่ใช้คำนวณ รายการเนื้อ รายชื่อวัตถุดิบ และรายชื่อวัสดุของโปรเจกต์",
     icon: SlidersHorizontal,
     group: shopGroup,
   },
@@ -119,7 +119,7 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
   account.role !== "branch"
     ? pages[tab].description
     : tab === "meatStock"
-      ? "เนื้อ ข้าวเหนียว และน้ำพริกคงเหลือของสาขา"
+      ? "เนื้อและวัตถุดิบคงเหลือของสาขา"
       : tab === "stock"
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;

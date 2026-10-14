@@ -79,6 +79,7 @@ export const branchScope: {
     "boxRecipe",
     "products",
     "meatTypes",
+    "ingredientList",
   ],
   stockKinds: ["pay", "expense"],
   stockKeys: [

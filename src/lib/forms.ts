@@ -5,7 +5,7 @@ import {
   branches,
   companyPayer,
   incomeTypes,
-  ingredients,
+  ingredientList,
   meatItem,
   meatTypeOf,
   meatTypes,
@@ -230,23 +230,20 @@ const sheetField: Field = {
   ],
 };
 /** One field per `figures` entry (`<figure>.<item id>`) for every row of both sheets, each
- *  saved only on its own sheet. A branch reads its own rows (no raw rice unless it steams its
- *  own, V2-BR-08); any other reader gets every row, for its label. */
+ *  saved only on its own sheet. */
 const sheetFields = (
   db: Database,
-  by: Actor,
   figures: [figure: string, label: string, type?: "text"][],
 ): Field[] =>
   sheets.flatMap((sheet) =>
-    sheetItems(db, sheet, by.role === "branch" ? by.branch : undefined).flatMap(
-      (item) =>
-        figures.map(([figure, label, type]): Field => {
-          const field = { when: (values: Values) => values.sheet === sheet };
-          const name = `${item.name} · ${label}`;
-          return type
-            ? text(`${figure}.${item.id}`, name, field)
-            : number(`${figure}.${item.id}`, name, item.unit, field);
-        }),
+    sheetItems(db, sheet).flatMap((item) =>
+      figures.map(([figure, label, type]): Field => {
+        const field = { when: (values: Values) => values.sheet === sheet };
+        const name = `${item.name} · ${label}`;
+        return type
+          ? text(`${figure}.${item.id}`, name, field)
+          : number(`${figure}.${item.id}`, name, item.unit, field);
+      }),
     ),
   );
 /** A `poLines` field: the live POs เนื้อ to pick from, each with the kg its seller still holds. */
@@ -479,7 +476,7 @@ export function fields(
           when: isStock,
           options: [
             { value: "", label: "ไม่ระบุ" },
-            ...[...materialList(db), ...ingredients].map((m) => ({
+            ...[...materialList(db), ...ingredientList(db.config)].map((m) => ({
               value: m.id,
               label: m.name,
             })),
@@ -578,7 +575,7 @@ export function fields(
     case "daily":
       return [
         sheetField,
-        ...sheetFields(db, by, [
+        ...sheetFields(db, [
           ["received", "รับเข้า"],
           ["used", "ใช้ไป"],
           ["waste", "Waste"],

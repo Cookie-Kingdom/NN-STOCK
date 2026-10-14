@@ -16,6 +16,8 @@ import {
   boxProduct,
   isGramItem,
   isMeatItem,
+  isIngredientItem,
+  ingredientList,
   meatItem,
   meatTypeOf,
   meatTypes,
@@ -24,7 +26,6 @@ import {
   productMoney,
   productQty,
   products,
-  rawRiceBranches,
   sheets,
   type Material,
   type Product,
@@ -849,23 +850,15 @@ export function materialList(db: Database): Material[] {
   }
   return list;
 }
-/** The ids of the Stock page's sheet (each kind of meat, the raw rice, the chili); every other
- *  id is a material's (the Inventory page's). */
+/** The ids of the Stock page's sheet (each kind of meat, each ingredient); every other id is
+ *  a material's (the Inventory page's). */
 export const sheetOf = (itemId: string): Sheet =>
-  isMeatItem(itemId) || itemId === "rice" || itemId === "chili"
-    ? "meat"
-    : "materials";
-/** The rows of a daily sheet, each with its unit: each kind of meat in use (「รายการเนื้อ」),
- *  the raw rice of a branch that
- *  steams its own (V2-BR-08; with no `branch`, any reader's, the row is there) and the chili,
- *  or the material list. `rice` and `chili` are the ids a payment's `item` names. */
-export function sheetItems(
-  db: Database,
-  sheet: Sheet,
-  branch?: string,
-): Material[] {
+  isMeatItem(itemId) || isIngredientItem(itemId) ? "meat" : "materials";
+/** The rows of a daily sheet, each with its unit: each kind of meat (「รายการเนื้อ」) then each
+ *  ingredient (「รายชื่อวัตถุดิบ」), or the material list. The rows of 2026-10-14 and before
+ *  (raw rice, chili) are gone: nothing brought stock into them. */
+export function sheetItems(db: Database, sheet: Sheet): Material[] {
   if (sheet === "materials") return materialList(db);
-  const rice = !branch || rawRiceBranches(db.config).includes(branch);
   return [
     ...meatTypes(db.config).map((type) => ({
       id: type.id,
@@ -873,10 +866,7 @@ export function sheetItems(
       name: type.name,
       unit: "กก.",
     })),
-    ...(rice
-      ? [{ id: "rice", sku: "", name: "ข้าวเหนียวดิบ", unit: "กก." }]
-      : []),
-    { id: "chili", sku: "", name: "น้ำพริก", unit: "หลอด" },
+    ...ingredientList(db.config),
   ];
 }
 /** The live `daily` note of `branch` for `sheet` on `date`: the one a sheet saved again for
@@ -918,8 +908,8 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
  *    (retired 2026-10-14, it counted what had just come in twice) is not read.
  *  - `autoReceived`: what came in by itself that day: the meat a `receive` took in (not from
  *    an old lot, which holds no stock), a payment's `item` + `qty` stamped with the branch, and
- *    what the warehouses moved in or out of it (`stockMoves`: a transfer waiting for the
- *    branch counts on the day it confirmed).
+ *    for a material or an ingredient what the warehouses moved in or out of it under its SKU
+ *    (`stockMoves`: a transfer waiting for the branch counts on the day it confirmed).
  *  - `received`, `used`, `waste`, `reason`: what the day's `daily` note says. Waste is part of
  *    `used`, never taken off again.
  *  - `sold`: what the branch's live `sale` and `influencerBox` notes of the day took by
@@ -965,8 +955,13 @@ export function branchItem(
   }
   for (const e of entries(db, "pay", undefined, branch))
     if (e.values.item === itemId) add(e.date, num(e.values, "qty"));
-  const sku =
-    sheet === "materials" && materialList(db).find((m) => m.id === itemId)?.sku;
+  const sku = (
+    isIngredientItem(itemId)
+      ? ingredientList(db.config)
+      : sheet === "materials"
+        ? materialList(db)
+        : []
+  ).find((m) => m.id === itemId)?.sku;
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
@@ -1024,7 +1019,7 @@ export function salePreview(
 ) {
   const list = products(db.config);
   return sheets
-    .flatMap((sheet) => sheetItems(db, sheet, branch))
+    .flatMap((sheet) => sheetItems(db, sheet))
     .flatMap((item) => {
       const take = noteTakes(list, item.id, values);
       if (!take) return [];
@@ -1051,7 +1046,7 @@ export function wasteWeek(db: Database, branch: string, date: string) {
       new Date(Date.parse(date) - back * 86400000).toISOString().slice(0, 10),
     ).filter((day) => daily.has(day));
     saved[sheet] = week.length;
-    for (const item of sheetItems(db, sheet, branch)) {
+    for (const item of sheetItems(db, sheet)) {
       const days = week
         .map((day) => ({
           date: day,

@@ -70,7 +70,8 @@ export {
   capexCategory,
   stockCategories,
   branchCategories,
-  ingredients,
+  isIngredientItem,
+  ingredientList,
   companyPayer,
   seed,
 } from "./store/model";

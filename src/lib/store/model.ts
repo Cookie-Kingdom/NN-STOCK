@@ -410,7 +410,9 @@ export type Material = {
 type PayCategory = { id: string; name: string };
 const listDefaults = {
   // รายการเนื้อ: one kind until the Owner adds another (meatTypes).
-  meatTypes: JSON.stringify([{ id: "meat", name: "เนื้อ" }]),
+  meatTypes: JSON.stringify([{ id: "meat", code: "RM-0001", name: "เนื้อ" }]),
+  // รายชื่อวัตถุดิบ: empty until Accounting buys one or the Owner adds one (ingredientList).
+  ingredientList: "[]",
   salesChannels: JSON.stringify([
     { key: "lineMan", name: "LINE MAN", gp: "10" },
   ]),
@@ -503,13 +505,21 @@ export const configMaterials = (config: Values): Material[] =>
     name: m.name,
     unit: m.unit || "ชิ้น",
   }));
+/** A code the web issues for a row of a Settings list: `<prefix>-0001` up, one sequence per
+ *  prefix (`RM` a kind of meat, `ING` an ingredient), apart from the `SKU-` and `PRD-` ones. */
+export const codeNumber = (prefix: string, code = "") =>
+  Number(new RegExp(`^${prefix}-(\\d+)$`).exec(code)?.[1] ?? 0);
+export const codeText = (prefix: string, n: number) =>
+  `${prefix}-${String(n).padStart(4, "0")}`;
 /** A kind of meat of 「รายการเนื้อ」, bought, smoked and stocked apart from the others (a
  *  breed, a cut: the name says which). `id` is what notes name: a PO's and a Lot's
  *  `meatType`, a product's component, a branch sheet's row. The first is `meat`, the meat
  *  every note saved before the list is of (never removed); one added later is `meat-<id>`,
- *  removable while nothing names it (Settings). */
-export type MeatType = { id: string; name: string };
+ *  removable while nothing names it (Settings). `code` (`RM-0001` up) is only the code people
+ *  read, issued by `mutate` when the list is saved ("" until then); `meat`'s is RM-0001. */
+export type MeatType = { id: string; code: string; name: string };
 export const meatItem = "meat";
+const firstMeatCode = "RM-0001";
 export const isMeatItem = (id: string) =>
   id === meatItem || id.startsWith("meat-");
 /** 「รายการเนื้อ」 as Settings holds it (`config.meatTypes`), `meat` always first. */
@@ -518,10 +528,13 @@ export const meatTypes = (config: Values): MeatType[] => {
     .filter((row) => isMeatItem(String(row?.id ?? "")))
     .map((row) => ({
       id: String(row.id),
+      code:
+        String(row.code ?? "") || (row.id === meatItem ? firstMeatCode : ""),
       name: String(row.name ?? "").trim() || "เนื้อ",
     }));
   const first = rows.find((row) => row.id === meatItem) ?? {
     id: meatItem,
+    code: firstMeatCode,
     name: "เนื้อ",
   };
   return [first, ...rows.filter((row) => row.id !== meatItem)];
@@ -533,8 +546,23 @@ export const meatTypeOf = (lot?: Pick<Lot, "values">) =>
 /** A kind of meat's name; an id no longer in the list reads as itself. */
 export const meatTypeName = (config: Values, id: string) =>
   meatTypes(config).find((type) => type.id === id)?.name ?? id;
-/** The components typed in grams a piece (the meat, the raw rice); a sheet counts them in kg. */
-export const isGramItem = (id: string) => id === "rice" || isMeatItem(id);
+/** An ingredient of 「รายชื่อวัตถุดิบ」 (`config.ingredientList`, rows `{ id, code, name, unit }`):
+ *  bought on Accounting (ประเภท วัตถุดิบ, which adds it) and stocked like a material, but on a
+ *  branch's Stock sheet beside the meat. Its `code` (`ING-0001` up, issued by `mutate`) is its
+ *  SKU: what an expense, a transfer and the warehouses' moves name it by. `id` is `ing-<id>`,
+ *  so `sheetOf` tells it apart with no list at hand. Read as a `Material` (`sku` = the code). */
+export const isIngredientItem = (id: string) => id.startsWith("ing-");
+export const ingredientList = (config: Values): Material[] =>
+  list(config, "ingredientList")
+    .filter((row) => isIngredientItem(String(row?.id ?? "")))
+    .map((row) => ({
+      id: row.id,
+      sku: row.code ?? "",
+      name: row.name,
+      unit: row.unit || "ชิ้น",
+    }));
+/** The components typed in grams a piece (each kind of meat); a sheet counts them in kg. */
+export const isGramItem = isMeatItem;
 /** A product of 「รายการสินค้า」: `items` is what one piece sold or given away takes from a
  *  branch's stock (V2-CAL-10), by item id (`meat`, `rice`, `chili`, a material's): grams for
  *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
@@ -674,12 +702,7 @@ export const branchCategories = [
   "transport",
   "other",
 ];
-export const ingredients = [
-  { id: "rice", name: "ข้าวเหนียว" },
-  { id: "chili", name: "น้ำพริก" },
-  { id: "brine", name: "น้ำดอง" },
-];
-/** A branch's two daily sheets: its Stock page (meat, raw rice, chili) and its Inventory page
+/** A branch's two daily sheets: its Stock page (meat, ingredients) and its Inventory page
  *  (the material list). */
 export const sheets = ["meat", "materials"] as const;
 export type Sheet = (typeof sheets)[number];
@@ -742,4 +765,24 @@ export const lastProductCode = (db: Database) =>
         ? products(saved).map((p) => productCodeNumber(p.code))
         : [],
     ),
+  );
+/** The highest `prefix` code ever issued in the `key` list: in the settings now, in every save
+ *  of the list, and stamped on any entry (an ingredient's code is an expense's `sku`, an
+ *  edit's `to.sku` / `from.sku`). `mutate` issues the next, so a removed row's is never given
+ *  again. */
+export const lastCode = (
+  db: Database,
+  key: "meatTypes" | "ingredientList",
+  prefix: string,
+) =>
+  Math.max(
+    0,
+    ...[db.config, ...db.entries.map((e) => e.values)]
+      .flatMap((saved) => [
+        ...(saved[key] ? list(saved, key).map((row) => row?.code) : []),
+        saved.sku,
+        saved["to.sku"],
+        saved["from.sku"],
+      ])
+      .map((code) => codeNumber(prefix, code)),
   );

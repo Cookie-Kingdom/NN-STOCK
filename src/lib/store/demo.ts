@@ -51,6 +51,21 @@ export function sampleData(endDate: string): Database {
     return entry.lotId;
   };
   const [saladaeng, minburi] = branches;
+  // 「รายชื่อวัตถุดิบ」: the two ingredients of the branches' Stock sheets (ING-0001, ING-0002).
+  const [rice, chili] = ["ing-rice", "ing-chili"];
+  db = mutate(
+    db,
+    owner,
+    "config",
+    {
+      ingredientList: JSON.stringify([
+        { id: rice, name: "ข้าวเหนียวดิบ", unit: "กก." },
+        { id: chili, name: "น้ำพริก", unit: "หลอด" },
+      ]),
+    },
+    "",
+    new Date(Date.parse(endDate) - 35 * 86400000).toISOString().slice(0, 10),
+  );
   const po1 = add(owner, "purchase", 24, "10:05", {
     supplier: "Foodiva",
     // 20 of the 220 are waste: the 200 left all went to the smoker.
@@ -156,7 +171,7 @@ export function sampleData(endDate: string): Database {
     category: "ingredient",
     amount: 2400,
     detail: "น้ำพริกหลอด",
-    item: "chili",
+    item: chili,
     qty: 200,
     branch: minburi,
     payer: company,
@@ -193,7 +208,7 @@ export function sampleData(endDate: string): Database {
   add(saladaeng, "daily", 10, "08:00", {
     sheet: "meat",
     reporter: "น้องฝน",
-    ...first({ rice: 30, chili: 120 }),
+    ...first({ [rice]: 30, [chili]: 120 }),
   });
   add(saladaeng, "daily", 10, "08:05", {
     sheet: "materials",
@@ -203,7 +218,7 @@ export function sampleData(endDate: string): Database {
   add(minburi, "daily", 10, "08:10", {
     sheet: "meat",
     reporter: "พี่เอ",
-    ...first({ meat: 10, chili: 60 }),
+    ...first({ meat: 10, [chili]: 60 }),
   });
   add(minburi, "daily", 10, "08:15", {
     sheet: "materials",
@@ -224,8 +239,8 @@ export function sampleData(endDate: string): Database {
           branch === saladaeng && d === 1
             ? ["meat", (boxes * 12 + 30) / 100, 0.3, "เนื้อตกพื้น"]
             : ["meat", (boxes * 12) / 100],
-          ...(branch === saladaeng ? [["rice", 2] as [string, number]] : []),
-          branch === minburi && d === 1 ? ["chili", 6, 2] : ["chili", 4],
+          ...(branch === saladaeng ? [[rice, 2] as [string, number]] : []),
+          branch === minburi && d === 1 ? [chili, 6, 2] : [chili, 4],
         ]),
       });
       add(branch, "daily", d, bi ? "21:40" : "21:25", {
@@ -273,7 +288,7 @@ export function sampleData(endDate: string): Database {
     category: "ingredient",
     amount: 1200,
     detail: "ข้าวเหนียว 20 กก.",
-    item: "rice",
+    item: rice,
     qty: 20,
     payer: "น้องฝน",
   });

@@ -21,20 +21,23 @@ import {
   productsTitle,
   type ProductDraft,
 } from "./ProductDialog";
-import { MaterialsDialog, materialsTitle } from "./MaterialsDialog";
+import {
+  MaterialsDialog,
+  ingredientsTitle,
+  materialsTitle,
+} from "./MaterialsDialog";
 import { SkuDialog, skuTitle } from "./SkuDialog";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  branches,
+  ingredientList,
   materialList,
   meatItem,
   meatTypes,
   mutate,
   payCategories,
-  rawRiceBranches,
   salesChannels,
   seed,
   skuCatalogue,
@@ -42,8 +45,7 @@ import {
   type Values,
 } from "@/lib/store";
 
-type Section =
-  "numbers" | "channels" | "categories" | "meats" | "rice" | "header";
+type Section = "numbers" | "channels" | "categories" | "meats" | "header";
 type ListSection = "channels" | "categories" | "meats";
 type Setting = {
   key: string;
@@ -91,6 +93,8 @@ const lists: Record<
     id: "key" | "id";
     name: string;
     extra?: { key: string; label: string };
+    /** The column of the code the web issues a row on the save (read-only). */
+    code?: string;
     add: string;
     prefix: string;
   }
@@ -118,6 +122,7 @@ const lists: Record<
     key: "meatTypes",
     id: "id",
     name: "ชนิดเนื้อ",
+    code: "รหัส",
     add: "เพิ่มชนิดเนื้อ",
     // A kind of meat's id (isMeatItem).
     prefix: "meat-",
@@ -126,7 +131,6 @@ const lists: Record<
 const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
   header: "ข้อมูลหัวเอกสาร",
-  rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
   channels: lists.channels.title,
   categories: lists.categories.title,
   meats: lists.meats.title,
@@ -179,8 +183,8 @@ const logoOf = (values: Values) =>
 /** What the web reckons with and what the documents print (spec section 8), Owner only.
  *  One section is open at a time; 「บันทึก」 saves that section as its own `config` note, and
  *  a value `mutate` refuses is said beside the buttons. */
-/** The project's own settings (/owner/nn-x-lm/settings): the figures, the raw rice
- *  branches, the product list and the materials. The rest is the shop's (/owner/settings). */
+/** The project's own settings (/owner/nn-x-lm/settings): the figures, the kinds of meat, the
+ *  product list, the ingredients and the materials. The rest is the shop's (/owner/settings). */
 export const ProjectSettingsPage = ({ ws }: { ws: Workspace }) => (
   <SettingsPage ws={ws} project />
 );
@@ -199,7 +203,9 @@ export function SettingsPage({
   const [rows, setRows] = useState<Values[]>([]);
   const [message, setMessage] = useState("");
   const [skusOpen, setSkusOpen] = useState(false);
-  const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState<
+    "materials" | "ingredients" | null
+  >(null);
   /** The product whose popup is open. */
   const [product, setProduct] = useState<ProductDraft | null>(null);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
@@ -267,9 +273,7 @@ export function SettingsPage({
       input = Object.fromEntries(
         (section === "numbers"
           ? numbers.map((f) => f.key)
-          : section === "rice"
-            ? ["rawRiceBranches"]
-            : [...header.map((f) => f.key), ...logoKeys]
+          : [...header.map((f) => f.key), ...logoKeys]
         )
           .map((key) => [key, (draft[key] ?? "").trim()])
           .filter(([key, value]) => value !== (config[key] ?? "")),
@@ -360,7 +364,7 @@ export function SettingsPage({
     );
   /** A list: its rows as a table, with inputs, 「ลบ」 and one more row while it is open. */
   const list = (section: ListSection, removable: (row: Values) => boolean) => {
-    const { id, name, extra, add } = lists[section];
+    const { id, name, extra, code, add } = lists[section];
     const open = editing === section;
     return (
       <>
@@ -373,6 +377,7 @@ export function SettingsPage({
         ) : (
           <StockTable
             columns={[
+              ...(code ? [code] : []),
               name,
               ...(extra ? [extra.label] : []),
               ...(open ? [""] : []),
@@ -381,6 +386,11 @@ export function SettingsPage({
           >
             {(open ? rows : rowsOf(db, section)).map((row, index) => (
               <tr key={row[id]}>
+                {code && (
+                  <Cell className="font-mono whitespace-nowrap text-accent">
+                    {row.code || <Muted as="span">รอบันทึก</Muted>}
+                  </Cell>
+                )}
                 {open ? (
                   <>
                     <Cell className="py-1.5">
@@ -453,10 +463,10 @@ export function SettingsPage({
     );
   };
   const stockItems = productItems(db);
-  const skus = skuCatalogue(db);
+  // An ingredient's code is not a SKU of this card: 「รายชื่อวัตถุดิบ」 holds it.
+  const skus = skuCatalogue(db).filter((item) => !item.ingredient);
   const materialSkus = skus.filter((item) => item.material).length;
   const logo = logoOf(editing === "header" ? draft : db.config);
-  const riceAt = rawRiceBranches(editing === "rice" ? draft : db.config);
 
   return (
     // A wide screen: two columns of sections, so the forms and tables keep their width.
@@ -468,38 +478,6 @@ export function SettingsPage({
               "numbers",
               "ตัวเลขในหน้าอื่นจะเปลี่ยนตามค่าที่แก้ในนี้",
               plain("numbers", numbers),
-            )}
-            {card(
-              "rice",
-              "สาขาที่นึ่งข้าวเองจะนับข้าวเหนียวดิบ (กก.) ในหน้า Inventory ของสาขา ส่วนสาขาที่ไม่ได้เลือกจะไม่มีแถวข้าวเหนียวดิบ",
-              <div className="flex flex-wrap gap-x-6 gap-y-1 px-5 pt-1 pb-4 max-md:px-4">
-                {branches.map((branch) => (
-                  <label
-                    key={branch}
-                    className="flex min-h-11 items-center gap-2 font-semibold"
-                  >
-                    <input
-                      type="checkbox"
-                      className="size-5 accent-accent"
-                      checked={riceAt.includes(branch)}
-                      disabled={editing !== "rice"}
-                      onChange={(event) =>
-                        set(
-                          "rawRiceBranches",
-                          JSON.stringify(
-                            branches.filter((b) =>
-                              b === branch
-                                ? event.target.checked
-                                : riceAt.includes(b),
-                            ),
-                          ),
-                        )
-                      }
-                    />
-                    สาขา{branch}
-                  </label>
-                ))}
-              </div>,
             )}
             {card(
               "meats",
@@ -589,13 +567,41 @@ export function SettingsPage({
           </div>
           <div className="flex min-w-0 flex-col gap-4">
             <DayCard
+              aria-label={ingredientsTitle}
+              title={ingredientsTitle}
+              aside={
+                <Button
+                  size="sm"
+                  disabled={editing !== null}
+                  onClick={() => setMaterialsOpen("ingredients")}
+                >
+                  เปิดรายการ
+                </Button>
+              }
+            >
+              <p className="px-5 pt-3 pb-1 text-caption text-text-secondary max-md:px-4">
+                รายการวัตถุดิบในใบสต๊อกหน้า Stock ของสาขา ต่อจากเนื้อ
+                ค่าใช้จ่ายประเภท &quot;วัตถุดิบ&quot; ในหน้า Accounting
+                ที่ชื่อยังไม่มีในรายการจะถูกเพิ่มให้เอง รหัส (ING)
+                ออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ
+              </p>
+              <dl className={grid}>
+                <div>
+                  <dt className="text-label text-text-secondary">วัตถุดิบ</dt>
+                  <dd className="m-0 font-semibold">
+                    {ingredientList(db.config).length} รายการ
+                  </dd>
+                </div>
+              </dl>
+            </DayCard>
+            <DayCard
               aria-label={materialsTitle}
               title={materialsTitle}
               aside={
                 <Button
                   size="sm"
                   disabled={editing !== null}
-                  onClick={() => setMaterialsOpen(true)}
+                  onClick={() => setMaterialsOpen("materials")}
                 >
                   เปิดรายการ
                 </Button>
@@ -700,7 +706,11 @@ export function SettingsPage({
       )}
       {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
       {materialsOpen && (
-        <MaterialsDialog ws={ws} onClose={() => setMaterialsOpen(false)} />
+        <MaterialsDialog
+          ws={ws}
+          list={materialsOpen}
+          onClose={() => setMaterialsOpen(null)}
+        />
       )}
       {product && (
         <ProductDialog
