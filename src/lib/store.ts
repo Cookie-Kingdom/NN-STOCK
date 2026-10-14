@@ -71,6 +71,7 @@ export {
   stockCategories,
   branchCategories,
   isIngredientItem,
+  ingredientType,
   ingredientList,
   companyPayer,
   seed,

@@ -49,6 +49,7 @@ import {
   productQty,
   products,
   skuFor,
+  ingredientType,
   skuName,
   kindInfo,
   missingKeys,
@@ -297,7 +298,12 @@ function NoteForm({
       // A ledger item: the SKU the name typed gets (V2-LED-03).
       if (kind !== "expense" || f.key !== "item" || !values.item?.trim())
         return f;
-      const { sku, isNew } = skuFor(db, values.item, target?.values);
+      const { sku, isNew } = skuFor(
+        db,
+        values.item,
+        target?.values,
+        values.itemType === ingredientType,
+      );
       return { ...f, hint: isNew ? `ใหม่: ${sku}` : sku };
     });
   /** A sale's count fields, one per product: laid out as rows (`SaleRowsControl`). */
@@ -917,7 +923,12 @@ function noteFigures(
     };
   }
   if (kind === "expense") {
-    const { sku, isNew } = skuFor(db, v.item ?? "", target?.values);
+    const { sku, isNew } = skuFor(
+      db,
+      v.item ?? "",
+      target?.values,
+      v.itemType === ingredientType,
+    );
     const amount = Number(v.amount) || 0;
     // As the ledger reads a row: a status typed, else paid once it has an amount.
     const status = (v.status ||

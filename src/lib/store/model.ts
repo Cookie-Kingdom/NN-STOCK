@@ -552,6 +552,8 @@ export const meatTypeName = (config: Values, id: string) =>
  *  SKU: what an expense, a transfer and the warehouses' moves name it by. `id` is `ing-<id>`,
  *  so `sheetOf` tells it apart with no list at hand. Read as a `Material` (`sku` = the code). */
 export const isIngredientItem = (id: string) => id.startsWith("ing-");
+/** The ประเภทสินค้า of an Accounting `expense` that buys an ingredient. */
+export const ingredientType = "วัตถุดิบ";
 export const ingredientList = (config: Values): Material[] =>
   list(config, "ingredientList")
     .filter((row) => isIngredientItem(String(row?.id ?? "")))

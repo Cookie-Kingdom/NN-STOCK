@@ -15,8 +15,8 @@ import {
   toast,
 } from "./helpers";
 
-/* Spec v2 V2-LED-03, V2-LED-04 and V2-BR-08: the SKU the web issues (the expense form, the
- * Settings lists), and the Settings choice of the branches that hold raw rice. */
+/* Spec v2 V2-LED-03 and V2-LED-04: the SKU the web issues (the expense form, the Settings
+ * lists), and the ING code of an ingredient bought on Accounting. */
 
 /** The ledger rows of the Accounting page. */
 const ledgerRows = (page: Page) =>
@@ -26,11 +26,6 @@ const typeItem = async (page: Page, name: string) => {
   await jot(page, "บันทึกค่าใช้จ่าย");
   await fill(page, [/^ประเภทสินค้า/, "อื่นๆ"], [/^รายการ/, name]);
 };
-/** Opens a Settings section, by its title. */
-const edit = async (section: Locator) =>
-  section.getByRole("button", { name: "แก้ไข", exact: true }).click();
-const saveSection = async (section: Locator) =>
-  section.getByRole("button", { name: "บันทึก", exact: true }).click();
 /** A row of a stock table, by the item it starts with. */
 const stockRow = (card: Locator, item: string) =>
   card.getByRole("row", { name: new RegExp(`^${item}`) }).getByRole("cell");
@@ -208,73 +203,39 @@ test("V2-LED-03 a material added in Settings gets the next SKU when the list is 
   await expect(form(page)).toBeVisible();
 });
 
-test("V2-BR-08 the branches ticked in Settings hold raw rice: the row comes and goes on the branch's Stock sheet, and the Owner's has a dash for the others", async ({
+test("V2-LED-03 an expense of type วัตถุดิบ adds the item to 「รายชื่อวัตถุดิบ」 under the next ING code, and it is a row of the branches' Stock sheet", async ({
   page,
 }) => {
   await start(page, "seed");
   await signInAs(page, "owner");
-  // The seed: ศาลาแดง steams its own. Now มีนบุรี does, and ศาลาแดง no longer.
+  await openPage(page, "Accounting");
+  await jot(page, "บันทึกค่าใช้จ่าย");
+  await fill(page, [/^ประเภทสินค้า/, "วัตถุดิบ"], [/^รายการ/, "ข้าวเหนียวดิบ"]);
+  await expect(popup(page).getByText("ใหม่: ING-0001")).toBeVisible();
+  await save(page);
+  await expect(ledgerRows(page)).toContainText(["ข้าวเหนียวดิบING-0001"]);
+  // The SKU sequence is its own: a new item of another type is still the next SKU.
+  await typeItem(page, "หมึกพิมพ์");
+  await expect(popup(page).getByText("ใหม่: SKU-0024")).toBeVisible();
+  await save(page);
+
+  // Settings lists it (unit ชิ้น until the Owner says otherwise), apart from the SKU list.
   await openPage(page, "Settings", true);
-  const rice = region(page, "สาขาที่ใช้ข้าวเหนียวดิบ");
-  await expect(rice.getByLabel("สาขาศาลาแดง")).toBeChecked();
-  await expect(rice.getByLabel("สาขามีนบุรี")).not.toBeChecked();
-  await expect(rice.getByLabel("สาขามีนบุรี")).toBeDisabled();
-  await edit(rice);
-  await rice.getByLabel("สาขามีนบุรี").check();
-  await rice.getByLabel("สาขาศาลาแดง").uncheck();
-  await saveSection(rice);
-  await expect(
-    toast(page, "บันทึกแล้ว: สาขาที่ใช้ข้าวเหนียวดิบ"),
-  ).toBeVisible();
-  await expect(rice.getByLabel("สาขามีนบุรี")).toBeChecked();
-  await expect(rice.getByLabel("สาขาศาลาแดง")).not.toBeChecked();
-  // The Owner's Stock: a dash under ศาลาแดง, and มีนบุรี holds none yet.
-  await openPage(page, "Stock");
-  const riceRow = stockRow(region(page, "สต๊อกของสาขา"), "ข้าวเหนียวดิบ");
-  await expect(riceRow).toHaveText([
-    "ข้าวเหนียวดิบ",
-    "—",
-    "—",
-    "0 กก.ยังไม่บันทึกวันนี้",
-    "—",
-  ]);
+  await expect(region(page, "รายชื่อวัตถุดิบ")).toContainText(
+    "วัตถุดิบ1 รายการ",
+  );
 
-  // ศาลาแดง has no row for it, and is told nothing of the other branch.
-  await signInAs(page, "saladaeng");
-  await openPage(page, "Stock");
-  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
-  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
-  const copy = (await (await page.request.get("/api/local-db")).json()).payload;
-  expect(copy.config.rawRiceBranches).toBe("[]");
-
-  // มีนบุรี has it, and takes some in.
+  // A branch's Stock sheet has its row after the meat, and takes some in.
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
   await saveSheet(page, "พี่เอ", ["รับเพิ่ม", "ข้าวเหนียวดิบ", "7.5"]);
   await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveText(
-    "7.5 กก.",
+    "7.5 ชิ้น",
   );
 
-  // The Owner's Stock has it under มีนบุรี, and still a dash under ศาลาแดง.
+  // The Owner's Stock reads it under มีนบุรี.
   await signInAs(page, "owner");
   await openPage(page, "Stock");
-  await expect(riceRow.nth(1)).toHaveText("—");
-  await expect(riceRow.nth(3)).toContainText("7.5 กก.");
-  // No branch ticked: no raw rice row at all, on the Owner's Stock or on the branch's.
-  await openPage(page, "Settings", true);
-  await edit(rice);
-  await rice.getByLabel("สาขามีนบุรี").uncheck();
-  await saveSection(rice);
-  await expect(
-    toast(page, "บันทึกแล้ว: สาขาที่ใช้ข้าวเหนียวดิบ"),
-  ).toBeVisible();
-  await openPage(page, "Stock");
-  await expect(riceRow).toHaveCount(0);
-  await expect(
-    region(page, "สต๊อกของสาขา").getByRole("row", { name: /^น้ำพริก/ }),
-  ).toBeVisible();
-  await signInAs(page, "minburi");
-  await openPage(page, "Stock");
-  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
-  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
+  const row = stockRow(region(page, "สต๊อกของสาขา"), "ข้าวเหนียวดิบ");
+  await expect(row.nth(3)).toContainText("7.5 ชิ้น");
 });

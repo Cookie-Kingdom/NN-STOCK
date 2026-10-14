@@ -15,6 +15,7 @@ import {
   codeText,
   lastCode,
   ingredientList,
+  ingredientType,
   isIngredientItem,
   products,
   branches,
@@ -264,11 +265,7 @@ function noteValues(
   // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one;
   // an ingredient (วัตถุดิบ, added to its list by `mutate` first) its code.
   if (kind === "expense")
-    v.sku =
-      (v.itemType === ingredientType &&
-        ingredientList(db.config).find((i) => norm(i.name) === norm(v.item))
-          ?.sku) ||
-      skuFor(db, v.item, kept).sku;
+    v.sku = skuFor(db, v.item, kept, v.itemType === ingredientType).sku;
   if (kind === "transfer" && lotId) {
     // Smoked meat, kg of its PO รมควัน, from Foodiva: no SKU, so no warehouse moves it.
     v.from = foodivaPlace;
@@ -507,8 +504,6 @@ function checkConfig(v: Values) {
 }
 /** An item name as matched: trimmed, case-insensitive (as `skuFor` matches it). */
 const norm = (name = "") => name.trim().toLowerCase();
-/** The ประเภทสินค้า of an Accounting `expense` that buys an ingredient. */
-const ingredientType = "วัตถุดิบ";
 /** The rows of a `key` list being saved, each with its code: the one its id has now (whatever
  *  is sent), else the next `prefix` one past every code ever issued (`lastCode`). */
 function withCodes(

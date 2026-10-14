@@ -83,7 +83,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 }) => {
   await start(page, "seed");
   await signInAs(page, "owner");
-  // Stock: the branches' meat, raw rice and chili, as their daily sheets read; nothing to press.
+  // Stock: the branches' meat and ingredients, as their daily sheets read; nothing to press.
   await openPage(page, "Stock");
   const shelves = region(page, "สต๊อกของสาขา");
   // A branch starts empty: 0, not a sheet to set up first.
@@ -151,10 +151,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   expect(sent.payload.entries.map((e: { values: object }) => e.values)).toEqual(
     [{ category: "packaging", item: "m1", qty: "50", branch: "มีนบุรี" }],
   );
-  // Its Stock: the meat and the chili. มีนบุรี buys its rice cooked: no raw rice row.
+  // Its Stock: the meat. The seed has no ingredient yet (「รายชื่อวัตถุดิบ」), so no other row:
+  // no raw rice or chili row of its own any more.
   await openPage(page, "Stock");
   await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toBeVisible();
-  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toHaveCount(0);
   await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
   // Its Inventory: the payment is the day's receipt, and all the branch holds.
   await openPage(page, "Inventory");
@@ -461,6 +462,29 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   await start(page, "seed");
   await signInAs(page, "owner");
   await openPage(page, "Settings", true);
+  // The chili first: an ingredient of 「รายชื่อวัตถุดิบ」, counted in tubes, issued ING-0001.
+  await region(page, "รายชื่อวัตถุดิบ")
+    .getByRole("button", { name: "เปิดรายการ" })
+    .click();
+  await popup(page).getByRole("button", { name: "เพิ่มวัตถุดิบ" }).click();
+  await popup(page)
+    .getByRole("textbox", { name: "ชื่อวัตถุดิบ ใหม่" })
+    .fill("น้ำพริก");
+  await popup(page).getByLabel("หน่วยนับ น้ำพริก").fill("หลอด");
+  await popup(page)
+    .getByRole("button", { name: "บันทึก", exact: true })
+    .click();
+  await expect(toast(page, "บันทึกแล้ว: รายชื่อวัตถุดิบ")).toBeVisible();
+  await expect(popup(page)).toHaveCount(0);
+  await region(page, "รายชื่อวัตถุดิบ")
+    .getByRole("button", { name: "เปิดรายการ" })
+    .click();
+  await expect(
+    popup(page).getByRole("row", { name: /^ING-0001/ }),
+  ).toBeVisible();
+  await popup(page)
+    .getByRole("button", { name: "ยกเลิก", exact: true })
+    .click();
   const list = region(page, "รายการสินค้า");
   /** Adds a component to the product in the popup, with what a piece takes of it. */
   const component = async (item: string, qty: string) => {

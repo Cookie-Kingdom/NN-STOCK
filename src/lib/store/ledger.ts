@@ -5,8 +5,10 @@
 import {
   branches,
   configMaterials,
+  codeText,
   incomeTypes,
   ingredientList,
+  lastCode,
   payCategories,
   places,
   salesChannels,
@@ -211,10 +213,25 @@ export function skuItem(db: Database, name: string, kept: Values = {}) {
 }
 /** The SKU an `expense` note of item `name` gets: the one it already had (`kept`, an edit that
  *  kept the name), the one of the item in the catalogue that goes by that name (a material
- *  included), or the next one (`isNew`). */
-export function skuFor(db: Database, name: string, kept: Values = {}) {
+ *  included), or the next one (`isNew`). An `ingredient` (ประเภท วัตถุดิบ) gets the ING code
+ *  of the ingredient of that name, or the next ING code (`mutate` adds it to the list first). */
+export function skuFor(
+  db: Database,
+  name: string,
+  kept: Values = {},
+  ingredient = false,
+) {
   const key = norm(name);
   if (!key) return { sku: "", isNew: false };
+  if (ingredient) {
+    const same = ingredientList(db.config).find((i) => norm(i.name) === key);
+    return same
+      ? { sku: same.sku, isNew: false }
+      : {
+          sku: codeText("ING", lastCode(db, "ingredientList", "ING") + 1),
+          isNew: true,
+        };
+  }
   if (kept.sku && norm(kept.item) === key)
     return { sku: kept.sku, isNew: false };
   const same = skuCatalogue(db).find((item) => norm(item.name) === key);
