@@ -29,6 +29,7 @@ import { useLogoSrc } from "@/lib/attachment-store";
 import { defaults, fields } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
+  jotBackKg,
   lotInfo,
   mutate,
   nextNumberPreview,
@@ -139,8 +140,8 @@ export function PoDocumentDialog({
 
   const save = async () => {
     setError("");
-    const next = await run(() =>
-      saved
+    const next = await run(() => {
+      const done = saved
         ? mutate(
             latestDatabase(),
             account,
@@ -154,8 +155,12 @@ export function PoDocumentDialog({
             "",
             today,
           )
-        : mutate(latestDatabase(), account, kind, values, "", date),
-    );
+        : mutate(latestDatabase(), account, kind, values, "", date);
+      // A PO รมควัน's น้ำหนักกลับ goes into its rounds' after-smoking notes.
+      return kind === "smokeOrder"
+        ? jotBackKg(done, account, done.entries.at(-1)!.lotId, date)
+        : done;
+    });
     if (!next) return;
     ws.setToast(`${saved ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}`);
     onClose();

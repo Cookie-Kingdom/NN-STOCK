@@ -42,12 +42,15 @@ import {
   decimal,
   defaultRound,
   entries,
+  lotInfo,
   materialList,
   nextNumberPreview,
+  orderBackKg,
   pendingTransfers,
   poInfo,
   poLines,
   purchaseLots,
+  roundsOf,
   shipments,
   smokeServiceRate,
 } from "./derived";
@@ -755,4 +758,93 @@ export function mutate(
       touched.has(lot.id) ? recached(next, lot) : lot,
     );
   return next;
+}
+
+/** The PO รมควัน's น้ำหนักกลับ jotted as real notes (Daily Log, the round's steps). With no
+ *  round yet and a PO เนื้อ named (backPoLotId), one whole round. Else each round gets a share by its weight in (received, else sent), the last
+ *  the rest; a round with no note gets one, one whose weight differs an edit of its latest.
+ *  Run after the Owner saves the PO or a round. Does nothing without a backKg or a round, or
+ *  once the notes were changed since (they no longer add up to it and were written later). */
+export function jotBackKg(
+  db: Database,
+  by: Actor,
+  lotId: string,
+  date: string,
+): Database {
+  const back = orderBackKg(db, lotId);
+  const rounds = roundsOf(db, lotId);
+  if (by.role !== "owner" || back === null) return db;
+  if (!rounds.length) {
+    // No round yet: jot a whole one from the PO เนื้อ the PO names, as if each step was typed.
+    const order = entries(db, "smokeOrder", lotId).at(-1)?.values ?? {};
+    if (!order.backPoLotId || !Number(order.rawKg)) return db;
+    const sent = mutate(
+      db,
+      by,
+      "dispatch",
+      { dispatchKg: order.rawKg, poLotId: order.backPoLotId },
+      lotId,
+      date,
+    );
+    const dispatchId = sent.entries.at(-1)!.id;
+    const steps: [EntryKind, Values][] = [
+      ["cmReceive", { receivedKg: order.rawKg }],
+      ["smoked", { smokedKg: String(back) }],
+      ["return", { returnKg: String(back) }],
+    ];
+    return steps.reduce(
+      (to, [kind, values]) =>
+        mutate(to, by, kind, { dispatchId, ...values }, lotId, date),
+      sent,
+    );
+  }
+  const notesKg = rounds.reduce((a, round) => a + round.smokedKg, 0);
+  if (!lotInfo(db, lotId).fromOrder && Math.abs(notesKg - back) > 0.005)
+    return db;
+  const base = rounds.reduce((a, round) => a + round.wasteBaseKg, 0);
+  let left = back;
+  return rounds.reduce((to, round, i) => {
+    const share =
+      i === rounds.length - 1
+        ? left
+        : base
+          ? Math.round(((back * round.wasteBaseKg) / base) * 100) / 100
+          : 0;
+    left -= share;
+    const notes = entries(to, "smoked", lotId).filter(
+      (e) => e.values.dispatchId === round.dispatch.id,
+    );
+    const latest = notes.at(-1);
+    const others = notes
+      .slice(0, -1)
+      .reduce((a, e) => a + Number(e.values.smokedKg || 0), 0);
+    const kg = String(Math.round(Math.max(0, share - others) * 100) / 100);
+    if (!latest)
+      return mutate(
+        to,
+        by,
+        "smoked",
+        { dispatchId: round.dispatch.id, smokedKg: kg },
+        lotId,
+        date,
+      );
+    if (Number(latest.values.smokedKg || NaN) === Number(kg)) return to;
+    const edit = (d: Database, e: Entry, values: Values) =>
+      mutate(
+        d,
+        by,
+        "entryEdit",
+        { targetId: e.id, values: JSON.stringify({ ...e.values, ...values }) },
+        "",
+        date,
+      );
+    // A return that went back at the old weight (as a whole round jotted here does) follows it.
+    const sentBack = entries(to, "return", lotId)
+      .filter((e) => e.values.dispatchId === round.dispatch.id)
+      .at(-1);
+    const next = edit(to, latest, { smokedKg: kg });
+    return sentBack && sentBack.values.returnKg === latest.values.smokedKg
+      ? edit(next, sentBack, { returnKg: kg })
+      : next;
+  }, db);
 }
