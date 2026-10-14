@@ -2102,16 +2102,17 @@ describe("SKU: materials and ledger items", () => {
     expect(() => rename("ซองข้าวเหนียว")).toThrow("ซ้ำกัน");
     expect(() => rename(" ")).toThrow("ยังไม่ได้ใส่ชื่อ");
     expect(() => config(d, { skuNames: "x" })).toThrow("อ่านรายการไม่ได้");
-    // A material named as a ledger item is refused the same way.
+    // 2026-10-14: a new material named as a ledger item is that item, under its SKU.
     const rows: Values[] = JSON.parse(d.config.materialList);
-    expect(() =>
-      config(d, {
-        materialList: JSON.stringify([
-          ...rows,
-          { id: "mz", name: "ปากกา", perBox: "" },
-        ]),
-      }),
-    ).toThrow("ซ้ำกัน");
+    const pen = config(d, {
+      materialList: JSON.stringify([
+        ...rows,
+        { id: "mz", name: "ปากกา", perBox: "" },
+      ]),
+    });
+    expect(materialList(pen).find((m) => m.id === "mz")?.sku).toBe(
+      entries(d, "expense").find((e) => e.values.item === "ปากกา")?.values.sku,
+    );
   });
 
   it("a materials list stored before SKUs has none until it is saved again", () => {
