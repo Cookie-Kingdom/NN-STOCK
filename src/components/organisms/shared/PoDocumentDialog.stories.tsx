@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { Button } from "@/components/atoms/Button";
 import {
   WithWorkspace,
@@ -82,6 +83,21 @@ export const SmokeOrderDraft: Story = {
 export const SavedPurchase: Story = {
   args: {
     entryId: liveEntries(sampleDb).find((e) => e.kind === "purchase")?.id,
+  },
+};
+
+/** ราคา / กก. เกิน 1,000 บาท (น่าจะพิมพ์เกิน): กดบันทึกแล้วถามยืนยันก่อน โฟกัสที่ 「กลับไปแก้」
+ *  ใช้กับราคาค่ารม / กก. ของ PO รมควันด้วย */
+export const PriceCheck: Story = {
+  args: {
+    values: { supplier: "Foodiva", orderedKg: "1000", price: "70000" },
+  },
+  play: async () => {
+    const body = within(document.body);
+    await userEvent.click(await body.findByRole("button", { name: "บันทึก" }));
+    await expect(
+      await body.findByRole("alertdialog", { name: /เกิน 1,000 บาท/ }),
+    ).toBeVisible();
   },
 };
 
