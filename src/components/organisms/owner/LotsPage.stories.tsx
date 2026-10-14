@@ -92,6 +92,33 @@ export const TwoRounds: Story = {
   },
 };
 
+/** รอบที่ยังไม่ได้จดหลังรมควันมีแถบเหลือง「ต้องจดหลังรมควัน」เหนือสามขั้น: เนื้อรอบนั้นยังจัดสรร
+ *  ไม่ได้ · กด「จดน้ำหนักหลังรมควัน」เปิดฟอร์มหลังรมควันของรอบนั้น */
+export const SmokedNeeded: Story = {
+  parameters: { db: twoRoundsDb },
+  play: async (context) => {
+    const { canvasElement, args } = context;
+    await pick(/SO-\d+-0002/)!(context);
+    const lot = shipments(twoRoundsDb)[1];
+    const [first, second] = roundsOf(twoRoundsDb, lot.id).map(
+      (round) => round.dispatch.id,
+    );
+    const card = (id: string) =>
+      within(
+        canvasElement.querySelector(`[data-round="${id}"]`) as HTMLElement,
+      );
+    await expect(card(first).queryByText("ต้องจดหลังรมควัน")).toBeNull();
+    await userEvent.click(
+      card(second).getByRole("button", { name: "จดน้ำหนักหลังรมควัน" }),
+    );
+    await expect(args.jot).toHaveBeenLastCalledWith({
+      kind: "smoked",
+      lotId: lot.id,
+      values: { dispatchId: second },
+    });
+  },
+};
+
 /** ส่งเกินน้ำหนักที่ซื้อบริการรม: แถบเป็นสีเหลือง「เกิน 50 กก.」(เตือน ไม่ใช่ error) */
 export const OverCapacity: Story = {
   parameters: { db: overCapacityDb },
