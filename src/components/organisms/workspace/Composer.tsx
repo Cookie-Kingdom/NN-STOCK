@@ -44,6 +44,7 @@ import {
   capacityWarning,
   defaultRound,
   dispatchLines,
+  entries,
   isProductKey,
   isRoundKind,
   productQty,
@@ -54,6 +55,7 @@ import {
   missingKeys,
   missingText,
   mutate,
+  orderBackKg,
   poInfo,
   poTerms,
   prefillLineKg,
@@ -233,8 +235,20 @@ function NoteForm({
   /** What the web fills in for the lot picked: a dispatch the kg the PO รมควัน has left, a
    *  round step its round, a waste receipt the PO เนื้อ's waste kg. */
   const prefill = (lot: string): Values => {
-    if (isRoundKind(kind))
-      return { dispatchId: (lot && defaultRound(db, lot, kind)?.id) || "" };
+    if (isRoundKind(kind)) {
+      const round = {
+        dispatchId: (lot && defaultRound(db, lot, kind)?.id) || "",
+      };
+      // The PO รมควัน's weight back, less what the other after-smoking notes weigh.
+      const back = kind === "smoked" && lot ? orderBackKg(db, lot) : null;
+      if (back === null) return round;
+      const left =
+        back -
+        entries(db, "smoked", lot)
+          .filter((e) => e.id !== target?.id)
+          .reduce((a, e) => a + Number(e.values.smokedKg || 0), 0);
+      return left > 0 ? { ...round, smokedKg: kgValue(left) } : round;
+    }
     if (!lot) return {};
     if (kind === "dispatch") {
       const left = remainingKg(db, lot, target?.id);

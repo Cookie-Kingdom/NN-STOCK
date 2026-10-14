@@ -352,6 +352,9 @@ export function fields(
       const rate = (key: string) => `฿${kg(Number(db.config[key]) || 0)}`;
       return [
         core(number("rawKg", "น้ำหนักที่สั่งรมควัน", "กก.")),
+        number("backKg", "น้ำหนักกลับ", "กก.", {
+          hint: "ทางลัด: ใช้เป็นน้ำหนักหลังรมควันได้ทันที ไม่ต้องจดฟอร์มหลังรมควัน ถ้าจดฟอร์มหลังรมควัน ระบบใช้น้ำหนักในฟอร์มนั้นแทน",
+        }),
         ...more(
           number("serviceRate", "ราคาค่ารม / กก.", "บาท", {
             hint: `ถ้าเว้นว่าง ค่ารมคิดตามน้ำหนัก: ต่ำกว่า 1,000 กก. ${rate("smokeRate")} · ตั้งแต่ 1,000 กก. ${rate("smokeRate1000")} · ตั้งแต่ 1,500 กก. ${rate("smokeRate1500")}`,
