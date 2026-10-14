@@ -46,7 +46,7 @@ const jotted = (page: Page, kind: string, offset = 0) =>
 /** A row of a stock table, by the item it starts with (behind its SKU, in a table with one). */
 const stockRow = (card: Locator, item: string) =>
   card
-    .getByRole("row", { name: new RegExp(`^(SKU-\\d+ )?${item}`) })
+    .getByRole("row", { name: new RegExp(`^((SKU|RM|ING)-\\d+ )?${item}`) })
     .getByRole("cell");
 /** The lines of the bell's list (open) that start with `text`. */
 const todoLines = (page: Page, text: string) =>
@@ -87,12 +87,16 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   await openPage(page, "Stock");
   const shelves = region(page, "สต๊อกของสาขา");
   // A branch starts empty: 0, not a sheet to set up first.
+  // A row per item as on Inventory: where it is, each place a column.
   await expect(stockRow(shelves, "เนื้อ")).toHaveText([
+    "RM-0001",
     "เนื้อ",
+    "0 กก.",
+    "0 กก.ยังไม่บันทึกวันนี้",
     "0 กก.ยังไม่บันทึกวันนี้",
     "—",
-    "0 กก.ยังไม่บันทึกวันนี้",
-    "—",
+    "0 กก.",
+    "ยังไม่ตั้งยอด",
   ]);
   await expect(jotButtons(page)).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
@@ -448,9 +452,8 @@ test("12 · V2-BR-09 a branch starts empty, takes meat in and saves the day's sh
   await signInAs(page, "owner");
   await openPage(page, "Stock");
   const meat = stockRow(region(page, "สต๊อกของสาขา"), "เนื้อ");
-  await expect(meat.nth(1)).toHaveText("14 กก.");
-  await expect(meat.nth(2)).toHaveText("0.5 กก.ขอบไหม้");
-  await expect(meat.nth(3)).toHaveText("0 กก.ยังไม่บันทึกวันนี้");
+  await expect(meat.nth(3)).toHaveText("14 กก.Waste 0.5 กก.ขอบไหม้");
+  await expect(meat.nth(4)).toHaveText("0 กก.ยังไม่บันทึกวันนี้");
   await expect(region(page, "Waste ย้อนหลัง 7 วัน")).toContainText("ขอบไหม้");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("spinbutton")).toHaveCount(0);
