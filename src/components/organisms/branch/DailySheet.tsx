@@ -365,6 +365,15 @@ function DailyForm({
                       ตัดจากยอดขาย {n3(info.sold)}
                     </Caption>
                   )}
+                  {/* The meat the day's sales held is not taken: the branch weighs it. */}
+                  {info.weigh && (
+                    <Caption
+                      aria-label={`ตัดจากยอดขาย ${name}`}
+                      className="mt-1 block font-normal text-warning"
+                    >
+                      มียอดขาย · ชั่งแล้วกรอกน้ำหนักที่ใช้ไปเอง
+                    </Caption>
+                  )}
                 </Figure>
                 {/* Wide enough for the reason, so typing a Waste moves no column. */}
                 <Figure
@@ -411,7 +420,8 @@ function DailyForm({
         <Caption className="block px-5 py-3 max-md:px-4">
           “ใช้ไป” รวม waste แล้ว · ช่อง waste บันทึกเพื่อดูของเสียเท่านั้น
           ไม่หักสต๊อกซ้ำ · “ตัดจากยอดขาย” เว็บตัดให้เองจากยอดขายและกล่องที่แจก
-          ตามส่วนประกอบของสินค้าใน Settings ไม่ต้องพิมพ์ซ้ำใน “ใช้ไป”
+          ตามส่วนประกอบของสินค้าใน Settings ไม่ต้องพิมพ์ซ้ำใน “ใช้ไป” ·
+          ยกเว้นเนื้อ เว็บไม่ตัดให้ ชั่งแล้วกรอกน้ำหนักที่ใช้ไปเองใน “ใช้ไป”
         </Caption>
         {locked ? (
           <div className="border-t border-border px-5 py-1 max-md:px-4">

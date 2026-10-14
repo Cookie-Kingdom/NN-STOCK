@@ -1008,6 +1008,7 @@ describe("figures (V2-CAL)", () => {
       saved: true,
       sold: 0,
       set: true,
+      weigh: false,
     });
     // The 8th opens with the 8 the 7th left, the 9th takes in 5.
     expect(item("meat", "2026-09-09")).toMatchObject({
@@ -1027,6 +1028,7 @@ describe("figures (V2-CAL)", () => {
       saved: true,
       sold: 0,
       set: true,
+      weigh: false,
     });
     // The next day opens with what the day before left.
     expect(item("meat", "2026-09-11")).toMatchObject({
@@ -1221,7 +1223,9 @@ describe("figures (V2-CAL)", () => {
       ["chili", "หลอด", 11],
       ["m1", lines[2].unit, 10],
     ]);
-    for (const l of lines)
+    // The meat is not taken: the branch weighs what it used.
+    expect(lines[0].weigh).toBe(true);
+    for (const l of lines.slice(1))
       expect(l.left).toBeCloseTo(left(l.id, "2026-09-13") - l.take);
     // More than the branch holds is told, below zero.
     expect(preview({ boxes: "1000" }, "2026-09-13")[2].left).toBeLessThan(0);
@@ -1289,13 +1293,15 @@ describe("figures (V2-CAL)", () => {
       remaining: 106,
     });
     expect(item("m1", "2026-09-13", set).opening).toBe(106);
-    // Meat and raw rice are typed in grams a box and taken in kg: 10 × 120 g, 10 × 80 g.
+    // Raw rice is typed in grams a box and taken in kg: 10 × 80 g. The meat is weighed, never
+    // taken by the boxes: the sheet asks for it.
     expect(item("meat", "2026-09-10", set)).toMatchObject({
       opening: 13,
       used: 1.5,
-      sold: 1.2,
+      sold: 0,
+      remaining: 11.5,
+      weigh: true,
     });
-    expect(item("meat", "2026-09-10", set).remaining).toBeCloseTo(10.3);
     expect(item("rice", "2026-09-10", set).sold).toBe(0.8);
     // Chili: a tube a box, and the tubes sold beside them: 10 + 4, then 2 + 3.
     expect(item("chili", "2026-09-10", set).sold).toBe(14);
@@ -1374,7 +1380,7 @@ describe("figures (V2-CAL)", () => {
     );
     const on = (id: string) => item(id, "2026-09-14", sold).sold;
     // 3 boxes of 200 g; a tube a box and a tube a tube; a box each; half a bag a tube.
-    expect(on("meat")).toBeCloseTo(0.6);
+    expect(on("meat")).toBe(0);
     expect(on("chili")).toBe(8);
     expect(on("m1")).toBe(3);
     expect(on("m2")).toBe(2.5);

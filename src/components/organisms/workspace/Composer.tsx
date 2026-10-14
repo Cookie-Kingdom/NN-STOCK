@@ -763,17 +763,25 @@ function SaleRowsControl({
                 className="col-span-full grid grid-cols-subgrid items-baseline"
               >
                 <span className="[overflow-wrap:anywhere]">{line.name}</span>
-                <span className="text-right text-text-secondary">
-                  ตัด {qty(line.take)} {line.unit}
-                </span>
-                <span
-                  className={cn(
-                    "text-right font-medium",
-                    line.left < 0 && "text-danger",
-                  )}
-                >
-                  เหลือ {signed(line.left)} {line.unit}
-                </span>
+                {line.weigh ? (
+                  <span className="col-span-2 text-right text-text-secondary">
+                    ไม่ตัดอัตโนมัติ · ชั่งแล้วกรอกน้ำหนักที่ใช้ไปเองในหน้า Stock
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-right text-text-secondary">
+                      ตัด {qty(line.take)} {line.unit}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-right font-medium",
+                        line.left < 0 && "text-danger",
+                      )}
+                    >
+                      เหลือ {signed(line.left)} {line.unit}
+                    </span>
+                  </>
+                )}
               </li>
             ))}
           </ul>

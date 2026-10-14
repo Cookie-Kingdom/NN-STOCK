@@ -904,7 +904,10 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
  *    themselves, beside `used`: over every product (`products`), the note's count of it × the
  *    product's quantity of the item (grams read as kg for `gramItems`), and for the chili the
  *    `chiliAddons` of a note saved when tubes sold apart had their own field, tube for tube.
- *    A day with such a note and no sheet counts all the same.
+ *    A day with such a note and no sheet counts all the same. Never the meat (2026-10-14):
+ *    it is weighed and never as exact as the recipe, so the branch types it in `used`.
+ *  - `weigh`: the meat, on a day whose sales and gift boxes held some: the sheet asks the
+ *    branch to type the weight used.
  *  - `saved`: whether the day has a `daily` note of the item's sheet.
  *  - `set`: whether anything moved the item in or out by `date`. Until then its 0 is
  *    "ยังไม่ตั้งยอด", not "หมด".
@@ -942,6 +945,8 @@ export function branchItem(
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
+  // Meat is weighed and never comes out as the recipe says: the branch types what it used.
+  const weighed = itemId === "meat";
   const list = products(db.config);
   const taken = new Map<string, number>();
   for (const kind of ["sale", "influencerBox"] as const)
@@ -958,7 +963,7 @@ export function branchItem(
       autoReceived: auto.get(day) ?? 0,
       received: num(noted, key("received")),
       used: num(noted, key("used")),
-      sold: taken.get(day) ?? 0,
+      sold: weighed ? 0 : (taken.get(day) ?? 0),
     };
   };
   let opening = 0;
@@ -981,12 +986,14 @@ export function branchItem(
       opening + today.autoReceived + today.received - today.used - today.sold,
     saved: !!now,
     set,
+    weigh: weighed && taken.has(date),
   };
 }
 /** The sale form's preview (V2-BR-13): what a sale of these `values` takes from the branch's
  *  stock and what is left of each item on `date` once it is saved, a line per item of the
  *  branch's sheets that the typed products hold. `saved`: the note being edited, which the
- *  stock already counts when its date is not after `date`. */
+ *  stock already counts when its date is not after `date`. `weigh`: the meat, which the sale
+ *  does not take: the form asks for the weight on the sheet instead of a figure. */
 export function salePreview(
   db: Database,
   branch: string,
@@ -1000,12 +1007,15 @@ export function salePreview(
     .flatMap((item) => {
       const take = noteTakes(list, item.id, values);
       if (!take) return [];
+      const line = { id: item.id, name: item.name, unit: item.unit, take };
+      // The meat is not taken (branchItem): the branch weighs what it used.
+      if (item.id === "meat") return [{ ...line, left: 0, weigh: true }];
       const own =
         saved && saved.date <= date
           ? noteTakes(list, item.id, saved.values)
           : 0;
       const left = branchItem(db, branch, item.id, date).remaining + own - take;
-      return [{ id: item.id, name: item.name, unit: item.unit, take, left }];
+      return [{ ...line, left, weigh: false }];
     });
 }
 /** For the Owner's Overview: a branch's waste over the 7 days ending on `date`. `saved`: how
