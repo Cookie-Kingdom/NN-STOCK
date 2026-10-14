@@ -3218,3 +3218,37 @@ describe("income (V2-PAY-09)", () => {
     expect(plBetween(db, "2026", "2026~", shopProject).otherIncome).toBe(31850);
   });
 });
+
+describe("Stock: จัดสรร smoked meat from Foodiva to a branch", () => {
+  const lot = shipments(db).map((l) => lotInfo(db, l.id))[0];
+  const meat = (d: Database, branch: string) =>
+    branchItem(d, branch, "meat", day).remaining;
+  const send = (d: Database, values: Values) =>
+    mutate(d, owner, "transfer", values, lot.lot.id, day);
+
+  it("leaves Foodiva at once and reaches the branch now or when it confirms", () => {
+    expect(lot.centralKg).toBe(14);
+    let d = send(db, { to: "ศาลาแดง", qty: "5", receive: "now" });
+    expect(last(d)).toMatchObject({
+      lotId: lot.lot.id,
+      values: {
+        from: "foodiva",
+        sku: "",
+        itemName: `เนื้อรมควัน ${lot.lot.poId}`,
+      },
+    });
+    expect(lotInfo(d, lot.lot.id).centralKg).toBe(9);
+    expect(meat(d, "ศาลาแดง")).toBe(meat(db, "ศาลาแดง") + 5);
+    // No SKU: no warehouse's balance moves.
+    expect(stockLines(d, day)).toEqual(stockLines(db, day));
+    d = send(d, { to: "มีนบุรี", qty: "4", receive: "confirm" });
+    const id = last(d).id;
+    expect(lotInfo(d, lot.lot.id).centralKg).toBe(5);
+    expect(meat(d, "มีนบุรี")).toBe(meat(db, "มีนบุรี"));
+    expect(pendingTransfers(d, "มีนบุรี").map((e) => e.id)).toEqual([id]);
+    d = mutate(d, minburi, "transferReceive", { transferId: id }, "", day);
+    expect(meat(d, "มีนบุรี")).toBe(meat(db, "มีนบุรี") + 4);
+    // Only a branch: the central warehouse is no place for smoked meat.
+    expect(() => send(db, { to: "central", qty: "1" })).toThrow();
+  });
+});

@@ -598,7 +598,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             </>
           )}
         </Fact>
-        <Fact label="คลังกลางคงเหลือ">
+        <Fact label="คงเหลือที่ Foodiva">
           <Kg value={info.centralKg} />
         </Fact>
       </dl>

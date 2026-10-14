@@ -205,6 +205,17 @@ const placeField = (
   options: places.map((value) => ({ value, label: placeLabel(value) })),
   ...extra,
 });
+/** How a transfer to a branch arrives. What goes to the central warehouse is there at once. */
+const receiveField: Field = {
+  key: "receive",
+  label: "การรับของ",
+  type: "select",
+  when: (values) => branches.includes(values.to),
+  options: [
+    { value: "now", label: "เข้าสต๊อกสาขาทันที" },
+    { value: "confirm", label: "รอสาขายืนยันรับ" },
+  ],
+};
 /** Which sheet a `daily` or an `opening` note is of: the Stock page's or the Inventory page's. */
 const sheetField: Field = {
   key: "sheet",
@@ -641,6 +652,20 @@ export function fields(
         ...more(linkField, note),
       ];
     case "transfer":
+      // Smoked meat (jotted on its PO รมควัน): from where it is kept at Foodiva to a branch.
+      if (lotId)
+        return [
+          core(
+            select(
+              "to",
+              "สาขาปลายทาง",
+              Object.fromEntries(branches.map((b) => [b, placeLabel(b)])),
+            ),
+          ),
+          core(number("qty", "น้ำหนัก", "กก.")),
+          receiveField,
+          note,
+        ];
       return [
         core(
           text("item", "รายการ", {
@@ -655,17 +680,7 @@ export function fields(
         core(placeField("from", "คลังต้นทาง")),
         core(placeField("to", "คลังปลายทาง")),
         core(number("qty", "จำนวน")),
-        {
-          // What goes to the central warehouse is there at once.
-          key: "receive",
-          label: "การรับของ",
-          type: "select",
-          when: (values) => branches.includes(values.to),
-          options: [
-            { value: "now", label: "เข้าสต๊อกสาขาทันที" },
-            { value: "confirm", label: "รอสาขายืนยันรับ" },
-          ],
-        },
+        receiveField,
         note,
       ];
     case "transferReceive":

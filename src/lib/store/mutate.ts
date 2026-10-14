@@ -36,6 +36,7 @@ import {
   type Lot,
   type NoteKind,
   type Values,
+  foodivaPlace,
 } from "./model";
 import {
   decimal,
@@ -253,7 +254,13 @@ function noteValues(
     );
   // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one.
   if (kind === "expense") v.sku = skuFor(db, v.item, kept).sku;
-  if (kind === "transfer") {
+  if (kind === "transfer" && lotId) {
+    // Smoked meat, kg of its PO รมควัน, from Foodiva: no SKU, so no warehouse moves it.
+    v.from = foodivaPlace;
+    v.item =
+      v.itemName = `เนื้อรมควัน ${db.lots.find((lot) => lot.id === lotId)?.poId ?? ""}`;
+    v.sku = "";
+  } else if (kind === "transfer") {
     assert(
       !v.from || v.from !== v.to,
       "คลังต้นทางและปลายทางเป็นที่เดียวกันไม่ได้",
@@ -284,7 +291,8 @@ function noteValues(
 /** The lot a note of `kind` goes on: a live PO รมควัน for its kinds (or none, for a
  *  `receive`), a live PO เนื้อ for a PO เนื้อ's kinds. */
 function lotOf(db: Database, kind: NoteKind, lotId: string) {
-  const on = kindInfo[kind].lot;
+  // A transfer on a PO รมควัน moves its smoked meat; with none, a SKU.
+  const on = kind === "transfer" ? "optional" : kindInfo[kind].lot;
   if (!on || (on === "optional" && !lotId)) return "";
   assert(
     (on === "po" ? purchaseLots(db) : shipments(db)).some(

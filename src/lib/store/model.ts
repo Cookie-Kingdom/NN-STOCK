@@ -249,9 +249,16 @@ export const branches = ["ศาลาแดง", "มีนบุรี"];
 /** Where stock is kept (a "place"): the central warehouse, or a branch by its name. */
 export const centralPlace = "central";
 export const places = [centralPlace, ...branches];
-/** Label of a place: "คลังกลาง" or `สาขา${branch}`. */
+/** Where smoked meat is kept until a `transfer` on its PO รมควัน sends it to a branch: at
+ *  Foodiva, with the waste meat. A meat transfer's `from`; no SKU is ever kept there. */
+export const foodivaPlace = "foodiva";
+/** Label of a place: "คลังกลาง", "Foodiva" or `สาขา${branch}`. */
 export const placeLabel = (place: string) =>
-  place === centralPlace ? "คลังกลาง" : `สาขา${place}`;
+  place === centralPlace
+    ? "คลังกลาง"
+    : place === foodivaPlace
+      ? "Foodiva"
+      : `สาขา${place}`;
 /** The project every PO belongs to: the sidebar section of the shop's pages (nav.ts). What an
  *  `expense` buys for it is its stock (stockMoves). */
 export const shopProject = "Nerdnuea x LINE MAN";
