@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/atoms/Button";
 import { DatePicker } from "@/components/atoms/DatePicker";
 import { Caption } from "@/components/atoms/Text";
@@ -27,6 +27,7 @@ import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { useLogoSrc } from "@/lib/attachment-store";
 import { defaults, fields } from "@/lib/forms";
+import { baht } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
   jotBackKg,
@@ -88,6 +89,10 @@ export function PoDocumentDialog({
   // Changed since the last save (or since it opened on a saved note).
   const [dirty, setDirty] = useState(false);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  // A price per kg past 1,000 baht is most likely a slip of the keyboard: asked once more.
+  const price = Number(values[kind === "purchase" ? "price" : "serviceRate"]);
+  const [checking, setChecking] = useState(false);
+  const checkId = useId();
 
   const shown = fields(kind, db, account).filter(
     (f) => !f.when || f.when(values),
@@ -188,7 +193,8 @@ export function PoDocumentDialog({
         className="flex min-h-0 flex-auto flex-col"
         onSubmit={(event) => {
           event.preventDefault();
-          save();
+          if (price > 1000) setChecking(true);
+          else save();
         }}
       >
         {/* Below lg the form and its paper stack in one scroll area: two nested scrollers
@@ -288,6 +294,35 @@ export function PoDocumentDialog({
           <SaveButton saving={saving} disabled={clean} />
         </FormFooter>
       </form>
+      {checking && (
+        <Dialog
+          title="ราคา / กก. เกิน 1,000 บาท"
+          size="sm"
+          alert={{ describedBy: checkId }}
+          onClose={() => setChecking(false)}
+        >
+          <div className="flex flex-col gap-4 px-6.5 pt-3 pb-6 max-md:px-4 max-md:pb-4">
+            <p id={checkId} className="m-0 text-body-sm text-text-secondary">
+              {kind === "purchase" ? "ราคา / กก." : "ราคาค่ารม / กก."}{" "}
+              ที่กรอกคือ {baht(price)} ตรวจให้แน่ใจว่าไม่ได้พิมพ์เกินก่อนบันทึก
+            </p>
+            <div className="flex justify-end gap-2.5 max-md:[&>*]:flex-1">
+              <Button data-autofocus onClick={() => setChecking(false)}>
+                กลับไปแก้
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setChecking(false);
+                  save();
+                }}
+              >
+                บันทึก
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
