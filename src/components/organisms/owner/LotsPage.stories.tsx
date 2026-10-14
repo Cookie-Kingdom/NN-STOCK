@@ -14,7 +14,6 @@ import {
   invoiceOverrideDb,
   oldLotsDb,
   overCapacityDb,
-  backKgDb,
   slicedDb,
   twoRoundsDb,
 } from "./LotsPage.fixtures";
@@ -125,13 +124,6 @@ export const InvoiceOverride: Story = {
 export const SlicedMeat: Story = {
   parameters: { db: slicedDb },
   play: pick(/PO-\d+-0003/),
-};
-
-/** PO รมควันที่กรอกน้ำหนักกลับไว้: ระบบจดฟอร์มหลังรมควันของแต่ละรอบให้จริง (แบ่งตามน้ำหนักที่
- *  รับ/ส่งของรอบ) ขึ้นใน Daily Log สต๊อกที่ Foodiva ใช้ทันที กดขั้นหลังรมควันแล้วแก้โน้ตนั้นได้ */
-export const BackKgShortcut: Story = {
-  parameters: { db: backKgDb },
-  play: pick(/SO-\d+-0004/),
 };
 
 /** PO รมควัน ที่มีเอกสารครบ: PO รมควัน, Packing List, ใบขนส่งขาไปและขากลับ กดแล้วเปิดหน้าต่างพิมพ์

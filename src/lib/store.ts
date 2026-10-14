@@ -97,7 +97,6 @@ export {
   poTerms,
   type Round,
   roundsOf,
-  orderBackKg,
   defaultRound,
   remainingKg,
   capacityWarning,
@@ -153,4 +152,4 @@ export {
   stockLines,
   type StockLine,
 } from "./store/ledger";
-export { jotBackKg, mutate } from "./store/mutate";
+export { mutate } from "./store/mutate";

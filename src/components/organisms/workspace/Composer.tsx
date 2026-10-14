@@ -44,7 +44,6 @@ import {
   capacityWarning,
   defaultRound,
   dispatchLines,
-  entries,
   isProductKey,
   isRoundKind,
   productQty,
@@ -52,12 +51,9 @@ import {
   skuFor,
   skuName,
   kindInfo,
-  jotBackKg,
-  lotInfo,
   missingKeys,
   missingText,
   mutate,
-  orderBackKg,
   poInfo,
   poTerms,
   prefillLineKg,
@@ -237,20 +233,8 @@ function NoteForm({
   /** What the web fills in for the lot picked: a dispatch the kg the PO รมควัน has left, a
    *  round step its round, a waste receipt the PO เนื้อ's waste kg. */
   const prefill = (lot: string): Values => {
-    if (isRoundKind(kind)) {
-      const round = {
-        dispatchId: (lot && defaultRound(db, lot, kind)?.id) || "",
-      };
-      // The PO รมควัน's weight back, less what the other after-smoking notes weigh.
-      const back = kind === "smoked" && lot ? orderBackKg(db, lot) : null;
-      if (back === null) return round;
-      const left =
-        back -
-        entries(db, "smoked", lot)
-          .filter((e) => e.id !== target?.id)
-          .reduce((a, e) => a + Number(e.values.smokedKg || 0), 0);
-      return left > 0 ? { ...round, smokedKg: kgValue(left) } : round;
-    }
+    if (isRoundKind(kind))
+      return { dispatchId: (lot && defaultRound(db, lot, kind)?.id) || "" };
     if (!lot) return {};
     if (kind === "dispatch") {
       const left = remainingKg(db, lot, target?.id);
@@ -280,10 +264,6 @@ function NoteForm({
     // A dispatch saved with one PO เนื้อ (poLotId) opens as one line.
     if (kind === "dispatch" && !v.poLines && v.poLotId)
       v.poLines = JSON.stringify(dispatchLines(v));
-    // The after-smoking weight and the PO's น้ำหนักกลับ are one value: open on the PO's while
-    // it counts (lotInfo), not on what this note last stored.
-    if (kind === "smoked" && lotInfo(db, target.lotId).fromOrder)
-      v.smokedKg = prefill(target.lotId).smokedKg ?? v.smokedKg;
     return v;
   });
   const pickLot = (next: string) => {
@@ -356,7 +336,6 @@ function NoteForm({
 
   const save = async (again: boolean) => {
     setError("");
-    let jotted: Database | undefined;
     const next = await run(async () => {
       const input: Values = { ...values };
       for (const [key, file] of Object.entries(files.current)) {
@@ -367,7 +346,7 @@ function NoteForm({
           await saveAttachment(file, attachmentFolder(kind, input));
       }
       const latest = latestDatabase();
-      jotted = target
+      return target
         ? mutate(
             latest,
             account,
@@ -386,15 +365,11 @@ function NoteForm({
               mutate(to, account, kind, { ...input, ...row }, lotId, date),
             latest,
           );
-      // A round's change reshares the PO รมควัน's น้ำหนักกลับ over its after-smoking notes.
-      return lotId && (kind === "dispatch" || kind === "cmReceive")
-        ? jotBackKg(jotted, account, lotId, target ? today : date)
-        : jotted;
     });
-    if (!next || !jotted) return;
+    if (!next) return;
     const saved = target
       ? visibleNotes(next, account).filter((e) => e.id === target.id)
-      : jotted.entries.slice(-notes.length);
+      : next.entries.slice(-notes.length);
     const missing = saved.reduce((a, e) => a + missingKeys(e.values).length, 0);
     ws.setToast(
       `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${notes.length > 1 ? ` ${notes.length} รายการ` : ""}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,

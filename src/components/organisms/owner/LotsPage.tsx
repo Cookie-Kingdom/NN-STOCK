@@ -296,8 +296,6 @@ function RoundCard({
     entries(db, kind, lot.id)
       .filter((e) => e.values.dispatchId === dispatch.id)
       .at(-1);
-  const jot = (kind: RoundKind) =>
-    ws.jot({ kind, lotId: lot.id, values: { dispatchId: dispatch.id } });
   const step = (kind: RoundKind, figures: ReactNode) => {
     const entry = latest(kind);
     return entry ? (
@@ -308,16 +306,20 @@ function RoundCard({
       >
         {figures}
       </Jotted>
-    ) : !round.missing.includes(kind) ? (
-      // Not a step left: the PO รมควัน's weight back is its weight (split over rounds: no figure).
-      <Jotted key={kind} label={stepLabel[kind]} onEdit={() => jot(kind)}>
-        {round.wasteKg === null ? "ตามน้ำหนักกลับใน PO รมควัน" : figures}
-      </Jotted>
     ) : (
       <StatusTile
         key={kind}
         label={stepLabel[kind]}
-        onJot={can(kind) ? () => jot(kind) : undefined}
+        onJot={
+          can(kind)
+            ? () =>
+                ws.jot({
+                  kind,
+                  lotId: lot.id,
+                  values: { dispatchId: dispatch.id },
+                })
+            : undefined
+        }
         jotText={`+ จด${titles[kind]}`}
       />
     );
@@ -435,16 +437,9 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
   const invoice = invoiceOf(db, lot.id);
   const over = info.remainingKg < 0;
   const share = info.capacityKg ? info.sentKg / info.capacityKg : 0;
-  // The waste % over the rounds weighed so far (all of them on the PO's weight back).
-  const weighed = info.fromOrder
-    ? info.rounds
-    : info.rounds.filter((round) => round.wasteKg !== null);
+  // The waste % over the rounds weighed so far.
+  const weighed = info.rounds.filter((round) => round.wasteKg !== null);
   const base = weighed.reduce((a, round) => a + round.wasteBaseKg, 0);
-  // One value with the after-smoking notes' weight: none until either gives it.
-  const backKg =
-    info.fromOrder || info.rounds.some((round) => round.wasteKg !== null)
-      ? info.backKg
-      : null;
   const documents = [
     ...of("smokeOrder").map((e) => (
       <DocumentPrintButton
@@ -497,16 +492,6 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             </strong>
           ) : (
             <>เหลือ {qty(info.remainingKg)} กก.</>
-          )}
-        </p>
-        <p className="m-0 text-body-sm tabular-nums">
-          น้ำหนักกลับ{" "}
-          {backKg === null ? (
-            "—"
-          ) : (
-            <>
-              <strong>{qty(backKg)}</strong> กก.
-            </>
           )}
         </p>
         <div

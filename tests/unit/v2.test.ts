@@ -16,13 +16,11 @@ import {
   shopProject,
   liveEntries,
   lotInfo,
-  orderBackKg,
   materialList,
   meatStock,
   monthPl,
   payCategories,
   plBetween,
-  jotBackKg,
   mutate,
   netSalesByBranch,
   pendingTransfers,
@@ -3321,167 +3319,44 @@ describe("PO เนื้อ: เนื้อสไลด์ and the Waste of sl
   });
 });
 
-describe("PO รมควัน: น้ำหนักกลับ, one value with the after-smoking weight", () => {
-  const bought = mutate(
-    seed,
-    owner,
-    "purchase",
-    { supplier: "Foodiva", orderedKg: "100", price: "500" },
-    "",
-    day,
-  );
-  const po = last(bought).lotId;
-  const order = (values: Values) =>
-    mutate(bought, owner, "smokeOrder", { rawKg: "100", ...values }, "", day);
-  const sent = (d: Database) => {
-    const lot = last(d).lotId;
-    const poLines = JSON.stringify([{ poLotId: po, kg: 100 }]);
-    return mutate(
-      d,
+describe("Stock: a round waits for its after-smoking note", () => {
+  it("lists the round until a smoked weight is jotted, then its meat is stock", () => {
+    const bought = mutate(
+      seed,
+      owner,
+      "purchase",
+      { supplier: "Foodiva", orderedKg: "100", price: "500" },
+      "",
+      day,
+    );
+    const po = last(bought).lotId;
+    const ordered = mutate(
+      bought,
+      owner,
+      "smokeOrder",
+      { rawKg: "100" },
+      "",
+      day,
+    );
+    const lot = last(ordered).lotId;
+    let d = mutate(
+      ordered,
       owner,
       "dispatch",
-      { dispatchKg: "100", poLines },
+      {
+        dispatchKg: "100",
+        poLines: JSON.stringify([{ poLotId: po, kg: 100 }]),
+      },
       lot,
       day,
     );
-  };
-
-  it("is the after-smoking weight, and the one written last wins", () => {
-    let d = sent(order({ backKg: "60" }));
-    const lot = last(d).lotId;
-    expect(orderBackKg(d, lot)).toBe(60);
-    expect(lotInfo(d, lot)).toMatchObject({
-      backKg: 60,
-      fromOrder: true,
-      centralKg: 60,
-      wasteKg: 40,
-    });
-    // The after-smoking note is no step left to jot, and the one round weighs 60.
-    expect(lotInfo(d, lot).missing).not.toContain("smoked");
-    expect(lotInfo(d, lot).rounds[0]).toMatchObject({
-      smokedKg: 60,
-      wasteKg: 40,
-    });
     const dispatchId = last(d).id;
-    d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "55" }, lot, day);
-    // A note written later is the value now.
-    expect(lotInfo(d, lot)).toMatchObject({ backKg: 55, fromOrder: false });
-    // An edit of the PO's น้ำหนักกลับ written after it is the value again.
-    const po = entries(d, "smokeOrder", lot)[0];
-    d = mutate(
-      d,
-      owner,
-      "entryEdit",
-      {
-        targetId: po.id,
-        values: JSON.stringify({ ...po.values, backKg: "58" }),
-      },
-      "",
-      day,
-    );
-    expect(lotInfo(d, lot)).toMatchObject({ backKg: 58, fromOrder: true });
-    expect(lotInfo(d, lot).rounds[0].smokedKg).toBe(58);
-    // An edit of another PO field leaves it so.
-    const after = mutate(
-      d,
-      owner,
-      "entryEdit",
-      {
-        targetId: po.id,
-        values: JSON.stringify({ ...po.values, backKg: "58", smoker: "X" }),
-      },
-      "",
-      day,
-    );
-    expect(lotInfo(after, lot).backKg).toBe(58);
-  });
-
-  it("is jotted as the rounds' after-smoking notes, shared by their weight in", () => {
-    const sentDb = sent(order({ backKg: "60" }));
-    const lot = last(sentDb).lotId;
-    let d = jotBackKg(sentDb, owner, lot, day);
-    // One round: one real note of 60.
-    expect(entries(d, "smoked", lot).map((e) => e.values.smokedKg)).toEqual([
-      "60",
+    expect(meatStock(d).waiting.map((w) => w.round.dispatch.id)).toEqual([
+      dispatchId,
     ]);
-    expect(lotInfo(d, lot)).toMatchObject({ backKg: 60, fromOrder: false });
-    // A second round of 50 kg sent: 60 kg over 100 + 50, the latest note edited, a new one jotted.
-    const poLines = JSON.stringify([{ poLotId: po, kg: 50 }]);
-    d = mutate(d, owner, "dispatch", { dispatchKg: "50", poLines }, lot, day);
-    d = jotBackKg(d, owner, lot, day);
-    expect(entries(d, "smoked", lot).map((e) => e.values.smokedKg)).toEqual([
-      "40",
-      "20",
-    ]);
-    expect(lotInfo(d, lot).backKg).toBe(60);
-    // A note weighed by hand since is the value: the PO's น้ำหนักกลับ no longer reshares it.
-    const first = entries(d, "smoked", lot)[0];
-    d = mutate(
-      d,
-      owner,
-      "entryEdit",
-      {
-        targetId: first.id,
-        values: JSON.stringify({ ...first.values, smokedKg: "45" }),
-      },
-      "",
-      day,
-    );
-    expect(jotBackKg(d, owner, lot, day)).toBe(d);
-    expect(lotInfo(d, lot).backKg).toBe(65);
-  });
-
-  it("with no round yet, jots a whole round from the PO เนื้อ it names", () => {
-    const d0 = order({ backKg: "60", backPoLotId: po });
-    const lot = last(d0).lotId;
-    const d = jotBackKg(d0, owner, lot, day);
-    expect(d.entries.slice(-4).map((e) => e.kind)).toEqual([
-      "dispatch",
-      "cmReceive",
-      "smoked",
-      "return",
-    ]);
-    expect(lotInfo(d, lot)).toMatchObject({
-      sentKg: 100,
-      receivedKg: 100,
-      backKg: 60,
-      wasteKg: 40,
-      linked: true,
-      meatCost: 50000,
-      // Every round step is jotted; the Chef House invoice is no step of a round.
-      missing: ["smokingInvoice"],
-    });
-    expect(lotInfo(d, lot).rounds[0].returnKg).toBe(60);
-    // The PO's น้ำหนักกลับ edited later: the round's after-smoking and return notes follow.
-    const so = entries(d, "smokeOrder", lot)[0];
-    const edited = jotBackKg(
-      mutate(
-        d,
-        owner,
-        "entryEdit",
-        {
-          targetId: so.id,
-          values: JSON.stringify({ ...so.values, backKg: "62" }),
-        },
-        "",
-        day,
-      ),
-      owner,
-      lot,
-      day,
-    );
-    expect(lotInfo(edited, lot).backKg).toBe(62);
-    expect(lotInfo(edited, lot).rounds[0].returnKg).toBe(62);
-    // No PO เนื้อ named: no round.
-    const none = order({ backKg: "60" });
-    expect(jotBackKg(none, owner, last(none).lotId, day)).toBe(none);
-  });
-
-  it("left empty, changes nothing", () => {
-    const d = sent(order({}));
-    const lot = last(d).lotId;
-    expect(orderBackKg(d, lot)).toBeNull();
-    expect(lotInfo(d, lot)).toMatchObject({ backKg: 0, fromOrder: false });
-    expect(lotInfo(d, lot).missing).toContain("smoked");
+    expect(meatStock(d).central).toEqual([]);
+    d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "60" }, lot, day);
+    expect(meatStock(d).waiting).toEqual([]);
+    expect(meatStock(d).central.map((info) => info.centralKg)).toEqual([60]);
   });
 });

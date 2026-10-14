@@ -352,18 +352,6 @@ export function fields(
       const rate = (key: string) => `฿${kg(Number(db.config[key]) || 0)}`;
       return [
         core(number("rawKg", "น้ำหนักที่สั่งรมควัน", "กก.")),
-        number("backKg", "น้ำหนักกลับ", "กก.", {
-          hint: "ค่าเดียวกับน้ำหนักในฟอร์มหลังรมควัน ระบบจดฟอร์มหลังรมควันของรอบให้ แก้ที่ไหน ระบบใช้ค่าที่แก้ล่าสุด",
-        }),
-        {
-          ...poLinesField(db, "backPoLotId", "PO เนื้อที่ใช้", {
-            hint: "ยังไม่มีรอบส่ง: ระบบจดรอบให้ครบ ส่งไปรมควันตามน้ำหนักที่สั่งรม รับที่ Chef House เท่าที่ส่ง หลังรมควันและส่งกลับตามน้ำหนักกลับ",
-          }),
-          type: "select",
-          unit: undefined,
-          search: true,
-          when: (v) => !!v.backKg,
-        },
         ...more(
           number("serviceRate", "ราคาค่ารม / กก.", "บาท", {
             hint: `ถ้าเว้นว่าง ค่ารมคิดตามน้ำหนัก: ต่ำกว่า 1,000 กก. ${rate("smokeRate")} · ตั้งแต่ 1,000 กก. ${rate("smokeRate1000")} · ตั้งแต่ 1,500 กก. ${rate("smokeRate1500")}`,

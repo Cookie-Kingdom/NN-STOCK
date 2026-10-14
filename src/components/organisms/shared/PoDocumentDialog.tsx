@@ -30,8 +30,6 @@ import { defaults, fields } from "@/lib/forms";
 import { baht } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
-  jotBackKg,
-  lotInfo,
   mutate,
   nextNumberPreview,
   smokeServiceRate,
@@ -76,15 +74,9 @@ export function PoDocumentDialog({
   const saved = entryId
     ? visibleNotes(db, account).find((e) => e.id === entryId)
     : undefined;
-  const [values, setValues] = useState<Values>(() => {
-    if (!saved) return { ...defaults(kind, db.config), ...preset };
-    const v = { ...saved.values };
-    // น้ำหนักกลับ is one value with the after-smoking weight: open on it once a note weighed later.
-    const info = kind === "smokeOrder" ? lotInfo(db, saved.lotId) : null;
-    if (info && !info.fromOrder && info.rounds.some((r) => r.wasteKg !== null))
-      v.backKg = String(Math.round(info.backKg * 100) / 100);
-    return v;
-  });
+  const [values, setValues] = useState<Values>(() =>
+    saved ? { ...saved.values } : { ...defaults(kind, db.config), ...preset },
+  );
   const [date, setDate] = useState(saved?.date ?? presetDate ?? today);
   // Changed since the last save (or since it opened on a saved note).
   const [dirty, setDirty] = useState(false);
@@ -145,8 +137,8 @@ export function PoDocumentDialog({
 
   const save = async () => {
     setError("");
-    const next = await run(() => {
-      const done = saved
+    const next = await run(() =>
+      saved
         ? mutate(
             latestDatabase(),
             account,
@@ -160,12 +152,8 @@ export function PoDocumentDialog({
             "",
             today,
           )
-        : mutate(latestDatabase(), account, kind, values, "", date);
-      // A PO รมควัน's น้ำหนักกลับ goes into its rounds' after-smoking notes.
-      return kind === "smokeOrder"
-        ? jotBackKg(done, account, done.entries.at(-1)!.lotId, date)
-        : done;
-    });
+        : mutate(latestDatabase(), account, kind, values, "", date),
+    );
     if (!next) return;
     ws.setToast(`${saved ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}`);
     onClose();
