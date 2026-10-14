@@ -660,8 +660,28 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
           {typed("orderedKg") ? `${qty(terms.meatKg)} กก.` : none}{" "}
           {byInvoice("orderedKg")}
         </Fact>
+        <Fact label="เนื้อสไลด์">
+          {info.slicedKg === null ? (
+            <Small>ยังไม่ได้ระบุ</Small>
+          ) : (
+            `${qty(info.slicedKg)} กก.`
+          )}
+        </Fact>
         <Fact label="เนื้อรอรับ">
           {qty(terms.wasteKg)} กก. {byInvoice("wasteKg")}
+        </Fact>
+        {/* Lost to the saw: bought − sliced − waiting. Red below zero (typed more than bought). */}
+        <Fact label="Waste จากการสไลด์">
+          {info.lossKg === null ? (
+            <Small>ยังไม่ได้ระบุเนื้อสไลด์</Small>
+          ) : (
+            <>
+              <Kg value={info.lossKg} />
+              {terms.meatKg > 0 && (
+                <Small> ({qty((info.lossKg / terms.meatKg) * 100)}%)</Small>
+              )}
+            </>
+          )}
         </Fact>
         <Fact label="ราคา / กก.">
           {typed("price") ? baht(terms.price) : none} {byInvoice("price")}

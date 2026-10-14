@@ -358,6 +358,8 @@ export function poTerms(db: Database, poLotId: string) {
     meatKg: pick("orderedKg"),
     wasteKg: pick("wasteKg"),
     price: pick("price"),
+    /** Null while not typed: then all but the waiting meat is there to smoke, none lost. */
+    slicedKg: typed(po, "slicedKg") ? num(po, "slicedKg") : null,
   };
 }
 /** Whether a dispatch's lines name live POs เนื้อ only and add up to its dispatchKg. `mutate`
@@ -624,9 +626,11 @@ export function productCosts(db: Database) {
 }
 /** V2-CAL-07: what a PO เนื้อ holds (its meat kg, the invoice's when it gives one), what went to
  *  the smoker from it (its lines on every dispatch, without `exceptId`: the one being edited),
- *  and what the seller still holds. Waste is part of the meat kg (bought and priced with it)
- *  but never sent: 1000 kg with 100 of waste leaves 900 to send. `wastePending`: waste to
- *  receive and no `ownerWasteReceive` jotted yet. */
+ *  and what the seller still holds. The meat waiting for the Owner (`wasteKg`) is part of the
+ *  meat kg (bought and priced with it) but never sent: 1000 kg with 100 waiting leaves 900 to
+ *  send. Once the sliced weight is typed, that is what there is to send, and what slicing lost
+ *  is `lossKg` (Waste): 1100 bought, 900 sliced, 100 waiting → 100 lost. `wastePending`: meat
+ *  waiting and no `ownerWasteReceive` jotted yet. */
 export function poInfo(db: Database, poLotId: string, exceptId?: string) {
   const terms = poTerms(db, poLotId);
   let sentKg = 0;
@@ -644,7 +648,12 @@ export function poInfo(db: Database, poLotId: string, exceptId?: string) {
     orderedKg: terms.meatKg,
     price: terms.price,
     sentKg,
-    heldKg: terms.meatKg - terms.wasteKg - sentKg,
+    heldKg: (terms.slicedKg ?? terms.meatKg - terms.wasteKg) - sentKg,
+    slicedKg: terms.slicedKg,
+    lossKg:
+      terms.slicedKg === null
+        ? null
+        : terms.meatKg - terms.slicedKg - terms.wasteKg,
     lotIds: [...lotIds],
     wasteKg: terms.wasteKg,
     wasteReceivedKg: sum(received, "receivedKg"),

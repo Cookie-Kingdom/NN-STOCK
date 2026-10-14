@@ -299,6 +299,10 @@ export function fields(
       return [
         core(text("supplier", "ผู้ขาย")),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
+        // What is left to smoke once Foodiva has sliced it: the saw takes some (Waste).
+        number("slicedKg", "น้ำหนักเนื้อสไลด์", "กก.", {
+          hint: "เนื้อที่สไลด์แล้วพร้อมส่งไปรมควัน · ถ้าเว้นว่าง จะใช้ น้ำหนักเนื้อ − เนื้อรอรับ",
+        }),
         number("wasteKg", "น้ำหนักเนื้อรอรับ", "กก.", {
           hint: 'หักจากน้ำหนักเนื้อ ไม่ส่งไปรมควัน จะมีรายการเตือนจนกว่าจะจด "รับเนื้อรอรับ"',
         }),

@@ -47,7 +47,11 @@ const create = async (page: Page, kind: "PO เนื้อ" | "PO รมคว�
 };
 const purchase = async (page: Page, kg: string, price: string) => {
   await create(page, "PO เนื้อ");
-  await fill(page, [/^น้ำหนักเนื้อ(?!รอรับ)/, kg], [/^ราคา \/ กก\./, price]);
+  await fill(
+    page,
+    [/^น้ำหนักเนื้อ(?!รอรับ|สไลด์)/, kg],
+    [/^ราคา \/ กก\./, price],
+  );
 };
 const smokeOrder = async (page: Page, kg: string) => {
   await create(page, "PO รมควัน");
@@ -379,4 +383,27 @@ test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what 
     "ok",
   );
   await expect(rows(page, "pay")).toHaveCount(2);
+});
+
+test("PO เนื้อ: เนื้อสไลด์ is what there is to smoke, and what slicing lost is its Waste", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  await openPage(page, "Lots");
+  // 1100 bought, 900 sliced, 100 waiting for the Owner → 100 lost to the saw.
+  await purchase(page, "1100", "500");
+  await fill(
+    page,
+    [/^น้ำหนักเนื้อสไลด์/, "900"],
+    [/^น้ำหนักเนื้อรอรับ/, "100"],
+  );
+  await savePo(page);
+  const detail = page.getByRole("main");
+  await expect(fact(detail, "เนื้อสไลด์")).toHaveText("900 กก.");
+  await expect(fact(detail, "เนื้อรอรับ")).toHaveText(/^100 กก\./);
+  await expect(fact(detail, "Waste จากการสไลด์")).toHaveText(
+    /^100 กก\.\s*\(9\.09%\)/,
+  );
+  await expect(fact(detail, "เนื้อที่ฝากไว้กับผู้ขาย")).toHaveText("900 กก.");
 });

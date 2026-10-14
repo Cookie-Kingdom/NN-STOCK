@@ -152,7 +152,11 @@ test("Daily Log: the Owner's filter puts a payment and an expense under เง�
   await openPage(page, "Lots");
   await page.getByRole("button", { name: "+ สร้าง PO เนื้อ" }).click();
   await expect(popupTitle(page)).toHaveText("PO เนื้อ");
-  await fill(page, [/^น้ำหนักเนื้อ(?!รอรับ)/, "100"], [/^ราคา \/ กก\./, "700"]);
+  await fill(
+    page,
+    [/^น้ำหนักเนื้อ(?!รอรับ|สไลด์)/, "100"],
+    [/^ราคา \/ กก\./, "700"],
+  );
   await savePo(page);
 
   await openPage(page, "Daily Log");
