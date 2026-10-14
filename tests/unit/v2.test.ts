@@ -522,7 +522,7 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   expect(kindsForPage(saladaeng, "meatStock")).toEqual(["receive", "pay"]);
   expect(kindsForPage(saladaeng, "sales")).toEqual(["sale", "influencerBox"]);
   expect(kindsForPage(owner, "sales")).toEqual([]);
-  expect(navFor(saladaeng)).toEqual(["meatStock", "stock", "sales", "log"]);
+  expect(navFor(saladaeng)).toEqual(["sales", "meatStock", "stock", "log"]);
   expect(navFor(owner)).not.toContain("sales");
   // The receipt of a transfer is on no page's buttons; nor are the daily sheet and a list
   // item, which the sheet on the page saves.

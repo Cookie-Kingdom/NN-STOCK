@@ -34,8 +34,8 @@ const pagesOf = {
     "Accounting",
     "Settings",
   ],
-  saladaeng: ["Stock", "Inventory", "Sales", "Daily Log"],
-  minburi: ["Stock", "Inventory", "Sales", "Daily Log"],
+  saladaeng: ["Sales", "Stock", "Inventory", "Daily Log"],
+  minburi: ["Sales", "Stock", "Inventory", "Daily Log"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });

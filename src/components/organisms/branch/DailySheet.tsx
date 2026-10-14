@@ -87,17 +87,16 @@ function Figure({
 
 const dateField = "mt-0 w-auto min-w-40";
 
-/** The foot of a sheet. Locked (what it shows is saved): 「แก้ไขบันทึก」, which opens the inputs
- *  again. Open: the save, beside 「ยกเลิก」 when there is a saved sheet to go back to. */
-function SaveBar({
-  caption,
+/** A sheet's save, in its card's head beside the heading. Locked (what it shows is saved):
+ *  「แก้ไขบันทึก」, which opens the inputs again. Open: the save, beside 「ยกเลิก」 when there is
+ *  a saved sheet to go back to. */
+function SaveActions({
   save,
   locked,
   saving,
   onEdit,
   onCancel,
 }: {
-  caption: ReactNode;
   /** What the save button says. */
   save: string;
   locked: boolean;
@@ -105,36 +104,32 @@ function SaveBar({
   onEdit: () => void;
   onCancel?: () => void;
 }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border px-5 py-3 max-md:px-4">
-      <Caption>{caption}</Caption>
-      {locked ? (
-        <Button className="max-md:w-full" onClick={onEdit}>
-          แก้ไขบันทึก
+  return locked ? (
+    <Button size="sm" onClick={onEdit}>
+      แก้ไขบันทึก
+    </Button>
+  ) : (
+    // Never the element 「แก้ไขบันทึก」 was: a button its own click turns into a submit submits.
+    <span className="flex gap-1.5">
+      {onCancel && (
+        <Button size="sm" onClick={onCancel}>
+          ยกเลิก
         </Button>
-      ) : (
-        // Never the element 「แก้ไขบันทึก」 was: a button its own click turns into a submit submits.
-        <span className="flex gap-2 max-md:w-full">
-          {onCancel && <Button onClick={onCancel}>ยกเลิก</Button>}
-          <Button
-            type="submit"
-            variant="primary"
-            className="max-md:flex-1"
-            disabled={saving}
-          >
-            {save}
-          </Button>
-        </span>
       )}
-    </div>
+      <Button size="sm" type="submit" variant="primary" disabled={saving}>
+        {save}
+      </Button>
+    </span>
   );
 }
 
-/** The day's sheet (V2-CAL-10): per row the balance carried forward, what the branch types
- *  (รับเพิ่ม on top of what came in by itself, ใช้ไป, and of that the Waste), what the day's
- *  sales and gift boxes took by themselves (ตัดจากยอดขาย, never typed: a column of its own on
- *  the materials sheet, a line under ใช้ไป on the meat sheet) and what is left, live. Nothing is refused (V2-RUL-05): below zero is red, an empty reporter or a
- *  Waste with no reason is saved and marked ยังไม่ได้จด. The first save of a day is a `daily`
+/** The day's sheet (V2-CAL-10): per row what is left, live, first (the page is mostly for
+ *  reading it), then what the day's sales and gift boxes took by themselves (ตัดจากยอดขาย,
+ *  never typed: a column of its own on the materials sheet, a line under ใช้ไป on the meat
+ *  sheet), then what the branch types (รับเพิ่ม on top of what came in by itself, ใช้ไป, and
+ *  of that the Waste). The balance carried forward feeds what is left and is not shown. The
+ *  save stands in the card's head. Nothing is refused (V2-RUL-05): below zero is red, an
+ *  empty reporter or a Waste with no reason is saved and marked ยังไม่ได้จด. The first save of a day is a `daily`
  *  note, a later one an edit of it. A day that has its note is locked, its figures read as
  *  text, until 「แก้ไขบันทึก」: the lock follows the note, so a save and a change of date set it. */
 function DailyForm({
@@ -274,25 +269,33 @@ function DailyForm({
                 เพิ่มสินค้า
               </Button>
             )}
+            <SaveActions
+              save="บันทึกการใช้วันนี้"
+              locked={locked}
+              saving={saving}
+              onEdit={() => setEditing(true)}
+              onCancel={note && reset}
+            />
           </>
         }
       >
+        <FormError error={error} className="mx-5 my-3 max-md:mx-4" />
         {/* A phone scrolls the table sideways inside the card, as the page's other tables do. */}
         <StockTable
           columns={[
-            "สินค้า / ยกมา",
+            "สินค้า",
+            "คงเหลือ",
+            ...(soldColumn ? ["ตัดจากยอดขาย"] : []),
             "รับเพิ่ม",
             "ใช้ไป",
-            ...(soldColumn ? ["ตัดจากยอดขาย"] : []),
             "Waste / ทิ้ง",
-            "คงเหลือ",
           ]}
           right={[
+            "คงเหลือ",
+            "ตัดจากยอดขาย",
             "รับเพิ่ม",
             "ใช้ไป",
-            "ตัดจากยอดขาย",
             "Waste / ทิ้ง",
-            "คงเหลือ",
           ]}
         >
           {shown.map((item) => {
@@ -308,10 +311,7 @@ function DailyForm({
             return (
               <tr key={id}>
                 <Cell className="min-w-28">
-                  <span className="font-semibold">{name}</span>
-                  <Caption className="block">
-                    ยกมา {n3(info.opening)} {unit}
-                  </Caption>
+                  <span className="block font-semibold">{name}</span>
                   {onItem && (
                     <Button
                       variant="text"
@@ -322,6 +322,19 @@ function DailyForm({
                     </Button>
                   )}
                 </Cell>
+                <Cell
+                  right
+                  aria-label={`คงเหลือ ${name}`}
+                  tone={left < 0 ? "danger" : undefined}
+                  className="text-num-md font-semibold"
+                >
+                  {n3(left)} <Caption as="span">{unit}</Caption>
+                </Cell>
+                {soldColumn && (
+                  <Cell right aria-label={`ตัดจากยอดขาย ${name}`}>
+                    {info.sold ? n3(info.sold) : <Muted as="span">—</Muted>}
+                  </Cell>
+                )}
                 <Figure
                   label="รับเพิ่ม"
                   name={name}
@@ -353,11 +366,6 @@ function DailyForm({
                     </Caption>
                   )}
                 </Figure>
-                {soldColumn && (
-                  <Cell right aria-label={`ตัดจากยอดขาย ${name}`}>
-                    {info.sold ? n3(info.sold) : <Muted as="span">—</Muted>}
-                  </Cell>
-                )}
                 {/* Wide enough for the reason, so typing a Waste moves no column. */}
                 <Figure
                   label="Waste / ทิ้ง"
@@ -386,14 +394,6 @@ function DailyForm({
                     </span>
                   )}
                 </Figure>
-                <Cell
-                  right
-                  aria-label={`คงเหลือ ${name}`}
-                  tone={left < 0 ? "danger" : undefined}
-                  className="text-num-md font-semibold"
-                >
-                  {n3(left)} <Caption as="span">{unit}</Caption>
-                </Cell>
               </tr>
             );
           })}
@@ -443,22 +443,12 @@ function DailyForm({
             </FormField>
           </div>
         )}
-        <FormError error={error} className="mx-5 my-3 max-md:mx-4" />
-        <SaveBar
-          caption={
-            <>
-              {items.length} รายการสินค้า ·{" "}
-              {note
-                ? "แก้ไขวันเดิม ไม่ตัดสต๊อกซ้ำ"
-                : "ยกยอดคงเหลือไปวันถัดไปอัตโนมัติ"}
-            </>
-          }
-          save="บันทึกการใช้วันนี้"
-          locked={locked}
-          saving={saving}
-          onEdit={() => setEditing(true)}
-          onCancel={note && reset}
-        />
+        <Caption className="block border-t border-border px-5 py-3 max-md:px-4">
+          {items.length} รายการสินค้า ·{" "}
+          {note
+            ? "แก้ไขวันเดิม ไม่ตัดสต๊อกซ้ำ"
+            : "ยกยอดคงเหลือไปวันถัดไปอัตโนมัติ"}
+        </Caption>
       </DayCard>
     </form>
   );

@@ -567,9 +567,10 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   await pickDay(main.getByLabel(/^วันที่บันทึก/), today);
   await expect(main).toContainText("ยังไม่บันทึกวันนี้");
   await expect(left).toHaveText("70 กล่อง");
+  // What was carried forward feeds คงเหลือ and is not shown.
   await expect(
     main.getByRole("row", { name: /^(SKU-0001 )?กล่องบรรจุ/ }),
-  ).toContainText("ยกมา 70");
+  ).not.toContainText("ยกมา");
   // The search takes a name or a SKU, as the Owner's does.
   await page.getByLabel("ค้นหา").fill("sku-0001");
   await expect(left).toBeVisible();
@@ -736,9 +737,9 @@ test.describe("phone, 390px wide", () => {
         ),
       ).toBeLessThanOrEqual(0);
     await expect(pageButtons(page)).toHaveText([
+      "Sales",
       "Stock",
       "Inventory",
-      "Sales",
       "Daily Log",
     ]);
     await fits();
