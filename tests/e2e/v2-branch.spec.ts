@@ -533,16 +533,16 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   await save(page);
   await expect(rows(page, "sale")).toContainText("กล่องมาตรฐาน 10");
   await expect(rows(page, "sale")).toContainText("น้ำพริกแพ็กคู่ 3");
-  // 10 boxes of 120 g; a tube a box and two a pack.
+  // The meat is not taken, the branch weighs it; a tube a box and two a pack.
   await openPage(page, "Stock");
   const main = page.getByRole("main");
   await expect(main.getByLabel("ตัดจากยอดขาย เนื้อ")).toHaveText(
-    "ตัดจากยอดขาย 1.2",
+    "มียอดขาย · ชั่งแล้วกรอกน้ำหนักที่ใช้ไปเอง",
   );
   await expect(main.getByLabel("ตัดจากยอดขาย น้ำพริก")).toHaveText(
     "ตัดจากยอดขาย 16",
   );
-  await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toHaveText("18.8 กก.");
+  await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toHaveText("20 กก.");
   await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toHaveText("34 หลอด");
 });
 

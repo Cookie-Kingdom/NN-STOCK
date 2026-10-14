@@ -253,15 +253,15 @@ export const SoldFromSales: Story = {
   },
 };
 
-/** Stock: เนื้อตัดตามกรัมต่อกล่อง (12 กล่อง × 120 กรัม = 1.44 กก.) น้ำพริกตัดตามกล่องและสินค้า「น้ำพริกหลอด」
- *  (12 + 3 = 15 หลอด) */
+/** Stock: เนื้อไม่ถูกตัดจากยอดขาย ใต้ช่องใช้ไปบอกให้ชั่งแล้วกรอกน้ำหนักเอง · น้ำพริกตัดตามกล่องและสินค้า
+ *  「น้ำพริกหลอด」(12 + 3 = 15 หลอด) */
 export const StockSoldFromSales: Story = {
   args: { ...saladaeng, ...stock },
   parameters: { db: soldDb },
   play: async ({ canvasElement }) => {
     const sheet = await sheetOf(canvasElement);
     await expect(sheet.getByLabelText("ตัดจากยอดขาย เนื้อ")).toHaveTextContent(
-      "ตัดจากยอดขาย 1.44",
+      "มียอดขาย · ชั่งแล้วกรอกน้ำหนักที่ใช้ไปเอง",
     );
     await expect(
       sheet.getByLabelText("ตัดจากยอดขาย น้ำพริก"),
