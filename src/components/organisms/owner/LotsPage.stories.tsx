@@ -14,6 +14,7 @@ import {
   invoiceOverrideDb,
   oldLotsDb,
   overCapacityDb,
+  meatTypesDb,
   slicedDb,
   twoRoundsDb,
 } from "./LotsPage.fixtures";
@@ -124,6 +125,13 @@ export const InvoiceOverride: Story = {
 export const SlicedMeat: Story = {
   parameters: { db: slicedDb },
   play: pick(/PO-\d+-0003/),
+};
+
+/** มีเนื้อสองชนิด (Settings「รายการเนื้อ」): รายการ PO ด้านซ้ายบอกชนิดใต้เลข PO หัว PO บอกชนิด
+ *  และรอบส่งของ PO รมควันวากิวเลือกได้เฉพาะ PO เนื้อวากิว */
+export const MeatTypes: Story = {
+  parameters: { db: meatTypesDb },
+  play: pick(/SO-\d+-0004/),
 };
 
 /** PO รมควัน ที่มีเอกสารครบ: PO รมควัน, Packing List, ใบขนส่งขาไปและขากลับ กดแล้วเปิดหน้าต่างพิมพ์

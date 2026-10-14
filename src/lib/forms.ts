@@ -6,6 +6,9 @@ import {
   companyPayer,
   incomeTypes,
   ingredients,
+  meatItem,
+  meatTypeOf,
+  meatTypes,
   payCategories,
   payrollCategory,
   placeLabel,
@@ -247,20 +250,46 @@ const sheetFields = (
     ),
   );
 /** A `poLines` field: the live POs เนื้อ to pick from, each with the kg its seller still holds. */
+/** The kind of meat of a PO เนื้อ, a PO รมควัน or a receipt with no Lot: asked once
+ *  「รายการเนื้อ」 is more than `meat` alone; until then there is no field and the note is of
+ *  `meat`. */
+const meatTypeField = (db: Database, kept: Values): Field[] => {
+  const types = meatTypes(db.config);
+  return types.length === 1 && types[0].id === meatItem && !kept.meatType
+    ? []
+    : [
+        core(
+          select(
+            "meatType",
+            "ชนิดเนื้อ",
+            Object.fromEntries(types.map((type) => [type.id, type.name])),
+          ),
+        ),
+      ];
+};
+/** A dispatch's PO เนื้อ lines: on a Lot รมควัน, only the PO เนื้อ of its kind of meat. */
 const poLinesField = (
   db: Database,
   key: string,
   label: string,
   extra?: Partial<Field>,
+  lotId?: string,
 ): Field => ({
   key,
   label,
   type: "poLines",
   unit: "กก.",
-  options: purchaseLots(db).map((lot) => ({
-    value: lot.id,
-    label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ${kg(poInfo(db, lot.id).heldKg)} กก.`,
-  })),
+  options: purchaseLots(db)
+    .filter(
+      (lot) =>
+        !lotId ||
+        meatTypeOf(lot) ===
+          meatTypeOf(db.lots.find((shipment) => shipment.id === lotId)),
+    )
+    .map((lot) => ({
+      value: lot.id,
+      label: `${lot.poId} · ${entries(db, "purchase", lot.id).at(-1)?.values.supplier ?? ""} · ${kg(poInfo(db, lot.id).heldKg)} กก.`,
+    })),
   ...extra,
 });
 /** A round step's `dispatchId`: the dispatch rounds of `lotId` (every live one when no lot is
@@ -298,6 +327,7 @@ export function fields(
       const fromSettings = { hint: "ถ้าเว้นว่าง จะใช้ค่าจาก Settings" };
       return [
         core(text("supplier", "ผู้ขาย")),
+        ...meatTypeField(db, kept),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
         // What is left to smoke once Foodiva has sliced it: the saw takes some (Waste).
         number("slicedKg", "น้ำหนักเนื้อสไลด์", "กก.", {
@@ -351,6 +381,7 @@ export function fields(
     case "smokeOrder": {
       const rate = (key: string) => `฿${kg(Number(db.config[key]) || 0)}`;
       return [
+        ...meatTypeField(db, kept),
         core(number("rawKg", "น้ำหนักที่สั่งรมควัน", "กก.")),
         ...more(
           number("serviceRate", "ราคาค่ารม / กก.", "บาท", {
@@ -367,9 +398,13 @@ export function fields(
       return [
         core(number("dispatchKg", "น้ำหนักที่ส่ง", "กก.")),
         // Required: mutate refuses lines that do not add up to dispatchKg (V2-LOT-03).
-        poLinesField(db, "poLines", "PO เนื้อที่ใช้", {
-          hint: "เลือกได้หลาย PO น้ำหนักรวมต้องเท่ากับน้ำหนักที่ส่ง",
-        }),
+        poLinesField(
+          db,
+          "poLines",
+          "PO เนื้อที่ใช้",
+          { hint: "เลือกได้หลาย PO น้ำหนักรวมต้องเท่ากับน้ำหนักที่ส่ง" },
+          lotId,
+        ),
         ...more(
           text("origin", "ต้นทาง"),
           text("destination", "ปลายทาง"),
@@ -525,6 +560,8 @@ export function fields(
       ];
     case "receive":
       return [
+        // On a Lot รมควัน the meat is the Lot's kind.
+        ...(lotId ? [] : meatTypeField(db, kept)),
         core(number("kg", "น้ำหนักรับเข้าสาขา", "กก.")),
         weightReason,
         note,
@@ -728,6 +765,9 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
 /** What a new form of `kind` starts with; every other field starts empty. With `config`, a
  *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
 export function defaults(kind: NoteKind, config?: Values): Values {
+  // A new PO or receipt starts at the first kind of meat, once there is a choice.
+  const meatType =
+    config && meatTypes(config).length > 1 ? meatTypes(config)[0].id : "";
   if (kind === "purchase") {
     // The buyer as Settings has it, there to change for this PO.
     const buyer = {
@@ -739,10 +779,13 @@ export function defaults(kind: NoteKind, config?: Values): Values {
     };
     return {
       supplier: "Foodiva",
+      ...(meatType ? { meatType } : {}),
       ...Object.fromEntries(Object.entries(buyer).filter(([, value]) => value)),
     } as Values;
   }
-  if (kind === "smokeOrder") return { smoker: "Chef House" };
+  if (kind === "smokeOrder")
+    return { smoker: "Chef House", ...(meatType ? { meatType } : {}) };
+  if (kind === "receive" && meatType) return { meatType };
   if (kind === "pay") return { source: "transfer" };
   if (kind === "expense")
     return { source: "transfer", purpose: "company", warehouse: "central" };

@@ -30,6 +30,8 @@ import { latestDatabase } from "@/lib/persistence";
 import {
   branches,
   materialList,
+  meatItem,
+  meatTypes,
   mutate,
   payCategories,
   rawRiceBranches,
@@ -40,8 +42,9 @@ import {
   type Values,
 } from "@/lib/store";
 
-type Section = "numbers" | "channels" | "categories" | "rice" | "header";
-type ListSection = "channels" | "categories";
+type Section =
+  "numbers" | "channels" | "categories" | "meats" | "rice" | "header";
+type ListSection = "channels" | "categories" | "meats";
 type Setting = {
   key: string;
   label: string;
@@ -110,6 +113,15 @@ const lists: Record<
     add: "เพิ่มหมวด",
     prefix: "c",
   },
+  meats: {
+    title: "รายการเนื้อ",
+    key: "meatTypes",
+    id: "id",
+    name: "ชนิดเนื้อ",
+    add: "เพิ่มชนิดเนื้อ",
+    // A kind of meat's id (isMeatItem).
+    prefix: "meat-",
+  },
 };
 const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
@@ -117,6 +129,7 @@ const titles: Record<Section, string> = {
   rice: "สาขาที่ใช้ข้าวเหนียวดิบ",
   channels: lists.channels.title,
   categories: lists.categories.title,
+  meats: lists.meats.title,
 };
 const isList = (section: Section): section is ListSection => section in lists;
 /** The ten categories the rules hang on: renamed, never removed. */
@@ -125,7 +138,14 @@ const fixedCategories = payCategories(seed.config).map((c) => c.id);
 const rowsOf = (db: Database, section: ListSection): Values[] =>
   section === "channels"
     ? salesChannels(db.config).map((c) => ({ ...c, gp: String(c.gp) }))
-    : payCategories(db.config);
+    : section === "meats"
+      ? meatTypes(db.config)
+      : payCategories(db.config);
+/** Whether anything names a kind of meat: a PO, a Lot, a note, a sheet's row, a product.
+ *  ponytail: a text search of the log for the id (`meat-<time>`, never part of another). */
+const meatInUse = (db: Database, id: string) =>
+  id === meatItem ||
+  JSON.stringify([db.lots, db.entries, db.config.products ?? ""]).includes(id);
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -480,6 +500,11 @@ export function SettingsPage({
                   </label>
                 ))}
               </div>,
+            )}
+            {card(
+              "meats",
+              'เนื้อแต่ละชนิด (พันธุ์ / ส่วน) มี PO, Lot รมควัน และสต๊อกแยกกัน มีมากกว่า 1 ชนิดแล้ว ฟอร์ม PO เนื้อ, PO รมควัน และรับเนื้อเข้าสาขาจะมีช่อง "ชนิดเนื้อ" ชนิดแรกและชนิดที่มีรายการใช้แล้วลบไม่ได้ แต่แก้ชื่อได้',
+              list("meats", (row) => !meatInUse(db, row.id)),
             )}
             <DayCard
               aria-label={productsTitle}

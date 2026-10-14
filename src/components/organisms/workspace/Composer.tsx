@@ -994,12 +994,15 @@ function PoLinesControl({
   const write = (next: Line[]) =>
     set(f.key, next.length ? JSON.stringify(next) : "");
   const held = (id: string) => poInfo(db, id, exceptId).heldKg;
-  // A PO with nothing left is not offered, unless a line already names it.
+  // Of the PO the field offers (the Lot's kind of meat), one with nothing left is not, unless
+  // a line already names it.
+  const offered = new Set(f.options?.map((option) => option.value));
   const pos = purchaseLots(db)
     .reverse()
     .filter(
       (lot) =>
-        held(lot.id) > 0.005 || rows.some((row) => row.poLotId === lot.id),
+        (offered.has(lot.id) && held(lot.id) > 0.005) ||
+        rows.some((row) => row.poLotId === lot.id),
     );
   const label = (id: string) => `${lotLabel(db, id)} · ${qty(held(id))} กก.`;
   const pick = (index: number, poLotId: string) => {

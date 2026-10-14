@@ -14,7 +14,11 @@ import {
   isEditOverlay,
   configMaterials,
   boxProduct,
-  gramItems,
+  isGramItem,
+  isMeatItem,
+  meatItem,
+  meatTypeOf,
+  meatTypes,
   pieces,
   productMeatKg,
   productMoney,
@@ -538,13 +542,14 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     linked && backKg > 0 && fee > 0
       ? (meatCost + fee + shippingFee) / backKg
       : null;
+  const lot = db.lots.find((lot) => lot.id === lotId)!;
   const box = products(db.config).find((p) => p.id === boxProduct);
   const meatPerBox =
     costPerKg === null || !box
       ? null
-      : costPerKg * productMeatKg(db.config, box);
+      : costPerKg * productMeatKg(db.config, box, meatTypeOf(lot));
   return {
-    lot: db.lots.find((lot) => lot.id === lotId)!,
+    lot,
     capacityKg,
     sentKg,
     remainingKg: capacityKg - sentKg,
@@ -616,17 +621,26 @@ export function boxCost(db: Database) {
       };
 }
 /** V2-CAL-06 per product of 「รายการสินค้า」: its price, and the cost of one piece: its meat
- *  (`productMeatKg`) at the cost per kg of the newest PO รมควัน that has one (`lotId`), and
- *  its own other cost (0 while none is set). `meat` and `total` are null while a product
- *  with meat has no such PO to cost it from. */
+ *  (`productMeatKg`), each kind at the cost per kg of the newest PO รมควัน of that kind that
+ *  has one (`lotId`: the first kind's), and its own other cost (0 while none is set). `meat`
+ *  and `total` are null while a kind of meat it holds has no such PO to cost it from. */
 export function productCosts(db: Database) {
-  const lot = shipments(db)
-    .map((lot) => lotInfo(db, lot.id))
-    .findLast((lot) => lot.costPerKg !== null);
+  const infos = shipments(db).map((lot) => lotInfo(db, lot.id));
+  const newest = (type: string) =>
+    infos.findLast(
+      (info) => info.costPerKg !== null && meatTypeOf(info.lot) === type,
+    );
   return products(db.config).map((product) => {
-    const kg = productMeatKg(db.config, product);
     const { price, cost } = productMoney(db.config, product.id);
-    const meat = !kg ? 0 : lot ? lot.costPerKg! * kg : null;
+    let meat: number | null = 0;
+    let lotId: string | null = null;
+    for (const type of meatTypes(db.config)) {
+      const kg = productMeatKg(db.config, product, type.id);
+      if (!kg) continue;
+      const lot = newest(type.id);
+      lotId ??= lot?.lot.id ?? null;
+      meat = lot && meat !== null ? meat + lot.costPerKg! * kg : null;
+    }
     const other = cost ?? 0;
     return {
       id: product.id,
@@ -635,7 +649,7 @@ export function productCosts(db: Database) {
       meat,
       other,
       total: meat === null ? null : meat + other,
-      lotId: kg && lot ? lot.lot.id : null,
+      lotId,
     };
   });
 }
@@ -835,11 +849,14 @@ export function materialList(db: Database): Material[] {
   }
   return list;
 }
-/** The ids of the Stock page's sheet; every other id is a material's (the Inventory page's). */
-const meatSheetIds = ["meat", "rice", "chili"];
+/** The ids of the Stock page's sheet (each kind of meat, the raw rice, the chili); every other
+ *  id is a material's (the Inventory page's). */
 export const sheetOf = (itemId: string): Sheet =>
-  meatSheetIds.includes(itemId) ? "meat" : "materials";
-/** The rows of a daily sheet, each with its unit: the meat, the raw rice of a branch that
+  isMeatItem(itemId) || itemId === "rice" || itemId === "chili"
+    ? "meat"
+    : "materials";
+/** The rows of a daily sheet, each with its unit: each kind of meat in use (「รายการเนื้อ」),
+ *  the raw rice of a branch that
  *  steams its own (V2-BR-08; with no `branch`, any reader's, the row is there) and the chili,
  *  or the material list. `rice` and `chili` are the ids a payment's `item` names. */
 export function sheetItems(
@@ -850,7 +867,12 @@ export function sheetItems(
   if (sheet === "materials") return materialList(db);
   const rice = !branch || rawRiceBranches(db.config).includes(branch);
   return [
-    { id: "meat", sku: "", name: "เนื้อ", unit: "กก." },
+    ...meatTypes(db.config).map((type) => ({
+      id: type.id,
+      sku: "",
+      name: type.name,
+      unit: "กก.",
+    })),
     ...(rice
       ? [{ id: "rice", sku: "", name: "ข้าวเหนียวดิบ", unit: "กก." }]
       : []),
@@ -887,7 +909,7 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
     (a, p) => a + productQty(p, values) * (p.items.get(itemId) ?? 0),
     0,
   ) /
-    (gramItems.includes(itemId) ? 1000 : 1) +
+    (isGramItem(itemId) ? 1000 : 1) +
   (itemId === "chili" ? Number(values.chiliAddons) || 0 : 0);
 /** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
  *  `remaining = opening + autoReceived + received − used − sold`.
@@ -902,7 +924,7 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
  *    `used`, never taken off again.
  *  - `sold`: what the branch's live `sale` and `influencerBox` notes of the day took by
  *    themselves, beside `used`: over every product (`products`), the note's count of it × the
- *    product's quantity of the item (grams read as kg for `gramItems`), and for the chili the
+ *    product's quantity of the item (grams read as kg for `isGramItem`), and for the chili the
  *    `chiliAddons` of a note saved when tubes sold apart had their own field, tube for tube.
  *    A day with such a note and no sheet counts all the same.
  *  - `saved`: whether the day has a `daily` note of the item's sheet.
@@ -924,13 +946,19 @@ export function branchItem(
   const auto = new Map<string, number>();
   const add = (day: string, qty: number) =>
     auto.set(day, (auto.get(day) ?? 0) + qty);
-  if (itemId === "meat") {
-    const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
+  if (isMeatItem(itemId)) {
+    const lots = new Map(db.lots.map((lot) => [lot.id, lot]));
+    const old = (lotId: string) => !!lots.get(lotId)?.old;
+    // Each kind of meat apart: a Lot's is its own, a receipt with no Lot says which.
+    const ofKind = (e: Entry) =>
+      (e.lotId
+        ? meatTypeOf(lots.get(e.lotId))
+        : e.values.meatType || meatItem) === itemId;
     for (const e of entries(db, "receive", undefined, branch))
-      if (!old.has(e.lotId)) add(e.date, num(e.values, "kg"));
+      if (!old(e.lotId) && ofKind(e)) add(e.date, num(e.values, "kg"));
     // Smoked meat the Owner sent (a transfer on a PO รมควัน), on the day it arrived.
     for (const e of entries(db, "transfer"))
-      if (e.lotId && e.values.to === branch && !old.has(e.lotId)) {
+      if (e.lotId && e.values.to === branch && !old(e.lotId) && ofKind(e)) {
         const arrived = awaitsReceipt(e) ? receiptOf(db, e) : e;
         if (arrived) add(arrived.date, num(e.values, "qty"));
       }
