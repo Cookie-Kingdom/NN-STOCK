@@ -216,16 +216,9 @@ export async function openRow(row: Locator) {
 }
 
 /** A branch's daily stock sheet (its Stock, its Inventory): a figure's input or cell, by the
- *  column's name and the item's (「ใช้ไป เนื้อ」, 「คงเหลือ เนื้อ」, 「ของตั้งต้น เนื้อ」). */
+ *  column's name and the item's (「ใช้ไป เนื้อ」, 「คงเหลือ เนื้อ」, 「รับเพิ่ม เนื้อ」). */
 export const sheetCell = (page: Page, column: string, item: string) =>
   page.getByRole("main").getByLabel(`${column} ${item}`, { exact: true });
-
-/** The sheet's two views: 「ใบสต๊อกรายวัน」 and 「ตั้งสต๊อกเริ่มต้น」. */
-export const sheetView = (page: Page, view: string) =>
-  page.getByRole("radiogroup", { name: "มุมมอง" }).getByRole("radio", {
-    name: view,
-    exact: true,
-  });
 
 /** 「แก้ไขบันทึก」 when the sheet in view is saved (it opens locked). */
 async function unlockSheet(page: Page) {
@@ -233,20 +226,6 @@ async function unlockSheet(page: Page) {
     .getByRole("main")
     .getByRole("button", { name: "แก้ไขบันทึก", exact: true });
   if (await edit.count()) await edit.click();
-}
-
-/** Sets the opening stock of the page's sheet: `[item, quantity]` pairs. The sheet goes back
- *  to its daily view on the save. */
-export async function setOpening(page: Page, ...pairs: [string, string][]) {
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await unlockSheet(page);
-  for (const [item, qty] of pairs)
-    await sheetCell(page, "ของตั้งต้น", item).fill(qty);
-  await page
-    .getByRole("main")
-    .getByRole("button", { name: "บันทึกของตั้งต้น", exact: true })
-    .click();
-  await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
 }
 
 /** Types the day's figures into the daily sheet in view, `[column, item, value]` each, and

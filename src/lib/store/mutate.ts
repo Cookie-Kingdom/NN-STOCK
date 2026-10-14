@@ -238,7 +238,7 @@ function noteValues(
         const reason = key.replace("waste.", "reason.");
         if (!v[reason]) missing.push(reason);
       }
-  if (kind === "daily" || kind === "opening") assert(v.sheet, "เลือกใบสต๊อก");
+  if (kind === "daily") assert(v.sheet, "เลือกใบสต๊อก");
   // A sales receipt goes by its channel (ledgerRows): its item may stay empty.
   if (kind === "income" && v.channel && missing.includes("item"))
     missing.splice(missing.indexOf("item"), 1);

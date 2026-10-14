@@ -216,7 +216,7 @@ const receiveField: Field = {
     { value: "confirm", label: "รอสาขายืนยันรับ" },
   ],
 };
-/** Which sheet a `daily` or an `opening` note is of: the Stock page's or the Inventory page's. */
+/** Which sheet a `daily` note is of: the Stock page's or the Inventory page's. */
 const sheetField: Field = {
   key: "sheet",
   label: "ใบสต๊อก",
@@ -548,13 +548,6 @@ export function fields(
           ["reason", "สาเหตุ Waste", "text"],
         ]),
         core(text("reporter", "ผู้บันทึก")),
-        note,
-      ];
-    // What the rows hold at the start of the note's date; a row left empty is not set.
-    case "opening":
-      return [
-        sheetField,
-        ...sheetFields(db, by, [["qty", "สต๊อกเริ่มต้น"]]),
         note,
       ];
     // One row of the material list: `id` empty adds it, an id of the list changes that row.

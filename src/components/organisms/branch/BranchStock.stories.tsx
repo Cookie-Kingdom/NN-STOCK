@@ -40,7 +40,7 @@ const Stock = ({
   </WithWorkspace>
 );
 
-/** The sample (an opening ten days ago, a sheet a day until yesterday) as ศาลาแดง receives
+/** The sample (stock sent in ten days ago, a sheet a day until yesterday) as ศาลาแดง receives
  *  it, after it saved today's two sheets with `meat` and `materials`. */
 const savedDb = (meat: Values, materials: Values) =>
   dbFor(
@@ -154,12 +154,6 @@ const unlock = async ({ canvasElement }: { canvasElement: HTMLElement }) =>
   userEvent.click(
     await within(canvasElement).findByRole("button", { name: "แก้ไขบันทึก" }),
   );
-const openingView = async ({ canvasElement }: { canvasElement: HTMLElement }) =>
-  userEvent.click(
-    await within(canvasElement).findByRole("radio", {
-      name: "ตั้งสต๊อกเริ่มต้น",
-    }),
-  );
 
 const meta = {
   title: "Organisms/Branch/BranchStock",
@@ -174,31 +168,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Inventory ของมีนบุรี ตั้งสต๊อกเริ่มต้นแล้ว วันนี้ยังไม่บันทึก: ป้าย「ยังไม่บันทึกวันนี้」·
- *  รายการสินค้าเป็นตาราง มีเส้นแบ่งคอลัมน์และเส้นแบ่งแถว หัวตาราง สินค้า / ยกมา · รับเพิ่ม · ใช้ไป
- *  (ใต้ช่องคือ「ตัดจากยอดขาย」ที่เว็บคิดให้ เมื่อวันนั้นมี) · Waste / ทิ้ง · คงเหลือ (คิดให้ทันที) · ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」·
+/** Inventory ของมีนบุรี วันนี้ยังไม่บันทึก: ป้าย「ยังไม่บันทึกวันนี้」·
+ *  รายการสินค้าเป็นตาราง มีเส้นแบ่งคอลัมน์และเส้นแบ่งแถว หัวตาราง สินค้า · คงเหลือ (คิดให้ทันที)
+ *  · ตัดจากยอดขาย (เว็บคิดให้) · รับเพิ่ม · ใช้ไป · Waste / ทิ้ง · ไม่มีบรรทัด「ยกมา」ใต้ชื่อ ·
+ *  ปุ่ม「บันทึกการใช้วันนี้」อยู่หัวการ์ดข้าง「เพิ่มสินค้า」· ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」·
  *  พิมพ์แล้วป้ายเป็น「ยังไม่บันทึก」· กด「บันทึกการใช้วันนี้」บันทึกได้แม้เว้นว่าง ·
  *  ช่องค้นหาซ่อนแถว แต่บันทึกครบทุกรายการ */
 export const TodayNotSaved: Story = {};
 
-/** ยังไม่เคยตั้งสต๊อกเริ่มต้น: 「ตั้งสต๊อกเริ่มต้นของมีนบุรีก่อน」พร้อมปุ่มไปหน้าตั้งสต๊อกเริ่มต้น */
-export const NoOpening: Story = {
+/** สาขาใหม่ ยังไม่มีอะไรเข้า: ใบสต๊อกรายวันขึ้นเลย ทุกแถวคงเหลือ 0 (ไม่มีการตั้งสต๊อกเริ่มต้น) */
+export const NewBranch: Story = {
   parameters: { db: dbFor("minburi", seed) },
 };
 
 /** Inventory ของศาลาแดง บันทึกวันนี้แล้ว จึงเปิดมาล็อก: ป้าย「บันทึกวันนี้แล้ว」ตัวเลข ผู้บันทึก
- *  และหมายเหตุเป็นข้อความ พิมพ์ไม่ได้ · ปุ่มล่างเป็น「แก้ไขบันทึก」·
+ *  และหมายเหตุเป็นข้อความ พิมพ์ไม่ได้ · ปุ่มที่หัวการ์ดเป็น「แก้ไขบันทึก」·
  *  ถุงกระดาษมี Waste 4 พร้อมสาเหตุ (ถุงเปียกน้ำ) ในช่อง Waste · ถุงซีลรับเพิ่มเอง 50 ·
  *  「เพิ่มสินค้า」และ「แก้ชื่อ / หน่วย」ยังกดได้ · เปลี่ยนวันที่เป็นวันที่ยังไม่บันทึก ช่องเปิดให้พิมพ์ ·
  *  ด้านบนมีกล่อง「รอยืนยันรับสินค้า」ด้านล่างมี「สินทรัพย์อื่นของสาขา」 */
 export const TodaySaved: Story = { ...saved };
 
-/** กด「แก้ไขบันทึก」: ช่องกลับมาพิมพ์ได้ พร้อมค่าที่บันทึกไว้ · ปุ่มล่างเป็น「ยกเลิก」
+/** กด「แก้ไขบันทึก」: ช่องกลับมาพิมพ์ได้ พร้อมค่าที่บันทึกไว้ · ปุ่มที่หัวการ์ดเป็น「ยกเลิก」
  *  (กลับไปล็อกด้วยค่าที่บันทึกไว้) กับ「บันทึกการใช้วันนี้」(แก้ไขบันทึกเดิม ไม่ตัดสต๊อกซ้ำ แล้วล็อกอีกครั้ง) */
 export const UnlockedForEdit: Story = { ...saved, play: unlock };
 
 /** พิมพ์แล้วกด「บันทึกการใช้วันนี้」: บันทึกสำเร็จแล้วล็อกทันที ตัวเลขเป็นข้อความ
- *  ปุ่มล่างเป็น「แก้ไขบันทึก」 */
+ *  ปุ่มที่หัวการ์ดเป็น「แก้ไขบันทึก」 */
 export const LockedAfterSave: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -313,25 +308,6 @@ export const ConfirmReceipt: Story = {
   },
 };
 
-/** 「ตั้งสต๊อกเริ่มต้น」ที่บันทึกแล้ว เปิดมาล็อก: ตาราง สินค้า · ยอดตั้งต้น เป็นข้อความ วันที่เริ่มนับพิมพ์ไม่ได้
- *  ปุ่มล่างเป็น「แก้ไขบันทึก」 */
-export const OpeningView: Story = { play: openingView };
-
-/** 「ตั้งสต๊อกเริ่มต้น」กด「แก้ไขบันทึก」: ช่องจำนวนและวันที่กลับมาพิมพ์ได้ มี「ยกเลิก」·
- *  บันทึกอีกครั้งเป็นการแก้ยอดตั้งต้นเดิม (แก้วันที่ได้) แล้วกลับไปใบสต๊อกรายวัน */
-export const OpeningUnlocked: Story = {
-  play: async (context) => {
-    await openingView(context);
-    await unlock(context);
-  },
-};
-
-/** 「ตั้งสต๊อกเริ่มต้น」ยังไม่เคยบันทึก: ช่องเปิดให้พิมพ์ ไม่มีปุ่ม「แก้ไขบันทึก」 */
-export const OpeningNotSaved: Story = {
-  parameters: { db: dbFor("minburi", seed) },
-  play: openingView,
-};
-
 /** กด「เพิ่มสินค้า」: 「เพิ่มรายการสินค้า」ชื่อสินค้า และหน่วยนับ (พิมพ์เองหรือเลือกจากรายการ) ·
  *  ชื่อว่างหรือซ้ำ ข้อความที่เว็บไม่รับอยู่ข้างปุ่ม */
 export const AddItem: Story = {
@@ -357,15 +333,9 @@ export const EditItem: Story = {
  *  รายการคงที่ ไม่มี「เพิ่มสินค้า」และ「แก้ชื่อ / หน่วย」 */
 export const StockTodayNotSaved: Story = { args: stock };
 
-/** Stock ยังไม่เคยตั้งสต๊อกเริ่มต้น */
-export const StockNoOpening: Story = {
-  args: stock,
-  parameters: { db: dbFor("minburi", seed) },
-};
-
-/** Stock ยังไม่เคยตั้งสต๊อกเริ่มต้น แต่ Owner จัดสรรเนื้อรมควัน 5 กก. มาแล้ว: ใบสต๊อกรายวันขึ้นเลย
- *  ไม่ต้องตั้งสต๊อกเริ่มต้นก่อน · แถวเนื้อมี「เข้าเอง 5」 */
-export const StockSentBeforeOpening: Story = {
+/** Stock ของสาขาใหม่ ที่ Owner จัดสรรเนื้อรมควัน 5 กก. มาวันนี้: แถวเนื้อมี「เข้าเอง 5」
+ *  คงเหลือ 5 */
+export const StockSentToNewBranch: Story = {
   args: stock,
   parameters: {
     db: dbFor(
@@ -406,22 +376,16 @@ export const StockMissingReporter: Story = {
   args: { ...saladaeng, ...stock },
 };
 
-/** Stock「ตั้งสต๊อกเริ่มต้น」 */
-export const StockOpeningView: Story = { args: stock, play: openingView };
-
 /** จอ 390px ยังไม่บันทึก: ตารางเดิม เลื่อนซ้ายขวาในการ์ดเพื่อดูคอลัมน์ที่เหลือ (หน้าไม่เลื่อน) ·
- *  ปุ่มบันทึกเต็มความกว้าง */
+ *  ปุ่มบันทึกอยู่หัวการ์ด ขึ้นบรรทัดใหม่ใต้ชื่อการ์ดเมื่อไม่พอ */
 export const Phone: Story = { ...phone };
 
 /** จอ 390px กด「แก้ไขบันทึก」แล้ว: 「ยกเลิก」กับ「บันทึกการใช้วันนี้」อยู่แถวเดียวกัน */
 export const PhoneUnlockedForEdit: Story = { ...phoneSaved, play: unlock };
 
 /** จอ 390px ของศาลาแดง บันทึกวันนี้แล้ว (ล็อก): กล่องรอยืนยันรับเหลือ รายการ จำนวน และปุ่ม「ยืนยันรับ」·
- *  ตารางเป็นข้อความ แถวที่มี Waste มีสาเหตุใต้ตัวเลข · ปุ่ม「แก้ไขบันทึก」เต็มความกว้าง */
+ *  ตารางเป็นข้อความ แถวที่มี Waste มีสาเหตุใต้ตัวเลข · ปุ่ม「แก้ไขบันทึก」ที่หัวการ์ด */
 export const PhonePendingReceipt: Story = { ...phoneSaved };
 
 /** จอ 390px หน้า Stock */
 export const StockPhone: Story = { ...phone, args: stock };
-
-/** จอ 390px「ตั้งสต๊อกเริ่มต้น」 */
-export const PhoneOpeningView: Story = { ...phone, play: openingView };

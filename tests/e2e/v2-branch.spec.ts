@@ -20,9 +20,7 @@ import {
   rows,
   save,
   saveSheet,
-  setOpening,
   sheetCell,
-  sheetView,
   signInAs,
   start,
   theDate,
@@ -88,11 +86,12 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   // Stock: the branches' meat, raw rice and chili, as their daily sheets read; nothing to press.
   await openPage(page, "Stock");
   const shelves = region(page, "สต๊อกของสาขา");
+  // A branch starts empty: 0, not a sheet to set up first.
   await expect(stockRow(shelves, "เนื้อ")).toHaveText([
     "เนื้อ",
-    "ยังไม่มีสต๊อกตั้งต้น",
+    "0 กก.ยังไม่บันทึกวันนี้",
     "—",
-    "ยังไม่มีสต๊อกตั้งต้น",
+    "0 กก.ยังไม่บันทึกวันนี้",
     "—",
   ]);
   await expect(jotButtons(page)).toHaveCount(0);
@@ -121,7 +120,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     .getByRole("cell");
   // Nothing was bought into the central warehouse, and nothing is on its way.
   await expect(boxes.nth(4)).toHaveText("0");
-  await expect(boxes.nth(6)).toHaveText("ยังไม่มีสต๊อกตั้งต้น");
+  await expect(boxes.nth(6)).toHaveText("0 กล่องยังไม่บันทึกวันนี้");
   await expect(boxes.nth(7)).toHaveText("—");
   await expect(boxes.nth(8)).toHaveText("0");
   // No branch set it and nothing moved it: not "หมด".
@@ -154,14 +153,12 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   );
   // Its Stock: the meat and the chili. มีนบุรี buys its rice cooked: no raw rice row.
   await openPage(page, "Stock");
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await expect(sheetCell(page, "ของตั้งต้น", "เนื้อ")).toBeVisible();
-  await expect(sheetCell(page, "ของตั้งต้น", "น้ำพริก")).toBeVisible();
-  await expect(sheetCell(page, "ของตั้งต้น", "ข้าวเหนียวดิบ")).toHaveCount(0);
-  // Its Inventory: the payment is the day's receipt, on top of the opening stock.
+  await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
+  // Its Inventory: the payment is the day's receipt, and all the branch holds.
   await openPage(page, "Inventory");
-  await setOpening(page, ["กล่องบรรจุ", "10"]);
-  await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText("60 กล่อง");
+  await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText("50 กล่อง");
   // Its own payment, jotted from its Inventory, adds to the same shelf.
   await jot(page, "จ่ายเงิน");
   await fill(
@@ -172,12 +169,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
     [/^จำนวน/, "20"],
   );
   await save(page);
-  await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText("80 กล่อง");
+  await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText("70 กล่อง");
 
   // The other branch has none of it.
   await signInAs(page, "saladaeng");
   await openPage(page, "Inventory");
-  await setOpening(page, ["กล่องบรรจุ", "0"]);
   await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText("0 กล่อง");
 });
 
@@ -368,15 +364,9 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await save(page);
   await expect(bell(page)).toHaveAccessibleName("ยังไม่ได้จด 0 อย่าง");
 
-  // An opening stock from that day on: today's sheet is there to save, and is not saved.
+  // Today's sheet is there to save, and is not saved.
   await openPage(page, "Inventory");
-  const main = page.getByRole("main");
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await pickDay(main.getByLabel(/^เริ่มนับตั้งแต่วันที่/), bangkokDate(-3));
-  await sheetCell(page, "ของตั้งต้น", "กล่องบรรจุ").fill("100");
-  await main.getByRole("button", { name: "บันทึกของตั้งต้น" }).click();
-  await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
-  await expect(main).toContainText("ยังไม่บันทึกวันนี้");
+  await expect(page.getByRole("main")).toContainText("ยังไม่บันทึกวันนี้");
   // The bell asks neither account for the sheet, and for no sale.
   await openBell(page);
   await expect(todoLines(page, "ยอดขาย")).toHaveCount(0);
@@ -388,7 +378,7 @@ test("11 · V2-PG-01 a sale is due only for a day of the last 7 the branch itsel
   await noSheetAsked();
 });
 
-test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and with no component set a sale takes no stock", async ({
+test("12 · V2-BR-09 a branch starts empty, takes meat in and saves the day's sheet: it locks, a save of the same day again does not deduct twice, and with no component set a sale takes no stock", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -397,10 +387,11 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   const main = page.getByRole("main");
   const left = sheetCell(page, "คงเหลือ", "เนื้อ");
   const editSheet = main.getByRole("button", { name: "แก้ไขบันทึก" });
-  // No sheet before the opening stock.
-  await expect(left).toHaveCount(0);
-  await expect(main).toContainText("ตั้งสต๊อกเริ่มต้นของ");
-  await setOpening(page, ["เนื้อ", "20"]);
+  // A branch starts empty: its sheet is there at once, at 0, until meat comes in.
+  await expect(left).toHaveText("0 กก.");
+  await jot(page, "รับเนื้อเข้าสาขา");
+  await fill(page, [/^น้ำหนักรับเข้าสาขา/, "20"]);
+  await save(page);
   await expect(left).toHaveText("20 กก.");
   await expect(main).toContainText("ยังไม่บันทึกวันนี้");
   await expect(editSheet).toHaveCount(0);
@@ -448,7 +439,7 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   // The other branch is told nothing of it.
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
-  await expect(left).toHaveCount(0);
+  await expect(left).toHaveText("0 กก.");
   const copy = (await (await page.request.get("/api/local-db")).json()).payload;
   expect(copy.entries).toEqual([]);
 
@@ -458,7 +449,7 @@ test("12 · V2-BR-09 a branch sets its opening stock and saves the day's sheet: 
   const meat = stockRow(region(page, "สต๊อกของสาขา"), "เนื้อ");
   await expect(meat.nth(1)).toHaveText("14 กก.");
   await expect(meat.nth(2)).toHaveText("0.5 กก.ขอบไหม้");
-  await expect(meat.nth(3)).toHaveText("ยังไม่มีสต๊อกตั้งต้น");
+  await expect(meat.nth(3)).toHaveText("0 กก.ยังไม่บันทึกวันนี้");
   await expect(region(page, "Waste ย้อนหลัง 7 วัน")).toContainText("ขอบไหม้");
   await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("spinbutton")).toHaveCount(0);
@@ -523,7 +514,12 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   // The branch's sale form asks for both, and the tubes sold apart have no field of their own.
   await signInAs(page, "saladaeng");
   await openPage(page, "Stock");
-  await setOpening(page, ["เนื้อ", "20"], ["น้ำพริก", "50"]);
+  await saveSheet(
+    page,
+    "น้องฝน",
+    ["รับเพิ่ม", "เนื้อ", "20"],
+    ["รับเพิ่ม", "น้ำพริก", "50"],
+  );
   await jotSaleOf(page);
   await expect(form(page).getByLabel(/^น้ำพริกหลอดที่ขายแยก/)).toHaveCount(0);
   // A row per product: the form opens on the box, and the second row takes the pack.
@@ -558,23 +554,23 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   await openPage(page, "Inventory");
   const main = page.getByRole("main");
   const left = sheetCell(page, "คงเหลือ", "กล่องบรรจุ");
-  // The opening stock, from yesterday.
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await pickDay(main.getByLabel(/^เริ่มนับตั้งแต่วันที่/), bangkokDate(-1));
-  await sheetCell(page, "ของตั้งต้น", "กล่องบรรจุ").fill("100");
-  await main.getByRole("button", { name: "บันทึกของตั้งต้น" }).click();
-  await expect(toast(page, /^จดแล้ว: ตั้งสต๊อกเริ่มต้น/)).toBeVisible();
-  // Yesterday's sheet: 100 − 30.
+  // Yesterday's sheet: 100 in, 30 used.
   await pickDay(main.getByLabel(/^วันที่บันทึก/), bangkokDate(-1));
-  await saveSheet(page, "น้องฝน", ["ใช้ไป", "กล่องบรรจุ", "30"]);
+  await saveSheet(
+    page,
+    "น้องฝน",
+    ["รับเพิ่ม", "กล่องบรรจุ", "100"],
+    ["ใช้ไป", "กล่องบรรจุ", "30"],
+  );
   await expect(left).toHaveText("70 กล่อง");
   // Today opens on it, not yet saved.
   await pickDay(main.getByLabel(/^วันที่บันทึก/), today);
   await expect(main).toContainText("ยังไม่บันทึกวันนี้");
   await expect(left).toHaveText("70 กล่อง");
+  // What was carried forward feeds คงเหลือ and is not shown.
   await expect(
     main.getByRole("row", { name: /^(SKU-0001 )?กล่องบรรจุ/ }),
-  ).toContainText("ยกมา 70");
+  ).not.toContainText("ยกมา");
   // The search takes a name or a SKU, as the Owner's does.
   await page.getByLabel("ค้นหา").fill("sku-0001");
   await expect(left).toBeVisible();
@@ -599,8 +595,7 @@ test("13 · V2-CAL-10 V2-BR-11 a day opens on what the day before left, and an i
   // The other branch has the item, and none of this branch's figures.
   await signInAs(page, "minburi");
   await openPage(page, "Inventory");
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await expect(sheetCell(page, "ของตั้งต้น", "ช้อนไม้")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "ช้อนไม้")).toHaveText("0 แพ็ก");
   const copy = (await (await page.request.get("/api/local-db")).json()).payload;
   expect(copy.entries.map((e: { kind: string }) => e.kind)).toEqual([
     "stockItem",
@@ -742,9 +737,9 @@ test.describe("phone, 390px wide", () => {
         ),
       ).toBeLessThanOrEqual(0);
     await expect(pageButtons(page)).toHaveText([
+      "Sales",
       "Stock",
       "Inventory",
-      "Sales",
       "Daily Log",
     ]);
     await fits();
@@ -760,15 +755,18 @@ test.describe("phone, 390px wide", () => {
 
     await openPage(page, "Stock");
     await fits();
-    await setOpening(page, ["เนื้อ", "9.4"]);
-    await fits();
-    await saveSheet(page, "Stella", ["ใช้ไป", "เนื้อ", "1"]);
+    await saveSheet(
+      page,
+      "Stella",
+      ["รับเพิ่ม", "เนื้อ", "9.4"],
+      ["ใช้ไป", "เนื้อ", "1"],
+    );
     await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toHaveText("8.4 กก.");
     await fits();
 
     await openPage(page, "Inventory");
     await fits();
-    await setOpening(page, ["กล่องบรรจุ", "380"]);
+    await saveSheet(page, "Stella", ["รับเพิ่ม", "กล่องบรรจุ", "380"]);
     await expect(sheetCell(page, "คงเหลือ", "กล่องบรรจุ")).toHaveText(
       "380 กล่อง",
     );

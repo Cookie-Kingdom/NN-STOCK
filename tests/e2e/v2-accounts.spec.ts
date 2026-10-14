@@ -34,8 +34,8 @@ const pagesOf = {
     "Accounting",
     "Settings",
   ],
-  saladaeng: ["Stock", "Inventory", "Sales", "Daily Log"],
-  minburi: ["Stock", "Inventory", "Sales", "Daily Log"],
+  saladaeng: ["Sales", "Stock", "Inventory", "Daily Log"],
+  minburi: ["Sales", "Stock", "Inventory", "Daily Log"],
 } as const;
 const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
@@ -188,7 +188,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
       if (name === "Daily Log") {
         const branchNote = page
           .locator(
-            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"], [data-kind="opening"])',
+            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"])',
           )
           .first();
         await expect(

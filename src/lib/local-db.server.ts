@@ -63,7 +63,8 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 
-/** Kinds a branch may append (V2-ACC-07): its notes, and the changes to its own entries. */
+/** Kinds a branch may append (V2-ACC-07): its notes, and the changes to its own entries.
+ *  `opening` is retired in the app (2026-10-14) but stays here as it stays in the SQL. */
 const branchKinds: EntryKind[] = [
   "receive",
   "sale",

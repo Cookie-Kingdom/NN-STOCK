@@ -15,9 +15,9 @@ const owner: Actor = { role: "owner" };
  *  รมควัน: one complete (one round, its invoice), one with a first round received at Chef
  *  House only, one bought with nothing sent yet. PO เนื้อ 1 has its invoice and its waste
  *  received; PO เนื้อ 2 still waits for its waste and its invoice. ศาลาแดง has a note today
- *  and no sale yet, and a sale with no money typed: both show the yellow. Each branch set its
- *  opening stock ten days ago and saved its daily sheets since (some with waste, one waste
- *  with no reason); มีนบุรี was closed two days ago (no sheet, no sale: nothing is asked of
+ *  and no sale yet, and a sale with no money typed: both show the yellow. Each branch took the
+ *  rest of its first stock in ten days ago (รับเพิ่ม on that day's sheets) and saved its daily
+ *  sheets since (some with waste, one waste with no reason); มีนบุรี was closed two days ago (no sheet, no sale: nothing is asked of
  *  that day); today's sheets are not saved yet. */
 export function sampleData(endDate: string): Database {
   let db = structuredClone(seed);
@@ -172,10 +172,14 @@ export function sampleData(endDate: string): Database {
     influencer: "@bkkfoodie",
     boxes: 2,
   });
-  /* The daily sheets (V2-CAL-10): the opening stock of both sheets ten days ago, then a sheet
-   * a day. `figures` is a row per item: [id, used, waste?, reason?, received?]. */
-  const opening = (qty: Record<string, number>) =>
-    Object.fromEntries(Object.entries(qty).map(([id, n]) => [`qty.${id}`, n]));
+  /* The daily sheets (V2-CAL-10): a branch starts empty. Its meat came in by the receipts of
+   * 14 days ago and ศาลาแดง's boxes (m1) by the Owner's payment of 18 days ago; ten days ago
+   * both sheets take the rest in (รับเพิ่ม), then a sheet a day. `figures` is a row per item:
+   * [id, used, waste?, reason?, received?]. */
+  const first = (qty: Record<string, number>) =>
+    Object.fromEntries(
+      Object.entries(qty).map(([id, n]) => [`received.${id}`, n]),
+    );
   const sheet = (
     figures: [string, number, number?, string?, number?][],
   ): Record<string, string | number> =>
@@ -186,21 +190,25 @@ export function sampleData(endDate: string): Database {
           .map(([figure, value]) => [`${figure}.${id}`, value!]),
       ),
     );
-  add(saladaeng, "opening", 10, "08:00", {
+  add(saladaeng, "daily", 10, "08:00", {
     sheet: "meat",
-    ...opening({ meat: 24, rice: 30, chili: 120 }),
+    reporter: "น้องฝน",
+    ...first({ rice: 30, chili: 120 }),
   });
-  add(saladaeng, "opening", 10, "08:05", {
+  add(saladaeng, "daily", 10, "08:05", {
     sheet: "materials",
-    ...opening({ m1: 5480, m2: 900, m3: 1200, m4: 240, m6: 300, m9: 12 }),
+    reporter: "น้องฝน",
+    ...first({ m2: 900, m3: 1200, m4: 240, m6: 300, m9: 12 }),
   });
-  add(minburi, "opening", 10, "08:10", {
+  add(minburi, "daily", 10, "08:10", {
     sheet: "meat",
-    ...opening({ meat: 40, chili: 60 }),
+    reporter: "พี่เอ",
+    ...first({ meat: 10, chili: 60 }),
   });
-  add(minburi, "opening", 10, "08:15", {
+  add(minburi, "daily", 10, "08:15", {
     sheet: "materials",
-    ...opening({ m1: 380, m2: 420, m3: 600, m4: 90, m6: 110, m9: 8 }),
+    reporter: "พี่เอ",
+    ...first({ m1: 380, m2: 420, m3: 600, m4: 90, m6: 110, m9: 8 }),
   });
   for (let d = 9; d >= 1; d--)
     for (const [bi, branch] of branches.entries()) {

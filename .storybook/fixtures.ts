@@ -50,8 +50,9 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
-/** Daily sheets on a new system: both branches set the opening of both sheets two days
- *  before `on` and saved the sheets of the day before; nothing is saved on `on` yet.
+/** Daily sheets on a new system: both branches took their first stock in on both sheets two
+ *  days before `on` (รับเพิ่ม on that day's sheet) and saved the sheets of the day before;
+ *  nothing is saved on `on` yet.
  *  ศาลาแดง: 10 กก. of meat received on `on` (เข้าเอง), a meat waste and a material waste with
  *  their reasons. มีนบุรี: a chili waste with no reason and no reporter (ยังไม่ได้จด). */
 export function sheetsDb(on = day): Database {
@@ -63,30 +64,46 @@ export function sheetsDb(on = day): Database {
   const notes: [Actor, NoteKind, Values, string][] = [
     [
       saladaeng,
-      "opening",
-      { sheet: "meat", "qty.meat": "24", "qty.rice": "30", "qty.chili": "120" },
+      "daily",
+      {
+        sheet: "meat",
+        "received.meat": "24",
+        "received.rice": "30",
+        "received.chili": "120",
+        reporter: "น้องฝน",
+      },
       back(2),
     ],
     [
       saladaeng,
-      "opening",
+      "daily",
       {
         sheet: "materials",
-        [`qty.${first.id}`]: "500",
-        [`qty.${second.id}`]: "300",
+        [`received.${first.id}`]: "500",
+        [`received.${second.id}`]: "300",
+        reporter: "น้องฝน",
       },
       back(2),
     ],
     [
       minburi,
-      "opening",
-      { sheet: "meat", "qty.meat": "40", "qty.chili": "60" },
+      "daily",
+      {
+        sheet: "meat",
+        "received.meat": "40",
+        "received.chili": "60",
+        reporter: "พี่เอ",
+      },
       back(2),
     ],
     [
       minburi,
-      "opening",
-      { sheet: "materials", [`qty.${first.id}`]: "380" },
+      "daily",
+      {
+        sheet: "materials",
+        [`received.${first.id}`]: "380",
+        reporter: "พี่เอ",
+      },
       back(2),
     ],
     [

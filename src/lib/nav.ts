@@ -124,11 +124,11 @@ export const descriptionFor = (account: Pick<Account, "role">, tab: Tab) =>
         ? "วัสดุและสินทรัพย์อื่นของสาขา"
         : pages[tab].description;
 
-/** The pages an account has, in menu order: the Owner eleven, a branch four (Sales is a
- *  branch's only). */
+/** The pages an account has, in menu order: the Owner eleven, a branch four, Sales first (it
+ *  is a branch's only, and what a branch jots most). */
 export const navFor = (account: Pick<Account, "role">): Tab[] =>
   account.role === "branch"
-    ? ["meatStock", "stock", "sales", "log"]
+    ? ["sales", "meatStock", "stock", "log"]
     : [
         "overview",
         "projectOverview",
