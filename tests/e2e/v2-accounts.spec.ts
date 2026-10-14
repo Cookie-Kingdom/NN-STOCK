@@ -51,9 +51,9 @@ test("1 · V2-ACC-09 Owner has 10 pages, Branch 4, all named in English", async 
   for (const account of accounts) {
     await signInAs(page, account);
     await expect(pageButtons(page)).toHaveText([...pagesOf[account]]);
-    // The home page: Overview for the Owner, Daily Log for everyone else.
+    // The home page: Overview for the Owner, Stock for a branch.
     await expect(h1(page)).toHaveText(
-      account === "owner" ? "Overview" : "Daily Log",
+      account === "owner" ? "Overview" : "Stock",
     );
     for (const [index, name] of pagesOf[account].entries()) {
       // By its place: the Owner's two Overviews share a name.
