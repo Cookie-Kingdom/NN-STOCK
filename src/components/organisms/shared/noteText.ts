@@ -225,6 +225,7 @@ export function noteLine(db: Database, e: Entry): string {
         has("orderedKg") &&
           has("price") &&
           `${n("orderedKg")} กก. × ${n("price")} บาท`,
+        has("slicedKg") && `สไลด์ ${n("slicedKg")} กก.`,
         has("wasteKg") && `เนื้อรอรับ ${n("wasteKg")} กก.`,
         // Saved before Invoice Foodiva was its own note.
         has("invoiceNo") && `Invoice ${v.invoiceNo}`,

@@ -144,3 +144,19 @@ export const oldLotsDb: Database = (() => {
     ),
   };
 })();
+
+/** A third PO เนื้อ with its sliced weight: 1,100 bought, 900 sliced, 100 waiting → 100 lost. */
+export const slicedDb: Database = mutate(
+  sampleDb,
+  owner,
+  "purchase",
+  {
+    supplier: "Foodiva",
+    orderedKg: "1100",
+    slicedKg: "900",
+    wasteKg: "100",
+    price: "500",
+  },
+  "",
+  today(),
+);

@@ -3252,3 +3252,38 @@ describe("Stock: จัดสรร smoked meat from Foodiva to a branch", () =>
     expect(() => send(db, { to: "central", qty: "1" })).toThrow();
   });
 });
+
+describe("PO เนื้อ: เนื้อสไลด์ and the Waste of slicing", () => {
+  const buy = (values: Values) =>
+    mutate(
+      seed,
+      owner,
+      "purchase",
+      {
+        supplier: "Foodiva",
+        orderedKg: "1100",
+        wasteKg: "100",
+        price: "500",
+        ...values,
+      },
+      "",
+      day,
+    );
+  const info = (d: Database) => poInfo(d, last(d).lotId);
+
+  it("sends what was sliced and counts what the saw took", () => {
+    // 1100 bought, 900 sliced, 100 waiting for the Owner → 100 lost.
+    expect(info(buy({ slicedKg: "900" }))).toMatchObject({
+      heldKg: 900,
+      slicedKg: 900,
+      lossKg: 100,
+      wasteKg: 100,
+    });
+    // Not typed: as before, all but the waiting meat, nothing lost.
+    expect(info(buy({}))).toMatchObject({
+      heldKg: 1000,
+      slicedKg: null,
+      lossKg: null,
+    });
+  });
+});

@@ -14,6 +14,7 @@ import {
   invoiceOverrideDb,
   oldLotsDb,
   overCapacityDb,
+  slicedDb,
   twoRoundsDb,
 } from "./LotsPage.fixtures";
 import { LotsPage } from "./LotsPage";
@@ -115,6 +116,13 @@ export const PurchaseOrder: Story = {
 /** PO เนื้อ ที่ Invoice Foodiva ให้น้ำหนักและราคาต่างจาก PO: ตัวเลขขึ้น「(ตาม Invoice)」 */
 export const InvoiceOverride: Story = {
   parameters: { db: invoiceOverrideDb },
+  play: pick(/PO-\d+-0003/),
+};
+
+/** PO เนื้อ ที่ระบุเนื้อสไลด์: เนื้อ 1,100 · เนื้อสไลด์ 900 · เนื้อรอรับ 100 ·「Waste จากการสไลด์」100 กก. (9.09%) ·
+ *  เนื้อที่ฝากไว้กับผู้ขาย 900 กก. (ส่งไปรมได้เท่าเนื้อสไลด์) */
+export const SlicedMeat: Story = {
+  parameters: { db: slicedDb },
   play: pick(/PO-\d+-0003/),
 };
 
