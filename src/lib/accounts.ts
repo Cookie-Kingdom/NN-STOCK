@@ -36,7 +36,7 @@ const accounts: Account[] = [
     title: "ผู้ดูแลสาขา",
     summary: "จดยอดขาย รับเนื้อ และใบสต๊อกรายวันของสาขา",
     path: "/branch",
-    homeTab: "log",
+    homeTab: "meatStock",
     icon: Store,
   },
   {
@@ -47,7 +47,7 @@ const accounts: Account[] = [
     title: "ผู้ดูแลสาขา",
     summary: "จดยอดขาย รับเนื้อ และใบสต๊อกรายวันของสาขา",
     path: "/branch",
-    homeTab: "log",
+    homeTab: "meatStock",
     icon: Store,
   },
 ];
