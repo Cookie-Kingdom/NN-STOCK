@@ -15,7 +15,7 @@ import { unitOptions } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
   boxProduct,
-  gramItems,
+  isGramItem,
   lastProductCode,
   materialList,
   mutate,
@@ -51,7 +51,7 @@ export const productItems = (db: Database) =>
   [...sheetItems(db, "meat"), ...materialList(db)].map((item) => ({
     id: item.id,
     name: item.name,
-    unit: gramItems.includes(item.id) ? "กรัม" : item.unit,
+    unit: isGramItem(item.id) ? "กรัม" : item.unit,
   }));
 
 /** 「รายการสินค้า」 as it stands, a draft per product. */

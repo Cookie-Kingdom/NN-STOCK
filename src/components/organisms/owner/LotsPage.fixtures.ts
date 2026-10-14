@@ -174,3 +174,41 @@ export const backKgDb: Database = (() => {
   );
   return round(db, db.entries.at(-1)!.lotId, 50).db;
 })();
+
+/** Two kinds of meat (เนื้อ, วากิว · ใบพาย) and a PO เนื้อ and a PO รมควัน of the second. */
+export const meatTypesDb: Database = (() => {
+  let db = mutate(
+    sampleDb,
+    owner,
+    "config",
+    {
+      meatTypes: JSON.stringify([
+        { id: "meat", name: "เนื้อ" },
+        { id: "meat-wagyu", name: "วากิว · ใบพาย" },
+      ]),
+    },
+    "",
+    today(),
+  );
+  db = mutate(
+    db,
+    owner,
+    "purchase",
+    {
+      supplier: "Foodiva",
+      orderedKg: "300",
+      price: "900",
+      meatType: "meat-wagyu",
+    },
+    "",
+    today(),
+  );
+  return mutate(
+    db,
+    owner,
+    "smokeOrder",
+    { rawKg: "300", backKg: "180", meatType: "meat-wagyu" },
+    "",
+    today(),
+  );
+})();

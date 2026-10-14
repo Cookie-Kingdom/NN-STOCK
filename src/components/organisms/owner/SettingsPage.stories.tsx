@@ -58,6 +58,28 @@ export const Default: Story = {};
  *  สินค้าละช่อง */
 export const Project: Story = { args: { project: true } };
 
+/** 「รายการเนื้อ」มีสองชนิด: เนื้อ (ชนิดแรก ลบไม่ได้) และวากิว · ใบพาย · ฟอร์ม PO เนื้อ, PO รมควัน
+ *  และรับเนื้อเข้าสาขามีช่อง「ชนิดเนื้อ」 ใบสต๊อกหน้า Stock ของสาขามีแถวละชนิด และส่วนประกอบของ
+ *  สินค้าเลือกเนื้อแต่ละชนิดเป็นกรัมได้ */
+export const MeatTypes: Story = {
+  args: { project: true },
+  parameters: {
+    db: mutate(
+      sampleDb,
+      accountById("owner")!,
+      "config",
+      {
+        meatTypes: JSON.stringify([
+          { id: "meat", name: "เนื้อ" },
+          { id: "meat-wagyu", name: "วากิว · ใบพาย" },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
 /** สาขาเพิ่มรายการในใบสต๊อกของตัวเอง (ถุงซิปล็อก · ห่อ): นับรวมใน「รายชื่อวัสดุ」และอยู่ใน
  *  popup พร้อม SKU และหน่วยนับ */
 export const BranchAddedMaterial: Story = {

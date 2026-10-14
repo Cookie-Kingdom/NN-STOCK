@@ -18,7 +18,7 @@ import {
   transportDocumentRows,
   transportDocumentTitle,
 } from "@/components/organisms/shared/documentRows";
-import { lotLabel } from "@/components/organisms/shared/noteText";
+import { lotLabel, lotMeat } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, fmt, qty } from "@/lib/format";
 import {
@@ -130,6 +130,11 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
         {item.poId}
       </strong>
+      {lotMeat(db, item.id) && (
+        <span className="text-caption whitespace-nowrap text-text-secondary">
+          {lotMeat(db, item.id)}
+        </span>
+      )}
       <span
         className={cn(
           "flex items-center gap-1.5 text-caption whitespace-nowrap tabular-nums",
@@ -482,7 +487,9 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
       <div className={title}>
         <h2 className="m-0 text-h2">{lot.poId}</h2>
         <span className="text-body-sm text-text-secondary">
-          PO รมควัน{order?.values.smoker ? ` · ${order.values.smoker}` : ""}
+          {["PO รมควัน", order?.values.smoker, lotMeat(db, lot.id)]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
         <Badge tone={info.complete ? "success" : "warning"}>
           {info.complete ? "จดครบแล้ว" : `${missingText} ${info.yellow} อย่าง`}
@@ -671,7 +678,9 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
       <div className={title}>
         <h2 className="m-0 text-h2">{po.poId}</h2>
         <span className="text-body-sm text-text-secondary">
-          PO เนื้อ{v.supplier ? ` · ${v.supplier}` : ""}
+          {["PO เนื้อ", v.supplier, lotMeat(db, po.id)]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
         {empty.length > 0 && (
           <Badge tone="warning">

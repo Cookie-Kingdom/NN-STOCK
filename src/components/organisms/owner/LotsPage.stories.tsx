@@ -15,6 +15,7 @@ import {
   oldLotsDb,
   overCapacityDb,
   backKgDb,
+  meatTypesDb,
   slicedDb,
   twoRoundsDb,
 } from "./LotsPage.fixtures";
@@ -131,6 +132,13 @@ export const SlicedMeat: Story = {
  *  สต๊อกที่ Foodiva ใช้น้ำหนักนี้ทันที กดขั้นหลังรมควันแล้วฟอร์มเริ่มที่น้ำหนักนี้ */
 export const BackKgShortcut: Story = {
   parameters: { db: backKgDb },
+  play: pick(/SO-\d+-0004/),
+};
+
+/** มีเนื้อสองชนิด (Settings「รายการเนื้อ」): รายการ PO ด้านซ้ายบอกชนิดใต้เลข PO หัว PO บอกชนิด
+ *  และรอบส่งของ PO รมควันวากิวเลือกได้เฉพาะ PO เนื้อวากิว */
+export const MeatTypes: Story = {
+  parameters: { db: meatTypesDb },
   play: pick(/SO-\d+-0004/),
 };
 

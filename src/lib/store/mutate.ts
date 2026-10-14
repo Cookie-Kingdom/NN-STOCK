@@ -17,7 +17,9 @@ import {
   editLockedKeys,
   isNoteKind,
   isProductKey,
+  isMeatItem,
   isRoundKind,
+  meatItem,
   kindInfo,
   kindsFor,
   legacySale,
@@ -328,9 +330,12 @@ function cachedOn(db: Database, entry: Entry, ...more: (string | undefined)[]) {
     ...more,
   ].filter((id): id is string => !!id);
 }
+/** What a Lot รมควัน caches of its PO รมควัน: the kind of meat, for a branch. */
+const lotCache = (v: Values): Values =>
+  v.meatType ? { meatType: v.meatType } : {};
 /** `lot` with its cache rebuilt from the live entries of `db`, the log after an edit, a
- *  delete or an undo. A PO: its live `purchase` entry's values. A Lot: nothing. With no live
- *  entry left on it either is `deleted` (liveLots). */
+ *  delete or an undo. A PO: its live `purchase` entry's values. A Lot: its live `smokeOrder`'s
+ *  `lotCache`. With no live entry left on it either is `deleted` (liveLots). */
 function recached(db: Database, lot: Lot): Lot {
   const po = lot.kind ? undefined : entries(db, "purchase", lot.id).at(-1);
   const live = lot.kind
@@ -340,7 +345,11 @@ function recached(db: Database, lot: Lot): Lot {
     : po;
   return {
     ...lot,
-    values: !live ? { deleted: "1" } : po ? without(po.values, uncached) : {},
+    values: !live
+      ? { deleted: "1" }
+      : po
+        ? without(po.values, uncached)
+        : lotCache(entries(db, "smokeOrder", lot.id).at(-1)?.values ?? {}),
   };
 }
 /** A number setting: typed, and not below zero. */
@@ -358,6 +367,7 @@ const settingLists: Record<string, { label: string; id: string }> = {
   salesChannels: { label: "ช่องทางขาย", id: "key" },
   materialList: { label: "รายชื่อวัสดุ", id: "id" },
   payCategories: { label: "หมวดจ่ายเงิน", id: "id" },
+  meatTypes: { label: "รายการเนื้อ", id: "id" },
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
@@ -456,6 +466,9 @@ function checkConfig(v: Values) {
       const row = rows.find((row) => !empty(row, value) && !amount(row[value]));
       assert(!row, `${label}: ${what}ของ「${row?.name}」${figure}`);
     };
+    // The first kind is `meat`, what every note saved before the list is of; never removed.
+    if (key === "meatTypes")
+      assert(ids[0] === meatItem && ids.every(isMeatItem), broken);
     if (key === "salesChannels") {
       // A channel added in Settings keeps its money under a `sales.` key.
       assert(
@@ -731,7 +744,7 @@ export function mutate(
         id: lotId,
         poId: v.orderNumber,
         kind: "shipment",
-        values: {},
+        values: lotCache(v),
         config: {},
       });
     } else {

@@ -218,7 +218,8 @@ export type Entry = {
 export type Lot = {
   id: string;
   poId: string;
-  /** A PO: the live `purchase` entry's values, for the PO document. A Lot: empty. Either is
+  /** A PO: the live `purchase` entry's values, for the PO document. A Lot: its live
+   *  `smokeOrder`'s `meatType` (a branch receives the Lots, not the order). Either is
    *  `{ deleted: "1" }` once no live entry is left on it. Every figure is derived from `entries`. */
   values: Values;
   config: Values;
@@ -408,6 +409,8 @@ export type Material = {
 };
 type PayCategory = { id: string; name: string };
 const listDefaults = {
+  // รายการเนื้อ: one kind until the Owner adds another (meatTypes).
+  meatTypes: JSON.stringify([{ id: "meat", name: "เนื้อ" }]),
   salesChannels: JSON.stringify([
     { key: "lineMan", name: "LINE MAN", gp: "10" },
   ]),
@@ -500,8 +503,38 @@ export const configMaterials = (config: Values): Material[] =>
     name: m.name,
     unit: m.unit || "ชิ้น",
   }));
-/** The components typed in grams a piece; a branch's sheet counts them in kg. */
-export const gramItems = ["meat", "rice"];
+/** A kind of meat of 「รายการเนื้อ」, bought, smoked and stocked apart from the others (a
+ *  breed, a cut: the name says which). `id` is what notes name: a PO's and a Lot's
+ *  `meatType`, a product's component, a branch sheet's row. The first is `meat`, the meat
+ *  every note saved before the list is of (never removed); one added later is `meat-<id>`,
+ *  removable while nothing names it (Settings). */
+export type MeatType = { id: string; name: string };
+export const meatItem = "meat";
+export const isMeatItem = (id: string) =>
+  id === meatItem || id.startsWith("meat-");
+/** 「รายการเนื้อ」 as Settings holds it (`config.meatTypes`), `meat` always first. */
+export const meatTypes = (config: Values): MeatType[] => {
+  const rows = list(config, "meatTypes")
+    .filter((row) => isMeatItem(String(row?.id ?? "")))
+    .map((row) => ({
+      id: String(row.id),
+      name: String(row.name ?? "").trim() || "เนื้อ",
+    }));
+  const first = rows.find((row) => row.id === meatItem) ?? {
+    id: meatItem,
+    name: "เนื้อ",
+  };
+  return [first, ...rows.filter((row) => row.id !== meatItem)];
+};
+/** The kind of meat of a PO เนื้อ or a Lot รมควัน (`values.meatType`); one saved before the
+ *  list is of `meat`. */
+export const meatTypeOf = (lot?: Pick<Lot, "values">) =>
+  lot?.values.meatType || meatItem;
+/** A kind of meat's name; an id no longer in the list reads as itself. */
+export const meatTypeName = (config: Values, id: string) =>
+  meatTypes(config).find((type) => type.id === id)?.name ?? id;
+/** The components typed in grams a piece (the meat, the raw rice); a sheet counts them in kg. */
+export const isGramItem = (id: string) => id === "rice" || isMeatItem(id);
 /** A product of 「รายการสินค้า」: `items` is what one piece sold or given away takes from a
  *  branch's stock (V2-CAL-10), by item id (`meat`, `rice`, `chili`, a material's): grams for
  *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
@@ -605,13 +638,24 @@ export const channelPrice = (config: Values, id: string, key: string) => {
   const { price, prices } = productMoney(config, id);
   return (prices[key] ?? "") === "" ? price : Number(prices[key]) || 0;
 };
-/** The meat in one piece of a product, in kg: its `meat` component, typed in grams. The box
- *  with none falls back to the old `packKg`. */
-export const productMeatKg = (config: Values, product: Product) => {
-  const grams = product.items.get("meat");
+/** The meat in one piece of a product, in kg: its meat components (every kind, or only
+ *  `type`), typed in grams. The box with no meat at all falls back to the old `packKg`, which
+ *  is of `meat`. */
+export const productMeatKg = (
+  config: Values,
+  product: Product,
+  type?: string,
+) => {
+  let grams = 0;
+  let any = false;
+  for (const [id, qty] of product.items)
+    if (isMeatItem(id)) {
+      any = true;
+      if (!type || id === type) grams += qty;
+    }
   return grams
     ? grams / 1000
-    : product.id === boxProduct
+    : !any && product.id === boxProduct && (!type || type === meatItem)
       ? Number(config.packKg) || 0
       : 0;
 };

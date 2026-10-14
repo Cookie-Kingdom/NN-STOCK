@@ -16,6 +16,7 @@ import {
   shopProject,
   liveEntries,
   lotInfo,
+  meatTypeOf,
   orderBackKg,
   materialList,
   meatStock,
@@ -3339,5 +3340,98 @@ describe("PO รมควัน: น้ำหนักกลับ, a shortcut f
     expect(orderBackKg(d, lot)).toBeNull();
     expect(lotInfo(d, lot)).toMatchObject({ backKg: 0, fromOrder: false });
     expect(lotInfo(d, lot).missing).toContain("smoked");
+  });
+});
+
+describe("รายการเนื้อ: each kind of meat bought, smoked and stocked apart", () => {
+  const types = JSON.stringify([
+    { id: "meat", name: "เนื้อ" },
+    { id: "meat-wagyu", name: "วากิว · ใบพาย" },
+  ]);
+  const listed = mutate(seed, owner, "config", { meatTypes: types }, "", day);
+  const buy = (d: Database, meatType: string) =>
+    mutate(
+      d,
+      owner,
+      "purchase",
+      { supplier: "Foodiva", orderedKg: "100", price: "500", meatType },
+      "",
+      day,
+    );
+  let d = buy(buy(listed, "meat"), "meat-wagyu");
+  const [beef, wagyu] = purchaseLots(d).map((lot) => lot.id);
+  d = mutate(
+    d,
+    owner,
+    "smokeOrder",
+    { rawKg: "100", backKg: "60", meatType: "meat-wagyu" },
+    "",
+    day,
+  );
+  const lot = last(d).lotId;
+  const send = (po: string) =>
+    mutate(
+      d,
+      owner,
+      "dispatch",
+      { dispatchKg: "50", poLines: JSON.stringify([{ poLotId: po, kg: 50 }]) },
+      lot,
+      day,
+    );
+
+  it("asks the kind only once there are two, and a Lot takes its PO รมควัน's", () => {
+    const ask = (db: Database) =>
+      fields("purchase", db, owner).some((f) => f.key === "meatType");
+    expect(ask(seed)).toBe(false);
+    expect(ask(listed)).toBe(true);
+    expect(defaults("purchase", listed.config).meatType).toBe("meat");
+    expect(d.lots.find((l) => l.id === lot)?.values).toEqual({
+      meatType: "meat-wagyu",
+    });
+    expect(meatTypeOf(d.lots.find((l) => l.id === wagyu))).toBe("meat-wagyu");
+  });
+
+  it("sends only PO เนื้อ of the Lot's kind to the smoker", () => {
+    expect(() => send(beef)).toThrow("ไม่พบ PO เนื้อที่เลือก");
+    expect(poInfo(send(wagyu), wagyu).sentKg).toBe(50);
+  });
+
+  it("stocks a branch per kind, and a product's meat is costed per kind", () => {
+    let s = send(wagyu);
+    s = mutate(s, owner, "transfer", { to: "มีนบุรี", qty: "20" }, lot, day);
+    s = mutate(s, minburi, "receive", { kg: "5", meatType: "meat" }, "", day);
+    expect(sheetItems(s, "meat").map((i) => i.id)).toEqual([
+      "meat",
+      "meat-wagyu",
+      "rice",
+      "chili",
+    ]);
+    expect(branchItem(s, "มีนบุรี", "meat-wagyu", day).remaining).toBe(20);
+    expect(branchItem(s, "มีนบุรี", "meat", day).remaining).toBe(5);
+    // A branch's copy keeps the list and the Lot's kind.
+    const scoped = scopeDatabase(s, ["มีนบุรี"]);
+    expect(scoped.config.meatTypes).toBe(types);
+    expect(branchItem(scoped, "มีนบุรี", "meat-wagyu", day).remaining).toBe(20);
+  });
+
+  it("keeps `meat` first in the list", () => {
+    const save = (rows: object[]) =>
+      mutate(
+        seed,
+        owner,
+        "config",
+        { meatTypes: JSON.stringify(rows) },
+        "",
+        day,
+      );
+    expect(() => save([{ id: "meat-wagyu", name: "วากิว" }])).toThrow(
+      "รายการเนื้อ: อ่านรายการไม่ได้",
+    );
+    expect(() =>
+      save([
+        { id: "meat", name: "เนื้อ" },
+        { id: "x", name: "y" },
+      ]),
+    ).toThrow("รายการเนื้อ: อ่านรายการไม่ได้");
   });
 });

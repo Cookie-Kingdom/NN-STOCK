@@ -11,6 +11,7 @@ import {
   Left,
   StockTable,
 } from "@/components/organisms/branch/BranchStock";
+import { lotMeat } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty, thaiDay } from "@/lib/format";
 import {
@@ -247,7 +248,9 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
             <tr key={lot.id}>
               <Cell>ผู้ขาย (ฝากไว้)</Cell>
               <Cell>
-                {[lot.poId, lot.values.supplier].filter(Boolean).join(" · ")}
+                {[lot.poId, lot.values.supplier, lotMeat(db, lot.id)]
+                  .filter(Boolean)
+                  .join(" · ")}
               </Cell>
               <Left n={kg} />
               <Cell />
@@ -256,7 +259,11 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           {smoked.map((info) => (
             <tr key={info.lot.id}>
               <Cell>Foodiva (รมควันแล้ว)</Cell>
-              <Cell>{info.lot.poId}</Cell>
+              <Cell>
+                {[info.lot.poId, lotMeat(db, info.lot.id)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Cell>
               <Left n={info.centralKg} />
               <Cell right className="py-1.5">
                 <Button
