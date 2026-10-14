@@ -822,7 +822,7 @@ describe("figures (V2-CAL)", () => {
     expect(saleMoney(built.config, sale)).toEqual({ sales: 1500, gp: 250 });
   });
 
-  it("CAL-01: money from the old books counts in the sales with no GP, with or without a branch", () => {
+  it("CAL-01: money from the old books is a sale with no GP, with or without a branch", () => {
     // Nobody jots one (the form has no such field): laid in as the import does.
     const old = (id: string, branch: string, money: string): Entry => ({
       id,
@@ -838,21 +838,15 @@ describe("figures (V2-CAL)", () => {
     const own = old("old-own", "ศาลาแดง", "100");
     const withOld = { ...built, entries: [...built.entries, none, own] };
     expect(saleMoney(built.config, none)).toEqual({ sales: 900, gp: 0 });
+    // 2026-10-14: a sale is no money of the P&L (the sales receipts are), only its boxes.
     expect(monthPl(withOld, "2026-08")).toMatchObject({
-      sales: 1000,
+      sales: 0,
       gp: 0,
       boxes: 4,
-      byBranch: { "": 900, ศาลาแดง: 100 },
-      byChannel: { [legacySale.key]: 1000 },
+      byBranch: {},
+      byChannel: {},
     });
-    // After GP per branch: the old money whole, a channel's sale less its GP.
-    expect(netSalesByBranch(withOld, "2026-08", "2026-08~")).toEqual({
-      "": 900,
-      ศาลาแดง: 100,
-    });
-    expect(netSalesByBranch(built, sale.date, sale.date)).toEqual({
-      [sale.branch]: 1250,
-    });
+    expect(netSalesByBranch(withOld, "2026-08", "2026-08~")).toEqual({});
     // The form's `sales.legacy` is dropped from a new note; a branch's edit keeps the money
     // and does not list the channel's as missing.
     const jotted = mutate(
@@ -883,8 +877,8 @@ describe("figures (V2-CAL)", () => {
 
   it("CAL-02: a month's P&L counts payments by their date, capex apart", () => {
     expect(monthPl(built, "2026-09")).toMatchObject({
-      sales: 1500,
-      gp: 250,
+      sales: 0,
+      gp: 0,
       byCategory: {
         meat: 20000,
         packaging: 900,
@@ -896,7 +890,7 @@ describe("figures (V2-CAL)", () => {
         payroll: 0,
       },
       opex: 23250,
-      profit: -22000,
+      profit: -23250,
       capex: 5000,
     });
     expect(monthPl(built, "2026-08")).toMatchObject({
@@ -908,9 +902,8 @@ describe("figures (V2-CAL)", () => {
     // A year is a prefix as a month is; a span of days counts its two ends.
     expect(monthPl(built, "2026").opex).toBe(23550);
     expect(plBetween(built, sale.date, sale.date)).toMatchObject({
-      sales: 1500,
+      sales: 0,
       boxes: Number(sale.values.boxes || 0),
-      byBranch: { [sale.branch]: 1500 },
     });
     expect(plBetween(built, "2026-09", "2026-08~").sales).toBe(0);
     // V2-PAY-07: out of pocket, over payments and the sale's expense; the company is no advance.
@@ -3037,7 +3030,7 @@ describe("income (V2-PAY-09)", () => {
       ...before,
       otherIncome: 500,
       byIncome: { ค่าสปอนเซอร์: 500 },
-      income: 1500,
+      income: 500,
       profit: before.profit + 500,
     });
     expect(cashBetween(d, ...span)).toMatchObject({
@@ -3048,7 +3041,7 @@ describe("income (V2-PAY-09)", () => {
     });
   });
 
-  it("a sales receipt is cash, not revenue again, and lowers what its channel owes", () => {
+  it("a sales receipt is the revenue (after GP), and lowers what its channel owes", () => {
     expect(lineMan(sold)).toEqual({
       key: "lineMan",
       name: "LINE MAN",
@@ -3064,7 +3057,14 @@ describe("income (V2-PAY-09)", () => {
     });
     // Its channel stands for the item: nothing is left to jot.
     expect(last(d).values.missing).toBeUndefined();
-    expect(monthPl(d, month)).toEqual(monthPl(sold, month));
+    const before = monthPl(sold, month);
+    expect(monthPl(d, month)).toEqual({
+      ...before,
+      sales: 600,
+      income: 600,
+      byBranch: { "": 600 },
+      profit: before.profit + 600,
+    });
     expect(cashBetween(d, ...span)).toMatchObject({
       salesReceived: 600,
       otherReceived: 0,
@@ -3136,11 +3136,42 @@ describe("income (V2-PAY-09)", () => {
     );
     expect(monthPl(d, month).otherIncome).toBe(547);
     expect(monthPl(d, month, shopProject)).toMatchObject({
-      sales: 1000,
+      sales: 0,
       otherIncome: 500,
       byIncome: { x: 500 },
-      income: 1500,
+      income: 500,
     });
+  });
+
+  it("an expense paid on Accounting is money out: of its project, and all of them in the shop's", () => {
+    const expense = (values: Values, d: Database) =>
+      mutate(d, owner, "expense", values, "", day);
+    const project = { purpose: "project", project: shopProject };
+    let d = expense(
+      { ...project, itemType: "วัสดุบรรจุภัณฑ์", amount: "300" },
+      seed,
+    );
+    d = expense({ ...project, itemType: "สินทรัพย์", amount: "1000" }, d);
+    d = expense(
+      { ...project, itemType: "ค่าแรง", amount: "50", source: "advance" },
+      d,
+    );
+    d = expense({ itemType: "อื่นๆ", amount: "70" }, d); // บริษัทส่วนกลาง
+    d = expense({ ...project, amount: "999", status: "pending" }, d);
+    d = expense({ ...project, amount: "888", status: "cancelled" }, d);
+    expect(monthPl(d, month, shopProject)).toMatchObject({
+      byCategory: { packaging: 300, capex: 1000, payroll: 50 },
+      opex: 350,
+      capex: 1000,
+      profit: -350,
+    });
+    expect(monthPl(d, month)).toMatchObject({ opex: 420, profit: -420 });
+    expect(cashBetween(d, ...span, shopProject)).toMatchObject({
+      company: 1300,
+      advanced: 50,
+      out: 1300,
+    });
+    expect(cashBetween(d, ...span).company).toBe(1370);
   });
 
   it("a project's cash counts only the money in jotted for it, sales receipts too", () => {

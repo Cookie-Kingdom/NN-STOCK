@@ -215,18 +215,21 @@ export function inflows(db: Database): Inflow[] {
     }));
 }
 type Pl = {
+  /** The sales receipts received (V2-PAY-09 `รับเงินค่าขาย`): what the channels paid, already
+   *  after their GP. */
   sales: number;
+  /** 0: a receipt is the money after GP. Kept so `income − gp` reads the same everywhere. */
   gp: number;
-  /** Other income received (V2-PAY-09), and the same money per `item` ("": none typed). A
-   *  sales receipt is never in it: its sale already is in `sales`. */
+  /** Other income received (V2-PAY-09), and the same money per `item` ("": none typed). */
   otherIncome: number;
   byIncome: Record<string, number>;
   /** All revenue: `sales + otherIncome`. */
   income: number;
-  /** Pieces sold, of every product (boxes while the box is the only one). */
+  /** Pieces sold, of every product (boxes while the box is the only one), as the branches
+   *  jotted them: no longer money, the revenue is the receipts. */
   boxes: number;
-  /** Sales per channel key (`legacySale.key` too, when there is some) and per branch ("": a
-   *  sale with no branch, `noBranch`). */
+  /** The receipts per channel key and per branch: a receipt names no branch, so all of it is
+   *  under "" (`noBranch`), and none of it is under a channel (its GP is already off). */
   byChannel: Record<string, number>;
   byBranch: Record<string, number>;
   byCategory: Record<string, number>;
@@ -234,11 +237,44 @@ type Pl = {
   profit: number;
   capex: number;
 };
+/** An `expense` note's ประเภทสินค้า as a pay category: the four the ledger shares
+ *  (`categoryTypes` of ledger.ts), a pay category of that name, else the type itself. */
+const expenseTypes: Record<string, string> = {
+  วัสดุบรรจุภัณฑ์: "packaging",
+  วัตถุดิบ: "ingredient",
+  สินทรัพย์: capexCategory,
+  อื่นๆ: "other",
+};
+/** V2-LED-06 (2026-10-14): the `expense` notes of Accounting that are paid (จ่ายแล้ว, or an
+ *  amount typed with no status), as money out. With `project`, only those jotted for it;
+ *  without, every one, บริษัทส่วนกลาง too. */
+export function expensesPaid(db: Database, project?: string) {
+  const names = new Map(payCategories(db.config).map((c) => [c.name, c.id]));
+  return entries(db, "expense")
+    .filter(
+      ({ values: v }) =>
+        typed(v, "amount") &&
+        (v.status === "paid" || !v.status) &&
+        (project === undefined ||
+          (v.purpose === "project" && v.project === project)),
+    )
+    .map(({ date, values: v }) => ({
+      date,
+      category:
+        expenseTypes[v.itemType] ??
+        names.get(v.itemType) ??
+        (v.itemType || "other"),
+      amount: num(v, "amount"),
+      advanced: v.source === "advance",
+    }));
+}
 /** V2-CAL-02 over the entries dated `from`..`to`, both ends included:
- *  `profit = sales − gp + otherIncome − opex`. อุปกรณ์/ลงทุน stays out of the profit. Other
- *  income counts once received, on its note's date; with `project`, only what was jotted for
- *  that project (none of บริษัทส่วนกลาง). The sales and the money out are the shop project's
- *  either way. The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
+ *  `profit = sales − gp + otherIncome − opex`. อุปกรณ์/ลงทุน stays out of the profit. The
+ *  revenue is the `income` notes received, on their dates (2026-10-14: the sales receipts are
+ *  the sales, a branch's `sale` notes are not money here); with `project`, only what was
+ *  jotted for that project (none of บริษัทส่วนกลาง). The money out is the shop project's
+ *  money-out lines (`outflows`) and the paid `expense` notes (`expensesPaid`, of `project`
+ *  when given). The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
  *  with `~` behind it a `to` that takes in every date under it. */
 export function plBetween(
   db: Database,
@@ -247,77 +283,56 @@ export function plBetween(
   project?: string,
 ): Pl {
   const within = (date: string) => date >= from && date <= to;
-  let sales = 0,
-    gp = 0,
-    boxes = 0;
-  const byChannel: Record<string, number> = {};
-  const byBranch: Record<string, number> = {};
-  const channels = salesChannels(db.config);
+  let boxes = 0;
   const sold = products(db.config);
   for (const sale of entries(db, "sale"))
-    if (within(sale.date)) {
-      const money = saleMoney(db.config, sale);
-      sales += money.sales;
-      gp += money.gp;
-      boxes += pieces(sold, sale.values);
-      byBranch[sale.branch] = (byBranch[sale.branch] ?? 0) + money.sales;
-      for (const c of channels)
-        byChannel[c.key] = (byChannel[c.key] ?? 0) + num(sale.values, c.key);
-      // Listed only when there is some: `legacySale` is not a channel of Settings.
-      const legacy = num(sale.values, legacySale.key);
-      if (legacy)
-        byChannel[legacySale.key] = (byChannel[legacySale.key] ?? 0) + legacy;
-    }
+    if (within(sale.date)) boxes += pieces(sold, sale.values);
   const byCategory: Record<string, number> = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, 0]),
   );
-  for (const o of outflows(db))
+  for (const o of [...outflows(db), ...expensesPaid(db, project)])
     if (within(o.date))
       byCategory[o.category] = (byCategory[o.category] ?? 0) + o.amount;
   const capex = byCategory[capexCategory] ?? 0;
   const opex = Object.values(byCategory).reduce((a, b) => a + b, 0) - capex;
-  let otherIncome = 0;
+  let sales = 0,
+    otherIncome = 0;
   const byIncome: Record<string, number> = {};
   for (const i of inflows(db))
     if (
-      i.type === "other" &&
       i.received &&
       within(i.date) &&
       (project === undefined ||
         (i.purpose === "project" && i.project === project))
     ) {
-      otherIncome += i.amount;
-      byIncome[i.item] = (byIncome[i.item] ?? 0) + i.amount;
+      if (i.type === "sales") sales += i.amount;
+      else {
+        otherIncome += i.amount;
+        byIncome[i.item] = (byIncome[i.item] ?? 0) + i.amount;
+      }
     }
   return {
     sales,
-    gp,
+    gp: 0,
     otherIncome,
     byIncome,
     income: sales + otherIncome,
     boxes,
-    byChannel,
-    byBranch,
+    byChannel: {},
+    byBranch: sales ? { "": sales } : {},
     byCategory,
     opex,
-    profit: sales - gp + otherIncome - opex,
+    profit: sales + otherIncome - opex,
     capex,
   };
 }
 /** V2-CAL-02: one month (`YYYY-MM`, by entry date); a year (`YYYY`) or a day works the same. */
 export const monthPl = (db: Database, month: string, project?: string) =>
   plBetween(db, month, `${month}~`, project);
-/** The sales after the channels' GP (`saleMoney`) per branch ("": a sale with no branch), over
- *  the entries dated `from`..`to` as `plBetween` reads them: they add up to its `sales − gp`. */
-export function netSalesByBranch(db: Database, from: string, to: string) {
-  const net: Record<string, number> = {};
-  for (const sale of entries(db, "sale"))
-    if (sale.date >= from && sale.date <= to) {
-      const money = saleMoney(db.config, sale);
-      net[sale.branch] = (net[sale.branch] ?? 0) + money.sales - money.gp;
-    }
-  return net;
-}
+/** The sales after the channels' GP per branch, as `plBetween` reads them over the entries
+ *  dated `from`..`to`: they add up to its `sales − gp`. */
+export const netSalesByBranch = (db: Database, from: string, to: string) =>
+  plBetween(db, from, to).byBranch;
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };
 /** Lines stored as JSON `[{ poLotId, kg }]`; `kg` "" reads as 0. Anything unreadable is no line. */
@@ -1130,8 +1145,8 @@ export function advances(db: Database) {
  *  `out` is what really left the shop: `company` + `repaid`. Money in is the `income` notes
  *  received in the span (V2-PAY-09), never the sales as jotted: `salesReceived` is what the
  *  channels paid, `otherReceived` the other income, `received` both, and `net` is
- *  `received − out`. With `project`, only the money in jotted for that project, as `plBetween`
- *  reads it; the money out is the shop project's either way. */
+ *  `received − out`. With `project`, only the money in and the `expense` notes jotted for that
+ *  project, as `plBetween` reads them; the other money out is the shop project's either way. */
 export function cashBetween(
   db: Database,
   from: string,
@@ -1145,6 +1160,12 @@ export function cashBetween(
     if (within(o.date)) {
       if (isAdvance(o)) advanced += o.amount;
       else company += o.amount;
+    }
+  // An expense a staff member advanced (พนักงานสำรองจ่าย) left their pocket, not the shop's.
+  for (const x of expensesPaid(db, project))
+    if (within(x.date)) {
+      if (x.advanced) advanced += x.amount;
+      else company += x.amount;
     }
   const repaid = sum(
     entries(db, "reimburse").filter((e) => within(e.date)),
