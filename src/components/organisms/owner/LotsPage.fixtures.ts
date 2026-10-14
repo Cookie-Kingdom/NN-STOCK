@@ -160,3 +160,17 @@ export const slicedDb: Database = mutate(
   "",
   today(),
 );
+
+/** A fourth PO รมควัน typed with its weight back (120 kg) and one round, no after-smoking
+ *  note: the PO's weight stands for it. */
+export const backKgDb: Database = (() => {
+  const db = mutate(
+    sampleDb,
+    owner,
+    "smokeOrder",
+    { rawKg: "200", backKg: "120" },
+    "",
+    today(),
+  );
+  return round(db, db.entries.at(-1)!.lotId, 50).db;
+})();

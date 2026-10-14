@@ -14,6 +14,7 @@ import {
   invoiceOverrideDb,
   oldLotsDb,
   overCapacityDb,
+  backKgDb,
   slicedDb,
   twoRoundsDb,
 } from "./LotsPage.fixtures";
@@ -124,6 +125,13 @@ export const InvoiceOverride: Story = {
 export const SlicedMeat: Story = {
   parameters: { db: slicedDb },
   play: pick(/PO-\d+-0003/),
+};
+
+/** PO รมควันที่กรอกน้ำหนักกลับไว้ (ทางลัด): ไม่ต้องจดหลังรมควัน ขั้นหลังรมควันไม่เหลือง
+ *  สต๊อกที่ Foodiva ใช้น้ำหนักนี้ทันที กดขั้นหลังรมควันแล้วฟอร์มเริ่มที่น้ำหนักนี้ */
+export const BackKgShortcut: Story = {
+  parameters: { db: backKgDb },
+  play: pick(/SO-\d+-0004/),
 };
 
 /** PO รมควัน ที่มีเอกสารครบ: PO รมควัน, Packing List, ใบขนส่งขาไปและขากลับ กดแล้วเปิดหน้าต่างพิมพ์

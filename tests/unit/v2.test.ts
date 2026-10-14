@@ -16,6 +16,7 @@ import {
   shopProject,
   liveEntries,
   lotInfo,
+  orderBackKg,
   materialList,
   meatStock,
   monthPl,
@@ -3285,5 +3286,58 @@ describe("PO เนื้อ: เนื้อสไลด์ and the Waste of sl
       slicedKg: null,
       lossKg: null,
     });
+  });
+});
+
+describe("PO รมควัน: น้ำหนักกลับ, a shortcut for the after-smoking note", () => {
+  const bought = mutate(
+    seed,
+    owner,
+    "purchase",
+    { supplier: "Foodiva", orderedKg: "100", price: "500" },
+    "",
+    day,
+  );
+  const po = last(bought).lotId;
+  const order = (values: Values) =>
+    mutate(bought, owner, "smokeOrder", { rawKg: "100", ...values }, "", day);
+  const sent = (d: Database) => {
+    const lot = last(d).lotId;
+    const poLines = JSON.stringify([{ poLotId: po, kg: 100 }]);
+    return mutate(
+      d,
+      owner,
+      "dispatch",
+      { dispatchKg: "100", poLines },
+      lot,
+      day,
+    );
+  };
+
+  it("stands for the after-smoking weight until a smoked note weighs it", () => {
+    let d = sent(order({ backKg: "60" }));
+    const lot = last(d).lotId;
+    expect(orderBackKg(d, lot)).toBe(60);
+    expect(lotInfo(d, lot)).toMatchObject({
+      backKg: 60,
+      fromOrder: true,
+      centralKg: 60,
+      wasteKg: 40,
+    });
+    // The after-smoking note is no step left to jot.
+    expect(lotInfo(d, lot).missing).not.toContain("smoked");
+    const dispatchId = last(d).id;
+    d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "55" }, lot, day);
+    // The note weighs it now; the PO keeps its own 60.
+    expect(lotInfo(d, lot)).toMatchObject({ backKg: 55, fromOrder: false });
+    expect(orderBackKg(d, lot)).toBe(60);
+  });
+
+  it("left empty, changes nothing", () => {
+    const d = sent(order({}));
+    const lot = last(d).lotId;
+    expect(orderBackKg(d, lot)).toBeNull();
+    expect(lotInfo(d, lot)).toMatchObject({ backKg: 0, fromOrder: false });
+    expect(lotInfo(d, lot).missing).toContain("smoked");
   });
 });

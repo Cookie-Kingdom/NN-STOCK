@@ -405,9 +405,22 @@ export type Round = {
   missing: RoundKind[];
 };
 const roundLabel = (e: Entry) => e.values.transferNumber || e.date;
+/** The weight back the PO รมควัน itself gives (its latest `backKg`), else null: a shortcut
+ *  that stands for the after-smoking weight until a `smoked` note weighs it. */
+export function orderBackKg(db: Database, lotId: string): number | null {
+  const order = entries(db, "smokeOrder", lotId).findLast((e) =>
+    typed(e.values, "backKg"),
+  );
+  return order ? num(order.values, "backKg") : null;
+}
 /** The dispatch rounds of a PO รมควัน, oldest first. A step whose `dispatchId` names no live
  *  dispatch of this lot belongs to no round and counts nowhere. */
 export function roundsOf(db: Database, lotId: string): Round[] {
+  // With the PO's weight back, the after-smoking note is no longer a step left to jot.
+  const steps =
+    orderBackKg(db, lotId) === null
+      ? roundKinds
+      : roundKinds.filter((kind) => kind !== "smoked");
   return entries(db, "dispatch", lotId).map((dispatch) => {
     const of = (kind: RoundKind) =>
       entries(db, kind, lotId).filter(
@@ -440,7 +453,7 @@ export function roundsOf(db: Database, lotId: string): Round[] {
           : null,
       returnKg: sum(returns, "returnKg"),
       shippingFee: sum(returns, "shippingFee"),
-      missing: roundKinds.filter((kind) => !of(kind).length),
+      missing: steps.filter((kind) => !of(kind).length),
     };
   });
 }
@@ -460,9 +473,11 @@ type LotInfo = {
   sentKg: number;
   remainingKg: number;
   rounds: Round[];
-  /** Totals over the rounds. backKg = Σ smokedKg: what yield, cost and the central stock use. */
+  /** Totals over the rounds. backKg = Σ smokedKg once a `smoked` note weighs, else the PO's
+   *  own backKg (`fromOrder`): what yield, cost and the central stock use. */
   receivedKg: number;
   backKg: number;
+  fromOrder: boolean;
   wasteKg: number;
   boxes: number;
   shippingFee: number;
@@ -495,7 +510,10 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     rounds.reduce((a, round) => a + round[key], 0);
   const capacityKg = sum(entries(db, "smokeOrder", lotId), "rawKg");
   const sentKg = sum(dispatches, "dispatchKg");
-  const backKg = total("smokedKg");
+  const ordered = orderBackKg(db, lotId);
+  const fromOrder =
+    ordered !== null && !rounds.some((round) => round.wasteKg !== null);
+  const backKg = fromOrder ? ordered : total("smokedKg");
   const shippingFee = total("shippingFee");
   const fee = num(invoiceOf(db, lotId)?.values ?? {}, "netPayable");
   const unlinked = dispatches.find((e) => !isLinked(pos, e));
@@ -536,7 +554,10 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     rounds,
     receivedKg: total("receivedKg"),
     backKg,
-    wasteKg: rounds.reduce((a, round) => a + (round.wasteKg ?? 0), 0),
+    fromOrder,
+    wasteKg: fromOrder
+      ? rounds.reduce((a, round) => a + round.wasteBaseKg, 0) - backKg
+      : rounds.reduce((a, round) => a + (round.wasteKg ?? 0), 0),
     boxes: total("boxes"),
     shippingFee,
     fee,
