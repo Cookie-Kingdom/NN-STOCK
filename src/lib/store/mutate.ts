@@ -54,6 +54,7 @@ import {
 import {
   nextSku,
   skuAfter,
+  skuCatalogue,
   skuFor,
   skuHigh,
   skuItem,
@@ -477,6 +478,8 @@ function checkConfig(v: Values) {
       );
   }
 }
+/** An item name as matched: trimmed, case-insensitive (as `skuFor` matches it). */
+const norm = (name = "") => name.trim().toLowerCase();
 export function mutate(
   db: Database,
   by: Actor,
@@ -486,6 +489,31 @@ export function mutate(
   date: string,
 ): Database {
   checkDay(date);
+  /* A packaging bought on Accounting is a material from then on (2026-10-14): the list of
+   * Settings gets it first, under the SKU its name already has, so the branches' sheets list
+   * it too (their copy holds no expense of the central warehouse).
+   * shortcut: a new note only; an edit that makes one packaging adds nothing, upgrade if asked. */
+  const bought = input.item?.trim();
+  if (
+    kind === "expense" &&
+    by.role === "owner" &&
+    input.itemType === "วัสดุบรรจุภัณฑ์" &&
+    bought &&
+    !materialList(db).some((m) => norm(m.name) === norm(bought))
+  )
+    db = mutate(
+      db,
+      by,
+      "config",
+      {
+        materialList: JSON.stringify([
+          ...materialList(db),
+          { id: newId(), name: bought, unit: "ชิ้น" },
+        ]),
+      },
+      "",
+      date,
+    );
   const next: Database = structuredClone(db);
   // A branch account's branch is its own, never taken from the input (V2-ACC-08).
   const own = by.role === "branch" ? (by.branch ?? "") : "";
@@ -631,11 +659,17 @@ export function mutate(
     if (v.materialList !== undefined) {
       // V2-LED-03: a material keeps its SKU (whatever is sent), a new one gets the next.
       const had = new Map(materialList(db).map((m) => [m.id, m.sku]));
+      // A new material named as an item of the ledger is that item: it takes its SKU.
+      const ledger = new Map(
+        skuCatalogue(db)
+          .filter((item) => !item.material)
+          .map((item) => [norm(item.name), item.sku]),
+      );
       let sku = nextSku(db);
       const rows: Values[] = JSON.parse(v.materialList);
       v.materialList = JSON.stringify(
         rows.map((row) => {
-          const kept = had.get(row.id);
+          const kept = had.get(row.id) || ledger.get(norm(row.name));
           if (kept) return { ...row, sku: kept };
           const issued = sku;
           sku = skuAfter(sku);
