@@ -153,4 +153,4 @@ export {
   stockLines,
   type StockLine,
 } from "./store/ledger";
-export { jotBackKg, mutate } from "./store/mutate";
+export { mutate } from "./store/mutate";

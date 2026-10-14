@@ -52,7 +52,6 @@ import {
   skuFor,
   skuName,
   kindInfo,
-  jotBackKg,
   lotInfo,
   missingKeys,
   missingText,
@@ -356,7 +355,6 @@ function NoteForm({
 
   const save = async (again: boolean) => {
     setError("");
-    let jotted: Database | undefined;
     const next = await run(async () => {
       const input: Values = { ...values };
       for (const [key, file] of Object.entries(files.current)) {
@@ -367,7 +365,7 @@ function NoteForm({
           await saveAttachment(file, attachmentFolder(kind, input));
       }
       const latest = latestDatabase();
-      jotted = target
+      return target
         ? mutate(
             latest,
             account,
@@ -386,15 +384,11 @@ function NoteForm({
               mutate(to, account, kind, { ...input, ...row }, lotId, date),
             latest,
           );
-      // A round's change reshares the PO รมควัน's น้ำหนักกลับ over its after-smoking notes.
-      return lotId && (kind === "dispatch" || kind === "cmReceive")
-        ? jotBackKg(jotted, account, lotId, target ? today : date)
-        : jotted;
     });
-    if (!next || !jotted) return;
+    if (!next) return;
     const saved = target
       ? visibleNotes(next, account).filter((e) => e.id === target.id)
-      : jotted.entries.slice(-notes.length);
+      : next.entries.slice(-notes.length);
     const missing = saved.reduce((a, e) => a + missingKeys(e.values).length, 0);
     ws.setToast(
       `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${notes.length > 1 ? ` ${notes.length} รายการ` : ""}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,

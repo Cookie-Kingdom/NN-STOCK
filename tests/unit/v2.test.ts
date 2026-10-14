@@ -22,7 +22,6 @@ import {
   monthPl,
   payCategories,
   plBetween,
-  jotBackKg,
   mutate,
   netSalesByBranch,
   pendingTransfers,
@@ -3394,87 +3393,6 @@ describe("PO รมควัน: น้ำหนักกลับ, one value wi
       day,
     );
     expect(lotInfo(after, lot).backKg).toBe(58);
-  });
-
-  it("is jotted as the rounds' after-smoking notes, shared by their weight in", () => {
-    const sentDb = sent(order({ backKg: "60" }));
-    const lot = last(sentDb).lotId;
-    let d = jotBackKg(sentDb, owner, lot, day);
-    // One round: one real note of 60.
-    expect(entries(d, "smoked", lot).map((e) => e.values.smokedKg)).toEqual([
-      "60",
-    ]);
-    expect(lotInfo(d, lot)).toMatchObject({ backKg: 60, fromOrder: false });
-    // A second round of 50 kg sent: 60 kg over 100 + 50, the latest note edited, a new one jotted.
-    const poLines = JSON.stringify([{ poLotId: po, kg: 50 }]);
-    d = mutate(d, owner, "dispatch", { dispatchKg: "50", poLines }, lot, day);
-    d = jotBackKg(d, owner, lot, day);
-    expect(entries(d, "smoked", lot).map((e) => e.values.smokedKg)).toEqual([
-      "40",
-      "20",
-    ]);
-    expect(lotInfo(d, lot).backKg).toBe(60);
-    // A note weighed by hand since is the value: the PO's น้ำหนักกลับ no longer reshares it.
-    const first = entries(d, "smoked", lot)[0];
-    d = mutate(
-      d,
-      owner,
-      "entryEdit",
-      {
-        targetId: first.id,
-        values: JSON.stringify({ ...first.values, smokedKg: "45" }),
-      },
-      "",
-      day,
-    );
-    expect(jotBackKg(d, owner, lot, day)).toBe(d);
-    expect(lotInfo(d, lot).backKg).toBe(65);
-  });
-
-  it("with no round yet, jots a whole round from the PO เนื้อ it names", () => {
-    const d0 = order({ backKg: "60", backPoLotId: po });
-    const lot = last(d0).lotId;
-    const d = jotBackKg(d0, owner, lot, day);
-    expect(d.entries.slice(-4).map((e) => e.kind)).toEqual([
-      "dispatch",
-      "cmReceive",
-      "smoked",
-      "return",
-    ]);
-    expect(lotInfo(d, lot)).toMatchObject({
-      sentKg: 100,
-      receivedKg: 100,
-      backKg: 60,
-      wasteKg: 40,
-      linked: true,
-      meatCost: 50000,
-      // Every round step is jotted; the Chef House invoice is no step of a round.
-      missing: ["smokingInvoice"],
-    });
-    expect(lotInfo(d, lot).rounds[0].returnKg).toBe(60);
-    // The PO's น้ำหนักกลับ edited later: the round's after-smoking and return notes follow.
-    const so = entries(d, "smokeOrder", lot)[0];
-    const edited = jotBackKg(
-      mutate(
-        d,
-        owner,
-        "entryEdit",
-        {
-          targetId: so.id,
-          values: JSON.stringify({ ...so.values, backKg: "62" }),
-        },
-        "",
-        day,
-      ),
-      owner,
-      lot,
-      day,
-    );
-    expect(lotInfo(edited, lot).backKg).toBe(62);
-    expect(lotInfo(edited, lot).rounds[0].returnKg).toBe(62);
-    // No PO เนื้อ named: no round.
-    const none = order({ backKg: "60" });
-    expect(jotBackKg(none, owner, last(none).lotId, day)).toBe(none);
   });
 
   it("left empty, changes nothing", () => {

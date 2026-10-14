@@ -4,7 +4,6 @@
 import { sampleDb } from "@/components/organisms/workspace/storyWorkspace";
 import { today } from "@/lib/format";
 import {
-  jotBackKg,
   mutate,
   purchaseLots,
   roundsOf,
@@ -162,8 +161,8 @@ export const slicedDb: Database = mutate(
   today(),
 );
 
-/** A fourth PO รมควัน typed with its weight back (120 kg) and one round: the round's
- *  after-smoking note is jotted from it, as the round form does. */
+/** A fourth PO รมควัน typed with its weight back (120 kg) and one round, no after-smoking
+ *  note: the PO's weight stands for it. */
 export const backKgDb: Database = (() => {
   const db = mutate(
     sampleDb,
@@ -173,6 +172,5 @@ export const backKgDb: Database = (() => {
     "",
     today(),
   );
-  const lotId = db.entries.at(-1)!.lotId;
-  return jotBackKg(round(db, lotId, 50).db, owner, lotId, today());
+  return round(db, db.entries.at(-1)!.lotId, 50).db;
 })();
