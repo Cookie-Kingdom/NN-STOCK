@@ -728,6 +728,10 @@ export function DailySheet({
       item.sku.toLowerCase().includes(word),
   );
   const opening = openingNote(db, branch, sheet);
+  // What the Owner sent or the branch bought shows before any opening is set.
+  const started =
+    !!opening ||
+    items.some((item) => branchItem(db, branch, item.id, ws.today).set);
   return (
     <div className="flex flex-col gap-4">
       <SegmentedChoice
@@ -748,7 +752,7 @@ export function DailySheet({
           shown={shown}
           onSaved={() => setView("daily")}
         />
-      ) : opening ? (
+      ) : started ? (
         <DailyForm
           ws={ws}
           sheet={sheet}
