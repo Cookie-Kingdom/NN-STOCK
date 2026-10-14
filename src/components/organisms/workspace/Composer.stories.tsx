@@ -199,6 +199,18 @@ export const ShortNote: Story = {
   parameters: { db: dbFor("saladaeng") },
 };
 
+/** จัดสรรเนื้อรมควัน (ปุ่ม「จัดสรร」ของแถว Foodiva ในหน้า Stock ของ Owner): หัว popup บอกเลข PO รมควัน ·
+ *  สาขาปลายทาง · น้ำหนัก (กก.) เริ่มที่คงเหลือที่ Foodiva · การรับของ (เข้าสต๊อกสาขาทันที / รอสาขายืนยันรับ) */
+export const MeatTransfer: Story = {
+  args: {
+    open: {
+      kind: "transfer",
+      lotId: shipments(sampleDb)[0].id,
+      values: { qty: "14" },
+    },
+  },
+};
+
 /** ช่องหลักว่างทุกช่อง: Invoice Foodiva ยังไม่ได้จดอะไร บันทึกได้ และนับไว้ท้าย popup */
 export const AllCoreEmpty: Story = { args: { open: { kind: "meatInvoice" } } };
 

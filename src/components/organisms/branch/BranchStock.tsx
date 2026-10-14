@@ -183,11 +183,16 @@ export function StatusCells({
   );
 }
 
-/** A branch's Stock: the daily sheet of its meat, its raw rice (a branch that steams its
- *  own, V2-BR-08) and its chili. */
+/** A branch's Stock: the smoked meat sent to it waiting to be confirmed (a transfer on a PO
+ *  รมควัน, only while there is any), then the daily sheet of its meat, its raw rice (a branch
+ *  that steams its own, V2-BR-08) and its chili. */
 export function BranchMeatStock({ ws }: { ws: Workspace }) {
+  const pending = pendingTransfers(ws.db, ws.account.branch ?? "").filter(
+    (e) => e.lotId,
+  );
   return (
     <div className="flex flex-col gap-4">
+      {pending.length > 0 && <PendingTransfers ws={ws} rows={pending} />}
       <DailySheet ws={ws} sheet="meat" />
       <Caption>วัสดุอยู่ที่หน้า Inventory</Caption>
     </div>
@@ -242,7 +247,10 @@ function PendingTransfers({ ws, rows }: { ws: Workspace; rows: Entry[] }) {
                 {e.values.sku}
               </span>
             </Cell>
-            <Cell right>{fmt(Number(e.values.qty))}</Cell>
+            <Cell right>
+              {fmt(Number(e.values.qty))}
+              {e.lotId && " กก."}
+            </Cell>
             <Cell className="whitespace-nowrap max-md:hidden">
               {placeLabel(e.values.from)}
             </Cell>
@@ -272,7 +280,8 @@ export function BranchStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const branch = ws.account.branch ?? "";
   const [search, setSearch] = useState("");
-  const pending = pendingTransfers(db, branch);
+  // Smoked meat waits on the Stock page.
+  const pending = pendingTransfers(db, branch).filter((e) => !e.lotId);
   const word = search.trim().toLowerCase();
   const others = stockLines(db, today).filter(
     (line) =>

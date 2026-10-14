@@ -545,7 +545,11 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     yellow,
     complete: yellow === 0,
     yield: sentKg && backKg ? backKg / sentKg : null,
-    centralKg: backKg - sum(entries(db, "receive", lotId), "kg"),
+    // A transfer leaves on its date, confirmed by the branch or not.
+    centralKg:
+      backKg -
+      sum(entries(db, "receive", lotId), "kg") -
+      sum(entries(db, "transfer", lotId), "qty"),
     costPerKg,
     meatPerBox,
     costPerBox:
@@ -897,6 +901,12 @@ export function branchItem(
     const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
     for (const e of entries(db, "receive", undefined, branch))
       if (!old.has(e.lotId)) add(e.date, num(e.values, "kg"));
+    // Smoked meat the Owner sent (a transfer on a PO รมควัน), on the day it arrived.
+    for (const e of entries(db, "transfer"))
+      if (e.lotId && e.values.to === branch && !old.has(e.lotId)) {
+        const arrived = awaitsReceipt(e) ? receiptOf(db, e) : e;
+        if (arrived) add(arrived.date, num(e.values, "qty"));
+      }
   }
   for (const e of entries(db, "pay", undefined, branch))
     if (e.values.item === itemId) add(e.date, num(e.values, "qty"));

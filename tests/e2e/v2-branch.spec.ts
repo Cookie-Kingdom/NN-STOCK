@@ -775,3 +775,42 @@ test.describe("phone, 390px wide", () => {
     await fits();
   });
 });
+
+test("Stock: the Owner allocates smoked meat from Foodiva to a branch, which confirms it on its Stock page", async ({
+  page,
+}) => {
+  await start(page, "sample");
+  await signInAs(page, "owner");
+  await openPage(page, "Stock");
+  const meat = region(page, "เนื้อ (กก.)");
+  const smoked = meat
+    .getByRole("row")
+    .filter({ hasText: "Foodiva (รมควันแล้ว)" })
+    .first();
+  const left = smoked.getByRole("cell").nth(2);
+  const before = parseFloat((await left.innerText()).replace(/,/g, ""));
+  await smoked.getByRole("button", { name: /^จัดสรร / }).click();
+  await expect(popupTitle(page)).toHaveText(/^จัดสรรสินค้า · เนื้อรมควัน SO-/);
+  // It starts at all that is left there.
+  await expect(form(page).getByLabel(/^น้ำหนัก/)).toHaveValue(String(before));
+  await fill(
+    page,
+    [/^สาขาปลายทาง/, "สาขามีนบุรี"],
+    [/^น้ำหนัก/, "4"],
+    [/^การรับของ/, "รอสาขายืนยันรับ"],
+  );
+  await save(page);
+  // It leaves Foodiva at once.
+  await expect(left).toHaveText(new RegExp(`^${before - 4}`));
+
+  await signInAs(page, "minburi");
+  await openPage(page, "Stock");
+  const waiting = region(page, "รอยืนยันรับสินค้า");
+  await expect(waiting).toContainText("4 กก.");
+  await waiting.getByRole("button", { name: /^ยืนยันรับ เนื้อรมควัน/ }).click();
+  await expect(toast(page, "ยืนยันรับสินค้า")).toBeVisible();
+  await expect(waiting).toHaveCount(0);
+  // Meat is not on the branch's Inventory.
+  await openPage(page, "Inventory");
+  await expect(region(page, "รอยืนยันรับสินค้า")).toHaveCount(0);
+});

@@ -22,6 +22,7 @@ import {
   noBranch,
   payCategories,
   placeLabel,
+  foodivaPlace,
   poLines,
   saleMoney,
   salesChannels,
@@ -292,7 +293,8 @@ export function noteLine(db: Database, e: Entry): string {
     case "transfer":
       return join(
         skuName(db, v.sku, v.itemName),
-        has("qty") && n("qty"),
+        // Smoked meat goes by kg; a SKU by its own count.
+        has("qty") && (v.from === foodivaPlace ? `${n("qty")} กก.` : n("qty")),
         has("from") &&
           has("to") &&
           `${placeLabel(v.from)} → ${placeLabel(v.to)}`,

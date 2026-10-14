@@ -30,6 +30,7 @@ export {
   centralPlace,
   places,
   placeLabel,
+  foodivaPlace,
   titles,
   editableKinds,
   voidableKinds,

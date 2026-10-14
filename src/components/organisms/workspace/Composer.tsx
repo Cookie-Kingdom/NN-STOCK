@@ -382,7 +382,12 @@ function NoteForm({
     <Dialog
       size={size}
       onClose={ws.closeDraft}
-      title={`${target ? "แก้ไข: " : ""}${titles[kind]}`}
+      title={`${target ? "แก้ไข: " : ""}${titles[kind]}${
+        // A meat transfer has no lot picker: the title says which PO รมควัน.
+        kind === "transfer" && lotId
+          ? ` · เนื้อรมควัน ${db.lots.find((lot) => lot.id === lotId)?.poId ?? ""}`
+          : ""
+      }`}
       subtitle={[
         target && `แก้ไขบันทึกของ ${thaiDay(target.date)}`,
         lotId && lotLabel(db, lotId),

@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
@@ -219,10 +220,11 @@ export function WasteWeekCard({
   );
 }
 
-/** Stock as the Owner sees it: the meat still with the seller and in the central warehouse
- *  (V2-CAL-07, 08; an old lot holds none, `meatStock`), then each branch's Stock sheet (the
+/** Stock as the Owner sees it: the meat still with the seller and the smoked meat kept at
+ *  Foodiva (V2-CAL-07, 08; an old lot holds none, `meatStock`), each smoked row with
+ *  「จัดสรร」 (a `transfer` on its PO รมควัน to a branch), then each branch's Stock sheet (the
  *  meat, the raw sticky rice and the chili: what is left and today's waste, V2-CAL-10) and
- *  the waste of the last 7 days. Read-only: a branch saves its own sheet on its Stock page. */
+ *  the waste of the last 7 days. A branch saves its own sheet on its Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const { held, central: smoked } = meatStock(db);
@@ -235,11 +237,11 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
       <DayCard
         aria-label="เนื้อ (กก.)"
         title="เนื้อ (กก.)"
-        aside={<Caption>ที่ผู้ขายและคลังกลาง</Caption>}
+        aside={<Caption>ที่ผู้ขายและที่ Foodiva</Caption>}
       >
         <StockTable
-          columns={["ที่เก็บ", "รายการ", "คงเหลือ"]}
-          right={["คงเหลือ"]}
+          columns={["ที่เก็บ", "รายการ", "คงเหลือ", "จัดสรร"]}
+          right={["คงเหลือ", "จัดสรร"]}
         >
           {held.map(({ lot, kg }) => (
             <tr key={lot.id}>
@@ -248,22 +250,42 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
                 {[lot.poId, lot.values.supplier].filter(Boolean).join(" · ")}
               </Cell>
               <Left n={kg} />
+              <Cell />
             </tr>
           ))}
           {smoked.map((info) => (
             <tr key={info.lot.id}>
-              <Cell>คลังกลาง</Cell>
+              <Cell>Foodiva (รมควันแล้ว)</Cell>
               <Cell>{info.lot.poId}</Cell>
               <Left n={info.centralKg} />
+              <Cell right className="py-1.5">
+                <Button
+                  variant="primary"
+                  aria-label={`จัดสรร ${info.lot.poId}`}
+                  onClick={() =>
+                    ws.jot({
+                      kind: "transfer",
+                      lotId: info.lot.id,
+                      // What is left there, to send all of it or type less.
+                      values:
+                        info.centralKg > 0
+                          ? { qty: String(+info.centralKg.toFixed(2)) }
+                          : undefined,
+                    })
+                  }
+                >
+                  จัดสรร
+                </Button>
+              </Cell>
             </tr>
           ))}
           {held.length + smoked.length === 0 && (
             <tr>
               <Cell
-                colSpan={3}
+                colSpan={4}
                 className="py-8 text-center text-text-secondary"
               >
-                ยังไม่มีเนื้อที่ผู้ขายหรือคลังกลาง
+                ยังไม่มีเนื้อที่ผู้ขายหรือที่ Foodiva
               </Cell>
             </tr>
           )}
@@ -317,7 +339,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
       <WasteWeekCard db={db} sheet="meat" today={today} />
       <Caption className="flex flex-col gap-1">
         {[
-          "หน้านี้ดูได้อย่างเดียว ผู้ดูแลสาขาบันทึกใบสต๊อกรายวันจากหน้า Stock ของสาขา",
+          'ผู้ดูแลสาขาบันทึกใบสต๊อกรายวันจากหน้า Stock ของสาขา "จัดสรร" ส่งเนื้อรมควันจาก Foodiva ไปสาขา เข้าสต๊อกสาขาทันทีหรือเมื่อสาขากดยืนยันรับ',
           "PO จากไฟล์เดิมไม่นับเป็นสต๊อก",
           "คงเหลือ = ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขาย ของใบสต๊อกรายวัน Waste นับรวมอยู่ในยอดใช้ไปแล้ว",
           "ตัดจากยอดขาย: เว็บตัดให้เองจากยอดขายและกล่องที่แจก ตามส่วนประกอบของสินค้าใน Settings",
