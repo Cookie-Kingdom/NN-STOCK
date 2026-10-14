@@ -301,6 +301,8 @@ function RoundCard({
     entries(db, kind, lot.id)
       .filter((e) => e.values.dispatchId === dispatch.id)
       .at(-1);
+  const jot = (kind: RoundKind) =>
+    ws.jot({ kind, lotId: lot.id, values: { dispatchId: dispatch.id } });
   const step = (kind: RoundKind, figures: ReactNode) => {
     const entry = latest(kind);
     return entry ? (
@@ -315,20 +317,14 @@ function RoundCard({
       <StatusTile
         key={kind}
         label={stepLabel[kind]}
-        onJot={
-          can(kind)
-            ? () =>
-                ws.jot({
-                  kind,
-                  lotId: lot.id,
-                  values: { dispatchId: dispatch.id },
-                })
-            : undefined
-        }
+        onJot={can(kind) ? () => jot(kind) : undefined}
         jotText={`+ จด${titles[kind]}`}
       />
     );
   };
+  // The after-smoking weight is what lets Stock allocate this round (`meatStock`'s
+  // `waiting`), so a round without it says so above its steps, not just in a yellow tile.
+  const smoked = latest("smoked");
   const lines = dispatchLines(dispatch.values);
   return (
     <li
@@ -360,6 +356,25 @@ function RoundCard({
           </span>
         )}
       </p>
+      {round.wasteKg === null && can("smoked") && (
+        <Notice
+          tone="warning"
+          className="my-0 border-warning max-sm:flex-col max-sm:items-stretch"
+          action={
+            <Button
+              variant="primary"
+              onClick={() => (smoked ? ws.edit(smoked.id) : jot("smoked"))}
+            >
+              จดน้ำหนักหลังรมควัน
+            </Button>
+          }
+        >
+          <strong className="block font-semibold">ต้องจดหลังรมควัน</strong>
+          <span className="text-body-sm">
+            เนื้อรอบนี้จะจัดสรรไปสาขาได้เมื่อจดน้ำหนักหลังรมควันแล้ว
+          </span>
+        </Notice>
+      )}
       <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
         {step(
           "cmReceive",
