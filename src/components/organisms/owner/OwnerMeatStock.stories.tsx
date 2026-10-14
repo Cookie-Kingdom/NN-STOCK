@@ -158,3 +158,31 @@ export const Phone: Story = { ...phone };
 
 /** จอ 1920px: กล่องเรียงลงมา เต็มความกว้างของหน้า ไม่วางเคียงกัน */
 export const Wide: Story = { ...wide };
+
+/** เนื้อที่ส่งไปรมควันแล้วแต่ยังไม่ได้จดหลังรมควัน: แถว「Chef House (รอจดหลังรมควัน)」คงเหลือเป็น
+ *  「ยังไม่ได้จด」 ปุ่ม「+ จดหลังรมควัน」เปิดฟอร์มหลังรมควันของรอบนั้น · จดแล้วแถวนี้หายไป
+ *  และเนื้อขึ้นเป็น Foodiva (รมควันแล้ว) ให้จัดสรรได้ */
+export const WaitingForSmoked: Story = {
+  parameters: {
+    db: (() => {
+      const owner = accountById("owner")!;
+      const po = sampleDb.lots.find((lot) => !lot.kind && !lot.old)!;
+      const ordered = mutate(
+        sampleDb,
+        owner,
+        "smokeOrder",
+        { rawKg: "50" },
+        "",
+        today(),
+      );
+      return mutate(
+        ordered,
+        owner,
+        "dispatch",
+        { dispatchKg: "50", poLotId: po.id },
+        ordered.entries.at(-1)!.lotId,
+        today(),
+      );
+    })(),
+  },
+};

@@ -222,12 +222,13 @@ export function WasteWeekCard({
 
 /** Stock as the Owner sees it: the meat still with the seller and the smoked meat kept at
  *  Foodiva (V2-CAL-07, 08; an old lot holds none, `meatStock`), each smoked row with
- *  「จัดสรร」 (a `transfer` on its PO รมควัน to a branch), then each branch's Stock sheet (the
+ *  「จัดสรร」 (a `transfer` on its PO รมควัน to a branch), each round still at Chef House with
+ *  「+ จดหลังรมควัน」 (its meat is jotted nowhere else until then), then each branch's Stock sheet (the
  *  meat, the raw sticky rice and the chili: what is left and today's waste, V2-CAL-10) and
  *  the waste of the last 7 days. A branch saves its own sheet on its Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
-  const { held, central: smoked } = meatStock(db);
+  const { held, central: smoked, waiting } = meatStock(db);
   const figures = branches.flatMap((branch) => [
     `สาขา${branch} คงเหลือ`,
     `สาขา${branch} Waste วันนี้`,
@@ -237,7 +238,12 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
       <DayCard
         aria-label="เนื้อ (กก.)"
         title="เนื้อ (กก.)"
-        aside={<Caption>ที่ผู้ขายและที่ Foodiva</Caption>}
+        aside={
+          <Caption>
+            ที่ผู้ขายและที่ Foodiva ·
+            เนื้อที่ส่งไปรมควันจัดสรรได้เมื่อจดหลังรมควันแล้ว
+          </Caption>
+        }
       >
         <StockTable
           columns={["ที่เก็บ", "รายการ", "คงเหลือ", "จัดสรร"]}
@@ -279,7 +285,33 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
               </Cell>
             </tr>
           ))}
-          {held.length + smoked.length === 0 && (
+          {waiting.map(({ lot, round }) => (
+            <tr key={round.dispatch.id}>
+              <Cell>Chef House (รอจดหลังรมควัน)</Cell>
+              <Cell>
+                {lot.poId} · {round.number} · ส่ง {qty(round.sentKg)} กก.
+              </Cell>
+              <Cell right>
+                <MissingMark />
+              </Cell>
+              <Cell right className="py-1.5">
+                <Button
+                  variant="table-secondary"
+                  aria-label={`จดหลังรมควัน ${lot.poId} ${round.number}`}
+                  onClick={() =>
+                    ws.jot({
+                      kind: "smoked",
+                      lotId: lot.id,
+                      values: { dispatchId: round.dispatch.id },
+                    })
+                  }
+                >
+                  + จดหลังรมควัน
+                </Button>
+              </Cell>
+            </tr>
+          ))}
+          {held.length + smoked.length + waiting.length === 0 && (
             <tr>
               <Cell
                 colSpan={4}

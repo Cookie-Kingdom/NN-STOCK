@@ -3318,3 +3318,45 @@ describe("PO เนื้อ: เนื้อสไลด์ and the Waste of sl
     });
   });
 });
+
+describe("Stock: a round waits for its after-smoking note", () => {
+  it("lists the round until a smoked weight is jotted, then its meat is stock", () => {
+    const bought = mutate(
+      seed,
+      owner,
+      "purchase",
+      { supplier: "Foodiva", orderedKg: "100", price: "500" },
+      "",
+      day,
+    );
+    const po = last(bought).lotId;
+    const ordered = mutate(
+      bought,
+      owner,
+      "smokeOrder",
+      { rawKg: "100" },
+      "",
+      day,
+    );
+    const lot = last(ordered).lotId;
+    let d = mutate(
+      ordered,
+      owner,
+      "dispatch",
+      {
+        dispatchKg: "100",
+        poLines: JSON.stringify([{ poLotId: po, kg: 100 }]),
+      },
+      lot,
+      day,
+    );
+    const dispatchId = last(d).id;
+    expect(meatStock(d).waiting.map((w) => w.round.dispatch.id)).toEqual([
+      dispatchId,
+    ]);
+    expect(meatStock(d).central).toEqual([]);
+    d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "60" }, lot, day);
+    expect(meatStock(d).waiting).toEqual([]);
+    expect(meatStock(d).central.map((info) => info.centralKg)).toEqual([60]);
+  });
+});

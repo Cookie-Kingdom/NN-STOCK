@@ -677,8 +677,9 @@ export function poInfo(db: Database, poLotId: string, exceptId?: string) {
   };
 }
 /** The meat lines of the Stock page before the branches: what each PO เนื้อ still holds at
- *  the seller (V2-CAL-07) and what each PO รมควัน holds in the central warehouse (V2-CAL-08),
- *  only those with some. A lot carried over from the old workbook (`old`) holds no stock:
+ *  the seller (V2-CAL-07), what each PO รมควัน holds in the central warehouse (V2-CAL-08),
+ *  only those with some, and each round sent to smoke with no after-smoking weight jotted
+ *  (`waiting`): its meat counts nowhere until that note is jotted. A lot carried over from the old workbook (`old`) holds no stock:
  *  backdated stock is never the true one, so stock starts from what is jotted from now on.
  *  Cost and money still read `poInfo` / `lotInfo`. */
 export function meatStock(db: Database) {
@@ -691,6 +692,13 @@ export function meatStock(db: Database) {
       .filter((lot) => !lot.old)
       .map((lot) => lotInfo(db, lot.id))
       .filter((info) => info.backKg > 0),
+    waiting: shipments(db)
+      .filter((lot) => !lot.old)
+      .flatMap((lot) =>
+        roundsOf(db, lot.id)
+          .filter((round) => round.wasteKg === null)
+          .map((round) => ({ lot, round })),
+      ),
   };
 }
 /** The kg a dispatch form prefills for a PO เนื้อ just added to its lines: what that PO still
