@@ -52,7 +52,6 @@ import {
   skuFor,
   skuName,
   kindInfo,
-  lotInfo,
   missingKeys,
   missingText,
   mutate,
@@ -279,10 +278,6 @@ function NoteForm({
     // A dispatch saved with one PO เนื้อ (poLotId) opens as one line.
     if (kind === "dispatch" && !v.poLines && v.poLotId)
       v.poLines = JSON.stringify(dispatchLines(v));
-    // The after-smoking weight and the PO's น้ำหนักกลับ are one value: open on the PO's while
-    // it counts (lotInfo), not on what this note last stored.
-    if (kind === "smoked" && lotInfo(db, target.lotId).fromOrder)
-      v.smokedKg = prefill(target.lotId).smokedKg ?? v.smokedKg;
     return v;
   });
   const pickLot = (next: string) => {

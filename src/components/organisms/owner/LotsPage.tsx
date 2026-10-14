@@ -28,6 +28,7 @@ import {
   kindsForPage,
   ledgerRows,
   lotInfo,
+  orderBackKg,
   missingKeys,
   missingText,
   poInfo,
@@ -309,9 +310,9 @@ function RoundCard({
         {figures}
       </Jotted>
     ) : !round.missing.includes(kind) ? (
-      // Not a step left: the PO รมควัน's weight back is its weight (split over rounds: no figure).
+      // Not a step left: the PO รมควัน's weight back stands for it, and this note weighs it.
       <Jotted key={kind} label={stepLabel[kind]} onEdit={() => jot(kind)}>
-        {round.wasteKg === null ? "ตามน้ำหนักกลับใน PO รมควัน" : figures}
+        ตามน้ำหนักกลับใน PO รมควัน
       </Jotted>
     ) : (
       <StatusTile
@@ -440,11 +441,12 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
     ? info.rounds
     : info.rounds.filter((round) => round.wasteKg !== null);
   const base = weighed.reduce((a, round) => a + round.wasteBaseKg, 0);
-  // One value with the after-smoking notes' weight: none until either gives it.
-  const backKg =
-    info.fromOrder || info.rounds.some((round) => round.wasteKg !== null)
-      ? info.backKg
-      : null;
+  // The PO's own weight back stays as typed; left empty, the after-smoking notes fill it.
+  const ordered = orderBackKg(db, lot.id);
+  const smokedKg = info.rounds.some((round) => round.wasteKg !== null)
+    ? info.rounds.reduce((a, round) => a + round.smokedKg, 0)
+    : null;
+  const backKg = ordered ?? smokedKg;
   const documents = [
     ...of("smokeOrder").map((e) => (
       <DocumentPrintButton
@@ -505,7 +507,10 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             "—"
           ) : (
             <>
-              <strong>{qty(backKg)}</strong> กก.
+              <strong>{qty(backKg)}</strong> กก.{" "}
+              <Small>
+                {ordered === null ? "จากฟอร์มหลังรมควัน" : "ตาม PO รมควัน"}
+              </Small>
             </>
           )}
         </p>
@@ -586,7 +591,12 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
       <dl className={facts}>
         <Fact label="น้ำหนักรับที่ Chef House">{qty(info.receivedKg)} กก.</Fact>
         <Fact label="น้ำหนักหลังรมควัน">
-          {qty(info.backKg)} กก. <Small>{qty(info.boxes)} กล่องรมควัน</Small>
+          {qty(info.backKg)} กก.{" "}
+          <Small>
+            {info.fromOrder
+              ? "ตามน้ำหนักกลับใน PO รมควัน"
+              : `${qty(info.boxes)} กล่องรมควัน`}
+          </Small>
         </Fact>
         <Fact label="Waste">
           {base

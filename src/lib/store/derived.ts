@@ -420,31 +420,13 @@ export type Round = {
   missing: RoundKind[];
 };
 const roundLabel = (e: Entry) => e.values.transferNumber || e.date;
-/** The weight back the PO รมควัน itself gives (its latest `backKg`), else null: the same
- *  value as the after-smoking weight (see orderBackIsNewer). */
+/** The weight back the PO รมควัน itself gives (its latest `backKg`), else null: a shortcut
+ *  that stands for the after-smoking weight until a `smoked` note weighs it. */
 export function orderBackKg(db: Database, lotId: string): number | null {
   const order = entries(db, "smokeOrder", lotId).findLast((e) =>
     typed(e.values, "backKg"),
   );
   return order ? num(order.values, "backKg") : null;
-}
-/** The PO's backKg and the after-smoking weights are one value, and the one written last
- *  wins: whether a write of the PO's backKg (its note or an edit of it) comes after every
- *  write of a smoked weight. The log is append-only, so log order is write order. */
-function orderBackIsNewer(db: Database, lotId: string) {
-  const orders = new Set(entries(db, "smokeOrder", lotId).map((e) => e.id));
-  const smoked = new Set(entries(db, "smoked", lotId).map((e) => e.id));
-  let order = -1;
-  let note = -1;
-  db.entries.forEach((e, i) => {
-    if (isVoided(db, e.id)) return;
-    const edit = e.kind === "entryEdit";
-    const id = edit ? e.values.targetId : e.id;
-    const v = edit ? unpack("to.", e.values) : e.values;
-    if (orders.has(id) && "backKg" in v) order = i;
-    if (smoked.has(id) && typed(v, "smokedKg")) note = i;
-  });
-  return order > note;
 }
 /** The dispatch rounds of a PO รมควัน, oldest first. A step whose `dispatchId` names no live
  *  dispatch of this lot belongs to no round and counts nowhere. */
@@ -506,8 +488,8 @@ type LotInfo = {
   sentKg: number;
   remainingKg: number;
   rounds: Round[];
-  /** Totals over the rounds. backKg = the PO's own backKg (`fromOrder`) unless a `smoked`
-   *  weight was written after it, then Σ smokedKg: what yield, cost and the central stock use. */
+  /** Totals over the rounds. backKg = Σ smokedKg once a `smoked` note weighs, else the PO's
+   *  own backKg (`fromOrder`): what yield, cost and the central stock use. */
   receivedKg: number;
   backKg: number;
   fromOrder: boolean;
@@ -545,18 +527,8 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
   const sentKg = sum(dispatches, "dispatchKg");
   const ordered = orderBackKg(db, lotId);
   const fromOrder =
-    ordered !== null &&
-    (!rounds.some((round) => round.wasteKg !== null) ||
-      orderBackIsNewer(db, lotId));
+    ordered !== null && !rounds.some((round) => round.wasteKg !== null);
   const backKg = fromOrder ? ordered : total("smokedKg");
-  // One round has the PO's weight back as its own; more rounds have no split of it.
-  if (fromOrder && rounds.length === 1) {
-    const [round] = rounds;
-    round.smokedKg = backKg;
-    round.wasteKg = round.wasteBaseKg - backKg;
-    round.wastePct =
-      round.wasteBaseKg > 0 ? (round.wasteKg / round.wasteBaseKg) * 100 : null;
-  }
   const shippingFee = total("shippingFee");
   const fee = num(invoiceOf(db, lotId)?.values ?? {}, "netPayable");
   const unlinked = dispatches.find((e) => !isLinked(pos, e));
