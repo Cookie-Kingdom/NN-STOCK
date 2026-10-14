@@ -3289,7 +3289,7 @@ describe("PO เนื้อ: เนื้อสไลด์ and the Waste of sl
   });
 });
 
-describe("PO รมควัน: น้ำหนักกลับ, a shortcut for the after-smoking note", () => {
+describe("PO รมควัน: น้ำหนักกลับ, one value with the after-smoking weight", () => {
   const bought = mutate(
     seed,
     owner,
@@ -3314,7 +3314,7 @@ describe("PO รมควัน: น้ำหนักกลับ, a shortcut f
     );
   };
 
-  it("stands for the after-smoking weight until a smoked note weighs it", () => {
+  it("is the after-smoking weight, and the one written last wins", () => {
     let d = sent(order({ backKg: "60" }));
     const lot = last(d).lotId;
     expect(orderBackKg(d, lot)).toBe(60);
@@ -3324,13 +3324,44 @@ describe("PO รมควัน: น้ำหนักกลับ, a shortcut f
       centralKg: 60,
       wasteKg: 40,
     });
-    // The after-smoking note is no step left to jot.
+    // The after-smoking note is no step left to jot, and the one round weighs 60.
     expect(lotInfo(d, lot).missing).not.toContain("smoked");
+    expect(lotInfo(d, lot).rounds[0]).toMatchObject({
+      smokedKg: 60,
+      wasteKg: 40,
+    });
     const dispatchId = last(d).id;
     d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "55" }, lot, day);
-    // The note weighs it now; the PO keeps its own 60.
+    // A note written later is the value now.
     expect(lotInfo(d, lot)).toMatchObject({ backKg: 55, fromOrder: false });
-    expect(orderBackKg(d, lot)).toBe(60);
+    // An edit of the PO's น้ำหนักกลับ written after it is the value again.
+    const po = entries(d, "smokeOrder", lot)[0];
+    d = mutate(
+      d,
+      owner,
+      "entryEdit",
+      {
+        targetId: po.id,
+        values: JSON.stringify({ ...po.values, backKg: "58" }),
+      },
+      "",
+      day,
+    );
+    expect(lotInfo(d, lot)).toMatchObject({ backKg: 58, fromOrder: true });
+    expect(lotInfo(d, lot).rounds[0].smokedKg).toBe(58);
+    // An edit of another PO field leaves it so.
+    const after = mutate(
+      d,
+      owner,
+      "entryEdit",
+      {
+        targetId: po.id,
+        values: JSON.stringify({ ...po.values, backKg: "58", smoker: "X" }),
+      },
+      "",
+      day,
+    );
+    expect(lotInfo(after, lot).backKg).toBe(58);
   });
 
   it("left empty, changes nothing", () => {
