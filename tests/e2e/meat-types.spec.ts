@@ -58,12 +58,7 @@ test("a kind of meat added in Settings is chosen on its PO เนื้อ and P
   await po("วากิว", "200");
   await po(null, "100");
   await page.getByRole("button", { name: "+ สร้าง PO รมควัน" }).click();
-  await fill(
-    page,
-    [/^ชนิดเนื้อ/, "วากิว"],
-    [/^น้ำหนักที่สั่งรมควัน/, "200"],
-    [/^น้ำหนักกลับ/, "120"],
-  );
+  await fill(page, [/^ชนิดเนื้อ/, "วากิว"], [/^น้ำหนักที่สั่งรมควัน/, "200"]);
   await save(page);
   const lot = region(page, SO);
   await expect(lot).toContainText("PO รมควัน · Chef House · วากิว");
@@ -75,6 +70,9 @@ test("a kind of meat added in Settings is chosen on its PO เนื้อ and P
   const offered = await choices(line);
   expect(offered).toEqual(["เลือก PO เนื้อ", `PO-${year}-0001 · 200 กก.`]);
   await pick(line, 1);
+  await save(page);
+  await lot.getByRole("button", { name: /^หลังรมควัน/ }).click();
+  await fill(page, [/^น้ำหนักหลังรมควัน/, "120"]);
   await save(page);
 
   // Foodiva holds it by kind, ready to allocate.
