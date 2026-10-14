@@ -22,6 +22,7 @@ import { baht, dateLabel, qty } from "@/lib/format";
 import {
   branchItem,
   branches,
+  ingredientList,
   materialList,
   placeLabel,
   places,
@@ -77,7 +78,7 @@ type Row = ProjectAsset & {
  *  ประเภท, สถานะ and ที่เก็บ filters over it, the totals of the rows shown at its foot. A
  *  purchase is jotted on Accounting, a move between places with 「จัดสรรสินค้า」 (`transfer`)
  *  beside the figures, and a branch saves its sheet on its own Inventory page: the Owner only
- *  reads it. The meat, the sticky rice and the chili are on the Stock page
+ *  reads it. The meat and the ingredients are on the Stock page
  *  (`OwnerMeatStock`). */
 export function OwnerStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
@@ -87,6 +88,8 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
   const [place, setPlace] = useState("");
   const lines = new Map(stockLines(db, today).map((line) => [line.sku, line]));
   const bought = new Map<string, Omit<Row, "held" | "unset">>();
+  // An ingredient's row is on the Stock page, with the meat; its money still counts here.
+  const ingredients = new Set(ingredientList(db.config).map((i) => i.sku));
   for (const group of projectAssets(db))
     for (const asset of group.rows) {
       const row = bought.get(asset.key);
@@ -121,7 +124,9 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
       material: m,
     })),
     ...[...bought.values()].filter(
-      (row) => !row.sku || materials.every((m) => m.sku !== row.sku),
+      (row) =>
+        !ingredients.has(row.sku) &&
+        (!row.sku || materials.every((m) => m.sku !== row.sku)),
     ),
   ].map((row) => {
     // None for a row without a SKU, or one with no quantity ever typed.
@@ -404,7 +409,7 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
       <WasteWeekCard db={db} sheet="materials" today={today} />
       <Caption>
         {
-          "หนึ่งแถวคือหนึ่งรายการ ทั้งวัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting โดยรวมทุกครั้งที่ซื้อไว้ในแถวเดียว ยอดคลังกลางคือยอดซื้อเข้าลบยอดที่จัดสรรออก ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย ตัวเลขสีแดงคือยอดติดลบ ยอดวัสดุของสาขาคือคงเหลือตามใบสต๊อกรายวันที่ผู้ดูแลสาขาบันทึก (ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขายตามส่วนประกอบของสินค้าใน Settings) ตามหน่วยของวัสดุนั้น สถานะ ยังไม่ตั้งยอด คือวัสดุที่ยังไม่มีสาขาใดตั้งยอดและยังไม่เคยมีรับเข้าหรือใช้ไป ใต้ตัวเลขคือ Waste ของวันนี้และสาเหตุ วันที่ยังไม่บันทึกจะเป็นยอดล่าสุดที่ยกมา หน้านี้ดูได้อย่างเดียว เนื้อ ข้าวเหนียว และน้ำพริกอยู่ที่หน้า Stock"
+          "หนึ่งแถวคือหนึ่งรายการ ทั้งวัสดุจาก Settings และของที่ซื้อเข้า Project จากหน้า Accounting โดยรวมทุกครั้งที่ซื้อไว้ในแถวเดียว ยอดคลังกลางคือยอดซื้อเข้าลบยอดที่จัดสรรออก ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย ตัวเลขสีแดงคือยอดติดลบ ยอดวัสดุของสาขาคือคงเหลือตามใบสต๊อกรายวันที่ผู้ดูแลสาขาบันทึก (ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขายตามส่วนประกอบของสินค้าใน Settings) ตามหน่วยของวัสดุนั้น สถานะ ยังไม่ตั้งยอด คือวัสดุที่ยังไม่มีสาขาใดตั้งยอดและยังไม่เคยมีรับเข้าหรือใช้ไป ใต้ตัวเลขคือ Waste ของวันนี้และสาเหตุ วันที่ยังไม่บันทึกจะเป็นยอดล่าสุดที่ยกมา หน้านี้ดูได้อย่างเดียว เนื้อและวัตถุดิบอยู่ที่หน้า Stock"
         }
       </Caption>
     </div>

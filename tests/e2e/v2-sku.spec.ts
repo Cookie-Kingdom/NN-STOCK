@@ -28,7 +28,9 @@ const typeItem = async (page: Page, name: string) => {
 };
 /** A row of a stock table, by the item it starts with. */
 const stockRow = (card: Locator, item: string) =>
-  card.getByRole("row", { name: new RegExp(`^${item}`) }).getByRole("cell");
+  card
+    .getByRole("row", { name: new RegExp(`^((SKU|RM|ING)-\\d+ )?${item}`) })
+    .getByRole("cell");
 
 test("V2-LED-03 an expense's item gets a SKU: a new name the next number, a known name or a material its own, and a deleted note's number is never given again", async ({
   page,
@@ -237,5 +239,9 @@ test("V2-LED-03 an expense of type วัตถุดิบ adds the item to 「
   await signInAs(page, "owner");
   await openPage(page, "Stock");
   const row = stockRow(region(page, "สต๊อกของสาขา"), "ข้าวเหนียวดิบ");
-  await expect(row.nth(3)).toContainText("7.5 ชิ้น");
+  await expect(row.nth(0)).toHaveText("ING-0001");
+  await expect(row.nth(4)).toContainText("7.5 ชิ้น");
+  // Its row is on Stock, not Inventory.
+  await openPage(page, "Inventory");
+  await expect(page.getByRole("main")).not.toContainText("ข้าวเหนียวดิบ");
 });

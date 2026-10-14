@@ -14,10 +14,19 @@ import {
 import { lotMeat } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty, thaiDay } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
   branchItem,
   branches,
+  centralPlace,
+  isMeatItem,
   meatStock,
+  meatTypeOf,
+  meatTypes,
+  pendingTransfers,
+  placeLabel,
+  places,
+  stockLines,
   sheetItems,
   sheetNote,
   sheetOf,
@@ -191,16 +200,40 @@ export function WasteWeekCard({
 /** Stock as the Owner sees it: the meat still with the seller and the smoked meat kept at
  *  Foodiva (V2-CAL-07, 08; an old lot holds none, `meatStock`), each smoked row with
  *  「จัดสรร」 (a `transfer` on its PO รมควัน to a branch), each round still at Chef House with
- *  「+ จดหลังรมควัน」 (its meat is jotted nowhere else until then), then each branch's Stock sheet (the
- *  meat, the raw sticky rice and the chili: what is left and today's waste, V2-CAL-10) and
- *  the waste of the last 7 days. A branch saves its own sheet on its Stock page. */
+ *  「+ จดหลังรมควัน」 (its meat is jotted nowhere else until then), then where each kind of meat and
+ *  each ingredient is, one row each as on Inventory: the central warehouse (for the meat the
+ *  smoked meat at Foodiva), each branch's Stock sheet (what is left and today's waste,
+ *  V2-CAL-10), on its way, the total and a status; and the waste of the last 7 days. A branch saves its own sheet on its Stock page. */
 export function OwnerMeatStock({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
   const { held, central: smoked, waiting } = meatStock(db);
-  const figures = branches.flatMap((branch) => [
-    `สาขา${branch} คงเหลือ`,
-    `สาขา${branch} Waste วันนี้`,
-  ]);
+  const where = [...places.map(placeLabel), "ระหว่างส่ง", "รวม", "สถานะ"];
+  const lines = new Map(stockLines(db, today).map((line) => [line.sku, line]));
+  const lots = new Map(db.lots.map((lot) => [lot.id, lot]));
+  const sent = branches.flatMap((branch) => pendingTransfers(db, branch));
+  /** Where an item is besides the branches: a kind of meat in the smoked meat kept at Foodiva
+   *  (its คลังกลาง) and on its way to a branch, by its RM code; an ingredient in the central
+   *  warehouse and on its way, by its ING code (`stockLines`). */
+  const whereOf = (item: Material) => {
+    if (!isMeatItem(item.id)) {
+      const line = lines.get(item.sku);
+      return {
+        code: item.sku,
+        central: line?.at[centralPlace] ?? 0,
+        transit: line?.inTransit ?? 0,
+      };
+    }
+    const ofKind = (lotId: string) => meatTypeOf(lots.get(lotId)) === item.id;
+    return {
+      code: meatTypes(db.config).find((type) => type.id === item.id)?.code,
+      central: smoked
+        .filter((info) => ofKind(info.lot.id))
+        .reduce((a, info) => a + info.centralKg, 0),
+      transit: sent
+        .filter((e) => e.lotId && ofKind(e.lotId))
+        .reduce((a, e) => a + Number(e.values.qty || 0), 0),
+    };
+  };
   return (
     <div className="flex flex-col gap-4">
       <DayCard
@@ -305,24 +338,56 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
         aside={<SheetStatus db={db} sheet="meat" today={today} />}
       >
         <StockTable
-          columns={["รายการ", ...figures]}
-          right={figures}
-          wrap={figures}
+          columns={["รหัส", "รายการ", ...where]}
+          right={where.slice(0, -1)}
+          wideOnly={["รหัส"]}
         >
-          {sheetItems(db, "meat").map((item) => (
-            <tr key={item.id}>
-              <Cell className="font-semibold">{item.name}</Cell>
-              {branches.map((branch) => (
-                <SheetCells
-                  key={branch}
-                  db={db}
-                  branch={branch}
-                  item={item}
-                  today={today}
-                />
-              ))}
-            </tr>
-          ))}
+          {sheetItems(db, "meat").map((item) => {
+            const { code, central, transit } = whereOf(item);
+            const sheets = branches.map((b) =>
+              branchItem(db, b, item.id, today),
+            );
+            const total =
+              central +
+              transit +
+              sheets.reduce((a, sheet) => a + sheet.remaining, 0);
+            // Never set at a branch and nothing anywhere: no figure yet, grey (as Inventory).
+            const unset = sheets.every((sheet) => !sheet.set) && !total;
+            return (
+              <tr key={item.id}>
+                <Cell className="font-mono whitespace-nowrap text-accent max-md:hidden">
+                  {code || none}
+                </Cell>
+                <Cell className="font-semibold">{item.name}</Cell>
+                <Cell right tone={central < 0 ? "danger" : undefined}>
+                  {qty(central)} {item.unit}
+                </Cell>
+                {branches.map((branch) => (
+                  <SheetCells
+                    key={branch}
+                    db={db}
+                    branch={branch}
+                    item={item}
+                    today={today}
+                    stacked
+                  />
+                ))}
+                <Cell right>{transit ? qty(transit) : none}</Cell>
+                <Cell right tone={total < 0 ? "danger" : undefined}>
+                  {qty(total)} {item.unit}
+                </Cell>
+                <Cell
+                  tone={unset ? undefined : total <= 0 ? "danger" : "success"}
+                  className={cn(
+                    "whitespace-nowrap",
+                    unset && "text-text-secondary",
+                  )}
+                >
+                  {unset ? "ยังไม่ตั้งยอด" : total <= 0 ? "หมด" : "พร้อมใช้"}
+                </Cell>
+              </tr>
+            );
+          })}
         </StockTable>
       </DayCard>
       <WasteWeekCard db={db} sheet="meat" today={today} />
@@ -330,6 +395,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
         {[
           'ผู้ดูแลสาขาบันทึกใบสต๊อกรายวันจากหน้า Stock ของสาขา "จัดสรร" ส่งเนื้อรมควันจาก Foodiva ไปสาขา เข้าสต๊อกสาขาทันทีหรือเมื่อสาขากดยืนยันรับ',
           "PO จากไฟล์เดิมไม่นับเป็นสต๊อก",
+          "สต๊อกของสาขา: หนึ่งแถวคือเนื้อหนึ่งชนิดหรือวัตถุดิบหนึ่งรายการ คลังกลางของเนื้อคือเนื้อรมควันที่ Foodiva ของวัตถุดิบคือยอดซื้อเข้าจากหน้า Accounting ลบยอดที่จัดสรรออก ระหว่างส่งคือของที่ส่งแล้วและรอสาขากดยืนยันรับ ช่องรวมนับของระหว่างส่งด้วย",
           "คงเหลือ = ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขาย ของใบสต๊อกรายวัน Waste นับรวมอยู่ในยอดใช้ไปแล้ว",
           "ตัดจากยอดขาย: เว็บตัดให้เองจากยอดขายและกล่องที่แจก ตามส่วนประกอบของสินค้าใน Settings ยกเว้นเนื้อ ที่สาขาชั่งแล้วกรอกเองในยอดใช้ไป",
           "วันนี้ยังไม่บันทึก: คงเหลือคือยอดล่าสุดที่ยกมา",
