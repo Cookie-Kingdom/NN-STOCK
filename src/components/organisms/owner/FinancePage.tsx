@@ -30,6 +30,7 @@ import {
   editBlock,
   incomeStatuses,
   incomeTypes,
+  ledgerSources,
   receivables,
   salesChannels,
   shopProject,
@@ -38,6 +39,7 @@ import {
   visibleNotes,
   voidBlock,
   type Entry,
+  type LedgerSource,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "./CashFlowChart";
@@ -47,11 +49,11 @@ import { usePeriod } from "./overviewParts";
 const sumOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const none = <Muted as="span">—</Muted>;
 
-/** Money in of the shop project: an `income` note jotted for it, as `cashBetween` reads one. */
-const isIncome = (e: Entry) =>
-  e.kind === "income" &&
-  e.values.purpose === "project" &&
-  e.values.project === shopProject;
+/** Of the shop project: an `income` or `expense` note jotted for it, as `cashBetween` reads one. */
+const ofProject = (e: Entry) =>
+  e.values.purpose === "project" && e.values.project === shopProject;
+const isIncome = (e: Entry) => e.kind === "income" && ofProject(e);
+const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
 
 /** The project's money as it really moved, both ways, by month or by year. From the top: the
  *  cash position (what came in, what left the shop, what is left of the two, and what is
@@ -98,7 +100,10 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   const latest = visibleNotes(db, account)
     .filter(
       (e) =>
-        (e.kind === "pay" || e.kind === "reimburse" || isIncome(e)) &&
+        (e.kind === "pay" ||
+          e.kind === "reimburse" ||
+          isIncome(e) ||
+          isExpense(e)) &&
         (show === "all" || show === (isIncome(e) ? "in" : "out")),
     )
     .slice(0, 12);
@@ -108,22 +113,25 @@ export function FinancePage({ ws }: { ws: Workspace }) {
     const v = e.values;
     const pay = e.kind === "pay";
     const income = e.kind === "income";
+    const expense = e.kind === "expense";
     // The summary without what has a column of its own.
-    const line = income
-      ? [
-          salesChannels(db.config).find((c) => c.key === v.channel)?.name,
-          v.item,
-          v.status !== "paid" &&
-            incomeStatuses[v.status as keyof typeof incomeStatuses],
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : noteLine(db, {
-          ...e,
-          values: pay
-            ? { ...v, category: "", supplier: "" }
-            : { ...v, payer: "" },
-        });
+    const line = expense
+      ? [v.item, v.detail].filter(Boolean).join(" · ")
+      : income
+        ? [
+            salesChannels(db.config).find((c) => c.key === v.channel)?.name,
+            v.item,
+            v.status !== "paid" &&
+              incomeStatuses[v.status as keyof typeof incomeStatuses],
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : noteLine(db, {
+            ...e,
+            values: pay
+              ? { ...v, category: "", supplier: "" }
+              : { ...v, payer: "" },
+          });
     const sub = noteSub(db, e, account);
     const amount = noteAmount(db, e);
     return (
@@ -137,6 +145,8 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         <td className={cn(td, "whitespace-nowrap")}>
           {income ? (
             incomeTypes[v.incomeType === "sales" ? "sales" : "other"]
+          ) : expense ? (
+            v.itemType || none
           ) : !pay ? (
             titles[e.kind]
           ) : v.category ? (
@@ -157,15 +167,19 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         <td className={td}>
           {income
             ? v.customer || none
-            : pay
-              ? v.supplier || none
-              : v.payer || <MissingMark />}
+            : expense
+              ? v.vendor || none
+              : pay
+                ? v.supplier || none
+                : v.payer || <MissingMark />}
         </td>
         <td className={cn(td, "whitespace-nowrap")}>
           {/* A payment with no source reads as a transfer, as on Accounting. */}
           {pay
             ? fieldText(db, payField("source"), v.source || "transfer")
-            : none}
+            : expense
+              ? ledgerSources[v.source as LedgerSource] || none
+              : none}
         </td>
         <Num tone={amount?.tone}>{amount?.text ?? <MissingMark />}</Num>
         <td className={cn(td, "whitespace-nowrap")}>
@@ -325,7 +339,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         />
       </Panel>
       <div className={cardGrid}>
-        <PlTable db={db} month={key} />
+        <PlTable db={db} month={key} project={shopProject} />
         <div className="flex min-w-0 flex-col gap-4">
           <FigureCard
             title="ยอดค้างรับแยกช่องทางขาย"
