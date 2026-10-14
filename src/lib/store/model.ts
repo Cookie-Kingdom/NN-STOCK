@@ -68,7 +68,9 @@ const entryKinds = [
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
  *  `prepare` and `smoke` are retired: `smoked` holds the weight after smoking. So are the
- *  counts (`meatCount`, `materials`): a branch's stock is its daily sheet (`daily`). */
+ *  counts (`meatCount`, `materials`): a branch's stock is its daily sheet (`daily`). And the
+ *  opening stock (`opening`, retired 2026-10-14): a branch starts empty, and everything it
+ *  holds comes in by a transfer, a receipt or its own payment. */
 export const noteKinds = [
   "purchase",
   "meatInvoice",
@@ -88,7 +90,6 @@ export const noteKinds = [
   "influencerBox",
   "transferReceive",
   "daily",
-  "opening",
   "stockItem",
   "expense",
   "income",
@@ -144,7 +145,6 @@ export const kindInfo: Record<
   influencerBox: { group: "branch" },
   transferReceive: { group: "branch" },
   daily: { group: "branch" },
-  opening: { group: "branch" },
   stockItem: { group: "branch" },
   expense: { group: "ledger" },
   transfer: { group: "ledger" },
@@ -168,8 +168,8 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
     "foodivaReturnReceive",
   ],
   // A branch's Stock and Inventory. It has no Finance, so `pay` stands on both. The Owner's
-  // two pages have none. The daily sheet, the opening stock and a list item (`daily`,
-  // `opening`, `stockItem`) are saved by the sheet on the page, like `transferReceive`.
+  // two pages have none. The daily sheet and a list item (`daily`, `stockItem`) are saved by
+  // the sheet on the page, like `transferReceive`.
   meatStock: ["receive", "pay"],
   stock: ["pay"],
   // A branch's Sales (the Owner has no such page, and may jot neither).
@@ -289,12 +289,12 @@ export const titles: Record<EntryKind, string> = {
   transfer: "จัดสรรสินค้า",
   transferReceive: "ยืนยันรับสินค้า",
   daily: "ใบสต๊อกรายวัน",
-  opening: "ตั้งสต๊อกเริ่มต้น",
   stockItem: "รายการสินค้า",
   config: "บันทึกการตั้งค่า",
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
   // Retired.
+  opening: "ตั้งสต๊อกเริ่มต้น",
   meatCount: "นับเนื้อคงเหลือ",
   materials: "นับวัสดุคงเหลือ",
   central: "รับกลับเข้าสต๊อกกลาง",

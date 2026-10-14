@@ -16,7 +16,6 @@ import { qty, thaiDay } from "@/lib/format";
 import {
   branchItem,
   branches,
-  entries,
   meatStock,
   sheetItems,
   sheetNote,
@@ -30,19 +29,7 @@ import {
 const none = <Muted as="span">—</Muted>;
 const under = "block text-caption font-normal";
 
-/** Whether `branch` has set the opening stock of `sheet` by `today`: before that its sheet
- *  starts from nothing, so what is left there is not a figure to show. */
-const hasOpening = (
-  db: Database,
-  branch: string,
-  sheet: Sheet,
-  today: string,
-) =>
-  entries(db, "opening", undefined, branch).some(
-    (e) => e.values.sheet === sheet && e.date <= today,
-  );
-
-/** Each branch's day on `sheet`: saved (and by whom), waiting, or no opening stock yet. */
+/** Each branch's day on `sheet`: saved (and by whom) or waiting. */
 export function SheetStatus({
   db,
   sheet,
@@ -56,22 +43,11 @@ export function SheetStatus({
     const saved = sheetNote(db, "daily", branch, sheet, today);
     const reporter = saved?.values.reporter;
     return (
-      <Badge
-        key={branch}
-        tone={
-          saved
-            ? "success"
-            : hasOpening(db, branch, sheet, today)
-              ? "warning"
-              : "neutral"
-        }
-      >
+      <Badge key={branch} tone={saved ? "success" : "warning"}>
         สาขา{branch} ·{" "}
         {saved
           ? `บันทึกวันนี้แล้ว${reporter ? ` · ${reporter}` : ""}`
-          : hasOpening(db, branch, sheet, today)
-            ? "รอบันทึกวันนี้"
-            : "ยังไม่ตั้งสต๊อก"}
+          : "รอบันทึกวันนี้"}
       </Badge>
     );
   });
@@ -94,15 +70,6 @@ export function SheetCells({
   today: string;
   stacked?: boolean;
 }) {
-  if (!hasOpening(db, branch, sheetOf(item.id), today))
-    return (
-      <>
-        <Cell right className="font-normal text-text-secondary">
-          ยังไม่มีสต๊อกตั้งต้น
-        </Cell>
-        {!stacked && <Cell right>{none}</Cell>}
-      </>
-    );
   const { remaining, waste, reason, saved } = branchItem(
     db,
     branch,

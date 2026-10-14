@@ -13,10 +13,7 @@ import { OwnerMeatStock } from "./OwnerMeatStock";
 
 const emptyDb: Database = structuredClone(seed);
 /** `db` with the notes of today's Stock sheet (`meat`) laid on it, by the real `mutate`. */
-const withNotes = (
-  db: Database,
-  ...notes: [AccountId, "daily" | "opening", Values][]
-) =>
+const withNotes = (db: Database, ...notes: [AccountId, "daily", Values][]) =>
   notes.reduce(
     (next, [id, kind, values]) =>
       mutate(
@@ -85,22 +82,6 @@ export const OneNotSavedToday: Story = {
   parameters: { db: withNotes(sampleDb, saladaengSaved) },
 };
 
-/** มีนบุรียังไม่เคยตั้งสต๊อก: ป้ายสีเทา「ยังไม่ตั้งสต๊อก」ช่องคงเหลือของมีนบุรีทุกแถวเป็น
- *  「ยังไม่มีสต๊อกตั้งต้น」ไม่ใช่ 0 · ศาลาแดงตั้งสต๊อกวันนี้และบันทึกแล้ว */
-export const NoOpening: Story = {
-  parameters: {
-    db: withNotes(
-      emptyDb,
-      [
-        "saladaeng",
-        "opening",
-        { "qty.meat": "24", "qty.rice": "30", "qty.chili": "120" },
-      ],
-      saladaengSaved,
-    ),
-  },
-};
-
 /** Waste วันนี้พร้อมสาเหตุ: ศาลาแดง เนื้อ 0.5 กก.「เนื้อตกพื้น」ใต้ตัวเลข ·
  *  มีนบุรี น้ำพริก 2 หลอด ไม่ได้จดสาเหตุ ขึ้นป้ายเหลือง「ยังไม่ได้จดสาเหตุ」·
  *  สองบรรทัดนี้อยู่บนสุดของ「Waste ย้อนหลัง 7 วัน」ด้วย */
@@ -138,19 +119,8 @@ export const NegativeRemaining: Story = {
   },
 };
 
-/** ไม่มี Waste ใน 7 วัน: สองสาขาตั้งสต๊อกวันนี้ ยังไม่บันทึก ·「Waste ย้อนหลัง 7 วัน」บอก
- *  「ยังไม่มี waste ที่บันทึกในช่วงนี้」และ「บันทึกแล้ว 0 จาก 14 ใบ」 */
-export const WasteWeekEmpty: Story = {
-  parameters: {
-    db: withNotes(
-      emptyDb,
-      ["saladaeng", "opening", { "qty.meat": "24", "qty.chili": "120" }],
-      ["minburi", "opening", { "qty.meat": "40", "qty.chili": "60" }],
-    ),
-  },
-};
-
-/** ฐานข้อมูลเปล่า: กล่องเนื้อไม่มีแถว · สองสาขา「ยังไม่ตั้งสต๊อก」· ไม่มี Waste */
+/** ฐานข้อมูลเปล่า: กล่องเนื้อไม่มีแถว · สองสาขาป้ายเหลือง「รอบันทึกวันนี้」คงเหลือ 0 ·
+ *  「Waste ย้อนหลัง 7 วัน」บอก「ยังไม่มี waste ที่บันทึกในช่วงนี้」และ「บันทึกแล้ว 0 จาก 14 ใบ」 */
 export const Empty: Story = { parameters: { db: emptyDb } };
 
 /** จอ 390px: แต่ละตารางเลื่อนในกรอบของตัวเอง หน้าไม่เลื่อนข้าง */

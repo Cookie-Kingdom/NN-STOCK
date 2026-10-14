@@ -161,7 +161,6 @@ describe("mutate", () => {
       ["receive", { kg: "1" }],
       ["influencerBox", { influencer: "x", boxes: "1" }],
       ["daily", { sheet: "meat", "used.meat": "1" }],
-      ["opening", { sheet: "materials", "qty.m1": "1" }],
       ["stockItem", { name: "ช้อนพลาสติก", unit: "แพ็ค" }],
     ] as const) {
       expect(() => jot(owner, kind, { ...values, branch: "มีนบุรี" })).toThrow(
@@ -525,8 +524,8 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
   expect(kindsForPage(owner, "sales")).toEqual([]);
   expect(navFor(saladaeng)).toEqual(["meatStock", "stock", "sales", "log"]);
   expect(navFor(owner)).not.toContain("sales");
-  // The receipt of a transfer is on no page's buttons; nor are the daily sheet, the opening
-  // stock and a list item, which the sheet on the page saves.
+  // The receipt of a transfer is on no page's buttons; nor are the daily sheet and a list
+  // item, which the sheet on the page saves.
   expect(kindsForPage(saladaeng, "stock")).toEqual(["pay"]);
   expect(kindsForPage(owner, "meatStock")).toEqual([]);
   // Inventory: stock moves between the warehouses.
@@ -737,17 +736,20 @@ describe("figures (V2-CAL)", () => {
     lot,
   );
   jot(saladaeng, "receive", "2026-09-07", { kg: "10" }, lot);
-  jot(saladaeng, "opening", "2026-09-08", {
+  // A branch starts empty: its first chili and materials come in typed on a sheet.
+  jot(saladaeng, "daily", "2026-09-07", {
     sheet: "meat",
-    "qty.meat": "8",
-    "qty.chili": "50",
+    "used.meat": "2",
+    "received.chili": "50",
+    reporter: "ฝน",
+  });
+  jot(saladaeng, "daily", "2026-09-08", {
+    sheet: "materials",
+    "received.m1": "50",
+    "received.m2": "20",
+    reporter: "ฝน",
   });
   jot(saladaeng, "receive", "2026-09-09", { kg: "5" });
-  jot(saladaeng, "opening", "2026-09-09", {
-    sheet: "materials",
-    "qty.m1": "50",
-    "qty.m2": "20",
-  });
   const sale = jot(saladaeng, "sale", "2026-09-10", {
     boxes: "10",
     lineMan: "1000",
@@ -994,20 +996,20 @@ describe("figures (V2-CAL)", () => {
     branchItem(from, "ศาลาแดง", id, date);
 
   it("CAL-10: remaining = opening + auto received + typed received − used, and waste is part of used", () => {
-    // Before any opening an item starts from 0; a receipt comes in by itself.
+    // Every item starts from 0; a receipt comes in by itself.
     expect(item("meat", "2026-09-07")).toEqual({
       opening: 0,
       autoReceived: 10,
       received: 0,
-      used: 0,
+      used: 2,
       waste: 0,
       reason: "",
-      remaining: 10,
-      saved: false,
+      remaining: 8,
+      saved: true,
       sold: 0,
       set: true,
     });
-    // The opening of the 8th sets 8 (whatever was there), the 9th takes in 5.
+    // The 8th opens with the 8 the 7th left, the 9th takes in 5.
     expect(item("meat", "2026-09-09")).toMatchObject({
       opening: 8,
       autoReceived: 5,
@@ -1636,8 +1638,8 @@ describe("figures (V2-CAL)", () => {
     expect(item("m1", "2026-09-11", gone).opening).toBe(40);
   });
 
-  it("CAL-10: an item is set once an opening is typed for it or anything moved it", () => {
-    // No opening of the materials sheet names m3, and nothing moved it.
+  it("CAL-10: an item is set once anything moved it", () => {
+    // Nothing moved m3.
     expect(item("m3", "2026-09-13")).toMatchObject({
       set: false,
       remaining: 0,
@@ -1646,25 +1648,9 @@ describe("figures (V2-CAL)", () => {
     // Before the receipt of the 7th the meat was not there either.
     expect(item("meat", "2026-09-06").set).toBe(false);
     expect(item("meat", "2026-09-07").set).toBe(true);
-    // m1: nothing by the 8th, its opening on the 9th.
-    expect(item("m1", "2026-09-08").set).toBe(false);
-    expect(item("m1", "2026-09-09").set).toBe(true);
-    // An opening typed at 0 sets it; used up, it stays set (หมด, not ยังไม่ตั้งยอด).
-    const zero = mutate(
-      built,
-      saladaeng,
-      "entryEdit",
-      {
-        targetId: entries(built, "opening", undefined, "ศาลาแดง").at(-1)!.id,
-        values: JSON.stringify({ "qty.m3": "0" }),
-      },
-      "",
-      day,
-    );
-    expect(item("m3", "2026-09-13", zero)).toMatchObject({
-      set: true,
-      remaining: 0,
-    });
+    // m1: nothing by the 7th, typed in on the 8th.
+    expect(item("m1", "2026-09-07").set).toBe(false);
+    expect(item("m1", "2026-09-08").set).toBe(true);
     // A box sold moved it.
     expect(
       item("m3", "2026-09-13", withRecipe(built, ["m3", "1"])),
@@ -1729,64 +1715,55 @@ describe("figures (V2-CAL)", () => {
     );
   });
 
-  it("CAL-10: an opening sets the balance before its day's sheet, a later one sets it again, and each is in the log", () => {
-    const set = (from: Database, date: string, qty: string) =>
-      mutate(
-        from,
-        saladaeng,
-        "opening",
-        { sheet: "meat", "qty.meat": qty },
-        "",
-        date,
-      );
-    // Jotted after the day's sheet, it still applies first: 20 − 1.5.
-    const same = set(built, "2026-09-10", "20");
-    expect(item("meat", "2026-09-10", same)).toMatchObject({
-      opening: 20,
-      used: 1.5,
-      remaining: 18.5,
-    });
-    expect(item("meat", "2026-09-11", same).opening).toBe(18.5);
-    // A row it leaves empty is not set.
-    expect(item("chili", "2026-09-10", same).opening).toBe(50);
-    // A later one resets the balance from its date; the days before read as they did.
-    const later = set(same, "2026-09-12", "4");
-    expect(item("meat", "2026-09-11", later).remaining).toBe(17.5);
-    expect(item("meat", "2026-09-12", later)).toMatchObject({
-      opening: 4,
-      remaining: 4,
-    });
-    // The branch changes its opening: an edit, kept in the log.
-    const opened = sheetNote(same, "opening", "ศาลาแดง", "meat", "2026-09-10")!;
-    const changed = mutate(
-      same,
-      saladaeng,
-      "entryEdit",
-      { targetId: opened.id, values: JSON.stringify({ "qty.meat": "25" }) },
-      "",
-      "2026-09-10",
+  it("CAL-10: a branch starts empty: what was sent is what it holds, and the retired opening is refused and read as nothing", () => {
+    // มีนบุรี holds nothing; the Owner sends it 5 กก. of smoked meat.
+    const sent = mutate(
+      built,
+      owner,
+      "transfer",
+      { to: "มีนบุรี", qty: "5", receive: "now" },
+      lot,
+      "2026-09-12",
     );
-    expect(item("meat", "2026-09-10", changed).opening).toBe(25);
-    expect(last(changed).values).toMatchObject({
-      targetKind: "opening",
-      "from.qty.meat": "20",
-      "to.qty.meat": "25",
+    expect(branchItem(sent, "มีนบุรี", "meat", "2026-09-12")).toMatchObject({
+      opening: 0,
+      autoReceived: 5,
+      remaining: 5,
+      set: true,
     });
-    // The Owner sees it and changes none of it.
-    expect(visibleNotes(changed, owner).map((e) => e.id)).toContain(opened.id);
+    expect(branchItem(sent, "มีนบุรี", "meat", "2026-09-13")).toMatchObject({
+      opening: 5,
+      remaining: 5,
+    });
+    // Nobody jots an opening any more.
     expect(() =>
       mutate(
-        same,
-        owner,
-        "entryEdit",
-        { targetId: opened.id, values: '{"qty.meat":"1"}' },
+        built,
+        saladaeng,
+        "opening" as NoteKind,
+        { sheet: "meat", "qty.meat": "20" },
         "",
-        "2026-09-10",
+        day,
       ),
-    ).toThrow("บันทึกนี้เป็นของสาขา ให้สาขาเป็นคนแก้");
-    expect(() =>
-      mutate(built, saladaeng, "opening", { "qty.meat": "1" }, "", day),
-    ).toThrow("เลือกใบสต๊อก");
+    ).toThrow("รายการชนิดนี้เลิกใช้แล้ว");
+    // An old one still in the log moves nothing: no double count of what came in.
+    const old: Database = {
+      ...sent,
+      entries: [
+        ...sent.entries,
+        {
+          ...last(sent),
+          id: "old-opening",
+          kind: "opening",
+          role: "branch",
+          branch: "มีนบุรี",
+          lotId: "",
+          date: "2026-09-12",
+          values: { sheet: "meat", "qty.meat": "5" },
+        },
+      ],
+    };
+    expect(branchItem(old, "มีนบุรี", "meat", "2026-09-13").remaining).toBe(5);
   });
 
   it("RUL-05: a sheet refuses nothing: a waste with no reason and an empty reporter are listed as missing, and remaining may go below zero", () => {
@@ -1819,7 +1796,7 @@ describe("figures (V2-CAL)", () => {
 
   it("the Overview's waste: a branch's 7 days, per item with dates and reasons, and the days with a saved sheet", () => {
     expect(wasteWeek(built, "ศาลาแดง", "2026-09-13")).toEqual({
-      saved: { meat: 2, materials: 1 },
+      saved: { meat: 3, materials: 2 },
       items: [
         {
           id: "meat",
@@ -1864,7 +1841,7 @@ describe("figures (V2-CAL)", () => {
       built,
     );
     expect(wasteWeek(more, "ศาลาแดง", "2026-09-13")).toMatchObject({
-      saved: { meat: 2, materials: 3 },
+      saved: { meat: 3, materials: 4 },
       items: [
         {},
         {},
@@ -2719,8 +2696,8 @@ describe("central warehouse: stock per place", () => {
     d = mutate(
       d,
       saladaeng,
-      "opening",
-      { sheet: "materials", "qty.m1": "10" },
+      "daily",
+      { sheet: "materials", "received.m1": "10", reporter: "ฝน" },
       "",
       "2026-09-01",
     );

@@ -857,11 +857,11 @@ export function sheetItems(
     { id: "chili", sku: "", name: "น้ำพริก", unit: "หลอด" },
   ];
 }
-/** The live `daily` or `opening` note of `branch` for `sheet` on `date`: the one a sheet saved
- *  again for that day edits (the latest, should a day hold two). */
+/** The live `daily` note of `branch` for `sheet` on `date`: the one a sheet saved again for
+ *  that day edits (the latest, should a day hold two). */
 export const sheetNote = (
   db: Database,
-  kind: "daily" | "opening",
+  kind: "daily",
   branch: string,
   sheet: Sheet,
   date: string,
@@ -871,12 +871,7 @@ export const sheetNote = (
   );
 /** What a branch's `kind` notes of `sheet` say, per date. Two notes of one day read as one,
  *  the later winning for the keys it holds. */
-function sheetDays(
-  db: Database,
-  kind: "daily" | "opening",
-  branch: string,
-  sheet: Sheet,
-) {
+function sheetDays(db: Database, kind: "daily", branch: string, sheet: Sheet) {
   const days = new Map<string, Values>();
   for (const e of entries(db, kind, undefined, branch))
     if (e.values.sheet === sheet)
@@ -896,9 +891,9 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
   (itemId === "chili" ? Number(values.chiliAddons) || 0 : 0);
 /** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
  *  `remaining = opening + autoReceived + received − used − sold`.
- *  - `opening`: the balance at the start of the day: the day before's remaining carried
- *    forward, or what an `opening` note of this day sets (it applies before anything else of
- *    its date). Before any opening an item starts from 0.
+ *  - `opening` ("ยกมา"): the balance at the start of the day, the day before's remaining
+ *    carried forward. Every item starts from 0: a branch starts empty, and an `opening` note
+ *    (retired 2026-10-14, it counted what had just come in twice) is not read.
  *  - `autoReceived`: what came in by itself that day: the meat a `receive` took in (not from
  *    an old lot, which holds no stock), a payment's `item` + `qty` stamped with the branch, and
  *    what the warehouses moved in or out of it (`stockMoves`: a transfer waiting for the
@@ -911,8 +906,8 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
  *    `chiliAddons` of a note saved when tubes sold apart had their own field, tube for tube.
  *    A day with such a note and no sheet counts all the same.
  *  - `saved`: whether the day has a `daily` note of the item's sheet.
- *  - `set`: whether the item was ever set or moved by `date`: an opening typed for it, or
- *    something in or out. Until then its 0 is "ยังไม่ตั้งยอด", not "หมด".
+ *  - `set`: whether anything moved the item in or out by `date`. Until then its 0 is
+ *    "ยังไม่ตั้งยอด", not "หมด".
  *  Nothing is refused: `remaining` may go below zero.
  *  shortcut: the products are read as they stand now, so a change of one works every past day
  *  out again; date the list (a list of `from` dates) when a past day's stock must stand.
@@ -955,13 +950,7 @@ export function branchItem(
       if (qty) taken.set(e.date, (taken.get(e.date) ?? 0) + qty);
     }
   const daily = sheetDays(db, "daily", branch, sheet);
-  const openings = sheetDays(db, "opening", branch, sheet);
-  const days = new Set([
-    ...auto.keys(),
-    ...taken.keys(),
-    ...daily.keys(),
-    ...openings.keys(),
-  ]);
+  const days = new Set([...auto.keys(), ...taken.keys(), ...daily.keys()]);
   /** A day's own figures: in by itself, typed in, typed out, taken by the boxes. */
   const figures = (day: string) => {
     const noted = daily.get(day) ?? {};
@@ -976,11 +965,6 @@ export function branchItem(
   let set = false;
   for (const day of [...days].sort()) {
     if (day > date) break;
-    const start = openings.get(day);
-    if (start && typed(start, key("qty"))) {
-      opening = num(start, key("qty"));
-      set = true;
-    }
     const moved = figures(day);
     set ||= Object.values(moved).some(Boolean);
     if (day === date) break;

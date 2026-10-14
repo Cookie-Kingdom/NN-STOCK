@@ -346,7 +346,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
         // A note this account may not edit (a branch's, for the Owner) is a status line; a
         // sheet is saved again from its page.
         ...(!editBlock(db, e, by) &&
-          (e.kind === "daily" || e.kind === "opening"
+          (e.kind === "daily"
             ? { page: sheetPages[e.values.sheet as Sheet]?.page }
             : { editId: e.id })),
       });

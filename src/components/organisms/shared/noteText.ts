@@ -350,7 +350,8 @@ export function noteLine(db: Database, e: Entry): string {
         has("shippingFee") && `ค่าส่ง ${baht(Number(v.shippingFee))}`,
       );
     /* A day's sheet: each row with a figure, in its unit. A sheet never named reads as both
-     * (an item id is of one sheet only). */
+     * (an item id is of one sheet only). An `opening` (retired 2026-10-14) is an old note's
+     * starting figures. */
     case "daily":
     case "opening": {
       const rows = sheets

@@ -112,14 +112,14 @@ const dispatchOf = (kg1: string, kg2: string): Draft => {
 };
 
 /** The sample with 「รายการสินค้า」 of two products (a box of meat, a tube and two bags; a
- *  tube sold apart), มีนบุรี's stock set today, and a sale of both jotted today. */
+ *  tube sold apart), มีนบุรี's stock as the sample has it, and a sale of both jotted today. */
 const productsDb = (() => {
   const branch = accountById("minburi")!;
   const date = today();
   const bag = materialList(sampleDb)[0].id;
   const items = (...rows: [string, string][]) =>
     rows.map(([id, qty]) => ({ id, qty }));
-  let db = mutate(
+  const db = mutate(
     sampleDb,
     accountById("owner")!,
     "config",
@@ -136,11 +136,6 @@ const productsDb = (() => {
     "",
     date,
   );
-  for (const opening of [
-    { sheet: "meat", "qty.meat": "12", "qty.chili": "60" },
-    { sheet: "materials", [`qty.${bag}`]: "300" },
-  ])
-    db = mutate(db, branch, "opening", opening, "", date);
   return mutate(
     db,
     branch,
@@ -290,7 +285,7 @@ export const SaleEdit: Story = {
 export const SaleBelowZero: Story = {
   args: {
     account: "minburi",
-    open: { kind: "sale", values: { boxes: "120", "product.tube": "40" } },
+    open: { kind: "sale", values: { boxes: "1000", "product.tube": "400" } },
   },
   parameters: productsStory,
 };

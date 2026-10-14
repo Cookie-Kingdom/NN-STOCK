@@ -8,9 +8,8 @@ import {
   popup,
   region,
   save,
-  setOpening,
+  saveSheet,
   sheetCell,
-  sheetView,
   signInAs,
   start,
   toast,
@@ -229,30 +228,29 @@ test("V2-BR-08 the branches ticked in Settings hold raw rice: the row comes and 
   ).toBeVisible();
   await expect(rice.getByLabel("สาขามีนบุรี")).toBeChecked();
   await expect(rice.getByLabel("สาขาศาลาแดง")).not.toBeChecked();
-  // The Owner's Stock: a dash under ศาลาแดง, and มีนบุรี has no opening stock yet.
+  // The Owner's Stock: a dash under ศาลาแดง, and มีนบุรี holds none yet.
   await openPage(page, "Stock");
   const riceRow = stockRow(region(page, "สต๊อกของสาขา"), "ข้าวเหนียวดิบ");
   await expect(riceRow).toHaveText([
     "ข้าวเหนียวดิบ",
     "—",
     "—",
-    "ยังไม่มีสต๊อกตั้งต้น",
+    "0 กก.ยังไม่บันทึกวันนี้",
     "—",
   ]);
 
   // ศาลาแดง has no row for it, and is told nothing of the other branch.
   await signInAs(page, "saladaeng");
   await openPage(page, "Stock");
-  await sheetView(page, "ตั้งสต๊อกเริ่มต้น").click();
-  await expect(sheetCell(page, "ของตั้งต้น", "น้ำพริก")).toBeVisible();
-  await expect(sheetCell(page, "ของตั้งต้น", "ข้าวเหนียวดิบ")).toHaveCount(0);
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
   const copy = (await (await page.request.get("/api/local-db")).json()).payload;
   expect(copy.config.rawRiceBranches).toBe("[]");
 
-  // มีนบุรี has it, and sets its opening stock.
+  // มีนบุรี has it, and takes some in.
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
-  await setOpening(page, ["ข้าวเหนียวดิบ", "7.5"]);
+  await saveSheet(page, "พี่เอ", ["รับเพิ่ม", "ข้าวเหนียวดิบ", "7.5"]);
   await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveText(
     "7.5 กก.",
   );

@@ -12,10 +12,8 @@ import { ReadRow } from "@/components/atoms/ReadRow";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { Dialog } from "@/components/molecules/Dialog";
-import { EmptyState } from "@/components/molecules/EmptyState";
 import { FormError } from "@/components/molecules/FormError";
 import { FormField } from "@/components/molecules/FormField";
-import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { unitOptions } from "@/lib/forms";
@@ -23,12 +21,10 @@ import { dateLabel } from "@/lib/format";
 import { latestDatabase } from "@/lib/persistence";
 import {
   branchItem,
-  entries,
   mutate,
   sheetItems,
   sheetNote,
   titles,
-  type Database,
   type Material,
   type Sheet,
   type Values,
@@ -43,13 +39,6 @@ const n3 = (x: number) =>
 /** What a figure's input holds, as a number: empty or unreadable is 0 (`mutate` words the
  *  refusal of a bad one on save). */
 const num = (text = "") => Number(text) || 0;
-
-/** The branch's opening of `sheet`, the latest by date: the one the opening view edits. */
-const openingNote = (db: Database, branch: string, sheet: Sheet) =>
-  entries(db, "opening", undefined, branch)
-    .filter((e) => e.values.sheet === sheet)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1);
 
 /** A card whose table has a line between its columns, as the page's other tables have. */
 const lined = "[&_:is(td,th)+:is(td,th)]:border-l";
@@ -475,151 +464,6 @@ function DailyForm({
   );
 }
 
-/** 「ตั้งสต๊อกเริ่มต้น」: what each row holds at the start of a date. The branch has one
- *  opening per sheet: a save after the first edits it (its date too), and every later day is
- *  worked out again from it. A row left empty is not set, so it starts from 0. A saved opening
- *  is locked, its date too, until 「แก้ไขบันทึก」. */
-function OpeningForm({
-  ws,
-  sheet,
-  items,
-  shown,
-  onSaved,
-}: {
-  ws: Workspace;
-  sheet: Sheet;
-  items: Material[];
-  shown: Material[];
-  onSaved: () => void;
-}) {
-  const { db, account, today } = ws;
-  const branch = account.branch ?? "";
-  const opening = openingNote(db, branch, sheet);
-  const [date, setDate] = useState(opening?.date ?? today);
-  const [edits, setEdits] = useState<Values>({});
-  const [editing, setEditing] = useState(false);
-  const locked = !!opening && !editing;
-  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const at = (id: string) =>
-    edits[`qty.${id}`] ?? opening?.values[`qty.${id}`] ?? "";
-
-  const save = async () => {
-    setError("");
-    const values: Values = {
-      sheet,
-      ...Object.fromEntries(items.map(({ id }) => [`qty.${id}`, at(id)])),
-    };
-    const next = await run(() => {
-      const latest = latestDatabase();
-      const saved = openingNote(latest, branch, sheet);
-      return saved
-        ? mutate(
-            latest,
-            account,
-            "entryEdit",
-            {
-              targetId: saved.id,
-              values: JSON.stringify(values),
-              toDate: date,
-            },
-            "",
-            today,
-          )
-        : mutate(latest, account, "opening", values, "", date);
-    });
-    if (!next) return;
-    ws.setToast(`จดแล้ว: ${titles.opening} · ${dateLabel(date)}`);
-    onSaved();
-  };
-
-  return (
-    <form
-      noValidate
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!locked) save();
-      }}
-    >
-      <FormField label="เริ่มนับตั้งแต่วันที่" className="self-start">
-        <DatePicker
-          title="เริ่มนับตั้งแต่วันที่"
-          max={today}
-          className={cn(dateField, "mt-2")}
-          disabled={locked}
-          value={date}
-          onChange={(next) => {
-            setError("");
-            setDate(next);
-          }}
-        />
-      </FormField>
-      <Caption>
-        เริ่มจากของที่มีอยู่จริง · แก้ไขยอดตั้งต้นได้ ระบบคำนวณคงเหลือทุกวันใหม่
-        · ถ้าไม่มี ใส่ 0
-      </Caption>
-      <DayCard
-        aria-label="ตั้งสต๊อกเริ่มต้น"
-        title="ของตั้งต้น"
-        className={lined}
-      >
-        <StockTable columns={["สินค้า", "ยอดตั้งต้น"]} right={["ยอดตั้งต้น"]}>
-          {shown.map(({ id, name, unit }) => (
-            <tr key={id}>
-              <Cell className="font-semibold">{name}</Cell>
-              <Cell right className="w-56 max-md:w-44">
-                <span className="flex items-center justify-end gap-2">
-                  {locked ? (
-                    at(id) ? (
-                      n3(num(at(id)))
-                    ) : (
-                      <Muted as="span">—</Muted>
-                    )
-                  ) : (
-                    <Input
-                      inputMode="decimal"
-                      aria-label={`ของตั้งต้น ${name}`}
-                      className="mt-0 w-32 text-right max-md:w-24"
-                      value={at(id)}
-                      onChange={(event) => {
-                        setError("");
-                        setEdits({
-                          ...edits,
-                          [`qty.${id}`]: event.target.value,
-                        });
-                      }}
-                    />
-                  )}
-                  <Caption as="span" className="w-12 text-left">
-                    {unit}
-                  </Caption>
-                </span>
-              </Cell>
-            </tr>
-          ))}
-        </StockTable>
-        <FormError error={error} className="mx-5 my-3 max-md:mx-4" />
-        <SaveBar
-          caption={<>{items.length} รายการสินค้า</>}
-          save="บันทึกของตั้งต้น"
-          locked={locked}
-          saving={saving}
-          onEdit={() => setEditing(true)}
-          onCancel={
-            opening &&
-            (() => {
-              setError("");
-              setEdits({});
-              setDate(opening.date);
-              setEditing(false);
-            })
-          }
-        />
-      </DayCard>
-    </form>
-  );
-}
-
 /** 「เพิ่มรายการสินค้า」 / 「แก้ไขรายการสินค้า」: one row of the material list both branches
  *  read, saved as a `stockItem` note. A name `mutate` refuses (empty, taken) is said beside
  *  the buttons. */
@@ -703,9 +547,8 @@ function ItemDialog({
   );
 }
 
-/** A branch's daily stock sheet, of its own branch always: 「ใบสต๊อกรายวัน」 (`DailyForm`), or
- *  until the sheet has an opening a pointer to 「ตั้งสต๊อกเริ่มต้น」 (`OpeningForm`). `sheet`
- *  "meat" is the Stock page's (fixed rows), "materials" the Inventory page's, whose list the
+/** A branch's daily stock sheet, of its own branch always: 「ใบสต๊อกรายวัน」 (`DailyForm`).
+ *  `sheet` "meat" is the Stock page's (fixed rows), "materials" the Inventory page's, whose list the
  *  branch adds to and renames. `word` is the page's search: it hides rows, never from a save. */
 export function DailySheet({
   ws,
@@ -718,7 +561,6 @@ export function DailySheet({
 }) {
   const { db } = ws;
   const branch = ws.account.branch ?? "";
-  const [view, setView] = useState<"daily" | "opening">("daily");
   const [dialog, setDialog] = useState<Material | "new">();
   const items = sheetItems(db, sheet, branch);
   const shown = items.filter(
@@ -727,53 +569,15 @@ export function DailySheet({
       item.name.toLowerCase().includes(word) ||
       item.sku.toLowerCase().includes(word),
   );
-  const opening = openingNote(db, branch, sheet);
-  // What the Owner sent or the branch bought shows before any opening is set.
-  const started =
-    !!opening ||
-    items.some((item) => branchItem(db, branch, item.id, ws.today).set);
   return (
     <div className="flex flex-col gap-4">
-      <SegmentedChoice
-        label="มุมมอง"
-        className="self-start"
-        options={[
-          { value: "daily", label: titles.daily },
-          { value: "opening", label: titles.opening },
-        ]}
-        value={view}
-        onChange={setView}
+      <DailyForm
+        ws={ws}
+        sheet={sheet}
+        items={items}
+        shown={shown}
+        onItem={sheet === "materials" ? setDialog : undefined}
       />
-      {view === "opening" ? (
-        <OpeningForm
-          ws={ws}
-          sheet={sheet}
-          items={items}
-          shown={shown}
-          onSaved={() => setView("daily")}
-        />
-      ) : started ? (
-        <DailyForm
-          ws={ws}
-          sheet={sheet}
-          items={items}
-          shown={shown}
-          onItem={sheet === "materials" ? setDialog : undefined}
-        />
-      ) : (
-        <EmptyState
-          text={
-            <>
-              <span className="mb-4 block">
-                ตั้งสต๊อกเริ่มต้นของ{branch}ก่อน
-              </span>
-              <Button variant="primary" onClick={() => setView("opening")}>
-                {titles.opening}
-              </Button>
-            </>
-          }
-        />
-      )}
       {dialog && (
         <ItemDialog
           ws={ws}

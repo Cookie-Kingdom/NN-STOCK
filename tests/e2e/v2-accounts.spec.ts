@@ -188,7 +188,7 @@ test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or
       if (name === "Daily Log") {
         const branchNote = page
           .locator(
-            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"], [data-kind="opening"])',
+            '[data-entry]:is([data-kind="sale"], [data-kind="receive"], [data-kind="influencerBox"], [data-kind="daily"])',
           )
           .first();
         await expect(
