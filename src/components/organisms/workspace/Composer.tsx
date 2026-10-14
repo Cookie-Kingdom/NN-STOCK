@@ -49,6 +49,7 @@ import {
   productQty,
   products,
   skuFor,
+  ingredientType,
   skuName,
   kindInfo,
   missingKeys,
@@ -297,7 +298,12 @@ function NoteForm({
       // A ledger item: the SKU the name typed gets (V2-LED-03).
       if (kind !== "expense" || f.key !== "item" || !values.item?.trim())
         return f;
-      const { sku, isNew } = skuFor(db, values.item, target?.values);
+      const { sku, isNew } = skuFor(
+        db,
+        values.item,
+        target?.values,
+        values.itemType === ingredientType,
+      );
       return { ...f, hint: isNew ? `ใหม่: ${sku}` : sku };
     });
   /** A sale's count fields, one per product: laid out as rows (`SaleRowsControl`). */
@@ -925,7 +931,12 @@ function noteFigures(
     };
   }
   if (kind === "expense") {
-    const { sku, isNew } = skuFor(db, v.item ?? "", target?.values);
+    const { sku, isNew } = skuFor(
+      db,
+      v.item ?? "",
+      target?.values,
+      v.itemType === ingredientType,
+    );
     const amount = Number(v.amount) || 0;
     // As the ledger reads a row: a status typed, else paid once it has an amount.
     const status = (v.status ||
@@ -1002,12 +1013,15 @@ function PoLinesControl({
   const write = (next: Line[]) =>
     set(f.key, next.length ? JSON.stringify(next) : "");
   const held = (id: string) => poInfo(db, id, exceptId).heldKg;
-  // A PO with nothing left is not offered, unless a line already names it.
+  // Of the PO the field offers (the Lot's kind of meat), one with nothing left is not, unless
+  // a line already names it.
+  const offered = new Set(f.options?.map((option) => option.value));
   const pos = purchaseLots(db)
     .reverse()
     .filter(
       (lot) =>
-        held(lot.id) > 0.005 || rows.some((row) => row.poLotId === lot.id),
+        (offered.has(lot.id) && held(lot.id) > 0.005) ||
+        rows.some((row) => row.poLotId === lot.id),
     );
   const label = (id: string) => `${lotLabel(db, id)} · ${qty(held(id))} กก.`;
   const pick = (index: number, poLotId: string) => {

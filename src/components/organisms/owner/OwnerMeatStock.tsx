@@ -11,6 +11,7 @@ import {
   Left,
   StockTable,
 } from "@/components/organisms/branch/BranchStock";
+import { lotMeat } from "@/components/organisms/shared/noteText";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { qty, thaiDay } from "@/lib/format";
 import {
@@ -220,7 +221,9 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
             <tr key={lot.id}>
               <Cell>ผู้ขาย (ฝากไว้)</Cell>
               <Cell>
-                {[lot.poId, lot.values.supplier].filter(Boolean).join(" · ")}
+                {[lot.poId, lot.values.supplier, lotMeat(db, lot.id)]
+                  .filter(Boolean)
+                  .join(" · ")}
               </Cell>
               <Left n={kg} />
               <Cell />
@@ -229,7 +232,11 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           {smoked.map((info) => (
             <tr key={info.lot.id}>
               <Cell>Foodiva (รมควันแล้ว)</Cell>
-              <Cell>{info.lot.poId}</Cell>
+              <Cell>
+                {[info.lot.poId, lotMeat(db, info.lot.id)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Cell>
               <Left n={info.centralKg} />
               <Cell right className="py-1.5">
                 <Button
@@ -302,37 +309,20 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           right={figures}
           wrap={figures}
         >
-          {sheetItems(db, "meat")
-            // Raw rice no branch steams (Settings) has no row (V2-BR-08).
-            .filter((item) =>
-              branches.some((branch) =>
-                sheetItems(db, "meat", branch).some((i) => i.id === item.id),
-              ),
-            )
-            .map((item) => (
-              <tr key={item.id}>
-                <Cell className="font-semibold">{item.name}</Cell>
-                {branches.map((branch) =>
-                  // Raw rice: only at a branch that steams its own (Settings).
-                  sheetItems(db, "meat", branch).some(
-                    (i) => i.id === item.id,
-                  ) ? (
-                    <SheetCells
-                      key={branch}
-                      db={db}
-                      branch={branch}
-                      item={item}
-                      today={today}
-                    />
-                  ) : (
-                    <Fragment key={branch}>
-                      <Cell right>{none}</Cell>
-                      <Cell right>{none}</Cell>
-                    </Fragment>
-                  ),
-                )}
-              </tr>
-            ))}
+          {sheetItems(db, "meat").map((item) => (
+            <tr key={item.id}>
+              <Cell className="font-semibold">{item.name}</Cell>
+              {branches.map((branch) => (
+                <SheetCells
+                  key={branch}
+                  db={db}
+                  branch={branch}
+                  item={item}
+                  today={today}
+                />
+              ))}
+            </tr>
+          ))}
         </StockTable>
       </DayCard>
       <WasteWeekCard db={db} sheet="meat" today={today} />
@@ -343,7 +333,7 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
           "คงเหลือ = ยอดยกมา + รับเข้า − ใช้ไป − ตัดจากยอดขาย ของใบสต๊อกรายวัน Waste นับรวมอยู่ในยอดใช้ไปแล้ว",
           "ตัดจากยอดขาย: เว็บตัดให้เองจากยอดขายและกล่องที่แจก ตามส่วนประกอบของสินค้าใน Settings ยกเว้นเนื้อ ที่สาขาชั่งแล้วกรอกเองในยอดใช้ไป",
           "วันนี้ยังไม่บันทึก: คงเหลือคือยอดล่าสุดที่ยกมา",
-          '"—" = สาขาที่ไม่ได้ใช้ข้าวเหนียวดิบ (กำหนดใน Settings) หรือยังไม่มีตัวเลขของวันนี้',
+          '"—" = ยังไม่มีตัวเลขของวันนี้',
           "ช่องสีแดงคือยอดติดลบ",
         ].map((line) => (
           <span key={line}>{line}</span>

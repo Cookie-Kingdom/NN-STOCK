@@ -14,13 +14,18 @@ import {
   isEditOverlay,
   configMaterials,
   boxProduct,
-  gramItems,
+  isGramItem,
+  isMeatItem,
+  isIngredientItem,
+  ingredientList,
+  meatItem,
+  meatTypeOf,
+  meatTypes,
   pieces,
   productMeatKg,
   productMoney,
   productQty,
   products,
-  rawRiceBranches,
   sheets,
   type Material,
   type Product,
@@ -538,13 +543,14 @@ export function lotInfo(db: Database, lotId: string): LotInfo {
     linked && backKg > 0 && fee > 0
       ? (meatCost + fee + shippingFee) / backKg
       : null;
+  const lot = db.lots.find((lot) => lot.id === lotId)!;
   const box = products(db.config).find((p) => p.id === boxProduct);
   const meatPerBox =
     costPerKg === null || !box
       ? null
-      : costPerKg * productMeatKg(db.config, box);
+      : costPerKg * productMeatKg(db.config, box, meatTypeOf(lot));
   return {
-    lot: db.lots.find((lot) => lot.id === lotId)!,
+    lot,
     capacityKg,
     sentKg,
     remainingKg: capacityKg - sentKg,
@@ -616,17 +622,26 @@ export function boxCost(db: Database) {
       };
 }
 /** V2-CAL-06 per product of 「รายการสินค้า」: its price, and the cost of one piece: its meat
- *  (`productMeatKg`) at the cost per kg of the newest PO รมควัน that has one (`lotId`), and
- *  its own other cost (0 while none is set). `meat` and `total` are null while a product
- *  with meat has no such PO to cost it from. */
+ *  (`productMeatKg`), each kind at the cost per kg of the newest PO รมควัน of that kind that
+ *  has one (`lotId`: the first kind's), and its own other cost (0 while none is set). `meat`
+ *  and `total` are null while a kind of meat it holds has no such PO to cost it from. */
 export function productCosts(db: Database) {
-  const lot = shipments(db)
-    .map((lot) => lotInfo(db, lot.id))
-    .findLast((lot) => lot.costPerKg !== null);
+  const infos = shipments(db).map((lot) => lotInfo(db, lot.id));
+  const newest = (type: string) =>
+    infos.findLast(
+      (info) => info.costPerKg !== null && meatTypeOf(info.lot) === type,
+    );
   return products(db.config).map((product) => {
-    const kg = productMeatKg(db.config, product);
     const { price, cost } = productMoney(db.config, product.id);
-    const meat = !kg ? 0 : lot ? lot.costPerKg! * kg : null;
+    let meat: number | null = 0;
+    let lotId: string | null = null;
+    for (const type of meatTypes(db.config)) {
+      const kg = productMeatKg(db.config, product, type.id);
+      if (!kg) continue;
+      const lot = newest(type.id);
+      lotId ??= lot?.lot.id ?? null;
+      meat = lot && meat !== null ? meat + lot.costPerKg! * kg : null;
+    }
     const other = cost ?? 0;
     return {
       id: product.id,
@@ -635,7 +650,7 @@ export function productCosts(db: Database) {
       meat,
       other,
       total: meat === null ? null : meat + other,
-      lotId: kg && lot ? lot.lot.id : null,
+      lotId,
     };
   });
 }
@@ -835,26 +850,23 @@ export function materialList(db: Database): Material[] {
   }
   return list;
 }
-/** The ids of the Stock page's sheet; every other id is a material's (the Inventory page's). */
-const meatSheetIds = ["meat", "rice", "chili"];
+/** The ids of the Stock page's sheet (each kind of meat, each ingredient); every other id is
+ *  a material's (the Inventory page's). */
 export const sheetOf = (itemId: string): Sheet =>
-  meatSheetIds.includes(itemId) ? "meat" : "materials";
-/** The rows of a daily sheet, each with its unit: the meat, the raw rice of a branch that
- *  steams its own (V2-BR-08; with no `branch`, any reader's, the row is there) and the chili,
- *  or the material list. `rice` and `chili` are the ids a payment's `item` names. */
-export function sheetItems(
-  db: Database,
-  sheet: Sheet,
-  branch?: string,
-): Material[] {
+  isMeatItem(itemId) || isIngredientItem(itemId) ? "meat" : "materials";
+/** The rows of a daily sheet, each with its unit: each kind of meat (「รายการเนื้อ」) then each
+ *  ingredient (「รายชื่อวัตถุดิบ」), or the material list. The rows of 2026-10-14 and before
+ *  (raw rice, chili) are gone: nothing brought stock into them. */
+export function sheetItems(db: Database, sheet: Sheet): Material[] {
   if (sheet === "materials") return materialList(db);
-  const rice = !branch || rawRiceBranches(db.config).includes(branch);
   return [
-    { id: "meat", sku: "", name: "เนื้อ", unit: "กก." },
-    ...(rice
-      ? [{ id: "rice", sku: "", name: "ข้าวเหนียวดิบ", unit: "กก." }]
-      : []),
-    { id: "chili", sku: "", name: "น้ำพริก", unit: "หลอด" },
+    ...meatTypes(db.config).map((type) => ({
+      id: type.id,
+      sku: "",
+      name: type.name,
+      unit: "กก.",
+    })),
+    ...ingredientList(db.config),
   ];
 }
 /** The live `daily` note of `branch` for `sheet` on `date`: the one a sheet saved again for
@@ -887,7 +899,7 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
     (a, p) => a + productQty(p, values) * (p.items.get(itemId) ?? 0),
     0,
   ) /
-    (gramItems.includes(itemId) ? 1000 : 1) +
+    (isGramItem(itemId) ? 1000 : 1) +
   (itemId === "chili" ? Number(values.chiliAddons) || 0 : 0);
 /** One item of a branch's stock on `date`, as its daily sheet reads (V2-CAL-10):
  *  `remaining = opening + autoReceived + received − used − sold`.
@@ -896,13 +908,13 @@ export const noteTakes = (list: Product[], itemId: string, values: Values) =>
  *    (retired 2026-10-14, it counted what had just come in twice) is not read.
  *  - `autoReceived`: what came in by itself that day: the meat a `receive` took in (not from
  *    an old lot, which holds no stock), a payment's `item` + `qty` stamped with the branch, and
- *    what the warehouses moved in or out of it (`stockMoves`: a transfer waiting for the
- *    branch counts on the day it confirmed).
+ *    for a material or an ingredient what the warehouses moved in or out of it under its SKU
+ *    (`stockMoves`: a transfer waiting for the branch counts on the day it confirmed).
  *  - `received`, `used`, `waste`, `reason`: what the day's `daily` note says. Waste is part of
  *    `used`, never taken off again.
  *  - `sold`: what the branch's live `sale` and `influencerBox` notes of the day took by
  *    themselves, beside `used`: over every product (`products`), the note's count of it × the
- *    product's quantity of the item (grams read as kg for `gramItems`), and for the chili the
+ *    product's quantity of the item (grams read as kg for `isGramItem`), and for the chili the
  *    `chiliAddons` of a note saved when tubes sold apart had their own field, tube for tube.
  *    A day with such a note and no sheet counts all the same. Never the meat (2026-10-14):
  *    it is weighed and never as exact as the recipe, so the branch types it in `used`.
@@ -927,26 +939,37 @@ export function branchItem(
   const auto = new Map<string, number>();
   const add = (day: string, qty: number) =>
     auto.set(day, (auto.get(day) ?? 0) + qty);
-  if (itemId === "meat") {
-    const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
+  if (isMeatItem(itemId)) {
+    const lots = new Map(db.lots.map((lot) => [lot.id, lot]));
+    const old = (lotId: string) => !!lots.get(lotId)?.old;
+    // Each kind of meat apart: a Lot's is its own, a receipt with no Lot says which.
+    const ofKind = (e: Entry) =>
+      (e.lotId
+        ? meatTypeOf(lots.get(e.lotId))
+        : e.values.meatType || meatItem) === itemId;
     for (const e of entries(db, "receive", undefined, branch))
-      if (!old.has(e.lotId)) add(e.date, num(e.values, "kg"));
+      if (!old(e.lotId) && ofKind(e)) add(e.date, num(e.values, "kg"));
     // Smoked meat the Owner sent (a transfer on a PO รมควัน), on the day it arrived.
     for (const e of entries(db, "transfer"))
-      if (e.lotId && e.values.to === branch && !old.has(e.lotId)) {
+      if (e.lotId && e.values.to === branch && !old(e.lotId) && ofKind(e)) {
         const arrived = awaitsReceipt(e) ? receiptOf(db, e) : e;
         if (arrived) add(arrived.date, num(e.values, "qty"));
       }
   }
   for (const e of entries(db, "pay", undefined, branch))
     if (e.values.item === itemId) add(e.date, num(e.values, "qty"));
-  const sku =
-    sheet === "materials" && materialList(db).find((m) => m.id === itemId)?.sku;
+  const sku = (
+    isIngredientItem(itemId)
+      ? ingredientList(db.config)
+      : sheet === "materials"
+        ? materialList(db)
+        : []
+  ).find((m) => m.id === itemId)?.sku;
   if (sku)
     for (const move of stockMoves(db).moves)
       if (move.sku === sku && move.place === branch) add(move.date, move.qty);
-  // Meat is weighed and never comes out as the recipe says: the branch types what it used.
-  const weighed = itemId === "meat";
+  // Meat (every kind) is weighed and never comes out as the recipe says: the branch types what it used.
+  const weighed = isMeatItem(itemId);
   const list = products(db.config);
   const taken = new Map<string, number>();
   for (const kind of ["sale", "influencerBox"] as const)
@@ -1003,13 +1026,13 @@ export function salePreview(
 ) {
   const list = products(db.config);
   return sheets
-    .flatMap((sheet) => sheetItems(db, sheet, branch))
+    .flatMap((sheet) => sheetItems(db, sheet))
     .flatMap((item) => {
       const take = noteTakes(list, item.id, values);
       if (!take) return [];
       const line = { id: item.id, name: item.name, unit: item.unit, take };
       // The meat is not taken (branchItem): the branch weighs what it used.
-      if (item.id === "meat") return [{ ...line, left: 0, weigh: true }];
+      if (isMeatItem(item.id)) return [{ ...line, left: 0, weigh: true }];
       const own =
         saved && saved.date <= date
           ? noteTakes(list, item.id, saved.values)
@@ -1033,7 +1056,7 @@ export function wasteWeek(db: Database, branch: string, date: string) {
       new Date(Date.parse(date) - back * 86400000).toISOString().slice(0, 10),
     ).filter((day) => daily.has(day));
     saved[sheet] = week.length;
-    for (const item of sheetItems(db, sheet, branch)) {
+    for (const item of sheetItems(db, sheet)) {
       const days = week
         .map((day) => ({
           date: day,

@@ -27,7 +27,10 @@ export function SkuDialog({
   onClose: () => void;
 }) {
   const { account, today } = ws;
-  const [items] = useState(() => skuCatalogue(latestDatabase()));
+  // An ingredient is named in รายชื่อวัตถุดิบ, under its ING code: not one of these.
+  const [items] = useState(() =>
+    skuCatalogue(latestDatabase()).filter((item) => !item.ingredient),
+  );
   /** The names typed, by SKU: only the ones changed. */
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");

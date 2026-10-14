@@ -128,9 +128,9 @@ const productsDb = (() => {
         {
           id: "box",
           name: "กล่องมาตรฐาน",
-          items: items(["meat", "120"], ["chili", "1"], [bag, "2"]),
+          items: items(["meat", "120"], ["ing-chili", "1"], [bag, "2"]),
         },
-        { id: "tube", name: "น้ำพริกหลอด", items: items(["chili", "1"]) },
+        { id: "tube", name: "น้ำพริกหลอด", items: items(["ing-chili", "1"]) },
       ]),
     },
     "",

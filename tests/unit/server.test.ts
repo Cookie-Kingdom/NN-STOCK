@@ -38,7 +38,7 @@ const sqlTest = "supabase/tests/v2_app_state_test.sql";
 test("branchScope equals the rule JSON in the migration", () => {
   expect(branchScope).toEqual(
     // The file that last defined app_state_scope_rules().
-    tagged("supabase/migrations/20261010000002_scope_products.sql", "rules"),
+    tagged("supabase/migrations/20261014000001_scope_meat_types.sql", "rules"),
   );
 });
 
@@ -59,7 +59,12 @@ test("a branch's copy holds its own entries and the cut-down stock lines, nothin
   expect(
     payload.entries.filter((e) => e.role !== "branch").map((e) => e.values),
   ).toEqual([
-    { category: "ingredient", item: "chili", qty: "200", branch: "มีนบุรี" },
+    {
+      category: "ingredient",
+      item: "ing-chili",
+      qty: "200",
+      branch: "มีนบุรี",
+    },
   ]);
   expect(payload.lots.map((lot) => lot.kind)).toEqual([
     "shipment",
@@ -127,6 +132,9 @@ test("the JS ports give what the SQL test expects on the same state and cases", 
     rawRiceBranches: '["มีนบุรี"]',
     boxRecipe: "[]",
     products: '[{"id":"box","name":"กล่องมาตรฐาน","items":[]}]',
+    meatTypes: '[{"id":"meat","name":"เนื้อ"}]',
+    ingredientList:
+      '[{"id":"ing-1","code":"ING-0001","name":"ข้าวเหนียว","unit":"กก."}]',
   });
   // Nothing names the other branch but its rows of the shared material list (si, siv).
   const shared = ["si", "siv"];

@@ -12,25 +12,58 @@ import { Cell, StockTable } from "@/components/organisms/branch/BranchStock";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { unitOptions } from "@/lib/forms";
+import { newId } from "@/lib/id";
 import { latestDatabase } from "@/lib/persistence";
-import { materialList, mutate, type Values } from "@/lib/store";
+import {
+  ingredientList,
+  materialList,
+  mutate,
+  type Database,
+  type Material,
+  type Values,
+} from "@/lib/store";
 
 export const materialsTitle = "รายชื่อวัสดุ";
+export const ingredientsTitle = "รายชื่อวัตถุดิบ";
+/** The two lists this popup edits: the materials (SKU) and the ingredients (ING code, an
+ *  `ing-` id: `sheetOf` reads it as the Stock sheet's). */
+const lists = {
+  materials: {
+    title: materialsTitle,
+    key: "materialList",
+    what: "วัสดุ",
+    code: "SKU",
+    read: materialList,
+    // ponytail: the clock as the short id; one Owner adds one row at a time.
+    newId: () => "m" + Date.now().toString(36),
+  },
+  ingredients: {
+    title: ingredientsTitle,
+    key: "ingredientList",
+    what: "วัตถุดิบ",
+    code: "รหัส",
+    read: (db: Database): Material[] => ingredientList(db.config),
+    newId: () => "ing-" + newId(),
+  },
+};
 
-/** Settings 「รายชื่อวัสดุ」 as a popup, as 「รายการสินค้า (SKU)」 is: every material (the rows a
+/** Settings 「รายชื่อวัสดุ」 (or, with `list="ingredients"`, 「รายชื่อวัตถุดิบ」, the same way) as a popup, as 「รายการสินค้า (SKU)」 is: every material (the rows a
  *  branch added on its sheet with them), ten rows at a time, under a search by SKU or name.
  *  A row's name and unit are typed, its SKU never (`mutate` issues it on the save); 「เพิ่มวัสดุ」
  *  puts a new row on top, 「ลบ」 takes one out. 「บันทึก」 saves the list as one `config` note
  *  and closes; a row `mutate` refuses is said beside the buttons. */
 export function MaterialsDialog({
   ws,
+  list = "materials",
   onClose,
 }: {
   ws: Workspace;
+  list?: keyof typeof lists;
   onClose: () => void;
 }) {
   const { account, today } = ws;
-  const [saved] = useState<Values[]>(() => materialList(latestDatabase()));
+  const { title, key, what, code } = lists[list];
+  const [saved] = useState<Values[]>(() => lists[list].read(latestDatabase()));
   const [rows, setRows] = useState(saved);
   const [units] = useState(() => unitOptions(latestDatabase()));
   const [search, setSearch] = useState("");
@@ -69,21 +102,21 @@ export function MaterialsDialog({
         latestDatabase(),
         account,
         "config",
-        { materialList: JSON.stringify(typed) },
+        { [key]: JSON.stringify(typed) },
         "",
         today,
       ),
     );
     if (!next) return;
-    ws.setToast(`บันทึกแล้ว: ${materialsTitle}`);
+    ws.setToast(`บันทึกแล้ว: ${title}`);
     onClose();
   };
 
   return (
     <Dialog
       size="md"
-      title={materialsTitle}
-      subtitle={`ทั้งหมด ${rows.length} รายการ แก้ชื่อและหน่วยนับได้ ส่วน SKU ออกให้อัตโนมัติตอนบันทึก`}
+      title={title}
+      subtitle={`ทั้งหมด ${rows.length} รายการ แก้ชื่อและหน่วยนับได้ ส่วน${code}ออกให้อัตโนมัติตอนบันทึก`}
       onClose={onClose}
     >
       <div className="flex items-center gap-2 border-b border-border px-6.5 py-3 max-md:px-4">
@@ -92,7 +125,7 @@ export function MaterialsDialog({
           variant="filter"
           data-autofocus
           aria-label="ค้นหา"
-          placeholder="ค้นหา SKU หรือชื่อวัสดุ"
+          placeholder={`ค้นหา${code}หรือชื่อ${what}`}
           className="min-w-0 flex-1"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -101,20 +134,16 @@ export function MaterialsDialog({
           size="sm"
           onClick={() => {
             setError("");
-            setRows([
-              // ponytail: the clock as the short id; one Owner adds one row at a time.
-              { id: "m" + Date.now().toString(36), name: "", unit: "" },
-              ...rows,
-            ]);
+            setRows([{ id: lists[list].newId(), name: "", unit: "" }, ...rows]);
           }}
         >
-          เพิ่มวัสดุ
+          เพิ่ม{what}
         </Button>
       </div>
       <div className="min-h-0 flex-auto overflow-y-auto">
-        <StockTable columns={["SKU", "วัสดุ", "หน่วยนับ", ""]}>
+        <StockTable columns={[code, what, "หน่วยนับ", ""]}>
           {[...added, ...found.slice(0, limit)].map((row) => {
-            const name = row.name || "วัสดุใหม่";
+            const name = row.name || `${what}ใหม่`;
             return (
               <tr key={row.id}>
                 <Cell className="font-mono whitespace-nowrap text-accent">
@@ -122,7 +151,7 @@ export function MaterialsDialog({
                 </Cell>
                 <Cell className="py-1.5">
                   <Input
-                    aria-label={`ชื่อวัสดุ ${row.sku ?? "ใหม่"}`}
+                    aria-label={`ชื่อ${what} ${row.sku ?? "ใหม่"}`}
                     className="mt-0 min-h-10 min-w-28"
                     // A row just added is the one being typed.
                     autoFocus={!before.has(row.id) && !row.name}
@@ -164,7 +193,7 @@ export function MaterialsDialog({
                 colSpan={4}
                 className="py-6 text-center text-text-secondary"
               >
-                {rows.length ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีวัสดุ"}
+                {rows.length ? "ไม่พบรายการที่ค้นหา" : `ยังไม่มี${what}`}
               </Cell>
             </tr>
           )}

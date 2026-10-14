@@ -121,12 +121,16 @@ const soldDb = dbFor(
             name: "กล่องมาตรฐาน",
             items: [
               { id: "meat", qty: "120" },
-              { id: "chili", qty: "1" },
+              { id: "ing-chili", qty: "1" },
               { id: "m1", qty: "1" },
               { id: "m2", qty: "2" },
             ],
           },
-          { id: "p1", name: "น้ำพริกหลอด", items: [{ id: "chili", qty: "1" }] },
+          {
+            id: "p1",
+            name: "น้ำพริกหลอด",
+            items: [{ id: "ing-chili", qty: "1" }],
+          },
         ]),
       },
       "",
@@ -329,7 +333,8 @@ export const EditItem: Story = {
     ),
 };
 
-/** Stock ของมีนบุรี วันนี้ยังไม่บันทึก: เนื้อและน้ำพริก (มีนบุรีซื้อข้าวสุก ไม่มีแถวข้าวเหนียวดิบ) ·
+/** Stock ของมีนบุรี วันนี้ยังไม่บันทึก: เนื้อ แล้ววัตถุดิบของ「รายชื่อวัตถุดิบ」(ข้าวเหนียวดิบ · กก.,
+ *  น้ำพริก · หลอด) ·
  *  รายการคงที่ ไม่มี「เพิ่มสินค้า」และ「แก้ชื่อ / หน่วย」 */
 export const StockTodayNotSaved: Story = { args: stock };
 
@@ -357,7 +362,7 @@ export const StockSentToNewBranch: Story = {
     expect(await within(canvasElement).findByText(/เข้าเอง 5/)).toBeVisible(),
 };
 
-/** Stock ของศาลาแดง บันทึกวันนี้แล้ว: มีแถว「ข้าวเหนียวดิบ」(ศาลาแดงนึ่งข้าวเอง) ·
+/** Stock ของศาลาแดง บันทึกวันนี้แล้ว: แถวเนื้อ ข้าวเหนียวดิบ และน้ำพริก ·
  *  เนื้อมี Waste 0.3 กก. พร้อมสาเหตุ (เนื้อตกพื้น) */
 export const StockTodaySaved: Story = {
   ...saved,

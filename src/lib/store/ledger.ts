@@ -5,8 +5,10 @@
 import {
   branches,
   configMaterials,
+  codeText,
   incomeTypes,
-  ingredients,
+  ingredientList,
+  lastCode,
   payCategories,
   places,
   salesChannels,
@@ -120,7 +122,8 @@ const numberOr = (v: Values, key: string) =>
 const norm = (name = "") => name.trim().toLowerCase();
 
 /* SKU (V2-LED-03): one sequence, `SKU-0001` up, for the materials of Settings and the items of
- * hand-jotted ledger rows. Nothing else has one (no meat, rice, chili or PO row). */
+ * hand-jotted ledger rows. Nothing else has one (no meat or PO row); an ingredient goes by its
+ * `ING-` code instead, a sequence of its own (`lastCode`). */
 const skuNumber = (sku = "") => Number(/^SKU-(\d+)$/.exec(sku)?.[1] ?? 0);
 const skuText = (n: number) => `SKU-${String(n).padStart(4, "0")}`;
 /** The Owner's renames of ledger items (Settings 「รายการสินค้า (SKU)」): `[{ sku, name }]`. */
@@ -134,18 +137,26 @@ function skuNames(config: Values): Map<string, string> {
   } catch {}
   return new Map();
 }
-/** Every item with a SKU and the name it goes by: the materials (named in Settings), then the
- *  items of the live `expense` notes, oldest first, each under the Owner's rename if it has
+/** Every item with a SKU and the name it goes by: the materials (named in Settings), the
+ *  ingredients (`ingredient`, under their ING code; named in Settings too), then the items of the live `expense` notes, oldest first, each under the Owner's rename if it has
  *  one, else the name first typed. A rename shows on every row of the SKU, old ones included.
  *  Last, a SKU only a `transfer` names, under the name stamped on it (`itemName`): a branch's
  *  copy holds no expense of the item sent to it. */
 export function skuCatalogue(db: Database) {
   const items = new Map<
     string,
-    { sku: string; name: string; material: boolean }
+    { sku: string; name: string; material: boolean; ingredient?: true }
   >();
   for (const m of materialList(db))
     if (m.sku) items.set(m.sku, { sku: m.sku, name: m.name, material: true });
+  for (const i of ingredientList(db.config))
+    if (i.sku && !items.has(i.sku))
+      items.set(i.sku, {
+        sku: i.sku,
+        name: i.name,
+        material: false,
+        ingredient: true,
+      });
   const renamed = skuNames(db.config);
   for (const { values: v } of entries(db, "expense"))
     if (v.sku && !items.has(v.sku))
@@ -202,10 +213,25 @@ export function skuItem(db: Database, name: string, kept: Values = {}) {
 }
 /** The SKU an `expense` note of item `name` gets: the one it already had (`kept`, an edit that
  *  kept the name), the one of the item in the catalogue that goes by that name (a material
- *  included), or the next one (`isNew`). */
-export function skuFor(db: Database, name: string, kept: Values = {}) {
+ *  included), or the next one (`isNew`). An `ingredient` (ประเภท วัตถุดิบ) gets the ING code
+ *  of the ingredient of that name, or the next ING code (`mutate` adds it to the list first). */
+export function skuFor(
+  db: Database,
+  name: string,
+  kept: Values = {},
+  ingredient = false,
+) {
   const key = norm(name);
   if (!key) return { sku: "", isNew: false };
+  if (ingredient) {
+    const same = ingredientList(db.config).find((i) => norm(i.name) === key);
+    return same
+      ? { sku: same.sku, isNew: false }
+      : {
+          sku: codeText("ING", lastCode(db, "ingredientList", "ING") + 1),
+          isNew: true,
+        };
+  }
   if (kept.sku && norm(kept.item) === key)
     return { sku: kept.sku, isNew: false };
   const same = skuCatalogue(db).find((item) => norm(item.name) === key);
@@ -213,9 +239,11 @@ export function skuFor(db: Database, name: string, kept: Values = {}) {
     ? { sku: same.sku, isNew: false }
     : { sku: nextSku(db), isNew: true };
 }
-/** Why the catalogue of `db` cannot stand, or "": every item has a name, and no two share one. */
+/** Why the catalogue of `db` cannot stand, or "": every item has a name, and no two share one.
+ *  An ingredient is left out: 「รายชื่อวัตถุดิบ」 checks its own names, and one retyped from an
+ *  old expense shares its name with that expense's SKU. */
 export function skuNameError(db: Database) {
-  const items = skuCatalogue(db);
+  const items = skuCatalogue(db).filter((item) => !item.ingredient);
   const names = items.map((item) => norm(item.name));
   const twice = items.find((_, at) => names.indexOf(names[at]) !== at);
   return names.some((name) => !name)
@@ -345,7 +373,7 @@ export function ledgerRows(db: Database): LedgerRow[] {
   const categories = new Map(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
-  const bought = [...materialList(db), ...ingredients];
+  const bought = [...materialList(db), ...ingredientList(db.config)];
   const lines = outflows(db)
     .map((o) => ({ o, e: byId.get(o.entryId)! }))
     .sort((a, b) => byDateAt(a.e, b.e));
@@ -542,7 +570,7 @@ export function projectAssets(db: Database, project = shopProject) {
 export type StockLine = {
   sku: string;
   name: string;
-  /** The Settings material's id when the SKU is one, else "". */
+  /** The Settings material's or ingredient's id when the SKU is one, else "". */
   materialId: string;
   /** Balance per place: "central" and every branch name. */
   at: Record<string, number>;
@@ -550,8 +578,9 @@ export type StockLine = {
   inTransit: number;
 };
 /** The stock of every SKU that an expense of the shop project or a transfer ever moved, plus
- *  every Settings material with a SKU: what came in less what went out, per place
- *  (`stockMoves`); a material's figure at a branch is what its daily sheet leaves on `today`
+ *  every Settings material and ingredient with a SKU: what came in less what went out, per
+ *  place (`stockMoves`); a material's or an ingredient's figure at a branch is what its daily
+ *  sheet leaves on `today`
  *  (`branchItem`). A balance may be negative. On a branch's copy only its own branch's figure is true:
  *  it holds nothing of the other places. */
 export function stockLines(db: Database, today: string): StockLine[] {
@@ -568,7 +597,8 @@ export function stockLines(db: Database, today: string): StockLine[] {
     lines.set(sku, made);
     return made;
   };
-  for (const m of materialList(db)) if (m.sku) line(m.sku, m.id);
+  for (const m of [...materialList(db), ...ingredientList(db.config)])
+    if (m.sku) line(m.sku, m.id);
   const { moves, transit } = stockMoves(db);
   for (const move of moves) {
     const at = line(move.sku).at;

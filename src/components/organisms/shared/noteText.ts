@@ -8,7 +8,7 @@ import {
   entryBy,
   incomeStatuses,
   incomeTypes,
-  ingredients,
+  ingredientList,
   isNoteKind,
   isUnlinkedDispatch,
   legacySale,
@@ -17,6 +17,9 @@ import {
   productKey,
   products,
   materialList,
+  meatTypeName,
+  meatTypeOf,
+  meatTypes,
   missingKeys,
   missingText,
   noBranch,
@@ -43,6 +46,16 @@ const join = (...parts: (string | false | undefined)[]) =>
 /** A lot by the number people call it: `PO-2026-0001`, `SO-2026-0001`. */
 export const lotLabel = (db: Database, lotId: string) =>
   db.lots.find((lot) => lot.id === lotId)?.poId ?? lotId;
+
+/** The kind of meat of a PO เนื้อ, a Lot รมควัน or a receipt with no Lot (`meatType`), by
+ *  name: "" while 「รายการเนื้อ」 holds one kind, where there is nothing to tell apart. */
+export const meatLabel = (db: Database, meatType = "") =>
+  meatTypes(db.config).length > 1 && meatType
+    ? meatTypeName(db.config, meatType)
+    : "";
+/** A lot's kind of meat, by name (`meatLabel`). */
+export const lotMeat = (db: Database, lotId: string) =>
+  meatLabel(db, meatTypeOf(db.lots.find((lot) => lot.id === lotId)));
 
 /** `HH:mm` (Bangkok) of when an entry was jotted. */
 export const timeOf = (at: string) =>
@@ -222,6 +235,7 @@ export function noteLine(db: Database, e: Entry): string {
     case "purchase":
       return join(
         v.supplier,
+        meatLabel(db, v.meatType),
         has("orderedKg") &&
           has("price") &&
           `${n("orderedKg")} กก. × ${n("price")} บาท`,
@@ -240,6 +254,7 @@ export function noteLine(db: Database, e: Entry): string {
     case "smokeOrder":
       return join(
         v.smoker,
+        meatLabel(db, v.meatType),
         has("serviceRate") && `${n("serviceRate")} บาท / กก.`,
         has("estimatedCost") && `ประมาณ ${baht(Number(v.estimatedCost))}`,
         has("expectedFinishedDate") &&
@@ -257,7 +272,7 @@ export function noteLine(db: Database, e: Entry): string {
     case "smokingInvoice":
       return join(has("invoiceNumber") && `Invoice ${v.invoiceNumber}`);
     case "pay": {
-      const item = [...materialList(db), ...ingredients].find(
+      const item = [...materialList(db), ...ingredientList(db.config)].find(
         (m) => m.id === v.item,
       )?.name;
       return join(
@@ -340,7 +355,11 @@ export function noteLine(db: Database, e: Entry): string {
         has("expense") && `ค่าใช้จ่ายสาขา ${baht(Number(v.expense))}`,
       );
     case "receive":
-      return join(v.reason, v.note);
+      return join(
+        e.lotId ? lotMeat(db, e.lotId) : meatLabel(db, v.meatType),
+        v.reason,
+        v.note,
+      );
     case "influencerBox":
       return join(
         v.influencer,

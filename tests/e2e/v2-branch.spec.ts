@@ -83,7 +83,7 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
 }) => {
   await start(page, "seed");
   await signInAs(page, "owner");
-  // Stock: the branches' meat, raw rice and chili, as their daily sheets read; nothing to press.
+  // Stock: the branches' meat and ingredients, as their daily sheets read; nothing to press.
   await openPage(page, "Stock");
   const shelves = region(page, "สต๊อกของสาขา");
   // A branch starts empty: 0, not a sheet to set up first.
@@ -151,10 +151,11 @@ test("8 · V2-PAY-05 a packaging payment with a quantity is in the branch's stoc
   expect(sent.payload.entries.map((e: { values: object }) => e.values)).toEqual(
     [{ category: "packaging", item: "m1", qty: "50", branch: "มีนบุรี" }],
   );
-  // Its Stock: the meat and the chili. มีนบุรี buys its rice cooked: no raw rice row.
+  // Its Stock: the meat. The seed has no ingredient yet (「รายชื่อวัตถุดิบ」), so no other row:
+  // no raw rice or chili row of its own any more.
   await openPage(page, "Stock");
   await expect(sheetCell(page, "คงเหลือ", "เนื้อ")).toBeVisible();
-  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toBeVisible();
+  await expect(sheetCell(page, "คงเหลือ", "น้ำพริก")).toHaveCount(0);
   await expect(sheetCell(page, "คงเหลือ", "ข้าวเหนียวดิบ")).toHaveCount(0);
   // Its Inventory: the payment is the day's receipt, and all the branch holds.
   await openPage(page, "Inventory");
@@ -218,9 +219,9 @@ test("10 · V2-PAY-06 a sale's branch expense and a gift box's shipping fee are 
   await expect(line(/^การตลาด/)).toHaveText("−฿80");
   for (const name of [/^เนื้อ/, /^แพ็กเกจ/, /^วัตถุดิบ/, /^ขนส่ง/, /^ค่าแรง/])
     await expect(line(name)).toHaveText("—");
-  // ฿230 out in all: each counted once. 3,500 − 10% GP − 230.
-  await expect(region(page, "ตัวเลขของเดือน")).toContainText("฿2,920");
-  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText("฿2,920");
+  // ฿230 out in all: each counted once. A sale note is no P&L money (only sales receipts are).
+  await expect(region(page, "ตัวเลขของเดือน")).toContainText("−฿230");
+  await expect(line(/^กำไรจากการดำเนินงาน/)).toHaveText("−฿230");
   // Finance: ฿230 paid in all, ฿150 of it out of น้องฝน's pocket and still owed to her.
   await openPage(page, "Finance");
   await expect(region(page, "เงินของเดือน")).toContainText("−฿230");
@@ -461,6 +462,29 @@ test("12b · V2-CAL-10 a product the Owner adds in Settings is a count field of 
   await start(page, "seed");
   await signInAs(page, "owner");
   await openPage(page, "Settings", true);
+  // The chili first: an ingredient of 「รายชื่อวัตถุดิบ」, counted in tubes, issued ING-0001.
+  await region(page, "รายชื่อวัตถุดิบ")
+    .getByRole("button", { name: "เปิดรายการ" })
+    .click();
+  await popup(page).getByRole("button", { name: "เพิ่มวัตถุดิบ" }).click();
+  await popup(page)
+    .getByRole("textbox", { name: "ชื่อวัตถุดิบ ใหม่" })
+    .fill("น้ำพริก");
+  await popup(page).getByLabel("หน่วยนับ น้ำพริก").fill("หลอด");
+  await popup(page)
+    .getByRole("button", { name: "บันทึก", exact: true })
+    .click();
+  await expect(toast(page, "บันทึกแล้ว: รายชื่อวัตถุดิบ")).toBeVisible();
+  await expect(popup(page)).toHaveCount(0);
+  await region(page, "รายชื่อวัตถุดิบ")
+    .getByRole("button", { name: "เปิดรายการ" })
+    .click();
+  await expect(
+    popup(page).getByRole("row", { name: /^ING-0001/ }),
+  ).toBeVisible();
+  await popup(page)
+    .getByRole("button", { name: "ยกเลิก", exact: true })
+    .click();
   const list = region(page, "รายการสินค้า");
   /** Adds a component to the product in the popup, with what a piece takes of it. */
   const component = async (item: string, qty: string) => {
@@ -697,17 +721,30 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and put back by
     .getByRole("row", { name: /^Foodiva/ })
     .getByRole("cell");
   await expect(foodiva.nth(2)).toHaveText("฿70,000");
-  // The list holds the latest 12: with the money in left out, a payment this old is among them.
-  await page.getByRole("radio", { name: "รายจ่าย", exact: true }).click();
-  const deposit = rows(page, "pay").filter({ hasText: "มัดจำค่าเนื้อ" });
-  // A table row: its two buttons are at its end, with nothing to open first.
-  await deposit.getByRole("button", { name: "แก้ไข", exact: true }).click();
+  // Finance's latest 12 rows hold the project's expenses too: the deposit is changed from Daily Log.
+  await openPage(page, "Daily Log");
+  const deposit = logRows(page, "jot")
+    .and(rows(page, "pay"))
+    .filter({ hasText: "มัดจำค่าเนื้อ" });
+  await allRows(page);
+  await (
+    await openRow(deposit)
+  )
+    .getByRole("button", { name: "แก้ไข", exact: true })
+    .click();
   await fill(page, [/^ยอดค้างชำระ \(บาท\)/, "60000"]);
   await save(page);
+  await openPage(page, "Finance");
   await expect(foodiva.nth(2)).toHaveText("฿60,000");
-  await deposit.getByRole("button", { name: "ลบ", exact: true }).click();
+  await openPage(page, "Daily Log");
+  await allRows(page);
+  await (
+    await openRow(deposit)
+  )
+    .getByRole("button", { name: "ลบ", exact: true })
+    .click();
   await confirmDelete(page);
-  await expect(deposit).toHaveCount(0);
+  await openPage(page, "Finance");
   await expect(foodiva.nth(2)).toHaveText("฿0");
   await openPage(page, "Daily Log");
   // By its text, not its place: the restore becomes the newest row of the log.

@@ -560,9 +560,8 @@ export function DailySheet({
   word?: string;
 }) {
   const { db } = ws;
-  const branch = ws.account.branch ?? "";
   const [dialog, setDialog] = useState<Material | "new">();
-  const items = sheetItems(db, sheet, branch);
+  const items = sheetItems(db, sheet);
   const shown = items.filter(
     (item) =>
       !word ||

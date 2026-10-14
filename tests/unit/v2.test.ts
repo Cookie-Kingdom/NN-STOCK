@@ -16,6 +16,9 @@ import {
   shopProject,
   liveEntries,
   lotInfo,
+  meatTypeOf,
+  meatTypes,
+  ingredientList,
   materialList,
   meatStock,
   monthPl,
@@ -29,7 +32,6 @@ import {
   pieceUnit,
   products,
   purchaseLots,
-  rawRiceBranches,
   saleDue,
   saleMoney,
   salePreview,
@@ -694,6 +696,10 @@ describe("figures (V2-CAL)", () => {
         { key: "lineMan", name: "LINE MAN", gp: "10" },
         { key: "sales.grab", name: "Grab", gp: "30" },
       ]),
+      ingredientList: JSON.stringify([
+        { id: "ing-rice", name: "ข้าวเหนียวดิบ", unit: "กก." },
+        { id: "ing-chili", name: "น้ำพริก", unit: "หลอด" },
+      ]),
     },
     "",
     "2026-08-01",
@@ -740,7 +746,7 @@ describe("figures (V2-CAL)", () => {
   jot(saladaeng, "daily", "2026-09-07", {
     sheet: "meat",
     "used.meat": "2",
-    "received.chili": "50",
+    "received.ing-chili": "50",
     reporter: "ฝน",
   });
   jot(saladaeng, "daily", "2026-09-08", {
@@ -762,7 +768,7 @@ describe("figures (V2-CAL)", () => {
     "used.meat": "1.5",
     "waste.meat": "0.3",
     "reason.meat": "ตกพื้น",
-    "used.chili": "4",
+    "used.ing-chili": "4",
     reporter: "ฝน",
   });
   jot(saladaeng, "daily", "2026-09-10", {
@@ -776,8 +782,8 @@ describe("figures (V2-CAL)", () => {
   const sheet11 = jot(saladaeng, "daily", "2026-09-11", {
     sheet: "meat",
     "used.meat": "1",
-    "used.chili": "2",
-    "waste.chili": "2",
+    "used.ing-chili": "2",
+    "waste.ing-chili": "2",
     reporter: "ฝน",
   });
   const gift = jot(saladaeng, "influencerBox", "2026-09-12", {
@@ -804,7 +810,7 @@ describe("figures (V2-CAL)", () => {
   jot(saladaeng, "pay", "2026-09-13", {
     category: "ingredient",
     amount: "200",
-    item: "chili",
+    item: "ing-chili",
     qty: "10",
   });
   /** `from` with `chiliAddons` laid on the notes of `tubes` (by entry id) by hand: the forms
@@ -1065,12 +1071,12 @@ describe("figures (V2-CAL)", () => {
       saved: false,
     });
     expect(item("m1", "2026-09-13").opening).toBe(140);
-    // 50 − 4 − 2 used and the 4 + 3 tubes sold and given beside the boxes, then the 10 tubes
-    // the branch bought on the 13th.
-    expect(item("chili", "2026-09-13")).toMatchObject({
-      opening: 37,
+    // 50 − 4 − 2 used (the tubes old notes sold apart are the retired `chili` row's), then
+    // the 10 tubes the branch bought on the 13th.
+    expect(item("ing-chili", "2026-09-13")).toMatchObject({
+      opening: 44,
       autoReceived: 10,
-      remaining: 47,
+      remaining: 54,
     });
     expect(branchItem(built, "มีนบุรี", "m1", "2026-09-13").remaining).toBe(0);
   });
@@ -1140,9 +1146,9 @@ describe("figures (V2-CAL)", () => {
       expect(item(id, "2026-09-12", more).sold).toBe(0);
       expect(item(id, "2026-09-13", more)).toEqual(item(id, "2026-09-13"));
     }
-    // The 3 tubes of the gift box already there, then 9 + 8.
+    // The 3 tubes of the gift box already there, then 9 + 8: on the retired `chili` row.
     expect(item("chili", "2026-09-12", more).sold).toBe(20);
-    expect(item("chili", "2026-09-13", more).opening).toBe(20);
+    expect(item("ing-chili", "2026-09-12", more).sold).toBe(0);
     // An edit of such a note keeps its tubes.
     const edited = mutate(
       more,
@@ -1203,10 +1209,10 @@ describe("figures (V2-CAL)", () => {
         items: [
           ["m1", "2"],
           ["meat", "120"],
-          ["chili", "1"],
+          ["ing-chili", "1"],
         ],
       },
-      { id: "pack", name: "น้ำพริกแพ็กคู่", items: [["chili", "2"]] },
+      { id: "pack", name: "น้ำพริกแพ็กคู่", items: [["ing-chili", "2"]] },
     ]);
     const preview = (values: Values, date: string, saved?: Entry) =>
       salePreview(set, "ศาลาแดง", values, date, saved);
@@ -1220,7 +1226,7 @@ describe("figures (V2-CAL)", () => {
     const lines = preview({ boxes: "5", "product.pack": "3" }, "2026-09-13");
     expect(lines.map((l) => [l.id, l.unit, l.take])).toEqual([
       ["meat", "กก.", 0.6],
-      ["chili", "หลอด", 11],
+      ["ing-chili", "หลอด", 11],
       ["m1", lines[2].unit, 10],
     ]);
     // The meat is not taken: the branch weighs what it used.
@@ -1268,8 +1274,8 @@ describe("figures (V2-CAL)", () => {
       built,
       ["m1", "2"],
       ["meat", "120"],
-      ["rice", "80"],
-      ["chili", "1"],
+      ["ing-rice", "0.08"],
+      ["ing-chili", "1"],
     );
     // 10 boxes on the 10th: 50 − 10 used − 20 sold.
     expect(item("m1", "2026-09-10", set)).toMatchObject({
@@ -1293,7 +1299,7 @@ describe("figures (V2-CAL)", () => {
       remaining: 106,
     });
     expect(item("m1", "2026-09-13", set).opening).toBe(106);
-    // Raw rice is typed in grams a box and taken in kg: 10 × 80 g. The meat is weighed, never
+    // An ingredient is typed in its own unit a box: 10 × 0.08 kg. The meat is weighed, never
     // taken by the boxes: the sheet asks for it.
     expect(item("meat", "2026-09-10", set)).toMatchObject({
       opening: 13,
@@ -1302,12 +1308,12 @@ describe("figures (V2-CAL)", () => {
       remaining: 11.5,
       weigh: true,
     });
-    expect(item("rice", "2026-09-10", set).sold).toBe(0.8);
-    // Chili: a tube a box, and the tubes sold beside them: 10 + 4, then 2 + 3.
-    expect(item("chili", "2026-09-10", set).sold).toBe(14);
-    expect(item("chili", "2026-09-12", set).sold).toBe(5);
-    // 50 − (4 + 14) − (2 + 5) − 5.
-    expect(item("chili", "2026-09-13", set).opening).toBe(20);
+    expect(item("ing-rice", "2026-09-10", set).sold).toBe(0.8);
+    // Chili: a tube a box (the tubes old notes sold apart are not this row's): 10, then 2.
+    expect(item("ing-chili", "2026-09-10", set).sold).toBe(10);
+    expect(item("ing-chili", "2026-09-12", set).sold).toBe(2);
+    // 50 − (4 + 10) − (2 + 5) − 2.
+    expect(item("ing-chili", "2026-09-13", set).opening).toBe(27);
     // The same components saved as the box of 「รายการสินค้า」 give the same sheet.
     const saved = withProducts(built, [
       {
@@ -1315,12 +1321,12 @@ describe("figures (V2-CAL)", () => {
         items: [
           ["m1", "2"],
           ["meat", "120"],
-          ["rice", "80"],
-          ["chili", "1"],
+          ["ing-rice", "0.08"],
+          ["ing-chili", "1"],
         ],
       },
     ]);
-    for (const id of ["m1", "meat", "rice", "chili"])
+    for (const id of ["m1", "meat", "ing-rice", "ing-chili"])
       for (const date of ["2026-09-10", "2026-09-12", "2026-09-13"])
         expect(item(id, date, saved)).toEqual(item(id, date, set));
     // A branch's copy holds the recipe: its sheet reads as the Owner's.
@@ -1336,7 +1342,11 @@ describe("figures (V2-CAL)", () => {
     });
   });
 
-  const tube: Row = { id: "p1", name: "น้ำพริกหลอด", items: [["chili", "1"]] };
+  const tube: Row = {
+    id: "p1",
+    name: "น้ำพริกหลอด",
+    items: [["ing-chili", "1"]],
+  };
   const two = withProducts(
     built,
     [
@@ -1345,7 +1355,7 @@ describe("figures (V2-CAL)", () => {
         name: "กล่องใหญ่",
         items: [
           ["meat", "200"],
-          ["chili", "1"],
+          ["ing-chili", "1"],
           ["m1", "1"],
         ],
       },
@@ -1381,7 +1391,7 @@ describe("figures (V2-CAL)", () => {
     const on = (id: string) => item(id, "2026-09-14", sold).sold;
     // 3 boxes of 200 g; a tube a box and a tube a tube; a box each; half a bag a tube.
     expect(on("meat")).toBe(0);
-    expect(on("chili")).toBe(8);
+    expect(on("ing-chili")).toBe(8);
     expect(on("m1")).toBe(3);
     expect(on("m2")).toBe(2.5);
     // Pieces sold count every product.
@@ -1389,7 +1399,7 @@ describe("figures (V2-CAL)", () => {
     // A product removed: what the notes hold of it is counted nowhere.
     const removed = withProducts(sold, [box]);
     expect(plBetween(removed, "2026-09-14", "2026-09-14").boxes).toBe(3);
-    expect(item("chili", "2026-09-14", removed).sold).toBe(0);
+    expect(item("ing-chili", "2026-09-14", removed).sold).toBe(0);
   });
 
   it("CAL-06: a product costs its meat at the newest PO รมควัน's cost per kg plus its own other cost", () => {
@@ -1560,7 +1570,7 @@ describe("figures (V2-CAL)", () => {
     // The note that holds a count of it keeps the field.
     expect(keys("sale", sale.values)).toContain("product.p1");
     // What was jotted still takes stock and still counts as pieces.
-    const chili = (db: Database) => item("chili", "2026-09-14", db).sold;
+    const chili = (db: Database) => item("ing-chili", "2026-09-14", db).sold;
     expect(chili(stopped)).toBe(8);
     expect(plBetween(stopped, "2026-09-14", "2026-09-14").boxes).toBe(8);
     // An edit keeps its count, or changes it.
@@ -1774,7 +1784,7 @@ describe("figures (V2-CAL)", () => {
 
   it("RUL-05: a sheet refuses nothing: a waste with no reason and an empty reporter are listed as missing, and remaining may go below zero", () => {
     expect(sheet10.values.missing).toBeUndefined();
-    expect(sheet11.values.missing).toBe("reason.chili");
+    expect(sheet11.values.missing).toBe("reason.ing-chili");
     const bare = mutate(
       built,
       saladaeng,
@@ -1813,8 +1823,8 @@ describe("figures (V2-CAL)", () => {
           days: [{ date: "2026-09-10", waste: 0.3, reason: "ตกพื้น" }],
         },
         {
-          id: "chili",
-          sku: "",
+          id: "ing-chili",
+          sku: "ING-0002",
           name: "น้ำพริก",
           unit: "หลอด",
           total: 2,
@@ -1865,47 +1875,118 @@ describe("figures (V2-CAL)", () => {
     });
   });
 
-  it("BR-08: only a branch that uses raw rice has it on its sheet, and only the Owner says which", () => {
-    const saved = (d: Database, by: Actor) =>
-      last(
-        mutate(
-          d,
-          by,
-          "daily",
-          { sheet: "meat", "used.rice": "3", "used.meat": "1" },
-          "",
-          day,
-        ),
-      ).values;
-    expect(rawRiceBranches(seed.config)).toEqual(["ศาลาแดง"]);
-    expect(sheetItems(seed, "meat", "ศาลาแดง").map((row) => row.id)).toEqual([
-      "meat",
-      "rice",
-      "chili",
+  it("an ingredient bought on Accounting joins 「รายชื่อวัตถุดิบ」 under an ING code and is stocked like a material", () => {
+    const buy = (d: Database, values: Values) =>
+      mutate(
+        d,
+        owner,
+        "expense",
+        {
+          itemType: "วัตถุดิบ",
+          qty: "10",
+          // Into the project's (the central) warehouse.
+          purpose: "project",
+          project: "Nerdnuea x LINE MAN",
+          ...values,
+        },
+        "",
+        day,
+      );
+    let d = buy(seed, { item: "ข้าวเหนียว " });
+    const [rice] = ingredientList(d.config);
+    expect(rice).toMatchObject({
+      sku: "ING-0001",
+      name: "ข้าวเหนียว",
+      unit: "ชิ้น",
+    });
+    expect(rice.id).toMatch(/^ing-/);
+    expect(last(d).values.sku).toBe("ING-0001");
+    // Bought again under another case: the same row, the same code.
+    d = buy(d, { item: "ข้าวเหนียว".toUpperCase() });
+    expect(ingredientList(d.config)).toHaveLength(1);
+    // The SKU counter does not move; an old item edited into วัตถุดิบ joins as the next.
+    d = mutate(d, owner, "expense", { item: "น้ำพริก", qty: "4" }, "", day);
+    // The materials hold SKU-0001 to SKU-0023: the ING codes took none of the SKU numbers.
+    expect(last(d).values.sku).toBe("SKU-0024");
+    d = mutate(
+      d,
+      owner,
+      "entryEdit",
+      {
+        targetId: last(d).id,
+        values: JSON.stringify({ itemType: "วัตถุดิบ" }),
+      },
+      "",
+      day,
+    );
+    expect(ingredientList(d.config).map((i) => i.sku)).toEqual([
+      "ING-0001",
+      "ING-0002",
     ]);
-    expect(sheetItems(seed, "meat", "มีนบุรี").map((row) => row.id)).toEqual([
+    expect(entries(d, "expense").at(-1)!.values.sku).toBe("ING-0002");
+    // SKU-0024 was issued, so it is never given again.
+    expect(skuFor(d, "ของใหม่").sku).toBe("SKU-0025");
+    // On a branch's Stock sheet after the meat; moved there from the central warehouse.
+    expect(sheetItems(d, "meat").map((row) => row.id)).toEqual([
       "meat",
-      "chili",
+      rice.id,
+      ingredientList(d.config)[1].id,
     ]);
-    // Any other reader (the Owner looking at a branch's sheet) gets the row.
-    expect(sheetItems(seed, "meat")).toHaveLength(3);
-    expect(sheetItems(seed, "materials")).toEqual(materialList(seed));
-    expect(saved(seed, saladaeng)["used.rice"]).toBe("3");
-    // มีนบุรี buys its rice cooked: the row is not on its sheet, so it is not saved.
-    expect(saved(seed, minburi)["used.rice"]).toBeUndefined();
-    const set = (by: Actor, value: string) =>
-      mutate(seed, by, "config", { rawRiceBranches: value }, "", day);
-    const both = set(owner, '["ศาลาแดง","มีนบุรี"]');
-    expect(saved(both, minburi)["used.rice"]).toBe("3");
-    expect(saved(set(owner, "[]"), saladaeng)["used.rice"]).toBeUndefined();
-    for (const bad of [
-      '["เชียงใหม่"]',
-      '["มีนบุรี","มีนบุรี"]',
-      "มีนบุรี",
-      '"x"',
-    ])
-      expect(() => set(owner, bad)).toThrow("สาขาที่ใช้ข้าวเหนียวดิบ");
-    expect(() => set(saladaeng, "[]")).toThrow("ไม่มีสิทธิ์");
+    d = mutate(
+      d,
+      owner,
+      "transfer",
+      { from: "central", to: "ศาลาแดง", item: "ข้าวเหนียว", qty: "3" },
+      "",
+      day,
+    );
+    expect(branchItem(d, "ศาลาแดง", rice.id, day).remaining).toBe(3);
+    expect(
+      stockLines(d, day).find((line) => line.sku === "ING-0001")!.at,
+    ).toMatchObject({ central: 17, ศาลาแดง: 3 });
+    // A removed row's code is never given again.
+    const removed = mutate(
+      d,
+      owner,
+      "config",
+      { ingredientList: JSON.stringify([{ ...rice, name: "ข้าว" }]) },
+      "",
+      day,
+    );
+    expect(buy(removed, { item: "เกลือป่น" }).config.ingredientList).toContain(
+      "ING-0003",
+    );
+  });
+
+  it("a kind of meat has an RM code: meat is RM-0001, a new kind the next, never reused", () => {
+    expect(meatTypes(seed.config)[0]).toEqual({
+      id: "meat",
+      code: "RM-0001",
+      name: "เนื้อ",
+    });
+    const save = (d: Database, rows: Values[]) =>
+      mutate(d, owner, "config", { meatTypes: JSON.stringify(rows) }, "", day);
+    // A list stored before codes: meat reads as RM-0001, so a new kind is RM-0002.
+    let d = save(
+      {
+        ...seed,
+        config: { ...seed.config, meatTypes: '[{"id":"meat","name":"เนื้อ"}]' },
+      },
+      [
+        { id: "meat", name: "เนื้อ" },
+        { id: "meat-a", name: "วากิว" },
+      ],
+    );
+    expect(meatTypes(d.config).map((m) => m.code)).toEqual([
+      "RM-0001",
+      "RM-0002",
+    ]);
+    d = save(d, [{ id: "meat", name: "เนื้อ" }]);
+    d = save(d, [
+      { id: "meat", name: "เนื้อ" },
+      { id: "meat-b", name: "ออสเตรเลีย" },
+    ]);
+    expect(meatTypes(d.config)[1].code).toBe("RM-0003");
   });
 
   it("CAL-13: a supplier's balance is its bills less what was paid to it", () => {
@@ -3342,5 +3423,96 @@ describe("Stock: a round waits for its after-smoking note", () => {
     d = mutate(d, owner, "smoked", { dispatchId, smokedKg: "60" }, lot, day);
     expect(meatStock(d).waiting).toEqual([]);
     expect(meatStock(d).central.map((info) => info.centralKg)).toEqual([60]);
+  });
+});
+
+describe("รายการเนื้อ: each kind of meat bought, smoked and stocked apart", () => {
+  const types = JSON.stringify([
+    { id: "meat", name: "เนื้อ" },
+    { id: "meat-wagyu", name: "วากิว · ใบพาย" },
+  ]);
+  const listed = mutate(seed, owner, "config", { meatTypes: types }, "", day);
+  const buy = (d: Database, meatType: string) =>
+    mutate(
+      d,
+      owner,
+      "purchase",
+      { supplier: "Foodiva", orderedKg: "100", price: "500", meatType },
+      "",
+      day,
+    );
+  let d = buy(buy(listed, "meat"), "meat-wagyu");
+  const [beef, wagyu] = purchaseLots(d).map((lot) => lot.id);
+  d = mutate(
+    d,
+    owner,
+    "smokeOrder",
+    { rawKg: "100", backKg: "60", meatType: "meat-wagyu" },
+    "",
+    day,
+  );
+  const lot = last(d).lotId;
+  const send = (po: string) =>
+    mutate(
+      d,
+      owner,
+      "dispatch",
+      { dispatchKg: "50", poLines: JSON.stringify([{ poLotId: po, kg: 50 }]) },
+      lot,
+      day,
+    );
+
+  it("asks the kind only once there are two, and a Lot takes its PO รมควัน's", () => {
+    const ask = (db: Database) =>
+      fields("purchase", db, owner).some((f) => f.key === "meatType");
+    expect(ask(seed)).toBe(false);
+    expect(ask(listed)).toBe(true);
+    expect(defaults("purchase", listed.config).meatType).toBe("meat");
+    expect(d.lots.find((l) => l.id === lot)?.values).toEqual({
+      meatType: "meat-wagyu",
+    });
+    expect(meatTypeOf(d.lots.find((l) => l.id === wagyu))).toBe("meat-wagyu");
+  });
+
+  it("sends only PO เนื้อ of the Lot's kind to the smoker", () => {
+    expect(() => send(beef)).toThrow("ไม่พบ PO เนื้อที่เลือก");
+    expect(poInfo(send(wagyu), wagyu).sentKg).toBe(50);
+  });
+
+  it("stocks a branch per kind, and a product's meat is costed per kind", () => {
+    let s = send(wagyu);
+    s = mutate(s, owner, "transfer", { to: "มีนบุรี", qty: "20" }, lot, day);
+    s = mutate(s, minburi, "receive", { kg: "5", meatType: "meat" }, "", day);
+    expect(sheetItems(s, "meat").map((i) => i.id)).toEqual([
+      "meat",
+      "meat-wagyu",
+    ]);
+    expect(branchItem(s, "มีนบุรี", "meat-wagyu", day).remaining).toBe(20);
+    expect(branchItem(s, "มีนบุรี", "meat", day).remaining).toBe(5);
+    // A branch's copy keeps the list and the Lot's kind.
+    const scoped = scopeDatabase(s, ["มีนบุรี"]);
+    expect(scoped.config.meatTypes).toBe(s.config.meatTypes);
+    expect(branchItem(scoped, "มีนบุรี", "meat-wagyu", day).remaining).toBe(20);
+  });
+
+  it("keeps `meat` first in the list", () => {
+    const save = (rows: object[]) =>
+      mutate(
+        seed,
+        owner,
+        "config",
+        { meatTypes: JSON.stringify(rows) },
+        "",
+        day,
+      );
+    expect(() => save([{ id: "meat-wagyu", name: "วากิว" }])).toThrow(
+      "รายการเนื้อ: อ่านรายการไม่ได้",
+    );
+    expect(() =>
+      save([
+        { id: "meat", name: "เนื้อ" },
+        { id: "x", name: "y" },
+      ]),
+    ).toThrow("รายการเนื้อ: อ่านรายการไม่ได้");
   });
 });

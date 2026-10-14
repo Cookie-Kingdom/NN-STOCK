@@ -11,13 +11,22 @@ import {
   boxProduct,
   lastProductCode,
   productCodeText,
+  codeNumber,
+  codeText,
+  lastCode,
+  ingredientList,
+  ingredientType,
+  isIngredientItem,
   products,
   branches,
   changeKinds,
   editLockedKeys,
   isNoteKind,
   isProductKey,
+  isMeatItem,
   isRoundKind,
+  meatItem,
+  meatTypes,
   kindInfo,
   kindsFor,
   legacySale,
@@ -253,8 +262,10 @@ function noteValues(
       !v.link || /^https?:\/\/\S+$/i.test(v.link),
       "ลิงก์เอกสารต้องขึ้นต้นด้วย http:// หรือ https://",
     );
-  // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one.
-  if (kind === "expense") v.sku = skuFor(db, v.item, kept).sku;
+  // V2-LED-03: a ledger item has the SKU of the item of that name, a new name the next one;
+  // an ingredient (วัตถุดิบ, added to its list by `mutate` first) its code.
+  if (kind === "expense")
+    v.sku = skuFor(db, v.item, kept, v.itemType === ingredientType).sku;
   if (kind === "transfer" && lotId) {
     // Smoked meat, kg of its PO รมควัน, from Foodiva: no SKU, so no warehouse moves it.
     v.from = foodivaPlace;
@@ -329,9 +340,12 @@ function cachedOn(db: Database, entry: Entry, ...more: (string | undefined)[]) {
     ...more,
   ].filter((id): id is string => !!id);
 }
+/** What a Lot รมควัน caches of its PO รมควัน: the kind of meat, for a branch. */
+const lotCache = (v: Values): Values =>
+  v.meatType ? { meatType: v.meatType } : {};
 /** `lot` with its cache rebuilt from the live entries of `db`, the log after an edit, a
- *  delete or an undo. A PO: its live `purchase` entry's values. A Lot: nothing. With no live
- *  entry left on it either is `deleted` (liveLots). */
+ *  delete or an undo. A PO: its live `purchase` entry's values. A Lot: its live `smokeOrder`'s
+ *  `lotCache`. With no live entry left on it either is `deleted` (liveLots). */
 function recached(db: Database, lot: Lot): Lot {
   const po = lot.kind ? undefined : entries(db, "purchase", lot.id).at(-1);
   const live = lot.kind
@@ -341,7 +355,11 @@ function recached(db: Database, lot: Lot): Lot {
     : po;
   return {
     ...lot,
-    values: !live ? { deleted: "1" } : po ? without(po.values, uncached) : {},
+    values: !live
+      ? { deleted: "1" }
+      : po
+        ? without(po.values, uncached)
+        : lotCache(entries(db, "smokeOrder", lot.id).at(-1)?.values ?? {}),
   };
 }
 /** A number setting: typed, and not below zero. */
@@ -359,6 +377,8 @@ const settingLists: Record<string, { label: string; id: string }> = {
   salesChannels: { label: "ช่องทางขาย", id: "key" },
   materialList: { label: "รายชื่อวัสดุ", id: "id" },
   payCategories: { label: "หมวดจ่ายเงิน", id: "id" },
+  meatTypes: { label: "รายการเนื้อ", id: "id" },
+  ingredientList: { label: "รายชื่อวัตถุดิบ", id: "id" },
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
@@ -457,6 +477,10 @@ function checkConfig(v: Values) {
       const row = rows.find((row) => !empty(row, value) && !amount(row[value]));
       assert(!row, `${label}: ${what}ของ「${row?.name}」${figure}`);
     };
+    // The first kind is `meat`, what every note saved before the list is of; never removed.
+    if (key === "meatTypes")
+      assert(ids[0] === meatItem && ids.every(isMeatItem), broken);
+    if (key === "ingredientList") assert(ids.every(isIngredientItem), broken);
     if (key === "salesChannels") {
       // A channel added in Settings keeps its money under a `sales.` key.
       assert(
@@ -480,6 +504,25 @@ function checkConfig(v: Values) {
 }
 /** An item name as matched: trimmed, case-insensitive (as `skuFor` matches it). */
 const norm = (name = "") => name.trim().toLowerCase();
+/** The rows of a `key` list being saved, each with its code: the one its id has now (whatever
+ *  is sent), else the next `prefix` one past every code ever issued (`lastCode`). */
+function withCodes(
+  db: Database,
+  key: "meatTypes" | "ingredientList",
+  prefix: string,
+  json: string,
+  had: { id: string; code: string }[],
+): Values[] {
+  const codes = new Map(had.map((row) => [row.id, row.code]));
+  let high = Math.max(
+    lastCode(db, key, prefix),
+    ...had.map((row) => codeNumber(prefix, row.code)),
+  );
+  return (JSON.parse(json) as Values[]).map((row) => ({
+    ...row,
+    code: codes.get(row.id) || codeText(prefix, ++high),
+  }));
+}
 export function mutate(
   db: Database,
   by: Actor,
@@ -509,6 +552,39 @@ export function mutate(
         materialList: JSON.stringify([
           ...materialList(db),
           { id: newId(), name: bought, unit: "ชิ้น" },
+        ]),
+      },
+      "",
+      date,
+    );
+  /* An ingredient bought on Accounting (2026-10-14): 「รายชื่อวัตถุดิบ」 gets it first, under the
+   * next ING code, so the expense takes that code as its SKU (noteValues) and the branches'
+   * Stock sheets list it. An edit counts too: the Owner retypes old notes into วัตถุดิบ.
+   * shortcut: deleting the expense leaves the ingredient in the list; remove it in Settings. */
+  const edited =
+    kind === "entryEdit"
+      ? db.entries.find((e) => e.id === input.targetId)
+      : undefined;
+  let typed: Values | undefined = kind === "expense" ? input : undefined;
+  if (edited?.kind === "expense")
+    try {
+      typed = { ...edited.values, ...JSON.parse(input.values || "{}") };
+    } catch {}
+  const ingredient = typed?.item?.trim();
+  if (
+    by.role === "owner" &&
+    typed?.itemType === ingredientType &&
+    ingredient &&
+    !ingredientList(db.config).some((i) => norm(i.name) === norm(ingredient))
+  )
+    db = mutate(
+      db,
+      by,
+      "config",
+      {
+        ingredientList: JSON.stringify([
+          ...ingredientList(db.config),
+          { id: "ing-" + newId(), name: ingredient, unit: "ชิ้น" },
         ]),
       },
       "",
@@ -662,7 +738,7 @@ export function mutate(
       // A new material named as an item of the ledger is that item: it takes its SKU.
       const ledger = new Map(
         skuCatalogue(db)
-          .filter((item) => !item.material)
+          .filter((item) => !item.material && !item.ingredient)
           .map((item) => [norm(item.name), item.sku]),
       );
       let sku = nextSku(db);
@@ -681,6 +757,21 @@ export function mutate(
       v.materialListAfter =
         db.entries.findLast((e) => e.kind === "stockItem")?.id ?? "";
     }
+    // A kind of meat and an ingredient keep their code; a row with none gets the next.
+    if (v.meatTypes !== undefined)
+      v.meatTypes = JSON.stringify(
+        withCodes(db, "meatTypes", "RM", v.meatTypes, meatTypes(db.config)),
+      );
+    if (v.ingredientList !== undefined)
+      v.ingredientList = JSON.stringify(
+        withCodes(
+          db,
+          "ingredientList",
+          "ING",
+          v.ingredientList,
+          ingredientList(db.config).map((i) => ({ ...i, code: i.sku })),
+        ).map(({ id, code, name, unit }) => ({ id, code, name, unit })),
+      );
     if (v.products !== undefined) {
       // A product keeps its code (whatever is sent); one with none gets the next, past
       // every code a list saved so far held (a removed product's is never given again).
@@ -765,7 +856,7 @@ export function mutate(
         id: lotId,
         poId: v.orderNumber,
         kind: "shipment",
-        values: {},
+        values: lotCache(v),
         config: {},
       });
     } else {
