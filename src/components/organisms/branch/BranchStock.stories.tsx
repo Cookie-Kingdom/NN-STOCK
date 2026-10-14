@@ -363,6 +363,30 @@ export const StockNoOpening: Story = {
   parameters: { db: dbFor("minburi", seed) },
 };
 
+/** Stock ยังไม่เคยตั้งสต๊อกเริ่มต้น แต่ Owner จัดสรรเนื้อรมควัน 5 กก. มาแล้ว: ใบสต๊อกรายวันขึ้นเลย
+ *  ไม่ต้องตั้งสต๊อกเริ่มต้นก่อน · แถวเนื้อมี「เข้าเอง 5」 */
+export const StockSentBeforeOpening: Story = {
+  args: stock,
+  parameters: {
+    db: dbFor(
+      "minburi",
+      mutate(
+        {
+          ...seed,
+          lots: sampleDb.lots.filter((lot) => lot.kind === "shipment"),
+        },
+        accountById("owner")!,
+        "transfer",
+        { to: "มีนบุรี", qty: "5", receive: "now" },
+        sampleDb.lots.find((lot) => lot.kind === "shipment")!.id,
+        today(),
+      ),
+    ),
+  },
+  play: async ({ canvasElement }) =>
+    expect(await within(canvasElement).findByText(/เข้าเอง 5/)).toBeVisible(),
+};
+
 /** Stock ของศาลาแดง บันทึกวันนี้แล้ว: มีแถว「ข้าวเหนียวดิบ」(ศาลาแดงนึ่งข้าวเอง) ·
  *  เนื้อมี Waste 0.3 กก. พร้อมสาเหตุ (เนื้อตกพื้น) */
 export const StockTodaySaved: Story = {
