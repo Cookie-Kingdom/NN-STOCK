@@ -408,7 +408,7 @@ test("PO เนื้อ: เนื้อสไลด์ is what there is to smo
   await expect(fact(detail, "เนื้อที่ฝากไว้กับผู้ขาย")).toHaveText("900 กก.");
 });
 
-test("V2-LOT-11 the PO รมควัน's น้ำหนักกลับ stands for the after-smoking note until one weighs it, and the PO keeps its own", async ({
+test("V2-LOT-11 the PO รมควัน's น้ำหนักกลับ is one value with the after-smoking weight, the one written last wins", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -425,14 +425,15 @@ test("V2-LOT-11 the PO รมควัน's น้ำหนักกลับ st
   await pick(line(page), 1);
   await save(page);
 
-  // The after-smoking step is no longer yellow: the PO's weight back stands for it.
+  // The after-smoking step is no longer yellow: the round weighs the PO's weight back.
   await expect(lot.locator('button[data-tone="warning"] strong')).toHaveText([
     "รับที่ Chef House",
     "ส่งกลับ",
   ]);
-  await expect(lot).toContainText("น้ำหนักกลับ 120 กก. ตาม PO รมควัน");
+  await expect(lot).toContainText("น้ำหนักกลับ 120 กก.");
+  await expect(tile(lot, /^หลังรมควัน/)).toContainText("120 กก.");
   await expect(fact(lot, "น้ำหนักหลังรมควัน")).toHaveText(
-    "120 กก. ตามน้ำหนักกลับใน PO รมควัน",
+    "120 กก. 0 กล่องรมควัน",
   );
   await expect(fact(lot, "Yield")).toHaveText("60%");
 
@@ -444,14 +445,14 @@ test("V2-LOT-11 the PO รมควัน's น้ำหนักกลับ st
     meat.getByRole("button", { name: `จัดสรร ${SO}` }),
   ).toBeVisible();
 
-  // The after-smoking form starts at the PO's weight; a changed weight wins, the PO keeps 120.
+  // The after-smoking form starts at the PO's weight; a changed weight is the PO's too.
   await openPage(page, "Lots");
   await tile(lot, /^หลังรมควัน/).click();
   await expect(form(page).getByLabel(/^น้ำหนักหลังรมควัน/)).toHaveValue("120");
   await fill(page, [/^น้ำหนักหลังรมควัน/, "110"]);
   await save(page);
   await expect(fact(lot, "น้ำหนักหลังรมควัน")).toContainText("110 กก.");
-  await expect(lot).toContainText("น้ำหนักกลับ 120 กก. ตาม PO รมควัน");
+  await expect(lot).toContainText("น้ำหนักกลับ 110 กก.");
 });
 
 test("V2-LOT-11 a PO รมควัน with no น้ำหนักกลับ shows the after-smoking note's weight", async ({
@@ -474,5 +475,5 @@ test("V2-LOT-11 a PO รมควัน with no น้ำหนักกลั�
   await expect(form(page).getByLabel(/^น้ำหนักหลังรมควัน/)).toHaveValue("");
   await fill(page, [/^น้ำหนักหลังรมควัน/, "104"]);
   await save(page);
-  await expect(lot).toContainText("น้ำหนักกลับ 104 กก. จากฟอร์มหลังรมควัน");
+  await expect(lot).toContainText("น้ำหนักกลับ 104 กก.");
 });
