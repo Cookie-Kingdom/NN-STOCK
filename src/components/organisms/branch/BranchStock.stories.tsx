@@ -338,7 +338,7 @@ export const EditItem: Story = {
  *  รายการคงที่ ไม่มี「เพิ่มสินค้า」และ「แก้ชื่อ / หน่วย」 */
 export const StockTodayNotSaved: Story = { args: stock };
 
-/** Stock ของสาขาใหม่ ที่ Owner จัดสรรเนื้อรมควัน 5 กก. มาวันนี้: แถวเนื้อมี「เข้าเอง 5」
+/** Stock ของสาขาใหม่ ที่ Owner จัดสรรเนื้อรมควัน 5 กก. มาวันนี้: แถวเนื้อมี「รับจาก Owner 5」
  *  คงเหลือ 5 */
 export const StockSentToNewBranch: Story = {
   args: stock,
@@ -359,7 +359,7 @@ export const StockSentToNewBranch: Story = {
     ),
   },
   play: async ({ canvasElement }) =>
-    expect(await within(canvasElement).findByText(/เข้าเอง 5/)).toBeVisible(),
+    expect(await within(canvasElement).findByText(/รับจาก Owner 5/)).toBeVisible(),
 };
 
 /** Stock ของศาลาแดง บันทึกวันนี้แล้ว: แถวเนื้อ ข้าวเหนียวดิบ และน้ำพริก ·

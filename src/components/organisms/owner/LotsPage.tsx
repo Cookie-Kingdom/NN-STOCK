@@ -319,6 +319,12 @@ function RoundCard({
         label={stepLabel[kind]}
         onJot={can(kind) ? () => jot(kind) : undefined}
         jotText={`+ จด${titles[kind]}`}
+        // The after-smoking form is the one a round must have, so its tile stands out.
+        className={
+          kind === "smoked"
+            ? "border-2 border-warning font-semibold shadow-sm ring-2 ring-warning/30"
+            : undefined
+        }
       />
     );
   };
@@ -489,7 +495,6 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
       />
     )),
   ];
-  const extras = (["packingList", "foodivaReturnReceive"] as const).filter(can);
   return (
     <>
       <div className={title}>
@@ -624,20 +629,6 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           <Kg value={info.centralKg} />
         </Fact>
       </dl>
-      {extras.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-caption text-text-secondary">จดเพิ่มได้</span>
-          {extras.map((kind) => (
-            <Button
-              key={kind}
-              variant="table-secondary"
-              onClick={() => ws.jot({ kind, lotId: lot.id })}
-            >
-              + {titles[kind]}
-            </Button>
-          ))}
-        </div>
-      )}
       <Documents>
         {documents.length ? (
           documents
