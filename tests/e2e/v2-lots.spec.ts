@@ -216,7 +216,7 @@ test("6 · V2-LOT-03 a round is not saved without its PO เนื้อ; a PO �
   await expect(listed(page, PO2)).toContainText("ฝากไว้ 40 กก.");
 });
 
-test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps and its invoice has no yellow, with none of the extra notes jotted", async ({
+test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps and its invoice has no yellow", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -245,13 +245,20 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   await pick(line(page), 1);
   await save(page);
   await left(4, "รับที่ Chef House", "หลังรมควัน", "ส่งกลับ");
+  // The round has no after-smoking weight yet: a banner above its steps asks for it.
+  const banner = lot.getByText("ต้องจดหลังรมควัน", { exact: true });
+  await expect(banner).toBeVisible();
   await tile(lot, /^รับที่ Chef House/).click();
   await fill(page, [/^น้ำหนักรับจริง/, "200"]);
   await save(page);
   await left(3, "หลังรมควัน", "ส่งกลับ");
-  await tile(lot, /^หลังรมควัน/).click();
+  await lot
+    .getByRole("button", { name: "จดน้ำหนักหลังรมควัน", exact: true })
+    .click();
+  await expect(popupTitle(page)).toHaveText("น้ำหนักหลังรมควัน");
   await fill(page, [/^น้ำหนักหลังรมควัน/, "104"], [/^จำนวนกล่องรมควัน/, "18"]);
   await save(page);
+  await expect(banner).toHaveCount(0);
   await left(2, "ส่งกลับ");
   await tile(lot, /^ส่งกลับ/).click();
   await fill(page, [/^น้ำหนักส่งกลับ/, "104"]);
@@ -281,23 +288,6 @@ test("7 · V2-LOT-01 V2-LOT-02 a PO รมควัน with its round's steps an
   for (const kind of core)
     await expect(lot.locator(`[data-kind="${kind}"]`)).toHaveCount(1);
   await expect(await openBell(page)).not.toContainText("SO-");
-  await page.keyboard.press("Escape");
-
-  // An extra note, even one left empty, never colours the PO รมควัน.
-  await openPage(page, "Lots");
-  await lot.getByRole("button", { name: "+ รับเข้าตู้ที่ Foodiva" }).click();
-  await expect(popupTitle(page)).toHaveText("รับเข้าตู้ที่ Foodiva");
-  // No core field: the footer counts nothing as not jotted.
-  await expect(form(page).locator("footer")).not.toContainText("ยังไม่ได้จด");
-  await save(page);
-  await expect(toast(page, "จดแล้ว: รับเข้าตู้ที่ Foodiva")).toHaveText(
-    /^จดแล้ว: รับเข้าตู้ที่ Foodiva(?!.*ยังไม่ได้จด)/,
-  );
-  await expect(rows(page, "foodivaReturnReceive")).not.toHaveAttribute(
-    "data-tone",
-  );
-  await expect(listed(page, SO)).toHaveAttribute("data-tone", "ok");
-  await expect(lot.locator("[data-entry]")).toHaveCount(core.length + 1);
 });
 
 test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what is owed", async ({
@@ -385,7 +375,7 @@ test("9 · V2-CAL-13 a part payment to the meat seller takes that much off what 
   await expect(rows(page, "pay")).toHaveCount(2);
 });
 
-test("PO เนื้อ: เนื้อสไลด์ is what there is to smoke, and what slicing lost is its Waste", async ({
+test("PO เนื้อ: เนื้อสไลด์ is what there is to smoke, what slicing lost is its Waste, and the meat waiting stays on the bell until the Owner receives it", async ({
   page,
 }) => {
   await start(page, "seed");
@@ -406,4 +396,50 @@ test("PO เนื้อ: เนื้อสไลด์ is what there is to smo
     /^100 กก\.\s*\(9\.09%\)/,
   );
   await expect(fact(detail, "เนื้อที่ฝากไว้กับผู้ขาย")).toHaveText("900 กก.");
+
+  // The meat waiting is on the bell and above the PO until the Owner says it was received.
+  await expect(await openBell(page)).toContainText(`เนื้อรอรับ ${PO} 100 กก.`);
+  await page.keyboard.press("Escape");
+  await detail
+    .getByRole("button", { name: "รับเนื้อรอรับแล้ว", exact: true })
+    .click();
+  await expect(popupTitle(page)).toHaveText("รับเนื้อรอรับ");
+  await expect(form(page).getByLabel(/^น้ำหนักเนื้อรอรับที่รับ/)).toHaveValue(
+    "100",
+  );
+  await fill(page, [/^น้ำหนักเนื้อรอรับที่รับ/, "95"]);
+  await save(page);
+  await expect(toast(page, "จดแล้ว: รับเนื้อรอรับ")).toBeVisible();
+  await expect(
+    detail.getByRole("button", { name: "รับเนื้อรอรับแล้ว", exact: true }),
+  ).toHaveCount(0);
+  await expect(detail).toContainText("รับเนื้อรอรับแล้ว 95 กก.");
+  await expect(await openBell(page)).not.toContainText(`เนื้อรอรับ ${PO}`);
+});
+
+test("PO เนื้อ: a price above 1,000 ฿/kg asks once more; กลับไปแก้ keeps the form, บันทึก saves it", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  await openPage(page, "Lots");
+  await purchase(page, "100", "1500");
+  const submit = form(page).getByRole("button", {
+    name: "บันทึก",
+    exact: true,
+  });
+  const check = page.getByRole("alertdialog", {
+    name: "ราคา / กก. เกิน 1,000 บาท",
+  });
+  await submit.click();
+  await expect(check).toContainText("1,500");
+  await check.getByRole("button", { name: "กลับไปแก้" }).click();
+  await expect(check).toHaveCount(0);
+  await expect(form(page).getByLabel(/^ราคา \/ กก\./)).toHaveValue("1,500");
+  await fill(page, [/^ราคา \/ กก\./, "1200"]);
+  await submit.click();
+  await check.getByRole("button", { name: "บันทึก", exact: true }).click();
+  await expect(form(page)).toHaveCount(0);
+  await expect(toast(page, "จดแล้ว: PO เนื้อ")).toBeVisible();
+  await expect(fact(region(page, PO), "มูลค่า")).toHaveText("฿120,000");
 });

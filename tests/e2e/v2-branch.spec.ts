@@ -852,3 +852,42 @@ test("Stock: the Owner allocates smoked meat from Foodiva to a branch, which con
   await openPage(page, "Inventory");
   await expect(region(page, "รอยืนยันรับสินค้า")).toHaveCount(0);
 });
+
+test("the composer: its calendar offers no future day, and 「บันทึกและจดต่อ」 saves and opens a fresh form of the same kind", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "saladaeng");
+  await openPage(page, "Sales");
+  await jot(page, "ยอดขาย");
+  // A future day cannot be picked (mutate would refuse it: "วันที่อยู่ในอนาคต …").
+  const date = form(page).getByLabel(theDate);
+  const tomorrow = bangkokDate(1);
+  await date.click();
+  const cell = page.locator(`button[data-date="${tomorrow}"]`);
+  if (!(await cell.count()))
+    await page.getByRole("button", { name: "เดือนถัดไป" }).click();
+  await expect(cell).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(date).toHaveAttribute("data-value", today);
+
+  await fill(page, [/^กล่องมาตรฐาน/, "3"], [/^ยอดขาย LINE MAN/, "900"]);
+  await form(page).getByRole("button", { name: "บันทึกและจดต่อ" }).click();
+  await expect(toast(page, /^จดแล้ว: ยอดขาย/)).toBeVisible();
+  await expect(popupTitle(page)).toHaveText("ยอดขาย");
+  await expect(form(page).getByLabel(/^กล่องมาตรฐาน/)).toHaveValue("");
+  await fill(page, [/^กล่องมาตรฐาน/, "2"], [/^ยอดขาย LINE MAN/, "600"]);
+  await save(page);
+  await openPage(page, "Daily Log");
+  await expect(rows(page, "sale")).toHaveCount(2);
+  // An edit saves the one note: it has no 「บันทึกและจดต่อ」.
+  await (
+    await openRow(rows(page, "sale").first())
+  )
+    .getByRole("button", { name: "แก้ไข" })
+    .click();
+  await expect(popupTitle(page)).toHaveText(/^แก้ไข: /);
+  await expect(
+    form(page).getByRole("button", { name: "บันทึกและจดต่อ" }),
+  ).toHaveCount(0);
+});

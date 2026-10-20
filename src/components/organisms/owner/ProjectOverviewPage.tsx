@@ -69,13 +69,12 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
-  // From the revenue down to the profit: the GP, the four largest categories, the rest as one.
+  // From the revenue down to the profit: the four largest categories, the rest as one.
   const paid = Object.entries(now.byCategory)
     .filter(([id, amount]) => id !== capexCategory && amount)
     .sort((a, b) => b[1] - a[1]);
   const rest = paid.slice(4).reduce((a, [, amount]) => a + amount, 0);
   const lines: [string, number][] = [
-    ["หัก GP ช่องทางขาย", now.gp],
     ...paid
       .slice(0, 4)
       .map(([id, x]): [string, number] => [names[id] ?? id, x]),
@@ -144,11 +143,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
       </Panel>
 
       <Panel className={figureGrid} aria-label={`ตัวเลขของ${span}`}>
-        <Stat
-          label="รายได้หลังหัก GP ช่องทางขาย"
-          value={baht(now.income - now.gp)}
-          note={`GP ${baht(now.gp)}`}
-        />
+        {/* The receipts are what the channels paid: already after their GP. */}
+        <Stat label="รายได้หลังหัก GP ช่องทางขาย" value={baht(now.income)} />
         <Stat
           label="กำไรจากการดำเนินงาน"
           value={

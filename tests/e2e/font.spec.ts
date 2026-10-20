@@ -11,7 +11,8 @@ test("the app is set in Noto Sans Thai Looped", async ({ page }) => {
   const family = await heading.evaluate(
     (el) => getComputedStyle(el).fontFamily,
   );
-  expect(family).toMatch(/^"?Noto Sans Thai Looped/);
+  // next/font/local names the family after its export (src/app/font.ts).
+  expect(family).toMatch(/^"?notoSansThaiLooped/);
   // The face is loaded, not a fallback: the heading's Thai text is drawn with it.
   expect(
     await page.evaluate(async (first) => {
