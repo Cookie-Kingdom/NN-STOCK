@@ -233,9 +233,12 @@ type Pl = {
   /** Pieces sold, of every product (boxes while the box is the only one), as the branches
    *  jotted them: no longer money, the revenue is the receipts. */
   boxes: number;
-  /** The receipts per channel key and per branch: a receipt names no branch, so all of it is
-   *  under "" (`noBranch`), and none of it is under a channel (its GP is already off). */
+  /** The sales receipts received per the channel they name (`channel`, already after its GP;
+   *  one naming none is in no key). They add up to `sales` when every receipt names one. */
   byChannel: Record<string, number>;
+  /** A share indicator, not money: the branches' live `sale` notes per branch ("": a sale
+   *  with no branch, `noBranch`), before the channels' GP (`saleMoney`). Only of the shop
+   *  project (no `project`, or `shopProject`): the branches sell for it alone. */
   byBranch: Record<string, number>;
   byCategory: Record<string, number>;
   opex: number;
@@ -276,7 +279,7 @@ export function expensesPaid(db: Database, project?: string) {
 /** V2-CAL-02 over the entries dated `from`..`to`, both ends included:
  *  `profit = sales − gp + otherIncome − opex`. อุปกรณ์/ลงทุน stays out of the profit. The
  *  revenue is the `income` notes received, on their dates (2026-10-14: the sales receipts are
- *  the sales, a branch's `sale` notes are not money here); with `project`, only what was
+ *  the sales, a branch's `sale` notes are not money here, only `byBranch`); with `project`, only what was
  *  jotted for that project (none of บริษัทส่วนกลาง). The money out is the shop project's
  *  money-out lines (`outflows`) and the paid `expense` notes (`expensesPaid`, of `project`
  *  when given). The bounds compare as text: a prefix is a `from` (`2026-09`), and a prefix
@@ -289,9 +292,16 @@ export function plBetween(
 ): Pl {
   const within = (date: string) => date >= from && date <= to;
   let boxes = 0;
+  const byBranch: Record<string, number> = {};
   const sold = products(db.config);
+  const shops = project === undefined || project === shopProject;
   for (const sale of entries(db, "sale"))
-    if (within(sale.date)) boxes += pieces(sold, sale.values);
+    if (within(sale.date)) {
+      boxes += pieces(sold, sale.values);
+      if (shops)
+        byBranch[sale.branch] =
+          (byBranch[sale.branch] ?? 0) + saleMoney(db.config, sale).sales;
+    }
   const byCategory: Record<string, number> = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, 0]),
   );
@@ -303,6 +313,7 @@ export function plBetween(
   let sales = 0,
     otherIncome = 0;
   const byIncome: Record<string, number> = {};
+  const byChannel: Record<string, number> = {};
   for (const i of inflows(db))
     if (
       i.received &&
@@ -310,8 +321,11 @@ export function plBetween(
       (project === undefined ||
         (i.purpose === "project" && i.project === project))
     ) {
-      if (i.type === "sales") sales += i.amount;
-      else {
+      if (i.type === "sales") {
+        sales += i.amount;
+        if (i.channel)
+          byChannel[i.channel] = (byChannel[i.channel] ?? 0) + i.amount;
+      } else {
         otherIncome += i.amount;
         byIncome[i.item] = (byIncome[i.item] ?? 0) + i.amount;
       }
@@ -323,8 +337,8 @@ export function plBetween(
     byIncome,
     income: sales + otherIncome,
     boxes,
-    byChannel: {},
-    byBranch: sales ? { "": sales } : {},
+    byChannel,
+    byBranch,
     byCategory,
     opex,
     profit: sales + otherIncome - opex,
@@ -334,10 +348,18 @@ export function plBetween(
 /** V2-CAL-02: one month (`YYYY-MM`, by entry date); a year (`YYYY`) or a day works the same. */
 export const monthPl = (db: Database, month: string, project?: string) =>
   plBetween(db, month, `${month}~`, project);
-/** The sales after the channels' GP per branch, as `plBetween` reads them over the entries
- *  dated `from`..`to`: they add up to its `sales − gp`. */
-export const netSalesByBranch = (db: Database, from: string, to: string) =>
-  plBetween(db, from, to).byBranch;
+/** A share indicator, not money: the branches' live `sale` notes after the channels' GP
+ *  (`saleMoney`) per branch ("": a sale with no branch), over the entries dated `from`..`to`.
+ *  The revenue is the receipts (`plBetween`), which name no branch. */
+export function netSalesByBranch(db: Database, from: string, to: string) {
+  const net: Record<string, number> = {};
+  for (const sale of entries(db, "sale"))
+    if (sale.date >= from && sale.date <= to) {
+      const money = saleMoney(db.config, sale);
+      net[sale.branch] = (net[sale.branch] ?? 0) + money.sales - money.gp;
+    }
+  return net;
+}
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };
 /** Lines stored as JSON `[{ poLotId, kg }]`; `kg` "" reads as 0. Anything unreadable is no line. */

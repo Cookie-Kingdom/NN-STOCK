@@ -591,17 +591,6 @@ export function fields(
         text("name", "ชื่อรายการ"),
         text("unit", "หน่วย"),
       ];
-    case "packingList":
-      return [
-        text("invoiceNo", "เลข Invoice"),
-        text("product", "รายการสินค้า"),
-        text("code", "รหัสสินค้า"),
-        count("boxCount", "จำนวนกล่องรับเข้า"),
-        number("slicedNetKg", "น้ำหนักส่งรวม", "กก."),
-        number("invWeightKg", "Inv. Weight", "กก."),
-        file("ไฟล์ Packing List"),
-        note,
-      ];
     case "expense":
       return [
         // A PO row is worked out from the log: a hand-jotted row is one of the others.
@@ -732,14 +721,6 @@ export function fields(
                 .join(" · "),
             })),
         },
-        note,
-      ];
-    case "foodivaReturnReceive":
-      return [
-        number("receivedKg", "น้ำหนักรับจริง", "กก."),
-        count("receivedBags", "จำนวนกล่องรมควันที่รับ"),
-        time("receivedTime", "เวลารับ"),
-        weightReason,
         note,
       ];
   }

@@ -70,7 +70,9 @@ export type EntryKind = (typeof entryKinds)[number];
  *  `prepare` and `smoke` are retired: `smoked` holds the weight after smoking. So are the
  *  counts (`meatCount`, `materials`): a branch's stock is its daily sheet (`daily`). And the
  *  opening stock (`opening`, retired 2026-10-14): a branch starts empty, and everything it
- *  holds comes in by a transfer, a receipt or its own payment. */
+ *  holds comes in by a transfer, a receipt or its own payment. And the Packing List and the
+ *  receipt into Foodiva's freezer (`packingList`, `foodivaReturnReceive`, retired 2026-10-20):
+ *  a PO รมควัน that has a Packing List keeps its document. */
 export const noteKinds = [
   "purchase",
   "meatInvoice",
@@ -83,8 +85,6 @@ export const noteKinds = [
   "smokingInvoice",
   "pay",
   "reimburse",
-  "packingList",
-  "foodivaReturnReceive",
   "sale",
   "receive",
   "influencerBox",
@@ -122,7 +122,7 @@ export const oncePerLotKinds: EntryKind[] = ["smokingInvoice", "meatInvoice"];
 export const kindInfo: Record<
   NoteKind,
   {
-    group: "lot" | "money" | "extra" | "branch" | "ledger";
+    group: "lot" | "money" | "branch" | "ledger";
     lot?: "batch" | "po" | "optional";
   }
 > = {
@@ -138,8 +138,6 @@ export const kindInfo: Record<
   pay: { group: "money" },
   reimburse: { group: "money" },
   income: { group: "money" },
-  packingList: { group: "extra", lot: "batch" },
-  foodivaReturnReceive: { group: "extra", lot: "batch" },
   sale: { group: "branch" },
   receive: { group: "branch", lot: "optional" },
   influencerBox: { group: "branch" },
@@ -164,8 +162,6 @@ const pageNoteKinds: Record<NotePage, NoteKind[]> = {
     "smoked",
     "return",
     "smokingInvoice",
-    "packingList",
-    "foodivaReturnReceive",
   ],
   // A branch's Stock and Inventory. It has no Finance, so `pay` stands on both. The Owner's
   // two pages have none. The daily sheet and a list item (`daily`, `stockItem`) are saved by
@@ -281,8 +277,6 @@ export const titles: Record<EntryKind, string> = {
   pay: "จ่ายเงิน",
   reimburse: "คืนเงินพนักงาน",
   income: "บันทึกรายรับ",
-  packingList: "Packing List",
-  foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
   ownerWasteReceive: "รับเนื้อรอรับ",
   sale: "ยอดขาย",
   receive: "รับเนื้อเข้าสาขา",
@@ -295,6 +289,8 @@ export const titles: Record<EntryKind, string> = {
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
   // Retired.
+  packingList: "Packing List",
+  foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
   opening: "ตั้งสต๊อกเริ่มต้น",
   meatCount: "นับเนื้อคงเหลือ",
   materials: "นับวัสดุคงเหลือ",

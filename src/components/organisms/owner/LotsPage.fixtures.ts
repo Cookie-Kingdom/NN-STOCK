@@ -1,5 +1,5 @@
 // Samples for the Lots stories, built by the real `mutate`: the documents one (the header
-// from Settings, a Packing List and a truck back on the first PO รมควัน), rounds, over
+// from Settings, an old Packing List and a truck back on the first PO รมควัน), rounds, over
 // capacity and a Foodiva invoice that overrides its PO.
 import { sampleDb } from "@/components/organisms/workspace/storyWorkspace";
 import { today } from "@/lib/format";
@@ -36,14 +36,31 @@ export const documentsDb: Database = (() => {
   const add = (kind: NoteKind, values: Values) => {
     db = mutate(db, owner, kind, values, lotId, today());
   };
-  add("packingList", {
-    invoiceNo: "INV-F-0912",
-    product: "เนื้อสไลซ์",
-    code: "BF-SL-01",
-    boxCount: "20",
-    slicedNetKg: "200",
-    invWeightKg: "200",
-  });
+  // `packingList` is retired (2026-10-20): laid in as an old note, as a PO รมควัน that
+  // already has one keeps its document.
+  db = {
+    ...db,
+    entries: [
+      ...db.entries,
+      {
+        id: "old-packing-list",
+        kind: "packingList",
+        role: "owner",
+        lotId,
+        branch: "",
+        date: today(),
+        at: new Date().toISOString(),
+        values: {
+          invoiceNo: "INV-F-0912",
+          product: "เนื้อสไลซ์",
+          code: "BF-SL-01",
+          boxCount: "20",
+          slicedNetKg: "200",
+          invWeightKg: "200",
+        },
+      },
+    ],
+  };
   add("return", {
     returnKg: "104",
     returnTime: "09:00",
@@ -193,7 +210,7 @@ export const meatTypesDb: Database = (() => {
     db,
     owner,
     "smokeOrder",
-    { rawKg: "300", backKg: "180", meatType: "meat-wagyu" },
+    { rawKg: "300", meatType: "meat-wagyu" },
     "",
     today(),
   );
