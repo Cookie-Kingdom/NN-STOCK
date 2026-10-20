@@ -284,9 +284,12 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
           </div>
         </FigureCard>
         <div className="grid gap-4">
-          <FigureCard title="ยอดขายแยกสาขา" note="หลังหัก GP ช่องทางขาย">
+          <FigureCard
+            title="ยอดขายแยกสาขา"
+            note="ตามที่สาขาจด · หลังหัก GP ช่องทางขาย"
+          >
             <Bars
-              total={netSales}
+              total={Object.values(byBranch).reduce((a, b) => a + b, 0)}
               rows={[
                 ...branches.map((name) => ({
                   name,

@@ -32,8 +32,9 @@ const perBox = (x: number) => `${x < 0 ? "−" : ""}฿${fmt(Math.abs(x))}`;
  *  year. The total against the like-for-like span before it, a bar per day (or per month),
  *  the figures of the period, how the revenue becomes the operating profit, the branches,
  *  the sales channels and the other income, then the P&L. One vocabulary all the way down:
- *  รายได้รวม is ยอดขาย (the branches' sales) and รายได้อื่น (V2-PAY-09) together; a figure per
- *  box, per branch or per channel is of ยอดขาย alone and says so. Only the project's own
+ *  รายได้รวม is ยอดขาย (the sales receipts) and รายได้อื่น (V2-PAY-09) together; a figure per
+ *  box or per channel is of ยอดขาย alone, the branches' share is of what they jotted, and
+ *  each says so. Only the project's own
  *  other income counts, the company's left out. The shop's Overview (`OverviewPage`) is a
  *  page of its own: nothing of this layout is shared with it. */
 export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
@@ -254,9 +255,9 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           </div>
         </FigureCard>
         <div className="grid gap-4">
-          <FigureCard title="ยอดขายแยกสาขา">
+          <FigureCard title="ยอดขายแยกสาขา" note="ตามที่สาขาจด">
             <Bars
-              total={now.sales}
+              total={Object.values(now.byBranch).reduce((a, b) => a + b, 0)}
               rows={[
                 ...branches.map((name) => ({
                   name,
@@ -271,7 +272,7 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           </FigureCard>
           <FigureCard
             title="ยอดขายแยกช่องทางขาย"
-            note="GP คือส่วนที่ช่องทางหักไป"
+            note="ยอดรับเงินค่าขาย ช่องทางหัก GP แล้ว"
           >
             <Bars
               total={now.sales}
@@ -281,9 +282,7 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
                   return {
                     name: c.name,
                     value,
-                    note: c.gp
-                      ? `GP ${c.gp}% = ${baht((-value * c.gp) / 100)} · เหลือ ${baht(value * (1 - c.gp / 100))}`
-                      : "ไม่มี GP",
+                    note: c.gp ? `หัก GP ${c.gp}% แล้ว` : "ไม่มี GP",
                   };
                 }),
                 ...(now.byChannel[legacySale.key]

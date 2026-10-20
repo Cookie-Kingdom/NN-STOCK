@@ -130,9 +130,15 @@ describe("mutate", () => {
     expect(() => pay(saladaeng, { category: "meat", amount: "1" })).toThrow(
       forbidden,
     );
-    expect(() => mutate(db, owner, "closeDay", {}, "", day)).toThrow(
-      "รายการชนิดนี้เลิกใช้แล้ว",
-    );
+    // Packing List and Foodiva's freezer are retired (2026-10-20) too.
+    for (const kind of [
+      "closeDay",
+      "packingList",
+      "foodivaReturnReceive",
+    ] as const)
+      expect(() => mutate(db, owner, kind, {}, "", day)).toThrow(
+        "รายการชนิดนี้เลิกใช้แล้ว",
+      );
     // V2-RUL-01: what is not a plain number, and a day that is not on the calendar.
     for (const amount of ["abc", "1e3", "0x10", "1,000"])
       expect(() => pay(owner, { category: "other", amount })).toThrow(
@@ -538,7 +544,7 @@ it("kindsForPage: the jot buttons of each page, per account", () => {
     "income",
   ]);
   expect(kindsForPage(owner, "accounting")).toEqual(["expense", "income"]);
-  expect(kindsForPage(owner, "lots")).toHaveLength(11);
+  expect(kindsForPage(owner, "lots")).toHaveLength(9);
   // Daily Log is for looking: no account jots from it.
   for (const by of [owner, saladaeng])
     expect(kindsForPage(by, "log")).toEqual([]);
@@ -845,15 +851,20 @@ describe("figures (V2-CAL)", () => {
     const own = old("old-own", "ศาลาแดง", "100");
     const withOld = { ...built, entries: [...built.entries, none, own] };
     expect(saleMoney(built.config, none)).toEqual({ sales: 900, gp: 0 });
-    // 2026-10-14: a sale is no money of the P&L (the sales receipts are), only its boxes.
+    // 2026-10-14: a sale is no money of the P&L (the sales receipts are), only its boxes and
+    // its branch's share.
     expect(monthPl(withOld, "2026-08")).toMatchObject({
       sales: 0,
       gp: 0,
       boxes: 4,
-      byBranch: {},
+      byBranch: { "": 900, ศาลาแดง: 100 },
       byChannel: {},
     });
-    expect(netSalesByBranch(withOld, "2026-08", "2026-08~")).toEqual({});
+    expect(monthPl(withOld, "2026-08", "อื่น").byBranch).toEqual({});
+    expect(netSalesByBranch(withOld, "2026-08", "2026-08~")).toEqual({
+      "": 900,
+      ศาลาแดง: 100,
+    });
     // The form's `sales.legacy` is dropped from a new note; a branch's edit keeps the money
     // and does not list the channel's as missing.
     const jotted = mutate(
@@ -3126,7 +3137,7 @@ describe("income (V2-PAY-09)", () => {
       ...before,
       sales: 600,
       income: 600,
-      byBranch: { "": 600 },
+      byChannel: { lineMan: 600 },
       profit: before.profit + 600,
     });
     expect(cashBetween(d, ...span)).toMatchObject({

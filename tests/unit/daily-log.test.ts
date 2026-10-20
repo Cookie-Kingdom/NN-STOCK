@@ -223,7 +223,7 @@ it("follows an edit that moves the note's lot, and its undo", () => {
   log = save(log, owner, "smokeOrder", {}, "2026-09-09", "07:30");
   const second = log.entries.at(-1)!.lotId;
   expect(second).not.toBe(first);
-  log = save(log, owner, "packingList", {}, "2026-09-09", "08:00", first);
+  log = save(log, owner, "smokingInvoice", {}, "2026-09-09", "08:00", first);
   const id = log.entries.at(-1)!.id;
   log = editOf(log, id, {}, "09:00", { toLotId: second });
   log = voidLast(log, "10:00");

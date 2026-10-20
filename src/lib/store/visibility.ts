@@ -156,10 +156,13 @@ export function logRows(
       (isNoteKind(note.kind) ? kindInfo[note.kind].group : "");
     if (
       !seen.has(e.id) ||
-      // The notes jotted on a Lot beyond its core ones are Lot notes too.
+      // The retired notes of a Lot (Packing List, Foodiva's freezer) are Lot notes too.
       (group !== "all" &&
         noteGroup !== group &&
-        !(group === "lot" && noteGroup === "extra"))
+        !(
+          group === "lot" &&
+          (note.kind === "packingList" || note.kind === "foodivaReturnReceive")
+        ))
     )
       continue;
     rows.push({

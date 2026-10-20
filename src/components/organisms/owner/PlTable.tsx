@@ -10,7 +10,6 @@ import {
   monthPl,
   payCategories,
   rentCategory,
-  salesChannels,
   type Database,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -82,8 +81,8 @@ const Money = ({ x }: { x: number }) => (
 );
 
 /** The month (or the year: `month` is then `YYYY`) and the one before it, side by side
- *  (V2-CAL-02). `full` (the Owner): sales, GP per channel, other income when either period
- *  has some, every category, the operating profit (`sales − GP + other income − opex`), then
+ *  (V2-CAL-02). `full` (the Owner): sales (the receipts, already after the channels' GP),
+ *  other income when either period has some, every category, the operating profit, then
  *  อุปกรณ์/ลงทุน on its own line; each line also as a share of the period's whole revenue
  *  (sales and other income). With `project`, only that project's other income counts, as on
  *  its Overview. Without `full`: the categories only and what they add up to. ค่าเช่า/น้ำไฟ with nothing jotted
@@ -157,14 +156,6 @@ export function PlTable({
         </thead>
         <tbody>
           {full && line("ยอดขาย", a.sales, b.sales)}
-          {full &&
-            salesChannels(db.config).map((c) =>
-              line(
-                `GP ${c.name} ${c.gp}%`,
-                (-(a.byChannel[c.key] ?? 0) * c.gp) / 100,
-                (-(b.byChannel[c.key] ?? 0) * c.gp) / 100,
-              ),
-            )}
           {full &&
             (a.otherIncome || b.otherIncome) !== 0 &&
             line("รายได้อื่น", a.otherIncome, b.otherIncome)}

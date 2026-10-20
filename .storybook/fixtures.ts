@@ -53,7 +53,7 @@ export const emptyDb: Database = structuredClone(seed);
 /** Daily sheets on a new system: both branches took their first stock in on both sheets two
  *  days before `on` (รับเพิ่ม on that day's sheet) and saved the sheets of the day before;
  *  nothing is saved on `on` yet.
- *  ศาลาแดง: 10 กก. of meat received on `on` (รับจาก Owner), a meat waste and a material waste with
+ *  ศาลาแดง: 10 กก. of meat received on `on` (รับเข้าอัตโนมัติ), a meat waste and a material waste with
  *  their reasons. มีนบุรี: a chili waste with no reason and no reporter (ยังไม่ได้จด). */
 export function sheetsDb(on = day): Database {
   const back = (days: number) =>

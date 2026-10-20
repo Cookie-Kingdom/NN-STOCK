@@ -345,7 +345,7 @@ function DailyForm({
                   {/* A transfer, a payment with a quantity, the meat received: already in. */}
                   {info.autoReceived !== 0 && (
                     <Caption className="mt-1 block font-normal">
-                      รับจาก Owner {n3(info.autoReceived)}
+                      รับเข้าอัตโนมัติ {n3(info.autoReceived)}
                     </Caption>
                   )}
                 </Figure>
