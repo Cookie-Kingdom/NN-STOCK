@@ -86,8 +86,11 @@ test("a kind of meat added in Settings is chosen on its PO เนื้อ and P
   await fill(page, [/^สาขาปลายทาง/, "สาขามีนบุรี"], [/^น้ำหนัก/, "20"]);
   await save(page);
 
-  // The branch's sheet has a row per kind: the วากิว came in, the เนื้อ did not.
+  // The branch's sheet has a row per kind: the วากิว came in, the เนื้อ did not. Sent with
+  // 「เข้าสต๊อกสาขาทันที」 (the default), it is in by itself: nothing to confirm.
   await signInAs(page, "minburi");
   await openPage(page, "Stock");
+  await expect(region(page, "รอยืนยันรับสินค้า")).toHaveCount(0);
   await expect(sheetCell(page, "คงเหลือ", "วากิว")).toHaveText(/^20 /);
+  await expect(page.getByRole("main")).toContainText("รับเข้าอัตโนมัติ 20");
 });

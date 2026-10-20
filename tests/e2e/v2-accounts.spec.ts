@@ -41,6 +41,9 @@ const accounts = Object.keys(pagesOf) as (keyof typeof pagesOf)[];
 const h1 = (page: Page) => page.getByRole("heading", { level: 1 });
 const optionsOf = (page: Page, label: RegExp) =>
   choices(form(page).getByLabel(label));
+/** 「ยืนยันรับ」 on a branch's Inventory: one per transfer sent to it, not yet confirmed. */
+const confirmButtons = (page: Page) =>
+  page.getByRole("main").getByRole("button", { name: /^ยืนยันรับ / });
 const serverCopy = async (page: Page) =>
   (await (await page.request.get("/api/local-db")).json()).payload;
 
@@ -103,6 +106,7 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   await expect(jotButtons(page)).toHaveText(["รับเนื้อเข้าสาขา", "จ่ายเงิน"]);
   await openPage(page, "Inventory");
   await expect(jotButtons(page)).toHaveText(["จ่ายเงิน"]);
+  await expect(confirmButtons(page).first()).toBeVisible();
   await jot(page, "จ่ายเงิน");
   expect(await optionsOf(page, /^หมวด/)).toEqual([
     "เลือกหมวด",
@@ -141,6 +145,9 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   }
   await openPage(page, "Daily Log");
   await expect(rows(page, "pay")).toHaveCount(0);
+  // The Owner's transfers to ศาลาแดง wait on ศาลาแดง's Inventory alone.
+  await openPage(page, "Inventory");
+  await expect(confirmButtons(page)).toHaveCount(0);
   const copy = await serverCopy(page);
   expect(JSON.stringify(copy)).not.toMatch(/ศาลาแดง|วินส่งของทดสอบ/);
   // Of the branches that count raw rice it is told its own alone: here, that it does not.
@@ -158,6 +165,63 @@ test("4 · V2-ACC-07 Branch pays in 4 categories and sees nothing of the other b
   const paid = rows(page, "pay").filter({ hasText: "วินส่งของทดสอบ" });
   await expect(paid).toContainText("สาขาศาลาแดง");
   await expect(paid).toContainText("−฿80");
+  // A branch's note is its own: the Owner can neither edit nor delete it (editBlock, voidBlock).
+  await expect(paid.getByRole("button", { name: /^(แก้ไข|ลบ)$/ })).toHaveCount(
+    0,
+  );
+});
+
+test("V2-ACC sign in the Owner, add a branch through เพิ่มบัญชี, and switch between them with no password", async ({
+  page,
+}) => {
+  await start(page, "seed");
+  await signInAs(page, "owner");
+  const panel = region(page, "สลับบัญชี");
+  const openPanel = () =>
+    page.getByRole("button", { name: "สลับบัญชี", exact: true }).click();
+  await openPanel();
+  await expect(panel.locator('[aria-current="true"]')).toContainText("Owner");
+  await panel.getByRole("button", { name: "เพิ่มบัญชี" }).click();
+  // `/?add` stays on the sign-in page over the open account, which is listed as saved.
+  await expect(page).toHaveURL(/\/\?add$/);
+  await expect(
+    page.getByRole("heading", { name: "เข้าสู่ระบบ" }),
+  ).toBeVisible();
+  await expect(page.getByText("บัญชีที่บันทึกไว้")).toBeVisible();
+  await page.getByLabel("อีเมล").fill("saladaeng@local.test");
+  await page.getByLabel("รหัสผ่าน").fill("local-test");
+  await page.getByRole("button", { name: "เข้าสู่ระบบ", exact: true }).click();
+  await expect(page).toHaveURL(/\/branch/);
+  await expect(h1(page)).toHaveText("Stock");
+
+  // Back and forth, never asked for a password.
+  for (const [name, path, home] of [
+    ["Owner", /\/owner/, "Overview"],
+    ["สาขาศาลาแดง", /\/branch/, "Stock"],
+  ] as const) {
+    await openPanel();
+    await panel.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+    await expect(page).toHaveURL(path);
+    await expect(h1(page)).toHaveText(home);
+    await expect(page.getByLabel("รหัสผ่าน")).toHaveCount(0);
+  }
+  await openPanel();
+  await expect(panel.locator('[aria-current="true"]')).toContainText(
+    "สาขาศาลาแดง",
+  );
+  await page.keyboard.press("Escape");
+
+  // Signing out forgets that account alone: the Owner is still one press away.
+  await page.getByRole("button", { name: "ออกจากระบบ" }).click();
+  await page.getByRole("alertdialog").getByRole("button").last().click();
+  await expect(
+    page.getByRole("heading", { name: "เข้าสู่ระบบ" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^สาขาศาลาแดง/ })).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: /^Owner/ }).click();
+  await expect(h1(page)).toHaveText("Overview");
 });
 
 test("19 · V2-LOT-05 V2-PG-02 no close-day, unlock-day, close-Lot, accept-PO or review-invoice control on any page", async ({
