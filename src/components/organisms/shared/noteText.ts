@@ -12,6 +12,7 @@ import {
   isNoteKind,
   isUnlinkedDispatch,
   legacySale,
+  saleTotal,
   pieces,
   pieceUnit,
   productKey,
@@ -453,6 +454,7 @@ export function noteAmount(
       : null;
   if (e.kind === "sale")
     return has(legacySale.key) ||
+      has(saleTotal.key) ||
       salesChannels(db.config).some((channel) => has(channel.key))
       ? { text: `+${baht(saleMoney(db.config, e).sales)}`, tone: "in" }
       : null;

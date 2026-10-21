@@ -306,7 +306,7 @@ describe("mutate", () => {
       "",
       day,
     );
-    expect(live(undone)?.values.missing).toBe("lineMan");
+    expect(live(undone)?.values.missing).toBe("salesTotal");
 
     // A daily sheet deleted gives back what it used; put back, it takes it again.
     const meat = (d: Database) => branchItem(d, "ศาลาแดง", "meat", day).opening;
@@ -835,6 +835,40 @@ describe("figures (V2-CAL)", () => {
     expect(saleMoney(built.config, sale)).toEqual({ sales: 1500, gp: 250 });
   });
 
+  it("CAL-01: the day's total is the sale's money, with or without channels in Settings", () => {
+    const noChannels = {
+      ...built,
+      config: { ...built.config, salesChannels: "[]" },
+    };
+    expect(fields("sale", noChannels, saladaeng).map((f) => f.key)).toContain(
+      "salesTotal",
+    );
+    const total = last(
+      mutate(
+        noChannels,
+        saladaeng,
+        "sale",
+        { boxes: "2", salesTotal: "4200" },
+        "",
+        day,
+      ),
+    );
+    expect(total.values.missing).toBeFalsy();
+    expect(saleMoney(noChannels.config, total)).toEqual({ sales: 4200, gp: 0 });
+    // Typed with the channels, the total wins; the channels still take their GP.
+    expect(
+      saleMoney(built.config, {
+        ...sale,
+        values: { ...sale.values, salesTotal: "2000" },
+      }),
+    ).toEqual({ sales: 2000, gp: 250 });
+    // Neither typed: the total is what is not jotted.
+    const none = last(
+      mutate(noChannels, saladaeng, "sale", { boxes: "1" }, "", day),
+    );
+    expect(none.values.missing).toBe("salesTotal");
+  });
+
   it("CAL-01: money from the old books is a sale with no GP, with or without a branch", () => {
     // Nobody jots one (the form has no such field): laid in as the import does.
     const old = (id: string, branch: string, money: string): Entry => ({
@@ -1177,6 +1211,7 @@ describe("figures (V2-CAL)", () => {
     // The sale form no longer asks for what the sheet holds.
     expect(fields("sale", built, saladaeng).map((f) => f.key)).toEqual([
       "boxes",
+      "salesTotal",
       "lineMan",
       "sales.grab",
       "expense",

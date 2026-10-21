@@ -33,6 +33,7 @@ import {
   payCategories,
   salesChannels,
   legacySale,
+  saleTotal,
   type incomeTypes,
   shopProject,
   type Database,
@@ -147,7 +148,8 @@ export const byDateAt = (
   b: { date: string; at: string },
 ) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at);
 /** V2-CAL-01: a sale's money in over every channel, and the GP the channels take from it.
- *  Money from the old books (`legacySale`) is already after GP: counted whole, GP 0. */
+ *  Money from the old books (`legacySale`) is already after GP: counted whole, GP 0. The
+ *  day's total (`saleTotal`), typed, is the money instead of the channels it breaks down. */
 export function saleMoney(config: Values, sale: Entry) {
   let sales = num(sale.values, legacySale.key),
     gp = 0;
@@ -155,6 +157,8 @@ export function saleMoney(config: Values, sale: Entry) {
     sales += num(sale.values, channel.key);
     gp += (num(sale.values, channel.key) * channel.gp) / 100;
   }
+  if (typed(sale.values, saleTotal.key))
+    sales = num(sale.values, saleTotal.key);
   return { sales, gp };
 }
 type Outflow = {
