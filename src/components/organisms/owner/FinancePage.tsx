@@ -42,6 +42,7 @@ import {
   type LedgerSource,
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { BranchSalesSummary } from "./BranchSalesSummary";
 import { CashFlowChart } from "./CashFlowChart";
 import { FigureCard, FigureTable, Num, PlTable, cardGrid } from "./PlTable";
 import { usePeriod } from "./overviewParts";
@@ -61,7 +62,8 @@ const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
  *  (V2-PAY-08); the months around the period as a chart; what was paid in each category;
  *  what each sales channel still owes (V2-CAL-25) with the button that jots its receipt, what
  *  is still unpaid per supplier, what each person paid out of pocket and is still owed
- *  (V2-PAY-07) with the button that pays them back; and the latest money in and out, a table
+ *  (V2-PAY-07) with the button that pays them back; each branch's sales per day or month
+ *  (`BranchSalesSummary`); and the latest money in and out, a table
  *  with 「แก้ไข」 and 「ลบ」 at the end of each row. Money in is the `income` notes jotted for
  *  the project (V2-PAY-09), never the sales as jotted: the revenue is the project's Overview. */
 export function FinancePage({ ws }: { ws: Workspace }) {
@@ -513,6 +515,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
           </FigureCard>
         </div>
       </div>
+      <BranchSalesSummary db={db} period={key} />
       <FigureCard
         title="รายการเงินเข้า–ออกล่าสุด"
         note={`${latest.length} รายการ จากทุกช่วงเวลา`}

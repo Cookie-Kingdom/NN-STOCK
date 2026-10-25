@@ -20,6 +20,7 @@ import {
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
+import { BranchSalesSummary } from "./BranchSalesSummary";
 import { FigureCard, PlTable, figureGrid, share } from "./PlTable";
 import { RevenueChart } from "./RevenueChart";
 import { Bars, Delta, usePeriod } from "./overviewParts";
@@ -31,7 +32,8 @@ const perBox = (x: number) => `${x < 0 ? "−" : ""}฿${fmt(Math.abs(x))}`;
 /** The project's own Overview, under its heading in the menu: its revenue by month or by
  *  year. The total against the like-for-like span before it, a bar per day (or per month),
  *  the figures of the period, how the revenue becomes the operating profit, the branches,
- *  the sales channels and the other income, then the P&L. One vocabulary all the way down:
+ *  the sales channels and the other income, each branch's sales per day or month
+ *  (`BranchSalesSummary`), then the P&L. One vocabulary all the way down:
  *  รายได้รวม is ยอดขาย (the sales receipts) and รายได้อื่น (V2-PAY-09) together; a figure per
  *  box or per channel is of ยอดขาย alone, the branches' share is of what they jotted, and
  *  each says so. Only the project's own
@@ -311,6 +313,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           )}
         </div>
       </div>
+
+      <BranchSalesSummary db={db} period={key} />
 
       <PlTable db={db} month={key} full project={shopProject} />
     </div>
