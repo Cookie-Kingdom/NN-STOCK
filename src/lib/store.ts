@@ -41,6 +41,7 @@ export {
   unpack,
   salesChannels,
   legacySale,
+  saleTotal,
   incomeTypes,
   noBranch,
   rawRiceBranches,

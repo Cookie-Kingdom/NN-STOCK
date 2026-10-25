@@ -478,6 +478,9 @@ export const salesChannels = (config: Values): Channel[] =>
 /** V2-CAL-01: the money of a sale brought in from the shop's old books, already after the
  *  channel's GP: counted in the sales, GP 0. Not a channel of Settings (`checkConfig` refuses
  *  the key) and not a field of the sale form: nobody jots it, only imported entries carry it. */
+/** A branch's sale: the day's total from its order machine, whatever the channels in Settings.
+ *  Typed, it is the sale's money (`saleMoney`); the channels' fields only break it down. */
+export const saleTotal = { key: "salesTotal", name: "ยอดขายรวม" };
 export const legacySale = {
   key: "sales.legacy",
   name: "ยอดเดิม (หลัง GP แล้ว)",

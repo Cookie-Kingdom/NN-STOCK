@@ -16,6 +16,7 @@ import {
   productKey,
   products,
   salesChannels,
+  saleTotal,
   sheets,
   stockCategories,
   type Actor,
@@ -540,15 +541,18 @@ export function fields(
     case "sale":
       return [
         ...productFields(db, kept),
-        // One money field per sales channel in Settings; only the first is core.
+        core(
+          number(saleTotal.key, saleTotal.name, "บาท", {
+            hint: "ยอดของวันจากเครื่องรับ order ของสาขา",
+          }),
+        ),
+        // One money field per sales channel in Settings, a breakdown of the total.
         ...salesChannels(db.config).map((channel, index) =>
           number(
             channel.key,
             `ยอดขาย ${channel.name}`,
             "บาท",
-            index
-              ? undefined
-              : { core: true, hint: "ยอดจริงตามที่ LINE MAN แจ้ง" },
+            index ? undefined : { hint: "ยอดจริงตามที่ LINE MAN แจ้ง" },
           ),
         ),
         number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),

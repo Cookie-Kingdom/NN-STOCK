@@ -30,6 +30,7 @@ import {
   kindInfo,
   kindsFor,
   legacySale,
+  saleTotal,
   oncePerLotKinds,
   titles,
   lotMovableKinds,
@@ -203,9 +204,14 @@ function noteValues(
   // Tubes sold apart had a field of their own once: an edit keeps what such a note took.
   if ((kind === "sale" || kind === "influencerBox") && kept.chiliAddons)
     v.chiliAddons = kept.chiliAddons;
-  if (kind === "sale" && kept[legacySale.key]) {
+  if (kind === "sale" && kept[legacySale.key])
     v[legacySale.key] = kept[legacySale.key];
-    const at = missing.indexOf(salesChannels(db.config)[0].key);
+  // A sale's money is not jotted only when neither the total nor any channel (nor old money) is.
+  if (
+    kind === "sale" &&
+    [legacySale, ...salesChannels(db.config)].some((c) => v[c.key])
+  ) {
+    const at = missing.indexOf(saleTotal.key);
     if (at >= 0) missing.splice(at, 1);
   }
   // A sale's products are rows of one list: none is not jotted while any has a count.
