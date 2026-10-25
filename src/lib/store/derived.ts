@@ -1,6 +1,7 @@
 /** Figures recomputed from the entry log (stock, cost, yield, money); nothing here is stored.
  *  `today` is always a parameter (`YYYY-MM-DD`, Bangkok), so every function stays pure. */
 import {
+  branches,
   canChange,
   capexCategory,
   centralPlace,
@@ -363,6 +364,55 @@ export function netSalesByBranch(db: Database, from: string, to: string) {
       net[sale.branch] = (net[sale.branch] ?? 0) + money.sales - money.gp;
     }
   return net;
+}
+type SalesSummaryRow = {
+  /** The day (`YYYY-MM-DD`) or the month (`YYYY-MM`); "" on the totals. */
+  key: string;
+  /** "": a sale with no branch (`noBranch`), and the totals. */
+  branch: string;
+  /** Pieces sold per product id, of every product (`off` too); a zero is left out. */
+  counts: Record<string, number>;
+  /** As `byBranch` of `plBetween` reads it: `saleMoney`, before the channels' GP. */
+  money: number;
+};
+/** สรุปยอดขายสาขา: the branches' live `sale` notes dated under `period` (a `YYYY-MM` or a
+ *  `YYYY` prefix), one row per day or per month and branch, newest first, then in the order
+ *  of `branches` (a sale with no branch last); only a day or month with a sale. `total` adds
+ *  them up, so its money is the period's `byBranch` summed. */
+export function branchSalesSummary(
+  db: Database,
+  period: string,
+  by: "day" | "month",
+) {
+  const list = products(db.config);
+  const rows = new Map<string, SalesSummaryRow>();
+  const total: SalesSummaryRow = { key: "", branch: "", counts: {}, money: 0 };
+  const add = (row: SalesSummaryRow, sale: Entry) => {
+    for (const product of list) {
+      const qty = productQty(product, sale.values);
+      if (qty) row.counts[product.id] = (row.counts[product.id] ?? 0) + qty;
+    }
+    row.money += saleMoney(db.config, sale).sales;
+  };
+  for (const sale of entries(db, "sale"))
+    if (sale.date.startsWith(period)) {
+      const key = sale.date.slice(0, by === "day" ? 10 : 7);
+      const id = `${key} ${sale.branch}`;
+      if (!rows.has(id))
+        rows.set(id, { key, branch: sale.branch, counts: {}, money: 0 });
+      add(rows.get(id)!, sale);
+      add(total, sale);
+    }
+  const order = (branch: string) => {
+    const at = branches.indexOf(branch);
+    return at < 0 ? branches.length : at;
+  };
+  return {
+    rows: [...rows.values()].sort(
+      (a, b) => b.key.localeCompare(a.key) || order(a.branch) - order(b.branch),
+    ),
+    total,
+  };
 }
 /** One PO เนื้อ a dispatch draws meat from (`poLines`). */
 export type PoLine = { poLotId: string; kg: number };

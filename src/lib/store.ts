@@ -89,6 +89,7 @@ export {
   saleMoney,
   monthPl,
   netSalesByBranch,
+  branchSalesSummary,
   plBetween,
   cashBetween,
   inflows,

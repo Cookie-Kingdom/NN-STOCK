@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advances,
   boxCost,
+  branchSalesSummary,
   cashBetween,
   channelPrice,
   branchItem,
@@ -3560,5 +3561,75 @@ describe("รายการเนื้อ: each kind of meat bought, smoked an
         { id: "x", name: "y" },
       ]),
     ).toThrow("รายการเนื้อ: อ่านรายการไม่ได้");
+  });
+});
+
+describe("สรุปยอดขายสาขา", () => {
+  it("rows per day or month and branch, newest first, live sales only; the totals match byBranch", () => {
+    let d = seed;
+    const sell = (by: Actor, date: string, boxes: string, total: string) =>
+      (d = mutate(d, by, "sale", { boxes, salesTotal: total }, "", date));
+    sell(minburi, "2026-09-01", "3", "300");
+    sell(saladaeng, "2026-09-01", "2", "200");
+    sell(saladaeng, "2026-09-01", "1", "100");
+    sell(saladaeng, "2026-09-02", "4", "400");
+    sell(saladaeng, "2026-08-31", "9", "900");
+    sell(saladaeng, "2026-09-02", "5", "500");
+    // A deleted sale is not counted.
+    d = mutate(
+      d,
+      saladaeng,
+      "void",
+      { targetId: last(d).id },
+      "",
+      "2026-09-02",
+    );
+    const box = products(d.config)[0].id;
+
+    const days = branchSalesSummary(d, "2026-09", "day");
+    expect(days.rows).toEqual([
+      {
+        key: "2026-09-02",
+        branch: "ศาลาแดง",
+        counts: { [box]: 4 },
+        money: 400,
+      },
+      {
+        key: "2026-09-01",
+        branch: "ศาลาแดง",
+        counts: { [box]: 3 },
+        money: 300,
+      },
+      {
+        key: "2026-09-01",
+        branch: "มีนบุรี",
+        counts: { [box]: 3 },
+        money: 300,
+      },
+    ]);
+    expect(days.total).toMatchObject({ counts: { [box]: 10 }, money: 1000 });
+
+    const year = branchSalesSummary(d, "2026", "month");
+    expect(year.rows.map((r) => [r.key, r.branch, r.money])).toEqual([
+      ["2026-09", "ศาลาแดง", 700],
+      ["2026-09", "มีนบุรี", 300],
+      ["2026-08", "ศาลาแดง", 900],
+    ]);
+    const byBranch = monthPl(d, "2026", shopProject).byBranch;
+    expect(year.total.money).toBe(
+      Object.values(byBranch).reduce((a, b) => a + b, 0),
+    );
+    expect(branchSalesSummary(d, "2026-10", "day").rows).toEqual([]);
+  });
+
+  it("the sample's month agrees with ยอดขายแยกสาขา", () => {
+    const month = day.slice(0, 7);
+    const byBranch = monthPl(db, month, shopProject).byBranch;
+    const { rows, total } = branchSalesSummary(db, month, "month");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.money).toBe(byBranch[row.branch]);
+    expect(total.money).toBe(
+      Object.values(byBranch).reduce((a, b) => a + b, 0),
+    );
   });
 });
