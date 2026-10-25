@@ -22,6 +22,7 @@ import {
   meatItem,
   meatTypeOf,
   meatTypes,
+  live,
   pieces,
   productMeatKg,
   productMoney,
@@ -307,8 +308,9 @@ export function plBetween(
         byBranch[sale.branch] =
           (byBranch[sale.branch] ?? 0) + saleMoney(db.config, sale).sales;
     }
+  // A category deleted in Settings is a line only while money went out under it.
   const byCategory: Record<string, number> = Object.fromEntries(
-    payCategories(db.config).map((c) => [c.id, 0]),
+    live(payCategories(db.config)).map((c) => [c.id, 0]),
   );
   for (const o of [...outflows(db), ...expensesPaid(db, project)])
     if (within(o.date))
@@ -941,6 +943,7 @@ export function sheetItems(db: Database, sheet: Sheet): Material[] {
       sku: "",
       name: type.name,
       unit: "กก.",
+      removed: type.removed,
     })),
     ...ingredientList(db.config),
   ];
@@ -1316,7 +1319,11 @@ export function receivables(db: Database) {
       jotted: receipts.length > 0,
     };
   };
-  const channels = settings.map((c) => row(c.key, c.name, c.gp));
+  // A channel deleted in Settings is a row only while anything was sold or jotted on it.
+  const channels = settings.flatMap((c) => {
+    const made = row(c.key, c.name, c.gp);
+    return !c.removed || made.sold || made.jotted ? [made] : [];
+  });
   const none = row("", "ไม่ระบุช่องทาง", 0);
   const waiting = all.filter((i) => !i.received);
   return {

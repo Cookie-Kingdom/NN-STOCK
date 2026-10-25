@@ -16,6 +16,7 @@ import { newId } from "@/lib/id";
 import { latestDatabase } from "@/lib/persistence";
 import {
   ingredientList,
+  live,
   materialList,
   mutate,
   type Database,
@@ -50,7 +51,8 @@ const lists = {
 /** Settings 「รายชื่อวัสดุ」 (or, with `list="ingredients"`, 「รายชื่อวัตถุดิบ」, the same way) as a popup, as 「รายการสินค้า (SKU)」 is: every material (the rows a
  *  branch added on its sheet with them), ten rows at a time, under a search by SKU or name.
  *  A row's name and unit are typed, its SKU never (`mutate` issues it on the save); 「เพิ่มวัสดุ」
- *  puts a new row on top, 「ลบ」 takes one out. 「บันทึก」 saves the list as one `config` note
+ *  puts a new row on top, 「ลบ」 deletes one (kept in the list as `removed`, so what was jotted
+ *  of it still counts; a row not saved yet simply goes). 「บันทึก」 saves the list as one `config` note
  *  and closes; a row `mutate` refuses is said beside the buttons. */
 export function MaterialsDialog({
   ws,
@@ -65,6 +67,7 @@ export function MaterialsDialog({
   const { title, key, what, code } = lists[list];
   const [saved] = useState<Values[]>(() => lists[list].read(latestDatabase()));
   const [rows, setRows] = useState(saved);
+  const shown = live(rows);
   const [units] = useState(() => unitOptions(latestDatabase()));
   const [search, setSearch] = useState("");
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
@@ -74,8 +77,8 @@ export function MaterialsDialog({
   const before = new Map(saved.map((row) => [row.id, row]));
   // A row just added is always in view; the others are searched by the name as saved, so
   // a row does not leave while its name is being typed.
-  const added = rows.filter((row) => !before.has(row.id));
-  const found = rows.filter((row) => {
+  const added = shown.filter((row) => !before.has(row.id));
+  const found = shown.filter((row) => {
     const was = before.get(row.id);
     return (
       was &&
@@ -116,7 +119,7 @@ export function MaterialsDialog({
     <Dialog
       size="md"
       title={title}
-      subtitle={`ทั้งหมด ${rows.length} รายการ แก้ชื่อและหน่วยนับได้ ส่วน${code}ออกให้อัตโนมัติตอนบันทึก`}
+      subtitle={`ทั้งหมด ${shown.length} รายการ แก้ชื่อและหน่วยนับได้ ส่วน${code}ออกให้อัตโนมัติตอนบันทึก`}
       onClose={onClose}
     >
       <div className="flex items-center gap-2 border-b border-border px-6.5 py-3 max-md:px-4">
@@ -178,7 +181,8 @@ export function MaterialsDialog({
                     aria-label={`ลบ ${name}`}
                     onClick={() => {
                       setError("");
-                      setRows(rows.filter((x) => x.id !== row.id));
+                      if (before.has(row.id)) set(row.id, { removed: "1" });
+                      else setRows(rows.filter((x) => x.id !== row.id));
                     }}
                   >
                     ลบ
@@ -193,7 +197,7 @@ export function MaterialsDialog({
                 colSpan={4}
                 className="py-6 text-center text-text-secondary"
               >
-                {rows.length ? "ไม่พบรายการที่ค้นหา" : `ยังไม่มี${what}`}
+                {shown.length ? "ไม่พบรายการที่ค้นหา" : `ยังไม่มี${what}`}
               </Cell>
             </tr>
           )}

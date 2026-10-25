@@ -1169,7 +1169,14 @@ describe("figures (V2-CAL)", () => {
 
   it("CAL-10: with no product list saved it is the standard box alone, which takes nothing; tubes of an old note are taken all the same", () => {
     expect(products(built.config)).toEqual([
-      { ...box, code: "", unit: "กล่อง", off: false, items: new Map() },
+      {
+        ...box,
+        code: "",
+        unit: "กล่อง",
+        off: false,
+        removed: false,
+        items: new Map(),
+      },
     ]);
     const jotted = (
       [
@@ -3631,5 +3638,160 @@ describe("สรุปยอดขายสาขา", () => {
     expect(total.money).toBe(
       Object.values(byBranch).reduce((a, b) => a + b, 0),
     );
+  });
+});
+
+describe("Settings: a row deleted stays in its list, so what was jotted of it still counts", () => {
+  const save = (d: Database, values: Values) =>
+    mutate(d, owner, "config", values, "", day);
+  const keys = (d: Database, kind: NoteKind, kept?: Values) =>
+    fields(kind, d, kind === "sale" ? saladaeng : owner, undefined, kept).map(
+      (f) => f.key,
+    );
+
+  it("a kind of meat: no longer offered, still named and stocked", () => {
+    const wagyu = { id: "meat-wagyu", name: "วากิว" };
+    let d = save(seed, {
+      meatTypes: JSON.stringify([{ id: "meat", name: "เนื้อ" }, wagyu]),
+    });
+    d = mutate(d, minburi, "receive", { kg: "5", meatType: wagyu.id }, "", day);
+    d = save(d, {
+      meatTypes: JSON.stringify([
+        { id: "meat", name: "เนื้อ" },
+        { ...wagyu, removed: "1" },
+      ]),
+    });
+    // One kind left to offer: no field on a new PO, nor a default.
+    expect(keys(d, "purchase")).not.toContain("meatType");
+    expect(defaults("purchase", d.config).meatType).toBeFalsy();
+    // A note of it still offers it, under its name.
+    const field = fields("purchase", d, owner, undefined, {
+      meatType: wagyu.id,
+    }).find((f) => f.key === "meatType");
+    expect(field?.options?.map((o) => o.value)).toEqual(["meat", wagyu.id]);
+    expect(meatTypes(d.config)[1]).toMatchObject({ ...wagyu, removed: "1" });
+    expect(branchItem(d, "มีนบุรี", wagyu.id, day).remaining).toBe(5);
+    // Its code stays its own.
+    expect(meatTypes(d.config)[1].code).toBe("RM-0002");
+  });
+
+  it("a product: no field on a new sale, its counts still counted", () => {
+    const tube = { id: "p1", name: "น้ำพริกหลอด", items: [] };
+    const box = { id: "box", name: "กล่องมาตรฐาน", items: [] };
+    let d = save(seed, { products: JSON.stringify([box, tube]) });
+    d = mutate(
+      d,
+      saladaeng,
+      "sale",
+      { boxes: "3", "product.p1": "5", lineMan: "1" },
+      "",
+      day,
+    );
+    d = save(d, {
+      products: JSON.stringify([box, { ...tube, removed: true }]),
+    });
+    expect(keys(d, "sale")).not.toContain("product.p1");
+    expect(keys(d, "sale", { "product.p1": "5" })).toContain("product.p1");
+    expect(plBetween(d, day, day).boxes).toBe(8);
+    expect(products(d.config)[1]).toMatchObject({
+      name: tube.name,
+      removed: true,
+    });
+  });
+
+  it("a sales channel and a category: no longer offered, their money still counted", () => {
+    const grab = { key: "sales.grab", name: "Grab", gp: "30" };
+    const lineMan = { key: "lineMan", name: "LINE MAN", gp: "0" };
+    let d = save(seed, { salesChannels: JSON.stringify([lineMan, grab]) });
+    d = mutate(d, saladaeng, "sale", { [grab.key]: "100" }, "", day);
+    const sale = last(d);
+    d = save(d, {
+      salesChannels: JSON.stringify([lineMan, { ...grab, removed: "1" }]),
+      payCategories: JSON.stringify([
+        ...payCategories(seed.config),
+        { id: "c1", name: "ภาษี", removed: "1" },
+      ]),
+    });
+    expect(keys(d, "sale")).not.toContain(grab.key);
+    expect(keys(d, "sale", { [grab.key]: "100" })).toContain(grab.key);
+    expect(saleMoney(d.config, sale)).toEqual({ sales: 100, gp: 30 });
+    const category = fields("pay", d, owner).find((f) => f.key === "category");
+    expect(category?.options?.map((o) => o.value)).not.toContain("c1");
+  });
+
+  it("refuses to delete a row the rules hang on", () => {
+    expect(() =>
+      save(seed, {
+        meatTypes: JSON.stringify([
+          { id: "meat", name: "เนื้อ", removed: "1" },
+        ]),
+      }),
+    ).toThrow("รายการเนื้อ: 「เนื้อ」ลบไม่ได้");
+    expect(() =>
+      save(seed, {
+        products: JSON.stringify([
+          { id: "box", name: "กล่องมาตรฐาน", removed: true, items: [] },
+        ]),
+      }),
+    ).toThrow("รายการสินค้า: 「กล่องมาตรฐาน」ลบไม่ได้");
+    expect(() =>
+      save(seed, {
+        salesChannels: JSON.stringify([
+          { key: "lineMan", name: "LINE MAN", gp: "0", removed: "1" },
+        ]),
+      }),
+    ).toThrow("ช่องทางขาย: 「LINE MAN」ลบไม่ได้");
+    expect(() =>
+      save(seed, {
+        payCategories: JSON.stringify(
+          payCategories(seed.config).map((c, at) =>
+            at ? c : { ...c, removed: "1" },
+          ),
+        ),
+      }),
+    ).toThrow("หมวดจ่ายเงิน: 「เนื้อ」ลบไม่ได้");
+  });
+
+  it("frees a deleted row's name for a new row", () => {
+    expect(() =>
+      save(seed, {
+        meatTypes: JSON.stringify([
+          { id: "meat", name: "เนื้อ" },
+          { id: "meat-a", name: "วากิว", removed: "1" },
+          { id: "meat-b", name: "วากิว" },
+        ]),
+      }),
+    ).not.toThrow();
+    expect(() =>
+      save(seed, {
+        meatTypes: JSON.stringify([
+          { id: "meat", name: "เนื้อ" },
+          { id: "meat-a", name: "วากิว" },
+          { id: "meat-b", name: "วากิว" },
+        ]),
+      }),
+    ).toThrow("รายการเนื้อ: ชื่อ「วากิว」ซ้ำกัน");
+    expect(() =>
+      save(seed, {
+        products: JSON.stringify([
+          { id: "box", name: "กล่องมาตรฐาน", items: [] },
+          { id: "p1", name: "หลอด", removed: true, items: [] },
+          { id: "p2", name: "หลอด", items: [] },
+        ]),
+      }),
+    ).not.toThrow();
+    // A material: the new row gets a SKU of its own, and the name is its from then on.
+    const [first, ...rest] = materialList(seed);
+    const d = save(seed, {
+      materialList: JSON.stringify([
+        { ...first, removed: "1" },
+        ...rest,
+        { id: "m-new", name: first.name, unit: first.unit },
+      ]),
+    });
+    const fresh = materialList(d).find((m) => m.id === "m-new")!;
+    expect(fresh.sku).not.toBe(first.sku);
+    expect(skuFor(d, first.name).sku).toBe(fresh.sku);
+    expect(materialList(d)[0]).toMatchObject({ sku: first.sku, removed: "1" });
   });
 });

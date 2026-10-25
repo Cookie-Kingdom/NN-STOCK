@@ -13,6 +13,7 @@ import {
   payCategories,
   plBetween,
   noBranch,
+  live,
   salesChannels,
 } from "@/lib/store";
 import { shopProject } from "@/lib/store/ledger";
@@ -162,7 +163,7 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
                       {shopProject}
                     </strong>
                     <Caption>
-                      {salesChannels(db.config)
+                      {live(salesChannels(db.config))
                         .map((c) => c.name)
                         .join(" · ")}
                     </Caption>

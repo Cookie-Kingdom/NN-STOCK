@@ -329,7 +329,13 @@ function NoteForm({
   // A dispatch whose PO เนื้อ lines do not add up cannot be saved; the footer says why.
   const gap = kind === "dispatch" ? lineCheck(values).gap : "";
   const figures = multi
-    ? giftFigures(typedPeople, products(db.config))
+    ? giftFigures(
+        typedPeople,
+        // A product deleted in Settings only when the note holds some of it.
+        products(db.config).filter(
+          (p) => !p.removed || typedPeople.some((row) => productQty(p, row)),
+        ),
+      )
     : noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
   // A sale's products are not jotted only when none has a count, its money only when neither

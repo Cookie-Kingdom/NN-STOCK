@@ -5,6 +5,7 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
+import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
 import { Textarea } from "@/components/atoms/Textarea";
 import { DayCard } from "@/components/molecules/DayCard";
@@ -18,6 +19,7 @@ import {
   newProduct,
   productDrafts,
   productItems,
+  productRemoval,
   productsTitle,
   type ProductDraft,
 } from "./ProductDialog";
@@ -33,11 +35,13 @@ import { logoAccept, saveLogo, useLogoSrc } from "@/lib/attachment-store";
 import { latestDatabase } from "@/lib/persistence";
 import {
   ingredientList,
+  live,
   materialList,
   meatItem,
   meatTypes,
   mutate,
   payCategories,
+  boxProduct,
   salesChannels,
   seed,
   skuCatalogue,
@@ -138,18 +142,13 @@ const titles: Record<Section, string> = {
 const isList = (section: Section): section is ListSection => section in lists;
 /** The ten categories the rules hang on: renamed, never removed. */
 const fixedCategories = payCategories(seed.config).map((c) => c.id);
-/** A list as its rows are stored: every value a string. */
+/** A list as its rows are stored: every value a string, the rows deleted (`removed`) too. */
 const rowsOf = (db: Database, section: ListSection): Values[] =>
   section === "channels"
     ? salesChannels(db.config).map((c) => ({ ...c, gp: String(c.gp) }))
     : section === "meats"
       ? meatTypes(db.config)
       : payCategories(db.config);
-/** Whether anything names a kind of meat: a PO, a Lot, a note, a sheet's row, a product.
- *  ponytail: a text search of the log for the id (`meat-<time>`, never part of another). */
-const meatInUse = (db: Database, id: string) =>
-  id === meatItem ||
-  JSON.stringify([db.lots, db.entries, db.config.products ?? ""]).includes(id);
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -208,10 +207,17 @@ export function SettingsPage({
   >(null);
   /** The product whose popup is open. */
   const [product, setProduct] = useState<ProductDraft | null>(null);
+  /** The row whose 「ลบ」 was pressed: its card asks once before it is deleted. */
+  const [removing, setRemoving] = useState<{
+    list: ListSection | "products";
+    id: string;
+    name: string;
+  } | null>(null);
   const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
 
   /** Opens a section on the settings as they stand; `add` starts a list on a new row. */
   const start = (section: Section, add = false) => {
+    setRemoving(null);
     const config = latestDatabase().config;
     setDraft({ ...config });
     if (isList(section)) {
@@ -287,6 +293,70 @@ export function SettingsPage({
     }
     setEditing(null);
   };
+  /** Deletes the row `removing` names, as one `config` note of its list: the row stays in it
+   *  as `removed`, so what was jotted of it still counts. */
+  const remove = async () => {
+    if (!removing) return;
+    const { list: from, id, name } = removing;
+    const next = await run(() => {
+      const latest = latestDatabase();
+      const input =
+        from === "products"
+          ? productRemoval(latest, id)
+          : {
+              [lists[from].key]: JSON.stringify(
+                rowsOf(latest, from).map((row) =>
+                  row[lists[from].id] === id ? { ...row, removed: "1" } : row,
+                ),
+              ),
+            };
+      return mutate(latest, account, "config", input, "", today);
+    });
+    if (!next) return;
+    ws.setToast(`ลบแล้ว: ${name}`);
+    setRemoving(null);
+  };
+  /** The 「ลบ」 of a row outside the open section: it asks first (`confirm`). */
+  const removeButton = (list: ListSection | "products", row: Values) => (
+    <Button
+      variant="link"
+      className="min-h-11 px-2 text-label text-danger hover:text-danger"
+      aria-label={`ลบ ${row.name}`}
+      disabled={editing !== null || saving}
+      onClick={() => {
+        setError("");
+        setRemoving({
+          list,
+          id: list === "channels" ? row.key : row.id,
+          name: row.name,
+        });
+      }}
+    >
+      ลบ
+    </Button>
+  );
+  /** The card's ask once its row's 「ลบ」 was pressed. */
+  const confirm = (list: ListSection | "products") =>
+    removing?.list === list && (
+      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 px-5 pt-3 max-md:px-4">
+        <span role="alert" className="w-full text-body-sm text-danger">
+          {error ||
+            `ลบ「${removing.name}」? จะหายจากรายการและฟอร์มใหม่ ส่วนยอดที่เคยจดยังนับตามเดิม`}
+        </span>
+        <Button size="sm" disabled={saving} onClick={() => setRemoving(null)}>
+          ไม่ลบ
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={saving || !!error}
+          icon={saving ? <Spinner /> : undefined}
+          onClick={remove}
+        >
+          ยืนยันลบ
+        </Button>
+      </div>
+    );
 
   const card = (section: Section, note: ReactNode, children: ReactNode) => (
     <DayCard
@@ -362,17 +432,27 @@ export function SettingsPage({
         ))}
       </dl>
     );
-  /** A list: its rows as a table, with inputs, 「ลบ」 and one more row while it is open. */
+  /** A list: its rows as a table, with inputs and one more row while it is open, and 「ลบ」 on
+   *  each `removable` row. A deleted row (`removed`) is not shown, but saved with the rest. */
   const list = (section: ListSection, removable: (row: Values) => boolean) => {
     const { id, name, extra, code, add } = lists[section];
     const open = editing === section;
+    const saved = new Set(rowsOf(db, section).map((row) => row[id]));
     return (
       <>
         {section === "categories" && !open ? (
-          <div className="flex flex-wrap gap-2 p-5 max-md:p-4">
-            {payCategories(db.config).map((c) => (
-              <Badge key={c.id}>{c.name}</Badge>
-            ))}
+          // The fixed categories as tags; one added has its 「ลบ」 beside it.
+          <div className="flex flex-wrap items-center gap-2 p-5 max-md:p-4">
+            {live(payCategories(db.config)).map((c) =>
+              removable(c) ? (
+                <span key={c.id} className="inline-flex items-center">
+                  <Badge>{c.name}</Badge>
+                  {removeButton(section, c)}
+                </span>
+              ) : (
+                <Badge key={c.id}>{c.name}</Badge>
+              ),
+            )}
           </div>
         ) : (
           <StockTable
@@ -380,74 +460,83 @@ export function SettingsPage({
               ...(code ? [code] : []),
               name,
               ...(extra ? [extra.label] : []),
-              ...(open ? [""] : []),
+              "",
             ]}
             right={extra ? [extra.label] : []}
           >
-            {(open ? rows : rowsOf(db, section)).map((row, index) => (
-              <tr key={row[id]}>
-                {code && (
-                  <Cell className="font-mono whitespace-nowrap text-accent">
-                    {row.code || <Muted as="span">รอบันทึก</Muted>}
-                  </Cell>
-                )}
-                {open ? (
-                  <>
-                    <Cell className="py-1.5">
-                      <Input
-                        aria-label={`${name} ${index + 1}`}
-                        className="mt-0 min-h-10 min-w-28"
-                        // A row just added is the one being typed.
-                        autoFocus={!row.name}
-                        value={row.name}
-                        onChange={(event) =>
-                          setRow(index, "name", event.target.value)
-                        }
-                      />
+            {(open ? rows : rowsOf(db, section)).map((row, index) =>
+              row.removed ? null : (
+                <tr key={row[id]}>
+                  {code && (
+                    <Cell className="font-mono whitespace-nowrap text-accent">
+                      {row.code || <Muted as="span">รอบันทึก</Muted>}
                     </Cell>
-                    {extra && (
-                      <Cell right className="py-1.5">
+                  )}
+                  {open ? (
+                    <>
+                      <Cell className="py-1.5">
                         <Input
-                          inputMode="decimal"
-                          aria-label={`${extra.label} ${row.name}`}
-                          className="mt-0 ml-auto min-h-10 w-20 text-right"
-                          value={row[extra.key]}
+                          aria-label={`${name} ${index + 1}`}
+                          className="mt-0 min-h-10 min-w-28"
+                          // A row just added is the one being typed.
+                          autoFocus={!row.name}
+                          value={row.name}
                           onChange={(event) =>
-                            setRow(index, extra.key, event.target.value)
+                            setRow(index, "name", event.target.value)
                           }
                         />
                       </Cell>
-                    )}
-                    <Cell right className="py-0">
-                      {removable(row) && (
-                        <Button
-                          variant="link"
-                          className="min-h-11 px-2 text-label text-danger hover:text-danger"
-                          aria-label={`ลบ ${row.name}`}
-                          onClick={() => {
-                            setError("");
-                            setRows(rows.filter((_, i) => i !== index));
-                          }}
-                        >
-                          ลบ
-                        </Button>
+                      {extra && (
+                        <Cell right className="py-1.5">
+                          <Input
+                            inputMode="decimal"
+                            aria-label={`${extra.label} ${row.name}`}
+                            className="mt-0 ml-auto min-h-10 w-20 text-right"
+                            value={row[extra.key]}
+                            onChange={(event) =>
+                              setRow(index, extra.key, event.target.value)
+                            }
+                          />
+                        </Cell>
                       )}
-                    </Cell>
-                  </>
-                ) : (
-                  <>
-                    <Cell>{row.name}</Cell>
-                    {extra && (
-                      <Cell right>
-                        <ReadOnlyValue>{row[extra.key] || "—"}</ReadOnlyValue>
+                      <Cell right className="py-0">
+                        {removable(row) && (
+                          <Button
+                            variant="link"
+                            className="min-h-11 px-2 text-label text-danger hover:text-danger"
+                            aria-label={`ลบ ${row.name}`}
+                            onClick={() => {
+                              setError("");
+                              // A saved row is deleted with the save; one just added simply goes.
+                              if (saved.has(row[id]))
+                                setRow(index, "removed", "1");
+                              else setRows(rows.filter((_, i) => i !== index));
+                            }}
+                          >
+                            ลบ
+                          </Button>
+                        )}
                       </Cell>
-                    )}
-                  </>
-                )}
-              </tr>
-            ))}
+                    </>
+                  ) : (
+                    <>
+                      <Cell>{row.name}</Cell>
+                      {extra && (
+                        <Cell right>
+                          <ReadOnlyValue>{row[extra.key] || "—"}</ReadOnlyValue>
+                        </Cell>
+                      )}
+                      <Cell right className="py-0">
+                        {removable(row) && removeButton(section, row)}
+                      </Cell>
+                    </>
+                  )}
+                </tr>
+              ),
+            )}
           </StockTable>
         )}
+        {confirm(section)}
         <div className={foot}>
           <Button
             size="sm"
@@ -464,7 +553,9 @@ export function SettingsPage({
   };
   const stockItems = productItems(db);
   // An ingredient's code is not a SKU of this card: 「รายชื่อวัตถุดิบ」 holds it.
-  const skus = skuCatalogue(db).filter((item) => !item.ingredient);
+  const skus = skuCatalogue(db).filter(
+    (item) => !item.ingredient && !item.removed,
+  );
   const materialSkus = skus.filter((item) => item.material).length;
   const logo = logoOf(editing === "header" ? draft : db.config);
 
@@ -481,8 +572,8 @@ export function SettingsPage({
             )}
             {card(
               "meats",
-              'เนื้อแต่ละชนิด (พันธุ์ / ส่วน) มี PO, Lot รมควัน และสต๊อกแยกกัน มีมากกว่า 1 ชนิดแล้ว ฟอร์ม PO เนื้อ, PO รมควัน และรับเนื้อเข้าสาขาจะมีช่อง "ชนิดเนื้อ" ชนิดแรกและชนิดที่มีรายการใช้แล้วลบไม่ได้ แต่แก้ชื่อได้',
-              list("meats", (row) => !meatInUse(db, row.id)),
+              'เนื้อแต่ละชนิด (พันธุ์ / ส่วน) มี PO, Lot รมควัน และสต๊อกแยกกัน มีมากกว่า 1 ชนิดแล้ว ฟอร์ม PO เนื้อ, PO รมควัน และรับเนื้อเข้าสาขาจะมีช่อง "ชนิดเนื้อ" ชนิดแรกลบไม่ได้แต่แก้ชื่อได้ ชนิดที่ลบแล้วไม่ขึ้นในฟอร์มใหม่ แต่ยอดและสต๊อกที่เคยจดยังนับตามเดิม',
+              list("meats", (row) => row.id !== meatItem),
             )}
             <DayCard
               aria-label={productsTitle}
@@ -501,16 +592,17 @@ export function SettingsPage({
                 สินค้าแต่ละรายการมีช่องจำนวนในฟอร์มยอดขายและกล่องแจก ขายหรือแจก
                 1 ชิ้น เว็บตัดสต๊อกของสาขาตามส่วนประกอบให้เอง แยกจาก “ใช้ไป”
                 ที่สาขาพิมพ์ แก้ส่วนประกอบแล้วยอดย้อนหลังคิดใหม่ตามล่าสุด
-                สินค้าแรกลบไม่ได้ และจำนวนที่เคยจดของสินค้าที่ลบแล้วจะไม่ถูกนับ
-                ส่วนสินค้าที่「หยุดขาย」ไม่ขึ้นในฟอร์มใหม่ แต่ยอดที่เคยจดยังนับ
-                รหัสสินค้าออกให้อัตโนมัติตอนบันทึก และไม่เปลี่ยนเมื่อแก้ชื่อ
-                กดชื่อสินค้าเพื่อแก้ไข
+                สินค้าแรกลบไม่ได้
+                สินค้าที่ลบแล้วหรือ「หยุดขาย」ไม่ขึ้นในฟอร์มใหม่
+                แต่ยอดที่เคยจดยังนับตามเดิม รหัสสินค้าออกให้อัตโนมัติตอนบันทึก
+                และไม่เปลี่ยนเมื่อแก้ชื่อ กดชื่อสินค้าเพื่อแก้ไข
               </p>
+              {confirm("products")}
               <StockTable
-                columns={["สินค้า", "ราคา", "ต้นทุนอื่น"]}
+                columns={["สินค้า", "ราคา", "ต้นทุนอื่น", ""]}
                 right={["ราคา", "ต้นทุนอื่น"]}
               >
-                {productDrafts(db).map((row) => (
+                {live(productDrafts(db)).map((row) => (
                   <tr key={row.id}>
                     <Cell>
                       <Button
@@ -540,7 +632,7 @@ export function SettingsPage({
                     <Cell right>
                       {row.price ? `${row.price} บาท/${row.unit}` : "—"}
                       {/* Only the channels priced apart from the base price. */}
-                      {salesChannels(db.config)
+                      {live(salesChannels(db.config))
                         .filter(
                           ({ key }) =>
                             row.prices[key] &&
@@ -559,6 +651,13 @@ export function SettingsPage({
                     </Cell>
                     <Cell right>
                       {row.cost ? `${row.cost} บาท/${row.unit}` : "—"}
+                    </Cell>
+                    <Cell right className="py-0">
+                      {row.id !== boxProduct &&
+                        removeButton("products", {
+                          id: row.id,
+                          name: row.name,
+                        })}
                     </Cell>
                   </tr>
                 ))}
@@ -589,7 +688,7 @@ export function SettingsPage({
                 <div>
                   <dt className="text-label text-text-secondary">วัตถุดิบ</dt>
                   <dd className="m-0 font-semibold">
-                    {ingredientList(db.config).length} รายการ
+                    {live(ingredientList(db.config)).length} รายการ
                   </dd>
                 </div>
               </dl>
@@ -617,7 +716,7 @@ export function SettingsPage({
                 <div>
                   <dt className="text-label text-text-secondary">วัสดุ</dt>
                   <dd className="m-0 font-semibold">
-                    {materialList(db).length} รายการ
+                    {live(materialList(db)).length} รายการ
                   </dd>
                 </div>
               </dl>
@@ -630,12 +729,12 @@ export function SettingsPage({
             <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-4">
               {card(
                 "channels",
-                "ช่องทางที่เพิ่มจะมีช่องยอดเงินในฟอร์มยอดขาย ช่องทางแรกลบไม่ได้ และยอดที่เคยจดในช่องทางที่ลบแล้วจะไม่ถูกนับ",
+                "ช่องทางที่เพิ่มจะมีช่องยอดเงินในฟอร์มยอดขาย ช่องทางแรกลบไม่ได้ ช่องทางที่ลบแล้วไม่ขึ้นในฟอร์มใหม่ แต่ยอดที่เคยจดยังนับตามเดิม",
                 list("channels", (row) => row.key !== "lineMan"),
               )}
               {card(
                 "categories",
-                `ทั้งหมด ${payCategories(db.config).length} หมวด หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้แต่ลบไม่ได้`,
+                `ทั้งหมด ${live(payCategories(db.config)).length} หมวด หมวดตั้งต้น ${fixedCategories.length} หมวดแก้ชื่อได้แต่ลบไม่ได้ หมวดที่ลบแล้วไม่ขึ้นในฟอร์มใหม่ แต่ยอดที่เคยจดยังนับตามเดิม`,
                 list("categories", (row) => !fixedCategories.includes(row.id)),
               )}
             </div>

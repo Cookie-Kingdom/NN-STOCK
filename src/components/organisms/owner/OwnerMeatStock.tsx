@@ -353,6 +353,8 @@ export function OwnerMeatStock({ ws }: { ws: Workspace }) {
               sheets.reduce((a, sheet) => a + sheet.remaining, 0);
             // Never set at a branch and nothing anywhere: no figure yet, grey (as Inventory).
             const unset = sheets.every((sheet) => !sheet.set) && !total;
+            // A row deleted in Settings only while it has a figure.
+            if (item.removed && unset) return null;
             return (
               <tr key={item.id}>
                 <Cell className="font-mono whitespace-nowrap text-accent max-md:hidden">

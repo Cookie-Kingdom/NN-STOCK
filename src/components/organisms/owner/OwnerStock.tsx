@@ -128,34 +128,37 @@ export function OwnerStock({ ws }: { ws: Workspace }) {
         !ingredients.has(row.sku) &&
         (!row.sku || materials.every((m) => m.sku !== row.sku)),
     ),
-  ].map((row) => {
-    // None for a row without a SKU, or one with no quantity ever typed.
-    const line = lines.get(row.sku);
-    const { material } = row;
-    // A material: each branch's daily sheet.
-    const sheets = new Map(
-      material
-        ? branches.map((b) => [b, branchItem(db, b, material.id, today)])
-        : [],
-    );
-    const held = {
-      ...Object.fromEntries(
-        places.map((p) => [
-          placeLabel(p),
-          sheets.get(p)?.remaining ?? line?.at[p] ?? 0,
-        ]),
-      ),
-      [transit]: line?.inTransit ?? 0,
-    };
-    return {
-      ...row,
-      held,
-      unset:
-        !!material &&
-        [...sheets.values()].every((sheet) => !sheet.set) &&
-        Object.values(held).every((n) => n === 0),
-    };
-  });
+  ]
+    .map((row) => {
+      // None for a row without a SKU, or one with no quantity ever typed.
+      const line = lines.get(row.sku);
+      const { material } = row;
+      // A material: each branch's daily sheet.
+      const sheets = new Map(
+        material
+          ? branches.map((b) => [b, branchItem(db, b, material.id, today)])
+          : [],
+      );
+      const held = {
+        ...Object.fromEntries(
+          places.map((p) => [
+            placeLabel(p),
+            sheets.get(p)?.remaining ?? line?.at[p] ?? 0,
+          ]),
+        ),
+        [transit]: line?.inTransit ?? 0,
+      };
+      return {
+        ...row,
+        held,
+        unset:
+          !!material &&
+          [...sheets.values()].every((sheet) => !sheet.set) &&
+          Object.values(held).every((n) => n === 0),
+      };
+    })
+    // A material deleted in Settings only while it has a figure or a purchase.
+    .filter((row) => !(row.material?.removed && row.unset && !row.times));
   const totalOf = (row: Row) =>
     Object.values(row.held).reduce((a, n) => a + n, 0);
   /** A material's status; "" for anything else. */

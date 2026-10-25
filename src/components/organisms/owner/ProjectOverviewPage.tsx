@@ -91,7 +91,10 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
       left: now.income - all.slice(0, i + 1).reduce((a, [, x]) => a + x, 0),
     }));
   const scale = Math.max(now.income, now.income - now.profit, 1);
-  const channels = salesChannels(db.config);
+  // A channel deleted in Settings stays only while it has sales in the period.
+  const channels = salesChannels(db.config).filter(
+    (c) => !c.removed || now.byChannel[c.key],
+  );
   // Pieces of every product; they are boxes while the box is the only one.
   const piece = pieceUnit(products(db.config));
   const several = piece !== "กล่อง";

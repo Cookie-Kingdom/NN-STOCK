@@ -220,12 +220,61 @@ export const EditChannelPrices: Story = {
 };
 
 /** popup ของสินค้าที่หยุดขาย:「หยุดขาย」ติ๊กอยู่ เอาออกแล้วบันทึกเพื่อกลับมาขาย ·
- *  กด「ลบสินค้า」ข้อความยืนยันบอกว่า「หยุดขาย」เก็บยอดที่เคยจดไว้ */
+ *  กด「ลบสินค้า」ข้อความยืนยันบอกว่าสินค้าจะหายจากรายการและฟอร์มใหม่ แต่ยอดที่เคยจดยังนับ */
 export const EditStoppedProduct: Story = {
   ...StoppedAndChannelPrices,
   play: async ({ canvas, userEvent }) =>
     userEvent.click(
       await canvas.findByRole("button", { name: "แก้ไข น้ำพริกหลอด" }),
+    ),
+};
+
+/** ทุกแถวที่ลบได้มีปุ่ม「ลบ」ท้ายแถวโดยไม่ต้องกด「แก้ไข」ก่อน (ชนิดแรกและกล่องมาตรฐานไม่มี) ·
+ *  วากิว · ใบพาย และน้ำพริกหลอดถูกลบแล้ว: ไม่อยู่ในรายการ และไม่มีช่องในฟอร์มยอดขาย
+ *  (บรรทัดล่างสุด) แต่ยังอยู่ใน config จึงนับยอดที่เคยจดตามเดิม */
+export const RemovedRows: Story = {
+  args: { project: true },
+  parameters: {
+    db: mutate(
+      mutate(
+        MeatTypes.parameters!.db,
+        accountById("owner")!,
+        "config",
+        {
+          meatTypes: JSON.stringify([
+            { id: "meat", name: "เนื้อ" },
+            { id: "meat-wagyu", name: "วากิว · ใบพาย", removed: "1" },
+            { id: "meat-kobe", name: "โกเบ · สันใน" },
+          ]),
+        },
+        "",
+        today(),
+      ),
+      accountById("owner")!,
+      "config",
+      {
+        products: JSON.stringify([
+          ...JSON.parse(Products.parameters!.db.config.products).slice(0, 1),
+          {
+            ...JSON.parse(Products.parameters!.db.config.products)[1],
+            removed: true,
+          },
+          { id: "p2", name: "ข้าวเหนียวกล่อง", items: [] },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
+/** กด「ลบ」ของสินค้า: การ์ดถามก่อนหนึ่งครั้ง「ลบ「ข้าวเหนียวกล่อง」? จะหายจากรายการและฟอร์มใหม่
+ *  ส่วนยอดที่เคยจดยังนับตามเดิม」พร้อม「ไม่ลบ」/「ยืนยันลบ」 */
+export const ConfirmRemove: Story = {
+  ...RemovedRows,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      await canvas.findByRole("button", { name: "ลบ ข้าวเหนียวกล่อง" }),
     ),
 };
 

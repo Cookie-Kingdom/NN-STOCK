@@ -29,7 +29,10 @@ export function SkuDialog({
   const { account, today } = ws;
   // An ingredient is named in รายชื่อวัตถุดิบ, under its ING code: not one of these.
   const [items] = useState(() =>
-    skuCatalogue(latestDatabase()).filter((item) => !item.ingredient),
+    skuCatalogue(latestDatabase()).filter(
+      // A material deleted in Settings is not in รายชื่อวัสดุ either.
+      (item) => !item.ingredient && !item.removed,
+    ),
   );
   /** The names typed, by SKU: only the ones changed. */
   const [typed, setTyped] = useState<Record<string, string>>({});

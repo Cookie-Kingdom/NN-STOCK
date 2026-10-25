@@ -145,10 +145,23 @@ function skuNames(config: Values): Map<string, string> {
 export function skuCatalogue(db: Database) {
   const items = new Map<
     string,
-    { sku: string; name: string; material: boolean; ingredient?: true }
+    {
+      sku: string;
+      name: string;
+      material: boolean;
+      ingredient?: true;
+      /** A material or an ingredient deleted in Settings: still named, offered nowhere new. */
+      removed?: string;
+    }
   >();
   for (const m of materialList(db))
-    if (m.sku) items.set(m.sku, { sku: m.sku, name: m.name, material: true });
+    if (m.sku)
+      items.set(m.sku, {
+        sku: m.sku,
+        name: m.name,
+        material: true,
+        ...(m.removed && { removed: m.removed }),
+      });
   for (const i of ingredientList(db.config))
     if (i.sku && !items.has(i.sku))
       items.set(i.sku, {
@@ -156,6 +169,7 @@ export function skuCatalogue(db: Database) {
         name: i.name,
         material: false,
         ingredient: true,
+        ...(i.removed && { removed: i.removed }),
       });
   const renamed = skuNames(db.config);
   for (const { values: v } of entries(db, "expense"))
@@ -205,12 +219,15 @@ export const skuAfter = (sku: string) => skuText(skuNumber(sku) + 1);
  *  that kept the name, renamed since or not), else the one that goes by that name. */
 export function skuItem(db: Database, name: string, kept: Values = {}) {
   const key = norm(name);
-  return skuCatalogue(db).find((item) =>
-    kept.sku && norm(kept.item) === key
-      ? item.sku === kept.sku
-      : norm(item.name) === key,
-  );
+  const all = skuCatalogue(db);
+  if (kept.sku && norm(kept.item) === key)
+    return all.find((item) => item.sku === kept.sku);
+  // A row deleted in Settings gave up its name: one named so since is that name's.
+  return sortLive(all).find((item) => norm(item.name) === key);
 }
+/** `rows` with the ones deleted in Settings last. */
+const sortLive = <T extends { removed?: string }>(rows: T[]) =>
+  rows.toSorted((a, b) => Number(!!a.removed) - Number(!!b.removed));
 /** The SKU an `expense` note of item `name` gets: the one it already had (`kept`, an edit that
  *  kept the name), the one of the item in the catalogue that goes by that name (a material
  *  included), or the next one (`isNew`). An `ingredient` (ประเภท วัตถุดิบ) gets the ING code
@@ -224,7 +241,9 @@ export function skuFor(
   const key = norm(name);
   if (!key) return { sku: "", isNew: false };
   if (ingredient) {
-    const same = ingredientList(db.config).find((i) => norm(i.name) === key);
+    const same = sortLive(ingredientList(db.config)).find(
+      (i) => norm(i.name) === key,
+    );
     return same
       ? { sku: same.sku, isNew: false }
       : {
@@ -234,7 +253,9 @@ export function skuFor(
   }
   if (kept.sku && norm(kept.item) === key)
     return { sku: kept.sku, isNew: false };
-  const same = skuCatalogue(db).find((item) => norm(item.name) === key);
+  const same = sortLive(skuCatalogue(db)).find(
+    (item) => norm(item.name) === key,
+  );
   return same
     ? { sku: same.sku, isNew: false }
     : { sku: nextSku(db), isNew: true };
@@ -245,7 +266,11 @@ export function skuFor(
 export function skuNameError(db: Database) {
   const items = skuCatalogue(db).filter((item) => !item.ingredient);
   const names = items.map((item) => norm(item.name));
-  const twice = items.find((_, at) => names.indexOf(names[at]) !== at);
+  // A material deleted in Settings gave up its name.
+  const named = items.map((item, at) => (item.removed ? "" : names[at]));
+  const twice = items.find(
+    (_, at) => named[at] && named.indexOf(named[at]) !== at,
+  );
   return names.some((name) => !name)
     ? "รายการสินค้า (SKU): มีแถวที่ยังไม่ได้ใส่ชื่อ"
     : twice
