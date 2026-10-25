@@ -392,8 +392,18 @@ export const isEditOverlay = (
 ) =>
   e.kind === "entryEdit" &&
   (e.role === "owner" || (!!target && canChange(e, target)));
-/* Settings kept as JSON lists in `config` (Settings page). */
-type Channel = { key: string; name: string; gp: number };
+/* Settings kept as JSON lists in `config` (Settings page). A row deleted in Settings stays in
+ * its list as `removed: "1"` (a product's `removed: true`): the readers still return it, so what
+ * was jotted of it still counts and names it, but no Settings list, form or choice offers it
+ * again (`live`), save on a note that already holds it. */
+type Removed = { removed?: string };
+/** The flag of a removed row, as the readers return it. */
+const removedOf = (row: unknown): Removed =>
+  (row as Values | undefined)?.removed ? { removed: "1" } : {};
+/** The rows of a list not deleted in Settings. */
+export const live = <T extends { removed?: unknown }>(rows: T[]) =>
+  rows.filter((row) => !row.removed);
+type Channel = { key: string; name: string; gp: number } & Removed;
 /** `id` is what entries name (`used.<id>`, a payment's `item`) and never changes; `sku` is the
  *  code people read, issued by `mutate` when the list is saved ("" until then); `unit` is what
  *  the item is counted in. */
@@ -402,8 +412,8 @@ export type Material = {
   sku: string;
   name: string;
   unit: string;
-};
-type PayCategory = { id: string; name: string };
+} & Removed;
+type PayCategory = { id: string; name: string } & Removed;
 const listDefaults = {
   // รายการเนื้อ: one kind until the Owner adds another (meatTypes).
   meatTypes: JSON.stringify([{ id: "meat", code: "RM-0001", name: "เนื้อ" }]),
@@ -474,6 +484,7 @@ export const salesChannels = (config: Values): Channel[] =>
     key: c.key,
     name: c.name,
     gp: Number(c.gp) || 0,
+    ...removedOf(c),
   }));
 /** V2-CAL-01: the money of a sale brought in from the shop's old books, already after the
  *  channel's GP: counted in the sales, GP 0. Not a channel of Settings (`checkConfig` refuses
@@ -503,6 +514,7 @@ export const configMaterials = (config: Values): Material[] =>
     sku: m.sku ?? "",
     name: m.name,
     unit: m.unit || "ชิ้น",
+    ...removedOf(m),
   }));
 /** A code the web issues for a row of a Settings list: `<prefix>-0001` up, one sequence per
  *  prefix (`RM` a kind of meat, `ING` an ingredient), apart from the `SKU-` and `PRD-` ones. */
@@ -514,9 +526,9 @@ export const codeText = (prefix: string, n: number) =>
  *  breed, a cut: the name says which). `id` is what notes name: a PO's and a Lot's
  *  `meatType`, a product's component, a branch sheet's row. The first is `meat`, the meat
  *  every note saved before the list is of (never removed); one added later is `meat-<id>`,
- *  removable while nothing names it (Settings). `code` (`RM-0001` up) is only the code people
+ *  removable (Settings: `removed`, still read). `code` (`RM-0001` up) is only the code people
  *  read, issued by `mutate` when the list is saved ("" until then); `meat`'s is RM-0001. */
-export type MeatType = { id: string; code: string; name: string };
+export type MeatType = { id: string; code: string; name: string } & Removed;
 export const meatItem = "meat";
 const firstMeatCode = "RM-0001";
 export const isMeatItem = (id: string) =>
@@ -530,6 +542,7 @@ export const meatTypes = (config: Values): MeatType[] => {
       code:
         String(row.code ?? "") || (row.id === meatItem ? firstMeatCode : ""),
       name: String(row.name ?? "").trim() || "เนื้อ",
+      ...removedOf(row),
     }));
   const first = rows.find((row) => row.id === meatItem) ?? {
     id: meatItem,
@@ -561,6 +574,7 @@ export const ingredientList = (config: Values): Material[] =>
       sku: row.code ?? "",
       name: row.name,
       unit: row.unit || "ชิ้น",
+      ...removedOf(row),
     }));
 /** The components typed in grams a piece (each kind of meat); a sheet counts them in kg. */
 export const isGramItem = isMeatItem;
@@ -569,13 +583,15 @@ export const isGramItem = isMeatItem;
  *  `gramItems`, tubes for the chili, a material's own unit. A component left empty or at 0 is
  *  not in it. `code` is the code people read, issued by `mutate` when the list is saved (""
  *  until then). `off` (หยุดขาย): no new sale or gift is offered it; what was jotted of it still
- *  counts everywhere, unlike a product removed. */
+ *  counts everywhere. `removed` (deleted in Settings): the same, and it leaves the Settings list
+ *  too. */
 export type Product = {
   id: string;
   code: string;
   name: string;
   unit: string;
   off: boolean;
+  removed: boolean;
   items: Map<string, number>;
 };
 /* รหัสสินค้า: `PRD-0001` up, a sequence of its own beside the materials' `SKU-`. */
@@ -610,6 +626,7 @@ export const products = (config: Values): Product[] => {
         unit:
           String(row?.unit ?? "").trim() || productUnit(String(row?.id ?? "")),
         off: row?.off === true,
+        removed: row?.removed === true,
         items: itemsOf(row?.items),
       }))
     : [
@@ -619,6 +636,7 @@ export const products = (config: Values): Product[] => {
           name: "กล่องมาตรฐาน",
           unit: productUnit(boxProduct),
           off: false,
+          removed: false,
           items: itemsOf(list(config, "boxRecipe")),
         },
       ];
@@ -631,8 +649,8 @@ export const isProductKey = (key: string) =>
   key === "boxes" || key.startsWith("product.");
 export const productQty = (product: Product, values: Values) =>
   Number(values[productKey(product.id)]) || 0;
-/** The pieces of a `sale` or an `influencerBox` note, over every product of `list`. What it
- *  holds of a product since removed is not counted (as a removed sales channel's money). */
+/** The pieces of a `sale` or an `influencerBox` note, over every product of `list` (a product
+ *  deleted in Settings included: it is still in the list, `removed`). */
 export const pieces = (list: Product[], values: Values) =>
   list.reduce((a, product) => a + productQty(product, values), 0);
 /** The word pieces are counted in: the product's own unit while it is the only one. */
@@ -689,7 +707,11 @@ export const productMeatKg = (
       : 0;
 };
 export const payCategories = (config: Values): PayCategory[] =>
-  list(config, "payCategories").map(({ id, name }) => ({ id, name }));
+  list(config, "payCategories").map((row) => ({
+    id: row.id,
+    name: row.name,
+    ...removedOf(row),
+  }));
 /* The ten category ids of the seed are fixed: these rules hang on them. */
 export const payrollCategory = "payroll",
   rentCategory = "rent",

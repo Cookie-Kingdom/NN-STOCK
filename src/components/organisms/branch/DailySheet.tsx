@@ -559,9 +559,14 @@ export function DailySheet({
   sheet: Sheet;
   word?: string;
 }) {
-  const { db } = ws;
+  const { db, today } = ws;
   const [dialog, setDialog] = useState<Material | "new">();
-  const items = sheetItems(db, sheet);
+  // A row deleted in Settings stays on the sheet while the branch still holds some of it.
+  const items = sheetItems(db, sheet).filter(
+    (item) =>
+      !item.removed ||
+      branchItem(db, ws.account.branch ?? "", item.id, today).remaining !== 0,
+  );
   const shown = items.filter(
     (item) =>
       !word ||

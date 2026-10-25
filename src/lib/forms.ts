@@ -6,6 +6,7 @@ import {
   companyPayer,
   incomeTypes,
   ingredientList,
+  live,
   meatItem,
   meatTypeOf,
   meatTypes,
@@ -22,6 +23,7 @@ import {
   type Actor,
   type Database,
   type NoteKind,
+  type Product,
   type Values,
 } from "./store/model";
 import { dateLabel } from "./format";
@@ -113,20 +115,27 @@ const core = (field: Field): Field => ({ ...field, core: true });
 const more = (...fields: Field[]): Field[] =>
   fields.map((field) => ({ ...field, more: true }));
 /** One count field per product of 「รายการสินค้า」 still on sale, in list order; only the first
- *  is core. A stopped product (หยุดขาย) has one only on a note that holds a count of it
- *  (`kept`). The sale form lays them out as rows, a product picked per row (the composer), and
+ *  is core. A stopped product (หยุดขาย) or one deleted in Settings has one only on a note that
+ *  holds a count of it (`kept`). The sale form lays them out as rows, a product picked per row (the composer), and
  *  a sale lacks its products only when none has a count (`mutate`). */
 const productFields = (db: Database, kept: Values): Field[] => {
   const list = products(db.config);
-  const first = list.find((product) => !product.off);
+  const offered = (product: Product) => !product.off && !product.removed;
+  const first = list.find(offered);
   return list
-    .filter((product) => !product.off || kept[productKey(product.id)])
+    .filter((product) => offered(product) || kept[productKey(product.id)])
     .map((product) =>
       count(productKey(product.id), product.name, product.unit, {
         core: product === first,
       }),
     );
 };
+/** The catalogue's items as the choices of an `item` field: one deleted in Settings only on a
+ *  note of it. */
+const skuOptions = (db: Database, kept: Values) =>
+  skuCatalogue(db)
+    .filter((item) => !item.removed || item.sku === kept.sku)
+    .map((item) => ({ value: item.name, label: item.sku }));
 /** The units a 「หน่วยนับ」 field suggests (a material's, a product's): the usual ones, then
  *  every material's own. A typed one stands too. */
 export const unitOptions = (db: Database) =>
@@ -252,7 +261,10 @@ const sheetFields = (
  *  「รายการเนื้อ」 is more than `meat` alone; until then there is no field and the note is of
  *  `meat`. */
 const meatTypeField = (db: Database, kept: Values): Field[] => {
-  const types = meatTypes(db.config);
+  // One deleted in Settings only on a note of it.
+  const types = meatTypes(db.config).filter(
+    (type) => !type.removed || type.id === kept.meatType,
+  );
   return types.length === 1 && types[0].id === meatItem && !kept.meatType
     ? []
     : [
@@ -454,7 +466,9 @@ export function fields(
     case "pay": {
       // Owner: every category. Branch: its four (V2-ACC).
       const categories = payCategories(db.config).filter(
-        (c) => by.role !== "branch" || branchCategories.includes(c.id),
+        (c) =>
+          (by.role !== "branch" || branchCategories.includes(c.id)) &&
+          (!c.removed || c.id === kept.category),
       );
       return [
         core({
@@ -477,10 +491,9 @@ export function fields(
           when: isStock,
           options: [
             { value: "", label: "ไม่ระบุ" },
-            ...[...materialList(db), ...ingredientList(db.config)].map((m) => ({
-              value: m.id,
-              label: m.name,
-            })),
+            ...[...materialList(db), ...ingredientList(db.config)]
+              .filter((m) => !m.removed || m.id === kept.item)
+              .map((m) => ({ value: m.id, label: m.name })),
           ],
         },
         number("qty", "จำนวน", undefined, {
@@ -547,14 +560,16 @@ export function fields(
           }),
         ),
         // One money field per sales channel in Settings, a breakdown of the total.
-        ...salesChannels(db.config).map((channel, index) =>
-          number(
-            channel.key,
-            `ยอดขาย ${channel.name}`,
-            "บาท",
-            index ? undefined : { hint: "ยอดจริงตามที่ LINE MAN แจ้ง" },
+        ...salesChannels(db.config)
+          .filter((channel) => !channel.removed || kept[channel.key])
+          .map((channel, index) =>
+            number(
+              channel.key,
+              `ยอดขาย ${channel.name}`,
+              "บาท",
+              index ? undefined : { hint: "ยอดจริงตามที่ LINE MAN แจ้ง" },
+            ),
           ),
-        ),
         number("expense", "ค่าใช้จ่ายสาขา", "บาท", { hint: once }),
         text("payer", "ผู้จ่าย / ผู้สำรองจ่าย"),
         ...more(file("หลักฐานยอดขาย"), note),
@@ -609,10 +624,7 @@ export function fields(
         core(
           text("item", "รายการ", {
             // Every item with a SKU, the materials included: picking one links its SKU.
-            options: skuCatalogue(db).map((item) => ({
-              value: item.name,
-              label: item.sku,
-            })),
+            options: skuOptions(db, kept),
           }),
         ),
         text("detail", "รายละเอียด / สเปก"),
@@ -644,7 +656,9 @@ export function fields(
           "channel",
           "ช่องทางขาย",
           Object.fromEntries(
-            salesChannels(db.config).map((c) => [c.key, c.name]),
+            salesChannels(db.config)
+              .filter((c) => !c.removed || c.key === kept.channel)
+              .map((c) => [c.key, c.name]),
           ),
           { when: (values) => values.incomeType === "sales" },
         ),
@@ -695,10 +709,7 @@ export function fields(
           text("item", "รายการ", {
             // Searched by name or SKU; only an item of the catalogue stands (`mutate` checks).
             strict: true,
-            options: skuCatalogue(db).map((item) => ({
-              value: item.name,
-              label: item.sku,
-            })),
+            options: skuOptions(db, kept),
           }),
         ),
         core(placeField("from", "คลังต้นทาง")),
@@ -748,8 +759,7 @@ export const attachmentFolder = (kind: NoteKind, values: Values) =>
  *  return's shippingFee starts at the Settings round trip (mutate fills it in when left empty). */
 export function defaults(kind: NoteKind, config?: Values): Values {
   // A new PO or receipt starts at the first kind of meat, once there is a choice.
-  const meatType =
-    config && meatTypes(config).length > 1 ? meatTypes(config)[0].id : "";
+  const meatType = config && live(meatTypes(config)).length > 1 ? meatItem : "";
   if (kind === "purchase") {
     // The buyer as Settings has it, there to change for this PO.
     const buyer = {

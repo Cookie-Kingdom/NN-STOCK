@@ -27,6 +27,7 @@ import {
   isRoundKind,
   meatItem,
   meatTypes,
+  live,
   kindInfo,
   kindsFor,
   legacySale,
@@ -429,8 +430,15 @@ function checkConfig(v: Values) {
     );
     const names = rows.map((row) => String(row.name ?? "").trim());
     assert(names.every(Boolean), `${label}: มีสินค้าที่ยังไม่ได้ใส่ชื่อ`);
-    const lower = names.map((name) => name.toLowerCase());
-    const twice = names.find((_, at) => lower.indexOf(lower[at]) !== at);
+    const box = rows.find((row) => row.id === boxProduct)!;
+    assert(!box.removed, `${label}: 「${box.name}」ลบไม่ได้`);
+    // A product deleted in Settings keeps its name, and frees it for a new one.
+    const lower = names.map((name, at) =>
+      rows[at].removed ? "" : name.toLowerCase(),
+    );
+    const twice = names.find(
+      (_, at) => lower[at] && lower.indexOf(lower[at]) !== at,
+    );
     assert(twice === undefined, `${label}: ชื่อ「${twice}」ซ้ำกัน`);
     const bad = rows.find(
       (_, at) => !figures(items![at]!.map((item) => item.qty)),
@@ -476,16 +484,25 @@ function checkConfig(v: Values) {
     assert(ids.every(Boolean) && new Set(ids).size === ids.length, broken);
     const names = rows.map((row) => String(row.name ?? "").trim());
     assert(names.every(Boolean), `${label}: มีแถวที่ยังไม่ได้ใส่ชื่อ`);
-    const twice = names.find((name, at) => names.indexOf(name) !== at);
+    // A row deleted in Settings keeps its name, and frees it for a new row.
+    const named = names.map((name, at) => (rows[at].removed ? "" : name));
+    const twice = named.find((name, at) => name && named.indexOf(name) !== at);
     assert(twice === undefined, `${label}: ชื่อ「${twice}」ซ้ำกัน`);
+    /** A row the rules hang on, refused as deleted. */
+    const fixed = (ok: (row: Values) => boolean) => {
+      const row = rows.find((row) => row.removed && !ok(row));
+      assert(!row, `${label}: 「${row?.name}」ลบไม่ได้`);
+    };
     const empty = (row: Values, value: string) => (row[value] ?? "") === "";
     const numbers = (value: string, what: string) => {
       const row = rows.find((row) => !empty(row, value) && !amount(row[value]));
       assert(!row, `${label}: ${what}ของ「${row?.name}」${figure}`);
     };
     // The first kind is `meat`, what every note saved before the list is of; never removed.
-    if (key === "meatTypes")
+    if (key === "meatTypes") {
       assert(ids[0] === meatItem && ids.every(isMeatItem), broken);
+      fixed((row) => row.id !== meatItem);
+    }
     if (key === "ingredientList") assert(ids.every(isIngredientItem), broken);
     if (key === "salesChannels") {
       // A channel added in Settings keeps its money under a `sales.` key.
@@ -496,16 +513,20 @@ function checkConfig(v: Values) {
           !ids.includes(legacySale.key),
         broken,
       );
+      fixed((row) => row.key !== "lineMan");
       const none = rows.find((row) => empty(row, "gp"));
       assert(!none, `${label}: ยังไม่ได้ใส่ GP % ของ「${none?.name}」`);
       numbers("gp", "GP % ");
     }
     // The seed's ten categories are fixed: the rules hang on their ids.
-    if (key === "payCategories")
+    if (key === "payCategories") {
+      const seeded = payCategories(seed.config).map((c) => c.id);
       assert(
-        payCategories(seed.config).every((c) => ids.includes(c.id)),
+        seeded.every((id) => ids.includes(id)),
         `${label}: หมวดตั้งต้นลบไม่ได้`,
       );
+      fixed((row) => !seeded.includes(row.id));
+    }
   }
 }
 /** An item name as matched: trimmed, case-insensitive (as `skuFor` matches it). */
@@ -548,7 +569,8 @@ export function mutate(
     by.role === "owner" &&
     input.itemType === "วัสดุบรรจุภัณฑ์" &&
     bought &&
-    !materialList(db).some((m) => norm(m.name) === norm(bought))
+    // One deleted in Settings does not count: the packaging is a new row.
+    !live(materialList(db)).some((m) => norm(m.name) === norm(bought))
   )
     db = mutate(
       db,
@@ -581,7 +603,9 @@ export function mutate(
     by.role === "owner" &&
     typed?.itemType === ingredientType &&
     ingredient &&
-    !ingredientList(db.config).some((i) => norm(i.name) === norm(ingredient))
+    !live(ingredientList(db.config)).some(
+      (i) => norm(i.name) === norm(ingredient),
+    )
   )
     db = mutate(
       db,
@@ -776,7 +800,13 @@ export function mutate(
           "ING",
           v.ingredientList,
           ingredientList(db.config).map((i) => ({ ...i, code: i.sku })),
-        ).map(({ id, code, name, unit }) => ({ id, code, name, unit })),
+        ).map(({ id, code, name, unit, removed }) => ({
+          id,
+          code,
+          name,
+          unit,
+          ...(removed && { removed }),
+        })),
       );
     if (v.products !== undefined) {
       // A product keeps its code (whatever is sent); one with none gets the next, past
