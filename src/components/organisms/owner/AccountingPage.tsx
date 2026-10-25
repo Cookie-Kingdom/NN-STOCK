@@ -24,7 +24,7 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
-import { td, tf, th } from "@/components/organisms/shared/tableCell";
+import { grid, td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty, thaiDay } from "@/lib/format";
@@ -571,12 +571,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         </div>
         {/* relative: the sr-only head of the last column scrolls with the table, not the page. */}
         <div className="relative overflow-x-auto">
-          <table
-            // The ledger's grid: a line between columns, and the row under the pointer;
-            // narrower cells than the other tables, so more of its columns fit.
-            className="w-full border-collapse [&_tbody_tr:hover]:bg-surface-sunken [&_td]:border-r [&_td]:px-3 [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:px-3 [&_th:last-child]:border-r-0"
-            aria-label="บัญชีรายรับรายจ่าย"
-          >
+          <table className={grid} aria-label="บัญชีรายรับรายจ่าย">
             <thead>
               <tr>
                 {columns.map((column) => (

@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
-import { td, th } from "@/components/organisms/shared/tableCell";
+import { grid, td, th } from "@/components/organisms/shared/tableCell";
 import { baht } from "@/lib/format";
 import { periodName, shiftKey } from "@/lib/period";
 import {
@@ -65,7 +65,7 @@ export function FigureCard({
 export const FigureTable = (props: ComponentProps<"table">) => (
   // relative: an sr-only column head scrolls with the table, not the page.
   <div className="relative overflow-x-auto">
-    <table className="w-full border-collapse" {...props} />
+    <table className={grid} {...props} />
   </div>
 );
 

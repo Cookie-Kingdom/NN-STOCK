@@ -6,7 +6,7 @@ import { Input } from "@/components/atoms/Input";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FormError } from "@/components/molecules/FormError";
-import { td, th } from "@/components/organisms/shared/tableCell";
+import { grid, td, th } from "@/components/organisms/shared/tableCell";
 import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { dateLabel, qty as fmt, thaiDay } from "@/lib/format";
@@ -71,7 +71,7 @@ export function StockTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse tabular-nums">
+      <table className={cn(grid, "tabular-nums")}>
         <thead>
           <tr>
             {columns.map((column) => (
