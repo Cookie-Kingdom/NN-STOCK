@@ -6,6 +6,7 @@ import { Combobox, SearchSelect } from "@/components/atoms/Combobox";
 import { Input } from "@/components/atoms/Input";
 import { Spinner } from "@/components/atoms/Spinner";
 import { Caption } from "@/components/atoms/Text";
+import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import { Dialog } from "@/components/molecules/Dialog";
 import { FormField } from "@/components/molecules/FormField";
 import { FormGrid } from "@/components/molecules/FormGrid";
@@ -362,47 +363,42 @@ export function ProductDialog({
             {error}
           </span>
         )}
-        {removing ? (
-          <>
-            <span role="alert" className="w-full text-body-sm text-danger">
-              ลบ「{product.name}」? สินค้านี้จะหายจากรายการและฟอร์มใหม่
-              ส่วนยอดที่เคยจดยังนับตามเดิม
-            </span>
-            <Button disabled={saving} onClick={() => setRemoving(false)}>
-              ไม่ลบ
-            </Button>
-            <Button
-              variant="primary"
-              disabled={saving}
-              icon={saving ? <Spinner /> : undefined}
-              onClick={() => save(true)}
-            >
-              ยืนยันลบ
-            </Button>
-          </>
-        ) : (
-          <>
-            {!isNew && product.id !== boxProduct && (
-              <Button
-                variant="link"
-                className="mr-auto min-h-11 px-2 text-danger hover:text-danger"
-                disabled={saving}
-                onClick={() => setRemoving(true)}
-              >
-                ลบสินค้า
-              </Button>
-            )}
-            <Button onClick={onClose}>ยกเลิก</Button>
-            <Button
-              variant="primary"
-              disabled={saving || !!error}
-              icon={saving ? <Spinner /> : undefined}
-              onClick={() => save()}
-            >
-              {saving ? "กำลังบันทึก…" : "บันทึก"}
-            </Button>
-          </>
+        {removing && (
+          <ConfirmDialog
+            title="ลบสินค้า"
+            saving={saving}
+            error={error}
+            onConfirm={() => save(true)}
+            onClose={() => {
+              setError("");
+              setRemoving(false);
+            }}
+          >
+            ลบ「{product.name}」? สินค้านี้จะหายจากรายการและฟอร์มใหม่
+            ส่วนยอดที่เคยจดยังนับตามเดิม
+          </ConfirmDialog>
         )}
+        <>
+          {!isNew && product.id !== boxProduct && (
+            <Button
+              variant="link"
+              className="mr-auto min-h-11 px-2 text-danger hover:text-danger"
+              disabled={saving}
+              onClick={() => setRemoving(true)}
+            >
+              ลบสินค้า
+            </Button>
+          )}
+          <Button onClick={onClose}>ยกเลิก</Button>
+          <Button
+            variant="primary"
+            disabled={saving || !!error}
+            icon={saving ? <Spinner /> : undefined}
+            onClick={() => save()}
+          >
+            {saving ? "กำลังบันทึก…" : "บันทึก"}
+          </Button>
+        </>
       </div>
     </Dialog>
   );
