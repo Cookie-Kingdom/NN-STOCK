@@ -9,7 +9,7 @@ import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
 import { TableFilter } from "@/components/molecules/TableFilter";
 import { td, tf, th } from "@/components/organisms/shared/tableCell";
-import { qty, thaiDay } from "@/lib/format";
+import { dateLabel, qty } from "@/lib/format";
 import { periodName } from "@/lib/period";
 import {
   branchSalesSummary,
@@ -22,8 +22,8 @@ import { FigureCard, FigureTable, Num } from "./PlTable";
 
 const all = { value: "", label: "ทั้งหมด" };
 
-/** สรุปยอดขายสาขา: how many of each product each branch sold, per day or per month of the
- *  page's period (`period`, a `YYYY-MM` or a `YYYY`): one row per day, branch and product,
+/** สรุปยอดขายสาขา: how many of each product each branch sold, per month (first) or per day of
+ *  the page's period (`period`, a `YYYY-MM` or a `YYYY`): one row per month, branch and product,
  *  filtered by any of the three, with the pieces of the rows shown added up under them.
  *  Shared by the project's Overview and Finance. */
 export function BranchSalesSummary({
@@ -33,7 +33,7 @@ export function BranchSalesSummary({
   db: Database;
   period: string;
 }) {
-  const [by, setBy] = useState<"day" | "month">("day");
+  const [by, setBy] = useState<"day" | "month">("month");
   const [date, setDate] = useState("");
   const [branch, setBranch] = useState("");
   const [product, setProduct] = useState("");
@@ -50,7 +50,7 @@ export function BranchSalesSummary({
       })),
   );
   const label = (key: string) =>
-    by === "day" ? thaiDay(key) : periodName(key);
+    by === "day" ? dateLabel(key) : periodName(key);
   const distinct = (values: string[]) => [...new Set(values)];
   const dates = distinct(sales.map((r) => r.key));
   const names = distinct(sales.map((r) => r.branch));
@@ -79,14 +79,14 @@ export function BranchSalesSummary({
   const { limit, more } = useShowMore(`${period} ${by} ${at} ${of} ${what}`);
   return (
     <FigureCard title="สรุปยอดขายสาขา" note="ตามที่สาขาจด">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-border px-5 py-3 max-md:px-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-border px-3 py-3">
         <SegmentedChoice
           label="แสดงยอดขาย"
           value={by}
           onChange={setBy}
           options={[
-            { value: "day", label: "รายวัน" },
             { value: "month", label: "รายเดือน" },
+            { value: "day", label: "รายวัน" },
           ]}
         />
         {sales.length > 0 && (
