@@ -5,9 +5,9 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { ReadOnlyValue } from "@/components/atoms/ReadOnlyValue";
-import { Spinner } from "@/components/atoms/Spinner";
 import { Muted } from "@/components/atoms/Text";
 import { Textarea } from "@/components/atoms/Textarea";
+import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import { DayCard } from "@/components/molecules/DayCard";
 import { FileUploadField } from "@/components/molecules/FileUploadField";
 import { FormField } from "@/components/molecules/FormField";
@@ -207,7 +207,7 @@ export function SettingsPage({
   >(null);
   /** The product whose popup is open. */
   const [product, setProduct] = useState<ProductDraft | null>(null);
-  /** The row whose 「ลบ」 was pressed: its card asks once before it is deleted. */
+  /** The row whose 「ลบ」 was pressed: a popup asks once before it is deleted. */
   const [removing, setRemoving] = useState<{
     list: ListSection | "products";
     id: string;
@@ -316,7 +316,7 @@ export function SettingsPage({
     ws.setToast(`ลบแล้ว: ${name}`);
     setRemoving(null);
   };
-  /** The 「ลบ」 of a row outside the open section: it asks first (`confirm`). */
+  /** The 「ลบ」 of a row outside the open section: a popup asks first (`ConfirmDialog`). */
   const removeButton = (list: ListSection | "products", row: Values) => (
     <Button
       variant="link"
@@ -335,29 +335,6 @@ export function SettingsPage({
       ลบ
     </Button>
   );
-  /** The card's ask once its row's 「ลบ」 was pressed. */
-  const confirm = (list: ListSection | "products") =>
-    removing?.list === list && (
-      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 px-5 pt-3 max-md:px-4">
-        <span role="alert" className="w-full text-body-sm text-danger">
-          {error ||
-            `ลบ「${removing.name}」? จะหายจากรายการและฟอร์มใหม่ ส่วนยอดที่เคยจดยังนับตามเดิม`}
-        </span>
-        <Button size="sm" disabled={saving} onClick={() => setRemoving(null)}>
-          ไม่ลบ
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={saving || !!error}
-          icon={saving ? <Spinner /> : undefined}
-          onClick={remove}
-        >
-          ยืนยันลบ
-        </Button>
-      </div>
-    );
-
   const card = (section: Section, note: ReactNode, children: ReactNode) => (
     <DayCard
       key={section}
@@ -536,7 +513,6 @@ export function SettingsPage({
             )}
           </StockTable>
         )}
-        {confirm(section)}
         <div className={foot}>
           <Button
             size="sm"
@@ -597,7 +573,6 @@ export function SettingsPage({
                 แต่ยอดที่เคยจดยังนับตามเดิม รหัสสินค้าออกให้อัตโนมัติตอนบันทึก
                 และไม่เปลี่ยนเมื่อแก้ชื่อ กดชื่อสินค้าเพื่อแก้ไข
               </p>
-              {confirm("products")}
               <StockTable
                 columns={["สินค้า", "ราคา", "ต้นทุนอื่น", ""]}
                 right={["ราคา", "ต้นทุนอื่น"]}
@@ -802,6 +777,25 @@ export function SettingsPage({
             )}
           </div>
         </>
+      )}
+      {removing && (
+        <ConfirmDialog
+          title={
+            removing.list === "products"
+              ? "ลบสินค้า"
+              : `ลบ${titles[removing.list]}`
+          }
+          saving={saving}
+          error={error}
+          onConfirm={remove}
+          onClose={() => {
+            setError("");
+            setRemoving(null);
+          }}
+        >
+          ลบ「{removing.name}」? จะหายจากรายการและฟอร์มใหม่
+          ส่วนยอดที่เคยจดยังนับตามเดิม
+        </ConfirmDialog>
       )}
       {skusOpen && <SkuDialog ws={ws} onClose={() => setSkusOpen(false)} />}
       {materialsOpen && (

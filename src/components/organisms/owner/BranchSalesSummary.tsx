@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/atoms/Button";
 import { DatePicker } from "@/components/atoms/DatePicker";
 import { Select } from "@/components/atoms/Select";
 import { Muted } from "@/components/atoms/Text";
@@ -135,6 +136,19 @@ export function BranchSalesSummary({
                 ]}
               />
             </TableFilter>
+            {(at || of || what) && (
+              <Button
+                size="sm"
+                className="min-h-10"
+                onClick={() => {
+                  setDate("");
+                  setBranch("");
+                  setProduct("");
+                }}
+              >
+                ล้างตัวกรอง
+              </Button>
+            )}
           </>
         )}
       </div>
