@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { Select } from "@/components/atoms/Select";
 import { Muted } from "@/components/atoms/Text";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
@@ -56,7 +57,13 @@ export function BranchSalesSummary({
   // A choice the period or the รายวัน/รายเดือน switch took away reads as ทั้งหมด.
   const pick = (value: string, values: string[]) =>
     values.includes(value) ? value : "";
-  const at = pick(date, dates);
+  // A day is picked on the calendar, so it stands with no sale on it; a month from the list.
+  const at =
+    by === "day"
+      ? date.length === 10 && date.startsWith(period)
+        ? date
+        : ""
+      : pick(date, dates);
   const of = pick(branch, names);
   const what = pick(
     product,
@@ -83,17 +90,32 @@ export function BranchSalesSummary({
         />
         {sales.length > 0 && (
           <>
-            <TableFilter label={by === "day" ? "วันที่" : "เดือน"}>
-              <Select
-                variant="filter"
-                value={at}
-                onChange={setDate}
-                options={[
-                  all,
-                  ...dates.map((value) => ({ value, label: label(value) })),
-                ]}
-              />
-            </TableFilter>
+            {by === "day" ? (
+              <TableFilter label="วันที่">
+                <DatePicker
+                  variant="filter"
+                  title="วันที่ขาย"
+                  placeholder="ทุกวัน"
+                  value={at}
+                  onChange={setDate}
+                  min={dates[dates.length - 1]}
+                  max={dates[0]}
+                  clearable
+                />
+              </TableFilter>
+            ) : (
+              <TableFilter label="เดือน">
+                <Select
+                  variant="filter"
+                  value={at}
+                  onChange={setDate}
+                  options={[
+                    all,
+                    ...dates.map((value) => ({ value, label: label(value) })),
+                  ]}
+                />
+              </TableFilter>
+            )}
             <TableFilter label="สาขา">
               <Select
                 variant="filter"
