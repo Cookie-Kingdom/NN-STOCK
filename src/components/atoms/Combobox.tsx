@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { Input, type ControlVariantProps } from "@/components/atoms/Input";
 import {
@@ -77,6 +77,26 @@ export function Combobox({
     () => control.current?.blur(),
     list !== null,
   );
+
+  // The keyboard put away with the list still open leaves the field focused: the next tap
+  // must bring the keyboard back the way the second tap does, or iOS pans the page under
+  // the list as it comes up.
+  const listed = list !== null;
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (!listed || !touch || !view) return;
+    const keyboard = () => window.innerHeight - view.height > 120;
+    let up = keyboard();
+    const onResize = () => {
+      const now = keyboard();
+      const el = control.current;
+      if (up && !now && el && document.activeElement === el)
+        el.inputMode = "none";
+      up = now;
+    };
+    view.addEventListener("resize", onResize);
+    return () => view.removeEventListener("resize", onResize);
+  }, [listed, touch]);
 
   const choose = (index: number) => {
     // On touch a pick ends the field: no keyboard comes up after it. Blur first: the
