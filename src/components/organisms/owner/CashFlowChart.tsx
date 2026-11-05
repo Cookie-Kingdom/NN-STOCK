@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type PointerEvent } from "react";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,8 @@ const netTone = (x: number) => (x > 0 ? "in" : x < 0 ? "out" : undefined);
 
 /** Money in and money out of each bucket as a pair of bars on one baht axis (in on the left
  *  and green, out on the right and red), and what is left of the two as a line over them,
- *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at or
- *  tapping a bucket, or the arrow keys while the chart has focus, shows its figures; the table
+ *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at, tapping
+ *  or dragging across a bucket, or the arrow keys while the chart has focus, shows its figures; the table
  *  under it holds them all. */
 export function CashFlowChart({
   label,
@@ -57,6 +57,14 @@ export function CashFlowChart({
     bars.findLastIndex((bar) => bar.in || bar.out),
   );
   const plot = "h-60 md:h-72";
+  /** The bucket under the pointer, by where it is across the plot. */
+  const pointAt = (event: PointerEvent<HTMLDivElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const i = Math.floor(
+      ((event.clientX - box.left) / box.width) * bars.length,
+    );
+    setAt(Math.max(0, Math.min(bars.length - 1, i)));
+  };
   // A label on every n-th bucket only: a bar a day for two months would crowd the axis.
   const every = Math.ceil(bars.length / 12);
   const bar =
@@ -126,6 +134,11 @@ export function CashFlowChart({
           // A touch fires leave as the finger lifts: a tap keeps the bucket's figures up
           // (iPad) until another tap, or a tap outside the chart.
           onPointerLeave={(event) => event.pointerType === "mouse" && setAt(-1)}
+          // Read from the finger's x, not each bucket's enter: a touch stays captured by the
+          // bucket it began on, so a sideways drag would not move off it. touch-pan-y leaves
+          // the sideways drag to us; where it stops, the figures stay.
+          onPointerDown={pointAt}
+          onPointerMove={pointAt}
         >
           {lines.map((value) => (
             <i
@@ -148,12 +161,7 @@ export function CashFlowChart({
           )}
           <div className="absolute inset-0 flex">
             {bars.map((flow, i) => (
-              <div
-                key={i}
-                className="relative flex-1"
-                onPointerEnter={() => setAt(i)}
-                onClick={() => setAt(i)}
-              >
+              <div key={i} className="relative flex-1">
                 {flow.in > 0 && (
                   <i
                     className={cn(bar, "right-1/2 mr-px bg-success")}
