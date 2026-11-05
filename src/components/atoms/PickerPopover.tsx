@@ -67,14 +67,18 @@ function Layer({
     if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
     const place = () => {
       const at = control.getBoundingClientRect();
-      const height = window.visualViewport?.height ?? window.innerHeight;
+      // The part of the page on screen: on iOS the keyboard shrinks and pans the visual
+      // viewport, while the rects and `fixed` stay in the layout viewport.
+      const view = window.visualViewport;
+      const viewTop = view?.offsetTop ?? 0;
+      const viewBottom = viewTop + (view?.height ?? window.innerHeight);
       const gap = 6;
-      const below = height - at.bottom - gap - 8;
-      const above = at.top - gap - 8;
+      const below = viewBottom - at.bottom - gap - 8;
+      const above = at.top - viewTop - gap - 8;
       const up = below < box.scrollHeight && above > below;
       const room = Math.max(up ? above : below, 160);
       const top = up
-        ? Math.max(8, at.top - gap - Math.min(box.scrollHeight, room))
+        ? Math.max(viewTop + 8, at.top - gap - Math.min(box.scrollHeight, room))
         : at.bottom + gap;
       const left = Math.max(
         8,
@@ -90,9 +94,14 @@ function Layer({
       !box.contains(event.target as Node) && place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", onScroll, true);
+    // iOS opens and closes the keyboard without a window resize.
+    window.visualViewport?.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("scroll", place);
     return () => {
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", onScroll, true);
+      window.visualViewport?.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("scroll", place);
     };
   });
 

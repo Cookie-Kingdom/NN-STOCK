@@ -28,37 +28,62 @@ export const dropdownFocus =
 
 /**
  * Shows the list of an open dropdown in the top layer (so a dialog never clips it) and
- * keeps it under its `anchor`, or above it when there is more room there. Returns the
- * ref of the list.
+ * keeps it under its `anchor`, or above it when there is more room there. On touch it
+ * scrolls the field up instead, so the list opens under it. Returns the ref of the list.
  */
 export function useDropdown(
   open: boolean,
   anchor: RefObject<HTMLElement | null>,
 ) {
   const list = useRef<HTMLDivElement>(null);
+  /** On touch: the field was scrolled up once since the list opened. */
+  const lifted = useRef(false);
   // No dependency list: the list is placed again after every render while it is open,
   // because typing in a Combobox changes its height.
   useLayoutEffect(() => {
     const el = list.current;
     const control = anchor.current;
+    if (!open) lifted.current = false;
     if (!open || !el || !control) return;
     if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
+    const touch = window.matchMedia("(pointer: coarse)").matches;
     const place = () => {
       const box = control.getBoundingClientRect();
-      // ponytail: the visual viewport's height only; a page pinch-zoomed or scrolled under
-      // the on-screen keyboard is a few px off. Use its offsets if that ever shows.
-      const height = window.visualViewport?.height ?? window.innerHeight;
+      // The part of the page on screen: on iOS the keyboard shrinks and pans the visual
+      // viewport, while the rects and `fixed` stay in the layout viewport.
+      const view = window.visualViewport;
+      const viewTop = view?.offsetTop ?? 0;
+      const viewBottom = viewTop + (view?.height ?? window.innerHeight);
       const gap = 6;
-      const below = height - box.bottom - gap - 12;
-      const above = box.top - gap - 12;
+      const below = viewBottom - box.bottom - gap - 12;
+      const above = box.top - viewTop - gap - 12;
       // scrollHeight is the whole list whatever its max-height: lifting the max-height to
       // measure would throw the list's own scroll back to the top.
-      const up = below < Math.min(el.scrollHeight, 220) && above > below;
+      const need = Math.min(el.scrollHeight, 220);
+      if (touch && below < need && !lifted.current) {
+        // A phone opens the list under the field: first scroll the field to the top of
+        // the screen, in the nearest box that scrolls, else the page.
+        lifted.current = true;
+        let scroller = control.parentElement;
+        while (
+          scroller &&
+          !(
+            scroller.scrollHeight > scroller.clientHeight &&
+            /auto|scroll/.test(getComputedStyle(scroller).overflowY)
+          )
+        )
+          scroller = scroller.parentElement;
+        (scroller ?? window).scrollBy(0, box.top - viewTop - 12);
+        return place();
+      }
+      // On touch it goes up only when even the lifted field has no usable room under it.
+      const up = below < (touch ? 96 : need) && above > below;
       el.style.minWidth = `${box.width}px`;
       el.style.maxHeight = `${Math.max(Math.min(up ? above : below, 336), 96)}px`;
       el.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - el.offsetWidth - 8))}px`;
-      el.style.top = up ? "auto" : `${box.bottom + gap}px`;
-      el.style.bottom = up ? `${window.innerHeight - box.top + gap}px` : "auto";
+      // `top` either way: `bottom` would be measured from the layout viewport, which the
+      // iOS keyboard does not shrink.
+      el.style.top = `${up ? Math.max(viewTop + 8, box.top - gap - el.offsetHeight) : box.bottom + gap}px`;
     };
     place();
     // Once per render (the active row moved), never on a scroll: the list's own scroll is
@@ -67,9 +92,14 @@ export function useDropdown(
     const onScroll = (event: Event) => event.target !== el && place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", onScroll, true);
+    // iOS opens and closes the keyboard without a window resize.
+    window.visualViewport?.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("scroll", place);
     return () => {
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", onScroll, true);
+      window.visualViewport?.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("scroll", place);
     };
   });
   return list;
