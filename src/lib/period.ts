@@ -21,56 +21,18 @@ export const periodName = (key: string) =>
     ? `ปี ${+key + 543}`
     : thaiDay(`${key}-01`, { month: "long", year: "numeric" });
 
-export type Bucket = {
-  /** The date prefix of the bar: a day of a month, a month of a year. */
-  key: string;
-  label: string;
-  title: string;
-  /** Not reached yet: it has no figure, not a zero. */
-  future: boolean;
-  /** A day's bar: the same day of the month before, when that month has one. */
-  before: string | null;
-};
-
 /** What the Overview needs of the period `key`: its names, the like-for-like span before it
  *  (a period still running is set against the same days of the one before, a finished one
- *  against the whole one before) and the bars of its chart. `before` is a pair of text bounds
- *  for `plBetween`. */
+ *  against the whole one before). `before` is a pair of text bounds for `plBetween`. */
 export function revenuePeriod(key: string, today: string) {
   const year = key.length === 4;
   const prev = shiftKey(key, -1);
+  const start = `${key}${year ? "-01-01" : "-01"}`;
   const end = year ? `${key}-12-31` : `${key}-${pad(daysIn(key))}`;
   const partial = today < end;
   const to = partial ? today : end;
   const name = periodName(key);
   const prevName = periodName(prev);
-  const buckets: Bucket[] = [];
-  if (year)
-    for (let m = 1; m <= 12; m++) {
-      const month = `${key}-${pad(m)}`;
-      buckets.push({
-        key: month,
-        label: thaiDay(`${month}-01`, { month: "short" }),
-        title: periodName(month),
-        future: `${month}-01` > today,
-        before: null,
-      });
-    }
-  else
-    for (let d = 1; d <= daysIn(key); d++) {
-      const date = `${key}-${pad(d)}`;
-      buckets.push({
-        key: date,
-        label: String(d),
-        title: thaiDay(date, {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        }),
-        future: date > today,
-        before: d <= daysIn(prev) ? `${prev}-${pad(d)}` : null,
-      });
-    }
   const day = +to.slice(8);
   /** The period as far as it has run: "1–24 ตุลาคม 2569", "ปี 2569 ถึงวันนี้". */
   const range = year
@@ -79,13 +41,13 @@ export function revenuePeriod(key: string, today: string) {
   return {
     name,
     range,
+    /** The period's first and last days. */
+    start,
+    end,
     prevName,
     partial,
     /** Days of the period gone by, today included. */
-    days:
-      (Date.parse(to) - Date.parse(`${key}${year ? "-01-01" : "-01"}`)) /
-        86400000 +
-      1,
+    days: (Date.parse(to) - Date.parse(start)) / 86400000 + 1,
     before: {
       from: prev,
       to: partial ? prev + to.slice(key.length) : `${prev}~`,
@@ -96,19 +58,33 @@ export function revenuePeriod(key: string, today: string) {
       : year
         ? `จากช่วงเดียวกันของ${prevName}`
         : `จาก 1–${Math.min(day, daysIn(prev))} ${thaiDay(`${prev}-01`, { month: "short" })}`,
-    buckets,
   };
 }
 
 /** The bars of the days `from`..`to` (`YYYY-MM-DD`, both counted): a bar a day up to 62 days,
- *  past that a bar a month, its ends cut to the span. Each bar's `from` / `to` bound its rows. */
+ *  past that a bar a month, its ends cut to the span. Each bar's `from` / `to` bound its rows;
+ *  a day's `before` is the same day of the month before, when that month has one. */
 export function rangeBuckets(from: string, to: string) {
   const byDay = (Date.parse(to) - Date.parse(from)) / 86400000 < 62;
   const twoYears = from.slice(0, 4) !== to.slice(0, 4);
-  const bars: { from: string; to: string; label: string; title: string }[] = [];
+  const bars: {
+    from: string;
+    to: string;
+    label: string;
+    title: string;
+    before: string | null;
+  }[] = [];
   if (byDay)
-    for (let d = from; d <= to; d = shiftDays(d, 1))
-      bars.push({ from: d, to: d, label: thaiDay(d), title: dateLabel(d) });
+    for (let d = from; d <= to; d = shiftDays(d, 1)) {
+      const prev = shiftKey(d.slice(0, 7), -1);
+      bars.push({
+        from: d,
+        to: d,
+        label: thaiDay(d),
+        title: dateLabel(d),
+        before: +d.slice(8) <= daysIn(prev) ? prev + d.slice(7) : null,
+      });
+    }
   else
     for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = shiftKey(m, 1)) {
       const first = `${m}-01`;
@@ -121,6 +97,7 @@ export function rangeBuckets(from: string, to: string) {
           ...(twoYears && { year: "2-digit" }),
         }),
         title: periodName(m),
+        before: null,
       });
     }
   return { byDay, bars };

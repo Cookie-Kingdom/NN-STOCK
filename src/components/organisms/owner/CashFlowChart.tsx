@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type PointerEvent } from "react";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FigureTable, Num } from "./PlTable";
+import { useChartPointer } from "./useChartPointer";
 
 export type FlowBar = { label: string; title: string; in: number; out: number };
 
@@ -22,8 +22,9 @@ const netTone = (x: number) => (x > 0 ? "in" : x < 0 ? "out" : undefined);
 /** Money in and money out of each bucket as a pair of bars on one baht axis (in on the left
  *  and green, out on the right and red), and what is left of the two as a line over them,
  *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at, tapping
- *  or dragging across a bucket, or the arrow keys while the chart has focus, shows its figures; the table
- *  under it holds them all. */
+ *  or dragging across a bucket, or the arrow keys while the chart has focus, shows its figures
+ *  (`useChartPointer`: after a tap they stay until a tap outside the plot); the table under it
+ *  holds them all. */
 export function CashFlowChart({
   label,
   unit,
@@ -35,7 +36,7 @@ export function CashFlowChart({
   unit: string;
   bars: FlowBar[];
 }) {
-  const [at, setAt] = useState(-1);
+  const { at, setAt, plotRef, plotProps } = useChartPointer(bars.length);
   const nets = bars.map((bar) => bar.in - bar.out);
   const empty = !bars.some((bar) => bar.in || bar.out);
   const all = bars.flatMap((bar, i) => [bar.in, bar.out, nets[i]]);
@@ -57,14 +58,6 @@ export function CashFlowChart({
     bars.findLastIndex((bar) => bar.in || bar.out),
   );
   const plot = "h-60 md:h-72";
-  /** The bucket under the pointer, by where it is across the plot. */
-  const pointAt = (event: PointerEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    const i = Math.floor(
-      ((event.clientX - box.left) / box.width) * bars.length,
-    );
-    setAt(Math.max(0, Math.min(bars.length - 1, i)));
-  };
   // A label on every n-th bucket only: a bar a day for two months would crowd the axis.
   const every = Math.ceil(bars.length / 12);
   const bar =
@@ -130,15 +123,9 @@ export function CashFlowChart({
           ))}
         </div>
         <div
+          ref={plotRef}
           className={cn(plot, "relative touch-pan-y")}
-          // A touch fires leave as the finger lifts: a tap keeps the bucket's figures up
-          // (iPad) until another tap, or a tap outside the chart.
-          onPointerLeave={(event) => event.pointerType === "mouse" && setAt(-1)}
-          // Read from the finger's x, not each bucket's enter: a touch stays captured by the
-          // bucket it began on, so a sideways drag would not move off it. touch-pan-y leaves
-          // the sideways drag to us; where it stops, the figures stay.
-          onPointerDown={pointAt}
-          onPointerMove={pointAt}
+          {...plotProps}
         >
           {lines.map((value) => (
             <i

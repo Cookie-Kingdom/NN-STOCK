@@ -9,14 +9,7 @@ describe("revenuePeriod", () => {
       days: 24,
       before: { from: "2026-09", to: "2026-09-24" },
     });
-    expect(p.buckets).toHaveLength(31);
-    expect(p.buckets[23]).toMatchObject({
-      future: false,
-      before: "2026-09-24",
-    });
-    expect(p.buckets[24].future).toBe(true);
-    // September has no 31st.
-    expect(p.buckets[30].before).toBeNull();
+    expect(p).toMatchObject({ start: "2026-10-01", end: "2026-10-31" });
   });
 
   it("a finished month is set against the whole month before", () => {
@@ -29,15 +22,11 @@ describe("revenuePeriod", () => {
     expect("2026-01-31" <= p.before.to).toBe(true);
   });
 
-  it("a year has a bar per month, and is set against the same days of the year before", () => {
+  it("a year runs January to December, and is set against the same days of the year before", () => {
     const p = revenuePeriod("2026", "2026-10-24");
     expect(p.before).toEqual({ from: "2025", to: "2025-10-24" });
     expect(p.days).toBe(297);
-    expect(p.buckets.map((b) => b.future)).toEqual([
-      ...Array(10).fill(false),
-      true,
-      true,
-    ]);
+    expect(p).toMatchObject({ start: "2026-01-01", end: "2026-12-31" });
   });
 
   it("names the span on its own, and the whole revenue of it", () => {
@@ -66,6 +55,10 @@ describe("rangeBuckets", () => {
       "2026-10-01",
       "2026-10-02",
     ]);
+  });
+  it("a day's mark is the same day of the month before, if it has one", () => {
+    const { bars } = rangeBuckets("2026-03-30", "2026-04-01");
+    expect(bars.map((b) => b.before)).toEqual([null, null, "2026-03-01"]);
   });
   it("a bar a month past that, its ends cut to the span", () => {
     const { byDay, bars } = rangeBuckets("2026-05-15", "2026-11-05");

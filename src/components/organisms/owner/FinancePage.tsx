@@ -22,8 +22,9 @@ import {
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht, dateLabel, thaiDay } from "@/lib/format";
-import { periodName, shiftKey } from "@/lib/period";
+import { baht, dateLabel } from "@/lib/format";
+import { rangeBuckets, shiftKey } from "@/lib/period";
+import { shiftDays } from "@/lib/pickers";
 import {
   advances,
   cashBetween,
@@ -44,6 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BranchSalesSummary } from "./BranchSalesSummary";
 import { CashFlowChart } from "./CashFlowChart";
+import { ChartRange, useChartRange } from "./ChartRange";
 import { FigureCard, FigureTable, Num, PlTable, cardGrid } from "./PlTable";
 import { usePeriod } from "./overviewParts";
 
@@ -59,7 +61,8 @@ const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
 /** The project's money as it really moved, both ways, by month or by year. From the top: the
  *  cash position (what came in, what left the shop, what is left of the two, and what is
  *  still to receive and to pay as of today), then whose pocket the money out left
- *  (V2-PAY-08); the months around the period as a chart; what was paid in each category;
+ *  (V2-PAY-08); a span picked on two calendars as a chart (the months around the period first;
+ *  by day up to 62 days); what was paid in each category;
  *  what each sales channel still owes (V2-CAL-25) with the button that jots its receipt, what
  *  is still unpaid per supplier, what each person paid out of pocket and is still owed
  *  (V2-PAY-07) with the button that pays them back; each branch's sales per day or month
@@ -80,25 +83,19 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   // Only the channels with a receipt jotted: what another one was paid is not known.
   const known = due.channels.filter((c) => (c.key || c.sold) && c.jotted);
   const unreceived = sumOf(known.map((c) => Math.max(c.left, 0)));
-  /* The month against the five before it, a year as its twelve months.
-   * ponytail: a bar reads the whole log once: one pass that buckets by month if a long log
+  /* The chart opens on the month and the five before it, or a year as its twelve months.
+   * ponytail: a bar reads the whole log once: one pass that buckets by date if a long log
    * makes the page slow. */
-  const months =
-    view === "year"
-      ? Array.from(
-          { length: 12 },
-          (_, i) => `${key}-${String(i + 1).padStart(2, "0")}`,
-        )
-      : Array.from({ length: 6 }, (_, i) => shiftKey(key, i - 5));
-  const bars = months.map((m) => {
-    const of = cashBetween(db, m, `${m}~`, shopProject);
-    return {
-      label: thaiDay(`${m}-01`, { month: "short" }),
-      title: periodName(m),
-      in: of.received,
-      out: of.out,
-    };
+  const range = useChartRange(
+    view === "year" ? `${key}-01-01` : `${shiftKey(key, -5)}-01`,
+    view === "year" ? `${key}-12-31` : shiftDays(`${shiftKey(key, 1)}-01`, -1),
+  );
+  const flow = rangeBuckets(range.from, range.to);
+  const bars = flow.bars.map((bar) => {
+    const of = cashBetween(db, bar.from, bar.to, shopProject);
+    return { label: bar.label, title: bar.title, in: of.received, out: of.out };
   });
+  const flowName = `เงินเข้า–ออก${flow.byDay ? "รายวัน" : "รายเดือน"} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const latest = visibleNotes(db, account)
     .filter(
       (e) =>
@@ -329,14 +326,16 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         </section>
       </Panel>
       <Panel aria-label="เงินเข้า–ออก">
-        <h2 className="m-0 mb-4 text-label text-text-secondary">
-          {view === "year"
-            ? `เงินเข้า–ออกรายเดือน ${periodName(key)}`
-            : `เงินเข้า–ออก หกเดือนถึง${periodName(key)}`}
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div>
+            <h2 className="m-0 text-label text-text-secondary">{flowName}</h2>
+            <Caption>ไม่เกิน 62 วันแสดงเป็นรายวัน</Caption>
+          </div>
+          <ChartRange range={range} />
+        </div>
         <CashFlowChart
-          label={`กราฟแท่งเงินเข้าและเงินออกจากร้านต่อเดือน ${periodName(months[0])} ถึง ${periodName(months.at(-1)!)} · กดลูกศรซ้ายขวาเพื่ออ่านทีละเดือน`}
-          unit="เดือน"
+          label={`กราฟแท่ง${flowName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${flow.byDay ? "วัน" : "เดือน"}`}
+          unit={flow.byDay ? "วัน" : "เดือน"}
           bars={bars}
         />
       </Panel>

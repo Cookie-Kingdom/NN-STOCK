@@ -4,7 +4,8 @@ import { Panel } from "@/components/atoms/Panel";
 import { Caption } from "@/components/atoms/Text";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht } from "@/lib/format";
+import { baht, dateLabel, thaiDay } from "@/lib/format";
+import { rangeBuckets } from "@/lib/period";
 import {
   branches,
   capexCategory,
@@ -19,20 +20,21 @@ import {
 import { shopProject } from "@/lib/store/ledger";
 import { cn } from "@/lib/utils";
 import { FigureCard, FigureTable, Num, share } from "./PlTable";
+import { ChartRange, useChartRange } from "./ChartRange";
 import { RevenueChart } from "./RevenueChart";
 import { Bars, Delta, usePeriod } from "./overviewParts";
 
 /** The Owner's home: the shop's real income from its projects, by month or by year. Every
  *  revenue figure here is after the sales channels' GP (`income − gp`: the sales less the GP,
  *  and the other income of V2-PAY-09), and says so: the total against the like-for-like span
- *  before it, a bar per day (or per month), a row per project and one for the company's own
+ *  before it, a chart over a span picked on two calendars (the period until another is picked; a bar a day up to 62 days, else a month), a row per project and one for the company's own
  *  other income, how that revenue becomes the operating profit, the branches and the other
  *  income. One project's detail (its P&L, its channels, its boxes) is on the project's
  *  Overview (`ProjectOverviewPage`), a page of its own: nothing of this layout is shared
  *  with it. */
 export function OverviewPage({ ws }: { ws: Workspace }) {
   const { db, today } = ws;
-  const { view, key, period, control } = usePeriod(db, today);
+  const { key, period, control } = usePeriod(db, today);
 
   const now = monthPl(db, key);
   const before = plBetween(db, period.before.from, period.before.to);
@@ -50,24 +52,30 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
    *  from the old books carry no GP (`saleMoney`), so nothing is taken off them twice. */
   const net = (pl: { income: number; gp: number }) => pl.income - pl.gp;
   const netSales = now.sales - now.gp;
-  /* ponytail: a bar reads the whole log once (twice with its mark): 62 passes for a month.
+  // The chart's own span: the page's period until another is picked.
+  const range = useChartRange(period.start, period.end);
+  const chart = rangeBuckets(range.from, range.to);
+  /* ponytail: a bar reads the whole log once (twice with its mark): 62 passes for 62 days.
    * One pass that buckets by date if a long log makes the page slow. */
-  const bars = period.buckets.map((bucket) => {
-    const pl = bucket.future ? null : monthPl(db, bucket.key);
+  const bars = chart.bars.map((bar) => {
+    const pl = bar.from > today ? null : plBetween(db, bar.from, bar.to);
     return {
-      label: bucket.label,
-      title: bucket.title,
+      label: chart.byDay ? String(+bar.from.slice(8)) : bar.label,
+      title: chart.byDay
+        ? thaiDay(bar.from, { weekday: "long", day: "numeric", month: "long" })
+        : bar.title,
       value: pl && net(pl),
       part: pl && pl.otherIncome,
       mark: !pl
         ? null
-        : view === "year"
+        : !chart.byDay
           ? pl.profit
-          : bucket.before
-            ? net(monthPl(db, bucket.before))
+          : bar.before
+            ? net(plBetween(db, bar.before, bar.before))
             : null,
     };
   });
+  const chartName = `${chart.byDay ? "รายวัน" : "รายเดือน"} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
@@ -119,20 +127,21 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
             {baht(now.otherIncome)}
           </p>
         )}
-        <div className="mt-5" />
+        <div className="mt-5 mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Caption>รายได้หลังหัก GP{chartName}</Caption>
+          <ChartRange range={range} />
+        </div>
         <RevenueChart
-          label={`กราฟแท่ง${title} รวม ${baht(net(now))} · กดลูกศรซ้ายขวาเพื่ออ่านทีละ${view === "month" ? "วัน" : "เดือน"}`}
-          unit={view === "month" ? "วันที่" : "เดือน"}
+          label={`กราฟแท่งรายได้หลังหัก GP${chartName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${chart.byDay ? "วัน" : "เดือน"}`}
+          unit={chart.byDay ? "วันที่" : "เดือน"}
           bars={bars}
           name="รายได้หลังหัก GP"
           baseName="ยอดขายหลังหัก GP"
           partName="รายได้อื่น"
           markName={
-            view === "month"
-              ? `วันเดียวกันของ${period.prevName}`
-              : "กำไรจากการดำเนินงาน"
+            chart.byDay ? "วันเดียวกันของเดือนก่อน" : "กำไรจากการดำเนินงาน"
           }
-          markAs={view === "month" ? "tick" : "line"}
+          markAs={chart.byDay ? "tick" : "line"}
         />
       </Panel>
 

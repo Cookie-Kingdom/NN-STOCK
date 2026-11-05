@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
-import { DatePicker } from "@/components/atoms/DatePicker";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { MissingMark } from "@/components/atoms/MissingMark";
@@ -25,7 +24,6 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
-import { TableFilter } from "@/components/molecules/TableFilter";
 import { grid, td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
@@ -44,6 +42,7 @@ import {
 } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "./CashFlowChart";
+import { ChartRange, useChartRange } from "./ChartRange";
 import { Num } from "./PlTable";
 
 const statusTone: Record<LedgerStatus, "warning" | "success" | "danger"> = {
@@ -218,8 +217,8 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const [search, setSearch] = useState("");
   const [downloadError, setDownloadError] = useState("");
   // The chart's span: the last six months until another is picked.
-  const [from, setFrom] = useState(`${shiftKey(today.slice(0, 7), -5)}-01`);
-  const [to, setTo] = useState(today);
+  const range = useChartRange(`${shiftKey(today.slice(0, 7), -5)}-01`, today);
+  const { from, to } = range;
   const all = ledgerRows(db);
   const word = search.trim().toLowerCase();
   const rows = all.filter(
@@ -493,27 +492,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               ไม่เปลี่ยนตามตัวกรองของตาราง
             </Caption>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            <TableFilter label="ตั้งแต่">
-              <DatePicker
-                variant="filter"
-                title="ตั้งแต่วันที่"
-                value={from}
-                max={to}
-                onChange={setFrom}
-              />
-            </TableFilter>
-            <TableFilter label="ถึง">
-              <DatePicker
-                variant="filter"
-                title="ถึงวันที่"
-                value={to}
-                min={from}
-                max={today}
-                onChange={setTo}
-              />
-            </TableFilter>
-          </div>
+          <ChartRange range={range} max={today} />
         </div>
         <CashFlowChart
           label={`กราฟแท่งรายรับและรายจ่าย${span.byDay ? "รายวัน" : "รายเดือน"} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${span.byDay ? "วัน" : "เดือน"}`}
