@@ -93,7 +93,7 @@ function Column({
  * `value` is an `HH:mm` string, `""` for none, and `onChange` gets the next one. Shares
  * Input's variants, so it lines up with a text field or a `Select` on the same row.
  *
- * `minuteStep` is 30: every time this app records lands on a half hour. A minute off
+ * `minuteStep` is 5: a truck's time is noted to the nearest five minutes. A minute off
  * the step that an older entry already holds stays in the list, so reopening its form
  * never silently drops it.
  *
@@ -109,7 +109,7 @@ export function TimePicker({
   className,
   value,
   onChange,
-  minuteStep = 30,
+  minuteStep = 5,
   placeholder = "เลือกเวลา",
   title = "เลือกเวลา",
   clearable = false,
