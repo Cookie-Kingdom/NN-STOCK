@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { FigureTable, Num } from "./PlTable";
+import { useChartPointer } from "./useChartPointer";
 
 export type ChartBar = {
   label: string;
@@ -35,8 +35,9 @@ function niceStep(range: number) {
  *  (`markAs="line"`: the profit, which may go below zero). With `partName`, the `part` of a
  *  bar is its top, in a lighter tone, and the legend, the read-out and the table name both
  *  halves (never the tone alone); a chart with no part anywhere is drawn as without it.
- *  Pointing at a bar, or the arrow
- *  keys while the chart has focus, shows its figures; the table under it holds them all. */
+ *  Pointing at, tapping or dragging across a bar, or the arrow keys while the chart has focus,
+ *  shows its figures (`useChartPointer`: after a tap they stay until a tap outside the plot);
+ *  the table under it holds them all. */
 export function RevenueChart({
   label,
   unit,
@@ -59,7 +60,7 @@ export function RevenueChart({
   baseName?: string;
   partName?: string;
 }) {
-  const [at, setAt] = useState(-1);
+  const { at, setAt, plotRef, plotProps } = useChartPointer(bars.length);
   const all = bars.flatMap((bar) => [bar.value ?? 0, bar.mark ?? 0]);
   const high = Math.max(100, ...all);
   const low = Math.min(0, ...all);
@@ -138,8 +139,9 @@ export function RevenueChart({
           ))}
         </div>
         <div
+          ref={plotRef}
           className={cn(plot, "relative touch-pan-y")}
-          onPointerLeave={() => setAt(-1)}
+          {...plotProps}
         >
           {lines.map((value) => (
             <i
@@ -162,11 +164,7 @@ export function RevenueChart({
           )}
           <div className="absolute inset-0 flex">
             {bars.map((bar, i) => (
-              <div
-                key={i}
-                className="relative flex-1"
-                onPointerEnter={() => setAt(i)}
-              >
+              <div key={i} className="relative flex-1">
                 {!!bar.value && (
                   <i
                     className="absolute left-1/2 w-[64%] max-w-8.5 min-w-[3px] -translate-x-1/2 rounded-t-sm bg-accent transition-[height] duration-(--motion-slow) ease-(--ease-enter)"
