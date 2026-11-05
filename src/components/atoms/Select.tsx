@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -48,22 +49,46 @@ export const dropdownFocus =
 /**
  * Shows the list of an open dropdown in the top layer (so a dialog never clips it) and
  * keeps it under its `anchor`, or above it when there is more room there. On a touch
- * screen it always opens right under the box, at one height, and never moves to fit the
- * screen. Returns the ref of the list.
+ * screen the list is not in the top layer: it sits in the page right under the box (see
+ * `OptionList`'s `inline`), so a scroll or the keyboard moves both as one. A press
+ * anywhere but the anchor and the list calls `onAway`: iOS focuses no button on a tap,
+ * so a blur alone never closes a `Select` there. Returns the ref of the list.
  */
 export function useDropdown(
   open: boolean,
   anchor: RefObject<HTMLElement | null>,
+  onAway: () => void,
+  /** When `onAway` is listened for, if not only while the list is shown. */
+  watch = open,
 ) {
   const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!watch) return;
+    const away = (event: PointerEvent) => {
+      const at = event.target as Node;
+      if (!anchor.current?.contains(at) && !list.current?.contains(at))
+        onAway();
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, [watch, anchor, onAway]);
   // No dependency list: the list is placed again after every render while it is open,
   // because typing in a Combobox changes its height.
   useLayoutEffect(() => {
     const el = list.current;
     const control = anchor.current;
     if (!open || !el || !control) return;
-    if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
-    const touch = window.matchMedia("(pointer: coarse)").matches;
+    // Once per render (the active row moved), never on a scroll; inside the list only:
+    // scrollIntoView would also scroll the page under an inline list.
+    const row = el.querySelector<HTMLElement>("[data-active]");
+    if (row && row.offsetTop < el.scrollTop) el.scrollTop = row.offsetTop;
+    else if (
+      row &&
+      row.offsetTop + row.offsetHeight > el.scrollTop + el.clientHeight
+    )
+      el.scrollTop = row.offsetTop + row.offsetHeight - el.clientHeight;
+    if (!el.popover) return;
+    if (!el.matches(":popover-open")) el.showPopover();
     const place = () => {
       const box = control.getBoundingClientRect();
       // The part of the page on screen: on iOS the keyboard shrinks and pans the visual
@@ -75,13 +100,6 @@ export function useDropdown(
       const below = viewBottom - box.bottom - gap - 12;
       const above = box.top - viewTop - gap - 12;
       el.style.minWidth = `${box.width}px`;
-      if (touch) {
-        // A touch screen: always right under the box, at one height, whatever the room.
-        el.style.maxHeight = "336px";
-        el.style.left = `${box.left}px`;
-        el.style.top = `${box.bottom + gap}px`;
-        return;
-      }
       // scrollHeight is the whole list whatever its max-height: lifting the max-height to
       // measure would throw the list's own scroll back to the top.
       const need = Math.min(el.scrollHeight, 220);
@@ -93,9 +111,6 @@ export function useDropdown(
       el.style.top = `${up ? Math.max(viewTop + 8, box.top - gap - el.offsetHeight) : box.bottom + gap}px`;
     };
     place();
-    // Once per render (the active row moved), never on a scroll: the list's own scroll is
-    // caught below too, and would be pulled back to the active row.
-    el.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
     const onScroll = (event: Event) => event.target !== el && place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", onScroll, true);
@@ -125,6 +140,7 @@ export function OptionList({
   value,
   active,
   mark = "",
+  inline = false,
   onActive,
   onChoose,
 }: {
@@ -134,6 +150,9 @@ export function OptionList({
   value: string;
   active: number;
   mark?: string;
+  /** In the page under the control, in place of the top layer: the control's wrapper
+   *  is `relative`. A touch screen's, at one height, never moved to fit the screen. */
+  inline?: boolean;
   onActive: (index: number) => void;
   onChoose: (index: number) => void;
 }) {
@@ -142,8 +161,13 @@ export function OptionList({
       ref={ref}
       id={id}
       role="listbox"
-      popover="manual"
-      className="fixed inset-auto m-0 w-max max-w-[calc(100vw-1rem)] animate-fade-in [scrollbar-width:thin] [scrollbar-color:var(--color-border-strong)_transparent] overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-1.5 font-normal text-popover-foreground shadow-lg"
+      popover={inline ? undefined : "manual"}
+      className={cn(
+        inline
+          ? "absolute top-full left-0 z-50 mt-1.5 max-h-84 min-w-full"
+          : "fixed inset-auto m-0",
+        "w-max max-w-[calc(100vw-1rem)] animate-fade-in [scrollbar-width:thin] [scrollbar-color:var(--color-border-strong)_transparent] overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-1.5 font-normal text-popover-foreground shadow-lg",
+      )}
       // Focus stays on the control: a blur is what closes the list.
       onMouseDown={(event) => event.preventDefault()}
       // Inside a `<label>`, a click would go on to press the control again.
@@ -219,7 +243,8 @@ export function Select({
   const [active, setActive] = useState<number | null>(null);
   const typed = useRef({ text: "", at: 0 });
   const open = active !== null && options.length > 0;
-  const list = useDropdown(open, control);
+  const touch = useTouch();
+  const list = useDropdown(open, control, () => setActive(null));
   const chosen = options.findIndex((option) => option.value === value);
   const show = () => setActive(Math.max(chosen, 0));
   const choose = (index: number) => {
@@ -269,7 +294,14 @@ export function Select({
   };
 
   return (
-    <>
+    // The `form` variant's top margin is the wrapper's, as in a Combobox.
+    <span
+      className={cn(
+        "relative",
+        variant === "filter" ? "inline-flex" : "block",
+        (variant ?? "form") === "form" && "mt-2",
+      )}
+    >
       <button
         ref={control}
         type="button"
@@ -281,7 +313,7 @@ export function Select({
         data-value={value}
         className={cn(
           controlVariants({ variant }),
-          "group/select flex cursor-pointer items-center justify-between gap-2 text-left",
+          "group/select mt-0 flex cursor-pointer items-center justify-between gap-2 text-left",
           variant === "filter" && "inline-flex",
           dropdownFocus,
           !value && "text-text-secondary",
@@ -310,10 +342,11 @@ export function Select({
           options={options}
           value={value}
           active={active}
+          inline={touch}
           onActive={setActive}
           onChoose={choose}
         />
       )}
-    </>
+    </span>
   );
 }

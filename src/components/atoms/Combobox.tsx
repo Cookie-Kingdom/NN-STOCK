@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
+import { useId, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { Input, type ControlVariantProps } from "@/components/atoms/Input";
 import {
   dropdownFocus,
   OptionList,
   useDropdown,
+  useTouch,
   type Option,
 } from "@/components/atoms/Select";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,15 @@ export function Combobox({
   const open = list !== null && shown.length > 0;
   /** On touch: the field is being focused again to bring up the keyboard. */
   const refocus = useRef(false);
-  const popup = useDropdown(open, control);
+  const touch = useTouch();
+  // A press anywhere else closes the list and leaves the field: iOS keeps a text field in
+  // focus when a tap lands on nothing that takes focus. Also while no option matches.
+  const popup = useDropdown(
+    open,
+    control,
+    () => control.current?.blur(),
+    list !== null,
+  );
 
   const choose = (index: number) => {
     // On touch a pick ends the field: no keyboard comes up after it. Blur first: the
@@ -76,20 +85,6 @@ export function Combobox({
     setList(null);
     if (shown[index]) onPick(shown[index].value);
   };
-
-  // A tap anywhere else closes the list and leaves the field: iOS keeps a text field in
-  // focus when a tap lands on nothing that takes focus.
-  const listed = list !== null;
-  useEffect(() => {
-    if (!listed) return;
-    const away = (event: PointerEvent) => {
-      const at = event.target as Node;
-      if (!control.current?.contains(at) && !popup.current?.contains(at))
-        control.current?.blur();
-    };
-    document.addEventListener("pointerdown", away, true);
-    return () => document.removeEventListener("pointerdown", away, true);
-  }, [listed, popup]);
 
   return (
     // The `form` variant's top margin is the wrapper's; the other variants have none.
@@ -196,6 +191,7 @@ export function Combobox({
           value={value}
           active={list.active}
           mark={list.narrow ? value.trim() : ""}
+          inline={touch}
           onActive={(active) => setList({ ...list, active })}
           onChoose={choose}
         />
