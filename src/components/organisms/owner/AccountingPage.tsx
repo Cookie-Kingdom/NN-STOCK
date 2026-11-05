@@ -28,7 +28,7 @@ import { grid, td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
-import { periodName, rangeBuckets, shiftKey } from "@/lib/period";
+import { periodName, rangeBuckets, shiftKey, stepName } from "@/lib/period";
 import {
   broughtForward,
   editBlock,
@@ -243,10 +243,11 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   );
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
-  const net = summary.received - summary.paid;
   const carried = broughtForward(all, month);
+  // What is left at the end of the month: the balance brought forward and this month's.
+  const net = carried + summary.received - summary.paid;
   // The whole ledger, never the rows found: a filter must not redraw the chart.
-  const span = rangeBuckets(from, to);
+  const span = rangeBuckets(from, to, range.by);
   const bars = span.bars.map((bar) => {
     // "" is the prefix of every date: the summary of the rows inside the bar.
     const { received, paid } = ledgerSummary(
@@ -463,7 +464,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             <Stat
               label="สุทธิเดือนนี้"
               value={<span className={signTone(net)}>{signed(net)}</span>}
-              note="รายรับ − ยอดจ่ายจริง"
+              note="ยอดยกมา + รายรับ − ยอดจ่ายจริง"
             />
           </div>
         </Panel>
@@ -493,18 +494,17 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div>
             <h2 className="m-0 text-label text-text-secondary">
-              รายรับ–รายจ่าย{span.byDay ? "รายวัน" : "รายเดือน"}
+              รายรับ–รายจ่าย{stepName[span.by].name}
             </h2>
             <Caption>
-              ไม่เกิน 62 วันแสดงเป็นรายวัน · คิดจากทุกรายการในบัญชี
-              ไม่เปลี่ยนตามตัวกรองของตาราง
+              คิดจากทุกรายการในบัญชี ไม่เปลี่ยนตามตัวกรองของตาราง
             </Caption>
           </div>
           <ChartRange range={range} max={today} />
         </div>
         <CashFlowChart
-          label={`กราฟแท่งรายรับและรายจ่าย${span.byDay ? "รายวัน" : "รายเดือน"} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${span.byDay ? "วัน" : "เดือน"}`}
-          unit={span.byDay ? "วัน" : "เดือน"}
+          label={`กราฟแท่งรายรับและรายจ่าย${stepName[span.by].name} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[span.by].unit}`}
+          unit={stepName[span.by].unit}
           bars={bars}
         />
       </Panel>

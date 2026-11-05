@@ -23,7 +23,7 @@ import { td, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel } from "@/lib/format";
-import { periodName, rangeBuckets, shiftKey } from "@/lib/period";
+import { periodName, rangeBuckets, shiftKey, stepName } from "@/lib/period";
 import { shiftDays } from "@/lib/pickers";
 import {
   advances,
@@ -92,12 +92,12 @@ export function FinancePage({ ws }: { ws: Workspace }) {
     view === "year" ? `${key}-01-01` : `${shiftKey(key, -5)}-01`,
     view === "year" ? `${key}-12-31` : shiftDays(`${shiftKey(key, 1)}-01`, -1),
   );
-  const flow = rangeBuckets(range.from, range.to);
+  const flow = rangeBuckets(range.from, range.to, range.by);
   const bars = flow.bars.map((bar) => {
     const of = cashBetween(db, bar.from, bar.to, shopProject);
     return { label: bar.label, title: bar.title, in: of.received, out: of.out };
   });
-  const flowName = `เงินเข้า–ออก${flow.byDay ? "รายวัน" : "รายเดือน"} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
+  const flowName = `เงินเข้า–ออก${stepName[flow.by].name} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const latest = visibleNotes(db, account)
     .filter(
       (e) =>
@@ -338,13 +338,12 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div>
             <h2 className="m-0 text-label text-text-secondary">{flowName}</h2>
-            <Caption>ไม่เกิน 62 วันแสดงเป็นรายวัน</Caption>
           </div>
           <ChartRange range={range} />
         </div>
         <CashFlowChart
-          label={`กราฟแท่ง${flowName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${flow.byDay ? "วัน" : "เดือน"}`}
-          unit={flow.byDay ? "วัน" : "เดือน"}
+          label={`กราฟแท่ง${flowName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[flow.by].unit}`}
+          unit={stepName[flow.by].unit}
           bars={bars}
         />
       </Panel>

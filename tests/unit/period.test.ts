@@ -67,4 +67,15 @@ describe("rangeBuckets", () => {
     expect(bars[0]).toMatchObject({ from: "2026-05-15", to: "2026-05-31" });
     expect(bars[6]).toMatchObject({ from: "2026-11-01", to: "2026-11-05" });
   });
+  it("a picked step wins: a bar a year, or a day over a long span", () => {
+    const years = rangeBuckets("2025-06-10", "2026-11-05", "year");
+    expect(years.by).toBe("year");
+    expect(years.bars).toMatchObject([
+      { from: "2025-06-10", to: "2025-12-31", label: "2568", title: "ปี 2568" },
+      { from: "2026-01-01", to: "2026-11-05", label: "2569" },
+    ]);
+    expect(rangeBuckets("2026-01-01", "2026-12-31", "day").bars).toHaveLength(
+      365,
+    );
+  });
 });
