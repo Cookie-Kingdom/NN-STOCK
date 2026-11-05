@@ -77,6 +77,20 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
             : null,
     };
   });
+  // The table under the chart is by month, whatever the bars' step; a month's mark is its profit.
+  const months =
+    chart.by === "month"
+      ? bars
+      : rangeBuckets(range.from, range.to, "month").bars.map((bar) => {
+          const pl = bar.from > today ? null : plBetween(db, bar.from, bar.to);
+          return {
+            label: bar.label,
+            title: bar.title,
+            value: pl && net(pl),
+            part: pl && pl.otherIncome,
+            mark: pl && pl.profit,
+          };
+        });
   const chartName = `${stepName[chart.by].name} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
@@ -132,7 +146,7 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
         <p className="m-0 mt-1 text-body-sm text-text-secondary">
           ยอดยกมา{" "}
           <b className="font-semibold text-text-primary">{baht(carried)}</b> ·
-          รายได้หลังหัก GP สะสมตั้งแต่เริ่มจด ถึงก่อน {period.name}
+          รายได้หลังหัก GP รวมทุกเดือนก่อน {period.name}
         </p>
         <div className="mt-5 mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Caption>รายได้หลังหัก GP{chartName}</Caption>
@@ -140,8 +154,8 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
         </div>
         <RevenueChart
           label={`กราฟแท่งรายได้หลังหัก GP${chartName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[chart.by].unit}`}
-          unit={chart.byDay ? "วันที่" : stepName[chart.by].unit}
           bars={bars}
+          months={{ bars: months, markName: "กำไรจากการดำเนินงาน" }}
           name="รายได้หลังหัก GP"
           baseName="ยอดขายหลังหัก GP"
           partName="รายได้อื่น"

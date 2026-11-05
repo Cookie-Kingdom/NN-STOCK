@@ -3,7 +3,7 @@
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FigureTable, Num } from "./PlTable";
+import { ChartTable, Num } from "./PlTable";
 import { useChartPointer } from "./useChartPointer";
 
 export type ChartBar = {
@@ -37,11 +37,11 @@ function niceStep(range: number) {
  *  halves (never the tone alone); a chart with no part anywhere is drawn as without it.
  *  Pointing at, tapping or dragging across a bar, or the arrow keys while the chart has focus,
  *  shows its figures (`useChartPointer`: after a tap they stay until a tap outside the plot);
- *  the table under it holds them all. */
+ *  the table under it holds the figures of each month (`months`), whatever the bars' step. */
 export function RevenueChart({
   label,
-  unit,
   bars,
+  months = { bars, markName: "" },
   name,
   markName,
   markAs,
@@ -50,9 +50,10 @@ export function RevenueChart({
 }: {
   /** What the chart shows, for a screen reader. */
   label: string;
-  /** The head of the table's first column: วันที่, เดือน. */
-  unit: string;
   bars: ChartBar[];
+  /** The table's rows, a month each, and what their mark is; the bars themselves (and
+   *  `markName`) when they are months. */
+  months?: { bars: ChartBar[]; markName: string };
   name: string;
   markName: string;
   markAs: "tick" | "line";
@@ -299,37 +300,31 @@ export function RevenueChart({
           ))}
         </div>
       </div>
-      <details className="group mt-2">
-        <summary className="inline-flex min-h-8 cursor-pointer list-none items-center rounded-sm text-body-sm font-medium text-accent outline-focus-ring focus-visible:outline-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
-          <span className="group-open:hidden">ดูเป็นตาราง</span>
-          <span className="hidden group-open:inline">ซ่อนตาราง</span>
-        </summary>
-        <div className="-mx-5 max-md:-mx-2.5">
-          <FigureTable>
-            <thead>
-              <tr>
-                <th className={th}>{unit}</th>
-                <th className={cn(th, "text-right")}>{name}</th>
-                {split && <th className={cn(th, "text-right")}>{partName}</th>}
-                <th className={cn(th, "text-right")}>{markName}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bars.map(
-                (bar, i) =>
-                  bar.value !== null && (
-                    <tr key={i}>
-                      <td className={td}>{bar.title}</td>
-                      <Num>{baht(bar.value)}</Num>
-                      {split && <Num>{part(bar) ? baht(part(bar)) : "—"}</Num>}
-                      <Num>{bar.mark === null ? "—" : baht(bar.mark)}</Num>
-                    </tr>
-                  ),
-              )}
-            </tbody>
-          </FigureTable>
-        </div>
-      </details>
+      <ChartTable>
+        <thead>
+          <tr>
+            <th className={th}>เดือน</th>
+            <th className={cn(th, "text-right")}>{name}</th>
+            {split && <th className={cn(th, "text-right")}>{partName}</th>}
+            <th className={cn(th, "text-right")}>
+              {months.markName || markName}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {months.bars.map(
+            (bar, i) =>
+              bar.value !== null && (
+                <tr key={i}>
+                  <td className={td}>{bar.title}</td>
+                  <Num>{baht(bar.value)}</Num>
+                  {split && <Num>{part(bar) ? baht(part(bar)) : "—"}</Num>}
+                  <Num>{bar.mark === null ? "—" : baht(bar.mark)}</Num>
+                </tr>
+              ),
+          )}
+        </tbody>
+      </ChartTable>
     </div>
   );
 }

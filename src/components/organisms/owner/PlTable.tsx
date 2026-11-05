@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { ChevronDown, Table2 } from "lucide-react";
 import { Caption } from "@/components/atoms/Text";
 import { DayCard } from "@/components/molecules/DayCard";
 import { grid, td, th } from "@/components/organisms/shared/tableCell";
@@ -67,6 +68,26 @@ export const FigureTable = (props: ComponentProps<"table">) => (
   <div className="relative overflow-x-auto">
     <table className={grid} {...props} />
   </div>
+);
+
+/** The table under a chart, shut until its button is pressed: a figure per month, whatever
+ *  step the bars are drawn at. The button is boxed as a secondary button so it is seen. */
+export const ChartTable = ({ children }: { children: ReactNode }) => (
+  <details className="group mt-3">
+    <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-accent/25 bg-accent-subtle px-3 text-body-sm font-medium text-accent outline-focus-ring hover:bg-accent/15 focus-visible:outline-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
+      <Table2 size={16} aria-hidden />
+      <span className="group-open:hidden">ดูเป็นตารางรายเดือน</span>
+      <span className="hidden group-open:inline">ซ่อนตาราง</span>
+      <ChevronDown
+        size={16}
+        aria-hidden
+        className="transition-transform group-open:rotate-180"
+      />
+    </summary>
+    <div className="-mx-5 mt-2 max-md:-mx-2.5">
+      <FigureTable>{children}</FigureTable>
+    </div>
+  </details>
 );
 
 export const percent = (x: number) =>

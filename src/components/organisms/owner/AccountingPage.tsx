@@ -16,7 +16,6 @@ import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { Select } from "@/components/atoms/Select";
 import { SearchSelect } from "@/components/atoms/Combobox";
-import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { ActionWithError } from "@/components/molecules/ActionWithError";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
@@ -44,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CashFlowChart } from "./CashFlowChart";
 import { ChartRange, useChartRange } from "./ChartRange";
+import { MoneySummary } from "./MoneySummary";
 import { Num } from "./PlTable";
 
 const statusTone: Record<LedgerStatus, "warning" | "success" | "danger"> = {
@@ -243,19 +243,22 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   );
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
-  const carried = broughtForward(all, month);
-  // What is left at the end of the month: the balance brought forward and this month's.
-  const net = carried + summary.received - summary.paid;
   // The whole ledger, never the rows found: a filter must not redraw the chart.
   const span = rangeBuckets(from, to, range.by);
-  const bars = span.bars.map((bar) => {
+  const flowOf = (bar: (typeof span.bars)[number]) => {
     // "" is the prefix of every date: the summary of the rows inside the bar.
     const { received, paid } = ledgerSummary(
       all.filter((row) => row.date >= bar.from && row.date <= bar.to),
       "",
     );
     return { label: bar.label, title: bar.title, in: received, out: paid };
-  });
+  };
+  const bars = span.bars.map(flowOf);
+  // The table under the chart is by month, whatever the bars' step.
+  const months =
+    span.by === "month"
+      ? bars
+      : rangeBuckets(from, to, "month").bars.map(flowOf);
   const spanName = `${dateLabel(from)} – ${dateLabel(to)}`;
   // The quick filter: the POs still to pay, in one click; a second click clears it.
   const poPending =
@@ -424,77 +427,41 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         Finance ขึ้นเองเป็นแถวจ่ายแล้ว ส่วนเงินที่ได้รับจดจากปุ่ม
         「บันทึกรายรับ」 ขึ้นเป็นแถวรายรับ
       </Notice>
-      {/* Two groups, not five tiles: what moved this month (in, out, net), then what is
-          still open, of any month. */}
-      <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
-        <Panel aria-label="สรุปเดือนนี้">
-          <h2 className="m-0 mb-3 text-label text-text-secondary">
-            เดือนนี้ · {periodName(month)}
-          </h2>
-          <div className="grid grid-cols-4 gap-4 max-md:grid-cols-2 max-md:gap-3">
-            <Stat
-              label="ยอดยกมา"
-              value={
-                <span className={signTone(carried)}>{signed(carried)}</span>
-              }
-              note={`สะสมตั้งแต่เริ่มจด ถึงสิ้น ${periodName(shiftKey(month, -1))}`}
-            />
-            <Stat
-              label="รายรับเดือนนี้"
-              value={
-                <span className={signTone(summary.received)}>
-                  {signed(summary.received)}
-                </span>
-              }
-              note={versus(
-                summary.received,
-                summary.receivedBefore,
-                "เดือนก่อนไม่มีรายรับ",
-              )}
-            />
-            <Stat
-              label="ยอดจ่ายจริงเดือนนี้"
-              value={baht(summary.paid)}
-              note={versus(
-                summary.paid,
-                summary.paidBefore,
-                "เดือนก่อนไม่มียอดจ่าย",
-              )}
-            />
-            <Stat
-              label="สุทธิเดือนนี้"
-              value={<span className={signTone(net)}>{signed(net)}</span>}
-              note="ยอดยกมา + รายรับ − ยอดจ่ายจริง"
-            />
-          </div>
-        </Panel>
-        <Panel aria-label="สรุปรายการที่ยังรอ">
-          <h2 className="m-0 mb-3 text-label text-text-secondary">
-            ยังรอรับ / รอจ่าย
-          </h2>
-          <div className="grid grid-cols-2 gap-4 max-md:gap-3">
-            <Stat
-              label="รอรับ"
-              value={
-                <span className={cn(summary.pendingIn.count && "text-warning")}>
-                  {baht(summary.pendingIn.amount)}
-                </span>
-              }
-              note={`${summary.pendingIn.count} รายการ`}
-            />
-            <Stat
-              label="งบที่กันไว้จาก PO"
-              value={baht(summary.reserved)}
-              note={`${summary.waiting} รายการที่ยังรอจ่าย`}
-            />
-          </div>
-        </Panel>
-      </div>
-      <Panel aria-label="รายรับ–รายจ่าย">
+      <Panel aria-label="สรุปเงิน">
+        <MoneySummary
+          period={periodName(month)}
+          carried={broughtForward(all, month)}
+          received={{
+            amount: summary.received,
+            note: versus(
+              summary.received,
+              summary.receivedBefore,
+              "เดือนก่อนไม่มีเงินเข้า",
+            ),
+          }}
+          paid={{
+            amount: summary.paid,
+            note: versus(
+              summary.paid,
+              summary.paidBefore,
+              "เดือนก่อนไม่มีเงินออก",
+            ),
+          }}
+          toReceive={{
+            amount: summary.pendingIn.amount,
+            note: `รอรับ ${summary.pendingIn.count} รายการ`,
+          }}
+          toPay={{
+            amount: summary.reserved,
+            note: `PO รอจ่าย ${summary.waiting} รายการ`,
+          }}
+        />
+      </Panel>
+      <Panel aria-label="เงินเข้า–ออก">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div>
             <h2 className="m-0 text-label text-text-secondary">
-              รายรับ–รายจ่าย{stepName[span.by].name}
+              เงินเข้า–ออก{stepName[span.by].name}
             </h2>
             <Caption>
               คิดจากทุกรายการในบัญชี ไม่เปลี่ยนตามตัวกรองของตาราง
@@ -503,9 +470,9 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           <ChartRange range={range} max={today} />
         </div>
         <CashFlowChart
-          label={`กราฟแท่งรายรับและรายจ่าย${stepName[span.by].name} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[span.by].unit}`}
-          unit={stepName[span.by].unit}
+          label={`กราฟแท่งเงินเข้า–ออก${stepName[span.by].name} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[span.by].unit}`}
           bars={bars}
+          months={months}
         />
       </Panel>
       <Panel flush className="overflow-hidden">

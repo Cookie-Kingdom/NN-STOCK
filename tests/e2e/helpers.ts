@@ -133,7 +133,8 @@ export async function pickDay(control: Locator, day: string) {
   const page = control.page();
   const from = (await control.getAttribute("data-value")) || bangkokDate();
   await control.click();
-  const step = page.getByRole("button", {
+  // The open calendar's own arrows: the page's period control has the same names.
+  const step = page.locator(":popover-open").getByRole("button", {
     name: day < from ? "เดือนก่อนหน้า" : "เดือนถัดไป",
   });
   const cell = page.locator(`button[data-date="${day}"]`);

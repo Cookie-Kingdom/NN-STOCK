@@ -17,7 +17,6 @@ const meta = {
   component: CashFlowChart,
   args: {
     label: "กราฟแท่งเงินเข้า–ออกต่อเดือน",
-    unit: "เดือน",
     bars: months,
   },
   decorators: [
@@ -53,7 +52,6 @@ export const Empty: Story = {
 /** รายวัน 31 วัน: ป้ายใต้แกนเว้นเป็นช่วง ไม่เบียดกัน · แตะหรือลากนิ้วไปตามแท่ง (iPad) ตัวเลขตามนิ้ว หยุดตรงไหนค้างไว้ตรงนั้นจนแตะนอกพื้นที่แท่ง */
 export const Days: Story = {
   args: {
-    unit: "วัน",
     bars: Array.from({ length: 31 }, (_, i) => ({
       label: `${i + 1} ต.ค.`,
       title: `${i + 1} ต.ค. 2569`,
