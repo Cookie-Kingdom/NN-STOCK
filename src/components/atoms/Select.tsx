@@ -62,16 +62,26 @@ export function useDropdown(
   watch = open,
 ) {
   const list = useRef<HTMLDivElement>(null);
+  const away = useRef(onAway);
+  useLayoutEffect(() => {
+    away.current = onAway;
+  });
   useEffect(() => {
     if (!watch) return;
-    const away = (event: PointerEvent) => {
+    const press = (event: Event) => {
       const at = event.target as Node;
       if (!anchor.current?.contains(at) && !list.current?.contains(at))
-        onAway();
+        away.current();
     };
-    document.addEventListener("pointerdown", away, true);
-    return () => document.removeEventListener("pointerdown", away, true);
-  }, [watch, anchor, onAway]);
+    // touchstart too: a real iPhone or iPad does not always send pointerdown up to the document.
+    const opts = { capture: true, passive: true };
+    document.addEventListener("pointerdown", press, opts);
+    document.addEventListener("touchstart", press, opts);
+    return () => {
+      document.removeEventListener("pointerdown", press, opts);
+      document.removeEventListener("touchstart", press, opts);
+    };
+  }, [watch, anchor]);
   // No dependency list: the list is placed again after every render while it is open,
   // because typing in a Combobox changes its height.
   useLayoutEffect(() => {
