@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { controlOnly } from "@/components/molecules/FormField";
 
 /**
  * One labelled filter control in a `FilterBar`: a `<label>` that lays its text and its
@@ -21,6 +22,7 @@ export function TableFilter({
         "flex items-center gap-2 text-body-sm text-text-secondary",
         className,
       )}
+      onClick={controlOnly}
       {...props}
     >
       {label}

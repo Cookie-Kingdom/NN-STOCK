@@ -1,6 +1,13 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, MouseEvent, ReactNode } from "react";
 import { Caption } from "@/components/atoms/Text";
 import { cn } from "@/lib/utils";
+
+/** A label's `onClick`: only a press on the control itself opens or focuses it. A press on
+ *  the label's text or hint does nothing, as a miss next to the box would otherwise open it. */
+export function controlOnly(event: MouseEvent<HTMLLabelElement>) {
+  if (!(event.target as Element).closest("input, select, textarea, button"))
+    event.preventDefault();
+}
 
 /** `.field` / `.field.wide`. */
 export function fieldClassName(wide?: boolean, className?: string) {
@@ -51,7 +58,7 @@ type FormFieldProps = Omit<ComponentProps<"label">, "children"> & {
 
 /**
  * One labelled control in a form: a `<label>` wrapping its control, so no `htmlFor`/`id`
- * pairing is needed and clicking the label focuses the field. Pass the control as
+ * pairing is needed. Only a press on the control opens it, not one on the label text. Pass the control as
  * `children` — `Input`, `Select` or `Textarea` with `variant="form"` — and use `wide` to
  * make the field span every column of the surrounding form grid.
  */
@@ -80,7 +87,11 @@ export function FormField({
       </div>
     );
   return (
-    <label className={fieldClassName(wide, className)} {...props}>
+    <label
+      className={fieldClassName(wide, className)}
+      onClick={controlOnly}
+      {...props}
+    >
       {label}
       {optional && <OptionalMark />}
       {children}

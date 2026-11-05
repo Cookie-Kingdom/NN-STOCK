@@ -12,6 +12,7 @@ import { Dialog } from "@/components/molecules/Dialog";
 import {
   FieldHint,
   FormField,
+  controlOnly,
   fieldClassName,
 } from "@/components/molecules/FormField";
 import { EntryFieldControl } from "@/components/organisms/shared/EntryFieldControl";
@@ -613,6 +614,7 @@ function GiftRowsControl({
             return (
               <label
                 key={f.key}
+                onClick={controlOnly}
                 className={fieldClassName(
                   false,
                   name ? "max-md:col-[1/-2]" : "max-md:order-last",

@@ -1,14 +1,12 @@
 "use client";
 
-import { useId, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useId, useRef, useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { Input, type ControlVariantProps } from "@/components/atoms/Input";
 import {
   dropdownFocus,
-  nativeControl,
   OptionList,
   useDropdown,
-  useTouch,
   type Option,
 } from "@/components/atoms/Select";
 import { cn } from "@/lib/utils";
@@ -29,8 +27,10 @@ import { cn } from "@/lib/utils";
  *
  * Keyboard: arrows move, Enter picks the highlighted suggestion, Escape closes the list.
  *
- * On a touch screen the suggestions are the device's own (a `<datalist>`): iOS shows them
- * above the keyboard, Android under the field.
+ * On a touch screen the first tap lists the options without the on-screen keyboard: the
+ * keyboard coming up moves the page under the list as it opens. A tap on the field while
+ * the list is open brings the keyboard, to type. A pick, or a tap anywhere else, closes
+ * the list and leaves the field.
  */
 export function Combobox({
   options,
@@ -70,47 +70,26 @@ export function Combobox({
   const popup = useDropdown(open, control);
 
   const choose = (index: number) => {
+    // On touch a pick ends the field: no keyboard comes up after it. Blur first: the
+    // blur's own fix-up of the text must not land after the pick.
+    if (matchMedia("(pointer: coarse)").matches) control.current?.blur();
     setList(null);
     if (shown[index]) onPick(shown[index].value);
   };
-  const touch = useTouch();
-  const keep = () => {
-    if (!strict) return;
-    const match =
-      options.find((o) => o.value.trim().toLowerCase() === text)?.value ?? "";
-    if (match !== value) onChange(match);
-  };
 
-  if (touch)
-    return (
-      <>
-        <Input
-          {...props}
-          list={id}
-          autoComplete="off"
-          value={value}
-          className={cn(nativeControl, dropdownFocus, className)}
-          onChange={(event) => {
-            const next = event.target.value;
-            // A row picked from the device's list replaces the text; typing inserts.
-            const picked =
-              (event.nativeEvent as InputEvent).inputType !== "insertText" &&
-              options.some((option) => option.value === next);
-            (picked ? onPick : onChange)(next);
-          }}
-          onBlur={keep}
-        />
-        <datalist id={id}>
-          {options.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-              label={option.label === option.value ? undefined : option.label}
-            />
-          ))}
-        </datalist>
-      </>
-    );
+  // A tap anywhere else closes the list and leaves the field: iOS keeps a text field in
+  // focus when a tap lands on nothing that takes focus.
+  const listed = list !== null;
+  useEffect(() => {
+    if (!listed) return;
+    const away = (event: PointerEvent) => {
+      const at = event.target as Node;
+      if (!control.current?.contains(at) && !popup.current?.contains(at))
+        control.current?.blur();
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, [listed, popup]);
 
   return (
     // The `form` variant's top margin is the wrapper's; the other variants have none.
@@ -161,7 +140,11 @@ export function Combobox({
         onBlur={() => {
           if (refocus.current) return;
           setList(null);
-          keep();
+          if (!strict) return;
+          const match =
+            options.find((o) => o.value.trim().toLowerCase() === text)?.value ??
+            "";
+          if (match !== value) onChange(match);
         }}
         onKeyDown={(event) => {
           const { key } = event;

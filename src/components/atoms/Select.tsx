@@ -24,8 +24,8 @@ export type Option = { value: string; label?: string; hint?: string };
 const labelOf = (option: Option) => option.label ?? option.value;
 
 const coarse = "(pointer: coarse)";
-/** True on a touch screen (phone, iPad): there the pickers are the device's own, its
- *  wheel, calendar and list, in place of the ones drawn here. False on the server. */
+/** True on a touch screen (phone, iPad): there the date and time fields are the device's
+ *  own calendar and wheel, in place of the ones drawn here. False on the server. */
 export const useTouch = () =>
   useSyncExternalStore(
     (onChange) => {
@@ -37,7 +37,7 @@ export const useTouch = () =>
     () => false,
   );
 
-/** The device's own control (`<select>`, a date or time `<input>`) on a touch screen:
+/** The device's own date or time `<input>` on a touch screen:
  *  16px text, under which iOS zooms in on focus. */
 export const nativeControl = "text-body text-left";
 
@@ -47,22 +47,20 @@ export const dropdownFocus =
 
 /**
  * Shows the list of an open dropdown in the top layer (so a dialog never clips it) and
- * keeps it under its `anchor`, or above it when there is more room there. On touch it
- * scrolls the field up instead, so the list opens under it. Returns the ref of the list.
+ * keeps it under its `anchor`, or above it when there is more room there. On a touch
+ * screen it always opens right under the box, at one height, and never moves to fit the
+ * screen. Returns the ref of the list.
  */
 export function useDropdown(
   open: boolean,
   anchor: RefObject<HTMLElement | null>,
 ) {
   const list = useRef<HTMLDivElement>(null);
-  /** On touch: the field was scrolled up once since the list opened. */
-  const lifted = useRef(false);
   // No dependency list: the list is placed again after every render while it is open,
   // because typing in a Combobox changes its height.
   useLayoutEffect(() => {
     const el = list.current;
     const control = anchor.current;
-    if (!open) lifted.current = false;
     if (!open || !el || !control) return;
     if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
     const touch = window.matchMedia("(pointer: coarse)").matches;
@@ -76,28 +74,18 @@ export function useDropdown(
       const gap = 6;
       const below = viewBottom - box.bottom - gap - 12;
       const above = box.top - viewTop - gap - 12;
+      el.style.minWidth = `${box.width}px`;
+      if (touch) {
+        // A touch screen: always right under the box, at one height, whatever the room.
+        el.style.maxHeight = "336px";
+        el.style.left = `${box.left}px`;
+        el.style.top = `${box.bottom + gap}px`;
+        return;
+      }
       // scrollHeight is the whole list whatever its max-height: lifting the max-height to
       // measure would throw the list's own scroll back to the top.
       const need = Math.min(el.scrollHeight, 220);
-      if (touch && below < need && !lifted.current) {
-        // A phone opens the list under the field: first scroll the field to the top of
-        // the screen, in the nearest box that scrolls, else the page.
-        lifted.current = true;
-        let scroller = control.parentElement;
-        while (
-          scroller &&
-          !(
-            scroller.scrollHeight > scroller.clientHeight &&
-            /auto|scroll/.test(getComputedStyle(scroller).overflowY)
-          )
-        )
-          scroller = scroller.parentElement;
-        (scroller ?? window).scrollBy(0, box.top - viewTop - 12);
-        return place();
-      }
-      // On touch it goes up only when even the lifted field has no usable room under it.
-      const up = below < (touch ? 96 : need) && above > below;
-      el.style.minWidth = `${box.width}px`;
+      const up = below < need && above > below;
       el.style.maxHeight = `${Math.max(Math.min(up ? above : below, 336), 96)}px`;
       el.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - el.offsetWidth - 8))}px`;
       // `top` either way: `bottom` would be measured from the layout viewport, which the
@@ -211,8 +199,6 @@ export function OptionList({
  *
  * Keyboard: Enter, Space or an arrow opens the list; arrows, Home and End move; Enter
  * picks; Escape closes; typing the start of a label jumps to it.
- *
- * On a touch screen it is the device's own `<select>`.
  */
 export function Select({
   variant,
@@ -235,33 +221,6 @@ export function Select({
   const open = active !== null && options.length > 0;
   const list = useDropdown(open, control);
   const chosen = options.findIndex((option) => option.value === value);
-  const touch = useTouch();
-
-  if (touch)
-    return (
-      <select
-        {...(props as ComponentProps<"select">)}
-        value={value}
-        data-value={value}
-        className={cn(
-          controlVariants({ variant }),
-          nativeControl,
-          dropdownFocus,
-          !value && "text-text-secondary",
-          className,
-        )}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {/* A value off the list still reads as itself, as on the button. */}
-        {chosen < 0 && <option value={value}>{value}</option>}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {labelOf(option)}
-          </option>
-        ))}
-      </select>
-    );
-
   const show = () => setActive(Math.max(chosen, 0));
   const choose = (index: number) => {
     setActive(null);
