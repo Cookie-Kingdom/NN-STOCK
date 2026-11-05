@@ -78,6 +78,23 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
             : null,
     };
   });
+  // The table under the chart is by month, whatever the bars' step; a month's mark is its profit.
+  const months =
+    chart.by === "month"
+      ? bars
+      : rangeBuckets(range.from, range.to, "month").bars.map((bar) => {
+          const pl =
+            bar.from > today
+              ? null
+              : plBetween(db, bar.from, bar.to, shopProject);
+          return {
+            label: bar.label,
+            title: bar.title,
+            value: pl && pl.income,
+            part: pl && pl.otherIncome,
+            mark: pl && pl.profit,
+          };
+        });
   const chartName = `${stepName[chart.by].name} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
@@ -147,8 +164,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
         </div>
         <RevenueChart
           label={`กราฟแท่งรายได้รวม${chartName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[chart.by].unit}`}
-          unit={chart.byDay ? "วันที่" : stepName[chart.by].unit}
           bars={bars}
+          months={{ bars: months, markName: "กำไรจากการดำเนินงาน" }}
           name="รายได้รวม"
           baseName="ยอดขาย"
           partName="รายได้อื่น"
@@ -164,9 +181,13 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
         <Stat
           label="ยอดยกมา"
           value={baht(carried)}
-          note={`รายได้รวมสะสมตั้งแต่เริ่มจด ถึงก่อน ${period.name}`}
+          note={`รายได้รวมทุกเดือนก่อน ${period.name}`}
         />
-        <Stat label="รายได้หลังหัก GP ช่องทางขาย" value={baht(now.income)} />
+        <Stat
+          label="รายได้รวม"
+          value={baht(now.income)}
+          note="ยอดขายหลังหัก GP + รายได้อื่น"
+        />
         <Stat
           label="กำไรจากการดำเนินงาน"
           value={
@@ -176,14 +197,14 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           }
           note={
             now.income
-              ? `${share(now.profit, now.income)} ของรายได้รวม`
+              ? `รายได้รวม − ค่าใช้จ่าย (ไม่รวมอุปกรณ์/ลงทุน) · ${share(now.profit, now.income)} ของรายได้รวม`
               : "ยังไม่มีรายได้"
           }
         />
         <Stat
           label={several ? "สินค้าที่ขาย" : "กล่องที่ขาย"}
           value={`${qty(now.boxes)} ${piece}`}
-          note={`ยอดขายต่อ${piece} ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ยอดขายเฉลี่ย ${baht(now.sales / period.days)} ต่อวัน`}
+          note={`เฉลี่ย${piece}ละ ${now.boxes ? perBox(now.sales / now.boxes) : "—"} · ขายเฉลี่ยวันละ ${baht(now.sales / period.days)}`}
         />
         <Stat
           label={`${several ? "สินค้าแจก" : "กล่องแจก"}${current ? `${span}นี้` : ` ${period.name}`}`}
@@ -192,7 +213,7 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
               {qty(gifts.boxes)} {piece}
               <small className={hint}>
                 {gifts.value !== null && `ต้นทุนประมาณ ${baht(gifts.value)} `}
-                ไม่นับใน P&L
+                ไม่นับในกำไร–ขาดทุน
               </small>
             </>
           }

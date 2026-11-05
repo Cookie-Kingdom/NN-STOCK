@@ -7,7 +7,6 @@ import { Button } from "@/components/atoms/Button";
 import { IconButton } from "@/components/atoms/IconButton";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
-import { Stat } from "@/components/atoms/Stat";
 import { Caption, Muted } from "@/components/atoms/Text";
 import { AttachmentButton } from "@/components/molecules/AttachmentButton";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
@@ -46,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { BranchSalesSummary } from "./BranchSalesSummary";
 import { CashFlowChart } from "./CashFlowChart";
 import { ChartRange, useChartRange } from "./ChartRange";
+import { MoneySummary } from "./MoneySummary";
 import { FigureCard, FigureTable, Num, PlTable, cardGrid } from "./PlTable";
 import { usePeriod } from "./overviewParts";
 
@@ -93,10 +93,16 @@ export function FinancePage({ ws }: { ws: Workspace }) {
     view === "year" ? `${key}-12-31` : shiftDays(`${shiftKey(key, 1)}-01`, -1),
   );
   const flow = rangeBuckets(range.from, range.to, range.by);
-  const bars = flow.bars.map((bar) => {
+  const flowOf = (bar: (typeof flow.bars)[number]) => {
     const of = cashBetween(db, bar.from, bar.to, shopProject);
     return { label: bar.label, title: bar.title, in: of.received, out: of.out };
-  });
+  };
+  const bars = flow.bars.map(flowOf);
+  // The table under the chart is by month, whatever the bars' step.
+  const months =
+    flow.by === "month"
+      ? bars
+      : rangeBuckets(range.from, range.to, "month").bars.map(flowOf);
   const flowName = `เงินเข้า–ออก${stepName[flow.by].name} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const latest = visibleNotes(db, account)
     .filter(
@@ -220,15 +226,6 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   // Money out, red and with its minus; nothing out is a plain zero.
   const out = (x: number) =>
     x ? <span className="text-danger">{baht(-x)}</span> : baht(0);
-  // Money with its sign and tone: green and "+" in, red out, a plain zero.
-  const signed = (x: number) =>
-    x > 0 ? (
-      <span className="text-success">+{baht(x)}</span>
-    ) : x < 0 ? (
-      <span className="text-danger">{baht(x)}</span>
-    ) : (
-      baht(0)
-    );
   // A quiet figure under the lead ones: the label, figure and note of a `Stat`, unboxed.
   const line = (label: string, value: ReactNode, note?: string) => (
     <div>
@@ -249,67 +246,33 @@ export function FinancePage({ ws }: { ws: Workspace }) {
       {control}
       {/* The groups are sections, not divs: a figure is found as the div holding its label. */}
       <Panel aria-label={`เงินของ${span}`}>
-        <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-12">
-          <Stat
-            className="lg:col-span-3"
-            label="ยอดยกมา"
-            value={signed(carried)}
-            note={`เงินสดสุทธิสะสมตั้งแต่เริ่มจด ถึงก่อน ${periodName(key)}`}
-          />
-          <Stat
-            className="lg:col-span-3"
-            label="เงินเข้าจริง"
-            value={
-              cash.received ? (
-                <span className="text-success">+{baht(cash.received)}</span>
-              ) : (
-                baht(0)
-              )
-            }
-            note={`รับเงินค่าขาย ${baht(cash.salesReceived)} · รายได้อื่น ${baht(cash.otherReceived)}`}
-          />
-          <Stat
-            className="lg:col-span-3"
-            label="เงินออกจากร้านจริง"
-            value={out(cash.out)}
-            note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
-          />
-          <Stat
-            className="lg:col-span-3"
-            label="กระแสเงินสดสุทธิ"
-            value={signed(cash.net)}
-            note="เงินเข้าจริง − เงินออกจากร้านจริง"
-          />
-          <Stat
-            className="lg:col-span-6"
-            label="ยอดค้างรับถึงวันนี้"
-            value={
-              // No receipt jotted for any channel that sold: there is no figure to give.
+        <MoneySummary
+          period={periodName(key)}
+          carried={carried}
+          received={{
+            amount: cash.received,
+            note: `ค่าขาย ${baht(cash.salesReceived)} · รายได้อื่น ${baht(cash.otherReceived)}`,
+          }}
+          paid={{
+            amount: cash.out,
+            note: `บริษัทจ่ายเอง ${baht(cash.company)} · คืนพนักงาน ${baht(cash.repaid)}`,
+          }}
+          toReceive={{
+            amount: unreceived,
+            // No receipt jotted for any channel that sold: there is no figure to give.
+            value:
               !known.length && due.channels.some((c) => c.sold) ? (
                 <MissingMark />
-              ) : (
-                <span className={cn(unreceived > 0 && "text-warning")}>
-                  {baht(unreceived)}
-                </span>
-              )
-            }
-            note={
-              due.pending.count
-                ? `รอรับอีก ${due.pending.count} รายการ ${baht(due.pending.amount)}`
-                : "ไม่มีรายรับที่รอรับ"
-            }
-          />
-          <Stat
-            className="lg:col-span-6"
-            label="ยอดค้างจ่ายถึงวันนี้"
-            value={
-              <span className={cn(unpaid + owed > 0 && "text-warning")}>
-                {baht(unpaid + owed)}
-              </span>
-            }
-            note={`ผู้ขาย ${baht(unpaid)} · พนักงาน ${baht(owed)}`}
-          />
-        </section>
+              ) : undefined,
+            note: due.pending.count
+              ? `รอรับอีก ${due.pending.count} รายการ ${baht(due.pending.amount)}`
+              : "ไม่มีรายการรอรับ",
+          }}
+          toPay={{
+            amount: unpaid + owed,
+            note: `ค้างผู้ขาย ${baht(unpaid)} · ค้างคืนพนักงาน ${baht(owed)}`,
+          }}
+        />
         <section className="mt-5 border-t border-border pt-4">
           <h3 className="m-0 mb-3 text-label text-text-secondary">
             เงินออกของ{span}นี้ ใครเป็นคนจ่าย
@@ -343,8 +306,8 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         </div>
         <CashFlowChart
           label={`กราฟแท่ง${flowName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[flow.by].unit}`}
-          unit={stepName[flow.by].unit}
           bars={bars}
+          months={months}
         />
       </Panel>
       <div className={cardGrid}>

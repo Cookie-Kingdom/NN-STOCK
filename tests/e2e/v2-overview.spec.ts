@@ -68,9 +68,7 @@ test("Overview: the sales receipts are the revenue of the month and of the year,
   await openPage(page, "Overview", true);
   await expect(revenue.locator("strong")).toHaveText("฿0");
   const figures = region(page, "ตัวเลขของเดือน");
-  await expect(figures).toContainText(
-    "ยอดขายต่อกล่อง — · ยอดขายเฉลี่ย ฿0 ต่อวัน",
-  );
+  await expect(figures).toContainText("เฉลี่ยกล่องละ — · ขายเฉลี่ยวันละ ฿0");
   const pl = region(page, "P&L รายเดือน");
   /** A P&L line's cells after its name: the period, its share of the revenue, the one before. */
   const line = (name: RegExp, table = pl) =>
@@ -93,8 +91,9 @@ test("Overview: the sales receipts are the revenue of the month and of the year,
     page.getByRole("status").filter({ hasText: monthName }),
   ).toBeVisible();
   // The chart's figures as a table: today's row.
+  // The table under the chart is by month: this month's row holds today's sale.
   const todayRow = {
-    name: thai(today, { weekday: "long", day: "numeric", month: "long" }),
+    name: thai(today, { month: "long", year: "numeric" }),
   };
   await shop.getByText("ดูเป็นตาราง").click();
   await expect(shop.getByRole("row", todayRow)).toContainText("฿3,150");
@@ -112,7 +111,7 @@ test("Overview: the sales receipts are the revenue of the month and of the year,
   await expect(fall.locator("span").last()).toHaveText("฿3,150");
   for (const name of detail) await expect(region(page, name)).toHaveCount(0);
   // The year: the same receipt.
-  await page.getByRole("radio", { name: "ปี" }).click();
+  await page.getByRole("radio", { name: "ปี", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: yearName }),
   ).toBeVisible();
@@ -131,13 +130,13 @@ test("Overview: the sales receipts are the revenue of the month and of the year,
   await expect(revenue.getByRole("row", todayRow)).toContainText("฿3,150");
   await expect(region(page, "รายได้แต่ละ Project")).toHaveCount(0);
   // The receipt is already after GP: no GP is taken off it again, nor printed.
-  await expect(figures).toContainText("รายได้หลังหัก GP ช่องทางขาย฿3,150");
+  await expect(figures).toContainText("รายได้รวม฿3,150");
   await expect(figures).not.toContainText("GP ฿");
   await expect(figures).toContainText("10 กล่อง");
   // ฿3,150 over its 10 boxes, and over the days of the month gone by.
   const perDay = Math.round(3150 / +today.slice(8)).toLocaleString("en-US");
   await expect(figures).toContainText(
-    `ยอดขายต่อกล่อง ฿315.00 · ยอดขายเฉลี่ย ฿${perDay} ต่อวัน`,
+    `เฉลี่ยกล่องละ ฿315.00 · ขายเฉลี่ยวันละ ฿${perDay}`,
   );
   await expect(pl).toContainText(
     "ยอดตามเดือนที่จ่ายเงิน เป็นตัวเลขประมาณสำหรับบริหาร ไม่ใช่งบสำหรับยื่นภาษี",
@@ -159,7 +158,7 @@ test("Overview: the sales receipts are the revenue of the month and of the year,
   );
 
   // The year: the same receipt, and the P&L of the year.
-  await page.getByRole("radio", { name: "ปี" }).click();
+  await page.getByRole("radio", { name: "ปี", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: yearName }),
   ).toBeVisible();
@@ -241,7 +240,8 @@ test("Overview: the branches' share is what they jotted, after GP on the shop's 
   await openPage(page, "Overview", true);
   await expect(revenue.locator("strong")).toHaveText("฿3,600");
   await expect(figures.locator("div > small:first-child")).toHaveText([
-    "รายได้หลังหัก GP ช่องทางขาย",
+    "ยอดยกมา",
+    "รายได้รวม",
     "กำไรจากการดำเนินงาน",
     "กล่องที่ขาย",
     "กล่องแจกเดือนนี้",

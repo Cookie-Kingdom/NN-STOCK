@@ -72,7 +72,6 @@ export function ChartRange({
       </TableFilter>
       {range.changed && (
         <Button
-          variant="link"
           size="sm"
           icon={<RotateCcw aria-hidden />}
           onClick={range.reset}

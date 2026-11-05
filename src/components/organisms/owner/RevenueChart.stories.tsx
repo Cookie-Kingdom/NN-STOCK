@@ -28,7 +28,6 @@ const meta = {
   component: RevenueChart,
   args: {
     label: "กราฟแท่งรายได้ต่อวัน",
-    unit: "วันที่",
     bars: days,
     name: "รายได้รวม",
     markName: "วันเดียวกันของกันยายน 2569",
@@ -54,7 +53,6 @@ export const Month: Story = {};
 export const Year: Story = {
   args: {
     label: "กราฟแท่งรายได้ต่อเดือน",
-    unit: "เดือน",
     bars: months,
     markName: "กำไรจากการดำเนินงาน",
     markAs: "line",

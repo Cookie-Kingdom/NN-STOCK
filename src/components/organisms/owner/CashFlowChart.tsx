@@ -3,7 +3,7 @@
 import { td, th } from "@/components/organisms/shared/tableCell";
 import { baht, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FigureTable, Num } from "./PlTable";
+import { ChartTable, Num } from "./PlTable";
 import { useChartPointer } from "./useChartPointer";
 
 export type FlowBar = { label: string; title: string; in: number; out: number };
@@ -24,17 +24,17 @@ const netTone = (x: number) => (x > 0 ? "in" : x < 0 ? "out" : undefined);
  *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at, tapping
  *  or dragging across a bucket, or the arrow keys while the chart has focus, shows its figures
  *  (`useChartPointer`: after a tap they stay until a tap outside the plot); the table under it
- *  holds them all. */
+ *  holds the figures of each month (`months`), whatever the bars' step. */
 export function CashFlowChart({
   label,
-  unit,
   bars,
+  months = bars,
 }: {
   /** What the chart shows, for a screen reader. */
   label: string;
-  /** The head of the table's first column: เดือน. */
-  unit: string;
   bars: FlowBar[];
+  /** The table's rows, a month each: the bars themselves when they are months. */
+  months?: FlowBar[];
 }) {
   const { at, setAt, plotRef, plotProps } = useChartPointer(bars.length);
   const nets = bars.map((bar) => bar.in - bar.out);
@@ -232,36 +232,30 @@ export function CashFlowChart({
           ))}
         </div>
       </div>
-      <details className="group mt-2">
-        <summary className="inline-flex min-h-8 cursor-pointer list-none items-center rounded-sm text-body-sm font-medium text-accent outline-focus-ring focus-visible:outline-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
-          <span className="group-open:hidden">ดูเป็นตาราง</span>
-          <span className="hidden group-open:inline">ซ่อนตาราง</span>
-        </summary>
-        <div className="-mx-5 max-md:-mx-2.5">
-          <FigureTable>
-            <thead>
-              <tr>
-                <th className={th}>{unit}</th>
-                {["เงินเข้า", "เงินออก", "สุทธิ"].map((name) => (
-                  <th key={name} className={cn(th, "text-right")}>
-                    {name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {bars.map((flow, i) => (
-                <tr key={i}>
-                  <td className={td}>{flow.title}</td>
-                  <Num tone={netTone(flow.in)}>{signed(flow.in)}</Num>
-                  <Num tone={netTone(-flow.out)}>{baht(-flow.out)}</Num>
-                  <Num tone={netTone(nets[i])}>{signed(nets[i])}</Num>
-                </tr>
-              ))}
-            </tbody>
-          </FigureTable>
-        </div>
-      </details>
+      <ChartTable>
+        <thead>
+          <tr>
+            <th className={th}>เดือน</th>
+            {["เงินเข้า", "เงินออก", "สุทธิ"].map((name) => (
+              <th key={name} className={cn(th, "text-right")}>
+                {name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {months.map((flow, i) => (
+            <tr key={i}>
+              <td className={td}>{flow.title}</td>
+              <Num tone={netTone(flow.in)}>{signed(flow.in)}</Num>
+              <Num tone={netTone(-flow.out)}>{baht(-flow.out)}</Num>
+              <Num tone={netTone(flow.in - flow.out)}>
+                {signed(flow.in - flow.out)}
+              </Num>
+            </tr>
+          ))}
+        </tbody>
+      </ChartTable>
     </div>
   );
 }

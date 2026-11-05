@@ -20,9 +20,9 @@ export const Default: Story = {};
 /** `note`: a quiet line under the figure. */
 export const WithNote: Story = {
   args: {
-    label: "งบที่กันไว้จาก PO",
+    label: "ยังไม่ได้จ่าย",
     value: "฿210,000",
-    note: "2 รายการที่ยังรอจ่าย",
+    note: "PO รอจ่าย 2 รายการ",
   },
 };
 
