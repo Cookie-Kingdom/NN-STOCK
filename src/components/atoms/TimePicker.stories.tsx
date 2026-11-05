@@ -38,14 +38,14 @@ type Story = StoryObj<typeof meta>;
 
 /** Pick the state in Controls:
  *  - `variant`: form (default) or filter (compact, for a filter bar)
- *  - `minuteStep`: 30 (default: every time the app records lands on a half hour), 15 or 5
+ *  - `minuteStep`: 5 (default: a truck's time to the nearest five minutes), 15 or 30
  *  - `clearable`: 「ล้าง」 under the lists, which empties the field
  *  - `disabled`: cannot be changed
  *
  *  Click it to open the two lists: a panel under the field from md up, a sheet at the
  *  bottom of the screen below md. An hour stays open for the minute; a minute closes. */
 export const Default: Story = {
-  args: { variant: "form", minuteStep: 30, clearable: false, disabled: false },
+  args: { variant: "form", minuteStep: 5, clearable: false, disabled: false },
 };
 
 /** Nothing picked yet: the placeholder, and the hours open around 09. */
