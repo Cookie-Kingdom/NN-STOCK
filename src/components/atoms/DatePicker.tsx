@@ -20,7 +20,11 @@ import {
   type ControlVariantProps,
 } from "@/components/atoms/Input";
 import { PickerPopover } from "@/components/atoms/PickerPopover";
-import { dropdownFocus } from "@/components/atoms/Select";
+import {
+  dropdownFocus,
+  nativeControl,
+  useTouch,
+} from "@/components/atoms/Select";
 import { dateLabel, today as todayInBangkok } from "@/lib/format";
 import {
   clampISO,
@@ -63,6 +67,9 @@ const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
  *
  * Keyboard: arrows move a day or a week, PageUp / PageDown a month, Home / End to the
  * ends of the week; Enter picks; Escape closes.
+ *
+ * On a touch screen it is the device's own `<input type="date">` and calendar: the
+ * owner asked for those on phones and iPads, in the device's date format.
  */
 export function DatePicker({
   variant,
@@ -147,6 +154,33 @@ export function DatePicker({
       ?.querySelector<HTMLElement>('[tabindex="0"]')
       ?.focus({ preventScroll: true });
   }, [active]);
+
+  const touch = useTouch();
+  if (touch)
+    return (
+      <input
+        {...(props as ComponentProps<"input">)}
+        type="date"
+        aria-label={props["aria-label"] ?? title}
+        value={selected}
+        min={min}
+        max={max}
+        disabled={disabled}
+        data-value={selected}
+        className={cn(
+          controlVariants({ variant }),
+          nativeControl,
+          "tabular-nums [&::-webkit-date-and-time-value]:text-left",
+          dropdownFocus,
+          className,
+        )}
+        onChange={(event) => {
+          const next = event.target.value;
+          // The device's 「ล้าง」 clears a field that has no 「ล้าง」 here: the day stands.
+          if (next !== selected && (next || clearable)) onChange(next);
+        }}
+      />
+    );
 
   const today = open ? todayInBangkok() : "";
   const cells = open && !months ? monthGrid(view.y, view.m) : [];

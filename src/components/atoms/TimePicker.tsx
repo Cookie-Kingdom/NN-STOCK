@@ -15,7 +15,11 @@ import {
   type ControlVariantProps,
 } from "@/components/atoms/Input";
 import { PickerPopover } from "@/components/atoms/PickerPopover";
-import { dropdownFocus } from "@/components/atoms/Select";
+import {
+  dropdownFocus,
+  nativeControl,
+  useTouch,
+} from "@/components/atoms/Select";
 import { minuteOptions, pad, parseTime, toTime } from "@/lib/pickers";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +107,9 @@ function Column({
  *
  * Keyboard: up / down walk a list, left / right cross to the other; Enter picks; Escape
  * closes.
+ *
+ * On a touch screen it is the device's own `<input type="time">` and wheel, which follows
+ * the device's 12 / 24-hour setting and may offer every minute.
  */
 export function TimePicker({
   variant,
@@ -129,6 +136,7 @@ export function TimePicker({
   const hourList = useRef<HTMLDivElement>(null);
   const minuteList = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const touch = useTouch();
 
   const current = parseTime(value);
   const shown = current ? toTime(current.h, current.m) : "";
@@ -172,6 +180,30 @@ export function TimePicker({
       other.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
     }
   };
+
+  if (touch)
+    return (
+      <input
+        {...(props as ComponentProps<"input">)}
+        type="time"
+        aria-label={props["aria-label"] ?? title}
+        step={minuteStep * 60}
+        value={shown}
+        disabled={disabled}
+        data-value={shown}
+        className={cn(
+          controlVariants({ variant }),
+          nativeControl,
+          "tabular-nums [&::-webkit-date-and-time-value]:text-left",
+          dropdownFocus,
+          className,
+        )}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next !== shown && (next || clearable)) onChange(next);
+        }}
+      />
+    );
 
   return (
     <>

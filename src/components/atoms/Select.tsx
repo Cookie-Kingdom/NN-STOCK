@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentProps,
   type KeyboardEvent,
   type RefObject,
@@ -21,6 +22,24 @@ import { cn } from "@/lib/utils";
 export type Option = { value: string; label?: string; hint?: string };
 
 const labelOf = (option: Option) => option.label ?? option.value;
+
+const coarse = "(pointer: coarse)";
+/** True on a touch screen (phone, iPad): there the pickers are the device's own, its
+ *  wheel, calendar and list, in place of the ones drawn here. False on the server. */
+export const useTouch = () =>
+  useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(coarse);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(coarse).matches,
+    () => false,
+  );
+
+/** The device's own control (`<select>`, a date or time `<input>`) on a touch screen:
+ *  16px text, under which iOS zooms in on focus. */
+export const nativeControl = "text-body text-left";
 
 /** The focused and the open look of a dropdown: the accent border inside a soft halo. */
 export const dropdownFocus =
@@ -192,6 +211,8 @@ export function OptionList({
  *
  * Keyboard: Enter, Space or an arrow opens the list; arrows, Home and End move; Enter
  * picks; Escape closes; typing the start of a label jumps to it.
+ *
+ * On a touch screen it is the device's own `<select>`.
  */
 export function Select({
   variant,
@@ -214,6 +235,32 @@ export function Select({
   const open = active !== null && options.length > 0;
   const list = useDropdown(open, control);
   const chosen = options.findIndex((option) => option.value === value);
+  const touch = useTouch();
+
+  if (touch)
+    return (
+      <select
+        {...(props as ComponentProps<"select">)}
+        value={value}
+        data-value={value}
+        className={cn(
+          controlVariants({ variant }),
+          nativeControl,
+          dropdownFocus,
+          !value && "text-text-secondary",
+          className,
+        )}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {/* A value off the list still reads as itself, as on the button. */}
+        {chosen < 0 && <option value={value}>{value}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {labelOf(option)}
+          </option>
+        ))}
+      </select>
+    );
 
   const show = () => setActive(Math.max(chosen, 0));
   const choose = (index: number) => {
