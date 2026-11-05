@@ -30,6 +30,7 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
 import { periodName, rangeBuckets, shiftKey } from "@/lib/period";
 import {
+  broughtForward,
   editBlock,
   ledgerPurposes,
   ledgerRows,
@@ -243,6 +244,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
   const net = summary.received - summary.paid;
+  const carried = broughtForward(all, month);
   // The whole ledger, never the rows found: a filter must not redraw the chart.
   const span = rangeBuckets(from, to);
   const bars = span.bars.map((bar) => {
@@ -428,7 +430,14 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           <h2 className="m-0 mb-3 text-label text-text-secondary">
             เดือนนี้ · {periodName(month)}
           </h2>
-          <div className="grid grid-cols-3 gap-4 max-md:grid-cols-2 max-md:gap-3">
+          <div className="grid grid-cols-4 gap-4 max-md:grid-cols-2 max-md:gap-3">
+            <Stat
+              label="ยอดยกมา"
+              value={
+                <span className={signTone(carried)}>{signed(carried)}</span>
+              }
+              note={`จากสิ้น ${periodName(shiftKey(month, -1))}`}
+            />
             <Stat
               label="รายรับเดือนนี้"
               value={
@@ -452,7 +461,6 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               )}
             />
             <Stat
-              className="max-md:col-span-2"
               label="สุทธิเดือนนี้"
               value={<span className={signTone(net)}>{signed(net)}</span>}
               note="รายรับ − ยอดจ่ายจริง"
