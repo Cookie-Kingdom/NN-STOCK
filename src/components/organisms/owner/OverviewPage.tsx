@@ -51,6 +51,8 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
   /** What the shop keeps of a span's revenue: the channels' GP is never its money. Sales
    *  from the old books carry no GP (`saleMoney`), so nothing is taken off them twice. */
   const net = (pl: { income: number; gp: number }) => pl.income - pl.gp;
+  // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
+  const carried = net(plBetween(db, "", key));
   const netSales = now.sales - now.gp;
   // The chart's own span: the page's period until another is picked.
   const range = useChartRange(period.start, period.end);
@@ -127,6 +129,11 @@ export function OverviewPage({ ws }: { ws: Workspace }) {
             {baht(now.otherIncome)}
           </p>
         )}
+        <p className="m-0 mt-1 text-body-sm text-text-secondary">
+          ยอดยกมา{" "}
+          <b className="font-semibold text-text-primary">{baht(carried)}</b> ·
+          รายได้หลังหัก GP สะสมตั้งแต่เริ่มจด ถึงก่อน {period.name}
+        </p>
         <div className="mt-5 mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Caption>รายได้หลังหัก GP{chartName}</Caption>
           <ChartRange range={range} />

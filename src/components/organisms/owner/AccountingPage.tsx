@@ -436,7 +436,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
               value={
                 <span className={signTone(carried)}>{signed(carried)}</span>
               }
-              note={`จากสิ้น ${periodName(shiftKey(month, -1))}`}
+              note={`สะสมตั้งแต่เริ่มจด ถึงสิ้น ${periodName(shiftKey(month, -1))}`}
             />
             <Stat
               label="รายรับเดือนนี้"
