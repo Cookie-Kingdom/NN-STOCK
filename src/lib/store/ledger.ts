@@ -689,3 +689,13 @@ export function ledgerSummary(rows: LedgerRow[], month: string) {
     pendingIn: { count: pendingIn.length, amount: money(pendingIn) },
   };
 }
+
+/** ยอดยกมา of `month` ("2026-11"): the net (received − paid, as ledgerSummary counts them) of
+ *  every row dated before its first day, the close of the month before carried forward. */
+export function broughtForward(rows: LedgerRow[], month: string) {
+  const { received, paid } = ledgerSummary(
+    rows.filter((row) => row.date < `${month}-01`),
+    "",
+  );
+  return received - paid;
+}

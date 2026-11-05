@@ -158,6 +158,7 @@ export {
   ledgerChoices,
   ledgerRows,
   ledgerSummary,
+  broughtForward,
   projectAssets,
   type ProjectAsset,
   stockLines,
