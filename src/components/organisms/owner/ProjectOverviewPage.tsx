@@ -5,7 +5,7 @@ import { Stat } from "@/components/atoms/Stat";
 import { Caption } from "@/components/atoms/Text";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, fmt, qty, thaiDay } from "@/lib/format";
-import { rangeBuckets } from "@/lib/period";
+import { rangeBuckets, stepName } from "@/lib/period";
 import {
   branches,
   capexCategory,
@@ -56,7 +56,7 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
   );
   // The chart's own span: the page's period until another is picked.
   const range = useChartRange(period.start, period.end);
-  const chart = rangeBuckets(range.from, range.to);
+  const chart = rangeBuckets(range.from, range.to, range.by);
   /* ponytail: a bar reads the whole log once (twice with its mark): 62 passes for 62 days.
    * One pass that buckets by date if a long log makes the page slow. */
   const bars = chart.bars.map((bar) => {
@@ -78,7 +78,7 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
             : null,
     };
   });
-  const chartName = `${chart.byDay ? "รายวัน" : "รายเดือน"} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
+  const chartName = `${stepName[chart.by].name} ${dateLabel(range.from)} – ${dateLabel(range.to)}`;
   const names = Object.fromEntries(
     payCategories(db.config).map((c) => [c.id, c.name]),
   );
@@ -146,8 +146,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
           <ChartRange range={range} />
         </div>
         <RevenueChart
-          label={`กราฟแท่งรายได้รวม${chartName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${chart.byDay ? "วัน" : "เดือน"}`}
-          unit={chart.byDay ? "วันที่" : "เดือน"}
+          label={`กราฟแท่งรายได้รวม${chartName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${stepName[chart.by].unit}`}
+          unit={chart.byDay ? "วันที่" : stepName[chart.by].unit}
           bars={bars}
           name="รายได้รวม"
           baseName="ยอดขาย"

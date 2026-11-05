@@ -61,11 +61,29 @@ export function revenuePeriod(key: string, today: string) {
   };
 }
 
-/** The bars of the days `from`..`to` (`YYYY-MM-DD`, both counted): a bar a day up to 62 days,
- *  past that a bar a month, its ends cut to the span. Each bar's `from` / `to` bound its rows;
- *  a day's `before` is the same day of the month before, when that month has one. */
-export function rangeBuckets(from: string, to: string) {
-  const byDay = (Date.parse(to) - Date.parse(from)) / 86400000 < 62;
+/** What one bar of a chart holds: a day, a month or a year. */
+export type ChartStep = "day" | "month" | "year";
+
+/** A chart's own step until one is picked: a bar a day up to 62 days, past that a month. */
+export const autoStep = (from: string, to: string): ChartStep =>
+  (Date.parse(to) - Date.parse(from)) / 86400000 < 62 ? "day" : "month";
+
+/** A step's names: the chart's (รายวัน) and one bar's (วัน). */
+export const stepName = {
+  day: { name: "รายวัน", unit: "วัน" },
+  month: { name: "รายเดือน", unit: "เดือน" },
+  year: { name: "รายปี", unit: "ปี" },
+} satisfies Record<ChartStep, { name: string; unit: string }>;
+
+/** The bars of the days `from`..`to` (`YYYY-MM-DD`, both counted), a bar per `by` (`autoStep`
+ *  when left out), a month's or a year's ends cut to the span. Each bar's `from` / `to` bound
+ *  its rows; a day's `before` is the same day of the month before, when that month has one. */
+export function rangeBuckets(
+  from: string,
+  to: string,
+  by: ChartStep = autoStep(from, to),
+) {
+  const byDay = by === "day";
   const twoYears = from.slice(0, 4) !== to.slice(0, 4);
   const bars: {
     from: string;
@@ -85,6 +103,18 @@ export function rangeBuckets(from: string, to: string) {
         before: +d.slice(8) <= daysIn(prev) ? prev + d.slice(7) : null,
       });
     }
+  else if (by === "year")
+    for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {
+      const first = `${y}-01-01`;
+      const last = `${y}-12-31`;
+      bars.push({
+        from: first < from ? from : first,
+        to: last > to ? to : last,
+        label: String(y + 543),
+        title: periodName(String(y)),
+        before: null,
+      });
+    }
   else
     for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = shiftKey(m, 1)) {
       const first = `${m}-01`;
@@ -100,5 +130,5 @@ export function rangeBuckets(from: string, to: string) {
         before: null,
       });
     }
-  return { byDay, bars };
+  return { by, byDay, bars };
 }
