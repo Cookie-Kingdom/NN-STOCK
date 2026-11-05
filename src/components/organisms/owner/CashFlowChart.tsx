@@ -21,9 +21,9 @@ const netTone = (x: number) => (x > 0 ? "in" : x < 0 ? "out" : undefined);
 
 /** Money in and money out of each bucket as a pair of bars on one baht axis (in on the left
  *  and green, out on the right and red), and what is left of the two as a line over them,
- *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at a
- *  bucket, or the arrow keys while the chart has focus, shows its figures; the table under it
- *  holds them all. */
+ *  which goes below zero when more left than came. Built as `RevenueChart` is: pointing at or
+ *  tapping a bucket, or the arrow keys while the chart has focus, shows its figures; the table
+ *  under it holds them all. */
 export function CashFlowChart({
   label,
   unit,
@@ -57,6 +57,8 @@ export function CashFlowChart({
     bars.findLastIndex((bar) => bar.in || bar.out),
   );
   const plot = "h-60 md:h-72";
+  // A label on every n-th bucket only: a bar a day for two months would crowd the axis.
+  const every = Math.ceil(bars.length / 12);
   const bar =
     "absolute w-[30%] max-w-5 min-w-[3px] rounded-t-sm transition-[height] duration-(--motion-slow) ease-(--ease-enter)";
   const figure = (name: string, text: string, tone?: "in" | "out") => (
@@ -121,7 +123,9 @@ export function CashFlowChart({
         </div>
         <div
           className={cn(plot, "relative touch-pan-y")}
-          onPointerLeave={() => setAt(-1)}
+          // A touch fires leave as the finger lifts: a tap keeps the bucket's figures up
+          // (iPad) until another tap, or a tap outside the chart.
+          onPointerLeave={(event) => event.pointerType === "mouse" && setAt(-1)}
         >
           {lines.map((value) => (
             <i
@@ -148,6 +152,7 @@ export function CashFlowChart({
                 key={i}
                 className="relative flex-1"
                 onPointerEnter={() => setAt(i)}
+                onClick={() => setAt(i)}
               >
                 {flow.in > 0 && (
                   <i
@@ -227,7 +232,7 @@ export function CashFlowChart({
               key={i}
               className="flex min-w-0 flex-1 justify-center text-caption whitespace-nowrap text-text-secondary"
             >
-              {flow.label}
+              {i % every ? "" : flow.label}
             </span>
           ))}
         </div>
