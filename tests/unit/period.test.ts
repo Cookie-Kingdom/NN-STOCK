@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { revenuePeriod, shiftKey } from "@/lib/period";
+import { rangeBuckets, revenuePeriod, shiftKey } from "@/lib/period";
 
 describe("revenuePeriod", () => {
   it("a month still running is set against the same days of the month before", () => {
@@ -53,5 +53,25 @@ describe("revenuePeriod", () => {
   it("steps over a year's end", () => {
     expect(shiftKey("2026-01", -1)).toBe("2025-12");
     expect(shiftKey("2026", 1)).toBe("2027");
+  });
+});
+
+describe("rangeBuckets", () => {
+  it("a bar a day up to 62 days, across a month's end", () => {
+    const { byDay, bars } = rangeBuckets("2026-09-29", "2026-10-02");
+    expect(byDay).toBe(true);
+    expect(bars.map((b) => b.from)).toEqual([
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+    ]);
+  });
+  it("a bar a month past that, its ends cut to the span", () => {
+    const { byDay, bars } = rangeBuckets("2026-05-15", "2026-11-05");
+    expect(byDay).toBe(false);
+    expect(bars).toHaveLength(7);
+    expect(bars[0]).toMatchObject({ from: "2026-05-15", to: "2026-05-31" });
+    expect(bars[6]).toMatchObject({ from: "2026-11-01", to: "2026-11-05" });
   });
 });

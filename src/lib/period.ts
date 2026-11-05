@@ -1,6 +1,7 @@
 /** The periods the Overview shows: a month (`YYYY-MM`) or a year (`YYYY`), as a key that is
  *  also the prefix of every date in it. `today` is always a parameter (`YYYY-MM-DD`). */
-import { thaiDay } from "./format";
+import { dateLabel, thaiDay } from "./format";
+import { shiftDays } from "./pickers";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const daysIn = (month: string) =>
@@ -97,4 +98,30 @@ export function revenuePeriod(key: string, today: string) {
         : `จาก 1–${Math.min(day, daysIn(prev))} ${thaiDay(`${prev}-01`, { month: "short" })}`,
     buckets,
   };
+}
+
+/** The bars of the days `from`..`to` (`YYYY-MM-DD`, both counted): a bar a day up to 62 days,
+ *  past that a bar a month, its ends cut to the span. Each bar's `from` / `to` bound its rows. */
+export function rangeBuckets(from: string, to: string) {
+  const byDay = (Date.parse(to) - Date.parse(from)) / 86400000 < 62;
+  const twoYears = from.slice(0, 4) !== to.slice(0, 4);
+  const bars: { from: string; to: string; label: string; title: string }[] = [];
+  if (byDay)
+    for (let d = from; d <= to; d = shiftDays(d, 1))
+      bars.push({ from: d, to: d, label: thaiDay(d), title: dateLabel(d) });
+  else
+    for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = shiftKey(m, 1)) {
+      const first = `${m}-01`;
+      const last = `${m}-${pad(daysIn(m))}`;
+      bars.push({
+        from: first < from ? from : first,
+        to: last > to ? to : last,
+        label: thaiDay(first, {
+          month: "short",
+          ...(twoYears && { year: "2-digit" }),
+        }),
+        title: periodName(m),
+      });
+    }
+  return { byDay, bars };
 }

@@ -50,5 +50,18 @@ export const Empty: Story = {
   args: { bars: months.map((bar) => ({ ...bar, in: 0, out: 0 })) },
 };
 
+/** รายวัน 31 วัน: ป้ายใต้แกนเว้นเป็นช่วง ไม่เบียดกัน · แตะแท่ง (iPad) ตัวเลขค้างไว้จนแตะที่อื่น */
+export const Days: Story = {
+  args: {
+    unit: "วัน",
+    bars: Array.from({ length: 31 }, (_, i) => ({
+      label: `${i + 1} ต.ค.`,
+      title: `${i + 1} ต.ค. 2569`,
+      in: i % 3 ? 40000 + i * 1500 : 0,
+      out: 25000 + ((i * 7) % 5) * 9000,
+    })),
+  },
+};
+
 /** จอ 390px */
 export const Phone: Story = { ...phone };

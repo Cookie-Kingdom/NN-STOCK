@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { DatePicker } from "@/components/atoms/DatePicker";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Input } from "@/components/atoms/Input";
 import { MissingMark } from "@/components/atoms/MissingMark";
@@ -24,11 +25,12 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { Notice } from "@/components/molecules/Notice";
 import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { ShowMore, useShowMore } from "@/components/molecules/ShowMore";
+import { TableFilter } from "@/components/molecules/TableFilter";
 import { grid, td, tf, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { baht, dateLabel, qty, thaiDay } from "@/lib/format";
-import { periodName, shiftKey } from "@/lib/period";
+import { baht, dateLabel, qty } from "@/lib/format";
+import { periodName, rangeBuckets, shiftKey } from "@/lib/period";
 import {
   editBlock,
   ledgerPurposes,
@@ -205,8 +207,8 @@ const filterCell =
  *  PO, its invoice and the payments to its supplier), every other money-out line of Finance
  *  (view only, as a PO row) and every expense jotted by hand. In: every income jotted by
  *  hand. Newest first, under the figures worked out from it (this month's money in, out and
- *  the net of the two; what is still awaited and what the POs still to pay hold) and the
- *  last six months as bars, with a search, a filter under the head of every column, and the
+ *  the net of the two; what is still awaited and what the POs still to pay hold) and a span
+ *  picked on two calendars as bars (by day up to 62 days, by month past that; six months first), with a search, a filter under the head of every column, and the
  *  totals of what is shown. Green is money that came in (รับแล้ว), not money awaited. */
 export function AccountingPage({ ws }: { ws: Workspace }) {
   const { db, account, today } = ws;
@@ -215,6 +217,9 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [downloadError, setDownloadError] = useState("");
+  // The chart's span: the last six months until another is picked.
+  const [from, setFrom] = useState(`${shiftKey(today.slice(0, 7), -5)}-01`);
+  const [to, setTo] = useState(today);
   const all = ledgerRows(db);
   const word = search.trim().toLowerCase();
   const rows = all.filter(
@@ -239,17 +244,17 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
   const net = summary.received - summary.paid;
-  // The whole ledger, never the rows found: a filter must not redraw the months.
-  const bars = Array.from({ length: 6 }, (_, at) => {
-    const key = shiftKey(month, at - 5);
-    const { received, paid } = ledgerSummary(all, key);
-    return {
-      label: thaiDay(`${key}-01`, { month: "short" }),
-      title: periodName(key),
-      in: received,
-      out: paid,
-    };
+  // The whole ledger, never the rows found: a filter must not redraw the chart.
+  const span = rangeBuckets(from, to);
+  const bars = span.bars.map((bar) => {
+    // "" is the prefix of every date: the summary of the rows inside the bar.
+    const { received, paid } = ledgerSummary(
+      all.filter((row) => row.date >= bar.from && row.date <= bar.to),
+      "",
+    );
+    return { label: bar.label, title: bar.title, in: received, out: paid };
   });
+  const spanName = `${dateLabel(from)} – ${dateLabel(to)}`;
   // The quick filter: the POs still to pay, in one click; a second click clears it.
   const poPending =
     filters[sourceColumn] === ledgerSources.po &&
@@ -477,16 +482,42 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
           </div>
         </Panel>
       </div>
-      <Panel aria-label="รายรับ–รายจ่าย 6 เดือนล่าสุด">
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h2 className="m-0 text-label text-text-secondary">
-            รายรับ–รายจ่าย 6 เดือนล่าสุด
-          </h2>
-          <Caption>คิดจากทุกรายการในบัญชี ไม่เปลี่ยนตามตัวกรองของตาราง</Caption>
+      <Panel aria-label="รายรับ–รายจ่าย">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div>
+            <h2 className="m-0 text-label text-text-secondary">
+              รายรับ–รายจ่าย{span.byDay ? "รายวัน" : "รายเดือน"}
+            </h2>
+            <Caption>
+              ไม่เกิน 62 วันแสดงเป็นรายวัน · คิดจากทุกรายการในบัญชี
+              ไม่เปลี่ยนตามตัวกรองของตาราง
+            </Caption>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <TableFilter label="ตั้งแต่">
+              <DatePicker
+                variant="filter"
+                title="ตั้งแต่วันที่"
+                value={from}
+                max={to}
+                onChange={setFrom}
+              />
+            </TableFilter>
+            <TableFilter label="ถึง">
+              <DatePicker
+                variant="filter"
+                title="ถึงวันที่"
+                value={to}
+                min={from}
+                max={today}
+                onChange={setTo}
+              />
+            </TableFilter>
+          </div>
         </div>
         <CashFlowChart
-          label={`กราฟแท่งรายรับและรายจ่าย 6 เดือนล่าสุด เดือนนี้รับ ${baht(summary.received)} จ่าย ${baht(summary.paid)}`}
-          unit="เดือน"
+          label={`กราฟแท่งรายรับและรายจ่าย${span.byDay ? "รายวัน" : "รายเดือน"} ${spanName} · แตะหรือกดลูกศรซ้ายขวาเพื่ออ่านทีละ${span.byDay ? "วัน" : "เดือน"}`}
+          unit={span.byDay ? "วัน" : "เดือน"}
           bars={bars}
         />
       </Panel>
