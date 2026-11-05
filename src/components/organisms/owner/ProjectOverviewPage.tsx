@@ -46,6 +46,8 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
   const { key, span, current, period, control } = usePeriod(db, today);
 
   const now = monthPl(db, key, shopProject);
+  // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
+  const carried = plBetween(db, "", key, shopProject).income;
   const before = plBetween(
     db,
     period.before.from,
@@ -159,6 +161,11 @@ export function ProjectOverviewPage({ ws }: { ws: Workspace }) {
 
       <Panel className={figureGrid} aria-label={`ตัวเลขของ${span}`}>
         {/* The receipts are what the channels paid: already after their GP. */}
+        <Stat
+          label="ยอดยกมา"
+          value={baht(carried)}
+          note={`รายได้รวมสะสมตั้งแต่เริ่มจด ถึงก่อน ${period.name}`}
+        />
         <Stat label="รายได้หลังหัก GP ช่องทางขาย" value={baht(now.income)} />
         <Stat
           label="กำไรจากการดำเนินงาน"

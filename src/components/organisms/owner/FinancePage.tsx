@@ -23,7 +23,7 @@ import { td, th } from "@/components/organisms/shared/tableCell";
 import { useEntryActions } from "@/components/organisms/shared/useEntryActions";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel } from "@/lib/format";
-import { rangeBuckets, shiftKey } from "@/lib/period";
+import { periodName, rangeBuckets, shiftKey } from "@/lib/period";
 import { shiftDays } from "@/lib/pickers";
 import {
   advances,
@@ -75,6 +75,8 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   const { view, key, span, control } = usePeriod(db, today);
   const [show, setShow] = useState<"all" | "in" | "out">("all");
   const cash = cashBetween(db, key, `${key}~`, shopProject);
+  // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
+  const carried = cashBetween(db, "", key, shopProject).net;
   const balances = supplierBalances(db);
   const advanced = advances(db);
   const due = receivables(db);
@@ -218,6 +220,15 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   // Money out, red and with its minus; nothing out is a plain zero.
   const out = (x: number) =>
     x ? <span className="text-danger">{baht(-x)}</span> : baht(0);
+  // Money with its sign and tone: green and "+" in, red out, a plain zero.
+  const signed = (x: number) =>
+    x > 0 ? (
+      <span className="text-success">+{baht(x)}</span>
+    ) : x < 0 ? (
+      <span className="text-danger">{baht(x)}</span>
+    ) : (
+      baht(0)
+    );
   // A quiet figure under the lead ones: the label, figure and note of a `Stat`, unboxed.
   const line = (label: string, value: ReactNode, note?: string) => (
     <div>
@@ -238,9 +249,15 @@ export function FinancePage({ ws }: { ws: Workspace }) {
       {control}
       {/* The groups are sections, not divs: a figure is found as the div holding its label. */}
       <Panel aria-label={`เงินของ${span}`}>
-        <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-6">
+        <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-12">
           <Stat
-            className="lg:col-span-2"
+            className="lg:col-span-3"
+            label="ยอดยกมา"
+            value={signed(carried)}
+            note={`เงินสดสุทธิสะสมตั้งแต่เริ่มจด ถึงก่อน ${periodName(key)}`}
+          />
+          <Stat
+            className="lg:col-span-3"
             label="เงินเข้าจริง"
             value={
               cash.received ? (
@@ -252,27 +269,19 @@ export function FinancePage({ ws }: { ws: Workspace }) {
             note={`รับเงินค่าขาย ${baht(cash.salesReceived)} · รายได้อื่น ${baht(cash.otherReceived)}`}
           />
           <Stat
-            className="lg:col-span-2"
+            className="lg:col-span-3"
             label="เงินออกจากร้านจริง"
             value={out(cash.out)}
             note="บริษัทจ่ายเอง + คืนเงินพนักงาน"
           />
           <Stat
-            className="max-lg:col-span-2 lg:col-span-2"
+            className="lg:col-span-3"
             label="กระแสเงินสดสุทธิ"
-            value={
-              cash.net > 0 ? (
-                <span className="text-success">+{baht(cash.net)}</span>
-              ) : cash.net < 0 ? (
-                <span className="text-danger">{baht(cash.net)}</span>
-              ) : (
-                baht(0)
-              )
-            }
+            value={signed(cash.net)}
             note="เงินเข้าจริง − เงินออกจากร้านจริง"
           />
           <Stat
-            className="lg:col-span-3"
+            className="lg:col-span-6"
             label="ยอดค้างรับถึงวันนี้"
             value={
               // No receipt jotted for any channel that sold: there is no figure to give.
@@ -291,7 +300,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
             }
           />
           <Stat
-            className="lg:col-span-3"
+            className="lg:col-span-6"
             label="ยอดค้างจ่ายถึงวันนี้"
             value={
               <span className={cn(unpaid + owed > 0 && "text-warning")}>
