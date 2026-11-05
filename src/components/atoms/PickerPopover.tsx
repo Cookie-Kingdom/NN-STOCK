@@ -145,9 +145,12 @@ function Layer({
       }}
       onBlur={(event) => {
         const to = event.relatedTarget;
+        // Safari focuses no button on a press: a press on an arrow inside a Dialog hands
+        // focus to the dialog, which holds this layer, and must not close it.
         if (
           to &&
           !event.currentTarget.contains(to) &&
+          !to.contains(event.currentTarget) &&
           !anchor.current?.contains(to)
         )
           onClose();
