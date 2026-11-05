@@ -25,8 +25,8 @@ export type Option = { value: string; label?: string; hint?: string };
 const labelOf = (option: Option) => option.label ?? option.value;
 
 const coarse = "(pointer: coarse)";
-/** True on a touch screen (phone, iPad): there the date and time fields are the device's
- *  own calendar and wheel, in place of the ones drawn here. False on the server. */
+/** True on a touch screen (phone, iPad): there a dropdown's list sits in the page under
+ *  its box. False on the server. */
 export const useTouch = () =>
   useSyncExternalStore(
     (onChange) => {
@@ -37,10 +37,6 @@ export const useTouch = () =>
     () => window.matchMedia(coarse).matches,
     () => false,
   );
-
-/** The device's own date or time `<input>` on a touch screen:
- *  16px text, under which iOS zooms in on focus. */
-export const nativeControl = "text-body text-left";
 
 /** The focused and the open look of a dropdown: the accent border inside a soft halo. */
 export const dropdownFocus =
