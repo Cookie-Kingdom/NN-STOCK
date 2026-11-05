@@ -21,7 +21,8 @@ const widths: Record<Size, string> = {
  * the other sizes are full-screen. `children` fill the rest as a flex column, so a form can
  * scroll its body and keep its action row in view.
  * Mount to open, unmount to close. React's `autoFocus` runs while the dialog is still
- * closed, so a control marked `data-autofocus` takes focus once it opens.
+ * closed, so a control marked `data-autofocus` takes focus once it opens; on a touch
+ * screen a text field does not keep it, so the keyboard waits for a tap.
  */
 export function Dialog({
   title,
@@ -49,6 +50,16 @@ export function Dialog({
     if (!dialog) return;
     if (!dialog.open) dialog.showModal?.();
     dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    // On a touch screen a text field in focus brings the keyboard up over the form before a
+    // tap, and a picker opened then moves as it goes.
+    const at = document.activeElement;
+    if (
+      window.matchMedia("(pointer: coarse)").matches &&
+      at instanceof HTMLElement &&
+      dialog.contains(at) &&
+      at.matches("input, textarea")
+    )
+      at.blur();
     return () => {
       if (dialog.open) dialog.close();
     };

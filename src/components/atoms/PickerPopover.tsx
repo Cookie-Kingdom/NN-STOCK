@@ -13,9 +13,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * Where a `DatePicker` or a `TimePicker` opens. One body, two presentations:
- *  - from md up, a panel under its `anchor`, or above it when there is more room there;
- *  - below md, a sheet at the bottom of the screen with `title` on top, so a calendar
- *    gets the width of the phone and cells a thumb can hit.
+ *  - with a mouse from md up, a panel under its `anchor`, or above it when there is more
+ *    room there;
+ *  - below md or on a touch screen, a sheet at the bottom of the screen with `title` on
+ *    top, so a calendar gets cells a thumb can hit and stays put while the keyboard goes.
  *
  * Like the list of a `Select` it is a `popover` rendered beside its control: the top
  * layer keeps a `Dialog` from clipping it, and staying inside the dialog's subtree keeps
@@ -34,7 +35,7 @@ export function PickerPopover({
   /** Names the dialog and heads the sheet. */
   title: string;
   onClose: () => void;
-  /** The panel's width from md up, e.g. `md:w-76`. */
+  /** The panel's width, e.g. `panel:w-76`. */
   className?: string;
   children: ReactNode;
 }) {
@@ -84,7 +85,7 @@ function Layer({
         8,
         Math.min(at.left, window.innerWidth - box.offsetWidth - 8),
       );
-      // Read by the panel from md up only; below md it is a sheet and ignores them.
+      // Read by the panel only; the sheet ignores them.
       el.style.setProperty("--picker-x", `${left}px`);
       el.style.setProperty("--picker-y", `${top}px`);
       el.style.setProperty("--picker-room", `${room}px`);
@@ -128,7 +129,7 @@ function Layer({
       popover="manual"
       role="dialog"
       aria-label={title}
-      className="fixed inset-0 m-0 size-full max-h-none max-w-none overflow-visible border-0 bg-transparent p-0 font-normal text-popover-foreground max-md:flex max-md:animate-fade-in max-md:items-end max-md:bg-text-primary/55 md:pointer-events-none dark:max-md:bg-black/65"
+      className="fixed inset-0 m-0 size-full max-h-none max-w-none overflow-visible border-0 bg-transparent p-0 font-normal text-popover-foreground sheet:flex sheet:animate-fade-in sheet:items-end sheet:bg-text-primary/55 dark:sheet:bg-black/65 panel:pointer-events-none"
       onClick={(event) => {
         // Inside a `<label>`, a click would go on to press the control again.
         event.preventDefault();
@@ -155,11 +156,11 @@ function Layer({
       <div
         ref={panel}
         className={cn(
-          "pointer-events-auto [scrollbar-width:thin] [scrollbar-color:var(--color-border-strong)_transparent] overflow-y-auto overscroll-contain border-border bg-popover shadow-lg max-md:max-h-[88dvh] max-md:w-full max-md:animate-fade-up max-md:rounded-t-lg max-md:border-t max-md:pb-[env(safe-area-inset-bottom)] md:absolute md:top-(--picker-y) md:left-(--picker-x) md:max-h-(--picker-room) md:animate-fade-in md:rounded-lg md:border",
+          "pointer-events-auto [scrollbar-width:thin] [scrollbar-color:var(--color-border-strong)_transparent] overflow-y-auto overscroll-contain border-border bg-popover shadow-lg sheet:mx-auto sheet:max-h-[88dvh] sheet:w-full sheet:max-w-lg sheet:animate-fade-up sheet:rounded-t-lg sheet:border-t sheet:pb-[env(safe-area-inset-bottom)] panel:absolute panel:top-(--picker-y) panel:left-(--picker-x) panel:max-h-(--picker-room) panel:animate-fade-in panel:rounded-lg panel:border",
           className,
         )}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border py-1 pr-1 pl-4 md:hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-border py-1 pr-1 pl-4 panel:hidden">
           <span className="text-h3">{title}</span>
           <IconButton label="ปิด" icon={<X size={18} />} onClick={onClose} />
         </div>

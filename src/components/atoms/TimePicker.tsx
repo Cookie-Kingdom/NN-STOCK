@@ -208,7 +208,7 @@ export function TimePicker({
         anchor={control}
         title={title}
         onClose={close}
-        className="md:w-58"
+        className="panel:w-58"
       >
         <div className="flex justify-center gap-2 px-3 pt-3 pb-1 tabular-nums">
           <Column

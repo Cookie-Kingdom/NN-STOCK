@@ -13,6 +13,18 @@
  */
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* A picker's two looks (PickerPopover): a sheet on a narrow screen or a touch screen (an
+ * iPad too: a floating panel moves under a finger as the keyboard comes and goes), a panel
+ * under its field with a mouse from md up. */
+@custom-variant sheet {
+  @media (width < 48rem) {
+    @slot;
+  }
+  @media (pointer: coarse) {
+    @slot;
+  }
+}
+@custom-variant panel (@media (width >= 48rem) and (pointer: fine));
 
 /* ---------------------------------------------------------------------------
  * Layer 1 — base / primitive.

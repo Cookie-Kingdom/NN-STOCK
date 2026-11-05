@@ -26,6 +26,10 @@ import { cn } from "@/lib/utils";
  * tells a pick from typed text.
  *
  * Keyboard: arrows move, Enter picks the highlighted suggestion, Escape closes the list.
+ *
+ * On a touch screen the first tap lists the options without the on-screen keyboard: the
+ * keyboard coming up moves the page under the list as it opens. A tap on the field while
+ * the list is open brings the keyboard, to type.
  */
 export function Combobox({
   options,
@@ -60,6 +64,8 @@ export function Combobox({
         )
       : options;
   const open = list !== null && shown.length > 0;
+  /** On touch: the field is being focused again to bring up the keyboard. */
+  const refocus = useRef(false);
   const popup = useDropdown(open, control);
 
   const choose = (index: number) => {
@@ -91,9 +97,30 @@ export function Combobox({
           onChange(event.target.value);
           setList({ active: -1, narrow: true });
         }}
+        onPointerDown={(event) => {
+          // A tap that focuses the field lists the options, with no keyboard yet.
+          if (
+            event.pointerType === "touch" &&
+            document.activeElement !== control.current
+          )
+            event.currentTarget.inputMode = "none";
+        }}
         // Not on focus: a Dialog focuses its first field as it opens.
-        onClick={() => setList(list ?? { active: -1, narrow: false })}
+        onClick={(event) => {
+          const el = event.currentTarget;
+          if (list && el.inputMode === "none") {
+            // A second tap types: iOS shows the keyboard only for a focus in the tap.
+            el.inputMode = props.inputMode ?? "text";
+            refocus.current = true;
+            el.blur();
+            el.focus();
+            refocus.current = false;
+            return;
+          }
+          setList(list ?? { active: -1, narrow: false });
+        }}
         onBlur={() => {
+          if (refocus.current) return;
           setList(null);
           if (!strict) return;
           const match =
