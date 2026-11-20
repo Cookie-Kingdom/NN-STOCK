@@ -10,6 +10,7 @@ import {
   meatItem,
   meatTypeOf,
   meatTypes,
+  suppliers,
   payCategories,
   payrollCategory,
   placeLabel,
@@ -193,6 +194,9 @@ const truck: Field[] = [
 ];
 const kg = (x: number) =>
   x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+/** The names of the sellers 「รายชื่อผู้ขาย」 still offers. */
+const liveSuppliers = (config: Values) =>
+  live(suppliers(config)).map((row) => row.name);
 /** What was typed before under `key` of `kind`, as suggestions after the `first` ones. */
 const known = (db: Database, first: string[], ...keys: [NoteKind, string][]) =>
   [
@@ -336,7 +340,19 @@ export function fields(
       // Left empty, the PO document prints the buyer from Settings (V2-PO-03).
       const fromSettings = { hint: "ถ้าเว้นว่าง จะใช้ค่าจาก Settings" };
       return [
-        core(text("supplier", "ผู้ขาย")),
+        core(
+          // A removed or renamed seller only on a note that names it.
+          select(
+            "supplier",
+            "ผู้ขาย",
+            Object.fromEntries(
+              [...liveSuppliers(db.config), ...[kept.supplier ?? ""]]
+                .filter(Boolean)
+                .map((name) => [name, name]),
+            ),
+            { search: true },
+          ),
+        ),
         ...meatTypeField(db, kept),
         core(number("orderedKg", "น้ำหนักเนื้อ", "กก.")),
         // What is left to smoke once Foodiva has sliced it: the saw takes some (Waste).
@@ -511,7 +527,7 @@ export function fields(
         text("supplier", "ผู้ขาย", {
           options: known(
             db,
-            ["Foodiva", "Chef House"],
+            [...liveSuppliers(db.config), "Chef House"],
             ["purchase", "supplier"],
             ["smokeOrder", "smoker"],
             ["pay", "supplier"],
@@ -770,7 +786,7 @@ export function defaults(kind: NoteKind, config?: Values): Values {
       taxId: config?.taxId,
     };
     return {
-      supplier: "Foodiva",
+      supplier: config ? liveSuppliers(config)[0] : "Foodiva",
       ...(meatType ? { meatType } : {}),
       ...Object.fromEntries(Object.entries(buyer).filter(([, value]) => value)),
     } as Values;

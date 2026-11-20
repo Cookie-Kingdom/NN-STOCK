@@ -160,6 +160,54 @@ export const Products: Story = {
   },
 };
 
+/** 「รายชื่อผู้ขาย」มีสามราย: Foodiva (รายแรก ไม่มีปุ่มลบ), สยามมีท (ที่อยู่สองบรรทัด) และ
+ *  ฟาร์มเนื้อเหนือ (ยังไม่ใส่ผู้รับออเดอร์และที่อยู่: ขึ้น「—」) · ฟอร์ม PO เนื้อเลือกผู้ขายจากรายชื่อนี้ */
+export const Suppliers: Story = {
+  parameters: {
+    db: mutate(
+      sampleDb,
+      accountById("owner")!,
+      "config",
+      {
+        suppliers: JSON.stringify([
+          {
+            id: "foodiva",
+            name: "Foodiva",
+            contact: "คุณสมชาย",
+            address: "88 ถนนพระราม 3 กรุงเทพฯ",
+          },
+          {
+            id: "sup-siam",
+            name: "สยามมีท",
+            contact: "คุณวิภา",
+            address: "12/3 หมู่ 4 ถนนบางนา-ตราด\nบางพลี สมุทรปราการ 10540",
+          },
+          {
+            id: "sup-north",
+            name: "ฟาร์มเนื้อเหนือ",
+            contact: "",
+            address: "",
+          },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
+/** กด「แก้ไข」ของ「รายชื่อผู้ขาย」: แถวละช่องชื่อ ผู้รับออเดอร์ และที่อยู่ (หลายบรรทัด) ·
+ *  「ลบ」ท้ายแถวยกเว้น Foodiva ·「เพิ่มผู้ขาย」เพิ่มแถวว่าง */
+export const EditSuppliers: Story = {
+  ...Suppliers,
+  play: async ({ canvas, userEvent }) =>
+    userEvent.click(
+      within(
+        await canvas.findByRole("region", { name: "รายชื่อผู้ขาย" }),
+      ).getByRole("button", { name: "แก้ไข" }),
+    ),
+};
+
 const channelKey = "sales.grab";
 /** Products แล้วเพิ่มช่องทางขาย Grab · กล่องมาตรฐานตั้งราคา Grab 380 (ราคาขาย 350) ·
  *  น้ำพริกหลอด「หยุดขาย」: มีป้ายข้างชื่อ และไม่มีช่องในฟอร์มยอดขาย (บรรทัดล่างสุด) ·

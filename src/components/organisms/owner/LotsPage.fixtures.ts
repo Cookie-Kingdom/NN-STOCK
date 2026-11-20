@@ -25,8 +25,14 @@ export const documentsDb: Database = (() => {
       attention: "คุณนนท์",
       companyPhone: "02-000-0000",
       taxId: "0105500000000",
-      foodivaContact: "คุณสมชาย",
-      foodivaAddress: "88 ถนนพระราม 3 กรุงเทพฯ",
+      suppliers: JSON.stringify([
+        {
+          id: "foodiva",
+          name: "Foodiva",
+          contact: "คุณสมชาย",
+          address: "88 ถนนพระราม 3 กรุงเทพฯ",
+        },
+      ]),
       chefHouseContact: "เชฟต้น",
       chefHouseAddress: "12 ถนนนิมมานเหมินท์ เชียงใหม่",
     },

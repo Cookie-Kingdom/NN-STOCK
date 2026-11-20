@@ -45,6 +45,7 @@ import {
   skuFor,
   stockLines,
   supplierBalances,
+  suppliers,
   todoOpens,
   todos,
   visibleEntries,
@@ -58,6 +59,7 @@ import {
 } from "@/lib/store";
 import { defaults, fields } from "@/lib/forms";
 import { navFor } from "@/lib/nav";
+import { purchaseOrderRows } from "@/components/organisms/shared/documentRows";
 import { scopeDatabase } from "@/lib/role-scope";
 import { sampleData } from "@/lib/store/demo";
 import { outflows } from "@/lib/store/derived";
@@ -3793,5 +3795,71 @@ describe("Settings: a row deleted stays in its list, so what was jotted of it st
     expect(fresh.sku).not.toBe(first.sku);
     expect(skuFor(d, first.name).sku).toBe(fresh.sku);
     expect(materialList(d)[0]).toMatchObject({ sku: first.sku, removed: "1" });
+  });
+});
+
+describe("รายชื่อผู้ขาย", () => {
+  const save = (d: Database, rows: Values[]) =>
+    mutate(d, owner, "config", { suppliers: JSON.stringify(rows) }, "", day);
+  const listed = save(seed, [
+    { id: "foodiva", name: "Foodiva", contact: "ก", address: "1" },
+    { id: "sup-a", name: "สยามมีท", contact: "คุณวิภา", address: "12 บางนา" },
+    { id: "sup-b", name: "ฟาร์มเหนือ", contact: "", address: "", removed: "1" },
+  ]);
+
+  it("a config saved before the list reads as Foodiva with its old contact and address", () => {
+    const config: Values = { ...seed.config, foodivaContact: "คุณสมชาย" };
+    expect(suppliers(config)).toEqual([
+      { id: "foodiva", name: "Foodiva", contact: "คุณสมชาย", address: "" },
+    ]);
+    delete config.suppliers;
+    expect(suppliers(config)[0].contact).toBe("คุณสมชาย");
+  });
+
+  it("Foodiva stays first and is never removed; a row needs a name", () => {
+    const sup = { id: "sup-a", name: "สยามมีท" };
+    expect(() => save(seed, [sup])).toThrow("อ่านรายการไม่ได้");
+    expect(() =>
+      save(seed, [{ id: "foodiva", name: "Foodiva", removed: "1" }]),
+    ).toThrow("ลบไม่ได้");
+    expect(() =>
+      save(seed, [
+        { id: "foodiva", name: "Foodiva" },
+        { ...sup, name: " " },
+      ]),
+    ).toThrow("ยังไม่ได้ใส่ชื่อ");
+    expect(suppliers(listed.config).length).toBe(3);
+  });
+
+  it("the PO เนื้อ form picks a live supplier, and keeps an old one on its own note", () => {
+    const options = (kept?: Values) =>
+      fields("purchase", listed, owner, undefined, kept)
+        .find((f) => f.key === "supplier")!
+        .options!.map((o) => o.value);
+    expect(options()).toEqual(["Foodiva", "สยามมีท"]);
+    expect(options({ supplier: "ร้านเก่า" })).toEqual([
+      "Foodiva",
+      "สยามมีท",
+      "ร้านเก่า",
+    ]);
+    expect(defaults("purchase", listed.config).supplier).toBe("Foodiva");
+    expect(() =>
+      mutate(listed, owner, "purchase", { supplier: "ฟาร์มเหนือ" }, "", day),
+    ).toThrow();
+  });
+
+  it("the PO document prints the chosen supplier's contact and address", () => {
+    const rows = new Map(
+      purchaseOrderRows(listed, {
+        date: day,
+        values: { supplier: " สยามมีท" },
+      }),
+    );
+    expect(rows.get("ผู้รับออเดอร์")).toBe("คุณวิภา");
+    expect(rows.get("ที่อยู่ผู้ให้บริการ")).toBe("12 บางนา");
+    const other = new Map(
+      purchaseOrderRows(listed, { date: day, values: { supplier: "อื่น" } }),
+    );
+    expect(other.get("ผู้รับออเดอร์")).toBe("—");
   });
 });

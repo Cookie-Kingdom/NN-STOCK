@@ -386,6 +386,7 @@ const settingLists: Record<string, { label: string; id: string }> = {
   payCategories: { label: "หมวดจ่ายเงิน", id: "id" },
   meatTypes: { label: "รายการเนื้อ", id: "id" },
   ingredientList: { label: "รายชื่อวัตถุดิบ", id: "id" },
+  suppliers: { label: "รายชื่อผู้ขาย", id: "id" },
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
@@ -504,6 +505,11 @@ function checkConfig(v: Values) {
       fixed((row) => row.id !== meatItem);
     }
     if (key === "ingredientList") assert(ids.every(isIngredientItem), broken);
+    // The first seller is Foodiva, what every PO saved before the list names; never removed.
+    if (key === "suppliers") {
+      assert(ids[0] === "foodiva", broken);
+      fixed((row) => row.id !== "foodiva");
+    }
     if (key === "salesChannels") {
       // A channel added in Settings keeps its money under a `sales.` key.
       assert(
