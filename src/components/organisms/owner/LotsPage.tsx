@@ -36,7 +36,6 @@ import {
   shipments,
   titles,
   visibleNotes,
-  type Entry,
   type Lot,
   type NoteKind,
   type Round,
@@ -234,14 +233,36 @@ const title = "flex flex-wrap items-center gap-x-3 gap-y-2";
 const facts =
   "m-0 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-3";
 const section = "m-0 text-body font-semibold";
-const buttons = "flex flex-wrap gap-2 max-sm:[&>button]:flex-1";
 
-const Documents = ({ children }: { children: ReactNode }) => (
-  <div className="flex flex-wrap items-center gap-2">
-    <span className="text-caption text-text-secondary">เอกสาร</span>
-    {children}
-  </div>
-);
+/** Every button of the PO in view in one bar under its title, a group per job: its name over
+ *  its buttons. A group with no button is left out. A round's own steps stay on its card. */
+function ActionBar({
+  groups,
+}: {
+  groups: { label: string; items: ReactNode[] }[];
+}) {
+  const shown = groups
+    .map((g) => ({ ...g, items: g.items.filter(Boolean) }))
+    .filter((g) => g.items.length);
+  if (!shown.length) return null;
+  return (
+    <div className="flex flex-wrap gap-x-8 gap-y-4 border-y border-border py-4 max-sm:flex-col">
+      {shown.map((g) => (
+        <div
+          key={g.label}
+          role="group"
+          aria-label={g.label}
+          className="flex min-w-0 flex-col gap-2"
+        >
+          <span className="text-caption text-text-secondary">{g.label}</span>
+          <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
+            {g.items}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** A jotted thing as a green button that opens its edit. */
 function Jotted({
@@ -420,24 +441,34 @@ function RoundCard({
 
 /** Whether a PO's bill is paid, as Accounting reads it (`ledgerRows`: a seller's payments
  *  fill its POs oldest first, so a payment may settle an older PO of the seller before this
- *  one), and 「จ่ายเงิน」 while it is not: the `pay` form with the seller and what is left. */
-function PoPayment({ ws, lot }: { ws: Workspace; lot: Lot }) {
+ *  one): `status` as a badge, and `pay`, 「จ่ายเงิน」 while it is not: the `pay` form with the
+ *  seller and what is left. */
+function poPayment(
+  ws: Workspace,
+  lot: Lot,
+): { status: ReactNode; pay: ReactNode } {
   const row = ledgerRows(ws.db).find(
     (row) => row.origin === "po" && row.id === lot.id,
   );
-  if (!row) return null;
+  if (!row) return { status: null, pay: null };
   const paid = row.paid ?? 0;
   const left = (row.poAmount ?? 0) - paid;
-  if (row.status === "paid") return <Badge tone="success">จ่ายเงินแล้ว</Badge>;
-  return (
-    <>
+  if (row.status === "paid")
+    return {
+      status: <Badge tone="success">จ่ายเงินแล้ว</Badge>,
+      pay: null,
+    };
+  return {
+    status: (
       <Badge tone="warning">
         {paid > 0
           ? `จ่ายแล้ว ${baht(paid)} ค้างจ่าย ${baht(left)}`
           : "ยังไม่จ่ายเงิน"}
       </Badge>
+    ),
+    pay: (
       <Button
-        size="sm"
+        key="pay"
         onClick={() =>
           ws.jot({
             kind: "pay",
@@ -451,8 +482,8 @@ function PoPayment({ ws, lot }: { ws: Workspace; lot: Lot }) {
       >
         จ่ายเงิน
       </Button>
-    </>
-  );
+    ),
+  };
 }
 
 function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
@@ -470,6 +501,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
     ...of("smokeOrder").map((e) => (
       <DocumentPrintButton
         key={e.id}
+        size="md"
         label={`PO รมควัน ${e.values.orderNumber ?? ""}`}
         title="Smoke Service Purchase Order"
         number={e.values.orderNumber || lot.poId}
@@ -479,6 +511,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
     ...of("packingList").map((e) => (
       <DocumentPrintButton
         key={e.id}
+        size="md"
         label="Packing List"
         title="Packing List"
         number={lot.poId}
@@ -488,6 +521,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
     ...[...of("dispatch"), ...of("return")].map((e) => (
       <DocumentPrintButton
         key={e.id}
+        size="md"
         label={`${e.kind === "dispatch" ? "ใบขนส่งขาไป" : "ใบขนส่งขากลับ"} ${e.values.transferNumber ?? ""}`}
         title={transportDocumentTitle[e.kind as "dispatch" | "return"]}
         number={e.values.transferNumber || lot.poId}
@@ -495,6 +529,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
       />
     )),
   ];
+  const payment = poPayment(ws, lot);
   return (
     <>
       <div className={title}>
@@ -507,17 +542,70 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
         <Badge tone={info.complete ? "success" : "warning"}>
           {info.complete ? "จดครบแล้ว" : `${missingText} ${info.yellow} อย่าง`}
         </Badge>
-        <PoPayment ws={ws} lot={lot} />
-        {order && can("smokeOrder") && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => ws.edit(order.id)}
-          >
-            แก้ไข PO
-          </Button>
-        )}
+        {payment.status}
       </div>
+      <ActionBar
+        groups={[
+          {
+            label: "PO รมควัน",
+            items: [
+              order && can("smokeOrder") && (
+                <Button
+                  key="edit"
+                  variant="secondary"
+                  onClick={() => ws.edit(order.id)}
+                >
+                  แก้ไข PO
+                </Button>
+              ),
+            ],
+          },
+          {
+            label: "บันทึก",
+            items: [
+              can("dispatch") && (
+                <Button
+                  key="dispatch"
+                  variant="primary"
+                  onClick={() => ws.jot({ kind: "dispatch", lotId: lot.id })}
+                >
+                  + ส่งไปรมควัน (รอบใหม่)
+                </Button>
+              ),
+              invoice ? (
+                <Button
+                  key="invoice"
+                  variant="secondary"
+                  onClick={() => ws.edit(invoice.id)}
+                >
+                  แก้ไข Invoice
+                  <Small>
+                    {invoice.values.invoiceNumber || "Chef House"} ·{" "}
+                    {baht(info.fee)}
+                  </Small>
+                </Button>
+              ) : (
+                can("smokingInvoice") && (
+                  // Yellow: the invoice is among what the heading counts as not jotted.
+                  <Button
+                    key="invoice"
+                    variant="secondary"
+                    data-tone="warning"
+                    className="border-warning/40 bg-warning-subtle text-warning hover:border-warning hover:bg-warning-subtle"
+                    onClick={() =>
+                      ws.jot({ kind: "smokingInvoice", lotId: lot.id })
+                    }
+                  >
+                    + บันทึก Invoice Chef House
+                  </Button>
+                )
+              ),
+            ],
+          },
+          { label: "การเงิน", items: [payment.pay] },
+          { label: "พิมพ์เอกสาร", items: documents },
+        ]}
+      />
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-body-sm tabular-nums">
           ส่งแล้ว <strong>{qty(info.sentKg)}</strong> / {qty(info.capacityKg)}{" "}
@@ -546,36 +634,6 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             style={{ width: `${Math.min(100, share * 100)}%` }}
           />
         </div>
-      </div>
-      <div className={buttons}>
-        {can("dispatch") && (
-          <Button
-            variant="primary"
-            onClick={() => ws.jot({ kind: "dispatch", lotId: lot.id })}
-          >
-            + ส่งไปรมควัน (รอบใหม่)
-          </Button>
-        )}
-        {invoice ? (
-          <Button variant="secondary" onClick={() => ws.edit(invoice.id)}>
-            แก้ไข Invoice
-            <Small>
-              {invoice.values.invoiceNumber || "Chef House"} · {baht(info.fee)}
-            </Small>
-          </Button>
-        ) : (
-          can("smokingInvoice") && (
-            // Yellow: the invoice is among what the heading counts as not jotted.
-            <Button
-              variant="secondary"
-              data-tone="warning"
-              className="border-warning/40 bg-warning-subtle text-warning hover:border-warning hover:bg-warning-subtle"
-              onClick={() => ws.jot({ kind: "smokingInvoice", lotId: lot.id })}
-            >
-              + บันทึก Invoice Chef House
-            </Button>
-          )
-        )}
       </div>
       {info.unlinked && (
         <StatusTile
@@ -638,13 +696,6 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           <Kg value={info.centralKg} />
         </Fact>
       </dl>
-      <Documents>
-        {documents.length ? (
-          documents
-        ) : (
-          <Small>จะขึ้นเมื่อมี PO รมควัน, Packing List หรือรอบส่ง</Small>
-        )}
-      </Documents>
     </>
   );
 }
@@ -663,6 +714,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
   const byInvoice = (key: string) =>
     invoice?.values[key]?.trim() ? <Small>(ตาม Invoice)</Small> : null;
   const typed = (key: string) => !!(invoice?.values[key] || v[key])?.trim();
+  const payment = poPayment(ws, po);
   return (
     <>
       <div className={title}>
@@ -677,17 +729,109 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
             {missingText} {empty.length} ช่อง
           </Badge>
         )}
-        <PoPayment ws={ws} lot={po} />
-        {purchase && can("purchase") && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => ws.edit(purchase.id)}
-          >
-            แก้ไข PO
-          </Button>
-        )}
+        {payment.status}
       </div>
+      <ActionBar
+        groups={[
+          {
+            label: "PO เนื้อ",
+            items: [
+              purchase && can("purchase") && (
+                <Button
+                  key="edit"
+                  variant="secondary"
+                  onClick={() => ws.edit(purchase.id)}
+                >
+                  แก้ไข PO
+                </Button>
+              ),
+            ],
+          },
+          {
+            label: "บันทึก",
+            items: [
+              info.wastePending
+                ? can("ownerWasteReceive") && (
+                    <Button
+                      key="received"
+                      variant="primary"
+                      onClick={() =>
+                        ws.jot({
+                          kind: "ownerWasteReceive",
+                          lotId: po.id,
+                          values: { receivedKg: String(info.wasteKg) },
+                        })
+                      }
+                    >
+                      รับเนื้อรอรับแล้ว
+                    </Button>
+                  )
+                : received && (
+                    <Button
+                      key="received"
+                      variant="secondary"
+                      onClick={() => ws.edit(received.id)}
+                    >
+                      แก้ไขการรับเนื้อรอรับ
+                      <Small>
+                        {qty(info.wasteReceivedKg)} กก. ·{" "}
+                        {dateLabel(received.date)}
+                      </Small>
+                    </Button>
+                  ),
+              invoice ? (
+                <Button
+                  key="invoice"
+                  variant="secondary"
+                  onClick={() => ws.edit(invoice.id)}
+                >
+                  แก้ไข Invoice
+                  <Small>
+                    {[
+                      invoice.values.invoiceNumber,
+                      invoice.values.netPayable
+                        ? baht(Number(invoice.values.netPayable))
+                        : "ยังไม่ได้จดยอด",
+                      invoice.values.invoiceDate &&
+                        dateLabel(invoice.values.invoiceDate),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Small>
+                </Button>
+              ) : (
+                can("meatInvoice") && (
+                  <Button
+                    key="invoice"
+                    variant="secondary"
+                    onClick={() =>
+                      ws.jot({ kind: "meatInvoice", lotId: po.id })
+                    }
+                  >
+                    + บันทึก Invoice Foodiva
+                  </Button>
+                )
+              ),
+            ],
+          },
+          { label: "การเงิน", items: [payment.pay] },
+          {
+            label: "พิมพ์เอกสาร",
+            items: [
+              purchase && (
+                <DocumentPrintButton
+                  key="po"
+                  size="md"
+                  label="PO เนื้อ"
+                  title="Purchase Order"
+                  number={po.poId}
+                  rows={purchaseOrderRows(db, purchase)}
+                />
+              ),
+            ],
+          },
+        ]}
+      />
       <dl className={facts}>
         <Fact label="เนื้อ">
           {typed("orderedKg") ? `${qty(terms.meatKg)} กก.` : none}{" "}
@@ -735,80 +879,20 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
         </Fact>
       </dl>
       {info.wastePending ? (
-        <Notice
-          tone="warning"
-          className="my-0 max-sm:flex-col max-sm:items-stretch"
-          action={
-            can("ownerWasteReceive") && (
-              <Button
-                variant="primary"
-                onClick={() =>
-                  ws.jot({
-                    kind: "ownerWasteReceive",
-                    lotId: po.id,
-                    values: { receivedKg: String(info.wasteKg) },
-                  })
-                }
-              >
-                รับเนื้อรอรับแล้ว
-              </Button>
-            )
-          }
-        >
+        <Notice tone="warning" className="my-0">
           <strong className="tabular-nums">
             เนื้อรอรับ {qty(info.wasteKg)} กก.
-          </strong>
+          </strong>{" "}
+          ยังไม่ได้รับ
         </Notice>
       ) : (
         received && (
-          <Jotted label="เนื้อรอรับ" onEdit={() => ws.edit(received.id)}>
+          <p className="m-0 text-body-sm text-success tabular-nums">
             รับเนื้อรอรับแล้ว {qty(info.wasteReceivedKg)} กก. ·{" "}
             {dateLabel(received.date)}
-          </Jotted>
+          </p>
         )
-      )}
-      <h3 className={section}>Invoice Foodiva</h3>
-      {invoice ? (
-        <InvoiceSummary entry={invoice} onEdit={() => ws.edit(invoice.id)} />
-      ) : can("meatInvoice") ? (
-        <div className={buttons}>
-          <Button
-            variant="secondary"
-            onClick={() => ws.jot({ kind: "meatInvoice", lotId: po.id })}
-          >
-            + บันทึก Invoice Foodiva
-          </Button>
-        </div>
-      ) : (
-        <Small>ยังไม่มี Invoice</Small>
-      )}
-      {purchase && (
-        <Documents>
-          <DocumentPrintButton
-            label="PO เนื้อ"
-            title="Purchase Order"
-            number={po.poId}
-            rows={purchaseOrderRows(db, purchase)}
-          />
-        </Documents>
       )}
     </>
   );
 }
-
-const InvoiceSummary = ({
-  entry,
-  onEdit,
-}: {
-  entry: Entry;
-  onEdit: () => void;
-}) => (
-  <Jotted label={`Invoice ${entry.values.invoiceNumber || ""}`} onEdit={onEdit}>
-    {entry.values.netPayable ? (
-      baht(Number(entry.values.netPayable))
-    ) : (
-      <MissingMark />
-    )}
-    {entry.values.invoiceDate && ` · ${dateLabel(entry.values.invoiceDate)}`}
-  </Jotted>
-);
