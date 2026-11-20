@@ -217,11 +217,20 @@ export function LotsPage({ ws }: { ws: Workspace }) {
             )}
           </div>
           {notes.length > 0 && (
-            <div className="min-w-0">
+            <section aria-labelledby="lot-log" className="min-w-0">
+              <div className="border-b border-border px-5 pt-5 pb-3 max-md:px-4">
+                <h3 id="lot-log" className={section}>
+                  บันทึกของ PO นี้ ({notes.length})
+                </h3>
+                <p className="m-0 mt-0.5 text-caption text-text-secondary">
+                  ทุกอย่างที่จดไว้ใน PO นี้ กดที่แถวเพื่อดูรายละเอียด แก้ไข
+                  หรือลบ
+                </p>
+              </div>
               {notes.map((e) => (
                 <NoteRow key={e.id} entry={e} ws={ws} dated />
               ))}
-            </div>
+            </section>
           )}
         </Panel>
       </div>
