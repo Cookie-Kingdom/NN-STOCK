@@ -86,7 +86,8 @@ export function PoDocumentDialog({
   const [checking, setChecking] = useState(false);
   const checkId = useId();
 
-  const shown = fields(kind, db, account).filter(
+  // The saved note's values keep its own choices (a removed supplier or kind of meat) offered.
+  const shown = fields(kind, db, account, undefined, saved?.values).filter(
     (f) => !f.when || f.when(values),
   );
   const set = (key: string, value: string) => {

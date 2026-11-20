@@ -508,6 +508,15 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           {info.complete ? "จดครบแล้ว" : `${missingText} ${info.yellow} อย่าง`}
         </Badge>
         <PoPayment ws={ws} lot={lot} />
+        {order && can("smokeOrder") && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => ws.edit(order.id)}
+          >
+            แก้ไข PO
+          </Button>
+        )}
       </div>
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-body-sm tabular-nums">
@@ -669,6 +678,15 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
           </Badge>
         )}
         <PoPayment ws={ws} lot={po} />
+        {purchase && can("purchase") && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => ws.edit(purchase.id)}
+          >
+            แก้ไข PO
+          </Button>
+        )}
       </div>
       <dl className={facts}>
         <Fact label="เนื้อ">
