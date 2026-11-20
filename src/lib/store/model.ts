@@ -417,6 +417,9 @@ type PayCategory = { id: string; name: string } & Removed;
 const listDefaults = {
   // รายการเนื้อ: one kind until the Owner adds another (meatTypes).
   meatTypes: JSON.stringify([{ id: "meat", code: "RM-0001", name: "เนื้อ" }]),
+  /* รายชื่อผู้ขาย: Foodiva until the Owner adds another (suppliers). No contact or address
+   * keys: the reader takes them from the settings kept before the list. */
+  suppliers: JSON.stringify([{ id: "foodiva", name: "Foodiva" }]),
   // รายชื่อวัตถุดิบ: empty until Accounting buys one or the Owner adds one (ingredientList).
   ingredientList: "[]",
   salesChannels: JSON.stringify([
@@ -550,6 +553,45 @@ export const meatTypes = (config: Values): MeatType[] => {
     name: "เนื้อ",
   };
   return [first, ...rows.filter((row) => row.id !== meatItem)];
+};
+/** A seller of 「รายชื่อผู้ขาย」 (`config.suppliers`): a PO เนื้อ's `supplier` picks one by
+ *  `name`, and its PO document prints the `contact` and `address`. The first is `foodiva`
+ *  (never removed, renamable); one added later is `sup-<id>`. */
+export type Supplier = {
+  id: string;
+  name: string;
+  contact: string;
+  address: string;
+} & Removed;
+const firstSupplier = "foodiva";
+/** 「รายชื่อผู้ขาย」, `foodiva` always first. A row saved before the list has no `contact` /
+ *  `address`: Foodiva's are the settings kept before it (`foodivaContact`, `foodivaAddress`).
+ *  shortcut: notes keep the supplier's name, so a rename does not reach past notes; key them
+ *  by id if that matters. */
+export const suppliers = (config: Values): Supplier[] => {
+  const rows = list(config, "suppliers")
+    .filter((row) => row?.id)
+    .map((row) => {
+      const legacy = row.id === firstSupplier;
+      return {
+        id: String(row.id),
+        name: String(row.name ?? "").trim() || (legacy ? "Foodiva" : ""),
+        contact: String(
+          row.contact ?? (legacy ? config.foodivaContact : "") ?? "",
+        ),
+        address: String(
+          row.address ?? (legacy ? config.foodivaAddress : "") ?? "",
+        ),
+        ...removedOf(row),
+      };
+    });
+  const first = rows.find((row) => row.id === firstSupplier) ?? {
+    id: firstSupplier,
+    name: "Foodiva",
+    contact: config.foodivaContact ?? "",
+    address: config.foodivaAddress ?? "",
+  };
+  return [first, ...rows.filter((row) => row.id !== firstSupplier)];
 };
 /** The kind of meat of a PO เนื้อ or a Lot รมควัน (`values.meatType`); one saved before the
  *  list is of `meat`. */

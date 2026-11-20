@@ -8,6 +8,7 @@ import {
   type Database,
   type Entry,
   type Lot,
+  suppliers,
   type Values,
 } from "@/lib/store";
 import { linesText } from "./noteText";
@@ -30,16 +31,18 @@ const company = (db: Database, own: Values = {}): DocumentRows => [
   ["โลโก้", db.config.logoStorageKey || db.config.logoData || ""],
 ];
 
-/** Settings holds a contact and an address for Foodiva and for Chef House only (`key` is
- *  `foodiva` or `chefHouse`): another seller prints without them. */
-const seller = (db: Database, name: string, key: string): DocumentRows => {
-  const known = name.replace(/\s/g, "").toLowerCase() === key.toLowerCase();
-  return [
-    ["Supplier", name || "—"],
-    ["ผู้รับออเดอร์", (known && db.config[`${key}Contact`]) || "—"],
-    ["ที่อยู่ผู้ให้บริการ", (known && db.config[`${key}Address`]) || "—"],
-  ];
-};
+/** The seller block: `known` is the seller's contact and address as Settings holds them, if
+ *  it holds that seller. */
+const seller = (
+  name: string,
+  known?: { contact: string; address: string },
+): DocumentRows => [
+  ["Supplier", name || "—"],
+  ["ผู้รับออเดอร์", known?.contact || "—"],
+  ["ที่อยู่ผู้ให้บริการ", known?.address || "—"],
+];
+/** A name as matched: trimmed, case-insensitive. */
+const norm = (name: string) => name.trim().toLowerCase();
 
 /** PO ซื้อเนื้อ, from the PO's `purchase` note (saved, or a draft's values). */
 export function purchaseOrderRows(db: Database, purchase: Note): DocumentRows {
@@ -47,7 +50,13 @@ export function purchaseOrderRows(db: Database, purchase: Note): DocumentRows {
   const priced = v.orderedKg && v.price;
   return [
     ...company(db, v),
-    ...seller(db, v.supplier ?? "", "foodiva"),
+    // Any seller of 「รายชื่อผู้ขาย」, a removed one too: an old PO still prints its own.
+    ...seller(
+      v.supplier ?? "",
+      suppliers(db.config).find(
+        (row) => norm(row.name) === norm(v.supplier ?? ""),
+      ),
+    ),
     ["วันที่ PO", purchase.date],
     [
       "สินค้า",
@@ -86,7 +95,17 @@ export function smokeOrderPrintRows(
   const money = (value = "") => (value ? `฿${fmt(Number(value))}` : "—");
   return [
     ...company(db),
-    ...seller(db, v.smoker || "Chef House", "chefHouse"),
+    // Settings holds a contact and an address for Chef House only.
+    ...seller(
+      v.smoker || "Chef House",
+      (v.smoker || "Chef House").replace(/\s/g, "").toLowerCase() ===
+        "chefhouse"
+        ? {
+            contact: db.config.chefHouseContact ?? "",
+            address: db.config.chefHouseAddress ?? "",
+          }
+        : undefined,
+    ),
     ["วันที่ PO", v.requestedSmokeDate || order.date],
     ["กำหนดเสร็จ", v.expectedFinishedDate || "—"],
     // The print's smoke layout reads this label for the PO รมควัน number.

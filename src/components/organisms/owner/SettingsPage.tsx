@@ -39,6 +39,7 @@ import {
   materialList,
   meatItem,
   meatTypes,
+  suppliers,
   mutate,
   payCategories,
   boxProduct,
@@ -49,8 +50,9 @@ import {
   type Values,
 } from "@/lib/store";
 
-type Section = "numbers" | "channels" | "categories" | "meats" | "header";
-type ListSection = "channels" | "categories" | "meats";
+type Section =
+  "numbers" | "channels" | "categories" | "meats" | "suppliers" | "header";
+type ListSection = "channels" | "categories" | "meats" | "suppliers";
 type Setting = {
   key: string;
   label: string;
@@ -69,15 +71,13 @@ const numbers: Setting[] = [
   { key: "smokeRate1000", label: "ค่ารมต่อกก. ตั้งแต่ 1,000 กก.", unit: "บาท" },
   { key: "smokeRate1500", label: "ค่ารมต่อกก. ตั้งแต่ 1,500 กก.", unit: "บาท" },
 ];
-/** In the order a PO prints them: the buyer, then each seller. */
+/** In the order a PO prints them: the buyer, then Chef House (a PO เนื้อ's sellers are a list). */
 const header: Setting[] = [
   { key: "companyName", label: "ชื่อบริษัท" },
   { key: "companyAddress", label: "ที่อยู่", wide: true },
   { key: "attention", label: "ผู้ติดต่อ" },
   { key: "companyPhone", label: "เบอร์ติดต่อ" },
   { key: "taxId", label: "เลขผู้เสียภาษี" },
-  { key: "foodivaContact", label: "ผู้รับออเดอร์ Foodiva", row: true },
-  { key: "foodivaAddress", label: "ที่อยู่ Foodiva", wide: true, lines: true },
   { key: "chefHouseContact", label: "ผู้รับออเดอร์ Chef House", row: true },
   {
     key: "chefHouseAddress",
@@ -88,7 +88,8 @@ const header: Setting[] = [
 ];
 const logoKeys = ["logoStorageKey", "logoData", "logoName"];
 /** A list setting: the `config` key that holds it as JSON, the value that names a row, the
- *  figure a row carries beside its name, and the id a new row gets (blueprint 1.3). */
+ *  values a row carries beside its name (`figure`: a number; `lines`: several lines), and the
+ *  id a new row gets (blueprint 1.3). */
 const lists: Record<
   ListSection,
   {
@@ -96,7 +97,12 @@ const lists: Record<
     key: string;
     id: "key" | "id";
     name: string;
-    extra?: { key: string; label: string };
+    extras?: {
+      key: string;
+      label: string;
+      figure?: boolean;
+      lines?: boolean;
+    }[];
     /** The column of the code the web issues a row on the save (read-only). */
     code?: string;
     add: string;
@@ -108,7 +114,7 @@ const lists: Record<
     key: "salesChannels",
     id: "key",
     name: "ช่องทาง",
-    extra: { key: "gp", label: "GP %" },
+    extras: [{ key: "gp", label: "GP %", figure: true }],
     add: "เพิ่มช่องทาง",
     // An added channel keeps its money under this prefix (checkConfig).
     prefix: "sales.",
@@ -131,6 +137,18 @@ const lists: Record<
     // A kind of meat's id (isMeatItem).
     prefix: "meat-",
   },
+  suppliers: {
+    title: "รายชื่อผู้ขาย",
+    key: "suppliers",
+    id: "id",
+    name: "ผู้ขาย",
+    extras: [
+      { key: "contact", label: "ผู้รับออเดอร์" },
+      { key: "address", label: "ที่อยู่", lines: true },
+    ],
+    add: "เพิ่มผู้ขาย",
+    prefix: "sup-",
+  },
 };
 const titles: Record<Section, string> = {
   numbers: "ตัวเลขสำหรับคำนวณ",
@@ -138,6 +156,7 @@ const titles: Record<Section, string> = {
   channels: lists.channels.title,
   categories: lists.categories.title,
   meats: lists.meats.title,
+  suppliers: lists.suppliers.title,
 };
 const isList = (section: Section): section is ListSection => section in lists;
 /** The ten categories the rules hang on: renamed, never removed. */
@@ -148,7 +167,9 @@ const rowsOf = (db: Database, section: ListSection): Values[] =>
     ? salesChannels(db.config).map((c) => ({ ...c, gp: String(c.gp) }))
     : section === "meats"
       ? meatTypes(db.config)
-      : payCategories(db.config);
+      : section === "suppliers"
+        ? suppliers(db.config)
+        : payCategories(db.config);
 /** `from` with one empty row more, under a new id. */
 const addRow = (section: ListSection, from: Values[]): Values[] => [
   ...from,
@@ -156,7 +177,9 @@ const addRow = (section: ListSection, from: Values[]): Values[] => [
     // ponytail: the clock as the short id; one Owner adds one row at a time.
     [lists[section].id]: lists[section].prefix + Date.now().toString(36),
     name: "",
-    ...(lists[section].extra && { [lists[section].extra.key]: "" }),
+    ...Object.fromEntries(
+      (lists[section].extras ?? []).map((extra) => [extra.key, ""]),
+    ),
   },
 ];
 const grid =
@@ -412,7 +435,7 @@ export function SettingsPage({
   /** A list: its rows as a table, with inputs and one more row while it is open, and 「ลบ」 on
    *  each `removable` row. A deleted row (`removed`) is not shown, but saved with the rest. */
   const list = (section: ListSection, removable: (row: Values) => boolean) => {
-    const { id, name, extra, code, add } = lists[section];
+    const { id, name, extras = [], code, add } = lists[section];
     const open = editing === section;
     const saved = new Set(rowsOf(db, section).map((row) => row[id]));
     return (
@@ -436,10 +459,12 @@ export function SettingsPage({
             columns={[
               ...(code ? [code] : []),
               name,
-              ...(extra ? [extra.label] : []),
+              ...extras.map((extra) => extra.label),
               "",
             ]}
-            right={extra ? [extra.label] : []}
+            right={extras
+              .filter((extra) => extra.figure)
+              .map((extra) => extra.label)}
           >
             {(open ? rows : rowsOf(db, section)).map((row, index) =>
               row.removed ? null : (
@@ -463,19 +488,39 @@ export function SettingsPage({
                           }
                         />
                       </Cell>
-                      {extra && (
-                        <Cell right className="py-1.5">
-                          <Input
-                            inputMode="decimal"
-                            aria-label={`${extra.label} ${row.name}`}
-                            className="mt-0 ml-auto min-h-10 w-20 text-right"
-                            value={row[extra.key]}
-                            onChange={(event) =>
-                              setRow(index, extra.key, event.target.value)
-                            }
-                          />
+                      {extras.map((extra) => (
+                        <Cell
+                          key={extra.key}
+                          right={extra.figure}
+                          className="py-1.5"
+                        >
+                          {extra.lines ? (
+                            <Textarea
+                              rows={3}
+                              aria-label={`${extra.label} ${row.name}`}
+                              className="mt-0 min-w-48"
+                              value={row[extra.key]}
+                              onChange={(event) =>
+                                setRow(index, extra.key, event.target.value)
+                              }
+                            />
+                          ) : (
+                            <Input
+                              inputMode={extra.figure ? "decimal" : undefined}
+                              aria-label={`${extra.label} ${row.name}`}
+                              className={
+                                extra.figure
+                                  ? "mt-0 ml-auto min-h-10 w-20 text-right"
+                                  : "mt-0 min-h-10 min-w-28"
+                              }
+                              value={row[extra.key]}
+                              onChange={(event) =>
+                                setRow(index, extra.key, event.target.value)
+                              }
+                            />
+                          )}
                         </Cell>
-                      )}
+                      ))}
                       <Cell right className="py-0">
                         {removable(row) && (
                           <Button
@@ -498,10 +543,21 @@ export function SettingsPage({
                   ) : (
                     <>
                       <Cell>{row.name}</Cell>
-                      {extra && (
-                        <Cell right>
-                          <ReadOnlyValue>{row[extra.key] || "—"}</ReadOnlyValue>
-                        </Cell>
+                      {extras.map((extra) =>
+                        extra.figure ? (
+                          <Cell key={extra.key} right>
+                            <ReadOnlyValue>
+                              {row[extra.key] || "—"}
+                            </ReadOnlyValue>
+                          </Cell>
+                        ) : (
+                          <Cell
+                            key={extra.key}
+                            className="[overflow-wrap:anywhere] whitespace-pre-line"
+                          >
+                            {row[extra.key] || "—"}
+                          </Cell>
+                        ),
                       )}
                       <Cell right className="py-0">
                         {removable(row) && removeButton(section, row)}
@@ -745,6 +801,11 @@ export function SettingsPage({
             </DayCard>
           </div>
           <div className="flex min-w-0 flex-col gap-4">
+            {card(
+              "suppliers",
+              "ผู้ขายที่ใช้ในฟอร์ม PO เนื้อ ผู้รับออเดอร์และที่อยู่จะพิมพ์บนเอกสาร PO ผู้ขายรายแรกลบไม่ได้แต่แก้ชื่อได้ ผู้ขายที่ลบแล้วไม่ขึ้นในฟอร์มใหม่ แต่ยอดที่เคยจดยังนับตามเดิม แก้ชื่อแล้ว PO เดิมยังใช้ชื่อเดิม",
+              list("suppliers", (row) => row.id !== "foodiva"),
+            )}
             {card(
               "header",
               "หัวเอกสารของ PO เนื้อ, PO รมควัน, Packing List และใบขนส่ง",

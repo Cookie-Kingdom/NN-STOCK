@@ -66,6 +66,8 @@ export {
   live,
   meatTypeOf,
   meatTypeName,
+  type Supplier,
+  suppliers,
   payCategories,
   payrollCategory,
   rentCategory,

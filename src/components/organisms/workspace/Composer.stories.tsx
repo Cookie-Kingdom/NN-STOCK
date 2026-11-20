@@ -169,6 +169,34 @@ type Story = StoryObj<typeof meta>;
  *  「ที่มา / ประเภทบิล」 ต่อจากผู้จ่าย ตัวเลือกเดียวกับฟอร์มบันทึกค่าใช้จ่าย เริ่มที่เงินโอน เว้นว่างได้ */
 export const Pay: Story = {};
 
+/** PO เนื้อ: ช่อง「ผู้ขาย」เป็นรายการให้เลือก (ค้นหาได้) จาก「รายชื่อผู้ขาย」ใน Settings:
+ *  Foodiva และสยามมีท เริ่มที่ Foodiva (รายแรก) · ฟาร์มเนื้อเหนือถูกลบแล้ว จึงไม่อยู่ในรายการ */
+export const PurchaseSuppliers: Story = {
+  args: { open: { kind: "purchase" } },
+  parameters: {
+    db: mutate(
+      sampleDb,
+      accountById("owner")!,
+      "config",
+      {
+        suppliers: JSON.stringify([
+          { id: "foodiva", name: "Foodiva", contact: "", address: "" },
+          { id: "sup-siam", name: "สยามมีท", contact: "", address: "" },
+          {
+            id: "sup-north",
+            name: "ฟาร์มเนื้อเหนือ",
+            contact: "",
+            address: "",
+            removed: "1",
+          },
+        ]),
+      },
+      "",
+      today(),
+    ),
+  },
+};
+
 /** จ่ายเงินที่ใส่ผู้ขายและยอดแล้ว: แถบขวาบอกค้างจ่าย Foodiva ก่อนจ่ายและหลังจ่าย */
 export const PaySupplier: Story = {
   args: {
