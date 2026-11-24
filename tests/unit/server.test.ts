@@ -339,16 +339,16 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
   );
 });
 
-test("the Owner saves an archive of a document and its Unarchive; no branch receives either", () => {
+test("the Owner saves an archive of a PO and its Unarchive; no branch receives either", () => {
   const db = stored(sampleData(today()));
   const copy = loadState(db, owner);
-  const back = copy.payload.entries.find((e) => e.kind === "return")!;
+  const lotId = copy.payload.lots.find((lot) => lot.kind === "shipment")!.id;
   let next = mutate(
     copy.payload,
     owner,
     "archive",
-    { targetId: back.id },
-    "",
+    { targetLotId: lotId },
+    lotId,
     today(),
   );
   const archive = next.entries.at(-1)!;

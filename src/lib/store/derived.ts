@@ -124,10 +124,10 @@ export function entries(
       (!date || e.date === date),
   );
 }
-/** Archived documents: each note's id → the live `archive` entry that hides it. Keyed on the
- *  note, so an edit keeps it archived and an undone delete brings it back archived. */
-export const archivedDocuments = (db: Database) =>
-  new Map(entries(db, "archive").map((e) => [e.values.targetId, e.id]));
+/** Archived POs (V2-DOC-05): each lot's id → the live `archive` entry that hides it from the
+ *  Lots page's lists, the lot pickers and the bell. No figure reads it. */
+export const archivedLots = (db: Database) =>
+  new Map(entries(db, "archive").map((e) => [e.values.targetLotId, e.id]));
 /** Box weights typed one per line or comma-separated. Bad tokens stay NaN so `mutate` can reject them. */
 export const packWeights = (packs = "") =>
   packs

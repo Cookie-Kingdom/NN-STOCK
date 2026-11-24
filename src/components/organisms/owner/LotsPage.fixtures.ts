@@ -222,15 +222,12 @@ export const meatTypesDb: Database = (() => {
   );
 })();
 
-/** The documents one with its truck back archived: under 「Archived (1)」. */
-export const archivedDocumentsDb: Database = (() => {
-  const back = documentsDb.entries.findLast((e) => e.kind === "return")!;
-  return mutate(
-    documentsDb,
-    owner,
-    "archive",
-    { targetId: back.id },
-    back.lotId,
-    today(),
-  );
-})();
+/** The sample with its first PO รมควัน archived: under 「Archived (1)」. */
+export const archivedLotDb: Database = mutate(
+  sampleDb,
+  owner,
+  "archive",
+  { targetLotId: shipments(sampleDb)[0].id },
+  shipments(sampleDb)[0].id,
+  today(),
+);

@@ -9,7 +9,6 @@ import { newId } from "../id";
 import {
   batchKinds,
   boxProduct,
-  documentKinds,
   lastProductCode,
   productCodeText,
   codeNumber,
@@ -51,10 +50,11 @@ import {
   foodivaPlace,
 } from "./model";
 import {
-  archivedDocuments,
+  archivedLots,
   decimal,
   defaultRound,
   entries,
+  liveLots,
   materialList,
   nextNumberPreview,
   pendingTransfers,
@@ -764,29 +764,18 @@ export function mutate(
       },
     };
   } else if (kind === "archive") {
-    // V2-DOC: hides a document's button on the Lots page; its `void` is the Unarchive.
+    // V2-DOC-05: hides a whole PO from the Lots page's lists; its `void` is the Unarchive.
     assert(by.role === "owner", forbidden);
-    // Live (not deleted), with its edits laid over.
-    const stored = db.entries.find((e) => e.id === input.targetId);
-    const target =
-      stored && entries(db, stored.kind).find((e) => e.id === stored.id);
-    assert(
-      target && documentKinds.includes(target.kind),
-      "ไม่พบเอกสารที่จะ Archive",
-    );
-    assert(!archivedDocuments(db).has(target.id), "เอกสารนี้ Archive แล้ว");
+    const lot = liveLots(db).find((l) => l.id === input.targetLotId);
+    assert(lot && !lot.old, "ไม่พบ PO ที่จะ Archive");
+    assert(!archivedLots(db).has(lot.id), "PO นี้ Archive แล้ว");
     entry = {
       kind,
       role: "owner",
-      lotId: target.lotId,
+      lotId: lot.id,
       branch: "",
       date,
-      values: {
-        targetId: target.id,
-        targetKind: target.kind,
-        targetDate: target.date,
-        targetRole: target.role,
-      },
+      values: { targetLotId: lot.id },
     };
   } else if (kind === "config") {
     assert(by.role === "owner", forbidden);
