@@ -230,9 +230,10 @@ export function LotsPage({ ws }: { ws: Workspace }) {
                 Archived ({shelved.length})
               </summary>
               <div className="flex flex-col gap-0.5 max-[1000px]:flex-row">
-                {shelved.map((item) =>
-                  item.kind ? lotItem(item) : poItem(item),
-                )}
+                {shelved.some((item) => !item.kind) && heading("PO เนื้อ")}
+                {shelved.filter((item) => !item.kind).map(poItem)}
+                {shelved.some((item) => item.kind) && heading("PO รมควัน")}
+                {shelved.filter((item) => item.kind).map(lotItem)}
               </div>
             </details>
           )}
