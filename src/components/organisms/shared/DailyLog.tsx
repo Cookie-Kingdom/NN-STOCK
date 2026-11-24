@@ -67,7 +67,7 @@ function Row({
 }) {
   const [open, setOpen] = useState(false);
   const { db, account } = ws;
-  const { remove, confirmRemove } = useEntryActions(ws);
+  const { remove } = useEntryActions(ws);
   const { entry: e, note, action } = row;
   const own = account.role === "branch";
   const title = titles[note.kind] || note.kind;
@@ -205,7 +205,8 @@ function Row({
                 <NoteValues entry={note} ws={ws} />
               )}
               <Caption>
-                {row.label}โดย {entryWho(e)} · {jottedAt(e.at)}
+                {action === "jot" ? "จด" : row.label}โดย {entryWho(e)} ·{" "}
+                {jottedAt(e.at)}
               </Caption>
               {(canEdit || canDelete) && (
                 // Not the row's press: a button here acts, it does not close the row.
@@ -227,15 +228,9 @@ function Row({
                       size="sm"
                       variant="danger"
                       className="max-md:min-h-11"
-                      // An archive's delete is its Unarchive: no confirm, like the Archive.
-                      onClick={() =>
-                        live &&
-                        (live.kind === "archive"
-                          ? confirmRemove(live)
-                          : remove(live))
-                      }
+                      onClick={() => live && remove(live)}
                     >
-                      {live?.kind === "archive" ? "Unarchive" : "ลบ"}
+                      ลบ
                     </Button>
                   )}
                 </div>

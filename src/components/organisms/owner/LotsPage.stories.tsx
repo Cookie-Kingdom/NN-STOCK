@@ -10,7 +10,6 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { AccountId } from "@/lib/accounts";
 import { purchaseLots, roundsOf, seed, shipments } from "@/lib/store";
 import {
-  archivedDocumentsDb,
   documentsDb,
   invoiceOverrideDb,
   oldLotsDb,
@@ -167,20 +166,6 @@ export const MeatTypes: Story = {
 export const Documents: Story = {
   parameters: { db: documentsDb },
   play: pick(/SO-\d+-0001/),
-};
-
-/** ใบขนส่งขากลับถูก Archive: ปุ่มหายจากแถว「เอกสาร」ไปอยู่ใน「Archived (1)」 (เปิดไว้) กด
- *  「Unarchive」แล้วกลับมาแถวเดิม ตัวเลขทุกตัวเหมือนเดิม */
-export const ArchivedDocument: Story = {
-  parameters: { db: archivedDocumentsDb },
-  play: async (context) => {
-    await pick(/SO-\d+-0001/)!(context);
-    const canvas = within(context.canvasElement);
-    await userEvent.click(canvas.getByText("Archived (1)"));
-    await expect(
-      canvas.getByRole("button", { name: "Unarchive" }),
-    ).toBeVisible();
-  },
 };
 
 /** ระบบใหม่ ยังไม่มี PO: เหลือแค่ปุ่มสร้าง PO สองปุ่ม */

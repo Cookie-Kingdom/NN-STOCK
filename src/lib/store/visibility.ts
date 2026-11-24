@@ -49,13 +49,11 @@ export function visibleEntries(db: Database, by: Actor): Entry[] {
   return db.entries.filter((e) => seen.has(e.id));
 }
 /** The notes of an account: live, with their edits laid over, newest first.
- *  Settings are not notes, and neither is an archive of a document. */
+ *  Settings are not notes. */
 export function visibleNotes(db: Database, by: Actor): Entry[] {
   const seen = new Set(visibleEntries(db, by).map((e) => e.id));
   return liveEntries(db)
-    .filter(
-      (e) => e.kind !== "config" && e.kind !== "archive" && seen.has(e.id),
-    )
+    .filter((e) => e.kind !== "config" && seen.has(e.id))
     .sort(byDateAt)
     .reverse();
 }
@@ -80,7 +78,6 @@ export type LogRow = {
 const undoLabels: Partial<Record<EntryKind, string>> = {
   void: "กู้คืนรายการ",
   entryEdit: "ย้อนกลับการแก้ไข",
-  archive: "Unarchive เอกสาร",
 };
 /** The note a change names, from what the change itself carries. */
 const named = (change: Entry): Entry => ({
@@ -152,10 +149,6 @@ export function logRows(
                 lotId: change.values.fromLotId || before.lotId,
               }
             : before;
-    } else if (e.kind === "archive") {
-      // Filed under the document it hides, as that note reads now.
-      label = "Archive เอกสาร";
-      note = now.get(v.targetId) ?? named(e);
     }
     now.set(note.id, note);
     const noteGroup =
@@ -186,9 +179,7 @@ export function logRows(
             ? "undone"
             : ""
           : isVoided(db, e.id)
-            ? e.kind === "archive"
-              ? "undone"
-              : "deleted"
+            ? "deleted"
             : edited.has(e.id)
               ? "edited"
               : "",

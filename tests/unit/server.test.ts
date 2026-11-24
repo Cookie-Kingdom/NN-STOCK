@@ -338,29 +338,3 @@ test("a branch appends only its own branch's kinds, the centre writes none of it
     "มีนบุรี",
   );
 });
-
-test("the Owner saves an archive of a document and its Unarchive; no branch receives either", () => {
-  const db = stored(sampleData(today()));
-  const copy = loadState(db, owner);
-  const back = copy.payload.entries.find((e) => e.kind === "return")!;
-  let next = mutate(
-    copy.payload,
-    owner,
-    "archive",
-    { targetId: back.id },
-    "",
-    today(),
-  );
-  const archive = next.entries.at(-1)!;
-  next = mutate(next, owner, "void", { targetId: archive.id }, "", today());
-  saveState(db, owner, next, copy.revision);
-  expect(loadState(db, owner).payload.entries.slice(-2)).toEqual(
-    next.entries.slice(-2),
-  );
-  for (const account of [saladaeng, minburi])
-    expect(
-      loadState(db, account).payload.entries.filter(
-        (e) => e.kind === "archive" || e.values.targetId === archive.id,
-      ),
-    ).toEqual([]);
-});

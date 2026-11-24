@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
@@ -9,7 +8,6 @@ import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
-import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
 import { StatusTile } from "@/components/molecules/StatusTile";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
@@ -21,12 +19,9 @@ import {
   transportDocumentTitle,
 } from "@/components/organisms/shared/documentRows";
 import { lotLabel, lotMeat } from "@/components/organisms/shared/noteText";
-import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, fmt, qty } from "@/lib/format";
-import { latestDatabase } from "@/lib/persistence";
 import {
-  archivedDocuments,
   dispatchLines,
   entries,
   invoiceOf,
@@ -35,7 +30,6 @@ import {
   lotInfo,
   missingKeys,
   missingText,
-  mutate,
   poInfo,
   poTerms,
   purchaseLots,
@@ -251,75 +245,12 @@ const facts =
 const section = "m-0 text-body font-semibold";
 const buttons = "flex flex-wrap gap-2 max-sm:[&>button]:flex-1";
 
-/** A document's print button, by the id of the note that prints it. */
-type Doc = { id: string; button: ReactNode };
-
-/** The card's documents. The Owner's 「Archive」 hides one (an `archive` entry, saved at once)
- *  and folds it under 「Archived (n)」, where 「Unarchive」 (its `void`) brings it back. No
- *  figure changes. */
-function Documents({
-  ws,
-  docs,
-  empty,
-}: {
-  ws: Workspace;
-  docs: Doc[];
-  empty?: string;
-}) {
-  const owner = ws.account.role === "owner";
-  const { error, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
-  const archived = archivedDocuments(ws.db);
-  const shown = docs.filter((doc) => !archived.has(doc.id));
-  const hidden = docs.filter((doc) => archived.has(doc.id));
-  const save = async (kind: "archive" | "void", targetId: string) => {
-    const next = await run(() =>
-      mutate(latestDatabase(), ws.account, kind, { targetId }, "", ws.today),
-    );
-    if (next)
-      ws.setToast(kind === "archive" ? "Archive แล้ว" : "Unarchive แล้ว");
-  };
-  const row = (doc: Doc, label: string, onClick: () => void) => (
-    <span key={doc.id} className="inline-flex items-center gap-2">
-      {doc.button}
-      {owner && (
-        <Button variant="text" disabled={saving} onClick={onClick}>
-          {label}
-        </Button>
-      )}
-    </span>
-  );
-  return (
-    <div className="flex flex-col gap-2">
-      {(shown.length > 0 || !hidden.length) && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-caption text-text-secondary">เอกสาร</span>
-          {shown.map((doc) =>
-            row(doc, "Archive", () => save("archive", doc.id)),
-          )}
-          {!docs.length && empty && <Small>{empty}</Small>}
-        </div>
-      )}
-      {hidden.length > 0 && (
-        <details className="group">
-          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-caption text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
-            <ChevronDown
-              size={16}
-              aria-hidden
-              className="transition-transform group-open:rotate-180"
-            />
-            Archived ({hidden.length})
-          </summary>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            {hidden.map((doc) =>
-              row(doc, "Unarchive", () => save("void", archived.get(doc.id)!)),
-            )}
-          </div>
-        </details>
-      )}
-      <FormError error={error} />
-    </div>
-  );
-}
+const Documents = ({ children }: { children: ReactNode }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="text-caption text-text-secondary">เอกสาร</span>
+    {children}
+  </div>
+);
 
 /** A jotted thing as a green button that opens its edit. */
 function Jotted({
@@ -544,40 +475,34 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
   // The waste % over the rounds weighed so far.
   const weighed = info.rounds.filter((round) => round.wasteKg !== null);
   const base = weighed.reduce((a, round) => a + round.wasteBaseKg, 0);
-  const documents: Doc[] = [
-    ...of("smokeOrder").map((e) => ({
-      id: e.id,
-      button: (
-        <DocumentPrintButton
-          label={`PO รมควัน ${e.values.orderNumber ?? ""}`}
-          title="Smoke Service Purchase Order"
-          number={e.values.orderNumber || lot.poId}
-          rows={smokeOrderPrintRows(db, lot, e)}
-        />
-      ),
-    })),
-    ...of("packingList").map((e) => ({
-      id: e.id,
-      button: (
-        <DocumentPrintButton
-          label="Packing List"
-          title="Packing List"
-          number={lot.poId}
-          rows={packingListRows(db, lot, e)}
-        />
-      ),
-    })),
-    ...[...of("dispatch"), ...of("return")].map((e) => ({
-      id: e.id,
-      button: (
-        <DocumentPrintButton
-          label={`${e.kind === "dispatch" ? "ใบขนส่งขาไป" : "ใบขนส่งขากลับ"} ${e.values.transferNumber ?? ""}`}
-          title={transportDocumentTitle[e.kind as "dispatch" | "return"]}
-          number={e.values.transferNumber || lot.poId}
-          rows={transportDocumentRows(db, lot, e)}
-        />
-      ),
-    })),
+  const documents = [
+    ...of("smokeOrder").map((e) => (
+      <DocumentPrintButton
+        key={e.id}
+        label={`PO รมควัน ${e.values.orderNumber ?? ""}`}
+        title="Smoke Service Purchase Order"
+        number={e.values.orderNumber || lot.poId}
+        rows={smokeOrderPrintRows(db, lot, e)}
+      />
+    )),
+    ...of("packingList").map((e) => (
+      <DocumentPrintButton
+        key={e.id}
+        label="Packing List"
+        title="Packing List"
+        number={lot.poId}
+        rows={packingListRows(db, lot, e)}
+      />
+    )),
+    ...[...of("dispatch"), ...of("return")].map((e) => (
+      <DocumentPrintButton
+        key={e.id}
+        label={`${e.kind === "dispatch" ? "ใบขนส่งขาไป" : "ใบขนส่งขากลับ"} ${e.values.transferNumber ?? ""}`}
+        title={transportDocumentTitle[e.kind as "dispatch" | "return"]}
+        number={e.values.transferNumber || lot.poId}
+        rows={transportDocumentRows(db, lot, e)}
+      />
+    )),
   ];
   return (
     <>
@@ -718,11 +643,13 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
           <Kg value={info.centralKg} />
         </Fact>
       </dl>
-      <Documents
-        ws={ws}
-        docs={documents}
-        empty="จะขึ้นเมื่อมี PO รมควัน, Packing List หรือรอบส่ง"
-      />
+      <Documents>
+        {documents.length ? (
+          documents
+        ) : (
+          <Small>จะขึ้นเมื่อมี PO รมควัน, Packing List หรือรอบส่ง</Small>
+        )}
+      </Documents>
     </>
   );
 }
@@ -861,22 +788,14 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
         <Small>ยังไม่มี Invoice</Small>
       )}
       {purchase && (
-        <Documents
-          ws={ws}
-          docs={[
-            {
-              id: purchase.id,
-              button: (
-                <DocumentPrintButton
-                  label="PO เนื้อ"
-                  title="Purchase Order"
-                  number={po.poId}
-                  rows={purchaseOrderRows(db, purchase)}
-                />
-              ),
-            },
-          ]}
-        />
+        <Documents>
+          <DocumentPrintButton
+            label="PO เนื้อ"
+            title="Purchase Order"
+            number={po.poId}
+            rows={purchaseOrderRows(db, purchase)}
+          />
+        </Documents>
       )}
     </>
   );
