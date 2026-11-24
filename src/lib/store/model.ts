@@ -64,6 +64,7 @@ const entryKinds = [
   "opening",
   "stockItem",
   "income",
+  "archive",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
@@ -288,6 +289,7 @@ export const titles: Record<EntryKind, string> = {
   config: "บันทึกการตั้งค่า",
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
+  archive: "Archive เอกสาร",
   // Retired.
   packingList: "Packing List",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",
@@ -353,6 +355,15 @@ export const lotMovableKinds: EntryKind[] = [
 ];
 /** Changes to other entries: an edit and a delete, each a row of its own in the Daily Log. */
 export const changeKinds: EntryKind[] = ["entryEdit", "void"];
+/** The notes that print a document on the Lots page: an `archive` entry (the Owner's) hides
+ *  one's button there, its `void` brings it back. No figure reads either. */
+export const documentKinds: EntryKind[] = [
+  "purchase",
+  "smokeOrder",
+  "packingList",
+  "dispatch",
+  "return",
+];
 /** V2-RUL-02: a core field left empty is saved anyway and listed in the entry's `missing`
  *  (comma-separated keys), shown as this label. */
 export const missingText = "ยังไม่ได้จด";

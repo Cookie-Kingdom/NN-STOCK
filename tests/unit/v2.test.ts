@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   advances,
+  archivedDocuments,
   boxCost,
   branchSalesSummary,
   cashBetween,
@@ -11,6 +12,7 @@ import {
   kindsForPage,
   legacySale,
   ledgerRows,
+  logRows,
   ledgerSummary,
   projectAssets,
   receivables,
@@ -3861,5 +3863,111 @@ describe("รายชื่อผู้ขาย", () => {
       purchaseOrderRows(listed, { date: day, values: { supplier: "อื่น" } }),
     );
     expect(other.get("ผู้รับออเดอร์")).toBe("—");
+  });
+});
+
+describe("V2-DOC: Archive a document", () => {
+  const lot = shipments(db)[0];
+  const back = entries(db, "return", lot.id)[0];
+  const archived = mutate(db, owner, "archive", { targetId: back.id }, "", day);
+  const archive = last(archived);
+  const unarchive = (d: Database) =>
+    mutate(d, owner, "void", { targetId: archive.id }, "", day);
+
+  it("hides the document's button and changes no figure", () => {
+    expect(archive).toMatchObject({
+      kind: "archive",
+      role: "owner",
+      lotId: lot.id,
+      values: { targetId: back.id, targetKind: "return" },
+    });
+    expect(archivedDocuments(db).size).toBe(0);
+    expect(archivedDocuments(archived).get(back.id)).toBe(archive.id);
+    expect(lotInfo(archived, lot.id)).toEqual(lotInfo(db, lot.id));
+    for (const po of purchaseLots(db))
+      expect(poInfo(archived, po.id)).toEqual(poInfo(db, po.id));
+    // Not a note: no page lists it.
+    expect(visibleNotes(archived, owner)).toEqual(visibleNotes(db, owner));
+  });
+
+  it("Unarchive is its void, and it can be archived again", () => {
+    const back2 = unarchive(archived);
+    expect(archivedDocuments(back2).size).toBe(0);
+    const again = mutate(
+      back2,
+      owner,
+      "archive",
+      { targetId: back.id },
+      "",
+      day,
+    );
+    expect(archivedDocuments(again).has(back.id)).toBe(true);
+  });
+
+  it("the Owner archives a live document, once", () => {
+    const archiveOf = (d: Database, by: Actor, targetId: string) => () =>
+      mutate(d, by, "archive", { targetId }, "", day);
+    expect(archiveOf(db, saladaeng, back.id)).toThrow(
+      "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้",
+    );
+    expect(archiveOf(archived, owner, back.id)).toThrow(
+      "เอกสารนี้ Archive แล้ว",
+    );
+    expect(archiveOf(db, owner, entries(db, "sale")[0].id)).toThrow(
+      "ไม่พบเอกสารที่จะ Archive",
+    );
+    const deleted = mutate(db, owner, "void", { targetId: back.id }, "", day);
+    expect(archiveOf(deleted, owner, back.id)).toThrow(
+      "ไม่พบเอกสารที่จะ Archive",
+    );
+  });
+
+  it("stays archived through an edit of the note, and an undone delete", () => {
+    const edited = mutate(
+      archived,
+      owner,
+      "entryEdit",
+      { targetId: back.id, values: JSON.stringify({ driverName: "คุณเอ" }) },
+      "",
+      day,
+    );
+    expect(archivedDocuments(edited).has(back.id)).toBe(true);
+    const deleted = mutate(
+      edited,
+      owner,
+      "void",
+      { targetId: back.id },
+      "",
+      day,
+    );
+    expect(entries(deleted, "return", lot.id)).not.toContainEqual(
+      expect.objectContaining({ id: back.id }),
+    );
+    const restored = mutate(
+      deleted,
+      owner,
+      "void",
+      { targetId: last(deleted).id },
+      "",
+      day,
+    );
+    expect(archivedDocuments(restored).has(back.id)).toBe(true);
+  });
+
+  it("the Daily Log files both under the document", () => {
+    const [undo, row] = logRows(unarchive(archived), owner, "lot");
+    expect(undo).toMatchObject({
+      label: "Unarchive เอกสาร",
+      action: "undo",
+      note: { id: back.id, kind: "return" },
+    });
+    expect(row).toMatchObject({
+      label: "Archive เอกสาร",
+      later: "undone",
+      note: { id: back.id, kind: "return" },
+    });
+    expect(scopeDatabase(archived, ["ศาลาแดง"]).entries).not.toContainEqual(
+      expect.objectContaining({ kind: "archive" }),
+    );
   });
 });

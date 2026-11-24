@@ -9,6 +9,7 @@ import { newId } from "../id";
 import {
   batchKinds,
   boxProduct,
+  documentKinds,
   lastProductCode,
   productCodeText,
   codeNumber,
@@ -50,6 +51,7 @@ import {
   foodivaPlace,
 } from "./model";
 import {
+  archivedDocuments,
   decimal,
   defaultRound,
   entries,
@@ -759,6 +761,31 @@ export function mutate(
         ...pack("from.", target.values),
         ...pack("to.", changed),
         ...moved,
+      },
+    };
+  } else if (kind === "archive") {
+    // V2-DOC: hides a document's button on the Lots page; its `void` is the Unarchive.
+    assert(by.role === "owner", forbidden);
+    // Live (not deleted), with its edits laid over.
+    const stored = db.entries.find((e) => e.id === input.targetId);
+    const target =
+      stored && entries(db, stored.kind).find((e) => e.id === stored.id);
+    assert(
+      target && documentKinds.includes(target.kind),
+      "ไม่พบเอกสารที่จะ Archive",
+    );
+    assert(!archivedDocuments(db).has(target.id), "เอกสารนี้ Archive แล้ว");
+    entry = {
+      kind,
+      role: "owner",
+      lotId: target.lotId,
+      branch: "",
+      date,
+      values: {
+        targetId: target.id,
+        targetKind: target.kind,
+        targetDate: target.date,
+        targetRole: target.role,
       },
     };
   } else if (kind === "config") {
