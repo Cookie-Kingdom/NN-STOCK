@@ -221,3 +221,16 @@ export const meatTypesDb: Database = (() => {
     today(),
   );
 })();
+
+/** The documents one with its truck back archived: under 「Archived (1)」. */
+export const archivedDocumentsDb: Database = (() => {
+  const back = documentsDb.entries.findLast((e) => e.kind === "return")!;
+  return mutate(
+    documentsDb,
+    owner,
+    "archive",
+    { targetId: back.id },
+    back.lotId,
+    today(),
+  );
+})();
