@@ -64,6 +64,7 @@ const entryKinds = [
   "opening",
   "stockItem",
   "income",
+  "archive",
 ] as const;
 export type EntryKind = (typeof entryKinds)[number];
 /** The kinds an account jots (v2), in the order the kind picker lists them. `central`,
@@ -288,6 +289,7 @@ export const titles: Record<EntryKind, string> = {
   config: "บันทึกการตั้งค่า",
   void: "ลบรายการ",
   entryEdit: "แก้ไขรายการ",
+  archive: "Archive PO",
   // Retired.
   packingList: "Packing List",
   foodivaReturnReceive: "รับเข้าตู้ที่ Foodiva",

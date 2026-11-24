@@ -28,6 +28,7 @@ import {
   liveEntries,
   lotInfo,
   outflows,
+  archivedLots,
   poInfo,
   purchaseLots,
   shipments,
@@ -49,11 +50,13 @@ export function visibleEntries(db: Database, by: Actor): Entry[] {
   return db.entries.filter((e) => seen.has(e.id));
 }
 /** The notes of an account: live, with their edits laid over, newest first.
- *  Settings are not notes. */
+ *  Settings are not notes, and neither is an archive of a PO. */
 export function visibleNotes(db: Database, by: Actor): Entry[] {
   const seen = new Set(visibleEntries(db, by).map((e) => e.id));
   return liveEntries(db)
-    .filter((e) => e.kind !== "config" && seen.has(e.id))
+    .filter(
+      (e) => e.kind !== "config" && e.kind !== "archive" && seen.has(e.id),
+    )
     .sort(byDateAt)
     .reverse();
 }
@@ -78,6 +81,7 @@ export type LogRow = {
 const undoLabels: Partial<Record<EntryKind, string>> = {
   void: "กู้คืนรายการ",
   entryEdit: "ย้อนกลับการแก้ไข",
+  archive: "Unarchive",
 };
 /** The note a change names, from what the change itself carries. */
 const named = (change: Entry): Entry => ({
@@ -92,10 +96,11 @@ const named = (change: Entry): Entry => ({
 });
 /** The ledger's two kinds in the filter: `kindInfo` keeps them a group of their own (`kindsFor`
  *  reads it: the Owner jots both), the Daily Log files an expense under money and a move of
- *  stock under the branches, so every note is in one group. */
+ *  stock under the branches, so every note is in one group. An archive of a PO is a Lot row. */
 const ledgerGroups: Partial<Record<EntryKind, LogGroup>> = {
   expense: "money",
   transfer: "branch",
+  archive: "lot",
 };
 /** The Daily Log of an account: one row per entry it may see (`visibleEntries`; settings are
  *  not notes), newest first by when it was saved (`at`), never by the day a note is about.
@@ -126,11 +131,18 @@ export function logRows(
       // An undo names the change it undoes, and that names the note.
       const undo =
         e.kind === "void"
-          ? undoLabels[(v.targetKind || target?.kind) as EntryKind]
+          ? // The undo of an Unarchive archives the PO again.
+            target?.kind === "void" && target.values.targetKind === "archive"
+            ? "Archive"
+            : undoLabels[(v.targetKind || target?.kind) as EntryKind]
           : undefined;
       const undone = !!undo;
       const change = (undone && target) || e;
-      const before = now.get(change.values.targetId) ?? named(change);
+      // An Unarchive is about the archive itself: it names no note.
+      const before =
+        change.kind === "archive"
+          ? change
+          : (now.get(change.values.targetId) ?? named(change));
       action = undone ? "undo" : e.kind === "void" ? "void" : "edit";
       label = undo ?? (e.kind === "void" ? "ลบ" : "แก้ไข");
       note =
@@ -149,7 +161,7 @@ export function logRows(
                 lotId: change.values.fromLotId || before.lotId,
               }
             : before;
-    }
+    } else if (e.kind === "archive") label = "Archive";
     now.set(note.id, note);
     const noteGroup =
       ledgerGroups[note.kind] ??
@@ -179,7 +191,9 @@ export function logRows(
             ? "undone"
             : ""
           : isVoided(db, e.id)
-            ? "deleted"
+            ? e.kind === "archive"
+              ? "undone"
+              : "deleted"
             : edited.has(e.id)
               ? "edited"
               : "",
@@ -269,11 +283,14 @@ const shortDate = (date: string) =>
   thaiDate(date, { day: "numeric", month: "short" });
 /** Spec section 7: everything yellow for an account, as one list for the bell. A branch lists its own branch; the Owner both, each
  *  line led by the branch name: the sale of each of the last 7 days the branch was open and
- *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` and
- *  the notes on it raise none. */
+ *  jotted none (`saleDue`), never a daily sheet not saved. A lot flagged `old` or archived
+ *  (V2-DOC-05) and the notes on it raise none. */
 export function todos(db: Database, by: Actor, today: string): Todo[] {
   const list: Todo[] = [];
-  const old = new Set(db.lots.filter((lot) => lot.old).map((lot) => lot.id));
+  const old = new Set([
+    ...db.lots.filter((lot) => lot.old).map((lot) => lot.id),
+    ...archivedLots(db).keys(),
+  ]);
   const own = by.role === "branch";
   for (const branch of own ? [by.branch ?? ""] : branches) {
     const lead = own ? "" : `${branch}: `;
@@ -293,7 +310,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
   if (!own) {
     // A PO รมควัน: no round yet, each round's missing steps, no invoice (V2-LOT-01).
     for (const lot of shipments(db).reverse()) {
-      if (lot.old) continue;
+      if (old.has(lot.id)) continue;
       const info = lotInfo(db, lot.id);
       const lotTodo = (kind: NoteKind) =>
         list.push({
@@ -314,7 +331,7 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
     }
     // A PO เนื้อ: its waste to receive, and its invoice once meat was sent from it.
     for (const lot of purchaseLots(db).reverse()) {
-      if (lot.old) continue;
+      if (old.has(lot.id)) continue;
       const po = poInfo(db, lot.id);
       if (po.wastePending)
         list.push({

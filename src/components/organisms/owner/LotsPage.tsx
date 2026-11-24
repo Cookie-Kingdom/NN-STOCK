@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
@@ -8,6 +9,7 @@ import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
 import { StatusTile } from "@/components/molecules/StatusTile";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
@@ -19,9 +21,12 @@ import {
   transportDocumentTitle,
 } from "@/components/organisms/shared/documentRows";
 import { lotLabel, lotMeat } from "@/components/organisms/shared/noteText";
+import { useSaveMutation } from "@/components/organisms/shared/useSaveMutation";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, fmt, qty } from "@/lib/format";
+import { latestDatabase } from "@/lib/persistence";
 import {
+  archivedLots,
   dispatchLines,
   entries,
   invoiceOf,
@@ -30,6 +35,7 @@ import {
   lotInfo,
   missingKeys,
   missingText,
+  mutate,
   poInfo,
   poTerms,
   purchaseLots,
@@ -74,19 +80,28 @@ type Props = { ws: Workspace; can: (kind: NoteKind) => boolean };
  *  the right. Every form of the page is a button where it belongs: the two POs at the top, a
  *  round and the Chef House invoice on a PO รมควัน, each round's three steps in its card, the
  *  waste and the Foodiva invoice on a PO เนื้อ. A PO flagged `old` (carried over from the old
- *  workbook) is on no page. */
+ *  workbook) is on no page. An archived one (V2-DOC-05) folds under 「Archived (n)」 at the
+ *  bottom of the list, and opens with nothing to jot on it. */
 export function LotsPage({ ws }: { ws: Workspace }) {
   const { db, account } = ws;
   const [picked, setPicked] = useState(ws.focusLot);
   const kinds = kindsForPage(account, "lots");
   const can = (kind: NoteKind) => kinds.includes(kind);
+  const archived = archivedLots(db);
   // Newest first.
-  const mine = (lot: Lot) => !lot.old;
+  const mine = (lot: Lot) => !lot.old && !archived.has(lot.id);
   const lots = shipments(db).filter(mine).toReversed();
   const pos = purchaseLots(db).filter(mine).toReversed();
-  // Nothing picked, or the one picked was deleted: the newest PO รมควัน.
+  const shelved = [...purchaseLots(db), ...shipments(db)]
+    .filter((lot) => !lot.old && archived.has(lot.id))
+    .toReversed();
+  // Nothing picked, or the one picked was deleted: the newest PO รมควัน, never an archived one.
   const lot =
-    [...lots, ...pos].find((item) => item.id === picked) ?? lots[0] ?? pos[0];
+    [...lots, ...pos, ...shelved].find((item) => item.id === picked) ??
+    lots[0] ??
+    pos[0];
+  // An archived PO is jotted on no more.
+  const canOn = lot && archived.has(lot.id) ? () => false : can;
 
   const actions = (can("purchase") || can("smokeOrder")) && (
     <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
@@ -105,7 +120,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       )}
     </div>
   );
-  if (!lot)
+  if (!lot && !shelved.length)
     return (
       <div className="flex flex-col gap-4">
         {actions}
@@ -119,7 +134,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       type="button"
       data-lot={item.id}
       data-tone={warning ? "warning" : "ok"}
-      aria-pressed={item.id === lot.id}
+      aria-pressed={item.id === lot?.id}
       onClick={() => setPicked(item.id)}
       className={cn(
         "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) aria-pressed:outline-2 aria-pressed:outline-accent",
@@ -144,12 +159,52 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       </span>
     </button>
   );
-  const notes = visibleNotes(db, account).filter((e) => e.lotId === lot.id);
+  const notes = visibleNotes(db, account).filter((e) => e.lotId === lot?.id);
   const heading = (text: string) => (
     <h3 className="m-0 px-3 pt-2 pb-1 text-caption font-medium text-text-secondary max-[1000px]:hidden">
       {text}
     </h3>
   );
+
+  const poItem = (po: Lot) => {
+    const empty = missingKeys(
+      entries(db, "purchase", po.id).at(-1)?.values ?? {},
+    ).length;
+    const info = poInfo(db, po.id);
+    return item(
+      po,
+      empty > 0 || info.wastePending,
+      <>
+        {empty
+          ? `${missingText} ${empty} ช่อง`
+          : `ฝากไว้ ${qty(info.heldKg)} กก.`}
+        {info.wastePending && (
+          <span
+            className="size-2 rounded-full bg-warning"
+            role="img"
+            aria-label="เนื้อรอรับ"
+          />
+        )}
+      </>,
+    );
+  };
+  const lotItem = (lot: Lot) => {
+    const { yellow, remainingKg } = lotInfo(db, lot.id);
+    return item(
+      lot,
+      yellow > 0,
+      <>
+        {remainingKg < 0
+          ? `เกิน ${qty(-remainingKg)} กก.`
+          : `เหลือ ${qty(remainingKg)} กก.`}
+        {yellow > 0 && (
+          <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
+            {yellow}
+          </CountPill>
+        )}
+      </>,
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -161,84 +216,65 @@ export function LotsPage({ ws }: { ws: Workspace }) {
           className="flex flex-col gap-0.5 p-2 max-[1000px]:flex-row max-[1000px]:overflow-x-auto"
         >
           {heading("PO เนื้อ")}
-          {pos.map((po) => {
-            const empty = missingKeys(
-              entries(db, "purchase", po.id).at(-1)?.values ?? {},
-            ).length;
-            const info = poInfo(db, po.id);
-            return item(
-              po,
-              empty > 0 || info.wastePending,
-              <>
-                {empty
-                  ? `${missingText} ${empty} ช่อง`
-                  : `ฝากไว้ ${qty(info.heldKg)} กก.`}
-                {info.wastePending && (
-                  <span
-                    className="size-2 rounded-full bg-warning"
-                    role="img"
-                    aria-label="เนื้อรอรับ"
-                  />
-                )}
-              </>,
-            );
-          })}
+          {pos.map(poItem)}
           {heading("PO รมควัน")}
-          {lots.map((lot) => {
-            const { yellow, remainingKg } = lotInfo(db, lot.id);
-            return item(
-              lot,
-              yellow > 0,
-              <>
-                {remainingKg < 0
-                  ? `เกิน ${qty(-remainingKg)} กก.`
-                  : `เหลือ ${qty(remainingKg)} กก.`}
-                {yellow > 0 && (
-                  <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
-                    {yellow}
-                  </CountPill>
+          {lots.map(lotItem)}
+          {shelved.length > 0 && (
+            <details className="group shrink-0">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 pt-2 pb-1 text-caption font-medium whitespace-nowrap text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className="transition-transform group-open:rotate-180"
+                />
+                Archived ({shelved.length})
+              </summary>
+              <div className="flex flex-col gap-0.5 max-[1000px]:flex-row">
+                {shelved.map((item) =>
+                  item.kind ? lotItem(item) : poItem(item),
                 )}
-              </>,
-            );
-          })}
-        </Panel>
-        {/* key: picking another PO re-mounts the panel, so its content fades in.
-            A wide screen: the PO's notes sit beside its figures, not under them. */}
-        <Panel
-          key={lot.id}
-          flush
-          aria-label={lot.poId}
-          className="animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
-        >
-          <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4 min-[1700px]:border-r min-[1700px]:border-b-0 min-[1700px]:last:col-span-full min-[1700px]:last:border-r-0">
-            {lot.kind ? (
-              <LotHead ws={ws} can={can} lot={lot} />
-            ) : (
-              <PoHead ws={ws} can={can} po={lot} />
-            )}
-          </div>
-          {notes.length > 0 && (
-            <section aria-labelledby="lot-log" className="min-w-0">
-              <div className="border-b border-border px-5 pt-5 pb-3 max-md:px-4">
-                <h3 id="lot-log" className={section}>
-                  บันทึกของ PO นี้ ({notes.length})
-                </h3>
-                <p className="m-0 mt-0.5 text-caption text-text-secondary">
-                  ทุกอย่างที่จดไว้ใน PO นี้ กดที่แถวเพื่อดูรายละเอียด แก้ไข
-                  หรือลบ
-                </p>
               </div>
-              {notes.map((e) => (
-                <NoteRow key={e.id} entry={e} ws={ws} dated />
-              ))}
-            </section>
+            </details>
           )}
         </Panel>
+        {lot && (
+          // key: picking another PO re-mounts the panel, so its content fades in.
+          // A wide screen: the PO's notes sit beside its figures, not under them.
+          <Panel
+            key={lot.id}
+            flush
+            aria-label={lot.poId}
+            className="animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+          >
+            <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4 min-[1700px]:border-r min-[1700px]:border-b-0 min-[1700px]:last:col-span-full min-[1700px]:last:border-r-0">
+              {lot.kind ? (
+                <LotHead ws={ws} can={canOn} lot={lot} />
+              ) : (
+                <PoHead ws={ws} can={canOn} po={lot} />
+              )}
+            </div>
+            {notes.length > 0 && (
+              <section aria-labelledby="lot-log" className="min-w-0">
+                <div className="border-b border-border px-5 pt-5 pb-3 max-md:px-4">
+                  <h3 id="lot-log" className={section}>
+                    บันทึกของ PO นี้ ({notes.length})
+                  </h3>
+                  <p className="m-0 mt-0.5 text-caption text-text-secondary">
+                    ทุกอย่างที่จดไว้ใน PO นี้ กดที่แถวเพื่อดูรายละเอียด แก้ไข
+                    หรือลบ
+                  </p>
+                </div>
+                {notes.map((e) => (
+                  <NoteRow key={e.id} entry={e} ws={ws} dated />
+                ))}
+              </section>
+            )}
+          </Panel>
+        )}
       </div>
     </div>
   );
 }
-
 const title = "flex flex-wrap items-center gap-x-3 gap-y-2";
 const facts =
   "m-0 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-3";
@@ -430,6 +466,45 @@ function RoundCard({
 /** Whether a PO's bill is paid, as Accounting reads it (`ledgerRows`: a seller's payments
  *  fill its POs oldest first, so a payment may settle an older PO of the seller before this
  *  one), and 「จ่ายเงิน」 while it is not: the `pay` form with the seller and what is left. */
+/** The Owner's 「Archive」 on an open PO, saved at once (an `archive` entry); on an archived
+ *  one the 「Archived」 badge and 「Unarchive」 (its `void`). No figure changes (V2-DOC-05). */
+function ArchiveControl({ ws, lot }: { ws: Workspace; lot: Lot }) {
+  const { error, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const archiveId = archivedLots(ws.db).get(lot.id);
+  if (ws.account.role !== "owner") return null;
+  const save = async () => {
+    const next = await run(() =>
+      archiveId
+        ? mutate(
+            latestDatabase(),
+            ws.account,
+            "void",
+            { targetId: archiveId },
+            "",
+            ws.today,
+          )
+        : mutate(
+            latestDatabase(),
+            ws.account,
+            "archive",
+            { targetLotId: lot.id },
+            lot.id,
+            ws.today,
+          ),
+    );
+    if (next) ws.setToast(archiveId ? "Unarchive แล้ว" : "Archive แล้ว");
+  };
+  return (
+    <>
+      {archiveId && <Badge>Archived</Badge>}
+      <Button size="sm" disabled={saving} onClick={save}>
+        {archiveId ? "Unarchive" : "Archive"}
+      </Button>
+      <FormError error={error} />
+    </>
+  );
+}
+
 function PoPayment({ ws, lot }: { ws: Workspace; lot: Lot }) {
   const row = ledgerRows(ws.db).find(
     (row) => row.origin === "po" && row.id === lot.id,
@@ -445,21 +520,24 @@ function PoPayment({ ws, lot }: { ws: Workspace; lot: Lot }) {
           ? `จ่ายแล้ว ${baht(paid)} ค้างจ่าย ${baht(left)}`
           : "ยังไม่จ่ายเงิน"}
       </Badge>
-      <Button
-        size="sm"
-        onClick={() =>
-          ws.jot({
-            kind: "pay",
-            values: {
-              category: lot.kind === "shipment" ? "smoke" : "meat",
-              supplier: row.vendor,
-              amount: left > 0 ? String(left) : "",
-            },
-          })
-        }
-      >
-        จ่ายเงิน
-      </Button>
+      {/* An archived PO is jotted on no more. */}
+      {!archivedLots(ws.db).has(lot.id) && (
+        <Button
+          size="sm"
+          onClick={() =>
+            ws.jot({
+              kind: "pay",
+              values: {
+                category: lot.kind === "shipment" ? "smoke" : "meat",
+                supplier: row.vendor,
+                amount: left > 0 ? String(left) : "",
+              },
+            })
+          }
+        >
+          จ่ายเงิน
+        </Button>
+      )}
     </>
   );
 }
@@ -522,6 +600,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             แก้ไข PO
           </Button>
         )}
+        <ArchiveControl ws={ws} lot={lot} />
       </div>
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-body-sm tabular-nums">
@@ -692,6 +771,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
             แก้ไข PO
           </Button>
         )}
+        <ArchiveControl ws={ws} lot={po} />
       </div>
       <dl className={facts}>
         <Fact label="เนื้อ">

@@ -43,10 +43,15 @@ export function useEntryActions(
   /** Deletes an entry; its toast offers the undo. */
   const confirmRemove = async (entry: Entry) => {
     const title = titles[entry.kind];
+    // An archive's delete is its Unarchive.
+    const [done, back] =
+      entry.kind === "archive"
+        ? ["Unarchive แล้ว", "Archive แล้ว"]
+        : [`ลบแล้ว: ${title}`, `กู้คืนแล้ว: ${title}`];
     const voidId = await saveVoid(entry.id);
     if (voidId)
-      ws.setToast(`ลบแล้ว: ${title}`, async () => {
-        if (await saveVoid(voidId)) ws.setToast(`กู้คืนแล้ว: ${title}`);
+      ws.setToast(done, async () => {
+        if (await saveVoid(voidId)) ws.setToast(back);
       });
   };
   /** What a 「ลบ」 button calls: opens the confirm on `entry`. */

@@ -88,6 +88,7 @@ export {
   entries,
   liveEntries,
   purchaseLots,
+  archivedLots,
   shipments,
   saleMoney,
   monthPl,

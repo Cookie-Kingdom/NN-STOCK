@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   advances,
+  archivedLots,
   boxCost,
   branchSalesSummary,
   cashBetween,
@@ -11,6 +12,7 @@ import {
   kindsForPage,
   legacySale,
   ledgerRows,
+  logRows,
   ledgerSummary,
   projectAssets,
   receivables,
@@ -3861,5 +3863,119 @@ describe("รายชื่อผู้ขาย", () => {
       purchaseOrderRows(listed, { date: day, values: { supplier: "อื่น" } }),
     );
     expect(other.get("ผู้รับออเดอร์")).toBe("—");
+  });
+});
+
+describe("V2-DOC-05: Archive a whole PO", () => {
+  const lot = shipments(db)[0];
+  const po = purchaseLots(db)[0];
+  const archiveOf = (d: Database, by: Actor, targetLotId: string) =>
+    mutate(d, by, "archive", { targetLotId }, targetLotId, day);
+  const archived = archiveOf(archiveOf(db, owner, lot.id), owner, po.id);
+  const archive = archived.entries.at(-2)!;
+  const unarchive = (d: Database) =>
+    mutate(d, owner, "void", { targetId: archive.id }, "", day);
+
+  it("hides the PO and changes no figure", () => {
+    expect(archive).toMatchObject({
+      kind: "archive",
+      role: "owner",
+      lotId: lot.id,
+      values: { targetLotId: lot.id },
+    });
+    expect(archivedLots(db).size).toBe(0);
+    expect(archivedLots(archived).get(lot.id)).toBe(archive.id);
+    expect(archivedLots(archived).has(po.id)).toBe(true);
+    for (const l of shipments(db))
+      expect(lotInfo(archived, l.id)).toEqual(lotInfo(db, l.id));
+    for (const l of purchaseLots(db))
+      expect(poInfo(archived, l.id)).toEqual(poInfo(db, l.id));
+    expect(ledgerRows(archived)).toEqual(ledgerRows(db));
+    expect(supplierBalances(archived)).toEqual(supplierBalances(db));
+    expect(monthPl(archived, day.slice(0, 7))).toEqual(
+      monthPl(db, day.slice(0, 7)),
+    );
+    // Not a note: no page lists it.
+    expect(visibleNotes(archived, owner)).toEqual(visibleNotes(db, owner));
+  });
+
+  it("raises nothing in the bell about an archived PO", () => {
+    const all = [...shipments(db), ...purchaseLots(db)].filter((l) => !l.old);
+    const onLots = new Set(all.map((l) => l.id));
+    const notesOn = new Set(
+      liveEntries(db)
+        .filter((e) => onLots.has(e.lotId))
+        .map((e) => e.id),
+    );
+    const about = (d: Database) =>
+      todos(d, owner, day).filter(
+        (t) =>
+          onLots.has(t.lotId ?? "") ||
+          notesOn.has(t.editId ?? "") ||
+          all.some((l) => t.text.includes(l.poId)),
+      );
+    expect(about(db).length).toBeGreaterThan(0);
+    const hidden = all.reduce((d, l) => archiveOf(d, owner, l.id), db);
+    expect(about(hidden)).toEqual([]);
+  });
+
+  it("Unarchive is its void, and it can be archived again", () => {
+    const back = unarchive(archived);
+    expect(archivedLots(back).has(lot.id)).toBe(false);
+    expect(archivedLots(archiveOf(back, owner, lot.id)).has(lot.id)).toBe(true);
+  });
+
+  it("the Owner archives a live PO, once, not an old one", () => {
+    expect(() => archiveOf(db, saladaeng, lot.id)).toThrow(
+      "บัญชีนี้ไม่มีสิทธิ์จดรายการนี้",
+    );
+    expect(() => archiveOf(archived, owner, lot.id)).toThrow(
+      "PO นี้ Archive แล้ว",
+    );
+    expect(() => archiveOf(db, owner, "nope")).toThrow(
+      "ไม่พบ PO ที่จะ Archive",
+    );
+    const withOld: Database = {
+      ...db,
+      lots: db.lots.map((l) => (l.id === lot.id ? { ...l, old: true } : l)),
+    };
+    expect(() => archiveOf(withOld, owner, lot.id)).toThrow(
+      "ไม่พบ PO ที่จะ Archive",
+    );
+  });
+
+  it("the Daily Log reads Archive, Unarchive and Archive again; no branch receives it", () => {
+    const back = unarchive(archived);
+    const again = mutate(
+      back,
+      owner,
+      "void",
+      { targetId: last(back).id },
+      "",
+      day,
+    );
+    const [redo, undo, row] = logRows(again, owner, "lot");
+    expect(redo).toMatchObject({
+      label: "Archive",
+      action: "undo",
+      note: { id: archive.id, lotId: lot.id },
+    });
+    expect(undo).toMatchObject({
+      label: "Unarchive",
+      action: "undo",
+      later: "undone",
+      note: { id: archive.id, lotId: lot.id },
+    });
+    expect(logRows(back, owner, "lot")[2]).toMatchObject({
+      label: "Archive",
+      action: "jot",
+      later: "undone",
+      note: { id: archive.id, lotId: lot.id },
+    });
+    expect(archivedLots(again).has(lot.id)).toBe(true);
+    expect(row.entry.kind).toBe("archive");
+    expect(scopeDatabase(archived, ["ศาลาแดง"]).entries).not.toContainEqual(
+      expect.objectContaining({ kind: "archive" }),
+    );
   });
 });

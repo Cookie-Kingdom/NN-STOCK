@@ -221,3 +221,13 @@ export const meatTypesDb: Database = (() => {
     today(),
   );
 })();
+
+/** The sample with its first PO รมควัน archived: under 「Archived (1)」. */
+export const archivedLotDb: Database = mutate(
+  sampleDb,
+  owner,
+  "archive",
+  { targetLotId: shipments(sampleDb)[0].id },
+  shipments(sampleDb)[0].id,
+  today(),
+);

@@ -50,9 +50,11 @@ import {
   foodivaPlace,
 } from "./model";
 import {
+  archivedLots,
   decimal,
   defaultRound,
   entries,
+  liveLots,
   materialList,
   nextNumberPreview,
   pendingTransfers,
@@ -760,6 +762,20 @@ export function mutate(
         ...pack("to.", changed),
         ...moved,
       },
+    };
+  } else if (kind === "archive") {
+    // V2-DOC-05: hides a whole PO from the Lots page's lists; its `void` is the Unarchive.
+    assert(by.role === "owner", forbidden);
+    const lot = liveLots(db).find((l) => l.id === input.targetLotId);
+    assert(lot && !lot.old, "ไม่พบ PO ที่จะ Archive");
+    assert(!archivedLots(db).has(lot.id), "PO นี้ Archive แล้ว");
+    entry = {
+      kind,
+      role: "owner",
+      lotId: lot.id,
+      branch: "",
+      date,
+      values: { targetLotId: lot.id },
     };
   } else if (kind === "config") {
     assert(by.role === "owner", forbidden);

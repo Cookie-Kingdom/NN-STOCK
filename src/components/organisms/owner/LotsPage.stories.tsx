@@ -10,6 +10,7 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import type { AccountId } from "@/lib/accounts";
 import { purchaseLots, roundsOf, seed, shipments } from "@/lib/store";
 import {
+  archivedLotDb,
   documentsDb,
   invoiceOverrideDb,
   oldLotsDb,
@@ -166,6 +167,21 @@ export const MeatTypes: Story = {
 export const Documents: Story = {
   parameters: { db: documentsDb },
   play: pick(/SO-\d+-0001/),
+};
+
+/** PO รมควันแรกถูก Archive: ออกจากรายการซ้ายไปอยู่ใน「Archived (1)」ล่างสุด กดเปิดแล้วเลือก
+ *  ได้เหมือน PO ปกติ มีป้าย「Archived」กับปุ่ม「Unarchive」ไม่มีปุ่มจด ตัวเลขทุกตัวเหมือนเดิม */
+export const ArchivedPo: Story = {
+  parameters: { db: archivedLotDb },
+  play: async (context) => {
+    const canvas = within(context.canvasElement);
+    await userEvent.click(canvas.getByText("Archived (1)"));
+    await pick(/SO-\d+-0001/)!(context);
+    await expect(canvas.getByText("Archived")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Unarchive" }),
+    ).toBeVisible();
+  },
 };
 
 /** ระบบใหม่ ยังไม่มี PO: เหลือแค่ปุ่มสร้าง PO สองปุ่ม */

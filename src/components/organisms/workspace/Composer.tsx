@@ -42,6 +42,7 @@ import { baht, qty, thaiDay } from "@/lib/format";
 import { attachmentFolder, defaults, fields, type Field } from "@/lib/forms";
 import { latestDatabase } from "@/lib/persistence";
 import {
+  archivedLots,
   capacityWarning,
   defaultRound,
   dispatchLines,
@@ -217,13 +218,17 @@ function NoteForm({
       : { role: "owner" };
   // Newest first. A PO kind goes on a PO เนื้อ, the other lot kinds on a PO รมควัน.
   // A branch's receipt lists no old lot: one holds no stock, so its receipt adds none.
+  // An archived PO is offered to no new note; an edit on one keeps it (the picker adds `lotId`).
+  const archived = archivedLots(db);
   const lots = (
     info.lot === "po"
       ? purchaseLots(db)
       : info.lot
         ? shipments(db).filter((lot) => info.lot !== "optional" || !lot.old)
         : []
-  ).reverse();
+  )
+    .filter((lot) => !archived.has(lot.id))
+    .reverse();
   const [lotId, setLotId] = useState(
     () =>
       target?.lotId ??
@@ -1033,11 +1038,14 @@ function PoLinesControl({
   // Of the PO the field offers (the Lot's kind of meat), one with nothing left is not, unless
   // a line already names it.
   const offered = new Set(f.options?.map((option) => option.value));
+  const archived = archivedLots(db);
   const pos = purchaseLots(db)
     .reverse()
     .filter(
       (lot) =>
-        (offered.has(lot.id) && held(lot.id) > 0.005) ||
+        (offered.has(lot.id) &&
+          !archived.has(lot.id) &&
+          held(lot.id) > 0.005) ||
         rows.some((row) => row.poLotId === lot.id),
     );
   const label = (id: string) => `${lotLabel(db, id)} · ${qty(held(id))} กก.`;
