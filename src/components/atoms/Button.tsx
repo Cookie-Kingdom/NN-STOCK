@@ -22,9 +22,10 @@ const buttonVariants = cva(
         /** `.secondary.table-action` — the table look keeps `.secondary`'s 44px height and weight */
         "table-secondary":
           "min-h-11 min-w-22 gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-body-sm font-medium text-accent hover:bg-surface-sunken",
-        /** `.text-button` */
-        text: "gap-1 text-right text-caption text-accent hover:text-accent-hover",
-        link: "gap-1 text-accent underline-offset-4 hover:text-accent-hover hover:underline",
+        /** `.text-button`: a small bordered button, never bare text. */
+        text: "min-h-9 gap-1 rounded-md border border-accent/25 bg-accent-subtle px-3 py-1.5 text-body-sm font-medium text-accent hover:bg-accent/15",
+        /** A bordered button too; the colour can be overridden (e.g. a red 「ลบ」). */
+        link: "min-h-9 gap-1 rounded-md border border-current/25 px-3 py-1.5 text-accent hover:bg-surface-sunken hover:text-accent-hover",
       },
       size: {
         /** `.primary` / `.secondary` default: 44px */
