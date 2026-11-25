@@ -309,7 +309,11 @@ export function LotsPage({ ws }: { ws: Workspace }) {
             key={lot.id}
             flush
             aria-label={lot.poId}
-            className="animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            className={cn(
+              "animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
+              // A phone picking another PO: the list takes the screen, the open PO steps aside.
+              browsing && "max-[1000px]:hidden",
+            )}
           >
             <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4 min-[1700px]:border-r min-[1700px]:border-b-0 min-[1700px]:last:col-span-full min-[1700px]:last:border-r-0">
               {lot.kind ? (
