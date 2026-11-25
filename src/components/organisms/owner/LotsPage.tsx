@@ -8,9 +8,10 @@ import { CountPill } from "@/components/atoms/CountPill";
 import { MissingMark } from "@/components/atoms/MissingMark";
 import { Panel } from "@/components/atoms/Panel";
 import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton";
+import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import { EmptyState } from "@/components/molecules/EmptyState";
-import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
+import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { StatusTile } from "@/components/molecules/StatusTile";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import {
@@ -76,8 +77,10 @@ const Kg = ({ value }: { value: number }) => (
 /** The page's props, plus what this page lets the account jot. */
 type Props = { ws: Workspace; can: (kind: NoteKind) => boolean };
 
-/** Every PO รมควัน and PO เนื้อ in a list at the left (a row under 1000px), the one picked at
- *  the right. Every form of the page is a button where it belongs: the two POs at the top, a
+/** Every PO รมควัน and PO เนื้อ as cards in a list at the left, each with its 「Archive」 /
+ *  「Unarchive」 (asked first), the one picked at the right. Under 1000px the page opens on the
+ *  cards, one tab at a time (PO เนื้อ, PO รมควัน, Archived), and shows a PO only once one is
+ *  picked; the list then folds to that card and 「เปลี่ยน PO」 brings the tabs back. Every form of the page is a button where it belongs: the two POs at the top, a
  *  round and the Chef House invoice on a PO รมควัน, each round's three steps in its card, the
  *  waste and the Foodiva invoice on a PO เนื้อ. A PO flagged `old` (carried over from the old
  *  workbook) is on no page. An archived one (V2-DOC-05) folds under 「Archived (n)」 at the
@@ -102,6 +105,14 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     pos[0];
   // An archived PO is jotted on no more.
   const canOn = lot && archived.has(lot.id) ? () => false : can;
+  // A phone (under 1000px): the list folds to the PO open, 「เปลี่ยน PO」 unfolds it as tabs.
+  const groupOf = (item: Lot): Group =>
+    archived.has(item.id) ? "archived" : item.kind ? "lot" : "po";
+  // A phone opens on the cards (no PO shown until one is picked), unless sent to a PO.
+  const [browsing, setBrowsing] = useState(!ws.focusLot);
+  const [tab, setTab] = useState<Group>(lot ? groupOf(lot) : "archived");
+  const [archOpen, setArchOpen] = useState(!!lot && archived.has(lot.id));
+  const listing = browsing || !lot;
 
   const actions = (can("purchase") || can("smokeOrder")) && (
     <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
@@ -128,36 +139,61 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       </div>
     );
 
-  const item = (item: Lot, warning: boolean, status: ReactNode) => (
-    <button
+  // A card: pressing it opens the PO; its 「Archive」 / 「Unarchive」 sits on the right.
+  // `count`: what the PO still lacks, centred on the card's height beside its 「Archive」.
+  const item = (
+    item: Lot,
+    warning: boolean,
+    status: ReactNode,
+    count?: ReactNode,
+  ) => (
+    <div
       key={item.id}
-      type="button"
       data-lot={item.id}
       data-tone={warning ? "warning" : "ok"}
-      aria-pressed={item.id === lot?.id}
-      onClick={() => setPicked(item.id)}
       className={cn(
-        "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) aria-pressed:outline-2 aria-pressed:outline-accent",
+        "flex shrink-0 items-center gap-2 rounded-md border-l-3 pr-2 -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) has-[[aria-pressed=true]]:outline-2 has-[[aria-pressed=true]]:outline-accent",
         warning ? "border-l-warning bg-warning-subtle" : "border-l-success",
+        (listing ? groupOf(item) !== tab : item.id !== lot?.id) &&
+          "max-[1000px]:hidden",
+        // A phone that has picked nothing yet marks no card as the one open.
+        browsing && !picked && "max-[1000px]:outline-transparent!",
       )}
     >
-      <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
-        {item.poId}
-      </strong>
-      {lotMeat(db, item.id) && (
-        <span className="text-caption whitespace-nowrap text-text-secondary">
-          {lotMeat(db, item.id)}
-        </span>
-      )}
-      <span
-        className={cn(
-          "flex items-center gap-1.5 text-caption whitespace-nowrap tabular-nums",
-          warning ? "text-warning" : "text-text-secondary",
-        )}
+      <button
+        type="button"
+        aria-pressed={item.id === lot?.id}
+        onClick={() => {
+          setPicked(item.id);
+          setBrowsing(false);
+          if (archived.has(item.id)) setArchOpen(true);
+        }}
+        className="group flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md py-2 pl-2.25 text-left outline-focus-ring focus-visible:outline-2 max-[1000px]:min-h-14 max-[1000px]:py-2.5"
       >
-        {status}
-      </span>
-    </button>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
+              {item.poId}
+            </strong>
+            {lotMeat(db, item.id) && (
+              <span className="text-caption text-text-secondary min-[1000px]:basis-full">
+                {lotMeat(db, item.id)}
+              </span>
+            )}
+          </span>
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-caption whitespace-nowrap tabular-nums",
+              warning ? "text-warning" : "text-text-secondary",
+            )}
+          >
+            {status}
+          </span>
+        </span>
+        {count}
+      </button>
+      <ArchiveControl ws={ws} lot={item} />
+    </div>
   );
   const notes = visibleNotes(db, account).filter((e) => e.lotId === lot?.id);
   const heading = (text: string) => (
@@ -197,31 +233,78 @@ export function LotsPage({ ws }: { ws: Workspace }) {
         {remainingKg < 0
           ? `เกิน ${qty(-remainingKg)} กก.`
           : `เหลือ ${qty(remainingKg)} กก.`}
-        {yellow > 0 && (
-          <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
-            {yellow}
-          </CountPill>
-        )}
       </>,
+      yellow > 0 && (
+        <CountPill aria-label={`${missingText} ${yellow} อย่าง`}>
+          {yellow}
+        </CountPill>
+      ),
     );
   };
 
   return (
     <div className="flex flex-col gap-4">
       {actions}
-      <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4">
+      <div className="grid grid-cols-[280px_minmax(0,1fr)] items-start gap-6 max-[1000px]:grid-cols-1 max-md:gap-4">
         <Panel
           flush
           aria-label="รายการ PO รมควัน และ PO เนื้อ"
-          className="flex flex-col gap-0.5 p-2 max-[1000px]:flex-row max-[1000px]:overflow-x-auto"
+          className="flex flex-col gap-0.5 p-2"
         >
+          <div className="flex flex-col gap-2 pb-1 min-[1000px]:hidden">
+            {listing || !lot ? (
+              <SegmentedChoice
+                label="กลุ่ม PO"
+                value={tab}
+                onChange={setTab}
+                className="w-full [&>button]:flex-1"
+                options={[
+                  { value: "po", label: `PO เนื้อ (${pos.length})` },
+                  { value: "lot", label: `PO รมควัน (${lots.length})` },
+                  ...(shelved.length
+                    ? [
+                        {
+                          value: "archived" as const,
+                          label: `Archived (${shelved.length})`,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            ) : (
+              <div className="flex items-center justify-between gap-2 pl-1">
+                <span className="text-caption font-medium text-text-secondary">
+                  {groupLabel[groupOf(lot)]}
+                </span>
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    setTab(groupOf(lot));
+                    setBrowsing(true);
+                  }}
+                >
+                  เปลี่ยน PO
+                </Button>
+              </div>
+            )}
+            {listing &&
+              !(tab === "po" ? pos : tab === "lot" ? lots : shelved).length && (
+                <p className="m-0 px-2 py-3 text-caption text-text-secondary">
+                  ยังไม่มี{groupLabel[tab]}
+                </p>
+              )}
+          </div>
           {heading("PO เนื้อ")}
           {pos.map(poItem)}
           {heading("PO รมควัน")}
           {lots.map(lotItem)}
           {shelved.length > 0 && (
-            <details className="group shrink-0">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 pt-2 pb-1 text-caption font-medium whitespace-nowrap text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+            <details
+              className="group shrink-0"
+              open={archOpen || tab === "archived"}
+              onToggle={(e) => setArchOpen(e.currentTarget.open)}
+            >
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 pt-2 pb-1 text-caption font-medium whitespace-nowrap text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 max-[1000px]:hidden [&::-webkit-details-marker]:hidden">
                 <ChevronDown
                   size={16}
                   aria-hidden
@@ -229,7 +312,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
                 />
                 Archived ({shelved.length})
               </summary>
-              <div className="flex flex-col gap-0.5 max-[1000px]:flex-row">
+              <div className="flex flex-col gap-0.5">
                 {shelved.some((item) => !item.kind) && heading("PO เนื้อ")}
                 {shelved.filter((item) => !item.kind).map(poItem)}
                 {shelved.some((item) => item.kind) && heading("PO รมควัน")}
@@ -245,7 +328,11 @@ export function LotsPage({ ws }: { ws: Workspace }) {
             key={lot.id}
             flush
             aria-label={lot.poId}
-            className="animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            className={cn(
+              "animate-fade-in overflow-hidden min-[1700px]:grid min-[1700px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
+              // A phone picking another PO: the list takes the screen, the open PO steps aside.
+              browsing && "max-[1000px]:hidden",
+            )}
           >
             <div className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0 max-md:px-4 min-[1700px]:border-r min-[1700px]:border-b-0 min-[1700px]:last:col-span-full min-[1700px]:last:border-r-0">
               {lot.kind ? (
@@ -276,6 +363,12 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     </div>
   );
 }
+type Group = "po" | "lot" | "archived";
+const groupLabel: Record<Group, string> = {
+  po: "PO เนื้อ",
+  lot: "PO รมควัน",
+  archived: "Archived",
+};
 const title = "flex flex-wrap items-center gap-x-3 gap-y-2";
 const facts =
   "m-0 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-3";
@@ -467,12 +560,14 @@ function RoundCard({
 /** Whether a PO's bill is paid, as Accounting reads it (`ledgerRows`: a seller's payments
  *  fill its POs oldest first, so a payment may settle an older PO of the seller before this
  *  one), and 「จ่ายเงิน」 while it is not: the `pay` form with the seller and what is left. */
-/** The Owner's 「Archive」 on an open PO, saved at once (an `archive` entry); on an archived
- *  one the 「Archived」 badge and 「Unarchive」 (its `void`). No figure changes (V2-DOC-05). */
+/** The Owner's 「Archive」 on a PO's card in the list, or 「Unarchive」 on an archived one; each
+ *  asks first, then saves an `archive` entry or its `void`. No figure changes (V2-DOC-05). */
 function ArchiveControl({ ws, lot }: { ws: Workspace; lot: Lot }) {
-  const { error, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const { error, setError, run, saving } = useSaveMutation("บันทึกไม่สำเร็จ");
+  const [asking, setAsking] = useState(false);
   const archiveId = archivedLots(ws.db).get(lot.id);
   if (ws.account.role !== "owner") return null;
+  const label = archiveId ? "Unarchive" : "Archive";
   const save = async () => {
     const next = await run(() =>
       archiveId
@@ -493,15 +588,38 @@ function ArchiveControl({ ws, lot }: { ws: Workspace; lot: Lot }) {
             ws.today,
           ),
     );
-    if (next) ws.setToast(archiveId ? "Unarchive แล้ว" : "Archive แล้ว");
+    if (!next) return;
+    setAsking(false);
+    ws.setToast(`${label} แล้ว`);
   };
   return (
     <>
-      {archiveId && <Badge>Archived</Badge>}
-      <Button size="sm" disabled={saving} onClick={save}>
-        {archiveId ? "Unarchive" : "Archive"}
+      <Button
+        variant="text"
+        className="shrink-0"
+        aria-label={`${label} ${lot.poId}`}
+        onClick={() => setAsking(true)}
+      >
+        {label}
       </Button>
-      <FormError error={error} />
+      {asking && (
+        <ConfirmDialog
+          title={`${label} ${lot.poId}`}
+          confirmLabel={`ยืนยัน ${label}`}
+          cancelLabel="ยกเลิก"
+          saving={saving}
+          error={error}
+          onConfirm={save}
+          onClose={() => {
+            setError("");
+            setAsking(false);
+          }}
+        >
+          {archiveId
+            ? `ย้าย ${lot.poId} กลับไปอยู่ในรายการ PO ปกติ จดต่อได้ และแจ้งเตือนของ PO นี้จะกลับมาในกระดิ่ง`
+            : `ย้าย ${lot.poId} ไปอยู่ใน Archived จดเพิ่มไม่ได้ และแจ้งเตือนของ PO นี้จะไม่ขึ้นในกระดิ่ง ตัวเลขทุกตัวเหมือนเดิม`}
+        </ConfirmDialog>
+      )}
     </>
   );
 }
@@ -601,7 +719,7 @@ function LotHead({ ws, can, lot }: Props & { lot: Lot }) {
             แก้ไข PO
           </Button>
         )}
-        <ArchiveControl ws={ws} lot={lot} />
+        {archivedLots(db).has(lot.id) && <Badge>Archived</Badge>}
       </div>
       <div className="flex flex-col gap-1.5">
         <p className="m-0 text-body-sm tabular-nums">
@@ -772,7 +890,7 @@ function PoHead({ ws, can, po }: Props & { po: Lot }) {
             แก้ไข PO
           </Button>
         )}
-        <ArchiveControl ws={ws} lot={po} />
+        {archivedLots(ws.db).has(po.id) && <Badge>Archived</Badge>}
       </div>
       <dl className={facts}>
         <Fact label="เนื้อ">
