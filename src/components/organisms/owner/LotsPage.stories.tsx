@@ -47,12 +47,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Presses the list button of a Lot or a PO, by its number. */
+/** Presses the card of a Lot or a PO, by its number (not its 「Archive」, named after it too). */
 const pick =
   (number: RegExp): Story["play"] =>
   async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: number }),
+      within(canvasElement).getByRole("button", {
+        name: new RegExp(`^${number.source}`),
+      }),
     );
   };
 
@@ -179,7 +181,7 @@ export const ArchivedPo: Story = {
     await pick(/SO-\d+-0001/)!(context);
     await expect(canvas.getByText("Archived")).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "Unarchive" }),
+      canvas.getByRole("button", { name: /^Unarchive SO-/ }),
     ).toBeVisible();
   },
 };
@@ -204,15 +206,13 @@ export const WithoutOld: Story = {
   },
 };
 
-/** จอ 390px: รายการ PO ยุบเหลือแถวของ PO ที่เปิดอยู่ กด「เปลี่ยน PO」แล้วเลือกจากแท็บ
- *  PO เนื้อ / PO รมควัน / Archived (แถวเต็มความกว้าง; ระหว่างเลือก ซ่อนรายละเอียดของ PO ที่เปิดอยู่)
- *  เลือกแล้วยุบกลับ รอบส่งเรียงลงมาทีละขั้น */
+/** จอ 390px: เปิดมาเป็นการ์ด PO ให้เลือกจากแท็บ PO เนื้อ / PO รมควัน / Archived ก่อน (ยังไม่แสดง PO ไหน)
+ *  เลือกแล้วยุบเหลือการ์ดของ PO นั้นกับ「เปลี่ยน PO」 รอบส่งเรียงลงมาทีละขั้น */
 export const Phone: Story = {
   ...phone,
   parameters: { ...phone.parameters, db: twoRoundsDb },
   play: async (context) => {
     const canvas = within(context.canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "เปลี่ยน PO" }));
     await userEvent.click(canvas.getByRole("radio", { name: /PO รมควัน/ }));
     await pick(/SO-\d+-0002/)!(context);
     await expect(
@@ -227,7 +227,6 @@ export const PhoneList: Story = {
   parameters: { ...phone.parameters, db: twoRoundsDb },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "เปลี่ยน PO" }));
     await userEvent.click(canvas.getByRole("radio", { name: /PO เนื้อ/ }));
   },
 };
