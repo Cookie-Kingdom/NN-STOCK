@@ -11,6 +11,7 @@ import { DocumentPrintButton } from "@/components/molecules/DocumentPrintButton"
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { FormError } from "@/components/molecules/FormError";
 import { Notice } from "@/components/molecules/Notice";
+import { SegmentedChoice } from "@/components/molecules/SegmentedChoice";
 import { StatusTile } from "@/components/molecules/StatusTile";
 import { NoteRow } from "@/components/organisms/shared/NoteRow";
 import {
@@ -76,7 +77,8 @@ const Kg = ({ value }: { value: number }) => (
 /** The page's props, plus what this page lets the account jot. */
 type Props = { ws: Workspace; can: (kind: NoteKind) => boolean };
 
-/** Every PO รมควัน and PO เนื้อ in a list at the left (a row under 1000px), the one picked at
+/** Every PO รมควัน and PO เนื้อ in a list at the left (under 1000px: folded to the PO open,
+ *  「เปลี่ยน PO」 lists one tab at a time: PO เนื้อ, PO รมควัน, Archived), the one picked at
  *  the right. Every form of the page is a button where it belongs: the two POs at the top, a
  *  round and the Chef House invoice on a PO รมควัน, each round's three steps in its card, the
  *  waste and the Foodiva invoice on a PO เนื้อ. A PO flagged `old` (carried over from the old
@@ -102,6 +104,13 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     pos[0];
   // An archived PO is jotted on no more.
   const canOn = lot && archived.has(lot.id) ? () => false : can;
+  // A phone (under 1000px): the list folds to the PO open, 「เปลี่ยน PO」 unfolds it as tabs.
+  const groupOf = (item: Lot): Group =>
+    archived.has(item.id) ? "archived" : item.kind ? "lot" : "po";
+  const [browsing, setBrowsing] = useState(false);
+  const [tab, setTab] = useState<Group>(lot ? groupOf(lot) : "archived");
+  const [archOpen, setArchOpen] = useState(!!lot && archived.has(lot.id));
+  const listing = browsing || !lot;
 
   const actions = (can("purchase") || can("smokeOrder")) && (
     <div className="flex flex-wrap gap-2 max-sm:[&>button]:flex-1">
@@ -135,20 +144,28 @@ export function LotsPage({ ws }: { ws: Workspace }) {
       data-lot={item.id}
       data-tone={warning ? "warning" : "ok"}
       aria-pressed={item.id === lot?.id}
-      onClick={() => setPicked(item.id)}
+      onClick={() => {
+        setPicked(item.id);
+        setBrowsing(false);
+        if (archived.has(item.id)) setArchOpen(true);
+      }}
       className={cn(
-        "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) aria-pressed:outline-2 aria-pressed:outline-accent",
+        "group flex min-h-11 shrink-0 cursor-pointer flex-col rounded-md border-l-3 py-2 pr-3 pl-2.25 text-left -outline-offset-2 outline-transparent transition-[background-color,outline-color] duration-(--motion-fast) ease-(--ease-standard) aria-pressed:outline-2 aria-pressed:outline-accent max-[1000px]:min-h-14 max-[1000px]:py-2.5",
         warning ? "border-l-warning bg-warning-subtle" : "border-l-success",
+        (listing ? groupOf(item) !== tab : item.id !== lot?.id) &&
+          "max-[1000px]:hidden",
       )}
     >
-      <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
-        {item.poId}
-      </strong>
-      {lotMeat(db, item.id) && (
-        <span className="text-caption whitespace-nowrap text-text-secondary">
-          {lotMeat(db, item.id)}
-        </span>
-      )}
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+        <strong className="font-semibold whitespace-nowrap transition-colors duration-(--motion-fast) ease-(--ease-standard) group-hover:text-accent">
+          {item.poId}
+        </strong>
+        {lotMeat(db, item.id) && (
+          <span className="text-caption text-text-secondary min-[1000px]:basis-full">
+            {lotMeat(db, item.id)}
+          </span>
+        )}
+      </span>
       <span
         className={cn(
           "flex items-center gap-1.5 text-caption whitespace-nowrap tabular-nums",
@@ -213,15 +230,62 @@ export function LotsPage({ ws }: { ws: Workspace }) {
         <Panel
           flush
           aria-label="รายการ PO รมควัน และ PO เนื้อ"
-          className="flex flex-col gap-0.5 p-2 max-[1000px]:flex-row max-[1000px]:overflow-x-auto"
+          className="flex flex-col gap-0.5 p-2"
         >
+          <div className="flex flex-col gap-2 pb-1 min-[1000px]:hidden">
+            {listing || !lot ? (
+              <SegmentedChoice
+                label="กลุ่ม PO"
+                value={tab}
+                onChange={setTab}
+                className="w-full [&>button]:flex-1"
+                options={[
+                  { value: "po", label: `PO เนื้อ (${pos.length})` },
+                  { value: "lot", label: `PO รมควัน (${lots.length})` },
+                  ...(shelved.length
+                    ? [
+                        {
+                          value: "archived" as const,
+                          label: `Archived (${shelved.length})`,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            ) : (
+              <div className="flex items-center justify-between gap-2 pl-1">
+                <span className="text-caption font-medium text-text-secondary">
+                  {groupLabel[groupOf(lot)]}
+                </span>
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    setTab(groupOf(lot));
+                    setBrowsing(true);
+                  }}
+                >
+                  เปลี่ยน PO
+                </Button>
+              </div>
+            )}
+            {listing &&
+              !(tab === "po" ? pos : tab === "lot" ? lots : shelved).length && (
+                <p className="m-0 px-2 py-3 text-caption text-text-secondary">
+                  ยังไม่มี{groupLabel[tab]}
+                </p>
+              )}
+          </div>
           {heading("PO เนื้อ")}
           {pos.map(poItem)}
           {heading("PO รมควัน")}
           {lots.map(lotItem)}
           {shelved.length > 0 && (
-            <details className="group shrink-0">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 pt-2 pb-1 text-caption font-medium whitespace-nowrap text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+            <details
+              className="group shrink-0"
+              open={archOpen || tab === "archived"}
+              onToggle={(e) => setArchOpen(e.currentTarget.open)}
+            >
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 pt-2 pb-1 text-caption font-medium whitespace-nowrap text-text-secondary outline-focus-ring hover:text-accent focus-visible:outline-2 max-[1000px]:hidden [&::-webkit-details-marker]:hidden">
                 <ChevronDown
                   size={16}
                   aria-hidden
@@ -229,7 +293,7 @@ export function LotsPage({ ws }: { ws: Workspace }) {
                 />
                 Archived ({shelved.length})
               </summary>
-              <div className="flex flex-col gap-0.5 max-[1000px]:flex-row">
+              <div className="flex flex-col gap-0.5">
                 {shelved.some((item) => !item.kind) && heading("PO เนื้อ")}
                 {shelved.filter((item) => !item.kind).map(poItem)}
                 {shelved.some((item) => item.kind) && heading("PO รมควัน")}
@@ -276,6 +340,12 @@ export function LotsPage({ ws }: { ws: Workspace }) {
     </div>
   );
 }
+type Group = "po" | "lot" | "archived";
+const groupLabel: Record<Group, string> = {
+  po: "PO เนื้อ",
+  lot: "PO รมควัน",
+  archived: "Archived",
+};
 const title = "flex flex-wrap items-center gap-x-3 gap-y-2";
 const facts =
   "m-0 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-5 gap-y-3";

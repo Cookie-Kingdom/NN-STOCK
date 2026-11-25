@@ -204,11 +204,31 @@ export const WithoutOld: Story = {
   },
 };
 
-/** จอ 390px: รายการ PO เป็นแถวเลื่อนแนวนอน รอบส่งเรียงลงมาทีละขั้น */
+/** จอ 390px: รายการ PO ยุบเหลือแถวของ PO ที่เปิดอยู่ กด「เปลี่ยน PO」แล้วเลือกจากแท็บ
+ *  PO เนื้อ / PO รมควัน / Archived (แถวเต็มความกว้าง) เลือกแล้วยุบกลับ รอบส่งเรียงลงมาทีละขั้น */
 export const Phone: Story = {
   ...phone,
   parameters: { ...phone.parameters, db: twoRoundsDb },
-  play: pick(/SO-\d+-0002/),
+  play: async (context) => {
+    const canvas = within(context.canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "เปลี่ยน PO" }));
+    await userEvent.click(canvas.getByRole("radio", { name: /PO รมควัน/ }));
+    await pick(/SO-\d+-0002/)!(context);
+    await expect(
+      canvas.getByRole("button", { name: "เปลี่ยน PO" }),
+    ).toBeVisible();
+  },
+};
+
+/** จอ 390px: แท็บ PO เนื้อ เปิดอยู่ */
+export const PhoneList: Story = {
+  ...phone,
+  parameters: { ...phone.parameters, db: twoRoundsDb },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "เปลี่ยน PO" }));
+    await userEvent.click(canvas.getByRole("radio", { name: /PO เนื้อ/ }));
+  },
 };
 
 /** จอ 1920px: บันทึกของ PO อยู่ข้างตัวเลข */
