@@ -43,7 +43,7 @@ export function Toast({
         action && (
           <Button
             variant="link"
-            className="min-h-11 px-2 font-semibold underline"
+            className="min-h-11 px-3 font-semibold"
             onClick={() => {
               action.onClick();
               onClose();
