@@ -9,7 +9,7 @@ import { DatabaseErrorToast, Toast } from "@/components/molecules/Toast";
 import { AppSidebar } from "@/components/organisms/workspace/AppSidebar";
 import { Composer } from "@/components/organisms/workspace/Composer";
 import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
-import { descriptionFor, pages } from "@/lib/nav";
+import { descriptionFor, pages, paragonProject } from "@/lib/nav";
 import { kindsForPage, shopProject, titles } from "@/lib/store";
 
 /** The layout of every signed-in page: the sidebar (a top bar and bottom tabs on a phone)
@@ -24,7 +24,8 @@ export function WorkspaceShell({
   children: ReactNode;
 }) {
   const page = pages[ws.tab];
-  const kinds = kindsForPage(ws.account, ws.tab);
+  const paragon = ws.tab === "paragonFinance";
+  const kinds = kindsForPage(ws.account, paragon ? "accounting" : ws.tab);
   return (
     <div className="grid min-h-dvh grid-cols-[256px_minmax(0,1fr)] items-start bg-bg text-body text-text-primary tabular-nums max-md:block">
       <AppSidebar ws={ws} />
@@ -53,12 +54,12 @@ export function WorkspaceShell({
                     onClick={() =>
                       ws.jot(
                         // Finance is the project's money: its income opens as the project's.
-                        kind === "income" && ws.tab === "finance"
+                        paragon || (kind === "income" && ws.tab === "finance")
                           ? {
                               kind,
                               values: {
                                 purpose: "project",
-                                project: shopProject,
+                                project: paragon ? paragonProject : shopProject,
                               },
                             }
                           : { kind },

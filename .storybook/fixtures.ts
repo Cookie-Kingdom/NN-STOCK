@@ -50,6 +50,46 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
+/** Project Finance keeps Paragon's Accounting notes apart from the shop's other money. */
+export function paragonFinanceDb(on = day): Database {
+  const notes: [NoteKind, Values][] = [
+    [
+      "expense",
+      {
+        itemType: "การตลาด",
+        item: "พื้นที่กิจกรรม Paragon",
+        amount: "12000",
+        status: "paid",
+      },
+    ],
+    [
+      "income",
+      {
+        incomeType: "other",
+        item: "รายรับกิจกรรม Paragon",
+        amount: "20000",
+        status: "paid",
+      },
+    ],
+  ];
+  return notes.reduce(
+    (db, [kind, values]) =>
+      mutate(
+        db,
+        { role: "owner" },
+        kind,
+        {
+          ...values,
+          purpose: "project",
+          project: "Nerdnuea x Paragon",
+        },
+        "",
+        on,
+      ),
+    sampleData(on),
+  );
+}
+
 /** Daily sheets on a new system: both branches took their first stock in on both sheets two
  *  days before `on` (รับเพิ่ม on that day's sheet) and saved the sheets of the day before;
  *  nothing is saved on `on` yet.

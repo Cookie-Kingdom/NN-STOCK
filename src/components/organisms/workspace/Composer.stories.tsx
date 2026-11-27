@@ -163,6 +163,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Project preset stays on Paragon when saving and jotting another expense. */
+export const ParagonExpense: Story = {
+  args: { open: { kind: "expense" } },
+  parameters: {
+    nextjs: { navigation: { pathname: "/owner/nn-x-prg/finance" } },
+  },
+};
+
 /** จ่ายเงิน (lg): ช่องหลัก (หมวด ยอด) สีเหลืองเมื่อว่าง บันทึกได้ทั้งที่ว่าง ท้าย popup นับช่องที่ยังไม่ได้จด ·
  *  แถบขวา 「ตัวเลขสรุป」 คิดยอดค้างจ่ายผู้ขายก่อนและหลังจ่ายเมื่อใส่ผู้ขาย ·
  *  ใส่ยอดติดลบแล้วกดบันทึกเพื่อดูข้อความที่เว็บไม่รับ ·

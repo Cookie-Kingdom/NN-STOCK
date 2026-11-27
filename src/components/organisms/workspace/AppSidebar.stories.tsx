@@ -26,6 +26,13 @@ type Story = StoryObj<typeof meta>;
 /** Owner: แปดหน้า · Lots, Stock, Inventory, Daily Log, Finance อยู่ใต้หัวข้อ "Nerdnuea x LINE MAN" ที่ขนาดเท่าปุ่มหน้าอื่นและกดพับ/กางได้ (หน้าในกลุ่มเยื้องเข้ามาหลังเส้นนำทางใต้ไอคอนหัวข้อ เลื่อนพับลงอย่างนุ่มนวล ลูกศรหมุนตาม) · กระดิ่งเปิดรายการที่ยังไม่ได้จด (รายการเดียวกับกล่องในหน้า Daily Log) */
 export const Owner: Story = {};
 
+/** Owner-only Paragon group contains Finance alone; the active page has its own route. */
+export const Paragon: Story = {
+  parameters: {
+    nextjs: { navigation: { pathname: "/owner/nn-x-prg/finance" } },
+  },
+};
+
 /** สาขา: สี่หน้า (Sales, Stock, Inventory, Daily Log) ใต้หัวข้อ "Nerdnuea x LINE MAN" */
 export const Branch: Story = {
   args: { account: "saladaeng" },

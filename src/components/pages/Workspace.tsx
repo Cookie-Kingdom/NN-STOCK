@@ -20,6 +20,11 @@ import { DailyLog } from "@/components/organisms/shared/DailyLog";
 import { useWorkspace } from "@/components/organisms/workspace/useWorkspace";
 import { WorkspaceShell } from "@/components/templates/WorkspaceShell";
 import type { Account } from "@/lib/accounts";
+import { paragonProject } from "@/lib/nav";
+
+const ParagonFinance = ({ ws }: { ws: ReturnType<typeof useWorkspace> }) => (
+  <FinancePage ws={ws} project={paragonProject} />
+);
 
 /** The one workspace of every account: the shell, and the page of the tab in view. Which
  *  tabs an account has is `navFor` (nav.ts); a branch's Stock and
@@ -37,6 +42,7 @@ export function Workspace({ account }: { account: Account }) {
     // A branch's only (`navFor`).
     sales: BranchSales,
     finance: FinancePage,
+    paragonFinance: ParagonFinance,
     accounting: AccountingPage,
     projectSettings: ProjectSettingsPage,
     settings: SettingsPage,
