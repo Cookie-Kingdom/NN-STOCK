@@ -7,11 +7,19 @@ import {
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
 import { seed } from "@/lib/store";
+import { today } from "@/lib/format";
+import { paragonFinanceDb } from "../../../../.storybook/fixtures";
 import { FinancePage } from "./FinancePage";
 
-const Finance = ({ account }: { account: AccountId }) => (
+const Finance = ({
+  account,
+  project,
+}: {
+  account: AccountId;
+  project?: string;
+}) => (
   <WithWorkspace account={account}>
-    {(ws) => <FinancePage ws={ws} />}
+    {(ws) => <FinancePage ws={ws} project={project} />}
   </WithWorkspace>
 );
 
@@ -35,6 +43,18 @@ type Story = StoryObj<typeof meta>;
  *  (วันที่ รายรับ / รายจ่าย หมวด รายการ คู่รายการ ที่มา / ประเภทบิล จำนวนเงิน เอกสารแนบ และปุ่ม
  *  แก้ไข / ลบท้ายแถว) · Revenue อยู่ที่หน้า Overview ของ Project */
 export const Owner: Story = {};
+
+/** Paragon shows only its Accounting income and expenses, with other project data present. */
+export const Paragon: Story = {
+  args: { project: "Nerdnuea x Paragon" },
+  parameters: { db: paragonFinanceDb(today()) },
+};
+
+export const ParagonPhone: Story = {
+  ...Paragon,
+  ...phone,
+  parameters: { ...Paragon.parameters, ...phone.parameters },
+};
 
 /** ยังไม่ได้จดรายรับเลย: เงินเข้าเป็นศูนย์ เงินคงเหลือติดลบสีแดง ยังไม่ได้รับและ
  *  แถว LINE MAN เป็น "ยังไม่ได้จด" (ไม่เดาตัวเลข) มีปุ่ม "รับเงิน" · ตัวกรอง "รายรับ" ว่าง */

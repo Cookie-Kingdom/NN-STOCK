@@ -31,6 +31,7 @@ import {
   incomeStatuses,
   incomeTypes,
   ledgerSources,
+  liveEntries,
   receivables,
   salesChannels,
   shopProject,
@@ -52,12 +53,6 @@ import { usePeriod } from "./overviewParts";
 const sumOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const none = <Muted as="span">—</Muted>;
 
-/** Of the shop project: an `income` or `expense` note jotted for it, as `cashBetween` reads one. */
-const ofProject = (e: Entry) =>
-  e.values.purpose === "project" && e.values.project === shopProject;
-const isIncome = (e: Entry) => e.kind === "income" && ofProject(e);
-const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
-
 /** The project's money as it really moved, both ways, by month or by year. From the top: the
  *  cash position (what came in, what left the shop, what is left of the two, and what is
  *  still to receive and to pay as of today), then whose pocket the money out left
@@ -69,14 +64,33 @@ const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
  *  (`BranchSalesSummary`); and the latest money in and out, a table
  *  with 「แก้ไข」 and 「ลบ」 at the end of each row. Money in is the `income` notes jotted for
  *  the project (V2-PAY-09), never the sales as jotted: the revenue is the project's Overview. */
-export function FinancePage({ ws }: { ws: Workspace }) {
-  const { db, account, today } = ws;
+export function FinancePage({
+  ws,
+  project = shopProject,
+}: {
+  ws: Workspace;
+  project?: string;
+}) {
+  const { account, today } = ws;
+  const shop = project === shopProject;
+  const ofProject = (e: Entry) =>
+    e.values.purpose === "project" && e.values.project === project;
+  const isIncome = (e: Entry) => e.kind === "income" && ofProject(e);
+  const isExpense = (e: Entry) => e.kind === "expense" && ofProject(e);
+  // A read-only resolved view excludes shop-wide payments; edits always use the full ws.db.
+  const db = shop
+    ? ws.db
+    : {
+        ...ws.db,
+        lots: [],
+        entries: liveEntries(ws.db).filter((e) => isIncome(e) || isExpense(e)),
+      };
   const { remove } = useEntryActions(ws);
   const { view, key, span, control } = usePeriod(db, today);
   const [show, setShow] = useState<"all" | "in" | "out">("all");
-  const cash = cashBetween(db, key, `${key}~`, shopProject);
+  const cash = cashBetween(db, key, `${key}~`, project);
   // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
-  const carried = cashBetween(db, "", key, shopProject).net;
+  const carried = cashBetween(db, "", key, project).net;
   const balances = supplierBalances(db);
   const advanced = advances(db);
   const due = receivables(db);
@@ -94,7 +108,7 @@ export function FinancePage({ ws }: { ws: Workspace }) {
   );
   const flow = rangeBuckets(range.from, range.to, range.by);
   const flowOf = (bar: (typeof flow.bars)[number]) => {
-    const of = cashBetween(db, bar.from, bar.to, shopProject);
+    const of = cashBetween(db, bar.from, bar.to, project);
     return { label: bar.label, title: bar.title, in: of.received, out: of.out };
   };
   const bars = flow.bars.map(flowOf);
@@ -311,181 +325,189 @@ export function FinancePage({ ws }: { ws: Workspace }) {
         />
       </Panel>
       <div className={cardGrid}>
-        <PlTable db={db} month={key} project={shopProject} />
-        <div className="flex min-w-0 flex-col gap-4">
-          <FigureCard
-            title="ยอดค้างรับแยกช่องทางขาย"
-            note="ยอดขายทั้งหมดหลังหัก GP หักเงินที่รับแล้ว นับถึงวันนี้"
-          >
-            {due.channels.length ? (
-              <FigureTable>
-                <thead>
-                  <tr>
-                    <th className={th}>ช่องทาง</th>
-                    {["ขายหลังหัก GP", "รับแล้ว", "ค้างรับ"].map((name) => (
-                      <th key={name} className={cn(th, "text-right")}>
-                        {name}
+        <PlTable db={db} month={key} project={project} />
+        {shop && (
+          <div className="flex min-w-0 flex-col gap-4">
+            <FigureCard
+              title="ยอดค้างรับแยกช่องทางขาย"
+              note="ยอดขายทั้งหมดหลังหัก GP หักเงินที่รับแล้ว นับถึงวันนี้"
+            >
+              {due.channels.length ? (
+                <FigureTable>
+                  <thead>
+                    <tr>
+                      <th className={th}>ช่องทาง</th>
+                      {["ขายหลังหัก GP", "รับแล้ว", "ค้างรับ"].map((name) => (
+                        <th key={name} className={cn(th, "text-right")}>
+                          {name}
+                        </th>
+                      ))}
+                      <th className={th}>
+                        <span className="sr-only">รับเงิน</span>
                       </th>
-                    ))}
-                    <th className={th}>
-                      <span className="sr-only">รับเงิน</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {due.channels.map((x) => (
-                    <tr key={x.key}>
-                      <td className={cn(td, "whitespace-nowrap")}>{x.name}</td>
-                      {/* Receipts that name no channel: only the old books' sales to set them against. */}
-                      <Num>{x.key || x.sold ? baht(x.sold) : "—"}</Num>
-                      {/* No receipt jotted: what it paid before is not known, so no figure. */}
-                      <Num>{x.jotted ? baht(x.received) : <MissingMark />}</Num>
-                      {!x.key && !x.sold ? (
-                        <Num>—</Num>
-                      ) : !x.jotted ? (
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {due.channels.map((x) => (
+                      <tr key={x.key}>
+                        <td className={cn(td, "whitespace-nowrap")}>
+                          {x.name}
+                        </td>
+                        {/* Receipts that name no channel: only the old books' sales to set them against. */}
+                        <Num>{x.key || x.sold ? baht(x.sold) : "—"}</Num>
+                        {/* No receipt jotted: what it paid before is not known, so no figure. */}
                         <Num>
-                          <MissingMark />
+                          {x.jotted ? baht(x.received) : <MissingMark />}
                         </Num>
-                      ) : x.left > 0 ? (
-                        <Num tone="warning">{baht(x.left)}</Num>
-                      ) : x.left < 0 ? (
-                        <Num tone="warning">รับเกิน {baht(-x.left)}</Num>
-                      ) : (
-                        <Num tone="ok">รับครบแล้ว</Num>
-                      )}
-                      <td className={cn(td, "text-right")}>
-                        {x.key && (!x.jotted || x.left > 0) && (
-                          <Button
-                            variant="text"
-                            aria-label={`รับเงิน ${x.name}`}
-                            onClick={() =>
-                              ws.jot({
-                                kind: "income",
-                                values: {
-                                  incomeType: "sales",
-                                  channel: x.key,
-                                  purpose: "project",
-                                  project: shopProject,
-                                  amount: x.left > 0 ? String(x.left) : "",
-                                },
-                              })
-                            }
-                          >
-                            รับเงิน
-                          </Button>
+                        {!x.key && !x.sold ? (
+                          <Num>—</Num>
+                        ) : !x.jotted ? (
+                          <Num>
+                            <MissingMark />
+                          </Num>
+                        ) : x.left > 0 ? (
+                          <Num tone="warning">{baht(x.left)}</Num>
+                        ) : x.left < 0 ? (
+                          <Num tone="warning">รับเกิน {baht(-x.left)}</Num>
+                        ) : (
+                          <Num tone="ok">รับครบแล้ว</Num>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </FigureTable>
-            ) : (
-              <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-                ยังไม่มีช่องทางขาย
-              </Muted>
-            )}
-          </FigureCard>
-          <FigureCard
-            title="ยอดค้างจ่ายแยกผู้ขาย"
-            note="ยอดตามใบทั้งหมดหักเงินที่จ่ายแล้ว นับถึงวันนี้"
-          >
-            {balances.length ? (
-              <FigureTable>
-                <thead>
-                  <tr>
-                    <th className={th}>ผู้ขาย</th>
-                    {["ยอดตามใบ", "จ่ายแล้ว", "ค้างจ่าย"].map((name) => (
-                      <th key={name} className={cn(th, "text-right")}>
-                        {name}
-                      </th>
+                        <td className={cn(td, "text-right")}>
+                          {x.key && (!x.jotted || x.left > 0) && (
+                            <Button
+                              variant="text"
+                              aria-label={`รับเงิน ${x.name}`}
+                              onClick={() =>
+                                ws.jot({
+                                  kind: "income",
+                                  values: {
+                                    incomeType: "sales",
+                                    channel: x.key,
+                                    purpose: "project",
+                                    project,
+                                    amount: x.left > 0 ? String(x.left) : "",
+                                  },
+                                })
+                              }
+                            >
+                              รับเงิน
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {balances.map((x) => (
-                    <tr key={x.supplier}>
-                      <td className={td}>{x.supplier}</td>
-                      <Num>{baht(x.billed)}</Num>
-                      <Num>{baht(x.paid)}</Num>
-                      {x.left > 0 ? (
-                        <Num tone="warning">{baht(x.left)}</Num>
-                      ) : (
-                        <Num tone="ok">จ่ายครบแล้ว</Num>
-                      )}
+                  </tbody>
+                </FigureTable>
+              ) : (
+                <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                  ยังไม่มีช่องทางขาย
+                </Muted>
+              )}
+            </FigureCard>
+            <FigureCard
+              title="ยอดค้างจ่ายแยกผู้ขาย"
+              note="ยอดตามใบทั้งหมดหักเงินที่จ่ายแล้ว นับถึงวันนี้"
+            >
+              {balances.length ? (
+                <FigureTable>
+                  <thead>
+                    <tr>
+                      <th className={th}>ผู้ขาย</th>
+                      {["ยอดตามใบ", "จ่ายแล้ว", "ค้างจ่าย"].map((name) => (
+                        <th key={name} className={cn(th, "text-right")}>
+                          {name}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </FigureTable>
-            ) : (
-              <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-                ยังไม่มีใบจากผู้ขาย
-              </Muted>
-            )}
-          </FigureCard>
-          <FigureCard
-            title="เงินที่พนักงานสำรองจ่าย"
-            note="ยอดสำรองจ่ายหักยอดที่คืนแล้ว นับถึงวันนี้"
-          >
-            {advanced.length ? (
-              <FigureTable>
-                <thead>
-                  <tr>
-                    <th className={th}>ผู้จ่าย</th>
-                    {["สำรองจ่าย", "คืนแล้ว", "ค้างคืน"].map((name) => (
-                      <th key={name} className={cn(th, "text-right")}>
-                        {name}
-                      </th>
-                    ))}
-                    <th className={th}>
-                      <span className="sr-only">คืนเงิน</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {advanced.map((x) => (
-                    <tr key={x.payer}>
-                      <td className={cn(td, "whitespace-nowrap")}>{x.payer}</td>
-                      <Num>{baht(x.advanced)}</Num>
-                      <Num>{baht(x.repaid)}</Num>
-                      {x.left > 0 ? (
-                        <Num tone="warning">{baht(x.left)}</Num>
-                      ) : x.left < 0 ? (
-                        <Num tone="warning">คืนเกิน {baht(-x.left)}</Num>
-                      ) : (
-                        <Num tone="ok">คืนครบแล้ว</Num>
-                      )}
-                      <td className={cn(td, "text-right")}>
-                        {x.left > 0 && (
-                          <Button
-                            variant="text"
-                            aria-label={`คืนเงิน ${x.payer}`}
-                            onClick={() =>
-                              ws.jot({
-                                kind: "reimburse",
-                                values: {
-                                  payer: x.payer,
-                                  amount: String(x.left),
-                                },
-                              })
-                            }
-                          >
-                            คืนเงิน
-                          </Button>
+                  </thead>
+                  <tbody>
+                    {balances.map((x) => (
+                      <tr key={x.supplier}>
+                        <td className={td}>{x.supplier}</td>
+                        <Num>{baht(x.billed)}</Num>
+                        <Num>{baht(x.paid)}</Num>
+                        {x.left > 0 ? (
+                          <Num tone="warning">{baht(x.left)}</Num>
+                        ) : (
+                          <Num tone="ok">จ่ายครบแล้ว</Num>
                         )}
-                      </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </FigureTable>
+              ) : (
+                <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                  ยังไม่มีใบจากผู้ขาย
+                </Muted>
+              )}
+            </FigureCard>
+            <FigureCard
+              title="เงินที่พนักงานสำรองจ่าย"
+              note="ยอดสำรองจ่ายหักยอดที่คืนแล้ว นับถึงวันนี้"
+            >
+              {advanced.length ? (
+                <FigureTable>
+                  <thead>
+                    <tr>
+                      <th className={th}>ผู้จ่าย</th>
+                      {["สำรองจ่าย", "คืนแล้ว", "ค้างคืน"].map((name) => (
+                        <th key={name} className={cn(th, "text-right")}>
+                          {name}
+                        </th>
+                      ))}
+                      <th className={th}>
+                        <span className="sr-only">คืนเงิน</span>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </FigureTable>
-            ) : (
-              <Muted className="px-5 py-3 text-body-sm max-md:px-4">
-                ยังไม่มีเงินที่พนักงานสำรองจ่าย
-              </Muted>
-            )}
-          </FigureCard>
-        </div>
+                  </thead>
+                  <tbody>
+                    {advanced.map((x) => (
+                      <tr key={x.payer}>
+                        <td className={cn(td, "whitespace-nowrap")}>
+                          {x.payer}
+                        </td>
+                        <Num>{baht(x.advanced)}</Num>
+                        <Num>{baht(x.repaid)}</Num>
+                        {x.left > 0 ? (
+                          <Num tone="warning">{baht(x.left)}</Num>
+                        ) : x.left < 0 ? (
+                          <Num tone="warning">คืนเกิน {baht(-x.left)}</Num>
+                        ) : (
+                          <Num tone="ok">คืนครบแล้ว</Num>
+                        )}
+                        <td className={cn(td, "text-right")}>
+                          {x.left > 0 && (
+                            <Button
+                              variant="text"
+                              aria-label={`คืนเงิน ${x.payer}`}
+                              onClick={() =>
+                                ws.jot({
+                                  kind: "reimburse",
+                                  values: {
+                                    payer: x.payer,
+                                    amount: String(x.left),
+                                  },
+                                })
+                              }
+                            >
+                              คืนเงิน
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </FigureTable>
+              ) : (
+                <Muted className="px-5 py-3 text-body-sm max-md:px-4">
+                  ยังไม่มีเงินที่พนักงานสำรองจ่าย
+                </Muted>
+              )}
+            </FigureCard>
+          </div>
+        )}
       </div>
-      <BranchSalesSummary db={db} period={key} />
+      {shop && <BranchSalesSummary db={db} period={key} />}
       <FigureCard
         title="รายการเงินเข้า–ออกล่าสุด"
         note={`${latest.length} รายการ จากทุกช่วงเวลา`}

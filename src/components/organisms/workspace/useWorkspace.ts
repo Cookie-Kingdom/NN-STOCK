@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
 import type { Account } from "@/lib/accounts";
 import { today as bangkokToday } from "@/lib/format";
-import { pagePath, tabAt, type Tab } from "@/lib/nav";
+import { pagePath, paragonProject, tabAt, type Tab } from "@/lib/nav";
 import { useDatabase, useDatabaseLoaded } from "@/lib/persistence";
 import {
   todos,
@@ -56,7 +56,15 @@ export function useWorkspace(account: Account) {
   /** Opens the composer on `preset.kind`'s form (or `preset.editId`'s edit). Each call
    *  is a fresh form (`seq`), so "save and jot another" starts empty. */
   const jot = (preset: Draft) =>
-    setDraft((last) => ({ ...preset, seq: (last?.seq ?? 0) + 1 }));
+    setDraft((last) => ({
+      ...preset,
+      values:
+        tab === "paragonFinance" &&
+        (preset.kind === "expense" || preset.kind === "income")
+          ? { purpose: "project", project: paragonProject, ...preset.values }
+          : preset.values,
+      seq: (last?.seq ?? 0) + 1,
+    }));
   const setTab = (next: Tab) => {
     // A form and a toast belong to the page they were opened on.
     setDraft(null);

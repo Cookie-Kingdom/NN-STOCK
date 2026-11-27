@@ -24,6 +24,7 @@ export type Tab =
   | "stock"
   | "sales"
   | "finance"
+  | "paragonFinance"
   | "accounting"
   | "projectSettings"
   | "settings";
@@ -34,6 +35,7 @@ export const shopGroup = shopProject;
 
 /** The section's part of a page's address: /owner/nn-x-lm/daily-log. */
 export const shopGroupSlug = "nn-x-lm";
+export const paragonProject = "Nerdnuea x Paragon";
 
 /** Every page: its name (English, V2-ACC-09), the line under it, its icon and, for a page
  *  that sits in a sidebar section, that section's heading. */
@@ -93,6 +95,12 @@ export const pages: Record<
     icon: Wallet,
     group: shopGroup,
   },
+  paragonFinance: {
+    label: "Finance",
+    description: `เงินเข้า–ออกจริงจาก Accounting ของ ${paragonProject}`,
+    icon: Wallet,
+    group: paragonProject,
+  },
   // The same name as the shop's, as the Overview is: /owner/nn-x-lm/settings.
   projectSettings: {
     label: "Settings",
@@ -138,6 +146,7 @@ export const navFor = (account: Pick<Account, "role">): Tab[] =>
         "log",
         "finance",
         "projectSettings",
+        "paragonFinance",
         "accounting",
         "settings",
       ];
@@ -152,7 +161,7 @@ export const barFor = (account: Pick<Account, "role">): Tab[] => {
 /** A page's address under an account's route: the menu name in lowercase with dashes, behind
  *  the section's slug when the page sits in it (`/owner/nn-x-lm/daily-log`, `/owner/settings`). */
 export const pagePath = (account: Pick<Account, "path">, tab: Tab) =>
-  `${account.path}${pages[tab].group ? `/${shopGroupSlug}` : ""}/${pages[tab].label.toLowerCase().replaceAll(" ", "-")}`;
+  `${account.path}${pages[tab].group ? `/${tab === "paragonFinance" ? "nn-x-prg" : shopGroupSlug}` : ""}/${pages[tab].label.toLowerCase().replaceAll(" ", "-")}`;
 
 /** The page of the account at `pathname`, if it is one of its pages. */
 export const tabAt = (
