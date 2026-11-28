@@ -2,6 +2,7 @@
  *  money-out line of Finance (V2-LED-18) as a row worked out from the log, plus the `expense`
  *  notes jotted by hand and, as money in, the `income` notes (V2-LED-19). Nothing here is
  *  stored. */
+import { importedAccounting } from "./imported-accounting";
 import {
   branches,
   configMaterials,
@@ -105,6 +106,8 @@ export type LedgerRow = {
   detail: string;
   vendor: string;
   purpose: keyof typeof ledgerPurposes;
+  /** An imported blank is distinct from the native project/company calculation scope. */
+  purposeLabel?: string;
   project: string;
   qty: number | null;
   unit: string;
@@ -528,12 +531,24 @@ export function ledgerRows(db: Database): LedgerRow[] {
   return rows
     .sort(byDateAt)
     .reverse()
-    .map((row) => ({
-      ...row,
-      statusLabel: (row.direction === "in" ? incomeStatuses : ledgerStatuses)[
-        row.status
-      ],
-    }));
+    .map((row) => {
+      let original = {};
+      try {
+        original = importedAccounting(
+          row.entry?.values.importedAccounting || "{}",
+        );
+      } catch {}
+      return {
+        ...row,
+        ...(row.entry?.values.importedAccounting && {
+          item: row.entry.values.item ?? "",
+        }),
+        statusLabel: (row.direction === "in" ? incomeStatuses : ledgerStatuses)[
+          row.status
+        ],
+        ...original,
+      };
+    });
 }
 
 export type ProjectAsset = {

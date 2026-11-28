@@ -50,6 +50,36 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
+/** Imported display values keep original labels and intentional empty cells. */
+export function importedAccountingDb(on = day): Database {
+  return mutate(
+    emptyDb,
+    { role: "owner" },
+    "expense",
+    {
+      itemType: "ค่าแรง",
+      item: "ค่าแรง",
+      detail: "รายละเอียดต้นฉบับ",
+      vendor: "ผู้ขายต้นฉบับ",
+      amount: "20000",
+      source: "advance",
+      payer: "พี่หญิง",
+      status: "paid",
+      purpose: "project",
+      project: "Nerdnuea x LINE MAN",
+      importedAccounting: JSON.stringify({
+        sourceLabel: "พี่หญิงออกก่อน (ยังไม่จ่ายคืน)",
+        itemType: "ค่าแรง",
+        sku: "",
+        purposeLabel: "",
+        statusLabel: "รอเคลียร์เงินสำรอง",
+      }),
+    },
+    "",
+    on,
+  );
+}
+
 /** Opening is not income; staff-paid expenses reduce remaining money before reimbursement. */
 export function cashOpeningDb(on = day): Database {
   const owner: Actor = { role: "owner" };
