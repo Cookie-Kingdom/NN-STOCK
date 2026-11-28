@@ -44,10 +44,17 @@ const add = (
     "",
     date,
   );
-const close = (db: Database, period: string) =>
-  cashBetween(db, "", period).net +
-  cashOpening(db, `${period}~`) +
-  cashBetween(db, period, `${period}~`).net;
+const close = (db: Database, period: string) => {
+  const before = cashBetween(db, "", period);
+  const cash = cashBetween(db, period, `${period}~`);
+  return (
+    before.received -
+    before.paid +
+    cashOpening(db, `${period}~`) +
+    cash.received -
+    cash.paid
+  );
+};
 
 describe("native opening cash", () => {
   it("starts on its effective date and rolls into later months/year exactly once without revenue", () => {
@@ -75,9 +82,9 @@ describe("native opening cash", () => {
       source: "advance",
       payer: "พี่หญิง",
     });
-    expect(close(db, "2026-10")).toBe(1200);
-    expect(close(db, "2026-11")).toBe(1200);
-    expect(close(db, "2026")).toBe(1200);
+    expect(close(db, "2026-10")).toBe(1160);
+    expect(close(db, "2026-11")).toBe(1160);
+    expect(close(db, "2026")).toBe(1160);
     expect(
       ledgerRows(db)
         .filter((r) => r.direction === "out")
@@ -99,12 +106,41 @@ describe("native opening cash", () => {
       "reimburse",
       { payer: "พี่หญิง", amount: "10" },
       "",
-      "2026-10-03",
+      "2026-11-03",
     );
     expect(advances(db, project)[0].left).toBe(30);
-    expect(close(db, "2026-11")).toBe(1190);
+    expect(close(db, "2026-10")).toBe(1160);
+    expect(close(db, "2026-11")).toBe(1160);
+    expect(close(db, "2026")).toBe(1160);
+    expect(cashBetween(db, "", "2026~").net + cashOpening(db, "2026~")).toBe(
+      1190,
+    );
     expect(advances(db, "Nerdnuea x Paragon")).toEqual([]);
     expect(monthPl(db, "2026").opex).toBe(140);
+  });
+
+  it("deducts advances on the spending date rather than subtracting today's outstanding debt from every period", () => {
+    let db = configure([opening]);
+    db = add(
+      db,
+      "expense",
+      { itemType: "ขนส่ง", amount: "40", source: "advance", payer: "พี่หญิง" },
+      "2026-11-02",
+    );
+    expect(close(db, "2026-09")).toBe(0);
+    expect(close(db, "2026-10")).toBe(1000);
+    expect(close(db, "2026-11")).toBe(960);
+    db = mutate(
+      db,
+      owner,
+      "reimburse",
+      { payer: "พี่หญิง", amount: "10" },
+      "",
+      "2026-11-03",
+    );
+    expect(close(db, "2026-10")).toBe(1000);
+    expect(close(db, "2026-11")).toBe(960);
+    expect(advances(db, project)[0].left).toBe(30);
   });
 
   it("isolates company and project openings and rejects corrupt or ambiguous balances", () => {

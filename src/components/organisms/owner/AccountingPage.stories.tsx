@@ -52,7 +52,7 @@ type Story = StoryObj<typeof meta>;
  *  .xlsx ของทุกแถวที่ตรงตัวกรอง (ไม่ใช่แค่ 20 แถวที่แสดง) ไม่มีแถวตรงตัวกรองปุ่มกดไม่ได้ */
 export const Owner: Story = {};
 
-/** Opening 1,000 + receipts 300 - company cash 100 = 1,200; staff advance 40 is still owed. */
+/** Opening 1,000 + receipts 300 - company spend 100 - staff spend 40 = 1,160; staff is still owed 40. */
 export const OpeningCash: Story = {
   parameters: { db: cashOpeningDb(today()) },
 };

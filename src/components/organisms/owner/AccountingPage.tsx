@@ -246,6 +246,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
   const cash = cashBetween(db, month, `${month}~`);
+  const before = cashBetween(db, "", month);
   const previous = cashBetween(
     db,
     shiftKey(month, -1),
@@ -263,7 +264,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       label: bar.label,
       title: bar.title,
       in: cash.received,
-      out: cash.out,
+      out: cash.paid,
     };
   };
   const bars = span.bars.map(flowOf);
@@ -443,9 +444,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       <Panel aria-label="สรุปเงิน">
         <MoneySummary
           period={periodName(month)}
-          carried={
-            cashBetween(db, "", month).net + cashOpening(db, `${month}~`)
-          }
+          carried={before.received - before.paid + cashOpening(db, `${month}~`)}
           received={{
             amount: cash.received,
             note: versus(
@@ -455,8 +454,8 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
             ),
           }}
           paid={{
-            amount: cash.out,
-            note: versus(cash.out, previous.out, "เดือนก่อนไม่มีเงินออก"),
+            amount: cash.paid,
+            note: `รวมพนักงานสำรองจ่าย ${baht(cash.advanced)} · ${versus(cash.paid, previous.paid, "เดือนก่อนไม่มีเงินออก")} · คืนเงินไม่หักซ้ำ`,
           }}
           toReceive={{
             amount: summary.pendingIn.amount,

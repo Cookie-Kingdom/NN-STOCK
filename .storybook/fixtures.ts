@@ -50,7 +50,7 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
-/** Opening cash is not income; staff-paid Accounting expenses are not company cash out. */
+/** Opening is not income; staff-paid expenses reduce remaining money before reimbursement. */
 export function cashOpeningDb(on = day): Database {
   const owner: Actor = { role: "owner" };
   let db = mutate(
@@ -110,6 +110,16 @@ export function cashOpeningDb(on = day): Database {
     );
   return db;
 }
+
+export const reimbursedOpeningDb = (on = day) =>
+  mutate(
+    cashOpeningDb(on),
+    { role: "owner" },
+    "reimburse",
+    { payer: "พี่หญิง", amount: "10" },
+    "",
+    on,
+  );
 
 /** Project Finance keeps Paragon's Accounting notes apart from the shop's other money. */
 export function paragonFinanceDb(on = day): Database {

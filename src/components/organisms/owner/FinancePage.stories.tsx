@@ -11,6 +11,7 @@ import { today } from "@/lib/format";
 import {
   cashOpeningDb,
   paragonFinanceDb,
+  reimbursedOpeningDb,
 } from "../../../../.storybook/fixtures";
 import { FinancePage } from "./FinancePage";
 
@@ -49,6 +50,11 @@ export const Owner: Story = {};
 
 export const OpeningCash: Story = {
   parameters: { db: cashOpeningDb(today()) },
+};
+
+/** Reimbursing 10 reduces the debt, while remaining stays 1,160 because the expense counted already. */
+export const OpeningAfterReimbursement: Story = {
+  parameters: { db: reimbursedOpeningDb(today()) },
 };
 
 /** Paragon shows only its Accounting income and expenses, with other project data present. */
