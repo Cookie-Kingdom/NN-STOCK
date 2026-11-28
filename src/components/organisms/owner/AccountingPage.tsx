@@ -130,7 +130,7 @@ const columns: Column[] = [
   {
     name: "รายการของ",
     filter: "pick",
-    values: (row) => [ledgerPurposes[row.purpose]],
+    values: (row) => [row.purposeLabel ?? ledgerPurposes[row.purpose]],
   },
   { name: "Project", filter: "pick", values: (row) => [projectOf(row)] },
   { name: "จำนวนซื้อ", filter: "min", figure: (row) => row.qty },
@@ -179,7 +179,7 @@ const sheet = (rows: LedgerRow[]) => [
     row.sku,
     row.detail,
     row.vendor,
-    ledgerPurposes[row.purpose],
+    row.purposeLabel ?? ledgerPurposes[row.purpose],
     projectOf(row),
     row.qty,
     row.unit,
@@ -338,7 +338,7 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
         <td className={cn(td, "whitespace-nowrap")}>
           <span className="inline-flex items-center gap-1.5">
             <Purpose size={16} aria-hidden className="text-text-secondary" />
-            {ledgerPurposes[row.purpose]}
+            {(row.purposeLabel ?? ledgerPurposes[row.purpose]) || none}
           </span>
         </td>
         <td className={cn(td, "whitespace-nowrap")}>

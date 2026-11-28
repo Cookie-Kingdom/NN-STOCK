@@ -4,6 +4,7 @@
  *  note the account may not jot, a lot or a choice that is not there (V2-RUL-01). An empty core
  *  field is saved and listed in `missing` (V2-RUL-02); nothing else is checked or warned. */
 import { fields, type Field } from "../forms";
+import { retainedAccounting } from "./imported-accounting";
 import { cashOpeningBalances } from "./cash-opening";
 import { today } from "../format";
 import { newId } from "../id";
@@ -291,6 +292,10 @@ function noteValues(
   // A round trip's shipping, both legs: the Settings default unless one is typed (0 is typed).
   if (kind === "return" && !v.shippingFee && db.config.shippingFee)
     v.shippingFee = db.config.shippingFee;
+  if (kind === "expense" || kind === "income") {
+    const original = retainedAccounting(input, kept, v);
+    if (original) v.importedAccounting = original;
+  }
   return v;
 }
 /** The lot a note of `kind` goes on: a live PO รมควัน for its kinds (or none, for a
