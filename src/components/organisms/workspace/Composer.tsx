@@ -50,8 +50,6 @@ import {
   isRoundKind,
   productQty,
   products,
-  saleTotal,
-  salesChannels,
   skuFor,
   ingredientType,
   skuName,
@@ -344,16 +342,9 @@ function NoteForm({
       )
     : noteFigures(kind, db, lotId, values, target);
   const size = figures || shown.length > 8 ? "lg" : "md";
-  // A sale's products are not jotted only when none has a count, its money only when neither
-  // the total nor any channel is (as `mutate` lists them).
+  // A sale's products are not jotted only when none has a count (as `mutate` lists them).
   const core = visible.filter(
-    (f) =>
-      f.core &&
-      !(counts.includes(f) && counts.some((x) => values[x.key])) &&
-      !(
-        f.key === saleTotal.key &&
-        salesChannels(db.config).some((c) => values[c.key])
-      ),
+    (f) => f.core && !(counts.includes(f) && counts.some((x) => values[x.key])),
   );
   const branch = by.branch ?? target?.branch;
   const preview =
@@ -397,7 +388,10 @@ function NoteForm({
     const saved = target
       ? visibleNotes(next, account).filter((e) => e.id === target.id)
       : next.entries.slice(-notes.length);
-    const missing = saved.reduce((a, e) => a + missingKeys(e.values).length, 0);
+    const missing = saved.reduce(
+      (a, e) => a + missingKeys(e.values, e.kind).length,
+      0,
+    );
     ws.setToast(
       `${target ? "แก้แล้ว" : "จดแล้ว"}: ${titles[kind]}${notes.length > 1 ? ` ${notes.length} รายการ` : ""}${missing ? ` · ${missingText} ${missing} ช่อง` : ""}`,
     );

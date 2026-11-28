@@ -570,11 +570,9 @@ export function fields(
     case "sale":
       return [
         ...productFields(db, kept),
-        core(
-          number(saleTotal.key, saleTotal.name, "บาท", {
-            hint: "ยอดของวันจากเครื่องรับ order ของสาขา",
-          }),
-        ),
+        number(saleTotal.key, saleTotal.name, "บาท", {
+          hint: "ยอดของวันจากเครื่องรับ order ของสาขา",
+        }),
         // One money field per sales channel in Settings, a breakdown of the total.
         ...salesChannels(db.config)
           .filter((channel) => !channel.removed || kept[channel.key])
@@ -616,7 +614,7 @@ export function fields(
           ["waste", "Waste"],
           ["reason", "สาเหตุ Waste", "text"],
         ]),
-        core(text("reporter", "ผู้บันทึก")),
+        text("reporter", "ผู้บันทึก"),
         note,
       ];
     // One row of the material list: `id` empty adds it, an id of the list changes that row.
@@ -640,12 +638,10 @@ export function fields(
             options: choices(ledgerChoices(db, "itemType", defaultLedgerTypes)),
           }),
         ),
-        core(
-          text("item", "รายการ", {
-            // Every item with a SKU, the materials included: picking one links its SKU.
-            options: skuOptions(db, kept),
-          }),
-        ),
+        text("item", "รายการ", {
+          // Every item with a SKU, the materials included: picking one links its SKU.
+          options: skuOptions(db, kept),
+        }),
         text("detail", "รายละเอียด / สเปก"),
         text("vendor", "ผู้ขาย / ร้านค้า", {
           options: choices(ledgerChoices(db, "vendor")),

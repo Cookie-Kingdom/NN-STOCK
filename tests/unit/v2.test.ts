@@ -19,6 +19,7 @@ import {
   shopProject,
   liveEntries,
   lotInfo,
+  missingKeys,
   meatTypeOf,
   meatTypes,
   ingredientList,
@@ -280,27 +281,27 @@ describe("mutate", () => {
   });
 
   it("edits, deletes and undoes", () => {
-    // The sample's sale with no money typed: the edit fills it and clears `missing`.
-    const sale = visibleNotes(db, owner).find(
-      (e) => e.kind === "sale" && e.values.missing,
-    )!;
+    // A sale with no product counted: the edit fills it and clears `missing`.
+    const jotted = mutate(db, saladaeng, "sale", { lineMan: "9000" }, "", day);
+    const sale = last(jotted);
+    expect(sale.values.missing).toBe("boxes");
     const edited = mutate(
-      db,
+      jotted,
       saladaeng,
       "entryEdit",
-      { targetId: sale.id, values: JSON.stringify({ lineMan: "9000" }) },
+      { targetId: sale.id, values: JSON.stringify({ boxes: "5" }) },
       "",
       day,
     );
     expect(last(edited).values).toMatchObject({
-      "to.lineMan": "9000",
+      "to.boxes": "5",
       "to.missing": "",
       targetKind: "sale",
     });
     const live = (d: Database) =>
       entries(d, "sale").find((e) => e.id === sale.id);
     expect(live(edited)?.values).toMatchObject({
-      lineMan: "9000",
+      boxes: "5",
       missing: "",
     });
     const undone = mutate(
@@ -311,7 +312,7 @@ describe("mutate", () => {
       "",
       day,
     );
-    expect(live(undone)?.values.missing).toBe("salesTotal");
+    expect(live(undone)?.values.missing).toBe(sale.values.missing);
 
     // A daily sheet deleted gives back what it used; put back, it takes it again.
     const meat = (d: Database) => branchItem(d, "ศาลาแดง", "meat", day).opening;
@@ -450,8 +451,11 @@ it("todos: what each account still has to jot", () => {
   expect(branch).toContain("ยอดขาย วันนี้");
   expect(branch.join()).not.toMatch(/SO-|PO-|มีนบุรี|ศาลาแดง|ค่าเช่า/);
   // มีนบุรี: no note today, and closed two days before (no note at all): no sale is due. Its
-  // sheet of the day before has a waste with no reason. A sheet not saved today is no line.
-  expect(texts(minburi)).toEqual(["ใบสต๊อกรายวัน 8 ก.ย.: ยังไม่ได้จด 1 ช่อง"]);
+  // sheet of the day before has a waste with no reason, no longer asked for (2026-11-25). A
+  // sheet not saved today is no line.
+  expect(texts(minburi)).toEqual([]);
+  // The Owner may not change a branch's note: its gaps are on the branch's bell alone.
+  expect(texts(owner).join()).not.toMatch(/ยังไม่ได้จด \d+ ช่อง/);
   expect(texts(owner).join()).not.toMatch(/มีนบุรี: ยอดขาย|ยังไม่ได้บันทึก/);
   // A sale is due only for a day the branch jotted something else on: nothing jotted in the
   // last 7 days is nothing to do, and the Owner's own notes are no trace of a branch.
@@ -495,7 +499,8 @@ it("todos: what each account still has to jot", () => {
     "2026-09-07",
   );
   expect(saleDue(sold, "ศาลาแดง", "2026-09-07")).toBe(false);
-  expect(sales(sold)).toEqual(["ยอดขาย 7 ก.ย.: ยังไม่ได้จด 1 ช่อง"]);
+  // The day's total is no longer asked for (2026-11-25): a sale of boxes alone lacks nothing.
+  expect(sales(sold)).toEqual([]);
   const closed = mutate(
     open,
     saladaeng,
@@ -507,13 +512,12 @@ it("todos: what each account still has to jot", () => {
   expect(saleDue(closed, "ศาลาแดง", "2026-09-07")).toBe(false);
   // The delete is dated today and is no note of today.
   expect(todos(closed, saladaeng, day)).toEqual([]);
-  // A sheet with something not jotted opens its page for the branch, nothing for the Owner.
+  // A note with a core field empty is a line that opens its edit, on the branch's bell only.
+  const gap = mutate(db, saladaeng, "sale", { lineMan: "1" }, "", day);
   expect(
-    todos(db, minburi, day).find((todo) =>
-      todo.text.startsWith("ใบสต๊อกรายวัน 8 ก.ย."),
-    ),
-  ).toMatchObject({ page: "meatStock" });
-  expect(branch.some((text) => text.endsWith("ยังไม่ได้จด 1 ช่อง"))).toBe(true);
+    todos(gap, saladaeng, day).find((todo) => todo.editId === last(gap).id),
+  ).toMatchObject({ text: expect.stringMatching(/ยังไม่ได้จด 1 ช่อง$/) });
+  expect(todos(gap, owner, day).some((todo) => todo.editId)).toBe(false);
   // A branch's line opens its form; for the Owner the same line is a status and opens nothing.
   const line = (by: Actor, text: string) =>
     todos(db, by, day).find((todo) => todo.text === text)!;
@@ -867,11 +871,13 @@ describe("figures (V2-CAL)", () => {
         values: { ...sale.values, salesTotal: "2000" },
       }),
     ).toEqual({ sales: 2000, gp: 250 });
-    // Neither typed: the total is what is not jotted.
+    // Neither typed: nothing is not jotted, the total is no longer asked for (2026-11-25).
     const none = last(
       mutate(noChannels, saladaeng, "sale", { boxes: "1" }, "", day),
     );
-    expect(none.values.missing).toBe("salesTotal");
+    expect(none.values.missing).toBeUndefined();
+    // An old note that still lists it reads as jotted.
+    expect(missingKeys({ missing: "salesTotal" }, "sale")).toEqual([]);
   });
 
   it("CAL-01: money from the old books is a sale with no GP, with or without a branch", () => {
@@ -1842,7 +1848,8 @@ describe("figures (V2-CAL)", () => {
 
   it("RUL-05: a sheet refuses nothing: a waste with no reason and an empty reporter are listed as missing, and remaining may go below zero", () => {
     expect(sheet10.values.missing).toBeUndefined();
-    expect(sheet11.values.missing).toBe("reason.ing-chili");
+    // A waste reason and the reporter are no longer asked for (2026-11-25).
+    expect(sheet11.values.missing).toBeUndefined();
     const bare = mutate(
       built,
       saladaeng,
@@ -1851,7 +1858,7 @@ describe("figures (V2-CAL)", () => {
       "",
       "2026-09-13",
     );
-    expect(last(bare).values.missing).toBe("reporter");
+    expect(last(bare).values.missing).toBeUndefined();
     expect(item("meat", "2026-09-13", bare).remaining).toBe(-88.5);
     expect(() =>
       mutate(built, saladaeng, "daily", { "used.meat": "1" }, "", day),

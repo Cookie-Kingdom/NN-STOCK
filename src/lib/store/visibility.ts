@@ -359,7 +359,9 @@ export function todos(db: Database, by: Actor, today: string): Todo[] {
       });
   }
   for (const e of visibleNotes(db, by)) {
-    const missing = missingKeys(e.values).length;
+    const missing = missingKeys(e.values, e.kind).length;
+    // The Owner may not change a branch's note, so its gaps are the branch's bell alone.
+    if (!own && e.role === "branch") continue;
     if (missing && !old.has(e.lotId))
       list.push({
         text: `${titles[e.kind]} ${shortDate(e.date)}: ยังไม่ได้จด ${missing} ช่อง`,
