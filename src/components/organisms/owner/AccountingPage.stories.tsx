@@ -8,7 +8,10 @@ import {
 import type { AccountId } from "@/lib/accounts";
 import { seed } from "@/lib/store";
 import { today } from "@/lib/format";
-import { cashOpeningDb } from "../../../../.storybook/fixtures";
+import {
+  cashOpeningDb,
+  importedAccountingDb,
+} from "../../../../.storybook/fixtures";
 import { AccountingPage } from "./AccountingPage";
 
 const Accounting = ({ account }: { account: AccountId }) => (
@@ -51,6 +54,11 @@ type Story = StoryObj<typeof meta>;
  *  ใต้ตารางบอก 「แสดง n จาก m รายการ」 · ปุ่ม 「Download Excel」 ขวาสุดของแถบค้นหา โหลดไฟล์
  *  .xlsx ของทุกแถวที่ตรงตัวกรอง (ไม่ใช่แค่ 20 แถวที่แสดง) ไม่มีแถวตรงตัวกรองปุ่มกดไม่ได้ */
 export const Owner: Story = {};
+
+/** Original source/status labels, supplier and intentionally blank SKU/purpose. */
+export const ImportedAccounting: Story = {
+  parameters: { db: importedAccountingDb(today()) },
+};
 
 /** Opening 1,000 + receipts 300 - company spend 100 - staff spend 40 = 1,160; staff is still owed 40. */
 export const OpeningCash: Story = {
