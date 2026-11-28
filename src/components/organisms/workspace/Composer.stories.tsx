@@ -171,6 +171,13 @@ export const ParagonExpense: Story = {
   },
 };
 
+/** An Accounting expense may name the person who paid before reimbursement. */
+export const AdvancedExpense: Story = {
+  args: {
+    open: { kind: "expense", values: { source: "advance", payer: "พี่หญิง" } },
+  },
+};
+
 /** จ่ายเงิน (lg): ช่องหลัก (หมวด ยอด) สีเหลืองเมื่อว่าง บันทึกได้ทั้งที่ว่าง ท้าย popup นับช่องที่ยังไม่ได้จด ·
  *  แถบขวา 「ตัวเลขสรุป」 คิดยอดค้างจ่ายผู้ขายก่อนและหลังจ่ายเมื่อใส่ผู้ขาย ·
  *  ใส่ยอดติดลบแล้วกดบันทึกเพื่อดูข้อความที่เว็บไม่รับ ·

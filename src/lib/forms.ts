@@ -630,6 +630,9 @@ export function fields(
       return [
         // A PO row is worked out from the log: a hand-jotted row is one of the others.
         sourceField,
+        text("payer", "ผู้สำรองจ่าย", {
+          when: (values) => values.source === "advance",
+        }),
         text("reference", "เลขที่อ้างอิง (PO / ใบเสร็จ)"),
         // Typed: a new category or project is simply a new name (ledgerChoices lists it next time).
         core(

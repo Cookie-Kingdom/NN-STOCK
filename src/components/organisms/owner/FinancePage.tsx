@@ -27,6 +27,7 @@ import { shiftDays } from "@/lib/pickers";
 import {
   advances,
   cashBetween,
+  cashOpening,
   editBlock,
   incomeStatuses,
   incomeTypes,
@@ -90,9 +91,10 @@ export function FinancePage({
   const [show, setShow] = useState<"all" | "in" | "out">("all");
   const cash = cashBetween(db, key, `${key}~`, project);
   // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
-  const carried = cashBetween(db, "", key, project).net;
+  const carried =
+    cashBetween(db, "", key, project).net + cashOpening(db, `${key}~`, project);
   const balances = supplierBalances(db);
-  const advanced = advances(db);
+  const advanced = advances(db, project);
   const due = receivables(db);
   const unpaid = sumOf(balances.map((x) => Math.max(x.left, 0)));
   const owed = sumOf(advanced.map((x) => Math.max(x.left, 0)));
@@ -464,7 +466,7 @@ export function FinancePage({
                     {advanced.map((x) => (
                       <tr key={x.payer}>
                         <td className={cn(td, "whitespace-nowrap")}>
-                          {x.payer}
+                          {x.payer || <MissingMark />}
                         </td>
                         <Num>{baht(x.advanced)}</Num>
                         <Num>{baht(x.repaid)}</Num>
@@ -476,7 +478,7 @@ export function FinancePage({
                           <Num tone="ok">คืนครบแล้ว</Num>
                         )}
                         <td className={cn(td, "text-right")}>
-                          {x.left > 0 && (
+                          {x.payer && x.left > 0 && (
                             <Button
                               variant="text"
                               aria-label={`คืนเงิน ${x.payer}`}

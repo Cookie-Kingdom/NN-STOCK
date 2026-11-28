@@ -4,6 +4,7 @@
  *  note the account may not jot, a lot or a choice that is not there (V2-RUL-01). An empty core
  *  field is saved and listed in `missing` (V2-RUL-02); nothing else is checked or warned. */
 import { fields, type Field } from "../forms";
+import { cashOpeningBalances } from "./cash-opening";
 import { today } from "../format";
 import { newId } from "../id";
 import {
@@ -392,6 +393,9 @@ const settingLists: Record<string, { label: string; id: string }> = {
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
+  if (v.cashOpeningBalances !== undefined)
+    for (const opening of cashOpeningBalances(v.cashOpeningBalances))
+      checkDay(opening.date);
   const amount = (value: unknown) =>
     Number.isFinite(decimal(String(value ?? "")));
   const figure = "ใส่เป็นตัวเลข 0 ขึ้นไป";

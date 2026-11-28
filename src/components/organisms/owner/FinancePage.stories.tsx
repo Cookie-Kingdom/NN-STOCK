@@ -8,7 +8,10 @@ import {
 import type { AccountId } from "@/lib/accounts";
 import { seed } from "@/lib/store";
 import { today } from "@/lib/format";
-import { paragonFinanceDb } from "../../../../.storybook/fixtures";
+import {
+  cashOpeningDb,
+  paragonFinanceDb,
+} from "../../../../.storybook/fixtures";
 import { FinancePage } from "./FinancePage";
 
 const Finance = ({
@@ -43,6 +46,10 @@ type Story = StoryObj<typeof meta>;
  *  (วันที่ รายรับ / รายจ่าย หมวด รายการ คู่รายการ ที่มา / ประเภทบิล จำนวนเงิน เอกสารแนบ และปุ่ม
  *  แก้ไข / ลบท้ายแถว) · Revenue อยู่ที่หน้า Overview ของ Project */
 export const Owner: Story = {};
+
+export const OpeningCash: Story = {
+  parameters: { db: cashOpeningDb(today()) },
+};
 
 /** Paragon shows only its Accounting income and expenses, with other project data present. */
 export const Paragon: Story = {
