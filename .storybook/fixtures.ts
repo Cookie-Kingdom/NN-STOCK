@@ -50,6 +50,77 @@ export function legacyDb(on = day): Database {
 /** A new system: the settings, and nothing jotted yet. */
 export const emptyDb: Database = structuredClone(seed);
 
+/** Opening is not income; staff-paid expenses reduce remaining money before reimbursement. */
+export function cashOpeningDb(on = day): Database {
+  const owner: Actor = { role: "owner" };
+  let db = mutate(
+    emptyDb,
+    owner,
+    "config",
+    {
+      cashOpeningBalances: JSON.stringify([
+        {
+          id: "opening-demo",
+          date: `${on.slice(0, 7)}-01`,
+          amount: "1000",
+          purpose: "project",
+          project: "Nerdnuea x LINE MAN",
+          note: "Opening cash from prior books",
+        },
+      ]),
+    },
+    "",
+    on,
+  );
+  const notes: [NoteKind, Values][] = [
+    [
+      "income",
+      { incomeType: "other", item: "รายรับ", amount: "300", status: "paid" },
+    ],
+    [
+      "expense",
+      {
+        itemType: "ขนส่ง",
+        item: "ค่ารถ",
+        source: "transfer",
+        amount: "100",
+        status: "paid",
+      },
+    ],
+    [
+      "expense",
+      {
+        itemType: "ขนส่ง",
+        item: "พนักงานออกค่ารถ",
+        source: "advance",
+        payer: "พี่หญิง",
+        amount: "40",
+        status: "paid",
+      },
+    ],
+  ];
+  for (const [kind, values] of notes)
+    db = mutate(
+      db,
+      owner,
+      kind,
+      { ...values, purpose: "project", project: "Nerdnuea x LINE MAN" },
+      "",
+      on,
+    );
+  return db;
+}
+
+export const reimbursedOpeningDb = (on = day) =>
+  mutate(
+    cashOpeningDb(on),
+    { role: "owner" },
+    "reimburse",
+    { payer: "พี่หญิง", amount: "10" },
+    "",
+    on,
+  );
+
 /** Project Finance keeps Paragon's Accounting notes apart from the shop's other money. */
 export function paragonFinanceDb(on = day): Database {
   const notes: [NoteKind, Values][] = [

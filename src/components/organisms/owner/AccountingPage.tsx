@@ -29,7 +29,9 @@ import type { Workspace } from "@/components/organisms/workspace/useWorkspace";
 import { baht, dateLabel, qty } from "@/lib/format";
 import { periodName, rangeBuckets, shiftKey, stepName } from "@/lib/period";
 import {
-  broughtForward,
+  advances,
+  cashBetween,
+  cashOpening,
   editBlock,
   ledgerPurposes,
   ledgerRows,
@@ -243,15 +245,27 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
   );
   const month = today.slice(0, 7);
   const summary = ledgerSummary(all, month);
+  const cash = cashBetween(db, month, `${month}~`);
+  const before = cashBetween(db, "", month);
+  const previous = cashBetween(
+    db,
+    shiftKey(month, -1),
+    `${shiftKey(month, -1)}~`,
+  );
+  const owed = advances(db).reduce(
+    (total, person) => total + Math.max(person.left, 0),
+    0,
+  );
   // The whole ledger, never the rows found: a filter must not redraw the chart.
   const span = rangeBuckets(from, to, range.by);
   const flowOf = (bar: (typeof span.bars)[number]) => {
-    // "" is the prefix of every date: the summary of the rows inside the bar.
-    const { received, paid } = ledgerSummary(
-      all.filter((row) => row.date >= bar.from && row.date <= bar.to),
-      "",
-    );
-    return { label: bar.label, title: bar.title, in: received, out: paid };
+    const cash = cashBetween(db, bar.from, bar.to);
+    return {
+      label: bar.label,
+      title: bar.title,
+      in: cash.received,
+      out: cash.paid,
+    };
   };
   const bars = span.bars.map(flowOf);
   // The table under the chart is by month, whatever the bars' step.
@@ -430,30 +444,26 @@ export function AccountingPage({ ws }: { ws: Workspace }) {
       <Panel aria-label="สรุปเงิน">
         <MoneySummary
           period={periodName(month)}
-          carried={broughtForward(all, month)}
+          carried={before.received - before.paid + cashOpening(db, `${month}~`)}
           received={{
-            amount: summary.received,
+            amount: cash.received,
             note: versus(
-              summary.received,
-              summary.receivedBefore,
+              cash.received,
+              previous.received,
               "เดือนก่อนไม่มีเงินเข้า",
             ),
           }}
           paid={{
-            amount: summary.paid,
-            note: versus(
-              summary.paid,
-              summary.paidBefore,
-              "เดือนก่อนไม่มีเงินออก",
-            ),
+            amount: cash.paid,
+            note: `รวมพนักงานสำรองจ่าย ${baht(cash.advanced)} · ${versus(cash.paid, previous.paid, "เดือนก่อนไม่มีเงินออก")} · คืนเงินไม่หักซ้ำ`,
           }}
           toReceive={{
             amount: summary.pendingIn.amount,
             note: `รอรับ ${summary.pendingIn.count} รายการ`,
           }}
           toPay={{
-            amount: summary.reserved,
-            note: `PO รอจ่าย ${summary.waiting} รายการ`,
+            amount: summary.reserved + owed,
+            note: `PO รอจ่าย ${summary.waiting} รายการ · ค้างคืนพนักงาน ${baht(owed)}`,
           }}
         />
       </Panel>

@@ -199,7 +199,7 @@ export function noteTags(db: Database, e: Entry, by: Actor): string[] {
   const list = fieldsOf(db, e.kind, by, e.values);
   return [
     ...(isUnlinked(db, e) ? ["ยังไม่ได้เลือก PO เนื้อ"] : []),
-    ...missingKeys(e.values).map(
+    ...missingKeys(e.values, e.kind).map(
       (key) => `${missingText}: ${fieldLabel(list, key)}`,
     ),
   ];

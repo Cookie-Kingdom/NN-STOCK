@@ -27,6 +27,7 @@ import { shiftDays } from "@/lib/pickers";
 import {
   advances,
   cashBetween,
+  cashOpening,
   editBlock,
   incomeStatuses,
   incomeTypes,
@@ -90,9 +91,11 @@ export function FinancePage({
   const [show, setShow] = useState<"all" | "in" | "out">("all");
   const cash = cashBetween(db, key, `${key}~`, project);
   // "" .. key: every date before the period's first day ("2026-11-01" > "2026-11").
-  const carried = cashBetween(db, "", key, project).net;
+  const before = cashBetween(db, "", key, project);
+  const carried =
+    before.received - before.paid + cashOpening(db, `${key}~`, project);
   const balances = supplierBalances(db);
-  const advanced = advances(db);
+  const advanced = advances(db, project);
   const due = receivables(db);
   const unpaid = sumOf(balances.map((x) => Math.max(x.left, 0)));
   const owed = sumOf(advanced.map((x) => Math.max(x.left, 0)));
@@ -109,7 +112,12 @@ export function FinancePage({
   const flow = rangeBuckets(range.from, range.to, range.by);
   const flowOf = (bar: (typeof flow.bars)[number]) => {
     const of = cashBetween(db, bar.from, bar.to, project);
-    return { label: bar.label, title: bar.title, in: of.received, out: of.out };
+    return {
+      label: bar.label,
+      title: bar.title,
+      in: of.received,
+      out: of.paid,
+    };
   };
   const bars = flow.bars.map(flowOf);
   // The table under the chart is by month, whatever the bars' step.
@@ -268,8 +276,8 @@ export function FinancePage({
             note: `ค่าขาย ${baht(cash.salesReceived)} · รายได้อื่น ${baht(cash.otherReceived)}`,
           }}
           paid={{
-            amount: cash.out,
-            note: `บริษัทจ่ายเอง ${baht(cash.company)} · คืนพนักงาน ${baht(cash.repaid)}`,
+            amount: cash.paid,
+            note: `บริษัทจ่ายเอง ${baht(cash.company)} · พนักงานสำรองจ่าย ${baht(cash.advanced)} · คืนเงินไม่หักซ้ำ`,
           }}
           toReceive={{
             amount: unreceived,
@@ -301,12 +309,12 @@ export function FinancePage({
             {line(
               "พนักงานสำรองจ่าย",
               baht(cash.advanced),
-              "เป็นค่าใช้จ่ายแล้ว แต่เงินยังไม่ออกจากร้าน",
+              "จ่ายไปแล้ว หักจากเงินคงเหลือแล้ว แม้ยังไม่ได้คืนพนักงาน",
             )}
             {line(
               "เงินคืนพนักงาน",
               out(cash.repaid),
-              "ไม่นับเป็นค่าใช้จ่ายซ้ำ",
+              "ลดหนี้พนักงาน ไม่หักเงินคงเหลือซ้ำ",
             )}
           </section>
         </section>
@@ -464,7 +472,7 @@ export function FinancePage({
                     {advanced.map((x) => (
                       <tr key={x.payer}>
                         <td className={cn(td, "whitespace-nowrap")}>
-                          {x.payer}
+                          {x.payer || <MissingMark />}
                         </td>
                         <Num>{baht(x.advanced)}</Num>
                         <Num>{baht(x.repaid)}</Num>
@@ -476,7 +484,7 @@ export function FinancePage({
                           <Num tone="ok">คืนครบแล้ว</Num>
                         )}
                         <td className={cn(td, "text-right")}>
-                          {x.left > 0 && (
+                          {x.payer && x.left > 0 && (
                             <Button
                               variant="text"
                               aria-label={`คืนเงิน ${x.payer}`}

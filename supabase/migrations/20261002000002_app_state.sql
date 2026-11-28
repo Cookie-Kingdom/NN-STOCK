@@ -10,6 +10,8 @@ create table public.app_state (
 );
 create index if not exists app_state_updated_by_idx on public.app_state(updated_by);
 alter table public.app_state enable row level security;
+-- Supabase's default privileges grant anon/authenticated everything on a new table; TRUNCATE skips RLS.
+revoke all on public.app_state from anon, authenticated;
 grant select on public.app_state to authenticated;
 create policy app_state_read_active on public.app_state for select to authenticated using (
   exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.is_active
