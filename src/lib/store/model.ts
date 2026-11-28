@@ -358,8 +358,17 @@ export const changeKinds: EntryKind[] = ["entryEdit", "void"];
 /** V2-RUL-02: a core field left empty is saved anyway and listed in the entry's `missing`
  *  (comma-separated keys), shown as this label. */
 export const missingText = "ยังไม่ได้จด";
-export const missingKeys = (v: Values) =>
-  v.missing ? v.missing.split(",") : [];
+/** Fields no longer asked for (2026-11-25): a sale's total, a sheet's reporter and waste
+ *  reasons, an expense's item. Old notes still list them in `missing`; they read as jotted. */
+const retiredMissing = (key: string, kind?: EntryKind) =>
+  key === "salesTotal" ||
+  key === "reporter" ||
+  key.startsWith("reason.") ||
+  (kind === "expense" && key === "item");
+export const missingKeys = (v: Values, kind?: EntryKind) =>
+  v.missing
+    ? v.missing.split(",").filter((key) => !retiredMissing(key, kind))
+    : [];
 /** An edit stores the corrected values as `to.<key>` and the ones it replaced as `from.<key>`:
  *  flat keys, so the server strips hidden ones from them like from any other entry. */
 export const pack = (prefix: string, values: Values) =>

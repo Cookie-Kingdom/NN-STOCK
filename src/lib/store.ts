@@ -168,3 +168,4 @@ export {
   type StockLine,
 } from "./store/ledger";
 export { mutate } from "./store/mutate";
+export { cashOpening } from "./store/cash-opening";

@@ -1209,15 +1209,30 @@ export function supplierBalances(db: Database): SupplierBalance[] {
 const isAdvance = (o: Outflow) => !!o.payer && o.payer !== companyPayer;
 /** V2-PAY-07: per person, what they paid out of pocket over every money-out line, what the
  *  shop paid back (`reimburse`) and what it still owes them. */
-export function advances(db: Database) {
+export function advances(db: Database, project?: string) {
   const by = new Map<string, { advanced: number; repaid: number }>();
   const of = (payer: string) => {
     if (!by.has(payer)) by.set(payer, { advanced: 0, repaid: 0 });
     return by.get(payer)!;
   };
-  for (const o of outflows(db))
+  for (const o of project === undefined || project === shopProject
+    ? outflows(db)
+    : [])
     if (isAdvance(o)) of(o.payer).advanced += o.amount;
-  for (const e of entries(db, "reimburse"))
+  for (const e of entries(db, "expense")) {
+    const v = e.values;
+    if (
+      v.source === "advance" &&
+      typed(v, "amount") &&
+      (v.status === "paid" || !v.status) &&
+      (project === undefined ||
+        (v.purpose === "project" && v.project === project))
+    )
+      of(v.payer || "").advanced += num(v, "amount");
+  }
+  for (const e of project === undefined || project === shopProject
+    ? entries(db, "reimburse")
+    : [])
     if (e.values.payer) of(e.values.payer).repaid += num(e.values, "amount");
   return [...by].map(([payer, x]) => ({
     payer,

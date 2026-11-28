@@ -7,6 +7,8 @@ import {
 } from "@/components/organisms/workspace/storyWorkspace";
 import type { AccountId } from "@/lib/accounts";
 import { seed } from "@/lib/store";
+import { today } from "@/lib/format";
+import { cashOpeningDb } from "../../../../.storybook/fixtures";
 import { AccountingPage } from "./AccountingPage";
 
 const Accounting = ({ account }: { account: AccountId }) => (
@@ -49,6 +51,11 @@ type Story = StoryObj<typeof meta>;
  *  ใต้ตารางบอก 「แสดง n จาก m รายการ」 · ปุ่ม 「Download Excel」 ขวาสุดของแถบค้นหา โหลดไฟล์
  *  .xlsx ของทุกแถวที่ตรงตัวกรอง (ไม่ใช่แค่ 20 แถวที่แสดง) ไม่มีแถวตรงตัวกรองปุ่มกดไม่ได้ */
 export const Owner: Story = {};
+
+/** Opening 1,000 + receipts 300 - company spend 100 - staff spend 40 = 1,160; staff is still owed 40. */
+export const OpeningCash: Story = {
+  parameters: { db: cashOpeningDb(today()) },
+};
 
 /** กด 「รายรับ」 ข้างช่องค้นหา: เหลือแต่แถวรายรับ ช่องกรองใต้หัว 「รายรับ / รายจ่าย」 เปลี่ยนตาม
  *  รวมจ่ายเป็น ฿0 สุทธิเท่ากับรวมรับ · ตัวเลขและกราฟด้านบนไม่เปลี่ยน */

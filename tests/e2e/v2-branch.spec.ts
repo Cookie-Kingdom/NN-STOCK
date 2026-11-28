@@ -651,12 +651,10 @@ test("20 · V2-PG-03 a note of an earlier day is edited, deleted and put back by
   await expect(logRows(page, "jot").first()).toBeVisible();
   await expect(changes).toHaveCount(0);
 
-  // The sale of three days ago has no money typed: edit it. The edit is not taken back from
-  // the log: its row has no button.
+  // The sale of three days ago has no money typed, which is no longer asked for: edit it
+  // anyway. The edit is not taken back from the log: its row has no button.
   const sale = jotted(page, "sale", -3);
-  await expect(await openRow(sale)).toContainText(
-    /ยอดขาย LINE MAN\s*ยังไม่ได้จด/,
-  );
+  await expect(await openRow(sale)).not.toContainText("ยังไม่ได้จด");
   await pressLog(sale, "แก้ไข");
   await expect(popupTitle(page)).toHaveText("แก้ไข: ยอดขาย");
   await fill(page, [/^ยอดขาย LINE MAN/, "7000"]);

@@ -4,6 +4,7 @@
  *  note the account may not jot, a lot or a choice that is not there (V2-RUL-01). An empty core
  *  field is saved and listed in `missing` (V2-RUL-02); nothing else is checked or warned. */
 import { fields, type Field } from "../forms";
+import { cashOpeningBalances } from "./cash-opening";
 import { today } from "../format";
 import { newId } from "../id";
 import {
@@ -31,14 +32,12 @@ import {
   kindInfo,
   kindsFor,
   legacySale,
-  saleTotal,
   oncePerLotKinds,
   titles,
   lotMovableKinds,
   pack,
   payCategories,
   payrollCategory,
-  salesChannels,
   seed,
   type Actor,
   type Database,
@@ -209,14 +208,6 @@ function noteValues(
     v.chiliAddons = kept.chiliAddons;
   if (kind === "sale" && kept[legacySale.key])
     v[legacySale.key] = kept[legacySale.key];
-  // A sale's money is not jotted only when neither the total nor any channel (nor old money) is.
-  if (
-    kind === "sale" &&
-    [legacySale, ...salesChannels(db.config)].some((c) => v[c.key])
-  ) {
-    const at = missing.indexOf(saleTotal.key);
-    if (at >= 0) missing.splice(at, 1);
-  }
   // A sale's products are rows of one list: none is not jotted while any has a count.
   if (
     kind === "sale" &&
@@ -249,13 +240,6 @@ function noteValues(
       `น้ำหนักจาก PO เนื้อรวม ${kgText(total)} กก. ไม่เท่าน้ำหนักที่ส่ง ${kgText(Number(v.dispatchKg))} กก.`,
     );
   }
-  // A waste with no reason is saved, its reason listed as not jotted yet (V2-RUL-05).
-  if (kind === "daily")
-    for (const key of Object.keys(v))
-      if (key.startsWith("waste.") && Number(v[key]) > 0) {
-        const reason = key.replace("waste.", "reason.");
-        if (!v[reason]) missing.push(reason);
-      }
   if (kind === "daily") assert(v.sheet, "เลือกใบสต๊อก");
   // A sales receipt goes by its channel (ledgerRows): its item may stay empty.
   if (kind === "income" && v.channel && missing.includes("item"))
@@ -392,6 +376,9 @@ const settingLists: Record<string, { label: string; id: string }> = {
 };
 /** The settings of a `config` entry, checked: whatever a figure or a form reads must be readable. */
 function checkConfig(v: Values) {
+  if (v.cashOpeningBalances !== undefined)
+    for (const opening of cashOpeningBalances(v.cashOpeningBalances))
+      checkDay(opening.date);
   const amount = (value: unknown) =>
     Number.isFinite(decimal(String(value ?? "")));
   const figure = "ใส่เป็นตัวเลข 0 ขึ้นไป";
